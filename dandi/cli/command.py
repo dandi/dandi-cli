@@ -74,6 +74,8 @@ def get_metadata_pyout(path):
 @main.command()
 @click.argument('paths', nargs=-1, type=click.Path())
 def ls(paths):
+    """List file size and selected set of metadata fields
+    """
     # For now we support only individual files
     files = get_files(paths)
 
@@ -177,6 +179,10 @@ def ls(paths):
 @main.command()
 @click.argument('paths', nargs=-1, type=click.Path())
 def validate(paths):
+    """Validate files for NWB (and DANDI) compliance
+
+    Exits with non-0 exit code if any file is not compliant.
+    """
     files = get_files(paths)
     import pynwb
     import crayons
