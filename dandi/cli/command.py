@@ -169,3 +169,49 @@ def ls(paths):
                 pass
             out(rec)
         out.wait()
+
+#
+# Validate
+#
+
+@main.command()
+@click.argument('paths', nargs=-1, type=click.Path())
+def validate(paths):
+    files = get_files(paths)
+    import pynwb
+    import crayons
+
+    errors = {}
+    for path in files:
+        try:
+            with pynwb.NWBHDF5IO(path, 'r', load_namespaces=True) as reader:
+                validation = pynwb.validate(reader)
+                if validation:
+                    errors[path] = validation
+        except Exception as exc:
+            errors[path] = ["Failed to validate: %s" % str(exc)]
+
+    # TODO: Most likely we want to summarize errors across files since they
+    # are likely to be similar
+    # TODO: add our own criteria for validation (i.e. having needed metadata)
+    if errors:
+        # # can't be done since fails to compare different types of errors
+        # all_errors = sum(errors.values(), [])
+        # all_error_types = []
+        # errors_unique = sorted(set(all_errors))
+        # from collections import Counter
+        # # Let's make it
+        # print(
+        #     "{} unique errors in {} files".format(
+        #     len(errors_unique), len(errors))
+        # )
+        for path, errors in errors.items():
+            print(crayons.normal(path, bold=True))
+            for error in errors:
+                print("  {}".format(crayons.red(error)))
+        raise SystemExit(1)
+    else:
+        print(
+            crayons.green("No validation errors among {} files".format(len(files)),
+                          bold=True)
+        )
