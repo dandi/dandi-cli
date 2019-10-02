@@ -72,7 +72,7 @@ def get_metadata_pyout(path):
 
 
 @main.command()
-@click.argument('paths', nargs=-1, type=click.Path())
+@click.argument('paths', nargs=-1, type=click.Path(exists=True, dir_okay=False))
 def ls(paths):
     """List file size and selected set of metadata fields
     """
@@ -170,14 +170,13 @@ def ls(paths):
                 #lgr.error("File is not available: %s", exc)
                 pass
             out(rec)
-        out.wait()
 
 #
 # Validate
 #
 
 @main.command()
-@click.argument('paths', nargs=-1, type=click.Path())
+@click.argument('paths', nargs=-1, type=click.Path(exists=True, dir_okay=False))
 def validate(paths):
     """Validate files for NWB (and DANDI) compliance
 
