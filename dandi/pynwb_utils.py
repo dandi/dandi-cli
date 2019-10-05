@@ -37,10 +37,10 @@ def get_metadata(filepath):
             out[key] = value
         # .subject can be None as the test shows
         out['subject_id'] = getattr(nwb.subject, 'subject_id', None)
-    # Add a few additional useful fields
+        # Add a few additional useful fields
 
-    # Counts
-    for f in ['electrodes', 'units']:
-        out['number_of_{}'.format(f)] = len(getattr(nwb, 'f', []) or [])
+        # Counts
+        for f in ['electrodes', 'units']:
+            out['number_of_{}'.format(f)] = len(getattr(nwb, f, []) or [])
 
     return out
