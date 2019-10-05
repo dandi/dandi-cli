@@ -1,4 +1,9 @@
-from datetime import datetime
+from datetime import (
+    datetime,
+)
+from dateutil.tz import tzutc
+
+import pytz
 
 import pynwb
 
@@ -17,7 +22,10 @@ def simple1_nwb_metadata(tmpdir_factory):
     # very simple assignment with the same values as the key with 1 as suffix
     metadata = {f: "{}1".format(f) for f in metadata_fields}
     # tune specific ones:
-    metadata['session_start_time'] = datetime.today()
+    # Needs an explicit time zone since otherwise pynwb would add one
+    # But then comparison breaks anyways any ways yoh have tried to set it
+    # for datetime.now.  Taking example from pynwb tests
+    metadata['session_start_time'] = datetime(2017, 4, 15, 12, tzinfo=tzutc())
     metadata['keywords'] = ['keyword1', 'keyword 2']
     return metadata
 
