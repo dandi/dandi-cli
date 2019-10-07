@@ -54,20 +54,40 @@ def get_files(paths, recursive=True, recurion_limit=None):
     return paths
 
 
-# TODO: RF to use as a callback. For some reason just hanged
-def get_metadata_pyout(path):
-    rec = {}
-    try:
-        meta = get_metadata(path)
-        # normalize some fields and remove completely empty
-        for f, v in meta.items():
-            if isinstance(v, (tuple, list)):
-                v = ', '.join(v)
-            if v:
-                rec[f] = v
-    except Exception as exc:
-        # lgr.error('Failed to get metadata from %s: %s', f, exc)
-        pass
+def get_metadata_pyout(path, callback=True):
+    """Return a metadata record for pyout
+
+    Parameters
+    ----------
+    path
+    callback: bool, optional
+      Either to provide a record only with the path and other fields
+      to be populated via a callback?
+
+    Returns
+    -------
+    dict
+    """
+    def _get_metadata_callback():
+        rec = {}
+        try:
+            meta = get_metadata(path)
+            # normalize some fields and remove completely empty
+            for f, v in meta.items():
+                if isinstance(v, (tuple, list)):
+                    v = ', '.join(v)
+                if v:
+                    rec[f] = v
+        except Exception as exc:
+            # lgr.error('Failed to get metadata from %s: %s', f, exc)
+            pass
+        return rec
+
+    rec = {'path': path}
+    if callback:
+        rec['session_id'] = _get_metadata_callback
+    else:
+        rec.update(_get_metadata_callback())
     return rec
 
 
