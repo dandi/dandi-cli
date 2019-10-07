@@ -1,0 +1,9 @@
+.eggs
+.idea
+.*.swp
+*.egg-info/
+dist/
+pip-wheel-metadata/
+sandbox/
+venvs/
+
