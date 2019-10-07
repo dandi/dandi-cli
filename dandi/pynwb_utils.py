@@ -35,8 +35,15 @@ def get_metadata(filepath):
                 # it would be a closed Dataset upon return
                 value = list(value)
             out[key] = value
+
         # .subject can be None as the test shows
-        out['subject_id'] = getattr(nwb.subject, 'subject_id', None)
+        for subject_feature in ('subject_id',
+                                'genotype',
+                                'sex',
+                                'species',
+                                'date_of_birth',
+                                'age'):
+            out[subject_feature] = getattr(nwb.subject, subject_feature, None)
         # Add a few additional useful fields
 
         # Counts
