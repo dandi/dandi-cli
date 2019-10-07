@@ -184,7 +184,6 @@ def validate(paths):
     """
     files = get_files(paths)
     import pynwb
-    import crayons
 
     errors = {}
     for path in files:
@@ -211,12 +210,12 @@ def validate(paths):
         #     len(errors_unique), len(errors))
         # )
         for path, errors in errors.items():
-            print(crayons.normal(path, bold=True))
+            click.secho(path, bold=True)
             for error in errors:
-                print("  {}".format(crayons.red(error)))
+                click.secho("  {}".format(error), fg='red')
         raise SystemExit(1)
     else:
-        print(
-            crayons.green("No validation errors among {} files".format(len(files)),
-                          bold=True)
+        click.secho(
+            "No validation errors among {} files".format(len(files)),
+            bold=True, fg='green'
         )
