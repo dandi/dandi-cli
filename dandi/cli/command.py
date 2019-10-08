@@ -195,6 +195,18 @@ def validate(paths):
     """
     files = get_files(paths)
     import pynwb
+    import warnings
+
+    # below we are using load_namespaces but it causes HDMF to whine if there
+    # is no cached name spaces in the file.  It is benign but not really useful
+    # at this point, so we ignore it although ideally there should be a formal
+    # way to get relevant warnings (not errors) from PyNWB
+    #   See https://github.com/dandi/dandi-cli/issues/14 for more info
+    for s in (
+            "No cached namespaces found .*",
+            "ignoring namespace 'core' because it already exists"
+    ):
+        warnings.filterwarnings('ignore', s, UserWarning)
 
     errors = {}
     for path in files:
