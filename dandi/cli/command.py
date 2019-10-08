@@ -16,7 +16,10 @@ from .. import get_logger
 
 from collections import OrderedDict
 
-from ..pynwb_utils import get_metadata
+from ..pynwb_utils import (
+    get_metadata,
+    get_nwb_version,
+)
 from ..support import pyout as pyouts
 
 lgr = get_logger()
@@ -66,8 +69,14 @@ def get_metadata_pyout(path):
             if v:
                 rec[f] = v
     except Exception as exc:
-        # lgr.error('Failed to get metadata from %s: %s', f, exc)
-        pass
+        lgr.debug('Failed to get metadata from %s: %s', path, exc)
+
+    if 'nwb_version' not in rec:
+        # Let's at least get that one
+        rec['NWB'] = get_nwb_version(path)
+    else:
+        # renames for more concise ls
+        rec['NWB'] = rec.pop('nwb_version', None)
     return rec
 
 
@@ -145,6 +154,7 @@ def ls(paths):
     out = pyout.Tabular(
         columns=[
             'path',
+            'NWB',
             'size',
             #'experiment_description',
             'lab',
