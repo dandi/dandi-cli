@@ -16,10 +16,7 @@ from .. import get_logger
 
 from collections import OrderedDict
 
-from ..pynwb_utils import (
-    get_metadata,
-    get_nwb_version,
-)
+from ..pynwb_utils import get_metadata, get_nwb_version
 from ..support import pyout as pyouts
 
 lgr = get_logger()
@@ -30,14 +27,21 @@ lgr = get_logger()
 
 # group to provide commands
 @click.group(cls=DYMGroup)
-@click.option('-l', '--log-level', help="Log level (TODO non-numeric values)",
-              type=click.IntRange(1, 40), default=logging.INFO)
-@click.option('--pdb', help='Fall into pdb if errors out', is_flag=True)
+@click.option(
+    "-l",
+    "--log-level",
+    help="Log level (TODO non-numeric values)",
+    type=click.IntRange(1, 40),
+    default=logging.INFO,
+)
+@click.option("--pdb", help="Fall into pdb if errors out", is_flag=True)
 def main(log_level, pdb=False):
     get_logger().setLevel(log_level)  # common one
     if pdb:
         from ..utils import setup_exceptionhook
+
         setup_exceptionhook()
+
 
 #
 # ls
@@ -52,7 +56,7 @@ def get_files(paths, recursive=True, recurion_limit=None):
     if dirs:
         raise NotImplementedError(
             "ATM supporting only listing of individual files, no recursive "
-            "operation. Was provided following directories: {}".format(', '.join(dirs))
+            "operation. Was provided following directories: {}".format(", ".join(dirs))
         )
     return paths
 
@@ -65,27 +69,27 @@ def get_metadata_pyout(path):
         # normalize some fields and remove completely empty
         for f, v in meta.items():
             if isinstance(v, (tuple, list)):
-                v = ', '.join(v)
+                v = ", ".join(v)
             if v:
                 rec[f] = v
     except Exception as exc:
-        lgr.debug('Failed to get metadata from %s: %s', path, exc)
+        lgr.debug("Failed to get metadata from %s: %s", path, exc)
 
-    if 'nwb_version' not in rec:
+    if "nwb_version" not in rec:
         # Let's at least get that one
         try:
-            rec['NWB'] = get_nwb_version(path) or ''
+            rec["NWB"] = get_nwb_version(path) or ""
         except Exception as exc:
-            rec['NWB'] = 'ERROR'
-            lgr.debug('Failed to get even nwb_version from %s: %s', path, exc)
+            rec["NWB"] = "ERROR"
+            lgr.debug("Failed to get even nwb_version from %s: %s", path, exc)
     else:
         # renames for more concise ls
-        rec['NWB'] = rec.pop('nwb_version', '')
+        rec["NWB"] = rec.pop("nwb_version", "")
     return rec
 
 
 @main.command()
-@click.argument('paths', nargs=-1, type=click.Path(exists=True, dir_okay=False))
+@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=False))
 def ls(paths):
     """List file size and selected set of metadata fields
     """
@@ -99,31 +103,39 @@ def ls(paths):
     # Needs to stay here due to use of  counds/mapped_counts
     PYOUT_STYLE = OrderedDict(
         [
-            ('summary_', {"bold": True}),
-            ('header_', dict(
-                bold=True,
-                transform=lambda x: {
-                    # shortening for some fields
-                    #'annex_local_size': 'annex(present)',
-                    #'annex_worktree_size': 'annex(worktree)',
-                }.get(x, x).upper()
-            )),
-            # ('default_', dict(align="center")),
-            ('default_', dict(missing="")),
-            ('path', dict(
-                bold=True,
-                align="left",
-                underline=True,
-                width=dict(
-                    truncate='left',
-                    #min=max_filename_len + 4 #  .../
-                    #min=0.3  # not supported yet by pyout, https://github.com/pyout/pyout/issues/85
+            ("summary_", {"bold": True}),
+            (
+                "header_",
+                dict(
+                    bold=True,
+                    transform=lambda x: {
+                        # shortening for some fields
+                        #'annex_local_size': 'annex(present)',
+                        #'annex_worktree_size': 'annex(worktree)',
+                    }
+                    .get(x, x)
+                    .upper(),
                 ),
-                aggregate=lambda _: "Summary:"
-                # TODO: seems to be wrong
-                # width='auto'
-                # summary=lambda x: "TOTAL: %d" % len(x)
-            )),
+            ),
+            # ('default_', dict(align="center")),
+            ("default_", dict(missing="")),
+            (
+                "path",
+                dict(
+                    bold=True,
+                    align="left",
+                    underline=True,
+                    width=dict(
+                        truncate="left",
+                        # min=max_filename_len + 4 #  .../
+                        # min=0.3  # not supported yet by pyout, https://github.com/pyout/pyout/issues/85
+                    ),
+                    aggregate=lambda _: "Summary:"
+                    # TODO: seems to be wrong
+                    # width='auto'
+                    # summary=lambda x: "TOTAL: %d" % len(x)
+                ),
+            ),
             # ('type', dict(
             #     transform=lambda s: "%s" % s,
             #     aggregate=counts,
@@ -139,12 +151,15 @@ def ls(paths):
             #                              True: fancy_bool(True)}),
             #     delayed="group-git"
             # )),
-            ('size', pyouts.size_style),
-            ('session_start_time', dict(
-                transform=pyouts.datefmt,
-                aggregate=pyouts.summary_dates,
-                # summary=summary_dates
-            ))
+            ("size", pyouts.size_style),
+            (
+                "session_start_time",
+                dict(
+                    transform=pyouts.datefmt,
+                    aggregate=pyouts.summary_dates,
+                    # summary=summary_dates
+                ),
+            ),
         ]
     )
     if not sys.stdout.isatty():
@@ -154,22 +169,22 @@ def ls(paths):
         # need to specify it here as "max" or smth like that.
         # For now hardcoding to hopefully wide enough 200 if stdout is not
         # a tty
-        PYOUT_STYLE['width_'] = 200
+        PYOUT_STYLE["width_"] = 200
 
     out = pyout.Tabular(
         columns=[
-            'path',
-            'NWB',
-            'size',
+            "path",
+            "NWB",
+            "size",
             #'experiment_description',
-            'lab',
-            'experimenter',
-            'session_id',
-            'subject_id',
-            'session_start_time',
+            "lab",
+            "experimenter",
+            "session_id",
+            "subject_id",
+            "session_start_time",
             #'identifier',  # note: required arg2 of NWBFile
             #'institution',
-            'keywords',
+            "keywords",
             #'related_publications',
             #'session_description',  # note: required arg1 of NWBFile
         ],
@@ -178,21 +193,23 @@ def ls(paths):
     )
     with out:
         for path in files:
-            rec = {'path': path}
+            rec = {"path": path}
             try:
-                rec['size'] = os.stat(path).st_size
+                rec["size"] = os.stat(path).st_size
                 rec.update(get_metadata_pyout(path))
             except FileNotFoundError as exc:
-                #lgr.error("File is not available: %s", exc)
+                # lgr.error("File is not available: %s", exc)
                 pass
             out(rec)
+
 
 #
 # Validate
 #
 
+
 @main.command()
-@click.argument('paths', nargs=-1, type=click.Path(exists=True, dir_okay=False))
+@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=False))
 def validate(paths):
     """Validate files for NWB (and DANDI) compliance
 
@@ -208,15 +225,15 @@ def validate(paths):
     # way to get relevant warnings (not errors) from PyNWB
     #   See https://github.com/dandi/dandi-cli/issues/14 for more info
     for s in (
-            "No cached namespaces found .*",
-            "ignoring namespace 'core' because it already exists"
+        "No cached namespaces found .*",
+        "ignoring namespace 'core' because it already exists",
     ):
-        warnings.filterwarnings('ignore', s, UserWarning)
+        warnings.filterwarnings("ignore", s, UserWarning)
 
     errors = {}
     for path in files:
         try:
-            with pynwb.NWBHDF5IO(path, 'r', load_namespaces=True) as reader:
+            with pynwb.NWBHDF5IO(path, "r", load_namespaces=True) as reader:
                 validation = pynwb.validate(reader)
                 if validation:
                     errors[path] = validation
@@ -240,10 +257,11 @@ def validate(paths):
         for path, errors in errors.items():
             click.secho(path, bold=True)
             for error in errors:
-                click.secho("  {}".format(error), fg='red')
+                click.secho("  {}".format(error), fg="red")
         raise SystemExit(1)
     else:
         click.secho(
             "No validation errors among {} files".format(len(files)),
-            bold=True, fg='green'
+            bold=True,
+            fg="green",
         )
