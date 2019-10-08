@@ -1,7 +1,4 @@
-from ..command import (
-    ls,
-    validate,
-)
+from ..command import ls, validate
 
 from click.testing import CliRunner
 import pytest

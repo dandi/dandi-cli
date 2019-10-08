@@ -7,5 +7,3 @@ TODO:
   too cubmersome.  yoh thinks he saw a bit more lightweight somewhere.
   e.g. girder-client
 """
-
-
