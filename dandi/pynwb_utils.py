@@ -1,6 +1,10 @@
 import h5py
 from pynwb import NWBHDF5IO
 
+from . import get_logger
+
+lgr = get_logger()
+
 # A list of metadata fields which dandi extracts from .nwb files.
 # Additional fields (such as `number_of_*`) might be added by the
 # get_metadata`
@@ -18,14 +22,39 @@ metadata_fields = (
 )
 
 
+def get_nwb_version(filepath):
+    """Return a version of the NWB standard used by a file
+
+    Returns
+    -------
+    str or None
+       None if there is no version detected
+    """
+    with h5py.File(filepath, 'r') as h5file:
+        try:
+            return h5file['nwb_version'].value.decode
+        except KeyError:
+            lgr.debug('%s has no nwb_version' % filepath)
+
+
 def get_metadata(filepath):
     """Get selected metadata from a .nwb file
+
+    Parameters
+    ----------
+    filepath: str
+    query_nwb_version: bool, optional
+      Either to query/include nwb_version field
 
     Returns
     -------
     dict
     """
     out = dict()
+
+    # First read out possibly available versions of specifications for NWB(:N)
+    out['nwb_version'] = get_nwb_version(filepath)
+
     with NWBHDF5IO(filepath, 'r') as io:
         nwb = io.read()
         for key in metadata_fields:
