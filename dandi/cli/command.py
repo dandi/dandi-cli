@@ -73,10 +73,10 @@ def get_metadata_pyout(path):
 
     if 'nwb_version' not in rec:
         # Let's at least get that one
-        rec['NWB'] = get_nwb_version(path)
+        rec['NWB'] = get_nwb_version(path) or ''
     else:
         # renames for more concise ls
-        rec['NWB'] = rec.pop('nwb_version', None)
+        rec['NWB'] = rec.pop('nwb_version', '')
     return rec
 
 
