@@ -147,9 +147,10 @@ def ls(paths):
             'path',
             'size',
             #'experiment_description',
-            #'lab',
+            'lab',
             'experimenter',
             'session_id',
+            'subject_id',
             'session_start_time',
             #'identifier',  # note: required arg2 of NWBFile
             #'institution',
