@@ -78,13 +78,10 @@ def get_metadata_pyout(path):
     if "nwb_version" not in rec:
         # Let's at least get that one
         try:
-            rec["NWB"] = get_nwb_version(path) or ""
+            rec["nwb_version"] = get_nwb_version(path) or ""
         except Exception as exc:
-            rec["NWB"] = "ERROR"
+            rec["nwb_version"] = "ERROR"
             lgr.debug("Failed to get even nwb_version from %s: %s", path, exc)
-    else:
-        # renames for more concise ls
-        rec["NWB"] = rec.pop("nwb_version", "")
     return rec
 
 
@@ -110,6 +107,7 @@ def ls(paths):
                     bold=True,
                     transform=lambda x: {
                         # shortening for some fields
+                        "nwb_version": "NWB",
                         #'annex_local_size': 'annex(present)',
                         #'annex_worktree_size': 'annex(worktree)',
                     }
@@ -174,7 +172,7 @@ def ls(paths):
     out = pyout.Tabular(
         columns=[
             "path",
-            "NWB",
+            "nwb_version",
             "size",
             #'experiment_description',
             "lab",
