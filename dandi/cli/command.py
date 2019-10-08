@@ -73,7 +73,11 @@ def get_metadata_pyout(path):
 
     if 'nwb_version' not in rec:
         # Let's at least get that one
-        rec['NWB'] = get_nwb_version(path) or ''
+        try:
+            rec['NWB'] = get_nwb_version(path) or ''
+        except Exception as exc:
+            rec['NWB'] = 'ERROR'
+            lgr.debug('Failed to get even nwb_version from %s: %s', path, exc)
     else:
         # renames for more concise ls
         rec['NWB'] = rec.pop('nwb_version', '')
