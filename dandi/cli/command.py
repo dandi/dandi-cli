@@ -116,7 +116,8 @@ def ls(paths):
                 underline=True,
                 width=dict(
                     truncate='left',
-                    max=max_filename_len + 1
+                    #min=max_filename_len + 4 #  .../
+                    #min=0.3  # not supported yet by pyout, https://github.com/pyout/pyout/issues/85
                 ),
                 aggregate=lambda _: "Summary:"
                 # TODO: seems to be wrong
