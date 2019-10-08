@@ -61,28 +61,32 @@ def get_files(paths, recursive=True, recurion_limit=None):
     return paths
 
 
-# TODO: RF to use as a callback. For some reason just hanged
-def get_metadata_pyout(path):
-    rec = {}
-    try:
-        meta = get_metadata(path)
-        # normalize some fields and remove completely empty
-        for f, v in meta.items():
-            if isinstance(v, (tuple, list)):
-                v = ", ".join(v)
-            if v:
-                rec[f] = v
-    except Exception as exc:
-        lgr.debug("Failed to get metadata from %s: %s", path, exc)
-
-    if "nwb_version" not in rec:
-        # Let's at least get that one
+def get_metadata_pyout(path, keys):
+    def fn():
+        rec = {}
         try:
-            rec["nwb_version"] = get_nwb_version(path) or ""
+            meta = get_metadata(path)
+            # normalize some fields and remove completely empty
+            for f, v in meta.items():
+                if f not in keys:
+                    continue
+                if isinstance(v, (tuple, list)):
+                    v = ", ".join(v)
+                if v:
+                    rec[f] = v
         except Exception as exc:
-            rec["nwb_version"] = "ERROR"
-            lgr.debug("Failed to get even nwb_version from %s: %s", path, exc)
-    return rec
+            lgr.debug("Failed to get metadata from %s: %s", path, exc)
+
+        if "nwb_version" not in rec:
+            # Let's at least get that one
+            try:
+                rec["nwb_version"] = get_nwb_version(path) or ""
+            except Exception as exc:
+                rec["nwb_version"] = "ERROR"
+                lgr.debug("Failed to get even nwb_version from %s: %s", path, exc)
+        return rec
+
+    return fn
 
 
 @main.command()
@@ -190,11 +194,20 @@ def ls(paths):
         # , stream=...
     )
     with out:
+        async_keys = (
+            "NWB",
+            "lab",
+            "experimenter",
+            "session_id",
+            "subject_id",
+            "session_start_time",
+            "keywords",
+        )
         for path in files:
             rec = {"path": path}
             try:
                 rec["size"] = os.stat(path).st_size
-                rec.update(get_metadata_pyout(path))
+                rec[async_keys] = get_metadata_pyout(path, async_keys)
             except FileNotFoundError as exc:
                 # lgr.error("File is not available: %s", exc)
                 pass
