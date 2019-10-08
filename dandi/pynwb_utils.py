@@ -9,16 +9,16 @@ lgr = get_logger()
 # Additional fields (such as `number_of_*`) might be added by the
 # get_metadata`
 metadata_fields = (
-    'experiment_description',
-    'experimenter',
-    'identifier',  # note: required arg2 of NWBFile
-    'institution',
-    'keywords',
-    'lab',
-    'related_publications',
-    'session_description',  # note: required arg1 of NWBFile
-    'session_id',
-    'session_start_time',
+    "experiment_description",
+    "experimenter",
+    "identifier",  # note: required arg2 of NWBFile
+    "institution",
+    "keywords",
+    "lab",
+    "related_publications",
+    "session_description",  # note: required arg1 of NWBFile
+    "session_id",
+    "session_start_time",
 )
 
 
@@ -30,11 +30,18 @@ def get_nwb_version(filepath):
     str or None
        None if there is no version detected
     """
-    with h5py.File(filepath, 'r') as h5file:
+    with h5py.File(filepath, "r") as h5file:
+        # 2.x stored it as an attribute
         try:
-            return h5file['nwb_version'].value.decode
+            return h5file.attrs["nwb_version"]
         except KeyError:
-            lgr.debug('%s has no nwb_version' % filepath)
+            pass
+
+        # 1.x stored it as a dataset
+        try:
+            return h5file["nwb_version"][...].tostring().decode()
+        except:
+            lgr.debug("%s has no nwb_version" % filepath)
 
 
 def get_metadata(filepath):
@@ -53,9 +60,9 @@ def get_metadata(filepath):
     out = dict()
 
     # First read out possibly available versions of specifications for NWB(:N)
-    out['nwb_version'] = get_nwb_version(filepath)
+    out["nwb_version"] = get_nwb_version(filepath)
 
-    with NWBHDF5IO(filepath, 'r') as io:
+    with NWBHDF5IO(filepath, "r") as io:
         nwb = io.read()
         for key in metadata_fields:
             value = getattr(nwb, key)
@@ -66,17 +73,19 @@ def get_metadata(filepath):
             out[key] = value
 
         # .subject can be None as the test shows
-        for subject_feature in ('subject_id',
-                                'genotype',
-                                'sex',
-                                'species',
-                                'date_of_birth',
-                                'age'):
+        for subject_feature in (
+            "subject_id",
+            "genotype",
+            "sex",
+            "species",
+            "date_of_birth",
+            "age",
+        ):
             out[subject_feature] = getattr(nwb.subject, subject_feature, None)
         # Add a few additional useful fields
 
         # Counts
-        for f in ['electrodes', 'units']:
-            out['number_of_{}'.format(f)] = len(getattr(nwb, f, []) or [])
+        for f in ["electrodes", "units"]:
+            out["number_of_{}".format(f)] = len(getattr(nwb, f, []) or [])
 
     return out

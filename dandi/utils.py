@@ -22,16 +22,21 @@ def setup_exceptionhook(ipython=False):
 
     def _pdb_excepthook(type, value, tb):
         import traceback
+
         traceback.print_exception(type, value, tb)
         print()
         if is_interactive():
             import pdb
+
             pdb.post_mortem(tb)
 
     if ipython:
         from IPython.core import ultratb
-        sys.excepthook = ultratb.FormattedTB(mode='Verbose',
-                                             # color_scheme='Linux',
-                                             call_pdb=is_interactive())
+
+        sys.excepthook = ultratb.FormattedTB(
+            mode="Verbose",
+            # color_scheme='Linux',
+            call_pdb=is_interactive(),
+        )
     else:
         sys.excepthook = _pdb_excepthook

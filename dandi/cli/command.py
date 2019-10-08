@@ -241,20 +241,23 @@ def validate(paths):
     ):
         warnings.filterwarnings("ignore", s, UserWarning)
 
-    errors = {}
+    view = "one-at-a-time"  # TODO: rename, add groupped
+    all_files_errors = {}
     for path in files:
         try:
             with pynwb.NWBHDF5IO(path, "r", load_namespaces=True) as reader:
-                validation = pynwb.validate(reader)
-                if validation:
-                    errors[path] = validation
+                errors = pynwb.validate(reader)
         except Exception as exc:
-            errors[path] = ["Failed to validate: %s" % str(exc)]
+            errors = ["Failed to validate: %s" % str(exc)]
+        if view == "one-at-a-time":
+            display_errors(path, errors)
+        all_files_errors[path] = errors
 
-    # TODO: Most likely we want to summarize errors across files since they
-    # are likely to be similar
-    # TODO: add our own criteria for validation (i.e. having needed metadata)
-    if errors:
+    if view == "groupped":
+        # TODO: Most likely we want to summarize errors across files since they
+        # are likely to be similar
+        # TODO: add our own criteria for validation (i.e. having needed metadata)
+
         # # can't be done since fails to compare different types of errors
         # all_errors = sum(errors.values(), [])
         # all_error_types = []
@@ -265,14 +268,35 @@ def validate(paths):
         #     "{} unique errors in {} files".format(
         #     len(errors_unique), len(errors))
         # )
-        for path, errors in errors.items():
-            click.secho(path, bold=True)
-            for error in errors:
-                click.secho("  {}".format(error), fg="red")
+        raise NotImplementedError("TODO")
+
+    files_with_errors = [f for f, errors in all_files_errors.items() if errors]
+
+    if files_with_errors:
+        click.secho(
+            "Summary: Validation errors in {} out of {} files".format(
+                len(files_with_errors), len(files)
+            ),
+            bold=True,
+            fg="red",
+        )
         raise SystemExit(1)
     else:
         click.secho(
-            "No validation errors among {} files".format(len(files)),
+            "Summary: No validation errors among {} file(s)".format(len(files)),
             bold=True,
             fg="green",
         )
+
+
+def display_errors(path, errors):
+    click.echo(
+        "{}: {}".format(
+            click.style(path, bold=True),
+            click.style("ok", fg="green")
+            if not errors
+            else click.style("{} error(s)".format(len(errors)), fg="red"),
+        )
+    )
+    for error in errors:
+        click.secho("  {}".format(error), fg="red")
