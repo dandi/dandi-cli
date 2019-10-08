@@ -14,3 +14,11 @@ is via virtualenv:
         && source venvs/dev3/bin/activate \
         && pip install -e .
 
+### Install and activate precommit
+
+Install pre-commit dependency with `pip install pre-commit`
+
+In the source directory
+```
+pre-commit install
+```
