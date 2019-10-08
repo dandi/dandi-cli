@@ -32,7 +32,7 @@ def get_nwb_version(filepath):
     """
     with h5py.File(filepath, "r") as h5file:
         try:
-            return h5file["nwb_version"].value.decode
+            return h5file["nwb_version"][...].tostring().decode()
         except KeyError:
             lgr.debug("%s has no nwb_version" % filepath)
 
