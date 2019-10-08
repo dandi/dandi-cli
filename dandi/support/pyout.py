@@ -67,5 +67,4 @@ size_style = dict(
     ),
     aggregate=lambda x: naturalsize(sum(x)),
     # summary=sum,
-    delayed="group-annex",
 )
