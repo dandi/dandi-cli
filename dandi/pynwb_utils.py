@@ -31,9 +31,16 @@ def get_nwb_version(filepath):
        None if there is no version detected
     """
     with h5py.File(filepath, "r") as h5file:
+        # 2.x stored it as an attribute
+        try:
+            return h5file.attrs["nwb_version"]
+        except KeyError:
+            pass
+
+        # 1.x stored it as a dataset
         try:
             return h5file["nwb_version"][...].tostring().decode()
-        except KeyError:
+        except:
             lgr.debug("%s has no nwb_version" % filepath)
 
 
