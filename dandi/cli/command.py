@@ -16,7 +16,11 @@ from .. import get_logger
 
 from collections import OrderedDict
 
-from ..pynwb_utils import get_metadata, get_nwb_version
+from .. import __version__
+
+# Delay imports leading to import of heavy modules such as pynwb and h5py
+# Import at the point of use
+# from ..pynwb_utils import ...
 from ..support import pyout as pyouts
 
 lgr = get_logger()
@@ -25,8 +29,17 @@ lgr = get_logger()
 # Main group
 #
 
+
+def print_version(ctx, param, value):
+    click.echo(__version__)
+    ctx.exit()
+
+
 # group to provide commands
 @click.group(cls=DYMGroup)
+@click.option(
+    "--version", is_flag=True, callback=print_version, expose_value=False, is_eager=True
+)
 @click.option(
     "-l",
     "--log-level",
@@ -62,6 +75,8 @@ def get_files(paths, recursive=True, recurion_limit=None):
 
 
 def get_metadata_pyout(path, keys):
+    from ..pynwb_utils import get_metadata, get_nwb_version
+
     def fn():
         rec = {}
         try:
