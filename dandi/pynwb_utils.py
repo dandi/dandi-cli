@@ -21,6 +21,15 @@ metadata_fields = (
     "session_start_time",
 )
 
+metadata_subject_fields = (
+    "age",
+    "date_of_birth",
+    "genotype",
+    "sex",
+    "species",
+    "subject_id",
+)
+
 
 def get_nwb_version(filepath):
     """Return a version of the NWB standard used by a file
@@ -50,8 +59,6 @@ def get_metadata(filepath):
     Parameters
     ----------
     filepath: str
-    query_nwb_version: bool, optional
-      Either to query/include nwb_version field
 
     Returns
     -------
@@ -73,14 +80,7 @@ def get_metadata(filepath):
             out[key] = value
 
         # .subject can be None as the test shows
-        for subject_feature in (
-            "subject_id",
-            "genotype",
-            "sex",
-            "species",
-            "date_of_birth",
-            "age",
-        ):
+        for subject_feature in metadata_subject_fields:
             out[subject_feature] = getattr(nwb.subject, subject_feature, None)
         # Add a few additional useful fields
 
