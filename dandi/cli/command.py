@@ -76,7 +76,7 @@ def get_files(paths, recursive=True, recurion_limit=None):
     return paths
 
 
-def get_metadata_pyout(path, keys):
+def get_metadata_pyout(path, keys=None):
     from ..pynwb_utils import get_metadata, get_nwb_version
 
     def fn():
@@ -85,7 +85,7 @@ def get_metadata_pyout(path, keys):
             meta = get_metadata(path)
             # normalize some fields and remove completely empty
             for f, v in meta.items():
-                if f not in keys:
+                if keys is not None and f not in keys:
                     continue
                 if isinstance(v, (tuple, list)):
                     v = ", ".join(v)
@@ -137,12 +137,13 @@ def ls(paths):
                 ),
             ),
             # ('default_', dict(align="center")),
-            ("default_", dict(missing="")),
+            ("default_", dict(missing="", hide="if_missing")),
             (
                 "path",
                 dict(
                     bold=True,
                     align="left",
+                    hide=False,
                     underline=True,
                     width=dict(
                         truncate="left",
@@ -170,7 +171,7 @@ def ls(paths):
             #                              True: fancy_bool(True)}),
             #     delayed="group-git"
             # )),
-            ("size", pyouts.size_style),
+            ("size", dict(pyouts.size_style, hide=False)),
             (
                 "session_start_time",
                 dict(
@@ -191,43 +192,24 @@ def ls(paths):
         PYOUT_STYLE["width_"] = 200
 
     out = pyout.Tabular(
-        columns=[
-            "path",
-            "nwb_version",
-            "size",
-            #'experiment_description',
-            "lab",
-            "experimenter",
-            "session_id",
-            "subject_id",
-            "session_start_time",
-            #'identifier',  # note: required arg2 of NWBFile
-            #'institution',
-            "keywords",
-            #'related_publications',
-            #'session_description',  # note: required arg1 of NWBFile
-        ],
+        # TODO: provide columns=[] from cmdline arg
         style=PYOUT_STYLE
         # , stream=...
     )
     with out:
-        async_keys = (
-            "NWB",
-            "lab",
-            "experimenter",
-            "session_id",
-            "subject_id",
-            "session_start_time",
-            "keywords",
-        )
+        from ..pynwb_utils import metadata_all_fields
+
+        # TODO: more logical ordering
+        async_keys = tuple(set(metadata_all_fields))
         for path in files:
             rec = {"path": path}
             try:
                 rec["size"] = os.stat(path).st_size
                 rec[async_keys] = get_metadata_pyout(path, async_keys)
             except FileNotFoundError as exc:
-                # lgr.error("File is not available: %s", exc)
-                pass
+                lgr.debug("File is not available: %s", exc)
+            except Exception as exc:
+                lgr.debug("Problem obtaining metadata for %s: %s", path, exc)
             out(rec)
 
 
