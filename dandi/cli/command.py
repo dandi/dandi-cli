@@ -128,8 +128,16 @@ PYOUT_SHORT_NAMES_rev = {v.lower(): k for k, v in PYOUT_SHORT_NAMES.items()}
     "An empty value to trigger a list of "
     "available fields to be printed out",
 )
+@click.option(
+    "-f",
+    "--format",
+    help="Choose the format/frontend for output. If 'auto', 'pyout' will be "
+    "used in case of multiple files, and 'yaml' for a single file.",
+    type=click.Choice(["auto", "pyout", "json", "json_pp", "yaml"]),
+    default="auto",
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=False))
-def ls(paths, fields=None):
+def ls(paths, fields=None, format="auto"):
     """List file size and selected set of metadata fields
     """
     from ..consts import metadata_all_fields
@@ -158,6 +166,9 @@ def ls(paths, fields=None):
 
     if not files:
         return
+
+    if format == "auto":
+        format = "yaml" if len(files) == 1 else "pyout"
 
     max_filename_len = max(map(lambda x: len(op.basename(x)), files))
     # Needs to stay here due to use of  counts/mapped_counts
@@ -226,11 +237,22 @@ def ls(paths, fields=None):
         PYOUT_STYLE["width_"] = 200
 
     # TODO: more logical ordering in case of fields = None
-    out = pyout.Tabular(
-        # columns=None or fields,
-        style=PYOUT_STYLE
-        # , stream=...
-    )
+    from .formatter import JSONFormatter, YAMLFormatter
+
+    if format == "pyout":
+        out = pyout.Tabular(
+            # columns=None or fields,
+            style=PYOUT_STYLE
+            # , stream=...
+        )
+    elif format == "json":
+        out = JSONFormatter()
+    elif format == "json_pp":
+        out = JSONFormatter(indent=2)
+    elif format == "yaml":
+        out = YAMLFormatter()
+    else:
+        raise NotImplementedError("Unknown format %s" % format)
 
     if fields is not None:
         async_keys = tuple(set(metadata_all_fields).intersection(fields))
@@ -243,7 +265,14 @@ def ls(paths, fields=None):
             try:
                 rec["size"] = os.stat(path).st_size
                 if async_keys:
-                    rec[async_keys] = get_metadata_pyout(path, async_keys)
+                    cb = get_metadata_pyout(path, async_keys)
+                    if format == "pyout":
+                        rec[async_keys] = cb
+                    else:
+                        # TODO: parallel execution
+                        # For now just call callback and get all the fields
+                        for k, v in cb().items():
+                            rec[k] = v
             except FileNotFoundError as exc:
                 lgr.debug("File is not available: %s", exc)
             except Exception as exc:
