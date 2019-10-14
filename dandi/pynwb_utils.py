@@ -30,6 +30,12 @@ metadata_subject_fields = (
     "subject_id",
 )
 
+metadata_computed_fields = ("number_of_electrodes", "number_of_units", "nwb_version")
+
+metadata_all_fields = (
+    metadata_fields + metadata_subject_fields + metadata_computed_fields
+)
+
 
 def get_nwb_version(filepath):
     """Return a version of the NWB standard used by a file
@@ -85,7 +91,14 @@ def get_metadata(filepath):
         # Add a few additional useful fields
 
         # Counts
-        for f in ["electrodes", "units"]:
-            out["number_of_{}".format(f)] = len(getattr(nwb, f, []) or [])
+        for f in metadata_computed_fields:
+            if f in ("nwb_version",):
+                continue
+            if not f.startswith("number_of_"):
+                raise NotImplementedError(
+                    "ATM can only compute number_of_ fields. Got {}".format(f)
+                )
+            key = f[len("number_of_") :]
+            out[f] = len(getattr(nwb, key, []) or [])
 
     return out
