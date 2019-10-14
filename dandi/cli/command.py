@@ -81,18 +81,20 @@ def get_metadata_pyout(path, keys=None):
 
     def fn():
         rec = {}
-        try:
-            meta = get_metadata(path)
-            # normalize some fields and remove completely empty
-            for f, v in meta.items():
-                if keys is not None and f not in keys:
-                    continue
-                if isinstance(v, (tuple, list)):
-                    v = ", ".join(v)
-                if v:
-                    rec[f] = v
-        except Exception as exc:
-            lgr.debug("Failed to get metadata from %s: %s", path, exc)
+        # No need for calling get_metadata if no keys are needed from it
+        if keys is None or list(keys) != ["nwb_version"]:
+            try:
+                meta = get_metadata(path)
+                # normalize some fields and remove completely empty
+                for f, v in meta.items():
+                    if keys is not None and f not in keys:
+                        continue
+                    if isinstance(v, (tuple, list)):
+                        v = ", ".join(v)
+                    if v:
+                        rec[f] = v
+            except Exception as exc:
+                lgr.debug("Failed to get metadata from %s: %s", path, exc)
 
         if "nwb_version" not in rec:
             # Let's at least get that one
@@ -106,11 +108,51 @@ def get_metadata_pyout(path, keys=None):
     return fn
 
 
+PYOUT_SHORT_NAMES = {
+    # shortening for some fields
+    "nwb_version": "NWB",
+    "number_of_electrodes": "#electrodes",
+    "number_of_units": "#units",
+    # 'annex_local_size': 'annex(present)',
+    # 'annex_worktree_size': 'annex(worktree)',
+}
+# For reverse lookup
+PYOUT_SHORT_NAMES_rev = {v.lower(): k for k, v in PYOUT_SHORT_NAMES.items()}
+
+
 @main.command()
+@click.option(
+    "-F",
+    "--fields",
+    help="Comma-separated list of fields to display. "
+    "An empty value to trigger a list of "
+    "available fields to be printed out",
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=False))
-def ls(paths):
+def ls(paths, fields=None):
     """List file size and selected set of metadata fields
     """
+    from ..consts import metadata_all_fields
+
+    all_fields = sorted(["path", "size"] + list(metadata_all_fields))
+
+    if fields is not None:
+        if fields.strip() == "":
+            for field in all_fields:
+                s = field
+                if field in PYOUT_SHORT_NAMES:
+                    s += " or %s" % PYOUT_SHORT_NAMES[field]
+                click.secho(s)
+            raise SystemExit(0)
+        fields = fields.split(",")
+        # Map possibly present short names back to full names
+        fields = [PYOUT_SHORT_NAMES_rev.get(f.lower(), f) for f in fields]
+        unknown_fields = set(fields).difference(all_fields)
+        if unknown_fields:
+            raise ValueError(
+                "Following fields are not known: %s" % ", ".join(unknown_fields)
+            )
+
     # For now we support only individual files
     files = get_files(paths)
 
@@ -118,26 +160,18 @@ def ls(paths):
         return
 
     max_filename_len = max(map(lambda x: len(op.basename(x)), files))
-    # Needs to stay here due to use of  counds/mapped_counts
+    # Needs to stay here due to use of  counts/mapped_counts
     PYOUT_STYLE = OrderedDict(
         [
             ("summary_", {"bold": True}),
             (
                 "header_",
                 dict(
-                    bold=True,
-                    transform=lambda x: {
-                        # shortening for some fields
-                        "nwb_version": "NWB",
-                        #'annex_local_size': 'annex(present)',
-                        #'annex_worktree_size': 'annex(worktree)',
-                    }
-                    .get(x, x)
-                    .upper(),
+                    bold=True, transform=lambda x: PYOUT_SHORT_NAMES.get(x, x).upper()
                 ),
             ),
             # ('default_', dict(align="center")),
-            ("default_", dict(missing="", hide="if_missing")),
+            ("default_", dict(missing="", hide="if_missing" if not fields else False)),
             (
                 "path",
                 dict(
@@ -191,25 +225,35 @@ def ls(paths):
         # a tty
         PYOUT_STYLE["width_"] = 200
 
+    # TODO: more logical ordering in case of fields = None
     out = pyout.Tabular(
-        # TODO: provide columns=[] from cmdline arg
+        # columns=None or fields,
         style=PYOUT_STYLE
         # , stream=...
     )
-    with out:
-        from ..pynwb_utils import metadata_all_fields
 
-        # TODO: more logical ordering
-        async_keys = tuple(set(metadata_all_fields))
+    if fields is not None:
+        async_keys = tuple(set(metadata_all_fields).intersection(fields))
+    else:
+        async_keys = metadata_all_fields
+
+    with out:
         for path in files:
             rec = {"path": path}
             try:
                 rec["size"] = os.stat(path).st_size
-                rec[async_keys] = get_metadata_pyout(path, async_keys)
+                if async_keys:
+                    rec[async_keys] = get_metadata_pyout(path, async_keys)
             except FileNotFoundError as exc:
                 lgr.debug("File is not available: %s", exc)
             except Exception as exc:
                 lgr.debug("Problem obtaining metadata for %s: %s", path, exc)
+            if fields:
+                # strip away those few which we hard set
+                rec = {k: v for k, v in rec.items() if k in fields}
+            if not rec:
+                lgr.debug("Skipping a record for %s since emtpy", path)
+                continue
             out(rec)
 
 
