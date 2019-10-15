@@ -9,8 +9,6 @@ import sys
 import click
 from click_didyoumean import DYMGroup
 
-import pyout
-
 import logging
 from .. import get_logger
 
@@ -21,7 +19,6 @@ from .. import __version__
 # Delay imports leading to import of heavy modules such as pynwb and h5py
 # Import at the point of use
 # from ..pynwb_utils import ...
-from ..support import pyout as pyouts
 
 lgr = get_logger()
 
@@ -108,18 +105,6 @@ def get_metadata_pyout(path, keys=None):
     return fn
 
 
-PYOUT_SHORT_NAMES = {
-    # shortening for some fields
-    "nwb_version": "NWB",
-    "number_of_electrodes": "#electrodes",
-    "number_of_units": "#units",
-    # 'annex_local_size': 'annex(present)',
-    # 'annex_worktree_size': 'annex(worktree)',
-}
-# For reverse lookup
-PYOUT_SHORT_NAMES_rev = {v.lower(): k for k, v in PYOUT_SHORT_NAMES.items()}
-
-
 @main.command()
 @click.option(
     "-F",
@@ -143,6 +128,12 @@ def ls(paths, fields=None, format="auto"):
     from ..consts import metadata_all_fields
 
     all_fields = sorted(["path", "size"] + list(metadata_all_fields))
+
+    # TODO: more logical ordering in case of fields = None
+    from .formatter import JSONFormatter, YAMLFormatter, PYOUTFormatter
+
+    # TODO: avoid
+    from .formatter import PYOUT_SHORT_NAMES, PYOUT_SHORT_NAMES_rev
 
     if fields is not None:
         if fields.strip() == "":
@@ -170,81 +161,8 @@ def ls(paths, fields=None, format="auto"):
     if format == "auto":
         format = "yaml" if len(files) == 1 else "pyout"
 
-    max_filename_len = max(map(lambda x: len(op.basename(x)), files))
-    # Needs to stay here due to use of  counts/mapped_counts
-    PYOUT_STYLE = OrderedDict(
-        [
-            ("summary_", {"bold": True}),
-            (
-                "header_",
-                dict(
-                    bold=True, transform=lambda x: PYOUT_SHORT_NAMES.get(x, x).upper()
-                ),
-            ),
-            # ('default_', dict(align="center")),
-            ("default_", dict(missing="", hide="if_missing" if not fields else False)),
-            (
-                "path",
-                dict(
-                    bold=True,
-                    align="left",
-                    hide=False,
-                    underline=True,
-                    width=dict(
-                        truncate="left",
-                        # min=max_filename_len + 4 #  .../
-                        # min=0.3  # not supported yet by pyout, https://github.com/pyout/pyout/issues/85
-                    ),
-                    aggregate=lambda _: "Summary:"
-                    # TODO: seems to be wrong
-                    # width='auto'
-                    # summary=lambda x: "TOTAL: %d" % len(x)
-                ),
-            ),
-            # ('type', dict(
-            #     transform=lambda s: "%s" % s,
-            #     aggregate=counts,
-            #     missing='-',
-            #     # summary=summary_counts
-            # )),
-            # ('describe', dict(
-            #     transform=empty_for_none)),
-            # ('clean', dict(
-            #     color='green',
-            #     transform=fancy_bool,
-            #     aggregate=mapped_counts({False: fancy_bool(False),
-            #                              True: fancy_bool(True)}),
-            #     delayed="group-git"
-            # )),
-            ("size", dict(pyouts.size_style, hide=False)),
-            (
-                "session_start_time",
-                dict(
-                    transform=pyouts.datefmt,
-                    aggregate=pyouts.summary_dates,
-                    # summary=summary_dates
-                ),
-            ),
-        ]
-    )
-    if not sys.stdout.isatty():
-        # TODO: ATM width in the final mode is hardcoded
-        #  https://github.com/pyout/pyout/issues/70
-        # and depending on how it would be resolved, there might be a
-        # need to specify it here as "max" or smth like that.
-        # For now hardcoding to hopefully wide enough 200 if stdout is not
-        # a tty
-        PYOUT_STYLE["width_"] = 200
-
-    # TODO: more logical ordering in case of fields = None
-    from .formatter import JSONFormatter, YAMLFormatter
-
     if format == "pyout":
-        out = pyout.Tabular(
-            # columns=None or fields,
-            style=PYOUT_STYLE
-            # , stream=...
-        )
+        out = PYOUTFormatter(files=files, fields=fields)
     elif format == "json":
         out = JSONFormatter()
     elif format == "json_pp":
