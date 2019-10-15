@@ -21,7 +21,7 @@ def test_smoke(simple1_nwb_metadata, simple1_nwb, format):
         import yaml
 
         def load(s):
-            obj = yaml.load(s)
+            obj = yaml.load(s, Loader=yaml.BaseLoader)
             assert len(obj) == 1  # will be a list with a single elem
             return obj[0]
 
