@@ -291,3 +291,57 @@ def display_errors(path, errors):
     )
     for error in errors:
         click.secho("  {}".format(error), fg="red")
+
+
+@main.command()
+@click.option("-c", "--girder-collection", help="Girder: collection to upload to")
+@click.option("-d", "--girder-top-folder")
+@click.option(
+    "-i",
+    "--girder-instance",
+    help="Girder instance to use",
+    type=click.Choice(["dandi", "local"]),
+    default="dandi",
+)
+@click.option(
+    "-t",
+    "--local-top-path",
+    help="Top directory (local) of the dataset.  Files will be uploaded with "
+    "paths relative to that directory",
+    type=click.Path(exists=True, dir_okay=True, file_okay=False),
+)
+@click.argument("paths", nargs=-1)  # , type=click.Path(exists=True, dir_okay=False))
+def upload(
+    paths, girder_collection, girder_top_folder, local_top_path, girder_instance
+):
+
+    # Ensure that we have all Folders created as well
+    assert local_top_path
+
+    if not girder_top_folder:
+        # TODO: UI
+        #  Most often it would be the same directory name as of the local top dir
+        girder_top_folder = op.basename(local_top_path)
+        if girder_top_folder in (op.pardir, op.curdir):
+            girder_top_folder = op.basename(op.realpath(local_top_path))
+
+    from .. import girder
+    from pathlib import Path, PurePosixPath
+
+    client = girder.authenticate(girder_instance)
+
+    assert girder_collection
+    collection_rec = girder.ensure_collection(client, girder_collection)
+    lgr.debug("Working with collection %s", collection_rec)
+
+    local_top_path = Path(local_top_path)
+    girder_top_folder = PurePosixPath(girder_top_folder)
+    for path in paths:
+        path = Path(path)
+        relpath = path.relative_to(local_top_path)
+        girder_folder = girder_top_folder / relpath.parent
+
+        folder_rec = girder.ensure_folder(
+            client, collection_rec, girder_collection, girder_folder
+        )
+        # TODO: upload file
