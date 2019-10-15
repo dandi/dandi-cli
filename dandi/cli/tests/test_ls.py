@@ -7,11 +7,10 @@ from ..command import ls
 @pytest.mark.parametrize("format", ("auto", "json", "json_pp", "yaml", "pyout"))
 def test_smoke(simple1_nwb, format):
     runner = CliRunner()
-    result = runner.invoke(ls, ["-f", format, simple1_nwb])
-    # import pdb; pdb.set_trace()
-    assert result.exit_code == 0
+    r = runner.invoke(ls, ["-f", format, simple1_nwb])
+    assert r.exit_code == 0, f"Exited abnormally. out={r.stdout}"
     # we would need to redirect pyout for its analysis
-    out = result.stdout
+    out = r.stdout
     # Something is off:
     #   When I run only test_smoke[yaml] -- there is out, otherwise it is empty
     return  # TODO - fix up

@@ -10,13 +10,13 @@ import pytest
 @pytest.mark.parametrize("command", (ls, validate))
 def test_smoke(simple1_nwb, command):
     runner = CliRunner()
-    result = runner.invoke(command, [simple1_nwb])
-    assert result.exit_code == 0
-    # we would need to redirect pyout for its analysis
+    r = runner.invoke(command, [simple1_nwb])
+    assert r.exit_code == 0, f"Exited abnormally. out={r.stdout}"
+    assert r.stdout, "There were no output whatsoever"
 
     # empty invocation should not crash
-    result = runner.invoke(command, [])
-    assert result.exit_code == 0
+    r = runner.invoke(command, [])
+    assert r.exit_code == 0, f"Exited abnormally. out={r.stdout}"
 
 
 def test_no_heavy_imports():
