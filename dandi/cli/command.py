@@ -180,11 +180,10 @@ def ls(paths, fields=None, format="auto"):
     with out:
         for path in files:
             rec = {}
-            if fields and "path" in fields:
-                rec["path"] = path
+            rec["path"] = path
 
             try:
-                if fields and "size" in fields:
+                if not fields or "size" in fields:
                     rec["size"] = os.stat(path).st_size
 
                 if async_keys:
