@@ -22,9 +22,9 @@ class Formatter(object):
 
 
 class JSONFormatter(Formatter):
-    def __init__(self, indent=None, out=sys.stdout):
+    def __init__(self, indent=None, out=None):
+        self.out = out or sys.stdout
         self.indent = indent
-        self.out = out
 
     @staticmethod
     def _serializer(o):
@@ -41,8 +41,8 @@ class JSONFormatter(Formatter):
 
 
 class YAMLFormatter(Formatter):
-    def __init__(self, out=sys.stdout):
-        self.out = out
+    def __init__(self, out=None):
+        self.out = out or sys.stdout
         self.records = []
 
     def __exit__(self, exc_type, exc_value, traceback):
