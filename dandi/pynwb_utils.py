@@ -5,30 +5,7 @@ from . import get_logger
 
 lgr = get_logger()
 
-# A list of metadata fields which dandi extracts from .nwb files.
-# Additional fields (such as `number_of_*`) might be added by the
-# get_metadata`
-metadata_fields = (
-    "experiment_description",
-    "experimenter",
-    "identifier",  # note: required arg2 of NWBFile
-    "institution",
-    "keywords",
-    "lab",
-    "related_publications",
-    "session_description",  # note: required arg1 of NWBFile
-    "session_id",
-    "session_start_time",
-)
-
-metadata_subject_fields = (
-    "age",
-    "date_of_birth",
-    "genotype",
-    "sex",
-    "species",
-    "subject_id",
-)
+from .consts import metadata_fields, metadata_computed_fields, metadata_subject_fields
 
 
 def get_nwb_version(filepath):
@@ -85,7 +62,14 @@ def get_metadata(filepath):
         # Add a few additional useful fields
 
         # Counts
-        for f in ["electrodes", "units"]:
-            out["number_of_{}".format(f)] = len(getattr(nwb, f, []) or [])
+        for f in metadata_computed_fields:
+            if f in ("nwb_version",):
+                continue
+            if not f.startswith("number_of_"):
+                raise NotImplementedError(
+                    "ATM can only compute number_of_ fields. Got {}".format(f)
+                )
+            key = f[len("number_of_") :]
+            out[f] = len(getattr(nwb, key, []) or [])
 
     return out

@@ -9,10 +9,8 @@ import sys
 import click
 from click_didyoumean import DYMGroup
 
-import pyout
-
 import logging
-from .. import get_logger
+from .. import get_logger, set_logger_level
 
 from collections import OrderedDict
 
@@ -21,7 +19,6 @@ from .. import __version__
 # Delay imports leading to import of heavy modules such as pynwb and h5py
 # Import at the point of use
 # from ..pynwb_utils import ...
-from ..support import pyout as pyouts
 
 lgr = get_logger()
 
@@ -51,7 +48,7 @@ def print_version(ctx, param, value):
 )
 @click.option("--pdb", help="Fall into pdb if errors out", is_flag=True)
 def main(log_level, pdb=False):
-    get_logger().setLevel(log_level)  # common one
+    set_logger_level(get_logger(), log_level)  # common one
     if pdb:
         from ..utils import setup_exceptionhook
 
@@ -76,23 +73,25 @@ def get_files(paths, recursive=True, recurion_limit=None):
     return paths
 
 
-def get_metadata_pyout(path, keys):
+def get_metadata_pyout(path, keys=None):
     from ..pynwb_utils import get_metadata, get_nwb_version
 
     def fn():
         rec = {}
-        try:
-            meta = get_metadata(path)
-            # normalize some fields and remove completely empty
-            for f, v in meta.items():
-                if f not in keys:
-                    continue
-                if isinstance(v, (tuple, list)):
-                    v = ", ".join(v)
-                if v:
-                    rec[f] = v
-        except Exception as exc:
-            lgr.debug("Failed to get metadata from %s: %s", path, exc)
+        # No need for calling get_metadata if no keys are needed from it
+        if keys is None or list(keys) != ["nwb_version"]:
+            try:
+                meta = get_metadata(path)
+                # normalize some fields and remove completely empty
+                for f, v in meta.items():
+                    if keys is not None and f not in keys:
+                        continue
+                    if isinstance(v, (tuple, list)):
+                        v = ", ".join(v)
+                    if v:
+                        rec[f] = v
+            except Exception as exc:
+                lgr.debug("Failed to get metadata from %s: %s", path, exc)
 
         if "nwb_version" not in rec:
             # Let's at least get that one
@@ -107,127 +106,102 @@ def get_metadata_pyout(path, keys):
 
 
 @main.command()
+@click.option(
+    "-F",
+    "--fields",
+    help="Comma-separated list of fields to display. "
+    "An empty value to trigger a list of "
+    "available fields to be printed out",
+)
+@click.option(
+    "-f",
+    "--format",
+    help="Choose the format/frontend for output. If 'auto', 'pyout' will be "
+    "used in case of multiple files, and 'yaml' for a single file.",
+    type=click.Choice(["auto", "pyout", "json", "json_pp", "yaml"]),
+    default="auto",
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=False))
-def ls(paths):
+def ls(paths, fields=None, format="auto"):
     """List file size and selected set of metadata fields
     """
+    from ..consts import metadata_all_fields
+
+    all_fields = sorted(["path", "size"] + list(metadata_all_fields))
+
+    # TODO: more logical ordering in case of fields = None
+    from .formatter import JSONFormatter, YAMLFormatter, PYOUTFormatter
+
+    # TODO: avoid
+    from .formatter import PYOUT_SHORT_NAMES, PYOUT_SHORT_NAMES_rev
+
+    if fields is not None:
+        if fields.strip() == "":
+            for field in all_fields:
+                s = field
+                if field in PYOUT_SHORT_NAMES:
+                    s += " or %s" % PYOUT_SHORT_NAMES[field]
+                click.secho(s)
+            raise SystemExit(0)
+        fields = fields.split(",")
+        # Map possibly present short names back to full names
+        fields = [PYOUT_SHORT_NAMES_rev.get(f.lower(), f) for f in fields]
+        unknown_fields = set(fields).difference(all_fields)
+        if unknown_fields:
+            raise ValueError(
+                "Following fields are not known: %s" % ", ".join(unknown_fields)
+            )
+
     # For now we support only individual files
     files = get_files(paths)
 
     if not files:
         return
 
-    max_filename_len = max(map(lambda x: len(op.basename(x)), files))
-    # Needs to stay here due to use of  counds/mapped_counts
-    PYOUT_STYLE = OrderedDict(
-        [
-            ("summary_", {"bold": True}),
-            (
-                "header_",
-                dict(
-                    bold=True,
-                    transform=lambda x: {
-                        # shortening for some fields
-                        "nwb_version": "NWB",
-                        #'annex_local_size': 'annex(present)',
-                        #'annex_worktree_size': 'annex(worktree)',
-                    }
-                    .get(x, x)
-                    .upper(),
-                ),
-            ),
-            # ('default_', dict(align="center")),
-            ("default_", dict(missing="")),
-            (
-                "path",
-                dict(
-                    bold=True,
-                    align="left",
-                    underline=True,
-                    width=dict(
-                        truncate="left",
-                        # min=max_filename_len + 4 #  .../
-                        # min=0.3  # not supported yet by pyout, https://github.com/pyout/pyout/issues/85
-                    ),
-                    aggregate=lambda _: "Summary:"
-                    # TODO: seems to be wrong
-                    # width='auto'
-                    # summary=lambda x: "TOTAL: %d" % len(x)
-                ),
-            ),
-            # ('type', dict(
-            #     transform=lambda s: "%s" % s,
-            #     aggregate=counts,
-            #     missing='-',
-            #     # summary=summary_counts
-            # )),
-            # ('describe', dict(
-            #     transform=empty_for_none)),
-            # ('clean', dict(
-            #     color='green',
-            #     transform=fancy_bool,
-            #     aggregate=mapped_counts({False: fancy_bool(False),
-            #                              True: fancy_bool(True)}),
-            #     delayed="group-git"
-            # )),
-            ("size", pyouts.size_style),
-            (
-                "session_start_time",
-                dict(
-                    transform=pyouts.datefmt,
-                    aggregate=pyouts.summary_dates,
-                    # summary=summary_dates
-                ),
-            ),
-        ]
-    )
-    if not sys.stdout.isatty():
-        # TODO: ATM width in the final mode is hardcoded
-        #  https://github.com/pyout/pyout/issues/70
-        # and depending on how it would be resolved, there might be a
-        # need to specify it here as "max" or smth like that.
-        # For now hardcoding to hopefully wide enough 200 if stdout is not
-        # a tty
-        PYOUT_STYLE["width_"] = 200
+    if format == "auto":
+        format = "yaml" if len(files) == 1 else "pyout"
 
-    out = pyout.Tabular(
-        columns=[
-            "path",
-            "nwb_version",
-            "size",
-            #'experiment_description',
-            "lab",
-            "experimenter",
-            "session_id",
-            "subject_id",
-            "session_start_time",
-            #'identifier',  # note: required arg2 of NWBFile
-            #'institution',
-            "keywords",
-            #'related_publications',
-            #'session_description',  # note: required arg1 of NWBFile
-        ],
-        style=PYOUT_STYLE
-        # , stream=...
-    )
+    if format == "pyout":
+        out = PYOUTFormatter(files=files, fields=fields)
+    elif format == "json":
+        out = JSONFormatter()
+    elif format == "json_pp":
+        out = JSONFormatter(indent=2)
+    elif format == "yaml":
+        out = YAMLFormatter()
+    else:
+        raise NotImplementedError("Unknown format %s" % format)
+
+    if fields is not None:
+        async_keys = tuple(set(metadata_all_fields).intersection(fields))
+    else:
+        async_keys = metadata_all_fields
+
     with out:
-        async_keys = (
-            "NWB",
-            "lab",
-            "experimenter",
-            "session_id",
-            "subject_id",
-            "session_start_time",
-            "keywords",
-        )
         for path in files:
-            rec = {"path": path}
+            rec = {}
+            rec["path"] = path
+
             try:
-                rec["size"] = os.stat(path).st_size
-                rec[async_keys] = get_metadata_pyout(path, async_keys)
+                if not fields or "size" in fields:
+                    rec["size"] = os.stat(path).st_size
+
+                if async_keys:
+                    cb = get_metadata_pyout(path, async_keys)
+                    if format == "pyout":
+                        rec[async_keys] = cb
+                    else:
+                        # TODO: parallel execution
+                        # For now just call callback and get all the fields
+                        for k, v in cb().items():
+                            rec[k] = v
             except FileNotFoundError as exc:
-                # lgr.error("File is not available: %s", exc)
-                pass
+                lgr.debug("File is not available: %s", exc)
+            except Exception as exc:
+                lgr.debug("Problem obtaining metadata for %s: %s", path, exc)
+            if not rec:
+                lgr.debug("Skipping a record for %s since emtpy", path)
+                continue
             out(rec)
 
 
