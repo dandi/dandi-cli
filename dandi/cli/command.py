@@ -10,7 +10,7 @@ import click
 from click_didyoumean import DYMGroup
 
 import logging
-from .. import get_logger
+from .. import get_logger, set_logger_level
 
 from collections import OrderedDict
 
@@ -48,7 +48,7 @@ def print_version(ctx, param, value):
 )
 @click.option("--pdb", help="Fall into pdb if errors out", is_flag=True)
 def main(log_level, pdb=False):
-    get_logger().setLevel(log_level)  # common one
+    set_logger_level(get_logger(), log_level)  # common one
     if pdb:
         from ..utils import setup_exceptionhook
 
