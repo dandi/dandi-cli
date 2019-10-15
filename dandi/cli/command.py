@@ -179,9 +179,14 @@ def ls(paths, fields=None, format="auto"):
 
     with out:
         for path in files:
-            rec = {"path": path}
+            rec = {}
+            if fields and "path" in fields:
+                rec["path"] = path
+
             try:
-                rec["size"] = os.stat(path).st_size
+                if fields and "size" in fields:
+                    rec["size"] = os.stat(path).st_size
+
                 if async_keys:
                     cb = get_metadata_pyout(path, async_keys)
                     if format == "pyout":
@@ -195,9 +200,6 @@ def ls(paths, fields=None, format="auto"):
                 lgr.debug("File is not available: %s", exc)
             except Exception as exc:
                 lgr.debug("Problem obtaining metadata for %s: %s", path, exc)
-            if fields:
-                # strip away those few which we hard set
-                rec = {k: v for k, v in rec.items() if k in fields}
             if not rec:
                 lgr.debug("Skipping a record for %s since emtpy", path)
                 continue
