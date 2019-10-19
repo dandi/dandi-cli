@@ -6,6 +6,7 @@ import datetime
 import os
 import os.path as op
 import sys
+import time
 
 import click
 from click_didyoumean import DYMGroup
@@ -74,34 +75,40 @@ def get_files(paths, recursive=True, recurion_limit=None):
     return paths
 
 
-def get_metadata_pyout(path, keys=None):
+def get_metadata_pyout(path, keys=None, process_paths=None):
     from ..pynwb_utils import get_metadata, get_nwb_version
 
     def fn():
         rec = {}
-        # No need for calling get_metadata if no keys are needed from it
-        if keys is None or list(keys) != ["nwb_version"]:
-            try:
-                meta = get_metadata(path)
-                # normalize some fields and remove completely empty
-                for f, v in meta.items():
-                    if keys is not None and f not in keys:
-                        continue
-                    if isinstance(v, (tuple, list)):
-                        v = ", ".join(v)
-                    if v:
-                        rec[f] = v
-            except Exception as exc:
-                lgr.debug("Failed to get metadata from %s: %s", path, exc)
+        try:
+            # No need for calling get_metadata if no keys are needed from it
+            if keys is None or list(keys) != ["nwb_version"]:
+                try:
+                    meta = get_metadata(path)
+                    # normalize some fields and remove completely empty
+                    for f, v in meta.items():
+                        if keys is not None and f not in keys:
+                            continue
+                        if isinstance(v, (tuple, list)):
+                            v = ", ".join(v)
+                        if v:
+                            rec[f] = v
+                except Exception as exc:
+                    lgr.debug("Failed to get metadata from %s: %s", path, exc)
 
-        if "nwb_version" not in rec:
-            # Let's at least get that one
-            try:
-                rec["nwb_version"] = get_nwb_version(path) or ""
-            except Exception as exc:
-                rec["nwb_version"] = "ERROR"
-                lgr.debug("Failed to get even nwb_version from %s: %s", path, exc)
-        return rec
+            if "nwb_version" not in rec:
+                # Let's at least get that one
+                try:
+                    rec["nwb_version"] = get_nwb_version(path) or ""
+                except Exception as exc:
+                    rec["nwb_version"] = "ERROR"
+                    lgr.debug("Failed to get even nwb_version from %s: %s", path, exc)
+            return rec
+        finally:
+            # TODO: this is a workaround, remove after
+            # https://github.com/pyout/pyout/issues/87 is resolved
+            if process_paths is not None and path in process_paths:
+                process_paths.remove(path)
 
     return fn
 
@@ -178,8 +185,14 @@ def ls(paths, fields=None, format="auto"):
     else:
         async_keys = metadata_all_fields
 
+    process_paths = set()
     with out:
         for path in files:
+            while len(process_paths) >= 10:
+                lgr.log(2, "Sleep waiting for some paths to finish processing")
+                time.sleep(0.5)
+            process_paths.add(path)
+
             rec = {}
             rec["path"] = path
 
@@ -188,7 +201,7 @@ def ls(paths, fields=None, format="auto"):
                     rec["size"] = os.stat(path).st_size
 
                 if async_keys:
-                    cb = get_metadata_pyout(path, async_keys)
+                    cb = get_metadata_pyout(path, async_keys, process_paths)
                     if format == "pyout":
                         rec[async_keys] = cb
                     else:
@@ -508,7 +521,6 @@ def upload(
     # We will again use pyout to provide a neat table summarizing our progress
     # with upload etc
     import pyout
-    import time
     from ..support import pyout as pyouts
 
     # for the upload speeds we need to provide a custom  aggregate
