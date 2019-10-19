@@ -159,7 +159,9 @@ def get_style(hide_if_missing=True):
             aggregate=counts,
         ),
         "message": dict(
-            color=dict(re_lookup=[["^exists", "yellow"], ["^failed", "red"]]),
+            color=dict(
+                re_lookup=[["^exists", "yellow"], ["^(failed|error|ERROR)", "red"]]
+            ),
             aggregate=counts,
         ),
         "upload": dict(  # % done

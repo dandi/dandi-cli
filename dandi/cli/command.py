@@ -377,6 +377,17 @@ def upload(
     # provided to pyout to cause it to halt
     def process_path(path, relpath):
         try:
+            try:
+                stat = os.stat(path)
+                yield {"size": stat.st_size}
+            except FileNotFoundError:
+                yield skip_file("ERROR: File not found")
+                return
+            except Exception as exc:
+                # without limiting [:50] it might cause some pyout indigestion
+                yield skip_file("ERROR: %s" % str(exc)[:50])
+                return
+
             yield {"status": "checking girder"}
 
             girder_folder = girder_top_folder / relpath.parent
@@ -524,14 +535,14 @@ def upload(
                 time.sleep(0.5)
             process_paths.add(path)
 
-            rec = {"path": path, "size": os.stat(path).st_size}
+            rec = {"path": path}
             path = Path(path)
             try:
                 relpath = path.relative_to(local_top_path)
                 rec["path"] = str(relpath)
                 # DEBUG: do serially
                 # for v in process_path(path, relpath):  print(v)
-                rec[rec_fields[2:]] = process_path(path, relpath)
+                rec[rec_fields[1:]] = process_path(path, relpath)
             except ValueError as exc:
                 # typically if local_top_path is not the top path for the path
                 rec["status"] = skip_file(exc)
