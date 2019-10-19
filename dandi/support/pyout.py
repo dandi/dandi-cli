@@ -167,7 +167,6 @@ def get_style(hide_if_missing=True):
             color=dict(
                 interval=[[0, 10, "red"], [10, 100, "yellow"], [100, None, "green"]]
             ),
-            aggregate=partial(minmax, fmt="%d%%"),
         ),
     }
 

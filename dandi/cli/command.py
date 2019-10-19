@@ -331,11 +331,9 @@ def upload(
     validation_,
     fake_data,
 ):
-
-    import multiprocessing
-
     # Ensure that we have all Folders created as well
     assert local_top_path, "--local-top-path must be specified for now"
+    assert girder_collection, "--collection must be specified"
 
     if not girder_top_folder:
         # TODO: UI
@@ -344,18 +342,19 @@ def upload(
         if girder_top_folder in (op.pardir, op.curdir):
             girder_top_folder = op.basename(op.realpath(local_top_path))
 
+    import multiprocessing
     from .. import girder
     from ..pynwb_utils import get_metadata
     from ..pynwb_utils import validate as pynwb_validate
     from ..pynwb_utils import ignore_benign_pynwb_warnings
     from ..support.generatorify import generator_from_callback
+    from ..support.pyout import naturalsize
     from pathlib import Path, PurePosixPath
 
     ignore_benign_pynwb_warnings()  # so validate doesn't whine
 
     client = girder.authenticate(girder_instance)
 
-    assert girder_collection
     collection_rec = girder.ensure_collection(client, girder_collection)
     lgr.debug("Working with collection %s", collection_rec)
 
@@ -367,6 +366,7 @@ def upload(
     #   https://github.com/pyout/pyout/issues/87
     # properly addressed
     process_paths = set()
+    uploaded_paths = {}  # path: uploaded size
 
     def skip_file(msg):
         return {"status": "skipped", "message": msg}
@@ -461,6 +461,7 @@ def upload(
                     item_rec["_id"], path, progressCallback=c
                 )
             ):
+                uploaded_paths[str(path)] = r["current"]
                 yield {
                     "upload": 100.0
                     * ((r["current"] / r["total"]) if r["total"] else 1.0)
@@ -499,14 +500,27 @@ def upload(
     import time
     from ..support import pyout as pyouts
 
+    # for the upload speeds we need to provide a custom  aggregate
+    t0 = time.time()
+
+    def upload_agg(*ignored):
+        dt = time.time() - t0
+        total = sum(uploaded_paths.values())
+        if not total:
+            return ""
+        speed = total / dt if dt else 0
+        return "%s/s" % naturalsize(speed)
+
+    pyout_style = pyouts.get_style(hide_if_missing=False)
+    pyout_style["upload"]["aggregate"] = upload_agg
+
     rec_fields = ("path", "size", "errors", "upload", "status", "message")
-    out = pyout.Tabular(
-        style=pyouts.get_style(hide_if_missing=False), columns=rec_fields
-    )
+    out = pyout.Tabular(style=pyout_style, columns=rec_fields)
+
     with out:
         for path in paths:
             while len(process_paths) >= 10:
-                lgr.log(2, "Sleeping waiting for some paths to finish processing")
+                lgr.log(2, "Sleep waiting for some paths to finish processing")
                 time.sleep(0.5)
             process_paths.add(path)
 
