@@ -55,6 +55,20 @@ def lookup(client, collection, path=None):
         raise GirderNotFound(response)
 
 
+from requests.adapters import HTTPAdapter
+
+
+class GirderCli(gcl.GirderClient):
+    pass
+    # XXX causes strange 'NoneType' object has no attribute 'close'
+    #  so TODO to investigate
+    # def sendRestRequest(self, *args, **kwargs):
+    #     with self.session() as session:
+    #         # TODO: avoid hardcoded max_retries -- setup taken from girder_cli.client
+    #         session.mount(self.urlBase, HTTPAdapter(max_retries=5))
+    #         return super(GirderCli, self).sendRestRequest(*args, **kwargs)
+
+
 # TODO: our adapter on top of the Girder's client to simplify further
 def authenticate(instance):
     """Simple authenticator which would store credential (api key) via keyring
@@ -64,7 +78,7 @@ def authenticate(instance):
     instance: str
       Name of the instance to use
     """
-    client = gcl.GirderClient(
+    client = GirderCli(
         apiUrl="{}/api/v1".format(known_instances[instance].url.rstrip("/"))
     )
     from pathlib import Path, PosixPath

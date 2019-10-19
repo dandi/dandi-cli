@@ -42,6 +42,8 @@ def setup_exceptionhook(ipython=False):
         sys.excepthook = _pdb_excepthook
 
 
+# ???? it is most likely not thread safe!!!
+
 # Public domain.
 def memoize(f):
     """

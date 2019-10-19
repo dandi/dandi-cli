@@ -1,4 +1,7 @@
 import h5py
+import pynwb
+import warnings
+
 from pynwb import NWBHDF5IO
 
 from . import get_logger
@@ -30,23 +33,24 @@ def get_nwb_version(filepath):
             lgr.debug("%s has no nwb_version" % filepath)
 
 
-def get_metadata(filepath):
+def get_metadata(path):
     """Get selected metadata from a .nwb file
 
     Parameters
     ----------
-    filepath: str
+    path: str or Path
 
     Returns
     -------
     dict
     """
+    path = str(path)  # for Path
     out = dict()
 
     # First read out possibly available versions of specifications for NWB(:N)
-    out["nwb_version"] = get_nwb_version(filepath)
+    out["nwb_version"] = get_nwb_version(path)
 
-    with NWBHDF5IO(filepath, "r") as io:
+    with NWBHDF5IO(path, "r") as io:
         nwb = io.read()
         for key in metadata_fields:
             value = getattr(nwb, key)
@@ -73,3 +77,31 @@ def get_metadata(filepath):
             out[f] = len(getattr(nwb, key, []) or [])
 
     return out
+
+
+def validate(path):
+    """Run validation on a file and return errors
+
+    In case of an exception being thrown, an error message added to the
+    returned list of validation errors
+
+    Parameters
+    ----------
+    path: str or Path
+    """
+    path = str(path)  # Might come in as pathlib's PATH
+    try:
+        with pynwb.NWBHDF5IO(path, "r", load_namespaces=True) as reader:
+            errors = pynwb.validate(reader)
+    except Exception as exc:
+        errors = [f"Failed to validate {path}: {exc}"]
+    return errors
+
+
+def ignore_benign_pynwb_warnings():
+    #   See https://github.com/dandi/dandi-cli/issues/14 for more info
+    for s in (
+        "No cached namespaces found .*",
+        "ignoring namespace 'core' because it already exists",
+    ):
+        warnings.filterwarnings("ignore", s, UserWarning)
