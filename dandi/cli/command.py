@@ -332,6 +332,13 @@ def display_errors(path, errors):
     "--fake-data",
     help="For development: fake file content (filename will be stored instead of actual load)",
     default=False,
+    is_flag=True,
+)
+@click.option(
+    "--develop-debug",
+    help="For development: do not use pyout callbacks, do not swallow exception",
+    default=False,
+    is_flag=True,
 )
 @click.argument("paths", nargs=-1)  # , type=click.Path(exists=True, dir_okay=False))
 def upload(
@@ -343,6 +350,7 @@ def upload(
     existing,
     validation_,
     fake_data,
+    develop_debug,
 ):
     # Ensure that we have all Folders created as well
     assert local_top_path, "--local-top-path must be specified for now"
@@ -514,6 +522,8 @@ def upload(
             yield {"status": "done"}
 
         except Exception as exc:
+            if develop_debug:
+                raise
             yield {"status": "ERROR", "message": str(exc)}
         finally:
             process_paths.remove(str(path))
@@ -552,9 +562,12 @@ def upload(
             try:
                 relpath = path.relative_to(local_top_path)
                 rec["path"] = str(relpath)
-                # DEBUG: do serially
-                # for v in process_path(path, relpath):  print(v)
-                rec[rec_fields[1:]] = process_path(path, relpath)
+                if develop_debug:
+                    # DEBUG: do serially
+                    for v in process_path(path, relpath):
+                        print(v)
+                else:
+                    rec[rec_fields[1:]] = process_path(path, relpath)
             except ValueError as exc:
                 # typically if local_top_path is not the top path for the path
                 rec["status"] = skip_file(exc)
