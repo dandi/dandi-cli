@@ -150,7 +150,9 @@ def get_style(hide_if_missing=True):
         "errors": dict(
             align="center",
             color=dict(interval=[[0, 1, "green"], [1, None, "red"]]),
-            aggregate=lambda x: "{} with errors".format(sum(map(bool, x))),
+            aggregate=lambda x: (
+                "{} with errors".format(sum(map(bool, x))) if any(x) else ""
+            ),
         ),
         "status": dict(
             color=dict(lookup={"skipped": "yellow", "done": "green", "error": "red"}),
