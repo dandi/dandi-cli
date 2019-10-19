@@ -335,7 +335,7 @@ def upload(
     import multiprocessing
 
     # Ensure that we have all Folders created as well
-    assert local_top_path
+    assert local_top_path, "--local-top-path must be specified for now"
 
     if not girder_top_folder:
         # TODO: UI
@@ -408,6 +408,10 @@ def upload(
                 if existing == "skip":
                     yield skip_file("exists already")
                     return
+                elif existing == "reupload":
+                    yield {"message": "exists - reuploading"}
+                else:
+                    raise ValueError(existing)
 
             # we need to delete it first??? I do not see a method TODO
             if validation_ != "skip":
