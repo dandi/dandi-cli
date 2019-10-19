@@ -5,6 +5,7 @@ import time
 import sys
 
 from collections import Counter
+from functools import partial
 
 import humanize
 import pyout
@@ -53,6 +54,18 @@ def summary_dates(values):
 
 def counts(values):
     return ["{:d} {}".format(v, k) for k, v in Counter(values).items()]
+
+
+def minmax(values, fmt="%s"):
+    if not values:
+        return []
+    mi = min(values)
+    ma = max(values)
+
+    if mi != ma:
+        return [(fmt + ">") % min(values), (fmt + "<") % max(values)]
+    else:
+        return fmt % mi
 
 
 class mapped_counts(object):
@@ -146,6 +159,13 @@ def get_style(hide_if_missing=True):
         "message": dict(
             color=dict(re_lookup=[["^exists", "yellow"], ["^failed", "red"]]),
             aggregate=counts,
+        ),
+        "upload": dict(  # % done
+            transform=lambda f: "%d%%" % f,
+            color=dict(
+                interval=[[0, 10, "red"], [10, 100, "yellow"], [100, None, "green"]]
+            ),
+            aggregate=partial(minmax, fmt="%d%%"),
         ),
     }
 

@@ -348,6 +348,7 @@ def upload(
     from ..pynwb_utils import get_metadata
     from ..pynwb_utils import validate as pynwb_validate
     from ..pynwb_utils import ignore_benign_pynwb_warnings
+    from ..support.generatorify import generator_from_callback
     from pathlib import Path, PurePosixPath
 
     ignore_benign_pynwb_warnings()  # so validate doesn't whine
@@ -444,13 +445,16 @@ def upload(
             #     via callback
             # https://stackoverflow.com/questions/9968592/turn-functions-with-a-callback-into-python-generators
             # has some solutions but all IMHO are abit too complex
-            def callback(status):
-                # but how to yield from outside????
-                yield {"upload": status["current"]}  # 'total': size
 
-            client.uploadFileToItem(
-                item_rec["_id"], path
-            )  # , progressCallback=callback)
+            for r in generator_from_callback(
+                lambda c: client.uploadFileToItem(
+                    item_rec["_id"], path, progressCallback=c
+                )
+            ):
+                yield {
+                    "upload": 100.0
+                    * ((r["current"] / r["total"]) if r["total"] else 1.0)
+                }
 
             # Provide metadata for the item from the file, could be done via
             #  a callback to be triggered upon successfull upload, or we could
