@@ -22,7 +22,7 @@ class GirderServer:
 
 known_instances = {
     "local": GirderServer("http://localhost:8080/"),
-    "dandi": GirderServer("https://girder.dandiarchive.org/#collections"),
+    "dandi": GirderServer("https://girder.dandiarchive.org/"),
 }
 
 
