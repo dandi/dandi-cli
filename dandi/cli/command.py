@@ -376,42 +376,48 @@ def upload(
     # TODO: we might want to always yield a full record so no field is not
     # provided to pyout to cause it to halt
     def process_path(path, relpath):
-        process_paths.add(path)
-
         try:
             yield {"status": "checking girder"}
 
             girder_folder = girder_top_folder / relpath.parent
 
-            try:
-                lock.acquire(timeout=60)
-                # TODO: we need to make this all thread safe all the way
-                #       until uploading the file since multiple threads would
-                #       create multiple
-                folder_rec = girder.ensure_folder(
-                    client, collection_rec, girder_collection, girder_folder
-                )
+            while True:
+                try:
+                    lock.acquire(timeout=60)
+                    # TODO: we need to make this all thread safe all the way
+                    #       until uploading the file since multiple threads would
+                    #       create multiple
+                    folder_rec = girder.ensure_folder(
+                        client, collection_rec, girder_collection, girder_folder
+                    )
 
-                # Get (if already exists) or create an item
-                item_rec = client.createItem(
-                    folder_rec["_id"], name=relpath.name, reuseExisting=True
-                )
-            finally:
-                lock.release()
+                    # Get (if already exists) or create an item
+                    item_rec = client.createItem(
+                        folder_rec["_id"], name=relpath.name, reuseExisting=True
+                    )
+                finally:
+                    lock.release()
 
-            file_recs = list(client.listFile(item_rec["_id"]))
-            if len(file_recs) > 1:
-                raise NotImplementedError(
-                    f"Item {item_rec} contains multiple files: {file_recs}"
-                )
-            elif file_recs:  # there is a file already
-                if existing == "skip":
-                    yield skip_file("exists already")
-                    return
-                elif existing == "reupload":
-                    yield {"message": "exists - reuploading"}
-                else:
-                    raise ValueError(existing)
+                file_recs = list(client.listFile(item_rec["_id"]))
+                if len(file_recs) > 1:
+                    raise NotImplementedError(
+                        f"Item {item_rec} contains multiple files: {file_recs}"
+                    )
+                elif file_recs:  # there is a file already
+                    if existing == "skip":
+                        yield skip_file("exists already")
+                        return
+                    elif existing == "reupload":
+                        yield {
+                            "message": "exists - reuploading",
+                            "status": "deleting old item",
+                        }
+                        # TODO: delete an item here
+                        raise NotImplementedError("yarik did not find deleteItem API")
+                        continue
+                    else:
+                        raise ValueError(existing)
+                break  # no need to loop
 
             # we need to delete it first??? I do not see a method TODO
             if validation_ != "skip":
@@ -485,7 +491,7 @@ def upload(
         except Exception as exc:
             yield {"status": "ERROR", "message": str(exc)}
         finally:
-            process_paths.remove(path)
+            process_paths.remove(str(path))
 
     # We will again use pyout to provide a neat table summarizing our progress
     # with upload etc
@@ -499,9 +505,11 @@ def upload(
     )
     with out:
         for path in paths:
-            while len(process_paths) >= 6:
+            while len(process_paths) >= 10:
                 lgr.log(2, "Sleeping waiting for some paths to finish processing")
                 time.sleep(0.5)
+            process_paths.add(path)
+
             rec = {"path": path, "size": os.stat(path).st_size}
             path = Path(path)
             try:
