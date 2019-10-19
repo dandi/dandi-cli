@@ -378,21 +378,6 @@ def upload(
         process_paths.add(path)
 
         try:
-            if validation_ != "skip":
-                yield {"status": "validating"}
-                validation_errors = pynwb_validate(path)
-                yield {"errors": len(validation_errors)}
-                # TODO: split for dandi, pynwb errors
-                if validation_errors:
-                    # TODO report validation
-                    if validation_ == "require":
-                        yield skip_file("failed validation")
-                        return
-            else:
-                # yielding empty causes pyout to get stuck or crash
-                # https://github.com/pyout/pyout/issues/91
-                # yield {"errors": '',}
-                pass
             yield {"status": "checking girder"}
 
             girder_folder = girder_top_folder / relpath.parent
@@ -422,7 +407,31 @@ def upload(
                 if existing == "skip":
                     yield skip_file("exists already")
                     return
-                # we need to delete it first??? I do not see a method TODO
+
+            # we need to delete it first??? I do not see a method TODO
+            if validation_ != "skip":
+                yield {"status": "validating"}
+                validation_errors = pynwb_validate(path)
+                yield {"errors": len(validation_errors)}
+                # TODO: split for dandi, pynwb errors
+                if validation_errors:
+                    if validation_ == "require":
+                        yield skip_file("failed validation")
+                        return
+            else:
+                # yielding empty causes pyout to get stuck or crash
+                # https://github.com/pyout/pyout/issues/91
+                # yield {"errors": '',}
+                pass
+
+            # Extract metadata before actual upload and skip if fails
+            # TODO: allow for for non-nwb files to skip this step
+            yield {"status": "extracting metadata"}
+            try:
+                metadata = get_metadata(path)
+            except Exception as exc:
+                yield skip_file("failed to extract metadata: %s" % str(exc))
+                return
 
             yield {"status": "uploading"}
             # Upload file to an item
@@ -446,8 +455,6 @@ def upload(
             # Provide metadata for the item from the file, could be done via
             #  a callback to be triggered upon successfull upload, or we could
             #  just do it "manually"
-            yield {"status": "extracting metadata"}
-            metadata = get_metadata(path)
             metadata_ = {}
             for k, v in metadata.items():
                 if v in ("", None):
@@ -468,9 +475,6 @@ def upload(
             yield {"status": "done"}
 
         except Exception as exc:
-            import epdb
-
-            epdb.serve()
             yield {"status": "ERROR", "message": str(exc)}
         finally:
             process_paths.remove(path)
