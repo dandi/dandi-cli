@@ -40,3 +40,36 @@ def setup_exceptionhook(ipython=False):
         )
     else:
         sys.excepthook = _pdb_excepthook
+
+
+# ???? it is most likely not thread safe!!!
+
+# Public domain.
+def memoize(f):
+    """
+    Memoize function, clear cache on last return.
+    """
+    import pickle
+
+    count = [0]
+    cache = {}
+
+    def g(*args, **kwargs):
+        count[0] += 1
+        try:
+            try:
+                if len(kwargs) != 0:
+                    raise ValueError
+                hash(args)
+                key = (args,)
+            except:
+                key = pickle.dumps((args, kwargs))
+            if key not in cache:
+                cache[key] = f(*args, **kwargs)
+            return cache[key]
+        finally:
+            count[0] -= 1
+            if count[0] == 0:
+                cache.clear()
+
+    return g
