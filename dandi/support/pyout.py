@@ -116,6 +116,7 @@ def get_style(hide_if_missing=True):
             underline=True,
             width=dict(
                 truncate="left",
+                min=20,
                 # min=max_filename_len + 4 #  .../
                 # min=0.3  # not supported yet by pyout,
                 # https://github.com/pyout/pyout/issues/85
