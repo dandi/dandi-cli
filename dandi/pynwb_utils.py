@@ -1,7 +1,9 @@
 import h5py
-import pynwb
+import re
 import warnings
+from distutils.version import LooseVersion
 
+import pynwb
 from pynwb import NWBHDF5IO
 
 from . import get_logger
@@ -95,6 +97,29 @@ def validate(path):
             errors = pynwb.validate(reader)
     except Exception as exc:
         errors = [f"Failed to validate {path}: {exc}"]
+
+    # To overcome
+    #   https://github.com/NeurodataWithoutBorders/pynwb/issues/1090
+    #   https://github.com/NeurodataWithoutBorders/pynwb/issues/1091
+    re_ok_prior_210 = re.compile(
+        "general/(experimenter|related_publications)\): "
+        "incorrect shape - expected an array of shape .\[None\]."
+    )
+    try:
+        version = get_nwb_version(path)
+    except:
+        # we just will not remove any errors
+        pass
+    else:
+        if version and LooseVersion(version) < "2.1.0":
+            errors_ = errors[:]
+            errors = [e for e in errors if not re_ok_prior_210.search(str(e))]
+            if errors != errors_:
+                lgr.debug(
+                    "Filtered out %d validation errors on %s",
+                    len(errors_) - len(errors),
+                    path,
+                )
     return errors
 
 
