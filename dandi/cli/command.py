@@ -390,7 +390,7 @@ def upload(
     uploaded_paths = {}  # path: uploaded size
 
     def skip_file(msg):
-        return {"status": "skipped", "message": msg}
+        return {"status": "skipped", "message": str(msg)}
 
     lock = multiprocessing.Lock()
 
@@ -560,7 +560,9 @@ def upload(
             rec = {"path": path}
             path = Path(path)
             try:
-                relpath = path.relative_to(local_top_path)
+                fullpath = path if path.is_absolute() else path.resolve()
+                relpath = fullpath.relative_to(local_top_path)
+
                 rec["path"] = str(relpath)
                 if develop_debug:
                     # DEBUG: do serially
@@ -569,6 +571,10 @@ def upload(
                 else:
                     rec[rec_fields[1:]] = process_path(path, relpath)
             except ValueError as exc:
-                # typically if local_top_path is not the top path for the path
-                rec["status"] = skip_file(exc)
+                if "does not start with" in str(exc):
+                    # if local_top_path is not the top path for the path
+                    # Provide more concise specific message without path details
+                    rec.update(skip_file("must be a child of top path"))
+                else:
+                    rec.update(skip_file(exc))
             out(rec)
