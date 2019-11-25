@@ -59,7 +59,7 @@ class PYOUTFormatter(pyout.Tabular):
         # max_filename_len = max(map(lambda x: len(op.basename(x)), files))
         PYOUT_STYLE = pyouts.get_style(hide_if_missing=not fields)
 
-        kw = dict(style=PYOUT_STYLE)
+        kw = dict(wait_for_top=2, style=PYOUT_STYLE)
         if fields:
             kw["columns"] = fields
         super().__init__(**kw)

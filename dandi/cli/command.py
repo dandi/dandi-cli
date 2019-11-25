@@ -75,7 +75,7 @@ def get_files(paths, recursive=True, recurion_limit=None):
     return paths
 
 
-def get_metadata_pyout(path, keys=None, process_paths=None):
+def get_metadata_pyout(path, keys=None):
     from ..pynwb_utils import get_metadata, get_nwb_version
 
     def fn():
@@ -105,10 +105,7 @@ def get_metadata_pyout(path, keys=None, process_paths=None):
                     lgr.debug("Failed to get even nwb_version from %s: %s", path, exc)
             return rec
         finally:
-            # TODO: this is a workaround, remove after
-            # https://github.com/pyout/pyout/issues/87 is resolved
-            if process_paths is not None and path in process_paths:
-                process_paths.remove(path)
+            pass
 
     return fn
 
@@ -129,7 +126,7 @@ def get_metadata_pyout(path, keys=None, process_paths=None):
     type=click.Choice(["auto", "pyout", "json", "json_pp", "yaml"]),
     default="auto",
 )
-@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=False))
+@click.argument("paths", nargs=-1, type=click.Path(dir_okay=False))
 def ls(paths, fields=None, format="auto"):
     """List file size and selected set of metadata fields
     """
@@ -185,14 +182,8 @@ def ls(paths, fields=None, format="auto"):
     else:
         async_keys = metadata_all_fields
 
-    process_paths = set()
     with out:
-        for path in files:
-            while len(process_paths) >= 10:
-                lgr.log(2, "Sleep waiting for some paths to finish processing")
-                time.sleep(0.5)
-            process_paths.add(path)
-
+        for ipath, path in enumerate(files):
             rec = {}
             rec["path"] = path
 
@@ -201,7 +192,7 @@ def ls(paths, fields=None, format="auto"):
                     rec["size"] = os.stat(path).st_size
 
                 if async_keys:
-                    cb = get_metadata_pyout(path, async_keys, process_paths)
+                    cb = get_metadata_pyout(path, async_keys)
                     if format == "pyout":
                         rec[async_keys] = cb
                     else:
