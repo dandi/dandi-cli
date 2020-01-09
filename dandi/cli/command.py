@@ -76,33 +76,36 @@ def get_files(paths, recursive=True, recurion_limit=None):
 
 
 def get_metadata_pyout(path, keys=None, process_paths=None):
-    from ..pynwb_utils import get_metadata, get_nwb_version
+    from ..pynwb_utils import get_metadata, get_nwb_version, get_neurodata_types
+
+    def safe_call(func, path, default=None):
+        try:
+            return func(path)
+        except Exception as exc:
+            lgr.debug("Call to %s on %s failed: %s", func.__name__, path, exc)
+            return default
 
     def fn():
         rec = {}
         try:
             # No need for calling get_metadata if no keys are needed from it
             if keys is None or list(keys) != ["nwb_version"]:
-                try:
-                    meta = get_metadata(path)
-                    # normalize some fields and remove completely empty
-                    for f, v in meta.items():
-                        if keys is not None and f not in keys:
-                            continue
-                        if isinstance(v, (tuple, list)):
-                            v = ", ".join(v)
-                        if v:
-                            rec[f] = v
-                except Exception as exc:
-                    lgr.debug("Failed to get metadata from %s: %s", path, exc)
+                meta = safe_call(get_metadata, path)
+                # normalize some fields and remove completely empty
+                for f, v in (meta or dict()).items():
+                    if keys is not None and f not in keys:
+                        continue
+                    if isinstance(v, (tuple, list)):
+                        v = ", ".join(v)
+                    if v:
+                        rec[f] = v
 
             if "nwb_version" not in rec:
                 # Let's at least get that one
-                try:
-                    rec["nwb_version"] = get_nwb_version(path) or ""
-                except Exception as exc:
-                    rec["nwb_version"] = "ERROR"
-                    lgr.debug("Failed to get even nwb_version from %s: %s", path, exc)
+                rec["nwb_version"] = safe_call(get_nwb_version, path, "ERROR") or ""
+
+            rec["nd_types"] = ", ".join(safe_call(get_neurodata_types, path, []))
+
             return rec
         finally:
             # TODO: this is a workaround, remove after

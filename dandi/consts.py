@@ -23,7 +23,12 @@ metadata_subject_fields = (
     "subject_id",
 )
 
-metadata_computed_fields = ("number_of_electrodes", "number_of_units", "nwb_version")
+metadata_computed_fields = (
+    "number_of_electrodes",
+    "number_of_units",
+    "nwb_version",
+    "nd_types",
+)
 
 metadata_all_fields = (
     metadata_fields + metadata_subject_fields + metadata_computed_fields
