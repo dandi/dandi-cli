@@ -2,6 +2,7 @@ import h5py
 import re
 import warnings
 from distutils.version import LooseVersion
+from collections import Counter
 
 import pynwb
 from pynwb import NWBHDF5IO
@@ -33,6 +34,34 @@ def get_nwb_version(filepath):
             return h5file["nwb_version"][...].tostring().decode()
         except:
             lgr.debug("%s has no nwb_version" % filepath)
+
+
+def get_neurodata_types(filepath):
+    with h5py.File(filepath, "r") as h5file:
+        all_pairs = _scan_neurodata_types(h5file)
+
+    # so far descriptions are useless so let's just output actual names only
+    # with a count if there is multiple
+    # return [': '.join(filter(bool, p)) for p in all_pairs]
+    names = [p[0] for p in all_pairs if p[0] not in {"NWBFile"}]
+    counts = Counter(names)
+    out = []
+    for name, count in sorted(counts.items()):
+        if count > 1:
+            out.append("%s (%d)" % (name, count))
+        else:
+            out.append(name)
+    return out
+
+
+def _scan_neurodata_types(grp):
+    out = []
+    if "neurodata_type" in grp.attrs:
+        out.append((grp.attrs["neurodata_type"], grp.attrs.get("description", None)))
+    for v in list(grp.values()):
+        if isinstance(v, h5py._hl.group.Group):
+            out += _scan_neurodata_types(v)
+    return out
 
 
 def get_metadata(path):
@@ -69,7 +98,7 @@ def get_metadata(path):
 
         # Counts
         for f in metadata_computed_fields:
-            if f in ("nwb_version",):
+            if f in ("nwb_version", "nd_types"):
                 continue
             if not f.startswith("number_of_"):
                 raise NotImplementedError(
