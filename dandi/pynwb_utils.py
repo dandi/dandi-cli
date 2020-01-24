@@ -81,6 +81,39 @@ def get_metadata(path):
     # First read out possibly available versions of specifications for NWB(:N)
     out["nwb_version"] = get_nwb_version(path)
 
+    # PyNWB might fail to load because of missing extensions.
+    # There is a new initiative of establishing registry of such extensions.
+    # Not yet sure if PyNWB is going to provide "native" support for needed
+    # functionality: https://github.com/NeurodataWithoutBorders/pynwb/issues/1143
+    # So meanwhile, hard-coded workaround for data types we care about
+    ndtypes_registry = {"AIBS_ecephys": "allensdk.brain_observatory.ecephys.nwb"}
+    while True:
+        try:
+            out.update(_get_pynwb_metadata(path))
+            break
+        except KeyError as exc:  # ATM there is
+            lgr.debug("Failed to read %s: %s", path, exc)
+            import re
+
+            res = re.match(r"^['\"\\]+(\S+). not a namespace", str(exc))
+            if not res:
+                raise
+            ndtype = res.groups()[0]
+            if ndtype not in ndtypes_registry:
+                raise ValueError(
+                    "We do not know which extension provides %s. "
+                    "Original exception was: %s. " % (ndtype, exc)
+                )
+            lgr.debug(
+                "Importing %r which should provide %r", ndtypes_registry[ndtype], ndtype
+            )
+            __import__(ndtypes_registry[ndtype])
+
+    return out
+
+
+def _get_pynwb_metadata(path):
+    out = {}
     with NWBHDF5IO(path, "r") as io:
         nwb = io.read()
         for key in metadata_fields:
