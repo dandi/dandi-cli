@@ -1,3 +1,4 @@
+import datetime
 import sys
 
 #
@@ -73,3 +74,17 @@ def memoize(f):
                 cache.clear()
 
     return g
+
+
+def get_utcnow_datetime(microseconds=False):
+    """Return current time as datetime with time zone information.
+
+    Microseconds are stripped away.
+
+    If string representation is desired, just "apply" .isoformat()
+    """
+    ret = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc).astimezone()
+    if microseconds:
+        return ret
+    else:
+        return ret.replace(microsecond=0)

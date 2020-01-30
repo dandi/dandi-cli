@@ -371,6 +371,7 @@ def upload(
     from ..pynwb_utils import get_metadata
     from ..pynwb_utils import validate as pynwb_validate
     from ..pynwb_utils import ignore_benign_pynwb_warnings
+    from ..utils import get_utcnow_datetime
     from ..support.generatorify import generator_from_callback
     from ..support.pyout import naturalsize
     from pathlib import Path, PurePosixPath
@@ -416,6 +417,14 @@ def upload(
 
             girder_folder = girder_top_folder / relpath.parent
 
+            # we will add some fields which would help us with deciding to
+            # reupload or not
+            file_metadata_ = {
+                "uploaded_size": os.stat(str(path)).st_size,
+                "uploaded_mtime": os.stat(str(path)).st_mtime,
+                "uploaded_date": None,  # to be filled out upon upload completion
+            }
+
             while True:
                 try:
                     lock.acquire(timeout=60)
@@ -443,18 +452,15 @@ def upload(
                         yield skip_file("exists already")
                         return
                     elif existing == "reupload":
-                        yield {
-                            "message": "exists - reuploading",
-                            "status": "deleting old item",
-                        }
-                        # TODO: delete an item here
-                        raise NotImplementedError("yarik did not find deleteItem API")
+                        yield {"message": "exists - deleting old", "status": "deleting"}
+                        client.delete(f'/item/{item_rec["_id"]}')
+                        yield {"message": "exists - reuploading", "status": "deleted"}
+                        # raise NotImplementedError("yarik did not find deleteItem API")
                         continue
                     else:
                         raise ValueError(existing)
                 break  # no need to loop
 
-            # we need to delete it first??? I do not see a method TODO
             if validation_ != "skip":
                 yield {"status": "validating"}
                 validation_errors = pynwb_validate(path)
@@ -516,6 +522,13 @@ def upload(
                     metadata_[k] = str(v)
             # we will add some fields which would help us with deciding to
             # reupload or not
+            # .isoformat() would give is8601 representation but I see in girder
+            # already
+            # session_start_time   1971-01-01 12:00:00+00:00
+            file_metadata_["uploaded_datetime"] = str(
+                get_utcnow_datetime()
+            )  # .isoformat()
+            metadata_.update(file_metadata_)
             metadata_["uploaded_size"] = os.stat(str(path)).st_size
             metadata_["uploaded_mtime"] = os.stat(str(path)).st_mtime
 
