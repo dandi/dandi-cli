@@ -383,7 +383,19 @@ def upload(
 
     client = girder.authenticate(girder_instance)
 
-    collection_rec = girder.ensure_collection(client, girder_collection)
+    try:
+        collection_rec = girder.ensure_collection(client, girder_collection)
+    except girder.gcl.HttpError as exc:
+        if develop_debug:
+            raise
+        # provide a bit less intimidating error reporting
+        lgr.error(
+            "Failed to assure presence of the %s collection: %s",
+            girder_collection,
+            (girder.get_HttpError_response(exc) or {}).get("message", str(exc)),
+        )
+        sys.exit(1)
+
     lgr.debug("Working with collection %s", collection_rec)
 
     local_top_path = Path(local_top_path).resolve()
