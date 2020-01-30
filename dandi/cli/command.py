@@ -321,8 +321,11 @@ def display_errors(path, errors):
     "-e",
     "--existing",
     type=click.Choice(
-        ["skip", "reupload"]
+        ["skip", "reupload", "refresh"]
     ),  # TODO: verify-reupload (to become default)
+    help="What to do if a file found existing on the server. 'refresh': verify "
+    "that according to the size and mtime, it is the same file, if not - "
+    "reupload.",
     default="skip",
 )
 @click.option(
@@ -422,10 +425,20 @@ def upload(
             file_metadata_ = {
                 "uploaded_size": os.stat(str(path)).st_size,
                 "uploaded_mtime": os.stat(str(path)).st_mtime,
-                "uploaded_date": None,  # to be filled out upon upload completion
+                # "uploaded_date": None,  # to be filled out upon upload completion
             }
 
-            while True:
+            # A girder delete API target to .delete before uploading a file
+            # (e.g. if decided to reupload)
+            delete_before_upload = None
+
+            def get_item_rec():
+                """This function might need to be called twice, e.g. if we
+                are to reupload the entire item.
+
+                ATM new versions of the files would create new items since
+                the policy is one File per Item
+                """
                 try:
                     lock.acquire(timeout=60)
                     # TODO: we need to make this all thread safe all the way
@@ -441,25 +454,49 @@ def upload(
                     )
                 finally:
                     lock.release()
+                return item_rec
 
-                file_recs = list(client.listFile(item_rec["_id"]))
-                if len(file_recs) > 1:
-                    raise NotImplementedError(
-                        f"Item {item_rec} contains multiple files: {file_recs}"
-                    )
-                elif file_recs:  # there is a file already
-                    if existing == "skip":
-                        yield skip_file("exists already")
+            item_rec = get_item_rec()
+            file_recs = list(client.listFile(item_rec["_id"]))
+
+            # get metadata and if we have all indications that it is
+            # probably the same -- we just skip
+            assert sorted(file_metadata_) == ["uploaded_mtime", "uploaded_size"]
+            item_file_metadata_ = {
+                k: item_rec.get("meta", {}).get(k, None)
+                for k in ["uploaded_mtime", "uploaded_size"]
+            }
+            lgr.debug(
+                "Files meta: local file: %s  remote file: %s",
+                file_metadata_,
+                item_file_metadata_,
+            )
+
+            file_thesame = file_metadata_ == item_file_metadata_
+            file_thesame_str = "same" if file_thesame else "diff"
+            exists_msg = f"exists ({file_thesame_str})"
+
+            if len(file_recs) > 1:
+                raise NotImplementedError(
+                    f"Item {item_rec} contains multiple files: {file_recs}"
+                )
+            elif file_recs:  # there is a file already
+                if existing == "skip":
+                    yield skip_file(exists_msg)
+                    return
+                # Logic below only for refresh and reupload
+                if existing == "refresh":
+                    if file_thesame:
+                        yield skip_file(exists_msg)
                         return
-                    elif existing == "reupload":
-                        yield {"message": "exists - deleting old", "status": "deleting"}
-                        client.delete(f'/item/{item_rec["_id"]}')
-                        yield {"message": "exists - reuploading", "status": "deleted"}
-                        # raise NotImplementedError("yarik did not find deleteItem API")
-                        continue
-                    else:
-                        raise ValueError(existing)
-                break  # no need to loop
+                elif existing == "reupload":
+                    pass
+                else:
+                    raise ValueError("existing")
+
+                delete_before_upload = f'/item/{item_rec["_id"]}'
+
+                yield {"message": exists_msg + " - reuploading"}
 
             if validation_ != "skip":
                 yield {"status": "validating"}
@@ -484,6 +521,16 @@ def upload(
             except Exception as exc:
                 yield skip_file("failed to extract metadata: %s" % str(exc))
                 return
+
+            # TODO: we could potentially keep new item "hidden" until we are
+            #  done with upload, and only then remove old one and replace with
+            #  a new one (rename from "hidden" name).
+            if delete_before_upload:
+                yield {"status": "deleting old"}
+                client.delete(delete_before_upload)
+                yield {"status": "old deleted"}
+                # create a a new item
+                item_rec = get_item_rec()
 
             yield {"status": "uploading"}
             # Upload file to an item
