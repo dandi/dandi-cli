@@ -382,7 +382,7 @@ def upload(
     collection_rec = girder.ensure_collection(client, girder_collection)
     lgr.debug("Working with collection %s", collection_rec)
 
-    local_top_path = Path(local_top_path)
+    local_top_path = Path(local_top_path).resolve()
     girder_top_folder = PurePosixPath(girder_top_folder)
 
     # We will keep a shared set of "being processed" paths so
@@ -527,7 +527,14 @@ def upload(
         except Exception as exc:
             if develop_debug:
                 raise
-            yield {"status": "ERROR", "message": str(exc)}
+            # Custom formatting for some exceptions we know to extract
+            # user-meaningful message
+            message = str(exc)
+            if isinstance(exc, girder.gcl.HttpError):
+                response = girder.get_HttpError_response(exc)
+                if "message" in response:
+                    message = response["message"]
+            yield {"status": "ERROR", "message": message}
         finally:
             process_paths.remove(str(path))
 

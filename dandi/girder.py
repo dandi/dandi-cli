@@ -42,17 +42,28 @@ def lookup(client, collection, path=None):
     try:
         return client.resourceLookup(req)
     except gcl.HttpError as exc:
-        response = {}
-        responseText = getattr(exc, "responseText", "")
-        try:
-            response = json.loads(responseText)
-        except Exception as exc2:
-            lgr.debug("Cannot parse response %s as json: %s", responseText, exc2)
+        response = get_HttpError_response(exc) or {}
         if not (response and f"{target} not found" in response["message"]):
             raise exc  # we dunno much about this - so just reraise
         # but if it was indeed just a miss -- raise our dedicated Exception
         lgr.debug(f"{target} was not found: {response}")
         raise GirderNotFound(response)
+
+
+def get_HttpError_response(exc):
+    """Given an gcl.HttpError exception instance, parse and return response
+
+    Returns
+    -------
+    None or dict
+      If exception does not contain valid json response record, returns None
+    """
+    try:
+        responseText = getattr(exc, "responseText", "")
+        return json.loads(responseText)
+    except Exception as exc2:
+        lgr.debug("Cannot parse response %s as json: %s", responseText, exc2)
+    return None
 
 
 from requests.adapters import HTTPAdapter
