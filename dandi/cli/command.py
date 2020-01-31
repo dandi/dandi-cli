@@ -456,6 +456,9 @@ def upload(
                     # TODO: we need to make this all thread safe all the way
                     #       until uploading the file since multiple threads would
                     #       create multiple
+                    # ATM it even fails with  No such folder: 5e33658d6eb14e0bf49e97d5",
+                    # so will first upload one file and then the rest... not sure why
+                    # locking doesn't work
                     folder_rec = girder.ensure_folder(
                         client, collection_rec, girder_collection, girder_folder
                     )
