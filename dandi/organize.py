@@ -19,17 +19,31 @@ def get_pynwb_ndtypes_map():
     for a, v in pynwb.__dict__.items():
         if not (inspect.ismodule(v) and v.__name__.startswith("pynwb.")):
             continue
-        v_split = v.__name__.split(".")
-        if len(v_split) != 2:
-            print("Skipping %s" % v.__name__)
-        modality = v_split[1]  # so smth like ecephys
-        # now inspect all things within and get neural datatypes
-        if issubclass(v, sdf):
-            pass
+        for a_, v_ in v.__dict__.items():
+            # now inspect all things within and get neural datatypes
+            if inspect.isclass(v_) and issubclass(v_, pynwb.core.NWBMixin):
+                ndtype = v_.__name__
+
+                v_split = v_.__module__.split(".")
+                if len(v_split) != 2:
+                    print("Skipping %s coming from %s" % v_, v_.__module__)
+                    continue
+                modality = v_split[1]  # so smth like ecephys
+
+                if ndtype in ndtypes:
+                    if ndtypes[ndtype] == modality:
+                        continue  # all good, just already known
+                    raise RuntimeError(
+                        "We already have %s pointing to %s, but now got %s"
+                        % (ndtype, ndtypes[ndtype], modality)
+                    )
+                ndtypes[ndtype] = modality
+
+    return ndtypes
 
 
 ### PASTE YOUR STUFF HERE MICHAEL
 
 
 if __name__ == "__main__":
-    get_pynwb_ndtypes_map()
+    print(get_pynwb_ndtypes_map())
