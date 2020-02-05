@@ -359,8 +359,8 @@ def upload(
     develop_debug,
 ):
     # Ensure that we have all Folders created as well
-    assert local_top_path, "--local-top-path must be specified for now"
-    assert girder_collection, "--collection must be specified"
+    assert local_top_path, "--local-top-path (-t) must be specified for now"
+    assert girder_collection, "--girder-collection (-c) must be specified"
 
     if not girder_top_folder:
         # TODO: UI
