@@ -663,3 +663,36 @@ def upload(
                 else:
                     rec.update(skip_file(exc))
             out(rec)
+
+
+@main.command()
+@click.option(
+    "-f",
+    "--format",
+    help="Python .format() template to be used to create a full path to a file. "
+    "It will be provided a dict with metadata fields and some prepared "
+    "fields such as '_filename' which is prepared according to internal rules.",
+    default="{_filename}",
+)
+@click.option(
+    "--dry-run",
+    help="Just print proposed layout without moving any files",
+    default=False,
+    is_flag=True,
+)
+@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=False))
+def organize(paths, format="{_filename}", dry_run=False):
+    """(Re)organize (and rename) files according to the metadata.
+
+    The purpose of this command is to provide datasets with consistently named files,
+    so their naming reflects data they contain.
+
+    Based on the metadata contained in the considered files, it will also generate
+    the dataset level descriptor file, which possibly later would need to
+    be adjusted "manually".
+    """
+    # from ..organize import michaelspiece
+
+    # ATM we will just work with .json dumps to play around with it
+    # so paths would be the file to load
+    pass
