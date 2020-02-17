@@ -362,12 +362,26 @@ def upload(
     assert local_top_path, "--local-top-path (-t) must be specified for now"
     assert girder_collection, "--girder-collection (-c) must be specified"
 
+    from pathlib import Path, PurePosixPath
+
+    local_top_path = Path(local_top_path).resolve()
+
     if not girder_top_folder:
         # TODO: UI
         #  Most often it would be the same directory name as of the local top dir
-        girder_top_folder = op.basename(local_top_path)
-        if girder_top_folder in (op.pardir, op.curdir):
-            girder_top_folder = op.basename(op.realpath(local_top_path))
+        girder_top_folder = local_top_path.name
+        lgr.info(
+            f"No folder on the server was specified, will use {girder_top_folder!r}"
+        )
+
+    if str(girder_top_folder) in (".", "..", "", "/"):
+        lgr.error(
+            f"Got folder {girder_top_folder}, but files cannot be uploaded "
+            f"into a collection directly."
+        )
+        sys.exit(1)
+
+    girder_top_folder = PurePosixPath(girder_top_folder)
 
     import multiprocessing
     from .. import girder
@@ -377,7 +391,6 @@ def upload(
     from ..utils import get_utcnow_datetime
     from ..support.generatorify import generator_from_callback
     from ..support.pyout import naturalsize
-    from pathlib import Path, PurePosixPath
 
     ignore_benign_pynwb_warnings()  # so validate doesn't whine
 
@@ -397,9 +410,6 @@ def upload(
         sys.exit(1)
 
     lgr.debug("Working with collection %s", collection_rec)
-
-    local_top_path = Path(local_top_path).resolve()
-    girder_top_folder = PurePosixPath(girder_top_folder)
 
     # We will keep a shared set of "being processed" paths so
     # we could limit the number of them until

@@ -2,7 +2,7 @@ import json
 import keyring
 import sys
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import girder_client as gcl
 
@@ -35,7 +35,7 @@ def lookup(client, collection, path=None):
     """A helper for common logic while looking up things on girder"""
     req = f"/collection/{collection}"
     target = "Collection"
-    if path:
+    if path is not None:
         req += f"/{path}"
         target = "Path"
 
@@ -129,6 +129,10 @@ def ensure_folder(client, collection_rec, collection, folder):
      - ATM doesn't care about providing `description` and `public` options
      - doesn't check the type in folder_rec -- may be a file???
     """
+    assert folder and str(folder) not in (
+        "/",
+        ".",
+    ), "Folder must not be empty, and should not be . or /"
     try:
         folder_rec = lookup(client, collection=collection, path=folder)
     except GirderNotFound:
@@ -138,14 +142,17 @@ def ensure_folder(client, collection_rec, collection, folder):
         parent_id = collection_rec["_id"]
         parent_type = "collection"
         parent_path = Path()
-        for parent_dirname in folder.parts:
+        for parent_dirname in folder.parts or ("",):
             parent_path /= parent_dirname
             try:
                 folder_rec = lookup(client, collection=collection, path=parent_path)
             except GirderNotFound:
                 lgr.debug(f"Forder {parent_dirname} was not found, creating")
                 folder_rec = client.createFolder(
-                    parent_id, parent_dirname, parentType=parent_type
+                    parent_id,
+                    parent_dirname,
+                    parentType=parent_type,
+                    # for now just depend on collection setup public=True,
                 )
             parent_id = folder_rec["_id"]
             parent_type = "folder"
