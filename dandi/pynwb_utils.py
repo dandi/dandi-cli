@@ -47,6 +47,11 @@ def get_neurodata_types_to_modalities_map():
 
     ndtypes = {}
 
+    # TODO: if there are extensions, they might have types subclassed from the base
+    # types.  There might be a map within pynwb (pynwb.get_type_map?) to return
+    # known extensions. We would need to go along MRO to the base to figure out
+    # "modality"
+    #
     # They import all submods within __init__
     for a, v in pynwb.__dict__.items():
         if not (inspect.ismodule(v) and v.__name__.startswith("pynwb.")):
