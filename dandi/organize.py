@@ -21,7 +21,9 @@ def filter_invalid_metadata_rows(metadata_rows):
     return valid, invalid
 
 
-def create_unique_filenames_from_metadata(metadata_rows, mandatory=["modalities"]):
+def create_unique_filenames_from_metadata(
+    metadata_rows, mandatory=["modalities", "extension"]
+):
     """
 
     Parameters
