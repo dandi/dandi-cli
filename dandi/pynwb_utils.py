@@ -181,6 +181,14 @@ def _get_pynwb_metadata(path):
             out[subject_feature] = getattr(nwb.subject, subject_feature, None)
         # Add a few additional useful fields
 
+        # "Custom" DANDI extension by Ben for now to contain additional metadata
+        # not present in nwb-schema
+        dandi_icephys = getattr(nwb, "lab_meta_data", {}).get(
+            "DandiIcephysMetadata", None
+        )
+        if dandi_icephys:
+            out.update(dandi_icephys.fields)
+
         # Counts
         for f in metadata_computed_fields:
             if f in ("nwb_version", "nd_types"):

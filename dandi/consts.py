@@ -23,6 +23,8 @@ metadata_subject_fields = (
     "subject_id",
 )
 
+metadata_dandi_fields = ("cell_id", "tissue_sample_id")
+
 metadata_computed_fields = (
     "number_of_electrodes",
     "number_of_units",
@@ -31,5 +33,8 @@ metadata_computed_fields = (
 )
 
 metadata_all_fields = (
-    metadata_fields + metadata_subject_fields + metadata_computed_fields
+    metadata_fields
+    + metadata_subject_fields
+    + metadata_dandi_fields
+    + metadata_computed_fields
 )
