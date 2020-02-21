@@ -123,7 +123,7 @@ def get_metadata(path):
 
 def _get_pynwb_metadata(path):
     out = {}
-    with NWBHDF5IO(path, "r") as io:
+    with NWBHDF5IO(path, "r", load_namespaces=True) as io:
         nwb = io.read()
         for key in metadata_fields:
             value = getattr(nwb, key)
