@@ -10,10 +10,11 @@ from .command import main, lgr
 @main.command()
 @click.option(
     "-t",
-    "--local-top-path",
+    "--top-path",
     help="Top directory (local) of the dataset.  If not specified, current "
-    "directory is assumed.",
-    type=click.Path(exists=True, dir_okay=True, file_okay=False),
+    "directory is assumed.  Files will be (re)organized into that directory. "
+    "For 'simulate' mode target directory must not exist.",
+    type=click.Path(dir_okay=True, file_okay=False),  # exists=True,
     default=os.curdir,
 )
 @click.option(
@@ -38,7 +39,7 @@ from .command import main, lgr
     default="act",
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
-def organize(paths, local_top_path=os.curdir, format=None, invalid="fail", mode="act"):
+def organize(paths, top_path=os.curdir, format=None, invalid="fail", mode="act"):
     """(Re)organize (and rename) files according to the metadata.
 
     The purpose of this command is to provide datasets with consistently named files,
@@ -56,8 +57,17 @@ def organize(paths, local_top_path=os.curdir, format=None, invalid="fail", mode=
         filter_invalid_metadata_rows,
     )
 
-    if mode not in ("act",):
+    if mode not in ("dry", "simulate"):
         raise NotImplementedError(mode)
+    # Early checks to not wait to fail
+    if mode == "simulate":
+        # in this mode we will demand the entire output folder to be absent
+        if op.exists(top_path):
+            # TODO: RF away
+            raise RuntimeError(
+                "In simulate mode %r (--top-path) must not exist, we will create it."
+                % top_path
+            )
 
     if len(paths) == 1 and paths[0].endswith(".json"):
         # Our dumps of metadata
@@ -89,34 +99,45 @@ def organize(paths, local_top_path=os.curdir, format=None, invalid="fail", mode=
             raise ValueError(f"invalid has an invalid value {invalid}")
 
     metadata = create_unique_filenames_from_metadata(metadata)
+
     # Verify that we got unique paths
     all_paths = [m["dandi_path"] for m in metadata]
     all_paths_unique = set(all_paths)
+    non_unique = {}
     if not len(all_paths) == len(all_paths_unique):
         counts = Counter(all_paths)
         non_unique = {p: c for p, c in counts.items() if c > 1}
         # Let's prepare informative listing
-        nu_list = []
         for p in non_unique:
             orig_paths = []
             for m in metadata:
                 if m["dandi_path"] == p:
                     orig_paths.append(m["path"])
-            nu_list.append("    %s: %s" % (p, ", ".join(orig_paths)))
-        raise AssertionError(
+            non_unique[p] = orig_paths  # overload with the list instead of count
+        # TODO: in future should be an error, for now we will lay them out
+        #  as well to ease investigation
+        lgr.warning(
             "%d out of %d paths are not unique:\n%s"
-            % (len(non_unique), len(all_paths), "\n".join(nu_list))
+            % (
+                len(non_unique),
+                len(all_paths),
+                "\n".join("   %s: %s" % i for i in non_unique.items()),
+            )
         )
 
     # Verify first that the target paths do not exist yet, and fail if they do
+    # Note: in "simulate" mode we do early check as well, so this would be
+    # duplicate but shouldn't hurt
     existing = []
     for e in metadata:
-        dandi_path = op.join(local_top_path, e["dandi_path"])
-        if op.exists(dandi_path):
-            existing.append(dandi_path)
+        dandi_fullpath = op.join(top_path, e["dandi_path"])
+        if op.exists(dandi_fullpath):
+            existing.append(dandi_fullpath)
+
     if existing:
         raise AssertionError(
-            "%d paths already exists: %s%s.  Remove them first"(
+            "%d paths already exists: %s%s.  Remove them first"
+            % (
                 len(existing),
                 ", ".join(existing[:5]),
                 " and more" if len(existing) > 5 else "",
@@ -124,12 +145,32 @@ def organize(paths, local_top_path=os.curdir, format=None, invalid="fail", mode=
         )
 
     for e in metadata:
-        dandi_path = op.join(local_top_path, e["dandi_path"])
-        print(f"{e['path']} -> {e['dandi_path']}")
+        dandi_path = e["dandi_path"]
+        dandi_fullpath = op.join(top_path, dandi_path)
+        dandi_dirpath = op.dirname(dandi_fullpath)
+        # print(f"{e['path']} -> {e['dandi_path']}")
         if mode == "dry":
-            pass  # print(f"{e['path']} -> {e['dandi_path']}")
-        elif mode == "organize":
-            with open(dandi_path, "w"):
-                pass
+            print(f"{e['path']} -> {e['dandi_path']}")
+        elif mode == "simulate":
+            if not op.exists(dandi_dirpath):
+                os.makedirs(dandi_dirpath)
+            if dandi_path in non_unique:
+                # we will just populate all copies upon first hit
+                if op.exists(dandi_fullpath):
+                    assert op.isdir(dandi_fullpath)
+                else:
+                    os.makedirs(dandi_fullpath)
+                    for i, filename in enumerate(non_unique[dandi_path]):
+                        os.symlink(filename, op.join(dandi_fullpath, str(i)))
+            else:
+                # TODO: here and above -- ideally we should somehow reference to the original
+                # files really.  We might need a dedicated option to make organized
+                # version go into another folder.
+                os.symlink(e["path"], dandi_fullpath)
         else:
             raise NotImplementedError(mode)
+
+    lgr.info(
+        "Finished processing %d paths with %d having duplicates. Visit %s"
+        % (len(metadata), len(non_unique), top_path)
+    )

@@ -655,7 +655,7 @@ def upload(
                     rec[rec_fields[1:]] = process_path(path, relpath)
             except ValueError as exc:
                 if "does not start with" in str(exc):
-                    # if local_top_path is not the top path for the path
+                    # if top_path is not the top path for the path
                     # Provide more concise specific message without path details
                     rec.update(skip_file("must be a child of top path"))
                 else:

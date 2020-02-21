@@ -2,6 +2,7 @@
 ATM primarily a sandbox for some functionality for  dandi organize
 """
 
+import re
 import dateutil.parser
 import os.path as op
 
@@ -78,9 +79,7 @@ def create_unique_filenames_from_metadata(
     unique_values = {}
     for field in potential_fields:
         unique_values[field] = set(r.get(field, None) for r in metadata)
-    import pdb
 
-    pdb.set_trace()
     # unless it is mandatory, we would not include the fields with more than
     # a single unique field
     for r in metadata:
@@ -91,6 +90,11 @@ def create_unique_filenames_from_metadata(
                 if value is not None:
                     if isinstance(value, (list, tuple)):
                         value = "+".join(value)
+                    # sanitize value to avoid undesired characters
+                    value = re.sub("[_*:%@]", "-", value)
+                    if field != "extension":
+                        value = value.replace(".", "-")
+                    # Format _key-value according to the "schema"
                     formatted_value = field_format.format(value)
                     dandi_filename += formatted_value
         r["dandi_filename"] = dandi_filename
