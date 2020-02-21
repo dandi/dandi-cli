@@ -31,7 +31,4 @@ def test_find_files():
     for f in files3:
         assert op.basename(f).startswith("test_")
 
-    import pdb
-
-    pdb.set_trace()
-    pass
+    # TODO: more tests

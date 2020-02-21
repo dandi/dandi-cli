@@ -2,7 +2,6 @@ from click.testing import CliRunner
 import pytest
 
 from ..command import ls
-from ...pynwb_utils import metadata_fields
 
 
 @pytest.mark.parametrize("format", ("auto", "json", "json_pp", "yaml", "pyout"))
