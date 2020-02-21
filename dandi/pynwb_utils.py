@@ -36,6 +36,49 @@ def get_nwb_version(filepath):
             lgr.debug("%s has no nwb_version" % filepath)
 
 
+def get_neurodata_types_to_modalities_map():
+    """Return a dict to map neurodata types known to pynwb to "modalities"
+
+    It is an ugly hack, largely to check feasibility.
+    It would base modality on the filename within pynwb providing that neural
+    data type
+    """
+    import inspect
+
+    ndtypes = {}
+
+    # TODO: if there are extensions, they might have types subclassed from the base
+    # types.  There might be a map within pynwb (pynwb.get_type_map?) to return
+    # known extensions. We would need to go along MRO to the base to figure out
+    # "modality"
+    #
+    # They import all submods within __init__
+    for a, v in pynwb.__dict__.items():
+        if not (inspect.ismodule(v) and v.__name__.startswith("pynwb.")):
+            continue
+        for a_, v_ in v.__dict__.items():
+            # now inspect all things within and get neural datatypes
+            if inspect.isclass(v_) and issubclass(v_, pynwb.core.NWBMixin):
+                ndtype = v_.__name__
+
+                v_split = v_.__module__.split(".")
+                if len(v_split) != 2:
+                    print("Skipping %s coming from %s" % v_, v_.__module__)
+                    continue
+                modality = v_split[1]  # so smth like ecephys
+
+                if ndtype in ndtypes:
+                    if ndtypes[ndtype] == modality:
+                        continue  # all good, just already known
+                    raise RuntimeError(
+                        "We already have %s pointing to %s, but now got %s"
+                        % (ndtype, ndtypes[ndtype], modality)
+                    )
+                ndtypes[ndtype] = modality
+
+    return ndtypes
+
+
 def get_neurodata_types(filepath):
     with h5py.File(filepath, "r") as h5file:
         all_pairs = _scan_neurodata_types(h5file)
