@@ -55,6 +55,7 @@ def organize(paths, top_path=os.curdir, format=None, invalid="fail", mode="act")
     from ..organize import (
         create_unique_filenames_from_metadata,
         filter_invalid_metadata_rows,
+        generate_dataset_yml,
     )
 
     if mode not in ("dry", "simulate"):
@@ -97,6 +98,9 @@ def organize(paths, top_path=os.curdir, format=None, invalid="fail", mode="act")
             lgr.warning(msg + " They will be skipped")
         else:
             raise ValueError(f"invalid has an invalid value {invalid}")
+
+    os.makedirs(top_path)
+    generate_dataset_yml(metadata, top_path)
 
     metadata = create_unique_filenames_from_metadata(metadata)
 
@@ -171,6 +175,6 @@ def organize(paths, top_path=os.curdir, format=None, invalid="fail", mode="act")
             raise NotImplementedError(mode)
 
     lgr.info(
-        "Finished processing %d paths with %d having duplicates. Visit %s"
-        % (len(metadata), len(non_unique), top_path)
+        "Finished processing %d paths (%d invalid skipped) with %d having duplicates. Visit %s"
+        % (len(metadata), len(metadata_invalid), len(non_unique), top_path)
     )

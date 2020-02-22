@@ -84,9 +84,7 @@ def create_unique_filenames_from_metadata(
             if value:
                 r[field] = _sanitize_value(value, field)
 
-    unique_values = {}
-    for field in potential_fields:
-        unique_values[field] = set(r.get(field, None) for r in metadata)
+    unique_values = _get_unique_values(metadata, potential_fields)
 
     # unless it is mandatory, we would not include the fields with more than
     # a single unique field
@@ -107,6 +105,15 @@ def create_unique_filenames_from_metadata(
         r["dandi_path"] = dandi_path.format(**r)
 
     return metadata
+
+
+def _get_unique_values(metadata, fields, filter_=False):
+    unique_values = {}
+    for field in fields:
+        unique_values[field] = set(r.get(field, None) for r in metadata)
+        if filter_:
+            unique_values[field] = set(v for v in unique_values[field] if v)
+    return unique_values
 
 
 def _sanitize_value(value, field):
@@ -176,3 +183,162 @@ def _populate_session_ids_from_time(metadata):
             )
         nassigned += 1
     lgr.debug("Assigned %d session_id's based on the date" % nassigned)
+
+
+def generate_dataset_yml(metadata, top_path):
+    filepath = op.join(top_path, "dataset.yml")
+    with open(filepath, "w") as f:
+        # pasted as is from WiP google doc.  We write it, read it, adjust, re-save
+        f.write(
+            """\
+identifier: REQUIRED ## Post upload (or during dandi organize)
+name: REQUIRED
+description: REQUIRED
+contributors: # required for author and contact
+- orcid: # REQUIRED
+  roles: # REQUIRED from https://casrai.org/credit/ + maintainer, contact:
+  email: Recommended # filled from orcid
+  name: Recommended  # filled from orcid
+  affiliations: optional  # filled from orcid
+sponsors:
+- identifier: RECOMMENDED
+  name: REQUIRED
+  url: RECOMMENDED
+license:
+- url # REQUIRED
+keywords: [key1, key2,]
+consortium/project:
+- name: REQUIRED
+  identifier: REQUIRED #RRID
+associated_disease: # RECOMMENDED
+- name: REQUIRED
+  identifier: REQUIRED
+associated_anatomy: # RECOMMENDED
+- name: REQUIRED
+  identifier: REQUIRED
+protocols: # OPTIONAL
+- name: REQUIRED
+  identifier: REQUIRED
+ethicsApprovals: # RECOMMENDED
+- name: REQUIRED # name of committee
+  country: REQUIRED
+  identifier: REQUIRED # protocol number
+access: # OPTIONAL
+  status: REQUIRED # open, embargoed, restricted
+  access_request_url: REQUIRED for embargoed and restricted
+  access_contact_email: REQUIRED for embargoed and restricted
+language: RECOMMENDED
+
+## All metadata below could either be added after publication or
+## extracted from NWB files
+
+## Post publication (i.e. added by DANDI)
+version: REQUIRED
+releaseDate: REQUIRED
+associatedData:
+- name: REQUIRED
+  identifier: REQUIRED
+  repository: REQUIRED
+  url: REQUIRED
+publications:
+- url: REQUIRED # doi preferred
+  identifiers: RECOMMENDED # PMCID
+  relation: RECOMMENDED
+doi: REQUIRED
+url: REQUIRED
+repository: # REQUIRED
+- name: REQUIRED
+  identifier: RRID/REQUIRED
+distribution:
+- DataDownload:
+  - contentURL:  REQUIRED
+    name: required
+    contentSize: REQUIRED
+    datePublished: REQUIRED
+    dateModified: REQUIRED
+    MeasurementType: OPTIONAL
+altid: # OPTIONAL
+- id1
+
+## NWB files + additional metadata provided
+
+variables_measured: OPTIONAL
+age:
+- minimum: REQUIRED
+  maximum: REQUIRED
+  units: REQUIRED
+- categorical: REQUIRED
+sex: REQUIRED
+organism:
+- species: REQUIRED
+  strain: REQUIRED
+  identifier: REQUIRED
+  vendor: OPTIONAL
+number_subjects: REQUIRED
+number_tissueSamples: RECOMMENDED
+number_cells: RECOMMENDED
+"""
+        )
+
+    # import yaml
+    # with open(filepath) as f:
+    #     rec = yaml.load(f, Loader=yaml.CLoader)
+
+    # To preserve comments, let's use ruamel
+    import ruamel.yaml
+
+    yaml = ruamel.yaml.YAML()  # defaults to round-trip if no parameters given
+    with open(filepath) as f:
+        rec = yaml.load(f)
+
+    # Let's use available metadata for at least some of the fields
+    uvs = _get_unique_values(
+        metadata,
+        (
+            "age",
+            "cell_id",
+            "experiment_description",
+            "related_publications",
+            "sex",
+            "species",
+            "subject_id",
+            "tissue_sample_id",
+        ),
+        filter_=True,
+    )
+
+    if uvs["age"]:
+        age = rec["age"][0]
+        age["minimum"] = min(uvs["age"])
+        age["maximum"] = max(uvs["age"])
+        age.pop("units")
+        age.insert(2, "units", "TODO", comment="REQUIRED")
+        # ['units'] = "TODO"  # REQUIRED"
+
+    if uvs["sex"]:
+        # TODO: may be group by subject_id and sex, and then get # per each sex
+        rec["sex"] = sorted(uvs["sex"])
+
+    for mfield, yfield in (
+        ("subject_id", "subjects"),
+        ("cell_id", "cells"),
+        ("tissue_sample_id", "tissueSamples"),
+    ):
+        if uvs[mfield]:
+            rec[f"number_{yfield}"] = len(uvs[mfield])
+
+    if uvs["species"]:
+        species = sorted(uvs["species"])
+        rec["organism"][0]["species"] = species[0]
+        for other in species[1:]:
+            rec["organism"].append({"species": other})
+
+    if uvs["experiment_description"]:
+        rec["description"] = "\n".join(sorted(uvs["experiment_description"]))
+
+    for v in sorted(uvs["related_publications"] or []):
+        rec["publications"].append(v)
+
+    # Save result
+    with open(filepath, "w") as f:
+        yaml.dump(rec, f)
