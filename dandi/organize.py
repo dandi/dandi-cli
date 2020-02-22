@@ -65,10 +65,6 @@ def create_unique_filenames_from_metadata(
     # Additional fields
     #
 
-    # extract File name extension and place them into the records
-    for r in metadata:
-        r["extension"] = op.splitext(r["path"])[1]
-
     # Add "modalities" composed from the ones we could deduce
     _populate_modalities(metadata)
 
@@ -77,6 +73,16 @@ def create_unique_filenames_from_metadata(
     # session_id based on those
     if not all(m.get("session_id") for m in metadata):
         _populate_session_ids_from_time(metadata)
+
+    # And some initial sanitization
+    for r in metadata:
+        # extract File name extension and place them into the records
+        r["extension"] = op.splitext(r["path"])[1]
+        # since those might be used in dandi_path
+        for field in "subject_id", "session_id":
+            value = r.get(field, None)
+            if value:
+                r[field] = _sanitize_value(value, field)
 
     unique_values = {}
     for field in potential_fields:
@@ -93,9 +99,7 @@ def create_unique_filenames_from_metadata(
                     if isinstance(value, (list, tuple)):
                         value = "+".join(value)
                     # sanitize value to avoid undesired characters
-                    value = re.sub("[_*:%@]", "-", value)
-                    if field != "extension":
-                        value = value.replace(".", "-")
+                    value = _sanitize_value(value, field)
                     # Format _key-value according to the "schema"
                     formatted_value = field_format.format(value)
                     dandi_filename += formatted_value
@@ -103,6 +107,18 @@ def create_unique_filenames_from_metadata(
         r["dandi_path"] = dandi_path.format(**r)
 
     return metadata
+
+
+def _sanitize_value(value, field):
+    """Replace all "non-compliant" characters with -
+
+    Of particular importance is _ which we use, as in BIDS, to separate
+    _key-value entries
+    """
+    value = re.sub("[_*:%@]", "-", value)
+    if field != "extension":
+        value = value.replace(".", "-")
+    return value
 
 
 def _populate_modalities(metadata):
