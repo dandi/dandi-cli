@@ -53,6 +53,8 @@ def create_unique_filenames_from_metadata(
     potential_fields = {
         "subject_id": "sub-{}",
         "session_id": "_ses-{}",
+        "tissue_sample_id": "_tis-{}",
+        "cell_id": "_cell-{}",
         # "session_description"
         "modalities": "_{}",
         "extension": "{}",
