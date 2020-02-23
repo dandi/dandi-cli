@@ -34,4 +34,13 @@ jobs:
         pip install ".[test]"
     - name: ${{ matrix.module }} tests
       run: |
-        python -m pytest -s -v --cov=dandi dandi
+        python -m pytest -s -v --cov=dandi --cov-report=xml dandi
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v1
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./coverage.xml
+        flags: unittests
+        # name: codecov-umbrella
+        # yml: ./codecov.yml
+        fail_ci_if_error: true
