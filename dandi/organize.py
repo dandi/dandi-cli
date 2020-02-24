@@ -16,7 +16,11 @@ def filter_invalid_metadata_rows(metadata_rows):
     """Split into two lists - valid and invalid entries"""
     valid, invalid = [], []
     for row in metadata_rows:
-        if row["nwb_version"] == "ERROR" or "subject_id" not in row:
+        if row["nwb_version"] == "ERROR":
+            lgr.warning("nwb_version is ERROR for {path}".format(**row))
+            invalid.append(row)
+        elif "subject_id" not in row:
+            lgr.warning("subject_id is missing for {path}".format(**row))
             invalid.append(row)
         else:
             valid.append(row)
