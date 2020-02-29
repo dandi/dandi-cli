@@ -1,5 +1,6 @@
 import datetime
 import os
+import os.path as op
 import sys
 import time
 
@@ -102,7 +103,7 @@ def upload(
 
     ignore_benign_pynwb_warnings()  # so validate doesn't whine
 
-    client = girder.authenticate(girder_instance)
+    client = girder.get_client(girder.known_instances[girder_instance])
 
     try:
         collection_rec = girder.ensure_collection(client, girder_collection)
@@ -197,7 +198,7 @@ def upload(
             assert sorted(file_metadata_) == ["uploaded_mtime", "uploaded_size"]
             item_file_metadata_ = {
                 k: item_rec.get("meta", {}).get(k, None)
-                for k in ["uploaded_mtime", "uploaded_size"]
+                for k in ["uploaded_mtime", "uploaded_ctime", "uploaded_size"]
             }
             lgr.debug(
                 "Files meta: local file: %s  remote file: %s",
@@ -288,6 +289,15 @@ def upload(
                     * ((r["current"] / r["total"]) if r["total"] else 1.0)
                 }
 
+            # Get uploaded file id
+            file_id, current = client.isFileCurrent(
+                item_rec["_id"], op.basename(path), op.abspath(path)
+            )
+            if not current:
+                raise RuntimeError(
+                    "Must not happen since file %s was just uploaded" % path
+                )
+
             # Provide metadata for the item from the file, could be done via
             #  a callback to be triggered upon successfull upload, or we could
             #  just do it "manually"
@@ -311,6 +321,17 @@ def upload(
             metadata_.update(file_metadata_)
             metadata_["uploaded_size"] = os.stat(str(path)).st_size
             metadata_["uploaded_mtime"] = os.stat(str(path)).st_mtime
+            metadata_["uploaded_ctime"] = os.stat(str(path)).st_ctime
+
+            # Apparently girder has that, so we would duplicate but
+            # it might allow to track if file was modified
+            yield {"status": "setting remote timestamps"}
+            client.setResourceTimestamp(
+                file_id,
+                type="file",
+                updated=metadata["uploaded_mtime"],
+                created=metadata["uploaded_ctime"],
+            )
 
             yield {"status": "uploading metadata"}
             client.addMetadataToItem(item_rec["_id"], metadata_)
