@@ -1,6 +1,6 @@
 # DANDI Client
 
-![Tests](https://github.com/dandi/dandi-cli/workflows/Tests/badge.svg)
+[![Tests](https://github.com/dandi/dandi-cli/workflows/Tests/badge.svg)](https://github.com/dandi/dandi-cli/actions?query=workflow%3ATests)
 [![codecov.io](https://codecov.io/github/dandi/dandi-cli/coverage.svg?branch=master)](https://codecov.io/github/dandi/dandi-cli?branch=master)
 [![GitHub release](https://img.shields.io/github/release/dandi/dandi-cli.svg)](https://GitHub.com/dandi/dandi-cli/releases/)
 [![PyPI version fury.io](https://badge.fury.io/py/dandi.svg)](https://pypi.python.org/pypi/dandi/)
