@@ -77,6 +77,5 @@ def main(log_level, pdb=False):
 from .cmd_ls import ls
 from .cmd_organize import organize
 from .cmd_upload import upload
-
-# WiP from .cmd_download import download
+from .cmd_download import download
 from .cmd_validate import validate
