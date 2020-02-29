@@ -1,6 +1,14 @@
 # DANDI Client
 
-This repository is under heavy development.  Check-in later.
+![Tests](https://github.com/dandi/dandi-cli/workflows/Tests/badge.svg)
+[![codecov.io](https://codecov.io/github/dandi/dandi-cli/coverage.svg?branch=master)](https://codecov.io/github/dandi/dandi-cli?branch=master)
+[![GitHub release](https://img.shields.io/github/release/dandi/dandi-cli.svg)](https://GitHub.com/dandi/dandi-cli/releases/)
+[![PyPI version fury.io](https://badge.fury.io/py/dandi.svg)](https://pypi.python.org/pypi/dandi/)
+
+This project is under heavy development.  Beware of [hidden](I-wish-we-knew) and
+[disclosed](https://github.com/dandi/dandi-cli/issues) issues and
+Work-in-Progress (WiP) (again might be [hidden](still-on-the-laptop-only) or
+[public](https://github.com/dandi/dandi-cli/pulls)).
 
 ## Installation
 
@@ -12,7 +20,8 @@ install them in your Python (native, virtualenv, or conda) environment via
 ## dandi tool
 
 This package provides a `dandi` command line utility with a basic interface
-which should assist you in preparing and uploading your data to http://dandiarchive.org.
+which should assist you in preparing and uploading your data to and/or obtaining
+data from the http://dandiarchive.org:
 
 ```bash
 $> dandi
