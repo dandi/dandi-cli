@@ -5,7 +5,7 @@ from .command import main, get_files
 @main.command()
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=False))
 def validate(paths):
-    """Validate files for NWB (and DANDI) compliance
+    """Validate files for NWB (and DANDI) compliance.
 
     Exits with non-0 exit code if any file is not compliant.
     """

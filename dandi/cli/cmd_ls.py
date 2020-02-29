@@ -28,7 +28,7 @@ from .command import lgr, main
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=False))
 def ls(paths, fields=None, format="auto"):
-    """List file size and selected set of metadata fields
+    """List .nwb files metadata
     """
     from ..consts import metadata_all_fields
 

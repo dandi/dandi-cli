@@ -40,7 +40,7 @@ from .command import main, lgr
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
 def organize(paths, top_path=os.curdir, format=None, invalid="fail", mode="act"):
-    """(Re)organize (and rename) files according to the metadata.
+    """(Re)organize files according to the metadata.
 
     The purpose of this command is to provide datasets with consistently named files,
     so their naming reflects data they contain.

@@ -62,6 +62,8 @@ def print_version(ctx, param, value):
 )
 @click.option("--pdb", help="Fall into pdb if errors out", is_flag=True)
 def main(log_level, pdb=False):
+    """A client to support interactions with DANDI archive (http://dandiarchive.org).
+    """
     set_logger_level(get_logger(), log_level)  # common one
     if pdb:
         from ..utils import setup_exceptionhook
@@ -75,4 +77,6 @@ def main(log_level, pdb=False):
 from .cmd_ls import ls
 from .cmd_organize import organize
 from .cmd_upload import upload
+
+# WiP from .cmd_download import download
 from .cmd_validate import validate

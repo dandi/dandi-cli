@@ -65,6 +65,7 @@ def upload(
     fake_data,
     develop_debug,
 ):
+    """Upload files to DANDI archive"""
     # Ensure that we have all Folders created as well
     assert local_top_path, "--local-top-path (-t) must be specified for now"
     assert girder_collection, "--girder-collection (-c) must be specified"
