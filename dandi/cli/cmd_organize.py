@@ -48,6 +48,9 @@ def organize(paths, top_path=os.curdir, format=None, invalid="fail", mode="act")
     Based on the metadata contained in the considered files, it will also generate
     the dataset level descriptor file, which possibly later would need to
     be adjusted "manually".
+
+    See https://github.com/dandi/metadata-dumps/tree/organize/organized/ for
+    examples of (re)organized datasets (files content is original filenames)
     """
     if format:
         raise NotImplementedError("format support is not yet implemented")
