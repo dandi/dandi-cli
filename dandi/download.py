@@ -33,6 +33,14 @@ def parse_dandi_url(url):
       dandi???
       https://girder.dandiarchive.org/api/v1/item/5dab0972f377535c7d96c392/download
 
+    TODOs:
+    - "support" DANDI naming, such as
+      https://dandiarchive.org/dandiset/000001
+      Since currently redirects, I think we should just for any URL first
+      pass it into dandiarchive.org until it stops redirecting (if possible
+      without downloading actual content). This way client could stay compatible
+      with any changes to the routing which might happen.
+
     It will use some of `known_instance`s to map some urls, e.g. from
     gui.dandiarchive.org ones into girder.
 
