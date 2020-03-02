@@ -1,5 +1,6 @@
 import os.path as op
 from pathlib import Path, PurePosixPath
+import requests
 import urllib.parse as up
 
 import multiprocessing
@@ -33,16 +34,14 @@ def parse_dandi_url(url):
       dandi???
       https://girder.dandiarchive.org/api/v1/item/5dab0972f377535c7d96c392/download
 
-    TODOs:
-    - "support" DANDI naming, such as
-      https://dandiarchive.org/dandiset/000001
-      Since currently redirects, I think we should just for any URL first
-      pass it into dandiarchive.org until it stops redirecting (if possible
-      without downloading actual content). This way client could stay compatible
-      with any changes to the routing which might happen.
+    "Features":
 
-    It will use some of `known_instance`s to map some urls, e.g. from
-    gui.dandiarchive.org ones into girder.
+    - supports DANDI naming, such as https://dandiarchive.org/dandiset/000001
+      Since currently redirects, it just resorts to redirect if url lacks #.
+      TODO: make more efficient, .head instead of .get or some other way to avoid
+      full download.
+    - uses some of `known_instance`s to map some urls, e.g. from
+      gui.dandiarchive.org ones into girder.
 
     Returns
     -------
@@ -50,12 +49,30 @@ def parse_dandi_url(url):
       asset_type is either asset_id or folder ATM
 
     """
+    if "#" not in url:
+        # assume that it was a dandi notation, let's try to follow redirects
+        # TODO: make .head work instead of .get on the redirector
+        r = requests.get(url, allow_redirects=True)
+        if r.status_code != 200:
+            lgr.warning(
+                f"Response for getting {url} to redirect returned "
+                f"{r.status_code}.  We will ignore returned result."
+            )
+        elif r.url != url:
+            url = r.url
+        else:
+            lgr.warning(f"Redirection did not happen for {url}")
+
+    # We will just allow exception to escape if something goes wrong.
+    # Warnings above could provide a clue in some cases
     u = up.urlsplit(url)
     assert not u.query
+
     if u.netloc in ("gui.dandiarchive.org", "dandiarchive.org"):
         hostname = "girder.dandiarchive.org"
     else:
         hostname = u.netloc
+
     # server address is without query and fragment identifier
     server = up.urlunsplit((u[0], hostname, u[2], None, None))
     # The rest will come from fragment
