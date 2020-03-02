@@ -7,6 +7,7 @@ import dateutil.parser
 import os.path as op
 
 from . import get_logger
+from .consts import dandiset_metadata_file
 from .pynwb_utils import get_neurodata_types_to_modalities_map
 
 lgr = get_logger()
@@ -190,10 +191,10 @@ def _populate_session_ids_from_time(metadata):
     lgr.debug("Assigned %d session_id's based on the date" % nassigned)
 
 
-def generate_dataset_yml(metadata, top_path):
-    filepath = op.join(top_path, "dataset.yml")
+def create_dataset_yml_template(filepath):
     with open(filepath, "w") as f:
-        # pasted as is from WiP google doc.  We write it, read it, adjust, re-save
+        # pasted as is from WiP google doc.  We write it, read it, adjust,
+        # re-save
         f.write(
             """\
 identifier: REQUIRED ## Post upload (or during dandi organize)
@@ -285,10 +286,8 @@ number_cells: RECOMMENDED
 """
         )
 
-    # import yaml
-    # with open(filepath) as f:
-    #     rec = yaml.load(f, Loader=yaml.CLoader)
 
+def populate_dataset_yml(filepath, metadata):
     # To preserve comments, let's use ruamel
     import ruamel.yaml
 

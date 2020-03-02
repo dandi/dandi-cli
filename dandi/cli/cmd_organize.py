@@ -5,14 +5,15 @@ import os.path as op
 from collections import Counter
 
 from .command import main, lgr
+from ..consts import dandiset_metadata_file
 
 
 @main.command()
 @click.option(
     "-t",
     "--top-path",
-    help="Top directory (local) of the dataset.  If not specified, current "
-    "directory is assumed.  Files will be (re)organized into that directory. "
+    help="Top directory (local) of the dataset to organize files under.  "
+    "If not specified, current directory is assumed. "
     "For 'simulate' mode target directory must not exist.",
     type=click.Path(dir_okay=True, file_okay=False),  # exists=True,
     default=os.curdir,
@@ -25,6 +26,13 @@ from .command import main, lgr
     "fields such as '_filename' which is prepared according to internal rules.",
 )
 @click.option(
+    "--dandiset-id",
+    help=f"ID of the dandiset on DANDI archive.  Necessary to populate "
+    f"{dandiset_metadata_file}. Please use 'register' command to first "
+    f"register a new dandiset.",
+    # TODO: could add a check for correct regexp
+)
+@click.option(
     "--invalid",
     help="What to do if files without sufficient metadata are encountered.",
     type=click.Choice(["fail", "warn"]),
@@ -34,12 +42,18 @@ from .command import main, lgr
     "--mode",
     help="If 'dry' - no action is performed, suggested renames are printed. "
     "I 'simulate' - hierarchy of empty files at --local-top-path is created. "
-    "Note that previous files should be removed prior this operation.",
-    type=click.Choice(["act", "dry", "simulate"]),
-    default="act",
+    "Note that previous files should be removed prior this operation.  The "
+    "other modess (cp, mv, symlink, hardlink) define how data files should "
+    "be made available.",
+    type=click.Choice(
+        ["dry", "simulate", "cp", "hardlink", "softlink"]
+    ),  # TODO: hardlink, symlink
+    default="dry",
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
-def organize(paths, top_path=os.curdir, format=None, invalid="fail", mode="act"):
+def organize(
+    paths, top_path=os.curdir, format=None, dandiset_id=None, invalid="fail", mode="dry"
+):
     """(Re)organize files according to the metadata.
 
     The purpose of this command is to provide datasets with consistently named files,
@@ -58,7 +72,8 @@ def organize(paths, top_path=os.curdir, format=None, invalid="fail", mode="act")
     from ..organize import (
         create_unique_filenames_from_metadata,
         filter_invalid_metadata_rows,
-        generate_dataset_yml,
+        populate_dataset_yml,
+        create_dataset_yml_template,
     )
 
     if mode not in ("dry", "simulate"):
@@ -103,7 +118,39 @@ def organize(paths, top_path=os.curdir, format=None, invalid="fail", mode="act")
             raise ValueError(f"invalid has an invalid value {invalid}")
 
     os.makedirs(top_path)
-    generate_dataset_yml(metadata, top_path)
+    dandiset_metadata_filepath = op.join(top_path, dandiset_metadata_file)
+    if op.lexists(dandiset_metadata_filepath):
+        if dandiset_id is not None:
+            lgr.info(
+                f"We found {dandiset_metadata_filepath} present, provided"
+                f" {dandiset_id} will be ignored."
+            )
+    elif dandiset_id:
+        # TODO: request it from the server and store into dandiset.yaml
+        lgr.debug(
+            f"Requesting metadata for the dandiset {dandiset_id} and"
+            f" storing into {dandiset_metadata_filepath}"
+        )
+        # TODO
+        pass
+    elif mode == "simulate":
+        lgr.info(
+            f"In 'simulate' mode, since no {dandiset_metadata_filepath} found, "
+            f"we will use a template"
+        )
+        create_dataset_yml_template(dandiset_metadata_filepath)
+    else:
+        lgr.warning(
+            f"Found no {dandiset_metadata_filepath} and no --dandiset-id was"
+            f" specified.  For upload later on, you must first use 'register'"
+            f" to obtain a dandiset id.  Meanwhile you could use 'simulate' mode"
+            f" to generate a sample dandiset.yaml if you are interested."
+        )
+        dandiset_metadata_filepath = None
+
+    # If it was not decided not to do that above:
+    if dandiset_metadata_filepath:
+        populate_dataset_yml(dandiset_metadata_filepath, metadata)
 
     metadata = create_unique_filenames_from_metadata(metadata)
 

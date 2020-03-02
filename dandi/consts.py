@@ -38,3 +38,5 @@ metadata_all_fields = (
     + metadata_dandi_fields
     + metadata_computed_fields
 )
+
+dandiset_metadata_file = "dandiset.yaml"
