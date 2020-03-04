@@ -312,12 +312,20 @@ def populate_dataset_yml(filepath, metadata):
     )
 
     if uvs["age"]:
+        if "age" not in rec:
+            rec["age"] = [{}]
         age = rec["age"][0]
         age["minimum"] = min(uvs["age"])
         age["maximum"] = max(uvs["age"])
-        age.pop("units")
-        age.insert(2, "units", "TODO", comment="REQUIRED")
-        # ['units'] = "TODO"  # REQUIRED"
+        if age.get("units", None) in (
+            "REQUIRED",
+            "RECOMMENDED",
+            "OPTIONAL",
+        ):  # template
+            age.pop("units")
+            age.insert(2, "units", "TODO", comment="REQUIRED")
+        else:
+            age["units"] = "TODO"
 
     if uvs["sex"]:
         # TODO: may be group by subject_id and sex, and then get # per each sex
