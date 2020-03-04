@@ -64,6 +64,10 @@ def test_populate_dataset_yml(tmpdir):
         "age": {"maximum": 1, "minimum": 1, "units": "years"},
     }
 
+    # TODO: species
+    # TODO: experiment_description
+    # TODO: related_publications
+
     # Let's play with a templated version
     create_dataset_yml_template(path)
     c1 = c()

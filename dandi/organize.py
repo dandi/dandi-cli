@@ -309,9 +309,12 @@ def populate_dataset_yml(filepath, metadata):
             "species",
             "subject_id",
             "tissue_sample_id",
+            "slice_id",
         ),
         filter_=True,
     )
+
+    DEFAULT_VALUES = ("REQUIRED", "RECOMMENDED", "OPTIONAL")
 
     if uvs["age"]:
         if "age" not in rec:
@@ -321,12 +324,7 @@ def populate_dataset_yml(filepath, metadata):
         age = rec["age"]
         age["minimum"] = min(uvs["age"])
         age["maximum"] = max(uvs["age"])
-        if age.get("units", None) in (
-            None,
-            "REQUIRED",
-            "RECOMMENDED",
-            "OPTIONAL",
-        ):  # template
+        if age.get("units", None) in (None,) + DEFAULT_VALUES:  # template
             age.pop("units", None)
             age.insert(2, "units", "TODO", comment="REQUIRED")
 
@@ -337,6 +335,7 @@ def populate_dataset_yml(filepath, metadata):
     for mfield, yfield in (
         ("subject_id", "subjects"),
         ("cell_id", "cells"),
+        ("slice_id", "slices"),
         ("tissue_sample_id", "tissueSamples"),
     ):
         if uvs[mfield]:
