@@ -270,10 +270,9 @@ altid: # OPTIONAL
 
 variables_measured: OPTIONAL
 age:
-- minimum: REQUIRED
+  minimum: REQUIRED
   maximum: REQUIRED
   units: REQUIRED
-- categorical: REQUIRED
 sex: REQUIRED
 organism:
 - species: REQUIRED
@@ -295,6 +294,9 @@ def populate_dataset_yml(filepath, metadata):
     with open(filepath) as f:
         rec = yaml.load(f)
 
+    if not rec:
+        rec = {}
+
     # Let's use available metadata for at least some of the fields
     uvs = _get_unique_values(
         metadata,
@@ -313,19 +315,20 @@ def populate_dataset_yml(filepath, metadata):
 
     if uvs["age"]:
         if "age" not in rec:
-            rec["age"] = [{}]
-        age = rec["age"][0]
+            # TODO: could not figure out how to add proper ruaml structure here
+            # so duplicating TODO
+            rec["age"] = {"units": "TODO"}
+        age = rec["age"]
         age["minimum"] = min(uvs["age"])
         age["maximum"] = max(uvs["age"])
         if age.get("units", None) in (
+            None,
             "REQUIRED",
             "RECOMMENDED",
             "OPTIONAL",
         ):  # template
-            age.pop("units")
+            age.pop("units", None)
             age.insert(2, "units", "TODO", comment="REQUIRED")
-        else:
-            age["units"] = "TODO"
 
     if uvs["sex"]:
         # TODO: may be group by subject_id and sex, and then get # per each sex
