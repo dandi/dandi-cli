@@ -74,6 +74,33 @@ def get_utcnow_datetime(microseconds=False):
         return ret.replace(microsecond=0)
 
 
+def is_same_time(*times):
+    """Helper to do comparison between time points
+
+    Time zone information gets stripped
+    Does it by first normalizing all times to datetime, and then
+    comparing to the first entry
+    """
+    assert len(times) >= 2
+    norm_times = []
+    for t in times:
+        if isinstance(t, datetime.datetime):
+            pass
+        elif isinstance(t, (int, float)):
+            t = datetime.datetime.utcfromtimestamp(t)
+        elif isinstance(t, str):
+            # could be in different formats, for now parse as ISO
+            t = datetime.datetime.fromisoformat(t)
+            if t.tzinfo:
+                # TODO: check a proper way to handle this so we could account
+                # for a possibly present tz
+                t = t.replace(tzinfo=None)
+        else:
+            raise TypeError(f"Do not know how to work with {t!r}")
+        norm_times.append(t)
+    return all(t == norm_times[0] for t in norm_times[1:])
+
+
 def load_jsonl(filename):
     """Load json lines formatted file"""
     import json

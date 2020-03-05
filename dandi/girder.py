@@ -1,8 +1,10 @@
+from datetime import datetime
 import os
 import os.path as op
 import json
 import keyring
 import sys
+import time
 
 from functools import lru_cache
 from pathlib import Path, PurePosixPath
@@ -10,6 +12,7 @@ from pathlib import Path, PurePosixPath
 import girder_client as gcl
 
 from . import get_logger
+from .utils import is_same_time
 
 lgr = get_logger()
 
@@ -25,6 +28,7 @@ class GirderServer:
 # name: url
 known_instances = {
     "local": "http://localhost:8080",
+    "local91": "http://localhost:8091",  # as provided by entire archive docker compose. gui. on 8092
     "dandi": "https://girder.dandiarchive.org",
 }
 # to map back url: name
@@ -302,10 +306,35 @@ class GirderCli(gcl.GirderClient):
                 if len(children) < gcl.DEFAULT_PAGE_LIMIT:
                     break
 
-    def download(self, file_id, path, attrs):
+    def download_file(self, file_id, path, existing="error", attrs=None):
         if op.lexists(path):
-            lgr.warning(f"File {path} already exists, not downloading")
-            return
+            msg = f"File {path!r} already exists"
+            if existing == "error":
+                raise FileExistsError(msg)
+            elif existing == "skip":
+                lgr.info(msg + " skipping")
+                return
+            elif existing == "overwrite":
+                pass
+            elif existing == "sync":
+                file_mtime = self._get_file_mtime(attrs)
+                if file_mtime is None:
+                    lgr.warning(
+                        f"{path!r} - no mtime or ctime in the record, redownloading"
+                    )
+                else:
+                    stat = os.stat(op.realpath(path))
+                    same = []
+                    if is_same_time(stat.st_mtime, file_mtime):
+                        same.append("mtime")
+                    if "size" in attrs and stat.st_size == attrs["size"]:
+                        same.append("size")
+                    if same == ["mtime", "size"]:
+                        # TODO: add recording and handling of .nwb object_id
+                        lgr.info(f"{path!r} - same time and size, skipping")
+                        return
+                    lgr.debug(f"{path!r} - same attributes: {same}.  Redownloading")
+
         destdir = op.dirname(path)
         os.makedirs(destdir, exist_ok=True)
         # suboptimal since
@@ -320,6 +349,19 @@ class GirderCli(gcl.GirderClient):
         # For starters we would do this implementation but later RF
         # when RF - do not forget to remove progressReporterCls in __init__
         self.downloadFile(file_id, path)
+        # It seems that above call does not care about setting either mtime
+        if attrs:
+            mtime = self._get_file_mtime(attrs)
+            if mtime:
+                t = datetime.fromisoformat(mtime)
+                os.utime(path, (time.time(), t.timestamp()))
+
+    @staticmethod
+    def _get_file_mtime(attrs):
+        if not attrs:
+            return None
+        # XXX I see only ctime available for some reason, so treat it as mtime
+        return attrs.get("mtime", attrs.get("ctime", None))
 
 
 # TODO: our adapter on top of the Girder's client to simplify further

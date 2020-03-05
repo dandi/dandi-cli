@@ -19,12 +19,12 @@ from .command import main, lgr
     "-e",
     "--existing",
     type=click.Choice(
-        ["skip", "overwrite", "refresh"]
+        ["error", "skip", "overwrite", "sync"]
     ),  # TODO: verify-reupload (to become default)
-    help="What to do if a file found existing locally. 'refresh': verify "
+    help="What to do if a file found existing locally. 'sync': verify "
     "that according to the size and mtime, it is the same file, if not - "
     "download and overwrite.",
-    default="skip",
+    default="error",
 )
 # Might be a cool feature, not unlike verifying a checksum, we verify that
 # downloaded file passes the validator, and if not -- alert

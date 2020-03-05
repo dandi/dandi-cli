@@ -44,7 +44,7 @@ def parse_dandi_url(url):
     - supports DANDI naming, such as https://dandiarchive.org/dandiset/000001
       Since currently redirects, it just resorts to redirect if url lacks #.
       TODO: make more efficient, .head instead of .get or some other way to avoid
-      full download.
+      full download_file.
     - uses some of `known_instance`s to map some urls, e.g. from
       gui.dandiarchive.org ones into girder.
 
@@ -75,6 +75,8 @@ def parse_dandi_url(url):
 
     if u.netloc in ("gui.dandiarchive.org", "dandiarchive.org"):
         hostname = "girder.dandiarchive.org"
+    elif u.netloc in ("localhost:8092",):  # ad-hoc eh
+        hostname = "localhost:8091"
     else:
         hostname = u.netloc
 
@@ -140,11 +142,15 @@ def download(
             entities = client.traverse_asset(asset_id, asset_type)
         else:
             raise
+
     # TODO: special handling for a dandiset -- we might need to
     #  generate dandiset.yaml out of the metadata record
     # we care only about files ATM
     files = (e for e in entities if e["type"] == "file")
     for file in files:
-        client.download(
-            file["id"], op.join(local_top_path, file["path"]), file["attrs"]
+        client.download_file(
+            file["id"],
+            op.join(local_top_path, file["path"]),
+            existing=existing,
+            attrs=file["attrs"],
         )
