@@ -1,3 +1,4 @@
+import os
 import os.path as op
 import json
 import keyring
@@ -84,7 +85,10 @@ class GirderCli(gcl.GirderClient):
 
     def __init__(self, server_url):
         self._server_url = server_url.rstrip("/")
-        super().__init__(apiUrl="{}/api/v1".format(self._server_url))
+        super().__init__(
+            apiUrl="{}/api/v1".format(self._server_url),
+            progressReporterCls=TQDMProgressReporter,
+        )
 
     def dandi_authenticate(self):
         if self._server_url in known_instances_rev:
@@ -131,6 +135,26 @@ class GirderCli(gcl.GirderClient):
             "updated": ("attrs", "mtime"),
             "created": ("attrs", "ctime"),
         }
+        # TODO: figure out mtime/ctime between item and a file
+        # On a sample (uploaded not using dandi-cli) upload -- item has both mtime/ctime
+        # and a file -- only ctime
+        #  (Pdb) p rec
+        # {'_id': '5e60c19381bc3e47d94aa014', '_modelType': 'item',
+        # 'baseParentId': '5da4b8fe51c340795cb18fd0', 'baseParentType':
+        # 'user', 'created': '2020-03-05T09:08:35.193000+00:00', 'creatorId':
+        # '5da4b8fe51c340795cb18fd0', 'description': '', 'folderId':
+        # '5e60c14f81bc3e47d94aa012', 'meta': {}, 'name': '18516000.nwb',
+        # 'size': 792849, 'updated': '2020-03-05T09:08:35.193000+00:00'}
+        # (Pdb) c
+        # > /home/yoh/proj/dandi/dandi-cli/dandi/girder.py(136)_adapt_record()
+        # -> for girder, dandi in mapping.items():
+        # (Pdb) p rec
+        # {'_id': '5e60c19381bc3e47d94aa015', '_modelType': 'file',
+        # 'created': '2020-03-05T09:08:35.196000+00:00', 'creatorId':
+        # '5da4b8fe51c340795cb18fd0', 'downloadStatistics': {'completed': 1,
+        # 'requested': 1, 'started': 1}, 'exts': ['nwb'], 'itemId':
+        # '5e60c19381bc3e47d94aa014', 'mimeType': 'application/octet-stream',
+        # 'name': '18516000.nwb', 'size': 792849}
         rec_out = {}
         for girder, dandi in mapping.items():
             if girder not in rec:
@@ -226,6 +250,10 @@ class GirderCli(gcl.GirderClient):
             a_file["metadata"] = a["metadata"]
             a = a_file  # yield enhanced with metadata file entry
         elif a["type"] in ("folder", "collection", "user") and recursive:
+            # TODO: reconsider bothering with types, since could be done
+            # upstairs and returning folder itself last complicates reporting
+            # of intensions.  We could yield it twice, but then it might bring
+            # confusion
             a["attrs"]["size"] = 0
             for child in self._list_folder(g["_id"], g["_modelType"]):
                 for child_a in self._traverse_asset_girder(child, a["path"]):
@@ -273,6 +301,25 @@ class GirderCli(gcl.GirderClient):
                 offset += len(children)
                 if len(children) < gcl.DEFAULT_PAGE_LIMIT:
                     break
+
+    def download(self, file_id, path, attrs):
+        if op.lexists(path):
+            lgr.warning(f"File {path} already exists, not downloading")
+            return
+        destdir = op.dirname(path)
+        os.makedirs(destdir, exist_ok=True)
+        # suboptimal since
+        # 1. downloads into TMPDIR which might lack space etc.  If anything, we
+        # might tune up setting/TMPDIR at the
+        # level of download so it goes alongside with the target path
+        # (e.g. under .FILENAME.dandi-download). That would speed things up
+        # when finalizing the download, possibly avoiding `mv` across partitions
+        # 2. unlike upload it doesn't use a callback but relies on a context
+        #  manager to be called with an .update.  also it uses only filename
+        #  in the progressbar label
+        # For starters we would do this implementation but later RF
+        # when RF - do not forget to remove progressReporterCls in __init__
+        self.downloadFile(file_id, path)
 
 
 # TODO: our adapter on top of the Girder's client to simplify further
@@ -339,3 +386,25 @@ def ensure_folder(client, collection_rec, collection, folder):
             parent_type = "folder"
     lgr.debug(f"Folder: {folder_rec}")
     return folder_rec
+
+
+class TQDMProgressReporter(object):
+    reportProgress = True
+
+    def __init__(self, label="", length=0):
+        import tqdm
+
+        self._pbar = tqdm.tqdm(desc=label, total=length, unit="B", unit_scale=True)
+        self.label = label
+        self.length = length
+
+    def update(self, chunkSize):
+        self._pbar.update(chunkSize)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, tb):
+        self._pbar.clear()  # remove from screen -- not in effect ATM TODO
+        self._pbar.close()
+        del self._pbar

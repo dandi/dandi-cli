@@ -34,6 +34,11 @@ def parse_dandi_url(url):
       dandi???
       https://girder.dandiarchive.org/api/v1/item/5dab0972f377535c7d96c392/download
 
+      # if there is a selection, we could get multiple items TODO:
+      https://gui.dandiarchive.org/#/folder/5e60c14f81bc3e47d94aa012/selected/item+5e60c19381bc3e47d94aa014
+      # might be a convenience to provide, but then this one should become a
+      # generator or return a list of asset_ids
+
     "Features":
 
     - supports DANDI naming, such as https://dandiarchive.org/dandiset/000001
@@ -104,6 +109,7 @@ def download(
         raise NotImplementedError("multiple URLs not supported")
     url = urls[0]
     girder_server_url, asset_type, asset_id = parse_dandi_url(url)
+    lgr.info(f"Downloading {asset_type} with id {asset_id} from {girder_server_url}")
 
     # We could later try to "dandi_authenticate" if run into permission issues.
     # May be it could be not just boolean but the "id" to be used?
@@ -134,8 +140,8 @@ def download(
             entities = client.traverse_asset(asset_id, asset_type)
         else:
             raise
-    for e in entities:
-        print(e)
+    # TODO: special handling for a dandiset -- we might need to
+    #  generate dandiset.yaml out of the metadata record
     # we care only about files ATM
     files = (e for e in entities if e["type"] == "file")
     for file in files:
