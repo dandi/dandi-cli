@@ -40,3 +40,17 @@ metadata_all_fields = (
 )
 
 dandiset_metadata_file = "dandiset.yaml"
+dandiset_identifier_regex = "^[0-9]{6}$"
+
+# name: url
+known_instances = {
+    "local": "http://localhost:8080",
+    "local91": "http://localhost:8091",  # as provided by entire archive docker compose. gui. on 8092
+    "dandi": "https://girder.dandiarchive.org",
+}
+# to map back url: name
+known_instances_rev = {v: k for k, v in known_instances.items()}
+assert len(known_instances) == len(known_instances_rev)
+
+collection_drafts = "drafts"
+collection_releases = "releases"

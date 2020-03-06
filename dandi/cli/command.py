@@ -2,12 +2,11 @@
 Commands definition for DANDI command line interface
 """
 
+import os
 from os import path as op
 
 import click
 from click_didyoumean import DYMGroup
-
-import logging
 
 from .. import get_logger, set_logger_level
 
@@ -36,6 +35,22 @@ def get_files(paths, recursive=True, recurion_limit=None):
     return paths
 
 
+# ???: could make them always available but hidden
+#  via  hidden=True.
+def devel_option(*args, **kwargs):
+    """A helper to make command line options useful for development (only)
+
+    They will become available..."""
+
+    def wrapper(f):
+        if not os.environ.get("DANDI_DEVEL", None):
+            return f
+        else:
+            return click.option(*args, **kwargs)(f)
+
+    return wrapper
+
+
 #
 # Main group
 #
@@ -48,6 +63,13 @@ def print_version(ctx, param, value):
     ctx.exit()
 
 
+def upper(ctx, param, value):
+    import pdb
+
+    pdb.set_trace()
+    return value.upper()
+
+
 # group to provide commands
 @click.group(cls=DYMGroup)
 @click.option(
@@ -56,15 +78,18 @@ def print_version(ctx, param, value):
 @click.option(
     "-l",
     "--log-level",
-    help="Log level (TODO non-numeric values)",
-    type=click.IntRange(1, 40),
-    default=logging.INFO,
+    help="Log level name",
+    # TODO: may be bring also handling of  int  values.  For now -- no need
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
+    default="INFO",
+    # callback=upper,  # TODO: not in effect! seems to come to play only after type validation
+    show_default=True,
 )
 @click.option("--pdb", help="Fall into pdb if errors out", is_flag=True)
 def main(log_level, pdb=False):
     """A client to support interactions with DANDI archive (http://dandiarchive.org).
     """
-    set_logger_level(get_logger(), log_level)  # common one
+    set_logger_level(get_logger(), log_level)
     if pdb:
         from ..utils import setup_exceptionhook
 

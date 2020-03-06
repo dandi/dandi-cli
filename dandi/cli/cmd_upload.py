@@ -1,103 +1,159 @@
-import datetime
+import click
+from datetime import datetime
 import os
 import os.path as op
+import re
 import sys
 import time
 
-import click
-from .command import main, lgr
+
+from .command import devel_option, main, lgr
+from ..utils import ensure_datetime, ensure_strtime, find_parent_directory_containing
+from ..consts import (
+    collection_drafts,
+    dandiset_identifier_regex,
+    dandiset_metadata_file,
+    known_instances,
+)
 
 
 @main.command()
-@click.option("-c", "--girder-collection", help="Girder: collection to upload to")
-@click.option("-d", "--girder-top-folder")
+# TODO: auto-deduce top level of a dandiset.
 @click.option(
-    "-i",
-    "--girder-instance",
-    help="Girder instance to use",
-    type=click.Choice(["dandi", "local"]),
-    default="dandi",
-)
-@click.option(
-    "-t",
-    "--local-top-path",
-    help="Top directory (local) of the dataset.  Files will be uploaded with "
-    "paths relative to that directory",
+    "-d",
+    "--dandiset-path",
+    help="Top directory (local) of the dandiset.  Files will be uploaded with "
+    "paths relative to that directory. If not specified, current or a parent "
+    "directory containing dandiset.yaml file will be assumed ",
     type=click.Path(exists=True, dir_okay=True, file_okay=False),
 )
 @click.option(
     "-e",
     "--existing",
     type=click.Choice(
-        ["skip", "reupload", "refresh"]
+        ["error", "skip", "overwrite", "refresh"]
     ),  # TODO: verify-reupload (to become default)
     help="What to do if a file found existing on the server. 'refresh': verify "
     "that according to the size and mtime, it is the same file, if not - "
-    "reupload.",
-    default="skip",
+    "reupload and overwrite on the remote.",
+    default="refresh",
+    show_default=True,
 )
 @click.option(
     "--validation",
-    "validation_",
+    help="Data must pass validation before the upload.  Use of this option is highly discouraged.",
     type=click.Choice(["require", "skip", "ignore"]),
     default="require",
+    show_default=True,
 )
-@click.option(
+@click.argument("paths", nargs=-1)  # , type=click.Path(exists=True, dir_okay=False))
+# &
+# Development options:  Set DANDI_DEVEL for them to become available
+#
+# TODO: should always go to dandi for now
+@devel_option(
+    "-i",
+    "--girder-instance",
+    help="For development: Girder instance to use",
+    type=click.Choice(sorted(known_instances)),
+    default="dandi",
+    show_default=True,
+)
+# TODO: should always go into 'drafts' (consts.collection_drafts)
+@devel_option(
+    "-c", "--girder-collection", help="For development: Girder collection to upload to"
+)
+# TODO: figure out folder for the dandiset
+@devel_option("-d", "--girder-top-folder", help="For development: Girder top folder")
+#
+@devel_option(
     "--fake-data",
     help="For development: fake file content (filename will be stored instead of actual load)",
     default=False,
     is_flag=True,
 )
-@click.option(
+@devel_option(
     "--develop-debug",
     help="For development: do not use pyout callbacks, do not swallow exception",
     default=False,
     is_flag=True,
 )
-@click.argument("paths", nargs=-1)  # , type=click.Path(exists=True, dir_okay=False))
 def upload(
     paths,
-    girder_collection,
-    girder_top_folder,
-    local_top_path,
-    girder_instance,
+    dandiset_path,
     existing,
-    validation_,
-    fake_data,
-    develop_debug,
+    validation,
+    # Development options should come as kwargs
+    girder_collection=collection_drafts,
+    girder_top_folder=None,
+    girder_instance=None,
+    fake_data=False,  # TODO: not implemented, prune?
+    develop_debug=False,
 ):
-    """Upload files to DANDI archive"""
-    # Ensure that we have all Folders created as well
-    assert local_top_path, "--local-top-path (-t) must be specified for now"
-    assert girder_collection, "--girder-collection (-c) must be specified"
+    """Upload dandiset (files) to DANDI archive.
 
+    Target dandiset to upload to must already be registered in the archive and
+    locally "dandiset.yaml" should exist in `--dandiset-path`.  If you have not
+    yet created a dandiset in the archive, use 'dandi register' command first.
+
+    Local dandiset should pass validation.  For that it should be first organized
+    using 'dandiset organize' command.
+
+    By default all files in the dandiset (not following directories starting with a period)
+    will be considered for the upload.  You can point to specific files you would like to
+    validate and have uploaded.
+    """
     from pathlib import Path, PurePosixPath
+    from ..dandiset import Dandiset
 
-    local_top_path = Path(local_top_path).resolve()
-
-    if not girder_top_folder:
-        # TODO: UI
-        #  Most often it would be the same directory name as of the local top dir
-        girder_top_folder = local_top_path.name
-        lgr.info(
-            f"No folder on the server was specified, will use {girder_top_folder!r}"
+    dandiset = Dandiset.find(dandiset_path)
+    if not dandiset:
+        raise RuntimeError(
+            f"Found no {dandiset_metadata_file}.  Use  'dandi register' and/or 'dandi organize' first"
         )
 
+    # Should no longer be needed
+    # dandiset_path = Path(dandiset_path).resolve()
+
+    # Girder side details:
+
+    if not girder_collection:
+        girder_collection = collection_drafts
+
+    if not girder_top_folder:
+        # We upload to staging/dandiset_id
+        ds_identifier = dandiset.identifier
+        if not ds_identifier:
+            raise ValueError(
+                "No 'identifier' set for the dandiset yet.  Use 'dandi register'"
+            )
+        if not re.match(dandiset_identifier_regex, ds_identifier):
+            raise ValueError(
+                f"Dandiset identifier {ds_identifier} does not follow expected "
+                f"convention {dandiset_identifier_regex!r}.  Use "
+                f"'dandi register' to get a legit identifier"
+            )
+        # this is a path not a girder id
+        girder_top_folder = ds_identifier
+    girder_top_folder = PurePosixPath(girder_top_folder)
+
     if str(girder_top_folder) in (".", "..", "", "/"):
-        lgr.error(
+        raise ValueError(
             f"Got folder {girder_top_folder}, but files cannot be uploaded "
             f"into a collection directly."
         )
-        sys.exit(1)
 
-    girder_top_folder = PurePosixPath(girder_top_folder)
+    # TODO: that the folder already exists
+    if False:
+        raise ValueError(
+            f"There is no {girder_top_folder} in {girder_collection}. Did you use 'dandi register'?"
+        )
 
     import multiprocessing
     from .. import girder
-    from ..pynwb_utils import get_metadata
-    from ..pynwb_utils import validate as pynwb_validate
-    from ..pynwb_utils import ignore_benign_pynwb_warnings
-    from ..utils import get_utcnow_datetime
+    from ..pynwb_utils import get_metadata, ignore_benign_pynwb_warnings
+    from ..validate import validate_file
+    from ..utils import find_dandi_files, path_is_subpath, get_utcnow_datetime
     from ..support.generatorify import generator_from_callback
     from ..support.pyout import naturalsize
 
@@ -119,6 +175,29 @@ def upload(
         sys.exit(1)
 
     lgr.debug("Working with collection %s", collection_rec)
+
+    #
+    # Treat paths
+    #
+    if not paths:
+        paths = [dandiset.path]
+
+    # Expand and validate all paths -- they should reside within dandiset
+    orig_paths = paths
+    paths = list(find_dandi_files(paths))
+    npaths = len(paths)
+    lgr.info(f"Found {npaths} files to consider")
+    for path in paths:
+        path_basename = op.basename(path)
+        if not (
+            path_basename == dandiset_metadata_file or path_basename.endswith(".nwb")
+        ):
+            raise NotImplementedError(
+                f"ATM only .nwb and dandiset.yaml should be in the paths to upload. Got {path}"
+            )
+        fullpath = path if op.isabs(path) else op.abspath(path)
+        if not path_is_subpath(fullpath, dandiset.path):
+            raise ValueError(f"{path} is not under {dandiset.path}")
 
     # We will keep a shared set of "being processed" paths so
     # we could limit the number of them until
@@ -153,9 +232,11 @@ def upload(
 
             # we will add some fields which would help us with deciding to
             # reupload or not
+            path_stat = os.stat(str(path))
             file_metadata_ = {
-                "uploaded_size": os.stat(str(path)).st_size,
-                "uploaded_mtime": os.stat(str(path)).st_mtime,
+                "uploaded_size": path_stat.st_size,
+                "uploaded_mtime": ensure_strtime(path_stat.st_mtime),
+                "uploaded_ctime": ensure_strtime(path_stat.st_ctime),
                 # "uploaded_date": None,  # to be filled out upon upload completion
             }
 
@@ -163,7 +244,7 @@ def upload(
             # (e.g. if decided to reupload)
             delete_before_upload = None
 
-            def get_item_rec():
+            def ensure_item():
                 """This function might need to be called twice, e.g. if we
                 are to reupload the entire item.
 
@@ -190,12 +271,41 @@ def upload(
                     lock.release()
                 return item_rec
 
-            item_rec = get_item_rec()
+            #
+            # 1. Validate first, so we do not bother girder at all if not kosher
+            #
+            if validation != "skip":
+                yield {"status": "validating"}
+                validation_errors = validate_file(path)
+                yield {"errors": len(validation_errors)}
+                # TODO: split for dandi, pynwb errors
+                if validation_errors:
+                    if validation == "require":
+                        yield skip_file("failed validation")
+                        return
+            else:
+                # yielding empty causes pyout to get stuck or crash
+                # https://github.com/pyout/pyout/issues/91
+                # yield {"errors": '',}
+                pass
+
+            #
+            # 2. Ensure having an item
+            #
+            item_rec = ensure_item()
+
+            #
+            # 3. Analyze possibly present on the remote files in the item
+            #
             file_recs = list(client.listFile(item_rec["_id"]))
 
             # get metadata and if we have all indications that it is
             # probably the same -- we just skip
-            assert sorted(file_metadata_) == ["uploaded_mtime", "uploaded_size"]
+            assert sorted(file_metadata_) == [
+                "uploaded_ctime",
+                "uploaded_mtime",
+                "uploaded_size",
+            ]
             item_file_metadata_ = {
                 k: item_rec.get("meta", {}).get(k, None)
                 for k in ["uploaded_mtime", "uploaded_ctime", "uploaded_size"]
@@ -215,6 +325,9 @@ def upload(
                     f"Item {item_rec} contains multiple files: {file_recs}"
                 )
             elif file_recs:  # there is a file already
+                if existing == "error":
+                    # as promised -- not gentle at all!
+                    raise FileExistsError(exists_msg)
                 if existing == "skip":
                     yield skip_file(exists_msg)
                     return
@@ -223,7 +336,7 @@ def upload(
                     if file_thesame:
                         yield skip_file(exists_msg)
                         return
-                elif existing == "reupload":
+                elif existing == "overwrite":
                     pass
                 else:
                     raise ValueError("existing")
@@ -232,30 +345,33 @@ def upload(
 
                 yield {"message": exists_msg + " - reuploading"}
 
-            if validation_ != "skip":
-                yield {"status": "validating"}
-                validation_errors = pynwb_validate(path)
-                yield {"errors": len(validation_errors)}
-                # TODO: split for dandi, pynwb errors
-                if validation_errors:
-                    if validation_ == "require":
-                        yield skip_file("failed validation")
-                        return
-            else:
-                # yielding empty causes pyout to get stuck or crash
-                # https://github.com/pyout/pyout/issues/91
-                # yield {"errors": '',}
-                pass
-
+            #
+            # 4. Extract metadata - delayed since takes time, but is done
+            #    before actual upload, so we could skip if this fails
+            #
             # Extract metadata before actual upload and skip if fails
             # TODO: allow for for non-nwb files to skip this step
-            yield {"status": "extracting metadata"}
-            try:
-                metadata = get_metadata(path)
-            except Exception as exc:
-                yield skip_file("failed to extract metadata: %s" % str(exc))
-                return
+            # ad-hoc for dandiset.yaml for now
+            if op.basename(path) != dandiset_metadata_file:
+                yield {"status": "extracting metadata"}
+                try:
+                    metadata = get_metadata(path)
+                except Exception as exc:
+                    yield skip_file("failed to extract metadata: %s" % str(exc))
+                    if not file_recs:
+                        # remove empty item
+                        yield {"status", "deleting empty item"}
+                        client.delete(f'/item/{item_rec["_id"]}')
+                        yield {"status", "deleted empty item"}
+                    return
+            else:
+                # We might actually need to upload its content as metadata for
+                # the entire folder... TODO
+                metadata = {}
 
+            #
+            # 5. Upload file
+            #
             # TODO: we could potentially keep new item "hidden" until we are
             #  done with upload, and only then remove old one and replace with
             #  a new one (rename from "hidden" name).
@@ -264,7 +380,7 @@ def upload(
                 client.delete(delete_before_upload)
                 yield {"status": "old deleted"}
                 # create a a new item
-                item_rec = get_item_rec()
+                item_rec = ensure_item()
 
             yield {"status": "uploading"}
             # Upload file to an item
@@ -298,9 +414,9 @@ def upload(
                     "Must not happen since file %s was just uploaded" % path
                 )
 
-            # Provide metadata for the item from the file, could be done via
-            #  a callback to be triggered upon successfull upload, or we could
-            #  just do it "manually"
+            #
+            # 6. Upload metadata
+            #
             metadata_ = {}
             for k, v in metadata.items():
                 if v in ("", None):
@@ -308,29 +424,29 @@ def upload(
                 # XXX TODO: remove this -- it is only temporary, search should handle
                 if isinstance(v, str):
                     metadata_[k] = v.lower()
-                elif isinstance(v, datetime.datetime):
-                    metadata_[k] = str(v)
+                elif isinstance(v, datetime):
+                    metadata_[k] = ensure_strtime(v)
             # we will add some fields which would help us with deciding to
             # reupload or not
             # .isoformat() would give is8601 representation but I see in girder
             # already
             # session_start_time   1971-01-01 12:00:00+00:00
-            file_metadata_["uploaded_datetime"] = str(
-                get_utcnow_datetime()
-            )  # .isoformat()
+            # decided to go for .isoformat for internal consistency -- let's see
+            file_metadata_["uploaded_datetime"] = ensure_strtime(time.time())
             metadata_.update(file_metadata_)
-            metadata_["uploaded_size"] = os.stat(str(path)).st_size
-            metadata_["uploaded_mtime"] = os.stat(str(path)).st_mtime
-            metadata_["uploaded_ctime"] = os.stat(str(path)).st_ctime
+            metadata_["uploaded_size"] = path_stat.st_size
+            metadata_["uploaded_mtime"] = ensure_strtime(path_stat.st_mtime)
+            metadata_["uploaded_ctime"] = ensure_strtime(path_stat.st_ctime)
 
-            # Apparently girder has that, so we would duplicate but
-            # it might allow to track if file was modified
-            yield {"status": "setting remote timestamps"}
+            #
+            # 7. Also set remote file ctime to match local mtime
+            #   since for type "file", Resource has no "updated" field.
+            #   and this could us help to identify changes being done
+            #   to the remote file -- if metadata["uploaded_mtime"]
+            #   differs
+            yield {"status": "setting remote file timestamp"}
             client.setResourceTimestamp(
-                file_id,
-                type="file",
-                updated=metadata["uploaded_mtime"],
-                created=metadata["uploaded_ctime"],
+                file_id, type="file", created=metadata_["uploaded_mtime"]
             )
 
             yield {"status": "uploading metadata"}
@@ -384,8 +500,8 @@ def upload(
             rec = {"path": path}
             path = Path(path)
             try:
-                fullpath = path if path.is_absolute() else path.resolve()
-                relpath = fullpath.relative_to(local_top_path)
+                fullpath = path if path.is_absolute() else path.absolute()
+                relpath = fullpath.relative_to(dandiset.path)
 
                 rec["path"] = str(relpath)
                 if develop_debug:

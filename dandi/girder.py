@@ -12,7 +12,9 @@ from pathlib import Path, PurePosixPath
 import girder_client as gcl
 
 from . import get_logger
-from .utils import is_same_time
+from .utils import ensure_datetime, ensure_strtime, is_same_time
+from .consts import known_instances, known_instances_rev
+
 
 lgr = get_logger()
 
@@ -23,17 +25,6 @@ class GirderServer:
 
     def __init__(self, url):
         self.url = url
-
-
-# name: url
-known_instances = {
-    "local": "http://localhost:8080",
-    "local91": "http://localhost:8091",  # as provided by entire archive docker compose. gui. on 8092
-    "dandi": "https://girder.dandiarchive.org",
-}
-# to map back url: name
-known_instances_rev = {v: k for k, v in known_instances.items()}
-assert len(known_instances) == len(known_instances_rev)
 
 
 class GirderNotFound(Exception):
@@ -87,14 +78,25 @@ class GirderCli(gcl.GirderClient):
     to GirderClient.  TODO
     """
 
-    def __init__(self, server_url):
+    def __init__(self, server_url, progressbars=False):
         self._server_url = server_url.rstrip("/")
+        kw = {}
+        if progressbars:
+            kw["progressReporterCls"] = TQDMProgressReporter
         super().__init__(
             apiUrl="{}/api/v1".format(self._server_url),
-            progressReporterCls=TQDMProgressReporter,
+            # seems to mess up our "dandi upload" reporting, although
+            # I thought that it is used only for download. heh heh
+            **kw,
         )
 
     def dandi_authenticate(self):
+        # Shortcut for advanced folks
+        api_key = os.environ.get("DANDI_API_KEY", None)
+        if api_key:
+            self.authenticate(apiKey=api_key)
+            return
+
         if self._server_url in known_instances_rev:
             client_name = known_instances_rev[self._server_url]
         else:
@@ -316,16 +318,16 @@ class GirderCli(gcl.GirderClient):
                 return
             elif existing == "overwrite":
                 pass
-            elif existing == "sync":
-                file_mtime = self._get_file_mtime(attrs)
-                if file_mtime is None:
+            elif existing == "refresh":
+                remote_file_mtime = self._get_file_mtime(attrs)
+                if remote_file_mtime is None:
                     lgr.warning(
                         f"{path!r} - no mtime or ctime in the record, redownloading"
                     )
                 else:
                     stat = os.stat(op.realpath(path))
                     same = []
-                    if is_same_time(stat.st_mtime, file_mtime):
+                    if is_same_time(stat.st_mtime, remote_file_mtime):
                         same.append("mtime")
                     if "size" in attrs and stat.st_size == attrs["size"]:
                         same.append("size")
@@ -353,19 +355,18 @@ class GirderCli(gcl.GirderClient):
         if attrs:
             mtime = self._get_file_mtime(attrs)
             if mtime:
-                t = datetime.fromisoformat(mtime)
-                os.utime(path, (time.time(), t.timestamp()))
+                os.utime(path, (time.time(), mtime.timestamp()))
 
     @staticmethod
     def _get_file_mtime(attrs):
         if not attrs:
             return None
         # XXX I see only ctime available for some reason, so treat it as mtime
-        return attrs.get("mtime", attrs.get("ctime", None))
+        return ensure_datetime(attrs.get("mtime", attrs.get("ctime", None)))
 
 
 # TODO: our adapter on top of the Girder's client to simplify further
-def get_client(server_url, authenticate=True):
+def get_client(server_url, authenticate=True, progressbars=False):
     """Simple authenticator which would store credential (api key) via keyring
 
     Parameters
@@ -373,7 +374,7 @@ def get_client(server_url, authenticate=True):
     server_url: str
       URL to girder instance
     """
-    client = GirderCli(server_url)
+    client = GirderCli(server_url, progressbars=progressbars)
     if authenticate:
         client.dandi_authenticate()
     return client

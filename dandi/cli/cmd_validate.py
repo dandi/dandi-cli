@@ -1,27 +1,29 @@
 import click
 from .command import main, get_files
+from ..utils import find_dandi_files
 
 
 @main.command()
-@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=False))
+@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
 def validate(paths):
     """Validate files for NWB (and DANDI) compliance.
 
     Exits with non-0 exit code if any file is not compliant.
     """
-    files = get_files(paths)
-    from ..pynwb_utils import validate as pynwb_validate, ignore_benign_pynwb_warnings
+    from ..pynwb_utils import ignore_benign_pynwb_warnings
+    from ..validate import validate as validate_
 
     # below we are using load_namespaces but it causes HDMF to whine if there
     # is no cached name spaces in the file.  It is benign but not really useful
     # at this point, so we ignore it although ideally there should be a formal
     # way to get relevant warnings (not errors) from PyNWB
     ignore_benign_pynwb_warnings()
-
     view = "one-at-a-time"  # TODO: rename, add groupped
+
     all_files_errors = {}
-    for path in files:
-        errors = pynwb_validate(path)
+    nfiles = 0
+    for path, errors in validate_(paths):
+        nfiles += 1
         if view == "one-at-a-time":
             display_errors(path, errors)
         all_files_errors[path] = errors
@@ -48,7 +50,7 @@ def validate(paths):
     if files_with_errors:
         click.secho(
             "Summary: Validation errors in {} out of {} files".format(
-                len(files_with_errors), len(files)
+                len(files_with_errors), nfiles
             ),
             bold=True,
             fg="red",
@@ -56,7 +58,7 @@ def validate(paths):
         raise SystemExit(1)
     else:
         click.secho(
-            "Summary: No validation errors among {} file(s)".format(len(files)),
+            "Summary: No validation errors among {} file(s)".format(nfiles),
             bold=True,
             fg="green",
         )

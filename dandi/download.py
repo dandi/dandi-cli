@@ -101,7 +101,7 @@ def parse_dandi_url(url):
 
 def download(
     urls,
-    local_top_path,
+    output_dir,
     existing,
     develop_debug,
     authenticate=False,  # Seems to work just fine for public stuff
@@ -115,7 +115,11 @@ def download(
 
     # We could later try to "dandi_authenticate" if run into permission issues.
     # May be it could be not just boolean but the "id" to be used?
-    client = girder.get_client(girder_server_url, authenticate=authenticate)
+    client = girder.get_client(
+        girder_server_url,
+        authenticate=authenticate,
+        progressbars=True,  # TODO: redo all this
+    )
     # asset_rec = client.getResource(asset_type, asset_id)
     # lgr.info("Working with asset %s", str(asset_rec))
 
@@ -150,7 +154,7 @@ def download(
     for file in files:
         client.download_file(
             file["id"],
-            op.join(local_top_path, file["path"]),
+            op.join(output_dir, file["path"]),
             existing=existing,
             attrs=file["attrs"],
         )
