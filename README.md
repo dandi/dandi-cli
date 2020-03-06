@@ -107,9 +107,18 @@ archive, just use `dandi upload` again.
 
 ## Downloading dandiset from the archive
 
-Web has UI elements to download invidual files from the archiv.  For bulk
-download, or repeated re-syncing of the dandiset(s) from the archive, use
-`dandi download` command (WiP).
+`dandi download` can be used to download full dandisets or individual files or
+folders from the archive.
+
+Using `--existing refresh` option available for
+`dandi upload` and `dandi download` it is possible to avoid transfer if files
+are identical locally and in the archive.
+
+**Warning:**  There is no version control tracking beyond checking correspondence
+of file size and modification time.  So in collaborative setting it is possible
+to "refresh" a file which was modified locally with a version from the archive,
+or vise versa.
+
 
 ## Development/contributing
 
