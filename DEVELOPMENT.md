@@ -44,3 +44,5 @@ development command line options.
 
 - `DANDI_API_KEY` -- avoids using keyrings, thus making it possible to
   "temporarily" use another account etc.
+
+- `DANDI_LOG_LEVEL` -- set log level. By default `INFO`, should be an int (`10` - `DEBUG`).
