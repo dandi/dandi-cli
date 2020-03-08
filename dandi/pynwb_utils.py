@@ -266,6 +266,6 @@ def ignore_benign_pynwb_warnings():
     #   See https://github.com/dandi/dandi-cli/issues/14 for more info
     for s in (
         "No cached namespaces found .*",
-        "ignoring namespace 'core' because it already exists",
+        "ignoring namespace '.*' because it already exists",
     ):
         warnings.filterwarnings("ignore", s, UserWarning)
