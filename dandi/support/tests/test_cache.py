@@ -59,6 +59,13 @@ def test_memoize_path(cache, tmp_path):
         with open(path) as f:
             return f.read()
 
+    def check_new_memoread(arg, content, expect_new=False):
+        ncalls = len(calls)
+        assert memoread(path, arg) == content
+        assert len(calls) == ncalls + 1
+        assert memoread(path, arg) == content
+        assert len(calls) == ncalls + 1 + int(expect_new)
+
     path = str(tmp_path / "file.dat")
 
     with pytest.raises(IOError):
@@ -71,41 +78,30 @@ def test_memoize_path(cache, tmp_path):
     with open(path, "w") as f:
         f.write("content")
 
-    assert memoread(path, 0) == "content"
-    assert len(calls) == 3
     # unless this computer is too slow -- there should be less than
     # cache._min_dtime between our creating the file and testing,
     # so we would force a direct read:
-    assert memoread(path, 0) == "content"
-    assert len(calls) == 4
+    check_new_memoread(0, "content", True)
     assert calls[-1] == [path, 0, None]
+
     # but if we sleep - should memoize
     time.sleep(cache._min_dtime * 1.1)
-
-    assert memoread(path, 1) == "content"
-    assert len(calls) == 5
-    assert memoread(path, 1) == "content"
-    assert len(calls) == 5
+    check_new_memoread(1, "content")
 
     # and if we modify the file -- a new read
     time.sleep(cache._min_dtime * 1.1)
     with open(path, "w") as f:
         f.write("Content")
+    ncalls = len(calls)
     assert memoread(path, 1) == "Content"
-    assert len(calls) == 6
+    assert len(calls) == ncalls + 1
+
     time.sleep(cache._min_dtime * 1.1)
-    assert memoread(path, 1) == "Content"
-    assert len(calls) == 7
-    assert memoread(path, 1) == "Content"
-    assert len(calls) == 7
+    check_new_memoread(0, "Content")
 
     # and if we "clear", would it still work?
     cache.clear()
-
-    assert memoread(path, 1) == "Content"
-    assert len(calls) == 8
-    assert memoread(path, 1) == "Content"
-    assert len(calls) == 8
+    check_new_memoread(1, "Content")
 
 
 def test_memoize_path_persist():
