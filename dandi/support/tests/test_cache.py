@@ -1,6 +1,7 @@
 import os.path as op
 import random
 import sys
+import time
 
 from dandi.support.cache import PersistentCache
 
@@ -72,28 +73,39 @@ def test_memoize_path(cache, tmp_path):
 
     assert memoread(path, 0) == "content"
     assert len(calls) == 3
+    # unless this computer is too slow -- there should be less than
+    # cache._min_dtime between our creating the file and testing,
+    # so we would force a direct read:
     assert memoread(path, 0) == "content"
-    assert len(calls) == 3
+    assert len(calls) == 4
     assert calls[-1] == [path, 0, None]
+    # but if we sleep - should memoize
+    time.sleep(cache._min_dtime * 1.1)
 
     assert memoread(path, 1) == "content"
-    assert len(calls) == 4
+    assert len(calls) == 5
+    assert memoread(path, 1) == "content"
+    assert len(calls) == 5
 
     # and if we modify the file -- a new read
+    time.sleep(cache._min_dtime * 1.1)
     with open(path, "w") as f:
         f.write("Content")
     assert memoread(path, 1) == "Content"
-    assert len(calls) == 5
+    assert len(calls) == 6
+    time.sleep(cache._min_dtime * 1.1)
     assert memoread(path, 1) == "Content"
-    assert len(calls) == 5
+    assert len(calls) == 7
+    assert memoread(path, 1) == "Content"
+    assert len(calls) == 7
 
     # and if we "clear", would it still work?
     cache.clear()
 
     assert memoread(path, 1) == "Content"
-    assert len(calls) == 6
+    assert len(calls) == 8
     assert memoread(path, 1) == "Content"
-    assert len(calls) == 6
+    assert len(calls) == 8
 
 
 def test_memoize_path_persist():
