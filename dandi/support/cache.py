@@ -17,13 +17,13 @@ class PersistentCache(object):
     _min_dtime = 0.01  # min difference between now and mtime to consider
     # for caching
 
-    def __init__(self, name=None, more_tokens=None):
+    def __init__(self, name=None, tokens=None):
         """
 
         Parameters
         ----------
         name
-        more_tokens: list of objects, optional
+        tokens: list of objects, optional
          To add to the fingerprint of @memoize_path (regular @memoize ATM does
          not use it).  Could be e.g. versions of relevant/used
          python modules (pynwb, etc)
@@ -31,14 +31,19 @@ class PersistentCache(object):
         dirs = appdirs.AppDirs("dandi")
         self._cache_file = op.join(dirs.user_cache_dir, (name or "cache") + ".dat")
         self._memory = joblib.Memory(self._cache_file, verbose=0)
-        self._more_tokens = more_tokens
+        self._tokens = tokens
 
     def clear(self):
-        self._memory.clear(warn=False)
+        try:
+            self._memory.clear(warn=False)
+        except Exception as exc:
+            lgr.debug("joblib failed to clear its cache: %s", exc)
+
         # and completely destroy the directory
         try:
-            os.rmdir(op.join(self._memory.location, "joblib"))
-            os.rmdir(self._memory.location)
+            for d in (op.join(self._memory.location, "joblib"), self._memory.location):
+                if op.exists(d):
+                    os.rmdir(d)
         except Exception as exc:
             lgr.warning(f"Failed to clear out the cache directory: {exc}")
 
@@ -77,11 +82,9 @@ class PersistentCache(object):
                 lgr.debug("Calling memoized version of %s for %s", f, path)
                 # If there is a fingerprint -- inject it into the signature
                 kwargs_ = kwargs.copy()
-                kwargs_[
-                    fingerprint_kwarg
-                ] = (
-                    fprint
-                )  #  tuple(fprint) + tuple(self._more_tokens) if self._more_tokens)
+                kwargs_[fingerprint_kwarg] = tuple(fprint) + (
+                    tuple(self._tokens) if self._tokens else tuple()
+                )
                 return fingerprinted(path, *args, **kwargs_)
 
         # and we memoize actually that function

@@ -8,10 +8,21 @@ from dandi.support.cache import PersistentCache
 import pytest
 
 
+# not doing random for now within fixtures, so they could share the same name
+_cache_name = "test-%d" % random.randint(1, 1000)
+
+
 @pytest.fixture(scope="function")
 def cache():
+    c = PersistentCache(name=_cache_name)
+    yield c
+    c.clear()
+
+
+@pytest.fixture(scope="function")
+def cache_tokens():
     # random so in case of parallel runs they do not "cross"
-    c = PersistentCache(name="test-%d" % random.randint(1, 1000))
+    c = PersistentCache(name=_cache_name, tokens=["0.0.1", 1])
     yield c
     c.clear()
 
@@ -116,6 +127,39 @@ def test_memoize_path_persist():
         assert o.stdout.strip().decode() == f"DONE"
 
     cache.clear()
+
+
+def test_memoize_path_tokens(tmp_path, cache, cache_tokens):
+    calls = []
+
+    @cache.memoize_path
+    def memoread(path, arg, kwarg=None):
+        calls.append(["cache", path, arg, kwarg])
+        with open(path) as f:
+            return f.read()
+
+    @cache_tokens.memoize_path
+    def memoread_tokens(path, arg, kwarg=None):
+        calls.append(["cache_tokens", path, arg, kwarg])
+        with open(path) as f:
+            return f.read()
+
+    def check_new_memoread(call, arg, content, expect_first=True, expect_new=False):
+        ncalls = len(calls)
+        assert call(path, arg) == content
+        assert len(calls) == ncalls + int(expect_first)
+        assert call(path, arg) == content
+        assert len(calls) == ncalls + int(expect_first) + int(expect_new)
+
+    path = str(tmp_path / "file.dat")
+
+    with open(path, "w") as f:
+        f.write("content")
+
+    time.sleep(cache._min_dtime * 1.1)
+    # They both are independent, so both will cause a new readout
+    check_new_memoread(memoread, 0, "content")
+    check_new_memoread(memoread_tokens, 0, "content")
 
 
 if __name__ == "__main__":
