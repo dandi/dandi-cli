@@ -12,6 +12,15 @@ from . import get_logger
 lgr = get_logger()
 
 from .consts import metadata_fields, metadata_computed_fields, metadata_subject_fields
+from .support.cache import PersistentCache
+
+from . import __version__
+
+# strip away possible development version marker
+dandi_rel_version = __version__.split("+", 1)[0]
+metadata_cache = PersistentCache(
+    name="metadata", tokens=[pynwb.__version__, dandi_rel_version]
+)
 
 
 def get_nwb_version(filepath):
@@ -79,6 +88,7 @@ def get_neurodata_types_to_modalities_map():
     return ndtypes
 
 
+@metadata_cache.memoize_path
 def get_neurodata_types(filepath):
     with h5py.File(filepath, "r") as h5file:
         all_pairs = _scan_neurodata_types(h5file)
@@ -107,6 +117,7 @@ def _scan_neurodata_types(grp):
     return out
 
 
+@metadata_cache.memoize_path
 def get_metadata(path):
     """Get selected metadata from a .nwb file
 
@@ -245,6 +256,12 @@ def validate(path):
     return errors
 
 
+# Many commands might be using load_namespaces but it causes HDMF to whine if there
+# is no cached name spaces in the file.  It is benign but not really useful
+# at this point, so we ignore it although ideally there should be a formal
+# way to get relevant warnings (not errors) from PyNWB.  It is a bad manner
+# to have this as a side effect of the importing this module, we should add/remove
+# that filter in our top level commands
 def ignore_benign_pynwb_warnings():
     #   See https://github.com/dandi/dandi-cli/issues/14 for more info
     for s in (
