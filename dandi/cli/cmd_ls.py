@@ -117,7 +117,14 @@ def ls(paths, fields=None, format="auto"):
 
 
 def get_metadata_pyout(path, keys=None, process_paths=None):
-    from ..pynwb_utils import get_metadata, get_nwb_version, get_neurodata_types
+    from ..pynwb_utils import (
+        get_metadata,
+        get_nwb_version,
+        get_neurodata_types,
+        ignore_benign_pynwb_warnings,
+    )
+
+    ignore_benign_pynwb_warnings()
 
     def safe_call(func, path, default=None):
         try:
