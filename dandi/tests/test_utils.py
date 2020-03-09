@@ -55,6 +55,7 @@ def test_times_manipulations():
     assert is_same_time(t0, t0_str, tollerance=0)  # exactly the same
     assert t0_str != t0_isoformat  # " " vs "T"
 
+    time.sleep(0.001)  # so there is a definite notable delay, in particular for Windows
     t1_epoch = time.time()
     t1 = ensure_datetime(t1_epoch)
     assert is_same_time(t1, t1_epoch)
@@ -63,6 +64,6 @@ def test_times_manipulations():
     assert is_same_time(t0, t1, tollerance=0.5)
     assert is_same_time(t1, t0, tollerance=0.5)
     # but must not be exactly the same unless we are way too fast or disregard
-    # microseconds
+    # milliseconds
     assert not is_same_time(t0, t1, tollerance=0)
     assert is_same_time(t0, t1_epoch + 100, tollerance=101)
