@@ -1,13 +1,19 @@
-import yaml
+from glob import glob
+import os.path as op
 import ruamel.yaml
+import yaml
 
-yaml_ruamel = ruamel.yaml.YAML()  # defaults to round-trip if no parameters given
 
 from ..organize import (
     _sanitize_value,
     populate_dataset_yml,
     create_dataset_yml_template,
 )
+from ..utils import find_files
+import pytest
+
+
+yaml_ruamel = ruamel.yaml.YAML()  # defaults to round-trip if no parameters given
 
 
 def test_sanitize_value():
@@ -78,3 +84,27 @@ def test_populate_dataset_yml(tmpdir):
     populate_dataset_yml(str(path), metadata)
     # too big, check one
     assert c()["number_cells"] == 2
+
+
+@pytest.mark.integration
+def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner):
+    from ..cli.command import organize
+
+    input_files = op.join(nwb_test_data, "v2.0.1")
+    outdir = str(tmpdir / "organized")
+
+    cmd = ["-t", outdir, "--mode", "simulate", input_files]
+
+    r = clirunner.invoke(organize, cmd)
+    assert "not containing all" in str(r.exc_info[1])
+    assert r.exit_code != 0, f"Must have aborted since many files lack subject_id"
+    assert not glob(op.join(outdir, "*")), "no files should have been populated"
+
+    r = clirunner.invoke(organize, cmd + ["--invalid", "warn"])
+    assert r.exit_code == 0
+    # this beast doesn't capture our logs ATM so cannot check anything there.
+    # At the end we endup only with dandiset.yaml and a single file
+    produced_files = sorted(
+        op.relpath(p, outdir) for p in find_files(".*", paths=outdir)
+    )
+    assert produced_files == ["dandiset.yaml", "sub-RAT123/sub-RAT123.nwb"]
