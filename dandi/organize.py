@@ -9,6 +9,7 @@ import os.path as op
 from . import get_logger
 from .consts import dandiset_metadata_file
 from .pynwb_utils import get_neurodata_types_to_modalities_map
+from .utils import ensure_datetime
 
 lgr = get_logger()
 
@@ -17,10 +18,13 @@ def filter_invalid_metadata_rows(metadata_rows):
     """Split into two lists - valid and invalid entries"""
     valid, invalid = [], []
     for row in metadata_rows:
-        if row["nwb_version"] == "ERROR":
+        if list(row.keys()) == ["path"]:
+            lgr.warning("Completely empty record for {path}".format(**row))
+            invalid.append(row)
+        elif row["nwb_version"] == "ERROR":
             lgr.warning("nwb_version is ERROR for {path}".format(**row))
             invalid.append(row)
-        elif "subject_id" not in row:
+        elif not row.get("subject_id", None):
             lgr.warning("subject_id is missing for {path}".format(**row))
             invalid.append(row)
         else:
@@ -29,7 +33,9 @@ def filter_invalid_metadata_rows(metadata_rows):
 
 
 def create_unique_filenames_from_metadata(
-    metadata, mandatory=["modalities", "extension"]
+    metadata,
+    mandatory=["subject_id", "extension"],
+    mandatory_if_not_empty=["modalities,"],
 ):
     """
 
@@ -97,7 +103,9 @@ def create_unique_filenames_from_metadata(
     for r in metadata:
         dandi_filename = ""
         for field, field_format in potential_fields.items():
-            if field in mandatory or len(unique_values[field]) > 1:
+            if (field in mandatory or len(unique_values[field]) > 1) or (
+                field in mandatory_if_not_empty and unique_values[field]
+            ):
                 value = r.get(field, None)
                 if value is not None:
                     if isinstance(value, (list, tuple)):
@@ -109,7 +117,6 @@ def create_unique_filenames_from_metadata(
                     dandi_filename += formatted_value
         r["dandi_filename"] = dandi_filename
         r["dandi_path"] = dandi_path.format(**r)
-
     return metadata
 
 
@@ -171,7 +178,7 @@ def _populate_session_ids_from_time(metadata):
         ses_time = m.get("session_start_time", None)
         if not ses_time:
             continue  # we can do nothing
-        ses_time = dateutil.parser.parse(ses_time)
+        ses_time = ensure_datetime(ses_time)
         if (ses_time.hour, ses_time.minute, ses_time.second) != (0, 0, 0):
             degenerate_time = False
             break
@@ -182,7 +189,7 @@ def _populate_session_ids_from_time(metadata):
         ses_time = m.get("session_start_time", None)
         if not ses_time:
             continue  # we can do nothing
-        ses_time = dateutil.parser.parse(ses_time)
+        ses_time = ensure_datetime(ses_time)
         m["session_id"] = "%d%02d%02d" % (ses_time.year, ses_time.month, ses_time.day)
         if not degenerate_time:
             m["session_id"] += "T%02d%02d%02d" % (

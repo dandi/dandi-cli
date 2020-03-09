@@ -99,15 +99,19 @@ def organize(
         paths = list(find_files("\.nwb$", paths=paths))
         lgr.info("Loading metadata from %d files", len(paths))
         # Done here so we could still reuse cached 'get_metadata'
-        # without having two types of invocation
-        def _get_metadata_with_path(path):
-            meta = get_metadata(path)
+        # without having two types of invocation and to guard against
+        # problematic ones -- we have an explicit option on how to
+        # react to those
+        def _get_metadata(path):
+            try:
+                meta = get_metadata(path)
+            except Exception as exc:
+                meta = {}
+                lgr.debug("Failed to get metadata for %s: %s", path, exc)
             meta["path"] = path
             return meta
 
-        metadata = list(
-            Parallel()(delayed(_get_metadata_with_path)(path) for path in paths)
-        )
+        metadata = list(Parallel()(delayed(_get_metadata)(path) for path in paths))
 
     metadata, metadata_invalid = filter_invalid_metadata_rows(metadata)
     if metadata_invalid:
