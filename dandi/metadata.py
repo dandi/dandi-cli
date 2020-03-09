@@ -1,4 +1,9 @@
-from dandi.pynwb_utils import metadata_cache, get_nwb_version, _get_pynwb_metadata
+from dandi.pynwb_utils import (
+    _get_pynwb_metadata,
+    get_neurodata_types,
+    get_nwb_version,
+    metadata_cache,
+)
 
 from . import get_logger
 
@@ -18,10 +23,10 @@ def get_metadata(path):
     dict
     """
     path = str(path)  # for Path
-    out = dict()
+    meta = dict()
 
     # First read out possibly available versions of specifications for NWB(:N)
-    out["nwb_version"] = get_nwb_version(path)
+    meta["nwb_version"] = get_nwb_version(path)
 
     # PyNWB might fail to load because of missing extensions.
     # There is a new initiative of establishing registry of such extensions.
@@ -35,7 +40,7 @@ def get_metadata(path):
     tried_imports = set()
     while True:
         try:
-            out.update(_get_pynwb_metadata(path))
+            meta.update(_get_pynwb_metadata(path))
             break
         except KeyError as exc:  # ATM there is
             lgr.debug("Failed to read %s: %s", path, exc)
@@ -60,4 +65,6 @@ def get_metadata(path):
             tried_imports.add(import_mod)
             __import__(import_mod)
 
-    return out
+    meta["nd_types"] = get_neurodata_types(path)
+
+    return meta

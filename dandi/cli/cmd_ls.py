@@ -118,11 +118,7 @@ def ls(paths, fields=None, format="auto"):
 
 
 def get_metadata_pyout(path, keys=None, process_paths=None):
-    from ..pynwb_utils import (
-        get_nwb_version,
-        get_neurodata_types,
-        ignore_benign_pynwb_warnings,
-    )
+    from ..pynwb_utils import get_nwb_version, ignore_benign_pynwb_warnings
     from ..metadata import get_metadata
 
     ignore_benign_pynwb_warnings()
@@ -145,9 +141,6 @@ def get_metadata_pyout(path, keys=None, process_paths=None):
             if "nwb_version" not in rec:
                 # Let's at least get that one
                 rec["nwb_version"] = safe_call(get_nwb_version, path, "ERROR") or ""
-
-            rec["nd_types"] = ", ".join(safe_call(get_neurodata_types, path, []))
-
             return rec
         finally:
             # TODO: this is a workaround, remove after
