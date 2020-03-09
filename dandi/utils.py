@@ -11,7 +11,10 @@ from pathlib import Path
 #
 # Additional handlers
 #
-from dandi.cli.command import lgr
+from . import get_logger
+
+
+lgr = get_logger()
 
 _sys_excepthook = sys.excepthook  # Just in case we ever need original one
 
