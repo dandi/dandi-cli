@@ -16,7 +16,6 @@ jobs:
           - ubuntu-18.04
           - macos-latest
         python:
-          - 3.6
           - 3.7
 
     steps:
