@@ -151,7 +151,8 @@ def upload(
 
     import multiprocessing
     from .. import girder
-    from ..pynwb_utils import get_metadata, ignore_benign_pynwb_warnings
+    from ..pynwb_utils import ignore_benign_pynwb_warnings
+    from ..metadata import get_metadata
     from ..validate import validate_file
     from ..utils import find_dandi_files, path_is_subpath, get_utcnow_datetime
     from ..support.generatorify import generator_from_callback

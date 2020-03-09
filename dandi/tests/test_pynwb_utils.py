@@ -1,6 +1,7 @@
 import pynwb
 
-from ..pynwb_utils import get_metadata, metadata_subject_fields
+from ..pynwb_utils import metadata_subject_fields
+from ..metadata import get_metadata
 
 
 def test_get_metadata(simple1_nwb, simple1_nwb_metadata):

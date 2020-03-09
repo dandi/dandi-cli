@@ -5,7 +5,7 @@ import urllib.parse as up
 
 import multiprocessing
 from . import girder, get_logger
-from .pynwb_utils import get_metadata
+from .metadata import get_metadata
 from .pynwb_utils import validate as pynwb_validate
 from .pynwb_utils import ignore_benign_pynwb_warnings
 from .utils import get_utcnow_datetime

@@ -11,6 +11,8 @@ from pathlib import Path
 #
 # Additional handlers
 #
+from dandi.cli.command import lgr
+
 _sys_excepthook = sys.excepthook  # Just in case we ever need original one
 
 #
@@ -313,3 +315,11 @@ def path_is_subpath(path, prefix):
     """
     path, prefix = _get_normalized_paths(path, prefix)
     return (len(prefix) < len(path)) and path.startswith(prefix)
+
+
+def safe_call(func, path, default=None):
+    try:
+        return func(path)
+    except Exception as exc:
+        lgr.debug("Call to %s on %s failed: %s", func.__name__, path, exc)
+        return default
