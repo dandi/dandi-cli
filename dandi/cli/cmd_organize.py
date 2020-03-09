@@ -68,13 +68,15 @@ def organize(
     """
     if format:
         raise NotImplementedError("format support is not yet implemented")
-    from ..utils import load_jsonl, find_files
+    from ..utils import delayed, find_files, load_jsonl, Parallel
+    from ..pynwb_utils import ignore_benign_pynwb_warnings
     from ..organize import (
         create_unique_filenames_from_metadata,
         filter_invalid_metadata_rows,
         populate_dataset_yml,
         create_dataset_yml_template,
     )
+    from ..metadata import get_metadata
 
     if mode not in ("dry", "simulate"):
         raise NotImplementedError(mode)
@@ -88,15 +90,23 @@ def organize(
                 % top_path
             )
 
+    ignore_benign_pynwb_warnings()
+
     if len(paths) == 1 and paths[0].endswith(".json"):
         # Our dumps of metadata
         metadata = load_jsonl(paths[0])
     else:
         paths = list(find_files("\.nwb$", paths=paths))
         lgr.info("Loading metadata from %d files", len(paths))
-        metadata = []
-        raise NotImplementedError(
-            "For now we are working only with already extracted metadata"
+        # Done here so we could still reuse cached 'get_metadata'
+        # without having two types of invocation
+        def _get_metadata_with_path(path):
+            meta = get_metadata(path)
+            meta["path"] = path
+            return meta
+
+        metadata = list(
+            Parallel()(delayed(_get_metadata_with_path)(path) for path in paths)
         )
 
     metadata, metadata_invalid = filter_invalid_metadata_rows(metadata)

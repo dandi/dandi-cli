@@ -139,7 +139,10 @@ def _populate_modalities(metadata):
     ndtypes_unassigned = set()
     for r in metadata:
         mods = set()
-        for nd_rec in r.get("nd_types", "").split(","):
+        nd_types = r.get("nd_types", [])
+        if isinstance(nd_types, str):
+            nd_types = nd_types.split(",")
+        for nd_rec in nd_types:
             # split away the count
             ndtype = nd_rec.split()[0]
             mod = ndtypes_to_modalities.get(ndtype, None)

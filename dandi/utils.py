@@ -323,3 +323,21 @@ def safe_call(func, path, default=None):
     except Exception as exc:
         lgr.debug("Call to %s on %s failed: %s", func.__name__, path, exc)
         return default
+
+
+def Parallel(**kwargs):  # TODO: disable lint complaint
+    """Adapter for joblib.Parallel so we could if desired, centralize control
+    """
+    # ATM just a straight invocation
+    import joblib
+
+    return joblib.Parallel(**kwargs)
+
+
+def delayed(*args, **kwargs):
+    """Adapter for joblib.delayed so we could if desired, centralize control
+    """
+    # ATM just a straight invocation
+    import joblib
+
+    return joblib.delayed(*args, **kwargs)
