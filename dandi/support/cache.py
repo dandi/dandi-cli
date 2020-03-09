@@ -31,6 +31,8 @@ class PersistentCache(object):
         dirs = appdirs.AppDirs("dandi")
         self._cache_file = op.join(dirs.user_cache_dir, (name or "cache") + ".dat")
         self._memory = joblib.Memory(self._cache_file, verbose=0)
+        if os.environ.get("DANDI_CACHE_CLEAR", None):
+            self.clear()
         self._tokens = tokens
 
     def clear(self):
