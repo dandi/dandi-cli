@@ -1,11 +1,11 @@
 import click
 import os
 import os.path as op
-
+from glob import glob
 from collections import Counter
 
 from .command import main, lgr
-from ..consts import dandiset_metadata_file
+from ..consts import dandiset_metadata_file, file_operation_modes
 
 
 @main.command()
@@ -42,12 +42,10 @@ from ..consts import dandiset_metadata_file
     "--mode",
     help="If 'dry' - no action is performed, suggested renames are printed. "
     "I 'simulate' - hierarchy of empty files at --local-top-path is created. "
-    "Note that previous files should be removed prior this operation.  The "
-    "other modess (cp, mv, symlink, hardlink) define how data files should "
+    "Note that previous layout should be removed prior this operation.  The "
+    "other modes (copy, move, symlink, hardlink) define how data files should "
     "be made available.",
-    type=click.Choice(
-        ["dry", "simulate", "cp", "hardlink", "softlink"]
-    ),  # TODO: hardlink, symlink
+    type=click.Choice(file_operation_modes),
     default="dry",
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
@@ -68,7 +66,7 @@ def organize(
     """
     if format:
         raise NotImplementedError("format support is not yet implemented")
-    from ..utils import delayed, find_files, load_jsonl, Parallel
+    from ..utils import copy_file, delayed, find_files, load_jsonl, move_file, Parallel
     from ..pynwb_utils import ignore_benign_pynwb_warnings
     from ..organize import (
         create_unique_filenames_from_metadata,
@@ -78,8 +76,21 @@ def organize(
     )
     from ..metadata import get_metadata
 
-    if mode not in ("dry", "simulate"):
-        raise NotImplementedError(mode)
+    # will come handy when dry becomes proper separate option
+    def dry_print(msg):
+        print(f"DRY: {msg}")
+
+    if mode == "dry":
+
+        def act(func, *args, **kwargs):
+            dry_print(f"{func.__name__} {args}, {kwargs}")
+
+    else:
+
+        def act(func, *args, **kwargs):
+            lgr.debug("%s %s %s", func.__name__, args, kwargs)
+            return func(*args, **kwargs)
+
     # Early checks to not wait to fail
     if mode == "simulate":
         # in this mode we will demand the entire output folder to be absent
@@ -131,7 +142,9 @@ def organize(
         else:
             raise ValueError(f"invalid has an invalid value {invalid}")
 
-    os.makedirs(top_path)
+    if not op.exists(top_path):
+        act(os.makedirs, top_path)
+
     dandiset_metadata_filepath = op.join(top_path, dandiset_metadata_file)
     if op.lexists(dandiset_metadata_filepath):
         if dandiset_id is not None:
@@ -153,15 +166,17 @@ def organize(
             f"we will use a template"
         )
         create_dataset_yml_template(dandiset_metadata_filepath)
+    elif mode == "dry":
+        lgr.info(f"We do nothing about {dandiset_metadata_filepath} in 'dry' mode.")
+        dandiset_metadata_filepath = None
     else:
         lgr.warning(
             f"Found no {dandiset_metadata_filepath} and no --dandiset-id was"
-            f" specified.  For upload later on, you must first use 'register'"
+            f" specified. This file will lack mandatory metadata."
+            f" For upload later on, you must first use 'register'"
             f" to obtain a dandiset id.  Meanwhile you could use 'simulate' mode"
             f" to generate a sample dandiset.yaml if you are interested."
         )
-        dandiset_metadata_filepath = None
-
     # If it was not decided not to do that above:
     if dandiset_metadata_filepath:
         populate_dataset_yml(dandiset_metadata_filepath, metadata)
@@ -178,20 +193,29 @@ def organize(
         # Let's prepare informative listing
         for p in non_unique:
             orig_paths = []
-            for m in metadata:
-                if m["dandi_path"] == p:
-                    orig_paths.append(m["path"])
+            for e in metadata:
+                if e["dandi_path"] == p:
+                    orig_paths.append(e["path"])
             non_unique[p] = orig_paths  # overload with the list instead of count
-        # TODO: in future should be an error, for now we will lay them out
-        #  as well to ease investigation
-        lgr.warning(
-            "%d out of %d paths are not unique:\n%s"
-            % (
-                len(non_unique),
-                len(all_paths),
-                "\n".join("   %s: %s" % i for i in non_unique.items()),
-            )
+        msg = "%d out of %d paths are not unique:\n%s" % (
+            len(non_unique),
+            len(all_paths),
+            "\n".join("   %s: %s" % i for i in non_unique.items()),
         )
+        if mode == "simulate":
+            # TODO: in future should be an error, for now we will lay them out
+            #  as well to ease investigation
+            lgr.warning(
+                msg + "\nIn this mode we will still produce files layout, and "
+                "each non-unique file will be a directory where each file "
+                "would be just a numbered symlink to the original."
+            )
+        else:
+            raise RuntimeError(
+                msg + "\nPlease adjust/provide metadata in your .nwb files to "
+                "disambiguate.  You can also use 'simulate' mode to "
+                "produce a tentative layout."
+            )
 
     # Verify first that the target paths do not exist yet, and fail if they do
     # Note: in "simulate" mode we do early check as well, so this would be
@@ -212,31 +236,52 @@ def organize(
             )
         )
 
+    # we should take additional care about paths if both top_path and
+    # provided paths are relative
+    use_abs_paths = op.isabs(top_path) or any(op.isabs(e["path"]) for e in metadata)
     for e in metadata:
         dandi_path = e["dandi_path"]
         dandi_fullpath = op.join(top_path, dandi_path)
-        dandi_dirpath = op.dirname(dandi_fullpath)
-        # print(f"{e['path']} -> {e['dandi_path']}")
-        if mode == "dry":
-            print(f"{e['path']} -> {e['dandi_path']}")
-        elif mode == "simulate":
+        dandi_dirpath = op.dirname(dandi_fullpath)  # could be sub-... subdir
+
+        e_path = e["path"]
+        if not op.isabs(e_path):
+            abs_path = op.abspath(e_path)
+            if use_abs_paths:
+                e_path = abs_path
+            else:
+                e_path = op.relpath(abs_path, dandi_dirpath)
+
+        if mode == "dry":  # TODO: this is actually a mode on top of modes!!!?
+            dry_print(f"{e['path']} -> {e['dandi_path']}")
+        else:
             if not op.exists(dandi_dirpath):
                 os.makedirs(dandi_dirpath)
-            if dandi_path in non_unique:
-                # we will just populate all copies upon first hit
-                if op.exists(dandi_fullpath):
-                    assert op.isdir(dandi_fullpath)
+            if mode == "simulate":
+                if dandi_path in non_unique:
+                    if op.exists(dandi_fullpath):
+                        assert op.isdir(dandi_fullpath)
+                    else:
+                        os.makedirs(dandi_fullpath)
+                    n = len(glob(op.join(dandi_fullpath, "*")))
+                    os.symlink(
+                        op.join(os.pardir, e_path), op.join(dandi_fullpath, str(n + 1))
+                    )
                 else:
-                    os.makedirs(dandi_fullpath)
-                    for i, filename in enumerate(non_unique[dandi_path]):
-                        os.symlink(filename, op.join(dandi_fullpath, str(i)))
+                    os.symlink(e_path, dandi_fullpath)
+                continue
+            #
+            assert dandi_path not in non_unique
+            if mode == "symlink":
+                os.symlink(e_path, dandi_fullpath)
+            elif mode == "hardlink":
+                os.link(e_path, dandi_fullpath)
+            elif mode == "copy":
+                copy_file(e_path, dandi_fullpath)
+            elif mode == "move":
+                move_file(e_path, dandi_fullpath)
             else:
-                # TODO: here and above -- ideally we should somehow reference to the original
-                # files really.  We might need a dedicated option to make organized
-                # version go into another folder.
-                os.symlink(e["path"], dandi_fullpath)
-        else:
-            raise NotImplementedError(mode)
+                raise NotImplementedError(mode)
 
     lgr.info(
         "Finished processing %d paths (%d invalid skipped) with %d having duplicates. Visit %s"

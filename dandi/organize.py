@@ -301,6 +301,12 @@ def populate_dataset_yml(filepath, metadata):
     import ruamel.yaml
 
     yaml = ruamel.yaml.YAML()  # defaults to round-trip if no parameters given
+    if not op.exists(filepath):
+        # Create an empty one, which we would populate with information
+        # we can
+        with open(filepath, "w") as f:
+            pass
+
     with open(filepath) as f:
         rec = yaml.load(f)
 
@@ -353,6 +359,8 @@ def populate_dataset_yml(filepath, metadata):
 
     if uvs["species"]:
         species = sorted(uvs["species"])
+        if "organism" not in rec:
+            rec["organism"] = [{}]
         rec["organism"][0]["species"] = species[0]
         for other in species[1:]:
             rec["organism"].append({"species": other})

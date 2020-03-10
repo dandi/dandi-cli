@@ -54,3 +54,5 @@ assert len(known_instances) == len(known_instances_rev)
 
 collection_drafts = "drafts"
 collection_releases = "releases"
+
+file_operation_modes = ["dry", "simulate", "copy", "move", "hardlink", "symlink"]

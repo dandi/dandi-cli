@@ -2,9 +2,10 @@ import datetime
 import itertools
 import os
 import os.path as op
-import re
-import sys
 import platform
+import re
+import shutil
+import sys
 
 from pathlib import Path
 
@@ -246,6 +247,22 @@ def find_files(
         for path in filter(re.compile(regex).search, paths):
             if not exclude_path(path):
                 yield path
+
+
+def copy_file(src, dst):
+    """Copy file from src to dst
+
+    TODO: support detection and use of `cp` command with `--reflink` support
+       to make possible to take advantage of CoW filesystems
+    """
+    return shutil.copy2(src, dst)
+
+
+def move_file(src, dst):
+    """Move file from src to dst
+
+    """
+    return shutil.move(src, dst)
 
 
 def find_dandi_files(paths):
