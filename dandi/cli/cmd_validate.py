@@ -1,4 +1,5 @@
 import click
+import os
 from .command import main, get_files
 from ..utils import find_dandi_files
 
@@ -13,6 +14,8 @@ def validate(paths):
     from ..pynwb_utils import ignore_benign_pynwb_warnings
     from ..validate import validate as validate_
 
+    if not paths:
+        paths = [os.curdir]
     # below we are using load_namespaces but it causes HDMF to whine if there
     # is no cached name spaces in the file.  It is benign but not really useful
     # at this point, so we ignore it although ideally there should be a formal
