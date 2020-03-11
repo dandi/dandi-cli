@@ -9,7 +9,7 @@ import os.path as op
 from . import get_logger
 from .consts import dandiset_metadata_file
 from .pynwb_utils import get_neurodata_types_to_modalities_map
-from .utils import ensure_datetime
+from .utils import ensure_datetime, flattened
 
 lgr = get_logger()
 
@@ -332,6 +332,9 @@ def populate_dataset_yml(filepath, metadata):
 
     DEFAULT_VALUES = ("REQUIRED", "RECOMMENDED", "OPTIONAL")
 
+    def is_undefined(d, f):
+        return d.get(f, DEFAULT_VALUES[0]) in DEFAULT_VALUES
+
     if uvs["age"]:
         if "age" not in rec:
             # TODO: could not figure out how to add proper ruaml structure here
@@ -365,11 +368,18 @@ def populate_dataset_yml(filepath, metadata):
         for other in species[1:]:
             rec["organism"].append({"species": other})
 
-    if uvs["experiment_description"]:
+    if uvs["experiment_description"] and is_undefined(rec, "description"):
         rec["description"] = "\n".join(sorted(uvs["experiment_description"]))
 
-    for v in sorted(uvs["related_publications"] or []):
-        rec["publications"].append(v)
+    for v in sorted(flattened(uvs["related_publications"] or [])):
+        if "publications" not in rec:
+            rec["publications"] = []
+        # TODO: better harmonization
+        strip_regex = "[- \t'\"]"
+        v = re.sub("^" + strip_regex, "", v)
+        v = re.sub(strip_regex + "$", "", v)
+        if v not in rec["publications"]:
+            rec["publications"].append(v)
 
     # Save result
     with open(filepath, "w") as f:
