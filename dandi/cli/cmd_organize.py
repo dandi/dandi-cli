@@ -10,13 +10,12 @@ from ..consts import dandiset_metadata_file, file_operation_modes
 
 @main.command()
 @click.option(
-    "-t",
-    "--top-path",
-    help="Top directory (local) of the dataset to organize files under.  "
-    "If not specified, current directory is assumed. "
-    "For 'simulate' mode target directory must not exist.",
+    "-d",
+    "--dandiset-path",
+    help="A top directory (local) of the dandiset to organize files under. "
+    "If not specified, dandiset current directory is under is assumed. "
+    "For 'simulate' mode target dandiset/directory must not exist.",
     type=click.Path(dir_okay=True, file_okay=False),  # exists=True,
-    default=os.curdir,
 )
 @click.option(
     "-f",
@@ -37,6 +36,7 @@ from ..consts import dandiset_metadata_file, file_operation_modes
     help="What to do if files without sufficient metadata are encountered.",
     type=click.Choice(["fail", "warn"]),
     default="fail",
+    show_default=True,
 )
 @click.option(
     "--mode",
@@ -47,10 +47,11 @@ from ..consts import dandiset_metadata_file, file_operation_modes
     "be made available.",
     type=click.Choice(file_operation_modes),
     default="dry",
+    show_default=True,
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
 def organize(
-    paths, top_path=os.curdir, format=None, dandiset_id=None, invalid="fail", mode="dry"
+    paths, dandiset_path=None, format=None, dandiset_id=None, invalid="fail", mode="dry"
 ):
     """(Re)organize files according to the metadata.
 
@@ -66,6 +67,7 @@ def organize(
     """
     if format:
         raise NotImplementedError("format support is not yet implemented")
+
     # import tqdm
     from ..utils import copy_file, delayed, find_files, load_jsonl, move_file, Parallel
     from ..pynwb_utils import ignore_benign_pynwb_warnings
@@ -76,6 +78,9 @@ def organize(
         create_dataset_yml_template,
     )
     from ..metadata import get_metadata
+    from ..dandiset import Dandiset
+
+    in_place = False  # If we deduce that we are organizing in-place
 
     # will come handy when dry becomes proper separate option
     def dry_print(msg):
@@ -92,17 +97,45 @@ def organize(
             lgr.debug("%s %s %s", func.__name__, args, kwargs)
             return func(*args, **kwargs)
 
+    if dandiset_path is None:
+        dandiset = Dandiset.find(os.curdir)
+        if not dandiset:
+            raise ValueError(
+                "No --dandiset-path was provided, and no dandiset was found "
+                "in/above current directory"
+            )
+        dandiset_path = dandiset.path
+        del dandiset
+
     # Early checks to not wait to fail
     if mode == "simulate":
         # in this mode we will demand the entire output folder to be absent
-        if op.exists(top_path):
+        if op.exists(dandiset_path):
             # TODO: RF away
             raise RuntimeError(
                 "In simulate mode %r (--top-path) must not exist, we will create it."
-                % top_path
+                % dandiset_path
             )
 
     ignore_benign_pynwb_warnings()
+
+    if not paths:
+        try:
+            Dandiset(dandiset_path)
+        except Exception as exc:
+            lgr.debug("Failed to find dandiset at %s: %s", dandiset_path, exc)
+            raise ValueError(
+                "No dandiset was found at {dandiset_path}, and no "
+                "paths were provided"
+            )
+        if mode not in ("dry", "move"):
+            raise ValueError(
+                "Only 'dry' or 'move' mode could be used to operate in-place "
+                "within a dandiset (no paths were provided)"
+            )
+        lgr.info(f"We will organize {dandiset_path} in-place")
+        in_place = True
+        paths = dandiset_path
 
     if len(paths) == 1 and paths[0].endswith(".json"):
         # Our dumps of metadata
@@ -145,15 +178,15 @@ def organize(
                 len(paths),
             )
 
-    metadata, metadata_invalid = filter_invalid_metadata_rows(metadata)
-    if metadata_invalid:
+    metadata, skip_invalid = filter_invalid_metadata_rows(metadata)
+    if skip_invalid:
         msg = (
             "%d out of %d files were found not containing all necessary "
             "metadata: %s"
             % (
-                len(metadata_invalid),
-                len(metadata) + len(metadata_invalid),
-                ", ".join(m["path"] for m in metadata_invalid),
+                len(skip_invalid),
+                len(metadata) + len(skip_invalid),
+                ", ".join(m["path"] for m in skip_invalid),
             )
         )
         if invalid == "fail":
@@ -163,10 +196,10 @@ def organize(
         else:
             raise ValueError(f"invalid has an invalid value {invalid}")
 
-    if not op.exists(top_path):
-        act(os.makedirs, top_path)
+    if not op.exists(dandiset_path):
+        act(os.makedirs, dandiset_path)
 
-    dandiset_metadata_filepath = op.join(top_path, dandiset_metadata_file)
+    dandiset_metadata_filepath = op.join(dandiset_path, dandiset_metadata_file)
     if op.lexists(dandiset_metadata_filepath):
         if dandiset_id is not None:
             lgr.info(
@@ -243,10 +276,18 @@ def organize(
     # duplicate but shouldn't hurt
     existing = []
     for e in metadata:
-        dandi_fullpath = op.join(top_path, e["dandi_path"])
+        dandi_fullpath = op.join(dandiset_path, e["dandi_path"])
         if op.exists(dandi_fullpath):
-            existing.append(dandi_fullpath)
-
+            # It might be the same file, then we would not complain
+            if not (
+                op.abspath(e["path"])
+                == op.abspath(op.join(dandiset_path, e["dandi_path"]))
+            ):
+                existing.append(dandi_fullpath)
+            # TODO: it might happen that with "move" we are renaming files
+            # so there is an existing, which also gets moved away "first"
+            # May be we should RF so the actual loop below would be first done
+            # "dry", collect info on what is actually to be done, and then we would complain here
     if existing:
         raise AssertionError(
             "%d paths already exists: %s%s.  Remove them first"
@@ -259,22 +300,38 @@ def organize(
 
     # we should take additional care about paths if both top_path and
     # provided paths are relative
-    use_abs_paths = op.isabs(top_path) or any(op.isabs(e["path"]) for e in metadata)
+    use_abs_paths = op.isabs(dandiset_path) or any(
+        op.isabs(e["path"]) for e in metadata
+    )
+    skip_same = []
+    acted_upon = []
     for e in metadata:
         dandi_path = e["dandi_path"]
-        dandi_fullpath = op.join(top_path, dandi_path)
+        dandi_fullpath = op.join(dandiset_path, dandi_path)
+        dandi_abs_fullpath = (
+            op.abspath(dandi_fullpath)
+            if not op.isabs(dandi_fullpath)
+            else dandi_fullpath
+        )
         dandi_dirpath = op.dirname(dandi_fullpath)  # could be sub-... subdir
 
         e_path = e["path"]
+        e_abs_path = e_path
+
         if not op.isabs(e_path):
-            abs_path = op.abspath(e_path)
+            e_abs_path = op.abspath(e_path)
             if use_abs_paths:
-                e_path = abs_path
-            else:
-                e_path = op.relpath(abs_path, dandi_dirpath)
+                e_path = e_abs_path
+            elif mode == "symlink":  # path should be relative to the target
+                e_path = op.relpath(e_abs_path, dandi_dirpath)
+
+        if dandi_abs_fullpath == e_abs_path:
+            lgr.debug("Skipping %s since the same in source/destination", e_path)
+            skip_same.append(e)
+            continue
 
         if mode == "dry":  # TODO: this is actually a mode on top of modes!!!?
-            dry_print(f"{e['path']} -> {e['dandi_path']}")
+            dry_print(f"{e_path} -> {dandi_path}")
         else:
             if not op.exists(dandi_dirpath):
                 os.makedirs(dandi_dirpath)
@@ -303,8 +360,26 @@ def organize(
                 move_file(e_path, dandi_fullpath)
             else:
                 raise NotImplementedError(mode)
+            acted_upon.append(e)
+
+    if acted_upon and in_place:
+        # We might need to cleanup a bit - e.g. prune empty directories left
+        # by the move in in-place mode
+        dirs = set(op.dirname(e["path"]) for e in acted_upon)
+        for d in sorted(dirs)[::-1]:  # from longest to shortest
+            if op.exists(d):
+                try:
+                    os.rmdir(d)
+                    lgr.info(f"Removed mepty directory {d}")
+                except Exception as exc:
+                    lgr.debug("Failed to remove directory %s: %s", d, exc)
 
     lgr.info(
-        "Finished processing %d paths (%d invalid skipped) with %d having duplicates. Visit %s"
-        % (len(metadata), len(metadata_invalid), len(non_unique), top_path)
+        "Organized %d paths (skipped: %d invalid, %d same; total: %d) with %d having duplicates. Visit %s/",
+        len(acted_upon),
+        len(skip_invalid),
+        len(skip_same),
+        len(metadata),
+        len(non_unique),
+        dandiset_path.rstrip("/"),
     )

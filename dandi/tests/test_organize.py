@@ -115,7 +115,7 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
 
     input_files = op.join(nwb_test_data, "v2.0.1")
 
-    cmd = ["-t", outdir, "--mode", mode, input_files]
+    cmd = ["-d", outdir, "--mode", mode, input_files]
 
     r = clirunner.invoke(organize, cmd)
     assert "not containing all" in str(r.exc_info[1])
