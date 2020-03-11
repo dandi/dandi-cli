@@ -18,9 +18,9 @@ from . import __version__
 
 # strip away possible development version marker
 dandi_rel_version = __version__.split("+", 1)[0]
-metadata_cache = PersistentCache(
-    name="metadata", tokens=[pynwb.__version__, dandi_rel_version]
-)
+dandi_cache_tokens = [pynwb.__version__, dandi_rel_version]
+metadata_cache = PersistentCache(name="metadata", tokens=dandi_cache_tokens)
+validate_cache = PersistentCache(name="validate", tokens=dandi_cache_tokens)
 
 
 def get_nwb_version(filepath):

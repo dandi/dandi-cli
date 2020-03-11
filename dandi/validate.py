@@ -3,7 +3,7 @@ import os.path as op
 from .consts import dandiset_metadata_file
 import yaml
 
-from .pynwb_utils import validate as pynwb_validate
+from .pynwb_utils import validate as pynwb_validate, validate_cache
 from .utils import find_dandi_files
 
 
@@ -30,6 +30,7 @@ def validate(paths):
         yield path, errors
 
 
+@validate_cache.memoize_path
 def validate_file(filepath):
     if op.basename(filepath) == dandiset_metadata_file:
         return validate_dandiset_yaml(filepath)
