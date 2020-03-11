@@ -161,6 +161,25 @@ def ensure_datetime(t, strip_tzinfo=False, tz=None):
     return t
 
 
+#
+# Generic
+#
+def flattened(it):
+    """Return a list with all items flattened if list or tuple"""
+    items = []
+    for i in it:
+        if isinstance(i, (list, tuple)):
+            items.extend(flattened(i))
+        else:
+            items.append(i)
+    return items
+
+
+#
+# Paths and files
+#
+
+
 def load_jsonl(filename):
     """Load json lines formatted file"""
     import json
