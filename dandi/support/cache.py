@@ -64,6 +64,12 @@ class PersistentCache(object):
 
         @wraps(f)
         def fingerprinter(path, *args, **kwargs):
+            # we need to dereference symlinks and use that path in the function
+            # call signature
+            path_orig = path
+            path = op.realpath(path)
+            if path != path_orig:
+                lgr.log(5, "Dereferenced %r into %r", path_orig, path)
             fprint = self._get_file_fingerprint(path)
             # We should still pass through if file was modified just now,
             # since that could mask out quick modifications.
@@ -100,6 +106,8 @@ class PersistentCache(object):
             # we can't take everything, since atime can change, etc.
             # So let's take some
             s = os.stat(path, follow_symlinks=True)
-            return s.st_mtime_ns, s.st_ctime_ns, s.st_size
+            fprint = s.st_mtime_ns, s.st_ctime_ns, s.st_size
+            lgr.log(5, "Fingerprint for %s: %s", path, fprint)
+            return fprint
         except Exception as exc:
             lgr.debug(f"Cannot fingerptint {path}: {exc}")

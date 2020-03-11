@@ -1,3 +1,4 @@
+import os
 import os.path as op
 import random
 import sys
@@ -77,7 +78,8 @@ def test_memoize_path(cache, tmp_path):
         assert memoread(path, arg) == content
         assert len(calls) == ncalls + 1 + int(expect_new)
 
-    path = str(tmp_path / "file.dat")
+    fname = "file.dat"
+    path = str(tmp_path / fname)
 
     with pytest.raises(IOError):
         memoread(path, 0)
@@ -109,6 +111,13 @@ def test_memoize_path(cache, tmp_path):
 
     time.sleep(cache._min_dtime * 1.1)
     check_new_memoread(0, "Content")
+
+    # Check that symlinks should be dereferenced
+    symlink1 = str(tmp_path / (fname + ".link1"))
+    os.symlink(fname, symlink1)
+    ncalls = len(calls)
+    assert memoread(symlink1, 0) == "Content"
+    assert len(calls) == ncalls  # no new call
 
     # and if we "clear", would it still work?
     cache.clear()
