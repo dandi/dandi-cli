@@ -109,7 +109,7 @@ def upload(
     dandiset = Dandiset.find(dandiset_path)
     if not dandiset:
         raise RuntimeError(
-            f"Found no {dandiset_metadata_file}.  Use  'dandi register' and/or 'dandi organize' first"
+            f"Found no {dandiset_metadata_file} anywhere.  Use 'dandi register', 'download', or 'organize' first"
         )
 
     # Should no longer be needed
