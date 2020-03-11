@@ -280,8 +280,8 @@ def organize(
         if op.exists(dandi_fullpath):
             # It might be the same file, then we would not complain
             if not (
-                op.abspath(e["path"])
-                == op.abspath(op.join(dandiset_path, e["dandi_path"]))
+                op.realpath(e["path"])
+                == op.realpath(op.join(dandiset_path, e["dandi_path"]))
             ):
                 existing.append(dandi_fullpath)
             # TODO: it might happen that with "move" we are renaming files
@@ -290,7 +290,7 @@ def organize(
             # "dry", collect info on what is actually to be done, and then we would complain here
     if existing:
         raise AssertionError(
-            "%d paths already exists: %s%s.  Remove them first"
+            "%d paths already exist: %s%s.  Remove them first."
             % (
                 len(existing),
                 ", ".join(existing[:5]),
@@ -327,6 +327,15 @@ def organize(
 
         if dandi_abs_fullpath == e_abs_path:
             lgr.debug("Skipping %s since the same in source/destination", e_path)
+            skip_same.append(e)
+            continue
+        elif mode == "symlink" and op.realpath(dandi_abs_fullpath) == op.realpath(
+            e_abs_path
+        ):
+            lgr.debug(
+                "Skipping %s since mode is symlink and both resolve to the same path",
+                e_path,
+            )
             skip_same.append(e)
             continue
 
@@ -374,12 +383,21 @@ def organize(
                 except Exception as exc:
                     lgr.debug("Failed to remove directory %s: %s", d, exc)
 
+    def msg_(msg, n, cond=None):
+        if hasattr(n, "__len__"):
+            n = len(n)
+        if cond is None:
+            cond = bool(n)
+        if not cond:
+            return ""
+        return msg % n
+
     lgr.info(
-        "Organized %d paths (skipped: %d invalid, %d same; total: %d) with %d having duplicates. Visit %s/",
+        "Organized %d%s paths%s%s.%s Visit %s/",
         len(acted_upon),
-        len(skip_invalid),
-        len(skip_same),
-        len(metadata),
-        len(non_unique),
+        msg_(" out of %d", metadata, len(metadata) != len(acted_upon)),
+        msg_(" (%d same existing skipped)", skip_same),
+        msg_(" with %d having duplicates", non_unique),
+        msg_(" %d invalid not considered.", skip_invalid),
         dandiset_path.rstrip("/"),
     )
