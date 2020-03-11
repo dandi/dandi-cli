@@ -70,7 +70,7 @@ class PersistentCache(object):
             path = op.realpath(path)
             if path != path_orig:
                 lgr.log(5, "Dereferenced %r into %r", path_orig, path)
-            fprint = self._get_file_fingerprint(path)
+            fprint = None if op.isdir(path) else self._get_file_fingerprint(path)
             # We should still pass through if file was modified just now,
             # since that could mask out quick modifications.
             # Target use cases will not be like that.
