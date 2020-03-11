@@ -52,8 +52,8 @@ def test_populate_dataset_yml(tmpdir):
     populate_dataset_yml(str(path), metadata)
     assert c() == {
         "id": "test1",
-        "number_cells": 2,
-        "number_tissueSamples": 1,
+        "number_of_cells": 2,
+        "number_of_tissue_samples": 1,
         "sex": ["F", "M"],
         "age": {"maximum": 2, "minimum": 1, "units": "TODO"},
     }
@@ -66,8 +66,8 @@ def test_populate_dataset_yml(tmpdir):
     populate_dataset_yml(str(path), metadata[:1])
     assert c() == {
         "id": "test1",
-        "number_cells": 1,
-        "number_tissueSamples": 1,
+        "number_of_cells": 1,
+        "number_of_tissue_samples": 1,
         "sex": ["M"],
         "age": {"maximum": 1, "minimum": 1, "units": "years"},
     }
@@ -85,7 +85,7 @@ def test_populate_dataset_yml(tmpdir):
 
     populate_dataset_yml(str(path), metadata)
     # too big, check one
-    assert c()["number_cells"] == 2
+    assert c()["number_of_cells"] == 2
 
 
 # do not test 'move' - would need  a dedicated handling since it would

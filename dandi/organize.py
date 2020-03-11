@@ -266,13 +266,13 @@ repository: # REQUIRED
 - name: REQUIRED
   identifier: RRID/REQUIRED
 distribution:
-- DataDownload:
+- data_download:
   - contentURL:  REQUIRED
     name: required
-    contentSize: REQUIRED
-    datePublished: REQUIRED
-    dateModified: REQUIRED
-    MeasurementType: OPTIONAL
+    content_size: REQUIRED
+    date_published: REQUIRED
+    date_modified: REQUIRED
+    measurement_type: OPTIONAL
 altid: # OPTIONAL
 - id1
 
@@ -289,9 +289,9 @@ organism:
   strain: REQUIRED
   identifier: REQUIRED
   vendor: OPTIONAL
-number_subjects: REQUIRED
-number_tissueSamples: RECOMMENDED
-number_cells: RECOMMENDED
+number_of_subjects: REQUIRED
+number_of_tissue_samples: RECOMMENDED
+number_of_cells: RECOMMENDED
 """
         )
 
@@ -355,10 +355,10 @@ def populate_dataset_yml(filepath, metadata):
         ("subject_id", "subjects"),
         ("cell_id", "cells"),
         ("slice_id", "slices"),
-        ("tissue_sample_id", "tissueSamples"),
+        ("tissue_sample_id", "tissue_samples"),
     ):
         if uvs[mfield]:
-            rec[f"number_{yfield}"] = len(uvs[mfield])
+            rec[f"number_of_{yfield}"] = len(uvs[mfield])
 
     if uvs["species"]:
         species = sorted(uvs["species"])
