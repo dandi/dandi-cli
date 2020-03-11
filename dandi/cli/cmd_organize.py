@@ -66,6 +66,7 @@ def organize(
     """
     if format:
         raise NotImplementedError("format support is not yet implemented")
+    # import tqdm
     from ..utils import copy_file, delayed, find_files, load_jsonl, move_file, Parallel
     from ..pynwb_utils import ignore_benign_pynwb_warnings
     from ..organize import (
@@ -113,16 +114,36 @@ def organize(
         # without having two types of invocation and to guard against
         # problematic ones -- we have an explicit option on how to
         # react to those
+        # Doesn't play nice with Parallel
+        # with tqdm.tqdm(desc="Files", total=len(paths), unit="file", unit_scale=False) as pbar:
+        failed = []
+
         def _get_metadata(path):
             try:
                 meta = get_metadata(path)
             except Exception as exc:
                 meta = {}
+                failed.append(path)
+                # pbar.desc = "Files (%d failed)" % len(failed)
                 lgr.debug("Failed to get metadata for %s: %s", path, exc)
+            # pbar.update(1)
             meta["path"] = path
             return meta
 
-        metadata = list(Parallel()(delayed(_get_metadata)(path) for path in paths))
+        # Note: It is Python (pynwb) intensive, not IO, so ATM there is little
+        # to no benefit from Parallel without using multiproc!  But that would
+        # complicate progress bar indication... TODO
+        metadata = list(
+            Parallel(n_jobs=-1, verbose=10)(
+                delayed(_get_metadata)(path) for path in paths
+            )
+        )
+        if failed:
+            lgr.warning(
+                "Failed to load metadata for %d out of %d files",
+                len(failed),
+                len(paths),
+            )
 
     metadata, metadata_invalid = filter_invalid_metadata_rows(metadata)
     if metadata_invalid:
