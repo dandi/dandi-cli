@@ -2,6 +2,7 @@ import appdirs
 import joblib
 import os
 import os.path as op
+import shutil
 import time
 from functools import wraps
 
@@ -43,9 +44,8 @@ class PersistentCache(object):
 
         # and completely destroy the directory
         try:
-            for d in (op.join(self._memory.location, "joblib"), self._memory.location):
-                if op.exists(d):
-                    os.rmdir(d)
+            if op.exists(self._memory.location):
+                shutil.rmree(d)
         except Exception as exc:
             lgr.warning(f"Failed to clear out the cache directory: {exc}")
 
