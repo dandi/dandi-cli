@@ -255,20 +255,27 @@ class GirderCli(gcl.GirderClient):
             assert not a_file.get("metadata", None), "metadata should be per item"
             a_file["metadata"] = a["metadata"]
             a = a_file  # yield enhanced with metadata file entry
-        elif a["type"] in ("folder", "collection", "user") and recursive:
-            # TODO: reconsider bothering with types, since could be done
-            # upstairs and returning folder itself last complicates reporting
-            # of intensions.  We could yield it twice, but then it might bring
-            # confusion
-            a["attrs"]["size"] = 0
-            for child in self._list_folder(g["_id"], g["_modelType"]):
-                for child_a in self._traverse_asset_girder(child, a["path"]):
-                    a["attrs"]["size"] += child_a["attrs"]["size"]
-                    yield child_a
-            # And now yield record about myself, but we do not care about collections
-            a["type"] = "folder"
+        elif a["type"] in ("folder", "collection", "user"):
+            if recursive:
+                # TODO: reconsider bothering with types, since could be done
+                # upstairs and returning folder itself last complicates reporting
+                # of intensions.  We could yield it twice, but then it might bring
+                # confusion
+                a["attrs"]["size"] = 0
+                for child in self._list_folder(g["_id"], g["_modelType"]):
+                    for child_a in self._traverse_asset_girder(child, a["path"]):
+                        a["attrs"]["size"] += child_a["attrs"]["size"]
+                        yield child_a
+            # It could be a dandiset
+            if a["type"] == "folder" and a["metadata"].get("dandiset", {}).get(
+                "identifier", None
+            ):
+                a["type"] = "dandiset"
+            else:
+                # And now yield record about myself, but we do not care about collections
+                a["type"] = "folder"
         else:
-            raise NotImplementedError(f"Do not know how to handle a['type']")
+            raise NotImplementedError(f"Do not know how to handle {a['type']!r}")
         yield a
 
     def _list_folder(self, folder_id, folder_type="folder", types=None):
