@@ -1,16 +1,10 @@
 import os.path as op
-from pathlib import Path, PurePosixPath
 import requests
 import urllib.parse as up
 
-import multiprocessing
 from . import girder, get_logger
-from .metadata import get_metadata
-from .pynwb_utils import validate as pynwb_validate
-from .pynwb_utils import ignore_benign_pynwb_warnings
-from .utils import get_utcnow_datetime
-from .support.generatorify import generator_from_callback
-from .support.pyout import naturalsize
+from .consts import dandiset_metadata_file
+from .dandiset import Dandiset
 
 lgr = get_logger()
 
@@ -133,24 +127,61 @@ def download(
     # of encountered resources.
     # TODO later:  may be look into making it async
 
-    try:
-        # this one should enhance them with "fullpath"
-        entities = client.traverse_asset(asset_id, asset_type)
-    except girder.gcl.HttpError as exc:
-        response = girder.get_HttpError_response(exc)
-        if not authenticate and (
-            exc.status == 401 or "access denied" in response.get("message", "")
-        ):
-            lgr.warning("unauthenticated access denied, let's authenticate")
-            client.dandi_authenticate()
-            entities = client.traverse_asset(asset_id, asset_type)
-        else:
+    # First we access top level records just to sense what we are working with
+    top_entities = None
+    while True:
+        try:
+            # this one should enhance them with "fullpath"
+            top_entities = list(
+                client.traverse_asset(asset_id, asset_type, recursive=False)
+            )
+            break
+        except girder.gcl.HttpError as exc:
+            response = girder.get_HttpError_response(exc)
+            if not authenticate and (
+                exc.status == 401 or "access denied" in response.get("message", "")
+            ):
+                lgr.warning("unauthenticated access denied, let's authenticate")
+                client.dandi_authenticate()
+                continue
             raise
 
-    # TODO: special handling for a dandiset -- we might need to
-    #  generate dandiset.yaml out of the metadata record
-    # we care only about files ATM
-    files = (e for e in entities if e["type"] == "file")
+    entity_type = list(set(e["type"] for e in top_entities))
+    if len(entity_type) > 1:
+        raise ValueError(
+            f"Please point to a single type of entity - either dandiset(s),"
+            f" folder(s) or file(s).  Got: {entity_type}"
+        )
+    entity_type = entity_type[0]
+
+    if entity_type in ("dandiset", "folder"):
+        # redo recursively
+        entities = client.traverse_asset(asset_id, asset_type, recursive=True)
+        # TODO: special handling for a dandiset -- we might need to
+        #  generate dandiset.yaml out of the metadata record
+        # we care only about files ATM
+        files = (e for e in entities if e["type"] == "file")
+    elif entity_type == "file":
+        files = top_entities
+    else:
+        raise ValueError(f"Unexpected entity type {entity_type}")
+
+    if entity_type == "dandiset":
+        for e in top_entities:
+            dandiset_path = op.join(output_dir, e["path"])
+            dandiset_yaml = op.join(dandiset_path, dandiset_metadata_file)
+            if op.lexists(dandiset_yaml):
+                if existing != "overwrite":
+                    lgr.info(
+                        f"{dandiset_yaml} already exists.  Set 'existing' "
+                        f"to overwrite if you want it to be redownloaded. Skipping"
+                    )
+                    continue
+            dandiset = Dandiset(dandiset_path, allow_empty=True)
+            if not dandiset.path_obj.exists():
+                dandiset.path_obj.mkdir()
+            dandiset.update_metadata(e.get("metadata", {}).get("dandiset", {}))
+
     for file in files:
         client.download_file(
             file["id"],
