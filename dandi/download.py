@@ -156,6 +156,11 @@ def download(
 
     if entity_type in ("dandiset", "folder"):
         # redo recursively
+        lgr.info(
+            "Traversing remote %ss (%s) recursively and downloading them locally",
+            entity_type,
+            ", ".join(e["name"] for e in top_entities),
+        )
         entities = client.traverse_asset(asset_id, asset_type, recursive=True)
         # TODO: special handling for a dandiset -- we might need to
         #  generate dandiset.yaml out of the metadata record
