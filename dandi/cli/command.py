@@ -22,7 +22,7 @@ lgr = get_logger()
 # Aux common functionality
 
 
-def get_files(paths, recursive=True, recurion_limit=None):
+def get_files(paths, recursive=True, recursion_limit=None):
     """Given a list of paths, return a list of paths
     """
     # For now we support only individual files
