@@ -10,6 +10,8 @@ def test_get_metadata(simple1_nwb, simple1_nwb_metadata):
     target_metadata["number_of_electrodes"] = 0
     target_metadata["number_of_units"] = 0
     target_metadata["number_of_units"] = 0
+    # We also populate with nd_types now, although here they would be empty
+    target_metadata["nd_types"] = []
     # we do not populate any subject fields in our simple1_nwb
     for f in metadata_subject_fields:
         target_metadata[f] = None
