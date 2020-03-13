@@ -130,8 +130,8 @@ def organize(
         except Exception as exc:
             lgr.debug("Failed to find dandiset at %s: %s", dandiset_path, exc)
             raise ValueError(
-                "No dandiset was found at {dandiset_path}, and no "
-                "paths were provided"
+                f"No dandiset was found at {dandiset_path}, and no "
+                f"paths were provided"
             )
         if files_mode not in ("dry", "move"):
             raise ValueError(
