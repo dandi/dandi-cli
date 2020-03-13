@@ -11,7 +11,7 @@ from .command import (
     dandiset_path_option,
     devel_debug_option,
     devel_option,
-    girder_instance_option,
+    instance_option,
     main,
     map_to_click_exceptions,
     lgr,
@@ -54,15 +54,7 @@ from ..consts import (
 # Development options:  Set DANDI_DEVEL for them to become available
 #
 # TODO: should always go to dandi for now
-@girder_instance_option()
-@devel_option(
-    "-i",
-    "--girder-instance",
-    help="For development: Girder instance to use",
-    type=click.Choice(sorted(known_instances)),
-    default="dandi",
-    show_default=True,
-)
+@instance_option()
 # TODO: should always go into 'drafts' (consts.collection_drafts)
 @devel_option(
     "-c", "--girder-collection", help="For development: Girder collection to upload to"
@@ -86,7 +78,7 @@ def upload(
     # Development options should come as kwargs
     girder_collection=collection_drafts,
     girder_top_folder=None,
-    girder_instance="dandi",
+    dandi_instance="dandi",
     fake_data=False,  # TODO: not implemented, prune?
     devel_debug=False,
 ):
@@ -161,7 +153,7 @@ def upload(
 
     ignore_benign_pynwb_warnings()  # so validate doesn't whine
 
-    client = girder.get_client(girder.known_instances[girder_instance].girder)
+    client = girder.get_client(girder.known_instances[dandi_instance].girder)
 
     try:
         collection_rec = girder.ensure_collection(client, girder_collection)

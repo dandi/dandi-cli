@@ -86,11 +86,11 @@ def dandiset_path_option(**kwargs):
     )
 
 
-def girder_instance_option():
+def instance_option():
     return devel_option(
         "-i",
-        "--girder-instance",
-        help="For development: Girder instance to use",
+        "--dandi-instance",
+        help="For development: DANDI instance to use",
         type=click.Choice(sorted(known_instances)),
         default="dandi",
         show_default=True,
