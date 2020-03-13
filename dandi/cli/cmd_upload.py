@@ -86,7 +86,7 @@ def upload(
     # Development options should come as kwargs
     girder_collection=collection_drafts,
     girder_top_folder=None,
-    girder_instance=None,
+    girder_instance="dandi",
     fake_data=False,  # TODO: not implemented, prune?
     develop_debug=False,
 ):
