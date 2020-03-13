@@ -4,7 +4,7 @@ import sys
 import time
 
 import click
-from .command import devel_option, main, lgr
+from .command import devel_option, main, map_to_click_exceptions
 
 
 @main.command()
@@ -43,6 +43,7 @@ from .command import devel_option, main, lgr
     is_flag=True,
 )
 @click.argument("url", nargs=-1)
+@map_to_click_exceptions
 def download(url, output_dir, existing, develop_debug=False):
     """Download a file or entire folder from DANDI"""
     # First boring attempt at click commands being merely an interface to
