@@ -34,7 +34,7 @@ lgr = get_logger()
     prompt="Name",
 )
 @click.option(
-    "-d",
+    "-D",
     "--description",
     help="Description of the dandiset - high level summary of the experiment "
     "and type(s) of data.",
@@ -59,7 +59,7 @@ def register(name, description, dandiset_path=None, girder_instance="dandi"):
 
     lgr.info(f"Registered dandiset at {url}. Please visit and adjust its metadata")
     if dandiset_path:
-        ds = Dandiset(dandiset, allow_empty=True)
+        ds = Dandiset(dandiset_path, allow_empty=True)
         ds.update_metadata(dandiset)
     else:
         lgr.info(
