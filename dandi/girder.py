@@ -90,6 +90,20 @@ class GirderCli(gcl.GirderClient):
             **kw,
         )
 
+    def register_dandiset(self, name, description):
+        """Register a dandiset and return created metadata record
+
+        Returns
+        -------
+        dict
+          Metadata record created for the dandiset
+        """
+        ret = self.createResource("dandi", {"name": name, "description": description})
+        assert "meta" in ret
+        assert "dandiset" in ret["meta"]
+        # Return only our dandiset record
+        return ret["meta"]["dandiset"]
+
     def dandi_authenticate(self):
         # Shortcut for advanced folks
         api_key = os.environ.get("DANDI_API_KEY", None)
