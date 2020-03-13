@@ -37,7 +37,8 @@ from ..consts import dandiset_metadata_file, file_operation_modes
     show_default=True,
 )
 @click.option(
-    "--mode",
+    "-f",
+    "--files-mode",
     help="If 'dry' - no action is performed, suggested renames are printed. "
     "I 'simulate' - hierarchy of empty files at --local-top-path is created. "
     "Note that previous layout should be removed prior this operation.  The "
@@ -50,7 +51,12 @@ from ..consts import dandiset_metadata_file, file_operation_modes
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
 @map_to_click_exceptions
 def organize(
-    paths, dandiset_path=None, format=None, dandiset_id=None, invalid="fail", mode="dry"
+    paths,
+    dandiset_path=None,
+    format=None,
+    dandiset_id=None,
+    invalid="fail",
+    files_mode="dry",
 ):
     """(Re)organize files according to the metadata.
 
@@ -85,7 +91,7 @@ def organize(
     def dry_print(msg):
         print(f"DRY: {msg}")
 
-    if mode == "dry":
+    if files_mode == "dry":
 
         def act(func, *args, **kwargs):
             dry_print(f"{func.__name__} {args}, {kwargs}")
@@ -107,7 +113,7 @@ def organize(
         del dandiset
 
     # Early checks to not wait to fail
-    if mode == "simulate":
+    if files_mode == "simulate":
         # in this mode we will demand the entire output folder to be absent
         if op.exists(dandiset_path):
             # TODO: RF away
@@ -127,7 +133,7 @@ def organize(
                 "No dandiset was found at {dandiset_path}, and no "
                 "paths were provided"
             )
-        if mode not in ("dry", "move"):
+        if files_mode not in ("dry", "move"):
             raise ValueError(
                 "Only 'dry' or 'move' mode could be used to operate in-place "
                 "within a dandiset (no paths were provided)"
@@ -213,13 +219,13 @@ def organize(
         )
         # TODO
         pass
-    elif mode == "simulate":
+    elif files_mode == "simulate":
         lgr.info(
             f"In 'simulate' mode, since no {dandiset_metadata_filepath} found, "
             f"we will use a template"
         )
         create_dataset_yml_template(dandiset_metadata_filepath)
-    elif mode == "dry":
+    elif files_mode == "dry":
         lgr.info(f"We do nothing about {dandiset_metadata_filepath} in 'dry' mode.")
         dandiset_metadata_filepath = None
     else:
@@ -255,7 +261,7 @@ def organize(
             len(all_paths),
             "\n".join("   %s: %s" % i for i in non_unique.items()),
         )
-        if mode == "simulate":
+        if files_mode == "simulate":
             # TODO: in future should be an error, for now we will lay them out
             #  as well to ease investigation
             lgr.warning(
@@ -321,14 +327,14 @@ def organize(
             e_abs_path = op.abspath(e_path)
             if use_abs_paths:
                 e_path = e_abs_path
-            elif mode == "symlink":  # path should be relative to the target
+            elif files_mode == "symlink":  # path should be relative to the target
                 e_path = op.relpath(e_abs_path, dandi_dirpath)
 
         if dandi_abs_fullpath == e_abs_path:
             lgr.debug("Skipping %s since the same in source/destination", e_path)
             skip_same.append(e)
             continue
-        elif mode == "symlink" and op.realpath(dandi_abs_fullpath) == op.realpath(
+        elif files_mode == "symlink" and op.realpath(dandi_abs_fullpath) == op.realpath(
             e_abs_path
         ):
             lgr.debug(
@@ -338,12 +344,14 @@ def organize(
             skip_same.append(e)
             continue
 
-        if mode == "dry":  # TODO: this is actually a mode on top of modes!!!?
+        if (
+            files_mode == "dry"
+        ):  # TODO: this is actually a files_mode on top of modes!!!?
             dry_print(f"{e_path} -> {dandi_path}")
         else:
             if not op.exists(dandi_dirpath):
                 os.makedirs(dandi_dirpath)
-            if mode == "simulate":
+            if files_mode == "simulate":
                 if dandi_path in non_unique:
                     if op.exists(dandi_fullpath):
                         assert op.isdir(dandi_fullpath)
@@ -358,16 +366,16 @@ def organize(
                 continue
             #
             assert dandi_path not in non_unique
-            if mode == "symlink":
+            if files_mode == "symlink":
                 os.symlink(e_path, dandi_fullpath)
-            elif mode == "hardlink":
+            elif files_mode == "hardlink":
                 os.link(e_path, dandi_fullpath)
-            elif mode == "copy":
+            elif files_mode == "copy":
                 copy_file(e_path, dandi_fullpath)
-            elif mode == "move":
+            elif files_mode == "move":
                 move_file(e_path, dandi_fullpath)
             else:
-                raise NotImplementedError(mode)
+                raise NotImplementedError(files_mode)
             acted_upon.append(e)
 
     if acted_upon and in_place:
