@@ -9,6 +9,9 @@ import sys
 
 from pathlib import Path
 
+if sys.version_info[:2] < (3, 7):
+    import dateutil
+
 #
 # Additional handlers
 #
@@ -135,6 +138,17 @@ def ensure_strtime(t, isoformat=True):
     raise TypeError(f"Do not know how to convert {t_orig!r} to string datetime")
 
 
+def fromisoformat(t, impl=None):
+    if impl is None:
+        impl = "datetime" if sys.version_info[:2] >= (3, 7) else "dateutil"
+    if impl == "datetime":
+        return datetime.datetime.fromisoformat(t)
+    elif impl == "dateutil":
+        return dateutil.parser.isoparse(t)
+    else:
+        raise ValueError(impl)
+
+
 def ensure_datetime(t, strip_tzinfo=False, tz=None):
     """Ensures that time is a datetime
 
@@ -149,7 +163,7 @@ def ensure_datetime(t, strip_tzinfo=False, tz=None):
         t = datetime.datetime.fromtimestamp(t).astimezone()
     elif isinstance(t, str):
         # could be in different formats, for now parse as ISO
-        t = datetime.datetime.fromisoformat(t)
+        t = fromisoformat(t)
         if strip_tzinfo and t.tzinfo:
             # TODO: check a proper way to handle this so we could account
             # for a possibly present tz

@@ -1,7 +1,8 @@
 import inspect
 import os.path as op
 import time
-
+import datetime
+import pytest
 from ..utils import (
     ensure_datetime,
     ensure_strtime,
@@ -67,3 +68,12 @@ def test_times_manipulations():
     # milliseconds
     assert not is_same_time(t0, t1, tollerance=0)
     assert is_same_time(t0, t1_epoch + 100, tollerance=101)
+
+
+@pytest.mark.parametrize(
+    "t", ["2018-09-26 17:29:17.000000-07:00", "2018-09-26 17:29:17-07:00"]
+)
+def test_time_samples(t):
+    assert is_same_time(
+        ensure_datetime(t), "2018-09-27 00:29:17-00:00", tollerance=0
+    )  # exactly the same
