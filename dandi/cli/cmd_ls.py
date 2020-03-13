@@ -5,7 +5,7 @@ import time
 import click
 from dandi.cli.command import get_files
 
-from .command import lgr, main
+from .command import lgr, main, map_to_click_exceptions
 
 from ..utils import safe_call
 
@@ -35,8 +35,9 @@ from ..utils import safe_call
     is_flag=True,
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
+@map_to_click_exceptions
 def ls(paths, fields=None, format="auto", recursive=False):
-    """List .nwb files metadata
+    """List .nwb files and dandisets metadata.
     """
     from ..consts import metadata_all_fields
 

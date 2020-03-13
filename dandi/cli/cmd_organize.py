@@ -4,32 +4,30 @@ import os.path as op
 from glob import glob
 from collections import Counter
 
-from .command import main, lgr
+from .command import (
+    dandiset_id_option,
+    dandiset_path_option,
+    lgr,
+    main,
+    map_to_click_exceptions,
+)
 from ..consts import dandiset_metadata_file, file_operation_modes
 
 
 @main.command()
-@click.option(
-    "-d",
-    "--dandiset-path",
+@dandiset_path_option(
     help="A top directory (local) of the dandiset to organize files under. "
     "If not specified, dandiset current directory is under is assumed. "
     "For 'simulate' mode target dandiset/directory must not exist.",
-    type=click.Path(dir_okay=True, file_okay=False),  # exists=True,
+    type=click.Path(dir_okay=True, file_okay=False),
 )
+@dandiset_id_option()
 @click.option(
     "-f",
     "--format",
     help="Python .format() template to be used to create a full path to a file. "
     "It will be provided a dict with metadata fields and some prepared "
     "fields such as '_filename' which is prepared according to internal rules.",
-)
-@click.option(
-    "--dandiset-id",
-    help=f"ID of the dandiset on DANDI archive.  Necessary to populate "
-    f"{dandiset_metadata_file}. Please use 'register' command to first "
-    f"register a new dandiset.",
-    # TODO: could add a check for correct regexp
 )
 @click.option(
     "--invalid",
@@ -50,6 +48,7 @@ from ..consts import dandiset_metadata_file, file_operation_modes
     show_default=True,
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
+@map_to_click_exceptions
 def organize(
     paths, dandiset_path=None, format=None, dandiset_id=None, invalid="fail", mode="dry"
 ):

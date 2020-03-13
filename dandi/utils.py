@@ -175,6 +175,16 @@ def flattened(it):
     return items
 
 
+def updated(d, update):
+    """Return a copy of the input with the 'update'
+
+    Primarily for updating dictionaries
+    """
+    d = d.copy()
+    d.update(update)
+    return d
+
+
 #
 # Paths and files
 #

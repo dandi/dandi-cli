@@ -2,6 +2,7 @@
 Commands definition for DANDI command line interface
 """
 
+from functools import wraps
 import os
 from os import path as op
 
@@ -11,6 +12,9 @@ from click_didyoumean import DYMGroup
 from .. import get_logger, set_logger_level
 
 from .. import __version__
+from ..consts import dandiset_metadata_file, known_instances
+from ..utils import updated
+
 
 # Delay imports leading to import of heavy modules such as pynwb and h5py
 # Import at the point of use
@@ -52,6 +56,82 @@ def devel_option(*args, **kwargs):
 
 
 #
+# Common options to reuse
+#
+# Functions to provide customizations where needed
+def _updated_option(*args, **kwargs):
+    args, d = args[:-1], args[-1]
+    kwargs.update(d)
+    return click.option(*args, **kwargs)
+
+
+def dandiset_id_option(**kwargs):
+    return _updated_option(
+        "--dandiset-id",
+        kwargs,
+        help=f"ID of the dandiset on DANDI archive.  Necessary to populate "
+        f"{dandiset_metadata_file}. Please use 'register' command to first "
+        f"register a new dandiset.",
+        # TODO: could add a check for correct regexp
+    )
+
+
+def dandiset_path_option(**kwargs):
+    return _updated_option(
+        "-d",
+        "--dandiset-path",
+        kwargs,
+        help="Top directory (local) of the dandiset.",
+        type=click.Path(exists=True, dir_okay=True, file_okay=False),
+    )
+
+
+def girder_instance_option():
+    return devel_option(
+        "-i",
+        "--girder-instance",
+        help="For development: Girder instance to use",
+        type=click.Choice(sorted(known_instances)),
+        default="dandi",
+        show_default=True,
+    )
+
+
+def devel_debug_option():
+    return devel_option(
+        "--devel-debug",
+        help="For development: do not use pyout callbacks, do not swallow exception",
+        default=False,
+        is_flag=True,
+    )
+
+
+def map_to_click_exceptions(f):
+    """Catch all exceptions and re-raise as click exceptions.
+
+    Will be active only if DANDI_DEVEL is not set and --pdb is not given
+    """
+
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not map_to_click_exceptions._do_map:
+            return f(*args, **kwargs)
+        try:
+            return f(*args, **kwargs)
+        # Prints global Usage: useless in majority of cases.
+        # It seems we better use it with some ctx, so it would hint in some
+        # cases to the help of a specific command
+        # except ValueError as e:
+        #     raise click.UsageError(str(e))
+        except Exception as e:
+            raise click.ClickException(str(e))
+
+    return wrapper
+
+
+map_to_click_exceptions._do_map = not bool(os.environ.get("DANDI_DEVEL", None))
+
+#
 # Main group
 #
 
@@ -91,6 +171,7 @@ def main(log_level, pdb=False):
     """
     set_logger_level(get_logger(), log_level)
     if pdb:
+        map_to_click_exceptions._do_map = False
         from ..utils import setup_exceptionhook
 
         setup_exceptionhook()

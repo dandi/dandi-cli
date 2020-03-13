@@ -7,7 +7,15 @@ import sys
 import time
 
 
-from .command import devel_option, main, lgr
+from .command import (
+    dandiset_path_option,
+    devel_debug_option,
+    devel_option,
+    girder_instance_option,
+    main,
+    map_to_click_exceptions,
+    lgr,
+)
 from ..utils import ensure_datetime, ensure_strtime, find_parent_directory_containing
 from ..consts import (
     collection_drafts,
@@ -18,14 +26,10 @@ from ..consts import (
 
 
 @main.command()
-# TODO: auto-deduce top level of a dandiset.
-@click.option(
-    "-d",
-    "--dandiset-path",
+@dandiset_path_option(
     help="Top directory (local) of the dandiset.  Files will be uploaded with "
     "paths relative to that directory. If not specified, current or a parent "
-    "directory containing dandiset.yaml file will be assumed ",
-    type=click.Path(exists=True, dir_okay=True, file_okay=False),
+    "directory containing dandiset.yaml file will be assumed "
 )
 @click.option(
     "-e",
@@ -51,6 +55,7 @@ from ..consts import (
 # Development options:  Set DANDI_DEVEL for them to become available
 #
 # TODO: should always go to dandi for now
+@girder_instance_option()
 @devel_option(
     "-i",
     "--girder-instance",
@@ -72,12 +77,8 @@ from ..consts import (
     default=False,
     is_flag=True,
 )
-@devel_option(
-    "--develop-debug",
-    help="For development: do not use pyout callbacks, do not swallow exception",
-    default=False,
-    is_flag=True,
-)
+@devel_debug_option()
+@map_to_click_exceptions
 def upload(
     paths,
     dandiset_path,

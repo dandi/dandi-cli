@@ -1,11 +1,12 @@
 import click
 import os
-from .command import main, get_files
+from .command import main, map_to_click_exceptions
 from ..utils import find_dandi_files
 
 
 @main.command()
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
+@map_to_click_exceptions
 def validate(paths):
     """Validate files for NWB (and DANDI) compliance.
 
