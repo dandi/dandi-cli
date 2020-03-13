@@ -31,7 +31,8 @@ from ..utils import safe_call
 @click.option(
     "-r",
     "--recursive",
-    help="Recurse into content of dandisets/directories.",
+    help="Recurse into content of dandisets/directories. Only .nwb files will "
+    "be considered.",
     is_flag=True,
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
@@ -68,7 +69,7 @@ def ls(paths, fields=None, format="auto", recursive=False):
 
     # For now we support only individual files
     if recursive:
-        files = list(find_files(".*", paths))
+        files = list(find_files(".nwb$", paths))
     else:
         files = paths
 
