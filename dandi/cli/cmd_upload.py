@@ -34,12 +34,11 @@ from ..consts import (
 @click.option(
     "-e",
     "--existing",
-    type=click.Choice(
-        ["error", "skip", "overwrite", "refresh"]
-    ),  # TODO: verify-reupload (to become default)
-    help="What to do if a file found existing on the server. 'refresh': verify "
-    "that according to the size and mtime, it is the same file, if not - "
-    "reupload and overwrite on the remote.",
+    type=click.Choice(["error", "skip", "force", "overwrite", "refresh"]),
+    help="What to do if a file found existing on the server. 'skip' would skip"
+    "the file, 'force' - force reupload, 'overwrite' - force upload if "
+    "either size or modification time differs; 'refresh' - upload only if "
+    "local modification time is ahead of the remote.",
     default="refresh",
     show_default=True,
 )
@@ -241,7 +240,6 @@ def upload(
             file_metadata_ = {
                 "uploaded_size": path_stat.st_size,
                 "uploaded_mtime": ensure_strtime(path_stat.st_mtime),
-                "uploaded_ctime": ensure_strtime(path_stat.st_ctime),
                 # "uploaded_date": None,  # to be filled out upon upload completion
             }
 
@@ -306,14 +304,15 @@ def upload(
 
             # get metadata and if we have all indications that it is
             # probably the same -- we just skip
-            assert sorted(file_metadata_) == [
-                "uploaded_ctime",
+            stat_fields = [
+                # Care only about mtime, ignore ctime which could change
                 "uploaded_mtime",
                 "uploaded_size",
             ]
+            assert sorted(file_metadata_) == stat_fields
+            item_metadata = item_rec.get("meta", {})
             item_file_metadata_ = {
-                k: item_rec.get("meta", {}).get(k, None)
-                for k in ["uploaded_mtime", "uploaded_ctime", "uploaded_size"]
+                k: item_rec.get("meta", {}).get(k, None) for k in stat_fields
             }
             lgr.debug(
                 "Files meta: local file: %s  remote file: %s",
@@ -321,9 +320,23 @@ def upload(
                 item_file_metadata_,
             )
 
-            file_thesame = file_metadata_ == item_file_metadata_
-            file_thesame_str = "same" if file_thesame else "diff"
-            exists_msg = f"exists ({file_thesame_str})"
+            if item_file_metadata_["uploaded_mtime"]:
+                local_mtime = ensure_datetime(file_metadata_["uploaded_mtime"])
+                remote_mtime = ensure_datetime(
+                    item_file_metadata_.get("uploaded_mtime")
+                )
+                remote_file_status = (
+                    "same"
+                    if (file_metadata_ == item_file_metadata_)
+                    else (
+                        "newer"
+                        if remote_mtime > local_mtime
+                        else ("older" if remote_mtime < local_mtime else "diff")
+                    )
+                )
+            else:
+                remote_file_status = "no mtime"
+            exists_msg = f"exists ({remote_file_status})"
 
             if len(file_recs) > 1:
                 raise NotImplementedError(
@@ -336,12 +349,16 @@ def upload(
                 if existing == "skip":
                     yield skip_file(exists_msg)
                     return
-                # Logic below only for refresh and reupload
-                if existing == "refresh":
-                    if file_thesame:
+                # Logic below only for overwrite and reupload
+                if existing == "overwrite":
+                    if remote_file_status == "same":
                         yield skip_file(exists_msg)
                         return
-                elif existing == "overwrite":
+                elif existing == "refresh":
+                    if not remote_file_status == "older":
+                        yield skip_file(exists_msg)
+                        return
+                elif existing == "force":
                     pass
                 else:
                     raise ValueError("existing")
@@ -441,7 +458,6 @@ def upload(
             metadata_.update(file_metadata_)
             metadata_["uploaded_size"] = path_stat.st_size
             metadata_["uploaded_mtime"] = ensure_strtime(path_stat.st_mtime)
-            metadata_["uploaded_ctime"] = ensure_strtime(path_stat.st_ctime)
 
             # #
             # # 7. Also set remote file ctime to match local mtime
