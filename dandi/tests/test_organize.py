@@ -11,7 +11,7 @@ from ..organize import (
     populate_dataset_yml,
     create_dataset_yml_template,
 )
-from ..utils import find_files
+from ..utils import find_files, on_windows
 import pytest
 
 
@@ -92,10 +92,13 @@ def test_populate_dataset_yml(tmpdir):
 # really move data away and break testing of other modes
 no_move_modes = file_operation_modes[:]
 no_move_modes.remove("move")
+if not on_windows:
+    # github workflows start whining about cross-drives links
+    no_move_modes.append("symlink-relative")
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("mode", no_move_modes + ["symlink-relative"])
+@pytest.mark.parametrize("mode", no_move_modes)
 def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
     from ..cli.command import organize
 
