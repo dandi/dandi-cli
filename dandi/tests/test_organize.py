@@ -134,7 +134,10 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
     if mode == "dry":
         assert produced_relpaths == []
     else:
-        assert produced_relpaths == ["dandiset.yaml", "sub-RAT123/sub-RAT123.nwb"]
+        assert produced_relpaths == [
+            "dandiset.yaml",
+            op.join("sub-RAT123", "sub-RAT123.nwb"),
+        ]
         # and that all files are accessible (so in case of symlinking - no broken
         # symlinks)
         assert all(map(op.exists, produced_paths))
