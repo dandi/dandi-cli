@@ -147,7 +147,8 @@ def upload(
     # TODO: that the folder already exists
     if False:
         raise ValueError(
-            f"There is no {girder_top_folder} in {girder_collection}. Did you use 'dandi register'?"
+            f"There is no {girder_top_folder} in {girder_collection}. "
+            f"Did you use 'dandi register'?"
         )
 
     import multiprocessing
@@ -161,7 +162,7 @@ def upload(
 
     ignore_benign_pynwb_warnings()  # so validate doesn't whine
 
-    client = girder.get_client(girder.known_instances[girder_instance])
+    client = girder.get_client(girder.known_instances[girder_instance].girder)
 
     try:
         collection_rec = girder.ensure_collection(client, girder_collection)

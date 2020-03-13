@@ -31,7 +31,7 @@ instructions.  In a new instance you would need to generate a new API key to be
 used by `dandi` client for upload etc.
 
 Relevant `dandi` client commands are aware of such an instance (such as `upload`)
-as `local91` (as opposed from `local` for a plain girder instance).  See note
+as `local-docker` (as opposed from `local` for a plain girder instance).  See note
 below on `DANDI_DEVEL` environment variable which would be needed to expose
 development command line options.
 

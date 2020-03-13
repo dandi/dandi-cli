@@ -64,16 +64,37 @@ dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = "^[0-9]{6}$"
 
 # name: url
+from collections import namedtuple
+
+dandi_instance = namedtuple("dandi_instance", ("girder", "gui", "redirector"))
+
 known_instances = {
-    "local": "http://localhost:8080",
-    "local91": "http://localhost:8091",  # as provided by entire archive docker compose. gui. on 8092
-    "dandi": "https://girder.dandiarchive.org",
+    "local-girder-only": dandi_instance(
+        "http://localhost:8080", None, None
+    ),  # just pure girder
+    # Redirector: TODO https://github.com/dandi/dandiarchive/issues/139
+    "local-docker": dandi_instance(
+        "http://localhost:8091", "http://localhost:8092", None
+    ),
+    "dandi": dandi_instance(
+        "https://girder.dandiarchive.org",
+        "https://gui.dandiarchive.org",
+        "https://dandiarchive.org",
+    ),
 }
 # to map back url: name
-known_instances_rev = {v: k for k, v in known_instances.items()}
-assert len(known_instances) == len(known_instances_rev)
+known_instances_rev = {vv: k for k, v in known_instances.items() for vv in v if vv}
 
 collection_drafts = "drafts"
 collection_releases = "releases"
 
 file_operation_modes = ["dry", "simulate", "copy", "move", "hardlink", "symlink"]
+
+#
+# Some routes
+# TODO: possibly centralize in dandi-common from our redirection service
+#
+
+# just a structure, better than dict for RFing etc
+class routes(object):
+    dandiset_draft = "{dandi_instance.redirector}/dandiset/{dandiset[identifier]}/draft"
