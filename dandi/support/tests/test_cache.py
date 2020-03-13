@@ -115,9 +115,10 @@ def test_memoize_path(cache, tmp_path):
     # Check that symlinks should be dereferenced
     symlink1 = str(tmp_path / (fname + ".link1"))
     os.symlink(fname, symlink1)
-    ncalls = len(calls)
-    assert memoread(symlink1, 0) == "Content"
-    assert len(calls) == ncalls  # no new call
+    if op.islink(fname):  # hopefully would just skip Windows if not supported
+        ncalls = len(calls)
+        assert memoread(symlink1, 0) == "Content"
+        assert len(calls) == ncalls  # no new call
 
     # and if we "clear", would it still work?
     cache.clear()
