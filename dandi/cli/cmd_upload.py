@@ -89,7 +89,7 @@ def upload(
     girder_top_folder=None,
     girder_instance="dandi",
     fake_data=False,  # TODO: not implemented, prune?
-    develop_debug=False,
+    devel_debug=False,
 ):
     """Upload dandiset (files) to DANDI archive.
 
@@ -167,7 +167,7 @@ def upload(
     try:
         collection_rec = girder.ensure_collection(client, girder_collection)
     except girder.gcl.HttpError as exc:
-        if develop_debug:
+        if devel_debug:
             raise
         # provide a bit less intimidating error reporting
         lgr.error(
@@ -207,7 +207,9 @@ def upload(
     #   https://github.com/pyout/pyout/issues/87
     # properly addressed
     process_paths = set()
-    uploaded_paths = {}  # path: uploaded size
+    from collections import defaultdict
+
+    uploaded_paths = defaultdict(lambda: {"size": 0, "errors": []})
 
     def skip_file(msg):
         return {"status": "skipped", "message": str(msg)}
@@ -402,7 +404,7 @@ def upload(
                     item_rec["_id"], path, progressCallback=c
                 )
             ):
-                uploaded_paths[str(path)] = r["current"]
+                uploaded_paths[str(path)]["size"] = r["current"]
                 yield {
                     "upload": 100.0
                     * ((r["current"] / r["total"]) if r["total"] else 1.0)
@@ -441,24 +443,31 @@ def upload(
             metadata_["uploaded_mtime"] = ensure_strtime(path_stat.st_mtime)
             metadata_["uploaded_ctime"] = ensure_strtime(path_stat.st_ctime)
 
-            #
-            # 7. Also set remote file ctime to match local mtime
-            #   since for type "file", Resource has no "updated" field.
-            #   and this could us help to identify changes being done
-            #   to the remote file -- if metadata["uploaded_mtime"]
-            #   differs
-            yield {"status": "setting remote file timestamp"}
-            client.setResourceTimestamp(
-                file_id, type="file", created=metadata_["uploaded_mtime"]
-            )
+            # #
+            # # 7. Also set remote file ctime to match local mtime
+            # #   since for type "file", Resource has no "updated" field.
+            # #   and this could us help to identify changes being done
+            # #   to the remote file -- if metadata["uploaded_mtime"]
+            # #   differs
+            # yield {"status": "setting remote file timestamp"}
+            # try:
+            #     client.setResourceTimestamp(
+            #         file_id, type="file", created=metadata_["uploaded_mtime"]
+            #     )
+            # except girder.gcl.HttpError as exc:
+            #     if devel_debug:
+            #         raise
+            #     response = girder.get_HttpError_response(exc)
+            #     message = response.get("message", str(exc))
+            #     yield {"status": "WARNING", "message": message}
 
+            # 7. Upload metadata
             yield {"status": "uploading metadata"}
             client.addMetadataToItem(item_rec["_id"], metadata_)
-
             yield {"status": "done"}
 
         except Exception as exc:
-            if develop_debug:
+            if devel_debug:
                 raise
             # Custom formatting for some exceptions we know to extract
             # user-meaningful message
@@ -467,6 +476,7 @@ def upload(
                 response = girder.get_HttpError_response(exc)
                 if "message" in response:
                     message = response["message"]
+            uploaded_paths[str(path)]["errors"].append(message)
             yield {"status": "ERROR", "message": message}
         finally:
             process_paths.remove(str(path))
@@ -481,7 +491,7 @@ def upload(
 
     def upload_agg(*ignored):
         dt = time.time() - t0
-        total = sum(uploaded_paths.values())
+        total = sum(v["size"] for v in uploaded_paths.values())
         if not total:
             return ""
         speed = total / dt if dt else 0
@@ -507,7 +517,7 @@ def upload(
                 relpath = fullpath.relative_to(dandiset.path)
 
                 rec["path"] = str(relpath)
-                if develop_debug:
+                if devel_debug:
                     # DEBUG: do serially
                     for v in process_path(path, relpath):
                         print(v)
@@ -521,3 +531,15 @@ def upload(
                 else:
                     rec.update(skip_file(exc))
             out(rec)
+
+    # # Provide summary of errors if any recorded
+    # # well -- they are also in summary by pyout.  So, for now - do not bother
+    # # It would be worthwhile if we decide to log also other errors
+    # errors = defaultdict(set)
+    # for p, v in uploaded_paths.items():
+    #     for e in v['errors']:
+    #         errors[e].add(p)
+    # if errors:
+    #     lgr.error("Following errors were detected while uploading")
+    #     for e, paths in errors.items():
+    #         lgr.error(" %s: %d paths", e, len(paths))

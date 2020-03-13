@@ -267,7 +267,11 @@ class GirderCli(gcl.GirderClient):
                 self._traverse_asset_girder(file_recs[0], parent_path=parent_path)
             )
             assert not a_file.get("metadata", None), "metadata should be per item"
-            a_file["metadata"] = a["metadata"]
+            a_file["metadata"] = metadata = a["metadata"]
+            # and since girder does not allow non-admin set 'ctime' for the file
+            # we will use our metadata records
+            if "uploaded_mtime" in metadata:
+                a_file["attrs"]["mtime"] = metadata["uploaded_mtime"]
             a = a_file  # yield enhanced with metadata file entry
         elif a["type"] in ("folder", "collection", "user"):
             if recursive:
@@ -382,7 +386,9 @@ class GirderCli(gcl.GirderClient):
     def _get_file_mtime(attrs):
         if not attrs:
             return None
-        # XXX I see only ctime available for some reason, so treat it as mtime
+        # We would rely on uploaded_mtime from metadata being stored as mtime.
+        # If that one was not provided, the best we know is the "ctime"
+        # for the file, use that one
         return ensure_datetime(attrs.get("mtime", attrs.get("ctime", None)))
 
 
