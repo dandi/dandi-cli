@@ -45,7 +45,7 @@ class PersistentCache(object):
         # and completely destroy the directory
         try:
             if op.exists(self._memory.location):
-                shutil.rmree(d)
+                shutil.rmtree(self._memory.location)
         except Exception as exc:
             lgr.warning(f"Failed to clear out the cache directory: {exc}")
 
