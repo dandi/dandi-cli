@@ -99,10 +99,16 @@ def download(
     existing,
     develop_debug,
     authenticate=False,  # Seems to work just fine for public stuff
+    recursive=True,
 ):
     """Download a file or entire folder from DANDI"""
-    if len(urls) != 1:
+    if len(urls) > 1:
         raise NotImplementedError("multiple URLs not supported")
+    if not urls:
+        # if no paths provided etc, we will download dandiset path
+        # we are at, BUT since we are not git -- we do not even know
+        # on which instance it exists!  Thus ATM we would do nothing but crash
+        raise NotImplementedError("No URLs were provided.  Cannot download anything")
     url = urls[0]
     girder_server_url, asset_type, asset_id = parse_dandi_url(url)
     lgr.info(f"Downloading {asset_type} with id {asset_id} from {girder_server_url}")
@@ -161,7 +167,7 @@ def download(
             entity_type,
             ", ".join(e["name"] for e in top_entities),
         )
-        entities = client.traverse_asset(asset_id, asset_type, recursive=True)
+        entities = client.traverse_asset(asset_id, asset_type, recursive=recursive)
         # TODO: special handling for a dandiset -- we might need to
         #  generate dandiset.yaml out of the metadata record
         # we care only about files ATM
@@ -175,6 +181,9 @@ def download(
         for e in top_entities:
             dandiset_path = op.join(output_dir, e["path"])
             dandiset_yaml = op.join(dandiset_path, dandiset_metadata_file)
+            lgr.info(
+                f"Updating f{dandiset_metadata_file} from obtained dandiset metadata"
+            )
             if op.lexists(dandiset_yaml):
                 if existing != "overwrite":
                     lgr.info(
