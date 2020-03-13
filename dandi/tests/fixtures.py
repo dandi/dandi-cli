@@ -5,7 +5,7 @@ import shutil
 import tempfile
 
 import pynwb
-from ..pynwb_utils import metadata_fields
+from ..pynwb_utils import metadata_nwb_file_fields
 
 import pytest
 
@@ -19,7 +19,7 @@ lgr = get_logger()
 @pytest.fixture(scope="session")
 def simple1_nwb_metadata(tmpdir_factory):
     # very simple assignment with the same values as the key with 1 as suffix
-    metadata = {f: "{}1".format(f) for f in metadata_fields}
+    metadata = {f: "{}1".format(f) for f in metadata_nwb_file_fields}
     # tune specific ones:
     # Needs an explicit time zone since otherwise pynwb would add one
     # But then comparison breaks anyways any ways yoh have tried to set it

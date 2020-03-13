@@ -1,4 +1,5 @@
-from dandi.pynwb_utils import (
+import os.path as op
+from .pynwb_utils import (
     _get_pynwb_metadata,
     get_neurodata_types,
     get_nwb_version,
@@ -6,13 +7,16 @@ from dandi.pynwb_utils import (
 )
 
 from . import get_logger
+from .dandiset import Dandiset
 
 lgr = get_logger()
 
 
 @metadata_cache.memoize_path
 def get_metadata(path):
-    """Get selected metadata from a .nwb file
+    """Get selected metadata from a .nwb file or a dandiset directory
+
+    If a directory given and it is not a Dandiset, None is returned
 
     Parameters
     ----------
@@ -24,6 +28,14 @@ def get_metadata(path):
     """
     path = str(path)  # for Path
     meta = dict()
+
+    if op.isdir(path):
+        try:
+            dandiset = Dandiset(path)
+            return dandiset.metadata
+        except ValueError as exc:
+            lgr.debug("Failed to get metadata for %s: %s", path, exc)
+            return None
 
     # First read out possibly available versions of specifications for NWB(:N)
     meta["nwb_version"] = get_nwb_version(path)

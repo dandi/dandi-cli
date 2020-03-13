@@ -11,7 +11,11 @@ from . import get_logger
 
 lgr = get_logger()
 
-from .consts import metadata_fields, metadata_computed_fields, metadata_subject_fields
+from .consts import (
+    metadata_nwb_file_fields,
+    metadata_nwb_computed_fields,
+    metadata_nwb_subject_fields,
+)
 from .support.cache import PersistentCache
 
 from . import __version__
@@ -121,7 +125,7 @@ def _get_pynwb_metadata(path):
     out = {}
     with NWBHDF5IO(path, "r", load_namespaces=True) as io:
         nwb = io.read()
-        for key in metadata_fields:
+        for key in metadata_nwb_file_fields:
             value = getattr(nwb, key)
             if isinstance(value, h5py.Dataset):
                 # serialize into a basic container (list), since otherwise
@@ -130,7 +134,7 @@ def _get_pynwb_metadata(path):
             out[key] = value
 
         # .subject can be None as the test shows
-        for subject_feature in metadata_subject_fields:
+        for subject_feature in metadata_nwb_subject_fields:
             out[subject_feature] = getattr(nwb.subject, subject_feature, None)
         # Add a few additional useful fields
 
@@ -143,7 +147,7 @@ def _get_pynwb_metadata(path):
             out.update(dandi_icephys.fields)
 
         # Counts
-        for f in metadata_computed_fields:
+        for f in metadata_nwb_computed_fields:
             if f in ("nwb_version", "nd_types"):
                 continue
             if not f.startswith("number_of_"):

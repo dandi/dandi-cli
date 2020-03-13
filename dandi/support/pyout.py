@@ -91,14 +91,18 @@ size_style = dict(
 )
 
 
+from ..consts import metadata_nwb_fields, metadata_dandiset_fields
+
 PYOUT_SHORT_NAMES = {
     # shortening for some fields
     "nwb_version": "NWB",
-    "number_of_electrodes": "#electrodes",
-    "number_of_units": "#units",
     # 'annex_local_size': 'annex(present)',
     # 'annex_worktree_size': 'annex(worktree)',
 }
+for f in metadata_nwb_fields + metadata_dandiset_fields:
+    if f.startswith("number_of_"):
+        PYOUT_SHORT_NAMES[f] = f.replace("number_of_", "#")
+
 # For reverse lookup
 PYOUT_SHORT_NAMES_rev = {v.lower(): k for k, v in PYOUT_SHORT_NAMES.items()}
 
@@ -172,7 +176,6 @@ def get_style(hide_if_missing=True):
             ),
         ),
     }
-
     if hide_if_missing:
         # To just quickly switch for testing released or not released (with
         # hide)
@@ -180,7 +183,12 @@ def get_style(hide_if_missing=True):
         if "hide" in pyout.elements.schema["definitions"]:
             lgr.debug("pyout with 'hide' support detected")
             STYLE["default_"]["hide"] = "if_missing"
-            for f in "path", "size":
+            # to avoid https://github.com/pyout/pyout/pull/102
+            for f in STYLE:
+                if not f.endswith("_"):
+                    STYLE[f]["hide"] = "if_missing"
+            # but make always visible for some
+            for f in ("path",):
                 STYLE[f]["hide"] = False
         else:
             lgr.warning("pyout without 'hide' support. Expect too many columns")

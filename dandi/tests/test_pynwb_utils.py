@@ -1,6 +1,6 @@
 import pynwb
 
-from ..pynwb_utils import metadata_subject_fields
+from ..pynwb_utils import metadata_nwb_subject_fields
 from ..metadata import get_metadata
 
 
@@ -13,7 +13,7 @@ def test_get_metadata(simple1_nwb, simple1_nwb_metadata):
     # We also populate with nd_types now, although here they would be empty
     target_metadata["nd_types"] = []
     # we do not populate any subject fields in our simple1_nwb
-    for f in metadata_subject_fields:
+    for f in metadata_nwb_subject_fields:
         target_metadata[f] = None
     metadata = get_metadata(str(simple1_nwb))
     # we also load nwb_version field, so it must not be degenerate and ATM
