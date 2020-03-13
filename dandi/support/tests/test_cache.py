@@ -126,12 +126,12 @@ def test_memoize_path(cache, tmp_path):
 
 
 def test_memoize_path_persist():
-    from subprocess import run
+    from subprocess import run, PIPE
 
     cache = PersistentCache(name=op.basename(__file__))
     cache.clear()
 
-    outputs = [run([sys.executable, __file__], capture_output=True) for i in range(3)]
+    outputs = [run([sys.executable, __file__], stdout=PIPE) for i in range(3)]
     assert outputs[0].stdout.strip().decode() == f"Running on {__file__}.DONE"
     for o in outputs[1:]:
         assert o.stdout.strip().decode() == f"DONE"
