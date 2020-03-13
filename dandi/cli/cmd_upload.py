@@ -266,6 +266,16 @@ def upload(
                     lock.release()
                 return item_rec
 
+            def ensure_folder():
+                try:
+                    lock.acquire(timeout=60)
+                    folder_rec = girder.ensure_folder(
+                        client, collection_rec, girder_collection, girder_folder
+                    )
+                finally:
+                    lock.release()
+                return folder_rec
+
             #
             # 1. Validate first, so we do not bother girder at all if not kosher
             #
@@ -283,6 +293,25 @@ def upload(
                 # https://github.com/pyout/pyout/issues/91
                 # yield {"errors": '',}
                 pass
+
+            #
+            # Special handling for dandiset.yaml
+            # Yarik hates it but that is life for now. TODO
+            #
+            if op.basename(path) == dandiset_metadata_file:
+                # We need to upload its content as metadata for the entire
+                # folder.
+                folder_rec = ensure_folder()
+                remote_metadata = folder_rec["meta"]
+                if remote_metadata.get("dandiset", {}) == dandiset.metadata:
+                    yield skip_file("exists (same)")
+                else:
+                    remote_metadata["dandiset"] = dandiset.metadata
+                    yield {"status": "uploading dandiset metadata"}
+                    client.addMetadataToFolder(folder_rec["_id"], remote_metadata)
+                    yield {"status": "done"}
+                # Interrupt -- no file to upload
+                return
 
             #
             # 2. Ensure having an item
@@ -378,10 +407,6 @@ def upload(
                         client.delete(f'/item/{item_rec["_id"]}')
                         yield {"status", "deleted empty item"}
                     return
-            else:
-                # We might actually need to upload its content as metadata for
-                # the entire folder... TODO
-                metadata = {}
 
             #
             # 5. Upload file
