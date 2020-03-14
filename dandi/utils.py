@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 if sys.version_info[:2] < (3, 7):
-    import dateutil
+    import dateutil.parser
 
 #
 # Additional handlers
