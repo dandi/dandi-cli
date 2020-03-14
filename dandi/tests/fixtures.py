@@ -72,7 +72,10 @@ def get_gitrepo_fixture(url, commitish=None, scope="session"):
                 raise RuntimeError(f"Failed to clone {url} into {path}")
             yield path
         finally:
-            shutil.rmtree(path)
+            try:
+                shutil.rmtree(path)
+            except BaseException as exc:
+                lgr.warning("Failed to remove %s - using Windows?: %s", path, exc)
 
     return fixture
 
