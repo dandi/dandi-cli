@@ -144,7 +144,7 @@ def upload(
 
     import multiprocessing
     from .. import girder
-    from ..pynwb_utils import ignore_benign_pynwb_warnings
+    from ..pynwb_utils import ignore_benign_pynwb_warnings, get_object_id
     from ..metadata import get_metadata
     from ..validate import validate_file
     from ..utils import find_dandi_files, path_is_subpath, get_utcnow_datetime
@@ -475,6 +475,11 @@ def upload(
             metadata_.update(file_metadata_)
             metadata_["uploaded_size"] = path_stat.st_size
             metadata_["uploaded_mtime"] = ensure_strtime(path_stat.st_mtime)
+            # Also store object_id for the file to help identify changes/moves
+            try:
+                metadata_["uploaded_nwb_object_id"] = get_object_id(str(path))
+            except Exception as exc:
+                lgr.warning("Failed to read object_id: %s", exc)
 
             # #
             # # 7. Also set remote file ctime to match local mtime

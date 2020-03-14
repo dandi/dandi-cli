@@ -215,3 +215,12 @@ def ignore_benign_pynwb_warnings():
         "ignoring namespace '.*' because it already exists",
     ):
         warnings.filterwarnings("ignore", s, UserWarning)
+
+
+def get_object_id(path):
+    """Read, if present an object_id
+
+    if not available -- would simply raise a corresponding exception
+    """
+    with h5py.File(path, "r") as f:
+        return f.attrs["object_id"]
