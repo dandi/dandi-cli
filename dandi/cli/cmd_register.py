@@ -30,7 +30,7 @@ lgr = get_logger()
 @click.option(
     "-n",
     "--name",
-    help="Short name (ideally one 'word') for the dandiset.",
+    help="Short name or title for the dandiset.",
     prompt="Name",
 )
 @click.option(
