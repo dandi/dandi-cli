@@ -109,7 +109,7 @@ overall tentative target workflow will be:
 If you change anything in your dandiset and decide to update its state in the
 archive, just use `dandi upload` again.
 
-You could also visit [doc/demos/basic-workflow1.sh]() for an example script
+You could also visit [doc/demos/basic-workflow1.sh](./doc/demos/basic-workflow1.sh) for an example script
 which does all above actions (assuming no changes to files are necessary).
 
 
@@ -130,7 +130,7 @@ or vise versa.
 
 ## Development/contributing
 
-Please see [DEVELOPMENT.md]() file.
+Please see [DEVELOPMENT.md](./DEVELOPMENT.md) file.
 
 ## 3rd party components included
 
