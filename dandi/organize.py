@@ -9,6 +9,7 @@ import os.path as op
 from . import get_logger
 from .consts import dandiset_metadata_file
 from .pynwb_utils import get_neurodata_types_to_modalities_map
+from .utils import ensure_datetime, flattened
 
 lgr = get_logger()
 
@@ -17,10 +18,13 @@ def filter_invalid_metadata_rows(metadata_rows):
     """Split into two lists - valid and invalid entries"""
     valid, invalid = [], []
     for row in metadata_rows:
-        if row["nwb_version"] == "ERROR":
+        if list(row.keys()) == ["path"]:
+            lgr.warning("Completely empty record for {path}".format(**row))
+            invalid.append(row)
+        elif row["nwb_version"] == "ERROR":
             lgr.warning("nwb_version is ERROR for {path}".format(**row))
             invalid.append(row)
-        elif "subject_id" not in row:
+        elif not row.get("subject_id", None):
             lgr.warning("subject_id is missing for {path}".format(**row))
             invalid.append(row)
         else:
@@ -29,7 +33,9 @@ def filter_invalid_metadata_rows(metadata_rows):
 
 
 def create_unique_filenames_from_metadata(
-    metadata, mandatory=["modalities", "extension"]
+    metadata,
+    mandatory=["subject_id", "extension"],
+    mandatory_if_not_empty=["modalities,"],
 ):
     """
 
@@ -97,7 +103,9 @@ def create_unique_filenames_from_metadata(
     for r in metadata:
         dandi_filename = ""
         for field, field_format in potential_fields.items():
-            if field in mandatory or len(unique_values[field]) > 1:
+            if (field in mandatory or len(unique_values[field]) > 1) or (
+                field in mandatory_if_not_empty and unique_values[field]
+            ):
                 value = r.get(field, None)
                 if value is not None:
                     if isinstance(value, (list, tuple)):
@@ -109,7 +117,6 @@ def create_unique_filenames_from_metadata(
                     dandi_filename += formatted_value
         r["dandi_filename"] = dandi_filename
         r["dandi_path"] = dandi_path.format(**r)
-
     return metadata
 
 
@@ -139,7 +146,10 @@ def _populate_modalities(metadata):
     ndtypes_unassigned = set()
     for r in metadata:
         mods = set()
-        for nd_rec in r.get("nd_types", "").split(","):
+        nd_types = r.get("nd_types", [])
+        if isinstance(nd_types, str):
+            nd_types = nd_types.split(",")
+        for nd_rec in nd_types:
             # split away the count
             ndtype = nd_rec.split()[0]
             mod = ndtypes_to_modalities.get(ndtype, None)
@@ -168,7 +178,7 @@ def _populate_session_ids_from_time(metadata):
         ses_time = m.get("session_start_time", None)
         if not ses_time:
             continue  # we can do nothing
-        ses_time = dateutil.parser.parse(ses_time)
+        ses_time = ensure_datetime(ses_time)
         if (ses_time.hour, ses_time.minute, ses_time.second) != (0, 0, 0):
             degenerate_time = False
             break
@@ -179,7 +189,7 @@ def _populate_session_ids_from_time(metadata):
         ses_time = m.get("session_start_time", None)
         if not ses_time:
             continue  # we can do nothing
-        ses_time = dateutil.parser.parse(ses_time)
+        ses_time = ensure_datetime(ses_time)
         m["session_id"] = "%d%02d%02d" % (ses_time.year, ses_time.month, ses_time.day)
         if not degenerate_time:
             m["session_id"] += "T%02d%02d%02d" % (
@@ -256,13 +266,13 @@ repository: # REQUIRED
 - name: REQUIRED
   identifier: RRID/REQUIRED
 distribution:
-- DataDownload:
+- data_download:
   - contentURL:  REQUIRED
     name: required
-    contentSize: REQUIRED
-    datePublished: REQUIRED
-    dateModified: REQUIRED
-    MeasurementType: OPTIONAL
+    content_size: REQUIRED
+    date_published: REQUIRED
+    date_modified: REQUIRED
+    measurement_type: OPTIONAL
 altid: # OPTIONAL
 - id1
 
@@ -270,19 +280,18 @@ altid: # OPTIONAL
 
 variables_measured: OPTIONAL
 age:
-- minimum: REQUIRED
+  minimum: REQUIRED
   maximum: REQUIRED
   units: REQUIRED
-- categorical: REQUIRED
 sex: REQUIRED
 organism:
 - species: REQUIRED
   strain: REQUIRED
   identifier: REQUIRED
   vendor: OPTIONAL
-number_subjects: REQUIRED
-number_tissueSamples: RECOMMENDED
-number_cells: RECOMMENDED
+number_of_subjects: REQUIRED
+number_of_tissue_samples: RECOMMENDED
+number_of_cells: RECOMMENDED
 """
         )
 
@@ -292,8 +301,17 @@ def populate_dataset_yml(filepath, metadata):
     import ruamel.yaml
 
     yaml = ruamel.yaml.YAML()  # defaults to round-trip if no parameters given
+    if not op.exists(filepath):
+        # Create an empty one, which we would populate with information
+        # we can
+        with open(filepath, "w") as f:
+            pass
+
     with open(filepath) as f:
         rec = yaml.load(f)
+
+    if not rec:
+        rec = {}
 
     # Let's use available metadata for at least some of the fields
     uvs = _get_unique_values(
@@ -307,17 +325,27 @@ def populate_dataset_yml(filepath, metadata):
             "species",
             "subject_id",
             "tissue_sample_id",
+            "slice_id",
         ),
         filter_=True,
     )
 
+    DEFAULT_VALUES = ("REQUIRED", "RECOMMENDED", "OPTIONAL")
+
+    def is_undefined(d, f):
+        return d.get(f, DEFAULT_VALUES[0]) in DEFAULT_VALUES
+
     if uvs["age"]:
-        age = rec["age"][0]
+        if "age" not in rec:
+            # TODO: could not figure out how to add proper ruaml structure here
+            # so duplicating TODO
+            rec["age"] = {"units": "TODO"}
+        age = rec["age"]
         age["minimum"] = min(uvs["age"])
         age["maximum"] = max(uvs["age"])
-        age.pop("units")
-        age.insert(2, "units", "TODO", comment="REQUIRED")
-        # ['units'] = "TODO"  # REQUIRED"
+        if age.get("units", None) in (None,) + DEFAULT_VALUES:  # template
+            age.pop("units", None)
+            age.insert(2, "units", "TODO", comment="REQUIRED")
 
     if uvs["sex"]:
         # TODO: may be group by subject_id and sex, and then get # per each sex
@@ -326,22 +354,32 @@ def populate_dataset_yml(filepath, metadata):
     for mfield, yfield in (
         ("subject_id", "subjects"),
         ("cell_id", "cells"),
-        ("tissue_sample_id", "tissueSamples"),
+        ("slice_id", "slices"),
+        ("tissue_sample_id", "tissue_samples"),
     ):
         if uvs[mfield]:
-            rec[f"number_{yfield}"] = len(uvs[mfield])
+            rec[f"number_of_{yfield}"] = len(uvs[mfield])
 
     if uvs["species"]:
         species = sorted(uvs["species"])
+        if "organism" not in rec:
+            rec["organism"] = [{}]
         rec["organism"][0]["species"] = species[0]
         for other in species[1:]:
             rec["organism"].append({"species": other})
 
-    if uvs["experiment_description"]:
+    if uvs["experiment_description"] and is_undefined(rec, "description"):
         rec["description"] = "\n".join(sorted(uvs["experiment_description"]))
 
-    for v in sorted(uvs["related_publications"] or []):
-        rec["publications"].append(v)
+    for v in sorted(flattened(uvs["related_publications"] or [])):
+        if "publications" not in rec:
+            rec["publications"] = []
+        # TODO: better harmonization
+        strip_regex = "[- \t'\"]"
+        v = re.sub("^" + strip_regex, "", v)
+        v = re.sub(strip_regex + "$", "", v)
+        if v not in rec["publications"]:
+            rec["publications"].append(v)
 
     # Save result
     with open(filepath, "w") as f:

@@ -1,11 +1,13 @@
 import os
+import os.path as op
 import time
 
 import click
 from dandi.cli.command import get_files
 
-from .command import lgr, main
+from .command import lgr, main, map_to_click_exceptions
 
+from ..utils import safe_call
 
 # TODO: all the recursion options etc
 
@@ -26,39 +28,50 @@ from .command import lgr, main
     type=click.Choice(["auto", "pyout", "json", "json_pp", "yaml"]),
     default="auto",
 )
-@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=False))
-def ls(paths, fields=None, format="auto"):
-    """List .nwb files metadata
+@click.option(
+    "-r",
+    "--recursive",
+    help="Recurse into content of dandisets/directories. Only .nwb files will "
+    "be considered.",
+    is_flag=True,
+)
+@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
+@map_to_click_exceptions
+def ls(paths, fields=None, format="auto", recursive=False):
+    """List .nwb files and dandisets metadata.
     """
     from ..consts import metadata_all_fields
-
-    all_fields = sorted(["path", "size"] + list(metadata_all_fields))
 
     # TODO: more logical ordering in case of fields = None
     from .formatter import JSONFormatter, YAMLFormatter, PYOUTFormatter
 
     # TODO: avoid
     from ..support.pyout import PYOUT_SHORT_NAMES, PYOUT_SHORT_NAMES_rev
+    from ..utils import find_files
+
+    common_fields = ("path", "size")
+    all_fields = tuple(sorted(set(common_fields + metadata_all_fields)))
 
     if fields is not None:
         if fields.strip() == "":
-            for field in all_fields:
-                s = field
-                if field in PYOUT_SHORT_NAMES:
-                    s += " or %s" % PYOUT_SHORT_NAMES[field]
-                click.secho(s)
-            raise SystemExit(0)
+            display_known_fields(all_fields)
+            return
+
         fields = fields.split(",")
         # Map possibly present short names back to full names
         fields = [PYOUT_SHORT_NAMES_rev.get(f.lower(), f) for f in fields]
         unknown_fields = set(fields).difference(all_fields)
         if unknown_fields:
-            raise ValueError(
+            display_known_fields(all_fields)
+            raise click.UsageError(
                 "Following fields are not known: %s" % ", ".join(unknown_fields)
             )
 
     # For now we support only individual files
-    files = get_files(paths)
+    if recursive:
+        files = list(find_files(".nwb$", paths))
+    else:
+        files = paths
 
     if not files:
         return
@@ -67,6 +80,9 @@ def ls(paths, fields=None, format="auto"):
         format = "yaml" if len(files) == 1 else "pyout"
 
     if format == "pyout":
+        if fields and fields[0] != "path":
+            # we must always have path - our "id"
+            fields = ["path"] + fields
         out = PYOUTFormatter(files=files, fields=fields)
     elif format == "json":
         out = JSONFormatter()
@@ -77,10 +93,10 @@ def ls(paths, fields=None, format="auto"):
     else:
         raise NotImplementedError("Unknown format %s" % format)
 
+    async_keys = set(all_fields)
     if fields is not None:
-        async_keys = tuple(set(metadata_all_fields).intersection(fields))
-    else:
-        async_keys = metadata_all_fields
+        async_keys = async_keys.intersection(fields)
+    async_keys = tuple(async_keys.difference(common_fields))
 
     process_paths = set()
     with out:
@@ -94,11 +110,13 @@ def ls(paths, fields=None, format="auto"):
             rec["path"] = path
 
             try:
-                if not fields or "size" in fields:
+                if (not fields or "size" in fields) and not op.isdir(path):
                     rec["size"] = os.stat(path).st_size
 
                 if async_keys:
-                    cb = get_metadata_pyout(path, async_keys, process_paths)
+                    cb = get_metadata_pyout(
+                        path, async_keys, process_paths, flatten=format == "pyout"
+                    )
                     if format == "pyout":
                         rec[async_keys] = cb
                     else:
@@ -116,37 +134,100 @@ def ls(paths, fields=None, format="auto"):
             out(rec)
 
 
-def get_metadata_pyout(path, keys=None, process_paths=None):
-    from ..pynwb_utils import get_metadata, get_nwb_version, get_neurodata_types
+def display_known_fields(all_fields):
+    from ..support.pyout import PYOUT_SHORT_NAMES
 
-    def safe_call(func, path, default=None):
-        try:
-            return func(path)
-        except Exception as exc:
-            lgr.debug("Call to %s on %s failed: %s", func.__name__, path, exc)
-            return default
+    # Display all known fields
+    click.secho("Known fields:")
+    for field in all_fields:
+        s = "- " + field
+        if field in PYOUT_SHORT_NAMES:
+            s += " or %s" % PYOUT_SHORT_NAMES[field]
+        click.secho(s)
+    return
+
+
+def flatten_v(v):
+    if isinstance(v, (tuple, list)):
+        return ", ".join(map(flatten_v, v))
+    elif isinstance(v, dict):
+        return flatten_v(["%s: %s" % i for i in v.items()])
+    return v
+
+
+def flatten_meta_to_pyout_v1(meta):
+    """Given a meta record, possibly flatten record since no nested records
+    supported yet
+
+    lists become joined using ', ', dicts get individual key: values.
+    lists of dict - doing nothing magical.
+
+    Empty values are not considered.
+
+    Parameters
+    ----------
+    meta: dict
+    """
+    out = {}
+
+    # normalize some fields and remove completely empty
+    for f, v in (meta or dict()).items():
+        if not v:
+            continue
+        if isinstance(v, dict):
+            for vf, vv in flatten_meta_to_pyout_v1(v).items():
+                out["%s_%s" % (f, vf)] = flatten_v(vv)
+        else:
+            out[f] = flatten_v(v)
+    return out
+
+
+def flatten_meta_to_pyout(meta):
+    """Given a meta record, possibly flatten record since no nested records
+    supported yet
+
+    lists become joined using ', ', dicts become lists of "key: value" strings first.
+    lists of dict - doing nothing magical.
+
+    Empty values are not considered.
+
+    Parameters
+    ----------
+    meta: dict
+    """
+    out = {}
+
+    # normalize some fields and remove completely empty
+    for f, v in (meta or dict()).items():
+        if not v:
+            continue
+        out[f] = flatten_v(v)
+    return out
+
+
+def get_metadata_pyout(path, keys=None, process_paths=None, flatten=False):
+    from ..pynwb_utils import get_nwb_version, ignore_benign_pynwb_warnings
+    from ..metadata import get_metadata
+
+    ignore_benign_pynwb_warnings()
 
     def fn():
-        rec = {}
         try:
+            rec = {}
             # No need for calling get_metadata if no keys are needed from it
             if keys is None or list(keys) != ["nwb_version"]:
-                meta = safe_call(get_metadata, path)
-                # normalize some fields and remove completely empty
-                for f, v in (meta or dict()).items():
-                    if keys is not None and f not in keys:
-                        continue
-                    if isinstance(v, (tuple, list)):
-                        v = ", ".join(v)
-                    if v:
-                        rec[f] = v
-
-            if "nwb_version" not in rec:
+                rec = safe_call(get_metadata, path)
+                if flatten:
+                    rec = flatten_meta_to_pyout(rec)
+            if keys is not None:
+                rec = {k: v for k, v in rec.items() if k in keys}
+            if (
+                not op.isdir(path)
+                and "nwb_version" not in rec
+                and (keys and "nwb_version" in keys)
+            ):
                 # Let's at least get that one
                 rec["nwb_version"] = safe_call(get_nwb_version, path, "ERROR") or ""
-
-            rec["nd_types"] = ", ".join(safe_call(get_neurodata_types, path, []))
-
             return rec
         finally:
             # TODO: this is a workaround, remove after

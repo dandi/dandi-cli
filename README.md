@@ -32,15 +32,17 @@ Usage: dandi [OPTIONS] COMMAND [ARGS]...
 
 Options:
   --version
-  -l, --log-level INTEGER RANGE  Log level (TODO non-numeric values)
-  --pdb                          Fall into pdb if errors out
-  --help                         Show this message and exit.
+  -l, --log-level [DEBUG|INFO|WARNING|ERROR|CRITICAL]
+                                  Log level name  [default: INFO]
+  --pdb                           Fall into pdb if errors out
+  --help                          Show this message and exit.
 
 Commands:
   download  Download a file or entire folder from DANDI
-  ls        List .nwb files metadata
+  ls        List .nwb files and dandisets metadata.
   organize  (Re)organize files according to the metadata.
-  upload    Upload files to DANDI archive
+  register  Register a new dandiset in the DANDI archive
+  upload    Upload dandiset (files) to DANDI archive.
   validate  Validate files for NWB (and DANDI) compliance.
 ```
 
@@ -96,41 +98,40 @@ overall tentative target workflow will be:
    Result of the reorganization is a dandiset -- a dataset with consistent layout,
    and dataset level metadata.
 
-4. Rerun `dandi validate` on the `dadaset.yaml` (WiP) or the entire dandiset to assure
-   that everything is correct.
-5. Use `dandi register` (WiP) to register a new dataset ID on DANDI archive.
-6. Use `dandi upload` to upload your dandiset to the archive [staging area](TODO).
+4. Rerun `dandi validate` on the entire dandiset to assure that everything is
+   correct.
+5. Use `dandi register` to register a new dataset ID on DANDI archive.  If you
+   run it within a dandiset, its `dandiset.yaml` will be automatically updated
+   to contain new dandiset identifier.
+6. Use `dandi upload` to upload your dandiset to the archive
+   ["drafts" collection](https://gui.dandiarchive.org/#/collection/5e59bb0af19e820ab6ea6c62).
 
 If you change anything in your dandiset and decide to update its state in the
 archive, just use `dandi upload` again.
 
+You could also visit [doc/demos/basic-workflow1.sh]() for an example script
+which does all above actions (assuming no changes to files are necessary).
+
 
 ## Downloading dandiset from the archive
 
-Web has UI elements to download invidual files from the archiv.  For bulk
-download, or repeated re-syncing of the dandiset(s) from the archive, use
-`dandi download` command (WiP).
+`dandi download` can be used to download full dandisets or individual files or
+folders from the archive.
+
+Using `--existing refresh` option available for
+`dandi upload` and `dandi download` it is possible to avoid transfer if files
+are identical locally and in the archive.
+
+**Warning:**  There is no version control tracking beyond checking correspondence
+of file size and modification time.  So in collaborative setting it is possible
+to "refresh" a file which was modified locally with a version from the archive,
+or vise versa.
+
 
 ## Development/contributing
 
-Assuming that you have `python3` (and virtualenv) installed, the fastest
-way to establish yourself a development environment (or a sample deployment),
-is via virtualenv:
+Please see [DEVELOPMENT.md]() file.
 
-    git clone https://github.com/dandi/dandi-cli \
-        && cd dandi-cli \
-        &&  virtualenv --system-site-packages --python=python3 venvs/dev3 \
-        && source venvs/dev3/bin/activate \
-        && pip install -e .[test]
-
-### Install and activate precommit
-
-Install pre-commit dependency with `pip install pre-commit`
-
-In the source directory
-```
-pre-commit install
-```
 ## 3rd party components included
 
 ### dandi/support/generatorify.py

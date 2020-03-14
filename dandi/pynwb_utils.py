@@ -11,7 +11,20 @@ from . import get_logger
 
 lgr = get_logger()
 
-from .consts import metadata_fields, metadata_computed_fields, metadata_subject_fields
+from .consts import (
+    metadata_nwb_file_fields,
+    metadata_nwb_computed_fields,
+    metadata_nwb_subject_fields,
+)
+from .support.cache import PersistentCache
+
+from . import __version__
+
+# strip away possible development version marker
+dandi_rel_version = __version__.split("+", 1)[0]
+dandi_cache_tokens = [pynwb.__version__, dandi_rel_version]
+metadata_cache = PersistentCache(name="metadata", tokens=dandi_cache_tokens)
+validate_cache = PersistentCache(name="validate", tokens=dandi_cache_tokens)
 
 
 def get_nwb_version(filepath):
@@ -79,6 +92,7 @@ def get_neurodata_types_to_modalities_map():
     return ndtypes
 
 
+@metadata_cache.memoize_path
 def get_neurodata_types(filepath):
     with h5py.File(filepath, "r") as h5file:
         all_pairs = _scan_neurodata_types(h5file)
@@ -107,68 +121,11 @@ def _scan_neurodata_types(grp):
     return out
 
 
-def get_metadata(path):
-    """Get selected metadata from a .nwb file
-
-    Parameters
-    ----------
-    path: str or Path
-
-    Returns
-    -------
-    dict
-    """
-    path = str(path)  # for Path
-    out = dict()
-
-    # First read out possibly available versions of specifications for NWB(:N)
-    out["nwb_version"] = get_nwb_version(path)
-
-    # PyNWB might fail to load because of missing extensions.
-    # There is a new initiative of establishing registry of such extensions.
-    # Not yet sure if PyNWB is going to provide "native" support for needed
-    # functionality: https://github.com/NeurodataWithoutBorders/pynwb/issues/1143
-    # So meanwhile, hard-coded workaround for data types we care about
-    ndtypes_registry = {
-        "AIBS_ecephys": "allensdk.brain_observatory.ecephys.nwb",
-        "ndx-labmetadata-abf": "ndx_dandi_icephys",
-    }
-    tried_imports = set()
-    while True:
-        try:
-            out.update(_get_pynwb_metadata(path))
-            break
-        except KeyError as exc:  # ATM there is
-            lgr.debug("Failed to read %s: %s", path, exc)
-            import re
-
-            res = re.match(r"^['\"\\]+(\S+). not a namespace", str(exc))
-            if not res:
-                raise
-            ndtype = res.groups()[0]
-            if ndtype not in ndtypes_registry:
-                raise ValueError(
-                    "We do not know which extension provides %s. "
-                    "Original exception was: %s. " % (ndtype, exc)
-                )
-            import_mod = ndtypes_registry[ndtype]
-            lgr.debug("Importing %r which should provide %r", import_mod, ndtype)
-            if import_mod in tried_imports:
-                raise RuntimeError(
-                    "We already tried importing %s to provide %s, but it seems it didn't help"
-                    % (import_mod, ndtype)
-                )
-            tried_imports.add(import_mod)
-            __import__(import_mod)
-
-    return out
-
-
 def _get_pynwb_metadata(path):
     out = {}
     with NWBHDF5IO(path, "r", load_namespaces=True) as io:
         nwb = io.read()
-        for key in metadata_fields:
+        for key in metadata_nwb_file_fields:
             value = getattr(nwb, key)
             if isinstance(value, h5py.Dataset):
                 # serialize into a basic container (list), since otherwise
@@ -177,7 +134,7 @@ def _get_pynwb_metadata(path):
             out[key] = value
 
         # .subject can be None as the test shows
-        for subject_feature in metadata_subject_fields:
+        for subject_feature in metadata_nwb_subject_fields:
             out[subject_feature] = getattr(nwb.subject, subject_feature, None)
         # Add a few additional useful fields
 
@@ -190,7 +147,7 @@ def _get_pynwb_metadata(path):
             out.update(dandi_icephys.fields)
 
         # Counts
-        for f in metadata_computed_fields:
+        for f in metadata_nwb_computed_fields:
             if f in ("nwb_version", "nd_types"):
                 continue
             if not f.startswith("number_of_"):
@@ -245,10 +202,25 @@ def validate(path):
     return errors
 
 
+# Many commands might be using load_namespaces but it causes HDMF to whine if there
+# is no cached name spaces in the file.  It is benign but not really useful
+# at this point, so we ignore it although ideally there should be a formal
+# way to get relevant warnings (not errors) from PyNWB.  It is a bad manner
+# to have this as a side effect of the importing this module, we should add/remove
+# that filter in our top level commands
 def ignore_benign_pynwb_warnings():
     #   See https://github.com/dandi/dandi-cli/issues/14 for more info
     for s in (
         "No cached namespaces found .*",
-        "ignoring namespace 'core' because it already exists",
+        "ignoring namespace '.*' because it already exists",
     ):
         warnings.filterwarnings("ignore", s, UserWarning)
+
+
+def get_object_id(path):
+    """Read, if present an object_id
+
+    if not available -- would simply raise a corresponding exception
+    """
+    with h5py.File(path, "r") as f:
+        return f.attrs["object_id"]

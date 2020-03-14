@@ -1,7 +1,16 @@
 import inspect
 import os.path as op
-
-from ..utils import find_files, on_windows
+import time
+import datetime
+import pytest
+from ..utils import (
+    ensure_datetime,
+    ensure_strtime,
+    find_files,
+    get_utcnow_datetime,
+    is_same_time,
+    on_windows,
+)
 
 
 def test_find_files():
@@ -32,3 +41,39 @@ def test_find_files():
         assert op.basename(f).startswith("test_")
 
     # TODO: more tests
+
+
+def test_times_manipulations():
+    t0 = get_utcnow_datetime()
+    t0_isoformat = ensure_strtime(t0)
+    t0_str = ensure_strtime(t0, isoformat=False)
+
+    assert t0 == ensure_datetime(t0)
+    assert isinstance(t0_isoformat, str)
+    # Test comparison and round-trips
+    assert is_same_time(t0, t0_isoformat, t0_str)
+    assert is_same_time(t0, t0_str)
+    assert is_same_time(t0, t0_str, tollerance=0)  # exactly the same
+    assert t0_str != t0_isoformat  # " " vs "T"
+
+    time.sleep(0.001)  # so there is a definite notable delay, in particular for Windows
+    t1_epoch = time.time()
+    t1 = ensure_datetime(t1_epoch)
+    assert is_same_time(t1, t1_epoch)
+    # We must not consume more than half a second between start of this test
+    # and here
+    assert is_same_time(t0, t1, tollerance=0.5)
+    assert is_same_time(t1, t0, tollerance=0.5)
+    # but must not be exactly the same unless we are way too fast or disregard
+    # milliseconds
+    assert not is_same_time(t0, t1, tollerance=0)
+    assert is_same_time(t0, t1_epoch + 100, tollerance=101)
+
+
+@pytest.mark.parametrize(
+    "t", ["2018-09-26 17:29:17.000000-07:00", "2018-09-26 17:29:17-07:00"]
+)
+def test_time_samples(t):
+    assert is_same_time(
+        ensure_datetime(t), "2018-09-27 00:29:17-00:00", tollerance=0
+    )  # exactly the same

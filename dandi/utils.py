@@ -1,13 +1,25 @@
 import datetime
+import itertools
 import os
 import os.path as op
-import re
-import sys
 import platform
+import re
+import shutil
+import sys
+
+from pathlib import Path
+
+if sys.version_info[:2] < (3, 7):
+    import dateutil.parser
 
 #
 # Additional handlers
 #
+from . import get_logger
+
+
+lgr = get_logger()
+
 _sys_excepthook = sys.excepthook  # Just in case we ever need original one
 
 #
@@ -60,40 +72,7 @@ def setup_exceptionhook(ipython=False):
         sys.excepthook = _pdb_excepthook
 
 
-# ???? it is most likely not thread safe!!!
-
-# Public domain.
-def memoize(f):
-    """
-    Memoize function, clear cache on last return.
-    """
-    import pickle
-
-    count = [0]
-    cache = {}
-
-    def g(*args, **kwargs):
-        count[0] += 1
-        try:
-            try:
-                if len(kwargs) != 0:
-                    raise ValueError
-                hash(args)
-                key = (args,)
-            except:
-                key = pickle.dumps((args, kwargs))
-            if key not in cache:
-                cache[key] = f(*args, **kwargs)
-            return cache[key]
-        finally:
-            count[0] -= 1
-            if count[0] == 0:
-                cache.clear()
-
-    return g
-
-
-def get_utcnow_datetime(microseconds=False):
+def get_utcnow_datetime(microseconds=True):
     """Return current time as datetime with time zone information.
 
     Microseconds are stripped away.
@@ -105,6 +84,124 @@ def get_utcnow_datetime(microseconds=False):
         return ret
     else:
         return ret.replace(microsecond=0)
+
+
+def is_same_time(*times, tollerance=1e-6, strip_tzinfo=False):
+    """Helper to do comparison between time points
+
+    Time zone information gets stripped
+    Does it by first normalizing all times to datetime, and then
+    comparing to the first entry
+
+    Parameters
+    ----------
+    tollerance: float, optional
+      Seconds of difference between times to tollerate.  By default difference
+      up to a microsecond is ok
+    """
+    assert len(times) >= 2
+
+    norm_times = [
+        ensure_datetime(t, strip_tzinfo=strip_tzinfo, tz=datetime.timezone.utc)
+        for t in times
+    ]
+
+    # we need to have all pairs
+    tollerance_dt = datetime.timedelta(seconds=tollerance)
+    return all(
+        # if we subtract from smaller - we get negative days etc
+        (t1 - t2 if t1 > t2 else t2 - t1) <= tollerance_dt
+        for (t1, t2) in itertools.combinations(norm_times, 2)
+    )
+
+
+def ensure_strtime(t, isoformat=True):
+    """Ensures that time is a string in iso format
+
+    Note: if `t` is already a string, no conversion of any kind is done.
+
+    epoch time assumed to be local (not utc)
+
+    Parameters
+    ----------
+    isoformat: bool, optional
+     If True, use .isoformat() and otherwise str().  With .isoformat() there
+     is no space but T to separate date from time.
+    """
+    t_orig = t
+    if isinstance(t, str):
+        return t
+    if isinstance(t, (int, float)):
+        t = ensure_datetime(t)
+    if isinstance(t, datetime.datetime):
+        return t.isoformat() if isoformat else str(t)
+    raise TypeError(f"Do not know how to convert {t_orig!r} to string datetime")
+
+
+def fromisoformat(t, impl=None):
+    if impl is None:
+        impl = "datetime" if sys.version_info[:2] >= (3, 7) else "dateutil"
+    if impl == "datetime":
+        return datetime.datetime.fromisoformat(t)
+    elif impl == "dateutil":
+        return dateutil.parser.isoparse(t)
+    else:
+        raise ValueError(impl)
+
+
+def ensure_datetime(t, strip_tzinfo=False, tz=None):
+    """Ensures that time is a datetime
+
+    strip_tzinfo applies only to str records passed in
+
+    epoch time assumed to be local (not utc)
+    """
+    t_orig = t
+    if isinstance(t, datetime.datetime):
+        pass
+    elif isinstance(t, (int, float)):
+        t = datetime.datetime.fromtimestamp(t).astimezone()
+    elif isinstance(t, str):
+        # could be in different formats, for now parse as ISO
+        t = fromisoformat(t)
+        if strip_tzinfo and t.tzinfo:
+            # TODO: check a proper way to handle this so we could account
+            # for a possibly present tz
+            t = t.replace(tzinfo=None)
+    else:
+        raise TypeError(f"Do not know how to convert {t!r} to datetime")
+    if tz:
+        t = t.astimezone(tz=tz)
+    return t
+
+
+#
+# Generic
+#
+def flattened(it):
+    """Return a list with all items flattened if list or tuple"""
+    items = []
+    for i in it:
+        if isinstance(i, (list, tuple)):
+            items.extend(flattened(i))
+        else:
+            items.append(i)
+    return items
+
+
+def updated(d, update):
+    """Return a copy of the input with the 'update'
+
+    Primarily for updating dictionaries
+    """
+    d = d.copy()
+    d.update(update)
+    return d
+
+
+#
+# Paths and files
+#
 
 
 def load_jsonl(filename):
@@ -193,3 +290,117 @@ def find_files(
         for path in filter(re.compile(regex).search, paths):
             if not exclude_path(path):
                 yield path
+
+
+def copy_file(src, dst):
+    """Copy file from src to dst
+
+    TODO: support detection and use of `cp` command with `--reflink` support
+       to make possible to take advantage of CoW filesystems
+    """
+    return shutil.copy2(src, dst)
+
+
+def move_file(src, dst):
+    """Move file from src to dst
+
+    """
+    return shutil.move(src, dst)
+
+
+def find_dandi_files(paths):
+    """Adapter to find_files to find files of interest to dandi project
+    """
+    yield from find_files("(dandiset\.yaml|\.nwb)$", paths)
+
+
+def find_parent_directory_containing(filename, path=None):
+    """Find a directory, on the path to 'path' containing filename
+
+    if no 'path' - path from cwd
+    Returns None if no such found, pathlib's Path to the directory if found
+    """
+    if not path:
+        path = Path.cwd()
+    else:  # assure pathlib object
+        path = Path(path)
+
+    while True:
+        if (path / filename).exists():
+            return path
+        if path.parent == path:
+            return None
+        path = path.parent  # go up
+
+
+#
+# Borrowed from DataLad (MIT license)
+#
+
+
+def with_pathsep(path):
+    """Little helper to guarantee that path ends with /"""
+    return path + op.sep if not path.endswith(op.sep) else path
+
+
+def _get_normalized_paths(path, prefix):
+    if op.isabs(path) != op.isabs(prefix):
+        raise ValueError(
+            "Both paths must either be absolute or relative. "
+            "Got %r and %r" % (path, prefix)
+        )
+    path = with_pathsep(path)
+    prefix = with_pathsep(prefix)
+    return path, prefix
+
+
+def path_startswith(path, prefix):
+    """Return True if path starts with prefix path
+
+    Parameters
+    ----------
+    path: str
+    prefix: str
+    """
+    path, prefix = _get_normalized_paths(path, prefix)
+    return path.startswith(prefix)
+
+
+def path_is_subpath(path, prefix):
+    """Return True if path is a subpath of prefix
+
+    It will return False if path == prefix.
+
+    Parameters
+    ----------
+    path: str
+    prefix: str
+    """
+    path, prefix = _get_normalized_paths(path, prefix)
+    return (len(prefix) < len(path)) and path.startswith(prefix)
+
+
+def safe_call(func, path, default=None):
+    try:
+        return func(path)
+    except Exception as exc:
+        lgr.debug("Call to %s on %s failed: %s", func.__name__, path, exc)
+        return default
+
+
+def Parallel(**kwargs):  # TODO: disable lint complaint
+    """Adapter for joblib.Parallel so we could if desired, centralize control
+    """
+    # ATM just a straight invocation
+    import joblib
+
+    return joblib.Parallel(**kwargs)
+
+
+def delayed(*args, **kwargs):
+    """Adapter for joblib.delayed so we could if desired, centralize control
+    """
+    # ATM just a straight invocation
+    import joblib
+
+    return joblib.delayed(*args, **kwargs)
