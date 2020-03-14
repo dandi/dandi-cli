@@ -4,6 +4,21 @@ All notable changes to this project will be documented (for humans) in this file
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2020-03-13
+
+Provides interfaces for a full cycle of dandiset preparation,
+registration, upload, and download.
+
+### Added
+- caching of read metadata and validation results for .nwb files.
+  Typically those take too long and as long as dandi and pynwb
+  versions do not change -- results should not change.
+  Set `DANDI_DEVEL` variable to forcefully reset all the caches.
+### Changed
+- DEVELOPMENT.md provides more information about full local
+  test setup of the dandiarchive, and description of
+  environment variables which could assist in development.
+
 ## [0.3.0] - 2020-02-28
 
 ### Added
