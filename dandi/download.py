@@ -12,7 +12,7 @@ lgr = get_logger()
 def parse_dandi_url(url):
     """Parse url like and return server (address), asset_id and/or directory
 
-    Example URLs (as of 20200227):
+    Example URLs (as of 20200310):
     - User public: (Users -> bendichter/Public/Tolias2020)
       [seems to be visible only if logged in]
       https://gui.dandiarchive.org/#/folder/5e5593cc1a343161ff7c5a92
@@ -23,6 +23,8 @@ def parse_dandi_url(url):
     - Collections: (Collections -> yarik/svoboda)
       https://gui.dandiarchive.org/#/folder/5dab0830f377535c7d96c2b4
       https://girder.dandiarchive.org/#collection/5daa5ca7e3489855a3027682/folder/5dab0830f377535c7d96c2b4
+    - Dataset landing page metadata
+      https://gui.dandiarchive.org/#/dandiset-meta/5e6d5c6976569eb93f451e4f
 
     Individual file:
       dandi???
@@ -82,13 +84,15 @@ def parse_dandi_url(url):
     # Just use the term before the last entry which should be the ID
     if (
         len(frags) < 2
-        or frags[-2] not in ("folder", "collection")
+        or frags[-2] not in ("folder", "collection", "dandiset-meta")
         or len(frags[-1]) != 24
     ):
         raise ValueError(
             f"Fragment of the following URL is not following desired convention"
-            f" .*/(folder|collection)/ID24: {url}"
+            f" .*/(folder|collection|dandiset-meta)/ID24: {url}"
         )
+    if frags[-2] == "dandiset-meta":
+        frags[-2] = "folder"
 
     return server, frags[-2], frags[-1]
 
