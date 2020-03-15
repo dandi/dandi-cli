@@ -3,6 +3,7 @@ from .pynwb_utils import (
     _get_pynwb_metadata,
     get_neurodata_types,
     get_nwb_version,
+    ignore_benign_pynwb_warnings,
     metadata_cache,
 )
 
@@ -26,6 +27,8 @@ def get_metadata(path):
     -------
     dict
     """
+    # when we run in parallel, these annoying warnings appear
+    ignore_benign_pynwb_warnings()
     path = str(path)  # for Path
     meta = dict()
 
