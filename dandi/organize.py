@@ -116,10 +116,7 @@ def create_unique_filenames_from_metadata(
             )
             raise OrganizeImpossibleError(
                 msg_detailed + "\nPlease adjust/provide metadata in your .nwb "
-                "files to disambiguate or rerun allowing adding "
-                "object_id."
-                " You can also use 'simulate' mode to produce a "
-                " tentative layout."
+                "files to disambiguate or rerun allowing adding object_id."
             )
         _assign_obj_id(metadata, non_unique)
         _assign_dandi_names(
@@ -137,7 +134,7 @@ def create_unique_filenames_from_metadata(
 def _assign_obj_id(metadata, non_unique):
     msg = "%d out of %d paths are not unique" % (len(non_unique), len(metadata))
 
-    lgr.info(msg + ". We will consider adding _obj- based on object_id")
+    lgr.info(msg + ". We will try adding _obj- based on crc32 of object_id")
     seen_obj_ids = {}  # obj_id: object_id
     seen_object_ids = {}  # object_id: path
     for r in metadata:
