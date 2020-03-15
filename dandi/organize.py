@@ -139,11 +139,19 @@ def _assign_obj_id(metadata, non_unique):
     seen_object_ids = {}  # object_id: path
     for r in metadata:
         if r["dandi_path"] in non_unique:
-            object_id = get_object_id(r["path"])
+            try:
+                object_id = get_object_id(r["path"])
+            except KeyError:
+                raise OrganizeImpossibleError(
+                    msg + ". We tried to use object_id but it is absent in %r. "
+                    "It is either not .nwb file or produced by older *nwb libraries. "
+                    "You must re-save files e.g. using recent pynwb." % (r["path"])
+                )
+
             if not object_id:
                 raise OrganizeImpossibleError(
                     msg + ". We tried to use object_id but it was %r for %s. "
-                    " You must re-save files using recent pynwb"
+                    " You might need to re-save files using recent pynwb"
                     % (object_id, r["path"])
                 )
             # shorter version
