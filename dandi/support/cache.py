@@ -32,8 +32,10 @@ class PersistentCache(object):
         dirs = appdirs.AppDirs("dandi")
         self._cache_file = op.join(dirs.user_cache_dir, (name or "cache"))
         self._memory = joblib.Memory(self._cache_file, verbose=0)
-        if os.environ.get("DANDI_CACHE_CLEAR", None):
+        clear_var = os.environ.get("DANDI_CACHE_CLEAR", None)
+        if clear_var in ("1", "yes", "name"):
             self.clear()
+        self._ignore_cache = clear_var == "ignore"
         self._tokens = tokens
 
     def clear(self):
@@ -50,6 +52,8 @@ class PersistentCache(object):
             lgr.warning(f"Failed to clear out the cache directory: {exc}")
 
     def memoize(self, f):
+        if self._ignore_cache:
+            return f
         return self._memory.cache(f)
 
     def memoize_path(self, f):
@@ -110,4 +114,4 @@ class PersistentCache(object):
             lgr.log(5, "Fingerprint for %s: %s", path, fprint)
             return fprint
         except Exception as exc:
-            lgr.debug(f"Cannot fingerptint {path}: {exc}")
+            lgr.debug(f"Cannot fingerprint {path}: {exc}")
