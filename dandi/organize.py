@@ -137,22 +137,24 @@ def _assign_obj_id(metadata, non_unique):
     lgr.info(msg + ". We will try adding _obj- based on crc32 of object_id")
     seen_obj_ids = {}  # obj_id: object_id
     seen_object_ids = {}  # object_id: path
+    recent_nwb_msg = "NWB>=2.1.0 standard (supported by pynwb>=1.1.0)."
     for r in metadata:
         if r["dandi_path"] in non_unique:
             try:
                 object_id = get_object_id(r["path"])
             except KeyError:
                 raise OrganizeImpossibleError(
-                    msg + ". We tried to use object_id but it is absent in %r. "
-                    "It is either not .nwb file or produced by older *nwb libraries. "
-                    "You must re-save files e.g. using recent pynwb." % (r["path"])
+                    msg
+                    + f". We tried to use object_id but it is absent in {r['path']!r}. "
+                    f"It is either not .nwb file or produced by older *nwb libraries. "
+                    f"You must re-save files e.g. using {recent_nwb_msg}"
                 )
 
             if not object_id:
                 raise OrganizeImpossibleError(
-                    msg + ". We tried to use object_id but it was %r for %s. "
-                    " You might need to re-save files using recent pynwb"
-                    % (object_id, r["path"])
+                    msg
+                    + f". We tried to use object_id but it was {object_id!r} for {r['path']!r}. "
+                    f"You might need to re-save files using {recent_nwb_msg}"
                 )
             # shorter version
             obj_id = np.base_repr(binascii.crc32(object_id.encode("ascii")), 36).lower()
@@ -160,11 +162,10 @@ def _assign_obj_id(metadata, non_unique):
                 seen_object_id = seen_obj_ids[obj_id]
                 if seen_object_id == object_id:
                     raise OrganizeImpossibleError(
-                        "Two files (%r and %r) have the same object_id %s. "
-                        "Must not happen. Either files are duplicates "
-                        "(remove one) or were not saved correctly using "
-                        "recent pynwb"
-                        % (r["path"], seen_object_ids[object_id], object_id)
+                        f"Two files ({r['path']!r} and {seen_object_ids[object_id]!r}) "
+                        f"have the same object_id {object_id}. Must not "
+                        f"happen. Either files are duplicates (remove one) "
+                        f"or were not saved correctly using {recent_nwb_msg}"
                     )
                 else:
                     raise RuntimeError(
