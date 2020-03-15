@@ -2,7 +2,6 @@ import click
 import os
 import os.path as op
 from glob import glob
-from collections import Counter
 
 from .command import (
     dandiset_id_option,
@@ -12,6 +11,7 @@ from .command import (
     map_to_click_exceptions,
 )
 from ..consts import dandiset_metadata_file, file_operation_modes
+from ..organize import _get_non_unique_paths
 
 
 @main.command()
@@ -241,24 +241,11 @@ def organize(
         populate_dataset_yml(dandiset_metadata_filepath, metadata)
 
     metadata = create_unique_filenames_from_metadata(metadata)
-
-    # Verify that we got unique paths
-    all_paths = [m["dandi_path"] for m in metadata]
-    all_paths_unique = set(all_paths)
-    non_unique = {}
-    if not len(all_paths) == len(all_paths_unique):
-        counts = Counter(all_paths)
-        non_unique = {p: c for p, c in counts.items() if c > 1}
-        # Let's prepare informative listing
-        for p in non_unique:
-            orig_paths = []
-            for e in metadata:
-                if e["dandi_path"] == p:
-                    orig_paths.append(e["path"])
-            non_unique[p] = orig_paths  # overload with the list instead of count
+    non_unique = _get_non_unique_paths(metadata)
+    if non_unique:
         msg = "%d out of %d paths are not unique:\n%s" % (
             len(non_unique),
-            len(all_paths),
+            len(metadata),
             "\n".join("   %s: %s" % i for i in non_unique.items()),
         )
         if files_mode == "simulate":

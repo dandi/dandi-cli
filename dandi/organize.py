@@ -3,6 +3,8 @@ ATM primarily a sandbox for some functionality for  dandi organize
 """
 
 import re
+from collections import Counter
+
 import dateutil.parser
 import os.path as op
 
@@ -12,6 +14,19 @@ from .pynwb_utils import get_neurodata_types_to_modalities_map
 from .utils import ensure_datetime, flattened
 
 lgr = get_logger()
+
+# Fields which would be used to compose the filename
+potential_fields = {
+    "subject_id": "sub-{}",
+    "session_id": "_ses-{}",
+    "tissue_sample_id": "_tis-{}",
+    "slice_id": "_slice-{}",
+    "cell_id": "_cell-{}",
+    # "session_description"
+    "modalities": "_{}",
+    "extension": "{}",
+}
+dandi_path = "sub-{subject_id}/{dandi_filename}"
 
 
 def filter_invalid_metadata_rows(metadata_rows):
@@ -60,19 +75,6 @@ def create_unique_filenames_from_metadata(
     # TODO what to do if not all files have values for the same set of fields, i.e. some rows
     # are empty for certain fields?
 
-    # Fields which would be used to compose the filename
-    potential_fields = {
-        "subject_id": "sub-{}",
-        "session_id": "_ses-{}",
-        "tissue_sample_id": "_tis-{}",
-        "slice_id": "_slice-{}",
-        "cell_id": "_cell-{}",
-        # "session_description"
-        "modalities": "_{}",
-        "extension": "{}",
-    }
-    dandi_path = "sub-{subject_id}/{dandi_filename}"
-
     #
     # Additional fields
     #
@@ -96,8 +98,12 @@ def create_unique_filenames_from_metadata(
             if value:
                 r[field] = _sanitize_value(value, field)
 
-    unique_values = _get_unique_values(metadata, potential_fields)
+    _assign_dandi_names(metadata, mandatory, mandatory_if_not_empty)
+    return metadata
 
+
+def _assign_dandi_names(metadata, mandatory, mandatory_if_not_empty):
+    unique_values = _get_unique_values(metadata, potential_fields)
     # unless it is mandatory, we would not include the fields with more than
     # a single unique field
     for r in metadata:
@@ -117,7 +123,6 @@ def create_unique_filenames_from_metadata(
                     dandi_filename += formatted_value
         r["dandi_filename"] = dandi_filename
         r["dandi_path"] = dandi_path.format(**r)
-    return metadata
 
 
 def _get_unique_values(metadata, fields, filter_=False):
@@ -384,3 +389,32 @@ def populate_dataset_yml(filepath, metadata):
     # Save result
     with open(filepath, "w") as f:
         yaml.dump(rec, f)
+
+
+def _get_non_unique_paths(metadata):
+    """Identify non-unique paths after mapping
+
+    Parameters
+    ----------
+    metadata
+
+    Returns
+    -------
+    dict:
+       of dandi_path: list(orig paths)
+    """
+    # Verify that we got unique paths
+    all_paths = [m["dandi_path"] for m in metadata]
+    all_paths_unique = set(all_paths)
+    non_unique = {}
+    if not len(all_paths) == len(all_paths_unique):
+        counts = Counter(all_paths)
+        non_unique = {p: c for p, c in counts.items() if c > 1}
+        # Let's prepare informative listing
+        for p in non_unique:
+            orig_paths = []
+            for e in metadata:
+                if e["dandi_path"] == p:
+                    orig_paths.append(e["path"])
+            non_unique[p] = orig_paths  # overload with the list instead of count
+    return non_unique
