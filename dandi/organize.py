@@ -2,6 +2,8 @@
 ATM primarily a sandbox for some functionality for  dandi organize
 """
 
+import binascii
+import numpy as np
 import re
 from collections import Counter
 
@@ -17,13 +19,14 @@ from .utils import ensure_datetime, flattened
 lgr = get_logger()
 
 # Fields which would be used to compose the filename
+# TODO: add full description into command --help etc
 potential_fields = {
     "subject_id": "sub-{}",
     "session_id": "_ses-{}",
     "tissue_sample_id": "_tis-{}",
     "slice_id": "_slice-{}",
     "cell_id": "_cell-{}",
-    "obj_id": "_obj-{}",
+    "obj_id": "_obj-{}",  # will be not id, but checksum of it to shorten
     # "session_description"
     "modalities": "_{}",
     "extension": "{}",
@@ -134,9 +137,7 @@ def create_unique_filenames_from_metadata(
 def _assign_obj_id(metadata, non_unique):
     msg = "%d out of %d paths are not unique" % (len(non_unique), len(metadata))
 
-    lgr.info(
-        msg + ". We will consider adding object_id", len(non_unique), len(metadata)
-    )
+    lgr.info(msg + ". We will consider adding _obj- based on object_id")
     seen_obj_ids = {}  # obj_id: object_id
     seen_object_ids = {}  # object_id: path
     for r in metadata:
@@ -149,7 +150,7 @@ def _assign_obj_id(metadata, non_unique):
                     % (object_id, r["path"])
                 )
             # shorter version
-            obj_id = object_id.split("-", 1)[0]
+            obj_id = np.base_repr(binascii.crc32(object_id.encode("ascii")), 36).lower()
             if obj_id in seen_obj_ids:
                 seen_object_id = seen_obj_ids[obj_id]
                 if seen_object_id == object_id:
@@ -163,8 +164,8 @@ def _assign_obj_id(metadata, non_unique):
                 else:
                     raise RuntimeError(
                         f"Wrong assumption by DANDI developers that first "
-                        f"octet of object_id would be sufficient.  Please "
-                        f"report: "
+                        f"CRC32 checksum of object_id would be sufficient.  Please "
+                        f"report: {obj_id} the same for "
                         f"{seen_object_ids[seen_object_id]}={seen_object_id} "
                         f"{r['path']}={object_id} "
                     )
