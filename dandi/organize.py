@@ -8,9 +8,10 @@ from collections import Counter
 import dateutil.parser
 import os.path as op
 
+from .exceptions import OrganizeImpossibleError
 from . import get_logger
 from .consts import dandiset_metadata_file
-from .pynwb_utils import get_neurodata_types_to_modalities_map
+from .pynwb_utils import get_neurodata_types_to_modalities_map, get_object_id
 from .utils import ensure_datetime, flattened
 
 lgr = get_logger()
@@ -22,6 +23,7 @@ potential_fields = {
     "tissue_sample_id": "_tis-{}",
     "slice_id": "_slice-{}",
     "cell_id": "_cell-{}",
+    "obj_id": "_obj-{}",
     # "session_description"
     "modalities": "_{}",
     "extension": "{}",
@@ -51,6 +53,7 @@ def create_unique_filenames_from_metadata(
     metadata,
     mandatory=["subject_id", "extension"],
     mandatory_if_not_empty=["modalities,"],
+    add_object_id_for_non_unique=True,
 ):
     """
 
@@ -99,7 +102,75 @@ def create_unique_filenames_from_metadata(
                 r[field] = _sanitize_value(value, field)
 
     _assign_dandi_names(metadata, mandatory, mandatory_if_not_empty)
+
+    non_unique = _get_non_unique_paths(metadata)
+
+    if non_unique:
+        if not add_object_id_for_non_unique:
+            msg = "%d out of %d paths are not unique" % (len(non_unique), len(metadata))
+            msg_detailed = msg + ":\n%s" % "\n".join(
+                "   %s: %s" % i for i in non_unique.items()
+            )
+            raise OrganizeImpossibleError(
+                msg_detailed + "\nPlease adjust/provide metadata in your .nwb "
+                "files to disambiguate or rerun allowing adding "
+                "object_id."
+                " You can also use 'simulate' mode to produce a "
+                " tentative layout."
+            )
+        _assign_obj_id(metadata, non_unique)
+        _assign_dandi_names(
+            metadata, mandatory, (mandatory_if_not_empty or []) + ["obj_id"]
+        )
+        non_unique = _get_non_unique_paths(metadata)
+        if non_unique:
+            raise OrganizeImpossibleError(
+                "Even after adding obj_id we ended up with non-unique file names. "
+                "Should have not happened: %s" % str(non_unique)
+            )
     return metadata
+
+
+def _assign_obj_id(metadata, non_unique):
+    msg = "%d out of %d paths are not unique" % (len(non_unique), len(metadata))
+
+    lgr.info(
+        msg + ". We will consider adding object_id", len(non_unique), len(metadata)
+    )
+    seen_obj_ids = {}  # obj_id: object_id
+    seen_object_ids = {}  # object_id: path
+    for r in metadata:
+        if r["dandi_path"] in non_unique:
+            object_id = get_object_id(r["path"])
+            if not object_id:
+                raise OrganizeImpossibleError(
+                    msg + ". We tried to use object_id but it was %r for %s. "
+                    " You must re-save files using recent pynwb"
+                    % (object_id, r["path"])
+                )
+            # shorter version
+            obj_id = object_id.split("-", 1)[0]
+            if obj_id in seen_obj_ids:
+                seen_object_id = seen_obj_ids[obj_id]
+                if seen_object_id == object_id:
+                    raise OrganizeImpossibleError(
+                        "Two files (%r and %r) have the same object_id %s. "
+                        "Must not happen. Either files are duplicates "
+                        "(remove one) or were not saved correctly using "
+                        "recent pynwb"
+                        % (r["path"], seen_object_ids[object_id], object_id)
+                    )
+                else:
+                    raise RuntimeError(
+                        f"Wrong assumption by DANDI developers that first "
+                        f"octet of object_id would be sufficient.  Please "
+                        f"report: "
+                        f"{seen_object_ids[seen_object_id]}={seen_object_id} "
+                        f"{r['path']}={object_id} "
+                    )
+            r["obj_id"] = obj_id
+            seen_obj_ids[obj_id] = object_id
+            seen_object_ids[object_id] = r["path"]
 
 
 def _assign_dandi_names(metadata, mandatory, mandatory_if_not_empty):

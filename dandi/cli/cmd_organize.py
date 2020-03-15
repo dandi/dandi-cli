@@ -11,7 +11,6 @@ from .command import (
     map_to_click_exceptions,
 )
 from ..consts import dandiset_metadata_file, file_operation_modes
-from ..organize import _get_non_unique_paths
 
 
 @main.command()
@@ -241,27 +240,6 @@ def organize(
         populate_dataset_yml(dandiset_metadata_filepath, metadata)
 
     metadata = create_unique_filenames_from_metadata(metadata)
-    non_unique = _get_non_unique_paths(metadata)
-    if non_unique:
-        msg = "%d out of %d paths are not unique:\n%s" % (
-            len(non_unique),
-            len(metadata),
-            "\n".join("   %s: %s" % i for i in non_unique.items()),
-        )
-        if files_mode == "simulate":
-            # TODO: in future should be an error, for now we will lay them out
-            #  as well to ease investigation
-            lgr.warning(
-                msg + "\nIn this mode we will still produce files layout, and "
-                "each non-unique file will be a directory where each file "
-                "would be just a numbered symlink to the original."
-            )
-        else:
-            raise RuntimeError(
-                msg + "\nPlease adjust/provide metadata in your .nwb files to "
-                "disambiguate.  You can also use 'simulate' mode to "
-                "produce a tentative layout."
-            )
 
     # Verify first that the target paths do not exist yet, and fail if they do
     # Note: in "simulate" mode we do early check as well, so this would be
@@ -339,20 +317,9 @@ def organize(
             if not op.exists(dandi_dirpath):
                 os.makedirs(dandi_dirpath)
             if files_mode == "simulate":
-                if dandi_path in non_unique:
-                    if op.exists(dandi_fullpath):
-                        assert op.isdir(dandi_fullpath)
-                    else:
-                        os.makedirs(dandi_fullpath)
-                    n = len(glob(op.join(dandi_fullpath, "*")))
-                    os.symlink(
-                        op.join(os.pardir, e_path), op.join(dandi_fullpath, str(n + 1))
-                    )
-                else:
-                    os.symlink(e_path, dandi_fullpath)
+                os.symlink(e_path, dandi_fullpath)
                 continue
             #
-            assert dandi_path not in non_unique
             if files_mode == "symlink":
                 os.symlink(e_path, dandi_fullpath)
             elif files_mode == "hardlink":
@@ -387,11 +354,10 @@ def organize(
         return msg % n
 
     lgr.info(
-        "Organized %d%s paths%s%s.%s Visit %s/",
+        "Organized %d%s paths%s.%s Visit %s/",
         len(acted_upon),
         msg_(" out of %d", metadata, len(metadata) != len(acted_upon)),
         msg_(" (%d same existing skipped)", skip_same),
-        msg_(" with %d having duplicates", non_unique),
         msg_(" %d invalid not considered.", skip_invalid),
         dandiset_path.rstrip("/"),
     )
