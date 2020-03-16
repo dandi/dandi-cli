@@ -4,6 +4,17 @@ All notable changes to this project will be documented (for humans) in this file
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2020-03-16
+
+### Changed
+- `organize` -- now would add `_obj-` key with the crc32 checksum
+  of the nwb file `object_id` if files could not be otherwise
+  disambiguated
+- variety of small tune ups and fixes
+### Removed
+- `organize` -- not implemented option `--format`
+- `upload` -- not properly implemented option `-d|--dandiset-path`
+
 ## [0.4.0] - 2020-03-13
 
 Provides interfaces for a full cycle of dandiset preparation,
