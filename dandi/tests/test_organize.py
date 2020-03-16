@@ -6,12 +6,15 @@ import yaml
 
 from ..consts import file_operation_modes
 
+from ..cli.command import organize
 from ..organize import (
     _sanitize_value,
-    populate_dataset_yml,
     create_dataset_yml_template,
+    get_obj_id,
+    populate_dataset_yml,
 )
 from ..utils import find_files, on_windows
+from ..pynwb_utils import copy_nwb_file, get_object_id
 import pytest
 
 
@@ -100,8 +103,6 @@ if not on_windows:
 @pytest.mark.integration
 @pytest.mark.parametrize("mode", no_move_modes)
 def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
-    from ..cli.command import organize
-
     outdir = str(tmpdir / "organized")
 
     relative = False
@@ -151,3 +152,22 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
         assert all(op.islink(p) for p in produced_nwb_paths)
     else:
         assert not any(op.islink(p) for p in produced_paths)
+
+
+def test_ambigous(simple2_nwb, tmp_path, clirunner):
+    copy2 = copy_nwb_file(simple2_nwb, tmp_path)
+    outdir = str(tmp_path / "organized")
+    args = ["--files-mode", "copy", "-d", outdir, simple2_nwb, copy2]
+    r = clirunner.invoke(organize, args)
+    assert r.exit_code == 0
+    produced_paths = sorted(find_files(".*", paths=outdir))
+    produced_paths_rel = [op.relpath(p, outdir) for p in produced_paths]
+    assert produced_paths_rel == sorted(
+        ["dandiset.yaml"]
+        + [
+            op.join(
+                "sub-mouse001", "sub-mouse001_obj-%s.nwb" % get_obj_id(get_object_id(f))
+            )
+            for f in [simple2_nwb, copy2]
+        ]
+    )
