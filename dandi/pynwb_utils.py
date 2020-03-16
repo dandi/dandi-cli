@@ -1,4 +1,6 @@
 import h5py
+import os
+import os.path as op
 import re
 import warnings
 from distutils.version import LooseVersion
@@ -224,3 +226,46 @@ def get_object_id(path):
     """
     with h5py.File(path, "r") as f:
         return f.attrs["object_id"]
+
+
+def make_nwb_file(filename, *args, cache_spec=False, **kwargs):
+    """A little helper to produce an .nwb file in the path using NWBFile
+
+    Note: it doesn't cache_spec by default
+    """
+    nwbfile = pynwb.NWBFile(*args, **kwargs)
+    with pynwb.NWBHDF5IO(filename, "w") as io:
+        io.write(nwbfile, cache_spec=cache_spec)
+    return filename
+
+
+def copy_nwb_file(src, dest):
+    """"Copy" .nwb file by opening and saving into a new path.
+
+    New file (`dest`) then should have new `object_id` attribute, and thus be
+    considered "different" although containing the same data
+
+    Parameters
+    ----------
+    src: str
+      Source file
+    dest: str
+      Destination file or directory. If points to an existing directory, file with
+      the same name is created (exception if already exists).  If not an
+      existing directory - target directory is created.
+
+    Returns
+    -------
+    dest
+
+    """
+    if op.isdir(dest):
+        dest = op.join(dest, op.basename(src))
+    else:
+        os.makedirs(op.dirname(dest), exist_ok=True)
+    # The simplest way yoh could find
+    with pynwb.NWBHDF5IO(src, "r") as ior, pynwb.NWBHDF5IO(
+        dest, "w", manager=ior.manager
+    ) as iow:
+        iow.write(ior.read().copy(), link_data=False)
+    return dest
