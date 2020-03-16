@@ -47,15 +47,36 @@ def organize(
 ):
     """(Re)organize files according to the metadata.
 
-    The purpose of this command is to provide datasets with consistently named files,
-    so their naming reflects data they contain.
+    The purpose of this command is to take advantage of metadata contained in
+    the .nwb fils to provide datasets with consistently named files, so their
+    naming reflects data they contain. In addition it will also populate
+    the dataset level descriptor file dandiset.yaml with some of the
+    collected metadata and statistics (e.g. number_of_cells).
 
-    Based on the metadata contained in the considered files, it will also generate
-    the dataset level descriptor file, which possibly later would need to
-    be adjusted "manually".
+    .nwb files are organized into a hierarchy of subfolders one per each
+    "subject", e.g. sub-0001 if .nwb file had contained a Subject group with
+    subject_id=0001.  Each file in a subject-specific subfolder follows the
+    convention:
 
-    See https://github.com/dandi/metadata-dumps/tree/organize/organized/ for
-    examples of (re)organized datasets (files content is original filenames)
+        sub-<subject_id>[_key-<value>][_mod1+mod2+...].nwb
+
+    where following keys are considered if present in the data:
+
+        ses -- session_id\n
+        tis -- tissue_sample_id\n
+        slice -- slice_id\n
+        cell -- cell_id\n
+
+    and `modX` are "modalities" as identified based on detected neural data types
+    (such as "ecephys", "icephys") per extensions found in nwb-schema definitions:
+    https://github.com/NeurodataWithoutBorders/nwb-schema/tree/dev/core
+
+    In addition an "obj" key with a value corresponding to crc32 checksum of
+    "object_id" is added if aforementioned keys and the list of modalities are
+    not sufficient to disambiguate different files.
+
+    You can visit https://dandiarchive.org/dandisets/drafts for a growing
+    collection of (re)organized datasets (files content is original filenames).
     """
     from ..utils import copy_file, delayed, find_files, load_jsonl, move_file, Parallel
     from ..pynwb_utils import ignore_benign_pynwb_warnings
