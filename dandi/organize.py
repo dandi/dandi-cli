@@ -126,7 +126,7 @@ def create_unique_filenames_from_metadata(
         if non_unique:
             raise OrganizeImpossibleError(
                 "Even after adding obj_id we ended up with non-unique file names. "
-                "Should have not happened: %s" % str(non_unique)
+                "Should not have happened: %s" % str(non_unique)
             )
     return metadata
 
