@@ -26,11 +26,11 @@ from ..consts import (
 
 
 @main.command()
-@dandiset_path_option(
-    help="Top directory (local) of the dandiset.  Files will be uploaded with "
-    "paths relative to that directory. If not specified, current or a parent "
-    "directory containing dandiset.yaml file will be assumed "
-)
+# @dandiset_path_option(
+#     help="Top directory (local) of the dandiset.  Files will be uploaded with "
+#     "paths relative to that directory. If not specified, current or a parent "
+#     "directory containing dandiset.yaml file will be assumed "
+# )
 @click.option(
     "-e",
     "--existing",
@@ -60,7 +60,7 @@ from ..consts import (
     "-c", "--girder-collection", help="For development: Girder collection to upload to"
 )
 # TODO: figure out folder for the dandiset
-@devel_option("-d", "--girder-top-folder", help="For development: Girder top folder")
+@devel_option("--girder-top-folder", help="For development: Girder top folder")
 #
 @devel_option(
     "--fake-data",
@@ -72,9 +72,9 @@ from ..consts import (
 @map_to_click_exceptions
 def upload(
     paths,
-    dandiset_path,
-    existing,
-    validation,
+    existing="refresh",
+    validation="require",
+    dandiset_path=None,
     # Development options should come as kwargs
     girder_collection=collection_drafts,
     girder_top_folder=None,
