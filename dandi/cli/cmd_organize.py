@@ -20,7 +20,7 @@ from ..consts import dandiset_metadata_file, file_operation_modes
     "For 'simulate' mode target dandiset/directory must not exist.",
     type=click.Path(dir_okay=True, file_okay=False),
 )
-@dandiset_id_option()
+# @dandiset_id_option()
 @click.option(
     "--invalid",
     help="What to do if files without sufficient metadata are encountered.",
@@ -190,10 +190,7 @@ def organize(
     dandiset_metadata_filepath = op.join(dandiset_path, dandiset_metadata_file)
     if op.lexists(dandiset_metadata_filepath):
         if dandiset_id is not None:
-            lgr.info(
-                f"We found {dandiset_metadata_filepath} present, provided"
-                f" {dandiset_id} will be ignored."
-            )
+            lgr.info(f"We found {dandiset_metadata_filepath} present")
     elif dandiset_id:
         # TODO: request it from the server and store into dandiset.yaml
         lgr.debug(
@@ -213,8 +210,7 @@ def organize(
         dandiset_metadata_filepath = None
     else:
         lgr.warning(
-            f"Found no {dandiset_metadata_filepath} and no --dandiset-id was"
-            f" specified. This file will lack mandatory metadata."
+            f"Found no {dandiset_metadata_filepath}. This file will lack mandatory metadata."
             f" For upload later on, you must first use 'register'"
             f" to obtain a dandiset id.  Meanwhile you could use 'simulate' mode"
             f" to generate a sample dandiset.yaml if you are interested."
