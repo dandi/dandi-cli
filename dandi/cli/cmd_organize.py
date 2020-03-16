@@ -22,13 +22,6 @@ from ..consts import dandiset_metadata_file, file_operation_modes
 )
 @dandiset_id_option()
 @click.option(
-    "-f",
-    "--format",
-    help="Python .format() template to be used to create a full path to a file. "
-    "It will be provided a dict with metadata fields and some prepared "
-    "fields such as '_filename' which is prepared according to internal rules.",
-)
-@click.option(
     "--invalid",
     help="What to do if files without sufficient metadata are encountered.",
     type=click.Choice(["fail", "warn"]),
@@ -50,12 +43,7 @@ from ..consts import dandiset_metadata_file, file_operation_modes
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
 @map_to_click_exceptions
 def organize(
-    paths,
-    dandiset_path=None,
-    format=None,
-    dandiset_id=None,
-    invalid="fail",
-    files_mode="dry",
+    paths, dandiset_path=None, dandiset_id=None, invalid="fail", files_mode="dry"
 ):
     """(Re)organize files according to the metadata.
 
@@ -69,10 +57,6 @@ def organize(
     See https://github.com/dandi/metadata-dumps/tree/organize/organized/ for
     examples of (re)organized datasets (files content is original filenames)
     """
-    if format:
-        raise NotImplementedError("format support is not yet implemented")
-
-    # import tqdm
     from ..utils import copy_file, delayed, find_files, load_jsonl, move_file, Parallel
     from ..pynwb_utils import ignore_benign_pynwb_warnings
     from ..organize import (
