@@ -157,7 +157,7 @@ def _assign_obj_id(metadata, non_unique):
                     f"You might need to re-save files using {recent_nwb_msg}"
                 )
             # shorter version
-            obj_id = np.base_repr(binascii.crc32(object_id.encode("ascii")), 36).lower()
+            obj_id = get_obj_id(object_id)
             if obj_id in seen_obj_ids:
                 seen_object_id = seen_obj_ids[obj_id]
                 if seen_object_id == object_id:
@@ -178,6 +178,12 @@ def _assign_obj_id(metadata, non_unique):
             r["obj_id"] = obj_id
             seen_obj_ids[obj_id] = object_id
             seen_object_ids[object_id] = r["path"]
+
+
+def get_obj_id(object_id):
+    """Given full object_id, get its shortened version
+    """
+    return np.base_repr(binascii.crc32(object_id.encode("ascii")), 36).lower()
 
 
 def _assign_dandi_names(metadata, mandatory, mandatory_if_not_empty):
