@@ -2,7 +2,6 @@ import click
 import os
 import os.path as op
 from glob import glob
-from collections import Counter
 
 from .command import (
     dandiset_id_option,
@@ -21,14 +20,7 @@ from ..consts import dandiset_metadata_file, file_operation_modes
     "For 'simulate' mode target dandiset/directory must not exist.",
     type=click.Path(dir_okay=True, file_okay=False),
 )
-@dandiset_id_option()
-@click.option(
-    "-f",
-    "--format",
-    help="Python .format() template to be used to create a full path to a file. "
-    "It will be provided a dict with metadata fields and some prepared "
-    "fields such as '_filename' which is prepared according to internal rules.",
-)
+# @dandiset_id_option()
 @click.option(
     "--invalid",
     help="What to do if files without sufficient metadata are encountered.",
@@ -51,29 +43,41 @@ from ..consts import dandiset_metadata_file, file_operation_modes
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
 @map_to_click_exceptions
 def organize(
-    paths,
-    dandiset_path=None,
-    format=None,
-    dandiset_id=None,
-    invalid="fail",
-    files_mode="dry",
+    paths, dandiset_path=None, dandiset_id=None, invalid="fail", files_mode="dry"
 ):
     """(Re)organize files according to the metadata.
 
-    The purpose of this command is to provide datasets with consistently named files,
-    so their naming reflects data they contain.
+    The purpose of this command is to take advantage of metadata contained in
+    the .nwb fils to provide datasets with consistently named files, so their
+    naming reflects data they contain. In addition it will also populate
+    the dataset level descriptor file dandiset.yaml with some of the
+    collected metadata and statistics (e.g. number_of_cells).
 
-    Based on the metadata contained in the considered files, it will also generate
-    the dataset level descriptor file, which possibly later would need to
-    be adjusted "manually".
+    .nwb files are organized into a hierarchy of subfolders one per each
+    "subject", e.g. sub-0001 if .nwb file had contained a Subject group with
+    subject_id=0001.  Each file in a subject-specific subfolder follows the
+    convention:
 
-    See https://github.com/dandi/metadata-dumps/tree/organize/organized/ for
-    examples of (re)organized datasets (files content is original filenames)
+        sub-<subject_id>[_key-<value>][_mod1+mod2+...].nwb
+
+    where following keys are considered if present in the data:
+
+        ses -- session_id\n
+        tis -- tissue_sample_id\n
+        slice -- slice_id\n
+        cell -- cell_id\n
+
+    and `modX` are "modalities" as identified based on detected neural data types
+    (such as "ecephys", "icephys") per extensions found in nwb-schema definitions:
+    https://github.com/NeurodataWithoutBorders/nwb-schema/tree/dev/core
+
+    In addition an "obj" key with a value corresponding to crc32 checksum of
+    "object_id" is added if aforementioned keys and the list of modalities are
+    not sufficient to disambiguate different files.
+
+    You can visit https://dandiarchive.org/dandisets/drafts for a growing
+    collection of (re)organized datasets (files content is original filenames).
     """
-    if format:
-        raise NotImplementedError("format support is not yet implemented")
-
-    # import tqdm
     from ..utils import copy_file, delayed, find_files, load_jsonl, move_file, Parallel
     from ..pynwb_utils import ignore_benign_pynwb_warnings
     from ..organize import (
@@ -207,10 +211,7 @@ def organize(
     dandiset_metadata_filepath = op.join(dandiset_path, dandiset_metadata_file)
     if op.lexists(dandiset_metadata_filepath):
         if dandiset_id is not None:
-            lgr.info(
-                f"We found {dandiset_metadata_filepath} present, provided"
-                f" {dandiset_id} will be ignored."
-            )
+            lgr.info(f"We found {dandiset_metadata_filepath} present")
     elif dandiset_id:
         # TODO: request it from the server and store into dandiset.yaml
         lgr.debug(
@@ -230,8 +231,7 @@ def organize(
         dandiset_metadata_filepath = None
     else:
         lgr.warning(
-            f"Found no {dandiset_metadata_filepath} and no --dandiset-id was"
-            f" specified. This file will lack mandatory metadata."
+            f"Found no {dandiset_metadata_filepath}. This file will lack mandatory metadata."
             f" For upload later on, you must first use 'register'"
             f" to obtain a dandiset id.  Meanwhile you could use 'simulate' mode"
             f" to generate a sample dandiset.yaml if you are interested."
@@ -241,40 +241,6 @@ def organize(
         populate_dataset_yml(dandiset_metadata_filepath, metadata)
 
     metadata = create_unique_filenames_from_metadata(metadata)
-
-    # Verify that we got unique paths
-    all_paths = [m["dandi_path"] for m in metadata]
-    all_paths_unique = set(all_paths)
-    non_unique = {}
-    if not len(all_paths) == len(all_paths_unique):
-        counts = Counter(all_paths)
-        non_unique = {p: c for p, c in counts.items() if c > 1}
-        # Let's prepare informative listing
-        for p in non_unique:
-            orig_paths = []
-            for e in metadata:
-                if e["dandi_path"] == p:
-                    orig_paths.append(e["path"])
-            non_unique[p] = orig_paths  # overload with the list instead of count
-        msg = "%d out of %d paths are not unique:\n%s" % (
-            len(non_unique),
-            len(all_paths),
-            "\n".join("   %s: %s" % i for i in non_unique.items()),
-        )
-        if files_mode == "simulate":
-            # TODO: in future should be an error, for now we will lay them out
-            #  as well to ease investigation
-            lgr.warning(
-                msg + "\nIn this mode we will still produce files layout, and "
-                "each non-unique file will be a directory where each file "
-                "would be just a numbered symlink to the original."
-            )
-        else:
-            raise RuntimeError(
-                msg + "\nPlease adjust/provide metadata in your .nwb files to "
-                "disambiguate.  You can also use 'simulate' mode to "
-                "produce a tentative layout."
-            )
 
     # Verify first that the target paths do not exist yet, and fail if they do
     # Note: in "simulate" mode we do early check as well, so this would be
@@ -352,20 +318,9 @@ def organize(
             if not op.exists(dandi_dirpath):
                 os.makedirs(dandi_dirpath)
             if files_mode == "simulate":
-                if dandi_path in non_unique:
-                    if op.exists(dandi_fullpath):
-                        assert op.isdir(dandi_fullpath)
-                    else:
-                        os.makedirs(dandi_fullpath)
-                    n = len(glob(op.join(dandi_fullpath, "*")))
-                    os.symlink(
-                        op.join(os.pardir, e_path), op.join(dandi_fullpath, str(n + 1))
-                    )
-                else:
-                    os.symlink(e_path, dandi_fullpath)
+                os.symlink(e_path, dandi_fullpath)
                 continue
             #
-            assert dandi_path not in non_unique
             if files_mode == "symlink":
                 os.symlink(e_path, dandi_fullpath)
             elif files_mode == "hardlink":
@@ -400,11 +355,10 @@ def organize(
         return msg % n
 
     lgr.info(
-        "Organized %d%s paths%s%s.%s Visit %s/",
+        "Organized %d%s paths%s.%s Visit %s/",
         len(acted_upon),
         msg_(" out of %d", metadata, len(metadata) != len(acted_upon)),
         msg_(" (%d same existing skipped)", skip_same),
-        msg_(" with %d having duplicates", non_unique),
         msg_(" %d invalid not considered.", skip_invalid),
         dandiset_path.rstrip("/"),
     )

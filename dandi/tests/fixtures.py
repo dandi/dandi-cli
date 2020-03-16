@@ -5,7 +5,7 @@ import shutil
 import tempfile
 
 import pynwb
-from ..pynwb_utils import metadata_nwb_file_fields
+from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
 
 import pytest
 
@@ -20,6 +20,8 @@ lgr = get_logger()
 def simple1_nwb_metadata(tmpdir_factory):
     # very simple assignment with the same values as the key with 1 as suffix
     metadata = {f: "{}1".format(f) for f in metadata_nwb_file_fields}
+    # subject_fields
+
     # tune specific ones:
     # Needs an explicit time zone since otherwise pynwb would add one
     # But then comparison breaks anyways any ways yoh have tried to set it
@@ -36,11 +38,24 @@ def simple1_nwb_metadata(tmpdir_factory):
 
 @pytest.fixture(scope="session")
 def simple1_nwb(simple1_nwb_metadata, tmpdir_factory):
-    filename = str(tmpdir_factory.mktemp("data").join("simple1.nwb"))
-    nwbfile = pynwb.NWBFile(**simple1_nwb_metadata)
-    with pynwb.NWBHDF5IO(filename, "w") as io:
-        io.write(nwbfile, cache_spec=False)
-    return filename
+    return make_nwb_file(
+        str(tmpdir_factory.mktemp("data").join("simple1.nwb")), **simple1_nwb_metadata
+    )
+
+
+@pytest.fixture(scope="session")
+def simple2_nwb(simple1_nwb_metadata, tmpdir_factory):
+    """With a subject"""
+    return make_nwb_file(
+        str(tmpdir_factory.mktemp("data").join("simple2.nwb")),
+        subject=pynwb.file.Subject(
+            subject_id="mouse001",
+            date_of_birth=datetime(2019, 12, 1),
+            sex="M",
+            species="mouse",
+        ),
+        **simple1_nwb_metadata,
+    )
 
 
 @pytest.fixture()

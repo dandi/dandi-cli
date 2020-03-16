@@ -2,16 +2,36 @@
 ATM primarily a sandbox for some functionality for  dandi organize
 """
 
+import binascii
+import numpy as np
 import re
+from collections import Counter
+
 import dateutil.parser
 import os.path as op
 
+from .exceptions import OrganizeImpossibleError
 from . import get_logger
 from .consts import dandiset_metadata_file
-from .pynwb_utils import get_neurodata_types_to_modalities_map
+from .pynwb_utils import get_neurodata_types_to_modalities_map, get_object_id
 from .utils import ensure_datetime, flattened
 
 lgr = get_logger()
+
+# Fields which would be used to compose the filename
+# TODO: add full description into command --help etc
+potential_fields = {
+    "subject_id": "sub-{}",
+    "session_id": "_ses-{}",
+    "tissue_sample_id": "_tis-{}",
+    "slice_id": "_slice-{}",
+    "cell_id": "_cell-{}",
+    "obj_id": "_obj-{}",  # will be not id, but checksum of it to shorten
+    # "session_description"
+    "modalities": "_{}",
+    "extension": "{}",
+}
+dandi_path = "sub-{subject_id}/{dandi_filename}"
 
 
 def filter_invalid_metadata_rows(metadata_rows):
@@ -36,6 +56,7 @@ def create_unique_filenames_from_metadata(
     metadata,
     mandatory=["subject_id", "extension"],
     mandatory_if_not_empty=["modalities,"],
+    add_object_id_for_non_unique=True,
 ):
     """
 
@@ -60,19 +81,6 @@ def create_unique_filenames_from_metadata(
     # TODO what to do if not all files have values for the same set of fields, i.e. some rows
     # are empty for certain fields?
 
-    # Fields which would be used to compose the filename
-    potential_fields = {
-        "subject_id": "sub-{}",
-        "session_id": "_ses-{}",
-        "tissue_sample_id": "_tis-{}",
-        "slice_id": "_slice-{}",
-        "cell_id": "_cell-{}",
-        # "session_description"
-        "modalities": "_{}",
-        "extension": "{}",
-    }
-    dandi_path = "sub-{subject_id}/{dandi_filename}"
-
     #
     # Additional fields
     #
@@ -96,8 +104,90 @@ def create_unique_filenames_from_metadata(
             if value:
                 r[field] = _sanitize_value(value, field)
 
-    unique_values = _get_unique_values(metadata, potential_fields)
+    _assign_dandi_names(metadata, mandatory, mandatory_if_not_empty)
 
+    non_unique = _get_non_unique_paths(metadata)
+
+    if non_unique:
+        if not add_object_id_for_non_unique:
+            msg = "%d out of %d paths are not unique" % (len(non_unique), len(metadata))
+            msg_detailed = msg + ":\n%s" % "\n".join(
+                "   %s: %s" % i for i in non_unique.items()
+            )
+            raise OrganizeImpossibleError(
+                msg_detailed + "\nPlease adjust/provide metadata in your .nwb "
+                "files to disambiguate or rerun allowing adding object_id."
+            )
+        _assign_obj_id(metadata, non_unique)
+        _assign_dandi_names(
+            metadata, mandatory, (mandatory_if_not_empty or []) + ["obj_id"]
+        )
+        non_unique = _get_non_unique_paths(metadata)
+        if non_unique:
+            raise OrganizeImpossibleError(
+                "Even after adding obj_id we ended up with non-unique file names. "
+                "Should not have happened: %s" % str(non_unique)
+            )
+    return metadata
+
+
+def _assign_obj_id(metadata, non_unique):
+    msg = "%d out of %d paths are not unique" % (len(non_unique), len(metadata))
+
+    lgr.info(msg + ". We will try adding _obj- based on crc32 of object_id")
+    seen_obj_ids = {}  # obj_id: object_id
+    seen_object_ids = {}  # object_id: path
+    recent_nwb_msg = "NWB>=2.1.0 standard (supported by pynwb>=1.1.0)."
+    for r in metadata:
+        if r["dandi_path"] in non_unique:
+            try:
+                object_id = get_object_id(r["path"])
+            except KeyError:
+                raise OrganizeImpossibleError(
+                    msg
+                    + f". We tried to use object_id but it is absent in {r['path']!r}. "
+                    f"It is either not .nwb file or produced by older *nwb libraries. "
+                    f"You must re-save files e.g. using {recent_nwb_msg}"
+                )
+
+            if not object_id:
+                raise OrganizeImpossibleError(
+                    msg
+                    + f". We tried to use object_id but it was {object_id!r} for {r['path']!r}. "
+                    f"You might need to re-save files using {recent_nwb_msg}"
+                )
+            # shorter version
+            obj_id = get_obj_id(object_id)
+            if obj_id in seen_obj_ids:
+                seen_object_id = seen_obj_ids[obj_id]
+                if seen_object_id == object_id:
+                    raise OrganizeImpossibleError(
+                        f"Two files ({r['path']!r} and {seen_object_ids[object_id]!r}) "
+                        f"have the same object_id {object_id}. Must not "
+                        f"happen. Either files are duplicates (remove one) "
+                        f"or were not saved correctly using {recent_nwb_msg}"
+                    )
+                else:
+                    raise RuntimeError(
+                        f"Wrong assumption by DANDI developers that first "
+                        f"CRC32 checksum of object_id would be sufficient.  Please "
+                        f"report: {obj_id} the same for "
+                        f"{seen_object_ids[seen_object_id]}={seen_object_id} "
+                        f"{r['path']}={object_id} "
+                    )
+            r["obj_id"] = obj_id
+            seen_obj_ids[obj_id] = object_id
+            seen_object_ids[object_id] = r["path"]
+
+
+def get_obj_id(object_id):
+    """Given full object_id, get its shortened version
+    """
+    return np.base_repr(binascii.crc32(object_id.encode("ascii")), 36).lower()
+
+
+def _assign_dandi_names(metadata, mandatory, mandatory_if_not_empty):
+    unique_values = _get_unique_values(metadata, potential_fields)
     # unless it is mandatory, we would not include the fields with more than
     # a single unique field
     for r in metadata:
@@ -117,7 +207,6 @@ def create_unique_filenames_from_metadata(
                     dandi_filename += formatted_value
         r["dandi_filename"] = dandi_filename
         r["dandi_path"] = dandi_path.format(**r)
-    return metadata
 
 
 def _get_unique_values(metadata, fields, filter_=False):
@@ -384,3 +473,32 @@ def populate_dataset_yml(filepath, metadata):
     # Save result
     with open(filepath, "w") as f:
         yaml.dump(rec, f)
+
+
+def _get_non_unique_paths(metadata):
+    """Identify non-unique paths after mapping
+
+    Parameters
+    ----------
+    metadata
+
+    Returns
+    -------
+    dict:
+       of dandi_path: list(orig paths)
+    """
+    # Verify that we got unique paths
+    all_paths = [m["dandi_path"] for m in metadata]
+    all_paths_unique = set(all_paths)
+    non_unique = {}
+    if not len(all_paths) == len(all_paths_unique):
+        counts = Counter(all_paths)
+        non_unique = {p: c for p, c in counts.items() if c > 1}
+        # Let's prepare informative listing
+        for p in non_unique:
+            orig_paths = []
+            for e in metadata:
+                if e["dandi_path"] == p:
+                    orig_paths.append(e["path"])
+            non_unique[p] = orig_paths  # overload with the list instead of count
+    return non_unique
