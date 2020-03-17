@@ -5,6 +5,7 @@ from ..command import ls, validate
 
 from click.testing import CliRunner
 import pytest
+import os
 
 
 @pytest.mark.parametrize("command", (ls, validate))
@@ -24,6 +25,8 @@ def test_no_heavy_imports():
     # no h5py or numpy (just in case) module is imported upon import of the
     # command
     heavy_modules = {"pynwb", "h5py", "numpy"}
+    env = os.environ.copy()
+    env["NO_ET"] = "1"
     p = Popen(
         [
             sys.executable,
@@ -32,7 +35,7 @@ def test_no_heavy_imports():
             "import dandi.cli.command; "
             "print(','.join(set(m.split('.')[0] for m in sys.modules)));",
         ],
-        env={"NO_ET": "1"},
+        env=env,
         shell=True,
         stdout=PIPE,
         stderr=PIPE,
