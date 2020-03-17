@@ -224,6 +224,7 @@ def find_files(
     regex,
     paths=os.curdir,
     exclude=None,
+    exclude_dotfiles=True,
     exclude_vcs=True,
     exclude_datalad=False,
     dirs=False,
@@ -268,6 +269,7 @@ def find_files(
                     regex,
                     paths=path,
                     exclude=exclude,
+                    exclude_dotfiles=exclude_dotfiles,
                     exclude_vcs=exclude_vcs,
                     exclude_datalad=exclude_datalad,
                     dirs=dirs,
@@ -286,6 +288,8 @@ def find_files(
     for dirpath, dirnames, filenames in os.walk(paths):
         names = (dirnames + filenames) if dirs else filenames
         # TODO: might want to uniformize on windows to use '/'
+        if exclude_dotfiles:
+            names = (n for n in names if not n.startswith("."))
         paths = (op.join(dirpath, name) for name in names)
         for path in filter(re.compile(regex).search, paths):
             if not exclude_path(path):

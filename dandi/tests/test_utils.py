@@ -43,6 +43,35 @@ def test_find_files():
     # TODO: more tests
 
 
+def test_find_files_dotfiles(tmpdir):
+    tmpsubdir = tmpdir.mkdir("subdir")
+    for p in (".dot.nwb", "regular", ".git"):
+        for f in (tmpdir / p, tmpsubdir / p):
+            f.write_text("", "utf-8")
+
+    def relpaths(paths):
+        return sorted(op.relpath(p, tmpdir) for p in paths)
+
+    regular = ["regular", op.join("subdir", "regular")]
+    dotfiles = [".dot.nwb", op.join("subdir", ".dot.nwb")]
+    vcs = [".git", op.join("subdir", ".git")]
+
+    ff = find_files(".*", tmpdir)
+    assert relpaths(ff) == regular
+
+    ff = find_files(".*", tmpdir, exclude_dotfiles=False)
+    # we still exclude VCS
+    assert relpaths(ff) == sorted(regular + dotfiles)
+
+    # current VCS are also dot files
+    ff = find_files(".*", tmpdir, exclude_vcs=False)
+    assert relpaths(ff) == regular
+
+    # current VCS are also dot files
+    ff = find_files(".*", tmpdir, exclude_vcs=False, exclude_dotfiles=False)
+    assert relpaths(ff) == sorted(regular + dotfiles + vcs)
+
+
 def test_times_manipulations():
     t0 = get_utcnow_datetime()
     t0_isoformat = ensure_strtime(t0)
