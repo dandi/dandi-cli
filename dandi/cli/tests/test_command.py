@@ -32,6 +32,7 @@ def test_no_heavy_imports():
             "import dandi.cli.command; "
             "print(','.join(set(m.split('.')[0] for m in sys.modules)));",
         ],
+        env={"NO_ET": 1},
         stdout=PIPE,
         stderr=PIPE,
     )
