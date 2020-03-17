@@ -186,7 +186,7 @@ def download(
             dandiset_path = op.join(output_dir, e["path"])
             dandiset_yaml = op.join(dandiset_path, dandiset_metadata_file)
             lgr.info(
-                f"Updating f{dandiset_metadata_file} from obtained dandiset metadata"
+                f"Updating {dandiset_metadata_file} from obtained dandiset metadata"
             )
             if op.lexists(dandiset_yaml):
                 if existing != "overwrite":
