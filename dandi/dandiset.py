@@ -4,7 +4,7 @@ import yaml
 from pathlib import Path
 
 from .consts import dandiset_metadata_file
-from .utils import find_parent_directory_containing
+from .utils import find_parent_directory_containing, yaml_dump
 
 from . import get_logger
 
@@ -52,7 +52,7 @@ class Dandiset(object):
 # It can be edied online and obtained from the dandiarchive.
 # It also gets updated using dandi organize
 """
-        yaml_rec = yaml.dump(meta)
+        yaml_rec = yaml_dump(meta)
         return header + yaml_rec
 
     def update_metadata(self, meta):

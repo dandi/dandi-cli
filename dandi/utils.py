@@ -333,6 +333,20 @@ def find_parent_directory_containing(filename, path=None):
         path = path.parent  # go up
 
 
+def yaml_dump(rec):
+    """Consistent dump into yaml
+
+    Of primary importance is default_flow_style=False
+    to assure proper formatting on versions of pyyaml before
+    5.1: https://github.com/yaml/pyyaml/pull/256
+    """
+    import yaml
+    return yaml.safe_dump(
+        rec,
+        default_flow_style=False
+    )
+
+
 #
 # Borrowed from DataLad (MIT license)
 #
