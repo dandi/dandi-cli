@@ -13,6 +13,12 @@ import sys
 
 from setuptools import setup
 
+if sys.version_info < (3,):
+    raise RuntimeError(
+        "dandi-cli's setup.py requires python 3 or later. "
+        "You are using %s" % sys.version
+    )
+
 try:
     import versioneer
 
