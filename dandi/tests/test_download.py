@@ -1,4 +1,5 @@
 from ..download import download, parse_dandi_url
+from ..tests.skip import mark
 
 
 def test_parse_dandi_url():
@@ -33,6 +34,7 @@ def test_parse_dandi_url():
     assert a, aid == ("item", ["5e7b9e44529c28f35128c747", "5e7b9e43529c28f35128c746"])
 
 
+@mark.skipif_no_network
 def test_download_multiple_files(tmpdir):
     url = (
         "https://gui.dandiarchive.org/#/folder/5e70d3173da50caa9adaf334/selected/"
