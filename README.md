@@ -138,3 +138,8 @@ Please see [DEVELOPMENT.md](./DEVELOPMENT.md) file.
 
 From https://github.com/eric-wieser/generatorify, as of 7bd759ecf88f836ece6cdbcf7ce1074260c0c5ef
 Copyright (c) 2019 Eric Wieser, MIT/Expat licensed.
+
+### dandi/tests/skip.py
+
+From https://github.com/ReproNim/reproman, as of v0.2.1-40-gf4f026d
+Copyright (c) 2016-2020  ReproMan Team
