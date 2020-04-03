@@ -1,8 +1,11 @@
 # ex: set sts=4 ts=4 sw=4 noet:
 # ## ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ##
 #
-#   See COPYING file distributed along with the reproman package for the
+#   See LICENSE file distributed along with the dandi-cli package for the
 #   copyright and license terms.
+#
+#   This file is borrowed from ReproMan, MIT license, Copyright 2016-2020
+#   ReproMan developers.
 #
 # ## ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ##
 """Define `skipif` and `mark` namespaces for custom pytest skippers.
@@ -45,83 +48,85 @@ import os
 
 import pytest
 
-from reproman.cmd import Runner
-from reproman.support.exceptions import CommandError
-from reproman.support.external_versions import external_versions
-from reproman.utils import on_windows as _on_windows
+# from reproman.cmd import Runner
+# from reproman.support.exceptions import CommandError
+# from reproman.support.external_versions import external_versions
+from ..utils import on_windows as _on_windows
 
 # Condition functions
 #
 # To create a new condition, (1) add a condition function and (2) add that
 # function to CONDITION_FNS.
 
-
-def no_apt_cache():
-    return ("apt-cache not available", not external_versions["cmd:apt-cache"])
-
-
-def no_aws_dependencies():
-    return "boto3 not installed", not external_versions["boto3"]
-
-
-def no_condor():
-    def is_running():
-        try:
-            Runner().run(["condor_status"])
-        except CommandError as exc:
-            return False
-        return True
-
-    return (
-        "condor not available",
-        not (external_versions["cmd:condor"] and is_running()),
-    )
-
-
-def no_datalad():
-    return ("datalad not available", not external_versions["datalad"])
-
-
-def no_docker_dependencies():
-    missing_deps = []
-    for dep in "docker", "dockerpty":
-        if dep not in external_versions:
-            missing_deps.append(dep)
-    msg = "missing dependencies: {}".format(", ".join(missing_deps))
-    return msg, missing_deps
-
-
-def no_docker_engine():
-    def is_engine_running():
-        from reproman.resource.docker_container import DockerContainer
-
-        return DockerContainer.is_engine_running()
-
-    # DockerContainer depends on docker.
-    msg, missing_deps = no_docker_dependencies()
-    if missing_deps:
-        return msg, missing_deps
-    return "docker engine not running", not is_engine_running()
+# Left commented out for future references
+# def no_apt_cache():
+#     return ("apt-cache not available", not external_versions["cmd:apt-cache"])
+#
+#
+# def no_aws_dependencies():
+#     return "boto3 not installed", not external_versions["boto3"]
+#
+#
+# def no_condor():
+#     def is_running():
+#         try:
+#             Runner().run(["condor_status"])
+#         except CommandError as exc:
+#             return False
+#         return True
+#
+#     return (
+#         "condor not available",
+#         not (external_versions["cmd:condor"] and is_running()),
+#     )
+#
+#
+# def no_datalad():
+#     return ("datalad not available", not external_versions["datalad"])
+#
+#
+# def no_docker_dependencies():
+#     missing_deps = []
+#     for dep in "docker", "dockerpty":
+#         if dep not in external_versions:
+#             missing_deps.append(dep)
+#     msg = "missing dependencies: {}".format(", ".join(missing_deps))
+#     return msg, missing_deps
+#
+#
+# def no_docker_engine():
+#     def is_engine_running():
+#         from reproman.resource.docker_container import DockerContainer
+#
+#         return DockerContainer.is_engine_running()
+#
+#     # DockerContainer depends on docker.
+#     msg, missing_deps = no_docker_dependencies()
+#     if missing_deps:
+#         return msg, missing_deps
+#     return "docker engine not running", not is_engine_running()
+#
 
 
 def no_network():
-    return ("no network settings", os.environ.get("REPROMAN_TESTS_NONETWORK"))
+    return ("no network settings", os.environ.get("DANDI_TESTS_NONETWORK"))
 
 
-def no_singularity():
-    return ("singularity not available", not external_versions["cmd:singularity"])
+# def no_singularity():
+#     return ("singularity not available", not external_versions["cmd:singularity"])
 
 
 def no_ssh():
     if _on_windows:
         reason = "no ssh on windows"
     else:
-        reason = "no ssh (REPROMAN_TESTS_SSH unset)"
-    return (reason, _on_windows or not os.environ.get("REPROMAN_TESTS_SSH"))
+        reason = "no ssh (DANDI_TESTS_SSH unset)"
+    return (reason, _on_windows or not os.environ.get("DANDI_TESTS_SSH"))
 
 
-def no_svn():
-    return ("subversion not available", not external_versions["cmd:svn"])
+# def no_svn():
+#     return ("subversion not available", not external_versions["cmd:svn"])
+#
 
 
 def on_windows():
@@ -129,16 +134,16 @@ def on_windows():
 
 
 CONDITION_FNS = [
-    no_apt_cache,
-    no_aws_dependencies,
-    no_condor,
-    no_datalad,
-    no_docker_dependencies,
-    no_docker_engine,
+    # no_apt_cache,
+    # no_aws_dependencies,
+    # no_condor,
+    # no_datalad,
+    # no_docker_dependencies,
+    # no_docker_engine,
     no_network,
-    no_singularity,
+    # no_singularity,
     no_ssh,
-    no_svn,
+    # no_svn,
     on_windows,
 ]
 
