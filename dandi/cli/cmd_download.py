@@ -50,4 +50,4 @@ def download(url, output_dir, existing, develop_debug=False):
     # Python function
     from ..download import download
 
-    return download(url, output_dir, existing, develop_debug)
+    return download(url, output_dir, existing=existing, develop_debug=develop_debug)
