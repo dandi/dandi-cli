@@ -229,20 +229,25 @@ def validate(path):
         "incorrect shape - expected an array of shape .\[None\]."
     )
     try:
-        version = get_nwb_version(path)
+        version = get_nwb_version(path, sanitize=False)
     except:
-        # we just will not remove any errors
+        # we just will not remove any errors, it is required so should be some
         pass
     else:
-        if version and LooseVersion(version) < "2.1.0":
-            errors_ = errors[:]
-            errors = [e for e in errors if not re_ok_prior_210.search(str(e))]
-            if errors != errors_:
-                lgr.debug(
-                    "Filtered out %d validation errors on %s",
-                    len(errors_) - len(errors),
-                    path,
-                )
+        # Explicitly sanitize so we collect warnings.
+        # TODO: later cast into proper ERRORs
+        version = _sanitize_nwb_version(version, log=errors.append)
+        if version and semantic_version.validate(version):
+            semver = semantic_version.Version(version)
+            if semver < semantic_version.Version("2.1.0"):
+                errors_ = errors[:]
+                errors = [e for e in errors if not re_ok_prior_210.search(str(e))]
+                if errors != errors_:
+                    lgr.debug(
+                        "Filtered out %d validation errors on %s",
+                        len(errors_) - len(errors),
+                        path,
+                    )
     return errors
 
 
