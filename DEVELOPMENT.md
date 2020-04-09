@@ -47,7 +47,8 @@ development command line options.
 
 - `DANDI_LOG_LEVEL` -- set log level. By default `INFO`, should be an int (`10` - `DEBUG`).
 
-- `DANDI_CACHE_CLEAR` -- clear persistent cache before re-using.  E.g., for
+- `DANDI_CACHE` -- clear persistent cache handling. Known values
+  are `clear` - would clear the cache, `ignore` - would ignore it. Note that for
   metadata cache we use only released portion of `dandi.__version__` as a token.
   If handling of metadata has changed while developing, set this env var to
-  have cache `clear()`ed before use.
+  `clear` to have cache `clear()`ed before use.
