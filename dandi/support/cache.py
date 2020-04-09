@@ -18,6 +18,8 @@ class PersistentCache(object):
     _min_dtime = 0.01  # min difference between now and mtime to consider
     # for caching
 
+    _cache_var_values = ("", "clear", "ignore")
+
     def __init__(self, name=None, tokens=None):
         """
 
@@ -32,10 +34,15 @@ class PersistentCache(object):
         dirs = appdirs.AppDirs("dandi")
         self._cache_file = op.join(dirs.user_cache_dir, (name or "cache"))
         self._memory = joblib.Memory(self._cache_file, verbose=0)
-        clear_var = os.environ.get("DANDI_CACHE_CLEAR", None)
-        if clear_var in ("1", "yes", "name"):
+        cache_var = os.environ.get("DANDI_CACHE", "").lower()
+        if cache_var not in self._cache_var_values:
+            lgr.warning(
+                f"DANDI_CACHE={cache_var} is not understood and thus ignored. "
+                f"Known values are {self._cache_var_values}"
+            )
+        if cache_var == "clear":
             self.clear()
-        self._ignore_cache = clear_var == "ignore"
+        self._ignore_cache = cache_var == "ignore"
         self._tokens = tokens
 
     def clear(self):
