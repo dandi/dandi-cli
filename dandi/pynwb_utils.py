@@ -8,6 +8,7 @@ from collections import Counter
 
 import pynwb
 from pynwb import NWBHDF5IO
+import semantic_version
 
 from . import get_logger
 
@@ -34,7 +35,7 @@ def _sanitize_nwb_version(v, filename=None, log=None):
 
     Would log a warning if something detected to be fishy"""
     msg = f"File {filename}: " if filename else ""
-    msg += "Version is"
+    msg += f"nwb_version {v!r}"
 
     if log is None:
         log = lgr.warning
@@ -46,16 +47,19 @@ def _sanitize_nwb_version(v, filename=None, log=None):
             # should be semver since 2.1.0
             if not (v_.startswith("1.") or v_.startswith("2.0")):
                 log(
-                    f"{msg} {v} with NWB- prefix, which is not part of the "
+                    f"{msg} starts with NWB- prefix, which is not part of the "
                     f"specification since NWB 2.1.0"
                 )
             v = v_
-        # TODO: could do regex matching etc
     elif isinstance(v, int):
-        log(f"{msg} an int {v} whenever it should be a string")
+        log(f"{msg} is an integer whenever it should be text")
         v = str(v)
     elif v:
-        log(f"{msg} {v!r} which is not text following semver. We do not sanitize")
+        log(f"{msg} is not text which follows semver specification")
+
+    if isinstance(v, str) and not semantic_version.validate(v):
+        log(f"{msg} is not a proper semantic version. See http://semver.org")
+
     return v
 
 

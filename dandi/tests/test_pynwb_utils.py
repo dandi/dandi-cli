@@ -48,7 +48,8 @@ def test_sanitize_nwb_version():
     assert _sanitize_nwb_version("NWB-2.0.0", log=_nocall) == "2.0.0"
     assert (
         _sanitize_nwb_version(
-            "NWB-2.1.0", log=assert_regex("^Version is NWB-2.1.0 with NWB- prefix,")
+            "NWB-2.1.0",
+            log=assert_regex("^nwb_version 'NWB-2.1.0' starts with NWB- prefix,"),
         )
         == "2.1.0"
     )
@@ -56,7 +57,9 @@ def test_sanitize_nwb_version():
         _sanitize_nwb_version(
             "NWB-2.1.0",
             filename="/bu",
-            log=assert_regex("^File /bu: Version is NWB-2.1.0 with NWB- prefix,"),
+            log=assert_regex(
+                "^File /bu: nwb_version 'NWB-2.1.0' starts with NWB- prefix,"
+            ),
         )
         == "2.1.0"
     )
