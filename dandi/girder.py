@@ -401,6 +401,8 @@ def get_client(server_url, authenticate=True, progressbars=False):
     server_url: str
       URL to girder instance
     """
+    lgr.debug(f"Establishing a client for {server_url}")
+
     client = GirderCli(server_url, progressbars=progressbars)
     if authenticate:
         client.dandi_authenticate()
