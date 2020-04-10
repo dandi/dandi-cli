@@ -91,10 +91,17 @@ def test_memoize_path(cache, tmp_path):
     with open(path, "w") as f:
         f.write("content")
 
-    # unless this computer is too slow -- there should be less than
-    # cache._min_dtime between our creating the file and testing,
-    # so we would force a direct read:
-    check_new_memoread(0, "content", True)
+    t0 = time.time()
+    try:
+        # unless this computer is too slow -- there should be less than
+        # cache._min_dtime between our creating the file and testing,
+        # so we would force a direct read:
+        check_new_memoread(0, "content", True)
+    except AssertionError:
+        # if computer is indeed slow (happens on shared CIs) we might fail
+        # because distance is too short
+        if time.time() - t0 < cache._min_dtime:
+            raise  # if we were quick but still failed -- legit
     assert calls[-1] == [path, 0, None]
 
     # but if we sleep - should memoize
