@@ -58,7 +58,8 @@ def _sanitize_nwb_version(v, filename=None, log=None):
         log(f"{msg} is not text which follows semver specification")
 
     if isinstance(v, str) and not semantic_version.validate(v):
-        log(f"{msg} is not a proper semantic version. See http://semver.org")
+        msgtype = "error" if LooseVersion(v) >= "2.1.0" else "warning"
+        log(f"{msgtype}: {msg} is not a proper semantic version. See http://semver.org")
 
     return v
 
