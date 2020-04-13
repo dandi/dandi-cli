@@ -8,6 +8,7 @@ from collections import Counter
 
 import pynwb
 from pynwb import NWBHDF5IO
+import semantic_version
 
 from . import get_logger
 
@@ -29,24 +30,66 @@ metadata_cache = PersistentCache(name="metadata", tokens=dandi_cache_tokens)
 validate_cache = PersistentCache(name="validate", tokens=dandi_cache_tokens)
 
 
-def get_nwb_version(filepath):
+def _sanitize_nwb_version(v, filename=None, log=None):
+    """Helper to sanitize the value of nwb_version where possible
+
+    Would log a warning if something detected to be fishy"""
+    msg = f"File {filename}: " if filename else ""
+    msg += f"nwb_version {v!r}"
+
+    if log is None:
+        log = lgr.warning
+    elif not log:
+        log = lambda v: v  # does nothing
+    if isinstance(v, str):
+        if v.startswith("NWB-"):
+            v_ = v[4:]
+            # should be semver since 2.1.0
+            if not (v_.startswith("1.") or v_.startswith("2.0")):
+                log(
+                    f"{msg} starts with NWB- prefix, which is not part of the "
+                    f"specification since NWB 2.1.0"
+                )
+            v = v_
+    elif isinstance(v, int):
+        log(f"{msg} is an integer whenever it should be text")
+        v = str(v)
+    elif v:
+        log(f"{msg} is not text which follows semver specification")
+
+    if isinstance(v, str) and not semantic_version.validate(v):
+        msgtype = "error" if LooseVersion(v) >= "2.1.0" else "warning"
+        log(f"{msgtype}: {msg} is not a proper semantic version. See http://semver.org")
+
+    return v
+
+
+def get_nwb_version(filepath, sanitize=True):
     """Return a version of the NWB standard used by a file
+
+    Parameters
+    ----------
+    sanitize: bool, optional
+      Either to sanitize version and return it non-raw where we detect version
+      which does not follow semantic but we possibly can handle
 
     Returns
     -------
     str or None
        None if there is no version detected
     """
+    _sanitize = _sanitize_nwb_version if sanitize else lambda v: v
+
     with h5py.File(filepath, "r") as h5file:
         # 2.x stored it as an attribute
         try:
-            return h5file.attrs["nwb_version"]
+            return _sanitize(h5file.attrs["nwb_version"])
         except KeyError:
             pass
 
         # 1.x stored it as a dataset
         try:
-            return h5file["nwb_version"][...].tostring().decode()
+            return _sanitize(h5file["nwb_version"][...].tostring().decode())
         except:
             lgr.debug("%s has no nwb_version" % filepath)
 
@@ -187,12 +230,16 @@ def validate(path):
         "incorrect shape - expected an array of shape .\[None\]."
     )
     try:
-        version = get_nwb_version(path)
+        version = get_nwb_version(path, sanitize=False)
     except:
-        # we just will not remove any errors
+        # we just will not remove any errors, it is required so should be some
         pass
     else:
-        if version and LooseVersion(version) < "2.1.0":
+        # Explicitly sanitize so we collect warnings.
+        # TODO: later cast into proper ERRORs
+        version = _sanitize_nwb_version(version, log=errors.append)
+        loosever = LooseVersion(version)
+        if loosever and loosever < "2.1.0":
             errors_ = errors[:]
             errors = [e for e in errors if not re_ok_prior_210.search(str(e))]
             if errors != errors_:
