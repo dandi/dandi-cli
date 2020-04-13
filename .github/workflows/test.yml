@@ -7,6 +7,8 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    env:
+      NO_ET: 1
 
     strategy:
       fail-fast: false
