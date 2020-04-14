@@ -42,6 +42,12 @@ logging.basicConfig(format=FORMAT)
 import __main__
 
 if not hasattr(__main__, "__file__"):
-    import etelemetry
+    try:
+        import etelemetry
 
-    etelemetry.check_available_version("dandi/dandi-cli", __version__, lgr=lgr)
+        etelemetry.check_available_version("dandi/dandi-cli", __version__, lgr=lgr)
+    except Exception as exc:
+        lgr.warning(
+            "Failed to check for a more recent version available with etelemetry: %s",
+            exc,
+        )
