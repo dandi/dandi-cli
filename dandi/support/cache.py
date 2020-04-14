@@ -68,6 +68,7 @@ class PersistentCache(object):
         fingerprint_kwarg = "_cache_fingerprint"
 
         @self.memoize
+        @wraps(f)  # important, so .memoize correctly caches different `f`
         def fingerprinted(path, *args, **kwargs):
             _ = kwargs.pop(fingerprint_kwarg)  # discard
             lgr.debug("Running original %s on %r", f, path)
@@ -91,12 +92,12 @@ class PersistentCache(object):
                 lgr.debug("Calling %s directly since no fingerprint for %r", f, path)
                 # just call the function -- we have no fingerprint,
                 # probably does not exist or permissions are wrong
-                return f(path, *args, **kwargs)
+                ret = f(path, *args, **kwargs)
             elif dtime is not None and dtime < self._min_dtime:
                 lgr.debug(
                     "Calling %s directly since too short (%f) for %r", f, dtime, path
                 )
-                return f(path, *args, **kwargs)
+                ret = f(path, *args, **kwargs)
             else:
                 lgr.debug("Calling memoized version of %s for %s", f, path)
                 # If there is a fingerprint -- inject it into the signature
@@ -104,7 +105,9 @@ class PersistentCache(object):
                 kwargs_[fingerprint_kwarg] = tuple(fprint) + (
                     tuple(self._tokens) if self._tokens else tuple()
                 )
-                return fingerprinted(path, *args, **kwargs_)
+                ret = fingerprinted(path, *args, **kwargs_)
+            lgr.log(1, "Returning value %r", ret)
+            return ret
 
         # and we memoize actually that function
         return fingerprinter

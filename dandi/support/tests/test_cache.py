@@ -62,6 +62,27 @@ def test_memoize(cache):
     assert _comp == [(1,), (1, 2)]
 
 
+def test_memoize_multiple(cache):
+
+    # Make sure that with the same cache can cover multiple functions
+    @cache.memoize
+    def f1():
+        return 1
+
+    @cache.memoize
+    def f2():
+        return 2
+
+    @cache.memoize
+    def f3():  # nesting call into f2
+        return f2() + 1
+
+    for i in range(3):
+        assert f1() == 1
+        assert f2() == 2
+        assert f3() == 3
+
+
 def test_memoize_path(cache, tmp_path):
     calls = []
 
