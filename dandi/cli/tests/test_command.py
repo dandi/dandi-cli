@@ -9,14 +9,18 @@ import os
 
 
 @pytest.mark.parametrize("command", (ls, validate))
-def test_smoke(simple1_nwb, command):
+def test_smoke(simple2_nwb, command):
     runner = CliRunner()
-    r = runner.invoke(command, [simple1_nwb])
+    r = runner.invoke(command, [simple2_nwb])
     assert r.exit_code == 0, f"Exited abnormally. out={r.stdout}"
     assert r.stdout, "There were no output whatsoever"
 
     # empty invocation should not crash
-    r = runner.invoke(command, [])
+    # But we must cd to the temp directory since current directory could
+    # have all kinds of files which could trip the command, e.g. validate
+    # could find some broken test files in the code base
+    with runner.isolated_filesystem():
+        r = runner.invoke(command, [])
     assert r.exit_code == 0, f"Exited abnormally. out={r.stdout}"
 
 
