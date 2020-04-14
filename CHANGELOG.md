@@ -4,6 +4,20 @@ All notable changes to this project will be documented (for humans) in this file
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+
+## [0.4.3] - 2020-04-14
+
+### Added
+- Ability to download (multiple) individual files (using URL from
+  gui.dandiarchive.org having files selected)
+### Changed
+- `DANDI_CACHE_CLEAR` -> `DANDI_CACHE=(ignore|clear)` env variable.
+- Sanitize and tollerate better incorrect `nwb_version` field.
+### Fixed
+- Test to not invoke Popen with shell=True to avoid stalling.
+- Explicit `NO_ET=1` in workflows to avoid overreporting to etelemetry.
+
+
 ## [0.4.2] - 2020-03-18
 
 ### Added
