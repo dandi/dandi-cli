@@ -44,5 +44,5 @@ def test_no_heavy_imports():
     loaded_heavy = set(modules).intersection(heavy_modules)
 
     assert not loaded_heavy
-    assert not stderr or b"dandi version" in stderr
+    assert not stderr or b"Failed to check" in stderr or b"dandi version" in stderr
     assert not p.wait()
