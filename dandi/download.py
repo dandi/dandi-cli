@@ -5,7 +5,7 @@ import urllib.parse as up
 from . import girder, get_logger
 from .consts import dandiset_metadata_file
 from .dandiset import Dandiset
-from .utils import flatten, flattened
+from .utils import flatten, flattened, Parallel, delayed
 
 lgr = get_logger()
 
@@ -122,6 +122,7 @@ def download(
     urls,
     output_dir,
     existing="error",
+    jobs=6,
     develop_debug=False,
     authenticate=False,  # Seems to work just fine for public stuff
     recursive=True,
@@ -157,13 +158,15 @@ def download(
         for asset_id_ in set(flattened([asset_id]))
     )
 
-    for file in files:
-        client.download_file(
+    Parallel(n_jobs=jobs, backend="threading")(
+        delayed(client.download_file)(
             file["id"],
             op.join(output_dir, file["path"]),
             existing=existing,
             attrs=file["attrs"],
         )
+        for file in files
+    )
 
 
 def _get_asset_files(
@@ -236,7 +239,6 @@ def _get_asset_files(
                     )
                     continue
             dandiset = Dandiset(dandiset_path, allow_empty=True)
-            if not dandiset.path_obj.exists():
-                dandiset.path_obj.mkdir()
+            dandiset.path_obj.mkdir(exist_ok=True)  # exist_ok in case of parallel race
             dandiset.update_metadata(e.get("metadata", {}).get("dandiset", {}))
     return files
