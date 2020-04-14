@@ -5,7 +5,7 @@ import urllib.parse as up
 from . import girder, get_logger
 from .consts import dandiset_metadata_file
 from .dandiset import Dandiset
-from .utils import flattened
+from .utils import flatten, flattened
 
 lgr = get_logger()
 
@@ -150,7 +150,7 @@ def download(
 
     # there might be multiple asset_ids, e.g. if multiple files were selected etc,
     # so we will traverse all of them
-    files = flattened(
+    files = flatten(
         _get_asset_files(
             asset_id_, asset_type, output_dir, client, authenticate, existing, recursive
         )
