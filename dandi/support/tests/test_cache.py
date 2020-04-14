@@ -153,14 +153,39 @@ def test_memoize_path(cache, tmp_path):
     check_new_memoread(1, "Content")
 
 
-def test_memoize_path_persist():
+def test_memoize_path_persist(tmp_path):
     from subprocess import run, PIPE
 
-    cache = PersistentCache(name=op.basename(__file__))
+    cache_name = op.basename(tmp_path)
+    script = op.join(tmp_path, "script.py")
+    with open(script, "w") as f:
+        f.write(
+            f"""\
+from os.path import basename
+from dandi.support.cache import PersistentCache
+cache = PersistentCache(name="{cache_name}")
+
+@cache.memoize_path
+def func(path):
+    print("Running %s." % basename(path), end="")
+    return "DONE"
+
+print(func(r"{script}"))
+"""
+        )
+
+    cache = PersistentCache(name=cache_name)
     cache.clear()
 
-    outputs = [run([sys.executable, __file__], stdout=PIPE) for i in range(3)]
-    assert outputs[0].stdout.strip().decode() == f"Running on {__file__}.DONE"
+    outputs = [
+        run([sys.executable, script], stdout=PIPE, stderr=PIPE) for i in range(3)
+    ]
+    print("Full outputs: %s" % repr(outputs))
+    if b"File name too long" in outputs[0].stderr:
+        # must be running during conda build which blows up paths with
+        # _placehold_ers
+        pytest.skip("seems to be running on conda and hitting the limits")
+    assert outputs[0].stdout.strip().decode() == f"Running script.py.DONE"
     for o in outputs[1:]:
         assert o.stdout.strip().decode() == f"DONE"
 
@@ -198,15 +223,3 @@ def test_memoize_path_tokens(tmp_path, cache, cache_tokens):
     # They both are independent, so both will cause a new readout
     check_new_memoread(memoread, 0, "content")
     check_new_memoread(memoread_tokens, 0, "content")
-
-
-if __name__ == "__main__":
-    infile = __file__
-    cache = PersistentCache(name=op.basename(infile))
-
-    @cache.memoize_path
-    def func(path):
-        print(f"Running on {path}.", end="")
-        return "DONE"
-
-    print(func(infile))
