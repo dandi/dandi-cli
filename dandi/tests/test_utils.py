@@ -7,6 +7,8 @@ from ..utils import (
     ensure_datetime,
     ensure_strtime,
     find_files,
+    flatten,
+    flattened,
     get_utcnow_datetime,
     is_same_time,
     on_windows,
@@ -106,3 +108,17 @@ def test_time_samples(t):
     assert is_same_time(
         ensure_datetime(t), "2018-09-27 00:29:17-00:00", tollerance=0
     )  # exactly the same
+
+
+def test_flatten():
+    assert inspect.isgenerator(flatten([1]))
+    # flattened is just a list() around flatten
+    assert flattened([1, [2, 3, [4]], 5, (i for i in range(2))]) == [
+        1,
+        2,
+        3,
+        4,
+        5,
+        0,
+        1,
+    ]

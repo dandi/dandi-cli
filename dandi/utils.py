@@ -1,4 +1,5 @@
 import datetime
+import inspect
 import itertools
 import os
 import os.path as op
@@ -178,15 +179,18 @@ def ensure_datetime(t, strip_tzinfo=False, tz=None):
 #
 # Generic
 #
-def flattened(it):
-    """Return a list with all items flattened if list or tuple"""
-    items = []
+def flatten(it):
+    """Yield items flattened if list, tuple or a generator"""
     for i in it:
-        if isinstance(i, (list, tuple)):
-            items.extend(flattened(i))
+        if isinstance(i, (list, tuple)) or inspect.isgenerator(i):
+            yield from flattened(i)
         else:
-            items.append(i)
-    return items
+            yield i
+
+
+def flattened(it):
+    """Return list with items flattened if list, tuple or a generator"""
+    return list(flatten(it))
 
 
 def updated(d, update):
@@ -345,10 +349,8 @@ def yaml_dump(rec):
     5.1: https://github.com/yaml/pyyaml/pull/256
     """
     import yaml
-    return yaml.safe_dump(
-        rec,
-        default_flow_style=False
-    )
+
+    return yaml.safe_dump(rec, default_flow_style=False)
 
 
 #
