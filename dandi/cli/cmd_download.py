@@ -28,6 +28,13 @@ from .command import devel_option, main, map_to_click_exceptions
     default="refresh",
     show_default=True,
 )
+@click.option(
+    "-J",
+    "--jobs",
+    help="Number of parallel download jobs.",
+    default=6,  # TODO: come up with smart auto-scaling etc
+    show_default=True,
+)
 # Might be a cool feature, not unlike verifying a checksum, we verify that
 # downloaded file passes the validator, and if not -- alert
 # @click.option(
@@ -44,10 +51,12 @@ from .command import devel_option, main, map_to_click_exceptions
 )
 @click.argument("url", nargs=-1)
 @map_to_click_exceptions
-def download(url, output_dir, existing, develop_debug=False):
+def download(url, output_dir, existing, jobs=6, develop_debug=False):
     """Download a file or entire folder from DANDI"""
     # First boring attempt at click commands being merely an interface to
     # Python function
     from ..download import download
 
-    return download(url, output_dir, existing=existing, develop_debug=develop_debug)
+    return download(
+        url, output_dir, existing=existing, jobs=jobs, develop_debug=develop_debug
+    )
