@@ -65,7 +65,14 @@ class PersistentCache(object):
 
     def memoize_path(self, f):
         # we need to actually decorate a function
-        fingerprint_kwarg = "_cache_fingerprint"
+        # Because @self.memoize below is called on the same 'fingerprinted',
+        # and "closure" of `f` state known to a specific instance is not
+        # recognized at joblib level, ._memory would assume we are calling
+        # the same function when we use the same (named) cache for multiple
+        # functions.  So, to overcome - we will include `id` of the function
+        # into the signature, so even if _memory things it is the same function
+        # it would have different fingerprint
+        fingerprint_kwarg = "_cache_fingerprint%d" % id(f)
 
         @self.memoize
         def fingerprinted(path, *args, **kwargs):
