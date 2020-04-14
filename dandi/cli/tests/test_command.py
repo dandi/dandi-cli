@@ -36,7 +36,6 @@ def test_no_heavy_imports():
             "print(','.join(set(m.split('.')[0] for m in sys.modules)));",
         ],
         env=env,
-        shell=True,
         stdout=PIPE,
         stderr=PIPE,
     )
