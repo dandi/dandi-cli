@@ -5,10 +5,14 @@ import re
 import warnings
 from distutils.version import LooseVersion
 from collections import Counter
+import json
+
+import numpy as np
 
 import pynwb
 from pynwb import NWBHDF5IO
 import semantic_version
+from hdmf.build import GroupBuilder, DatasetBuilder, Builder
 
 from . import get_logger
 
@@ -316,3 +320,94 @@ def copy_nwb_file(src, dest):
     ) as iow:
         iow.write(ior.read().copy(), link_data=False)
     return dest
+
+
+def nwbfile_to_metadata_json(nwbfile_path, out_fpath):
+    """
+    Takes the path of an NWBFile and outputs a JSON file that contains its
+    metadata and can be used for search.
+
+    Parameters
+    ----------
+    nwbfile_path: path-like
+    out_fpath: path-like
+
+    """
+    with open(out_fpath, 'w') as out_file:
+        return json.dump(nwbfile_to_metadata_dict(nwbfile_path), out_file)
+
+
+def nwbfile_to_metadata_dict(fpath):
+    """
+    Takes the path of an NWBFile and outputs a dict that contains its
+    metadata and can be used for search.
+
+    Parameters
+    ----------
+    fpath: path-like
+
+    Returns
+    -------
+    dict
+
+    """
+    with NWBHDF5IO(fpath, 'r') as io, h5py.File(fpath, 'r') as file:
+        io.read()
+        root_builder = io.get_builder(file['general']).parent
+        return group_builder_to_dict(root_builder)
+
+
+def dataset_metadata(dataset: h5py.Dataset):
+    """May want to change"""
+    return str(dataset)
+
+
+def link_metadata(builder: Builder):
+    """May want to change"""
+    return builder.path
+
+
+def dataset_builder_to_dict(dataset_builder: DatasetBuilder):
+    if isinstance(dataset_builder, GroupBuilder):
+        return link_metadata(dataset_builder)
+    out = dict(data=dataset_metadata(dataset_builder['data']))
+
+    if dataset_builder.attributes:
+        out.update(
+            attributes={key: attribute_to_dict(val)
+                        for key, val in dataset_builder.attributes.items()}
+        )
+    return out
+
+
+def attribute_to_dict(attribute):
+    if isinstance(attribute, np.ndarray):
+        return str(attribute.tolist())
+    elif isinstance(attribute, (GroupBuilder, DatasetBuilder)):
+        return link_metadata(attribute)
+    else:
+        return str(attribute)
+
+
+def group_builder_to_dict(group_builder: GroupBuilder):
+    out = dict()
+    if group_builder.attributes:
+        out.update(
+            attributes={key: attribute_to_dict(val)
+                        for key, val in group_builder.attributes.items()}
+        )
+
+    if group_builder.datasets:
+        out.update(
+            datasets={key: dataset_builder_to_dict(val)
+                      for key, val in group_builder.datasets.items()}
+        )
+
+    if group_builder.groups:
+        out.update(
+            groups={key: group_builder_to_dict(val)
+                    for key, val in group_builder.groups.items()
+                    if group_builder_to_dict(val)}
+        )
+
+    return out
