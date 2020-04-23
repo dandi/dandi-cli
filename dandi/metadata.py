@@ -6,6 +6,11 @@ from .pynwb_utils import (
     ignore_benign_pynwb_warnings,
     metadata_cache,
 )
+import numpy as np
+from hdmf.build import GroupBuilder, DatasetBuilder
+from pynwb import NWBHDF5IO
+from h5py import File
+import json
 
 from . import get_logger
 from .dandiset import Dandiset
@@ -83,3 +88,62 @@ def get_metadata(path):
     meta["nd_types"] = get_neurodata_types(path)
 
     return meta
+
+
+def nwb_to_json(fpath, out_fpath):
+    io = NWBHDF5IO(fpath, 'r')
+    file = File(fpath)
+    io.read()
+    root_builder = io.get_builder(file['general']).parent
+    out_dict = group_builder_to_json(root_builder)
+    return json.dump(out_dict, out_fpath)
+
+
+def print_dataset(dataset):
+    return str(dataset)  # may want to change
+
+
+def dataset_builder_to_json(dataset_builder):
+    if isinstance(dataset_builder, GroupBuilder):
+        return dataset_builder.path
+    out = dict(data=print_dataset(dataset_builder['data']))
+
+    if dataset_builder.attributes:
+        out.update(
+            attributes={key: attribute_to_json(val)
+                        for key, val in dataset_builder.attributes.items()}
+        )
+    return out
+
+
+def attribute_to_json(attribute):
+    if isinstance(attribute, np.ndarray):
+        return str(attribute.tolist())
+    elif isinstance(attribute, (GroupBuilder, DatasetBuilder)):
+        return attribute.path  # This is for links. May want to change
+    else:
+        return str(attribute)
+
+
+def group_builder_to_json(group_builder):
+    out = dict()
+    if group_builder.attributes:
+        out.update(
+            attributes={key: attribute_to_json(val)
+                        for key, val in group_builder.attributes.items()}
+        )
+
+    if group_builder.datasets:
+        out.update(
+            datasets={key: dataset_builder_to_json(val)
+                      for key, val in group_builder.datasets.items()}
+        )
+
+    if group_builder.groups:
+        out.update(
+            groups={key: group_builder_to_json(val)
+                    for key, val in group_builder.groups.items()
+                    if group_builder_to_json(val)}
+        )
+
+    return out
