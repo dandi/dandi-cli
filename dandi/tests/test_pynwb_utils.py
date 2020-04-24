@@ -1,5 +1,6 @@
 import re
 import pynwb
+import json
 
 from ..pynwb_utils import metadata_nwb_subject_fields, _sanitize_nwb_version, nwbfile_to_metadata_dict
 from ..metadata import get_metadata
@@ -66,4 +67,8 @@ def test_sanitize_nwb_version():
 
 
 def test_nwbfile_to_dict(simple1_nwb):
-    assert nwbfile_to_metadata_dict(simple1_nwb) == {'attributes': {'namespace': 'core', 'neurodata_type': 'NWBFile', 'nwb_version': '2.2.2', 'object_id': 'f852e236-37db-4e2b-81ef-37f22ba20bb4'}, 'datasets': {'file_create_date': {'data': '<HDF5 dataset "file_create_date": shape (1,), type "|O">'}, 'identifier': {'data': 'identifier1'}, 'session_description': {'data': 'session_description1'}, 'session_start_time': {'data': '2017-04-15T12:00:00+00:00'}, 'timestamps_reference_time': {'data': '2017-04-15T12:00:00+00:00'}}, 'groups': {'general': {'datasets': {'experiment_description': {'data': 'experiment_description1'}, 'experimenter': {'data': '<HDF5 dataset "experimenter": shape (1,), type "|O">'}, 'institution': {'data': 'institution1'}, 'keywords': {'data': '<HDF5 dataset "keywords": shape (2,), type "|O">'}, 'lab': {'data': 'lab1'}, 'related_publications': {'data': '<HDF5 dataset "related_publications": shape (1,), type "|O">'}, 'session_id': {'data': 'session_id1'}}}, 'stimulus': {'groups': {}}}}
+    dict1 = nwbfile_to_metadata_dict(str(simple1_nwb))
+    dict2 = {'attributes': {'namespace': 'core', 'neurodata_type': 'NWBFile', 'nwb_version': '2.2.2', 'object_id': 'f852e236-37db-4e2b-81ef-37f22ba20bb4'}, 'datasets': {'file_create_date': {'data': '<HDF5 dataset "file_create_date": shape (1,), type "|O">'}, 'identifier': {'data': 'identifier1'}, 'session_description': {'data': 'session_description1'}, 'session_start_time': {'data': '2017-04-15T12:00:00+00:00'}, 'timestamps_reference_time': {'data': '2017-04-15T12:00:00+00:00'}}, 'groups': {'general': {'datasets': {'experiment_description': {'data': 'experiment_description1'}, 'experimenter': {'data': '<HDF5 dataset "experimenter": shape (1,), type "|O">'}, 'institution': {'data': 'institution1'}, 'keywords': {'data': '<HDF5 dataset "keywords": shape (2,), type "|O">'}, 'lab': {'data': 'lab1'}, 'related_publications': {'data': '<HDF5 dataset "related_publications": shape (1,), type "|O">'}, 'session_id': {'data': 'session_id1'}}}, 'stimulus': {'groups': {}}}}
+    dict2['attributes']['object_id'] = dict1['attributes']['object_id']  # fix object_id, which is generated randomly
+
+    assert dict1 == dict2
