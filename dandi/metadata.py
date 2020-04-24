@@ -6,11 +6,6 @@ from .pynwb_utils import (
     ignore_benign_pynwb_warnings,
     metadata_cache,
 )
-import numpy as np
-from hdmf.build import GroupBuilder, DatasetBuilder
-from pynwb import NWBHDF5IO
-from h5py import File
-import json
 
 from . import get_logger
 from .dandiset import Dandiset
