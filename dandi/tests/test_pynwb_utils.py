@@ -1,6 +1,5 @@
 import re
 import pynwb
-import json
 
 from ..pynwb_utils import metadata_nwb_subject_fields, _sanitize_nwb_version, nwbfile_to_metadata_dict
 from ..metadata import get_metadata
