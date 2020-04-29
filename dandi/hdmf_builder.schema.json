@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "hdmf_builder.schema.json",
-  "title": "Schema for the NWB language specification",
-  "description": "A schema for validating JSON files extracted from HDMF Builders, used for extarcting meta-data from NWB files",
+  "title": "HDMF Builder meta-data",
+  "description": "A schema for validating JSON files extracted from HDMF Builders, used for extracting meta-data from NWB files",
   "version": "0.1.0",
   "type": "object",
   "additionalProperties": false,
