@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "hdmf_builder.schema.json",
+  "title": "Schema for the NWB language specification",
+  "description": "A schema for validating JSON files extracted from HDMF Builders, used for extarcting meta-data from NWB files",
+  "version": "0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "attributes": {"type": "object"},
+    "groups": {"$ref": "#/definitions/groups"},
+    "datasets": {"$ref": "#/definitions/datasets"}
+    },
+  "definitions": {
+    "groups": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^.*$": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "attributes": {"$ref": "#/definitions/attributes"},
+            "groups": {"$ref": "#/definitions/groups"},
+            "datasets": {"$ref": "#/definitions/datasets"}
+            }
+          }
+        }
+      },
+  "datasets": {
+    "type": "object",
+    "additionalProperties": false,
+    "patternProperties": {
+      "^.*$": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "attributes": {"$ref": "#/definitions/attributes"},
+          "data": {"type": "string"}
+          }
+        }
+      }
+    },
+  "attributes": {
+    "description": "attributes should be a dictionary where all of the values are strings",
+    "type": "object",
+    "additionalProperties": false,
+    "patternProperties": {
+      "^.*$": {"type": "string"}
+      }
+    }
+  }
+}
