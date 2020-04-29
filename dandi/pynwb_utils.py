@@ -354,60 +354,43 @@ def nwbfile_to_metadata_dict(fpath):
     with NWBHDF5IO(fpath, 'r') as io, h5py.File(fpath, 'r') as file:
         io.read()
         root_builder = io.get_builder(file['general']).parent
-        return group_builder_to_dict(root_builder)
+        return traverse_node(root_builder)
 
 
-def dataset_metadata(dataset: h5py.Dataset):
-    """May want to change"""
-    return str(dataset)
+def traverse_node(node, previous_node=None):
+    """
+    Take a Builder or attribute and convert it to a node in the metadata dict
 
+    Parameters
+    ----------
+    node: Builder or attribute value
+    previous_node: Builder or attribute value
+        Used to detect links of node.parent != previous_node
 
-def link_metadata(builder: Builder):
-    """May want to change"""
-    return builder.path
+    Returns
+    -------
 
+    """
 
-def dataset_builder_to_dict(dataset_builder: DatasetBuilder):
-    if isinstance(dataset_builder, GroupBuilder):
-        return link_metadata(dataset_builder)
-    out = dict(data=dataset_metadata(dataset_builder['data']))
+    if isinstance(node, Builder):
+        out = dict()
+        if (previous_node is not None) and (node.parent != previous_node):
+            # it's an imposter! (link)
+            return {'type': 'link', 'object_id': node.attributes['object_id']}  # may want to change
+        else:
+            for category in ('attributes', 'datasets', 'groups'):
+                if hasattr(node, category) and getattr(node, category):
+                    out[category] = {key: traverse_node(val, node)
+                                     for key, val in getattr(node, category).items()
+                                     if traverse_node(val, node)}
 
-    if dataset_builder.attributes:
-        out.update(
-            attributes={key: attribute_to_dict(val)
-                        for key, val in dataset_builder.attributes.items()}
-        )
-    return out
+        if isinstance(node, DatasetBuilder):
+            out['data'] = str(node['data'])
 
+        return out
 
-def attribute_to_dict(attribute):
-    if isinstance(attribute, np.ndarray):
-        return str(attribute.tolist())
-    elif isinstance(attribute, (GroupBuilder, DatasetBuilder)):
-        return link_metadata(attribute)
-    else:
-        return str(attribute)
+    # node is an attribute value
+    if isinstance(node, np.ndarray):
+        return str(node.tolist())
 
-
-def group_builder_to_dict(group_builder: GroupBuilder):
-    out = dict()
-    if group_builder.attributes:
-        out.update(
-            attributes={key: attribute_to_dict(val)
-                        for key, val in group_builder.attributes.items()}
-        )
-
-    if group_builder.datasets:
-        out.update(
-            datasets={key: dataset_builder_to_dict(val)
-                      for key, val in group_builder.datasets.items()}
-        )
-
-    if group_builder.groups:
-        out.update(
-            groups={key: group_builder_to_dict(val)
-                    for key, val in group_builder.groups.items()
-                    if group_builder_to_dict(val)}
-        )
-
-    return out
+    return str(node)
