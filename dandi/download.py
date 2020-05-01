@@ -22,6 +22,7 @@ class _dandi_url_parser:
         # TODO: Later should better conform to our API, so we could allow
         #       for not only "dandiarchive.org" URLs
         "https?://dandiarchive.org/.*": {"handle_redirect": True},
+        "https?://[^/]*dandiarchive-org.netlify.app/.*": {"map_instance": "dandi"},
         # Girder-inflicted urls to folders etc based on the IDs
         # For those we will completely ignore domain - it will be "handled"
         f"{server_grp}#.*/(?P<asset_type>folder|collection|dandiset-meta)/{id_grp}$": {},
@@ -41,7 +42,7 @@ class _dandi_url_parser:
                 map_to_girder[h] = girder
 
     @classmethod
-    def parse(cls, url):
+    def parse(cls, url, map_instance=True):
         """Parse url like and return server (address), asset_id and/or directory
 
         Example URLs (as of 20200310):
@@ -102,6 +103,19 @@ class _dandi_url_parser:
                 # now via reverse proxy and we had added a new regex? let's just
                 # continue with a debug msg
                 lgr.debug("Redirection did not happen for %s", url)
+            elif settings.get("map_instance"):
+                if map_instance:
+                    server, *_ = cls.parse(url, map_instance=False)
+                    if settings["map_instance"] not in known_instances:
+                        raise ValueError(
+                            "Unknown instance {}. Known are: {}".format(
+                                settings["map_instance"], ", ".join(known_instances)
+                            )
+                        )
+                    return (known_instances[settings["map_instance"]].girder,) + tuple(
+                        _
+                    )
+                continue  # in this run we ignore an match further
             else:
                 break
 
