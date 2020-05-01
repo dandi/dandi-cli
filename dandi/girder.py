@@ -3,6 +3,7 @@ import os
 import os.path as op
 import json
 import keyring
+import random
 import sys
 import time
 
@@ -65,6 +66,14 @@ def get_HttpError_response(exc):
     except Exception as exc2:
         lgr.debug("Cannot parse response %s as json: %s", responseText, exc2)
     return None
+
+
+def is_access_denied(exc):
+    """Tell if an exception about denied access"""
+    response = get_HttpError_response(exc)
+    return exc.status == 401 or (
+        response and "access denied" in response.get("message", "")
+    )
 
 
 from requests.adapters import HTTPAdapter
@@ -228,10 +237,7 @@ class GirderCli(gcl.GirderClient):
                 g = self.getResource(asset_type, asset_id)
                 break
             except gcl.HttpError as exc:
-                response = get_HttpError_response(exc)
-                if not self.token and (
-                    exc.status == 401 or "access denied" in response.get("message", "")
-                ):
+                if not self.token and is_access_denied(exc):
                     lgr.warning("unauthenticated access denied, let's authenticate")
                     self.dandi_authenticate()
                 else:
@@ -375,7 +381,22 @@ class GirderCli(gcl.GirderClient):
         #  in the progressbar label
         # For starters we would do this implementation but later RF
         # when RF - do not forget to remove progressReporterCls in __init__
-        self.downloadFile(file_id, path)
+
+        # Will do 3 attempts to avoid some problems due to flaky/overloaded
+        # connections, see https://github.com/dandi/dandi-cli/issues/87
+        for attempt in range(3):
+            try:
+                self.downloadFile(file_id, path)
+                break
+            except gcl.HttpError as exc:
+                if is_access_denied(exc) or attempt >= 2:
+                    raise
+                # sleep a little and retry
+                lgr.debug(
+                    "Failed to download on attempt#%d, will sleep a bit and retry",
+                    attempt,
+                )
+                time.sleep(random.random() * 5)
         # It seems that above call does not care about setting either mtime
         if attrs:
             mtime = self._get_file_mtime(attrs)

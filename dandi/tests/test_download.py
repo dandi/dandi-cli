@@ -1,5 +1,8 @@
 from ..download import download, parse_dandi_url
+from ..exceptions import NotFoundError
 from ..tests.skip import mark
+
+import pytest
 
 
 def test_parse_dandi_url():
@@ -32,6 +35,25 @@ def test_parse_dandi_url():
     )
     assert s == "https://girder.dandiarchive.org/"
     assert a, aid == ("item", ["5e7b9e44529c28f35128c747", "5e7b9e43529c28f35128c746"])
+
+    # new (v1? not yet tagged) web UI, and as it comes from a PR,
+    # so we need to provide yet another mapping to stock girder
+    s, a, aid = parse_dandi_url(
+        "https://refactor--gui-dandiarchive-org.netlify.app/#/file-browser/folder/5e9f9588b5c9745bad9f58fe"
+    )
+    assert s == "https://girder.dandiarchive.org"
+    assert a, aid == "folder"["5e9f9588b5c9745bad9f58fe"]
+
+
+@mark.skipif_no_network
+def test_parse_dandi_url_redirect():
+    # Unlikely this one would ever come to existence
+    with pytest.raises(NotFoundError):
+        parse_dandi_url("https://dandiarchive.org/dandiset/999999")
+    # Is there ATM
+    s, a, aid = parse_dandi_url("https://dandiarchive.org/dandiset/000003")
+    assert s == "https://girder.dandiarchive.org/"
+    assert a, aid == ("dandiset-meta", "5e6eb2b776569eb93f451f8d")
 
 
 @mark.skipif_no_network
