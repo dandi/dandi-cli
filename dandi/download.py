@@ -55,6 +55,7 @@ def parse_dandi_url(url):
       in case of multiple files
 
     """
+    lgr.debug("Parsing url %s", url)
     if "#" not in url:
         # assume that it was a dandi notation, let's try to follow redirects
         # TODO: make .head work instead of .get on the redirector
@@ -67,7 +68,7 @@ def parse_dandi_url(url):
         elif r.url != url:
             url = r.url
         else:
-            lgr.warning(f"Redirection did not happen for {url}")
+            lgr.warning("Redirection did not happen for %s", url)
 
     # We will just allow exception to escape if something goes wrong.
     # Warnings above could provide a clue in some cases
@@ -115,7 +116,9 @@ def parse_dandi_url(url):
             f" .*/(folder|collection|dandiset-meta)/ID24 or pointing to "
             f"individual selected items: {url}"
         )
-    return server, asset_type, asset_ids
+    res = server, asset_type, asset_ids
+    lgr.debug("Parsed into %s", res)
+    return res
 
 
 def download(
