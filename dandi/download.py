@@ -195,10 +195,7 @@ def _get_asset_files(
             )
             break
         except girder.gcl.HttpError as exc:
-            response = girder.get_HttpError_response(exc)
-            if not authenticate and (
-                exc.status == 401 or "access denied" in response.get("message", "")
-            ):
+            if not authenticate and girder.is_access_denied(exc):
                 lgr.warning("unauthenticated access denied, let's authenticate")
                 client.dandi_authenticate()
                 continue

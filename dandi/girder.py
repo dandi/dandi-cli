@@ -67,6 +67,14 @@ def get_HttpError_response(exc):
     return None
 
 
+def is_access_denied(exc):
+    """Tell if an exception about denied access"""
+    response = get_HttpError_response(exc)
+    return exc.status == 401 or (
+        response and "access denied" in response.get("message", "")
+    )
+
+
 from requests.adapters import HTTPAdapter
 
 
@@ -228,10 +236,7 @@ class GirderCli(gcl.GirderClient):
                 g = self.getResource(asset_type, asset_id)
                 break
             except gcl.HttpError as exc:
-                response = get_HttpError_response(exc)
-                if not self.token and (
-                    exc.status == 401 or "access denied" in response.get("message", "")
-                ):
+                if not self.token and is_access_denied(exc):
                     lgr.warning("unauthenticated access denied, let's authenticate")
                     self.dandi_authenticate()
                 else:
