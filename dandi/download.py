@@ -106,12 +106,13 @@ class _dandi_url_parser:
                 break
 
         if not match:
-            known_regexes = ", ".join(cls.known_urls)
+            known_regexes = "\n - ".join([""] + list(cls.known_urls))
             # TODO: may be make use of etelemetry and report if newer client
             # which might know is available?
             raise UnknownURLError(
-                f"We do not know how to map URL {url} to girder. "
-                f"Regular expressions for known setups: {known_regexes}"
+                f"We do not know how to map URL {url} to girder.\n"
+                f"Regular expressions for known setups:"
+                f"{known_regexes}"
             )
 
         groups = match.groupdict()
