@@ -4,6 +4,15 @@ All notable changes to this project will be documented (for humans) in this file
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.4.5] - 2020-05-01
+
+### Added
+- support for downloading dandisets and files in the just released
+  gui.dandiarchive.org UI refactor
+### Fixed
+- `validate` should no longer crash if loading metadata raises an exception
+### Refactored
+- the way URLs are mapped into girder instances. Now more regex driven
 
 ## [0.4.4] - 2020-04-14
 
