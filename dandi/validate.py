@@ -51,7 +51,10 @@ def validate_dandi_nwb(filepath):
     """Provide validation of .nwb file regarding requirements we impose
     """
     # make sure that we have some basic metadata fields we require
-    meta = get_metadata(filepath)
+    try:
+        meta = get_metadata(filepath)
+    except BaseException as e:
+        return [f"Failed to read metadata: {e}"]
     return _check_required_fields(meta, _required_nwb_metadata_fields)
 
 
