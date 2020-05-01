@@ -1,124 +1,157 @@
 import os.path as op
+import re
 import requests
-import urllib.parse as up
 
 from . import girder, get_logger
-from .consts import dandiset_metadata_file
+from .consts import dandiset_metadata_file, known_instances
 from .dandiset import Dandiset
+from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
 from .utils import flatten, flattened, Parallel, delayed
 
 lgr = get_logger()
 
 
-def parse_dandi_url(url):
-    """Parse url like and return server (address), asset_id and/or directory
+class _dandi_url_parser:
+    # Defining as a class with all the attributes to not leak all the variables etc
+    # into module space, and later we might end up with classes for those anyways
+    id_regex = "[a-f0-9]{24}"
+    id_grp = f"(?P<id>{id_regex})"
+    server_grp = "(?P<server>(?P<protocol>https?)://(?P<hostname>[^/]+)/)"
+    known_urls = {
+        # Those we first redirect and then handle the redirected URL
+        # TODO: Later should better conform to our API, so we could allow
+        #       for not only "dandiarchive.org" URLs
+        "https?://dandiarchive.org/.*": {"handle_redirect": True},
+        # Girder-inflicted urls to folders etc based on the IDs
+        # For those we will completely ignore domain - it will be "handled"
+        f"{server_grp}#.*/(?P<asset_type>folder|collection|dandiset-meta)/{id_grp}$": {},
+        # Nothing special
+        # Multiple items selected - will need custom handling of 'multiitem'
+        f"{server_grp}#/folder/{id_regex}/selected(?P<multiitem>(/item\\+{id_grp})+)$": {},
+        # Direct girder urls to items
+        f"{server_grp}api/v1/(?P<asset_type>item)/{id_grp}/download$": {},
+    }
+    # We might need to remap some assert_types
+    map_asset_types = {"dandiset-meta": "folder"}
+    # And lets create our mapping into girder instances from known_instances:
+    map_to_girder = {}
+    for girder, *_ in known_instances.values():
+        for h in _:
+            if h:
+                map_to_girder[h] = girder
 
-    Example URLs (as of 20200310):
-    - User public: (Users -> bendichter/Public/Tolias2020)
-      [seems to be visible only if logged in]
-      https://gui.dandiarchive.org/#/folder/5e5593cc1a343161ff7c5a92
-      https://girder.dandiarchive.org/#user/5da4b8fe51c340795cb18fd0/folder/5e5593cc1a343161ff7c5a92
-    - Collection top level (Collections -> yarik):
-      https://gui.dandiarchive.org/#/collection/5daa5ca7e3489855a3027682
-      https://girder.dandiarchive.org/#collection/5daa5ca7e3489855a3027682
-    - Collections: (Collections -> yarik/svoboda)
-      https://gui.dandiarchive.org/#/folder/5dab0830f377535c7d96c2b4
-      https://girder.dandiarchive.org/#collection/5daa5ca7e3489855a3027682/folder/5dab0830f377535c7d96c2b4
-    - Dataset landing page metadata
-      https://gui.dandiarchive.org/#/dandiset-meta/5e6d5c6976569eb93f451e4f
+    @classmethod
+    def parse(cls, url):
+        """Parse url like and return server (address), asset_id and/or directory
 
-    Individual and multiple files:
-      - dandi???
-      - girder -- we don't support:
-        https://girder.dandiarchive.org/api/v1/item/5dab0972f377535c7d96c392/download
-      - gui.: support single or multiple
-        # if there is a selection, we could get multiple items
-        https://gui.dandiarchive.org/#/folder/5e60c14f81bc3e47d94aa012/selected/item+5e60c19381bc3e47d94aa014
+        Example URLs (as of 20200310):
+        - User public: (Users -> bendichter/Public/Tolias2020)
+          [seems to be visible only if logged in]
+          https://gui.dandiarchive.org/#/folder/5e5593cc1a343161ff7c5a92
+          https://girder.dandiarchive.org/#user/5da4b8fe51c340795cb18fd0/folder/5e5593cc1a343161ff7c5a92
+        - Collection top level (Collections -> yarik):
+          https://gui.dandiarchive.org/#/collection/5daa5ca7e3489855a3027682
+          https://girder.dandiarchive.org/#collection/5daa5ca7e3489855a3027682
+        - Collections: (Collections -> yarik/svoboda)
+          https://gui.dandiarchive.org/#/folder/5dab0830f377535c7d96c2b4
+          https://girder.dandiarchive.org/#collection/5daa5ca7e3489855a3027682/folder/5dab0830f377535c7d96c2b4
+        - Dataset landing page metadata
+          https://gui.dandiarchive.org/#/dandiset-meta/5e6d5c6976569eb93f451e4f
 
-    Multiple selected files + folders -- we do not support ATM, then further
-    RFing would be due, probably making this into a generator or returning a
-    list of entries.
+        Individual and multiple files:
+          - dandi???
+          - girder -- we don't support:
+            https://girder.dandiarchive.org/api/v1/item/5dab0972f377535c7d96c392/download
+          - gui.: support single or multiple
+            # if there is a selection, we could get multiple items
+            https://gui.dandiarchive.org/#/folder/5e60c14f81bc3e47d94aa012/selected/item+5e60c19381bc3e47d94aa014
 
-    "Features":
+        Multiple selected files + folders -- we do not support ATM, then further
+        RFing would be due, probably making this into a generator or returning a
+        list of entries.
 
-    - supports DANDI naming, such as https://dandiarchive.org/dandiset/000001
-      Since currently redirects, it just resorts to redirect if url lacks #.
-      TODO: make more efficient, .head instead of .get or some other way to avoid
-      full download_file.
-    - uses some of `known_instance`s to map some urls, e.g. from
-      gui.dandiarchive.org ones into girder.
+        "Features":
 
-    Returns
-    -------
-    server, asset_type, asset_id
-      asset_type is either asset_id or folder ATM. asset_id might be a list
-      in case of multiple files
+        - supports DANDI naming, such as https://dandiarchive.org/dandiset/000001
+          Since currently redirects, it just resorts to redirect if url lacks #.
+          TODO: make more efficient, .head instead of .get or some other way to avoid
+          full download_file.
+        - uses some of `known_instance`s to map some urls, e.g. from
+          gui.dandiarchive.org ones into girder.
 
-    """
-    lgr.debug("Parsing url %s", url)
-    if "#" not in url:
+        Returns
+        -------
+        server, asset_type, asset_id
+          asset_type is either asset_id or folder ATM. asset_id might be a list
+          in case of multiple files
+
+        """
+        lgr.debug("Parsing url %s", url)
+
+        # Loop through known url regexes and stop as soon as one is matching
+        match = None
+        for regex, settings in cls.known_urls.items():
+            match = re.match(regex, url)
+            if not match:
+                continue
+            if settings.get("handle_redirect", False):
+                new_url = cls.follow_redirect(url)
+                if new_url != url:
+                    return cls.parse(new_url)
+                # We used to issue warning in such cases, but may be it got implemented
+                # now via reverse proxy and we had added a new regex? let's just
+                # continue with a debug msg
+                lgr.debug("Redirection did not happen for %s", url)
+            else:
+                break
+
+        if not match:
+            known_regexes = ", ".join(cls.known_urls)
+            # TODO: may be make use of etelemetry and report if newer client
+            # which might know is available?
+            raise UnknownURLError(
+                f"We do not know how to map URL {url} to girder. "
+                f"Regular expressions for known setups: {known_regexes}"
+            )
+
+        groups = match.groupdict()
+        girder_server = cls.map_to_girder.get(
+            groups["server"].rstrip("/"), groups["server"]
+        )
+        if not girder_server.endswith("/"):
+            girder_server += "/"  # we expected '/' to be there so let it be
+
+        if "multiitem" not in groups:
+            # we must be all set
+            asset_ids = [groups["id"]]
+            asset_type = groups["asset_type"]
+            asset_type = cls.map_asset_types.get(asset_type, asset_type)
+        else:
+            # we need to split/parse them and return a list
+            asset_ids = [i.split("+")[1] for i in groups["multiitem"].split("/") if i]
+            asset_type = "item"
+        ret = girder_server, asset_type, asset_ids
+        lgr.debug("Parsed into %s", ret)
+        return ret
+
+    @staticmethod
+    def follow_redirect(url):
         # assume that it was a dandi notation, let's try to follow redirects
         # TODO: make .head work instead of .get on the redirector
         r = requests.get(url, allow_redirects=True)
-        if r.status_code != 200:
-            lgr.warning(
-                f"Response for getting {url} to redirect returned "
-                f"{r.status_code}.  We will ignore returned result."
+        if r.status_code == 404:
+            raise NotFoundError(url)
+        elif r.status_code != 200:
+            raise FailedToConnectError(
+                f"Response for getting {url} to redirect returned " f"{r.status_code}."
             )
         elif r.url != url:
-            url = r.url
-        else:
-            lgr.warning("Redirection did not happen for %s", url)
+            return r.url
+        return url
 
-    # We will just allow exception to escape if something goes wrong.
-    # Warnings above could provide a clue in some cases
-    u = up.urlsplit(url)
-    assert not u.query
 
-    if u.netloc in ("gui.dandiarchive.org", "dandiarchive.org"):
-        hostname = "girder.dandiarchive.org"
-    elif u.netloc in ("localhost:8092",):  # ad-hoc eh
-        hostname = "localhost:8091"
-    else:
-        hostname = u.netloc
-
-    # server address is without query and fragment identifier
-    server = up.urlunsplit((u[0], hostname, u[2], None, None))
-    # The rest will come from fragment
-    # TODO: redo with regexp
-    frags = u.fragment.rstrip("/").split("/")
-    item_prefix = "item+"  # just a constant for reuse
-    if (
-        len(frags) >= 2
-        and frags[-2] in ("folder", "collection", "dandiset-meta")
-        and len(frags[-1]) == 24
-    ):
-        # Just use the term before the last entry which should be the ID
-        if frags[-2] == "dandiset-meta":
-            frags[-2] = "folder"
-        asset_type = frags[-2]
-        asset_ids = frags[-1]  # a single one
-    elif "selected" in frags and frags[-1].startswith(item_prefix):
-        # single or multiple files selected in web ui
-        # get all item+ after selected
-        asset_ids = []
-        for v in frags[frags.index("selected") + 1 :]:
-            if not v.startswith(item_prefix):
-                raise ValueError(
-                    f"Fragment seems to point to individual selected items but "
-                    f"{v} is not of {item_prefix!r} format in the url: {url}"
-                )
-            asset_ids.append(v[len(item_prefix) :])
-        asset_type = "item"
-    else:
-        raise ValueError(
-            f"Fragment of the following URL is not following desired convention"
-            f" .*/(folder|collection|dandiset-meta)/ID24 or pointing to "
-            f"individual selected items: {url}"
-        )
-    res = server, asset_type, asset_ids
-    lgr.debug("Parsed into %s", res)
-    return res
+# convenience binding
+parse_dandi_url = _dandi_url_parser.parse
 
 
 def download(
