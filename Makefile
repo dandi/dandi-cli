@@ -1,3 +1,5 @@
+PYTHON ?= python3
+
 all:
 	echo "Nothing by default"
 
