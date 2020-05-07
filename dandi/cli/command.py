@@ -175,6 +175,15 @@ def main(log_level, pdb=False):
         from ..utils import setup_exceptionhook
 
         setup_exceptionhook()
+    try:
+        import etelemetry
+
+        etelemetry.check_available_version("dandi/dandi-cli", __version__, lgr=lgr)
+    except Exception as exc:
+        lgr.warning(
+            "Failed to check for a more recent version available with etelemetry: %s",
+            exc,
+        )
 
 
 #

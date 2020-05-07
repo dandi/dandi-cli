@@ -36,18 +36,3 @@ lgr = get_logger()
 set_logger_level(lgr, os.environ.get("DANDI_LOG_LEVEL", logging.INFO))
 FORMAT = "%(asctime)-15s [%(levelname)8s] %(message)s"
 logging.basicConfig(format=FORMAT)
-
-# Run telemetry on import for interactive sessions, such as IPython, Jupyter
-# notebooks, Python REPL
-import __main__
-
-if not hasattr(__main__, "__file__"):
-    try:
-        import etelemetry
-
-        etelemetry.check_available_version("dandi/dandi-cli", __version__, lgr=lgr)
-    except Exception as exc:
-        lgr.warning(
-            "Failed to check for a more recent version available with etelemetry: %s",
-            exc,
-        )
