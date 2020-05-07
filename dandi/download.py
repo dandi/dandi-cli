@@ -25,7 +25,7 @@ class _dandi_url_parser:
         "https?://[^/]*dandiarchive-org.netlify.app/.*": {"map_instance": "dandi"},
         # Girder-inflicted urls to folders etc based on the IDs
         # For those we will completely ignore domain - it will be "handled"
-        f"{server_grp}#.*/(?P<asset_type>folder|collection|dandiset-meta)/{id_grp}$": {},
+        f"{server_grp}#.*/(?P<asset_type>folder|collection|dandiset)/{id_grp}$": {},
         # Nothing special
         # Multiple items selected - will need custom handling of 'multiitem'
         f"{server_grp}#/folder/{id_regex}/selected(?P<multiitem>(/item\\+{id_grp})+)$": {},
@@ -33,7 +33,7 @@ class _dandi_url_parser:
         f"{server_grp}api/v1/(?P<asset_type>item)/{id_grp}/download$": {},
     }
     # We might need to remap some assert_types
-    map_asset_types = {"dandiset-meta": "folder"}
+    map_asset_types = {"dandiset": "folder"}
     # And lets create our mapping into girder instances from known_instances:
     map_to_girder = {}
     for girder, *_ in known_instances.values():
@@ -57,7 +57,7 @@ class _dandi_url_parser:
           https://gui.dandiarchive.org/#/folder/5dab0830f377535c7d96c2b4
           https://girder.dandiarchive.org/#collection/5daa5ca7e3489855a3027682/folder/5dab0830f377535c7d96c2b4
         - Dataset landing page metadata
-          https://gui.dandiarchive.org/#/dandiset-meta/5e6d5c6976569eb93f451e4f
+          https://gui.dandiarchive.org/#/dandiset/5e6d5c6976569eb93f451e4f
 
         Individual and multiple files:
           - dandi???
