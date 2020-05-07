@@ -4,6 +4,12 @@ All notable changes to this project will be documented (for humans) in this file
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.4.6] - 2020-05-07
+
+### Fxed
+- invoke etelemetry only in command line (at click interface level)
+- download of updated dandiset landing page url (`/dandiset` not `/dandiset-meta`)
+
 ## [0.4.5] - 2020-05-01
 
 ### Added
