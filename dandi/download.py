@@ -22,6 +22,7 @@ class _dandi_url_parser:
         # TODO: Later should better conform to our API, so we could allow
         #       for not only "dandiarchive.org" URLs
         "https?://dandiarchive.org/.*": {"handle_redirect": True},
+        "https?://identifiers.org/DANDI:.*": {"handle_redirect": True},
         "https?://[^/]*dandiarchive-org.netlify.app/.*": {"map_instance": "dandi"},
         # Girder-inflicted urls to folders etc based on the IDs
         # For those we will completely ignore domain - it will be "handled"
