@@ -43,7 +43,7 @@ class _dandi_url_parser:
                 map_to_girder[h] = girder
 
     @classmethod
-    def parse(cls, url, map_instance=True):
+    def parse(cls, url, *, map_instance=True):
         """Parse url like and return server (address), asset_id and/or directory
 
         Example URLs (as of 20200310):
@@ -173,6 +173,7 @@ parse_dandi_url = _dandi_url_parser.parse
 def download(
     urls,
     output_dir,
+    *,
     existing="error",
     jobs=6,
     develop_debug=False,
