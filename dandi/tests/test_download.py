@@ -1,4 +1,4 @@
-from ..download import download, parse_dandi_url
+from ..download import download, follow_redirect, parse_dandi_url
 from ..exceptions import NotFoundError
 from ..tests.skip import mark
 
@@ -54,6 +54,11 @@ def test_parse_dandi_url_redirect():
     s, a, aid = parse_dandi_url("https://dandiarchive.org/dandiset/000003")
     assert s == "https://girder.dandiarchive.org/"
     assert a, aid == ("dandiset-meta", "5e6eb2b776569eb93f451f8d")
+    # And this one would point to a folder
+    assert (
+        follow_redirect("https://bit.ly/dandi12")
+        == "https://gui.dandiarchive.org/#/file-browser/folder/5e72b6ac3da50caa9adb0498"
+    )
 
 
 @mark.skipif_no_network
