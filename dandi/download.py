@@ -160,16 +160,7 @@ class _dandi_url_parser:
 
     @staticmethod
     def follow_redirect(url):
-        # ad-hoc solution until
-        # https://github.com/dandi/redirector/issues/13
-        # is addressed properly
-        if url.startswith("https://dandiarchive.org/dandiset/") or url.startswith(
-            "https://identifiers.org/DANDI:"
-        ):
-            lgr.debug("Workaround for https://github.com/dandi/redirector/issues/13")
-            r = requests.get(url, allow_redirects=True)
-        else:
-            r = requests.head(url, allow_redirects=True)
+        r = requests.head(url, allow_redirects=True)
         if r.status_code == 404:
             raise NotFoundError(url)
         elif r.status_code != 200:
