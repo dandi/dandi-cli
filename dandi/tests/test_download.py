@@ -12,7 +12,7 @@ def test_parse_dandi_url():
         "#user/5da4b8fe51c340795cb18fd0/folder/5e5593cc1a343161ff7c5a92"
     )
     # we do not care about user -- we care about folder id
-    assert a, aid == ("folder", "5e5593cc1a343161ff7c5a92")
+    assert (a, aid) == ("folder", ["5e5593cc1a343161ff7c5a92"])
     # dandiset
 
     # folder
@@ -20,7 +20,7 @@ def test_parse_dandi_url():
         "https://gui.dandiarchive.org/#/folder/5e5593cc1a343161ff7c5a92"
     )
     assert s == "https://girder.dandiarchive.org/"
-    assert a, aid == ("folder", "5e5593cc1a343161ff7c5a92")
+    assert (a, aid) == ("folder", ["5e5593cc1a343161ff7c5a92"])
 
     # selected folder(s)
     # "https://gui.dandiarchive.org/#/folder/5d978d9ecc10d1bc31040bca/selected/folder+5e8672e06cce296e2e817318"
@@ -34,7 +34,10 @@ def test_parse_dandi_url():
         "item+5e7b9e44529c28f35128c747/item+5e7b9e43529c28f35128c746"
     )
     assert s == "https://girder.dandiarchive.org/"
-    assert a, aid == ("item", ["5e7b9e44529c28f35128c747", "5e7b9e43529c28f35128c746"])
+    assert (a, aid) == (
+        "item",
+        ["5e7b9e44529c28f35128c747", "5e7b9e43529c28f35128c746"],
+    )
 
     # new (v1? not yet tagged) web UI, and as it comes from a PR,
     # so we need to provide yet another mapping to stock girder
@@ -42,7 +45,7 @@ def test_parse_dandi_url():
         "https://refactor--gui-dandiarchive-org.netlify.app/#/file-browser/folder/5e9f9588b5c9745bad9f58fe"
     )
     assert s == "https://girder.dandiarchive.org"
-    assert a, aid == "folder"["5e9f9588b5c9745bad9f58fe"]
+    assert (a, aid) == ("folder", ["5e9f9588b5c9745bad9f58fe"])
 
 
 @mark.skipif_no_network
