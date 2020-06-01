@@ -6,6 +6,7 @@ from glob import glob
 from .command import (
     dandiset_id_option,
     dandiset_path_option,
+    devel_debug_option,
     lgr,
     main,
     map_to_click_exceptions,
@@ -41,9 +42,15 @@ from ..consts import dandiset_metadata_file, file_operation_modes
     show_default=True,
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
+@devel_debug_option()
 @map_to_click_exceptions
 def organize(
-    paths, dandiset_path=None, dandiset_id=None, invalid="fail", files_mode="dry"
+    paths,
+    dandiset_path=None,
+    dandiset_id=None,
+    invalid="fail",
+    files_mode="dry",
+    devel_debug=False,
 ):
     """(Re)organize files according to the metadata.
 
@@ -172,14 +179,17 @@ def organize(
             meta["path"] = path
             return meta
 
-        # Note: It is Python (pynwb) intensive, not IO, so ATM there is little
-        # to no benefit from Parallel without using multiproc!  But that would
-        # complicate progress bar indication... TODO
-        metadata = list(
-            Parallel(n_jobs=-1, verbose=10)(
-                delayed(_get_metadata)(path) for path in paths
+        if not devel_debug:
+            # Note: It is Python (pynwb) intensive, not IO, so ATM there is little
+            # to no benefit from Parallel without using multiproc!  But that would
+            # complicate progress bar indication... TODO
+            metadata = list(
+                Parallel(n_jobs=-1, verbose=10)(
+                    delayed(_get_metadata)(path) for path in paths
+                )
             )
-        )
+        else:
+            metadata = list(map(_get_metadata, paths))
         if failed:
             lgr.warning(
                 "Failed to load metadata for %d out of %d files",
