@@ -55,7 +55,7 @@ def filter_invalid_metadata_rows(metadata_rows):
 def create_unique_filenames_from_metadata(
     metadata,
     mandatory=["subject_id", "extension"],
-    mandatory_if_not_empty=["modalities,"],
+    mandatory_if_not_empty=["modalities"],
     add_object_id_for_non_unique=True,
 ):
     """
