@@ -23,7 +23,7 @@ metadata_nwb_subject_fields = (
     "subject_id",
 )
 
-metadata_nwb_dandi_fields = ("cell_id", "slice_id", "tissue_sample_id")
+metadata_nwb_dandi_fields = ("cell_id", "slice_id", "tissue_sample_id", "probe_ids")
 
 metadata_nwb_computed_fields = (
     "number_of_electrodes",
@@ -53,6 +53,7 @@ metadata_dandiset_fields = (
     "variables_measured",
     "sex",
     "organism",
+    "probe_ids",
     "number_of_subjects",
     "number_of_cells",
     "number_of_tissue_samples",

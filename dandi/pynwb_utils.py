@@ -1,3 +1,4 @@
+import numpy as np
 import h5py
 import os
 import os.path as op
@@ -190,6 +191,14 @@ def _get_pynwb_metadata(path):
         )
         if dandi_icephys:
             out.update(dandi_icephys.fields)
+        # Go through devices and see if there any probes used to record this file
+        probe_ids = [
+            np.asscalar(v.probe_id)  # .asscalar to avoid numpy types
+            for v in getattr(nwb, "devices", {}).values()
+            if hasattr(v, "probe_id")  # duck typing
+        ]
+        if probe_ids:
+            out["probe_ids"] = probe_ids
 
         # Counts
         for f in metadata_nwb_computed_fields:
