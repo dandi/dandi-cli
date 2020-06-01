@@ -21,8 +21,11 @@ class _dandi_url_parser:
         # Those we first redirect and then handle the redirected URL
         # TODO: Later should better conform to our API, so we could allow
         #       for not only "dandiarchive.org" URLs
-        "https?://dandiarchive.org/.*": {"handle_redirect": True},
-        "https?://identifiers.org/DANDI:.*": {"handle_redirect": True},
+        # handle_redirect:
+        #   - 'pass' - would continue with original url if no redirect happen
+        #   - 'only' - would interrupt if no redirection happens
+        "https?://dandiarchive.org/.*": {"handle_redirect": "pass"},
+        "https?://identifiers.org/DANDI:.*": {"handle_redirect": "pass"},
         "https?://[^/]*dandiarchive-org.netlify.app/.*": {"map_instance": "dandi"},
         # Girder-inflicted urls to folders etc based on the IDs
         # For those we will completely ignore domain - it will be "handled"
@@ -32,6 +35,7 @@ class _dandi_url_parser:
         f"{server_grp}#/folder/{id_regex}/selected(?P<multiitem>(/item\\+{id_grp})+)$": {},
         # Direct girder urls to items
         f"{server_grp}api/v1/(?P<asset_type>item)/{id_grp}/download$": {},
+        "https?://.*": {"handle_redirect": "only"},
     }
     # We might need to remap some assert_types
     map_asset_types = {"dandiset": "folder"}
@@ -43,7 +47,7 @@ class _dandi_url_parser:
                 map_to_girder[h] = girder
 
     @classmethod
-    def parse(cls, url, map_instance=True):
+    def parse(cls, url, *, map_instance=True):
         """Parse url like and return server (address), asset_id and/or directory
 
         Example URLs (as of 20200310):
@@ -74,10 +78,6 @@ class _dandi_url_parser:
 
         "Features":
 
-        - supports DANDI naming, such as https://dandiarchive.org/dandiset/000001
-          Since currently redirects, it just resorts to redirect if url lacks #.
-          TODO: make more efficient, .head instead of .get or some other way to avoid
-          full download_file.
         - uses some of `known_instance`s to map some urls, e.g. from
           gui.dandiarchive.org ones into girder.
 
@@ -96,14 +96,22 @@ class _dandi_url_parser:
             match = re.match(regex, url)
             if not match:
                 continue
-            if settings.get("handle_redirect", False):
+            handle_redirect = settings.get("handle_redirect", False)
+            if handle_redirect:
+                assert handle_redirect in ("pass", "only")
                 new_url = cls.follow_redirect(url)
                 if new_url != url:
                     return cls.parse(new_url)
-                # We used to issue warning in such cases, but may be it got implemented
-                # now via reverse proxy and we had added a new regex? let's just
-                # continue with a debug msg
-                lgr.debug("Redirection did not happen for %s", url)
+                if handle_redirect == "pass":
+                    # We used to issue warning in such cases, but may be it got implemented
+                    # now via reverse proxy and we had added a new regex? let's just
+                    # continue with a debug msg
+                    lgr.debug("Redirection did not happen for %s", url)
+                else:
+                    raise RuntimeError(
+                        f"{url} did not redirect to another location which dandi client would"
+                        f" know how to handle."
+                    )
             elif settings.get("map_instance"):
                 if map_instance:
                     server, *_ = cls.parse(url, map_instance=False)
@@ -152,14 +160,14 @@ class _dandi_url_parser:
 
     @staticmethod
     def follow_redirect(url):
-        # assume that it was a dandi notation, let's try to follow redirects
-        # TODO: make .head work instead of .get on the redirector
-        r = requests.get(url, allow_redirects=True)
+        r = requests.head(url, allow_redirects=True)
         if r.status_code == 404:
             raise NotFoundError(url)
         elif r.status_code != 200:
             raise FailedToConnectError(
-                f"Response for getting {url} to redirect returned " f"{r.status_code}."
+                f"Response for getting {url} to redirect returned {r.status_code}."
+                f" Please verify that it is a URL related to dandiarchive and"
+                f" supported by dandi client"
             )
         elif r.url != url:
             return r.url
@@ -168,11 +176,13 @@ class _dandi_url_parser:
 
 # convenience binding
 parse_dandi_url = _dandi_url_parser.parse
+follow_redirect = _dandi_url_parser.follow_redirect
 
 
 def download(
     urls,
     output_dir,
+    *,
     existing="error",
     jobs=6,
     develop_debug=False,
