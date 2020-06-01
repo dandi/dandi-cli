@@ -197,14 +197,16 @@ def _assign_dandi_names(metadata, mandatory, mandatory_if_not_empty):
                 field in mandatory_if_not_empty and unique_values[field]
             ):
                 value = r.get(field, None)
-                if value is not None:
-                    if isinstance(value, (list, tuple)):
-                        value = "+".join(value)
-                    # sanitize value to avoid undesired characters
-                    value = _sanitize_value(value, field)
-                    # Format _key-value according to the "schema"
-                    formatted_value = field_format.format(value)
-                    dandi_filename += formatted_value
+                if value is None or (hasattr(value, "__len__") and not len(value)):
+                    # skip empty things
+                    continue
+                if isinstance(value, (list, tuple)):
+                    value = "+".join(value)
+                # sanitize value to avoid undesired characters
+                value = _sanitize_value(value, field)
+                # Format _key-value according to the "schema"
+                formatted_value = field_format.format(value)
+                dandi_filename += formatted_value
         r["dandi_filename"] = dandi_filename
         r["dandi_path"] = dandi_path.format(**r)
 
