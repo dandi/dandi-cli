@@ -2,7 +2,7 @@
 # ex: set sts=4 ts=4 sw=4 noet:
 # ## ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ##
 #
-#   See COPYING file distributed along with the datalad package for the
+#   See COPYING file distributed along with the dandi package for the
 #   copyright and license terms.
 #
 # ## ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ##
@@ -15,7 +15,7 @@ from ..utils import auto_repr
 
 import logging
 
-lgr = logging.getLogger("datalad.support.digests")
+lgr = logging.getLogger("dandi.support.digests")
 
 
 @auto_repr
