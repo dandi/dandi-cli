@@ -321,7 +321,7 @@ def _populate_modalities(metadata):
             else:
                 ndtypes_unassigned.add(ndtype)
         # tuple so we could easier figure out "unique" values below
-        r["modalities"] = tuple(sorted(mods))
+        r["modalities"] = tuple(sorted(mods.union(set(r.get("modalities", {})))))
 
 
 def _populate_session_ids_from_time(metadata):
