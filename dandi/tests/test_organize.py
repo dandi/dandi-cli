@@ -10,6 +10,7 @@ from ..cli.command import organize
 from ..organize import (
     _sanitize_value,
     create_dataset_yml_template,
+    create_unique_filenames_from_metadata,
     get_obj_id,
     populate_dataset_yml,
 )
@@ -171,3 +172,38 @@ def test_ambigous(simple2_nwb, tmp_path, clirunner):
             for f in [simple2_nwb, copy2]
         ]
     )
+
+
+def test_ambiguos_probe1():
+    base = dict(subject_id="1", session="2", extension="nwb")
+    # fake filenames should be ok since we never should get to reading them for object_id
+    metadata = [
+        dict(path="1.nwb", probe_ids=[1, 2], **base),
+        dict(path="2.nwb", probe_ids=[1], modalities=["mod"], **base),
+        dict(path="3.nwb", probe_ids=[2], modalities=["mod"], **base),
+    ]
+    # we should get a copy
+    metadata_ = create_unique_filenames_from_metadata(metadata)
+    assert metadata_ != metadata
+    assert [m["dandi_path"] for m in metadata_] == [
+        "sub-1/sub-1.nwb",
+        "sub-1/sub-1_probe-1_mod.nwb",
+        "sub-1/sub-1_probe-2_mod.nwb",
+    ]
+    # if modalities is present but different -- no probe for _mod2
+    metadata[0]["modalities"] = ["mod2"]
+    metadata_ = create_unique_filenames_from_metadata(metadata)
+    assert [m["dandi_path"] for m in metadata_] == [
+        "sub-1/sub-1_mod2.nwb",
+        "sub-1/sub-1_probe-1_mod.nwb",
+        "sub-1/sub-1_probe-2_mod.nwb",
+    ]
+
+    # but if modalities is same -- we would get probes listed
+    metadata[0]["modalities"] = ["mod"]
+    metadata_ = create_unique_filenames_from_metadata(metadata)
+    assert [m["dandi_path"] for m in metadata_] == [
+        "sub-1/sub-1_probe-1+2_mod.nwb",
+        "sub-1/sub-1_probe-1_mod.nwb",
+        "sub-1/sub-1_probe-2_mod.nwb",
+    ]
