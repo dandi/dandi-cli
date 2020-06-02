@@ -226,6 +226,8 @@ def download(
             op.join(output_dir, file["path"]),
             existing=existing,
             attrs=file["attrs"],
+            # TODO: make it less "fluid" to not breed a bug where we stop verifying
+            digests=file.get("metadata").get("uploaded_digests"),
         )
         for file in files
     )
