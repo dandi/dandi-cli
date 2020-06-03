@@ -14,7 +14,7 @@ def test_digester(tmp_path):
     digester = Digester()
 
     f = tmp_path / "sample.txt"
-    f.write_text("123")
+    f.write_bytes(b"123")
     assert digester(f) == {
         "md5": "202cb962ac59075b964b07152d234b70",
         "sha1": "40bd001563085fc35165329ea1ff5c5ecbdbbeef",
@@ -23,7 +23,7 @@ def test_digester(tmp_path):
     }
 
     f = tmp_path / "0"
-    f.write_text(chr(0))
+    f.write_bytes(chr(0).encode())
     assert digester(f) == {
         "md5": "93b885adfe0da089cdf634904fd59f71",
         "sha1": "5ba93c9db0cff93f52b521d7420e43f6eda2784f",
@@ -32,7 +32,7 @@ def test_digester(tmp_path):
     }
 
     f = tmp_path / "long.txt"
-    f.write_text("123abz\n" * 1000000)
+    f.write_bytes(b"123abz\n" * 1000000)
     assert digester(f) == {
         "md5": "81b196e3d8a1db4dd2e89faa39614396",
         "sha1": "5273ac6247322c3c7b4735a6d19fd4a5366e812f",
