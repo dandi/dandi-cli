@@ -64,7 +64,7 @@ metadata_all_fields = metadata_nwb_fields + metadata_dandiset_fields
 # Order matters - observed compute time from shorter to longer
 # Those are not to be included in metadata reported for a local file,
 # but will be available for files in the archive
-metadata_digests = ("sha1", "md5", "sha256")
+metadata_digests = ("sha1", "md5", "sha512", "sha256")
 
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = "^[0-9]{6}$"
