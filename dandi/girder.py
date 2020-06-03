@@ -14,7 +14,7 @@ import girder_client as gcl
 
 from . import get_logger
 from .utils import ensure_datetime, ensure_strtime, is_same_time
-from .consts import known_instances, known_instances_rev
+from .consts import known_instances, known_instances_rev, metadata_digests
 from .support.digests import Digester
 
 lgr = get_logger()
@@ -410,12 +410,11 @@ class GirderCli(gcl.GirderClient):
             if mtime:
                 os.utime(path, (time.time(), mtime.timestamp()))
         if digests:
-            # Order according to speed of computation according to Yarik's laptop
-            # x2 difference between sha1 and sha256
-            for algo in ["sha1", "md5", "sha512", "sha256", None]:
+            # Pick the first one (ordered according to speed of computation)
+            for algo in metadata_digests:
                 if algo in digests:
                     break
-            if algo is None:
+            else:
                 algo = list(digests)[:1]  # first available
             digest = Digester([algo])(path)[algo]
             if digests[algo] != digest:

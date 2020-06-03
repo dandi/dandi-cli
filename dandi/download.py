@@ -3,7 +3,7 @@ import re
 import requests
 
 from . import girder, get_logger
-from .consts import dandiset_metadata_file, known_instances
+from .consts import dandiset_metadata_file, known_instances, metadata_digests
 from .dandiset import Dandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
 from .utils import flatten, flattened, Parallel, delayed
@@ -227,7 +227,12 @@ def download(
             existing=existing,
             attrs=file["attrs"],
             # TODO: make it less "fluid" to not breed a bug where we stop verifying
-            digests=file.get("metadata").get("uploaded_digests"),
+            # for e.g. digests move
+            digests={
+                d: file.get("metadata")[d]
+                for d in metadata_digests
+                if d in file.get("metadata", {})
+            },
         )
         for file in files
     )

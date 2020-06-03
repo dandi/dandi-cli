@@ -22,6 +22,7 @@ from ..consts import (
     dandiset_identifier_regex,
     dandiset_metadata_file,
     known_instances,
+    metadata_digests,
 )
 
 
@@ -417,8 +418,8 @@ def upload(
                 # TODO: in theory we could also cache the result, but since it is
                 # critical to get correct checksums, safer to just do it all the time.
                 # Should typically be faster than upload itself ;-)
-                digester = Digester(["md5", "sha1", "sha256"])
-                file_metadata_["uploaded_digests"] = digester(path)
+                digester = Digester(metadata_digests)
+                file_metadata_.update(digester(path))
             except Exception as exc:
                 yield skip_file("failed to compute digests: %s" % str(exc))
                 return
