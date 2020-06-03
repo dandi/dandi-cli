@@ -405,9 +405,9 @@ def upload(
                     yield skip_file("failed to extract metadata: %s" % str(exc))
                     if not file_recs:
                         # remove empty item
-                        yield {"status", "deleting empty item"}
+                        yield {"status": "deleting empty item"}
                         client.delete(f'/item/{item_rec["_id"]}')
-                        yield {"status", "deleted empty item"}
+                        yield {"status": "deleted empty item"}
                     return
 
             #
