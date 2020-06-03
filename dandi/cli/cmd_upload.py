@@ -71,7 +71,7 @@ from ..consts import (
 )
 @devel_option(
     "--allow-any-path",
-    help="For development: allow not only DANDI 'supported' file types/paths",
+    help="For development: allow DANDI 'unsupported' file types/paths",
     default=False,
     is_flag=True,
 )
