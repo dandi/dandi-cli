@@ -22,6 +22,7 @@ from ..consts import (
     dandiset_identifier_regex,
     dandiset_metadata_file,
     known_instances,
+    metadata_digests,
 )
 
 
@@ -97,6 +98,7 @@ def upload(
     """
     from pathlib import Path, PurePosixPath
     from ..dandiset import Dandiset
+    from ..support.digests import Digester
 
     dandiset = Dandiset.find(dandiset_path)
     if not dandiset:
@@ -407,6 +409,20 @@ def upload(
                         client.delete(f'/item/{item_rec["_id"]}')
                         yield {"status", "deleted empty item"}
                     return
+
+            #
+            # ?. Compute checksums and possible other digests (e.g. for s3, ipfs - TODO)
+            #
+            yield {"status": "digesting"}
+            try:
+                # TODO: in theory we could also cache the result, but since it is
+                # critical to get correct checksums, safer to just do it all the time.
+                # Should typically be faster than upload itself ;-)
+                digester = Digester(metadata_digests)
+                file_metadata_.update(digester(path))
+            except Exception as exc:
+                yield skip_file("failed to compute digests: %s" % str(exc))
+                return
 
             #
             # 5. Upload file

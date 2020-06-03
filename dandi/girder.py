@@ -14,8 +14,8 @@ import girder_client as gcl
 
 from . import get_logger
 from .utils import ensure_datetime, ensure_strtime, is_same_time
-from .consts import known_instances, known_instances_rev
-
+from .consts import known_instances, known_instances_rev, metadata_digests
+from .support.digests import Digester
 
 lgr = get_logger()
 
@@ -339,7 +339,14 @@ class GirderCli(gcl.GirderClient):
                 if len(children) < gcl.DEFAULT_PAGE_LIMIT:
                     break
 
-    def download_file(self, file_id, path, existing="error", attrs=None):
+    def download_file(self, file_id, path, existing="error", attrs=None, digests=None):
+        """
+        Parameters
+        ----------
+        digests: dict, optional
+          possible checksums or other digests provided for the file. Only one
+          will be used to verify download
+        """
         if op.lexists(path):
             msg = f"File {path!r} already exists"
             if existing == "error":
@@ -402,6 +409,24 @@ class GirderCli(gcl.GirderClient):
             mtime = self._get_file_mtime(attrs)
             if mtime:
                 os.utime(path, (time.time(), mtime.timestamp()))
+        if digests:
+            # Pick the first one (ordered according to speed of computation)
+            for algo in metadata_digests:
+                if algo in digests:
+                    break
+            else:
+                algo = list(digests)[:1]  # first available
+            digest = Digester([algo])(path)[algo]
+            if digests[algo] != digest:
+                lgr.warning(
+                    "%s %s is different: downloaded %s, should have been %s.",
+                    path,
+                    algo,
+                    digest,
+                    digests[algo],
+                )
+            else:
+                lgr.debug("Verified that %s has correct %s %s", path, algo, digest)
 
     @staticmethod
     def _get_file_mtime(attrs):
