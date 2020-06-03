@@ -3,6 +3,7 @@ ATM primarily a sandbox for some functionality for  dandi organize
 """
 
 import binascii
+from copy import deepcopy
 import numpy as np
 import re
 from collections import Counter
@@ -20,16 +21,30 @@ lgr = get_logger()
 
 # Fields which would be used to compose the filename
 # TODO: add full description into command --help etc
+# Order matters!
 potential_fields = {
-    "subject_id": "sub-{}",
-    "session_id": "_ses-{}",
-    "tissue_sample_id": "_tis-{}",
-    "slice_id": "_slice-{}",
-    "cell_id": "_cell-{}",
-    "obj_id": "_obj-{}",  # will be not id, but checksum of it to shorten
+    # "type" - if not defined, additional
+    "subject_id": {"format": "sub-{}", "type": "mandatory"},
+    "session_id": {"format": "_ses-{}"},
+    "tissue_sample_id": {"format": "_tis-{}"},
+    "slice_id": {"format": "_slice-{}"},
+    "cell_id": {"format": "_cell-{}"},
+    # disambiguation ones
+    "probe_ids": {"format": "_probe-{}", "type": "disambiguation"},
+    "obj_id": {
+        "format": "_obj-{}",
+        "type": "disambiguation",
+    },  # will be not id, but checksum of it to shorten
     # "session_description"
-    "modalities": "_{}",
-    "extension": "{}",
+    "modalities": {"format": "_{}", "type": "mandatory_if_not_empty"},
+    "extension": {"format": "{}", "type": "mandatory"},
+}
+# verify no typos
+assert {v.get("type", "additional") for v in potential_fields.values()} == {
+    "mandatory",
+    "disambiguation",
+    "additional",
+    "mandatory_if_not_empty",
 }
 dandi_path = "sub-{subject_id}/{dandi_filename}"
 
@@ -52,26 +67,23 @@ def filter_invalid_metadata_rows(metadata_rows):
     return valid, invalid
 
 
-def create_unique_filenames_from_metadata(
-    metadata,
-    mandatory=["subject_id", "extension"],
-    mandatory_if_not_empty=["modalities,"],
-    add_object_id_for_non_unique=True,
-):
-    """
+def create_unique_filenames_from_metadata(metadata):
+    """Create unique filenames given metadata
 
     Parameters
     ----------
     metadata: list of dict
       List of metadata records
-    mandatory: list of str
-      Fields in addition to "subject_id" and (file) "extension" which would be
-      mandatory to be included in the filename
 
     Returns
     -------
-
+    dict
+      Adjusted metadata. A copy, which might have removed some metadata fields
+      Do not rely on it being the same
     """
+    # need a deepcopy since we will be tuning fields, and there should be no
+    # side effects to original metadata
+    metadata = deepcopy(metadata)
 
     # TODO this does not act in a greedy fashion
     # i.e., only using enough fields to ensure uniqueness of filenames, but that
@@ -104,30 +116,59 @@ def create_unique_filenames_from_metadata(
             if value:
                 r[field] = _sanitize_value(value, field)
 
-    _assign_dandi_names(metadata, mandatory, mandatory_if_not_empty)
+    _assign_dandi_names(metadata)
 
     non_unique = _get_non_unique_paths(metadata)
 
+    additional_nonunique = []
     if non_unique:
-        if not add_object_id_for_non_unique:
-            msg = "%d out of %d paths are not unique" % (len(non_unique), len(metadata))
-            msg_detailed = msg + ":\n%s" % "\n".join(
-                "   %s: %s" % i for i in non_unique.items()
-            )
-            raise OrganizeImpossibleError(
-                msg_detailed + "\nPlease adjust/provide metadata in your .nwb "
-                "files to disambiguate or rerun allowing adding object_id."
-            )
-        _assign_obj_id(metadata, non_unique)
-        _assign_dandi_names(
-            metadata, mandatory, (mandatory_if_not_empty or []) + ["obj_id"]
+        # Consider additional fields which might provide disambiguation
+        # but which we otherwise do not include ATM
+        for field, field_rec in potential_fields.items():
+            if not field_rec.get("type") == "disambiguation":
+                continue
+            additional_nonunique.append(field)
+            if field == "obj_id":  # yet to be computed
+                _assign_obj_id(metadata, non_unique)
+            # If a given field is found useful to disambiguate in a single case,
+            # we will add _mandatory_if_not_empty to those files records, which will
+            # _assign_dandi_names will use in addition to the ones specified.
+            # The use case of 000022 - there is a common to many probes file (has many probe_ids)
+            # but listing them all in filename -- does not scale, so we only limit to where
+            # needs disambiguation.
+            # Cconsider conflicting groups and adjust their records
+            for conflicting_path, paths in non_unique.items():
+                # I think it might not work out entirely correctly if we have multiple
+                # instances of non-unique, but then will consider not within each group...
+                # yoh: TODO
+                values = _get_unique_values_among_non_unique(metadata, paths, field)
+                if values:  # helps disambiguation, but might still be non-unique
+                    # add to all files in the group
+                    for r in metadata:
+                        if r["dandi_path"] == conflicting_path:
+                            r["_mandatory_if_not_empty"] = r.get(
+                                "_mandatory_if_not_empty", []
+                            ) + [field]
+                _assign_dandi_names(metadata)
+            non_unique = _get_non_unique_paths(metadata)
+            if not non_unique:
+                break
+
+    if non_unique:
+        msg = "%d out of %d paths are still not unique" % (
+            len(non_unique),
+            len(metadata),
         )
-        non_unique = _get_non_unique_paths(metadata)
-        if non_unique:
-            raise OrganizeImpossibleError(
-                "Even after adding obj_id we ended up with non-unique file names. "
-                "Should not have happened: %s" % str(non_unique)
-            )
+        msg_detailed = msg + ":\n%s" % "\n".join(
+            "   %s: %s" % i for i in non_unique.items()
+        )
+        raise OrganizeImpossibleError(
+            msg_detailed
+            + "\nEven after considering %s fields we ended up with non-unique file names. "
+            "Should not have happened.\n"
+            "Please adjust/provide metadata in your .nwb files to disambiguate"
+            % (", ".join(additional_nonunique),)
+        )
     return metadata
 
 
@@ -180,28 +221,57 @@ def _assign_obj_id(metadata, non_unique):
             seen_object_ids[object_id] = r["path"]
 
 
+def _get_hashable(v):
+    """if a list - would cast to tuple"""
+    if isinstance(v, list):
+        return tuple(v)
+    else:
+        return v
+
+
+def _get_unique_values_among_non_unique(metadata, non_unique_paths, field):
+    """Per each non-unique path return values """
+    return {
+        _get_hashable(r.get(field))
+        for r in metadata
+        if (r["path"] in non_unique_paths) and not is_undefined(r.get(field))
+    }
+
+
 def get_obj_id(object_id):
     """Given full object_id, get its shortened version
     """
     return np.base_repr(binascii.crc32(object_id.encode("ascii")), 36).lower()
 
 
-def _assign_dandi_names(metadata, mandatory, mandatory_if_not_empty):
+def is_undefined(value):
+    """Return True if None or an empty container"""
+    return value is None or (hasattr(value, "__len__") and not len(value))
+
+
+def _assign_dandi_names(metadata):
     unique_values = _get_unique_values(metadata, potential_fields)
     # unless it is mandatory, we would not include the fields with more than
     # a single unique field
     for r in metadata:
         dandi_filename = ""
-        for field, field_format in potential_fields.items():
-            if (field in mandatory or len(unique_values[field]) > 1) or (
-                field in mandatory_if_not_empty and unique_values[field]
+        for field, field_rec in potential_fields.items():
+            field_format = field_rec["format"]
+            field_type = field_rec.get("type", "additional")
+            if (
+                (field_type == "mandatory")
+                or (field_type == "additional" and len(unique_values[field]) > 1)
+                or (
+                    field_type == "mandatory_if_not_empty"
+                    or (field in r.get("_mandatory_if_not_empty", []))
+                )
             ):
                 value = r.get(field, None)
-                if value is None or (hasattr(value, "__len__") and not len(value)):
+                if is_undefined(value):
                     # skip empty things
                     continue
                 if isinstance(value, (list, tuple)):
-                    value = "+".join(value)
+                    value = "+".join(map(str, value))
                 # sanitize value to avoid undesired characters
                 value = _sanitize_value(value, field)
                 # Format _key-value according to the "schema"
@@ -214,7 +284,7 @@ def _assign_dandi_names(metadata, mandatory, mandatory_if_not_empty):
 def _get_unique_values(metadata, fields, filter_=False):
     unique_values = {}
     for field in fields:
-        unique_values[field] = set(r.get(field, None) for r in metadata)
+        unique_values[field] = set(_get_hashable(r.get(field, None)) for r in metadata)
         if filter_:
             unique_values[field] = set(v for v in unique_values[field] if v)
     return unique_values
@@ -251,7 +321,7 @@ def _populate_modalities(metadata):
             else:
                 ndtypes_unassigned.add(ndtype)
         # tuple so we could easier figure out "unique" values below
-        r["modalities"] = tuple(sorted(mods))
+        r["modalities"] = tuple(sorted(mods.union(set(r.get("modalities", {})))))
 
 
 def _populate_session_ids_from_time(metadata):
