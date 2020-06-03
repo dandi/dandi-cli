@@ -69,6 +69,12 @@ from ..consts import (
     default=False,
     is_flag=True,
 )
+@devel_option(
+    "--allow-any-path",
+    help="For development: allow DANDI 'unsupported' file types/paths",
+    default=False,
+    is_flag=True,
+)
 @devel_debug_option()
 @map_to_click_exceptions
 def upload(
@@ -81,6 +87,7 @@ def upload(
     girder_top_folder=None,
     dandi_instance="dandi",
     fake_data=False,  # TODO: not implemented, prune?
+    allow_any_path=False,
     devel_debug=False,
 ):
     """Upload dandiset (files) to DANDI archive.
@@ -149,7 +156,12 @@ def upload(
     from ..pynwb_utils import ignore_benign_pynwb_warnings, get_object_id
     from ..metadata import get_metadata
     from ..validate import validate_file
-    from ..utils import find_dandi_files, path_is_subpath, get_utcnow_datetime
+    from ..utils import (
+        find_dandi_files,
+        find_files,
+        path_is_subpath,
+        get_utcnow_datetime,
+    )
     from ..support.generatorify import generator_from_callback
     from ..support.pyout import naturalsize
 
@@ -180,13 +192,15 @@ def upload(
 
     # Expand and validate all paths -- they should reside within dandiset
     orig_paths = paths
-    paths = list(find_dandi_files(paths))
+    paths = list(find_files(".*", paths) if allow_any_path else find_dandi_files(paths))
     npaths = len(paths)
     lgr.info(f"Found {npaths} files to consider")
     for path in paths:
         path_basename = op.basename(path)
         if not (
-            path_basename == dandiset_metadata_file or path_basename.endswith(".nwb")
+            allow_any_path
+            or path_basename == dandiset_metadata_file
+            or path_basename.endswith(".nwb")
         ):
             raise NotImplementedError(
                 f"ATM only .nwb and dandiset.yaml should be in the paths to upload. Got {path}"
@@ -402,13 +416,17 @@ def upload(
                 try:
                     metadata = get_metadata(path)
                 except Exception as exc:
-                    yield skip_file("failed to extract metadata: %s" % str(exc))
-                    if not file_recs:
-                        # remove empty item
-                        yield {"status", "deleting empty item"}
-                        client.delete(f'/item/{item_rec["_id"]}')
-                        yield {"status", "deleted empty item"}
-                    return
+                    if allow_any_path:
+                        yield {"status": "failed to extract metadata"}
+                        metadata = {}
+                    else:
+                        yield skip_file("failed to extract metadata: %s" % str(exc))
+                        if not file_recs:
+                            # remove empty item
+                            yield {"status": "deleting empty item"}
+                            client.delete(f'/item/{item_rec["_id"]}')
+                            yield {"status": "deleted empty item"}
+                        return
 
             #
             # ?. Compute checksums and possible other digests (e.g. for s3, ipfs - TODO)
@@ -495,7 +513,9 @@ def upload(
             try:
                 metadata_["uploaded_nwb_object_id"] = get_object_id(str(path))
             except Exception as exc:
-                lgr.warning("Failed to read object_id: %s", exc)
+                (lgr.debug if allow_any_path else lgr.warning)(
+                    "Failed to read object_id: %s", exc
+                )
 
             # #
             # # 7. Also set remote file ctime to match local mtime
