@@ -36,7 +36,7 @@
         "additionalProperties": false,
         "properties": {
           "attributes": {"$ref": "#/definitions/attributes"},
-          "data": {"type": "string"}
+          "data": {"$ref":  "#/definitions/data"}
           }
         }
       }
@@ -46,8 +46,78 @@
     "type": "object",
     "additionalProperties": false,
     "patternProperties": {
-      "^.*$": {"type": "string"}
+      "^.*$": {
+        "$ref":  "#/definitions/data_values"}
       }
+    },
+    "data": {
+      "description": "can be 1) string, 2) number, 3) array of strings 4) array of numbers 5) Zarr dataset metadata 6) link ",
+      "anyOf": [
+        {"$ref":  "#/definitions/data_values"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "shape",
+            "dtype"
+          ],
+          "properties": {
+            "shape": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "dtype": {
+              "type": "string"
+            },
+            "compression": {
+              "type": "object",
+              "properties": {
+                "id": {"type": "string"},
+                "cname": {"type": "string"},
+                "clevel": {"type": "integer"},
+                "shuffle": {"type": "string"}
+              }
+            },
+            "fillvalue": {
+              "type": "number"
+            },
+            "chunks": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "description": "dataset link",
+          "type": "object",
+          "properties": {
+            "type": {"const": "link"},
+            "object_id": {"type": "string"}
+          }
+        }
+      ]
+    },
+    "data_values": {
+      "anyOf": [
+        {"type": "string"},
+        {"type": "number"},
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      ]
     }
   }
 }
