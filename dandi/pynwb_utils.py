@@ -12,7 +12,8 @@ import numpy as np
 import pynwb
 from pynwb import NWBHDF5IO
 import semantic_version
-from hdmf.build import GroupBuilder, DatasetBuilder, Builder
+from hdmf.build import DatasetBuilder, Builder
+import hdmf
 
 from . import get_logger
 
@@ -333,8 +334,21 @@ def nwbfile_to_metadata_json(nwbfile_path, out_fpath):
     out_fpath: path-like
 
     """
+
+    # handle numpy types
+    class NpEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, np.integer):
+                return int(obj)
+            elif isinstance(obj, np.floating):
+                return float(obj)
+            elif isinstance(obj, np.ndarray):
+                return obj.tolist()
+            else:
+                return super(NpEncoder, self).default(obj)
+
     with open(out_fpath, 'w') as out_file:
-        return json.dump(nwbfile_to_metadata_dict(nwbfile_path), out_file)
+        return json.dump(nwbfile_to_metadata_dict(nwbfile_path), out_file, cls=NpEncoder)
 
 
 def nwbfile_to_metadata_dict(fpath):
@@ -385,12 +399,43 @@ def traverse_node(node, previous_node=None):
                                      if traverse_node(val, node)}
 
         if isinstance(node, DatasetBuilder):
-            out['data'] = str(node['data'])
+            if isinstance(node['data'], hdmf.backends.hdf5.h5_utils.BuilderH5ReferenceDataset):
+                return {'type': 'link', 'object_id': node['data'].dataset.attrs['object_id']}
+            if isinstance(node['data'], h5py.Dataset):
+                out['data'] = dataset_to_zarr_like_meta(node['data'])
+            else:
+                out['data'] = node['data']
 
         return out
 
     # node is an attribute value
     if isinstance(node, np.ndarray):
-        return str(node.tolist())
+        return node.tolist()
 
-    return str(node)
+    return node
+
+
+def dataset_to_zarr_like_meta(ds: h5py.Dataset):
+
+    out = dict(
+        shape=ds.shape,
+        dtype=ds.dtype.str,
+    )
+
+    if ds.compression is not None:
+        out.update(
+            compression=dict(
+                id=ds.compression,
+                cname=ds.compression,
+                clevel=ds.compression_opts,
+                shuffle=int(ds.shuffle)
+            )
+        )
+
+    if ds.fillvalue is not None:
+        out.update(fill_value=ds.fillvalue)
+
+    if ds.chunks is not None:
+        out.update(chunks=ds.chunks)
+
+    return out
