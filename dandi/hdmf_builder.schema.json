@@ -10,7 +10,7 @@
     "attributes": {"type": "object"},
     "groups": {"$ref": "#/definitions/groups"},
     "datasets": {"$ref": "#/definitions/datasets"}
-    },
+  },
   "definitions": {
     "groups": {
       "type": "object",
@@ -23,31 +23,36 @@
             "attributes": {"$ref": "#/definitions/attributes"},
             "groups": {"$ref": "#/definitions/groups"},
             "datasets": {"$ref": "#/definitions/datasets"}
-            }
-          }
-        }
-      },
-  "datasets": {
-    "type": "object",
-    "additionalProperties": false,
-    "patternProperties": {
-      "^.*$": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "attributes": {"$ref": "#/definitions/attributes"},
-          "data": {"$ref":  "#/definitions/data"}
           }
         }
       }
     },
-  "attributes": {
-    "description": "attributes should be a dictionary where all of the values are strings",
-    "type": "object",
-    "additionalProperties": false,
-    "patternProperties": {
-      "^.*$": {
-        "$ref":  "#/definitions/data_values"}
+    "datasets": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^.*$": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "attributes": {"$ref": "#/definitions/attributes"},
+                "data": {"$ref":  "#/definitions/data"}
+              }
+            },
+            {"$ref":  "#/definitions/link_def"}
+          ]
+        }
+      }
+    },
+    "attributes": {
+      "description": "attributes should be a dictionary where all of the values are strings",
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^.*$": {
+          "$ref":  "#/definitions/data_values"}
       }
     },
     "data": {
@@ -90,14 +95,6 @@
               }
             }
           }
-        },
-        {
-          "description": "dataset link",
-          "type": "object",
-          "properties": {
-            "type": {"const": "link"},
-            "object_id": {"type": "string"}
-          }
         }
       ]
     },
@@ -116,8 +113,18 @@
           "items": {
             "type": "number"
           }
-        }
+        },
+        {"type": "null"},
+        {"$ref":  "#/definitions/link_def"}
       ]
+    },
+    "link_def": {
+      "description": "dataset link",
+      "type": "object",
+      "properties": {
+        "type": {"const": "link"},
+        "object_id": {"type": "string"}
+      }
     }
   }
 }
