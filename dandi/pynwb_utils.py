@@ -5,7 +5,7 @@ import re
 import warnings
 from distutils.version import LooseVersion
 from collections import Counter
-import json
+import simplejson as json
 
 import numpy as np
 
@@ -344,11 +344,13 @@ def nwbfile_to_metadata_json(nwbfile_path, out_fpath):
                 return float(obj)
             elif isinstance(obj, np.ndarray):
                 return obj.tolist()
+            elif isinstance(obj, bytes):
+                return obj.decode()
             else:
                 return super(NpEncoder, self).default(obj)
 
     with open(out_fpath, 'w') as out_file:
-        return json.dump(nwbfile_to_metadata_dict(nwbfile_path), out_file, cls=NpEncoder)
+        return json.dump(nwbfile_to_metadata_dict(nwbfile_path), out_file, cls=NpEncoder, ignore_nan=True)
 
 
 def nwbfile_to_metadata_dict(fpath):
