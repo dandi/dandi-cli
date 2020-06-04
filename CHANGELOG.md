@@ -4,9 +4,32 @@ All notable changes to this project will be documented (for humans) in this file
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2020-06-04
+
+### Added
+- `metadata` and `organize`: extract and use `probe_ids` metadata to
+  disambiguate (if needed)
+- `organize`: `--devel-debug` option to perform metadata extraction serially
+- `upload`:
+  - `--allow-any-path` development option to allow upload of DANDI
+    not yet 'unsupported' file types/paths
+  - compute 4 digests (all are checksums ATM): md5, sha1, sha256, sha512
+    and upload as a part of the metadata record
+- `download`:
+  - use the "fastest" available digest (sha1) to validate correctness of the
+    download
+  - follow redirections from arbitrary redirector (e.g., bit.ly). Succeeds
+    only if the final URL is known to DANDI.
+### Fixed
+- `upload`: a crash while issuing a record to update about deleted empty item
+### Refactored
+- `organize`: disambiguation process now could use a flexible list of metadata
+  fields (ATM only `probe_ids` and `obj_id`)
+- `download`: handling of redirection - now uses `HEAD` request instead of `GET`
+
 ## [0.4.6] - 2020-05-07
 
-### Fxed
+### Fixed
 - invoke etelemetry only in command line (at click interface level)
 - download of updated dandiset landing page url (`/dandiset` not `/dandiset-meta`)
 
