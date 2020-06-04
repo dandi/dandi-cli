@@ -393,7 +393,7 @@ def traverse_node(node, previous_node=None):
             return {'type': 'link', 'object_id': node.attributes['object_id']}  # may want to change
         else:
             for category in ('attributes', 'datasets', 'groups'):
-                if hasattr(node, category) and getattr(node, category):
+                if getattr(node, category, None) is not None:
                     out[category] = {key: traverse_node(val, node)
                                      for key, val in getattr(node, category).items()
                                      if traverse_node(val, node)}
