@@ -195,3 +195,4 @@ from .cmd_upload import upload
 from .cmd_download import download
 from .cmd_validate import validate
 from .cmd_register import register
+from .cmd_publish import publish

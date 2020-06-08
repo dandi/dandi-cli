@@ -8,3 +8,5 @@ sandbox/
 venv/
 venvs/
 .coverage
+__pycache__
+.DS_Store
