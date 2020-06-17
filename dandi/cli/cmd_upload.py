@@ -16,6 +16,7 @@ from .command import (
     map_to_click_exceptions,
     lgr,
 )
+from .. import __version__
 from ..utils import ensure_datetime, ensure_strtime, find_parent_directory_containing
 from ..consts import (
     collection_drafts,
@@ -509,6 +510,7 @@ def upload(
             metadata_.update(file_metadata_)
             metadata_["uploaded_size"] = path_stat.st_size
             metadata_["uploaded_mtime"] = ensure_strtime(path_stat.st_mtime)
+            metadata_["uploaded_by"] = "dandi %s" % __version__
             # Also store object_id for the file to help identify changes/moves
             try:
                 metadata_["uploaded_nwb_object_id"] = get_object_id(str(path))
