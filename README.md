@@ -30,6 +30,12 @@ Usage: dandi [OPTIONS] COMMAND [ARGS]...
   A client to support interactions with DANDI archive
   (http://dandiarchive.org).
 
+  To see help for a specific command, run
+
+      dandi COMMAND --help
+
+  e.g. dandi upload --help
+
 Options:
   --version
   -l, --log-level [DEBUG|INFO|WARNING|ERROR|CRITICAL]

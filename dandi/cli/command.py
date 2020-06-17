@@ -168,6 +168,12 @@ def upper(ctx, param, value):
 @click.option("--pdb", help="Fall into pdb if errors out", is_flag=True)
 def main(log_level, pdb=False):
     """A client to support interactions with DANDI archive (http://dandiarchive.org).
+
+    To see help for a specific command, run
+
+        dandi COMMAND --help
+
+    e.g. dandi upload --help
     """
     set_logger_level(get_logger(), log_level)
     if pdb:
