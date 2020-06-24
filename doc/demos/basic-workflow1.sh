@@ -43,7 +43,7 @@ function sneak() {
 }
 
 
-TOPPATH=$(mktemp -d --tmpdir dandiset-XXXXXXX)
+TOPPATH=$(mktemp -d "${TMPDIR:-/tmp}/dandiset-XXXXXXX")
 
 if [ "$#" != 1 ]; then
     echo "No path was provided, we will use some really lightweight data repo with a single file"
