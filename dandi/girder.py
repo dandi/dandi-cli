@@ -1,7 +1,8 @@
-import os
-import os.path as op
+import contextlib
 import json
 import keyring
+import os
+import os.path as op
 import random
 import sys
 import time
@@ -12,6 +13,7 @@ from pathlib import Path
 import girder_client as gcl
 
 from . import get_logger
+from .exceptions import LockingError
 from .utils import ensure_datetime, is_same_time
 from .consts import known_instances_rev, metadata_digests
 from .support.digests import Digester
@@ -31,6 +33,8 @@ class GirderNotFound(Exception):
     pass
 
 
+# TODO: remove if we start to expose this as a Python library which could
+# be longer lived than just a CLI
 @lru_cache(1024)
 def lookup(client, name, asset_type="collection", path=None):
     """A helper for common logic while looking up things on girder by name"""
@@ -447,6 +451,29 @@ class GirderCli(gcl.GirderClient):
         # If that one was not provided, the best we know is the "ctime"
         # for the file, use that one
         return ensure_datetime(attrs.get("mtime", attrs.get("ctime", None)))
+
+    @contextlib.contextmanager
+    def lock_dandiset(self, dandiset_identifier: str):
+        presumably_locked = False
+        try:
+            lgr.debug("Trying to acquire lock for %s", dandiset_identifier)
+            resp = self.post(f"dandi/{dandiset_identifier}/lock")
+            presumably_locked = True
+            # TODO: remove "if resp" 2 instances below after
+            #  https://github.com/dandi/dandiarchive/issues/421 is fixed up
+            if resp and resp.status_code != 200:
+                presumably_locked = False
+                raise LockingError(f"Failed to lock dandiset {dandiset_identifier}")
+
+            yield
+        finally:
+            if presumably_locked:
+                lgr.debug("Trying to release the lock for %s", dandiset_identifier)
+                resp = self.post(f"dandi/{dandiset_identifier}/unlock")
+                if resp and resp.status_code != 200:
+                    raise LockingError(
+                        f"Failed to unlock dandiset {dandiset_identifier}"
+                    )
 
 
 # TODO: our adapter on top of the Girder's client to simplify further

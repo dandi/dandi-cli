@@ -23,3 +23,9 @@ class FailedToConnectError(RuntimeError):
     """Failed to connect to online resource"""
 
     pass
+
+
+class LockingError(RuntimeError):
+    """Failed to lock or unlock a resource"""
+
+    pass

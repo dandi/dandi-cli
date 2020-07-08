@@ -505,7 +505,7 @@ def upload(
     rec_fields = ["path", "size", "errors", "upload", "status", "message"]
     out = pyout.Tabular(style=pyout_style, columns=rec_fields)
 
-    with out:
+    with out, client.lock_dandiset(dandiset.identifier):
         for path in paths:
             while len(process_paths) >= 10:
                 lgr.log(2, "Sleep waiting for some paths to finish processing")
