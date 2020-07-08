@@ -28,10 +28,7 @@ lgr = get_logger()
     "specified, content for the file will be printed to the screen."
 )
 @click.option(
-    "-n",
-    "--name",
-    help="Short name or title for the dandiset.",
-    prompt="Name",
+    "-n", "--name", help="Short name or title for the dandiset.", prompt="Name"
 )
 @click.option(
     "-D",
@@ -47,7 +44,12 @@ lgr = get_logger()
 @instance_option()
 @map_to_click_exceptions
 def register(name, description, dandiset_path=None, dandi_instance="dandi"):
-    """Register a new dandiset in the DANDI archive"""
+    """Register a new dandiset in the DANDI archive
+
+    This command provides only a minimal set of metadata. It is
+    recommended to use Web UI to fill out other metadata fields for the
+    dandiset
+    """
     from .. import girder
     from ..dandiset import Dandiset
 
