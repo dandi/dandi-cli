@@ -93,8 +93,8 @@ def test_parse_dandi_url_redirect():
         parse_dandi_url("https://dandiarchive.org/dandiset/999999")
     # Is there ATM
     assert _assert_parse_girder_url("https://dandiarchive.org/dandiset/000003") == (
-        "dandiset-meta",
-        "5e6eb2b776569eb93f451f8d",
+        "folder",
+        ["5e6eb2b776569eb93f451f8d"],
     )
     # And this one would point to a folder
     assert (
