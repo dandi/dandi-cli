@@ -4,7 +4,6 @@ import requests
 
 from . import girder, get_logger
 from .consts import dandiset_metadata_file, known_instances, metadata_digests
-from .dandiset import Dandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
 from .utils import flatten, flattened, Parallel, delayed
 
@@ -180,14 +179,7 @@ follow_redirect = _dandi_url_parser.follow_redirect
 
 
 def download(
-    urls,
-    output_dir,
-    *,
-    existing="error",
-    jobs=6,
-    develop_debug=False,
-    authenticate=False,  # Seems to work just fine for public stuff
-    recursive=True,
+    urls, output_dir, *, existing="error", jobs=6, develop_debug=False, recursive=True
 ):
     """Download a file or entire folder from DANDI"""
     urls = flattened([urls])
@@ -200,7 +192,21 @@ def download(
         raise NotImplementedError("No URLs were provided.  Cannot download anything")
     url = urls[0]
     girder_server_url, asset_type, asset_id = parse_dandi_url(url)
+    _download_from_girder(
+        asset_id, asset_type, output_dir, recursive, existing, jobs, girder_server_url
+    )
 
+
+def _download_from_girder(
+    asset_id,
+    asset_type,
+    output_dir,
+    recursive,
+    existing,
+    jobs,
+    girder_server_url,
+    authenticate=False,
+):
     # We could later try to "dandi_authenticate" if run into permission issues.
     # May be it could be not just boolean but the "id" to be used?
     client = girder.get_client(
@@ -208,18 +214,15 @@ def download(
         authenticate=authenticate,
         progressbars=True,  # TODO: redo all this
     )
-
     lgr.info(f"Downloading {asset_type} with id {asset_id} from {girder_server_url}")
-
     # there might be multiple asset_ids, e.g. if multiple files were selected etc,
     # so we will traverse all of them
     files = flatten(
-        _get_asset_files(
-            asset_id_, asset_type, output_dir, client, authenticate, existing, recursive
+        client._get_asset_files(
+            asset_id_, asset_type, output_dir, authenticate, existing, recursive
         )
         for asset_id_ in set(flattened([asset_id]))
     )
-
     Parallel(n_jobs=jobs, backend="threading")(
         delayed(client.download_file)(
             file["id"],
@@ -236,75 +239,3 @@ def download(
         )
         for file in files
     )
-
-
-def _get_asset_files(
-    asset_id, asset_type, output_dir, client, authenticate, existing, recursive
-):
-    # asset_rec = client.getResource(asset_type, asset_id)
-    # lgr.info("Working with asset %s", str(asset_rec))
-    # In principle Girder's client already has ability to download any
-    # resource (collection/folder/item/file).  But it seems that "mending" it
-    # with custom handling (e.g. later adding filtering to skip some files,
-    # or add our own behavior on what to do when files exist locally, etc) would
-    # not be easy.  So we will reimplement as a two step (kinda) procedure.
-    # Return a generator which would be traversing girder and yield records
-    # of encountered resources.
-    # TODO later:  may be look into making it async
-    # First we access top level records just to sense what we are working with
-    top_entities = None
-    while True:
-        try:
-            # this one should enhance them with "fullpath"
-            top_entities = list(
-                client.traverse_asset(asset_id, asset_type, recursive=False)
-            )
-            break
-        except girder.gcl.HttpError as exc:
-            if not authenticate and girder.is_access_denied(exc):
-                lgr.warning("unauthenticated access denied, let's authenticate")
-                client.dandi_authenticate()
-                continue
-            raise
-    entity_type = list(set(e["type"] for e in top_entities))
-    if len(entity_type) > 1:
-        raise ValueError(
-            f"Please point to a single type of entity - either dandiset(s),"
-            f" folder(s) or file(s).  Got: {entity_type}"
-        )
-    entity_type = entity_type[0]
-    if entity_type in ("dandiset", "folder"):
-        # redo recursively
-        lgr.info(
-            "Traversing remote %ss (%s) recursively and downloading them " "locally",
-            entity_type,
-            ", ".join(e["name"] for e in top_entities),
-        )
-        entities = client.traverse_asset(asset_id, asset_type, recursive=recursive)
-        # TODO: special handling for a dandiset -- we might need to
-        #  generate dandiset.yaml out of the metadata record
-        # we care only about files ATM
-        files = (e for e in entities if e["type"] == "file")
-    elif entity_type == "file":
-        files = top_entities
-    else:
-        raise ValueError(f"Unexpected entity type {entity_type}")
-    if entity_type == "dandiset":
-        for e in top_entities:
-            dandiset_path = op.join(output_dir, e["path"])
-            dandiset_yaml = op.join(dandiset_path, dandiset_metadata_file)
-            lgr.info(
-                f"Updating {dandiset_metadata_file} from obtained dandiset " f"metadata"
-            )
-            if op.lexists(dandiset_yaml):
-                if existing != "overwrite":
-                    lgr.info(
-                        f"{dandiset_yaml} already exists.  Set 'existing' "
-                        f"to overwrite if you want it to be redownloaded. "
-                        f"Skipping"
-                    )
-                    continue
-            dandiset = Dandiset(dandiset_path, allow_empty=True)
-            dandiset.path_obj.mkdir(exist_ok=True)  # exist_ok in case of parallel race
-            dandiset.update_metadata(e.get("metadata", {}).get("dandiset", {}))
-    return files

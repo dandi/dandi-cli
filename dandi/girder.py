@@ -13,8 +13,9 @@ import girder_client as gcl
 
 from . import get_logger
 from .utils import ensure_datetime, is_same_time
-from .consts import known_instances_rev, metadata_digests
+from .consts import dandiset_metadata_file, known_instances_rev, metadata_digests
 from .support.digests import Digester
+from .dandiset import Dandiset
 
 lgr = get_logger()
 
@@ -447,6 +448,81 @@ class GirderCli(gcl.GirderClient):
         # If that one was not provided, the best we know is the "ctime"
         # for the file, use that one
         return ensure_datetime(attrs.get("mtime", attrs.get("ctime", None)))
+
+    def _get_asset_files(
+        self, asset_id, asset_type, output_dir, authenticate, existing, recursive
+    ):
+        # asset_rec = client.getResource(asset_type, asset_id)
+        # lgr.info("Working with asset %s", str(asset_rec))
+        # In principle Girder's client already has ability to download any
+        # resource (collection/folder/item/file).  But it seems that "mending" it
+        # with custom handling (e.g. later adding filtering to skip some files,
+        # or add our own behavior on what to do when files exist locally, etc) would
+        # not be easy.  So we will reimplement as a two step (kinda) procedure.
+        # Return a generator which would be traversing girder and yield records
+        # of encountered resources.
+        # TODO later:  may be look into making it async
+        # First we access top level records just to sense what we are working with
+        top_entities = None
+        while True:
+            try:
+                # this one should enhance them with "fullpath"
+                top_entities = list(
+                    self.traverse_asset(asset_id, asset_type, recursive=False)
+                )
+                break
+            except gcl.HttpError as exc:
+                if not authenticate and is_access_denied(exc):
+                    lgr.warning("unauthenticated access denied, let's authenticate")
+                    self.dandi_authenticate()
+                    continue
+                raise
+        entity_type = list(set(e["type"] for e in top_entities))
+        if len(entity_type) > 1:
+            raise ValueError(
+                f"Please point to a single type of entity - either dandiset(s),"
+                f" folder(s) or file(s).  Got: {entity_type}"
+            )
+        entity_type = entity_type[0]
+        if entity_type in ("dandiset", "folder"):
+            # redo recursively
+            lgr.info(
+                "Traversing remote %ss (%s) recursively and downloading them "
+                "locally",
+                entity_type,
+                ", ".join(e["name"] for e in top_entities),
+            )
+            entities = self.traverse_asset(asset_id, asset_type, recursive=recursive)
+            # TODO: special handling for a dandiset -- we might need to
+            #  generate dandiset.yaml out of the metadata record
+            # we care only about files ATM
+            files = (e for e in entities if e["type"] == "file")
+        elif entity_type == "file":
+            files = top_entities
+        else:
+            raise ValueError(f"Unexpected entity type {entity_type}")
+        if entity_type == "dandiset":
+            for e in top_entities:
+                dandiset_path = op.join(output_dir, e["path"])
+                dandiset_yaml = op.join(dandiset_path, dandiset_metadata_file)
+                lgr.info(
+                    f"Updating {dandiset_metadata_file} from obtained dandiset "
+                    f"metadata"
+                )
+                if op.lexists(dandiset_yaml):
+                    if existing != "overwrite":
+                        lgr.info(
+                            f"{dandiset_yaml} already exists.  Set 'existing' "
+                            f"to overwrite if you want it to be redownloaded. "
+                            f"Skipping"
+                        )
+                        continue
+                dandiset = Dandiset(dandiset_path, allow_empty=True)
+                dandiset.path_obj.mkdir(
+                    exist_ok=True
+                )  # exist_ok in case of parallel race
+                dandiset.update_metadata(e.get("metadata", {}).get("dandiset", {}))
+        return files
 
 
 # TODO: our adapter on top of the Girder's client to simplify further
