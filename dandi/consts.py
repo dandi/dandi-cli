@@ -73,20 +73,25 @@ metadata_digests = ("sha1", "md5", "sha512", "sha256")
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = "^[0-9]{6}$"
 
-dandi_instance = namedtuple("dandi_instance", ("girder", "gui", "redirector"))
+dandi_instance = namedtuple("dandi_instance", ("girder", "gui", "redirector", "api"))
 
 known_instances = {
     "local-girder-only": dandi_instance(
-        "http://localhost:8080", None, None
+        "http://localhost:8080", None, None, None
     ),  # just pure girder
     # Redirector: TODO https://github.com/dandi/dandiarchive/issues/139
     "local-docker": dandi_instance(
-        "http://localhost:8080", "http://localhost:8085", None
+        "http://localhost:8080",
+        "http://localhost:8085",
+        None,
+        "http://localhost:9000",  # ATM it is minio, not sure where /api etc
+        # may be https://github.com/dandi/dandi-publish/pull/71 would help
     ),
     "dandi": dandi_instance(
         "https://girder.dandiarchive.org",
         "https://gui.dandiarchive.org",
         "https://dandiarchive.org",
+        "https://publish.dandiarchive.org",  # ? might become api.
     ),
 }
 # to map back url: name
