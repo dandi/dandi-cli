@@ -2,6 +2,8 @@ import os.path as op
 import re
 import requests
 
+from urllib.parse import unquote as urlunquote
+
 from . import girder, get_logger
 from .consts import dandiset_metadata_file, known_instances, metadata_digests
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
@@ -15,6 +17,7 @@ class _dandi_url_parser:
     # into module space, and later we might end up with classes for those anyways
     id_regex = "[a-f0-9]{24}"
     id_grp = f"(?P<id>{id_regex})"
+    dandiset_id_grp = "(?P<dandiset_id>[0-9]{6})"
     server_grp = "(?P<server>(?P<protocol>https?)://(?P<hostname>[^/]+)/)"
     known_urls = {
         # Those we first redirect and then handle the redirected URL
@@ -23,6 +26,9 @@ class _dandi_url_parser:
         # handle_redirect:
         #   - 'pass' - would continue with original url if no redirect happen
         #   - 'only' - would interrupt if no redirection happens
+        # server_type:
+        #   - 'girder' - the default/old
+        #   - 'dandiapi' - the "new" (as of 20200715 state of various PRs)
         "https?://dandiarchive.org/.*": {"handle_redirect": "pass"},
         "https?://identifiers.org/DANDI:.*": {"handle_redirect": "pass"},
         "https?://[^/]*dandiarchive-org.netlify.app/.*": {"map_instance": "dandi"},
@@ -34,16 +40,25 @@ class _dandi_url_parser:
         f"{server_grp}#/folder/{id_regex}/selected(?P<multiitem>(/item\\+{id_grp})+)$": {},
         # Direct girder urls to items
         f"{server_grp}api/v1/(?P<asset_type>item)/{id_grp}/download$": {},
+        # New DANDI API
+        # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000006/0.200714.1807
+        # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000006/0.200714.1807/files
+        # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000006/0.200714.1807/files?location=%2Fsub-anm369962%2F
+        f"{server_grp}#.*/(?P<asset_type>dandiset)/{dandiset_id_grp}"
+        "/(?P<version>([.0-9]{5,}|draft))"
+        "(/files(\\?location=(?P<location>.*)?)?)?$": {"server_type": "dandiapi"},
+        # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000006/draft (no API yet)
         "https?://.*": {"handle_redirect": "only"},
     }
     # We might need to remap some assert_types
     map_asset_types = {"dandiset": "folder"}
     # And lets create our mapping into girder instances from known_instances:
-    map_to_girder = {}
-    for girder, *_ in known_instances.values():  # noqa: F402
-        for h in _:
+    map_to = {"girder": {}, "dandiapi": {}}
+    for girder, gui, redirector, dandiapi in known_instances.values():  # noqa: F402
+        for h in (gui, redirector):
             if h:
-                map_to_girder[h] = girder
+                map_to["girder"][h] = girder
+                map_to["dandiapi"][h] = dandiapi
 
     @classmethod
     def parse(cls, url, *, map_instance=True):
@@ -82,7 +97,7 @@ class _dandi_url_parser:
 
         Returns
         -------
-        server, asset_type, asset_id
+        server_type, server, asset_type, asset_id
           asset_type is either asset_id or folder ATM. asset_id might be a list
           in case of multiple files
 
@@ -113,18 +128,22 @@ class _dandi_url_parser:
                     )
             elif settings.get("map_instance"):
                 if map_instance:
-                    server, *_ = cls.parse(url, map_instance=False)
+                    server_type, server, *_ = cls.parse(url, map_instance=False)
                     if settings["map_instance"] not in known_instances:
                         raise ValueError(
                             "Unknown instance {}. Known are: {}".format(
                                 settings["map_instance"], ", ".join(known_instances)
                             )
                         )
-                    return (known_instances[settings["map_instance"]].girder,) + tuple(
-                        _
-                    )
+                    known_instance = known_instances[settings["map_instance"]]
+                    # for consistency, add
+                    server = getattr(known_instance, server_type)
+                    if not server.endswith("/"):
+                        server += "/"
+                    return (server_type, server) + tuple(_)
                 continue  # in this run we ignore an match further
             else:
+                server_type = settings.get("server_type", "girder")
                 break
 
         if not match:
@@ -138,22 +157,53 @@ class _dandi_url_parser:
             )
 
         groups = match.groupdict()
-        girder_server = cls.map_to_girder.get(
-            groups["server"].rstrip("/"), groups["server"]
-        )
-        if not girder_server.endswith("/"):
-            girder_server += "/"  # we expected '/' to be there so let it be
+        url_server = groups["server"]
+        server = cls.map_to[server_type].get(url_server.rstrip("/"), url_server)
 
-        if "multiitem" not in groups:
-            # we must be all set
-            asset_ids = [groups["id"]]
-            asset_type = groups["asset_type"]
-            asset_type = cls.map_asset_types.get(asset_type, asset_type)
+        if not server.endswith("/"):
+            server += "/"  # we expected '/' to be there so let it be
+
+        if server_type == "girder":
+            if "multiitem" not in groups:
+                # we must be all set
+                asset_ids = [groups["id"]]
+                asset_type = groups["asset_type"]
+                asset_type = cls.map_asset_types.get(asset_type, asset_type)
+            else:
+                # we need to split/parse them and return a list
+                asset_ids = [
+                    i.split("+")[1] for i in groups["multiitem"].split("/") if i
+                ]
+                asset_type = "item"
+        elif server_type == "dandiapi":
+            asset_type = groups.get("asset_type")
+            dandiset_id = groups.get("dandiset_id")
+            version = groups.get("version")
+            location = groups.get("location")
+            if location:
+                location = urlunquote(location)
+                # ATM carries leading '/' which IMHO is not needed/misguiding somewhat, so
+                # I will just strip it
+                location = location.lstrip("/")
+            if not (asset_type == "dandiset" and dandiset_id):
+                raise ValueError(f"{url} does not point to a dandiset")
+            if not version:
+                raise NotImplementedError(
+                    f"{url} does not point to a specific version (or draft). DANDI ppl should "
+                    f"decide what should be a behavior in such cases"
+                )
+            # Let's just return a structured record for the requested asset
+            asset_ids = {"dandiset_id": dandiset_id, "version": version}
+            # if location is not degenerate -- it would be a folder or a file
+            if location:
+                if location.endswith("/"):
+                    asset_type = "folder"
+                else:
+                    asset_type = "item"
+                asset_ids["location"] = location
         else:
-            # we need to split/parse them and return a list
-            asset_ids = [i.split("+")[1] for i in groups["multiitem"].split("/") if i]
-            asset_type = "item"
-        ret = girder_server, asset_type, asset_ids
+            raise RuntimeError(f"must not happen. We got {server_type}")
+        ret = server_type, server, asset_type, asset_ids
         lgr.debug("Parsed into %s", ret)
         return ret
 
@@ -191,10 +241,15 @@ def download(
         # on which instance it exists!  Thus ATM we would do nothing but crash
         raise NotImplementedError("No URLs were provided.  Cannot download anything")
     url = urls[0]
-    girder_server_url, asset_type, asset_id = parse_dandi_url(url)
-    _download_from_girder(
-        asset_id, asset_type, output_dir, recursive, existing, jobs, girder_server_url
-    )
+    server_type, server_url, asset_type, asset_id = parse_dandi_url(url)
+    if server_type == "girder":
+        return _download_from_girder(
+            asset_id, asset_type, output_dir, recursive, existing, jobs, server_url
+        )
+    else:
+        raise NotImplementedError(
+            f"Download from server of type {server_type} is not yet implemented"
+        )
 
 
 def _download_from_girder(
