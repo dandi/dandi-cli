@@ -93,7 +93,7 @@ known_instances = {
         "https://girder.dandiarchive.org",
         "https://gui.dandiarchive.org",
         "https://dandiarchive.org",
-        "https://publish.dandiarchive.org",  # ? might become api.
+        "https://publish.dandiarchive.org/api",  # ? might become api.
     ),
 }
 # to map back url: name
