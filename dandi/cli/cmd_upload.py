@@ -584,10 +584,11 @@ def upload(
             while len(process_paths) >= 10:
                 lgr.log(2, "Sleep waiting for some paths to finish processing")
                 time.sleep(0.5)
-            process_paths.add(path)
 
             rec = {"path": path}
             path = Path(path)
+            process_paths.add(str(path))
+
             try:
                 fullpath = path if path.is_absolute() else path.absolute()
                 relpath = fullpath.relative_to(dandiset.path)
