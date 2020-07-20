@@ -12,9 +12,10 @@ from pathlib import Path
 import girder_client as gcl
 
 from . import get_logger
-from .utils import ensure_datetime, is_same_time
-from .consts import dandiset_metadata_file, known_instances_rev, metadata_digests
-from .support.digests import Digester
+from .consts import (
+    dandiset_metadata_file,
+    known_instances_rev,
+)
 from .dandiset import Dandiset
 
 lgr = get_logger()
@@ -351,42 +352,9 @@ class GirderCli(gcl.GirderClient):
                 if len(children) < gcl.DEFAULT_PAGE_LIMIT:
                     break
 
-    def download_file(self, file_id, path, existing="error", attrs=None, digests=None):
+    def download_file(self, file_id, path):
         """
-        Parameters
-        ----------
-        digests: dict, optional
-          possible checksums or other digests provided for the file. Only one
-          will be used to verify download
         """
-        if op.lexists(path):
-            msg = f"File {path!r} already exists"
-            if existing == "error":
-                raise FileExistsError(msg)
-            elif existing == "skip":
-                lgr.info(msg + " skipping")
-                return
-            elif existing == "overwrite":
-                pass
-            elif existing == "refresh":
-                remote_file_mtime = self._get_file_mtime(attrs)
-                if remote_file_mtime is None:
-                    lgr.warning(
-                        f"{path!r} - no mtime or ctime in the record, redownloading"
-                    )
-                else:
-                    stat = os.stat(op.realpath(path))
-                    same = []
-                    if is_same_time(stat.st_mtime, remote_file_mtime):
-                        same.append("mtime")
-                    if "size" in attrs and stat.st_size == attrs["size"]:
-                        same.append("size")
-                    if same == ["mtime", "size"]:
-                        # TODO: add recording and handling of .nwb object_id
-                        lgr.info(f"{path!r} - same time and size, skipping")
-                        return
-                    lgr.debug(f"{path!r} - same attributes: {same}.  Redownloading")
-
         destdir = op.dirname(path)
         os.makedirs(destdir, exist_ok=True)
         # suboptimal since
@@ -416,38 +384,6 @@ class GirderCli(gcl.GirderClient):
                     attempt,
                 )
                 time.sleep(random.random() * 5)
-        # It seems that above call does not care about setting either mtime
-        if attrs:
-            mtime = self._get_file_mtime(attrs)
-            if mtime:
-                os.utime(path, (time.time(), mtime.timestamp()))
-        if digests:
-            # Pick the first one (ordered according to speed of computation)
-            for algo in metadata_digests:
-                if algo in digests:
-                    break
-            else:
-                algo = list(digests)[:1]  # first available
-            digest = Digester([algo])(path)[algo]
-            if digests[algo] != digest:
-                lgr.warning(
-                    "%s %s is different: downloaded %s, should have been %s.",
-                    path,
-                    algo,
-                    digest,
-                    digests[algo],
-                )
-            else:
-                lgr.debug("Verified that %s has correct %s %s", path, algo, digest)
-
-    @staticmethod
-    def _get_file_mtime(attrs):
-        if not attrs:
-            return None
-        # We would rely on uploaded_mtime from metadata being stored as mtime.
-        # If that one was not provided, the best we know is the "ctime"
-        # for the file, use that one
-        return ensure_datetime(attrs.get("mtime", attrs.get("ctime", None)))
 
     def _get_asset_files(
         self, asset_id, asset_type, output_dir, authenticate, existing, recursive

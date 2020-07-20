@@ -1,13 +1,17 @@
+import inspect
+import os
 import os.path as op
 import re
 import requests
+import time
 
 from urllib.parse import unquote as urlunquote
 
 from . import girder, get_logger
 from .consts import dandiset_metadata_file, known_instances, metadata_digests
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
-from .utils import flatten, flattened, Parallel, delayed
+from .support.digests import Digester
+from .utils import Parallel, delayed, ensure_datetime, flatten, flattened, is_same_time
 
 lgr = get_logger()
 
@@ -242,9 +246,22 @@ def download(
         raise NotImplementedError("No URLs were provided.  Cannot download anything")
     url = urls[0]
     server_type, server_url, asset_type, asset_id = parse_dandi_url(url)
+
+    # TODO: analysis for 'existing' for every item
     if server_type == "girder":
         return _download_from_girder(
-            asset_id, asset_type, output_dir, recursive, existing, jobs, server_url
+            server_url, asset_type, asset_id, output_dir, recursive, existing, jobs
+        )
+    elif server_type == "dandiapi":
+        return _download_from_dandiapi(
+            server_url,
+            asset_id["dandiset_id"],
+            asset_id["version"],
+            asset_id.get("location"),
+            output_dir,
+            recursive,
+            existing,
+            jobs,
         )
     else:
         raise NotImplementedError(
@@ -252,24 +269,56 @@ def download(
         )
 
 
+def _download_from_dandiapi(
+    server_url, dandiset_id, version, location, output_dir, recursive, existing, jobs
+):
+    # Fun begins!
+    location_ = "/" + location if location else ""
+    lgr.info(
+        f"Downloading {dandiset_id}{location_} (version: {version}) from {server_url}"
+    )
+
+    # TODO: get all assets
+    # 1. includes sha256, created, updated but those are of "girder" level so lack "uploaded_mtime"
+    # and uploaded_nwb_object_id forbidding logic for deducing necessity to update/move.
+    # But we still might want to rely on its sha256 instead of metadata since older uploads
+    # would not have that metadata in them
+    # 2. there is no API to list assets given a location
+    from .dandiapi import DandiAPIClient
+
+    client = DandiAPIClient(server_url)
+    with client.session():
+        # TODO: location
+        assets = client.get_dandiset_assets(dandiset_id, version)
+        lgr.info("TODO: download %d assets", len(assets))
+        # import pdb; pdb.set_trace()
+        # TODO: download all assets
+
+        # TODO: get metadata record for digests etc
+        #  might be needed in cases when there is an existing local file and strategy is not to
+        #  just override
+        # "/dandisets/{dandiset_id}/versions/{version}/assets/{uuid}/"
+        # TODO: actual download
+        "/dandisets/{dandiset_id}/versions/{version}/assets/{uuid}/download/"
+    pass
+
+
 def _download_from_girder(
-    asset_id,
+    server_url,
     asset_type,
+    asset_id,
     output_dir,
     recursive,
     existing,
     jobs,
-    girder_server_url,
     authenticate=False,
 ):
     # We could later try to "dandi_authenticate" if run into permission issues.
     # May be it could be not just boolean but the "id" to be used?
     client = girder.get_client(
-        girder_server_url,
-        authenticate=authenticate,
-        progressbars=True,  # TODO: redo all this
+        server_url, authenticate=authenticate, progressbars=True  # TODO: redo all this
     )
-    lgr.info(f"Downloading {asset_type} with id {asset_id} from {girder_server_url}")
+    lgr.info(f"Downloading {asset_type} with id {asset_id} from {server_url}")
     # there might be multiple asset_ids, e.g. if multiple files were selected etc,
     # so we will traverse all of them
     files = flatten(
@@ -294,3 +343,90 @@ def _download_from_girder(
         )
         for file in files
     )
+
+
+def _get_file_mtime(attrs):
+    if not attrs:
+        return None
+    # We would rely on uploaded_mtime from metadata being stored as mtime.
+    # If that one was not provided, the best we know is the "ctime"
+    # for the file, use that one
+    return ensure_datetime(attrs.get("mtime", attrs.get("ctime", None)))
+
+
+def _download_file(downloader, path, existing="error", attrs=None, digests=None):
+    """Common logic for downloading a single file
+
+    Generator downloader:
+
+    TODO: describe expected records it should yield
+    - progress
+    - error
+    - completion
+
+    Parameters
+    ----------
+    downloader: callable
+      A backend (girder or dandiapi) specific fixture for downloading some file into
+      path. It could be a function or a generator.
+    digests: dict, optional
+      possible checksums or other digests provided for the file. Only one
+      will be used to verify download
+    """
+    if op.lexists(path):
+        msg = f"File {path!r} already exists"
+        if existing == "error":
+            raise FileExistsError(msg)
+        elif existing == "skip":
+            lgr.info(msg + " skipping")
+            return
+        elif existing == "overwrite":
+            pass
+        elif existing == "refresh":
+            remote_file_mtime = _get_file_mtime(attrs)
+            if remote_file_mtime is None:
+                lgr.warning(
+                    f"{path!r} - no mtime or ctime in the record, redownloading"
+                )
+            else:
+                stat = os.stat(op.realpath(path))
+                same = []
+                if is_same_time(stat.st_mtime, remote_file_mtime):
+                    same.append("mtime")
+                if "size" in attrs and stat.st_size == attrs["size"]:
+                    same.append("size")
+                if same == ["mtime", "size"]:
+                    # TODO: add recording and handling of .nwb object_id
+                    lgr.info(f"{path!r} - same time and size, skipping")
+                    return
+                lgr.debug(f"{path!r} - same attributes: {same}.  Redownloading")
+
+    destdir = op.dirname(path)
+    os.makedirs(destdir, exist_ok=True)
+    if inspect.isgenerator(downloader):
+        yield from downloader
+    else:
+        downloader()
+    # It seems that above call does not care about setting either mtime
+    if attrs:
+        mtime = _get_file_mtime(attrs)
+        if mtime:
+            os.utime(path, (time.time(), mtime.timestamp()))
+    if digests:
+        # Pick the first one (ordered according to speed of computation)
+        for algo in metadata_digests:
+            if algo in digests:
+                break
+        else:
+            algo = list(digests)[:1]  # first available
+        digest = Digester([algo])(path)[algo]
+        if digests[algo] != digest:
+            lgr.warning(
+                "%s %s is different: downloaded %s, should have been %s.",
+                path,
+                algo,
+                digest,
+                digests[algo],
+            )
+        else:
+            lgr.debug("Verified that %s has correct %s %s", path, algo, digest)
