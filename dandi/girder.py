@@ -16,7 +16,7 @@ from .consts import (
     dandiset_metadata_file,
     known_instances_rev,
 )
-from .dandiset import Dandiset
+from .utils import flattened, flatten
 
 lgr = get_logger()
 
@@ -385,9 +385,21 @@ class GirderCli(gcl.GirderClient):
                 )
                 time.sleep(random.random() * 5)
 
-    def _get_asset_files(
-        self, asset_id, asset_type, output_dir, authenticate, existing, recursive
-    ):
+    def _get_asset_recs(self, asset_id, asset_type, authenticate=False, recursive=True):
+        """
+
+        Parameters
+        ----------
+        asset_id
+        asset_type
+        authenticate
+        recursive
+
+        Returns
+        -------
+        dandiset_rec, files_rec
+           dandiset_rec will be None if asset_id is not pointing to a dandiset
+        """
         # asset_rec = client.getResource(asset_type, asset_id)
         # lgr.info("Working with asset %s", str(asset_rec))
         # In principle Girder's client already has ability to download any
@@ -400,6 +412,9 @@ class GirderCli(gcl.GirderClient):
         # TODO later:  may be look into making it async
         # First we access top level records just to sense what we are working with
         top_entities = None
+        files = None
+        dandiset = None
+
         while True:
             try:
                 # this one should enhance them with "fullpath"
@@ -423,8 +438,7 @@ class GirderCli(gcl.GirderClient):
         if entity_type in ("dandiset", "folder"):
             # redo recursively
             lgr.info(
-                "Traversing remote %ss (%s) recursively and downloading them "
-                "locally",
+                "Traversing remote %ss (%s) recursively",
                 entity_type,
                 ", ".join(e["name"] for e in top_entities),
             )
@@ -437,28 +451,49 @@ class GirderCli(gcl.GirderClient):
             files = top_entities
         else:
             raise ValueError(f"Unexpected entity type {entity_type}")
+        # TODO: move -- common and has nothing to do with getting a list of assets
         if entity_type == "dandiset":
-            for e in top_entities:
-                dandiset_path = op.join(output_dir, e["path"])
-                dandiset_yaml = op.join(dandiset_path, dandiset_metadata_file)
-                lgr.info(
-                    f"Updating {dandiset_metadata_file} from obtained dandiset "
-                    f"metadata"
+            if len(top_entities) > 1:
+                raise NotImplementedError(
+                    "A single dandiset at a time only supported ATM, got %d: %s"
+                    % (len(top_entities), top_entities)
                 )
-                if op.lexists(dandiset_yaml):
-                    if existing != "overwrite":
-                        lgr.info(
-                            f"{dandiset_yaml} already exists.  Set 'existing' "
-                            f"to overwrite if you want it to be redownloaded. "
-                            f"Skipping"
-                        )
-                        continue
-                dandiset = Dandiset(dandiset_path, allow_empty=True)
-                dandiset.path_obj.mkdir(
-                    exist_ok=True
-                )  # exist_ok in case of parallel race
-                dandiset.update_metadata(e.get("metadata", {}).get("dandiset", {}))
-        return files
+            dandiset = top_entities[0]
+
+        return dandiset, files
+
+    def get_dandiset_and_assets(
+        self, asset_id, asset_type, recursive=True, authenticate=False
+    ):
+        lgr.debug(f"Traversing {asset_type} with id {asset_id}")
+        # there might be multiple asset_ids, e.g. if multiple files were selected etc,
+        # so we will traverse all of them
+        dandiset_asset_recs = [
+            self._get_asset_recs(
+                asset_id_, asset_type, authenticate=authenticate, recursive=recursive
+            )
+            for asset_id_ in set(flattened([asset_id]))
+        ]
+
+        dandiset = None
+        if not dandiset_asset_recs:
+            lgr.warning("Got empty listing for %s %s", asset_type, asset_id)
+            return
+        elif (
+            len(dandiset_asset_recs) > 1
+        ):  # had multiple asset_ids, should not be dandisets
+            if any(r[0] for r in dandiset_asset_recs):
+                raise NotImplementedError("Got multiple ids for dandisets")
+        else:
+            dandiset = dandiset_asset_recs[0][0]
+        # TODO: harmonize here for expected structure mimicing API records
+        return dandiset, flatten(r[1] for r in dandiset_asset_recs)
+
+    def _get_downloader(self, id, path):
+        def downloader():
+            return self.download_file(id, path)
+
+        return downloader
 
 
 # TODO: our adapter on top of the Girder's client to simplify further

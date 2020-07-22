@@ -141,10 +141,7 @@ class RESTFullAPIClient(object):
         # Look up the HTTP method we need
         f = self._request_func(method)
 
-        # Construct the url
-        if self.api_url.endswith("/") and path.startswith("/"):
-            path = path[1:]
-        url = self.api_url + path
+        url = self.get_url(path)
 
         # Make the request, passing parameters and authentication info
         _headers = headers or {}
@@ -173,6 +170,13 @@ class RESTFullAPIClient(object):
                 f"Error {result.status_code} while sending {method} request to {url}",
                 response=result,
             )
+
+    def get_url(self, path):
+        # Construct the url
+        if self.api_url.endswith("/") and path.startswith("/"):
+            path = path[1:]
+        url = self.api_url + path
+        return url
 
     def get(self, path, parameters=None, json_resp=True):
         """
@@ -229,7 +233,36 @@ class RESTFullAPIClient(object):
 
 
 class DandiAPIClient(RESTFullAPIClient):
-    def get_dandiset_assets(self, dandiset_id, version, page_size=None):
+    def get_asset(self, dandiset_id, version, uuid):
+        """
+
+        /dandisets/{version__dandiset__pk}/versions/{version__version}/assets/{uuid}/
+
+        Parameters
+        ----------
+        dandiset_id
+        version
+        uuid
+
+        Returns
+        -------
+
+        """
+        return self.get(f"/dandisets/{dandiset_id}/versions/{version}/assets/{uuid}/")
+
+    def get_dandiset(self, dandiset_id, version):
+        return self.get(f"/dandisets/{dandiset_id}/versions/{version}/")
+
+    def get_dandiset_assets(
+        self, dandiset_id, version, location=None, page_size=None, include_metadata=True
+    ):
+        """A generator to provide asset records
+        """
+        if location is not None:
+            raise NotImplementedError(
+                "location specific query. See https://github.com/dandi/dandi-publish/issues/77"
+            )
+            # although we could just provide ad-hoc implementation here for now. TODO
         if page_size is not None:
             raise NotImplementedError("paginated query is not supported yet")
         page_size = 1000000
@@ -260,7 +293,64 @@ class DandiAPIClient(RESTFullAPIClient):
         # Things might change, so let's just return only "relevant" ATM information
         # under assumption that assets belong to the current version of the dataset requested
         results_ = [
-            {k: r[k] for k in ("path", "uuid", "size", "sha256") if k in r}
+            {k: r[k] for k in ("path", "uuid", "size", "sha256", "metadata") if k in r}
             for r in results
         ]
-        return results_
+        for r in results_:
+            if include_metadata and "metadata" not in r:
+                # metadata is not included ATM
+                # https://github.com/dandi/dandi-publish/issues/78
+                # so we need to query explicitly. Returned value is pretty much an asset record
+                # we already have but also has "metadata"
+                asset_res = self.get_asset(dandiset_id, version, r["uuid"])
+                assert asset_res["path"] == r["path"]
+                assert asset_res["uuid"] == r["uuid"]
+                if "metadata" in asset_res:
+                    r["metadata"] = asset_res["metadata"]
+                    # check for paranoid Yarik with current multitude of checksums
+                    # r['sha256'] is what "dandi-publish" computed, but then
+                    # metadata could contain multiple digests computed upon upload
+                    if (
+                        "sha256" in r
+                        and "sha256" in asset_res["metadata"]
+                        and asset_res["metadata"]["sha256"] != r["sha256"]
+                    ):
+                        lgr.warning("sha256 mismatch for %s" % str(r))
+            yield r
+
+    def get_dandiset_and_assets(
+        self, dandiset_id, version, location=None, include_metadata=True
+    ):
+        """This is pretty much an adapter to provide "harmonized" output in both
+        girder and dandiapi clients.
+
+        Harmonization should happen toward "dandiapi" BUT AFAIK it is still influx
+        """
+        # Fun begins!
+        location_ = "/" + location if location else ""
+        lgr.info(f"Traversing {dandiset_id}{location_} (version: {version})")
+
+        # TODO: get all assets
+        # 1. includes sha256, created, updated but those are of "girder" level so lack "uploaded_mtime"
+        # and uploaded_nwb_object_id forbidding logic for deducing necessity to update/move.
+        # But we still might want to rely on its sha256 instead of metadata since older uploads
+        # would not have that metadata in them
+        # 2. there is no API to list assets given a location
+        # Get dandiset information
+        dandiset = self.get_dandiset(dandiset_id, version)
+        # TODO: location
+        assets = self.get_dandiset_assets(
+            dandiset_id, version, location=location, include_metadata=include_metadata
+        )
+        return dandiset, assets
+
+    def _get_downloader(self, dandiset_id, version, uuid, output_path):
+        url = self.get_url(
+            "/dandisets/{dandiset_id}/versions/{version}/assets/{uuid}/download/"
+        )
+
+        def downloader():
+            """Generator which will be yielding records updating on the progress etc"""
+            pass
+
+        return downloader

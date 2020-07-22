@@ -84,6 +84,18 @@ def test_parse_dandi_url():
             "location": "sub-anm369962",
         },
     )
+    # And the hybrid for "drafts" where it still goes by girder ID
+    assert _assert_parse_dandiapi_url(
+        "https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000027"
+        "/draft/files?_id=5f176583f63d62e1dbd06943&_modelType=folder"
+    ) == (
+        "folder",
+        {
+            "dandiset_id": "000027",
+            "version": "draft",
+            "folder_id": "5f176583f63d62e1dbd06943",
+        },
+    )
 
 
 @mark.skipif_no_network
