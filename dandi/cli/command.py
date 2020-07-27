@@ -186,6 +186,11 @@ def main(log_level, pdb=False):
 
         etelemetry.check_available_version("dandi/dandi-cli", __version__, lgr=lgr)
     except Exception as exc:
+        # This magical undocumented env var would allow to overcome some internal
+        # or external issues by merely disclosing its availability to effected users,
+        # while mandating users to update to the most recent version of the client
+        if not bool(os.environ.get("DANDI_ALLOW_OUTDATED", None)):
+            raise
         lgr.warning(
             "Failed to check for a more recent version available with etelemetry: %s",
             exc,
