@@ -138,3 +138,40 @@ def test_download_multiple_files(tmpdir):
         "sub-anm372795_ses-20170715.nwb",
     ]
     assert all(x.lstat().size > 1e5 for x in tmpdir.listdir())  # all bigish files
+
+
+# both urls point to 000027 (lean test dataset), and both draft and "released"
+# version have only a single file ATM
+@pytest.mark.parametrize(
+    "url",
+    [  # Should go through API
+        "https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000027/0.200721.2222",
+        # Good old girder (draft)
+        "https://gui.dandiarchive.org/#/dandiset/5f0640a2ab90ac46c4561e4f",
+    ],
+)
+def test_download_000027(url, tmpdir):
+    ret = download(url, tmpdir)
+    assert not ret  # we return nothing ATM, might want to "generate"
+    downloads = (x.relto(tmpdir) for x in tmpdir.visit())
+    assert sorted(downloads) == [
+        "000027",
+        "000027/dandiset.yaml",
+        "000027/sub-RAT123",
+        "000027/sub-RAT123/sub-RAT123.nwb",
+    ]
+    # and checksum should be correct as well
+    from ..support.digests import Digester
+
+    assert (
+        Digester(["md5"])(tmpdir / "000027/sub-RAT123/sub-RAT123.nwb")["md5"]
+        == "33318fd510094e4304868b4a481d4a5a"
+    )
+    # redownload - since already exist there should be an exception
+    with pytest.raises(FileExistsError):
+        download(url, tmpdir)
+
+    # TODO: somehow get that status report about what was downloaded and what not
+    download(url, tmpdir, existing="skip")  # TODO: check that skipped
+    download(url, tmpdir, existing="overwrite")  # TODO: check that redownloaded
+    download(url, tmpdir, existing="refresh")  # TODO: check that skipped (the same)
