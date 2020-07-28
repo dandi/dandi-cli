@@ -13,10 +13,11 @@ import girder_client as gcl
 
 from . import get_logger
 from .consts import (
+    REQ_BUFFER_SIZE,
     dandiset_metadata_file,
     known_instances_rev,
 )
-from .utils import flattened, flatten
+from .utils import flattened, flatten, remap_dict
 
 lgr = get_logger()
 
@@ -352,28 +353,15 @@ class GirderCli(gcl.GirderClient):
                 if len(children) < gcl.DEFAULT_PAGE_LIMIT:
                     break
 
-    def download_file(self, file_id, path):
+    def get_download_file_iter(self, file_id, chunk_size=REQ_BUFFER_SIZE):
         """
         """
-        destdir = op.dirname(path)
-        os.makedirs(destdir, exist_ok=True)
-        # suboptimal since
-        # 1. downloads into TMPDIR which might lack space etc.  If anything, we
-        # might tune up setting/TMPDIR at the
-        # level of download so it goes alongside with the target path
-        # (e.g. under .FILENAME.dandi-download). That would speed things up
-        # when finalizing the download, possibly avoiding `mv` across partitions
-        # 2. unlike upload it doesn't use a callback but relies on a context
-        #  manager to be called with an .update.  also it uses only filename
-        #  in the progressbar label
-        # For starters we would do this implementation but later RF
-        # when RF - do not forget to remove progressReporterCls in __init__
-
+        # TODO: make it a common decorator here?
         # Will do 3 attempts to avoid some problems due to flaky/overloaded
         # connections, see https://github.com/dandi/dandi-cli/issues/87
         for attempt in range(3):
             try:
-                self.downloadFile(file_id, path)
+                return self.downloadFileAsIterator(file_id, chunkSize=chunk_size)
                 break
             except gcl.HttpError as exc:
                 if is_access_denied(exc) or attempt >= 2:
@@ -487,13 +475,69 @@ class GirderCli(gcl.GirderClient):
         else:
             dandiset = dandiset_asset_recs[0][0]
         # TODO: harmonize here for expected structure mimicing API records
+        if dandiset:
+            pass
         return dandiset, flatten(r[1] for r in dandiset_asset_recs)
 
-    def _get_downloader(self, id, path):
-        def downloader():
-            return self.download_file(id, path)
 
-        return downloader
+def _harmonize_girder_dandiset_to_dandi_api(rec):
+    """
+    Compare API (on a released version):
+
+{'count': 1,
+ 'created': '2020-07-21T22:22:15.396171Z',
+ 'dandiset': {'created': '2020-07-21T22:22:14.732729Z',
+              'identifier': '000027',
+              'updated': '2020-07-21T22:22:14.732762Z'},
+ 'metadata': {'dandiset': {...}},
+ 'updated': '2020-07-21T22:22:15.396295Z',
+ 'version': '0.200721.2222'}
+
+    to Girder (on drafts):
+
+{'attrs': {'ctime': '2020-07-08T21:54:42.543000+00:00',
+           'mtime': '2020-07-21T22:02:34.918000+00:00',
+           'size': 0},
+ 'id': '5f0640a2ab90ac46c4561e4f',
+ 'metadata': {'dandiset': {...}},
+ 'name': '000027',
+ 'path': '000027',
+ 'type': 'dandiset'}
+
+So we will place some girder specific ones under 'girder' and populate 'dandiset', e.g.
+(there is absent clarify of what date times API returns: https://github.com/dandi/dandi-publish/issues/107
+so we will assume that my take was more or less correct and then we would have them
+correspond in case of a draft, as it is served by girder ATM:
+
+{# 'count': 1,  # no count
+ 'created': '2020-07-21T22:22:15.396171Z',  # attrs.ctime
+ 'dandiset': {'created': '2020-07-08T21:54:42.543000+00:00',  # attrs.ctime
+              'identifier': '000027',  # name
+              'updated': '2020-07-21T22:02:34.918000+00:00' },  # attrs.mtime
+ 'metadata': {'dandiset': {...}},
+ 'updated': '2020-07-21T22:02:34.918000+00:00'}  # attrs.mtime
+
+
+    Parameters
+    ----------
+    rec
+
+    Returns
+    -------
+    dict
+    """
+    # ATM it is just a simple remapping but might become more sophisticated later on
+    return remap_dict(
+        rec,
+        {
+            "metadata": "metadata",  # 1-to-1 for now
+            "dandiset.created": "attrs.ctime",
+            "created": "attrs.ctime",
+            "dandiset.uptimed": "attrs.mtime",
+            "updated": "attrs.mtime",
+            "dandiset.identifier": "name",
+        },
+    )
 
 
 # TODO: our adapter on top of the Girder's client to simplify further

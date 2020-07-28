@@ -17,6 +17,7 @@ import requests
 from . import get_logger
 from .utils import ensure_datetime, ensure_strtime, is_same_time
 from .consts import (
+    REQ_BUFFER_SIZE,
     dandiset_metadata_file,
     known_instances,
     known_instances_rev,
@@ -344,13 +345,19 @@ class DandiAPIClient(RESTFullAPIClient):
         )
         return dandiset, assets
 
-    def _get_downloader(self, dandiset_id, version, uuid, output_path):
+    def get_download_file_iter(
+        self, dandiset_id, version, uuid, chunk_size=REQ_BUFFER_SIZE
+    ):
         url = self.get_url(
-            "/dandisets/{dandiset_id}/versions/{version}/assets/{uuid}/download/"
+            f"/dandisets/{dandiset_id}/versions/{version}/assets/{uuid}/download/"
         )
 
+        # TODO: just redo to have this function a generator
         def downloader():
             """Generator which will be yielding records updating on the progress etc"""
-            pass
+            with self.session.get(url, stream=True) as resp:
+                for chunk in resp.raw.stream(chunk_size, decode_content=False):
+                    if chunk:  # could be some "keep alive"?
+                        yield chunk
 
         return downloader

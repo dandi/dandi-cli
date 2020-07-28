@@ -1,6 +1,8 @@
-import inspect
+import hashlib
+
 import os
 import os.path as op
+import random
 import re
 import requests
 import time
@@ -16,7 +18,6 @@ from .consts import (
 )
 from .dandiset import Dandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
-from .support.digests import Digester
 from .utils import Parallel, delayed, ensure_datetime, flatten, flattened, is_same_time
 
 lgr = get_logger()
@@ -314,6 +315,9 @@ def download(
         dandiset, assets = client.get_dandiset_and_assets(*args)  # recursive=recursive
 
         # TODO: wrap within pyout or tqdm capable "frontend"
+        import pdb
+
+        pdb.set_trace()
         if dandiset:
             for resp in _populate_dandiset_yaml(
                 op.join(output_dir, dandiset["path"]),
@@ -347,13 +351,21 @@ def download(
                 path = op.join(asset_id["dandiset_id"], path)
             path = op.join(output_dir, path)
 
+            downloader = client.get_download_file_iter(*down_args)
+
+            # Get size from the metadata, although I guess it could be returned directly
+            # by server while establishing downloader... but it seems that girder itself
+            # does get it from the "file" resource, not really from direct URL.  So I guess
+            # we will just follow. For now we must find it in "attrs"
             for resp in _download_file(
-                client._get_downloader(*down_args, path),
+                downloader,
                 path,
+                size=attrs["size"],
+                mtime=_get_file_mtime(attrs),
                 existing=existing,
-                attrs=attrs,
                 digests=digests,
             ):
+                resp = dict(path=path, **resp)
                 print(resp)
 
 
@@ -414,7 +426,9 @@ def _populate_dandiset_yaml(dandiset_path, metadata, overwrite):
         yield {"status": "done"}
 
 
-def _download_file(downloader, path, existing="error", attrs=None, digests=None):
+def _download_file(
+    downloader, path, size=None, mtime=None, existing="error", digests=None
+):
     """Common logic for downloading a single file
 
     Generator downloader:
@@ -426,37 +440,38 @@ def _download_file(downloader, path, existing="error", attrs=None, digests=None)
 
     Parameters
     ----------
-    downloader: callable
+    downloader: generator
       A backend (girder or dandiapi) specific fixture for downloading some file into
-      path. It could be a function or a generator.
+      path. It should be a generator yielding downloaded blocks.
+    size: int, optional
+      Target size if known
     digests: dict, optional
       possible checksums or other digests provided for the file. Only one
       will be used to verify download
     """
 
     if op.lexists(path):
-        msg = f"File {path!r} already exists"
+        block = f"File {path!r} already exists"
         if existing == "error":
-            raise FileExistsError(msg)
+            raise FileExistsError(block)
         elif existing == "skip":
             yield skip_file("already exists")
             return
         elif existing == "overwrite":
             pass
         elif existing == "refresh":
-            remote_file_mtime = _get_file_mtime(attrs)
-            if remote_file_mtime is None:
+            if mtime is None:
                 lgr.warning(
                     f"{path!r} - no mtime or ctime in the record, redownloading"
                 )
             else:
-                # TODO: use digests if available? or if e.g. size is identical but mtime is different
                 stat = os.stat(op.realpath(path))
                 same = []
-                if is_same_time(stat.st_mtime, remote_file_mtime):
+                if is_same_time(stat.st_mtime, mtime):
                     same.append("mtime")
-                if "size" in attrs and stat.st_size == attrs["size"]:
+                if size is not None and stat.st_size == size:
                     same.append("size")
+                # TODO: use digests if available? or if e.g. size is identical but mtime is different
                 if same == ["mtime", "size"]:
                     # TODO: add recording and handling of .nwb object_id
                     yield skip_file("same time and size")
@@ -467,66 +482,93 @@ def _download_file(downloader, path, existing="error", attrs=None, digests=None)
     os.makedirs(destdir, exist_ok=True)
 
     yield {"status": "downloading"}
-    downloaded_digests = None
-    if inspect.isgenerator(downloader):
-        # TODO: downloader might do digesting "on the fly" so we would need to catch
-        # a message which would provide digests
-        for msg in downloader:
-            if "digests" in msg:
-                if downloaded_digests is not None:
-                    lgr.error(
-                        "We got 2nd %s digests record",
-                        "same"
-                        if msg.get("digests") == downloaded_digests
-                        else "%s != %s" % (downloaded_digests, msg.get("digests")),
-                    )
-                downloaded_digests = msg.get("digests")
-            else:
-                yield msg
-    else:
-        downloader()
 
-    # It seems that above call does not care about setting either mtime
-    if attrs:
-        yield {"status": "setting mtime"}
-        mtime = _get_file_mtime(attrs)
-        if mtime:
-            os.utime(path, (time.time(), mtime.timestamp()))
-
+    algo, digester, digest, downloaded_digest = None, None, None, None
     if digests:
-        digest, algo = None, None
-        if downloaded_digests:
-            # Take intersection of provided target ones and the one(s) from downloader
-            # TODO: make it more straightforward?
-            common_digests = set(digests).intersection(downloaded_digests)
-            if not common_digests:
-                lgr.warning(
-                    "Was provided %s, while downloader provided %s digests.",
-                    ", ".join(digests),
-                    ", ".join(downloaded_digests),
-                )
-            else:
-                algo = list(common_digests[0])
-                digest = downloaded_digests[algo]
+        # choose first available for now.
+        # TODO: reuse that sorting based on speed
+        for algo, digest in digests.items():
+            digester = getattr(hashlib, algo, None)
+            if digester:
+                break
+        if not digester:
+            lgr.warning("Found no digests in hashlib for any of %s", str(digests))
 
-        if not digest:
-            yield {"status": "digesting"}
-            # Pick the first one (ordered according to speed of computation)
-            for algo in metadata_digests:
-                if algo in digests:
-                    break
-            else:
-                algo = list(digests)[:1]  # first available
-            digest = Digester([algo])(path)[algo]
+    # TODO: how do we discover the total size????
+    # TODO: do not do it in-place, but rather into some "hidden" file
+    for attempt in range(3):
+        try:
+            downloaded = 0
+            if digester:
+                downloaded_digest = digester()  # start empty
+            warned = False
+            # I wonder if we could make writing async with downloader
+            with open(path, "wb") as writer:
+                for block in downloader:
+                    if digester:
+                        downloaded_digest.update(block)
+                    downloaded += len(block)
+                    # TODO: yield progress etc
+                    msg = {"downloaded": downloaded}
+                    if size:
+                        if downloaded > size and not warned:
+                            # Yield ERROR?
+                            lgr.warning(
+                                "Downloaded %d bytes although size was told to be just %d",
+                                downloaded,
+                                size,
+                            )
+                        msg["downloaded%"] = 100 * downloaded / size if size else "100"
+                        # TODO: ETA etc
+                    yield msg
+                    writer.write(block)
+            break
+            # both girder and we use HttpError
+        except requests.exceptions.HTTPError as exc:
+            # TODO: actually we should probably retry only on selected codes, and also
+            # respect Retry-After
+            import pdb
 
-        if digests[algo] != digest:
-            msg = f"{algo}: downloaded {digest} != {digests[algo]}"
-            yield {"errors": 1, "status": "error", "message": str(msg)}
+            pdb.set_trace()
+            if attempt >= 2 or exc.status not in (
+                400,  # Bad Request, but happened with gider: https://github.com/dandi/dandi-cli/issues/87
+                503,  # Service Unavailable
+            ):
+                raise
+            # if is_access_denied(exc) or attempt >= 2:
+            #     raise
+            # sleep a little and retry
+            lgr.debug(
+                "Failed to download on attempt#%d, will sleep a bit and retry", attempt
+            )
+            time.sleep(random.random() * 5)
+
+    if downloaded_digest:
+        downloaded_digest = downloaded_digest.hexdigest()  # we care only about hex
+        if digest != downloaded_digest:
+            msg = f"{algo}: downloaded {downloaded_digest} != {digest}"
+            yield {
+                "errors": 1,
+                "checksum": "differs",
+                "status": "error",
+                "message": msg,
+            }
             lgr.warning("%s is different: %s.", path, msg)
             return
         else:
+            yield {"checksum": "ok"}
             lgr.debug("Verified that %s has correct %s %s", path, algo, digest)
     else:
-        yield {"message": "no digests were provided"}
+        # shouldn't happen with more recent metadata etc
+        yield {"checksum": "N/A", "message": "no digests were provided"}
+
+    # It seems that girder might not care about setting either mtime, so we will do if we know
+    # TODO: dissolve attrs and pass specific mtime?
+    if mtime:
+        yield {"status": "setting mtime"}
+        os.utime(path, (time.time(), mtime.timestamp()))
 
     yield {"status": "done"}
+
+
+from .consts import REQ_BUFFER_SIZE

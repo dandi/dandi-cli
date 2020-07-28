@@ -105,6 +105,13 @@ collection_releases = "releases"
 file_operation_modes = ["dry", "simulate", "copy", "move", "hardlink", "symlink"]
 
 #
+# Download (upload?) specific constants
+#
+REQ_BUFFER_SIZE = (
+    65536
+)  # Chunk size when iterating a download body. Taken from girder-cli
+
+#
 # Some routes
 # TODO: possibly centralize in dandi-common from our redirection service
 #
