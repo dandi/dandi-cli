@@ -17,7 +17,7 @@ from .consts import (
     dandiset_metadata_file,
     known_instances_rev,
 )
-from .utils import flattened, flatten, remap_dict
+from .utils import ensure_datetime, flattened, flatten, remap_dict
 
 lgr = get_logger()
 
@@ -464,6 +464,7 @@ class GirderCli(gcl.GirderClient):
         ]
 
         dandiset = None
+
         if not dandiset_asset_recs:
             lgr.warning("Got empty listing for %s %s", asset_type, asset_id)
             return
@@ -474,10 +475,18 @@ class GirderCli(gcl.GirderClient):
                 raise NotImplementedError("Got multiple ids for dandisets")
         else:
             dandiset = dandiset_asset_recs[0][0]
-        # TODO: harmonize here for expected structure mimicing API records
+
+        # Return while harmonizing
         if dandiset:
-            pass
-        return dandiset, flatten(r[1] for r in dandiset_asset_recs)
+            dandiset = _harmonize_girder_dandiset_to_dandi_api(dandiset)
+
+        return (
+            dandiset,
+            (
+                _harmonize_girder_asset_to_dandi_api(a)
+                for a in flatten(r[1] for r in dandiset_asset_recs)
+            ),
+        )
 
 
 def _harmonize_girder_dandiset_to_dandi_api(rec):
@@ -538,6 +547,129 @@ correspond in case of a draft, as it is served by girder ATM:
             "dandiset.identifier": "name",
         },
     )
+
+
+def _get_file_mtime(attrs):
+    if not attrs:
+        return None
+    # We would rely on uploaded_mtime from metadata being stored as mtime.
+    # If that one was not provided, the best we know is the "ctime"
+    # for the file, use that one
+    return ensure_datetime(attrs.get("mtime", attrs.get("ctime", None)))
+
+
+def _harmonize_girder_asset_to_dandi_api(rec):
+    """
+
+    girder rec:
+
+*(Pdb) pprint(_a[0])
+{'attrs': {'ctime': '2020-07-21T22:00:36.362000+00:00',
+           'mtime': '2020-07-21T17:31:55.283394-04:00',
+           'size': 18792},
+ 'id': '5f176584f63d62e1dbd06946',
+ 'metadata': {... identical at this level
+              'uploaded_by': 'dandi 0.5.0+12.gd4ef762.dirty',
+              'uploaded_datetime': '2020-07-21T18:00:36.703727-04:00',
+              'uploaded_mtime': '2020-07-21T17:31:55.283394-04:00',
+              'uploaded_size': 18792},
+ 'name': 'sub-RAT123.nwb',
+ 'path': '000027/sub-RAT123/sub-RAT123.nwb',
+ 'type': 'file'}
+
+    and API (lacking clear "modified" so needs tuning too):
+
+    {
+      "version": {
+        "dandiset": {
+          "identifier": "000027",
+          "created": "2020-07-21T22:22:14.732729Z",
+          "updated": "2020-07-21T22:22:14.732762Z"
+        },
+        "version": "0.200721.2222",
+        "created": "2020-07-21T22:22:15.396171Z",
+        "updated": "2020-07-21T22:22:15.396295Z",
+        "count": 1
+      },
+      "uuid": "bca53c42-7fc2-41b6-b836-5ed102ba8447",
+      "path": "/sub-RAT123/sub-RAT123.nwb",
+      "size": 18792,
+      "sha256": "1a765509384ea96b7b12136353d9c5b94f23d764ad0431e049197f7875eb352c",
+      "created": "2020-07-21T22:22:16.882594Z",
+      "updated": "2020-07-21T22:22:16.882641Z",
+      "metadata": {
+...
+        "sha256": "1a765509384ea96b7b12136353d9c5b94f23d764ad0431e049197f7875eb352c",
+...
+        "uploaded_size": 18792,
+        "uploaded_mtime": "2020-07-21T17:31:55.283394-04:00",
+        "uploaded_datetime": "2020-07-21T18:00:36.703727-04:00",
+...
+      }
+    }
+
+
+    Parameters
+    ----------
+    rec
+
+    Returns
+    -------
+
+    """
+    rec = rec.copy()  # we will modify in place
+
+    metadata = rec.get("metadata", {})
+    size = rec["size"] = rec.get("attrs", {}).get("size")
+    # we will add messages leading to decision that metadata is outdated and thus should not be used
+    metadata_outdated = []
+    uploaded_size = metadata.get("uploaded_size")
+    if size is None:
+        lgr.debug("Found no size in attrs from girder!")
+        if uploaded_size is not None:
+            lgr.debug("Taking 'uploaded_size' of %d", uploaded_size)
+            rec["size"] = uploaded_size
+    else:
+        if uploaded_size is not None and size != uploaded_size:
+            metadata_outdated.append(
+                f"uploaded_size of {uploaded_size} != size of {size}"
+            )
+
+    # duplication but ok for now
+    modified = rec["modified"] = _get_file_mtime(rec.get("attrs"))
+    uploaded_mtime = metadata.get("uploaded_mtime")
+    if uploaded_mtime:
+        uploaded_mtime = ensure_datetime(uploaded_mtime)
+    if modified is None:
+        lgr.debug("Found no mtime (modified) among girder attrs")
+        if uploaded_mtime is not None:
+            rec["modified"] = uploaded_mtime
+    else:
+        if uploaded_mtime is not None and modified != uploaded_mtime:
+            metadata_outdated.append(
+                f"uploaded_mtime of {uploaded_mtime} != mtime of {modified}"
+            )
+
+    if metadata_outdated:
+        lgr.warning(
+            "Found discrepnancies in girder record and metadata: %s",
+            ", ".join(metadata_outdated),
+        )
+
+    # we need to strip off the leading dandiset identifier from the path
+    path = rec["path"]
+    if path.startswith("00"):
+        # leading / is for consistency with API although yoh dislikes it
+        # https://github.com/dandi/dandi-publish/issues/109
+        path = "/" + path.split("/", 1)[1]
+    else:
+        lgr.debug(
+            "Unexpected: an asset path did not have leading dandiset identifier: %s",
+            path,
+        )
+    rec["path"] = path
+
+    return rec
 
 
 # TODO: our adapter on top of the Girder's client to simplify further

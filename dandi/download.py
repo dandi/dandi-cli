@@ -1,5 +1,6 @@
 import hashlib
 
+from pprint import pprint  # TEMP TODO remove
 import os
 import os.path as op
 import random
@@ -315,16 +316,19 @@ def download(
         dandiset, assets = client.get_dandiset_and_assets(*args)  # recursive=recursive
 
         # TODO: wrap within pyout or tqdm capable "frontend"
-        import pdb
-
-        pdb.set_trace()
         if dandiset:
+            # TODO: if we are ALREADY in a dandiset - we can validate that it is the
+            # same dandiset and use that dandiset path as the one to download under
+            dandiset_path = op.join(output_dir, dandiset["dandiset"]["identifier"])
             for resp in _populate_dandiset_yaml(
-                op.join(output_dir, dandiset["path"]),
+                dandiset_path,
                 dandiset.get("metadata", {}).get("dandiset", {}),
                 existing == "overwrite",
             ):
-                print(resp)
+                resp = dict(path=dandiset_metadata_file, **resp)
+                print(resp)  # TEMP TODO
+        else:
+            dandiset_path = None
 
         # TODO: do analysis of assets for early detection of needed renames etc
         # to avoid any need for late treatment of existing and also for
@@ -332,24 +336,38 @@ def download(
 
         for asset in assets:
             # unavoidable ugliness since girder and API have different "scopes" for identifying an asset
+            digests_from_metadata = {
+                d: asset.get("metadata")[d]
+                for d in metadata_digests
+                if d in asset.get("metadata", {})
+            }
+
             if server_type == "girder":
                 # TODO: harmonize
                 down_args = (asset["id"],)
-                attrs = asset["attrs"]
-                digests = {
-                    d: asset.get("metadata")[d]
-                    for d in metadata_digests
-                    if d in asset.get("metadata", {})
-                }
+                digests = digests_from_metadata
             elif server_type == "dandiapi":
                 # Even worse to get them from the asset record which also might have its return
                 # record still changed, https://github.com/dandi/dandi-publish/issues/79
                 down_args = args[:2] + (asset["uuid"],)
+                if "sha256" not in asset:
+                    lgr.warning("For some reason - there no sha256 in %s", str(asset))
+                    digests = digests_from_metadata
+                else:
+                    digests = {"sha256": asset["sha256"]}
+                    if (
+                        "sha256" in digests_from_metadata
+                        and asset["sha256"] != digests_from_metadata["sha256"]
+                    ):
+                        lgr.warning(
+                            "Metadata seems to be outdated since API returned different sha256 for {path}"
+                        )
 
             path = asset["path"].lstrip("/")  # make into relative path
-            if asset_type == "dandiset":  # place under dandiset directory
-                path = op.join(asset_id["dandiset_id"], path)
-            path = op.join(output_dir, path)
+            path = download_path = op.normpath(path)
+            if dandiset_path:  # place under dandiset directory
+                download_path = op.join(dandiset_path, path)
+            download_path = op.join(output_dir, download_path)
 
             downloader = client.get_download_file_iter(*down_args)
 
@@ -359,9 +377,11 @@ def download(
             # we will just follow. For now we must find it in "attrs"
             for resp in _download_file(
                 downloader,
-                path,
-                size=attrs["size"],
-                mtime=_get_file_mtime(attrs),
+                download_path,
+                # size and modified generally should be there but better to redownload
+                # than to crash
+                size=asset.get("size"),
+                mtime=asset.get("modified"),
                 existing=existing,
                 digests=digests,
             ):
@@ -394,15 +414,6 @@ if False:
     )
 
 
-def _get_file_mtime(attrs):
-    if not attrs:
-        return None
-    # We would rely on uploaded_mtime from metadata being stored as mtime.
-    # If that one was not provided, the best we know is the "ctime"
-    # for the file, use that one
-    return ensure_datetime(attrs.get("mtime", attrs.get("ctime", None)))
-
-
 def skip_file(msg):
     return {"status": "skipped", "message": str(msg)}
 
@@ -414,7 +425,7 @@ def _populate_dandiset_yaml(dandiset_path, metadata, overwrite):
         )
         return
     dandiset_yaml = op.join(dandiset_path, dandiset_metadata_file)
-    yield {"message": f"updating {dandiset_metadata_file}"}
+    yield {"message": "updating"}
     lgr.debug(f"Updating {dandiset_metadata_file} from obtained dandiset " f"metadata")
     if op.lexists(dandiset_yaml) and not overwrite:
         yield skip_file("already exists")

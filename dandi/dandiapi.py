@@ -293,30 +293,28 @@ class DandiAPIClient(RESTFullAPIClient):
             raise
         # Things might change, so let's just return only "relevant" ATM information
         # under assumption that assets belong to the current version of the dataset requested
-        results_ = [
-            {k: r[k] for k in ("path", "uuid", "size", "sha256", "metadata") if k in r}
-            for r in results
-        ]
-        for r in results_:
-            if include_metadata and "metadata" not in r:
-                # metadata is not included ATM
-                # https://github.com/dandi/dandi-publish/issues/78
-                # so we need to query explicitly. Returned value is pretty much an asset record
-                # we already have but also has "metadata"
-                asset_res = self.get_asset(dandiset_id, version, r["uuid"])
-                assert asset_res["path"] == r["path"]
-                assert asset_res["uuid"] == r["uuid"]
-                if "metadata" in asset_res:
-                    r["metadata"] = asset_res["metadata"]
-                    # check for paranoid Yarik with current multitude of checksums
-                    # r['sha256'] is what "dandi-publish" computed, but then
-                    # metadata could contain multiple digests computed upon upload
-                    if (
-                        "sha256" in r
-                        and "sha256" in asset_res["metadata"]
-                        and asset_res["metadata"]["sha256"] != r["sha256"]
-                    ):
-                        lgr.warning("sha256 mismatch for %s" % str(r))
+        # results_ = [
+        #     {k: r[k] for k in ("path", "uuid", "size", "sha256", "metadata") if k in r}
+        #     for r in results
+        # ]
+        for r in results:
+            # check for paranoid Yarik with current multitude of checksums
+            # r['sha256'] is what "dandi-publish" computed, but then
+            # metadata could contain multiple digests computed upon upload
+            metadata = r.get("metadata")
+            if (
+                "sha256" in r
+                and "sha256" in metadata
+                and metadata["sha256"] != r["sha256"]
+            ):
+                lgr.warning("sha256 mismatch for %s" % str(r))
+            # There is no "modified" time stamp and "updated" also shows something
+            # completely different, so if "modified" is not there -- we will try to
+            # get it from metadata
+            if "modified" not in r and metadata:
+                uploaded_mtime = metadata.get("uploaded_mtime")
+                if uploaded_mtime:
+                    r["modified"] = ensure_datetime(uploaded_mtime)
             yield r
 
     def get_dandiset_and_assets(
@@ -352,12 +350,7 @@ class DandiAPIClient(RESTFullAPIClient):
             f"/dandisets/{dandiset_id}/versions/{version}/assets/{uuid}/download/"
         )
 
-        # TODO: just redo to have this function a generator
-        def downloader():
-            """Generator which will be yielding records updating on the progress etc"""
-            with self.session.get(url, stream=True) as resp:
-                for chunk in resp.raw.stream(chunk_size, decode_content=False):
-                    if chunk:  # could be some "keep alive"?
-                        yield chunk
-
-        return downloader
+        resp = (self._session if self._session else requests).get(url, stream=True)
+        for chunk in resp.raw.stream(chunk_size, decode_content=False):
+            if chunk:  # could be some "keep alive"?
+                yield chunk
