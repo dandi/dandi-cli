@@ -78,6 +78,11 @@ def is_access_denied(exc):
 
 from requests.adapters import HTTPAdapter
 
+# Provide additional "heavy" logging at DEBUG level about interactions
+# with girder, including progress indication.  The need came up to troubleshoot
+# https://github.com/dandi/dandi-cli/issues/136
+_DANDI_LOG_GIRDER = os.environ.get("DANDI_LOG_GIRDER")
+
 
 class GirderCli(gcl.GirderClient):
     """An "Adapter" to GirderClient
@@ -98,6 +103,15 @@ class GirderCli(gcl.GirderClient):
             # I thought that it is used only for download. heh heh
             **kw,
         )
+
+    if _DANDI_LOG_GIRDER:
+        # Overload this core method to be able to log interactions with girder
+        # server from the client side
+        def sendRestRequest(self, *args, **kwargs):
+            lgr.debug("REST>: args=%s kwargs=%s", args, kwargs)
+            res = super().sendRestRequest(*args, **kwargs)
+            lgr.debug("REST<: %s", str(res))
+            return res
 
     def register_dandiset(self, name, description):
         """Register a dandiset and return created metadata record
@@ -324,7 +338,7 @@ class GirderCli(gcl.GirderClient):
         for child_type in types:
             offset = 0
             while True:
-                children = self.get(
+                children = self._DANDI_LOG_GIRDER(
                     child_type,
                     parameters=dict(
                         limit=gcl.DEFAULT_PAGE_LIMIT,
@@ -517,6 +531,8 @@ class TQDMProgressReporter(object):
         self.length = length
 
     def update(self, chunkSize):
+        if _DANDI_LOG_GIRDER:
+            lgr.debug("PROGRESS[%s]: +%d", id(self), chunkSize)
         self._pbar.update(chunkSize)
 
     def __enter__(self):
