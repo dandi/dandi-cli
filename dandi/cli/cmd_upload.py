@@ -473,6 +473,9 @@ def upload(
                     item_rec["_id"], path, progressCallback=c
                 )
             ):
+                if girder._DANDI_LOG_GIRDER:
+                    girder.lgr.debug("PROGRESS[%s]: %d", str(path), r["current"])
+
                 uploaded_paths[str(path)]["size"] = r["current"]
                 yield {
                     "upload": 100.0
