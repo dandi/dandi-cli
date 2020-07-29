@@ -91,7 +91,7 @@ class GirderCli(gcl.GirderClient):
 
     # MAX_CHUNK_SIZE = 1024 * 64  # 64k seems Ok locally, but I wonder if they would not cause AWS to puke due to too
     # many requests
-    MAX_CHUNK_SIZE = gcl.GirderClient.MAX_CHUNK_SIZE // 16
+    MAX_CHUNK_SIZE = gcl.GirderClient.MAX_CHUNK_SIZE // 8
 
     def __init__(self, server_url, progressbars=False):
         self._server_url = server_url.rstrip("/")
