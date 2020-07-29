@@ -114,8 +114,6 @@ def map_to_click_exceptions(f):
 
     @wraps(f)
     def wrapper(*args, **kwargs):
-        if not map_to_click_exceptions._do_map:
-            return f(*args, **kwargs)
         try:
             return f(*args, **kwargs)
         # Prints global Usage: useless in majority of cases.
@@ -124,7 +122,11 @@ def map_to_click_exceptions(f):
         # except ValueError as e:
         #     raise click.UsageError(str(e))
         except Exception as e:
-            raise click.ClickException(str(e))
+            e_str = str(e)
+            lgr.debug("Caught exception %s", e_str)
+            if not map_to_click_exceptions._do_map:
+                raise
+            raise click.ClickException(e_str)
 
     return wrapper
 
