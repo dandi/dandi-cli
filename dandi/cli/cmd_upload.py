@@ -473,14 +473,16 @@ def upload(
                     item_rec["_id"], path, progressCallback=c
                 )
             ):
+                upload_perc = 100 * ((r["current"] / r["total"]) if r["total"] else 1.0)
                 if girder._DANDI_LOG_GIRDER:
-                    girder.lgr.debug("PROGRESS[%s]: %d", str(path), r["current"])
-
+                    girder.lgr.debug(
+                        "PROGRESS[%s]: done=%d %%done=%s",
+                        str(path),
+                        r["current"],
+                        upload_perc,
+                    )
                 uploaded_paths[str(path)]["size"] = r["current"]
-                yield {
-                    "upload": 100.0
-                    * ((r["current"] / r["total"]) if r["total"] else 1.0)
-                }
+                yield {"upload": upload_perc}
 
             # Get uploaded file id
             file_id, current = client.isFileCurrent(
@@ -600,7 +602,8 @@ def upload(
                 if devel_debug:
                     # DEBUG: do serially
                     for v in process_path(path, relpath):
-                        print(v)
+                        sys.stdout.write(str(v) + os.linesep)
+                        sys.stdout.flush()
                 else:
                     rec[rec_fields[1:]] = process_path(path, relpath)
             except ValueError as exc:
