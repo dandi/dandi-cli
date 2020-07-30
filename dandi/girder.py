@@ -92,9 +92,13 @@ class GirderCli(gcl.GirderClient):
     to GirderClient.  TODO
     """
 
-    # MAX_CHUNK_SIZE = 1024 * 64  # 64k seems Ok locally, but I wonder if they would not cause AWS to puke due to too
-    # many requests
-    MAX_CHUNK_SIZE = gcl.GirderClient.MAX_CHUNK_SIZE // 8
+    # MAX_CHUNK_SIZE = 1024 * 1024 * 64  # 64M seems Ok generally but some
+    # clients connections are too slow, and the easiest way to avoid timeouts
+    # is to be able to adjust it "manually" via DANDI_MAX_CHUNK_SIZE env var
+    # for now
+    MAX_CHUNK_SIZE = int(
+        os.environ.get("DANDI_MAX_CHUNK_SIZE", gcl.GirderClient.MAX_CHUNK_SIZE)
+    )
 
     def __init__(self, server_url, progressbars=False):
         self._server_url = server_url.rstrip("/")

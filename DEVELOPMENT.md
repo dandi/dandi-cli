@@ -49,6 +49,9 @@ development command line options.
 
 - `DANDI_LOG_GIRDER` -- log REST requests.
 
+- `DANDI_MAX_CHUNK_SIZE` -- maximal chunk size to transmit. By default it is the
+  one of girder (64M). Too small size could also trip girder.
+
 - `DANDI_CACHE` -- clear persistent cache handling. Known values
   are `clear` - would clear the cache, `ignore` - would ignore it. Note that for
   metadata cache we use only released portion of `dandi.__version__` as a token.
