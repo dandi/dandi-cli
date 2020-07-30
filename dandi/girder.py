@@ -125,18 +125,24 @@ class GirderCli(gcl.GirderClient):
                 if _DANDI_LOG_GIRDER:
                     lgr.debug("REST#%d<: %s", try_, str(res))
                 break
-            except requests.HTTPError as exc:
+            except (
+                requests.HTTPError,
+                requests.ConnectionError,
+                requests.Timeout,
+            ) as exc:
                 lgr.debug("REST#%d: failed with %s", try_, exc)
+                # so only stop if it was HTTPError with specific status
+                # and in the https://github.com/dandi/dandi-cli/issues/136 it was ConnectionError
                 if (
-                    exc.status
+                    isinstance(exc, requests.HTTPError)
+                    and exc.status
                     not in (
                         408,  # Request Timeout
                         409,  # Conflict
                         425,  # Too early
                         429,  # Too many. TODO: handle  Retry-After
                     )
-                    or try_ >= ntries - 1
-                ):
+                ) or try_ >= ntries - 1:
                     raise
                 time.sleep(random.random() * 5)
         return res
