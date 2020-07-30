@@ -41,6 +41,9 @@ class _dandi_url_parser:
         # server_type:
         #   - 'girder' - the default/old
         #   - 'dandiapi' - the "new" (as of 20200715 state of various PRs)
+        # rewrite:
+        #   - callable -- which would rewrite that "URI"
+        "DANDI:": {"rewrite": lambda x: "https://identifiers.org/" + x},
         "https?://dandiarchive.org/.*": {"handle_redirect": "pass"},
         "https?://identifiers.org/DANDI:.*": {"handle_redirect": "pass"},
         "https?://[^/]*dandiarchive-org.netlify.app/.*": {"map_instance": "dandi"},
@@ -126,8 +129,14 @@ class _dandi_url_parser:
             match = re.match(regex, url)
             if not match:
                 continue
+            rewrite = settings.get("rewrite", False)
             handle_redirect = settings.get("handle_redirect", False)
-            if handle_redirect:
+            if rewrite:
+                assert not handle_redirect
+                assert not settings.get("map_instance")
+                new_url = rewrite(url)
+                return cls.parse(new_url)
+            elif handle_redirect:
                 assert handle_redirect in ("pass", "only")
                 new_url = cls.follow_redirect(url)
                 if new_url != url:

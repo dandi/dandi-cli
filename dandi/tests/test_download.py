@@ -21,6 +21,12 @@ def _assert_parse_dandiapi_url(url):
 
 
 def test_parse_dandi_url():
+    # ATM we point to drafts, so girder
+    assert _assert_parse_girder_url("DANDI:000027") == (
+        "folder",
+        ["5f0640a2ab90ac46c4561e4f"],
+    )
+
     # user
     # we do not care about user -- we care about folder id
     assert _assert_parse_girder_url(
