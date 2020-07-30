@@ -7,6 +7,7 @@ import sys
 import time
 
 from functools import lru_cache
+from io import BytesIO
 from pathlib import Path
 
 import requests
@@ -113,15 +114,35 @@ class GirderCli(gcl.GirderClient):
         )
 
     # Overload this core method to be able to log interactions with girder
-    # server from the client side
+    # server from the client side, and take care about retransmissions
     def sendRestRequest(self, *args, **kwargs):
         ntries = 3
+        # For a retry to send full data length, we need to pre-read all the
+        # data to be transmitted from a  _ProgressBytesIO(io.BytesIO)
+        # to refeed it entirely upon next retries.
+        data = kwargs.pop("data", None)
+        if data is not None:
+            # we will just get a full copy so we could retransmit
+            # as a result we might make progress indication a bit choppy and
+            # "premature" but IMHO it is a small price to pay
+            if hasattr(data, "read"):
+                data = data.read()  # read it all in
+                if _DANDI_LOG_GIRDER:
+                    lgr.debug("Pre-read data of length %d", len(data))
+            elif _DANDI_LOG_GIRDER:
+                lgr.debug(
+                    "%s has no .read() so not pre-reading all data to transmit", data
+                )
+
         res = None  # pacify linter
         for try_ in range(ntries):
             if _DANDI_LOG_GIRDER:
                 lgr.debug("REST#%d>: args=%s kwargs=%s", try_, args, kwargs)
+            kwargs_ = kwargs.copy()
+            if data:
+                kwargs_["data"] = BytesIO(data)
             try:
-                res = super().sendRestRequest(*args, **kwargs)
+                res = super().sendRestRequest(*args, **kwargs_)
                 if _DANDI_LOG_GIRDER:
                     lgr.debug("REST#%d<: %s", try_, str(res))
                 break
