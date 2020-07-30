@@ -9,6 +9,9 @@ import time
 from functools import lru_cache
 from pathlib import Path
 
+import requests
+from requests.adapters import HTTPAdapter
+
 import girder_client as gcl
 
 from . import get_logger
@@ -105,14 +108,34 @@ class GirderCli(gcl.GirderClient):
             **kw,
         )
 
-    if _DANDI_LOG_GIRDER:
-        # Overload this core method to be able to log interactions with girder
-        # server from the client side
-        def sendRestRequest(self, *args, **kwargs):
-            lgr.debug("REST>: args=%s kwargs=%s", args, kwargs)
-            res = super().sendRestRequest(*args, **kwargs)
-            lgr.debug("REST<: %s", str(res))
-            return res
+    # Overload this core method to be able to log interactions with girder
+    # server from the client side
+    def sendRestRequest(self, *args, **kwargs):
+        ntries = 3
+        res = None  # pacify linter
+        for try_ in range(ntries):
+            if _DANDI_LOG_GIRDER:
+                lgr.debug("REST#%d>: args=%s kwargs=%s", try_, args, kwargs)
+            try:
+                res = super().sendRestRequest(*args, **kwargs)
+                if _DANDI_LOG_GIRDER:
+                    lgr.debug("REST#%d<: %s", try_, str(res))
+                break
+            except requests.HTTPError as exc:
+                lgr.debug("REST#%d: failed with %s", try_, exc)
+                if (
+                    exc.status
+                    not in (
+                        408,  # Request Timeout
+                        409,  # Conflict
+                        425,  # Too early
+                        429,  # Too many. TODO: handle  Retry-After
+                    )
+                    or try_ >= ntries - 1
+                ):
+                    raise
+                time.sleep(random.random() * 5)
+        return res
 
     def register_dandiset(self, name, description):
         """Register a dandiset and return created metadata record
