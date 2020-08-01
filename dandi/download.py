@@ -380,7 +380,16 @@ def download(urls, output_dir, *, format="pyout", existing="error", jobs=1):
     pyout_style["size"]["aggregate"] = agg_size
     pyout_style["done"]["aggregate"] = agg_done
 
-    gen_ = download_generator(urls, output_dir, proxy_it=it, existing=existing)
+    # I thought I was making a beautiful flower but ended up with cacti
+    # which never blooms... All because assets are looped through inside download_generator
+    # TODO: redo
+    kw = dict(assets_it=it)
+    if jobs > 1 and format == "pyout":
+        # It could handle delegated to generator downloads
+        kw["yield_generator_for_fields"] = rec_fields[1:]  # all but path
+
+    gen_ = download_generator(urls, output_dir, existing=existing, **kw)
+
     # TODO: redo frontends similarly to how command_ls did it
     if format == "debug":
         for rec in gen_:
@@ -389,17 +398,19 @@ def download(urls, output_dir, *, format="pyout", existing="error", jobs=1):
     elif format == "pyout":
         with out:
             for rec in gen_:
-                # ideally we should query it.total in a separate thread but IMHO
-                # it should be sufficient here
-                # print(rec)
-                # if "done%" in rec:
-                #     rec[action] = rec.pop("done%")
                 out(rec)
     else:
         raise ValueError(format)
 
 
-def download_generator(urls, output_dir, *, proxy_it=None, existing="error"):
+def download_generator(
+    urls,
+    output_dir,
+    *,
+    assets_it=None,
+    yield_generator_for_fields=None,
+    existing="error",
+):
     """A generator for downloads of files, folders, or entire dandiset from DANDI
     (as identified by URL)
 
@@ -410,7 +421,7 @@ def download_generator(urls, output_dir, *, proxy_it=None, existing="error"):
 
     Parameters
     ----------
-    proxy_it: IteratorWithAggregation
+    assets_it: IteratorWithAggregation
       which will be set .gen to assets.  Purpose is to make it possible to get
       summary statistics while already downloading.  TODO: reimplement properly!
 
@@ -449,9 +460,9 @@ def download_generator(urls, output_dir, *, proxy_it=None, existing="error"):
         dandiset, assets = client.get_dandiset_and_assets(
             *args
         )  # , recursive=recursive)
-        if proxy_it:
-            proxy_it.gen = assets
-            assets = proxy_it
+        if assets_it:
+            assets_it.gen = assets
+            assets = assets_it
         dandiset_path = (
             op.join(output_dir, dandiset["dandiset"]["identifier"])
             if dandiset
@@ -513,7 +524,7 @@ def download_generator(urls, output_dir, *, proxy_it=None, existing="error"):
             # by server while establishing downloader... but it seems that girder itself
             # does get it from the "file" resource, not really from direct URL.  So I guess
             # we will just follow. For now we must find it in "attrs"
-            for resp in _download_file(
+            _download_generator = _download_file(
                 downloader,
                 download_path,
                 # size and modified generally should be there but better to redownload
@@ -522,8 +533,13 @@ def download_generator(urls, output_dir, *, proxy_it=None, existing="error"):
                 mtime=asset.get("modified"),
                 existing=existing,
                 digests=digests,
-            ):
-                yield dict(path=path, size=asset.get("size"), **resp)
+            )
+
+            if yield_generator_for_fields:
+                yield {"path": path, yield_generator_for_fields: _download_generator}
+            else:
+                for resp in _download_generator:
+                    yield dict(resp, path=path)
 
 
 def _map_to_girder(url):
@@ -610,7 +626,6 @@ def _download_file(
       possible checksums or other digests provided for the file. Only one
       will be used to verify download
     """
-
     if op.lexists(path):
         block = f"File {path!r} already exists"
         if existing == "error":
@@ -638,6 +653,9 @@ def _download_file(
                     yield skip_file("same time and size")
                     return
                 lgr.debug(f"{path!r} - same attributes: {same}.  Redownloading")
+
+    if size is not None:
+        yield {"size": size}
 
     destdir = op.dirname(path)
     os.makedirs(destdir, exist_ok=True)
