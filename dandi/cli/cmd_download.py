@@ -26,6 +26,13 @@ from .command import devel_option, main, map_to_click_exceptions
     show_default=True,
 )
 @click.option(
+    "-f",
+    "--format",
+    help="Choose the format/frontend for output. TODO: support all of the ls",
+    type=click.Choice(["pyout", "debug"]),
+    default="pyout",
+)
+@click.option(
     "-J",
     "--jobs",
     help="Number of parallel download jobs.",
@@ -48,12 +55,16 @@ from .command import devel_option, main, map_to_click_exceptions
 )
 @click.argument("url", nargs=-1)
 @map_to_click_exceptions
-def download(url, output_dir, existing, jobs=6, develop_debug=False):
+def download(url, output_dir, existing, jobs=6, format="pytout"):
     """Download a file or entire folder from DANDI"""
     # First boring attempt at click commands being merely an interface to
     # Python function
     from ..download import download
 
     return download(
-        url, output_dir, existing=existing, jobs=jobs, develop_debug=develop_debug
+        url,
+        output_dir,
+        existing=existing,
+        format=format,
+        jobs=jobs,  # develop_debug=develop_debug
     )

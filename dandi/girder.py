@@ -13,7 +13,7 @@ import girder_client as gcl
 
 from . import get_logger
 from .consts import (
-    REQ_BUFFER_SIZE,
+    MAX_CHUNK_SIZE,
     dandiset_metadata_file,
     known_instances_rev,
 )
@@ -353,25 +353,29 @@ class GirderCli(gcl.GirderClient):
                 if len(children) < gcl.DEFAULT_PAGE_LIMIT:
                     break
 
-    def get_download_file_iter(self, file_id, chunk_size=REQ_BUFFER_SIZE):
+    def get_download_file_iter(self, file_id, chunk_size=MAX_CHUNK_SIZE):
         """
         """
-        # TODO: make it a common decorator here?
-        # Will do 3 attempts to avoid some problems due to flaky/overloaded
-        # connections, see https://github.com/dandi/dandi-cli/issues/87
-        for attempt in range(3):
-            try:
-                return self.downloadFileAsIterator(file_id, chunkSize=chunk_size)
-                break
-            except gcl.HttpError as exc:
-                if is_access_denied(exc) or attempt >= 2:
-                    raise
-                # sleep a little and retry
-                lgr.debug(
-                    "Failed to download on attempt#%d, will sleep a bit and retry",
-                    attempt,
-                )
-                time.sleep(random.random() * 5)
+
+        def downloader():
+            # TODO: make it a common decorator here?
+            # Will do 3 attempts to avoid some problems due to flaky/overloaded
+            # connections, see https://github.com/dandi/dandi-cli/issues/87
+            for attempt in range(3):
+                try:
+                    return self.downloadFileAsIterator(file_id, chunkSize=chunk_size)
+                    break
+                except gcl.HttpError as exc:
+                    if is_access_denied(exc) or attempt >= 2:
+                        raise
+                    # sleep a little and retry
+                    lgr.debug(
+                        "Failed to download on attempt#%d, will sleep a bit and retry",
+                        attempt,
+                    )
+                    time.sleep(random.random() * 5)
+
+        return downloader
 
     def _get_asset_recs(self, asset_id, asset_type, authenticate=False, recursive=True):
         """

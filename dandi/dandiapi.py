@@ -17,7 +17,7 @@ import requests
 from . import get_logger
 from .utils import ensure_datetime, ensure_strtime, is_same_time
 from .consts import (
-    REQ_BUFFER_SIZE,
+    MAX_CHUNK_SIZE,
     dandiset_metadata_file,
     known_instances,
     known_instances_rev,
@@ -161,16 +161,16 @@ class RESTFullAPIClient(object):
         )
 
         # If success, return the json object. Otherwise throw an exception.
-        if result.status_code in (200, 201):
-            if json_resp:
-                return result.json()
-            else:
-                return result
-        else:
+        if result.status_code not in (200, 201):
             raise HTTPError(
                 f"Error {result.status_code} while sending {method} request to {url}",
                 response=result,
             )
+
+        if json_resp:
+            return result.json()
+        else:
+            return result
 
     def get_url(self, path):
         # Construct the url
@@ -344,13 +344,23 @@ class DandiAPIClient(RESTFullAPIClient):
         return dandiset, assets
 
     def get_download_file_iter(
-        self, dandiset_id, version, uuid, chunk_size=REQ_BUFFER_SIZE
+        self, dandiset_id, version, uuid, chunk_size=MAX_CHUNK_SIZE
     ):
         url = self.get_url(
             f"/dandisets/{dandiset_id}/versions/{version}/assets/{uuid}/download/"
         )
 
-        resp = (self._session if self._session else requests).get(url, stream=True)
-        for chunk in resp.raw.stream(chunk_size, decode_content=False):
-            if chunk:  # could be some "keep alive"?
-                yield chunk
+        def downloader():
+            lgr.debug("Starting download from %s", url)
+            result = (self._session if self._session else requests).get(
+                url, stream=True
+            )
+            # TODO: apparently we might need retries here as well etc
+            # if result.status_code not in (200, 201):
+            result.raise_for_status()
+
+            for chunk in result.raw.stream(chunk_size, decode_content=False):
+                if chunk:  # could be some "keep alive"?
+                    yield chunk
+
+        return downloader

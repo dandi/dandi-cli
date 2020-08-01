@@ -4,6 +4,8 @@ from collections import namedtuple
 # A list of metadata fields which dandi extracts from .nwb files.
 # Additional fields (such as `number_of_*`) might be added by the
 # get_metadata`
+import os
+
 metadata_nwb_file_fields = (
     "experiment_description",
     "experimenter",
@@ -107,9 +109,10 @@ file_operation_modes = ["dry", "simulate", "copy", "move", "hardlink", "symlink"
 #
 # Download (upload?) specific constants
 #
-REQ_BUFFER_SIZE = (
-    65536
-)  # Chunk size when iterating a download body. Taken from girder-cli
+# Chunk size when iterating a download (and upload) body. Taken from girder-cli
+# TODO: should we make them smaller for download than for upload?
+# ATM used only in download
+MAX_CHUNK_SIZE = os.environ.get("DANDI_MAX_CHUNK_SIZE", 1024 * 1024 * 8)  # 64
 
 #
 # Some routes

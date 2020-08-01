@@ -6,10 +6,12 @@ import os.path as op
 import random
 import re
 import requests
+import sys
 import time
 
 from urllib.parse import unquote as urlunquote
 
+from .dandiapi import DandiAPIClient
 from . import girder, get_logger
 from .consts import (
     dandiset_metadata_file,
@@ -20,6 +22,9 @@ from .consts import (
 from .dandiset import Dandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
 from .utils import Parallel, delayed, ensure_datetime, flatten, flattened, is_same_time
+
+import humanize
+from .support.pyout import naturalsize
 
 lgr = get_logger()
 
@@ -258,10 +263,158 @@ parse_dandi_url = _dandi_url_parser.parse
 follow_redirect = _dandi_url_parser.follow_redirect
 
 
-def download(
-    urls, output_dir, *, existing="error", jobs=6, develop_debug=False, recursive=True
-):
-    """Download a file or entire folder from DANDI"""
+def download(urls, output_dir, *, format="pyout", existing="error", jobs=1):
+    # TODO: unduplicate with upload. For now stole from that one
+    # We will again use pyout to provide a neat table summarizing our progress
+    # with upload etc
+    import pyout
+    from .support import pyout as pyouts
+    from .support.pyout import naturalsize
+
+    # for the upload speeds we need to provide a custom  aggregate
+    t0 = time.time()
+
+    class ItemsSummary:
+        def __init__(self):
+            self.files = 0
+            self.t0 = None  # when first record is seen
+            self.size = 0
+            self.has_unknown_sizes = False
+
+        def __call__(self, rec, prior=None):
+            assert prior in (None, self)
+            if not self.files:
+                self.t0 = time.time()
+            self.files += 1
+            size = rec.get("size")
+            if size is not None:
+                self.size += size
+            elif rec.get("path", "") == "dandiset.yaml":
+                # again -- so special. TODO: make it a proper file
+                pass
+            else:
+                self.has_unknown_sizes = True
+            return self
+
+    # dandi.cli.formatters are used in cmd_ls to provide switchable
+    pyout_style = pyouts.get_style(hide_if_missing=False)
+
+    rec_fields = ("path", "size", "done", "done%", "checksum", "status", "message")
+    out = pyout.Tabular(style=pyout_style, columns=rec_fields, max_workers=jobs)
+
+    # Establish "fancy" download while still possibly traversing the dandiset
+    # functionality.
+    from .support.iterators import IteratorWithAggregation
+
+    items_summary = ItemsSummary()
+    it = IteratorWithAggregation(
+        # unfortunately Yarik missed the point that we need to wrap
+        # "assets" generator within downloader_generator
+        # so we do not have assets here!  Ad-hoc solution for now is to
+        # pass this beast so it could get .gen set within downloader_generator
+        None,  # download_generator(urls, output_dir, existing=existing),
+        items_summary,
+    )
+
+    def agg_files(*ignored):
+        ret = str(items_summary.files)
+        if not it.finished:
+            ret += "+"
+        return ret
+
+    def agg_size(sizes):
+        """Formatter for "size" column where it would show
+
+        how much is "active" (or done)
+        +how much yet to be "shown".
+        """
+        active = sum(sizes)
+        if (active, items_summary.size) == (0, 0):
+            return ""
+        v = [naturalsize(active)]
+        if not it.finished or (
+            active != items_summary.size or items_summary.has_unknown_sizes
+        ):
+            extra = items_summary.size - active
+            if extra < 0:
+                lgr.debug("Extra size %d < 0 -- must not happen", extra)
+            else:
+                extra_str = "+%s" % naturalsize(extra)
+                if not it.finished:
+                    extra_str = ">" + extra_str
+                if items_summary.has_unknown_sizes:
+                    extra_str += "+?"
+                v.append(extra_str)
+        return v
+
+    def agg_done(done_sizes):
+        """Formatter for "DONE" column
+        """
+        done = sum(done_sizes)
+        if it.finished and done == 0 and items_summary.size == 0:
+            # even with 0s everywhere consider it 100%
+            r = 1.0
+        elif items_summary.size:
+            r = done / items_summary.size
+        else:
+            r = 0
+        pref = ""
+        if not it.finished:
+            pref += "<"
+        if items_summary.has_unknown_sizes:
+            pref += "?"
+        v = [naturalsize(done), "%s%.2f%%" % (pref, 100 * r)]
+        if done and items_summary.t0 is not None and r and items_summary.size != 0:
+            dt = time.time() - items_summary.t0
+            more_time = dt / r if r != 1 else 0
+            more_time_str = humanize.naturaldelta(more_time)
+            if not it.finished:
+                more_time_str += "<"
+            if items_summary.has_unknown_sizes:
+                more_time_str += "+?"
+            if more_time:
+                v.append("ETA: %s" % more_time_str)
+        return v
+
+    pyout_style["done"] = pyout_style["size"].copy()
+    pyout_style["size"]["aggregate"] = agg_size
+    pyout_style["done"]["aggregate"] = agg_done
+
+    gen_ = download_generator(urls, output_dir, proxy_it=it, existing=existing)
+    # TODO: redo frontends similarly to how command_ls did it
+    if format == "debug":
+        for rec in gen_:
+            print(rec)
+            sys.stdout.flush()
+    elif format == "pyout":
+        with out:
+            for rec in gen_:
+                # ideally we should query it.total in a separate thread but IMHO
+                # it should be sufficient here
+                # print(rec)
+                # if "done%" in rec:
+                #     rec[action] = rec.pop("done%")
+                out(rec)
+    else:
+        raise ValueError(format)
+
+
+def download_generator(urls, output_dir, *, proxy_it=None, existing="error"):
+    """A generator for downloads of files, folders, or entire dandiset from DANDI
+    (as identified by URL)
+
+    This function is a generator which would yield records on ongoing activities.
+    Activites include traversal of the remote resource (DANDI archive), download of
+    individual assets while yielding records (TODO: schema) while validating their
+    checksums "on the fly", etc.
+
+    Parameters
+    ----------
+    proxy_it: IteratorWithAggregation
+      which will be set .gen to assets.  Purpose is to make it possible to get
+      summary statistics while already downloading.  TODO: reimplement properly!
+
+    """
     urls = flattened([urls])
     if len(urls) > 1:
         raise NotImplementedError("multiple URLs not supported")
@@ -277,32 +430,7 @@ def download(
     # May be it could be not just boolean but the "id" to be used?
     # TODO: remove whenever API starts to support drafts in an unknown version
     if server_type == "dandiapi" and asset_id.get("version") == "draft":
-        server_url = known_instances[known_instances_rev[server_url.rstrip("/")]].girder
-        server_type = "girder"
-
-        # "draft" datasets are not yet supported throught dandiapi. So we need to
-        # perform special handling for now: discover girder_id for it and then proceed
-        # with girder
-        client = girder.get_client(server_url, authenticate=False, progressbars=True)
-        # TODO: RF if https://github.com/dandi/dandiarchive/issues/316 gets addressed
-        # A hybrid UI case not yet adjusted for drafts API. TODO: remove whenever it is gone in an unknown version
-        if asset_id.get("folder_id"):
-            asset_type = "folder"
-            asset_id = [asset_id.get("folder_id")]
-        else:
-            girder_path = op.join("drafts", asset_id["dandiset_id"])
-            asset_type = "folder"
-            if asset_id.get("location"):
-                # Not implemented by UI ATM but might come
-                girder_path = op.join(girder_path, asset_id["location"])
-            try:
-                girder_rec = girder.lookup(client, girder_path)
-            except:
-                lgr.warning(f"Failed to lookup girder information for {girder_path}")
-                girder_rec = None
-            if not girder_rec:
-                raise RuntimeError(f"Cannot download from {url}")
-            asset_id = girder_rec.get("_id")
+        asset_id, asset_type, client, server_type = _map_to_girder(url)
         args = asset_id, asset_type
     elif server_type == "girder":
         client = girder.get_client(
@@ -310,8 +438,6 @@ def download(
         )
         args = asset_id, asset_type
     elif server_type == "dandiapi":
-        from .dandiapi import DandiAPIClient
-
         client = DandiAPIClient(server_url)
         args = (asset_id["dandiset_id"], asset_id["version"], asset_id.get("location"))
     else:
@@ -320,28 +446,32 @@ def download(
         )
 
     with client.session():
-        # TODO: analysis for 'existing' for every item
+        dandiset, assets = client.get_dandiset_and_assets(
+            *args
+        )  # , recursive=recursive)
+        if proxy_it:
+            proxy_it.gen = assets
+            assets = proxy_it
+        dandiset_path = (
+            op.join(output_dir, dandiset["dandiset"]["identifier"])
+            if dandiset
+            else None
+        )
+        # TODO: if we are ALREADY in a dandiset - we can validate that it is the
+        # same dandiset and use that dandiset path as the one to download under
 
-        dandiset, assets = client.get_dandiset_and_assets(*args)  # recursive=recursive
+        # TODO: do analysis of assets for early detection of needed renames etc
+        # to avoid any need for late treatment of existing and also for
+        # more efficient download if files are just renamed etc
 
-        # TODO: wrap within pyout or tqdm capable "frontend"
+        # Handle our so special dandiset.yaml
         if dandiset:
-            # TODO: if we are ALREADY in a dandiset - we can validate that it is the
-            # same dandiset and use that dandiset path as the one to download under
-            dandiset_path = op.join(output_dir, dandiset["dandiset"]["identifier"])
             for resp in _populate_dandiset_yaml(
                 dandiset_path,
                 dandiset.get("metadata", {}).get("dandiset", {}),
                 existing == "overwrite",
             ):
-                resp = dict(path=dandiset_metadata_file, **resp)
-                print(resp)  # TEMP TODO
-        else:
-            dandiset_path = None
-
-        # TODO: do analysis of assets for early detection of needed renames etc
-        # to avoid any need for late treatment of existing and also for
-        # more efficient download if files are just renamed etc
+                yield dict(path=dandiset_metadata_file, **resp)
 
         for asset in assets:
             # unavoidable ugliness since girder and API have different "scopes" for identifying an asset
@@ -350,9 +480,7 @@ def download(
                 for d in metadata_digests
                 if d in asset.get("metadata", {})
             }
-
             if server_type == "girder":
-                # TODO: harmonize
                 down_args = (asset["id"],)
                 digests = digests_from_metadata
             elif server_type == "dandiapi":
@@ -376,7 +504,8 @@ def download(
             path = download_path = op.normpath(path)
             if dandiset_path:  # place under dandiset directory
                 download_path = op.join(dandiset_path, path)
-            download_path = op.join(output_dir, download_path)
+            else:
+                download_path = op.join(output_dir, path)
 
             downloader = client.get_download_file_iter(*down_args)
 
@@ -394,33 +523,41 @@ def download(
                 existing=existing,
                 digests=digests,
             ):
-                resp = dict(path=path, **resp)
-                print(resp)
+                yield dict(path=path, size=asset.get("size"), **resp)
 
 
-if False:
-    # TODO: move where it belongs!
-
-    import pdb
-
-    pdb.set_trace()
-
-    Parallel(n_jobs=jobs, backend="threading")(
-        delayed(client.download_file)(
-            rec["id"],
-            op.join(output_dir, rec["path"]),
-            existing=existing,
-            attrs=rec["attrs"],
-            # TODO: make it less "fluid" to not breed a bug where we stop verifying
-            # for e.g. digests move
-            digests={
-                d: rec.get("metadata")[d]
-                for d in metadata_digests
-                if d in rec.get("metadata", {})
-            },
-        )
-        for rec in asset_recs
-    )
+def _map_to_girder(url):
+    """
+    "draft" datasets are not yet supported through dandiapi. So we need to
+    perform special handling for now: discover girder_id for it and then proceed
+    with girder
+    """
+    # This is a duplicate call from above but it is cheap, so decided to just redo
+    # it here instead of passing all the variables + url
+    server_type, server_url, asset_type, asset_id = parse_dandi_url(url)
+    server_url = known_instances[known_instances_rev[server_url.rstrip("/")]].girder
+    server_type = "girder"
+    client = girder.get_client(server_url, authenticate=False, progressbars=True)
+    # TODO: RF if https://github.com/dandi/dandiarchive/issues/316 gets addressed
+    # A hybrid UI case not yet adjusted for drafts API. TODO: remove whenever it is gone in an unknown version
+    if asset_id.get("folder_id"):
+        asset_type = "folder"
+        asset_id = [asset_id.get("folder_id")]
+    else:
+        girder_path = op.join("drafts", asset_id["dandiset_id"])
+        asset_type = "folder"
+        if asset_id.get("location"):
+            # Not implemented by UI ATM but might come
+            girder_path = op.join(girder_path, asset_id["location"])
+        try:
+            girder_rec = girder.lookup(client, girder_path)
+        except:
+            lgr.warning(f"Failed to lookup girder information for {girder_path}")
+            girder_rec = None
+        if not girder_rec:
+            raise RuntimeError(f"Cannot download from {url}")
+        asset_id = girder_rec.get("_id")
+    return asset_id, asset_type, client, server_type
 
 
 def skip_file(msg):
@@ -442,8 +579,12 @@ def _populate_dandiset_yaml(dandiset_path, metadata, overwrite):
     else:
         dandiset = Dandiset(dandiset_path, allow_empty=True)
         dandiset.path_obj.mkdir(exist_ok=True)  # exist_ok in case of parallel race
+        old_metadata = dandiset.metadata
         dandiset.update_metadata(metadata)
-        yield {"status": "done"}
+        yield {
+            "status": "done",
+            "message": "updated" if metadata != old_metadata else "same",
+        }
 
 
 def _download_file(
@@ -460,7 +601,7 @@ def _download_file(
 
     Parameters
     ----------
-    downloader: generator
+    downloader: callable returning a generator
       A backend (girder or dandiapi) specific fixture for downloading some file into
       path. It should be a generator yielding downloaded blocks.
     size: int, optional
@@ -524,12 +665,12 @@ def _download_file(
             warned = False
             # I wonder if we could make writing async with downloader
             with open(path, "wb") as writer:
-                for block in downloader:
+                for block in downloader():
                     if digester:
                         downloaded_digest.update(block)
                     downloaded += len(block)
                     # TODO: yield progress etc
-                    msg = {"downloaded": downloaded}
+                    msg = {"done": downloaded}
                     if size:
                         if downloaded > size and not warned:
                             # Yield ERROR?
@@ -538,7 +679,7 @@ def _download_file(
                                 downloaded,
                                 size,
                             )
-                        msg["downloaded%"] = 100 * downloaded / size if size else "100"
+                        msg["done%"] = 100 * downloaded / size if size else "100"
                         # TODO: ETA etc
                     yield msg
                     writer.write(block)
@@ -547,19 +688,20 @@ def _download_file(
         except requests.exceptions.HTTPError as exc:
             # TODO: actually we should probably retry only on selected codes, and also
             # respect Retry-After
-            import pdb
-
-            pdb.set_trace()
-            if attempt >= 2 or exc.status not in (
+            if attempt >= 2 or exc.response.status_code not in (
                 400,  # Bad Request, but happened with gider: https://github.com/dandi/dandi-cli/issues/87
                 503,  # Service Unavailable
             ):
-                raise
+                lgr.debug("Download failed: %s", exc)
+                yield {"status": "error", "message": str(exc)}
+                return
             # if is_access_denied(exc) or attempt >= 2:
             #     raise
             # sleep a little and retry
             lgr.debug(
-                "Failed to download on attempt#%d, will sleep a bit and retry", attempt
+                "Failed to download on attempt#%d: %s, will sleep a bit and retry",
+                attempt,
+                exc,
             )
             time.sleep(random.random() * 5)
 
@@ -567,20 +709,18 @@ def _download_file(
         downloaded_digest = downloaded_digest.hexdigest()  # we care only about hex
         if digest != downloaded_digest:
             msg = f"{algo}: downloaded {downloaded_digest} != {digest}"
-            yield {
-                "errors": 1,
-                "checksum": "differs",
-                "status": "error",
-                "message": msg,
-            }
-            lgr.warning("%s is different: %s.", path, msg)
+            yield {"checksum": "differs", "status": "error", "message": msg}
+            lgr.debug("%s is different: %s.", path, msg)
             return
         else:
             yield {"checksum": "ok"}
             lgr.debug("Verified that %s has correct %s %s", path, algo, digest)
     else:
         # shouldn't happen with more recent metadata etc
-        yield {"checksum": "N/A", "message": "no digests were provided"}
+        yield {
+            "checksum": "-",
+            # "message": "no digests were provided"
+        }
 
     # It seems that girder might not care about setting either mtime, so we will do if we know
     # TODO: dissolve attrs and pass specific mtime?
@@ -591,4 +731,4 @@ def _download_file(
     yield {"status": "done"}
 
 
-from .consts import REQ_BUFFER_SIZE
+from .consts import MAX_CHUNK_SIZE
