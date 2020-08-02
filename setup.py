@@ -9,6 +9,7 @@
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ##
 """Build helper."""
 
+import os.path
 import sys
 
 from setuptools import setup
@@ -18,6 +19,11 @@ if sys.version_info < (3,):
         "dandi-cli's setup.py requires python 3 or later. "
         "You are using %s" % sys.version
     )
+
+# This is needed for versioneer to be importable when building with PEP 517.
+# See <https://github.com/warner/python-versioneer/issues/193> and links
+# therein for more information.
+sys.path.append(os.path.dirname(__file__))
 
 try:
     import versioneer
