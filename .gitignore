@@ -8,3 +8,6 @@ sandbox/
 venv/
 venvs/
 .coverage
+.tox/
+__pycache__/
+*.pyc
