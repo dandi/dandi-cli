@@ -1,0 +1,3 @@
+# This line includes versioneer.py in sdists, which is necessary for wheels
+# built from sdists to have the version set in their metadata.
+include versioneer.py
