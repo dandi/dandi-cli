@@ -50,7 +50,7 @@ def simple2_nwb(simple1_nwb_metadata, tmpdir_factory):
         str(tmpdir_factory.mktemp("data").join("simple2.nwb")),
         subject=pynwb.file.Subject(
             subject_id="mouse001",
-            date_of_birth=datetime(2019, 12, 1),
+            date_of_birth=datetime(2019, 12, 1, tzinfo=tzutc()),
             sex="M",
             species="mouse",
         ),
