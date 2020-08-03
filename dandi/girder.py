@@ -1,4 +1,3 @@
-from datetime import datetime
 import os
 import os.path as op
 import json
@@ -8,13 +7,13 @@ import sys
 import time
 
 from functools import lru_cache
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 import girder_client as gcl
 
 from . import get_logger
-from .utils import ensure_datetime, ensure_strtime, is_same_time
-from .consts import known_instances, known_instances_rev, metadata_digests
+from .utils import ensure_datetime, is_same_time
+from .consts import known_instances_rev, metadata_digests
 from .support.digests import Digester
 
 lgr = get_logger()
@@ -75,8 +74,6 @@ def is_access_denied(exc):
         response and "access denied" in response.get("message", "")
     )
 
-
-from requests.adapters import HTTPAdapter
 
 # Provide additional "heavy" logging at DEBUG level about interactions
 # with girder, including progress indication.  The need came up to troubleshoot

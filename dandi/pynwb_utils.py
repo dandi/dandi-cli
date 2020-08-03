@@ -13,8 +13,6 @@ import semantic_version
 
 from . import get_logger
 
-lgr = get_logger()
-
 from .consts import (
     metadata_nwb_file_fields,
     metadata_nwb_computed_fields,
@@ -23,6 +21,8 @@ from .consts import (
 from .support.cache import PersistentCache
 
 from . import __version__
+
+lgr = get_logger()
 
 # strip away possible development version marker
 dandi_rel_version = __version__.split("+", 1)[0]
@@ -41,7 +41,10 @@ def _sanitize_nwb_version(v, filename=None, log=None):
     if log is None:
         log = lgr.warning
     elif not log:
-        log = lambda v: v  # does nothing
+
+        def log(v):  # does nothing
+            return v
+
     if isinstance(v, str):
         if v.startswith("NWB-"):
             v_ = v[4:]
@@ -91,7 +94,7 @@ def get_nwb_version(filepath, sanitize=True):
         # 1.x stored it as a dataset
         try:
             return _sanitize(h5file["nwb_version"][...].tostring().decode())
-        except:
+        except Exception:
             lgr.debug("%s has no nwb_version" % filepath)
 
 
@@ -235,12 +238,12 @@ def validate(path):
     #   https://github.com/NeurodataWithoutBorders/pynwb/issues/1090
     #   https://github.com/NeurodataWithoutBorders/pynwb/issues/1091
     re_ok_prior_210 = re.compile(
-        "general/(experimenter|related_publications)\): "
-        "incorrect shape - expected an array of shape .\[None\]."
+        r"general/(experimenter|related_publications)\): "
+        r"incorrect shape - expected an array of shape .\[None\]."
     )
     try:
         version = get_nwb_version(path, sanitize=False)
-    except:
+    except Exception:
         # we just will not remove any errors, it is required so should be some
         pass
     else:

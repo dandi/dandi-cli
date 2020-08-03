@@ -14,7 +14,6 @@ from .. import get_logger, set_logger_level
 
 from .. import __version__
 from ..consts import dandiset_metadata_file, known_instances
-from ..utils import updated
 
 
 # Delay imports leading to import of heavy modules such as pynwb and h5py
@@ -121,7 +120,8 @@ def instance_option():
 def devel_debug_option():
     return devel_option(
         "--devel-debug",
-        help="For development: do not use pyout callbacks, do not swallow exception, do not parallize",
+        help="For development: do not use pyout callbacks, do not swallow"
+        " exception, do not parallize",
         default=False,
         is_flag=True,
     )
@@ -216,9 +216,9 @@ def main(log_level, pdb=False):
 #
 # Commands in the main group
 #
-from .cmd_ls import ls
-from .cmd_organize import organize
-from .cmd_upload import upload
-from .cmd_download import download
-from .cmd_validate import validate
-from .cmd_register import register
+from .cmd_ls import ls  # noqa: E402, F401
+from .cmd_organize import organize  # noqa: E402, F401
+from .cmd_upload import upload  # noqa: E402, F401
+from .cmd_download import download  # noqa: E402, F401
+from .cmd_validate import validate  # noqa: E402, F401
+from .cmd_register import register  # noqa: E402, F401

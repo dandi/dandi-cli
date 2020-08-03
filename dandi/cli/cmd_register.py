@@ -1,10 +1,6 @@
 import click
-from datetime import datetime
 import os
 import os.path as op
-import re
-import sys
-import time
 
 from ..consts import dandiset_metadata_file, known_instances, routes
 
@@ -14,7 +10,6 @@ from .command import (
     main,
     map_to_click_exceptions,
 )
-from ..utils import ensure_datetime, ensure_strtime, find_parent_directory_containing
 
 from .. import get_logger
 

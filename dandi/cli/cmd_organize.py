@@ -1,10 +1,8 @@
 import click
 import os
 import os.path as op
-from glob import glob
 
 from .command import (
-    dandiset_id_option,
     dandiset_path_option,
     devel_debug_option,
     lgr,
