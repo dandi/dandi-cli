@@ -27,7 +27,7 @@ def test_get_metadata(simple1_nwb, simple1_nwb_metadata):
 def test_pynwb_io(simple1_nwb):
     # To verify that our dependencies spec is sufficient to avoid
     # stepping into known pynwb/hdmf issues
-    with pynwb.NWBHDF5IO(str(simple1_nwb), "r", load_namespaces=True) as reader:
+    with pynwb.NWBHDF5IO(str(simple1_nwb), "r") as reader:
         nwbfile = reader.read()
     assert repr(nwbfile)
     assert str(nwbfile)
