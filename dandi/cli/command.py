@@ -3,6 +3,7 @@ Commands definition for DANDI command line interface
 """
 
 from functools import wraps
+import logging
 import os
 from os import path as op
 
@@ -21,6 +22,26 @@ from ..utils import updated
 # from ..pynwb_utils import ...
 
 lgr = get_logger()
+
+
+class LogLevel(click.ParamType):
+    name = "log-level"
+    levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+
+    def convert(self, value, param, ctx):
+        if value is None:
+            return value
+        try:
+            return int(value)
+        except ValueError:
+            vupper = value.upper()
+            if vupper in self.levels:
+                return getattr(logging, vupper)
+            else:
+                self.fail(f"{value!r}: invalid log level", param, ctx)
+
+    def get_metavar(self, param):
+        return "[" + "|".join(self.levels) + "]"
 
 
 # Aux common functionality
@@ -160,11 +181,9 @@ def upper(ctx, param, value):
 @click.option(
     "-l",
     "--log-level",
-    help="Log level name",
-    # TODO: may be bring also handling of  int  values.  For now -- no need
-    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
+    help="Log level (case insensitive).  May be specified as an integer.",
+    type=LogLevel(),
     default="INFO",
-    # callback=upper,  # TODO: not in effect! seems to come to play only after type validation
     show_default=True,
 )
 @click.option("--pdb", help="Fall into pdb if errors out", is_flag=True)
