@@ -338,7 +338,7 @@ class GirderCli(gcl.GirderClient):
         for child_type in types:
             offset = 0
             while True:
-                children = self._DANDI_LOG_GIRDER(
+                children = self.get(
                     child_type,
                     parameters=dict(
                         limit=gcl.DEFAULT_PAGE_LIMIT,
