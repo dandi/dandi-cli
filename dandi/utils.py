@@ -319,7 +319,7 @@ def move_file(src, dst):
 def find_dandi_files(paths):
     """Adapter to find_files to find files of interest to dandi project
     """
-    yield from find_files("(dandiset\.yaml|\.nwb)$", paths)
+    yield from find_files(r"(dandiset\.yaml|\.nwb)$", paths)
 
 
 def find_parent_directory_containing(filename, path=None):

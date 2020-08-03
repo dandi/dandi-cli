@@ -157,7 +157,7 @@ def organize(
         # Our dumps of metadata
         metadata = load_jsonl(paths[0])
     else:
-        paths = list(find_files("\.nwb$", paths=paths))
+        paths = list(find_files(r"\.nwb$", paths=paths))
         lgr.info("Loading metadata from %d files", len(paths))
         # Done here so we could still reuse cached 'get_metadata'
         # without having two types of invocation and to guard against
