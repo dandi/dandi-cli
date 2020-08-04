@@ -81,7 +81,7 @@ known_instances = {
     ),  # just pure girder
     # Redirector: TODO https://github.com/dandi/dandiarchive/issues/139
     "local-docker": dandi_instance(
-        "http://localhost:8091", "http://localhost:8092", None
+        "http://localhost:8080", "http://localhost:8085", None
     ),
     "dandi": dandi_instance(
         "https://girder.dandiarchive.org",
