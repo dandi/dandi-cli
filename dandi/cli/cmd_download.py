@@ -1,7 +1,4 @@
-import datetime
 import os
-import sys
-import time
 
 import click
 from .command import devel_option, main, map_to_click_exceptions

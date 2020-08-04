@@ -1,3 +1,6 @@
+# name: url
+from collections import namedtuple
+
 # A list of metadata fields which dandi extracts from .nwb files.
 # Additional fields (such as `number_of_*`) might be added by the
 # get_metadata`
@@ -70,9 +73,6 @@ metadata_digests = ("sha1", "md5", "sha512", "sha256")
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = "^[0-9]{6}$"
 
-# name: url
-from collections import namedtuple
-
 dandi_instance = namedtuple("dandi_instance", ("girder", "gui", "redirector"))
 
 known_instances = {
@@ -101,6 +101,7 @@ file_operation_modes = ["dry", "simulate", "copy", "move", "hardlink", "symlink"
 # Some routes
 # TODO: possibly centralize in dandi-common from our redirection service
 #
+
 
 # just a structure, better than dict for RFing etc
 class routes(object):

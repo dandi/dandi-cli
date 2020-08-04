@@ -5,12 +5,12 @@ import time
 import sys
 
 from collections import Counter
-from functools import partial
 
 import humanize
 import pyout
 
 from .. import get_logger
+from ..consts import metadata_nwb_fields, metadata_dandiset_fields
 
 lgr = get_logger()
 
@@ -21,7 +21,8 @@ def fancy_bool(v):
     # should be for pyout to know that bool True should be this or that
     """
 $> datalad ls -rLa  ~/datalad/openfmri/ds000001
-[ERROR  ] 'ascii' codec can't decode byte 0xe2 in position 0: ordinal not in range(128) [tabular.py:_writerow:333] (UnicodeDecodeError)
+[ERROR  ] 'ascii' codec can't decode byte 0xe2 in position 0: ordinal not in \
+range(128) [tabular.py:_writerow:333] (UnicodeDecodeError)
 
 But for DANDI we will  be brave
     """
@@ -89,9 +90,6 @@ size_style = dict(
     aggregate=lambda x: naturalsize(sum(x)),
     # summary=sum,
 )
-
-
-from ..consts import metadata_nwb_fields, metadata_dandiset_fields
 
 PYOUT_SHORT_NAMES = {
     # shortening for some fields

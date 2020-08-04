@@ -3,7 +3,6 @@ import os.path as op
 import time
 
 import click
-from dandi.cli.command import get_files
 
 from .command import lgr, main, map_to_click_exceptions
 
@@ -46,7 +45,7 @@ def ls(paths, fields=None, format="auto", recursive=False):
     from .formatter import JSONFormatter, YAMLFormatter, PYOUTFormatter
 
     # TODO: avoid
-    from ..support.pyout import PYOUT_SHORT_NAMES, PYOUT_SHORT_NAMES_rev
+    from ..support.pyout import PYOUT_SHORT_NAMES_rev
     from ..utils import find_files
 
     common_fields = ("path", "size")

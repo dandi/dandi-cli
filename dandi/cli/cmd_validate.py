@@ -1,7 +1,6 @@
 import click
 import os
 from .command import main, map_to_click_exceptions
-from ..utils import find_dandi_files
 
 
 @main.command()

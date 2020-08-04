@@ -1,4 +1,3 @@
-import os
 import os.path as op
 from .consts import dandiset_metadata_file
 import yaml

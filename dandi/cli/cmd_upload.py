@@ -8,7 +8,6 @@ import time
 
 
 from .command import (
-    dandiset_path_option,
     devel_debug_option,
     devel_option,
     instance_option,
@@ -17,12 +16,11 @@ from .command import (
     lgr,
 )
 from .. import __version__
-from ..utils import ensure_datetime, ensure_strtime, find_parent_directory_containing
+from ..utils import ensure_datetime, ensure_strtime
 from ..consts import (
     collection_drafts,
     dandiset_identifier_regex,
     dandiset_metadata_file,
-    known_instances,
     metadata_digests,
 )
 
@@ -111,7 +109,8 @@ def upload(
     dandiset = Dandiset.find(dandiset_path)
     if not dandiset:
         raise RuntimeError(
-            f"Found no {dandiset_metadata_file} anywhere.  Use 'dandi register', 'download', or 'organize' first"
+            f"Found no {dandiset_metadata_file} anywhere.  "
+            "Use 'dandi register', 'download', or 'organize' first"
         )
 
     # Should no longer be needed
@@ -157,12 +156,7 @@ def upload(
     from ..pynwb_utils import ignore_benign_pynwb_warnings, get_object_id
     from ..metadata import get_metadata
     from ..validate import validate_file
-    from ..utils import (
-        find_dandi_files,
-        find_files,
-        path_is_subpath,
-        get_utcnow_datetime,
-    )
+    from ..utils import find_dandi_files, find_files, path_is_subpath
     from ..support.generatorify import generator_from_callback
     from ..support.pyout import naturalsize
 
@@ -192,7 +186,6 @@ def upload(
         paths = [dandiset.path]
 
     # Expand and validate all paths -- they should reside within dandiset
-    orig_paths = paths
     paths = list(find_files(".*", paths) if allow_any_path else find_dandi_files(paths))
     npaths = len(paths)
     lgr.info(f"Found {npaths} files to consider")
@@ -348,7 +341,6 @@ def upload(
                 "uploaded_size",
             ]
             assert sorted(file_metadata_) == stat_fields
-            item_metadata = item_rec.get("meta", {})
             item_file_metadata_ = {
                 k: item_rec.get("meta", {}).get(k, None) for k in stat_fields
             }

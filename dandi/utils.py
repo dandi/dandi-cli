@@ -157,7 +157,6 @@ def ensure_datetime(t, strip_tzinfo=False, tz=None):
 
     epoch time assumed to be local (not utc)
     """
-    t_orig = t
     if isinstance(t, datetime.datetime):
         pass
     elif isinstance(t, (int, float)):
@@ -408,14 +407,14 @@ def safe_call(func, path, default=None):
         return default
 
 
-def shortened_repr(value, l=30):
+def shortened_repr(value, length=30):
     try:
         if hasattr(value, "__repr__") and (value.__repr__ is not object.__repr__):
             value_repr = repr(value)
-            if not value_repr.startswith("<") and len(value_repr) > l:
+            if not value_repr.startswith("<") and len(value_repr) > length:
                 value_repr = "<<%s++%d chars++%s>>" % (
-                    value_repr[: l - 16],
-                    len(value_repr) - (l - 16 + 4),
+                    value_repr[: length - 16],
+                    len(value_repr) - (length - 16 + 4),
                     value_repr[-4:],
                 )
             elif (
@@ -426,7 +425,7 @@ def shortened_repr(value, l=30):
                 raise ValueError("I hate those useless long reprs")
         else:
             raise ValueError("gimme class")
-    except Exception as e:
+    except Exception:
         value_repr = "<%s>" % value.__class__.__name__.split(".")[-1]
     return value_repr
 

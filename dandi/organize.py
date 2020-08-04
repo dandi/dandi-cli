@@ -8,12 +8,10 @@ import numpy as np
 import re
 from collections import Counter
 
-import dateutil.parser
 import os.path as op
 
 from .exceptions import OrganizeImpossibleError
 from . import get_logger
-from .consts import dandiset_metadata_file
 from .pynwb_utils import get_neurodata_types_to_modalities_map, get_object_id
 from .utils import ensure_datetime, flattened
 
