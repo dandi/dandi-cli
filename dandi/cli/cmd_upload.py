@@ -108,14 +108,15 @@ def upload(
     from ..dandiset import Dandiset
     from ..support.digests import Digester
 
-    dandiset = Dandiset.find(dandiset_path)
-    if not dandiset:
-        raise RuntimeError(
-            f"Found no {dandiset_metadata_file} anywhere.  Use 'dandi register', 'download', or 'organize' first"
-        )
-
-    # Should no longer be needed
-    # dandiset_path = Path(dandiset_path).resolve()
+    dandiset_paths = []
+    for p in paths:
+        dandiset = Dandiset.find(Path(p).resolve())
+        if not dandiset:
+            raise RuntimeError(
+                f"Found no {dandiset_metadata_file} anywhere in {p}.  Use 'dandi register', 'download', or 'organize' first"
+            )
+        dandiset_paths.append(dandiset.path)
+    paths = dandiset_paths
 
     # Girder side details:
 
@@ -184,12 +185,6 @@ def upload(
         sys.exit(1)
 
     lgr.debug("Working with collection %s", collection_rec)
-
-    #
-    # Treat paths
-    #
-    if not paths:
-        paths = [dandiset.path]
 
     # Expand and validate all paths -- they should reside within dandiset
     orig_paths = paths
