@@ -581,7 +581,7 @@ def upload(
     pyout_style = pyouts.get_style(hide_if_missing=False)
     pyout_style["upload"]["aggregate"] = upload_agg
 
-    rec_fields = ("path", "size", "errors", "upload", "status", "message")
+    rec_fields = ["path", "size", "errors", "upload", "status", "message"]
     out = pyout.Tabular(style=pyout_style, columns=rec_fields)
 
     with out:
@@ -605,7 +605,7 @@ def upload(
                         sys.stdout.write(str(v) + os.linesep)
                         sys.stdout.flush()
                 else:
-                    rec[rec_fields[1:]] = process_path(path, relpath)
+                    rec[tuple(rec_fields[1:])] = process_path(path, relpath)
             except ValueError as exc:
                 if "does not start with" in str(exc):
                     # if top_path is not the top path for the path
