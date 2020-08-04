@@ -8,6 +8,7 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     env:
+      DANDI_DEVEL: 1
       NO_ET: 1
 
     strategy:
