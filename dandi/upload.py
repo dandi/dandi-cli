@@ -73,13 +73,6 @@ def upload(
             f"into a collection directly."
         )
 
-    # TODO: that the folder already exists
-    if False:
-        raise ValueError(
-            f"There is no {girder_top_folder} in {girder_collection}. "
-            f"Did you use 'dandi register'?"
-        )
-
     import multiprocessing
     from . import girder
     from .pynwb_utils import ignore_benign_pynwb_warnings, get_object_id
@@ -107,6 +100,14 @@ def upload(
         sys.exit(1)
 
     lgr.debug("Working with collection %s", collection_rec)
+
+    try:
+        girder.lookup(client, girder_collection, path=girder_top_folder)
+    except girder.GirderNotFound:
+        raise ValueError(
+            f"There is no {girder_top_folder} in {girder_collection}. "
+            f"Did you use 'dandi register'?"
+        )
 
     #
     # Treat paths
