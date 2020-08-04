@@ -1,0 +1,32 @@
+version: '3'
+services:
+
+  mongo:
+    image: mongo:latest
+    volumes:
+      - dandi_girder_mongo_db:/data/db
+
+  girder:
+    image: dandiarchive/dandiarchive-girder
+    volumes:
+      - dandi_girder_assetstore:/home/assetstore
+    depends_on:
+      - mongo
+    ports:
+      - "8080:8080"
+
+  client:
+    image: dandiarchive/dandiarchive-client
+    depends_on:
+      - girder
+    ports:
+      - "8085:80"
+
+  provision:
+    image: dandiarchive/dandiarchive-provision
+    depends_on:
+      - client
+
+volumes:
+  dandi_girder_mongo_db:
+  dandi_girder_assetstore:

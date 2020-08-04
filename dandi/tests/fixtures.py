@@ -1,5 +1,6 @@
 from datetime import datetime
 from dateutil.tz import tzutc
+from pathlib import Path
 from subprocess import run
 import shutil
 import tempfile
@@ -8,7 +9,9 @@ import pynwb
 from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
 
 import pytest
+import requests
 
+from .skip import skipif
 from .. import get_logger
 
 
@@ -96,3 +99,25 @@ def get_gitrepo_fixture(url, commitish=None, scope="session"):
 
 
 nwb_test_data = get_gitrepo_fixture("http://github.com/dandi-datasets/nwb_test_data")
+
+
+LOCAL_DOCKER_DIR = Path(__file__).with_name("data") / "dandiarchive-docker"
+LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name
+
+
+@pytest.fixture(scope="session")
+def local_docker():
+    skipif.no_network()
+    skipif.no_docker_engine()
+    run(["docker-compose", "up", "-d"], cwd=str(LOCAL_DOCKER_DIR), check=True)
+    run(["docker", "wait", f"{LOCAL_DOCKER_ENV}_provision_1"], check=True)
+    # Should we check that the output of `docker wait` is 0?
+    r = requests.get(
+        "http://localhost:8080/api/v1/user/authentication", auth=("admin", "letmein")
+    )
+    r.raise_for_status()
+    api_key = r.json()["authToken"]["token"]
+    try:
+        yield {"api_key": api_key}
+    finally:
+        run(["docker-compose", "down", "-v"], cwd=str(LOCAL_DOCKER_DIR), check=True)

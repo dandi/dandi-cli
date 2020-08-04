@@ -45,6 +45,8 @@ now be `mark.skipif_windows` and `skipif.windows`.
 """
 import abc
 import os
+import shutil
+import subprocess
 
 import pytest
 
@@ -92,20 +94,34 @@ from ..utils import on_windows as _on_windows
 #             missing_deps.append(dep)
 #     msg = "missing dependencies: {}".format(", ".join(missing_deps))
 #     return msg, missing_deps
-#
-#
-# def no_docker_engine():
-#     def is_engine_running():
-#         from reproman.resource.docker_container import DockerContainer
-#
-#         return DockerContainer.is_engine_running()
-#
-#     # DockerContainer depends on docker.
-#     msg, missing_deps = no_docker_dependencies()
-#     if missing_deps:
-#         return msg, missing_deps
-#     return "docker engine not running", not is_engine_running()
-#
+
+# The following code is modified from the original ReproMan source:
+### BEGIN MODIFIED CODE
+
+
+def no_docker_commands():
+    missing_cmds = []
+    for cmd in ("docker", "docker-compose"):
+        if shutil.which(cmd) is None:
+            missing_cmds.append(cmd)
+    msg = "missing Docker commands: {}".format(", ".join(missing_cmds))
+    return msg, missing_cmds
+
+
+def no_docker_engine():
+    def is_engine_running():
+        # from reproman.resource.docker_container import DockerContainer
+        # return DockerContainer.is_engine_running()
+        r = subprocess.run(["docker", "info"], stdout=subprocess.DEVNULL)
+        return r.returncode == 0
+
+    msg, missing_deps = no_docker_dependencies()
+    if missing_deps:
+        return msg, missing_deps
+    return "docker engine not running", not is_engine_running()
+
+
+### END MODIFIED CODE
 
 
 def no_network():
@@ -139,6 +155,7 @@ CONDITION_FNS = [
     # no_condor,
     # no_datalad,
     # no_docker_dependencies,
+    no_docker_commands,
     # no_docker_engine,
     no_network,
     # no_singularity,
