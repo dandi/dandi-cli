@@ -115,7 +115,7 @@ def no_docker_engine():
         r = subprocess.run(["docker", "info"], stdout=subprocess.DEVNULL)
         return r.returncode == 0
 
-    msg, missing_deps = no_docker_dependencies()
+    msg, missing_deps = no_docker_commands()
     if missing_deps:
         return msg, missing_deps
     return "docker engine not running", not is_engine_running()
@@ -156,7 +156,7 @@ CONDITION_FNS = [
     # no_datalad,
     # no_docker_dependencies,
     no_docker_commands,
-    # no_docker_engine,
+    no_docker_engine,
     no_network,
     # no_singularity,
     no_ssh,

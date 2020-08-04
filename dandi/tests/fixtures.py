@@ -109,14 +109,26 @@ LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name
 def local_docker():
     skipif.no_network()
     skipif.no_docker_engine()
+
     run(["docker-compose", "up", "-d"], cwd=str(LOCAL_DOCKER_DIR), check=True)
     run(["docker", "wait", f"{LOCAL_DOCKER_ENV}_provision_1"], check=True)
+
     # Should we check that the output of `docker wait` is 0?
     r = requests.get(
         "http://localhost:8080/api/v1/user/authentication", auth=("admin", "letmein")
     )
     r.raise_for_status()
-    api_key = r.json()["authToken"]["token"]
+    initial_api_key = r.json()["authToken"]["token"]
+
+    # Get an unscoped/full permissions API key that can be used for uploading:
+    r = requests.post(
+        "http://localhost:8080/api/v1/api_key",
+        params={"name": "testkey", "tokenDuration": 1},
+        headers={"Girder-Token": initial_api_key},
+    )
+    r.raise_for_status()
+    api_key = r.json()["key"]
+
     try:
         yield {"api_key": api_key}
     finally:
