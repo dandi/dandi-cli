@@ -23,7 +23,7 @@ def show_result(r):
         return r.output
 
 
-def test_smoke(local_docker_compose):
+def test_smoke_metadata_present(local_docker_compose):
     runner = CliRunner(mix_stderr=False)
     with runner.isolated_filesystem():
         Path(dandiset_metadata_file).write_text("{}\n")
@@ -47,5 +47,32 @@ def test_smoke(local_docker_compose):
     assert metadata["name"] == "Dandiset Name"
     assert metadata["description"] == "Dandiset Description"
     assert re.match(dandiset_identifier_regex, metadata["identifier"])
-    # TODO: Check that a Dandiset exists in the local-docker instance with the
-    # given identifier
+    # TODO: Check that a Dandiset exists in the local-docker-compose instance
+    # with the given identifier
+
+
+def test_smoke_metadata_not_present(local_docker_compose):
+    runner = CliRunner(mix_stderr=False)
+    with runner.isolated_filesystem():
+        r = runner.invoke(
+            register,
+            [
+                "-i",
+                "local-docker-compose",
+                "--name",
+                "Dandiset Name",
+                "--description",
+                "Dandiset Description",
+            ],
+            env={"DANDI_API_KEY": local_docker_compose["api_key"]},
+        )
+        assert r.exit_code == 0, show_result(r)
+        assert r.stdout != ""
+        assert not Path(dandiset_metadata_file).exists()
+        metadata = yaml_load(r.stdout)
+    assert metadata
+    assert metadata["name"] == "Dandiset Name"
+    assert metadata["description"] == "Dandiset Description"
+    assert re.match(dandiset_identifier_regex, metadata["identifier"])
+    # TODO: Check that a Dandiset exists in the local-docker-compose instance
+    # with the given identifier
