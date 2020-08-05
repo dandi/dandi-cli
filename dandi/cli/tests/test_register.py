@@ -31,7 +31,7 @@ def test_smoke_metadata_present(local_docker_compose):
             register,
             [
                 "-i",
-                "local-docker-compose",
+                "local-docker-tests",
                 "--name",
                 "Dandiset Name",
                 "--description",
@@ -47,7 +47,7 @@ def test_smoke_metadata_present(local_docker_compose):
     assert metadata["name"] == "Dandiset Name"
     assert metadata["description"] == "Dandiset Description"
     assert re.match(dandiset_identifier_regex, metadata["identifier"])
-    # TODO: Check that a Dandiset exists in the local-docker-compose instance
+    # TODO: Check that a Dandiset exists in the local-docker-tests instance
     # with the given identifier
 
 
@@ -58,7 +58,7 @@ def test_smoke_metadata_not_present(local_docker_compose):
             register,
             [
                 "-i",
-                "local-docker-compose",
+                "local-docker-tests",
                 "--name",
                 "Dandiset Name",
                 "--description",
@@ -74,5 +74,5 @@ def test_smoke_metadata_not_present(local_docker_compose):
     assert metadata["name"] == "Dandiset Name"
     assert metadata["description"] == "Dandiset Description"
     assert re.match(dandiset_identifier_regex, metadata["identifier"])
-    # TODO: Check that a Dandiset exists in the local-docker-compose instance
+    # TODO: Check that a Dandiset exists in the local-docker-tests instance
     # with the given identifier
