@@ -1,3 +1,7 @@
+# Based on
+# <https://github.com/dandi/dandiarchive/blob/master/docker/docker-compose.yml>,
+# but using images uploaded to Docker Hub instead of building them locally.
+
 version: '3'
 services:
 
@@ -13,19 +17,20 @@ services:
     depends_on:
       - mongo
     ports:
-      - "8080:8080"
+      - "8081:8080"
 
-  client:
-    image: dandiarchive/dandiarchive-client
-    depends_on:
-      - girder
-    ports:
-      - "8085:80"
+  #client:
+  #  image: dandiarchive/dandiarchive-client
+  #  depends_on:
+  #    - girder
+  #  ports:
+  #    - "8086:80"
 
   provision:
     image: dandiarchive/dandiarchive-provision
     depends_on:
-      - client
+      #- client
+      - girder
 
 volumes:
   dandi_girder_mongo_db:

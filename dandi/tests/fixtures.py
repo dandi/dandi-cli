@@ -106,7 +106,7 @@ LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name
 
 
 @pytest.fixture(scope="session")
-def local_docker():
+def local_docker_compose():
     if os.name != "posix":
         pytest.skip("Docker images require Unix host")
     skipif.no_network()
@@ -117,14 +117,14 @@ def local_docker():
 
     # Should we check that the output of `docker wait` is 0?
     r = requests.get(
-        "http://localhost:8080/api/v1/user/authentication", auth=("admin", "letmein")
+        "http://localhost:8081/api/v1/user/authentication", auth=("admin", "letmein")
     )
     r.raise_for_status()
     initial_api_key = r.json()["authToken"]["token"]
 
     # Get an unscoped/full permissions API key that can be used for uploading:
     r = requests.post(
-        "http://localhost:8080/api/v1/api_key",
+        "http://localhost:8081/api/v1/api_key",
         params={"name": "testkey", "tokenDuration": 1},
         headers={"Girder-Token": initial_api_key},
     )

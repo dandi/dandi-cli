@@ -23,7 +23,7 @@ def show_result(r):
         return r.output
 
 
-def test_smoke(local_docker):
+def test_smoke(local_docker_compose):
     runner = CliRunner(mix_stderr=False)
     with runner.isolated_filesystem():
         Path(dandiset_metadata_file).write_text("{}\n")
@@ -31,13 +31,13 @@ def test_smoke(local_docker):
             register,
             [
                 "-i",
-                "local-docker",
+                "local-docker-compose",
                 "--name",
                 "Dandiset Name",
                 "--description",
                 "Dandiset Description",
             ],
-            env={"DANDI_API_KEY": local_docker["api_key"]},
+            env={"DANDI_API_KEY": local_docker_compose["api_key"]},
         )
         assert r.exit_code == 0, show_result(r)
         assert r.stdout == ""
