@@ -6,6 +6,7 @@ from .command import (
     main,
     map_to_click_exceptions,
 )
+from ..consts import known_instances
 
 
 @main.command()
@@ -39,4 +40,7 @@ def register(name, description, dandiset_path=None, dandi_instance="dandi"):
     """
     from ..register import register
 
-    register(name, description, dandiset_path, dandi_instance)
+    dandi_instance = known_instances[dandi_instance]
+    output = register(dandi_instance, name, description, dandiset_path)
+    if output is not None:
+        print(output)
