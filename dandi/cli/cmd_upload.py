@@ -21,6 +21,7 @@ from ..consts import (
     collection_drafts,
     dandiset_identifier_regex,
     dandiset_metadata_file,
+    known_instances,
     metadata_digests,
 )
 
@@ -162,7 +163,7 @@ def upload(
 
     ignore_benign_pynwb_warnings()  # so validate doesn't whine
 
-    client = girder.get_client(girder.known_instances[dandi_instance].girder)
+    client = girder.get_client(known_instances[dandi_instance].girder)
 
     try:
         collection_rec = girder.ensure_collection(client, girder_collection)
