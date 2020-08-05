@@ -40,6 +40,7 @@ def test_smoke(local_docker):
             env={"DANDI_API_KEY": local_docker["api_key"]},
         )
         assert r.exit_code == 0, show_result(r)
+        assert r.stdout == ""
         with open(dandiset_metadata_file) as fp:
             metadata = yaml_load(fp.read())
     assert metadata
