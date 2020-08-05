@@ -1,18 +1,18 @@
 from datetime import datetime
-from dateutil.tz import tzutc
+import os
 from pathlib import Path
 from subprocess import run
 import shutil
 import tempfile
 
+from dateutil.tz import tzutc
 import pynwb
-from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
-
 import pytest
 import requests
 
 from .skip import skipif
 from .. import get_logger
+from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
 
 
 lgr = get_logger()
@@ -107,6 +107,8 @@ LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name
 
 @pytest.fixture(scope="session")
 def local_docker():
+    if os.name != "posix":
+        pytest.skip("Docker images require Unix host")
     skipif.no_network()
     skipif.no_docker_engine()
 
