@@ -125,7 +125,7 @@ def get_neurodata_types_to_modalities_map():
 
                 v_split = v_.__module__.split(".")
                 if len(v_split) != 2:
-                    print("Skipping %s coming from %s" % v_, v_.__module__)
+                    print("Skipping %s coming from %s" % (v_, v_.__module__))
                     continue
                 modality = v_split[1]  # so smth like ecephys
 
