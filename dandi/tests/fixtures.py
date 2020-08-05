@@ -107,6 +107,8 @@ LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name
 
 @pytest.fixture(scope="session")
 def local_docker_compose():
+    # Check that we're running on a Unix-based system (Linux or macOS), as the
+    # Docker images don't work on Windows.
     if os.name != "posix":
         pytest.skip("Docker images require Unix host")
     skipif.no_network()
