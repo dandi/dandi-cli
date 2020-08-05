@@ -71,7 +71,15 @@ def test_download_multiple_files(tmpdir):
         "item+5e70d3173da50caa9adaf335/item+5e70d3183da50caa9adaf336"
     )
 
-    ret = download(url, tmpdir)
+    # TEMP: to workaround https://github.com/tqdm/tqdm/issues/982 upstream
+    # at least during testing. Our issue: https://github.com/dandi/dandi-cli/issues/111
+    # The plan - to stop using tqdm (by default at least) as part of #134 RF
+    try:
+        ret = download(url, tmpdir)
+    except AssertionError as exc:
+        if "attempt to release recursive lock" in str(exc):
+            pytest.skip("tqdm issue")
+        raise
     assert not ret  # we return nothing ATM, might want to "generate"
     downloads = (x.basename for x in tmpdir.listdir())
     assert sorted(downloads) == [
