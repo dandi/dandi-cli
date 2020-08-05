@@ -13,8 +13,7 @@ from ...consts import dandiset_identifier_regex, dandiset_metadata_file
 
 def yaml_load(s):
     obj = yaml.load(s, Loader=yaml.BaseLoader)
-    assert len(obj) == 1  # will be a list with a single elem
-    return obj[0]
+    return obj
 
 
 def show_result(r):
@@ -40,8 +39,9 @@ def test_smoke(local_docker):
             ],
             env={"DANDI_API_KEY": local_docker["api_key"]},
         )
-    assert r.exit_code == 0, show_result(r)
-    metadata = yaml_load(r.stdout)
+        assert r.exit_code == 0, show_result(r)
+        with open(dandiset_metadata_file) as fp:
+            metadata = yaml_load(fp.read())
     assert metadata
     assert metadata["name"] == "Dandiset Name"
     assert metadata["description"] == "Dandiset Description"
