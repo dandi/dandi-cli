@@ -1,6 +1,5 @@
 import hashlib
 
-from pprint import pprint  # TEMP TODO remove
 import os
 import os.path as op
 import random
@@ -21,7 +20,7 @@ from .consts import (
 )
 from .dandiset import Dandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
-from .utils import Parallel, delayed, ensure_datetime, flatten, flattened, is_same_time
+from .utils import flattened, is_same_time
 
 import humanize
 from .support.pyout import naturalsize
@@ -71,7 +70,8 @@ class _dandi_url_parser:
         "(/files(\\?location=(?P<location>.*)?)?)?"
         f"(/files(\\?_id={id_grp}(&_modelType=folder)?)?)?"
         "$": {"server_type": "dandiapi"},
-        # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000006/draft (no API yet)
+        # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000006/draft
+        # (no API yet)
         "https?://.*": {"handle_redirect": "only"},
     }
     # We might need to remap some assert_types
@@ -269,10 +269,6 @@ def download(urls, output_dir, *, format="pyout", existing="error", jobs=1):
     # with upload etc
     import pyout
     from .support import pyout as pyouts
-    from .support.pyout import naturalsize
-
-    # for the upload speeds we need to provide a custom  aggregate
-    t0 = time.time()
 
     class ItemsSummary:
         def __init__(self):
@@ -485,7 +481,8 @@ def download_generator(
                 yield dict(path=dandiset_metadata_file, **resp)
 
         for asset in assets:
-            # unavoidable ugliness since girder and API have different "scopes" for identifying an asset
+            # unavoidable ugliness since girder and API have different "scopes" for
+            # identifying an asset
             digests_from_metadata = {
                 d: asset.get("metadata")[d]
                 for d in metadata_digests
@@ -508,7 +505,9 @@ def download_generator(
                         and asset["sha256"] != digests_from_metadata["sha256"]
                     ):
                         lgr.warning(
-                            "Metadata seems to be outdated since API returned different sha256 for {path}"
+                            "Metadata seems to be outdated since API returned different "
+                            "sha256 for %(path)s",
+                            asset,
                         )
 
             path = asset["path"].lstrip("/")  # make into relative path
@@ -555,7 +554,8 @@ def _map_to_girder(url):
     server_type = "girder"
     client = girder.get_client(server_url, authenticate=False, progressbars=True)
     # TODO: RF if https://github.com/dandi/dandiarchive/issues/316 gets addressed
-    # A hybrid UI case not yet adjusted for drafts API. TODO: remove whenever it is gone in an unknown version
+    # A hybrid UI case not yet adjusted for drafts API.
+    # TODO: remove whenever it is gone in an unknown version
     if asset_id.get("folder_id"):
         asset_type = "folder"
         asset_id = [asset_id.get("folder_id")]
@@ -567,7 +567,7 @@ def _map_to_girder(url):
             girder_path = op.join(girder_path, asset_id["location"])
         try:
             girder_rec = girder.lookup(client, girder_path)
-        except:
+        except BaseException:
             lgr.warning(f"Failed to lookup girder information for {girder_path}")
             girder_rec = None
         if not girder_rec:
@@ -647,7 +647,8 @@ def _download_file(
                     same.append("mtime")
                 if size is not None and stat.st_size == size:
                     same.append("size")
-                # TODO: use digests if available? or if e.g. size is identical but mtime is different
+                # TODO: use digests if available? or if e.g. size is identical
+                # but mtime is different
                 if same == ["mtime", "size"]:
                     # TODO: add recording and handling of .nwb object_id
                     yield skip_file("same time and size")
@@ -707,7 +708,8 @@ def _download_file(
             # TODO: actually we should probably retry only on selected codes, and also
             # respect Retry-After
             if attempt >= 2 or exc.response.status_code not in (
-                400,  # Bad Request, but happened with gider: https://github.com/dandi/dandi-cli/issues/87
+                400,  # Bad Request, but happened with gider:
+                # https://github.com/dandi/dandi-cli/issues/87
                 503,  # Service Unavailable
             ):
                 lgr.debug("Download failed: %s", exc)
@@ -747,6 +749,3 @@ def _download_file(
         os.utime(path, (time.time(), mtime.timestamp()))
 
     yield {"status": "done"}
-
-
-from .consts import MAX_CHUNK_SIZE

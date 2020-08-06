@@ -1,30 +1,10 @@
-from datetime import datetime
-import os
-import os.path as op
-import json
-import keyring
-import random
-import sys
-import time
-
-
-from functools import lru_cache
 from contextlib import contextmanager
-from pathlib import Path, PurePosixPath
 
 import requests
 
 from . import get_logger
-from .utils import ensure_datetime, ensure_strtime, is_same_time
-from .consts import (
-    MAX_CHUNK_SIZE,
-    dandiset_metadata_file,
-    known_instances,
-    known_instances_rev,
-    metadata_digests,
-)
-from .support.digests import Digester
-from .dandiset import Dandiset
+from .utils import ensure_datetime
+from .consts import MAX_CHUNK_SIZE
 
 lgr = get_logger()
 
@@ -330,11 +310,13 @@ class DandiAPIClient(RESTFullAPIClient):
         lgr.info(f"Traversing {dandiset_id}{location_} (version: {version})")
 
         # TODO: get all assets
-        # 1. includes sha256, created, updated but those are of "girder" level so lack "uploaded_mtime"
-        # and uploaded_nwb_object_id forbidding logic for deducing necessity to update/move.
-        # But we still might want to rely on its sha256 instead of metadata since older uploads
-        # would not have that metadata in them
+        # 1. includes sha256, created, updated but those are of "girder" level
+        # so lack "uploaded_mtime" and uploaded_nwb_object_id forbidding logic for
+        # deducing necessity to update/move. But we still might want to rely on its
+        # sha256 instead of metadata since older uploads would not have that metadata
+        # in them
         # 2. there is no API to list assets given a location
+        #
         # Get dandiset information
         dandiset = self.get_dandiset(dandiset_id, version)
         # TODO: location

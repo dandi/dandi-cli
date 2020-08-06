@@ -12,11 +12,7 @@ from pathlib import Path
 import girder_client as gcl
 
 from . import get_logger
-from .consts import (
-    MAX_CHUNK_SIZE,
-    dandiset_metadata_file,
-    known_instances_rev,
-)
+from .consts import MAX_CHUNK_SIZE, known_instances_rev
 from .utils import ensure_datetime, flattened, flatten, remap_dict
 
 lgr = get_logger()
@@ -518,7 +514,8 @@ def _harmonize_girder_dandiset_to_dandi_api(rec):
  'type': 'dandiset'}
 
 So we will place some girder specific ones under 'girder' and populate 'dandiset', e.g.
-(there is absent clarify of what date times API returns: https://github.com/dandi/dandi-publish/issues/107
+(there is absent clarify of what date times API returns:
+https://github.com/dandi/dandi-publish/issues/107
 so we will assume that my take was more or less correct and then we would have them
 correspond in case of a draft, as it is served by girder ATM:
 
