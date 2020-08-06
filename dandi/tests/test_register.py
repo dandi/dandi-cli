@@ -46,7 +46,6 @@ def test_smoke_metadata_not_present(local_docker_compose, monkeypatch, tmp_path)
         )
         is None
     )
-    # env={"DANDI_API_KEY": local_docker_compose["api_key"]},
     with (tmp_path / dandiset_metadata_file).open() as fp:
         metadata = yaml_load(fp.read())
     assert metadata
