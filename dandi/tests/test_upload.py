@@ -46,3 +46,32 @@ def test_upload(local_docker_compose, monkeypatch, tmp_path):
     girder.lookup(client, collection_drafts, path=f"{dandi_id}/{DIRNAME1}/{FILENAME1}")
     with pytest.raises(girder.GirderNotFound):
         girder.lookup(client, collection_drafts, path=f"{dandi_id}/{DIRNAME2}")
+
+
+def test_upload_existing_error(local_docker_compose, monkeypatch, tmp_path):
+    DIRNAME = "sub-anm369963"
+    FILENAME = "sub-anm369963_ses-20170228.nwb"
+    monkeypatch.setenv("DANDI_API_KEY", local_docker_compose["api_key"])
+    dandi_instance = "local-docker-tests"
+    (tmp_path / DIRNAME).mkdir(exist_ok=True, parents=True)
+    copyfile(DANDIFILES_DIR / DIRNAME / FILENAME, tmp_path / DIRNAME / FILENAME)
+    register(
+        known_instances[dandi_instance],
+        "Upload Test",
+        "Upload Test Description",
+        dandiset_path=tmp_path,
+    )
+    monkeypatch.chdir(tmp_path)
+    upload(
+        paths=[DIRNAME],
+        dandi_instance=dandi_instance,
+        devel_debug=True,
+        existing="error",
+    )
+    with pytest.raises(FileExistsError):
+        upload(
+            paths=[DIRNAME],
+            dandi_instance=dandi_instance,
+            devel_debug=True,
+            existing="error",
+        )
