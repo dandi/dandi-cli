@@ -139,3 +139,9 @@ def local_docker_compose():
         yield {"api_key": api_key, "instance_id": "local-docker-tests"}
     finally:
         run(["docker-compose", "down", "-v"], cwd=str(LOCAL_DOCKER_DIR), check=True)
+
+
+@pytest.fixture()
+def local_docker_compose_env(local_docker_compose, monkeypatch):
+    monkeypatch.setenv("DANDI_API_KEY", local_docker_compose["api_key"])
+    return local_docker_compose
