@@ -1,6 +1,11 @@
+import time
+import tqdm
+
 from ..download import download, follow_redirect, parse_dandi_url
 from ..exceptions import NotFoundError
 from ..tests.skip import mark
+
+from ..girder import GirderCli, gcl, TQDMProgressReporter
 
 import pytest
 
@@ -65,25 +70,58 @@ def test_parse_dandi_url_redirect():
 
 
 @mark.skipif_no_network
-def test_download_multiple_files(tmpdir):
+def test_download_multiple_files(monkeypatch, tmpdir):
     url = (
         "https://gui.dandiarchive.org/#/folder/5e70d3173da50caa9adaf334/selected/"
         "item+5e70d3173da50caa9adaf335/item+5e70d3183da50caa9adaf336"
     )
 
-    # TEMP: to workaround https://github.com/tqdm/tqdm/issues/982 upstream
-    # at least during testing. Our issue: https://github.com/dandi/dandi-cli/issues/111
-    # The plan - to stop using tqdm (by default at least) as part of #134 RF
-    try:
-        ret = download(url, tmpdir)
-    except AssertionError as exc:
-        if "attempt to release recursive lock" in str(exc):
-            pytest.skip("tqdm issue")
-        raise
+    # While at it we will also test girder downloadFile to retry at least 3 times
+    # in case of some errors, and that it sleeps between retries
+
+    orig_downloadFile = GirderCli.downloadFile
+
+    class Mocks:
+        ntries = 0
+        sleeps = 0
+
+        @staticmethod
+        def downloadFile(self, *args, **kwargs):
+            Mocks.ntries += 1
+            if Mocks.ntries < 3:
+                raise gcl.HttpError(
+                    text="Failing to download", url=url, method="GET", status=500
+                )
+            return orig_downloadFile(self, *args, **kwargs)
+
+        @staticmethod
+        def sleep(duration):
+            Mocks.sleeps += duration
+            # no actual sleeping
+
+    monkeypatch.setattr(GirderCli, "downloadFile", Mocks.downloadFile)
+    monkeypatch.setattr(time, "sleep", Mocks.sleep)  # to not sleep in the test
+
+    ret = download(url, tmpdir)
     assert not ret  # we return nothing ATM, might want to "generate"
+
+    assert Mocks.ntries == 3 + 1  # 3 on the first since 2 fail + 1 on 2nd file
+    assert Mocks.sleeps >= 2  # slept at least 1 sec each time
+
     downloads = (x.basename for x in tmpdir.listdir())
     assert sorted(downloads) == [
         "sub-anm372795_ses-20170714.nwb",
         "sub-anm372795_ses-20170715.nwb",
     ]
     assert all(x.lstat().size > 1e5 for x in tmpdir.listdir())  # all bigish files
+
+
+def test_girder_tqdm(monkeypatch):
+    # smoke test to ensure we do not blow up
+    def raise_assertion_error(*args, **kwargs):
+        assert False, "pretend locking failed"
+
+    monkeypatch.setattr(tqdm, "tqdm", raise_assertion_error)
+
+    with TQDMProgressReporter() as pr:
+        pr.update(10)

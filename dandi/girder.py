@@ -414,7 +414,7 @@ class GirderCli(gcl.GirderClient):
                     "Failed to download on attempt#%d, will sleep a bit and retry",
                     attempt,
                 )
-                time.sleep(random.random() * 5)
+                time.sleep((1 + random.random()) * 5)
         # It seems that above call does not care about setting either mtime
         if attrs:
             mtime = self._get_file_mtime(attrs)
@@ -523,19 +523,30 @@ class TQDMProgressReporter(object):
     def __init__(self, label="", length=0):
         import tqdm
 
-        self._pbar = tqdm.tqdm(desc=label, total=length, unit="B", unit_scale=True)
         self.label = label
         self.length = length
+
+        self._pbar = None
+        try:
+            self._pbar = tqdm.tqdm(desc=label, total=length, unit="B", unit_scale=True)
+        except AssertionError as exc:
+            lgr.warning(
+                "No progress indication for %s. Failed to initiate tqdm progress bar: %s",
+                label,
+                exc,
+            )
 
     def update(self, chunkSize):
         if _DANDI_LOG_GIRDER:
             lgr.debug("PROGRESS[%s]: +%d", id(self), chunkSize)
-        self._pbar.update(chunkSize)
+        if self._pbar:
+            self._pbar.update(chunkSize)
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, tb):
-        self._pbar.clear()  # remove from screen -- not in effect ATM TODO
-        self._pbar.close()
-        del self._pbar
+        if self._pbar:
+            self._pbar.clear()  # remove from screen -- not in effect ATM TODO
+            self._pbar.close()
+            del self._pbar
