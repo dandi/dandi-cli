@@ -2,7 +2,7 @@ import re
 
 import yaml
 
-from ..consts import dandiset_identifier_regex, known_instances, dandiset_metadata_file
+from ..consts import dandiset_identifier_regex, dandiset_metadata_file
 from ..register import register
 
 

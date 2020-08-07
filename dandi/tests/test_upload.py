@@ -5,7 +5,7 @@ import pytest
 import yaml
 
 from .. import girder
-from ..consts import collection_drafts, dandiset_metadata_file, known_instances
+from ..consts import collection_drafts, dandiset_metadata_file
 from ..register import register
 from ..upload import upload
 
@@ -25,7 +25,7 @@ def test_upload(local_docker_compose_env, monkeypatch, tmp_path):
         copyfile(DANDIFILES_DIR / dirname / filename, tmp_path / dirname / filename)
 
     register(
-        known_instances[dandi_instance_id],
+        local_docker_compose_env["instance"],
         "Upload Test",
         "Upload Test Description",
         dandiset_path=tmp_path,
@@ -34,7 +34,7 @@ def test_upload(local_docker_compose_env, monkeypatch, tmp_path):
         metadata = yaml.safe_load(fp)
     dandi_id = metadata["identifier"]
 
-    client = girder.get_client(known_instances[dandi_instance_id].girder)
+    client = girder.get_client(local_docker_compose_env["instance"].girder)
     for dirname in [DIRNAME1, DIRNAME2]:
         with pytest.raises(girder.GirderNotFound):
             girder.lookup(client, collection_drafts, path=f"{dandi_id}/{dirname}")
@@ -54,7 +54,7 @@ def test_upload_existing_error(local_docker_compose_env, monkeypatch, tmp_path):
     (tmp_path / DIRNAME).mkdir(exist_ok=True, parents=True)
     copyfile(DANDIFILES_DIR / DIRNAME / FILENAME, tmp_path / DIRNAME / FILENAME)
     register(
-        known_instances[dandi_instance_id],
+        local_docker_compose_env["instance"],
         "Upload Test",
         "Upload Test Description",
         dandiset_path=tmp_path,
