@@ -25,10 +25,10 @@ def test_upload(local_docker_compose_env, monkeypatch, tmp_path):
         copyfile(DANDIFILES_DIR / dirname / filename, tmp_path / dirname / filename)
 
     register(
-        local_docker_compose_env["instance"],
         "Upload Test",
         "Upload Test Description",
         dandiset_path=tmp_path,
+        dandi_instance=dandi_instance_id,
     )
     with (tmp_path / dandiset_metadata_file).open() as fp:
         metadata = yaml.safe_load(fp)
@@ -54,10 +54,10 @@ def test_upload_existing_error(local_docker_compose_env, monkeypatch, tmp_path):
     (tmp_path / DIRNAME).mkdir(exist_ok=True, parents=True)
     copyfile(DANDIFILES_DIR / DIRNAME / FILENAME, tmp_path / DIRNAME / FILENAME)
     register(
-        local_docker_compose_env["instance"],
         "Upload Test",
         "Upload Test Description",
         dandiset_path=tmp_path,
+        dandi_instance=dandi_instance_id,
     )
     monkeypatch.chdir(tmp_path)
     upload(
