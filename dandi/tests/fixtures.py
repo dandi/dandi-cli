@@ -136,6 +136,6 @@ def local_docker_compose():
         r.raise_for_status()
         api_key = r.json()["key"]
 
-        yield {"api_key": api_key}
+        yield {"api_key": api_key, "instance_id": "local-docker-tests"}
     finally:
         run(["docker-compose", "down", "-v"], cwd=str(LOCAL_DOCKER_DIR), check=True)

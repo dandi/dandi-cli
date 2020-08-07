@@ -19,7 +19,7 @@ def test_upload(local_docker_compose, monkeypatch, tmp_path):
     FILENAME2 = "sub-anm372793_ses-20170508.nwb"
 
     monkeypatch.setenv("DANDI_API_KEY", local_docker_compose["api_key"])
-    dandi_instance = "local-docker-tests"
+    dandi_instance = local_docker_compose["instance_id"]
 
     for dirname, filename in [(DIRNAME1, FILENAME1), (DIRNAME2, FILENAME2)]:
         (tmp_path / dirname).mkdir(exist_ok=True, parents=True)
@@ -52,7 +52,7 @@ def test_upload_existing_error(local_docker_compose, monkeypatch, tmp_path):
     DIRNAME = "sub-anm369963"
     FILENAME = "sub-anm369963_ses-20170228.nwb"
     monkeypatch.setenv("DANDI_API_KEY", local_docker_compose["api_key"])
-    dandi_instance = "local-docker-tests"
+    dandi_instance = local_docker_compose["instance_id"]
     (tmp_path / DIRNAME).mkdir(exist_ok=True, parents=True)
     copyfile(DANDIFILES_DIR / DIRNAME / FILENAME, tmp_path / DIRNAME / FILENAME)
     register(

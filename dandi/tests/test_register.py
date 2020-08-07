@@ -13,7 +13,7 @@ def yaml_load(s):
 
 def test_smoke_metadata_present(local_docker_compose, monkeypatch, tmp_path):
     monkeypatch.setenv("DANDI_API_KEY", local_docker_compose["api_key"])
-    dandi_instance = known_instances["local-docker-tests"]
+    dandi_instance = known_instances[local_docker_compose["instance_id"]]
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
     assert (
         register(
@@ -36,7 +36,7 @@ def test_smoke_metadata_present(local_docker_compose, monkeypatch, tmp_path):
 
 def test_smoke_metadata_not_present(local_docker_compose, monkeypatch, tmp_path):
     monkeypatch.setenv("DANDI_API_KEY", local_docker_compose["api_key"])
-    dandi_instance = known_instances["local-docker-tests"]
+    dandi_instance = known_instances[local_docker_compose["instance_id"]]
     assert (
         register(
             dandi_instance,
