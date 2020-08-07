@@ -91,6 +91,12 @@ known_instances = {
         "http://localhost:9000",  # ATM it is minio, not sure where /api etc
         # may be https://github.com/dandi/dandi-publish/pull/71 would help
     ),
+    "local-docker-tests": dandi_instance(
+        # "http://localhost:8081", "http://localhost:8086", None
+        "http://localhost:8081",
+        None,
+        None,
+    ),
     "dandi": dandi_instance(
         "https://girder.dandiarchive.org",
         "https://gui.dandiarchive.org",
