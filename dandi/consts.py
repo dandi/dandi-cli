@@ -95,7 +95,8 @@ known_instances = {
         # "http://localhost:8081", "http://localhost:8086", None
         "http://localhost:8081",
         None,
-        None,
+        None,  # TODO: https://github.com/dandi/dandi-cli/issues/170
+        None,  # TODO: https://github.com/dandi/dandi-cli/issues/164
     ),
     "dandi": dandi_instance(
         "https://girder.dandiarchive.org",
