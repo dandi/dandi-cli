@@ -2,7 +2,7 @@ import re
 
 import yaml
 
-from ..consts import dandiset_identifier_regex, known_instances, dandiset_metadata_file
+from ..consts import dandiset_identifier_regex, dandiset_metadata_file
 from ..register import register
 
 
@@ -11,9 +11,8 @@ def yaml_load(s):
     return obj
 
 
-def test_smoke_metadata_present(local_docker_compose, monkeypatch, tmp_path):
-    monkeypatch.setenv("DANDI_API_KEY", local_docker_compose["api_key"])
-    dandi_instance = known_instances["local-docker-tests"]
+def test_smoke_metadata_present(local_docker_compose_env, monkeypatch, tmp_path):
+    dandi_instance = local_docker_compose_env["instance"]
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
     assert (
         register(
@@ -34,9 +33,8 @@ def test_smoke_metadata_present(local_docker_compose, monkeypatch, tmp_path):
     # with the given identifier
 
 
-def test_smoke_metadata_not_present(local_docker_compose, monkeypatch, tmp_path):
-    monkeypatch.setenv("DANDI_API_KEY", local_docker_compose["api_key"])
-    dandi_instance = known_instances["local-docker-tests"]
+def test_smoke_metadata_not_present(local_docker_compose_env, monkeypatch, tmp_path):
+    dandi_instance = local_docker_compose_env["instance"]
     assert (
         register(
             dandi_instance,
