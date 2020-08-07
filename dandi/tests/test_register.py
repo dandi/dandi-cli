@@ -12,14 +12,13 @@ def yaml_load(s):
 
 
 def test_smoke_metadata_present(local_docker_compose_env, monkeypatch, tmp_path):
-    dandi_instance = local_docker_compose_env["instance"]
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
     assert (
         register(
-            dandi_instance,
             "Dandiset Name",
             "Dandiset Description",
             dandiset_path=tmp_path,
+            dandi_instance=local_docker_compose_env["instance_id"],
         )
         is None
     )
@@ -34,13 +33,12 @@ def test_smoke_metadata_present(local_docker_compose_env, monkeypatch, tmp_path)
 
 
 def test_smoke_metadata_not_present(local_docker_compose_env, monkeypatch, tmp_path):
-    dandi_instance = local_docker_compose_env["instance"]
     assert (
         register(
-            dandi_instance,
             "Dandiset Name",
             "Dandiset Description",
             dandiset_path=tmp_path,
+            dandi_instance=local_docker_compose_env["instance_id"],
         )
         is None
     )
