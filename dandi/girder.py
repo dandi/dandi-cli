@@ -662,7 +662,8 @@ def _harmonize_girder_asset_to_dandi_api(rec):
     if path.startswith("00"):
         # leading / is for consistency with API although yoh dislikes it
         # https://github.com/dandi/dandi-publish/issues/109
-        path = "/" + path.split("/", 1)[1]
+        # Girder client returned paths are OS specific.
+        path = "/" + path.split(op.sep, 1)[1]
     else:
         lgr.debug(
             "Unexpected: an asset path did not have leading dandiset identifier: %s",
