@@ -414,7 +414,7 @@ class GirderCli(gcl.GirderClient):
                     "Failed to download on attempt#%d, will sleep a bit and retry",
                     attempt,
                 )
-                time.sleep(random.random() * 5)
+                time.sleep((1 + random.random()) * 5)
         # It seems that above call does not care about setting either mtime
         if attrs:
             mtime = self._get_file_mtime(attrs)
