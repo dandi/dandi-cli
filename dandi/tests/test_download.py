@@ -1,3 +1,5 @@
+import os.path as op
+
 from ..download import download, follow_redirect, parse_dandi_url
 from ..exceptions import NotFoundError
 from ..tests.skip import mark
@@ -159,18 +161,18 @@ def test_download_multiple_files(tmpdir):
 def test_download_000027(url, tmpdir):
     ret = download(url, tmpdir)
     assert not ret  # we return nothing ATM, might want to "generate"
-    downloads = (x.relto(tmpdir) for x in tmpdir.visit())
+    dsdir = tmpdir / "000027"
+    downloads = (x.relto(dsdir) for x in dsdir.visit())
     assert sorted(downloads) == [
-        "000027",
-        "000027/dandiset.yaml",
-        "000027/sub-RAT123",
-        "000027/sub-RAT123/sub-RAT123.nwb",
+        "dandiset.yaml",
+        "sub-RAT123",
+        op.join("sub-RAT123", "sub-RAT123.nwb"),
     ]
     # and checksum should be correct as well
     from ..support.digests import Digester
 
     assert (
-        Digester(["md5"])(tmpdir / "000027/sub-RAT123/sub-RAT123.nwb")["md5"]
+        Digester(["md5"])(dsdir / "sub-RAT123" / "sub-RAT123.nwb")["md5"]
         == "33318fd510094e4304868b4a481d4a5a"
     )
     # redownload - since already exist there should be an exception
