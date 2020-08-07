@@ -1,10 +1,11 @@
 import time
+import tqdm
 
 from ..download import download, follow_redirect, parse_dandi_url
 from ..exceptions import NotFoundError
 from ..tests.skip import mark
 
-from ..girder import GirderCli, gcl
+from ..girder import GirderCli, gcl, TQDMProgressReporter
 
 import pytest
 
@@ -113,3 +114,14 @@ def test_download_multiple_files(monkeypatch, tmpdir):
         "sub-anm372795_ses-20170715.nwb",
     ]
     assert all(x.lstat().size > 1e5 for x in tmpdir.listdir())  # all bigish files
+
+
+def test_girder_tqdm(monkeypatch):
+    # smoke test to ensure we do not blow up
+    def raise_assertion_error(*args, **kwargs):
+        assert False, "pretend locking failed"
+
+    monkeypatch.setattr(tqdm, "tqdm", raise_assertion_error)
+
+    with TQDMProgressReporter() as pr:
+        pr.update(10)
