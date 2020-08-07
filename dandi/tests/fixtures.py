@@ -12,6 +12,7 @@ import requests
 
 from .skip import skipif
 from .. import get_logger
+from ..consts import known_instances
 from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
 
 
@@ -136,7 +137,11 @@ def local_docker_compose():
         r.raise_for_status()
         api_key = r.json()["key"]
 
-        yield {"api_key": api_key, "instance_id": "local-docker-tests"}
+        yield {
+            "api_key": api_key,
+            "instance_id": "local-docker-tests",
+            "instance": known_instances["local-docker-tests"],
+        }
     finally:
         run(["docker-compose", "down", "-v"], cwd=str(LOCAL_DOCKER_DIR), check=True)
 
