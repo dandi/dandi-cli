@@ -84,10 +84,7 @@ known_instances = {
         "http://localhost:8080", "http://localhost:8085", None
     ),
     "local-docker-tests": dandi_instance(
-        # "http://localhost:8081", "http://localhost:8086", None
-        "http://localhost:8081",
-        None,
-        None,
+        "http://localhost:8081", "http://localhost:8086", "http://localhost:8079"
     ),
     "dandi": dandi_instance(
         "https://girder.dandiarchive.org",
