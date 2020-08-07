@@ -33,7 +33,7 @@ def test_IteratorWithAggregation():
             got.append(i)
             sleep(0.0003)
     assert got == [0, 1, 2]
-    assert it.finished == True
+    assert it.finished
 
     # If there is an exception thrown, it would be raised only by the end
     it = IteratorWithAggregation(
@@ -45,4 +45,4 @@ def test_IteratorWithAggregation():
             got.append(i)
             sleep(0.005)
     assert got == [0]
-    assert it.finished == True
+    assert it.finished
