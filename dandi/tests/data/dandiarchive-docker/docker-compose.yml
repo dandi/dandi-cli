@@ -44,7 +44,7 @@ services:
     environment:
       GIRDER_URL: http://girder:8080
       GUI_URL: http://localhost:8086
-      ABOUT_URL: http://dandiarchive.org
+      ABOUT_URL: http://www.dandiarchive.org
 
 volumes:
   dandi_girder_mongo_db:
