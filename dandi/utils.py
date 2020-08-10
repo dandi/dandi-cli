@@ -358,8 +358,22 @@ def yaml_dump(rec):
 
 
 def yaml_load(f, typ=None):
-    # `f` can be either a string or a file-like object.
-    # `typ` defaults to "rt" (round-trip)
+    """
+    Load YAML source from a file or string.
+
+    Parameters
+    ----------
+    f: str or IO[str]
+      The YAML source to load
+    typ: str, optional
+      The value of `typ` to pass to `ruamel.yaml.YAML`.  May be "rt" (default),
+      "safe", "unsafe", or "base"
+
+    Returns
+    -------
+    Any
+      The parsed YAML value
+    """
     return ruamel.yaml.YAML(typ=typ).load(f)
 
 
