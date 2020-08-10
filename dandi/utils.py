@@ -11,7 +11,12 @@ import sys
 
 from pathlib import Path
 
+from packaging.version import Version
+import requests
 import ruamel.yaml
+
+from . import __version__
+from .consts import dandi_instance, known_instances, known_instances_rev
 
 if sys.version_info[:2] < (3, 7):
     import dateutil.parser
@@ -504,3 +509,73 @@ def delayed(*args, **kwargs):
     import joblib
 
     return joblib.delayed(*args, **kwargs)
+
+
+def get_instance(dandi_instance_id):
+    if dandi_instance_id.lower().startswith(("http://", "https://")):
+        redirector_url = dandi_instance_id
+        dandi_id = known_instances_rev.get(redirector_url)
+        if dandi_id is not None:
+            instance = known_instances[dandi_id]
+        else:
+            instance = None
+    else:
+        instance = known_instances[dandi_instance_id]
+        redirector_url = instance.redirector
+        if redirector_url is None:
+            raise ValueError("DANDI instance has no known redirector URL")
+    try:
+        r = requests.get(f"{redirector_url}/server-info")
+        r.raise_for_status()
+    except Exception as e:
+        lgr.warning("Request to %s failed (%s)", redirector_url, str(e))
+        if instance is not None:
+            lgr.warning("Using hard-coded URLs")
+            return instance
+        else:
+            raise RuntimeError(
+                f"Could not retrieve server info from {redirector_url},"
+                " and client does not recognize URL"
+            )
+    server_info = r.json()
+    minversion = Version(server_info["cli-minimal-version"])
+    bad_versions = [Version(v) for v in server_info["cli-bad-versions"]]
+    our_version = Version(__version__)
+    if our_version < minversion:
+        raise CliVersionTooLowError(our_version, minversion, bad_versions)
+    if our_version in bad_versions:
+        raise BadCliVersionError(our_version, minversion, bad_versions)
+    return dandi_instance(
+        girder=server_info["services"]["girder"],
+        gui=server_info["services"]["webui"],
+        redirector=redirector_url,
+    )
+
+
+class CliVersionError(Exception):
+    def __init__(self, our_version, minversion, bad_versions):
+        self.our_version = our_version
+        self.minversion = minversion
+        self.bad_versions = bad_versions
+
+    def server_requirements(self):
+        s = f"Server requires at least version {self.minversion}"
+        if self.bad_versions:
+            s += f" (but not {', '.join(map(str, self.bad_versions))})"
+        return s
+
+
+class CliVersionTooLowError(CliVersionError):
+    def __str__(self):
+        return (
+            f"Client version {self.our_version} is too low!  "
+            + self.server_requirements()
+        )
+
+
+class BadCliVersionError(CliVersionError):
+    def __str__(self):
+        return (
+            f"Client version {self.our_version} is rejected by server!  "
+            + self.server_requirements()
+        )
