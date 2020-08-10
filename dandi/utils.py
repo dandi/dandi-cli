@@ -11,6 +11,8 @@ import sys
 
 from pathlib import Path
 
+import ruamel.yaml
+
 if sys.version_info[:2] < (3, 7):
     import dateutil.parser
 
@@ -348,13 +350,17 @@ def yaml_dump(rec):
     to assure proper formatting on versions of pyyaml before
     5.1: https://github.com/yaml/pyyaml/pull/256
     """
-    import ruamel.yaml
-
     yaml = ruamel.yaml.YAML(typ="safe")
     yaml.default_flow_style = False
     out = io.StringIO()
     yaml.dump(rec, out)
     return out.getvalue()
+
+
+def yaml_load(f, typ=None):
+    # `f` can be either a string or a file-like object.
+    # `typ` defaults to "rt" (round-trip)
+    return ruamel.yaml.YAML(typ=typ).load(f)
 
 
 #

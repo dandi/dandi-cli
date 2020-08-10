@@ -13,12 +13,9 @@ from ..organize import (
     get_obj_id,
     populate_dataset_yml,
 )
-from ..utils import find_files, on_windows
+from ..utils import find_files, on_windows, yaml_load
 from ..pynwb_utils import copy_nwb_file, get_object_id
 import pytest
-
-
-yaml_ruamel = ruamel.yaml.YAML()  # defaults to round-trip if no parameters given
 
 
 def test_sanitize_value():
@@ -33,7 +30,7 @@ def test_populate_dataset_yml(tmpdir):
 
     def c():  # shortcut
         with open(path) as f:
-            return ruamel.yaml.YAML(typ="safe").load(f)
+            return yaml_load(f, typ="safe")
 
     path.write("")
     populate_dataset_yml(str(path), [])  # doesn't crash
@@ -50,7 +47,7 @@ def test_populate_dataset_yml(tmpdir):
         {"age": 2, "cell_id": "2", "tissue_sample_id": 1, "sex": "F"},
     ]
 
-    # even though we use ruyaml for manipulation, we should assure it is readable
+    # even though we use ruamel for manipulation, we should assure it is readable
     # by regular yaml
     populate_dataset_yml(str(path), metadata)
     assert c() == {
@@ -62,9 +59,9 @@ def test_populate_dataset_yml(tmpdir):
     }
 
     # and if we set units and redo -- years should stay unchanged, while other fields change
-    m = yaml_ruamel.load(path.read())
+    m = yaml_load(path.read())
     m["age"]["units"] = "years"
-    yaml_ruamel.dump(m, open(path, "w"))
+    ruamel.yaml.YAML().dump(m, open(path, "w"))
 
     populate_dataset_yml(str(path), metadata[:1])
     assert c() == {

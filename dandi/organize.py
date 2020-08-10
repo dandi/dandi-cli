@@ -13,7 +13,7 @@ import os.path as op
 from .exceptions import OrganizeImpossibleError
 from . import get_logger
 from .pynwb_utils import get_neurodata_types_to_modalities_map, get_object_id
-from .utils import ensure_datetime, flattened
+from .utils import ensure_datetime, flattened, yaml_load
 
 lgr = get_logger()
 
@@ -467,7 +467,7 @@ def populate_dataset_yml(filepath, metadata):
             pass
 
     with open(filepath) as f:
-        rec = yaml.load(f)
+        rec = yaml_load(f)
 
     if not rec:
         rec = {}

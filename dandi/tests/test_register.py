@@ -1,13 +1,8 @@
 import re
 
-import ruamel.yaml
-
 from ..consts import dandiset_identifier_regex, dandiset_metadata_file
 from ..register import register
-
-
-def yaml_load(s):
-    return ruamel.yaml.YAML(typ="base").load(s)
+from ..utils import yaml_load
 
 
 def test_smoke_metadata_present(local_docker_compose_env, monkeypatch, tmp_path):
@@ -22,7 +17,7 @@ def test_smoke_metadata_present(local_docker_compose_env, monkeypatch, tmp_path)
         is None
     )
     with (tmp_path / dandiset_metadata_file).open() as fp:
-        metadata = yaml_load(fp.read())
+        metadata = yaml_load(fp, typ="base")
     assert metadata
     assert metadata["name"] == "Dandiset Name"
     assert metadata["description"] == "Dandiset Description"
@@ -42,7 +37,7 @@ def test_smoke_metadata_not_present(local_docker_compose_env, monkeypatch, tmp_p
         is None
     )
     with (tmp_path / dandiset_metadata_file).open() as fp:
-        metadata = yaml_load(fp.read())
+        metadata = yaml_load(fp, typ="base")
     assert metadata
     assert metadata["name"] == "Dandiset Name"
     assert metadata["description"] == "Dandiset Description"

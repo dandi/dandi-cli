@@ -1,9 +1,8 @@
 import os.path as op
 from .consts import dandiset_metadata_file
-import ruamel.yaml
 
 from .pynwb_utils import validate as pynwb_validate, validate_cache
-from .utils import find_dandi_files
+from .utils import find_dandi_files, yaml_load
 from .metadata import get_metadata
 
 
@@ -42,7 +41,7 @@ def validate_file(filepath):
 def validate_dandiset_yaml(filepath):
     """Validate dandiset.yaml"""
     with open(filepath) as f:
-        meta = ruamel.yaml.YAML(typ="safe").load(f)
+        meta = yaml_load(f, typ="safe")
     return _check_required_fields(meta, _required_dandiset_metadata_fields)
 
 
