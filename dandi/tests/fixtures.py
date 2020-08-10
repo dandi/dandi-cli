@@ -12,6 +12,7 @@ import requests
 
 from .skip import skipif
 from .. import get_logger
+from ..consts import known_instances
 from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
 
 
@@ -114,14 +115,16 @@ def local_docker_compose():
     skipif.no_network()
     skipif.no_docker_engine()
 
+    instance_id = "local-docker-tests"
+    instance = known_instances[instance_id]
+
     run(["docker-compose", "up", "-d"], cwd=str(LOCAL_DOCKER_DIR), check=True)
     try:
         run(["docker", "wait", f"{LOCAL_DOCKER_ENV}_provision_1"], check=True)
 
         # Should we check that the output of `docker wait` is 0?
         r = requests.get(
-            "http://localhost:8081/api/v1/user/authentication",
-            auth=("admin", "letmein"),
+            f"{instance.girder}/api/v1/user/authentication", auth=("admin", "letmein")
         )
         r.raise_for_status()
         initial_api_key = r.json()["authToken"]["token"]
@@ -129,13 +132,19 @@ def local_docker_compose():
         # Get an unscoped/full permissions API key that can be used for
         # uploading:
         r = requests.post(
-            "http://localhost:8081/api/v1/api_key",
+            f"{instance.girder}/api/v1/api_key",
             params={"name": "testkey", "tokenDuration": 1},
             headers={"Girder-Token": initial_api_key},
         )
         r.raise_for_status()
         api_key = r.json()["key"]
 
-        yield {"api_key": api_key}
+        yield {"api_key": api_key, "instance": instance, "instance_id": instance_id}
     finally:
         run(["docker-compose", "down", "-v"], cwd=str(LOCAL_DOCKER_DIR), check=True)
+
+
+@pytest.fixture()
+def local_docker_compose_env(local_docker_compose, monkeypatch):
+    monkeypatch.setenv("DANDI_API_KEY", local_docker_compose["api_key"])
+    return local_docker_compose

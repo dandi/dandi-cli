@@ -92,10 +92,9 @@ known_instances = {
         # may be https://github.com/dandi/dandi-publish/pull/71 would help
     ),
     "local-docker-tests": dandi_instance(
-        # "http://localhost:8081", "http://localhost:8086", None
         "http://localhost:8081",
-        None,
-        None,  # TODO: https://github.com/dandi/dandi-cli/issues/170
+        "http://localhost:8086",
+        "http://localhost:8079",
         None,  # TODO: https://github.com/dandi/dandi-cli/issues/164
     ),
     "dandi": dandi_instance(

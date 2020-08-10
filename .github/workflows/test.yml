@@ -18,7 +18,7 @@ jobs:
           - ubuntu-18.04
           - macos-latest
         python:
-          - 3.6
+          - 3.6  # will also be used to test with _DANDI_LOG_GIRDER set
           - 3.7
           - 3.8
 
@@ -35,6 +35,9 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install ".[test]"
+    - name: Set environment variable when using Python 3.6 to cover more code
+      run: echo "::set-env name=DANDI_LOG_GIRDER::1"
+      if: matrix.python == '3.6'
     - name: ${{ matrix.module }} tests
       run: |
         python -m pytest -s -v --cov=dandi --cov-report=xml dandi
@@ -46,4 +49,4 @@ jobs:
         flags: unittests
         # name: codecov-umbrella
         # yml: ./codecov.yml
-        fail_ci_if_error: true
+        fail_ci_if_error: false
