@@ -2,12 +2,12 @@ from pathlib import Path
 from shutil import copyfile
 
 import pytest
-import yaml
 
 from .. import girder
 from ..consts import collection_drafts, dandiset_metadata_file
 from ..register import register
 from ..upload import upload
+from ..utils import yaml_load
 
 DANDIFILES_DIR = Path(__file__).with_name("data") / "dandifiles"
 
@@ -31,7 +31,7 @@ def test_upload(local_docker_compose_env, monkeypatch, tmp_path):
         dandi_instance=dandi_instance_id,
     )
     with (tmp_path / dandiset_metadata_file).open() as fp:
-        metadata = yaml.safe_load(fp)
+        metadata = yaml_load(fp, typ="safe")
     dandi_id = metadata["identifier"]
 
     client = girder.get_client(local_docker_compose_env["instance"].girder)

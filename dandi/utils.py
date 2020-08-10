@@ -1,5 +1,6 @@
 import datetime
 import inspect
+import io
 import itertools
 import os
 import os.path as op
@@ -9,6 +10,8 @@ import shutil
 import sys
 
 from pathlib import Path
+
+import ruamel.yaml
 
 if sys.version_info[:2] < (3, 7):
     import dateutil.parser
@@ -347,9 +350,31 @@ def yaml_dump(rec):
     to assure proper formatting on versions of pyyaml before
     5.1: https://github.com/yaml/pyyaml/pull/256
     """
-    import yaml
+    yaml = ruamel.yaml.YAML(typ="safe")
+    yaml.default_flow_style = False
+    out = io.StringIO()
+    yaml.dump(rec, out)
+    return out.getvalue()
 
-    return yaml.safe_dump(rec, default_flow_style=False)
+
+def yaml_load(f, typ=None):
+    """
+    Load YAML source from a file or string.
+
+    Parameters
+    ----------
+    f: str or IO[str]
+      The YAML source to load
+    typ: str, optional
+      The value of `typ` to pass to `ruamel.yaml.YAML`.  May be "rt" (default),
+      "safe", "unsafe", or "base"
+
+    Returns
+    -------
+    Any
+      The parsed YAML value
+    """
+    return ruamel.yaml.YAML(typ=typ).load(f)
 
 
 #

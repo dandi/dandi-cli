@@ -45,9 +45,10 @@ class YAMLFormatter(Formatter):
         self.records = []
 
     def __exit__(self, exc_type, exc_value, traceback):
-        import yaml
+        import ruamel.yaml
 
-        self.out.write(yaml.dump(self.records))
+        yaml = ruamel.yaml.YAML()
+        yaml.dump(self.records, self.out)
 
     def __call__(self, rec):
         self.records.append(rec)
