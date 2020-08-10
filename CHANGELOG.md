@@ -4,6 +4,17 @@ All notable changes to this project will be documented (for humans) in this file
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.6.0-rc1] - 2020-08-10
+
+This a Release Candidate which is based on a good number of changes
+which are in `master` branch and might still be released as 0.5.1
+release.  Those changes are yet to be documented.
+
+### Added
+- `download` now can download from "published" (versioned) dandisets.
+  The entire `download` was refactored and new UI also uses pyout (as
+  `upload` and `ls`) so there will be no tqdm progress bar indicators.
+
 ## [0.5.0] - 2020-06-04
 
 ### Added
