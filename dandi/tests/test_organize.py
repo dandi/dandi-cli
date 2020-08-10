@@ -2,7 +2,6 @@ import os
 from glob import glob
 import os.path as op
 import ruamel.yaml
-import yaml
 
 from ..consts import file_operation_modes
 
@@ -34,7 +33,7 @@ def test_populate_dataset_yml(tmpdir):
 
     def c():  # shortcut
         with open(path) as f:
-            return yaml.safe_load(f)
+            return ruamel.yaml.YAML(typ="safe").load(f)
 
     path.write("")
     populate_dataset_yml(str(path), [])  # doesn't crash

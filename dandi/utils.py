@@ -1,5 +1,6 @@
 import datetime
 import inspect
+import io
 import itertools
 import os
 import os.path as op
@@ -347,9 +348,13 @@ def yaml_dump(rec):
     to assure proper formatting on versions of pyyaml before
     5.1: https://github.com/yaml/pyyaml/pull/256
     """
-    import yaml
+    import ruamel.yaml
 
-    return yaml.safe_dump(rec, default_flow_style=False)
+    yaml = ruamel.yaml.YAML(typ="safe")
+    yaml.default_flow_style = False
+    out = io.StringIO()
+    yaml.dump(rec, out)
+    return out.getvalue()
 
 
 #

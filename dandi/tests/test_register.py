@@ -1,14 +1,13 @@
 import re
 
-import yaml
+import ruamel.yaml
 
 from ..consts import dandiset_identifier_regex, dandiset_metadata_file
 from ..register import register
 
 
 def yaml_load(s):
-    obj = yaml.load(s, Loader=yaml.BaseLoader)
-    return obj
+    return ruamel.yaml.YAML(typ="base").load(s)
 
 
 def test_smoke_metadata_present(local_docker_compose_env, monkeypatch, tmp_path):

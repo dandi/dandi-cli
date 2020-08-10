@@ -2,7 +2,7 @@ from pathlib import Path
 from shutil import copyfile
 
 import pytest
-import yaml
+import ruamel.yaml
 
 from .. import girder
 from ..consts import collection_drafts, dandiset_metadata_file
@@ -31,7 +31,7 @@ def test_upload(local_docker_compose_env, monkeypatch, tmp_path):
         dandi_instance=dandi_instance_id,
     )
     with (tmp_path / dandiset_metadata_file).open() as fp:
-        metadata = yaml.safe_load(fp)
+        metadata = ruamel.yaml.YAML(typ="safe").load(fp)
     dandi_id = metadata["identifier"]
 
     client = girder.get_client(local_docker_compose_env["instance"].girder)

@@ -17,10 +17,11 @@ def test_smoke(simple1_nwb_metadata, simple1_nwb, format):
 
         load = json.loads
     elif format == "yaml":
-        import yaml
+        import ruamel.yaml
 
         def load(s):
-            obj = yaml.load(s, Loader=yaml.BaseLoader)
+            yaml = ruamel.yaml.YAML(typ="base")
+            obj = yaml.load(s)
             assert len(obj) == 1  # will be a list with a single elem
             return obj[0]
 
