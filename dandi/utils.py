@@ -11,9 +11,9 @@ import sys
 
 from pathlib import Path
 
-from packaging.version import Version
 import requests
 import ruamel.yaml
+from semantic_version import Version
 
 from . import __version__
 from .consts import dandi_instance, known_instances, known_instances_rev
