@@ -26,7 +26,7 @@ class FailedToConnectError(RuntimeError):
 
 
 class CliVersionError(RuntimeError):
-    """ Base class for `CliVersionTooLowError` and `BadCliVersionError` """
+    """ Base class for `CliVersionTooOldError` and `BadCliVersionError` """
 
     def __init__(self, our_version, minversion, bad_versions):
         self.our_version = our_version
@@ -40,10 +40,10 @@ class CliVersionError(RuntimeError):
         return s
 
 
-class CliVersionTooLowError(CliVersionError):
+class CliVersionTooOldError(CliVersionError):
     def __str__(self):
         return (
-            f"Client version {self.our_version} is too low!  "
+            f"Client version {self.our_version} is too old!  "
             + self.server_requirements()
         )
 

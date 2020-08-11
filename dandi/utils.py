@@ -17,7 +17,7 @@ from semantic_version import Version
 
 from . import __version__
 from .consts import dandi_instance, known_instances, known_instances_rev
-from .exceptions import BadCliVersionError, CliVersionTooLowError
+from .exceptions import BadCliVersionError, CliVersionTooOldError
 
 if sys.version_info[:2] < (3, 7):
     import dateutil.parser
@@ -543,7 +543,7 @@ def get_instance(dandi_instance_id):
     bad_versions = [Version(v) for v in server_info["cli-bad-versions"]]
     our_version = Version(__version__)
     if our_version < minversion:
-        raise CliVersionTooLowError(our_version, minversion, bad_versions)
+        raise CliVersionTooOldError(our_version, minversion, bad_versions)
     if our_version in bad_versions:
         raise BadCliVersionError(our_version, minversion, bad_versions)
     return dandi_instance(
