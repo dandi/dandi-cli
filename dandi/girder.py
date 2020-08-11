@@ -457,20 +457,20 @@ class GirderCli(gcl.GirderClient):
         presumably_locked = False
         try:
             lgr.debug("Trying to acquire lock for %s", dandiset_identifier)
-            resp = self.post(f"dandi/{dandiset_identifier}/lock")
-            presumably_locked = True
-            # TODO: remove "if resp" 2 instances below after
-            #  https://github.com/dandi/dandiarchive/issues/421 is fixed up
-            if resp and resp.status_code != 200:
-                presumably_locked = False
+            try:
+                self.post(f"dandi/{dandiset_identifier}/lock")
+            except gcl.HttpError:
                 raise LockingError(f"Failed to lock dandiset {dandiset_identifier}")
+            else:
+                presumably_locked = True
 
             yield
         finally:
             if presumably_locked:
                 lgr.debug("Trying to release the lock for %s", dandiset_identifier)
-                resp = self.post(f"dandi/{dandiset_identifier}/unlock")
-                if resp and resp.status_code != 200:
+                try:
+                    self.post(f"dandi/{dandiset_identifier}/unlock")
+                except gcl.HttpError:
                     raise LockingError(
                         f"Failed to unlock dandiset {dandiset_identifier}"
                     )
