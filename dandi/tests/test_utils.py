@@ -1,7 +1,6 @@
 import inspect
 import os.path as op
 import time
-import datetime
 import pytest
 from ..utils import (
     ensure_datetime,

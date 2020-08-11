@@ -18,6 +18,7 @@ from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
 
 lgr = get_logger()
 
+
 # TODO: move into some common fixtures.  We might produce a number of files
 #       and also carry some small ones directly in git for regression testing
 @pytest.fixture(scope="session")
