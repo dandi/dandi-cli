@@ -3,14 +3,15 @@ import os.path as op
 
 from . import get_logger
 from . import girder
-from .consts import dandiset_metadata_file, known_instances, routes
+from .consts import dandiset_metadata_file, routes
 from .dandiset import Dandiset
+from .utils import get_instance
 
 lgr = get_logger()
 
 
 def register(name, description, dandiset_path=None, dandi_instance="dandi"):
-    dandi_instance = known_instances[dandi_instance]
+    dandi_instance = get_instance(dandi_instance)
     if not dandiset_path and op.exists(dandiset_metadata_file):
         dandiset = Dandiset.find(os.getcwd())
         if dandiset:

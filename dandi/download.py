@@ -6,7 +6,7 @@ from . import girder, get_logger
 from .consts import dandiset_metadata_file, known_instances, metadata_digests
 from .dandiset import Dandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
-from .utils import flatten, flattened, Parallel, delayed
+from .utils import flatten, flattened, Parallel, delayed, get_instance
 
 lgr = get_logger()
 
@@ -121,9 +121,7 @@ class _dandi_url_parser:
                                 settings["map_instance"], ", ".join(known_instances)
                             )
                         )
-                    return (known_instances[settings["map_instance"]].girder,) + tuple(
-                        _
-                    )
+                    return (get_instance(settings["map_instance"]).girder,) + tuple(_)
                 continue  # in this run we ignore an match further
             else:
                 break
