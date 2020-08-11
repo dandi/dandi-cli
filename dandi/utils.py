@@ -17,6 +17,7 @@ from semantic_version import Version
 
 from . import __version__
 from .consts import dandi_instance, known_instances, known_instances_rev
+from .exceptions import BadCliVersionError, CliVersionTooLowError
 
 if sys.version_info[:2] < (3, 7):
     import dateutil.parser
@@ -550,32 +551,3 @@ def get_instance(dandi_instance_id):
         gui=server_info["services"]["webui"],
         redirector=redirector_url,
     )
-
-
-class CliVersionError(Exception):
-    def __init__(self, our_version, minversion, bad_versions):
-        self.our_version = our_version
-        self.minversion = minversion
-        self.bad_versions = bad_versions
-
-    def server_requirements(self):
-        s = f"Server requires at least version {self.minversion}"
-        if self.bad_versions:
-            s += f" (but not {', '.join(map(str, self.bad_versions))})"
-        return s
-
-
-class CliVersionTooLowError(CliVersionError):
-    def __str__(self):
-        return (
-            f"Client version {self.our_version} is too low!  "
-            + self.server_requirements()
-        )
-
-
-class BadCliVersionError(CliVersionError):
-    def __str__(self):
-        return (
-            f"Client version {self.our_version} is rejected by server!  "
-            + self.server_requirements()
-        )
