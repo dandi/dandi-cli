@@ -526,7 +526,7 @@ def get_instance(dandi_instance_id):
         if redirector_url is None:
             raise ValueError("DANDI instance has no known redirector URL")
     try:
-        r = requests.get(f"{redirector_url}/server-info")
+        r = requests.get(redirector_url.rstrip("/") + "/server-info")
         r.raise_for_status()
     except Exception as e:
         lgr.warning("Request to %s failed (%s)", redirector_url, str(e))
@@ -547,7 +547,7 @@ def get_instance(dandi_instance_id):
     if our_version in bad_versions:
         raise BadCliVersionError(our_version, minversion, bad_versions)
     return dandi_instance(
-        girder=server_info["services"]["girder"],
-        gui=server_info["services"]["webui"],
+        girder=server_info["services"]["girder"]["url"],
+        gui=server_info["services"]["webui"]["url"],
         redirector=redirector_url,
     )
