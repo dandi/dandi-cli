@@ -270,123 +270,33 @@ def download(urls, output_dir, *, format="pyout", existing="error", jobs=1):
     import pyout
     from .support import pyout as pyouts
 
-    class ItemsSummary:
-        def __init__(self):
-            self.files = 0
-            self.t0 = None  # when first record is seen
-            self.size = 0
-            self.has_unknown_sizes = False
-
-        def __call__(self, rec, prior=None):
-            assert prior in (None, self)
-            if not self.files:
-                self.t0 = time.time()
-            self.files += 1
-            size = rec.get("size")
-            if size is not None:
-                self.size += size
-            elif rec.get("path", "") == "dandiset.yaml":
-                # again -- so special. TODO: make it a proper file
-                pass
-            else:
-                self.has_unknown_sizes = True
-            return self
-
     # dandi.cli.formatters are used in cmd_ls to provide switchable
     pyout_style = pyouts.get_style(hide_if_missing=False)
 
     rec_fields = ("path", "size", "done", "done%", "checksum", "status", "message")
     out = pyout.Tabular(style=pyout_style, columns=rec_fields, max_workers=jobs)
 
-    # Establish "fancy" download while still possibly traversing the dandiset
-    # functionality.
-    from .support.iterators import IteratorWithAggregation
-
-    items_summary = ItemsSummary()
-    it = IteratorWithAggregation(
-        # unfortunately Yarik missed the point that we need to wrap
-        # "assets" generator within downloader_generator
-        # so we do not have assets here!  Ad-hoc solution for now is to
-        # pass this beast so it could get .gen set within downloader_generator
-        None,  # download_generator(urls, output_dir, existing=existing),
-        items_summary,
-    )
-
-    def agg_files(*ignored):
-        ret = str(items_summary.files)
-        if not it.finished:
-            ret += "+"
-        return ret
-
-    def agg_size(sizes):
-        """Formatter for "size" column where it would show
-
-        how much is "active" (or done)
-        +how much yet to be "shown".
-        """
-        active = sum(sizes)
-        if (active, items_summary.size) == (0, 0):
-            return ""
-        v = [naturalsize(active)]
-        if not it.finished or (
-            active != items_summary.size or items_summary.has_unknown_sizes
-        ):
-            extra = items_summary.size - active
-            if extra < 0:
-                lgr.debug("Extra size %d < 0 -- must not happen", extra)
-            else:
-                extra_str = "+%s" % naturalsize(extra)
-                if not it.finished:
-                    extra_str = ">" + extra_str
-                if items_summary.has_unknown_sizes:
-                    extra_str += "+?"
-                v.append(extra_str)
-        return v
-
-    def agg_done(done_sizes):
-        """Formatter for "DONE" column
-        """
-        done = sum(done_sizes)
-        if it.finished and done == 0 and items_summary.size == 0:
-            # even with 0s everywhere consider it 100%
-            r = 1.0
-        elif items_summary.size:
-            r = done / items_summary.size
-        else:
-            r = 0
-        pref = ""
-        if not it.finished:
-            pref += "<"
-        if items_summary.has_unknown_sizes:
-            pref += "?"
-        v = [naturalsize(done), "%s%.2f%%" % (pref, 100 * r)]
-        if done and items_summary.t0 is not None and r and items_summary.size != 0:
-            dt = time.time() - items_summary.t0
-            more_time = dt / r if r != 1 else 0
-            more_time_str = humanize.naturaldelta(more_time)
-            if not it.finished:
-                more_time_str += "<"
-            if items_summary.has_unknown_sizes:
-                more_time_str += "+?"
-            if more_time:
-                v.append("ETA: %s" % more_time_str)
-        return v
-
+    out_helper = PYOUTHelper()
     pyout_style["done"] = pyout_style["size"].copy()
-    pyout_style["size"]["aggregate"] = agg_size
-    pyout_style["done"]["aggregate"] = agg_done
+    pyout_style["size"]["aggregate"] = out_helper.agg_size
+    pyout_style["done"]["aggregate"] = out_helper.agg_done
 
     # I thought I was making a beautiful flower but ended up with cacti
     # which never blooms... All because assets are looped through inside download_generator
     # TODO: redo
-    kw = dict(assets_it=it)
+    kw = dict(assets_it=out_helper.it)
     if jobs > 1 and format == "pyout":
         # It could handle delegated to generator downloads
         kw["yield_generator_for_fields"] = rec_fields[1:]  # all but path
 
     gen_ = download_generator(urls, output_dir, existing=existing, **kw)
 
-    # TODO: redo frontends similarly to how command_ls did it
+    # TODOs:
+    #  - redo frontends similarly to how command_ls did it
+    #  - have a single loop with analysis of `rec` to either any file
+    #    has failed to download.  If any was: exception should probably be
+    #    raised.  API discussion for Python side of API:
+    #
     if format == "debug":
         for rec in gen_:
             print(rec)
@@ -541,6 +451,126 @@ def download_generator(
                     yield dict(resp, path=path)
 
 
+class ItemsSummary:
+    """A helper "structure" to accumulate information about assets to be downloaded
+
+    To be used as a callback to IteratorWithAggregation
+    """
+
+    def __init__(self):
+        self.files = 0
+        # TODO: get rid of needing it
+        self.t0 = None  # when first record is seen
+        self.size = 0
+        self.has_unknown_sizes = False
+
+    def as_dict(self):
+        return {a: getattr(self, a) for a in ("files", "size", "has_unknown_sizes")}
+
+    def __call__(self, rec, prior=None):
+        assert prior in (None, self)
+        if not self.files:
+            self.t0 = time.time()
+        self.files += 1
+        size = rec.get("size")
+        if size is not None:
+            self.size += size
+        elif rec.get("path", "") == "dandiset.yaml":
+            # again -- so special. TODO: make it a proper file
+            pass
+        else:
+            self.has_unknown_sizes = True
+        return self
+
+
+class PYOUTHelper:
+    """Helper for PYOUT styling
+
+    Provides aggregation callbacks for PyOUT and also an iterator to be wrapped around
+    iterating over assets, so it would get "totals" as soon as they are available.
+    """
+
+    def __init__(self):
+        # Establish "fancy" download while still possibly traversing the dandiset
+        # functionality.
+        from .support.iterators import IteratorWithAggregation
+
+        self.items_summary = ItemsSummary()
+        self.it = IteratorWithAggregation(
+            # unfortunately Yarik missed the point that we need to wrap
+            # "assets" generator within downloader_generator
+            # so we do not have assets here!  Ad-hoc solution for now is to
+            # pass this beast so it could get .gen set within downloader_generator
+            None,  # download_generator(urls, output_dir, existing=existing),
+            self.items_summary,
+        )
+
+    def agg_files(self, *ignored):
+        ret = str(self.items_summary.files)
+        if not self.it.finished:
+            ret += "+"
+        return ret
+
+    def agg_size(self, sizes):
+        """Formatter for "size" column where it would show
+
+        how much is "active" (or done)
+        +how much yet to be "shown".
+        """
+        active = sum(sizes)
+        if (active, self.items_summary.size) == (0, 0):
+            return ""
+        v = [naturalsize(active)]
+        if not self.it.finished or (
+            active != self.items_summary.size or self.items_summary.has_unknown_sizes
+        ):
+            extra = self.items_summary.size - active
+            if extra < 0:
+                lgr.debug("Extra size %d < 0 -- must not happen", extra)
+            else:
+                extra_str = "+%s" % naturalsize(extra)
+                if not self.it.finished:
+                    extra_str = ">" + extra_str
+                if self.items_summary.has_unknown_sizes:
+                    extra_str += "+?"
+                v.append(extra_str)
+        return v
+
+    def agg_done(self, done_sizes):
+        """Formatter for "DONE" column
+        """
+        done = sum(done_sizes)
+        if self.it.finished and done == 0 and self.items_summary.size == 0:
+            # even with 0s everywhere consider it 100%
+            r = 1.0
+        elif self.items_summary.size:
+            r = done / self.items_summary.size
+        else:
+            r = 0
+        pref = ""
+        if not self.it.finished:
+            pref += "<"
+        if self.items_summary.has_unknown_sizes:
+            pref += "?"
+        v = [naturalsize(done), "%s%.2f%%" % (pref, 100 * r)]
+        if (
+            done
+            and self.items_summary.t0 is not None
+            and r
+            and self.items_summary.size != 0
+        ):
+            dt = time.time() - self.items_summary.t0
+            more_time = dt / r if r != 1 else 0
+            more_time_str = humanize.naturaldelta(more_time)
+            if not self.it.finished:
+                more_time_str += "<"
+            if self.items_summary.has_unknown_sizes:
+                more_time_str += "+?"
+            if more_time:
+                v.append("ETA: %s" % more_time_str)
+        return v
+
+
 def _map_to_girder(url):
     """
     "draft" datasets are not yet supported through dandiapi. So we need to
@@ -576,7 +606,7 @@ def _map_to_girder(url):
     return asset_id, asset_type, client, server_type
 
 
-def skip_file(msg):
+def _skip_file(msg):
     return {"status": "skipped", "message": str(msg)}
 
 
@@ -590,7 +620,7 @@ def _populate_dandiset_yaml(dandiset_path, metadata, overwrite):
     yield {"message": "updating"}
     lgr.debug(f"Updating {dandiset_metadata_file} from obtained dandiset " f"metadata")
     if op.lexists(dandiset_yaml) and not overwrite:
-        yield skip_file("already exists")
+        yield _skip_file("already exists")
         return
     else:
         dandiset = Dandiset(dandiset_path, allow_empty=True)
@@ -631,7 +661,7 @@ def _download_file(
         if existing == "error":
             raise FileExistsError(block)
         elif existing == "skip":
-            yield skip_file("already exists")
+            yield _skip_file("already exists")
             return
         elif existing == "overwrite":
             pass
@@ -651,7 +681,7 @@ def _download_file(
                 # but mtime is different
                 if same == ["mtime", "size"]:
                     # TODO: add recording and handling of .nwb object_id
-                    yield skip_file("same time and size")
+                    yield _skip_file("same time and size")
                     return
                 lgr.debug(f"{path!r} - same attributes: {same}.  Redownloading")
 
