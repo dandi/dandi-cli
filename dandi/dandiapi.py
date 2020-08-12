@@ -144,7 +144,7 @@ class RESTFullAPIClient(object):
         )
 
         # If success, return the json object. Otherwise throw an exception.
-        if result.status_code not in (200, 201):
+        if not result.ok:
             raise HTTPError(
                 f"Error {result.status_code} while sending {method} request to {url}",
                 response=result,
