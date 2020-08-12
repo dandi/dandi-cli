@@ -754,9 +754,11 @@ def _download_file(
                             blob1 = writer.read(len(block))
                             if blob1 == block:
                                 downloaded += len(block)
+                                lgr.debug("Resuming earlier download")
                                 continue
                             else:
                                 downloaded = 0
+                                lgr.debug("Could not resume earlier download")
                                 break
                         first = False
                     if digester:
