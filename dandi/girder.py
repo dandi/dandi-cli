@@ -104,14 +104,25 @@ class GirderCli(gcl.GirderClient):
             **kw,
         )
 
-    if _DANDI_LOG_GIRDER:
+    def sendRestRequest(self, *args, **kwargs):
         # Overload this core method to be able to log interactions with girder
         # server from the client side
-        def sendRestRequest(self, *args, **kwargs):
+        if _DANDI_LOG_GIRDER:
             lgr.debug("REST>: args=%s kwargs=%s", args, kwargs)
+        try:
             res = super().sendRestRequest(*args, **kwargs)
+        except gcl.HttpError as e:
+            # girder_client raises errors on 2xx values other than 200 and 201,
+            # so we need to salvage those:
+            if e.response.ok:
+                res = e.response
+                if kwargs.get("jsonResp", True):
+                    res = res.json()
+            else:
+                raise
+        if _DANDI_LOG_GIRDER:
             lgr.debug("REST<: %s", str(res))
-            return res
+        return res
 
     def register_dandiset(self, name, description):
         """Register a dandiset and return created metadata record
