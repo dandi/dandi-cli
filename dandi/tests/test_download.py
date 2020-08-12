@@ -68,7 +68,10 @@ def test_parse_dandi_url():
 
     # New DANDI web UI driven by DANDI API.  Again no version assigned/planned!
     # see https://github.com/dandi/dandiarchive/pull/341
-    url1 = "https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000006/0.200714.1807"
+    url1 = (
+        "https://deploy-preview-341--gui-dandiarchive-org.netlify.app/"
+        "#/dandiset/000006/0.200714.1807"
+    )
     assert _assert_parse_dandiapi_url(url1) == (
         "dandiset",
         {"dandiset_id": "000006", "version": "0.200714.1807"},
@@ -185,7 +188,8 @@ def test_download_multiple_files(monkeypatch, tmpdir):
 @pytest.mark.parametrize(
     "url",
     [  # Should go through API
-        "https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000027/0.200721.2222",
+        "https://deploy-preview-341--gui-dandiarchive-org.netlify.app/"
+        "#/dandiset/000027/0.200721.2222",
         # Good old girder (draft)
         "https://gui.dandiarchive.org/#/dandiset/5f0640a2ab90ac46c4561e4f",
     ],
