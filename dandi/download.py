@@ -13,6 +13,7 @@ from urllib.parse import unquote as urlunquote
 from .dandiapi import DandiAPIClient
 from . import girder, get_logger
 from .consts import (
+    MAX_CHUNK_SIZE,
     dandiset_metadata_file,
     known_instances,
     known_instances_rev,
@@ -735,15 +736,29 @@ def _download_file(
 
     # TODO: how do we discover the total size????
     # TODO: do not do it in-place, but rather into some "hidden" file
+    downloaded = 0
     for attempt in range(3):
         try:
-            downloaded = 0
+            if downloaded:
+                downloaded = max(downloaded - 2 * MAX_CHUNK_SIZE, 0)
             if digester:
                 downloaded_digest = digester()  # start empty
             warned = False
             # I wonder if we could make writing async with downloader
-            with open(path, "wb") as writer:
-                for block in downloader():
+            with open(path, "a+b") as writer:
+                first = True
+                for block in downloader(start_at=downloaded):
+                    if first:
+                        writer.seek(downloaded)
+                        if downloaded:
+                            blob1 = writer.read(len(block))
+                            if blob1 == block:
+                                downloaded += len(block)
+                                continue
+                            else:
+                                downloaded = 0
+                                break
+                        first = False
                     if digester:
                         downloaded_digest.update(block)
                     downloaded += len(block)
@@ -762,7 +777,8 @@ def _download_file(
                         # TODO: ETA etc
                     yield msg
                     writer.write(block)
-            break
+                else:
+                    break
             # both girder and we use HttpError
         except requests.exceptions.HTTPError as exc:
             # TODO: actually we should probably retry only on selected codes, and also
