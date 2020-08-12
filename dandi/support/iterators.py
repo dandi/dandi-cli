@@ -100,6 +100,9 @@ class IteratorWithAggregation:
 
         # yield from the queue (.total and .finished could be accessed meanwhile)
         while True:
+            if self.reraise_immediately and self._exc is not None:
+                break
+
             # race condition HERE between checking for self.finished and
             if self.finished and queue.empty():
                 break
@@ -109,8 +112,6 @@ class IteratorWithAggregation:
                 yield queue.get(timeout=0.001)
             except Empty:
                 continue
-            if self.reraise_immediately and self._exc is not None:
-                break
         t.join()
         if self._exc is not None:
             raise self._exc
