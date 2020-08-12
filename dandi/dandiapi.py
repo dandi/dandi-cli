@@ -56,10 +56,13 @@ class RESTFullAPIClient(object):
         """
         self._session = session if session else requests.Session()
 
-        yield self._session
-
-        self._session.close()
-        self._session = None
+        try:
+            yield self._session
+        finally:
+            # close only if we started a new one
+            if not session:
+                self._session.close()
+            self._session = None
 
     def _request_func(self, method):
         if self._session is not None:
