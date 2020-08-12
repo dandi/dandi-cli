@@ -73,3 +73,28 @@ def test_upload_existing_error(local_docker_compose_env, monkeypatch, tmp_path):
             devel_debug=True,
             existing="error",
         )
+
+
+def test_upload_locks(local_docker_compose_env, mocker, monkeypatch, tmp_path):
+    DIRNAME = "sub-anm369963"
+    FILENAME = "sub-anm369963_ses-20170228.nwb"
+    dandi_instance_id = local_docker_compose_env["instance_id"]
+    (tmp_path / DIRNAME).mkdir(exist_ok=True, parents=True)
+    copyfile(DANDIFILES_DIR / DIRNAME / FILENAME, tmp_path / DIRNAME / FILENAME)
+    register(
+        "Upload Test",
+        "Upload Test Description",
+        dandiset_path=tmp_path,
+        dandi_instance=dandi_instance_id,
+    )
+    monkeypatch.chdir(tmp_path)
+    lockmock = mocker.patch.object(girder.GirderCli, "lock_dandiset")
+    upload(
+        paths=[DIRNAME],
+        dandi_instance=dandi_instance_id,
+        devel_debug=True,
+        existing="error",
+    )
+    lockmock.assert_called()
+    lockmock.return_value.__enter__.assert_called()
+    lockmock.return_value.__exit__.assert_called()
