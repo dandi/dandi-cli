@@ -42,7 +42,7 @@ services:
     ports:
       - "8079:8080"
     environment:
-      GIRDER_URL: http://girder:8080
+      GIRDER_URL: http://localhost:8081
       GUI_URL: http://localhost:8086
       ABOUT_URL: http://www.dandiarchive.org
 
