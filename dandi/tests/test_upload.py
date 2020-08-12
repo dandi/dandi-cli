@@ -98,3 +98,18 @@ def test_upload_locks(local_docker_compose_env, mocker, monkeypatch, tmp_path):
     lockmock.assert_called()
     lockmock.return_value.__enter__.assert_called()
     lockmock.return_value.__exit__.assert_called()
+
+
+def test_upload_unregistered(local_docker_compose_env, monkeypatch, tmp_path):
+    DIRNAME = "sub-anm369963"
+    FILENAME = "sub-anm369963_ses-20170228.nwb"
+    dandi_instance_id = local_docker_compose_env["instance_id"]
+    (tmp_path / dandiset_metadata_file).write_text("identifier: '999999'\n")
+    (tmp_path / DIRNAME).mkdir(exist_ok=True, parents=True)
+    copyfile(DANDIFILES_DIR / DIRNAME / FILENAME, tmp_path / DIRNAME / FILENAME)
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ValueError) as excinfo:
+        upload(paths=[DIRNAME], dandi_instance=dandi_instance_id, devel_debug=True)
+    assert str(excinfo.value) == (
+        f"There is no 999999 in {collection_drafts}. Did you use 'dandi register'?"
+    )
