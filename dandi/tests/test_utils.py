@@ -1,14 +1,18 @@
 import inspect
 import os.path as op
 import time
-import datetime
 import pytest
+import responses
+from .. import __version__
+from ..consts import dandi_instance, known_instances
+from ..exceptions import BadCliVersionError, CliVersionTooOldError
 from ..utils import (
     ensure_datetime,
     ensure_strtime,
     find_files,
     flatten,
     flattened,
+    get_instance,
     get_utcnow_datetime,
     is_same_time,
     on_windows,
@@ -144,3 +148,169 @@ def test_flatten():
 )
 def test_remap_dict(from_, revmapping, to):
     assert remap_dict(from_, revmapping) == to
+
+
+@responses.activate
+def test_get_instance_dandi():
+    responses.add(
+        responses.GET,
+        "https://dandiarchive.org/server-info",
+        json={
+            "version": "1.0.0",
+            "cli-minimal-version": "0.5.0",
+            "cli-bad-versions": [],
+            "services": {
+                "girder": {"url": "https://girder.dandi"},
+                "webui": {"url": "https://gui.dandi"},
+                "api": {"url": "https://publish.dandi/api"},
+                "jupyterhub": {"url": "https://hub.dandi"},
+            },
+        },
+    )
+    assert get_instance("dandi") == dandi_instance(
+        girder="https://girder.dandi",
+        gui="https://gui.dandi",
+        redirector="https://dandiarchive.org",
+    )
+
+
+@responses.activate
+def test_get_instance_url():
+    responses.add(
+        responses.GET,
+        "https://example.dandi/server-info",
+        json={
+            "version": "1.0.0",
+            "cli-minimal-version": "0.5.0",
+            "cli-bad-versions": [],
+            "services": {
+                "girder": {"url": "https://girder.dandi"},
+                "webui": {"url": "https://gui.dandi"},
+                "api": {"url": "https://publish.dandi/api"},
+                "jupyterhub": {"url": "https://hub.dandi"},
+            },
+        },
+    )
+    assert get_instance("https://example.dandi/") == dandi_instance(
+        girder="https://girder.dandi",
+        gui="https://gui.dandi",
+        redirector="https://example.dandi/",
+    )
+
+
+@responses.activate
+def test_get_instance_cli_version_too_old():
+    responses.add(
+        responses.GET,
+        "https://example.dandi/server-info",
+        json={
+            "version": "1.0.0",
+            "cli-minimal-version": "99.99.99",
+            "cli-bad-versions": [],
+            "services": {
+                "girder": {"url": "https://girder.dandi"},
+                "webui": {"url": "https://gui.dandi"},
+                "api": {"url": "https://publish.dandi/api"},
+                "jupyterhub": {"url": "https://hub.dandi"},
+            },
+        },
+    )
+    with pytest.raises(CliVersionTooOldError) as excinfo:
+        get_instance("https://example.dandi/")
+    assert str(excinfo.value) == (
+        f"Client version {__version__} is too old!"
+        "  Server requires at least version 99.99.99"
+    )
+
+
+@responses.activate
+def test_get_instance_bad_cli_version():
+    responses.add(
+        responses.GET,
+        "https://example.dandi/server-info",
+        json={
+            "version": "1.0.0",
+            "cli-minimal-version": "0.5.0",
+            "cli-bad-versions": [__version__],
+            "services": {
+                "girder": {"url": "https://girder.dandi"},
+                "webui": {"url": "https://gui.dandi"},
+                "api": {"url": "https://publish.dandi/api"},
+                "jupyterhub": {"url": "https://hub.dandi"},
+            },
+        },
+    )
+    with pytest.raises(BadCliVersionError) as excinfo:
+        get_instance("https://example.dandi/")
+    assert str(excinfo.value) == (
+        f"Client version {__version__} is rejected by server!"
+        f"  Server requires at least version 0.5.0 (but not {__version__})"
+    )
+
+
+@responses.activate
+def test_get_instance_id_bad_response():
+    responses.add(
+        responses.GET,
+        "https://dandiarchive.org/server-info",
+        body="404 -- not found",
+        status=404,
+    )
+    assert get_instance("dandi") is known_instances["dandi"]
+
+
+@responses.activate
+def test_get_instance_known_url_bad_response():
+    responses.add(
+        responses.GET,
+        "https://dandiarchive.org/server-info",
+        body="404 -- not found",
+        status=404,
+    )
+    assert get_instance("https://dandiarchive.org") is known_instances["dandi"]
+
+
+@responses.activate
+def test_get_instance_unknown_url_bad_response():
+    responses.add(
+        responses.GET,
+        "https://dandi.nil/server-info",
+        body="404 -- not found",
+        status=404,
+    )
+    with pytest.raises(RuntimeError) as excinfo:
+        get_instance("https://dandi.nil")
+    assert str(excinfo.value) == (
+        "Could not retrieve server info from https://dandi.nil,"
+        " and client does not recognize URL"
+    )
+
+
+def test_get_instance_id_no_redirector():
+    assert get_instance("local-girder-only") is known_instances["local-girder-only"]
+
+
+@responses.activate
+def test_get_instance_bad_version_from_server():
+    responses.add(
+        responses.GET,
+        "https://example.dandi/server-info",
+        json={
+            "version": "1.0.0",
+            "cli-minimal-version": "foobar",
+            "cli-bad-versions": [],
+            "services": {
+                "girder": {"url": "https://girder.dandi"},
+                "webui": {"url": "https://gui.dandi"},
+                "api": {"url": "https://publish.dandi/api"},
+                "jupyterhub": {"url": "https://hub.dandi"},
+            },
+        },
+    )
+    with pytest.raises(ValueError) as excinfo:
+        get_instance("https://example.dandi/")
+    assert str(excinfo.value).startswith(
+        "https://example.dandi/ returned an incorrectly formatted version;"
+        " please contact that server's administrators: "
+    )
+    assert "foobar" in str(excinfo.value)

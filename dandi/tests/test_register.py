@@ -1,17 +1,11 @@
 import re
 
-import yaml
-
 from ..consts import dandiset_identifier_regex, dandiset_metadata_file
 from ..register import register
+from ..utils import yaml_load
 
 
-def yaml_load(s):
-    obj = yaml.load(s, Loader=yaml.BaseLoader)
-    return obj
-
-
-def test_smoke_metadata_present(local_docker_compose_env, monkeypatch, tmp_path):
+def test_smoke_metadata_present(local_docker_compose_env, tmp_path):
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
     assert (
         register(
@@ -23,7 +17,7 @@ def test_smoke_metadata_present(local_docker_compose_env, monkeypatch, tmp_path)
         is None
     )
     with (tmp_path / dandiset_metadata_file).open() as fp:
-        metadata = yaml_load(fp.read())
+        metadata = yaml_load(fp, typ="base")
     assert metadata
     assert metadata["name"] == "Dandiset Name"
     assert metadata["description"] == "Dandiset Description"
@@ -32,7 +26,7 @@ def test_smoke_metadata_present(local_docker_compose_env, monkeypatch, tmp_path)
     # with the given identifier
 
 
-def test_smoke_metadata_not_present(local_docker_compose_env, monkeypatch, tmp_path):
+def test_smoke_metadata_not_present(local_docker_compose_env, tmp_path):
     assert (
         register(
             "Dandiset Name",
@@ -43,7 +37,7 @@ def test_smoke_metadata_not_present(local_docker_compose_env, monkeypatch, tmp_p
         is None
     )
     with (tmp_path / dandiset_metadata_file).open() as fp:
-        metadata = yaml_load(fp.read())
+        metadata = yaml_load(fp, typ="base")
     assert metadata
     assert metadata["name"] == "Dandiset Name"
     assert metadata["description"] == "Dandiset Description"

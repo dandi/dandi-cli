@@ -1,5 +1,6 @@
 import datetime
 import inspect
+import io
 import itertools
 import os
 import os.path as op
@@ -9,6 +10,14 @@ import shutil
 import sys
 
 from pathlib import Path
+
+import requests
+import ruamel.yaml
+from semantic_version import Version
+
+from . import __version__
+from .consts import dandi_instance, known_instances, known_instances_rev
+from .exceptions import BadCliVersionError, CliVersionTooOldError
 
 if sys.version_info[:2] < (3, 7):
     import dateutil.parser
@@ -380,9 +389,31 @@ def yaml_dump(rec):
     to assure proper formatting on versions of pyyaml before
     5.1: https://github.com/yaml/pyyaml/pull/256
     """
-    import yaml
+    yaml = ruamel.yaml.YAML(typ="safe")
+    yaml.default_flow_style = False
+    out = io.StringIO()
+    yaml.dump(rec, out)
+    return out.getvalue()
 
-    return yaml.safe_dump(rec, default_flow_style=False)
+
+def yaml_load(f, typ=None):
+    """
+    Load YAML source from a file or string.
+
+    Parameters
+    ----------
+    f: str or IO[str]
+      The YAML source to load
+    typ: str, optional
+      The value of `typ` to pass to `ruamel.yaml.YAML`.  May be "rt" (default),
+      "safe", "unsafe", or "base"
+
+    Returns
+    -------
+    Any
+      The parsed YAML value
+    """
+    return ruamel.yaml.YAML(typ=typ).load(f)
 
 
 #
@@ -512,3 +543,51 @@ def delayed(*args, **kwargs):
     import joblib
 
     return joblib.delayed(*args, **kwargs)
+
+
+def get_instance(dandi_instance_id):
+    if dandi_instance_id.lower().startswith(("http://", "https://")):
+        redirector_url = dandi_instance_id
+        dandi_id = known_instances_rev.get(redirector_url)
+        if dandi_id is not None:
+            instance = known_instances[dandi_id]
+        else:
+            instance = None
+    else:
+        instance = known_instances[dandi_instance_id]
+        redirector_url = instance.redirector
+        if redirector_url is None:
+            return instance
+    try:
+        r = requests.get(redirector_url.rstrip("/") + "/server-info")
+        r.raise_for_status()
+    except Exception as e:
+        lgr.warning("Request to %s failed (%s)", redirector_url, str(e))
+        if instance is not None:
+            lgr.warning("Using hard-coded URLs")
+            return instance
+        else:
+            raise RuntimeError(
+                f"Could not retrieve server info from {redirector_url},"
+                " and client does not recognize URL"
+            )
+    server_info = r.json()
+    try:
+        minversion = Version(server_info["cli-minimal-version"])
+        bad_versions = [Version(v) for v in server_info["cli-bad-versions"]]
+    except ValueError as e:
+        raise ValueError(
+            f"{redirector_url} returned an incorrectly formatted version;"
+            f" please contact that server's administrators: {e}"
+        )
+    our_version = Version(__version__)
+    if our_version < minversion:
+        raise CliVersionTooOldError(our_version, minversion, bad_versions)
+    if our_version in bad_versions:
+        raise BadCliVersionError(our_version, minversion, bad_versions)
+    return dandi_instance(
+        girder=server_info["services"]["girder"]["url"],
+        gui=server_info["services"]["webui"]["url"],
+        redirector=redirector_url,
+        dandiapi=server_info["services"]["api"]["url"],
+    )

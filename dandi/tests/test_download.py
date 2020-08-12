@@ -62,7 +62,8 @@ def test_parse_dandi_url():
     # new (v1? not yet tagged) web UI, and as it comes from a PR,
     # so we need to provide yet another mapping to stock girder
     assert _assert_parse_girder_url(
-        "https://refactor--gui-dandiarchive-org.netlify.app/#/file-browser/folder/5e9f9588b5c9745bad9f58fe"
+        "https://refactor--gui-dandiarchive-org.netlify.app/#/file-browser"
+        "/folder/5e9f9588b5c9745bad9f58fe"
     ) == ("folder", ["5e9f9588b5c9745bad9f58fe"])
 
     # New DANDI web UI driven by DANDI API.  Again no version assigned/planned!

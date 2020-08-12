@@ -1,11 +1,10 @@
 """Classes/utilities for support of a dandiset"""
 
 import os
-import yaml
 from pathlib import Path
 
 from .consts import dandiset_metadata_file
-from .utils import find_parent_directory_containing, yaml_dump
+from .utils import find_parent_directory_containing, yaml_dump, yaml_load
 
 from . import get_logger
 
@@ -42,7 +41,7 @@ class Dandiset(object):
             with open(self._metadata_file_obj) as f:
                 # TODO it would cast 000001 if not explicitly string into
                 # an int -- we should prevent it... probably with some custom loader
-                self.metadata = yaml.safe_load(f)
+                self.metadata = yaml_load(f, typ="safe")
         else:
             self.metadata = None
 
@@ -70,15 +69,9 @@ class Dandiset(object):
             lgr.debug("No updates to metadata, returning")
             return
 
-        # We will use ruaml to load/save it
-        # Seems to be too tricky to add new entries, etc so we will
-        # just resort to explicitly adding the header while saving
-        # import ruamel.yaml
-        # yaml = ruamel.yaml.YAML()  # defaults to round-trip if no parameters
-        # given
         if self._metadata_file_obj.exists():
             with open(self._metadata_file_obj) as f:
-                rec = yaml.safe_load(f)
+                rec = yaml_load(f, typ="safe")
         else:
             rec = {}
 

@@ -20,7 +20,7 @@ from .consts import (
 )
 from .dandiset import Dandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
-from .utils import flattened, is_same_time
+from .utils import flattened, is_same_time, get_instance
 
 import humanize
 from .support.pyout import naturalsize
@@ -165,7 +165,7 @@ class _dandi_url_parser:
                                 settings["map_instance"], ", ".join(known_instances)
                             )
                         )
-                    known_instance = known_instances[settings["map_instance"]]
+                    known_instance = get_instance(settings["map_instance"])
                     # for consistency, add
                     server = getattr(known_instance, server_type)
                     if not server.endswith("/"):
