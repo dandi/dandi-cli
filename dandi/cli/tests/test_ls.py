@@ -2,6 +2,7 @@ from click.testing import CliRunner
 import pytest
 
 from ..command import ls
+from ...utils import yaml_load
 
 
 @pytest.mark.parametrize("format", ("auto", "json", "json_pp", "yaml", "pyout"))
@@ -17,10 +18,9 @@ def test_smoke(simple1_nwb_metadata, simple1_nwb, format):
 
         load = json.loads
     elif format == "yaml":
-        import yaml
 
         def load(s):
-            obj = yaml.load(s, Loader=yaml.BaseLoader)
+            obj = yaml_load(s, typ="base")
             assert len(obj) == 1  # will be a list with a single elem
             return obj[0]
 

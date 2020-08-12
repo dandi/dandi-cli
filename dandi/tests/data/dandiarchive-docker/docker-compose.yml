@@ -1,0 +1,51 @@
+# Based on
+# <https://github.com/dandi/dandiarchive/blob/master/docker/docker-compose.yml>,
+# but using images uploaded to Docker Hub instead of building them locally.
+
+version: '3'
+services:
+
+  mongo:
+    image: mongo:latest
+    volumes:
+      - dandi_girder_mongo_db:/data/db
+
+  girder:
+    image: dandiarchive/dandiarchive-girder
+    volumes:
+      - dandi_girder_assetstore:/home/assetstore
+    depends_on:
+      - mongo
+    ports:
+      - "8081:8080"
+
+  client:
+    image: dandiarchive/dandiarchive-client
+    depends_on:
+      - girder
+    ports:
+      - "8086:80"
+    #environment:
+    #  VUE_APP_API_ROOT: http://localhost:8081/api/v1
+
+  provision:
+    image: dandiarchive/dandiarchive-provision
+    depends_on:
+      - client
+      - girder
+
+  redirector:
+    image: dandiarchive/dandiarchive-redirector
+    depends_on:
+      - client
+      - girder
+    ports:
+      - "8079:8080"
+    environment:
+      GIRDER_URL: http://localhost:8081
+      GUI_URL: http://localhost:8086
+      ABOUT_URL: http://www.dandiarchive.org
+
+volumes:
+  dandi_girder_mongo_db:
+  dandi_girder_assetstore:

@@ -57,3 +57,24 @@ development command line options.
   metadata cache we use only released portion of `dandi.__version__` as a token.
   If handling of metadata has changed while developing, set this env var to
   `clear` to have cache `clear()`ed before use.
+
+## Sourcegraph
+
+The [Sourcegraph](https://sourcegraph.com) browser extension can be used to
+view code coverage information as follows:
+
+1. Install the [Sourcegraph browser
+   extension](https://docs.sourcegraph.com/integration/browser_extension) in
+   your browser (Chrome or Firefox only)
+
+2. [Sign up](https://sourcegraph.com/sign-up) for a Sourcegraph account if you
+   don't already have one.  You must be signed in to Sourcegraph for the
+   remaining steps.
+
+3. Enable the [Codecov Sourcegraph
+   extension](https://sourcegraph.com/extensions/sourcegraph/codecov)
+
+4. On GitHub, when viewing a dandi-cli source file (either on a branch or in a
+   pull request diff), there will be a "Coverage: X%" button at the top of the
+   source listing.  Pressing this button will toggle highlighting of the source
+   lines based on whether they are covered by tests or not.
