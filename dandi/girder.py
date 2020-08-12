@@ -492,6 +492,29 @@ class GirderCli(gcl.GirderClient):
             ),
         )
 
+    @contextlib.contextmanager
+    def lock_dandiset(self, dandiset_identifier: str):
+        presumably_locked = False
+        try:
+            lgr.debug("Trying to acquire lock for %s", dandiset_identifier)
+            try:
+                self.post(f"dandi/{dandiset_identifier}/lock")
+            except gcl.HttpError:
+                raise LockingError(f"Failed to lock dandiset {dandiset_identifier}")
+            else:
+                presumably_locked = True
+
+            yield
+        finally:
+            if presumably_locked:
+                lgr.debug("Trying to release the lock for %s", dandiset_identifier)
+                try:
+                    self.post(f"dandi/{dandiset_identifier}/unlock")
+                except gcl.HttpError:
+                    raise LockingError(
+                        f"Failed to unlock dandiset {dandiset_identifier}"
+                    )
+
 
 def _harmonize_girder_dandiset_to_dandi_api(rec):
     """
@@ -676,29 +699,6 @@ def _harmonize_girder_asset_to_dandi_api(rec):
     rec["path"] = path
 
     return rec
-
-    @contextlib.contextmanager
-    def lock_dandiset(self, dandiset_identifier: str):
-        presumably_locked = False
-        try:
-            lgr.debug("Trying to acquire lock for %s", dandiset_identifier)
-            try:
-                self.post(f"dandi/{dandiset_identifier}/lock")
-            except gcl.HttpError:
-                raise LockingError(f"Failed to lock dandiset {dandiset_identifier}")
-            else:
-                presumably_locked = True
-
-            yield
-        finally:
-            if presumably_locked:
-                lgr.debug("Trying to release the lock for %s", dandiset_identifier)
-                try:
-                    self.post(f"dandi/{dandiset_identifier}/unlock")
-                except gcl.HttpError:
-                    raise LockingError(
-                        f"Failed to unlock dandiset {dandiset_identifier}"
-                    )
 
 
 # TODO: our adapter on top of the Girder's client to simplify further
