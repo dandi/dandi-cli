@@ -722,6 +722,7 @@ def _download_file(
                     msg = {"done": downloaded}
                     if size:
                         if downloaded > size and not warned:
+                            warned = True
                             # Yield ERROR?
                             lgr.warning(
                                 "Downloaded %d bytes although size was told to be just %d",
