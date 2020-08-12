@@ -266,9 +266,7 @@ def test_get_instance_unknown_url_bad_response():
 
 
 def test_get_instance_id_no_redirector():
-    with pytest.raises(ValueError) as excinfo:
-        get_instance("local-girder-only")
-    assert str(excinfo.value) == "DANDI instance has no known redirector URL"
+    assert get_instance("local-girder-only") is known_instances["local-girder-only"]
 
 
 @responses.activate

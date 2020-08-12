@@ -524,7 +524,7 @@ def get_instance(dandi_instance_id):
         instance = known_instances[dandi_instance_id]
         redirector_url = instance.redirector
         if redirector_url is None:
-            raise ValueError("DANDI instance has no known redirector URL")
+            return instance
     try:
         r = requests.get(redirector_url.rstrip("/") + "/server-info")
         r.raise_for_status()
