@@ -21,7 +21,7 @@ def test_lock_dandiset_error_on_nest(local_docker_compose_env):
     with client.lock_dandiset(DANDISET_ID):
         with pytest.raises(LockingError) as excinfo:
             with client.lock_dandiset(DANDISET_ID):
-                pass
+                raise AssertionError("This shouldn't be reached")  # pragma: no cover
         assert str(excinfo.value) == f"Failed to lock dandiset {DANDISET_ID}"
 
 
