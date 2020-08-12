@@ -185,9 +185,9 @@ print(func(r"{script}"))
         # must be running during conda build which blows up paths with
         # _placehold_ers
         pytest.skip("seems to be running on conda and hitting the limits")
-    assert outputs[0].stdout.strip().decode() == f"Running script.py.DONE"
+    assert outputs[0].stdout.strip().decode() == "Running script.py.DONE"
     for o in outputs[1:]:
-        assert o.stdout.strip().decode() == f"DONE"
+        assert o.stdout.strip().decode() == "DONE"
 
     cache.clear()
 

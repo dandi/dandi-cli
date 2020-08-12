@@ -8,12 +8,11 @@ import time
 
 from .cli.command import lgr
 from . import __version__
-from .utils import ensure_datetime, ensure_strtime
+from .utils import ensure_datetime, ensure_strtime, get_instance
 from .consts import (
     collection_drafts,
     dandiset_identifier_regex,
     dandiset_metadata_file,
-    known_instances,
     metadata_digests,
 )
 
@@ -84,7 +83,7 @@ def upload(
 
     ignore_benign_pynwb_warnings()  # so validate doesn't whine
 
-    client = girder.get_client(known_instances[dandi_instance].girder)
+    client = girder.get_client(get_instance(dandi_instance).girder)
 
     try:
         collection_rec = girder.ensure_collection(client, girder_collection)

@@ -5,7 +5,7 @@ from ..register import register
 from ..utils import yaml_load
 
 
-def test_smoke_metadata_present(local_docker_compose_env, monkeypatch, tmp_path):
+def test_smoke_metadata_present(local_docker_compose_env, tmp_path):
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
     assert (
         register(
@@ -26,7 +26,7 @@ def test_smoke_metadata_present(local_docker_compose_env, monkeypatch, tmp_path)
     # with the given identifier
 
 
-def test_smoke_metadata_not_present(local_docker_compose_env, monkeypatch, tmp_path):
+def test_smoke_metadata_not_present(local_docker_compose_env, tmp_path):
     assert (
         register(
             "Dandiset Name",
