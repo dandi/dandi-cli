@@ -237,9 +237,7 @@ class DandiAPIClient(RESTFullAPIClient):
     def get_dandiset(self, dandiset_id, version):
         return self.get(f"/dandisets/{dandiset_id}/versions/{version}/")
 
-    def get_dandiset_assets(
-        self, dandiset_id, version, location=None, page_size=None, include_metadata=True
-    ):
+    def get_dandiset_assets(self, dandiset_id, version, location=None, page_size=None):
         """A generator to provide asset records
         """
         if location is not None:
@@ -300,9 +298,7 @@ class DandiAPIClient(RESTFullAPIClient):
                     r["modified"] = ensure_datetime(uploaded_mtime)
             yield r
 
-    def get_dandiset_and_assets(
-        self, dandiset_id, version, location=None, include_metadata=True
-    ):
+    def get_dandiset_and_assets(self, dandiset_id, version, location=None):
         """This is pretty much an adapter to provide "harmonized" output in both
         girder and DANDI api clients.
 
@@ -323,9 +319,7 @@ class DandiAPIClient(RESTFullAPIClient):
         # Get dandiset information
         dandiset = self.get_dandiset(dandiset_id, version)
         # TODO: location
-        assets = self.get_dandiset_assets(
-            dandiset_id, version, location=location, include_metadata=include_metadata
-        )
+        assets = self.get_dandiset_assets(dandiset_id, version, location=location)
         return dandiset, assets
 
     def get_download_file_iter(
