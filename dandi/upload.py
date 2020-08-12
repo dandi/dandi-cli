@@ -8,12 +8,11 @@ import time
 
 from .cli.command import lgr
 from . import __version__
-from .utils import ensure_datetime, ensure_strtime
+from .utils import ensure_datetime, ensure_strtime, get_instance
 from .consts import (
     collection_drafts,
     dandiset_identifier_regex,
     dandiset_metadata_file,
-    known_instances,
     metadata_digests,
 )
 
@@ -73,13 +72,6 @@ def upload(
             f"into a collection directly."
         )
 
-    # TODO: that the folder already exists
-    if False:
-        raise ValueError(
-            f"There is no {girder_top_folder} in {girder_collection}. "
-            f"Did you use 'dandi register'?"
-        )
-
     import multiprocessing
     from . import girder
     from .pynwb_utils import ignore_benign_pynwb_warnings, get_object_id
@@ -91,7 +83,7 @@ def upload(
 
     ignore_benign_pynwb_warnings()  # so validate doesn't whine
 
-    client = girder.get_client(known_instances[dandi_instance].girder)
+    client = girder.get_client(get_instance(dandi_instance).girder)
 
     try:
         collection_rec = girder.ensure_collection(client, girder_collection)
@@ -107,6 +99,14 @@ def upload(
         sys.exit(1)
 
     lgr.debug("Working with collection %s", collection_rec)
+
+    try:
+        girder.lookup(client, girder_collection, path=girder_top_folder)
+    except girder.GirderNotFound:
+        raise ValueError(
+            f"There is no {girder_top_folder} in {girder_collection}. "
+            f"Did you use 'dandi register'?"
+        )
 
     #
     # Treat paths
@@ -505,7 +505,7 @@ def upload(
     rec_fields = ["path", "size", "errors", "upload", "status", "message"]
     out = pyout.Tabular(style=pyout_style, columns=rec_fields)
 
-    with out:
+    with out, client.lock_dandiset(dandiset.identifier):
         for path in paths:
             while len(process_paths) >= 10:
                 lgr.log(2, "Sleep waiting for some paths to finish processing")

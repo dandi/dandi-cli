@@ -75,9 +75,7 @@ metadata_digests = ("sha1", "md5", "sha512", "sha256")
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = "^[0-9]{6}$"
 
-dandi_instance = namedtuple(
-    "dandi_instance", ("girder", "gui", "redirector", "dandiapi")
-)
+dandi_instance = namedtuple("dandi_instance", ("girder", "gui", "redirector", "api"))
 
 known_instances = {
     "local-girder-only": dandi_instance(
@@ -118,7 +116,7 @@ file_operation_modes = ["dry", "simulate", "copy", "move", "hardlink", "symlink"
 # Chunk size when iterating a download (and upload) body. Taken from girder-cli
 # TODO: should we make them smaller for download than for upload?
 # ATM used only in download
-MAX_CHUNK_SIZE = os.environ.get("DANDI_MAX_CHUNK_SIZE", 1024 * 1024 * 8)  # 64
+MAX_CHUNK_SIZE = int(os.environ.get("DANDI_MAX_CHUNK_SIZE", 1024 * 1024 * 8))  # 64
 
 #
 # Some routes

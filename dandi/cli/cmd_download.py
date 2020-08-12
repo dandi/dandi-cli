@@ -55,7 +55,7 @@ from .command import devel_option, main, map_to_click_exceptions
 )
 @click.argument("url", nargs=-1)
 @map_to_click_exceptions
-def download(url, output_dir, existing, jobs=6, format="pytout"):
+def download(url, output_dir, existing, jobs, format):
     """Download a file or entire folder from DANDI"""
     # First boring attempt at click commands being merely an interface to
     # Python function

@@ -20,10 +20,10 @@ def _assert_parse_girder_url(url):
     return a, aid
 
 
-def _assert_parse_dandiapi_url(url):
+def _assert_parse_api_url(url):
     st, s, a, aid = parse_dandi_url(url)
-    assert st == "dandiapi"
-    assert s == known_instances["dandi"].dandiapi + "/"
+    assert st == "api"
+    assert s == known_instances["dandi"].api + "/"
     return a, aid
 
 
@@ -62,25 +62,29 @@ def test_parse_dandi_url():
     # new (v1? not yet tagged) web UI, and as it comes from a PR,
     # so we need to provide yet another mapping to stock girder
     assert _assert_parse_girder_url(
-        "https://refactor--gui-dandiarchive-org.netlify.app/#/file-browser/folder/5e9f9588b5c9745bad9f58fe"
+        "https://refactor--gui-dandiarchive-org.netlify.app/#/file-browser"
+        "/folder/5e9f9588b5c9745bad9f58fe"
     ) == ("folder", ["5e9f9588b5c9745bad9f58fe"])
 
     # New DANDI web UI driven by DANDI API.  Again no version assigned/planned!
     # see https://github.com/dandi/dandiarchive/pull/341
-    url1 = "https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000006/0.200714.1807"
-    assert _assert_parse_dandiapi_url(url1) == (
+    url1 = (
+        "https://deploy-preview-341--gui-dandiarchive-org.netlify.app/"
+        "#/dandiset/000006/0.200714.1807"
+    )
+    assert _assert_parse_api_url(url1) == (
         "dandiset",
         {"dandiset_id": "000006", "version": "0.200714.1807"},
     )
-    assert _assert_parse_dandiapi_url(url1 + "/files") == (
+    assert _assert_parse_api_url(url1 + "/files") == (
         "dandiset",
         {"dandiset_id": "000006", "version": "0.200714.1807"},
     )
-    assert _assert_parse_dandiapi_url(url1 + "/files?location=%2F") == (
+    assert _assert_parse_api_url(url1 + "/files?location=%2F") == (
         "dandiset",
         {"dandiset_id": "000006", "version": "0.200714.1807"},
     )
-    assert _assert_parse_dandiapi_url(url1 + "/files?location=%2Fsub-anm369962%2F") == (
+    assert _assert_parse_api_url(url1 + "/files?location=%2Fsub-anm369962%2F") == (
         "folder",
         {
             "dandiset_id": "000006",
@@ -89,7 +93,7 @@ def test_parse_dandi_url():
         },
     )
     # no trailing / - Yarik considers it to be an item (file)
-    assert _assert_parse_dandiapi_url(url1 + "/files?location=%2Fsub-anm369962") == (
+    assert _assert_parse_api_url(url1 + "/files?location=%2Fsub-anm369962") == (
         "item",
         {
             "dandiset_id": "000006",
@@ -98,7 +102,7 @@ def test_parse_dandi_url():
         },
     )
     # And the hybrid for "drafts" where it still goes by girder ID
-    assert _assert_parse_dandiapi_url(
+    assert _assert_parse_api_url(
         "https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000027"
         "/draft/files?_id=5f176583f63d62e1dbd06943&_modelType=folder"
     ) == (
@@ -184,7 +188,8 @@ def test_download_multiple_files(monkeypatch, tmpdir):
 @pytest.mark.parametrize(
     "url",
     [  # Should go through API
-        "https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000027/0.200721.2222",
+        "https://deploy-preview-341--gui-dandiarchive-org.netlify.app/"
+        "#/dandiset/000027/0.200721.2222",
         # Good old girder (draft)
         "https://gui.dandiarchive.org/#/dandiset/5f0640a2ab90ac46c4561e4f",
     ],

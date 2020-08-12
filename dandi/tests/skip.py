@@ -96,7 +96,7 @@ from ..utils import on_windows as _on_windows
 #     return msg, missing_deps
 
 # The following code is modified from the original ReproMan source:
-### BEGIN MODIFIED CODE
+# ### BEGIN MODIFIED CODE
 
 
 def no_docker_commands():
@@ -121,7 +121,7 @@ def no_docker_engine():
     return "docker engine not running", not is_engine_running()
 
 
-### END MODIFIED CODE
+# ### END MODIFIED CODE
 
 
 def no_network():

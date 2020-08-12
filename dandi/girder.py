@@ -1,7 +1,8 @@
-import os
-import os.path as op
+import contextlib
 import json
 import keyring
+import os
+import os.path as op
 import random
 import sys
 import time
@@ -12,8 +13,9 @@ from pathlib import Path
 import girder_client as gcl
 
 from . import get_logger
-from .consts import MAX_CHUNK_SIZE, known_instances_rev
+from .exceptions import LockingError
 from .utils import ensure_datetime, flattened, flatten, remap_dict
+from .consts import known_instances_rev, MAX_CHUNK_SIZE
 
 lgr = get_logger()
 
@@ -30,6 +32,8 @@ class GirderNotFound(Exception):
     pass
 
 
+# TODO: remove if we start to expose this as a Python library which could
+# be longer lived than just a CLI
 @lru_cache(1024)
 def lookup(client, name, asset_type="collection", path=None):
     """A helper for common logic while looking up things on girder by name"""
@@ -487,6 +491,29 @@ class GirderCli(gcl.GirderClient):
                 for a in flatten(r[1] for r in dandiset_asset_recs)
             ),
         )
+
+    @contextlib.contextmanager
+    def lock_dandiset(self, dandiset_identifier: str):
+        presumably_locked = False
+        try:
+            lgr.debug("Trying to acquire lock for %s", dandiset_identifier)
+            try:
+                self.post(f"dandi/{dandiset_identifier}/lock")
+            except gcl.HttpError:
+                raise LockingError(f"Failed to lock dandiset {dandiset_identifier}")
+            else:
+                presumably_locked = True
+
+            yield
+        finally:
+            if presumably_locked:
+                lgr.debug("Trying to release the lock for %s", dandiset_identifier)
+                try:
+                    self.post(f"dandi/{dandiset_identifier}/unlock")
+                except gcl.HttpError:
+                    raise LockingError(
+                        f"Failed to unlock dandiset {dandiset_identifier}"
+                    )
 
 
 def _harmonize_girder_dandiset_to_dandi_api(rec):

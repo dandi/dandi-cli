@@ -9,16 +9,6 @@ from .consts import MAX_CHUNK_SIZE
 lgr = get_logger()
 
 
-class HTTPError(requests.HTTPError):
-    """An HTTP error occurred.
-
-    Following Girder's recommendation of having its HttpError deprecated,
-    this is just a helper to bring that HTTPError into our space
-    """
-
-    pass
-
-
 # Following class is loosely based on GirderClient, with authentication etc
 # being stripped.
 # TODO: add copyright/license info
@@ -56,10 +46,13 @@ class RESTFullAPIClient(object):
         """
         self._session = session if session else requests.Session()
 
-        yield self._session
-
-        self._session.close()
-        self._session = None
+        try:
+            yield self._session
+        finally:
+            # close only if we started a new one
+            if not session:
+                self._session.close()
+            self._session = None
 
     def _request_func(self, method):
         if self._session is not None:
@@ -141,8 +134,8 @@ class RESTFullAPIClient(object):
         )
 
         # If success, return the json object. Otherwise throw an exception.
-        if result.status_code not in (200, 201):
-            raise HTTPError(
+        if not result.ok:
+            raise requests.HTTPError(
                 f"Error {result.status_code} while sending {method} request to {url}",
                 response=result,
             )
@@ -234,9 +227,7 @@ class DandiAPIClient(RESTFullAPIClient):
     def get_dandiset(self, dandiset_id, version):
         return self.get(f"/dandisets/{dandiset_id}/versions/{version}/")
 
-    def get_dandiset_assets(
-        self, dandiset_id, version, location=None, page_size=None, include_metadata=True
-    ):
+    def get_dandiset_assets(self, dandiset_id, version, location=None, page_size=None):
         """A generator to provide asset records
         """
         if location is not None:
@@ -297,13 +288,11 @@ class DandiAPIClient(RESTFullAPIClient):
                     r["modified"] = ensure_datetime(uploaded_mtime)
             yield r
 
-    def get_dandiset_and_assets(
-        self, dandiset_id, version, location=None, include_metadata=True
-    ):
+    def get_dandiset_and_assets(self, dandiset_id, version, location=None):
         """This is pretty much an adapter to provide "harmonized" output in both
-        girder and dandiapi clients.
+        girder and DANDI api clients.
 
-        Harmonization should happen toward "dandiapi" BUT AFAIK it is still influx
+        Harmonization should happen toward DADNDI API BUT AFAIK it is still influx
         """
         # Fun begins!
         location_ = "/" + location if location else ""
@@ -320,9 +309,7 @@ class DandiAPIClient(RESTFullAPIClient):
         # Get dandiset information
         dandiset = self.get_dandiset(dandiset_id, version)
         # TODO: location
-        assets = self.get_dandiset_assets(
-            dandiset_id, version, location=location, include_metadata=include_metadata
-        )
+        assets = self.get_dandiset_assets(dandiset_id, version, location=location)
         return dandiset, assets
 
     def get_download_file_iter(

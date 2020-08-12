@@ -15,7 +15,8 @@ def sleeping_range(n, secs=0.01, thr=None):
 
 
 def test_IteratorWithAggregation():
-    sumup = lambda v, t=0: v + t
+    def sumup(v, t=0):
+        return v + t
 
     it = IteratorWithAggregation(sleeping_range(3, 0.0001), agg=sumup)
     # we should get our summary available after 2nd iteration and before it finishes
