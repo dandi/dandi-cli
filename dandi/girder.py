@@ -14,9 +14,8 @@ import girder_client as gcl
 
 from . import get_logger
 from .exceptions import LockingError
-from .utils import ensure_datetime, is_same_time
-from .consts import known_instances_rev, metadata_digests
-from .support.digests import Digester
+from .utils import ensure_datetime, flattened, flatten, remap_dict
+from .consts import known_instances_rev, MAX_CHUNK_SIZE
 
 lgr = get_logger()
 
@@ -354,103 +353,144 @@ class GirderCli(gcl.GirderClient):
                 if len(children) < gcl.DEFAULT_PAGE_LIMIT:
                     break
 
-    def download_file(self, file_id, path, existing="error", attrs=None, digests=None):
+    def get_download_file_iter(self, file_id, chunk_size=MAX_CHUNK_SIZE):
         """
+        """
+
+        def downloader():
+            # TODO: make it a common decorator here?
+            # Will do 3 attempts to avoid some problems due to flaky/overloaded
+            # connections, see https://github.com/dandi/dandi-cli/issues/87
+            for attempt in range(3):
+                try:
+                    return self.downloadFileAsIterator(file_id, chunkSize=chunk_size)
+                    break
+                except gcl.HttpError as exc:
+                    if is_access_denied(exc) or attempt >= 2:
+                        raise
+                    # sleep a little and retry
+                    lgr.debug(
+                        "Failed to download on attempt#%d, will sleep a bit and retry",
+                        attempt,
+                    )
+                    time.sleep((1 + random.random()) * 5)
+
+        return downloader
+
+    def _get_asset_recs(self, asset_id, asset_type, authenticate=False, recursive=True):
+        """
+
         Parameters
         ----------
-        digests: dict, optional
-          possible checksums or other digests provided for the file. Only one
-          will be used to verify download
+        asset_id
+        asset_type
+        authenticate
+        recursive
+
+        Returns
+        -------
+        dandiset_rec, files_rec
+           dandiset_rec will be None if asset_id is not pointing to a dandiset
         """
-        if op.lexists(path):
-            msg = f"File {path!r} already exists"
-            if existing == "error":
-                raise FileExistsError(msg)
-            elif existing == "skip":
-                lgr.info(msg + " skipping")
-                return
-            elif existing == "overwrite":
-                pass
-            elif existing == "refresh":
-                remote_file_mtime = self._get_file_mtime(attrs)
-                if remote_file_mtime is None:
-                    lgr.warning(
-                        f"{path!r} - no mtime or ctime in the record, redownloading"
-                    )
-                else:
-                    stat = os.stat(op.realpath(path))
-                    same = []
-                    if is_same_time(stat.st_mtime, remote_file_mtime):
-                        same.append("mtime")
-                    if "size" in attrs and stat.st_size == attrs["size"]:
-                        same.append("size")
-                    if same == ["mtime", "size"]:
-                        # TODO: add recording and handling of .nwb object_id
-                        lgr.info(f"{path!r} - same time and size, skipping")
-                        return
-                    lgr.debug(f"{path!r} - same attributes: {same}.  Redownloading")
+        # asset_rec = client.getResource(asset_type, asset_id)
+        # lgr.info("Working with asset %s", str(asset_rec))
+        # In principle Girder's client already has ability to download any
+        # resource (collection/folder/item/file).  But it seems that "mending" it
+        # with custom handling (e.g. later adding filtering to skip some files,
+        # or add our own behavior on what to do when files exist locally, etc) would
+        # not be easy.  So we will reimplement as a two step (kinda) procedure.
+        # Return a generator which would be traversing girder and yield records
+        # of encountered resources.
+        # TODO later:  may be look into making it async
+        # First we access top level records just to sense what we are working with
+        top_entities = None
+        files = None
+        dandiset = None
 
-        destdir = op.dirname(path)
-        os.makedirs(destdir, exist_ok=True)
-        # suboptimal since
-        # 1. downloads into TMPDIR which might lack space etc.  If anything, we
-        # might tune up setting/TMPDIR at the
-        # level of download so it goes alongside with the target path
-        # (e.g. under .FILENAME.dandi-download). That would speed things up
-        # when finalizing the download, possibly avoiding `mv` across partitions
-        # 2. unlike upload it doesn't use a callback but relies on a context
-        #  manager to be called with an .update.  also it uses only filename
-        #  in the progressbar label
-        # For starters we would do this implementation but later RF
-        # when RF - do not forget to remove progressReporterCls in __init__
-
-        # Will do 3 attempts to avoid some problems due to flaky/overloaded
-        # connections, see https://github.com/dandi/dandi-cli/issues/87
-        for attempt in range(3):
+        while True:
             try:
-                self.downloadFile(file_id, path)
+                # this one should enhance them with "fullpath"
+                top_entities = list(
+                    self.traverse_asset(asset_id, asset_type, recursive=False)
+                )
                 break
             except gcl.HttpError as exc:
-                if is_access_denied(exc) or attempt >= 2:
-                    raise
-                # sleep a little and retry
-                lgr.debug(
-                    "Failed to download on attempt#%d, will sleep a bit and retry",
-                    attempt,
+                if not authenticate and is_access_denied(exc):
+                    lgr.warning("unauthenticated access denied, let's authenticate")
+                    self.dandi_authenticate()
+                    continue
+                raise
+        entity_type = list(set(e["type"] for e in top_entities))
+        if len(entity_type) > 1:
+            raise ValueError(
+                f"Please point to a single type of entity - either dandiset(s),"
+                f" folder(s) or file(s).  Got: {entity_type}"
+            )
+        entity_type = entity_type[0]
+        if entity_type in ("dandiset", "folder"):
+            # redo recursively
+            lgr.info(
+                "Traversing remote %ss (%s) recursively",
+                entity_type,
+                ", ".join(e["name"] for e in top_entities),
+            )
+            entities = self.traverse_asset(asset_id, asset_type, recursive=recursive)
+            # TODO: special handling for a dandiset -- we might need to
+            #  generate dandiset.yaml out of the metadata record
+            # we care only about files ATM
+            files = (e for e in entities if e["type"] == "file")
+        elif entity_type == "file":
+            files = top_entities
+        else:
+            raise ValueError(f"Unexpected entity type {entity_type}")
+        # TODO: move -- common and has nothing to do with getting a list of assets
+        if entity_type == "dandiset":
+            if len(top_entities) > 1:
+                raise NotImplementedError(
+                    "A single dandiset at a time only supported ATM, got %d: %s"
+                    % (len(top_entities), top_entities)
                 )
-                time.sleep((1 + random.random()) * 5)
-        # It seems that above call does not care about setting either mtime
-        if attrs:
-            mtime = self._get_file_mtime(attrs)
-            if mtime:
-                os.utime(path, (time.time(), mtime.timestamp()))
-        if digests:
-            # Pick the first one (ordered according to speed of computation)
-            for algo in metadata_digests:
-                if algo in digests:
-                    break
-            else:
-                algo = list(digests)[:1]  # first available
-            digest = Digester([algo])(path)[algo]
-            if digests[algo] != digest:
-                lgr.warning(
-                    "%s %s is different: downloaded %s, should have been %s.",
-                    path,
-                    algo,
-                    digest,
-                    digests[algo],
-                )
-            else:
-                lgr.debug("Verified that %s has correct %s %s", path, algo, digest)
+            dandiset = top_entities[0]
 
-    @staticmethod
-    def _get_file_mtime(attrs):
-        if not attrs:
-            return None
-        # We would rely on uploaded_mtime from metadata being stored as mtime.
-        # If that one was not provided, the best we know is the "ctime"
-        # for the file, use that one
-        return ensure_datetime(attrs.get("mtime", attrs.get("ctime", None)))
+        return dandiset, files
+
+    def get_dandiset_and_assets(
+        self, asset_id, asset_type, recursive=True, authenticate=False
+    ):
+        lgr.debug(f"Traversing {asset_type} with id {asset_id}")
+        # there might be multiple asset_ids, e.g. if multiple files were selected etc,
+        # so we will traverse all of them
+        dandiset_asset_recs = [
+            self._get_asset_recs(
+                asset_id_, asset_type, authenticate=authenticate, recursive=recursive
+            )
+            for asset_id_ in set(flattened([asset_id]))
+        ]
+
+        dandiset = None
+
+        if not dandiset_asset_recs:
+            lgr.warning("Got empty listing for %s %s", asset_type, asset_id)
+            return
+        elif (
+            len(dandiset_asset_recs) > 1
+        ):  # had multiple asset_ids, should not be dandisets
+            if any(r[0] for r in dandiset_asset_recs):
+                raise NotImplementedError("Got multiple ids for dandisets")
+        else:
+            dandiset = dandiset_asset_recs[0][0]
+
+        # Return while harmonizing
+        if dandiset:
+            dandiset = _harmonize_girder_dandiset_to_dandi_api(dandiset)
+
+        return (
+            dandiset,
+            (
+                _harmonize_girder_asset_to_dandi_api(a)
+                for a in flatten(r[1] for r in dandiset_asset_recs)
+            ),
+        )
 
     @contextlib.contextmanager
     def lock_dandiset(self, dandiset_identifier: str):
@@ -474,6 +514,191 @@ class GirderCli(gcl.GirderClient):
                     raise LockingError(
                         f"Failed to unlock dandiset {dandiset_identifier}"
                     )
+
+
+def _harmonize_girder_dandiset_to_dandi_api(rec):
+    """
+    Compare API (on a released version):
+
+{'count': 1,
+ 'created': '2020-07-21T22:22:15.396171Z',
+ 'dandiset': {'created': '2020-07-21T22:22:14.732729Z',
+              'identifier': '000027',
+              'updated': '2020-07-21T22:22:14.732762Z'},
+ 'metadata': {'dandiset': {...}},
+ 'updated': '2020-07-21T22:22:15.396295Z',
+ 'version': '0.200721.2222'}
+
+    to Girder (on drafts):
+
+{'attrs': {'ctime': '2020-07-08T21:54:42.543000+00:00',
+           'mtime': '2020-07-21T22:02:34.918000+00:00',
+           'size': 0},
+ 'id': '5f0640a2ab90ac46c4561e4f',
+ 'metadata': {'dandiset': {...}},
+ 'name': '000027',
+ 'path': '000027',
+ 'type': 'dandiset'}
+
+So we will place some girder specific ones under 'girder' and populate 'dandiset', e.g.
+(there is absent clarify of what date times API returns:
+https://github.com/dandi/dandi-publish/issues/107
+so we will assume that my take was more or less correct and then we would have them
+correspond in case of a draft, as it is served by girder ATM:
+
+{# 'count': 1,  # no count
+ 'created': '2020-07-21T22:22:15.396171Z',  # attrs.ctime
+ 'dandiset': {'created': '2020-07-08T21:54:42.543000+00:00',  # attrs.ctime
+              'identifier': '000027',  # name
+              'updated': '2020-07-21T22:02:34.918000+00:00' },  # attrs.mtime
+ 'metadata': {'dandiset': {...}},
+ 'updated': '2020-07-21T22:02:34.918000+00:00'}  # attrs.mtime
+
+
+    Parameters
+    ----------
+    rec
+
+    Returns
+    -------
+    dict
+    """
+    # ATM it is just a simple remapping but might become more sophisticated later on
+    return remap_dict(
+        rec,
+        {
+            "metadata": "metadata",  # 1-to-1 for now
+            "dandiset.created": "attrs.ctime",
+            "created": "attrs.ctime",
+            "dandiset.uptimed": "attrs.mtime",
+            "updated": "attrs.mtime",
+            "dandiset.identifier": "name",
+        },
+    )
+
+
+def _get_file_mtime(attrs):
+    if not attrs:
+        return None
+    # We would rely on uploaded_mtime from metadata being stored as mtime.
+    # If that one was not provided, the best we know is the "ctime"
+    # for the file, use that one
+    return ensure_datetime(attrs.get("mtime", attrs.get("ctime", None)))
+
+
+def _harmonize_girder_asset_to_dandi_api(rec):
+    """
+
+    girder rec:
+
+*(Pdb) pprint(_a[0])
+{'attrs': {'ctime': '2020-07-21T22:00:36.362000+00:00',
+           'mtime': '2020-07-21T17:31:55.283394-04:00',
+           'size': 18792},
+ 'id': '5f176584f63d62e1dbd06946',
+ 'metadata': {... identical at this level
+              'uploaded_by': 'dandi 0.5.0+12.gd4ef762.dirty',
+              'uploaded_datetime': '2020-07-21T18:00:36.703727-04:00',
+              'uploaded_mtime': '2020-07-21T17:31:55.283394-04:00',
+              'uploaded_size': 18792},
+ 'name': 'sub-RAT123.nwb',
+ 'path': '000027/sub-RAT123/sub-RAT123.nwb',
+ 'type': 'file'}
+
+    and API (lacking clear "modified" so needs tuning too):
+
+    {
+      "version": {
+        "dandiset": {
+          "identifier": "000027",
+          "created": "2020-07-21T22:22:14.732729Z",
+          "updated": "2020-07-21T22:22:14.732762Z"
+        },
+        "version": "0.200721.2222",
+        "created": "2020-07-21T22:22:15.396171Z",
+        "updated": "2020-07-21T22:22:15.396295Z",
+        "count": 1
+      },
+      "uuid": "bca53c42-7fc2-41b6-b836-5ed102ba8447",
+      "path": "/sub-RAT123/sub-RAT123.nwb",
+      "size": 18792,
+      "sha256": "1a765509384ea96b7b12136353d9c5b94f23d764ad0431e049197f7875eb352c",
+      "created": "2020-07-21T22:22:16.882594Z",
+      "updated": "2020-07-21T22:22:16.882641Z",
+      "metadata": {
+...
+        "sha256": "1a765509384ea96b7b12136353d9c5b94f23d764ad0431e049197f7875eb352c",
+...
+        "uploaded_size": 18792,
+        "uploaded_mtime": "2020-07-21T17:31:55.283394-04:00",
+        "uploaded_datetime": "2020-07-21T18:00:36.703727-04:00",
+...
+      }
+    }
+
+
+    Parameters
+    ----------
+    rec
+
+    Returns
+    -------
+
+    """
+    rec = rec.copy()  # we will modify in place
+
+    metadata = rec.get("metadata", {})
+    size = rec["size"] = rec.get("attrs", {}).get("size")
+    # we will add messages leading to decision that metadata is outdated and thus should not be used
+    metadata_outdated = []
+    uploaded_size = metadata.get("uploaded_size")
+    if size is None:
+        lgr.debug("Found no size in attrs from girder!")
+        if uploaded_size is not None:
+            lgr.debug("Taking 'uploaded_size' of %d", uploaded_size)
+            rec["size"] = uploaded_size
+    else:
+        if uploaded_size is not None and size != uploaded_size:
+            metadata_outdated.append(
+                f"uploaded_size of {uploaded_size} != size of {size}"
+            )
+
+    # duplication but ok for now
+    modified = rec["modified"] = _get_file_mtime(rec.get("attrs"))
+    uploaded_mtime = metadata.get("uploaded_mtime")
+    if uploaded_mtime:
+        uploaded_mtime = ensure_datetime(uploaded_mtime)
+    if modified is None:
+        lgr.debug("Found no mtime (modified) among girder attrs")
+        if uploaded_mtime is not None:
+            rec["modified"] = uploaded_mtime
+    else:
+        if uploaded_mtime is not None and modified != uploaded_mtime:
+            metadata_outdated.append(
+                f"uploaded_mtime of {uploaded_mtime} != mtime of {modified}"
+            )
+
+    if metadata_outdated:
+        lgr.warning(
+            "Found discrepnancies in girder record and metadata: %s",
+            ", ".join(metadata_outdated),
+        )
+
+    # we need to strip off the leading dandiset identifier from the path
+    path = rec["path"]
+    if path.startswith("00"):
+        # leading / is for consistency with API although yoh dislikes it
+        # https://github.com/dandi/dandi-publish/issues/109
+        # Girder client returned paths are OS specific.
+        path = "/" + path.split(op.sep, 1)[1]
+    else:
+        lgr.debug(
+            "Unexpected: an asset path did not have leading dandiset identifier: %s",
+            path,
+        )
+    rec["path"] = path
+
+    return rec
 
 
 # TODO: our adapter on top of the Girder's client to simplify further

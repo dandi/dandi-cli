@@ -1,12 +1,29 @@
+import hashlib
+
+import os
 import os.path as op
+import random
 import re
 import requests
+import sys
+import time
 
+from urllib.parse import unquote as urlunquote
+
+from .dandiapi import DandiAPIClient
 from . import girder, get_logger
-from .consts import dandiset_metadata_file, known_instances, metadata_digests
+from .consts import (
+    dandiset_metadata_file,
+    known_instances,
+    known_instances_rev,
+    metadata_digests,
+)
 from .dandiset import Dandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
-from .utils import flatten, flattened, Parallel, delayed, get_instance
+from .utils import flattened, is_same_time, get_instance
+
+import humanize
+from .support.pyout import naturalsize
 
 lgr = get_logger()
 
@@ -16,6 +33,7 @@ class _dandi_url_parser:
     # into module space, and later we might end up with classes for those anyways
     id_regex = "[a-f0-9]{24}"
     id_grp = f"(?P<id>{id_regex})"
+    dandiset_id_grp = "(?P<dandiset_id>[0-9]{6})"
     server_grp = "(?P<server>(?P<protocol>https?)://(?P<hostname>[^/]+)/)"
     known_urls = {
         # Those we first redirect and then handle the redirected URL
@@ -24,6 +42,12 @@ class _dandi_url_parser:
         # handle_redirect:
         #   - 'pass' - would continue with original url if no redirect happen
         #   - 'only' - would interrupt if no redirection happens
+        # server_type:
+        #   - 'girder' - the default/old
+        #   - 'api' - the "new" (as of 20200715 state of various PRs)
+        # rewrite:
+        #   - callable -- which would rewrite that "URI"
+        "DANDI:": {"rewrite": lambda x: "https://identifiers.org/" + x},
         "https?://dandiarchive.org/.*": {"handle_redirect": "pass"},
         "https?://identifiers.org/DANDI:.*": {"handle_redirect": "pass"},
         "https?://[^/]*dandiarchive-org.netlify.app/.*": {"map_instance": "dandi"},
@@ -35,16 +59,30 @@ class _dandi_url_parser:
         f"{server_grp}#/folder/{id_regex}/selected(?P<multiitem>(/item\\+{id_grp})+)$": {},
         # Direct girder urls to items
         f"{server_grp}api/v1/(?P<asset_type>item)/{id_grp}/download$": {},
+        # New DANDI API
+        # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000006/0.200714.1807
+        # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000006/0.200714.1807/files
+        # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000006/0.200714.1807/files?location=%2Fsub-anm369962%2F
+        # But for drafts files navigator it is a different beast:
+        # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000027/draft/files?_id=5f176583f63d62e1dbd06943&_modelType=folder
+        f"{server_grp}#.*/(?P<asset_type>dandiset)/{dandiset_id_grp}"
+        "/(?P<version>([.0-9]{5,}|draft))"
+        "(/files(\\?location=(?P<location>.*)?)?)?"
+        f"(/files(\\?_id={id_grp}(&_modelType=folder)?)?)?"
+        "$": {"server_type": "api"},
+        # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000006/draft
+        # (no API yet)
         "https?://.*": {"handle_redirect": "only"},
     }
     # We might need to remap some assert_types
     map_asset_types = {"dandiset": "folder"}
     # And lets create our mapping into girder instances from known_instances:
-    map_to_girder = {}
-    for girder, *_ in known_instances.values():  # noqa: F402
-        for h in _:
+    map_to = {"girder": {}, "api": {}}
+    for girder, gui, redirector, api in known_instances.values():  # noqa: F402
+        for h in (gui, redirector):
             if h:
-                map_to_girder[h] = girder
+                map_to["girder"][h] = girder
+                map_to["api"][h] = api
 
     @classmethod
     def parse(cls, url, *, map_instance=True):
@@ -83,7 +121,7 @@ class _dandi_url_parser:
 
         Returns
         -------
-        server, asset_type, asset_id
+        server_type, server, asset_type, asset_id
           asset_type is either asset_id or folder ATM. asset_id might be a list
           in case of multiple files
 
@@ -96,8 +134,14 @@ class _dandi_url_parser:
             match = re.match(regex, url)
             if not match:
                 continue
+            rewrite = settings.get("rewrite", False)
             handle_redirect = settings.get("handle_redirect", False)
-            if handle_redirect:
+            if rewrite:
+                assert not handle_redirect
+                assert not settings.get("map_instance")
+                new_url = rewrite(url)
+                return cls.parse(new_url)
+            elif handle_redirect:
                 assert handle_redirect in ("pass", "only")
                 new_url = cls.follow_redirect(url)
                 if new_url != url:
@@ -114,16 +158,22 @@ class _dandi_url_parser:
                     )
             elif settings.get("map_instance"):
                 if map_instance:
-                    server, *_ = cls.parse(url, map_instance=False)
+                    server_type, server, *_ = cls.parse(url, map_instance=False)
                     if settings["map_instance"] not in known_instances:
                         raise ValueError(
                             "Unknown instance {}. Known are: {}".format(
                                 settings["map_instance"], ", ".join(known_instances)
                             )
                         )
-                    return (get_instance(settings["map_instance"]).girder,) + tuple(_)
+                    known_instance = get_instance(settings["map_instance"])
+                    # for consistency, add
+                    server = getattr(known_instance, server_type)
+                    if not server.endswith("/"):
+                        server += "/"
+                    return (server_type, server) + tuple(_)
                 continue  # in this run we ignore an match further
             else:
+                server_type = settings.get("server_type", "girder")
                 break
 
         if not match:
@@ -137,22 +187,58 @@ class _dandi_url_parser:
             )
 
         groups = match.groupdict()
-        girder_server = cls.map_to_girder.get(
-            groups["server"].rstrip("/"), groups["server"]
-        )
-        if not girder_server.endswith("/"):
-            girder_server += "/"  # we expected '/' to be there so let it be
+        url_server = groups["server"]
+        server = cls.map_to[server_type].get(url_server.rstrip("/"), url_server)
 
-        if "multiitem" not in groups:
-            # we must be all set
-            asset_ids = [groups["id"]]
-            asset_type = groups["asset_type"]
-            asset_type = cls.map_asset_types.get(asset_type, asset_type)
+        if not server.endswith("/"):
+            server += "/"  # we expected '/' to be there so let it be
+
+        if server_type == "girder":
+            if "multiitem" not in groups:
+                # we must be all set
+                asset_ids = [groups["id"]]
+                asset_type = groups["asset_type"]
+                asset_type = cls.map_asset_types.get(asset_type, asset_type)
+            else:
+                # we need to split/parse them and return a list
+                asset_ids = [
+                    i.split("+")[1] for i in groups["multiitem"].split("/") if i
+                ]
+                asset_type = "item"
+        elif server_type == "api":
+            asset_type = groups.get("asset_type")
+            dandiset_id = groups.get("dandiset_id")
+            version = groups.get("version")
+            location = groups.get("location")
+            if location:
+                location = urlunquote(location)
+                # ATM carries leading '/' which IMHO is not needed/misguiding somewhat, so
+                # I will just strip it
+                location = location.lstrip("/")
+            if not (asset_type == "dandiset" and dandiset_id):
+                raise ValueError(f"{url} does not point to a dandiset")
+            if not version:
+                raise NotImplementedError(
+                    f"{url} does not point to a specific version (or draft). DANDI ppl should "
+                    f"decide what should be a behavior in such cases"
+                )
+            # Let's just return a structured record for the requested asset
+            asset_ids = {"dandiset_id": dandiset_id, "version": version}
+            # if location is not degenerate -- it would be a folder or a file
+            if location:
+                if location.endswith("/"):
+                    asset_type = "folder"
+                else:
+                    asset_type = "item"
+                asset_ids["location"] = location
+            # TODO: remove whenever API supports "draft" and this type of url
+            if groups.get("id"):
+                assert version == "draft"
+                asset_ids["folder_id"] = groups["id"]
+                asset_type = "folder"
         else:
-            # we need to split/parse them and return a list
-            asset_ids = [i.split("+")[1] for i in groups["multiitem"].split("/") if i]
-            asset_type = "item"
-        ret = girder_server, asset_type, asset_ids
+            raise RuntimeError(f"must not happen. We got {server_type}")
+        ret = server_type, server, asset_type, asset_ids
         lgr.debug("Parsed into %s", ret)
         return ret
 
@@ -177,17 +263,75 @@ parse_dandi_url = _dandi_url_parser.parse
 follow_redirect = _dandi_url_parser.follow_redirect
 
 
-def download(
+def download(urls, output_dir, *, format="pyout", existing="error", jobs=1):
+    # TODO: unduplicate with upload. For now stole from that one
+    # We will again use pyout to provide a neat table summarizing our progress
+    # with upload etc
+    import pyout
+    from .support import pyout as pyouts
+
+    # dandi.cli.formatters are used in cmd_ls to provide switchable
+    pyout_style = pyouts.get_style(hide_if_missing=False)
+
+    rec_fields = ("path", "size", "done", "done%", "checksum", "status", "message")
+    out = pyout.Tabular(style=pyout_style, columns=rec_fields, max_workers=jobs)
+
+    out_helper = PYOUTHelper()
+    pyout_style["done"] = pyout_style["size"].copy()
+    pyout_style["size"]["aggregate"] = out_helper.agg_size
+    pyout_style["done"]["aggregate"] = out_helper.agg_done
+
+    # I thought I was making a beautiful flower but ended up with cacti
+    # which never blooms... All because assets are looped through inside download_generator
+    # TODO: redo
+    kw = dict(assets_it=out_helper.it)
+    if jobs > 1 and format == "pyout":
+        # It could handle delegated to generator downloads
+        kw["yield_generator_for_fields"] = rec_fields[1:]  # all but path
+
+    gen_ = download_generator(urls, output_dir, existing=existing, **kw)
+
+    # TODOs:
+    #  - redo frontends similarly to how command_ls did it
+    #  - have a single loop with analysis of `rec` to either any file
+    #    has failed to download.  If any was: exception should probably be
+    #    raised.  API discussion for Python side of API:
+    #
+    if format == "debug":
+        for rec in gen_:
+            print(rec)
+            sys.stdout.flush()
+    elif format == "pyout":
+        with out:
+            for rec in gen_:
+                out(rec)
+    else:
+        raise ValueError(format)
+
+
+def download_generator(
     urls,
     output_dir,
     *,
+    assets_it=None,
+    yield_generator_for_fields=None,
     existing="error",
-    jobs=6,
-    develop_debug=False,
-    authenticate=False,  # Seems to work just fine for public stuff
-    recursive=True,
 ):
-    """Download a file or entire folder from DANDI"""
+    """A generator for downloads of files, folders, or entire dandiset from DANDI
+    (as identified by URL)
+
+    This function is a generator which would yield records on ongoing activities.
+    Activites include traversal of the remote resource (DANDI archive), download of
+    individual assets while yielding records (TODO: schema) while validating their
+    checksums "on the fly", etc.
+
+    Parameters
+    ----------
+    assets_it: IteratorWithAggregation
+      which will be set .gen to assets.  Purpose is to make it possible to get
+      summary statistics while already downloading.  TODO: reimplement properly!
+
+    """
     urls = flattened([urls])
     if len(urls) > 1:
         raise NotImplementedError("multiple URLs not supported")
@@ -197,112 +341,442 @@ def download(
         # on which instance it exists!  Thus ATM we would do nothing but crash
         raise NotImplementedError("No URLs were provided.  Cannot download anything")
     url = urls[0]
-    girder_server_url, asset_type, asset_id = parse_dandi_url(url)
+    server_type, server_url, asset_type, asset_id = parse_dandi_url(url)
 
     # We could later try to "dandi_authenticate" if run into permission issues.
     # May be it could be not just boolean but the "id" to be used?
-    client = girder.get_client(
-        girder_server_url,
-        authenticate=authenticate,
-        progressbars=True,  # TODO: redo all this
-    )
-
-    lgr.info(f"Downloading {asset_type} with id {asset_id} from {girder_server_url}")
-
-    # there might be multiple asset_ids, e.g. if multiple files were selected etc,
-    # so we will traverse all of them
-    files = flatten(
-        _get_asset_files(
-            asset_id_, asset_type, output_dir, client, authenticate, existing, recursive
+    # TODO: remove whenever API starts to support drafts in an unknown version
+    if server_type == "api" and asset_id.get("version") == "draft":
+        asset_id, asset_type, client, server_type = _map_to_girder(url)
+        args = asset_id, asset_type
+    elif server_type == "girder":
+        client = girder.get_client(
+            server_url, authenticate=False, progressbars=True  # TODO: redo all this
         )
-        for asset_id_ in set(flattened([asset_id]))
-    )
-
-    Parallel(n_jobs=jobs, backend="threading")(
-        delayed(client.download_file)(
-            file["id"],
-            op.join(output_dir, file["path"]),
-            existing=existing,
-            attrs=file["attrs"],
-            # TODO: make it less "fluid" to not breed a bug where we stop verifying
-            # for e.g. digests move
-            digests={
-                d: file.get("metadata")[d]
-                for d in metadata_digests
-                if d in file.get("metadata", {})
-            },
-        )
-        for file in files
-    )
-
-
-def _get_asset_files(
-    asset_id, asset_type, output_dir, client, authenticate, existing, recursive
-):
-    # asset_rec = client.getResource(asset_type, asset_id)
-    # lgr.info("Working with asset %s", str(asset_rec))
-    # In principle Girder's client already has ability to download any
-    # resource (collection/folder/item/file).  But it seems that "mending" it
-    # with custom handling (e.g. later adding filtering to skip some files,
-    # or add our own behavior on what to do when files exist locally, etc) would
-    # not be easy.  So we will reimplement as a two step (kinda) procedure.
-    # Return a generator which would be traversing girder and yield records
-    # of encountered resources.
-    # TODO later:  may be look into making it async
-    # First we access top level records just to sense what we are working with
-    top_entities = None
-    while True:
-        try:
-            # this one should enhance them with "fullpath"
-            top_entities = list(
-                client.traverse_asset(asset_id, asset_type, recursive=False)
-            )
-            break
-        except girder.gcl.HttpError as exc:
-            if not authenticate and girder.is_access_denied(exc):
-                lgr.warning("unauthenticated access denied, let's authenticate")
-                client.dandi_authenticate()
-                continue
-            raise
-    entity_type = list(set(e["type"] for e in top_entities))
-    if len(entity_type) > 1:
-        raise ValueError(
-            f"Please point to a single type of entity - either dandiset(s),"
-            f" folder(s) or file(s).  Got: {entity_type}"
-        )
-    entity_type = entity_type[0]
-    if entity_type in ("dandiset", "folder"):
-        # redo recursively
-        lgr.info(
-            "Traversing remote %ss (%s) recursively and downloading them " "locally",
-            entity_type,
-            ", ".join(e["name"] for e in top_entities),
-        )
-        entities = client.traverse_asset(asset_id, asset_type, recursive=recursive)
-        # TODO: special handling for a dandiset -- we might need to
-        #  generate dandiset.yaml out of the metadata record
-        # we care only about files ATM
-        files = (e for e in entities if e["type"] == "file")
-    elif entity_type == "file":
-        files = top_entities
+        args = asset_id, asset_type
+    elif server_type == "api":
+        client = DandiAPIClient(server_url)
+        args = (asset_id["dandiset_id"], asset_id["version"], asset_id.get("location"))
     else:
-        raise ValueError(f"Unexpected entity type {entity_type}")
-    if entity_type == "dandiset":
-        for e in top_entities:
-            dandiset_path = op.join(output_dir, e["path"])
-            dandiset_yaml = op.join(dandiset_path, dandiset_metadata_file)
-            lgr.info(
-                f"Updating {dandiset_metadata_file} from obtained dandiset " f"metadata"
+        raise NotImplementedError(
+            f"Download from server of type {server_type} is not yet implemented"
+        )
+
+    with client.session():
+        dandiset, assets = client.get_dandiset_and_assets(
+            *args
+        )  # , recursive=recursive)
+        if assets_it:
+            assets_it.gen = assets
+            assets = assets_it
+        dandiset_path = (
+            op.join(output_dir, dandiset["dandiset"]["identifier"])
+            if dandiset
+            else None
+        )
+        # TODO: if we are ALREADY in a dandiset - we can validate that it is the
+        # same dandiset and use that dandiset path as the one to download under
+
+        # TODO: do analysis of assets for early detection of needed renames etc
+        # to avoid any need for late treatment of existing and also for
+        # more efficient download if files are just renamed etc
+
+        # Handle our so special dandiset.yaml
+        if dandiset:
+            for resp in _populate_dandiset_yaml(
+                dandiset_path,
+                dandiset.get("metadata", {}).get("dandiset", {}),
+                existing == "overwrite",
+            ):
+                yield dict(path=dandiset_metadata_file, **resp)
+
+        for asset in assets:
+            # unavoidable ugliness since girder and API have different "scopes" for
+            # identifying an asset
+            digests_from_metadata = {
+                d: asset.get("metadata")[d]
+                for d in metadata_digests
+                if d in asset.get("metadata", {})
+            }
+            if server_type == "girder":
+                down_args = (asset["id"],)
+                digests = digests_from_metadata
+            elif server_type == "api":
+                # Even worse to get them from the asset record which also might have its return
+                # record still changed, https://github.com/dandi/dandi-publish/issues/79
+                down_args = args[:2] + (asset["uuid"],)
+                if "sha256" not in asset:
+                    lgr.warning("For some reason - there no sha256 in %s", str(asset))
+                    digests = digests_from_metadata
+                else:
+                    digests = {"sha256": asset["sha256"]}
+                    if (
+                        "sha256" in digests_from_metadata
+                        and asset["sha256"] != digests_from_metadata["sha256"]
+                    ):
+                        lgr.warning(
+                            "Metadata seems to be outdated since API returned different "
+                            "sha256 for %(path)s",
+                            asset,
+                        )
+
+            path = asset["path"].lstrip("/")  # make into relative path
+            path = download_path = op.normpath(path)
+            if dandiset_path:  # place under dandiset directory
+                download_path = op.join(dandiset_path, path)
+            else:
+                download_path = op.join(output_dir, path)
+
+            downloader = client.get_download_file_iter(*down_args)
+
+            # Get size from the metadata, although I guess it could be returned directly
+            # by server while establishing downloader... but it seems that girder itself
+            # does get it from the "file" resource, not really from direct URL.  So I guess
+            # we will just follow. For now we must find it in "attrs"
+            _download_generator = _download_file(
+                downloader,
+                download_path,
+                # size and modified generally should be there but better to redownload
+                # than to crash
+                size=asset.get("size"),
+                mtime=asset.get("modified"),
+                existing=existing,
+                digests=digests,
             )
-            if op.lexists(dandiset_yaml):
-                if existing != "overwrite":
-                    lgr.info(
-                        f"{dandiset_yaml} already exists.  Set 'existing' "
-                        f"to overwrite if you want it to be redownloaded. "
-                        f"Skipping"
-                    )
-                    continue
-            dandiset = Dandiset(dandiset_path, allow_empty=True)
-            dandiset.path_obj.mkdir(exist_ok=True)  # exist_ok in case of parallel race
-            dandiset.update_metadata(e.get("metadata", {}).get("dandiset", {}))
-    return files
+
+            if yield_generator_for_fields:
+                yield {"path": path, yield_generator_for_fields: _download_generator}
+            else:
+                for resp in _download_generator:
+                    yield dict(resp, path=path)
+
+
+class ItemsSummary:
+    """A helper "structure" to accumulate information about assets to be downloaded
+
+    To be used as a callback to IteratorWithAggregation
+    """
+
+    def __init__(self):
+        self.files = 0
+        # TODO: get rid of needing it
+        self.t0 = None  # when first record is seen
+        self.size = 0
+        self.has_unknown_sizes = False
+
+    def as_dict(self):
+        return {a: getattr(self, a) for a in ("files", "size", "has_unknown_sizes")}
+
+    def __call__(self, rec, prior=None):
+        assert prior in (None, self)
+        if not self.files:
+            self.t0 = time.time()
+        self.files += 1
+        size = rec.get("size")
+        if size is not None:
+            self.size += size
+        elif rec.get("path", "") == "dandiset.yaml":
+            # again -- so special. TODO: make it a proper file
+            pass
+        else:
+            self.has_unknown_sizes = True
+        return self
+
+
+class PYOUTHelper:
+    """Helper for PYOUT styling
+
+    Provides aggregation callbacks for PyOUT and also an iterator to be wrapped around
+    iterating over assets, so it would get "totals" as soon as they are available.
+    """
+
+    def __init__(self):
+        # Establish "fancy" download while still possibly traversing the dandiset
+        # functionality.
+        from .support.iterators import IteratorWithAggregation
+
+        self.items_summary = ItemsSummary()
+        self.it = IteratorWithAggregation(
+            # unfortunately Yarik missed the point that we need to wrap
+            # "assets" generator within downloader_generator
+            # so we do not have assets here!  Ad-hoc solution for now is to
+            # pass this beast so it could get .gen set within downloader_generator
+            None,  # download_generator(urls, output_dir, existing=existing),
+            self.items_summary,
+        )
+
+    def agg_files(self, *ignored):
+        ret = str(self.items_summary.files)
+        if not self.it.finished:
+            ret += "+"
+        return ret
+
+    def agg_size(self, sizes):
+        """Formatter for "size" column where it would show
+
+        how much is "active" (or done)
+        +how much yet to be "shown".
+        """
+        active = sum(sizes)
+        if (active, self.items_summary.size) == (0, 0):
+            return ""
+        v = [naturalsize(active)]
+        if not self.it.finished or (
+            active != self.items_summary.size or self.items_summary.has_unknown_sizes
+        ):
+            extra = self.items_summary.size - active
+            if extra < 0:
+                lgr.debug("Extra size %d < 0 -- must not happen", extra)
+            else:
+                extra_str = "+%s" % naturalsize(extra)
+                if not self.it.finished:
+                    extra_str = ">" + extra_str
+                if self.items_summary.has_unknown_sizes:
+                    extra_str += "+?"
+                v.append(extra_str)
+        return v
+
+    def agg_done(self, done_sizes):
+        """Formatter for "DONE" column
+        """
+        done = sum(done_sizes)
+        if self.it.finished and done == 0 and self.items_summary.size == 0:
+            # even with 0s everywhere consider it 100%
+            r = 1.0
+        elif self.items_summary.size:
+            r = done / self.items_summary.size
+        else:
+            r = 0
+        pref = ""
+        if not self.it.finished:
+            pref += "<"
+        if self.items_summary.has_unknown_sizes:
+            pref += "?"
+        v = [naturalsize(done), "%s%.2f%%" % (pref, 100 * r)]
+        if (
+            done
+            and self.items_summary.t0 is not None
+            and r
+            and self.items_summary.size != 0
+        ):
+            dt = time.time() - self.items_summary.t0
+            more_time = dt / r if r != 1 else 0
+            more_time_str = humanize.naturaldelta(more_time)
+            if not self.it.finished:
+                more_time_str += "<"
+            if self.items_summary.has_unknown_sizes:
+                more_time_str += "+?"
+            if more_time:
+                v.append("ETA: %s" % more_time_str)
+        return v
+
+
+def _map_to_girder(url):
+    """
+    "draft" datasets are not yet supported through our DANDI API. So we need to
+    perform special handling for now: discover girder_id for it and then proceed
+    with girder
+    """
+    # This is a duplicate call from above but it is cheap, so decided to just redo
+    # it here instead of passing all the variables + url
+    server_type, server_url, asset_type, asset_id = parse_dandi_url(url)
+    server_url = known_instances[known_instances_rev[server_url.rstrip("/")]].girder
+    server_type = "girder"
+    client = girder.get_client(server_url, authenticate=False, progressbars=True)
+    # TODO: RF if https://github.com/dandi/dandiarchive/issues/316 gets addressed
+    # A hybrid UI case not yet adjusted for drafts API.
+    # TODO: remove whenever it is gone in an unknown version
+    if asset_id.get("folder_id"):
+        asset_type = "folder"
+        asset_id = [asset_id.get("folder_id")]
+    else:
+        girder_path = op.join("drafts", asset_id["dandiset_id"])
+        asset_type = "folder"
+        if asset_id.get("location"):
+            # Not implemented by UI ATM but might come
+            girder_path = op.join(girder_path, asset_id["location"])
+        try:
+            girder_rec = girder.lookup(client, girder_path)
+        except BaseException:
+            lgr.warning(f"Failed to lookup girder information for {girder_path}")
+            girder_rec = None
+        if not girder_rec:
+            raise RuntimeError(f"Cannot download from {url}")
+        asset_id = girder_rec.get("_id")
+    return asset_id, asset_type, client, server_type
+
+
+def _skip_file(msg):
+    return {"status": "skipped", "message": str(msg)}
+
+
+def _populate_dandiset_yaml(dandiset_path, metadata, overwrite):
+    if not metadata:
+        lgr.warning(
+            "Got completely empty metadata record for dandiset, not producing dandiset.yaml"
+        )
+        return
+    dandiset_yaml = op.join(dandiset_path, dandiset_metadata_file)
+    yield {"message": "updating"}
+    lgr.debug(f"Updating {dandiset_metadata_file} from obtained dandiset " f"metadata")
+    if op.lexists(dandiset_yaml) and not overwrite:
+        yield _skip_file("already exists")
+        return
+    else:
+        dandiset = Dandiset(dandiset_path, allow_empty=True)
+        dandiset.path_obj.mkdir(exist_ok=True)  # exist_ok in case of parallel race
+        old_metadata = dandiset.metadata
+        dandiset.update_metadata(metadata)
+        yield {
+            "status": "done",
+            "message": "updated" if metadata != old_metadata else "same",
+        }
+
+
+def _download_file(
+    downloader, path, size=None, mtime=None, existing="error", digests=None
+):
+    """Common logic for downloading a single file
+
+    Generator downloader:
+
+    TODO: describe expected records it should yield
+    - progress
+    - error
+    - completion
+
+    Parameters
+    ----------
+    downloader: callable returning a generator
+      A backend (girder or api) specific fixture for downloading some file into
+      path. It should be a generator yielding downloaded blocks.
+    size: int, optional
+      Target size if known
+    digests: dict, optional
+      possible checksums or other digests provided for the file. Only one
+      will be used to verify download
+    """
+    if op.lexists(path):
+        block = f"File {path!r} already exists"
+        if existing == "error":
+            raise FileExistsError(block)
+        elif existing == "skip":
+            yield _skip_file("already exists")
+            return
+        elif existing == "overwrite":
+            pass
+        elif existing == "refresh":
+            if mtime is None:
+                lgr.warning(
+                    f"{path!r} - no mtime or ctime in the record, redownloading"
+                )
+            else:
+                stat = os.stat(op.realpath(path))
+                same = []
+                if is_same_time(stat.st_mtime, mtime):
+                    same.append("mtime")
+                if size is not None and stat.st_size == size:
+                    same.append("size")
+                # TODO: use digests if available? or if e.g. size is identical
+                # but mtime is different
+                if same == ["mtime", "size"]:
+                    # TODO: add recording and handling of .nwb object_id
+                    yield _skip_file("same time and size")
+                    return
+                lgr.debug(f"{path!r} - same attributes: {same}.  Redownloading")
+
+    if size is not None:
+        yield {"size": size}
+
+    destdir = op.dirname(path)
+    os.makedirs(destdir, exist_ok=True)
+
+    yield {"status": "downloading"}
+
+    algo, digester, digest, downloaded_digest = None, None, None, None
+    if digests:
+        # choose first available for now.
+        # TODO: reuse that sorting based on speed
+        for algo, digest in digests.items():
+            digester = getattr(hashlib, algo, None)
+            if digester:
+                break
+        if not digester:
+            lgr.warning("Found no digests in hashlib for any of %s", str(digests))
+
+    # TODO: how do we discover the total size????
+    # TODO: do not do it in-place, but rather into some "hidden" file
+    for attempt in range(3):
+        try:
+            downloaded = 0
+            if digester:
+                downloaded_digest = digester()  # start empty
+            warned = False
+            # I wonder if we could make writing async with downloader
+            with open(path, "wb") as writer:
+                for block in downloader():
+                    if digester:
+                        downloaded_digest.update(block)
+                    downloaded += len(block)
+                    # TODO: yield progress etc
+                    msg = {"done": downloaded}
+                    if size:
+                        if downloaded > size and not warned:
+                            warned = True
+                            # Yield ERROR?
+                            lgr.warning(
+                                "Downloaded %d bytes although size was told to be just %d",
+                                downloaded,
+                                size,
+                            )
+                        msg["done%"] = 100 * downloaded / size if size else "100"
+                        # TODO: ETA etc
+                    yield msg
+                    writer.write(block)
+            break
+            # both girder and we use HttpError
+        except requests.exceptions.HTTPError as exc:
+            # TODO: actually we should probably retry only on selected codes, and also
+            # respect Retry-After
+            if attempt >= 2 or exc.response.status_code not in (
+                400,  # Bad Request, but happened with gider:
+                # https://github.com/dandi/dandi-cli/issues/87
+                503,  # Service Unavailable
+            ):
+                lgr.debug("Download failed: %s", exc)
+                yield {"status": "error", "message": str(exc)}
+                return
+            # if is_access_denied(exc) or attempt >= 2:
+            #     raise
+            # sleep a little and retry
+            lgr.debug(
+                "Failed to download on attempt#%d: %s, will sleep a bit and retry",
+                attempt,
+                exc,
+            )
+            time.sleep(random.random() * 5)
+
+    if downloaded_digest:
+        downloaded_digest = downloaded_digest.hexdigest()  # we care only about hex
+        if digest != downloaded_digest:
+            msg = f"{algo}: downloaded {downloaded_digest} != {digest}"
+            yield {"checksum": "differs", "status": "error", "message": msg}
+            lgr.debug("%s is different: %s.", path, msg)
+            return
+        else:
+            yield {"checksum": "ok"}
+            lgr.debug("Verified that %s has correct %s %s", path, algo, digest)
+    else:
+        # shouldn't happen with more recent metadata etc
+        yield {
+            "checksum": "-",
+            # "message": "no digests were provided"
+        }
+
+    # It seems that girder might not care about setting either mtime, so we will do if we know
+    # TODO: dissolve attrs and pass specific mtime?
+    if mtime:
+        yield {"status": "setting mtime"}
+        os.utime(path, (time.time(), mtime.timestamp()))
+
+    yield {"status": "done"}

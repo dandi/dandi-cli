@@ -82,7 +82,7 @@ def ls(paths, fields=None, format="auto", recursive=False):
         if fields and fields[0] != "path":
             # we must always have path - our "id"
             fields = ["path"] + fields
-        out = PYOUTFormatter(files=files, fields=fields)
+        out = PYOUTFormatter(fields=fields)
     elif format == "json":
         out = JSONFormatter()
     elif format == "json_pp":

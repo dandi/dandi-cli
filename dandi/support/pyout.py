@@ -106,6 +106,13 @@ PYOUT_SHORT_NAMES_rev = {v.lower(): k for k, v in PYOUT_SHORT_NAMES.items()}
 
 
 def get_style(hide_if_missing=True):
+    progress_style = dict(  # % done
+        transform=lambda f: "%d%%" % f,
+        align="right",
+        color=dict(
+            interval=[[0, 10, "red"], [10, 100, "yellow"], [100, None, "green"]]
+        ),
+    )
     STYLE = {
         "summary_": {"bold": True},
         "header_": dict(
@@ -167,10 +174,16 @@ def get_style(hide_if_missing=True):
             ),
             aggregate=counts,
         ),
-        "upload": dict(  # % done
-            transform=lambda f: "%d%%" % f,
+        "upload": progress_style,
+        "done%": progress_style,
+        "checksum": dict(
+            align="center",
             color=dict(
-                interval=[[0, 10, "red"], [10, 100, "yellow"], [100, None, "green"]]
+                re_lookup=[
+                    ["ok", "green"],
+                    ["^(-|NA|N/A)", "yellow"],
+                    ["^(differ|failed|error|ERROR)", "red"],
+                ]
             ),
         ),
     }

@@ -55,8 +55,7 @@ class YAMLFormatter(Formatter):
 
 
 class PYOUTFormatter(pyout.Tabular):
-    def __init__(self, files, fields):
-        # max_filename_len = max(map(lambda x: len(op.basename(x)), files))
+    def __init__(self, fields):
         PYOUT_STYLE = pyouts.get_style(hide_if_missing=not fields)
 
         kw = dict(style=PYOUT_STYLE)

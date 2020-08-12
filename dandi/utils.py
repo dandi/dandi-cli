@@ -211,6 +211,39 @@ def updated(d, update):
     return d
 
 
+def remap_dict(rec, revmapping):
+    """Remap nested dicts according to mapping
+
+    Parameters
+    ----------
+    revmapping: dict
+      (to, from)
+
+    TODO: document and test more
+    """
+    out = {}
+
+    def split(path):
+        # map path from key.subkey if given in a string (not tuple) form
+        return path.split(".") if isinstance(path, str) else path
+
+    for to, from_ in revmapping.items():
+        in_v = rec
+        for p in split(from_):
+            if p not in in_v:
+                continue  # it is not there -- cannot map
+            in_v = in_v[p]
+
+        # and now set
+        out_v = out
+        t_split = split(to)
+        for p in t_split[:-1]:
+            out_v[p] = out_v.get(p, {})  # container for the next field
+            out_v = out_v[p]
+        out_v[t_split[-1]] = in_v  # and the last one gets the in_v
+    return out
+
+
 #
 # Paths and files
 #
@@ -556,4 +589,5 @@ def get_instance(dandi_instance_id):
         girder=server_info["services"]["girder"]["url"],
         gui=server_info["services"]["webui"]["url"],
         redirector=redirector_url,
+        api=server_info["services"]["api"]["url"],
     )
