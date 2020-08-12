@@ -737,12 +737,11 @@ def _download_file(
     # TODO: how do we discover the total size????
     # TODO: do not do it in-place, but rather into some "hidden" file
     downloaded = 0
+    prev_digest = None
     for attempt in range(3):
         try:
             if downloaded:
                 downloaded = max(downloaded - 2 * MAX_CHUNK_SIZE, 0)
-            if digester:
-                downloaded_digest = digester()  # start empty
             warned = False
             # I wonder if we could make writing async with downloader
             with open(path, "a+b") as writer:
@@ -755,13 +754,23 @@ def _download_file(
                             if blob1 == block:
                                 downloaded += len(block)
                                 lgr.debug("Resuming earlier download")
+                                if prev_digest:
+                                    # Set digest state one block back from last
+                                    # run
+                                    downloaded_digest = prev_digest
+                                else:
+                                    assert digester is None
                                 continue
                             else:
                                 downloaded = 0
+                                downloaded_digest = digester()
                                 lgr.debug("Could not resume earlier download")
                                 break
+                        elif digester:
+                            downloaded_digest = digester()  # start empty
                         first = False
                     if digester:
+                        prev_digest = downloaded_digest.copy()
                         downloaded_digest.update(block)
                     downloaded += len(block)
                     # TODO: yield progress etc
