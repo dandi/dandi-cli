@@ -4,16 +4,34 @@ All notable changes to this project will be documented (for humans) in this file
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [0.6.0-rc1] - 2020-08-10
+## [0.6.0] - 2020-08-12
 
-This a Release Candidate which is based on a good number of changes
-which are in `master` branch and might still be released as 0.5.1
-release.  Those changes are yet to be documented.
+A variety of improvements and bug fixes, with major changes toward support
+of a new DANDI API, and improving DX (Development eXperience).
 
 ### Added
-- `download` now can download from "published" (versioned) dandisets.
-  The entire `download` was refactored and new UI also uses pyout (as
+- Support for WiP DANDI API service.
+  `download` now can download from "published" (versioned) dandisets.
+- A wide range of development enhancements
+  - `tox` setup
+  - code linting via `tox` and on github workflows
+  - testing against Python 3.8
+  - testing against a local instance of the archive via `docker-compose`,
+    which is used against
+- Locking of the dandiset during upload to prevent multiple sessions modifying
+  the same dandiset in the archive
+- `upload` now adds `uploaded_by` field into the item metadata
+### Changed
+- `download` was refactored and new UI also uses pyout (as
   `upload` and `ls`) so there will be no tqdm progress bar indicators.
+  `download` also does "on-the-fly" integrity of the data as received
+  (whenever corresponding metadata provided from the archive)
+- `--log-level` could be numeric or specified in lower-case
+- Unified YAML operations to `ruamel.yaml`
+- Avoid hardcoded URLs for dandiarchive components by querying `/server-info`
+- Improved logging for interactions with girder server
+### Fixed
+- minor compatibility issues across OSes
 
 ## [0.5.0] - 2020-06-04
 
