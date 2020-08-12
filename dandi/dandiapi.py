@@ -9,16 +9,6 @@ from .consts import MAX_CHUNK_SIZE
 lgr = get_logger()
 
 
-class HTTPError(requests.HTTPError):
-    """An HTTP error occurred.
-
-    Following Girder's recommendation of having its HttpError deprecated,
-    this is just a helper to bring that HTTPError into our space
-    """
-
-    pass
-
-
 # Following class is loosely based on GirderClient, with authentication etc
 # being stripped.
 # TODO: add copyright/license info
@@ -145,7 +135,7 @@ class RESTFullAPIClient(object):
 
         # If success, return the json object. Otherwise throw an exception.
         if not result.ok:
-            raise HTTPError(
+            raise requests.HTTPError(
                 f"Error {result.status_code} while sending {method} request to {url}",
                 response=result,
             )
