@@ -75,9 +75,7 @@ metadata_digests = ("sha1", "md5", "sha512", "sha256")
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = "^[0-9]{6}$"
 
-dandi_instance = namedtuple(
-    "dandi_instance", ("girder", "gui", "redirector", "dandiapi")
-)
+dandi_instance = namedtuple("dandi_instance", ("girder", "gui", "redirector", "api"))
 
 known_instances = {
     "local-girder-only": dandi_instance(

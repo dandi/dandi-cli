@@ -301,9 +301,9 @@ class DandiAPIClient(RESTFullAPIClient):
         self, dandiset_id, version, location=None, include_metadata=True
     ):
         """This is pretty much an adapter to provide "harmonized" output in both
-        girder and dandiapi clients.
+        girder and DANDI api clients.
 
-        Harmonization should happen toward "dandiapi" BUT AFAIK it is still influx
+        Harmonization should happen toward DADNDI API BUT AFAIK it is still influx
         """
         # Fun begins!
         location_ = "/" + location if location else ""

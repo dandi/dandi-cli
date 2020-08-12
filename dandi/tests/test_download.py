@@ -20,10 +20,10 @@ def _assert_parse_girder_url(url):
     return a, aid
 
 
-def _assert_parse_dandiapi_url(url):
+def _assert_parse_api_url(url):
     st, s, a, aid = parse_dandi_url(url)
-    assert st == "dandiapi"
-    assert s == known_instances["dandi"].dandiapi + "/"
+    assert st == "api"
+    assert s == known_instances["dandi"].api + "/"
     return a, aid
 
 
@@ -72,19 +72,19 @@ def test_parse_dandi_url():
         "https://deploy-preview-341--gui-dandiarchive-org.netlify.app/"
         "#/dandiset/000006/0.200714.1807"
     )
-    assert _assert_parse_dandiapi_url(url1) == (
+    assert _assert_parse_api_url(url1) == (
         "dandiset",
         {"dandiset_id": "000006", "version": "0.200714.1807"},
     )
-    assert _assert_parse_dandiapi_url(url1 + "/files") == (
+    assert _assert_parse_api_url(url1 + "/files") == (
         "dandiset",
         {"dandiset_id": "000006", "version": "0.200714.1807"},
     )
-    assert _assert_parse_dandiapi_url(url1 + "/files?location=%2F") == (
+    assert _assert_parse_api_url(url1 + "/files?location=%2F") == (
         "dandiset",
         {"dandiset_id": "000006", "version": "0.200714.1807"},
     )
-    assert _assert_parse_dandiapi_url(url1 + "/files?location=%2Fsub-anm369962%2F") == (
+    assert _assert_parse_api_url(url1 + "/files?location=%2Fsub-anm369962%2F") == (
         "folder",
         {
             "dandiset_id": "000006",
@@ -93,7 +93,7 @@ def test_parse_dandi_url():
         },
     )
     # no trailing / - Yarik considers it to be an item (file)
-    assert _assert_parse_dandiapi_url(url1 + "/files?location=%2Fsub-anm369962") == (
+    assert _assert_parse_api_url(url1 + "/files?location=%2Fsub-anm369962") == (
         "item",
         {
             "dandiset_id": "000006",
@@ -102,7 +102,7 @@ def test_parse_dandi_url():
         },
     )
     # And the hybrid for "drafts" where it still goes by girder ID
-    assert _assert_parse_dandiapi_url(
+    assert _assert_parse_api_url(
         "https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000027"
         "/draft/files?_id=5f176583f63d62e1dbd06943&_modelType=folder"
     ) == (

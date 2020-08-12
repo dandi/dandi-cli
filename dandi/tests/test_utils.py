@@ -171,6 +171,7 @@ def test_get_instance_dandi():
         girder="https://girder.dandi",
         gui="https://gui.dandi",
         redirector="https://dandiarchive.org",
+        api="https://publish.dandiarchive.org/api",
     )
 
 
@@ -195,6 +196,7 @@ def test_get_instance_url():
         girder="https://girder.dandi",
         gui="https://gui.dandi",
         redirector="https://example.dandi/",
+        api="https://publish.dandi/api",
     )
 
 

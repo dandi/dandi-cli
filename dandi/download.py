@@ -44,7 +44,7 @@ class _dandi_url_parser:
         #   - 'only' - would interrupt if no redirection happens
         # server_type:
         #   - 'girder' - the default/old
-        #   - 'dandiapi' - the "new" (as of 20200715 state of various PRs)
+        #   - 'api' - the "new" (as of 20200715 state of various PRs)
         # rewrite:
         #   - callable -- which would rewrite that "URI"
         "DANDI:": {"rewrite": lambda x: "https://identifiers.org/" + x},
@@ -69,7 +69,7 @@ class _dandi_url_parser:
         "/(?P<version>([.0-9]{5,}|draft))"
         "(/files(\\?location=(?P<location>.*)?)?)?"
         f"(/files(\\?_id={id_grp}(&_modelType=folder)?)?)?"
-        "$": {"server_type": "dandiapi"},
+        "$": {"server_type": "api"},
         # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000006/draft
         # (no API yet)
         "https?://.*": {"handle_redirect": "only"},
@@ -77,12 +77,12 @@ class _dandi_url_parser:
     # We might need to remap some assert_types
     map_asset_types = {"dandiset": "folder"}
     # And lets create our mapping into girder instances from known_instances:
-    map_to = {"girder": {}, "dandiapi": {}}
-    for girder, gui, redirector, dandiapi in known_instances.values():  # noqa: F402
+    map_to = {"girder": {}, "api": {}}
+    for girder, gui, redirector, api in known_instances.values():  # noqa: F402
         for h in (gui, redirector):
             if h:
                 map_to["girder"][h] = girder
-                map_to["dandiapi"][h] = dandiapi
+                map_to["api"][h] = api
 
     @classmethod
     def parse(cls, url, *, map_instance=True):
@@ -205,7 +205,7 @@ class _dandi_url_parser:
                     i.split("+")[1] for i in groups["multiitem"].split("/") if i
                 ]
                 asset_type = "item"
-        elif server_type == "dandiapi":
+        elif server_type == "api":
             asset_type = groups.get("asset_type")
             dandiset_id = groups.get("dandiset_id")
             version = groups.get("version")
@@ -346,7 +346,7 @@ def download_generator(
     # We could later try to "dandi_authenticate" if run into permission issues.
     # May be it could be not just boolean but the "id" to be used?
     # TODO: remove whenever API starts to support drafts in an unknown version
-    if server_type == "dandiapi" and asset_id.get("version") == "draft":
+    if server_type == "api" and asset_id.get("version") == "draft":
         asset_id, asset_type, client, server_type = _map_to_girder(url)
         args = asset_id, asset_type
     elif server_type == "girder":
@@ -354,7 +354,7 @@ def download_generator(
             server_url, authenticate=False, progressbars=True  # TODO: redo all this
         )
         args = asset_id, asset_type
-    elif server_type == "dandiapi":
+    elif server_type == "api":
         client = DandiAPIClient(server_url)
         args = (asset_id["dandiset_id"], asset_id["version"], asset_id.get("location"))
     else:
@@ -401,7 +401,7 @@ def download_generator(
             if server_type == "girder":
                 down_args = (asset["id"],)
                 digests = digests_from_metadata
-            elif server_type == "dandiapi":
+            elif server_type == "api":
                 # Even worse to get them from the asset record which also might have its return
                 # record still changed, https://github.com/dandi/dandi-publish/issues/79
                 down_args = args[:2] + (asset["uuid"],)
@@ -573,7 +573,7 @@ class PYOUTHelper:
 
 def _map_to_girder(url):
     """
-    "draft" datasets are not yet supported through dandiapi. So we need to
+    "draft" datasets are not yet supported through our DANDI API. So we need to
     perform special handling for now: discover girder_id for it and then proceed
     with girder
     """
@@ -648,7 +648,7 @@ def _download_file(
     Parameters
     ----------
     downloader: callable returning a generator
-      A backend (girder or dandiapi) specific fixture for downloading some file into
+      A backend (girder or api) specific fixture for downloading some file into
       path. It should be a generator yielding downloaded blocks.
     size: int, optional
       Target size if known
