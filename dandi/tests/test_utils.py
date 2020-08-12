@@ -269,3 +269,29 @@ def test_get_instance_id_no_redirector():
     with pytest.raises(ValueError) as excinfo:
         get_instance("local-girder-only")
     assert str(excinfo.value) == "DANDI instance has no known redirector URL"
+
+
+@responses.activate
+def test_get_instance_bad_version_from_server():
+    responses.add(
+        responses.GET,
+        "https://example.dandi/server-info",
+        json={
+            "version": "1.0.0",
+            "cli-minimal-version": "foobar",
+            "cli-bad-versions": [],
+            "services": {
+                "girder": {"url": "https://girder.dandi"},
+                "webui": {"url": "https://gui.dandi"},
+                "api": {"url": "https://publish.dandi/api"},
+                "jupyterhub": {"url": "https://hub.dandi"},
+            },
+        },
+    )
+    with pytest.raises(ValueError) as excinfo:
+        get_instance("https://example.dandi/")
+    assert str(excinfo.value).startswith(
+        "https://example.dandi/ returned an incorrectly formatted version;"
+        " please contact that server's administrators: "
+    )
+    assert "foobar" in str(excinfo.value)

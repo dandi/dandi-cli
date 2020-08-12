@@ -539,8 +539,14 @@ def get_instance(dandi_instance_id):
                 " and client does not recognize URL"
             )
     server_info = r.json()
-    minversion = Version(server_info["cli-minimal-version"])
-    bad_versions = [Version(v) for v in server_info["cli-bad-versions"]]
+    try:
+        minversion = Version(server_info["cli-minimal-version"])
+        bad_versions = [Version(v) for v in server_info["cli-bad-versions"]]
+    except ValueError as e:
+        raise ValueError(
+            f"{redirector_url} returned an incorrectly formatted version;"
+            f" please contact that server's administrators: {e}"
+        )
     our_version = Version(__version__)
     if our_version < minversion:
         raise CliVersionTooOldError(our_version, minversion, bad_versions)
