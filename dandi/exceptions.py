@@ -25,6 +25,12 @@ class FailedToConnectError(RuntimeError):
     pass
 
 
+class LockingError(RuntimeError):
+    """Failed to lock or unlock a resource"""
+
+    pass
+
+
 class CliVersionError(RuntimeError):
     """ Base class for `CliVersionTooOldError` and `BadCliVersionError` """
 
