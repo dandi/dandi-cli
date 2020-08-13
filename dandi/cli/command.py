@@ -9,13 +9,11 @@ from os import path as op
 
 import click
 from click_didyoumean import DYMGroup
-import girder_client as gcl
 
 from .. import get_logger, set_logger_level
 
 from .. import __version__
 from ..consts import dandiset_metadata_file, known_instances
-from ..girder import get_HttpError_response
 
 
 # Delay imports leading to import of heavy modules such as pynwb and h5py
@@ -137,6 +135,9 @@ def map_to_click_exceptions(f):
 
     @wraps(f)
     def wrapper(*args, **kwargs):
+        import girder_client as gcl
+        from ..girder import get_HttpError_response
+
         try:
             return f(*args, **kwargs)
         # Prints global Usage: useless in majority of cases.
