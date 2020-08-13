@@ -1,16 +1,21 @@
 import os.path as op
-from .pynwb_utils import (
-    _get_pynwb_metadata,
-    get_neurodata_types,
-    get_nwb_version,
-    ignore_benign_pynwb_warnings,
-    metadata_cache,
-)
+
 
 from . import get_logger
 from .dandiset import Dandiset
 
 lgr = get_logger()
+
+from .support.cache import PersistentCache
+
+from . import __version__
+
+lgr = get_logger()
+
+# strip away possible development version marker
+dandi_rel_version = __version__.split("+", 1)[0]
+dandi_cache_tokens = [dandi_rel_version]
+metadata_cache = PersistentCache(name="metadata", tokens=dandi_cache_tokens)
 
 
 @metadata_cache.memoize_path
@@ -27,6 +32,13 @@ def get_metadata(path):
     -------
     dict
     """
+    from .pynwb_utils import (
+        _get_pynwb_metadata,
+        get_neurodata_types,
+        get_nwb_version,
+        ignore_benign_pynwb_warnings,
+    )
+
     # when we run in parallel, these annoying warnings appear
     ignore_benign_pynwb_warnings()
     path = str(path)  # for Path
