@@ -9,11 +9,13 @@ from os import path as op
 
 import click
 from click_didyoumean import DYMGroup
+import girder_client as gcl
 
 from .. import get_logger, set_logger_level
 
 from .. import __version__
 from ..consts import dandiset_metadata_file, known_instances
+from ..girder import get_HttpError_response
 
 
 # Delay imports leading to import of heavy modules such as pynwb and h5py
@@ -143,7 +145,14 @@ def map_to_click_exceptions(f):
         # except ValueError as e:
         #     raise click.UsageError(str(e))
         except Exception as e:
-            e_str = str(e)
+            if isinstance(e, gcl.HttpError):
+                resp = get_HttpError_response(e)
+                if resp is None:
+                    e_str = str(e)
+                else:
+                    e_str = resp.get("message", str(e))
+            else:
+                e_str = str(e)
             lgr.debug("Caught exception %s", e_str)
             if not map_to_click_exceptions._do_map:
                 raise
