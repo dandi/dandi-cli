@@ -1,9 +1,9 @@
 import click
 import os
-from .command import main, map_to_click_exceptions
+from .base import map_to_click_exceptions
 
 
-@main.command()
+@click.command()
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
 @map_to_click_exceptions
 def validate(paths):

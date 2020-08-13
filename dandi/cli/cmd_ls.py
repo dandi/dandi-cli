@@ -4,14 +4,14 @@ import time
 
 import click
 
-from .command import lgr, main, map_to_click_exceptions
+from .base import lgr, map_to_click_exceptions
 
 from ..utils import safe_call
 
 # TODO: all the recursion options etc
 
 
-@main.command()
+@click.command()
 @click.option(
     "-F",
     "--fields",

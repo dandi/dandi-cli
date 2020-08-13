@@ -1,16 +1,15 @@
 import click
 
-from .command import (
+from .base import (
     devel_debug_option,
     devel_option,
     instance_option,
-    main,
     map_to_click_exceptions,
 )
 from ..consts import collection_drafts
 
 
-@main.command()
+@click.command()
 # @dandiset_path_option(
 #     help="Top directory (local) of the dandiset.  Files will be uploaded with "
 #     "paths relative to that directory. If not specified, current or a parent "
