@@ -36,3 +36,7 @@ lgr = get_logger()
 set_logger_level(lgr, os.environ.get("DANDI_LOG_LEVEL", logging.INFO))
 FORMAT = "%(asctime)-15s [%(levelname)8s] %(message)s"
 logging.basicConfig(format=FORMAT)
+
+# logging.root.setLevel(logging.DEBUG)
+# somehow complitely disables our logging!
+# logging.root.handlers = lgr.handlers
