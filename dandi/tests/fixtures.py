@@ -6,8 +6,10 @@ from subprocess import check_output, run
 import shutil
 import tempfile
 
-from dateutil.tz import tzutc
+from dateutil.tz import tzlocal, tzutc
+import numpy as np
 import pynwb
+import pynwb.ecephys
 import pytest
 import requests
 
@@ -98,6 +100,57 @@ def organized_nwb_dir2(simple1_nwb_metadata, simple2_nwb, tmp_path_factory, clir
     assert r.exit_code == 0, r.stdout
     assert sum(p.is_dir() for p in tmp_path.iterdir()) == 2
     return tmp_path
+
+
+@pytest.fixture(scope="session")
+def large_nwb(tmpdir_factory):
+    nwbfile = pynwb.NWBFile(
+        "Randomly generated data",
+        "RANDOM",
+        datetime.now(tzlocal()),
+        subject=pynwb.file.Subject(
+            subject_id="mouse001",
+            date_of_birth=datetime(2019, 12, 1, tzinfo=tzutc()),
+            sex="M",
+            species="mouse",
+        ),
+    )
+    device = nwbfile.create_device(name="acme123")
+    electrode_group = nwbfile.create_electrode_group(
+        "tetrode1",
+        description="A sample tetrode",
+        location="pineal gland",
+        device=device,
+    )
+    nwbfile.add_electrode(
+        id=0,
+        x=1.0,
+        y=2.0,
+        z=3.0,
+        imp=0.0,
+        location="CA1",
+        filtering="none",
+        group=electrode_group,
+    )
+    electrode_table_region = nwbfile.create_electrode_table_region(
+        [0], "the first electrode"
+    )
+    rate = 10.0
+    data_len = 65536 * 64
+    data = np.random.rand(data_len * 2).reshape((data_len, 2))
+    ephys_ts = pynwb.ecephys.ElectricalSeries(
+        "test_ephys_data",
+        data,
+        electrode_table_region,
+        starting_time=0.0,
+        rate=rate,
+        resolution=0.001,
+    )
+    nwbfile.add_acquisition(ephys_ts)
+    path = str(tmpdir_factory.mktemp("data").join("large.nwb"))
+    with pynwb.NWBHDF5IO(path, "w") as io:
+        io.write(nwbfile)
+    return path
 
 
 @pytest.fixture(scope="session")
