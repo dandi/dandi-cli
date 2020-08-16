@@ -12,7 +12,8 @@ import requests
 
 from .skip import skipif
 from .. import get_logger
-from ..consts import known_instances
+from ..cli.command import organize
+from ..consts import dandiset_metadata_file, known_instances
 from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
 
 
@@ -63,7 +64,42 @@ def simple2_nwb(simple1_nwb_metadata, tmpdir_factory):
     )
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
+def organized_nwb_dir(simple2_nwb, tmp_path_factory, clirunner):
+    tmp_path = tmp_path_factory.mktemp("dandiset")
+    (tmp_path / dandiset_metadata_file).write_text("{}\n")
+    r = clirunner.invoke(
+        organize, ["-f", "copy", "--dandiset-path", str(tmp_path), str(simple2_nwb)]
+    )
+    assert r.exit_code == 0, r.stdout
+    return tmp_path
+
+
+@pytest.fixture(scope="session")
+def organized_nwb_dir2(simple1_nwb_metadata, simple2_nwb, tmp_path_factory, clirunner):
+    tmp_path = tmp_path_factory.mktemp("dandiset")
+
+    # need to copy first and then use -f move since we will create one more
+    # file to be "organized"
+    shutil.copy(str(simple2_nwb), str(tmp_path))
+    make_nwb_file(
+        str(tmp_path / "simple3.nwb"),
+        subject=pynwb.file.Subject(
+            subject_id="lizard001",
+            date_of_birth=datetime(2019, 12, 1, tzinfo=tzutc()),
+            sex="F",
+            species="Gekko gecko",
+        ),
+        **simple1_nwb_metadata,
+    )
+    (tmp_path / dandiset_metadata_file).write_text("{}\n")
+    r = clirunner.invoke(organize, ["-f", "move", "--dandiset-path", str(tmp_path)])
+    assert r.exit_code == 0, r.stdout
+    assert sum(p.is_dir() for p in tmp_path.iterdir()) == 2
+    return tmp_path
+
+
+@pytest.fixture(scope="session")
 def clirunner():
     """A shortcut to get a click.runner to run a command"""
     from click.testing import CliRunner
