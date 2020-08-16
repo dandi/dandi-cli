@@ -66,15 +66,18 @@ def simple2_nwb(simple1_nwb_metadata, tmpdir_factory):
 
 @pytest.fixture()
 def organized_nwb_dir(simple2_nwb, tmp_path, clirunner):
-    shutil.copy(str(simple2_nwb), str(tmp_path))
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
-    r = clirunner.invoke(organize, ["-f", "move", "--dandiset-path", str(tmp_path)])
+    r = clirunner.invoke(
+        organize, ["-f", "copy", "--dandiset-path", str(tmp_path), str(simple2_nwb)]
+    )
     assert r.exit_code == 0, r.stdout
     return tmp_path
 
 
 @pytest.fixture()
 def organized_nwb_dir2(simple1_nwb_metadata, simple2_nwb, tmp_path, clirunner):
+    # need to copy first and then use -f move since we will create one more
+    # file to be "organized"
     shutil.copy(str(simple2_nwb), str(tmp_path))
     make_nwb_file(
         str(tmp_path / "simple3.nwb"),
