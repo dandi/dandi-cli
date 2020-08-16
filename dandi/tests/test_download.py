@@ -29,9 +29,9 @@ def _assert_parse_api_url(url):
 
 def test_parse_dandi_url():
     # ATM we point to drafts, so girder
-    assert _assert_parse_girder_url("DANDI:000027") == (
-        "folder",
-        ["5f0640a2ab90ac46c4561e4f"],
+    assert _assert_parse_api_url("DANDI:000027") == (
+        "dandiset",
+        {"dandiset_id": "000027", "version": "draft"},
     )
 
     # user
@@ -121,9 +121,9 @@ def test_parse_dandi_url_redirect():
     with pytest.raises(NotFoundError):
         parse_dandi_url("https://dandiarchive.org/dandiset/999999")
     # Is there ATM
-    assert _assert_parse_girder_url("https://dandiarchive.org/dandiset/000003") == (
-        "folder",
-        ["5e6eb2b776569eb93f451f8d"],
+    assert _assert_parse_api_url("https://dandiarchive.org/dandiset/000003") == (
+        "dandiset",
+        {"dandiset_id": "000003", "version": "draft"},
     )
     # And this one would point to a folder
     assert (
