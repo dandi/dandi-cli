@@ -92,7 +92,7 @@ def organized_nwb_dir2(simple1_nwb_metadata, simple2_nwb, tmp_path, clirunner):
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
     r = clirunner.invoke(organize, ["-f", "move", "--dandiset-path", str(tmp_path)])
     assert r.exit_code == 0, r.stdout
-    assert sum(1 for p in tmp_path.iterdir() if p.is_dir()) == 2
+    assert sum(p.is_dir() for p in tmp_path.iterdir()) == 2
     return tmp_path
 
 
