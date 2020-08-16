@@ -64,8 +64,9 @@ def simple2_nwb(simple1_nwb_metadata, tmpdir_factory):
     )
 
 
-@pytest.fixture()
-def organized_nwb_dir(simple2_nwb, tmp_path, clirunner):
+@pytest.fixture(scope="session")
+def organized_nwb_dir(simple2_nwb, tmp_path_factory, clirunner):
+    tmp_path = tmp_path_factory.mktemp("dandiset")
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
     r = clirunner.invoke(
         organize, ["-f", "copy", "--dandiset-path", str(tmp_path), str(simple2_nwb)]
@@ -74,8 +75,10 @@ def organized_nwb_dir(simple2_nwb, tmp_path, clirunner):
     return tmp_path
 
 
-@pytest.fixture()
-def organized_nwb_dir2(simple1_nwb_metadata, simple2_nwb, tmp_path, clirunner):
+@pytest.fixture(scope="session")
+def organized_nwb_dir2(simple1_nwb_metadata, simple2_nwb, tmp_path_factory, clirunner):
+    tmp_path = tmp_path_factory.mktemp("dandiset")
+
     # need to copy first and then use -f move since we will create one more
     # file to be "organized"
     shutil.copy(str(simple2_nwb), str(tmp_path))
@@ -96,7 +99,7 @@ def organized_nwb_dir2(simple1_nwb_metadata, simple2_nwb, tmp_path, clirunner):
     return tmp_path
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def clirunner():
     """A shortcut to get a click.runner to run a command"""
     from click.testing import CliRunner
