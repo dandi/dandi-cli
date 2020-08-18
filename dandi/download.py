@@ -753,7 +753,10 @@ def _download_file(
                             blob1 = writer.read(len(block))
                             if blob1 == block:
                                 downloaded += len(block)
-                                lgr.debug("Resuming earlier download from position %d", downloaded + len(block))
+                                lgr.debug(
+                                    "Resuming earlier download from position %d",
+                                    downloaded + len(block),
+                                )
                                 if prev_digest:
                                     # Set digest state one block back from last
                                     # run
@@ -764,7 +767,10 @@ def _download_file(
                             else:
                                 downloaded = 0
                                 downloaded_digest = digester()
-                                lgr.debug("Could not resume earlier download. Will possibly retry from the beginning")
+                                lgr.debug(
+                                    "Could not resume earlier download."
+                                    " Will possibly retry from the beginning"
+                                )
                                 break
                         elif digester:
                             downloaded_digest = digester()  # start empty
