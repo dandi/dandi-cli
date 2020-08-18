@@ -1,14 +1,9 @@
 import click
 
-from .command import (
-    dandiset_path_option,
-    instance_option,
-    main,
-    map_to_click_exceptions,
-)
+from .base import dandiset_path_option, instance_option, map_to_click_exceptions
 
 
-@main.command()
+@click.command()
 @dandiset_path_option(
     help="Top directory (local) for the dandiset, where dandi will download "
     "(or update existing) dandiset.yaml upon successful registration.  If not "

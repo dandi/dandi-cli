@@ -1,10 +1,10 @@
 import os
 
 import click
-from .command import devel_option, main, map_to_click_exceptions
+from .base import devel_option, map_to_click_exceptions
 
 
-@main.command()
+@click.command()
 @click.option(
     "-o",
     "--output-dir",

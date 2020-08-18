@@ -6,8 +6,7 @@ import sys
 import time
 
 
-from .cli.command import lgr
-from . import __version__
+from . import __version__, lgr
 from .utils import ensure_datetime, ensure_strtime, get_instance
 from .consts import (
     collection_drafts,

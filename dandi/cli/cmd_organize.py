@@ -2,17 +2,11 @@ import click
 import os
 import os.path as op
 
-from .command import (
-    dandiset_path_option,
-    devel_debug_option,
-    lgr,
-    main,
-    map_to_click_exceptions,
-)
+from .base import dandiset_path_option, devel_debug_option, lgr, map_to_click_exceptions
 from ..consts import dandiset_metadata_file, file_operation_modes
 
 
-@main.command()
+@click.command()
 @dandiset_path_option(
     help="A top directory (local) of the dandiset to organize files under. "
     "If not specified, dandiset current directory is under is assumed. "
