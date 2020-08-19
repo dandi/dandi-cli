@@ -590,11 +590,11 @@ def _map_to_girder(url):
         asset_type = "folder"
         asset_id = [asset_id.get("folder_id")]
     else:
-        girder_path = op.join("drafts", asset_id["dandiset_id"])
+        girder_path = "{}/{}".format("drafts", asset_id["dandiset_id"])
         asset_type = "folder"
         if asset_id.get("location"):
             # Not implemented by UI ATM but might come
-            girder_path = op.join(girder_path, asset_id["location"])
+            girder_path = "{}/{}".format(girder_path, asset_id["location"])
         try:
             girder_rec = girder.lookup(client, girder_path)
         except BaseException:
