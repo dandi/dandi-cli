@@ -157,30 +157,39 @@ def large_nwb(tmpdir_factory):
 
 
 @pytest.fixture(scope="session")
-def large_dandiset(
-    clirunner, large_nwb, local_docker_compose_env, monkeypatch, tmp_path_factory
-):
+def large_dandiset(clirunner, large_nwb, local_docker_compose, tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("dandiset")
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
     r = clirunner.invoke(
         organize, ["-f", "copy", "--dandiset-path", str(tmp_path), str(large_nwb)]
     )
     assert r.exit_code == 0, r.stdout
-    dandi_instance_id = local_docker_compose_env["instance_id"]
-    register(
-        "Large Dandiset",
-        "Dandiset with a large NWB file",
-        dandiset_path=tmp_path,
-        dandi_instance=dandi_instance_id,
-    )
-    with (tmp_path / dandiset_metadata_file).open() as fp:
-        metadata = yaml_load(fp, typ="safe")
-    dandi_id = metadata["identifier"]
-    monkeypatch.chdir(tmp_path)
-    upload(paths=[os.curdir], dandi_instance=dandi_instance_id, devel_debug=True)
-    return (
-        f"{local_docker_compose_env['instance'].redirector}/dandiset/{dandi_id}/draft"
-    )
+    dandi_instance_id = local_docker_compose["instance_id"]
+    # monkeypatch can't be used here because it's function-scoped.
+    old_api_key = os.environ.get("DANDI_API_KEY")
+    os.environ["DANDI_API_KEY"] = local_docker_compose["api_key"]
+    try:
+        register(
+            "Large Dandiset",
+            "Dandiset with a large NWB file",
+            dandiset_path=tmp_path,
+            dandi_instance=dandi_instance_id,
+        )
+        with (tmp_path / dandiset_metadata_file).open() as fp:
+            metadata = yaml_load(fp, typ="safe")
+        dandi_id = metadata["identifier"]
+        upload(
+            paths=[tmp_path],
+            dandiset_path=tmp_path,
+            dandi_instance=dandi_instance_id,
+            devel_debug=True,
+        )
+    finally:
+        if old_api_key is None:
+            del os.environ["DANDI_API_KEY"]
+        else:
+            os.environ["DANDI_API_KEY"] = old_api_key
+    return f"{local_docker_compose['instance'].redirector}/dandiset/{dandi_id}/draft"
 
 
 @pytest.fixture(scope="session")
