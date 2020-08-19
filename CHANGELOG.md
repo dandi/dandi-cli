@@ -4,6 +4,15 @@ All notable changes to this project will be documented (for humans) in this file
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2020-08-18
+
+### Changed
+- CLI modules RF to avoid circular imports
+- `pytest` default traceback style is short and shows 10 slowest tsts
+### Fixed
+- `download` of draft datasets from Windows (gh-202)
+- `upload` and other tests to account for new web UI
+
 ## [0.6.0] - 2020-08-12
 
 A variety of improvements and bug fixes, with major changes toward support
