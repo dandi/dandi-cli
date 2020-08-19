@@ -182,24 +182,24 @@ def test_ambiguos_probe1():
     metadata_ = create_unique_filenames_from_metadata(metadata)
     assert metadata_ != metadata
     assert [m["dandi_path"] for m in metadata_] == [
-        "sub-1/sub-1.nwb",
-        "sub-1/sub-1_probe-1_mod.nwb",
-        "sub-1/sub-1_probe-2_mod.nwb",
+        op.join("sub-1", "sub-1.nwb"),
+        op.join("sub-1", "sub-1_probe-1_mod.nwb"),
+        op.join("sub-1", "sub-1_probe-2_mod.nwb"),
     ]
     # if modalities is present but different -- no probe for _mod2
     metadata[0]["modalities"] = ["mod2"]
     metadata_ = create_unique_filenames_from_metadata(metadata)
     assert [m["dandi_path"] for m in metadata_] == [
-        "sub-1/sub-1_mod2.nwb",
-        "sub-1/sub-1_probe-1_mod.nwb",
-        "sub-1/sub-1_probe-2_mod.nwb",
+        op.join("sub-1", "sub-1_mod2.nwb"),
+        op.join("sub-1", "sub-1_probe-1_mod.nwb"),
+        op.join("sub-1", "sub-1_probe-2_mod.nwb"),
     ]
 
     # but if modalities is same -- we would get probes listed
     metadata[0]["modalities"] = ["mod"]
     metadata_ = create_unique_filenames_from_metadata(metadata)
     assert [m["dandi_path"] for m in metadata_] == [
-        "sub-1/sub-1_probe-1+2_mod.nwb",
-        "sub-1/sub-1_probe-1_mod.nwb",
-        "sub-1/sub-1_probe-2_mod.nwb",
+        op.join("sub-1", "sub-1_probe-1+2_mod.nwb"),
+        op.join("sub-1", "sub-1_probe-1_mod.nwb"),
+        op.join("sub-1", "sub-1_probe-2_mod.nwb"),
     ]
