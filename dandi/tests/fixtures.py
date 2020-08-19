@@ -18,6 +18,9 @@ from .. import get_logger
 from ..cli.command import organize
 from ..consts import dandiset_metadata_file, known_instances
 from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
+from ..register import register
+from ..upload import upload
+from ..utils import yaml_load
 
 
 lgr = get_logger()
@@ -151,6 +154,33 @@ def large_nwb(tmpdir_factory):
     with pynwb.NWBHDF5IO(path, "w") as io:
         io.write(nwbfile)
     return path
+
+
+@pytest.fixture(scope="session")
+def large_dandiset(
+    clirunner, large_nwb, local_docker_compose_env, monkeypatch, tmp_path_factory
+):
+    tmp_path = tmp_path_factory.mktemp("dandiset")
+    (tmp_path / dandiset_metadata_file).write_text("{}\n")
+    r = clirunner.invoke(
+        organize, ["-f", "copy", "--dandiset-path", str(tmp_path), str(large_nwb)]
+    )
+    assert r.exit_code == 0, r.stdout
+    dandi_instance_id = local_docker_compose_env["instance_id"]
+    register(
+        "Large Dandiset",
+        "Dandiset with a large NWB file",
+        dandiset_path=tmp_path,
+        dandi_instance=dandi_instance_id,
+    )
+    with (tmp_path / dandiset_metadata_file).open() as fp:
+        metadata = yaml_load(fp, typ="safe")
+    dandi_id = metadata["identifier"]
+    monkeypatch.chdir(tmp_path)
+    upload(paths=[os.curdir], dandi_instance=dandi_instance_id, devel_debug=True)
+    return (
+        f"{local_docker_compose_env['instance'].redirector}/dandiset/{dandi_id}/draft"
+    )
 
 
 @pytest.fixture(scope="session")
