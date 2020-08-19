@@ -188,10 +188,9 @@ def test_download_multiple_files(monkeypatch, tmpdir):
 @pytest.mark.parametrize(
     "url",
     [  # Should go through API
-        "https://deploy-preview-341--gui-dandiarchive-org.netlify.app/"
-        "#/dandiset/000027/0.200721.2222",
-        # Good old girder (draft)
-        "https://gui.dandiarchive.org/#/dandiset/5f0640a2ab90ac46c4561e4f",
+        "https://dandiarchive.org/dandiset/000027/0.200721.2222",
+        # Drafts do not go through API ATM, but that should not be visible to user
+        "https://dandiarchive.org/dandiset/000027/draft",
     ],
 )
 def test_download_000027(url, tmpdir):
