@@ -44,7 +44,7 @@ assert {v.get("type", "additional") for v in potential_fields.values()} == {
     "additional",
     "mandatory_if_not_empty",
 }
-dandi_path = "sub-{subject_id}/{dandi_filename}"
+dandi_path = op.join("sub-{subject_id}", "{dandi_filename}")
 
 
 def filter_invalid_metadata_rows(metadata_rows):
