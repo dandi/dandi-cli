@@ -6,11 +6,18 @@ from datetime import date
 import yaml
 from copy import deepcopy
 
+from .model_types import (
+    AccessTypeDict,
+    RoleTypeDict,
+    RelationTypeDict,
+    LicenseTypeDict,
+    IdentifierTypeDict,
+    DigestTypeDict,
+)
 
-def create_enum(path):
+
+def create_enum(data):
     """Convert a JSON-LD enumeration to an Enum"""
-    with open(path) as fp:
-        data = yaml.safe_load(fp)
     items = {}
     klass = None
     for idx, item in enumerate(data["@graph"]):
@@ -74,12 +81,12 @@ def model2graph(model):
     return jsonld_doc
 
 
-AccessType = create_enum("terms/AccessType.yaml")
-RoleType = create_enum("terms/RoleType.yaml")
-Relation = create_enum("terms/RelationType.yaml")
-License = create_enum("terms/LicenseType.yaml")
-IdentifierType = create_enum("terms/IdentifierType.yaml")
-DigestType = create_enum("terms/DigestType.yaml")
+AccessType = create_enum(AccessTypeDict)
+RoleType = create_enum(RoleTypeDict)
+Relation = create_enum(RelationTypeDict)
+License = create_enum(LicenseTypeDict)
+IdentifierType = create_enum(IdentifierTypeDict)
+DigestType = create_enum(DigestTypeDict)
 
 
 class PropertyValue(BaseModel):
@@ -520,6 +527,7 @@ class Asset(CommonModel):
     variableMeasured: List[PropertyValue] = Field(readonly=True, nskey="schema")
 
     wasDerivedFrom: BioSample = Field(None, nskey="prov")
+    wasGeneratedBy: Activity = Field(None, nskey="prov")
 
     # on publish or set by server
     contentUrl: List[AnyUrl] = Field(None, readonly=True, nskey="schema")
