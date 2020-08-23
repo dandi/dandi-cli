@@ -1,6 +1,6 @@
 from enum import Enum
 from pydantic import BaseModel, Field, AnyUrl, EmailStr, validator
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Any
 from datetime import date
 from ruamel import yaml
 from copy import deepcopy
@@ -96,7 +96,7 @@ class PropertyValue(BaseModel):
     value: Union[bool, float, str, int, List[Union[bool, float, str, int]]] = Field(
         None, nskey="schema"
     )
-    valueReference: PropertyValue = Field(
+    valueReference: "PropertyValue" = Field(
         None, nskey="schema"
     )  # Note: recursive (circular or not)
     propertyID: Union[IdentifierType, AnyUrl, str] = Field(None, nskey="schema")
@@ -345,8 +345,8 @@ class Activity(BaseModel):
     startDate: Optional[date] = Field(None, nskey="schema")
     endDate: Optional[date] = Field(None, nskey="schema")
 
-    isPartOf: Optional[Activity] = Field(None, nskey="schema")
-    hasPart: Optional[Activity] = Field(None, nskey="schema")
+    isPartOf: Optional["Activity"] = Field(None, nskey="schema")
+    hasPart: Optional["Activity"] = Field(None, nskey="schema")
     wasAssociatedWith: Optional[Union[Person, Organization]] = Field(None, nskey="prov")
 
     _ldmeta = {"rdfs:subClassOf": ["prov:Activity", "schema:Thing"], "nskey": "dandi"}
