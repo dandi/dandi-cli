@@ -2,7 +2,7 @@ from enum import Enum
 from pydantic import BaseModel, Field, AnyUrl, EmailStr, validator
 from typing import List, Union, Optional
 from datetime import date
-import yaml
+from ruamel import yaml
 from copy import deepcopy
 
 from .model_types import (
