@@ -1,7 +1,6 @@
 import click
 import os
 import os.path as op
-from pathlib import Path
 
 from .base import dandiset_path_option, devel_debug_option, lgr, map_to_click_exceptions
 from ..consts import dandiset_metadata_file, file_operation_modes
@@ -86,6 +85,7 @@ def organize(
         filter_invalid_metadata_rows,
         populate_dataset_yml,
         create_dataset_yml_template,
+        detect_link_type,
     )
     from ..metadata import get_metadata
     from ..dandiset import Dandiset
@@ -213,37 +213,7 @@ def organize(
         act(os.makedirs, dandiset_path)
 
     if files_mode == "auto":
-        srcfile = Path(dandiset_path, f".dandi.{os.getpid()}.src")
-        destfile = Path(dandiset_path, f".dandi.{os.getpid()}.dest")
-        try:
-            srcfile.touch()
-            try:
-                os.symlink(srcfile, destfile)
-            except OSError:
-                try:
-                    os.link(srcfile, destfile)
-                except OSError:
-                    lgr.info(
-                        "Symlink and hardlink tests both failed; setting files_mode='copy'"
-                    )
-                    files_mode = "copy"
-                else:
-                    lgr.info(
-                        "Hard link support autodetected; setting files_mode='hardlink'"
-                    )
-                    files_mode = "hardlink"
-            else:
-                lgr.info("Symlink support autodetected; setting files_mode='symlink'")
-                files_mode = "symlink"
-        finally:
-            try:
-                destfile.unlink()
-            except FileNotFoundError:
-                pass
-            try:
-                srcfile.unlink()
-            except FileNotFoundError:
-                pass
+        files_mode = detect_link_type(dandiset_path)
 
     dandiset_metadata_filepath = op.join(dandiset_path, dandiset_metadata_file)
     if op.lexists(dandiset_metadata_filepath):
