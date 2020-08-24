@@ -444,7 +444,7 @@ class CommonModel(BaseModel):
         return self
 
 
-class Dandiset(CommonModel):
+class DandiMeta(CommonModel):
     """A body of structured information describing a DANDI dataset."""
 
     @validator("contributor")
@@ -489,7 +489,7 @@ class Dandiset(CommonModel):
     }
 
 
-class Asset(CommonModel):
+class AssetMeta(CommonModel):
     """Metadata used to describe an asset.
 
     Derived from C2M2 (Level 0 and 1) and schema.org

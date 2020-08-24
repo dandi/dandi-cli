@@ -1,9 +1,9 @@
-from ..models import Dandiset, Asset
+from ..models import DandiMeta, AssetMeta
 
 
 def test_dandiset():
-    assert Dandiset.unvalidated()
+    assert DandiMeta.unvalidated()
 
 
 def test_asset():
-    assert Asset.unvalidated()
+    assert AssetMeta.unvalidated()
