@@ -223,17 +223,17 @@ def organize(
                 try:
                     os.link(srcfile, destfile)
                 except OSError:
-                    lgr.debug(
+                    lgr.info(
                         "Symlink and hardlink tests both failed; setting files_mode='copy'"
                     )
                     files_mode = "copy"
                 else:
-                    lgr.debug(
+                    lgr.info(
                         "Hard link support autodetected; setting files_mode='hardlink'"
                     )
                     files_mode = "hardlink"
             else:
-                lgr.debug("Symlink support autodetected; setting files_mode='symlink'")
+                lgr.info("Symlink support autodetected; setting files_mode='symlink'")
                 files_mode = "symlink"
         finally:
             try:
