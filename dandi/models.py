@@ -526,7 +526,6 @@ class AssetMeta(CommonModel):
     variableMeasured: List[PropertyValue] = Field(readonly=True, nskey="schema")
 
     wasDerivedFrom: BioSample = Field(None, nskey="prov")
-    wasGeneratedBy: Activity = Field(None, nskey="prov")
 
     # on publish or set by server
     contentUrl: List[AnyUrl] = Field(None, readonly=True, nskey="schema")
