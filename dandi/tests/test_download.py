@@ -1,12 +1,13 @@
+from itertools import zip_longest
 import os.path as op
-
 import time
+
 import tqdm
 
 from ..download import download, follow_redirect, parse_dandi_url
 from ..exceptions import NotFoundError
 from ..tests.skip import mark
-from ..consts import known_instances
+from ..consts import MAX_CHUNK_SIZE, known_instances
 
 from ..girder import GirderCli, gcl, TQDMProgressReporter
 
@@ -264,3 +265,39 @@ def test_girder_tqdm(monkeypatch):
 
     with TQDMProgressReporter() as pr:
         pr.update(10)
+
+
+def test_resume_download(large_dandiset, monkeypatch, tmp_path):
+    import socket
+    from ..girder import GirderCli
+
+    old_file_iter = GirderCli.get_download_file_iter
+
+    error = socket.timeout()
+    exc_iter = iter(
+        [
+            (0, (None, None, None, error)),
+            (MAX_CHUNK_SIZE, (None, None, None, None, error)),
+            (MAX_CHUNK_SIZE * 3, ()),
+        ]
+    )
+
+    def fake_file_iter(self, file_id, chunk_size=MAX_CHUNK_SIZE):
+        downloader = old_file_iter(self, file_id, chunk_size)
+
+        def new_downloader(start_at=0):
+            expected_start, err_pattern = next(exc_iter)
+            assert start_at == expected_start
+            for e, chunk in zip_longest(err_pattern, downloader(start_at)):
+                if e is not None:
+                    raise e
+                else:
+                    assert chunk is not None
+                    yield chunk
+
+        return new_downloader
+
+    monkeypatch.setattr(GirderCli, "get_download_file_iter", fake_file_iter)
+    download(large_dandiset, tmp_path)
+    with pytest.raises(StopIteration):
+        next(exc_iter)
