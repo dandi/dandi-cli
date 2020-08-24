@@ -1,6 +1,7 @@
 import click
 import os
 import os.path as op
+from pathlib import Path
 
 from .base import dandiset_path_option, devel_debug_option, lgr, map_to_click_exceptions
 from ..consts import dandiset_metadata_file, file_operation_modes
@@ -25,12 +26,13 @@ from ..consts import dandiset_metadata_file, file_operation_modes
     "-f",
     "--files-mode",
     help="If 'dry' - no action is performed, suggested renames are printed. "
-    "I 'simulate' - hierarchy of empty files at --local-top-path is created. "
-    "Note that previous layout should be removed prior this operation.  The "
-    "other modes (copy, move, symlink, hardlink) define how data files should "
-    "be made available.",
+    "If 'simulate' - hierarchy of empty files at --local-top-path is created. "
+    "Note that previous layout should be removed prior this operation.  "
+    "If 'auto' - whichever of symlink, hardlink, copy is allowed by system. "
+    "The other modes (copy, move, symlink, hardlink) define how data files "
+    "should be made available.",
     type=click.Choice(file_operation_modes),
-    default="dry",
+    default="auto",
     show_default=True,
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
@@ -41,7 +43,7 @@ def organize(
     dandiset_path=None,
     dandiset_id=None,
     invalid="fail",
-    files_mode="dry",
+    files_mode="auto",
     devel_debug=False,
 ):
     """(Re)organize files according to the metadata.
@@ -209,6 +211,39 @@ def organize(
 
     if not op.exists(dandiset_path):
         act(os.makedirs, dandiset_path)
+
+    if files_mode == "auto":
+        srcfile = Path(dandiset_path, f".dandi.{os.getpid()}.src")
+        destfile = Path(dandiset_path, f".dandi.{os.getpid()}.dest")
+        try:
+            srcfile.touch()
+            try:
+                os.symlink(srcfile, destfile)
+            except OSError:
+                try:
+                    os.link(srcfile, destfile)
+                except OSError:
+                    lgr.debug(
+                        "Symlink and hardlink tests both failed; setting files_mode='copy'"
+                    )
+                    files_mode = "copy"
+                else:
+                    lgr.debug(
+                        "Hard link support autodetected; setting files_mode='hardlink'"
+                    )
+                    files_mode = "hardlink"
+            else:
+                lgr.debug("Symlink support autodetected; setting files_mode='symlink'")
+                files_mode = "symlink"
+        finally:
+            try:
+                destfile.unlink()
+            except FileNotFoundError:
+                pass
+            try:
+                srcfile.unlink()
+            except FileNotFoundError:
+                pass
 
     dandiset_metadata_filepath = op.join(dandiset_path, dandiset_metadata_file)
     if op.lexists(dandiset_metadata_filepath):
