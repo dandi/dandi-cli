@@ -145,7 +145,7 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
 
     if mode == "simulate":
         assert all((op.isabs(p) != relative) for p in produced_paths)
-    elif mode == "symlink":
+    elif mode == "symlink" or mode == "auto":
         assert all(op.islink(p) for p in produced_nwb_paths)
     else:
         assert not any(op.islink(p) for p in produced_paths)
