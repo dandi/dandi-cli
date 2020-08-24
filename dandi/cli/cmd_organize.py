@@ -25,12 +25,13 @@ from ..consts import dandiset_metadata_file, file_operation_modes
     "-f",
     "--files-mode",
     help="If 'dry' - no action is performed, suggested renames are printed. "
-    "I 'simulate' - hierarchy of empty files at --local-top-path is created. "
-    "Note that previous layout should be removed prior this operation.  The "
-    "other modes (copy, move, symlink, hardlink) define how data files should "
-    "be made available.",
+    "If 'simulate' - hierarchy of empty files at --local-top-path is created. "
+    "Note that previous layout should be removed prior this operation.  "
+    "If 'auto' - whichever of symlink, hardlink, copy is allowed by system. "
+    "The other modes (copy, move, symlink, hardlink) define how data files "
+    "should be made available.",
     type=click.Choice(file_operation_modes),
-    default="dry",
+    default="auto",
     show_default=True,
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
@@ -41,7 +42,7 @@ def organize(
     dandiset_path=None,
     dandiset_id=None,
     invalid="fail",
-    files_mode="dry",
+    files_mode="auto",
     devel_debug=False,
 ):
     """(Re)organize files according to the metadata.
@@ -84,6 +85,7 @@ def organize(
         filter_invalid_metadata_rows,
         populate_dataset_yml,
         create_dataset_yml_template,
+        detect_link_type,
     )
     from ..metadata import get_metadata
     from ..dandiset import Dandiset
@@ -209,6 +211,9 @@ def organize(
 
     if not op.exists(dandiset_path):
         act(os.makedirs, dandiset_path)
+
+    if files_mode == "auto":
+        files_mode = detect_link_type(dandiset_path)
 
     dandiset_metadata_filepath = op.join(dandiset_path, dandiset_metadata_file)
     if op.lexists(dandiset_metadata_filepath):

@@ -8,7 +8,9 @@ import numpy as np
 import re
 from collections import Counter
 
+import os
 import os.path as op
+from pathlib import Path
 
 from .exceptions import OrganizeImpossibleError
 from . import get_logger
@@ -572,3 +574,43 @@ def _get_non_unique_paths(metadata):
                     orig_paths.append(e["path"])
             non_unique[p] = orig_paths  # overload with the list instead of count
     return non_unique
+
+
+def detect_link_type(workdir):
+    """
+    Determine what type of links the filesystem will let us make in the
+    directory ``workdir``.  If symlinks are allowed, returns ``"symlink"``.
+    Otherwise, if hard links are allowed, returns ``"hardlink"``.  Otherwise,
+    returns ``"copy"``.
+    """
+    srcfile = Path(workdir, f".dandi.{os.getpid()}.src")
+    destfile = Path(workdir, f".dandi.{os.getpid()}.dest")
+    try:
+        srcfile.touch()
+        try:
+            os.symlink(srcfile, destfile)
+        except OSError:
+            try:
+                os.link(srcfile, destfile)
+            except OSError:
+                lgr.info(
+                    "Symlink and hardlink tests both failed; setting files_mode='copy'"
+                )
+                return "copy"
+            else:
+                lgr.info(
+                    "Hard link support autodetected; setting files_mode='hardlink'"
+                )
+                return "hardlink"
+        else:
+            lgr.info("Symlink support autodetected; setting files_mode='symlink'")
+            return "symlink"
+    finally:
+        try:
+            destfile.unlink()
+        except FileNotFoundError:
+            pass
+        try:
+            srcfile.unlink()
+        except FileNotFoundError:
+            pass

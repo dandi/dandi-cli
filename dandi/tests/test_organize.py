@@ -12,6 +12,7 @@ from ..organize import (
     create_unique_filenames_from_metadata,
     get_obj_id,
     populate_dataset_yml,
+    detect_link_type,
 )
 from ..utils import find_files, on_windows, yaml_load
 from ..pynwb_utils import copy_nwb_file, get_object_id
@@ -145,7 +146,7 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
 
     if mode == "simulate":
         assert all((op.isabs(p) != relative) for p in produced_paths)
-    elif mode == "symlink":
+    elif mode == "symlink" or mode == "auto":
         assert all(op.islink(p) for p in produced_nwb_paths)
     else:
         assert not any(op.islink(p) for p in produced_paths)
@@ -203,3 +204,23 @@ def test_ambiguos_probe1():
         op.join("sub-1", "sub-1_probe-1_mod.nwb"),
         op.join("sub-1", "sub-1_probe-2_mod.nwb"),
     ]
+
+
+@pytest.mark.parametrize(
+    "sym_success,hard_success,result",
+    [
+        (True, True, "symlink"),
+        (True, False, "symlink"),
+        (False, True, "hardlink"),
+        (False, False, "copy"),
+    ],
+)
+def test_detect_link_type(monkeypatch, tmp_path, sym_success, hard_success, result):
+    def error_link(src, dest):
+        raise OSError("Operation failed")
+
+    if not sym_success:
+        monkeypatch.setattr(os, "symlink", error_link)
+    if not hard_success:
+        monkeypatch.setattr(os, "link", error_link)
+    assert detect_link_type(tmp_path) == result

@@ -108,7 +108,15 @@ known_instances_rev = {vv: k for k, v in known_instances.items() for vv in v if 
 collection_drafts = "drafts"
 collection_releases = "releases"
 
-file_operation_modes = ["dry", "simulate", "copy", "move", "hardlink", "symlink"]
+file_operation_modes = [
+    "dry",
+    "simulate",
+    "copy",
+    "move",
+    "hardlink",
+    "symlink",
+    "auto",
+]
 
 #
 # Download (upload?) specific constants
