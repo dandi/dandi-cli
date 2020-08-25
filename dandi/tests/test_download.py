@@ -220,6 +220,38 @@ def test_download_000027(url, tmpdir):
     download(url, tmpdir, existing="refresh")  # TODO: check that skipped (the same)
 
 
+@pytest.mark.parametrize(
+    "url",
+    [  # Should go through API
+        "https://dandiarchive.org/dandiset/000027/0.200721.2222",
+        # Drafts do not go through API ATM, but that should not be visible to user
+        "https://dandiarchive.org/dandiset/000027/draft",
+    ],
+)
+def test_download_000027_metadata_only(url, tmpdir):
+    ret = download(url, tmpdir, get_assets=False)
+    assert not ret  # we return nothing ATM, might want to "generate"
+    dsdir = tmpdir / "000027"
+    downloads = (x.relto(dsdir) for x in dsdir.visit())
+    assert sorted(downloads) == ["dandiset.yaml"]
+
+
+@pytest.mark.parametrize(
+    "url",
+    [  # Should go through API
+        "https://dandiarchive.org/dandiset/000027/0.200721.2222",
+        # Drafts do not go through API ATM, but that should not be visible to user
+        "https://dandiarchive.org/dandiset/000027/draft",
+    ],
+)
+def test_download_000027_assets_only(url, tmpdir):
+    ret = download(url, tmpdir, get_metadata=False)
+    assert not ret  # we return nothing ATM, might want to "generate"
+    dsdir = tmpdir / "000027"
+    downloads = (x.relto(dsdir) for x in dsdir.visit())
+    assert sorted(downloads) == ["sub-RAT123", op.join("sub-RAT123", "sub-RAT123.nwb")]
+
+
 def test_girder_tqdm(monkeypatch):
     # smoke test to ensure we do not blow up
     def raise_assertion_error(*args, **kwargs):
