@@ -263,7 +263,16 @@ parse_dandi_url = _dandi_url_parser.parse
 follow_redirect = _dandi_url_parser.follow_redirect
 
 
-def download(urls, output_dir, *, format="pyout", existing="error", jobs=1):
+def download(
+    urls,
+    output_dir,
+    *,
+    format="pyout",
+    existing="error",
+    jobs=1,
+    get_metadata=True,
+    get_assets=True,
+):
     # TODO: unduplicate with upload. For now stole from that one
     # We will again use pyout to provide a neat table summarizing our progress
     # with upload etc
@@ -289,7 +298,14 @@ def download(urls, output_dir, *, format="pyout", existing="error", jobs=1):
         # It could handle delegated to generator downloads
         kw["yield_generator_for_fields"] = rec_fields[1:]  # all but path
 
-    gen_ = download_generator(urls, output_dir, existing=existing, **kw)
+    gen_ = download_generator(
+        urls,
+        output_dir,
+        existing=existing,
+        get_metadata=get_metadata,
+        get_assets=get_assets,
+        **kw,
+    )
 
     # TODOs:
     #  - redo frontends similarly to how command_ls did it
@@ -316,6 +332,8 @@ def download_generator(
     assets_it=None,
     yield_generator_for_fields=None,
     existing="error",
+    get_metadata=True,
+    get_assets=True,
 ):
     """A generator for downloads of files, folders, or entire dandiset from DANDI
     (as identified by URL)
@@ -382,13 +400,16 @@ def download_generator(
         # more efficient download if files are just renamed etc
 
         # Handle our so special dandiset.yaml
-        if dandiset:
+        if dandiset and get_metadata:
             for resp in _populate_dandiset_yaml(
                 dandiset_path,
                 dandiset.get("metadata", {}).get("dandiset", {}),
                 existing == "overwrite",
             ):
                 yield dict(path=dandiset_metadata_file, **resp)
+
+        if not get_assets:
+            return
 
         for asset in assets:
             # unavoidable ugliness since girder and API have different "scopes" for

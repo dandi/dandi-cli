@@ -4,6 +4,29 @@ import click
 from .base import devel_option, map_to_click_exceptions
 
 
+class ChoiceList(click.ParamType):
+    name = "choice-list"
+
+    def __init__(self, values):
+        self.values = set(values)
+
+    def convert(self, value, param, ctx):
+        if value is None or isinstance(value, set):
+            return value
+        selected = set()
+        for v in value.split(","):
+            if v == "all":
+                selected = self.values.copy()
+            elif v in self.values:
+                selected.add(v)
+            else:
+                self.fail(f"{v!r}: invalid value", param, ctx)
+        return selected
+
+    def get_metavar(self, param):
+        return "[" + ",".join(self.values) + ",all]"
+
+
 @click.command()
 @click.option(
     "-o",
@@ -39,6 +62,14 @@ from .base import devel_option, map_to_click_exceptions
     default=6,  # TODO: come up with smart auto-scaling etc
     show_default=True,
 )
+@click.option(
+    "--download",
+    "download_types",
+    type=ChoiceList(["dandiset.yaml", "assets"]),
+    help="Comma-separated list of elements to download",
+    default="all",
+    show_default=True,
+)
 # Might be a cool feature, not unlike verifying a checksum, we verify that
 # downloaded file passes the validator, and if not -- alert
 # @click.option(
@@ -55,7 +86,7 @@ from .base import devel_option, map_to_click_exceptions
 )
 @click.argument("url", nargs=-1)
 @map_to_click_exceptions
-def download(url, output_dir, existing, jobs, format):
+def download(url, output_dir, existing, jobs, format, download_types):
     """Download a file or entire folder from DANDI"""
     # First boring attempt at click commands being merely an interface to
     # Python function
@@ -66,5 +97,8 @@ def download(url, output_dir, existing, jobs, format):
         output_dir,
         existing=existing,
         format=format,
-        jobs=jobs,  # develop_debug=develop_debug
+        jobs=jobs,
+        get_metadata="dandiset.yaml" in download_types,
+        get_assets="assets" in download_types,
+        # develop_debug=develop_debug
     )
