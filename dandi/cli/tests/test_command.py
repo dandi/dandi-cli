@@ -1,11 +1,12 @@
+import os
+import re
 import sys
 from subprocess import Popen, PIPE
 
-from ..command import ls, validate
+from ..command import ls, validate, __all_commands__
 
 from click.testing import CliRunner
 import pytest
-import os
 
 
 @pytest.mark.parametrize("command", (ls, validate))
@@ -22,6 +23,16 @@ def test_smoke(simple2_nwb, command):
     with runner.isolated_filesystem():
         r = runner.invoke(command, [])
     assert r.exit_code == 0, f"Exited abnormally. out={r.stdout}"
+
+
+@pytest.mark.parametrize("command", __all_commands__)
+def test_smoke_help(command):
+    runner = CliRunner()
+    r = runner.invoke(command, ["--help"])
+    assert r.exit_code == 0, f"Exited abnormally. out={r.stdout}"
+    assert r.stdout, "There were no output whatsoever"
+
+    assert re.match("Usage: .*Options:.*--help", r.stdout, flags=re.DOTALL) is not None
 
 
 def test_no_heavy_imports():
