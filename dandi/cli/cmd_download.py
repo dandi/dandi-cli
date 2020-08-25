@@ -88,11 +88,11 @@ class ChoiceList(click.ParamType):
 @map_to_click_exceptions
 def download(url, output_dir, existing, jobs, format, download_types):
     """Download a file or entire folder from DANDI"""
-    # First boring attempt at click commands being merely an interface to
-    # Python function
-    from ..download import download
+    # We need to import the download module rather than the download function
+    # so that the tests can properly patch the function with a mock.
+    from .. import download
 
-    return download(
+    return download.download(
         url,
         output_dir,
         existing=existing,
