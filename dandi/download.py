@@ -5,6 +5,7 @@ import os.path as op
 import random
 import re
 import requests
+import socket
 import sys
 import time
 
@@ -191,7 +192,7 @@ class _dandi_url_parser:
         url_server = groups["server"]
         server = cls.map_to[server_type].get(url_server.rstrip("/"), url_server)
 
-        if not server.endswith("/"):
+        if server and not server.endswith("/"):
             server += "/"  # we expected '/' to be there so let it be
 
         if server_type == "girder":
@@ -610,7 +611,11 @@ def _map_to_girder(url):
     # This is a duplicate call from above but it is cheap, so decided to just redo
     # it here instead of passing all the variables + url
     server_type, server_url, asset_type, asset_id = parse_dandi_url(url)
-    server_url = known_instances[known_instances_rev[server_url.rstrip("/")]].girder
+    server_url = known_instances[
+        known_instances_rev[server_url.rstrip("/")]
+        if server_url
+        else "local-docker-tests"
+    ].girder
     server_type = "girder"
     client = girder.get_client(server_url, authenticate=False, progressbars=True)
     # TODO: RF if https://github.com/dandi/dandiarchive/issues/316 gets addressed
@@ -797,13 +802,17 @@ def _download_file(
                 else:
                     break
             # both girder and we use HttpError
-        except requests.exceptions.HTTPError as exc:
+        except (requests.exceptions.RequestException, socket.timeout) as exc:
             # TODO: actually we should probably retry only on selected codes, and also
             # respect Retry-After
-            if attempt >= 2 or exc.response.status_code not in (
-                400,  # Bad Request, but happened with gider:
-                # https://github.com/dandi/dandi-cli/issues/87
-                503,  # Service Unavailable
+            if attempt >= 2 or (
+                isinstance(exc, requests.exceptions.HTTPError)
+                and exc.response.status_code
+                not in (
+                    400,  # Bad Request, but happened with gider:
+                    # https://github.com/dandi/dandi-cli/issues/87
+                    503,  # Service Unavailable
+                )
             ):
                 lgr.debug("Download failed: %s", exc)
                 yield {"status": "error", "message": str(exc)}

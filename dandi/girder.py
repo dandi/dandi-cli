@@ -375,11 +375,11 @@ class GirderCli(gcl.GirderClient):
             for attempt in range(3):
                 try:
                     path = f"file/{file_id}/download"
-                    headers = None
+                    params = None
                     if start_at > 0:
-                        headers = {"Range": f"bytes={start_at}-"}
+                        params = {"offset": str(start_at)}
                     resp = self.sendRestRequest(
-                        "get", path, stream=True, jsonResp=False, headers=headers
+                        "get", path, stream=True, jsonResp=False, parameters=params
                     )
                     return resp.iter_content(chunk_size=chunk_size)
                 except gcl.HttpError as exc:
