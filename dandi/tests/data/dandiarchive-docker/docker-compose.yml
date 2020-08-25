@@ -45,6 +45,7 @@ services:
       - "8079:8080"
     environment:
       GIRDER_URL: http://localhost:8081
+      GIRDER_LOCAL_URL: http://girder:8080
       GUI_URL: http://localhost:8086
       ABOUT_URL: http://www.dandiarchive.org
       #PUBLISH_API_URL: http://localhost:8000/api
