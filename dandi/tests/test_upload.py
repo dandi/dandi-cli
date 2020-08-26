@@ -1,3 +1,4 @@
+import os
 import pytest
 
 from .. import girder
@@ -8,7 +9,7 @@ from ..utils import yaml_load
 
 
 def test_upload(local_docker_compose_env, monkeypatch, organized_nwb_dir2):
-    nwb_files = list(organized_nwb_dir2.glob("*/*.nwb"))
+    nwb_files = list(organized_nwb_dir2.glob(f"*{os.sep}*.nwb"))
     assert len(nwb_files) == 2
     dirname1 = nwb_files[0].parent.name
     filename1 = nwb_files[0].name
@@ -43,7 +44,7 @@ def test_upload(local_docker_compose_env, monkeypatch, organized_nwb_dir2):
 def test_upload_existing_error(
     local_docker_compose_env, monkeypatch, organized_nwb_dir
 ):
-    nwb_file, = organized_nwb_dir.glob("*/*.nwb")
+    nwb_file, = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
     dirname = nwb_file.parent.name
     dandi_instance_id = local_docker_compose_env["instance_id"]
     register(
@@ -69,7 +70,7 @@ def test_upload_existing_error(
 
 
 def test_upload_locks(local_docker_compose_env, mocker, monkeypatch, organized_nwb_dir):
-    nwb_file, = organized_nwb_dir.glob("*/*.nwb")
+    nwb_file, = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
     dirname = nwb_file.parent.name
     dandi_instance_id = local_docker_compose_env["instance_id"]
     register(
@@ -92,7 +93,7 @@ def test_upload_locks(local_docker_compose_env, mocker, monkeypatch, organized_n
 
 
 def test_upload_unregistered(local_docker_compose_env, monkeypatch, organized_nwb_dir):
-    nwb_file, = organized_nwb_dir.glob("*/*.nwb")
+    nwb_file, = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
     dirname = nwb_file.parent.name
     dandi_instance_id = local_docker_compose_env["instance_id"]
     (organized_nwb_dir / dandiset_metadata_file).write_text("identifier: '999999'\n")
