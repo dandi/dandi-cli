@@ -73,15 +73,31 @@ IdentifierTypeDict = {
             "rdfs:label": "License type",
             "rdfs:subClassOf": {"@id": "schema:Enumeration"},
         },
-        {"@id": "idorg:doi", "@type": "dandi:IdentifierType", "rdfs:label": "DOI"},
+        {
+            "@id": "dandi:doi",
+            "sameAs": "idorg:doi",
+            "@type": "dandi:IdentifierType",
+            "rdfs:label": "DOI",
+        },
         {"@id": "idorg:orcid", "@type": "dandi:IdentifierType", "rdfs:label": "ORCID"},
         {
-            "@id": "https://ror.org/",
+            "@id": "dandi:ror",
+            "sameAs": "https://ror.org/",
             "@type": "dandi:IdentifierType",
             "rdfs:label": "ROR",
         },
-        {"@id": "idorg:dandi", "@type": "dandi:IdentifierType", "rdfs:label": "DANDI"},
-        {"@id": "idorg:rrid", "@type": "dandi:IdentifierType", "rdfs:label": "RRID"},
+        {
+            "@id": "dandi:dandi",
+            "sameAs": "idorg:dandi",
+            "@type": "dandi:IdentifierType",
+            "rdfs:label": "DANDI",
+        },
+        {
+            "@id": "dandi:rrid",
+            "sameAs": "idorg:rrid",
+            "@type": "dandi:IdentifierType",
+            "rdfs:label": "RRID",
+        },
     ]
 }
 LicenseTypeDict = {
