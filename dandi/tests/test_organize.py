@@ -131,7 +131,7 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
     # this beast doesn't capture our logs ATM so cannot check anything there.
     # At the end we endup only with dandiset.yaml and a single file
     produced_paths = sorted(find_files(".*", paths=outdir))
-    produced_nwb_paths = sorted(find_files(".nwb$", paths=outdir))
+    produced_nwb_paths = sorted(find_files(r"\.nwb\Z", paths=outdir))
     produced_relpaths = [op.relpath(p, outdir) for p in produced_paths]
     if mode == "dry":
         assert produced_relpaths == []
