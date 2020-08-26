@@ -79,7 +79,12 @@ IdentifierTypeDict = {
             "@type": "dandi:IdentifierType",
             "rdfs:label": "DOI",
         },
-        {"@id": "idorg:orcid", "@type": "dandi:IdentifierType", "rdfs:label": "ORCID"},
+        {
+            "@id": "dandi:orcid",
+            "sameAs": "idorg:orcid",
+            "@type": "dandi:IdentifierType",
+            "rdfs:label": "ORCID",
+        },
         {
             "@id": "dandi:ror",
             "sameAs": "https://ror.org/",
