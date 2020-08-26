@@ -1,6 +1,6 @@
 from enum import Enum
 from pydantic import BaseModel, Field, AnyUrl, EmailStr, validator
-from typing import List, Union, Optional, Any
+from typing import List, Union, Optional, Any, Type
 from datetime import date
 from ruamel import yaml
 from copy import deepcopy
@@ -31,7 +31,7 @@ def create_enum(data):
                 key = item["@id"].replace(":", "_")
             items[f"{key}"] = item["@id"]
     if klass is None or len(items) == 0:
-        raise ValueError(f"YAML {path} did not generate a klass or items")
+        raise ValueError(f"Could not generate a klass or items from {data}")
     newklass = Enum(klass, items)
     newklass.__doc__ = klass_doc
     return newklass
@@ -94,7 +94,7 @@ DigestType = create_enum(DigestTypeDict)
 
 class DandiBaseModel(BaseModel):
     @classmethod
-    def unvalidated(__pydantic_cls__: "Type[Model]", **data: Any) -> "Model":
+    def unvalidated(__pydantic_cls__: Type[BaseModel], **data: Any) -> BaseModel:
         """Allow model to be returned without validation"""
         for name, field in __pydantic_cls__.__fields__.items():
             try:
@@ -114,7 +114,7 @@ class DandiBaseModel(BaseModel):
         return self
 
     @classmethod
-    def to_dictrepr(__pydantic_cls__: "Type[Model]"):
+    def to_dictrepr(__pydantic_cls__: Type[BaseModel]):
         return (
             __pydantic_cls__.unvalidated()
             .__repr__()
