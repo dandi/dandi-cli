@@ -106,9 +106,7 @@ from .cmd_download import download  # noqa: E402
 from .cmd_validate import validate  # noqa: E402
 from .cmd_register import register  # noqa: E402
 
-main.add_command(ls)
-main.add_command(organize)
-main.add_command(upload)
-main.add_command(download)
-main.add_command(validate)
-main.add_command(register)
+__all_commands__ = (ls, organize, upload, download, validate, register)
+
+for cmd in __all_commands__:
+    main.add_command(cmd)
