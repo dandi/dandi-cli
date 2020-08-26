@@ -139,7 +139,57 @@ class PropertyValue(DandiBaseModel):
 
 
 PropertyValue.update_forward_refs()
-Identifier = Union[str, AnyUrl, PropertyValue]
+Identifier = Union[AnyUrl, PropertyValue, str]
+
+
+class TypeModel(DandiBaseModel):
+    """Base class for enumerated types"""
+
+    identifier: Identifier = Field(nskey="schema")
+    name: str = Field(
+        title="Title",
+        description="The name of the item.",
+        max_length=150,
+        nskey="schema",
+    )
+
+    _ldmeta = {"rdfs:subClassOf": ["prov:Entity", "schema:Thing"], "nskey": "dandi"}
+
+
+class AssayType(TypeModel):
+    """OBI based identifier for the assay(s) used"""
+
+
+class Anatomy(TypeModel):
+    """UBERON or other identifier for anatomical part studied"""
+
+
+class StrainType(TypeModel):
+    """Identifier for the strain of the sample"""
+
+
+class SexType(TypeModel):
+    """Identifier for the sex of the sample"""
+
+
+class SpeciesType(TypeModel):
+    """Identifier for species of the sample"""
+
+
+class Disease(TypeModel):
+    """Biolink, SNOMED, or other identifier for disorder studied"""
+
+
+class ModalityType(TypeModel):
+    """Identifier for modality used"""
+
+
+class MeasurementTechniqueType(TypeModel):
+    """Identifier for measurement technique used"""
+
+
+class StandardsType(TypeModel):
+    """Identifier for data standard used"""
 
 
 class ContactPoint(DandiBaseModel):
@@ -265,11 +315,15 @@ class AssetsSummary(DandiBaseModel):
     numberOfSamples: int = Field(None, readonly=True)  # more of NWB
     numberOfCells: int = Field(None, readonly=True)
 
-    dataStandard: List[str] = Field(readonly=True)  # TODO: types of things NWB, BIDS
+    dataStandard: List[StandardsType] = Field(
+        readonly=True
+    )  # TODO: types of things NWB, BIDS
     # Web UI: icons per each modality?
-    modality: List[str] = Field(readonly=True)  # TODO: types of things, BIDS etc...
+    modality: List[ModalityType] = Field(
+        readonly=True
+    )  # TODO: types of things, BIDS etc...
     # Web UI: could be an icon with number, which if hovered on  show a list?
-    measurementTechnique: List[str] = Field(readonly=True)
+    measurementTechnique: List[MeasurementTechniqueType] = Field(readonly=True)
     variableMeasured: List[PropertyValue] = Field(None, readonly=True)
 
     _ldmeta = {
@@ -295,34 +349,18 @@ class Digest(DandiBaseModel):
     }
 
 
-class Disorder(DandiBaseModel):
-    """Biolink, SNOMED, or other identifier for disorder studied"""
-
-    identifier: Identifier = Field(nskey="schema")
-
-    _ldmeta = {"rdfs:subClassOf": ["prov:Entity", "schema:Thing"], "nskey": "dandi"}
-
-
-class Anatomy(DandiBaseModel):
-    """UBERON or other identifier for anatomical part studied"""
-
-    identifier: Identifier = Field(nskey="schema")
-
-    _ldmeta = {"rdfs:subClassOf": ["prov:Entity", "schema:Thing"], "nskey": "dandi"}
-
-
 class BioSample(DandiBaseModel):
     """Description about the sample that was studied"""
 
     identifier: Identifier = Field(nskey="schema")
-    assayType: Identifier = Field(
-        description="OBI based identifier for the assay used", nskey="dandi"
+    assayType: List[AssayType] = Field(
+        description="OBI based identifier for the assay(s) used", nskey="dandi"
     )
-    anatomy: Identifier = Field(
+    anatomy: List[Anatomy] = Field(
         description="UBERON based identifier for the location of the sample",
         nskey="dandi",
     )
-    strain: Optional[Identifier] = Field(
+    strain: Optional[StrainType] = Field(
         None, description="Identifier for the strain of the sample", nskey="dandi"
     )
     cellLine: Optional[Identifier] = Field(
@@ -337,17 +375,17 @@ class BioSample(DandiBaseModel):
         nskey="dandi",
         rangeIncludes="schema:Duration",
     )
-    sex: Optional[Identifier] = Field(
+    sex: Optional[SexType] = Field(
         None,
         description="OBI based identifier for sex of the sample if available",
         nskey="dandi",
     )
-    taxonomy: Optional[Identifier] = Field(
+    taxonomy: Optional[SpeciesType] = Field(
         None,
         description="An identifier indicating the taxonomic classification of the biosample",
         nskey="dandi",
     )
-    disease: Optional[List[Disorder]] = Field(
+    disease: Optional[List[Disease]] = Field(
         None,
         description="Any current diagnosed disease associated with the sample",
         nskey="dandi",
@@ -414,7 +452,7 @@ class CommonModel(DandiBaseModel):
         description="Contributors to this item.",
         nskey="schema",
     )
-    about: Optional[List[Union[Disorder, Anatomy, Identifier]]] = Field(
+    about: Optional[List[Union[Disease, Anatomy, Identifier]]] = Field(
         None,
         title="Subject matter",
         description="The subject matter of the content, such as disorders, brain anatomy.",
@@ -538,8 +576,10 @@ class AssetMeta(CommonModel):
 
     sameAs: AnyUrl = Field(None, nskey="schema")
 
-    modality: List[str] = Field(readonly=True, nskey="dandi")
-    measurementTechnique: List[str] = Field(readonly=True, nskey="schema")
+    modality: List[ModalityType] = Field(readonly=True, nskey="dandi")
+    measurementTechnique: List[MeasurementTechniqueType] = Field(
+        readonly=True, nskey="schema"
+    )
     variableMeasured: List[PropertyValue] = Field(readonly=True, nskey="schema")
 
     wasDerivedFrom: List[BioSample] = Field(None, nskey="prov")
