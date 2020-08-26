@@ -98,17 +98,20 @@ LicenseTypeDict = {
             "rdfs:subClassOf": {"@id": "schema:Enumeration"},
         },
         {
-            "@id": "https://creativecommons.org/publicdomain/zero/1.0/",
+            "@id": "dandi:CC0",
+            "sameAs": "https://creativecommons.org/publicdomain/zero/1.0/",
             "@type": "dandi:LicenseType",
             "rdfs:label": "CC0 1.0 Universal (CC0 1.0) Public Domain Dedication",
         },
         {
-            "@id": "https://creativecommons.org/licenses/by/4.0/",
+            "@id": "dandi:CCBY40",
+            "sameAs": "https://creativecommons.org/licenses/by/4.0/",
             "@type": "dandi:LicenseType",
             "rdfs:label": "Attribution 4.0 International (CC BY 4.0)",
         },
         {
-            "@id": "https://creativecommons.org/licenses/by-nc/4.0",
+            "@id": "dandi:CCBYNC40",
+            "sameAs": "https://creativecommons.org/licenses/by-nc/4.0",
             "@type": "dandi:LicenseType",
             "rdfs:label": "Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)",
         },

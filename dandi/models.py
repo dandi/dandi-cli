@@ -24,8 +24,8 @@ def create_enum(data):
             klass = item["@id"].replace("dandi:", "")
             klass_doc = item["rdfs:comment"]
         else:
-            value = item["@id"].replace("dandi:", "")
-            items[f"var{idx:02d}"] = value
+            variable = item["@id"].replace("dandi:", "")
+            items[f"{variable}"] = item["@id"]
     if klass is None or len(items) == 0:
         raise ValueError(f"YAML {path} did not generate a klass or items")
     newklass = Enum(klass, items)
