@@ -143,7 +143,10 @@ RelationTypeDict = {
             "rdfs:comment": "An enumeration of resource relations",
             "rdfs:label": "Resource relation type",
             "rdfs:subClassOf": {"@id": "schema:Enumeration"},
-            "prov:wasDerivedFrom": "https://schema.datacite.org/meta/kernel-4.2/doc/DataCite-MetadataKernel_v4.2.pdf",
+            "prov:wasDerivedFrom": (
+                "https://schema.datacite.org/meta/"
+                "kernel-4.2/doc/DataCite-MetadataKernel_v4.2.pdf"
+            ),
         },
         {
             "@id": "dandi:IsCitedBy",
