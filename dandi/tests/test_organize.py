@@ -1,6 +1,7 @@
 import os
 from glob import glob
 import os.path as op
+from pathlib import Path
 import ruamel.yaml
 
 from ..consts import file_operation_modes
@@ -115,6 +116,19 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
         nwb_test_data = op.relpath(nwb_test_data, cwd)
         outdir = op.relpath(outdir, cwd)
 
+    src = Path(tmpdir, "src")
+    src.touch()
+    dest = Path(tmpdir, "dest")
+    try:
+        dest.symlink_to(src)
+    except OSError:
+        symlinks_work = False
+    else:
+        symlinks_work = True
+
+    if mode in ("simulate", "symlink") and not symlinks_work:
+        pytest.skip("Symlinks not supported")
+
     input_files = op.join(nwb_test_data, "v2.0.1")
 
     cmd = ["-d", outdir, "--files-mode", mode, input_files]
@@ -146,7 +160,7 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
 
     if mode == "simulate":
         assert all((op.isabs(p) != relative) for p in produced_paths)
-    elif mode == "symlink" or mode == "auto":
+    elif mode == "symlink" or (mode == "auto" and symlinks_work):
         assert all(op.islink(p) for p in produced_nwb_paths)
     else:
         assert not any(op.islink(p) for p in produced_paths)
@@ -216,11 +230,12 @@ def test_ambiguos_probe1():
     ],
 )
 def test_detect_link_type(monkeypatch, tmp_path, sym_success, hard_success, result):
+    def succeed_link(src, dest):
+        pass
+
     def error_link(src, dest):
         raise OSError("Operation failed")
 
-    if not sym_success:
-        monkeypatch.setattr(os, "symlink", error_link)
-    if not hard_success:
-        monkeypatch.setattr(os, "link", error_link)
+    monkeypatch.setattr(os, "symlink", succeed_link if sym_success else error_link)
+    monkeypatch.setattr(os, "link", succeed_link if hard_success else error_link)
     assert detect_link_type(tmp_path) == result
