@@ -146,7 +146,7 @@ def test_memoize_path(cache, tmp_path):
         os.symlink(fname, symlink1)
     except OSError:
         pass
-    if op.islink(fname):  # hopefully would just skip Windows if not supported
+    if op.islink(symlink1):  # hopefully would just skip Windows if not supported
         ncalls = len(calls)
         assert memoread(symlink1, 0) == "Content"
         assert len(calls) == ncalls  # no new call
