@@ -88,7 +88,37 @@ IdentifierType = create_enum(IdentifierTypeDict)
 DigestType = create_enum(DigestTypeDict)
 
 
-class PropertyValue(BaseModel):
+class DandiBaseModel(BaseModel):
+    @classmethod
+    def unvalidated(__pydantic_cls__: "Type[Model]", **data: Any) -> "Model":
+        """Allow model to be returned without validation"""
+        for name, field in __pydantic_cls__.__fields__.items():
+            try:
+                data[name]
+            except KeyError:
+                if field.required:
+                    value = None
+                if field.default is None:
+                    # deepcopy is quite slow on None
+                    value = None
+                else:
+                    value = deepcopy(field.default)
+                data[name] = value
+        self = __pydantic_cls__.__new__(__pydantic_cls__)
+        object.__setattr__(self, "__dict__", data)
+        object.__setattr__(self, "__fields_set__", set(data.keys()))
+        return self
+
+    @classmethod
+    def to_dictrepr(__pydantic_cls__: "Type[Model]"):
+        return (
+            __pydantic_cls__.unvalidated()
+            .__repr__()
+            .replace(__pydantic_cls__.__name__, "dict")
+        )
+
+
+class PropertyValue(DandiBaseModel):
     maxValue: float = Field(None, nskey="schema")
     minValue: float = Field(None, nskey="schema")
     unitCode: Union[str, AnyUrl] = Field(None, nskey="schema")
@@ -108,14 +138,14 @@ PropertyValue.update_forward_refs()
 Identifier = Union[str, AnyUrl, PropertyValue]
 
 
-class ContactPoint(BaseModel):
+class ContactPoint(DandiBaseModel):
     email: Optional[EmailStr] = Field(None, nskey="schema")
     url: Optional[AnyUrl] = Field(None, nskey="schema")
 
     _ldmeta = {"nskey": "schema"}
 
 
-class Contributor(BaseModel):
+class Contributor(DandiBaseModel):
     identifier: Identifier = Field(None, nskey="schema")
     name: str = Field(None, nskey="schema")
     email: EmailStr = Field(None, nskey="schema")
@@ -160,7 +190,7 @@ class Person(Contributor):
     _ldmeta = {"rdfs:subClassOf": ["schema:Person", "prov:Person"], "nskey": "dandi"}
 
 
-class EthicsApproval(BaseModel):
+class EthicsApproval(DandiBaseModel):
     """Information about ethics committee approval for project"""
 
     identifier: Identifier = Field(nskey="schema")
@@ -171,7 +201,7 @@ class EthicsApproval(BaseModel):
     _ldmeta = {"rdfs:subClassOf": ["schema:Thing", "prov:Entity"], "nskey": "dandi"}
 
 
-class Resource(BaseModel):
+class Resource(DandiBaseModel):
     identifier: Identifier = Field(None, nskey="schema")
     name: str = Field(None, nskey="schema")
     url: str = Field(None, nskey="schema")
@@ -193,7 +223,7 @@ class Resource(BaseModel):
     }
 
 
-class AccessRequirements(BaseModel):
+class AccessRequirements(DandiBaseModel):
     """Information about access options for the dataset"""
 
     status: AccessType = Field(
@@ -221,7 +251,7 @@ class AccessRequirements(BaseModel):
     _ldmeta = {"rdfs:subClassOf": ["schema:Thing", "prov:Entity"], "nskey": "dandi"}
 
 
-class AssetsSummary(BaseModel):
+class AssetsSummary(DandiBaseModel):
     """Summary over assets contained in a dandiset (published or not)"""
 
     # stats which are not stats
@@ -244,7 +274,7 @@ class AssetsSummary(BaseModel):
     }
 
 
-class Digest(BaseModel):
+class Digest(DandiBaseModel):
     """Information about the crytographic checksum of the item."""
 
     value: str = Field(nskey="schema")
@@ -261,7 +291,7 @@ class Digest(BaseModel):
     }
 
 
-class Disorder(BaseModel):
+class Disorder(DandiBaseModel):
     """Biolink, SNOMED, or other identifier for disorder studied"""
 
     identifier: Identifier = Field(nskey="schema")
@@ -269,7 +299,7 @@ class Disorder(BaseModel):
     _ldmeta = {"rdfs:subClassOf": ["prov:Entity", "schema:Thing"], "nskey": "dandi"}
 
 
-class Anatomy(BaseModel):
+class Anatomy(DandiBaseModel):
     """UBERON or other identifier for anatomical part studied"""
 
     identifier: Identifier = Field(nskey="schema")
@@ -277,7 +307,7 @@ class Anatomy(BaseModel):
     _ldmeta = {"rdfs:subClassOf": ["prov:Entity", "schema:Thing"], "nskey": "dandi"}
 
 
-class BioSample(BaseModel):
+class BioSample(DandiBaseModel):
     """Description about the sample that was studied"""
 
     identifier: Identifier = Field(nskey="schema")
@@ -326,7 +356,7 @@ class BioSample(BaseModel):
     }
 
 
-class Activity(BaseModel):
+class Activity(DandiBaseModel):
     """Information about the Project activity"""
 
     identifier: Identifier = Field(nskey="schema")
@@ -359,7 +389,7 @@ class Project(Activity):
     pass
 
 
-class CommonModel(BaseModel):
+class CommonModel(DandiBaseModel):
     schemaVersion: str = Field(default="1.0.0-rc1", readonly=True, nskey="schema")
     identifier: Identifier = Field(readonly=True, nskey="schema")
     name: str = Field(
@@ -416,32 +446,6 @@ class CommonModel(BaseModel):
     wasGeneratedBy: Optional[Union[Activity, AnyUrl]] = Field(
         None, readonly=True, nskey="prov"
     )
-    publishedBy: AnyUrl = Field(
-        description="The URL should contain the provenance of the publishing process.",
-        readonly=True,
-        nskey="dandi",
-    )  # TODO: formalize "publish" activity to at least the Actor
-    datePublished: date = Field(readonly=True, nskey="schema")
-
-    @classmethod
-    def unvalidated(__pydantic_cls__: "Type[Model]", **data: Any) -> "Model":
-        """Allow model to be returned without validation"""
-        for name, field in __pydantic_cls__.__fields__.items():
-            try:
-                data[name]
-            except KeyError:
-                if field.required:
-                    value = None
-                if field.default is None:
-                    # deepcopy is quite slow on None
-                    value = None
-                else:
-                    value = deepcopy(field.default)
-                data[name] = value
-        self = __pydantic_cls__.__new__(__pydantic_cls__)
-        object.__setattr__(self, "__dict__", data)
-        object.__setattr__(self, "__fields_set__", set(data.keys()))
-        return self
 
 
 class DandiMeta(CommonModel):
@@ -489,6 +493,15 @@ class DandiMeta(CommonModel):
     }
 
 
+class PublishedDandiMeta(DandiMeta):
+    publishedBy: AnyUrl = Field(
+        description="The URL should contain the provenance of the publishing process.",
+        readonly=True,
+        nskey="dandi",
+    )  # TODO: formalize "publish" activity to at least the Actor
+    datePublished: date = Field(readonly=True, nskey="schema")
+
+
 class AssetMeta(CommonModel):
     """Metadata used to describe an asset.
 
@@ -525,7 +538,7 @@ class AssetMeta(CommonModel):
     measurementTechnique: List[str] = Field(readonly=True, nskey="schema")
     variableMeasured: List[PropertyValue] = Field(readonly=True, nskey="schema")
 
-    wasDerivedFrom: BioSample = Field(None, nskey="prov")
+    wasDerivedFrom: List[BioSample] = Field(None, nskey="prov")
 
     # on publish or set by server
     contentUrl: List[AnyUrl] = Field(None, readonly=True, nskey="schema")
@@ -535,3 +548,12 @@ class AssetMeta(CommonModel):
         "rdfs:label": "Information about the asset",
         "nskey": "dandi",
     }
+
+
+class PublishedAssetMeta(DandiMeta):
+    publishedBy: AnyUrl = Field(
+        description="The URL should contain the provenance of the publishing process.",
+        readonly=True,
+        nskey="dandi",
+    )  # TODO: formalize "publish" activity to at least the Actor
+    datePublished: date = Field(readonly=True, nskey="schema")
