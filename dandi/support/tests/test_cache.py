@@ -118,7 +118,7 @@ def test_memoize_path(cache, tmp_path):
         # cache._min_dtime between our creating the file and testing,
         # so we would force a direct read:
         check_new_memoread(0, "content", True)
-    except AssertionError:
+    except AssertionError:  # pragma: no cover
         # if computer is indeed slow (happens on shared CIs) we might fail
         # because distance is too short
         if time.time() - t0 < cache._min_dtime:
