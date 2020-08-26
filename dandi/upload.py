@@ -1,6 +1,4 @@
 from datetime import datetime
-import os
-import os.path as op
 import re
 import sys
 import time
@@ -28,7 +26,7 @@ def upload(
     allow_any_path=False,
     devel_debug=False,
 ):
-
+    # PurePosixPath to be cast to for paths on girder
     from pathlib import Path, PurePosixPath
     from .dandiset import Dandiset
     from .support.digests import Digester
@@ -114,21 +112,20 @@ def upload(
         paths = [dandiset.path]
 
     # Expand and validate all paths -- they should reside within dandiset
-    paths = list(find_files(".*", paths) if allow_any_path else find_dandi_files(paths))
+    paths = find_files(".*", paths) if allow_any_path else find_dandi_files(paths)
+    paths = list(map(Path, paths))
     npaths = len(paths)
     lgr.info(f"Found {npaths} files to consider")
     for path in paths:
-        path_basename = op.basename(path)
         if not (
             allow_any_path
-            or path_basename == dandiset_metadata_file
-            or path_basename.endswith(".nwb")
+            or path.name == dandiset_metadata_file
+            or path.name.endswith(".nwb")
         ):
             raise NotImplementedError(
                 f"ATM only .nwb and dandiset.yaml should be in the paths to upload. Got {path}"
             )
-        fullpath = path if op.isabs(path) else op.abspath(path)
-        if not path_is_subpath(fullpath, dandiset.path):
+        if not path_is_subpath(str(path.absolute()), dandiset.path):
             raise ValueError(f"{path} is not under {dandiset.path}")
 
     # We will keep a shared set of "being processed" paths so
@@ -148,10 +145,27 @@ def upload(
     # TODO: we might want to always yield a full record so no field is not
     # provided to pyout to cause it to halt
     def process_path(path, relpath):
+        """
+
+        Parameters
+        ----------
+        path: Path
+          Non Pure (OS specific) Path
+        relpath:
+          For location on Girder.  Will be cast to PurePosixPath
+
+        Yields
+        ------
+        dict
+          Records for pyout
+        """
+        # Ensure consistent types
+        path = Path(path)
+        relpath = PurePosixPath(relpath)
         try:
             try:
-                stat = os.stat(path)
-                yield {"size": stat.st_size}
+                path_stat = path.stat()
+                yield {"size": path_stat.st_size}
             except FileNotFoundError:
                 yield skip_file("ERROR: File not found")
                 return
@@ -166,7 +180,6 @@ def upload(
 
             # we will add some fields which would help us with deciding to
             # reupload or not
-            path_stat = os.stat(str(path))
             file_metadata_ = {
                 "uploaded_size": path_stat.st_size,
                 "uploaded_mtime": ensure_strtime(path_stat.st_mtime),
@@ -236,7 +249,7 @@ def upload(
             # Special handling for dandiset.yaml
             # Yarik hates it but that is life for now. TODO
             #
-            if op.basename(path) == dandiset_metadata_file:
+            if path.name == dandiset_metadata_file:
                 # We need to upload its content as metadata for the entire
                 # folder.
                 folder_rec = ensure_folder()
@@ -332,7 +345,7 @@ def upload(
             # Extract metadata before actual upload and skip if fails
             # TODO: allow for for non-nwb files to skip this step
             # ad-hoc for dandiset.yaml for now
-            if op.basename(path) != dandiset_metadata_file:
+            if path.name != dandiset_metadata_file:
                 yield {"status": "extracting metadata"}
                 try:
                     metadata = get_metadata(path)
@@ -390,7 +403,7 @@ def upload(
 
             for r in generator_from_callback(
                 lambda c: client.uploadFileToItem(
-                    item_rec["_id"], path, progressCallback=c
+                    item_rec["_id"], str(path), progressCallback=c
                 )
             ):
                 upload_perc = 100 * ((r["current"] / r["total"]) if r["total"] else 1.0)
@@ -406,7 +419,7 @@ def upload(
 
             # Get uploaded file id
             file_id, current = client.isFileCurrent(
-                item_rec["_id"], op.basename(path), op.abspath(path)
+                item_rec["_id"], path.name, path.absolute()
             )
             if not current:
                 raise RuntimeError(
@@ -510,20 +523,17 @@ def upload(
                 lgr.log(2, "Sleep waiting for some paths to finish processing")
                 time.sleep(0.5)
 
-            rec = {"path": path}
-            path = Path(path)
+            rec = {"path": str(path)}
             process_paths.add(str(path))
 
             try:
-                fullpath = path if path.is_absolute() else path.absolute()
-                relpath = fullpath.relative_to(dandiset.path)
+                relpath = path.absolute().relative_to(dandiset.path)
 
                 rec["path"] = str(relpath)
                 if devel_debug:
                     # DEBUG: do serially
                     for v in process_path(path, relpath):
-                        sys.stdout.write(str(v) + os.linesep)
-                        sys.stdout.flush()
+                        print(str(v), flush=True)
                 else:
                     rec[tuple(rec_fields[1:])] = process_path(path, relpath)
             except ValueError as exc:
