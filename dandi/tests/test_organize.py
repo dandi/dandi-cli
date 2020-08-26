@@ -125,9 +125,21 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
         symlinks_work = False
     else:
         symlinks_work = True
+    try:
+        dest.unlink()
+    except FileNotFoundError:
+        pass
+    try:
+        os.link(src, dest)
+    except OSError:
+        hardlinks_work = False
+    else:
+        hardlinks_work = True
 
     if mode in ("simulate", "symlink") and not symlinks_work:
         pytest.skip("Symlinks not supported")
+    elif mode == "hardlink" and not hardlinks_work:
+        pytest.skip("Hard links not supported")
 
     input_files = op.join(nwb_test_data, "v2.0.1")
 
