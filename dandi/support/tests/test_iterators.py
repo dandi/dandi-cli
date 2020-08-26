@@ -20,11 +20,16 @@ def test_IteratorWithAggregation():
 
     it = IteratorWithAggregation(sleeping_range(3, 0.0001), agg=sumup)
     # we should get our summary available after 2nd iteration and before it finishes
+    slow_machine = False
     for t, i in enumerate(it):
-        sleep(0.01)  # 0.0003 should be sufficient but to deal with Windows failures,
+        sleep(0.005)  # 0.0003 should be sufficient but to deal with Windows failures,
         # making it longer
         assert t == i  # it is just a range after all
         if i:
+            if not it.finished:
+                # give considerably more time for poor Windows VM
+                slow_machine = True
+                sleep(0.1)
             assert it.finished
 
     # If there is an exception thrown, it would be raised only by the end
@@ -33,7 +38,7 @@ def test_IteratorWithAggregation():
     with pytest.raises(ValueError):
         for i in it:
             got.append(i)
-            sleep(0.001)
+            sleep(0.001 if not slow_machine else 0.1)
     assert got == [0, 1, 2]
     assert it.finished
 
@@ -45,7 +50,7 @@ def test_IteratorWithAggregation():
     with pytest.raises(ValueError):
         for i in it:
             got.append(i)
-            # 0.005 should be more than enough, but Windows is still lagging
-            sleep(0.02)
+            # sleep long enough to trigger exception before next iteration
+            sleep(0.02 if not slow_machine else 0.1)
     assert got == [0]
     assert it.finished
