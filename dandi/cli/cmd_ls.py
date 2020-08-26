@@ -68,7 +68,7 @@ def ls(paths, fields=None, format="auto", recursive=False):
 
     # For now we support only individual files
     if recursive:
-        files = list(find_files(".nwb$", paths))
+        files = list(find_files(r"\.nwb\Z", paths))
     else:
         files = paths
 
