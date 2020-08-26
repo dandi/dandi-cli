@@ -1,5 +1,4 @@
 AccessTypeDict = {
-    "@context": "../context/base.json",
     "@graph": [
         {
             "@id": "dandi:AccessType",
@@ -26,11 +25,10 @@ AccessTypeDict = {
             "rdfs:comment": "The dandiset is restricted",
             "rdfs:label": "Restricted",
         },
-    ],
+    ]
 }
 
 DigestTypeDict = {
-    "@context": "../context/base.json",
     "@graph": [
         {
             "@id": "dandi:DigestType",
@@ -63,11 +61,10 @@ DigestTypeDict = {
             "rdfs:comment": "SHA-512 checksum",
             "rdfs:label": "SHA-512",
         },
-    ],
+    ]
 }
 
 IdentifierTypeDict = {
-    "@context": "../context/base.json",
     "@graph": [
         {
             "@id": "dandi:IdentifierType",
@@ -85,10 +82,9 @@ IdentifierTypeDict = {
         },
         {"@id": "idorg:dandi", "@type": "dandi:IdentifierType", "rdfs:label": "DANDI"},
         {"@id": "idorg:rrid", "@type": "dandi:IdentifierType", "rdfs:label": "RRID"},
-    ],
+    ]
 }
 LicenseTypeDict = {
-    "@context": "../context/base.json",
     "@graph": [
         {
             "@id": "dandi:LicenseType",
@@ -115,11 +111,10 @@ LicenseTypeDict = {
             "@type": "dandi:LicenseType",
             "rdfs:label": "Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)",
         },
-    ],
+    ]
 }
 
 RelationTypeDict = {
-    "@context": "../context/base.json",
     "@graph": [
         {
             "@id": "dandi:RelationType",
@@ -327,10 +322,9 @@ RelationTypeDict = {
             "rdfs:comment": "Indicates A is replaced by B",
             "rdfs:label": "IsObsoletedBy",
         },
-    ],
+    ]
 }
 RoleTypeDict = {
-    "@context": "../context/base.json",
     "@graph": [
         {
             "@id": "dandi:RoleType",
@@ -507,5 +501,5 @@ RoleTypeDict = {
             "rdfs:comment": "Other",
             "rdfs:label": "Other",
         },
-    ],
+    ]
 }
