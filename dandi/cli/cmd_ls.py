@@ -147,8 +147,16 @@ def display_known_fields(all_fields):
 
 
 def flatten_v(v):
+    """Return while flattening nested lists/dicts
+
+    lists and tuples would get items converted to strings and joined
+    with ", " separator.
+
+    dicts would get items represented as "key: value" before flattening
+    a list of them.
+    """
     if isinstance(v, (tuple, list)):
-        return ", ".join(map(flatten_v, v))
+        return ", ".join(map(str, map(flatten_v, v)))
     elif isinstance(v, dict):
         return flatten_v(["%s: %s" % i for i in v.items()])
     return v
