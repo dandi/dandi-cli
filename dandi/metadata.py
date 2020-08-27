@@ -83,3 +83,16 @@ def get_metadata(path):
     meta["nd_types"] = get_neurodata_types(path)
 
     return meta
+
+
+def nwb2asset(nwb_path):
+    from .models import AssetMeta
+
+    metadata = get_metadata(nwb_path)
+    asset = AssetMeta.unvalidated()
+    for field in asset.__fields__.keys():
+        try:
+            setattr(asset, field, metadata[field])
+        except KeyError:
+            pass
+    return asset
