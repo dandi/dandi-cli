@@ -58,6 +58,10 @@ development command line options.
 - `DANDI_INSTANCEHOST` -- defaults to `localhost`. Point to host/IP which hosts
   a local instance of dandiarchive.
 
+- `DANDI_REUSE_LOCAL_DOCKER_TESTS_API_KEY` -- use to make `local_docker_compose*`
+  fixtures work by contacting an instance (possibly at `DANDI_INSTANCEHOST`)
+  instead of starting a new one.
+
 ## Sourcegraph
 
 The [Sourcegraph](https://sourcegraph.com) browser extension can be used to

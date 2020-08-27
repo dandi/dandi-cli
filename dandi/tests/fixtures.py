@@ -145,15 +145,23 @@ LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name
 
 @pytest.fixture(scope="session")
 def local_docker_compose():
+    instance_id = "local-docker-tests"
+    instance = known_instances[instance_id]
+
+    # if api_key is specified, we are reusing some already running instance
+    # so we would not bother starting/stopping a new one here
+    api_key = os.environ.get('DANDI_REUSE_LOCAL_DOCKER_TESTS_API_KEY')
+    if api_key:
+        yield {"api_key": api_key, "instance": instance, "instance_id": instance_id}
+        return
+
+    skipif.no_network()
+    skipif.no_docker_engine()
+
     # Check that we're running on a Unix-based system (Linux or macOS), as the
     # Docker images don't work on Windows.
     if os.name != "posix":
         pytest.skip("Docker images require Unix host")
-    skipif.no_network()
-    skipif.no_docker_engine()
-
-    instance_id = "local-docker-tests"
-    instance = known_instances[instance_id]
 
     run(["docker-compose", "up", "-d"], cwd=str(LOCAL_DOCKER_DIR), check=True)
     try:
