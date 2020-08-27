@@ -1,4 +1,5 @@
 import os
+import re
 import pytest
 
 from .. import girder
@@ -44,8 +45,6 @@ def test_upload(local_docker_compose_env, monkeypatch, organized_nwb_dir2):
 def test_upload_existing_error(
     local_docker_compose_env, monkeypatch, organized_nwb_dir
 ):
-    nwb_file, = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
-    dirname = nwb_file.parent.name
     dandi_instance_id = local_docker_compose_env["instance_id"]
     register(
         "Upload Test",
@@ -55,14 +54,11 @@ def test_upload_existing_error(
     )
     monkeypatch.chdir(organized_nwb_dir)
     upload(
-        paths=[dirname],
-        dandi_instance=dandi_instance_id,
-        devel_debug=True,
-        existing="error",
+        paths=[], dandi_instance=dandi_instance_id, devel_debug=True, existing="error"
     )
     with pytest.raises(FileExistsError):
         upload(
-            paths=[dirname],
+            paths=[],
             dandi_instance=dandi_instance_id,
             devel_debug=True,
             existing="error",
@@ -103,3 +99,47 @@ def test_upload_unregistered(local_docker_compose_env, monkeypatch, organized_nw
     assert str(excinfo.value) == (
         f"There is no 999999 in {collection_drafts}. Did you use 'dandi register'?"
     )
+
+
+def test_upload_path_not_in_dandiset_path(
+    local_docker_compose_env, organized_nwb_dir, organized_nwb_dir2
+):
+    (organized_nwb_dir / dandiset_metadata_file).write_text("identifier: '000001'\n")
+    with pytest.raises(ValueError) as excinfo:
+        upload(
+            paths=[str(organized_nwb_dir2)],
+            dandiset_path=organized_nwb_dir,
+            dandi_instance=local_docker_compose_env["instance_id"],
+        )
+    assert re.fullmatch(
+        rf"{re.escape(str(organized_nwb_dir2))}\S* is not under "
+        rf"{re.escape(str(organized_nwb_dir))}",
+        str(excinfo.value),
+    )
+
+
+def test_upload_nonexistent_path(local_docker_compose_env, organized_nwb_dir):
+    # This is currently just a smoke test to cover the "except
+    # FileNotFoundError:" block in process_path().
+    (organized_nwb_dir / dandiset_metadata_file).write_text("identifier: '000001'\n")
+    upload(
+        paths=[str(organized_nwb_dir / "nonexistent.nwb")],
+        dandiset_path=organized_nwb_dir,
+        dandi_instance=local_docker_compose_env["instance_id"],
+    )
+
+
+def test_upload_stat_failure(local_docker_compose_env, organized_nwb_dir):
+    # This is currently just a smoke test to cover the "except Exception:"
+    # block in process_path().
+    (organized_nwb_dir / dandiset_metadata_file).write_text("identifier: '000001'\n")
+    baddir = organized_nwb_dir / "bad"
+    baddir.mkdir(mode=0o444)
+    try:
+        upload(
+            paths=[str(baddir / "nonexistent.nwb")],
+            dandiset_path=organized_nwb_dir,
+            dandi_instance=local_docker_compose_env["instance_id"],
+        )
+    finally:
+        baddir.rmdir()

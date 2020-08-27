@@ -422,9 +422,8 @@ def upload(
                 item_rec["_id"], path.name, path.absolute()
             )
             if not current:
-                raise RuntimeError(
-                    "Must not happen since file %s was just uploaded" % path
-                )
+                yield skip_file("File on server was unexpectedly changed")
+                return
 
             #
             # 6. Upload metadata
