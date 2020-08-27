@@ -434,7 +434,8 @@ class Project(Activity):
 class CommonModel(DandiBaseModel):
     schemaVersion: str = Field(default="1.0.0-rc1", readonly=True, nskey="schema")
     identifier: Identifier = Field(readonly=True, nskey="schema")
-    name: str = Field(
+    name: Optional[str] = Field(
+        None,
         title="Title",
         description="The name of the item.",
         max_length=150,
@@ -478,7 +479,7 @@ class CommonModel(DandiBaseModel):
     # Linking to this dandiset or the larger thing
     access: List[AccessRequirements] = Field(nskey="dandi")
     url: AnyUrl = Field(
-        readonly=True, description="permalink to the dandiset", nskey="schema"
+        readonly=True, description="permalink to the item", nskey="schema"
     )
     repository: AnyUrl = Field(
         readonly=True, description="location of the item", nskey="dandi"
@@ -502,6 +503,13 @@ class DandiMeta(CommonModel):
         if len(contacts) == 0:
             raise ValueError("At least one contributor must have role ContactPerson")
         return values
+
+    name: str = Field(
+        title="Title",
+        description="The name of the item.",
+        max_length=150,
+        nskey="schema",
+    )
 
     description: str = Field(
         title="Description",
@@ -550,19 +558,6 @@ class AssetMeta(CommonModel):
     Derived from C2M2 (Level 0 and 1) and schema.org
     """
 
-    description: str = Field(
-        None,
-        title="Description",
-        description="A description of the item.",
-        max_length=3000,
-        nskey="schema",
-    )
-    contributor: List[Union[Person, Organization]] = Field(
-        None,
-        title="Contributors",
-        description="Contributors to this item.",
-        nskey="schema",
-    )
     contentSize: str = Field(nskey="schema")
     encodingFormat: Union[str, AnyUrl] = Field(nskey="schema")
     digest: Digest = Field(nskey="dandi")
@@ -594,7 +589,7 @@ class AssetMeta(CommonModel):
     }
 
 
-class PublishedAssetMeta(DandiMeta):
+class PublishedAssetMeta(AssetMeta):
     publishedBy: AnyUrl = Field(
         description="The URL should contain the provenance of the publishing process.",
         readonly=True,
