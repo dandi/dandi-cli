@@ -422,7 +422,7 @@ def upload(
                 item_rec["_id"], path.name, path.absolute()
             )
             if not current:
-                yield skip_file("File size on server does not match local file size")
+                yield skip_file("File on server was unexpectedly changed")
                 return
 
             #
