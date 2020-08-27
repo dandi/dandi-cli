@@ -77,22 +77,26 @@ dandiset_identifier_regex = "^[0-9]{6}$"
 
 dandi_instance = namedtuple("dandi_instance", ("girder", "gui", "redirector", "api"))
 
+# So it could be easily mapped to external IP (e.g. from within VM)
+# to test against instance running outside of current environment
+instancehost = os.environ.get('DANDI_INSTANCEHOST', 'localhost')
+
 known_instances = {
     "local-girder-only": dandi_instance(
-        "http://localhost:8080", None, None, None
+        f"http://{instancehost}:8080", None, None, None
     ),  # just pure girder
     # Redirector: TODO https://github.com/dandi/dandiarchive/issues/139
     "local-docker": dandi_instance(
-        "http://localhost:8080",
-        "http://localhost:8085",
+        f"http://{instancehost}:8080",
+        f"http://{instancehost}:8085",
         None,
-        "http://localhost:9000",  # ATM it is minio, not sure where /api etc
+        f"http://{instancehost}:9000",  # ATM it is minio, not sure where /api etc
         # may be https://github.com/dandi/dandi-publish/pull/71 would help
     ),
     "local-docker-tests": dandi_instance(
-        "http://localhost:8081",
-        "http://localhost:8086",
-        "http://localhost:8079",
+        f"http://{instancehost}:8081",
+        f"http://{instancehost}:8086",
+        f"http://{instancehost}:8079",
         None,  # TODO: https://github.com/dandi/dandi-cli/issues/164
     ),
     "dandi": dandi_instance(
