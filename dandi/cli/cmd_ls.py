@@ -4,6 +4,8 @@ import time
 
 import click
 
+from collections import defaultdict
+
 from .base import lgr, map_to_click_exceptions
 
 from ..utils import safe_call
@@ -34,7 +36,7 @@ from ..utils import safe_call
     "be considered.",
     is_flag=True,
 )
-@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
+@click.argument("paths", nargs=-1, type=click.Path(exists=False, dir_okay=True))
 @map_to_click_exceptions
 def ls(paths, fields=None, format="auto", recursive=False):
     """List .nwb files and dandisets metadata.
@@ -98,6 +100,7 @@ def ls(paths, fields=None, format="auto", recursive=False):
     async_keys = tuple(async_keys.difference(common_fields))
 
     process_paths = set()
+    errors = defaultdict(list)  # problem: [] paths
     with out:
         for path in files:
             while len(process_paths) >= 10:
@@ -123,14 +126,19 @@ def ls(paths, fields=None, format="auto", recursive=False):
                         # For now just call callback and get all the fields
                         for k, v in cb().items():
                             rec[k] = v
-            except FileNotFoundError as exc:
-                lgr.debug("File is not available: %s", exc)
             except Exception as exc:
                 lgr.debug("Problem obtaining metadata for %s: %s", path, exc)
+                errors[str(type(exc).__name__)].append(path)
             if not rec:
+                errors["Empty record"].append(path)
                 lgr.debug("Skipping a record for %s since emtpy", path)
                 continue
             out(rec)
+        if errors:
+            lgr.warning(
+                "Failed to operate on some paths (empty records were listed):\n %s",
+                "\n ".join("%s: %d paths" % (k, len(v)) for k, v in errors.items()),
+            )
 
 
 def display_known_fields(all_fields):
@@ -147,8 +155,16 @@ def display_known_fields(all_fields):
 
 
 def flatten_v(v):
+    """Return while flattening nested lists/dicts
+
+    lists and tuples would get items converted to strings and joined
+    with ", " separator.
+
+    dicts would get items represented as "key: value" before flattening
+    a list of them.
+    """
     if isinstance(v, (tuple, list)):
-        return ", ".join(map(flatten_v, v))
+        return ", ".join(map(str, map(flatten_v, v)))
     elif isinstance(v, dict):
         return flatten_v(["%s: %s" % i for i in v.items()])
     return v
