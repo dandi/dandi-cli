@@ -56,11 +56,14 @@ development command line options.
   `clear` to have cache `clear()`ed before use.
 
 - `DANDI_INSTANCEHOST` -- defaults to `localhost`. Point to host/IP which hosts
-  a local instance of dandiarchive.
+  a local instance of dandiarchive. Typically,
+  `DANDI_REUSE_LOCAL_DOCKER_TESTS_API_KEY`
+  should also be set.
 
-- `DANDI_REUSE_LOCAL_DOCKER_TESTS_API_KEY` -- use to make `local_docker_compose*`
-  fixtures work by contacting an instance (possibly at `DANDI_INSTANCEHOST`)
-  instead of starting a new one.
+- `DANDI_REUSE_LOCAL_DOCKER_TESTS_API_KEY` -- make the
+ `local_docker_compose*` fixtures use the given API key for
+ `DANDI_INSTANCEHOST` instead of spinning up a new environment with a new key.
+
 
 ## Sourcegraph
 
