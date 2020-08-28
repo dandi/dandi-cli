@@ -55,6 +55,16 @@ development command line options.
   If handling of metadata has changed while developing, set this env var to
   `clear` to have cache `clear()`ed before use.
 
+- `DANDI_INSTANCEHOST` -- defaults to `localhost`. Point to host/IP which hosts
+  a local instance of dandiarchive. Typically,
+  `DANDI_REUSE_LOCAL_DOCKER_TESTS_API_KEY`
+  should also be set.
+
+- `DANDI_REUSE_LOCAL_DOCKER_TESTS_API_KEY` -- make the
+ `local_docker_compose*` fixtures use the given API key for
+ `DANDI_INSTANCEHOST` instead of spinning up a new environment with a new key.
+
+
 ## Sourcegraph
 
 The [Sourcegraph](https://sourcegraph.com) browser extension can be used to
