@@ -6,7 +6,24 @@ import pytest
 
 
 def sleeping_range(n, secs=0.01, thr=None):
-    """Fast generator"""
+    """Fast generator based on range
+
+    Parameters
+    ----------
+    n : int
+      Number to pass to `range`
+    secs : float, optional
+      Seconds to sleep between iterations
+    thr : int, optional
+      If specified, will cause loop to raise ValueError when it
+      reaches that value
+
+    Yields
+    ------
+    int
+      Integers like range does
+
+    """
     for i in range(n):
         yield i
         sleep(secs)
