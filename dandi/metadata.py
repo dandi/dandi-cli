@@ -1,4 +1,7 @@
+from functools import partial
 import os.path as op
+import re
+from .models import AssetMeta, BioSample, PropertyValue
 from .pynwb_utils import (
     _get_pynwb_metadata,
     get_neurodata_types,
@@ -85,14 +88,44 @@ def get_metadata(path):
     return meta
 
 
-def nwb2asset(nwb_path):
-    from .models import AssetMeta
+def parse_age(age):
+    m = re.fullmatch(r"(\d+)\s*(y(ear)?|m(onth)?|w(eek)?|d(ay)?)s?", age, flags=re.I)
+    if m:
+        qty = int(m.group(1))
+        unit = m.group(2)[0].upper()
+        return f"P{qty}{unit}"
+    else:
+        raise ValueError(age)
 
+
+def extract_age(metadata):
+    try:
+        duration = parse_age(metadata["age"])
+    except (KeyError, ValueError):
+        return None
+    return PropertyValue(value=duration)
+
+
+def extract_model(modelcls, metadata):
+    m = modelcls.unvalidated()
+    for field in m.__fields__.keys():
+        setattr(m, field, extract_field(field, metadata))
+    return modelcls(**m)
+
+
+FIELD_EXTRACTORS = {
+    "age": extract_age,
+    "wasDerivedFrom": partial(extract_model, BioSample),
+}
+
+
+def extract_field(field, metadata):
+    if field in FIELD_EXTRACTORS:
+        return FIELD_EXTRACTORS[field](metadata)
+    else:
+        return metadata.get(field)
+
+
+def nwb2asset(nwb_path):
     metadata = get_metadata(nwb_path)
-    asset = AssetMeta.unvalidated()
-    for field in asset.__fields__.keys():
-        try:
-            setattr(asset, field, metadata[field])
-        except KeyError:
-            pass
-    return asset
+    return extract_model(AssetMeta, metadata)
