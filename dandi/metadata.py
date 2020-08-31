@@ -1,6 +1,6 @@
 import os.path as op
 import re
-from .models import AssetMeta, BioSample, PropertyValue
+from .models import Anatomy, AssayType, AssetMeta, BioSample, PropertyValue, SexType
 from .pynwb_utils import (
     _get_pynwb_metadata,
     get_neurodata_types,
@@ -8,6 +8,7 @@ from .pynwb_utils import (
     ignore_benign_pynwb_warnings,
     metadata_cache,
 )
+from .utils import ensure_datetime
 
 from . import get_logger
 from .dandiset import Dandiset
@@ -109,8 +110,6 @@ def parse_age(age):
 
 
 def extract_age(metadata):
-    from .utils import ensure_datetime
-
     try:
         dob = ensure_datetime(metadata["date_of_birth"])
         start = ensure_datetime(metadata["session_start_time"])
@@ -153,8 +152,6 @@ def timedelta2duration(delta):
 
 
 def extract_sex(metadata):
-    from .models import SexType
-
     if "sex" in metadata:
         return SexType(identifier="sex", name=metadata["sex"])
     else:
@@ -162,8 +159,6 @@ def extract_sex(metadata):
 
 
 def extract_assay_type(metadata):
-    from .models import AssayType
-
     if "assayType" in metadata:
         return [AssayType(identifier="assayType", name=metadata["assayType"])]
     else:
@@ -171,8 +166,6 @@ def extract_assay_type(metadata):
 
 
 def extract_anatomy(metadata):
-    from .models import Anatomy
-
     if "anatomy" in metadata:
         return [Anatomy(identifier="anatomy", name=metadata["anatomy"])]
     else:
