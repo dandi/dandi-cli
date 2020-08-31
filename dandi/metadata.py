@@ -1,4 +1,3 @@
-from functools import partial
 import os.path as op
 import re
 from .models import AssetMeta, BioSample, PropertyValue
@@ -99,23 +98,96 @@ def parse_age(age):
 
 
 def extract_age(metadata):
+    from .utils import ensure_datetime
+
     try:
-        duration = parse_age(metadata["age"])
+        dob = ensure_datetime(metadata["date_of_birth"])
+        start = ensure_datetime(metadata["session_start_time"])
     except (KeyError, ValueError):
-        return None
-    return PropertyValue(value=duration)
+        try:
+            duration = parse_age(metadata["age"])
+        except (KeyError, ValueError):
+            return ...
+    else:
+        if start < dob:
+            raise ValueError("session_start_time precedes date_of_birth")
+        duration = timedelta2duration(start - dob)
+    return PropertyValue(value=duration, unitText="Years from birth")
+
+
+def timedelta2duration(delta):
+    """ Convert a datetime.timedelta to ISO 8601 duration format """
+    s = "P"
+    if delta.days:
+        s += f"{duration.days}D"
+    if delta.seconds or delta.microseconds:
+        sec = delta.seconds + delta.microseconds / 1000000
+        s += f"T{sec}S"
+    if s == "P":
+        s += "0D"
+    return s
+
+
+def extract_sex(metadata):
+    from .models import SexType
+
+    if "sex" in metadata:
+        return SexType(identifier="sex", name=metadata["sex"])
+    else:
+        return ...
+
+
+def extract_assay_type(metadata):
+    from .models import AssayType
+
+    if "assayType" in metadata:
+        return [AssayType(identifier="assayType", name=metadata["assayType"])]
+    else:
+        return []
+
+
+def extract_anatomy(metadata):
+    from .models import Anatomy
+
+    if "anatomy" in metadata:
+        return [Anatomy(identifier="anatomy", name=metadata["anatomy"])]
+    else:
+        return []
 
 
 def extract_model(modelcls, metadata):
     m = modelcls.unvalidated()
     for field in m.__fields__.keys():
-        setattr(m, field, extract_field(field, metadata))
-    return modelcls(**m)
+        value = extract_field(field, metadata)
+        if value is not Ellipsis:
+            setattr(m, field, value)
+    # return modelcls(**m.dict())
+    return m
+
+
+def extract_wasDerivedFrom(metadata):
+    return [extract_model(BioSample, metadata)]
+
+
+def extract_keywords(metadata):
+    if "keywords" in metadata:
+        return metadata["keywords"].split()
+    else:
+        return ...
+
+
+def extract_encodingFormat(metadata):
+    return "application/x-nwb"
 
 
 FIELD_EXTRACTORS = {
+    "wasDerivedFrom": extract_wasDerivedFrom,
     "age": extract_age,
-    "wasDerivedFrom": partial(extract_model, BioSample),
+    "sex": extract_sex,
+    "assayType": extract_assay_type,
+    "anatomy": extract_anatomy,
+    "keywords": extract_keywords,
+    "encodingFormat": extract_encodingFormat,
 }
 
 
@@ -123,9 +195,12 @@ def extract_field(field, metadata):
     if field in FIELD_EXTRACTORS:
         return FIELD_EXTRACTORS[field](metadata)
     else:
-        return metadata.get(field)
+        return metadata.get(field, ...)
 
 
-def nwb2asset(nwb_path):
+def nwb2asset(nwb_path, digest=None):
     metadata = get_metadata(nwb_path)
+    if digest is not None:
+        metadata["digest"] = digest
+    metadata["contentSize"] = op.getsize(nwb_path)
     return extract_model(AssetMeta, metadata)

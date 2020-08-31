@@ -100,8 +100,8 @@ class DandiBaseModel(BaseModel):
             try:
                 data[name]
             except KeyError:
-                if field.required:
-                    value = None
+                # if field.required:
+                #    value = None
                 if field.default is None:
                     # deepcopy is quite slow on None
                     value = None
@@ -242,6 +242,12 @@ class Person(Contributor):
         nskey="schema",
     )
     _ldmeta = {"rdfs:subClassOf": ["schema:Person", "prov:Person"], "nskey": "dandi"}
+
+
+class Software(DandiBaseModel):
+    identifier: Identifier = Field(nskey="schema")
+    name: str = Field(nskey="schema")
+    version: str = Field(nskey="schema")
 
 
 class EthicsApproval(DandiBaseModel):
@@ -419,7 +425,9 @@ class Activity(DandiBaseModel):
 
     isPartOf: Optional["Activity"] = Field(None, nskey="schema")
     hasPart: Optional["Activity"] = Field(None, nskey="schema")
-    wasAssociatedWith: Optional[Union[Person, Organization]] = Field(None, nskey="prov")
+    wasAssociatedWith: Optional[Union[Person, Organization, Software]] = Field(
+        None, nskey="prov"
+    )
 
     _ldmeta = {"rdfs:subClassOf": ["prov:Activity", "schema:Thing"], "nskey": "dandi"}
 
@@ -477,14 +485,17 @@ class CommonModel(DandiBaseModel):
     acknowledgement: Optional[str] = Field(None, title="Acknowledgement", nskey="dandi")
 
     # Linking to this dandiset or the larger thing
-    access: List[AccessRequirements] = Field(nskey="dandi")
-    url: AnyUrl = Field(
-        readonly=True, description="permalink to the item", nskey="schema"
+    access: List[AccessRequirements] = Field(AccessType.Open, nskey="dandi")
+    url: Optional[AnyUrl] = Field(
+        None, readonly=True, description="permalink to the item", nskey="schema"
     )
     repository: AnyUrl = Field(
-        readonly=True, description="location of the item", nskey="dandi"
+        "https://dandiarchive.org/",
+        readonly=True,
+        description="location of the item",
+        nskey="dandi",
     )
-    relatedResource: List[Resource] = Field(None, nskey="dandi")
+    relatedResource: Optional[List[Resource]] = Field(None, nskey="dandi")
 
     wasGeneratedBy: Optional[Union[Activity, AnyUrl]] = Field(
         None, readonly=True, nskey="prov"
@@ -558,29 +569,38 @@ class AssetMeta(CommonModel):
     Derived from C2M2 (Level 0 and 1) and schema.org
     """
 
+    # Overrides CommonModel.license
+    # TODO: https://github.com/NeurodataWithoutBorders/nwb-schema/issues/320
+    license: Optional[List[License]] = Field(None, nskey="schema")
+
     contentSize: str = Field(nskey="schema")
     encodingFormat: Union[str, AnyUrl] = Field(nskey="schema")
     digest: Digest = Field(nskey="dandi")
 
     path: str = Field(None, nskey="dandi")
-    isPartOf: Identifier = Field(nskey="schema")
+    # TODO: Fill in when uploading:
+    isPartOf: Optional[Identifier] = Field(None, nskey="schema")
 
     # this is from C2M2 level 1 - using EDAM vocabularies - in our case we would
     # need to come up with things for neurophys
-    dataType: AnyUrl = Field(nskey="dandi")
+    # TODO: waiting on input <https://github.com/dandi/dandi-cli/pull/226>
+    dataType: Optional[AnyUrl] = Field(None, nskey="dandi")
 
-    sameAs: AnyUrl = Field(None, nskey="schema")
+    sameAs: Optional[List[AnyUrl]] = Field(None, nskey="schema")
 
-    modality: List[ModalityType] = Field(readonly=True, nskey="dandi")
-    measurementTechnique: List[MeasurementTechniqueType] = Field(
-        readonly=True, nskey="schema"
+    # TODO
+    modality: Optional[List[ModalityType]] = Field(None, readonly=True, nskey="dandi")
+    measurementTechnique: Optional[List[MeasurementTechniqueType]] = Field(
+        None, readonly=True, nskey="schema"
     )
-    variableMeasured: List[PropertyValue] = Field(readonly=True, nskey="schema")
+    variableMeasured: Optional[List[PropertyValue]] = Field(
+        None, readonly=True, nskey="schema"
+    )
 
     wasDerivedFrom: List[BioSample] = Field(None, nskey="prov")
 
     # on publish or set by server
-    contentUrl: List[AnyUrl] = Field(None, readonly=True, nskey="schema")
+    contentUrl: Optional[List[AnyUrl]] = Field(None, readonly=True, nskey="schema")
 
     _ldmeta = {
         "rdfs:subClassOf": ["schema:CreativeWork", "prov:Entity"],
