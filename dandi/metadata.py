@@ -88,6 +88,17 @@ def get_metadata(path):
 
 
 def parse_age(age):
+    """
+    Convert a human-friendly duration string into an ISO 8601 duration
+
+    Parameters
+    ----------
+    age : str
+
+    Returns
+    -------
+    str
+    """
     m = re.fullmatch(r"(\d+)\s*(y(ear)?|m(onth)?|w(eek)?|d(ay)?)s?", age, flags=re.I)
     if m:
         qty = int(m.group(1))
@@ -116,12 +127,25 @@ def extract_age(metadata):
 
 
 def timedelta2duration(delta):
-    """ Convert a datetime.timedelta to ISO 8601 duration format """
+    """
+    Convert a datetime.timedelta to ISO 8601 duration format
+
+    Parameters
+    ----------
+    delta : datetime.timedelta
+
+    Returns
+    -------
+    str
+    """
     s = "P"
     if delta.days:
-        s += f"{duration.days}D"
+        s += f"{delta.days}D"
     if delta.seconds or delta.microseconds:
-        sec = delta.seconds + delta.microseconds / 1000000
+        sec = delta.seconds
+        if delta.microseconds:
+            # Don't add when microseconds is 0, so that sec will be an int then
+            sec += delta.microseconds / 1000000
         s += f"T{sec}S"
     if s == "P":
         s += "0D"
@@ -171,13 +195,9 @@ def extract_wasDerivedFrom(metadata):
 
 def extract_keywords(metadata):
     if "keywords" in metadata:
-        return metadata["keywords"].split()
+        return metadata["keywords"].split(",")
     else:
         return ...
-
-
-def extract_encodingFormat(metadata):
-    return "application/x-nwb"
 
 
 FIELD_EXTRACTORS = {
@@ -187,7 +207,6 @@ FIELD_EXTRACTORS = {
     "assayType": extract_assay_type,
     "anatomy": extract_anatomy,
     "keywords": extract_keywords,
-    "encodingFormat": extract_encodingFormat,
 }
 
 
@@ -203,4 +222,9 @@ def nwb2asset(nwb_path, digest=None):
     if digest is not None:
         metadata["digest"] = digest
     metadata["contentSize"] = op.getsize(nwb_path)
+    metadata["encodingFormat"] = "application/x-nwb"
+    return metadata2asset(metadata)
+
+
+def metadata2asset(metadata):
     return extract_model(AssetMeta, metadata)

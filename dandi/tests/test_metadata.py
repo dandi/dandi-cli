@@ -1,5 +1,7 @@
+from datetime import timedelta
 import pytest
-from ..metadata import parse_age
+from ..metadata import metadata2asset, parse_age, timedelta2duration
+from ..models import AccessType, AssetMeta, BioSample, PropertyValue, SexType
 
 
 @pytest.mark.parametrize(
@@ -29,3 +31,99 @@ from ..metadata import parse_age
 )
 def test_parse_age(age, duration):
     assert parse_age(age) == duration
+
+
+@pytest.mark.parametrize(
+    "td,duration",
+    [
+        (timedelta(), "P0D"),
+        (timedelta(weeks=3), "P21D"),
+        (timedelta(seconds=42), "PT42S"),
+        (timedelta(days=5, seconds=23, microseconds=2000), "P5DT23.002S"),
+    ],
+)
+def test_timedelta2duration(td, duration):
+    assert timedelta2duration(td) == duration
+
+
+def test_metadata2asset():
+    assert metadata2asset(
+        {
+            "contentSize": 69105,
+            "digest": "783ad2afe455839e5ab2fa659861f58a423fd17f",
+            "encodingFormat": "application/x-nwb",
+            "experiment_description": "Experiment Description",
+            "experimenter": "Joe Q. Experimenter",
+            "identifier": "ABC123",
+            "institution": "University College",
+            "keywords": "test,sample,example,test-case",
+            "lab": "Retriever Laboratory",
+            "related_publications": "A Brief History of Test Cases",
+            "session_description": "Some test data",
+            "session_id": "XYZ789",
+            "session_start_time": "2020-08-31T15:58:28-04:00",
+            "age": "23 days",
+            "date_of_birth": "2020-03-14T12:34:56-04:00",
+            "genotype": "Typical",
+            "sex": "M",
+            "species": "Examen exemplar",
+            "subject_id": "a1b2c3",
+            "cell_id": "cell01",
+            "slice_id": "slice02",
+            "tissue_sample_id": "tissue03",
+            "probe_ids": "probe04",
+            "number_of_electrodes": 42,
+            "number_of_units": 6,
+            "nwb_version": "2.2.5",
+            "nd_types": [
+                "Device (2)",
+                "DynamicTable",
+                "ElectricalSeries",
+                "ElectrodeGroup",
+                "Subject",
+            ],
+        }
+    ) == AssetMeta.unvalidated(
+        schemaVersion="1.0.0-rc1",
+        identifier="ABC123",
+        name=None,
+        description=None,
+        contributor=None,
+        about=None,
+        studyTarget=None,
+        protocol=None,
+        ethicsApproval=None,
+        license=None,
+        keywords=["test", "sample", "example", "test-case"],
+        acknowledgement=None,
+        access=AccessType.Open,
+        url=None,
+        repository="https://dandiarchive.org/",
+        relatedResource=None,
+        wasGeneratedBy=None,
+        contentSize=69105,
+        encodingFormat="application/x-nwb",
+        digest="783ad2afe455839e5ab2fa659861f58a423fd17f",
+        path=None,
+        isPartOf=None,
+        dataType=None,
+        sameAs=None,
+        modality=None,
+        measurementTechnique=None,
+        variableMeasured=None,
+        wasDerivedFrom=[
+            BioSample(
+                identifier="ABC123",
+                assayType=[],
+                anatomy=[],
+                strain=None,
+                cellLine=None,
+                vendor=None,
+                age=PropertyValue(value="P170DT12212S", unitText="Years from birth"),
+                sex=SexType(identifier="sex", name="M"),
+                taxonomy=None,
+                disease=None,
+            )
+        ],
+        contentUrl=None,
+    )
