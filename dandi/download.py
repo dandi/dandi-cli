@@ -20,7 +20,7 @@ from .consts import (
 )
 from .dandiset import Dandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
-from .utils import flattened, is_same_time, get_instance
+from .utils import ensure_datetime, flattened, is_same_time, get_instance
 
 import humanize
 from .support.pyout import naturalsize
@@ -798,6 +798,6 @@ def _download_file(
     # TODO: dissolve attrs and pass specific mtime?
     if mtime:
         yield {"status": "setting mtime"}
-        os.utime(path, (time.time(), mtime.timestamp()))
+        os.utime(path, (time.time(), ensure_datetime(mtime).timestamp()))
 
     yield {"status": "done"}
