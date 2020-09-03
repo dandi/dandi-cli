@@ -5,6 +5,7 @@ import sys
 import time
 
 from dandi.support.cache import PersistentCache
+from dandi.utils import on_windows
 
 import pytest
 
@@ -141,15 +142,18 @@ def test_memoize_path(cache, tmp_path):
     check_new_memoread(0, "Content")
 
     # Check that symlinks should be dereferenced
-    symlink1 = str(tmp_path / (fname + ".link1"))
-    try:
-        os.symlink(fname, symlink1)
-    except OSError:
-        pass
-    if op.islink(symlink1):  # hopefully would just skip Windows if not supported
-        ncalls = len(calls)
-        assert memoread(symlink1, 0) == "Content"
-        assert len(calls) == ncalls  # no new call
+    if not on_windows or sys.version_info[:2] >= (3, 8):
+        # realpath doesn't work right on Windows on pre-3.8 Python, so skip the
+        # test then.
+        symlink1 = str(tmp_path / (fname + ".link1"))
+        try:
+            os.symlink(fname, symlink1)
+        except OSError:
+            pass
+        if op.islink(symlink1):  # hopefully would just skip Windows if not supported
+            ncalls = len(calls)
+            assert memoread(symlink1, 0) == "Content"
+            assert len(calls) == ncalls  # no new call
 
     # and if we "clear", would it still work?
     cache.clear()
