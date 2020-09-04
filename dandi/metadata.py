@@ -1,15 +1,8 @@
+from datetime import datetime
 import os.path as op
 import re
-from .models import (
-    Anatomy,
-    AssayType,
-    AssetMeta,
-    BioSample,
-    Digest,
-    DigestType,
-    PropertyValue,
-    SexType,
-)
+from uuid import uuid4
+from . import models
 from .pynwb_utils import (
     _get_pynwb_metadata,
     get_neurodata_types,
@@ -19,7 +12,7 @@ from .pynwb_utils import (
 )
 from .utils import ensure_datetime
 
-from . import get_logger
+from . import __version__, get_logger
 from .dandiset import Dandiset
 
 lgr = get_logger()
@@ -131,7 +124,7 @@ def extract_age(metadata):
         if start < dob:
             raise ValueError("session_start_time precedes date_of_birth")
         duration = timedelta2duration(start - dob)
-    return PropertyValue(value=duration, unitText="Years from birth")
+    return models.PropertyValue(value=duration, unitText="Years from birth")
 
 
 def timedelta2duration(delta):
@@ -162,21 +155,21 @@ def timedelta2duration(delta):
 
 def extract_sex(metadata):
     if metadata.get("sex") is not None:
-        return SexType(identifier="sex", name=metadata["sex"])
+        return models.SexType(identifier="sex", name=metadata["sex"])
     else:
         return ...
 
 
 def extract_assay_type(metadata):
     if "assayType" in metadata:
-        return [AssayType(identifier="assayType", name=metadata["assayType"])]
+        return [models.AssayType(identifier="assayType", name=metadata["assayType"])]
     else:
         return []
 
 
 def extract_anatomy(metadata):
     if "anatomy" in metadata:
-        return [Anatomy(identifier="anatomy", name=metadata["anatomy"])]
+        return [models.Anatomy(identifier="anatomy", name=metadata["anatomy"])]
     else:
         return []
 
@@ -192,13 +185,16 @@ def extract_model(modelcls, metadata, **kwargs):
 
 
 def extract_wasDerivedFrom(metadata):
-    return [extract_model(BioSample, metadata, identifier=metadata.get("subject_id"))]
+    return [
+        extract_model(models.BioSample, metadata, identifier=metadata.get("subject_id"))
+    ]
 
 
 def extract_digest(metadata):
     if "digest" in metadata:
-        return Digest(
-            value=metadata["digest"], cryptoType=DigestType[metadata["digest_type"]]
+        return models.Digest(
+            value=metadata["digest"],
+            cryptoType=models.DigestType[metadata["digest_type"]],
         )
     else:
         return ...
@@ -222,14 +218,31 @@ def extract_field(field, metadata):
 
 
 def nwb2asset(nwb_path, digest=None, digest_type=None):
+    start_time = datetime.now().astimezone()
     metadata = get_metadata(nwb_path)
     if digest is not None:
         metadata["digest"] = digest
         metadata["digest_type"] = digest_type
     metadata["contentSize"] = op.getsize(nwb_path)
     metadata["encodingFormat"] = "application/x-nwb"
-    return metadata2asset(metadata)
+    asset = metadata2asset(metadata)
+    end_time = datetime.now().astimezone()
+    asset.wasGeneratedBy = models.Activity(
+        identifier=str(uuid4()),
+        name="NWB conversion",
+        description="Data converted using DANDI cli",
+        wasAssociatedWith=models.Software(
+            identifier={"propertyID": "RRID", "value": "SCR_019009"},
+            name="DANDI Command Line Interface",
+            description=f"dandi-cli {__version__}",
+            version=__version__,
+            url="https://github.com/dandi/dandi-cli",
+        ),
+        startedAt=start_time,
+        endedAt=end_time,
+    )
+    return asset
 
 
 def metadata2asset(metadata):
-    return extract_model(AssetMeta, metadata)
+    return extract_model(models.AssetMeta, metadata)
