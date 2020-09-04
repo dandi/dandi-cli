@@ -56,7 +56,7 @@ def simple2_nwb(simple1_nwb_metadata, tmpdir_factory):
         str(tmpdir_factory.mktemp("data").join("simple2.nwb")),
         subject=pynwb.file.Subject(
             subject_id="mouse001",
-            date_of_birth=datetime(2019, 12, 1, tzinfo=tzutc()),
+            date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
             sex="M",
             species="mouse",
         ),
@@ -86,7 +86,7 @@ def organized_nwb_dir2(simple1_nwb_metadata, simple2_nwb, tmp_path_factory, clir
         str(tmp_path / "simple3.nwb"),
         subject=pynwb.file.Subject(
             subject_id="lizard001",
-            date_of_birth=datetime(2019, 12, 1, tzinfo=tzutc()),
+            date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
             sex="F",
             species="Gekko gecko",
         ),
@@ -150,7 +150,7 @@ def local_docker_compose():
 
     # if api_key is specified, we are reusing some already running instance
     # so we would not bother starting/stopping a new one here
-    api_key = os.environ.get('DANDI_REUSE_LOCAL_DOCKER_TESTS_API_KEY')
+    api_key = os.environ.get("DANDI_REUSE_LOCAL_DOCKER_TESTS_API_KEY")
     if api_key:
         yield {"api_key": api_key, "instance": instance, "instance_id": instance_id}
         return

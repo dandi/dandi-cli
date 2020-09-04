@@ -102,7 +102,9 @@ class DandiBaseModel(BaseModel):
             except KeyError:
                 # if field.required:
                 #    value = None
-                if field.default is None:
+                if field.default_factory is not None:
+                    value = field.default_factory()
+                elif field.default is None:
                     # deepcopy is quite slow on None
                     value = None
                 else:
@@ -485,7 +487,10 @@ class CommonModel(DandiBaseModel):
     acknowledgement: Optional[str] = Field(None, title="Acknowledgement", nskey="dandi")
 
     # Linking to this dandiset or the larger thing
-    access: List[AccessRequirements] = Field(AccessType.Open, nskey="dandi")
+    access: List[AccessRequirements] = Field(
+        default_factory=lambda: [AccessRequirements(status=AccessType.Open)],
+        nskey="dandi",
+    )
     url: Optional[AnyUrl] = Field(
         None, readonly=True, description="permalink to the item", nskey="schema"
     )

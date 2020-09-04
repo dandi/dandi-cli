@@ -1,6 +1,15 @@
 import os.path as op
 import re
-from .models import Anatomy, AssayType, AssetMeta, BioSample, PropertyValue, SexType
+from .models import (
+    Anatomy,
+    AssayType,
+    AssetMeta,
+    BioSample,
+    Digest,
+    DigestType,
+    PropertyValue,
+    SexType,
+)
 from .pynwb_utils import (
     _get_pynwb_metadata,
     get_neurodata_types,
@@ -113,10 +122,10 @@ def extract_age(metadata):
     try:
         dob = ensure_datetime(metadata["date_of_birth"])
         start = ensure_datetime(metadata["session_start_time"])
-    except (KeyError, ValueError):
+    except (KeyError, TypeError, ValueError):
         try:
             duration = parse_age(metadata["age"])
-        except (KeyError, ValueError):
+        except (KeyError, TypeError, ValueError):
             return ...
     else:
         if start < dob:
@@ -152,7 +161,7 @@ def timedelta2duration(delta):
 
 
 def extract_sex(metadata):
-    if "sex" in metadata:
+    if metadata.get("sex") is not None:
         return SexType(identifier="sex", name=metadata["sex"])
     else:
         return ...
@@ -172,10 +181,10 @@ def extract_anatomy(metadata):
         return []
 
 
-def extract_model(modelcls, metadata):
+def extract_model(modelcls, metadata, **kwargs):
     m = modelcls.unvalidated()
     for field in m.__fields__.keys():
-        value = extract_field(field, metadata)
+        value = kwargs.get(field, extract_field(field, metadata))
         if value is not Ellipsis:
             setattr(m, field, value)
     # return modelcls(**m.dict())
@@ -183,12 +192,14 @@ def extract_model(modelcls, metadata):
 
 
 def extract_wasDerivedFrom(metadata):
-    return [extract_model(BioSample, metadata)]
+    return [extract_model(BioSample, metadata, identifier=metadata.get("subject_id"))]
 
 
-def extract_keywords(metadata):
-    if "keywords" in metadata:
-        return metadata["keywords"].split(",")
+def extract_digest(metadata):
+    if "digest" in metadata:
+        return Digest(
+            value=metadata["digest"], cryptoType=DigestType[metadata["digest_type"]]
+        )
     else:
         return ...
 
@@ -199,7 +210,7 @@ FIELD_EXTRACTORS = {
     "sex": extract_sex,
     "assayType": extract_assay_type,
     "anatomy": extract_anatomy,
-    "keywords": extract_keywords,
+    "digest": extract_digest,
 }
 
 
@@ -210,10 +221,11 @@ def extract_field(field, metadata):
         return metadata.get(field, ...)
 
 
-def nwb2asset(nwb_path, digest=None):
+def nwb2asset(nwb_path, digest=None, digest_type=None):
     metadata = get_metadata(nwb_path)
     if digest is not None:
         metadata["digest"] = digest
+        metadata["digest_type"] = digest_type
     metadata["contentSize"] = op.getsize(nwb_path)
     metadata["encodingFormat"] = "application/x-nwb"
     return metadata2asset(metadata)

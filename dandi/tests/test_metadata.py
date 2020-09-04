@@ -1,7 +1,17 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
+from dateutil.tz import tzutc
 import pytest
 from ..metadata import metadata2asset, parse_age, timedelta2duration
-from ..models import AccessType, AssetMeta, BioSample, PropertyValue, SexType
+from ..models import (
+    AccessRequirements,
+    AccessType,
+    AssetMeta,
+    BioSample,
+    Digest,
+    DigestType,
+    PropertyValue,
+    SexType,
+)
 
 
 @pytest.mark.parametrize(
@@ -51,12 +61,13 @@ def test_metadata2asset():
         {
             "contentSize": 69105,
             "digest": "783ad2afe455839e5ab2fa659861f58a423fd17f",
+            "digest_type": "sha1",
             "encodingFormat": "application/x-nwb",
             "experiment_description": "Experiment Description",
             "experimenter": "Joe Q. Experimenter",
             "identifier": "ABC123",
             "institution": "University College",
-            "keywords": "test,sample,example,test-case",
+            "keywords": ["test", "sample", "example", "test-case"],
             "lab": "Retriever Laboratory",
             "related_publications": "A Brief History of Test Cases",
             "session_description": "Some test data",
@@ -96,14 +107,16 @@ def test_metadata2asset():
         license=None,
         keywords=["test", "sample", "example", "test-case"],
         acknowledgement=None,
-        access=AccessType.Open,
+        access=[AccessRequirements(status=AccessType.Open)],
         url=None,
         repository="https://dandiarchive.org/",
         relatedResource=None,
         wasGeneratedBy=None,
         contentSize=69105,
         encodingFormat="application/x-nwb",
-        digest="783ad2afe455839e5ab2fa659861f58a423fd17f",
+        digest=Digest(
+            value="783ad2afe455839e5ab2fa659861f58a423fd17f", cryptoType=DigestType.sha1
+        ),
         path=None,
         isPartOf=None,
         dataType=None,
@@ -113,7 +126,7 @@ def test_metadata2asset():
         variableMeasured=None,
         wasDerivedFrom=[
             BioSample(
-                identifier="ABC123",
+                identifier="a1b2c3",
                 assayType=[],
                 anatomy=[],
                 strain=None,
@@ -121,6 +134,82 @@ def test_metadata2asset():
                 vendor=None,
                 age=PropertyValue(value="P170DT12212S", unitText="Years from birth"),
                 sex=SexType(identifier="sex", name="M"),
+                taxonomy=None,
+                disease=None,
+            )
+        ],
+        contentUrl=None,
+    )
+
+
+def test_metadata2asset_simple1():
+    assert metadata2asset(
+        {
+            "contentSize": 69105,
+            "digest": "783ad2afe455839e5ab2fa659861f58a423fd17f",
+            "digest_type": "sha1",
+            "encodingFormat": "application/x-nwb",
+            "nwb_version": "2.2.5",
+            "experiment_description": "experiment_description1",
+            "experimenter": ("experimenter1",),
+            "identifier": "identifier1",
+            "institution": "institution1",
+            "keywords": ["keyword1", "keyword 2"],
+            "lab": "lab1",
+            "related_publications": ("related_publications1",),
+            "session_description": "session_description1",
+            "session_id": "session_id1",
+            "session_start_time": datetime(2017, 4, 15, 12, 0, tzinfo=tzutc()),
+            "age": None,
+            "date_of_birth": None,
+            "genotype": None,
+            "sex": None,
+            "species": None,
+            "subject_id": None,
+            "number_of_electrodes": 0,
+            "number_of_units": 0,
+            "nd_types": [],
+        }
+    ) == AssetMeta.unvalidated(
+        schemaVersion="1.0.0-rc1",
+        identifier="identifier1",
+        name=None,
+        description=None,
+        contributor=None,
+        about=None,
+        studyTarget=None,
+        protocol=None,
+        ethicsApproval=None,
+        license=None,
+        keywords=["keyword1", "keyword 2"],
+        acknowledgement=None,
+        access=[AccessRequirements(status=AccessType.Open)],
+        url=None,
+        repository="https://dandiarchive.org/",
+        relatedResource=None,
+        wasGeneratedBy=None,
+        contentSize=69105,
+        encodingFormat="application/x-nwb",
+        digest=Digest(
+            value="783ad2afe455839e5ab2fa659861f58a423fd17f", cryptoType=DigestType.sha1
+        ),
+        path=None,
+        isPartOf=None,
+        dataType=None,
+        sameAs=None,
+        modality=None,
+        measurementTechnique=None,
+        variableMeasured=None,
+        wasDerivedFrom=[
+            BioSample.unvalidated(
+                identifier=None,
+                assayType=[],
+                anatomy=[],
+                strain=None,
+                cellLine=None,
+                vendor=None,
+                age=None,
+                sex=None,
                 taxonomy=None,
                 disease=None,
             )
