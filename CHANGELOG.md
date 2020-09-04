@@ -4,6 +4,21 @@ All notable changes to this project will be documented (for humans) in this file
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+
+## [0.6.3] - 2020-09-04
+
+Primarily a range of bugfixes to ensure correct operation with current state
+of other components of DANDI, and use of the client on Windows OS.
+
+### Added
+- Initial DANDI schema files
+- More tests for various code paths
+- `download`: new option `--download [assets,dandiset.yaml,all]`
+### Fixed
+- `download` - account for changes in DANDI API (relevant only for released
+  datasets, of which we do not have any "real" ones yet)
+- `upload` - various Windows specific fixes
+
 ## [0.6.2] - 2020-08-19
 
 ### Fixed
