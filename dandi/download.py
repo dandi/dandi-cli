@@ -20,7 +20,7 @@ from .consts import (
 )
 from .dandiset import Dandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
-from .utils import flattened, is_same_time, get_instance
+from .utils import ensure_datetime, flattened, is_same_time, get_instance
 
 import humanize
 from .support.pyout import naturalsize
@@ -401,10 +401,18 @@ def download_generator(
 
         # Handle our so special dandiset.yaml
         if dandiset and get_metadata:
+            dandiset_metadata = dandiset.get("metadata", {})
+            # DANDI API has no versioning yet, and things are in flux.
+            # It used to have metadata within a key... just in case let's also
+            # be able to handle "old" style
+            # TODO: remove when API stabilizes
+            if (
+                "identifier" not in dandiset_metadata
+                and "dandiset" in dandiset_metadata
+            ):
+                dandiset_metadata = dandiset_metadata["dandiset"]
             for resp in _populate_dandiset_yaml(
-                dandiset_path,
-                dandiset.get("metadata", {}).get("dandiset", {}),
-                existing == "overwrite",
+                dandiset_path, dandiset_metadata, existing == "overwrite"
             ):
                 yield dict(path=dandiset_metadata_file, **resp)
 
@@ -798,6 +806,6 @@ def _download_file(
     # TODO: dissolve attrs and pass specific mtime?
     if mtime:
         yield {"status": "setting mtime"}
-        os.utime(path, (time.time(), mtime.timestamp()))
+        os.utime(path, (time.time(), ensure_datetime(mtime).timestamp()))
 
     yield {"status": "done"}

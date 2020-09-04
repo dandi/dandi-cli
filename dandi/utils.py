@@ -19,8 +19,7 @@ from . import __version__
 from .consts import dandi_instance, known_instances, known_instances_rev
 from .exceptions import BadCliVersionError, CliVersionTooOldError
 
-if sys.version_info[:2] < (3, 7):
-    import dateutil.parser
+import dateutil.parser
 
 #
 # Additional handlers
@@ -150,7 +149,11 @@ def ensure_strtime(t, isoformat=True):
 
 def fromisoformat(t, impl=None):
     if impl is None:
-        impl = "datetime" if sys.version_info[:2] >= (3, 7) else "dateutil"
+        # datetime parser "does not support parsing arbitrary ISO 8601 strings"
+        # https://docs.python.org/3/library/datetime.html
+        # In particular it does not parse time zone suffix which was recently
+        # introduced into datetime's provided by API
+        impl = "dateutil"
     if impl == "datetime":
         return datetime.datetime.fromisoformat(t)
     elif impl == "dateutil":
