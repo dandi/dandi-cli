@@ -50,9 +50,7 @@ services:
       #PUBLISH_API_URL: http://localhost:8000/api
 
   django:
-    build:
-      context: .
-      dockerfile: django.Dockerfile
+    image: dandiarchive/dandiarchive-publish
     command: ["./manage.py", "runserver", "0.0.0.0:8000"]
     depends_on:
       - girder
@@ -75,9 +73,7 @@ services:
       - "8000:8000"
 
   celery:
-    build:
-      context: .
-      dockerfile: django.Dockerfile
+    image: dandiarchive/dandiarchive-publish
     command: [
       "celery", "worker",
       "--app", "dandi.celery",
