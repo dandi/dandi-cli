@@ -1,10 +1,12 @@
 # Based on
 # <https://github.com/dandi/dandiarchive/blob/master/docker/docker-compose.yml>,
+# <https://github.com/dandi/dandi-publish/blob/master/docker-compose.yml>, and
+# <https://github.com/dandi/dandi-publish/blob/master/docker-compose.override.yml>,
 # but using images uploaded to Docker Hub instead of building them locally.
 
 version: '3'
-services:
 
+services:
   mongo:
     image: mongo:latest
     volumes:
@@ -45,6 +47,73 @@ services:
       GIRDER_URL: http://localhost:8081
       GUI_URL: http://localhost:8086
       ABOUT_URL: http://www.dandiarchive.org
+      #PUBLISH_API_URL: http://localhost:8000/api
+
+  django:
+    image: dandiarchive/dandiarchive-publish
+    command: ["./manage.py", "runserver", "0.0.0.0:8000"]
+    depends_on:
+      - girder
+      - minio
+      - postgres
+      - rabbitmq
+    environment:
+      DJANGO_CELERY_BROKER_URL: amqp://rabbitmq:5672/
+      DJANGO_CONFIGURATION: DevelopmentConfiguration
+      DJANGO_DANDI_DANDISETS_BUCKET_NAME: dandi-dandisets
+      DJANGO_DANDI_GIRDER_API_URL:
+      DJANGO_DANDI_GIRDER_API_KEY:
+      DJANGO_DATABASE_URL: postgres://postgres:postgres@postgres:5432/django
+      DJANGO_MINIO_STORAGE_ACCESS_KEY: minioUserAccessKey
+      DJANGO_MINIO_STORAGE_ENDPOINT: minio:9000
+      DJANGO_MINIO_STORAGE_SECRET_KEY: minioUserSecretKey
+      DJANGO_STORAGE_BUCKET_NAME: django-storage
+      DJANGO_MINIO_STORAGE_MEDIA_URL: http://localhost:9000/django-storage
+    ports:
+      - "8000:8000"
+
+  celery:
+    image: dandiarchive/dandiarchive-publish
+    command: [
+      "celery", "worker",
+      "--app", "dandi.celery",
+      "--loglevel", "info",
+      "--without-heartbeat"
+    ]
+    depends_on:
+      - minio
+      - postgres
+      - rabbitmq
+    environment:
+      DJANGO_CELERY_BROKER_URL: amqp://rabbitmq:5672/
+      DJANGO_CONFIGURATION: DevelopmentConfiguration
+      DJANGO_DANDI_DANDISETS_BUCKET_NAME: dandi-dandisets
+      DJANGO_DANDI_GIRDER_API_URL:
+      DJANGO_DANDI_GIRDER_API_KEY:
+      DJANGO_DATABASE_URL: postgres://postgres:postgres@postgres:5432/django
+      DJANGO_MINIO_STORAGE_ACCESS_KEY: minioUserAccessKey
+      DJANGO_MINIO_STORAGE_ENDPOINT: minio:9000
+      DJANGO_MINIO_STORAGE_SECRET_KEY: minioUserSecretKey
+      DJANGO_STORAGE_BUCKET_NAME: django-storage
+      DJANGO_MINIO_STORAGE_MEDIA_URL: http://localhost:9000/django-storage
+
+  minio:
+    image: girder/minio-nonroot:latest
+    ports:
+      - "9000:9000"
+
+  postgres:
+    environment:
+      POSTGRES_DB: django
+      POSTGRES_PASSWORD: postgres
+    image: postgres
+    ports:
+      - "5432:5432"
+
+  rabbitmq:
+    image: rabbitmq:latest
+    ports:
+      - "5672:5672"
 
 volumes:
   dandi_girder_mongo_db:
