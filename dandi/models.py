@@ -320,8 +320,8 @@ class AssetsSummary(DandiBaseModel):
     numberOfBytes: int = Field(readonly=True, sameas="schema:contentSize")
     numberOfFiles: int = Field(readonly=True)  # universe
     numberOfSubjects: int = Field(readonly=True)  # NWB + BIDS
-    numberOfSamples: int = Field(None, readonly=True)  # more of NWB
-    numberOfCells: int = Field(None, readonly=True)
+    numberOfSamples: Optional[int] = Field(None, readonly=True)  # more of NWB
+    numberOfCells: Optional[int] = Field(None, readonly=True)
 
     dataStandard: List[StandardsType] = Field(
         readonly=True
@@ -332,7 +332,7 @@ class AssetsSummary(DandiBaseModel):
     )  # TODO: types of things, BIDS etc...
     # Web UI: could be an icon with number, which if hovered on  show a list?
     measurementTechnique: List[MeasurementTechniqueType] = Field(readonly=True)
-    variableMeasured: List[PropertyValue] = Field(None, readonly=True)
+    variableMeasured: Optional[List[PropertyValue]] = Field(None, readonly=True)
 
     _ldmeta = {
         "rdfs:subClassOf": ["schema:CreativeWork", "prov:Entity"],
@@ -361,10 +361,11 @@ class BioSample(DandiBaseModel):
     """Description about the sample that was studied"""
 
     identifier: Identifier = Field(nskey="schema")
-    assayType: List[AssayType] = Field(
-        description="OBI based identifier for the assay(s) used", nskey="dandi"
+    assayType: Optional[List[AssayType]] = Field(
+        None, description="OBI based identifier for the assay(s) used", nskey="dandi"
     )
-    anatomy: List[Anatomy] = Field(
+    anatomy: Optional[List[Anatomy]] = Field(
+        None,
         description="UBERON based identifier for the location of the sample",
         nskey="dandi",
     )
@@ -602,7 +603,7 @@ class AssetMeta(CommonModel):
         None, readonly=True, nskey="schema"
     )
 
-    wasDerivedFrom: List[BioSample] = Field(None, nskey="prov")
+    wasDerivedFrom: Optional[List[BioSample]] = Field(None, nskey="prov")
 
     # on publish or set by server
     contentUrl: Optional[List[AnyUrl]] = Field(None, readonly=True, nskey="schema")
