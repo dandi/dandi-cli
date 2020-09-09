@@ -35,7 +35,10 @@ class JSONFormatter(Formatter):
         import json
 
         self.out.write(
-            json.dumps(rec, indent=self.indent, default=self._serializer) + "\n"
+            json.dumps(
+                rec, indent=self.indent, sort_keys=True, default=self._serializer
+            )
+            + "\n"
         )
 
 
