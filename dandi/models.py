@@ -475,13 +475,13 @@ class CommonModel(DandiBaseModel):
     protocol: Optional[List[str]] = Field(None, nskey="dandi")
     ethicsApproval: Optional[List[EthicsApproval]] = Field(None, nskey="dandi")
     license: List[License] = Field(nskey="schema")
-    keywords: List[str] = Field(
+    keywords: Optional[List[str]] = Field(
+        None,
         title="Keywords",
         description="Keywords or tags used to describe "
         "this content. Multiple entries in a "
         "keywords list are typically delimited "
         "by commas.",
-        min_items=1,
         nskey="schema",
     )
     acknowledgement: Optional[str] = Field(None, title="Acknowledgement", nskey="dandi")
