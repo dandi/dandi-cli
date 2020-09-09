@@ -68,17 +68,37 @@ def ls(paths, fields=None, format="auto", recursive=False):
                 "Following fields are not known: %s" % ", ".join(unknown_fields)
             )
 
-    # For now we support only individual files
-    if recursive:
-        files = list(find_files(r"\.nwb\Z", paths))
-    else:
-        files = paths
+    urls = map(is_url, paths)
+    # Actually I do not see why and it could be useful to compare local-vs-remote
+    # if any(urls) and not all(urls):
+    #     raise ValueError(f"ATM cannot mix URLs with local paths. Got {paths}")
 
-    if not files:
-        return
+    def assets_gen():
+        for path in paths:
+            if is_url(path):
+                from ..dandiarchive import navigate_url
+
+                with navigate_url(path) as (client, dandiset, assets):
+                    if dandiset:
+                        rec = {
+                            "path": dandiset.pop("dandiset", {}).get(
+                                "identifier", "ERR#%s" % id(dandiset)
+                            )
+                        }
+                        # flatten the metadata into record to display
+                        # rec.update(dandiset.get('metadata', {}))
+                        rec.update(dandiset)
+                        yield rec
+                    if recursive and assets:
+                        yield from assets
+            else:
+                # For now we support only individual files
+                yield path
+                if recursive:
+                    yield from find_files(r"\.nwb\Z", path)
 
     if format == "auto":
-        format = "yaml" if len(files) == 1 else "pyout"
+        format = "yaml" if any(urls) or (len(paths) == 1 and not recursive) else "pyout"
 
     if format == "pyout":
         if fields and fields[0] != "path":
@@ -99,39 +119,47 @@ def ls(paths, fields=None, format="auto", recursive=False):
         async_keys = async_keys.intersection(fields)
     async_keys = tuple(async_keys.difference(common_fields))
 
-    process_paths = set()
+    process_assets = set()
     errors = defaultdict(list)  # problem: [] paths
     with out:
-        for path in files:
-            while len(process_paths) >= 10:
+        for asset in assets_gen():
+            while len(process_assets) >= 10:
                 lgr.log(2, "Sleep waiting for some paths to finish processing")
                 time.sleep(0.5)
-            process_paths.add(path)
 
-            rec = {}
-            rec["path"] = path
+            if isinstance(asset, str):  # path
+                process_assets.add(asset)
+                rec = {}
+                rec["path"] = asset
 
-            try:
-                if (not fields or "size" in fields) and not op.isdir(path):
-                    rec["size"] = os.stat(path).st_size
+                try:
+                    if (not fields or "size" in fields) and not op.isdir(asset):
+                        rec["size"] = os.stat(asset).st_size
 
-                if async_keys:
-                    cb = get_metadata_pyout(
-                        path, async_keys, process_paths, flatten=format == "pyout"
-                    )
-                    if format == "pyout":
-                        rec[async_keys] = cb
-                    else:
-                        # TODO: parallel execution
-                        # For now just call callback and get all the fields
-                        for k, v in cb().items():
-                            rec[k] = v
-            except Exception as exc:
-                lgr.debug("Problem obtaining metadata for %s: %s", path, exc)
-                errors[str(type(exc).__name__)].append(path)
+                    if async_keys:
+                        cb = get_metadata_pyout(
+                            asset, async_keys, process_assets, flatten=format == "pyout"
+                        )
+                        if format == "pyout":
+                            rec[async_keys] = cb
+                        else:
+                            # TODO: parallel execution
+                            # For now just call callback and get all the fields
+                            for k, v in cb().items():
+                                rec[k] = v
+                except Exception as exc:
+                    lgr.debug("Problem obtaining metadata for %s: %s", asset, exc)
+                    errors[str(type(exc).__name__)].append(asset)
+            elif isinstance(asset, dict):
+                # ready record
+                # TODO: harmonization for pyout
+                rec = asset
+            else:
+                raise TypeError(asset)
+
             if not rec:
-                errors["Empty record"].append(path)
-                lgr.debug("Skipping a record for %s since emtpy", path)
+                errors["Empty record"].append(asset)
+                lgr.debug("Skipping a record for %s since emtpy", asset)
                 continue
             out(rec)
         if errors:
@@ -251,3 +279,11 @@ def get_metadata_pyout(path, keys=None, process_paths=None, flatten=False):
                 process_paths.remove(path)
 
     return fn
+
+
+def is_url(s):
+    """Very primitive url detection for now
+
+    TODO: redo
+    """
+    return s.startswith("http") and "://" in s
