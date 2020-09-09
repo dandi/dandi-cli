@@ -164,14 +164,14 @@ def extract_assay_type(metadata):
     if "assayType" in metadata:
         return [models.AssayType(identifier="assayType", name=metadata["assayType"])]
     else:
-        return []
+        return ...
 
 
 def extract_anatomy(metadata):
     if "anatomy" in metadata:
         return [models.Anatomy(identifier="anatomy", name=metadata["anatomy"])]
     else:
-        return []
+        return ...
 
 
 def extract_model(modelcls, metadata, **kwargs):

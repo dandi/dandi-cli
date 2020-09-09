@@ -127,8 +127,8 @@ def test_metadata2asset():
         wasDerivedFrom=[
             BioSample(
                 identifier="a1b2c3",
-                assayType=[],
-                anatomy=[],
+                assayType=None,
+                anatomy=None,
                 strain=None,
                 cellLine=None,
                 vendor=None,
@@ -203,8 +203,8 @@ def test_metadata2asset_simple1():
         wasDerivedFrom=[
             BioSample.unvalidated(
                 identifier=None,
-                assayType=[],
-                anatomy=[],
+                assayType=None,
+                anatomy=None,
                 strain=None,
                 cellLine=None,
                 vendor=None,
