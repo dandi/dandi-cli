@@ -273,6 +273,7 @@ def find_files(
     paths=os.curdir,
     exclude=None,
     exclude_dotfiles=True,
+    exclude_dotdirs=True,
     exclude_vcs=True,
     exclude_datalad=False,
     dirs=False,
@@ -290,6 +291,8 @@ def find_files(
     exclude_vcs:
       If True, excludes commonly known VCS subdirectories.  If string, used
       as regex to exclude those files (regex: `%r`)
+    exclude_dotdirs:
+      If True, does not descend into directories starting with ".".
     exclude_datalad:
       If True, excludes files known to be datalad meta-data files (e.g. under
       .datalad/ subdirectory) (regex: `%r`)
@@ -318,6 +321,7 @@ def find_files(
                     paths=path,
                     exclude=exclude,
                     exclude_dotfiles=exclude_dotfiles,
+                    exclude_dotdirs=exclude_dotdirs,
                     exclude_vcs=exclude_vcs,
                     exclude_datalad=exclude_datalad,
                     dirs=dirs,
@@ -338,6 +342,13 @@ def find_files(
         # TODO: might want to uniformize on windows to use '/'
         if exclude_dotfiles:
             names = (n for n in names if not n.startswith("."))
+        if exclude_dotdirs:
+            # and we should filter out directories from dirnames
+            # Since we need to del which would change index, let's
+            # start from the end
+            for i in range(len(dirnames))[::-1]:
+                if dirnames[i].startswith("."):
+                    del dirnames[i]
         paths = (op.join(dirpath, name) for name in names)
         for path in filter(re.compile(regex).search, paths):
             if not exclude_path(path):
