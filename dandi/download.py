@@ -152,7 +152,7 @@ def download_generator(
                 if d in asset.get("metadata", {})
             }
             if isinstance(client, girder.GirderCli):
-                down_args = (asset["id"],)
+                down_args = (asset["girder"]["id"],)
                 digests = digests_from_metadata
             elif isinstance(client, DandiAPIClient):
                 # At least according to our 0.1.0 state of v1

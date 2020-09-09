@@ -680,7 +680,7 @@ def _harmonize_girder_asset_to_dandi_api(rec):
 
     if metadata_outdated:
         lgr.warning(
-            "Found discrepnancies in girder record and metadata: %s",
+            "Found discrepancies in girder record and metadata: %s",
             ", ".join(metadata_outdated),
         )
 
@@ -698,6 +698,14 @@ def _harmonize_girder_asset_to_dandi_api(rec):
         )
     rec["path"] = path
 
+    if "id" in rec:
+        # Let's create a dedicated section for girder specific information
+        rec["girder"] = {"id": rec.pop("id")}
+
+    # Some additional fields which should appear at the top level in the records returned
+    # by DANDI API
+    if "sha256" in metadata:
+        rec["sha256"] = metadata["sha256"]
     return rec
 
 
