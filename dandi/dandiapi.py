@@ -225,7 +225,9 @@ class DandiAPIClient(RESTFullAPIClient):
         return self.get(f"/dandisets/{dandiset_id}/versions/{version}/assets/{uuid}/")
 
     def get_dandiset(self, dandiset_id, version):
-        return self.get(f"/dandisets/{dandiset_id}/versions/{version}/")
+        return self._migrate_dandiset_metadata(
+            self.get(f"/dandisets/{dandiset_id}/versions/{version}/")
+        )
 
     def get_dandiset_assets(self, dandiset_id, version, location=None, page_size=None):
         """A generator to provide asset records
@@ -333,3 +335,19 @@ class DandiAPIClient(RESTFullAPIClient):
                     yield chunk
 
         return downloader
+
+    # TODO: remove when API stabilizes
+
+    # Should perform changes in-place but also return the original record
+
+    @classmethod
+    def _migrate_dandiset_metadata(cls, dandiset):
+        dandiset_metadata = dandiset.get("metadata", {})
+        if not dandiset_metadata:
+            return dandiset
+        # DANDI API has no versioning yet, and things are in flux.
+        # It used to have metadata within a key... just in case let's also
+        # be able to handle "old" style
+        if "identifier" not in dandiset_metadata and "dandiset" in dandiset_metadata:
+            dandiset["metadata"] = dandiset_metadata.pop("dandiset")
+        return dandiset
