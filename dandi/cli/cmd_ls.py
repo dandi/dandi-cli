@@ -159,7 +159,7 @@ def ls(paths, fields=None, format="auto", recursive=False):
 
             if not rec:
                 errors["Empty record"].append(asset)
-                lgr.debug("Skipping a record for %s since emtpy", asset)
+                lgr.debug("Skipping a record for %s since empty", asset)
                 continue
             out(rec)
         if errors:
