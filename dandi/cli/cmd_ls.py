@@ -286,4 +286,4 @@ def is_url(s):
 
     TODO: redo
     """
-    return s.startswith("http") and "://" in s
+    return s.lower().startswith(("http://", "https://"))
