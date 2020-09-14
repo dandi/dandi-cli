@@ -50,7 +50,8 @@ class YAMLFormatter(Formatter):
     def __exit__(self, exc_type, exc_value, traceback):
         import ruamel.yaml
 
-        yaml = ruamel.yaml.YAML()
+        yaml = ruamel.yaml.YAML(typ="safe")
+        yaml.default_flow_style = False
         yaml.dump(self.records, self.out)
 
     def __call__(self, rec):
