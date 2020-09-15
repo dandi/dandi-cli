@@ -34,6 +34,4 @@ def register(name, description, dandiset_path=None, dandi_instance="dandi"):
     """
     from ..register import register
 
-    output = register(name, description, dandiset_path, dandi_instance)
-    if output is not None:
-        print(output)
+    register(name, description, dandiset_path, dandi_instance)

@@ -11,6 +11,20 @@ lgr = get_logger()
 
 
 def register(name, description, dandiset_path=None, dandi_instance="dandi"):
+    """Register a dandiset
+
+    Parameters
+    ----------
+    name: str
+    description: str
+    dandiset_path: str, optional
+    dandi_instance: str, optional
+
+    Returns
+    -------
+    dict
+      Metadata record of the registered dandiset
+    """
     dandi_instance = get_instance(dandi_instance)
     if not dandiset_path and op.exists(dandiset_metadata_file):
         dandiset = Dandiset.find(os.getcwd())
@@ -35,15 +49,13 @@ def register(name, description, dandiset_path=None, dandi_instance="dandi"):
 
     url = routes.dandiset_draft.format(**locals())
 
-    lgr.info(f"Registered dandiset at {url}. Please visit and adjust metadata.")
+    lgr.info(
+        f"Registered dandiset {dandiset['identifier']} at {url}. Please visit and adjust metadata."
+    )
+
     if dandiset_path:
+        lgr.info(f"Adjusting {dandiset_path} with obtained metadata")
         ds = Dandiset(dandiset_path, allow_empty=True)
         ds.update_metadata(dandiset)
-        return None
-    else:
-        lgr.info(
-            "No dandiset path was provided and no dandiset detected in the path."
-            " Here is a record for %s",
-            dandiset_metadata_file,
-        )
-        return Dandiset.get_dandiset_record(dandiset)
+
+    return dandiset
