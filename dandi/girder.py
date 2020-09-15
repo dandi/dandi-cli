@@ -139,6 +139,7 @@ class GirderCli(gcl.GirderClient):
         api_key = os.environ.get("DANDI_API_KEY", None)
         if api_key:
             self.authenticate(apiKey=api_key)
+            lgr.debug("Successfully authenticated using the key from the envvar")
             return
 
         if self._server_url in known_instances_rev:
@@ -157,8 +158,11 @@ class GirderCli(gcl.GirderClient):
                     "in Girder) for {}: ".format(client_name)
                 )
                 keyring.set_password(app_id, "key", api_key)
+                lgr.debug("Stored key in keyring")
+
             try:
                 self.authenticate(apiKey=api_key)
+                lgr.debug("Successfully authenticated using the key")
                 break
             except Exception as exc:
                 sys.stderr.write("Failed to authenticate: {}".format(exc))
