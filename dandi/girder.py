@@ -567,7 +567,7 @@ correspond in case of a draft, as it is served by girder ATM:
     return remap_dict(
         rec,
         {
-            "metadata": "metadata",  # 1-to-1 for now
+            "metadata": "metadata.dandiset",  # 1-to-1 for now
             "dandiset.created": "attrs.ctime",
             "created": "attrs.ctime",
             "dandiset.uptimed": "attrs.mtime",
