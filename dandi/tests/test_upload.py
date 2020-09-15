@@ -4,6 +4,7 @@ import pytest
 
 from .. import girder
 from ..consts import collection_drafts, dandiset_metadata_file
+from ..dandiset import Dandiset
 from ..download import download
 from ..register import register
 from ..upload import upload
@@ -150,12 +151,20 @@ def test_upload_external_download(local_docker_compose_env, monkeypatch, tmp_pat
     download("https://dandiarchive.org/dandiset/000027", tmp_path)
     dandiset_path = tmp_path / "000027"
     dandi_instance_id = local_docker_compose_env["instance_id"]
-    # (dandiset_path / dandiset_metadata_file).unlink()
-    # register(
-    #     "Download & Upload Test",
-    #     "Download & Upload Test Description",
-    #     dandiset_path=dandiset_path,
-    #     dandi_instance=dandi_instance_id,
-    # )
+    dandiset = Dandiset(dandiset_path)
+
+    # Since identifier is instance-specific and locking requires dandiset to exist
+    # we cannot just upload.  We need first to register a new one and have identifier updated.
+    # To minimize any programmatic changes, we will not point register to the dandiset
+    # but just will use its  "identifier"  in the simplest .replace
+    rec = register(
+        dandiset.metadata["name"],
+        dandiset.metadata["description"],
+        dandi_instance=dandi_instance_id,
+    )
+    dandiset_yaml = dandiset_path / dandiset_metadata_file
+    new_dandiset_yaml = dandiset_yaml.read_text().replace("000027", rec["identifier"])
+    dandiset_yaml.write_text(new_dandiset_yaml)
+
     monkeypatch.chdir(dandiset_path)
     upload(paths=[], dandi_instance=dandi_instance_id, devel_debug=True)
