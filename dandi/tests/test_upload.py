@@ -4,6 +4,7 @@ import pytest
 
 from .. import girder
 from ..consts import collection_drafts, dandiset_metadata_file
+from ..download import download
 from ..register import register
 from ..upload import upload
 from ..utils import yaml_load
@@ -143,3 +144,18 @@ def test_upload_stat_failure(local_docker_compose_env, organized_nwb_dir):
         )
     finally:
         baddir.rmdir()
+
+
+def test_upload_external_download(local_docker_compose_env, monkeypatch, tmp_path):
+    download("https://dandiarchive.org/dandiset/000027", tmp_path)
+    dandiset_path = tmp_path / "000027"
+    dandi_instance_id = local_docker_compose_env["instance_id"]
+    # (dandiset_path / dandiset_metadata_file).unlink()
+    # register(
+    #     "Download & Upload Test",
+    #     "Download & Upload Test Description",
+    #     dandiset_path=dandiset_path,
+    #     dandi_instance=dandi_instance_id,
+    # )
+    monkeypatch.chdir(dandiset_path)
+    upload(paths=[], dandi_instance=dandi_instance_id, devel_debug=True)
