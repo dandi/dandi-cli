@@ -250,6 +250,11 @@ def upload(
             # Yarik hates it but that is life for now. TODO
             #
             if path.name == dandiset_metadata_file:
+                # TODO This is a temporary measure to avoid breaking web UI
+                # dandiset metadata schema assumptions.  All edits should happen
+                # online.
+                yield skip_file("should be edited online")
+                return
                 # We need to upload its content as metadata for the entire
                 # folder.
                 folder_rec = ensure_folder()
