@@ -22,7 +22,10 @@ def test_lock_dandiset_error_on_nest(local_docker_compose_env):
         with pytest.raises(LockingError) as excinfo:
             with client.lock_dandiset(DANDISET_ID):
                 raise AssertionError("This shouldn't be reached")  # pragma: no cover
-        assert str(excinfo.value) == f"Failed to lock dandiset {DANDISET_ID}"
+        assert (
+            str(excinfo.value) == f"Failed to lock dandiset {DANDISET_ID} due to: "
+            f"Dandiset {DANDISET_ID} is currently locked by admin admin"
+        )
 
 
 def test_lock_dandiset_unlock_within(local_docker_compose_env):
@@ -34,4 +37,7 @@ def test_lock_dandiset_unlock_within(local_docker_compose_env):
             client.post(f"dandi/{DANDISET_ID}/unlock")
             unlocked = True
     assert unlocked
-    assert str(excinfo.value) == f"Failed to unlock dandiset {DANDISET_ID}"
+    assert (
+        str(excinfo.value) == f"Failed to unlock dandiset {DANDISET_ID} due to: "
+        f"Dandiset {DANDISET_ID} is currently unlocked"
+    )

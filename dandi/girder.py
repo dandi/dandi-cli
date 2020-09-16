@@ -70,6 +70,13 @@ def get_HttpError_response(exc):
     return None
 
 
+def get_HttpError_message(exc):
+    resp = get_HttpError_response(exc)
+    if isinstance(resp, dict):
+        return resp.get("message", None)
+    return resp
+
+
 def is_access_denied(exc):
     """Tell if an exception about denied access"""
     response = get_HttpError_response(exc)
@@ -132,6 +139,7 @@ class GirderCli(gcl.GirderClient):
         api_key = os.environ.get("DANDI_API_KEY", None)
         if api_key:
             self.authenticate(apiKey=api_key)
+            lgr.debug("Successfully authenticated using the key from the envvar")
             return
 
         if self._server_url in known_instances_rev:
@@ -150,8 +158,11 @@ class GirderCli(gcl.GirderClient):
                     "in Girder) for {}: ".format(client_name)
                 )
                 keyring.set_password(app_id, "key", api_key)
+                lgr.debug("Stored key in keyring")
+
             try:
                 self.authenticate(apiKey=api_key)
+                lgr.debug("Successfully authenticated using the key")
                 break
             except Exception as exc:
                 sys.stderr.write("Failed to authenticate: {}".format(exc))
@@ -498,9 +509,13 @@ class GirderCli(gcl.GirderClient):
         try:
             lgr.debug("Trying to acquire lock for %s", dandiset_identifier)
             try:
-                self.post(f"dandi/{dandiset_identifier}/lock")
-            except gcl.HttpError:
-                raise LockingError(f"Failed to lock dandiset {dandiset_identifier}")
+                resp = self.post(f"dandi/{dandiset_identifier}/lock")
+                lgr.debug("Locking response: %s", str(resp))
+            except gcl.HttpError as exc:
+                msg = get_HttpError_message(exc) or str(exc)
+                raise LockingError(
+                    f"Failed to lock dandiset {dandiset_identifier} due to: {msg}"
+                )
             else:
                 presumably_locked = True
 
@@ -509,10 +524,12 @@ class GirderCli(gcl.GirderClient):
             if presumably_locked:
                 lgr.debug("Trying to release the lock for %s", dandiset_identifier)
                 try:
-                    self.post(f"dandi/{dandiset_identifier}/unlock")
-                except gcl.HttpError:
+                    resp = self.post(f"dandi/{dandiset_identifier}/unlock")
+                    lgr.debug("Unlocking response: %s", str(resp))
+                except gcl.HttpError as exc:
+                    msg = get_HttpError_message(exc) or str(exc)
                     raise LockingError(
-                        f"Failed to unlock dandiset {dandiset_identifier}"
+                        f"Failed to unlock dandiset {dandiset_identifier} due to: {msg}"
                     )
 
 
