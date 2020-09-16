@@ -43,6 +43,12 @@ def register(name, description, dandiset_path=None, dandi_instance="dandi"):
                     dandiset_metadata_file,
                     dandiset.path,
                 )
+        else:
+            lgr.info(
+                "No dandiset path was provided and no dandiset detected in the path."
+                " No %s will be modified",
+                dandiset_metadata_file,
+            )
 
     client = girder.get_client(dandi_instance.girder)
     dandiset = client.register_dandiset(name, description)
