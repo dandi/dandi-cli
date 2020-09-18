@@ -4,7 +4,9 @@ from urllib.parse import urlparse
 import click
 import requests
 from dandi import girder
+from dandi.consts import dandiset_metadata_file
 from dandi.dandiarchive import navigate_url
+from dandi.dandiset import Dandiset
 from dandi.utils import get_instance
 
 
@@ -25,9 +27,16 @@ def instantiate_dandisets(
             dsdir.mkdir(parents=True, exist_ok=True)
             with navigate_url(f"https://dandiarchive.org/dandiset/{did}/draft") as (
                 _,
-                _,
+                dandiset,
                 assets,
             ):
+                try:
+                    (dsdir / dandiset_metadata_file).unlink()
+                except FileNotFoundError:
+                    pass
+                metadata = dandiset.get("metadata", {})
+                ds = Dandiset(dsdir, allow_empty=True)
+                ds.update_metadata(metadata)
                 for a in assets:
                     gid = a["girder"]["id"]
                     src = assetstore_path / girderid2assetpath(s, gid)
