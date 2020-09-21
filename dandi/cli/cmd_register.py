@@ -6,8 +6,7 @@ from .base import dandiset_path_option, instance_option, map_to_click_exceptions
 @click.command()
 @dandiset_path_option(
     help="Top directory (local) for the dandiset, where dandi will download "
-    "(or update existing) dandiset.yaml upon successful registration.  If not "
-    "specified, content for the file will be printed to the screen."
+    "(or update existing) dandiset.yaml upon successful registration."
 )
 @click.option(
     "-n", "--name", help="Short name or title for the dandiset.", prompt="Name"
@@ -34,4 +33,5 @@ def register(name, description, dandiset_path=None, dandi_instance="dandi"):
     """
     from ..register import register
 
-    register(name, description, dandiset_path, dandi_instance)
+    dandiset = register(name, description, dandiset_path, dandi_instance)
+    print("identifier:", dandiset.identifier)
