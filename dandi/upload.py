@@ -230,7 +230,8 @@ def upload(
             #
             # 1. Validate first, so we do not bother girder at all if not kosher
             #
-            if validation != "skip":
+            # TODO: enable back validation of dandiset.yaml
+            if path.name != dandiset_metadata_file and validation != "skip":
                 yield {"status": "validating"}
                 validation_errors = validate_file(path)
                 yield {"errors": len(validation_errors)}
@@ -239,6 +240,8 @@ def upload(
                     if validation == "require":
                         yield skip_file("failed validation")
                         return
+                else:
+                    yield {"status": "validated"}
             else:
                 # yielding empty causes pyout to get stuck or crash
                 # https://github.com/pyout/pyout/issues/91
@@ -250,6 +253,11 @@ def upload(
             # Yarik hates it but that is life for now. TODO
             #
             if path.name == dandiset_metadata_file:
+                # TODO This is a temporary measure to avoid breaking web UI
+                # dandiset metadata schema assumptions.  All edits should happen
+                # online.
+                yield skip_file("should be edited online")
+                return
                 # We need to upload its content as metadata for the entire
                 # folder.
                 folder_rec = ensure_folder()

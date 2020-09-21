@@ -124,9 +124,11 @@ def download_generator(
 
         # TODO: if we are ALREADY in a dandiset - we can validate that it is the
         # same dandiset and use that dandiset path as the one to download under
-
         if dandiset:
-            output_path = op.join(output_dir, dandiset["dandiset"]["identifier"])
+            identifier = Dandiset._get_identifier(dandiset)
+            if not identifier:
+                raise ValueError(f"Cannot deduce dandiset identifier from {dandiset}")
+            output_path = op.join(output_dir, identifier)
             if get_metadata:
                 dandiset_metadata = dandiset.get("metadata", {})
                 for resp in _populate_dandiset_yaml(
