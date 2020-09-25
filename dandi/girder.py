@@ -357,14 +357,20 @@ class GirderCli(gcl.GirderClient):
         """
         """
 
-        def downloader():
+        def downloader(start_at=0):
             # TODO: make it a common decorator here?
             # Will do 3 attempts to avoid some problems due to flaky/overloaded
             # connections, see https://github.com/dandi/dandi-cli/issues/87
             for attempt in range(3):
                 try:
-                    return self.downloadFileAsIterator(file_id, chunkSize=chunk_size)
-                    break
+                    path = f"file/{file_id}/download"
+                    params = None
+                    if start_at > 0:
+                        params = {"offset": str(start_at)}
+                    resp = self.sendRestRequest(
+                        "get", path, stream=True, jsonResp=False, parameters=params
+                    )
+                    return resp.iter_content(chunk_size=chunk_size)
                 except gcl.HttpError as exc:
                     if is_access_denied(exc) or attempt >= 2:
                         raise

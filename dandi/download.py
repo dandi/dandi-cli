@@ -430,13 +430,13 @@ def _download_file(
     # TODO: do not do it in-place, but rather into some "hidden" file
     for attempt in range(3):
         try:
-            downloaded = 0
             if digester:
                 downloaded_digest = digester()  # start empty
             warned = False
             # I wonder if we could make writing async with downloader
             with DownloadDirectory(path, digest) as dldir:
-                for block in downloader():
+                downloaded = dldir.offset
+                for block in downloader(start_at=dldir.offset):
                     if digester:
                         downloaded_digest.update(block)
                     downloaded += len(block)

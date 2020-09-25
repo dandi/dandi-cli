@@ -23,29 +23,32 @@ def test_download_multiple_files(monkeypatch, tmpdir):
     # to this test will test those retries.
     # While at it we will also test girder downloadFile to retry at least 3 times
     # in case of some errors, and that it sleeps between retries
-    orig_downloadFileAsIterator = GirderCli.downloadFileAsIterator
+    orig_sendRestRequest = GirderCli.sendRestRequest
 
     class Mocks:
         ntries = 0
         sleeps = 0
 
         @staticmethod
-        def downloadFileAsIterator(self, *args, **kwargs):
-            Mocks.ntries += 1
-            if Mocks.ntries < 3:
-                raise gcl.HttpError(
-                    text="Failing to download", url=url, method="GET", status=500
-                )
-            return orig_downloadFileAsIterator(self, *args, **kwargs)
+        def sendRestRequest(self, *args, **kwargs):
+            if (
+                len(args) > 1
+                and args[1].startswith("file/")
+                and args[1].endswith("/download")
+            ):
+                Mocks.ntries += 1
+                if Mocks.ntries < 3:
+                    raise gcl.HttpError(
+                        text="Failing to download", url=url, method="GET", status=500
+                    )
+            return orig_sendRestRequest(self, *args, **kwargs)
 
         @staticmethod
         def sleep(duration):
             Mocks.sleeps += duration
             # no actual sleeping
 
-    monkeypatch.setattr(
-        GirderCli, "downloadFileAsIterator", Mocks.downloadFileAsIterator
-    )
+    monkeypatch.setattr(GirderCli, "sendRestRequest", Mocks.sendRestRequest)
     monkeypatch.setattr(time, "sleep", Mocks.sleep)  # to not sleep in the test
 
     ret = download(url, tmpdir)
