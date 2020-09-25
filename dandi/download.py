@@ -2,6 +2,7 @@ import hashlib
 
 import os
 import os.path as op
+from pathlib import Path
 import random
 import requests
 import sys
@@ -434,7 +435,7 @@ def _download_file(
                 downloaded_digest = digester()  # start empty
             warned = False
             # I wonder if we could make writing async with downloader
-            with open(path, "wb") as writer:
+            with DownloadDirectory(path, digest) as dldir:
                 for block in downloader():
                     if digester:
                         downloaded_digest.update(block)
@@ -453,7 +454,7 @@ def _download_file(
                         msg["done%"] = 100 * downloaded / size if size else "100"
                         # TODO: ETA etc
                     yield msg
-                    writer.write(block)
+                    dldir.append(block)
             break
             # both girder and we use HttpError
         except requests.exceptions.HTTPError as exc:
@@ -501,3 +502,68 @@ def _download_file(
         os.utime(path, (time.time(), ensure_datetime(mtime).timestamp()))
 
     yield {"status": "done"}
+
+
+class DownloadDirectory:
+    def __init__(self, filepath, filehash):
+        #: The path to which to save the file after downloading
+        self.filepath = Path(filepath)
+        #: The expected hash of the downloaded data
+        self.filehash = filehash
+        #: The working directory in which downloaded data will be temporarily
+        #: stored
+        self.dirpath = append_ext(self.filepath, ".download")
+        #: The file in `dirpath` to which data will be written as it is
+        #: received
+        self.writefile = self.dirpath / self.filepath.name
+        #: A `fasteners.InterProcessLock` on `dirpath`
+        self.lock = None
+        #: An open filehandle to `writefile`
+        self.fp = None
+        #: How much of the data has been downloaded so far
+        self.offset = None
+
+    def __enter__(self):
+        from fasteners import InterProcessLock
+
+        self.dirpath.mkdir(parents=True, exist_ok=True)
+        self.lock = InterProcessLock(str(append_ext(self.writefile, ".lock")))
+        if not self.lock.acquire(blocking=False):
+            raise RuntimeError("Could not acquire lock on download")
+        chkpath = append_ext(self.writefile, ".checksum")
+        try:
+            checksum = chkpath.read_text(encoding="utf-8").strip()
+        except FileNotFoundError:
+            checksum = ""
+        if checksum == self.filehash:
+            # Pick up where we left off, writing to the end of the file
+            self.fp = self.writefile.open("ab")
+        else:
+            # Truncate the file (if it even exists)
+            self.fp = self.writefile.open("wb")
+            chkpath.write_text(str(self.filehash), encoding="utf-8")
+        self.offset = self.fp.tell()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if exc_type is None:
+            from shutil import rmtree
+
+            self.fp.close()
+            self.writefile.replace(self.filepath)
+            self.lock.release()
+            rmtree(self.dirpath, ignore_errors=True)
+        else:
+            self.fp.close()
+            self.lock.release()
+        self.lock = None
+        self.fp = None
+        self.offset = None
+        return False
+
+    def append(self, blob):
+        self.fp.write(blob)
+
+
+def append_ext(path, ext):
+    return path.with_name(path.name + ext)
