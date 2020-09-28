@@ -512,7 +512,7 @@ class DownloadDirectory:
         self.filehash = filehash
         #: The working directory in which downloaded data will be temporarily
         #: stored
-        self.dirpath = append_ext(self.filepath, ".download")
+        self.dirpath = append_ext(self.filepath, ".dandidownload")
         #: The file in `dirpath` to which data will be written as it is
         #: received
         self.writefile = self.dirpath / self.filepath.name
