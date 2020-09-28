@@ -5,6 +5,7 @@ import os.path as op
 from pathlib import Path
 import random
 import requests
+from shutil import rmtree
 import sys
 import time
 
@@ -546,19 +547,17 @@ class DownloadDirectory:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        if exc_type is None:
-            from shutil import rmtree
-
-            self.fp.close()
-            self.writefile.replace(self.filepath)
+        self.fp.close()
+        try:
+            if exc_type is None:
+                self.writefile.replace(self.filepath)
+        finally:
             self.lock.release()
-            rmtree(self.dirpath, ignore_errors=True)
-        else:
-            self.fp.close()
-            self.lock.release()
-        self.lock = None
-        self.fp = None
-        self.offset = None
+            if exc_type is None:
+                rmtree(self.dirpath, ignore_errors=True)
+            self.lock = None
+            self.fp = None
+            self.offset = None
         return False
 
     def append(self, blob):
