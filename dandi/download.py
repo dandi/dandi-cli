@@ -529,7 +529,7 @@ class DownloadDirectory:
         self.dirpath.mkdir(parents=True, exist_ok=True)
         self.lock = InterProcessLock(str(append_ext(self.writefile, ".lock")))
         if not self.lock.acquire(blocking=False):
-            raise RuntimeError("Could not acquire lock on download")
+            raise RuntimeError("Could not acquire download lock for {self.filepath}")
         chkpath = append_ext(self.writefile, ".checksum")
         try:
             checksum = chkpath.read_text(encoding="utf-8").strip()
