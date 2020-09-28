@@ -540,7 +540,11 @@ class DownloadDirectory:
             # Pick up where we left off, writing to the end of the file
             self.fp = self.writefile.open("ab")
         else:
-            # Truncate the file (if it even exists)
+            # Delete the file (if it even exists) and start anew
+            try:
+                self.writefile.unlink()
+            except FileNotFoundError:
+                pass
             self.fp = self.writefile.open("wb")
             chkpath.write_text(str(self.filehash), encoding="utf-8")
         self.offset = self.fp.tell()
