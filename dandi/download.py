@@ -549,9 +549,18 @@ class DownloadDirectory:
             self.digests[alg] == digests[alg] for alg in matching_algs
         ):
             # Pick up where we left off, writing to the end of the file
+            lgr.debug(
+                "Download directory exists and has matching checksum; resuming download"
+            )
             self.fp = self.writefile.open("ab")
         else:
             # Delete the file (if it even exists) and start anew
+            if not chkpath.exists():
+                lgr.debug("Starting new download in new download directory")
+            else:
+                lgr.debug(
+                    "Download directory found, but digests do not match; starting new download"
+                )
             try:
                 self.writefile.unlink()
             except FileNotFoundError:
