@@ -1,3 +1,5 @@
+import json
+import os
 import os.path as op
 
 import time
@@ -143,3 +145,32 @@ def test_girder_tqdm(monkeypatch):
 
     with TQDMProgressReporter() as pr:
         pr.update(10)
+
+
+@pytest.mark.parametrize("resizer", [lambda sz: 0, lambda sz: sz // 2, lambda sz: sz])
+def test_download_000027_resume(tmp_path, resizer):
+    from ..support.digests import Digester
+
+    url = "https://dandiarchive.org/dandiset/000027/0.200721.2222"
+    digester = Digester()
+    download(url, tmp_path, get_metadata=False)
+    dsdir = tmp_path / "000027"
+    nwb = dsdir / "sub-RAT123" / "sub-RAT123.nwb"
+    digests = digester(str(nwb))
+    dldir = nwb.with_name(nwb.name + ".dandidownload")
+    dldir.mkdir()
+    dlfile = dldir / "file"
+    nwb.rename(dlfile)
+    size = dlfile.stat().st_size
+    os.truncate(dlfile, resizer(size))
+    with (dldir / "checksum").open("w") as fp:
+        json.dump(digests, fp)
+    download(url, tmp_path, get_metadata=False)
+    contents = [
+        op.relpath(op.join(dirpath, entry), dsdir)
+        for (dirpath, dirnames, filenames) in os.walk(dsdir)
+        for entry in dirnames + filenames
+    ]
+    assert sorted(contents) == ["sub-RAT123", op.join("sub-RAT123", "sub-RAT123.nwb")]
+    assert nwb.stat().st_size == size
+    assert digester(str(nwb)) == digests

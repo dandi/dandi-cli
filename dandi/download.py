@@ -1,5 +1,5 @@
 import hashlib
-
+import json
 import os
 import os.path as op
 from pathlib import Path
@@ -435,8 +435,14 @@ def _download_file(
                 downloaded_digest = digester()  # start empty
             warned = False
             # I wonder if we could make writing async with downloader
-            with DownloadDirectory(path, digest) as dldir:
+            with DownloadDirectory(path, digests) as dldir:
                 downloaded = dldir.offset
+                if size is not None and downloaded == size:
+                    # Exit early when downloaded == size, as making a Range
+                    # request in such a case results in a 416 error from S3.
+                    # Problems will result if `size` is None but we've already
+                    # downloaded everything.
+                    break
                 for block in downloader(start_at=dldir.offset):
                     if digester:
                         downloaded_digest.update(block)
@@ -506,11 +512,12 @@ def _download_file(
 
 
 class DownloadDirectory:
-    def __init__(self, filepath, filehash):
+    def __init__(self, filepath, digests):
         #: The path to which to save the file after downloading
         self.filepath = Path(filepath)
-        #: The expected hash of the downloaded data
-        self.filehash = filehash
+        #: Expected hashes of the downloaded data, as a mapping from algorithm
+        #: names to digests
+        self.digests = digests
         #: The working directory in which downloaded data will be temporarily
         #: stored
         self.dirpath = self.filepath.with_name(self.filepath.name + ".dandidownload")
@@ -533,10 +540,14 @@ class DownloadDirectory:
             raise RuntimeError("Could not acquire download lock for {self.filepath}")
         chkpath = self.dirpath / "checksum"
         try:
-            checksum = chkpath.read_text(encoding="utf-8").strip()
-        except FileNotFoundError:
-            checksum = ""
-        if checksum == self.filehash:
+            with chkpath.open() as fp:
+                digests = json.load(fp)
+        except (FileNotFoundError, ValueError):
+            digests = {}
+        matching_algs = self.digests.keys() & digests.keys()
+        if matching_algs and all(
+            self.digests[alg] == digests[alg] for alg in matching_algs
+        ):
             # Pick up where we left off, writing to the end of the file
             self.fp = self.writefile.open("ab")
         else:
@@ -546,7 +557,8 @@ class DownloadDirectory:
             except FileNotFoundError:
                 pass
             self.fp = self.writefile.open("wb")
-            chkpath.write_text(str(self.filehash), encoding="utf-8")
+        with chkpath.open("w") as fp:
+            json.dump(self.digests, fp)
         self.offset = self.fp.tell()
         return self
 
