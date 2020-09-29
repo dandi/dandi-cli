@@ -513,10 +513,10 @@ class DownloadDirectory:
         self.filehash = filehash
         #: The working directory in which downloaded data will be temporarily
         #: stored
-        self.dirpath = append_ext(self.filepath, ".dandidownload")
+        self.dirpath = self.filepath.with_name(self.filepath.name + ".dandidownload")
         #: The file in `dirpath` to which data will be written as it is
         #: received
-        self.writefile = self.dirpath / self.filepath.name
+        self.writefile = self.dirpath / "file"
         #: A `fasteners.InterProcessLock` on `dirpath`
         self.lock = None
         #: An open filehandle to `writefile`
@@ -528,10 +528,10 @@ class DownloadDirectory:
         from fasteners import InterProcessLock
 
         self.dirpath.mkdir(parents=True, exist_ok=True)
-        self.lock = InterProcessLock(str(append_ext(self.writefile, ".lock")))
+        self.lock = InterProcessLock(str(self.dirpath / "lock"))
         if not self.lock.acquire(blocking=False):
             raise RuntimeError("Could not acquire download lock for {self.filepath}")
-        chkpath = append_ext(self.writefile, ".checksum")
+        chkpath = self.dirpath / "checksum"
         try:
             checksum = chkpath.read_text(encoding="utf-8").strip()
         except FileNotFoundError:
@@ -566,7 +566,3 @@ class DownloadDirectory:
 
     def append(self, blob):
         self.fp.write(blob)
-
-
-def append_ext(path, ext):
-    return path.with_name(path.name + ext)
