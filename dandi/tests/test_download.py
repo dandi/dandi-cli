@@ -148,10 +148,11 @@ def test_girder_tqdm(monkeypatch):
 
 
 @pytest.mark.parametrize("resizer", [lambda sz: 0, lambda sz: sz // 2, lambda sz: sz])
-def test_download_000027_resume(tmp_path, resizer):
+@pytest.mark.parametrize("version", ["0.200721.2222", "draft"])
+def test_download_000027_resume(tmp_path, resizer, version):
     from ..support.digests import Digester
 
-    url = "https://dandiarchive.org/dandiset/000027/0.200721.2222"
+    url = f"https://dandiarchive.org/dandiset/000027/{version}"
     digester = Digester()
     download(url, tmp_path, get_metadata=False)
     dsdir = tmp_path / "000027"

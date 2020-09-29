@@ -364,12 +364,24 @@ class GirderCli(gcl.GirderClient):
             for attempt in range(3):
                 try:
                     path = f"file/{file_id}/download"
-                    params = None
                     if start_at > 0:
-                        params = {"offset": str(start_at)}
-                    resp = self.sendRestRequest(
-                        "get", path, stream=True, jsonResp=False, parameters=params
-                    )
+                        headers = {"Range": f"bytes={start_at}-"}
+                        # Range requests result in a 206 response, which the
+                        # Girder client treats as an error (at least until they
+                        # merge girder/girder#3301).  Hence, we need to make
+                        # the request directly through `requests`.
+                        import requests
+
+                        resp = requests.get(
+                            f"{self._server_url}/api/v1/{path}",
+                            stream=True,
+                            headers=headers,
+                        )
+                        resp.raise_for_status()
+                    else:
+                        resp = self.sendRestRequest(
+                            "get", path, stream=True, jsonResp=False
+                        )
                     return resp.iter_content(chunk_size=chunk_size)
                 except gcl.HttpError as exc:
                     if is_access_denied(exc) or attempt >= 2:
