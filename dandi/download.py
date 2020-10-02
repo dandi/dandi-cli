@@ -1,9 +1,11 @@
 import hashlib
-
+import json
 import os
 import os.path as op
+from pathlib import Path
 import random
 import requests
+from shutil import rmtree
 import sys
 import time
 
@@ -431,13 +433,19 @@ def _download_file(
     # TODO: do not do it in-place, but rather into some "hidden" file
     for attempt in range(3):
         try:
-            downloaded = 0
             if digester:
                 downloaded_digest = digester()  # start empty
             warned = False
             # I wonder if we could make writing async with downloader
-            with open(path, "wb") as writer:
-                for block in downloader():
+            with DownloadDirectory(path, digests) as dldir:
+                downloaded = dldir.offset
+                if size is not None and downloaded == size:
+                    # Exit early when downloaded == size, as making a Range
+                    # request in such a case results in a 416 error from S3.
+                    # Problems will result if `size` is None but we've already
+                    # downloaded everything.
+                    break
+                for block in downloader(start_at=dldir.offset):
                     if digester:
                         downloaded_digest.update(block)
                     downloaded += len(block)
@@ -455,7 +463,7 @@ def _download_file(
                         msg["done%"] = 100 * downloaded / size if size else "100"
                         # TODO: ETA etc
                     yield msg
-                    writer.write(block)
+                    dldir.append(block)
             break
             # both girder and we use HttpError
         except requests.exceptions.HTTPError as exc:
@@ -503,3 +511,81 @@ def _download_file(
         os.utime(path, (time.time(), ensure_datetime(mtime).timestamp()))
 
     yield {"status": "done"}
+
+
+class DownloadDirectory:
+    def __init__(self, filepath, digests):
+        #: The path to which to save the file after downloading
+        self.filepath = Path(filepath)
+        #: Expected hashes of the downloaded data, as a mapping from algorithm
+        #: names to digests
+        self.digests = digests
+        #: The working directory in which downloaded data will be temporarily
+        #: stored
+        self.dirpath = self.filepath.with_name(self.filepath.name + ".dandidownload")
+        #: The file in `dirpath` to which data will be written as it is
+        #: received
+        self.writefile = self.dirpath / "file"
+        #: A `fasteners.InterProcessLock` on `dirpath`
+        self.lock = None
+        #: An open filehandle to `writefile`
+        self.fp = None
+        #: How much of the data has been downloaded so far
+        self.offset = None
+
+    def __enter__(self):
+        from fasteners import InterProcessLock
+
+        self.dirpath.mkdir(parents=True, exist_ok=True)
+        self.lock = InterProcessLock(str(self.dirpath / "lock"))
+        if not self.lock.acquire(blocking=False):
+            raise RuntimeError("Could not acquire download lock for {self.filepath}")
+        chkpath = self.dirpath / "checksum"
+        try:
+            with chkpath.open() as fp:
+                digests = json.load(fp)
+        except (FileNotFoundError, ValueError):
+            digests = {}
+        matching_algs = self.digests.keys() & digests.keys()
+        if matching_algs and all(
+            self.digests[alg] == digests[alg] for alg in matching_algs
+        ):
+            # Pick up where we left off, writing to the end of the file
+            lgr.debug(
+                "Download directory exists and has matching checksum; resuming download"
+            )
+            self.fp = self.writefile.open("ab")
+        else:
+            # Delete the file (if it even exists) and start anew
+            if not chkpath.exists():
+                lgr.debug("Starting new download in new download directory")
+            else:
+                lgr.debug(
+                    "Download directory found, but digests do not match; starting new download"
+                )
+            try:
+                self.writefile.unlink()
+            except FileNotFoundError:
+                pass
+            self.fp = self.writefile.open("wb")
+        with chkpath.open("w") as fp:
+            json.dump(self.digests, fp)
+        self.offset = self.fp.tell()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.fp.close()
+        try:
+            if exc_type is None:
+                self.writefile.replace(self.filepath)
+        finally:
+            self.lock.release()
+            if exc_type is None:
+                rmtree(self.dirpath, ignore_errors=True)
+            self.lock = None
+            self.fp = None
+            self.offset = None
+        return False
+
+    def append(self, blob):
+        self.fp.write(blob)

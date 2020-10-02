@@ -1,3 +1,5 @@
+import json
+import os
 import os.path as op
 
 import time
@@ -23,29 +25,32 @@ def test_download_multiple_files(monkeypatch, tmpdir):
     # to this test will test those retries.
     # While at it we will also test girder downloadFile to retry at least 3 times
     # in case of some errors, and that it sleeps between retries
-    orig_downloadFileAsIterator = GirderCli.downloadFileAsIterator
+    orig_sendRestRequest = GirderCli.sendRestRequest
 
     class Mocks:
         ntries = 0
         sleeps = 0
 
         @staticmethod
-        def downloadFileAsIterator(self, *args, **kwargs):
-            Mocks.ntries += 1
-            if Mocks.ntries < 3:
-                raise gcl.HttpError(
-                    text="Failing to download", url=url, method="GET", status=500
-                )
-            return orig_downloadFileAsIterator(self, *args, **kwargs)
+        def sendRestRequest(self, *args, **kwargs):
+            if (
+                len(args) > 1
+                and args[1].startswith("file/")
+                and args[1].endswith("/download")
+            ):
+                Mocks.ntries += 1
+                if Mocks.ntries < 3:
+                    raise gcl.HttpError(
+                        text="Failing to download", url=url, method="GET", status=500
+                    )
+            return orig_sendRestRequest(self, *args, **kwargs)
 
         @staticmethod
         def sleep(duration):
             Mocks.sleeps += duration
             # no actual sleeping
 
-    monkeypatch.setattr(
-        GirderCli, "downloadFileAsIterator", Mocks.downloadFileAsIterator
-    )
+    monkeypatch.setattr(GirderCli, "sendRestRequest", Mocks.sendRestRequest)
     monkeypatch.setattr(time, "sleep", Mocks.sleep)  # to not sleep in the test
 
     ret = download(url, tmpdir)
@@ -140,3 +145,33 @@ def test_girder_tqdm(monkeypatch):
 
     with TQDMProgressReporter() as pr:
         pr.update(10)
+
+
+@pytest.mark.parametrize("resizer", [lambda sz: 0, lambda sz: sz // 2, lambda sz: sz])
+@pytest.mark.parametrize("version", ["0.200721.2222", "draft"])
+def test_download_000027_resume(tmp_path, resizer, version):
+    from ..support.digests import Digester
+
+    url = f"https://dandiarchive.org/dandiset/000027/{version}"
+    digester = Digester()
+    download(url, tmp_path, get_metadata=False)
+    dsdir = tmp_path / "000027"
+    nwb = dsdir / "sub-RAT123" / "sub-RAT123.nwb"
+    digests = digester(str(nwb))
+    dldir = nwb.with_name(nwb.name + ".dandidownload")
+    dldir.mkdir()
+    dlfile = dldir / "file"
+    nwb.rename(dlfile)
+    size = dlfile.stat().st_size
+    os.truncate(dlfile, resizer(size))
+    with (dldir / "checksum").open("w") as fp:
+        json.dump(digests, fp)
+    download(url, tmp_path, get_metadata=False)
+    contents = [
+        op.relpath(op.join(dirpath, entry), dsdir)
+        for (dirpath, dirnames, filenames) in os.walk(dsdir)
+        for entry in dirnames + filenames
+    ]
+    assert sorted(contents) == ["sub-RAT123", op.join("sub-RAT123", "sub-RAT123.nwb")]
+    assert nwb.stat().st_size == size
+    assert digester(str(nwb)) == digests

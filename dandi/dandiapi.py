@@ -321,10 +321,13 @@ class DandiAPIClient(RESTFullAPIClient):
             f"/dandisets/{dandiset_id}/versions/{version}/assets/{uuid}/download/"
         )
 
-        def downloader():
+        def downloader(start_at=0):
             lgr.debug("Starting download from %s", url)
+            headers = None
+            if start_at > 0:
+                headers = {"Range": f"bytes={start_at}-"}
             result = (self._session if self._session else requests).get(
-                url, stream=True
+                url, stream=True, headers=headers
             )
             # TODO: apparently we might need retries here as well etc
             # if result.status_code not in (200, 201):
