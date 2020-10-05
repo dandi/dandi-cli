@@ -26,6 +26,7 @@ def main(assetstore, target, ignore_errors):
         format="%(asctime)s [%(levelname)-8s] %(name)s %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S%z",
         level=logging.INFO,
+        force=True,  # Override dandi's settings
     )
     DatasetInstantiator(Path(assetstore), Path(target), ignore_errors).run()
 
