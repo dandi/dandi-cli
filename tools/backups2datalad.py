@@ -3,6 +3,7 @@ import logging
 import os
 from pathlib import Path
 import subprocess
+import sys
 from urllib.parse import urlparse
 import click
 from dandi import girder
@@ -13,7 +14,7 @@ from dandi.utils import fromisoformat, get_instance
 from datalad.api import Dataset
 import requests
 
-log = logging.getLogger(__name__)
+log = logging.getLogger(Path(sys.argv[0]).name)
 
 
 @click.command()
@@ -22,7 +23,7 @@ log = logging.getLogger(__name__)
 @click.argument("target", type=click.Path(file_okay=False))
 def main(assetstore, target, ignore_errors):
     logging.basicConfig(
-        format="%(asctime)s [%(levelname)-8s] %(message)s",
+        format="%(asctime)s [%(levelname)-8s] %(name)s %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S%z",
         level=logging.INFO,
     )
