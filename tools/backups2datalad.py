@@ -177,7 +177,7 @@ class DatasetInstantiator:
 
     @staticmethod
     def mklink(src, dest):
-        log.info("cp", src, "->", dest)
+        log.info("cp %s -> %s", src, dest)
         subprocess.run(
             [
                 "cp",
