@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 import click
 from dandi import girder
 from dandi.consts import dandiset_metadata_file
@@ -124,13 +124,16 @@ class DatasetInstantiator:
                                 continue
                             else:
                                 raise
+                        log.info("Adding asset to dataset")
+                        ds.repo.add([deststr])
+                        log.info("Adding URL %s to asset", bucket_url)
+                        ds.repo.add_url_to_file(deststr, bucket_url)
                     else:
                         log.info(
                             "Asset not found in assetstore; downloading from %s",
                             bucket_url,
                         )
                         ds.download_url(urls=bucket_url, path=deststr)
-                    ds.repo.add([deststr])
                     if latest_mtime is None or mtime > latest_mtime:
                         latest_mtime = mtime
                 if dandi_hash is not None:
@@ -141,7 +144,6 @@ class DatasetInstantiator:
                             f"  Dandiarchive reports {dandi_hash},"
                             f" datalad reports {annex_key}"
                         )
-                ds.repo.add_url_to_file(deststr, bucket_url)
             for a in local_assets:
                 astr = str(a.relative_to(dsdir))
                 log.info(
@@ -173,7 +175,9 @@ class DatasetInstantiator:
             f"https://girder.dandiarchive.org/api/v1/file/{girder_id}/download"
         )
         r.raise_for_status()
-        return r.headers["Location"]
+        url = r.headers["Location"]
+        pieces = urlparse(url)
+        return urlunparse(pieces._replace(query=""))
 
     @staticmethod
     def mklink(src, dest):
