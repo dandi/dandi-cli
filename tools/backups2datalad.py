@@ -1,3 +1,6 @@
+from contextlib import contextmanager
+import logging
+import os
 from pathlib import Path
 import subprocess
 from urllib.parse import urlparse
@@ -6,9 +9,11 @@ from dandi import girder
 from dandi.consts import dandiset_metadata_file
 from dandi.dandiarchive import navigate_url
 from dandi.dandiset import Dandiset
-from dandi.utils import get_instance
+from dandi.utils import fromisoformat, get_instance
 from datalad.api import Dataset
 import requests
+
+log = logging.getLogger(__name__)
 
 
 @click.command()
@@ -16,6 +21,11 @@ import requests
 @click.argument("assetstore", type=click.Path(exists=True, file_okay=False))
 @click.argument("target", type=click.Path(file_okay=False))
 def main(assetstore, target, ignore_errors):
+    logging.basicConfig(
+        format="%(asctime)s [%(levelname)-8s] %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S%z",
+        level=logging.INFO,
+    )
     DatasetInstantiator(Path(assetstore), Path(target), ignore_errors).run()
 
 
@@ -30,8 +40,10 @@ class DatasetInstantiator:
         self.target_path.mkdir(parents=True, exist_ok=True)
         with requests.Session() as self.session:
             for did in self.get_dandiset_ids():
+                log.info("Syncing Dandiset %s", did)
                 ds = Dataset(str(self.target_path / did))
                 if not ds.is_installed():
+                    log.info("Creating Datalad dataset")
                     ds.create(cfg_proc="text2git")
                     ds.config.set("annex.backends", "SHA256E", where="local")
                 gitattrs = ds.pathobj / ".gitattributes"
@@ -42,12 +54,14 @@ class DatasetInstantiator:
         def get_annex_hash(file):
             return ds.repo.get_file_key(file).split("-")[-1].partition(".")[0]
 
+        latest_mtime = None
         with navigate_url(f"https://dandiarchive.org/dandiset/{dandiset_id}/draft") as (
             _,
             dandiset,
             assets,
         ):
             dsdir = ds.pathobj
+            log.info("Updating metadata file")
             try:
                 (dsdir / dandiset_metadata_file).unlink()
             except FileNotFoundError:
@@ -57,49 +71,84 @@ class DatasetInstantiator:
             ds.repo.add([dandiset_metadata_file])
             local_assets = set(dsdir.glob("*/*"))
             for a in assets:
+                log.info("Syncing asset %s", a["path"])
                 gid = a["girder"]["id"]
-                dandi_hash = a.get("metadata", {}).get("sha256")
+                dandi_hash = a.get("sha256")
+                if dandi_hash is None:
+                    log.warning("Asset metadata does not include sha256 hash")
+                mtime = fromisoformat(a["attrs"]["mtime"])
                 bucket_url = self.get_file_bucket_url(gid)
                 dest = dsdir / a["path"].lstrip("/")
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 local_assets.discard(dest)
                 deststr = str(dest.relative_to(dsdir))
                 if not dest.exists():
+                    log.info("Asset not in dataset; will copy")
                     to_update = True
                 elif dandi_hash is not None:
-                    to_update = dandi_hash != get_annex_hash(deststr)
+                    if dandi_hash == get_annex_hash(deststr):
+                        log.info(
+                            "Asset in dataset, and hash shows no modification; will not update"
+                        )
+                        to_update = False
+                    else:
+                        log.info(
+                            "Asset in dataset, and hash shows modification; will update"
+                        )
+                        to_update = True
                 else:
                     stat = dest.stat()
-                    to_update = (
-                        stat.st_size != a["metadata"]["uploaded_size"]
-                        or stat.st_mtime != a["metadata"]["uploaded_mtime"].timestamp()
-                    )
+                    if (
+                        stat.st_size == a["attrs"]["size"]
+                        and stat.st_mtime == mtime.timestamp()
+                    ):
+                        log.info(
+                            "Asset in dataset, and size & mtime match; will not update"
+                        )
+                        to_update = False
+                    else:
+                        log.info(
+                            "Asset in dataset, and size & mtime do not match; will update"
+                        )
+                        to_update = True
                 if to_update:
                     src = self.assetstore_path / urlparse(bucket_url).path.lstrip("/")
                     if src.exists():
-                        print(src, "->", dest)
                         try:
                             self.mklink(src, dest)
                         except Exception:
                             if self.ignore_errors:
+                                log.warning("cp command failed; ignoring")
                                 continue
                             else:
                                 raise
                     else:
+                        log.info(
+                            "Asset not found in assetstore; downloading from %s",
+                            bucket_url,
+                        )
                         ds.download_url(urls=bucket_url, path=deststr)
                     ds.repo.add([deststr])
+                    if latest_mtime is None or mtime > latest_mtime:
+                        latest_mtime = mtime
                 if dandi_hash is not None:
                     annex_key = get_annex_hash(deststr)
                     if dandi_hash != annex_key:
                         raise RuntimeError(
                             f"Hash mismatch for {deststr.relative_to(self.target_path)}!"
-                            f"  Dandi reports {dandi_hash},"
+                            f"  Dandiarchive reports {dandi_hash},"
                             f" datalad reports {annex_key}"
                         )
                 ds.repo.add_url_to_file(deststr, bucket_url)
             for a in local_assets:
-                ds.repo.remove([str(a.relative_to(dsdir))])
-        ds.save(message="Ran backups2datalad.py")
+                astr = str(a.relative_to(dsdir))
+                log.info(
+                    "Asset %s is in dataset but not in Dandiarchive; deleting", astr
+                )
+                ds.repo.remove([astr])
+        log.info("Commiting changes")
+        with custom_commit_date(latest_mtime):
+            ds.save(message="Ran backups2datalad.py")
 
     @staticmethod
     def get_dandiset_ids():
@@ -126,6 +175,7 @@ class DatasetInstantiator:
 
     @staticmethod
     def mklink(src, dest):
+        log.info("cp", src, "->", dest)
         subprocess.run(
             [
                 "cp",
@@ -137,6 +187,29 @@ class DatasetInstantiator:
             ],
             check=True,
         )
+
+
+@contextmanager
+def custom_commit_date(dt):
+    if dt is not None:
+        with envvar_set("GIT_AUTHOR_DATE", str(dt)):
+            with envvar_set("GIT_COMMITTER_DATE", str(dt)):
+                yield
+    else:
+        yield
+
+
+@contextmanager
+def envvar_set(name, value):
+    oldvalue = os.environ.get(name)
+    os.environ[name] = value
+    try:
+        yield
+    finally:
+        if oldvalue is not None:
+            os.environ[name] = oldvalue
+        else:
+            del os.environ[name]
 
 
 if __name__ == "__main__":
