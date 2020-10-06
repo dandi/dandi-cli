@@ -1,3 +1,5 @@
+__requires__ = ["boto3", "click", "dandi", "datalad", "requests"]
+
 from contextlib import contextmanager
 import logging
 import os
@@ -5,6 +7,10 @@ from pathlib import Path
 import subprocess
 import sys
 from urllib.parse import urlparse, urlunparse
+
+import boto3
+from botocore import UNSIGNED
+from botocore.client import Config
 import click
 from dandi import girder
 from dandi.consts import dandiset_metadata_file
@@ -37,6 +43,7 @@ class DatasetInstantiator:
         self.target_path = target_path
         self.ignore_errors = ignore_errors
         self.session = None
+        self._s3client = None
 
     def run(self):
         self.target_path.mkdir(parents=True, exist_ok=True)
@@ -175,9 +182,20 @@ class DatasetInstantiator:
             f"https://girder.dandiarchive.org/api/v1/file/{girder_id}/download"
         )
         r.raise_for_status()
-        url = r.headers["Location"]
-        pieces = urlparse(url)
-        return urlunparse(pieces._replace(query=""))
+        urlbits = urlparse(r.headers["Location"])
+        s3meta = self.s3client.get_object(
+            Bucket="dandiarchive",
+            Key=urlbits.path.lstrip("/"),
+        )
+        return urlunparse(urlbits._replace(
+            query=f"versionId={s3meta['VersionId']}"
+        ))
+
+    @property
+    def s3client(self):
+        if self._s3client is None:
+            self._s3client = boto3.client('s3', config=Config(signature_version=UNSIGNED))
+        return self._s3client
 
     @staticmethod
     def mklink(src, dest):
