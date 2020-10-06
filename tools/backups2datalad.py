@@ -198,7 +198,7 @@ class DatasetInstantiator:
         with custom_commit_date(latest_mtime):
             res = ds.save(message="Ran backups2datalad.py")
         try:
-            saveres, = [r for r in res if res["action"] == "save"]
+            saveres, = [r for r in res if r["action"] == "save"]
         except Exception as e:
             log.error(
                 'Error while attempting to determine status of "save" operation: %s: %s',
