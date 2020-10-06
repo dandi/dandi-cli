@@ -78,7 +78,11 @@ class DatasetInstantiator:
             metadata = dandiset.get("metadata", {})
             Dandiset(dsdir, allow_empty=True).update_metadata(metadata)
             ds.repo.add([dandiset_metadata_file])
-            local_assets = set(dsdir.glob("*/*"))
+            local_assets = set(
+                f for d in dsdir.iterdir()
+                  if d.is_dir() and not d.name.startswith(".")
+                  for f in d.iterdir()
+            )
             for a in assets:
                 log.info("Syncing asset %s", a["path"])
                 gid = a["girder"]["id"]
