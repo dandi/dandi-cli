@@ -197,16 +197,8 @@ class DatasetInstantiator:
         log.info("Commiting changes")
         with custom_commit_date(latest_mtime):
             res = ds.save(message="Ran backups2datalad.py")
-        try:
-            saveres, = [r for r in res if r["action"] == "save"]
-        except Exception as e:
-            log.error(
-                'Error while attempting to determine status of "save" operation: %s: %s',
-                type(e).__name__,
-                str(e),
-            )
-        else:
-            return saveres["status"] != "notneeded"
+        saveres, = [r for r in res if r["action"] == "save"]
+        return saveres["status"] != "notneeded"
 
     @staticmethod
     def get_dandiset_ids():
