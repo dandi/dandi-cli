@@ -24,24 +24,45 @@ log = logging.getLogger(Path(sys.argv[0]).name)
 
 
 @click.command()
+@click.option("--gh-login")
+@click.option("--gh-org", help="GitHub organization to create repositories under")
+@click.option("--gh-password")
 @click.option("-i", "--ignore-errors", is_flag=True)
 @click.argument("assetstore", type=click.Path(exists=True, file_okay=False))
 @click.argument("target", type=click.Path(file_okay=False))
-def main(assetstore, target, ignore_errors):
+def main(assetstore, target, ignore_errors, gh_org, gh_login, gh_password):
     logging.basicConfig(
         format="%(asctime)s [%(levelname)-8s] %(name)s %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S%z",
         level=logging.INFO,
         force=True,  # Override dandi's settings
     )
-    DatasetInstantiator(Path(assetstore), Path(target), ignore_errors).run()
+    DatasetInstantiator(
+        assetstore_path=Path(assetstore),
+        target_path=Path(target),
+        ignore_errors=ignore_errors,
+        gh_org=gh_org,
+        gh_login=gh_login,
+        gh_password=gh_password,
+    ).run()
 
 
 class DatasetInstantiator:
-    def __init__(self, assetstore_path: Path, target_path: Path, ignore_errors=False):
+    def __init__(
+        self,
+        assetstore_path: Path,
+        target_path: Path,
+        ignore_errors=False,
+        gh_org=None,
+        gh_login=None,
+        gh_password=None,
+    ):
         self.assetstore_path = assetstore_path
         self.target_path = target_path
         self.ignore_errors = ignore_errors
+        self.gh_org = gh_org
+        self.gh_login = gh_login
+        self.gh_password = gh_password
         self.session = None
         self._s3client = None
 
@@ -57,7 +78,18 @@ class DatasetInstantiator:
                     ds.config.set("annex.backends", "SHA256E", where="local")
                 gitattrs = ds.pathobj / ".gitattributes"
                 gitattrs.write_text(gitattrs.read_text().replace("MD5E", "SHA256E"))
-                self.sync_dataset(did, ds)
+                if self.sync_dataset(did, ds):
+                    log.info("Creating GitHub sibling for %s", ds.pathobj.name)
+                    ds.create_sibling_github(
+                        reponame=ds.pathobj.name,
+                        existing="skip",
+                        name="github",
+                        github_organization=self.gh_org,
+                        github_login=self.gh_login,
+                        github_passwd=self.gh_password,
+                    )
+                    log.info("Pushing to sibling")
+                    ds.push(to="github")
 
     def sync_dataset(self, dandiset_id, ds):
         def get_annex_hash(file):
@@ -79,9 +111,10 @@ class DatasetInstantiator:
             Dandiset(dsdir, allow_empty=True).update_metadata(metadata)
             ds.repo.add([dandiset_metadata_file])
             local_assets = set(
-                f for d in dsdir.iterdir()
-                  if d.is_dir() and not d.name.startswith(".")
-                  for f in d.iterdir()
+                f
+                for d in dsdir.iterdir()
+                if d.is_dir() and not d.name.startswith(".")
+                for f in d.iterdir()
             )
             for a in assets:
                 log.info("Syncing asset %s", a["path"])
@@ -163,7 +196,17 @@ class DatasetInstantiator:
                 ds.repo.remove([astr])
         log.info("Commiting changes")
         with custom_commit_date(latest_mtime):
-            ds.save(message="Ran backups2datalad.py")
+            res = ds.save(message="Ran backups2datalad.py")
+        try:
+            saveres, = [r for r in res if res["action"] == "save"]
+        except Exception as e:
+            log.error(
+                'Error while attempting to determine status of "save" operation: %s: %s',
+                type(e).__name__,
+                str(e),
+            )
+        else:
+            return saveres["status"] != "notneeded"
 
     @staticmethod
     def get_dandiset_ids():
@@ -188,17 +231,16 @@ class DatasetInstantiator:
         r.raise_for_status()
         urlbits = urlparse(r.headers["Location"])
         s3meta = self.s3client.get_object(
-            Bucket="dandiarchive",
-            Key=urlbits.path.lstrip("/"),
+            Bucket="dandiarchive", Key=urlbits.path.lstrip("/")
         )
-        return urlunparse(urlbits._replace(
-            query=f"versionId={s3meta['VersionId']}"
-        ))
+        return urlunparse(urlbits._replace(query=f"versionId={s3meta['VersionId']}"))
 
     @property
     def s3client(self):
         if self._s3client is None:
-            self._s3client = boto3.client('s3', config=Config(signature_version=UNSIGNED))
+            self._s3client = boto3.client(
+                "s3", config=Config(signature_version=UNSIGNED)
+            )
         return self._s3client
 
     @staticmethod
