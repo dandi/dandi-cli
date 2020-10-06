@@ -122,7 +122,7 @@ class DatasetInstantiator:
                 dandi_hash = a.get("sha256")
                 if dandi_hash is None:
                     log.warning("Asset metadata does not include sha256 hash")
-                mtime = fromisoformat(a["attrs"]["mtime"])
+                mtime = a["modified"]  # type: datetime.datetime
                 bucket_url = self.get_file_bucket_url(gid)
                 dest = dsdir / a["path"].lstrip("/")
                 dest.parent.mkdir(parents=True, exist_ok=True)
