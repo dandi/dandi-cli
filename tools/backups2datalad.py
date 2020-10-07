@@ -11,6 +11,7 @@ pushing to the GitHub remotes happens over SSH, so an SSH key that has been
 registered with a GitHub account is needed for the second step.
 """
 
+from collections import deque
 from contextlib import contextmanager
 import logging
 import os
@@ -56,11 +57,7 @@ def main(assetstore, target, ignore_errors, gh_org):
 
 class DatasetInstantiator:
     def __init__(
-        self,
-        assetstore_path: Path,
-        target_path: Path,
-        ignore_errors=False,
-        gh_org=None,
+        self, assetstore_path: Path, target_path: Path, ignore_errors=False, gh_org=None
     ):
         self.assetstore_path = assetstore_path
         self.target_path = target_path
@@ -112,12 +109,8 @@ class DatasetInstantiator:
             metadata = dandiset.get("metadata", {})
             Dandiset(dsdir, allow_empty=True).update_metadata(metadata)
             ds.repo.add([dandiset_metadata_file])
-            local_assets = set(
-                f
-                for d in dsdir.iterdir()
-                if d.is_dir() and not d.name.startswith(".")
-                for f in d.iterdir()
-            )
+            local_assets = set(dataset_files(dsdir))
+            local_assets.discard(dsdir / dandiset_metadata_file)
             for a in assets:
                 log.info("Syncing asset %s", a["path"])
                 gid = a["girder"]["id"]
@@ -274,6 +267,20 @@ def envvar_set(name, value):
             os.environ[name] = oldvalue
         else:
             del os.environ[name]
+
+
+def dataset_files(dspath):
+    files = deque(
+        p
+        for p in dspath.iterdir()
+        if dspath.name not in (".datalad", ".git", ".gitattributes")
+    )
+    while files:
+        p = files.popleft()
+        if p.is_file():
+            yield p
+        elif p.is_dir():
+            files.extend(p.iterdir())
 
 
 if __name__ == "__main__":
