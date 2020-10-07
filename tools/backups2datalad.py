@@ -1,5 +1,16 @@
 __requires__ = ["boto3", "click", "dandi", "datalad", "requests"]
 
+"""
+IMPORTANT NOTE ABOUT GIT CREDENTIALS
+
+This script uses `datalad create-sibling-github` to create GitHub repositories
+that are then pushed to GitHub.  The first step requires either GitHub user
+credentials stored in the system's credentials store or else a GitHub OAuth
+token stored in the global Git config under `hub.oauthtoken`.  In addition,
+pushing to the GitHub remotes happens over SSH, so an SSH key that has been
+registered with a GitHub account is needed for the second step.
+"""
+
 from contextlib import contextmanager
 import logging
 import os
@@ -16,7 +27,7 @@ from dandi import girder
 from dandi.consts import dandiset_metadata_file
 from dandi.dandiarchive import navigate_url
 from dandi.dandiset import Dandiset
-from dandi.utils import fromisoformat, get_instance
+from dandi.utils import get_instance
 from datalad.api import Dataset
 import requests
 
@@ -24,13 +35,11 @@ log = logging.getLogger(Path(sys.argv[0]).name)
 
 
 @click.command()
-@click.option("--gh-login")
 @click.option("--gh-org", help="GitHub organization to create repositories under")
-@click.option("--gh-password")
 @click.option("-i", "--ignore-errors", is_flag=True)
 @click.argument("assetstore", type=click.Path(exists=True, file_okay=False))
 @click.argument("target", type=click.Path(file_okay=False))
-def main(assetstore, target, ignore_errors, gh_org, gh_login, gh_password):
+def main(assetstore, target, ignore_errors, gh_org):
     logging.basicConfig(
         format="%(asctime)s [%(levelname)-8s] %(name)s %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S%z",
@@ -42,8 +51,6 @@ def main(assetstore, target, ignore_errors, gh_org, gh_login, gh_password):
         target_path=Path(target),
         ignore_errors=ignore_errors,
         gh_org=gh_org,
-        gh_login=gh_login,
-        gh_password=gh_password,
     ).run()
 
 
@@ -54,15 +61,11 @@ class DatasetInstantiator:
         target_path: Path,
         ignore_errors=False,
         gh_org=None,
-        gh_login=None,
-        gh_password=None,
     ):
         self.assetstore_path = assetstore_path
         self.target_path = target_path
         self.ignore_errors = ignore_errors
         self.gh_org = gh_org
-        self.gh_login = gh_login
-        self.gh_password = gh_password
         self.session = None
         self._s3client = None
 
@@ -84,9 +87,8 @@ class DatasetInstantiator:
                         reponame=ds.pathobj.name,
                         existing="skip",
                         name="github",
+                        access_protocol="ssh",
                         github_organization=self.gh_org,
-                        github_login=self.gh_login,
-                        github_passwd=self.gh_password,
                     )
                     log.info("Pushing to sibling")
                     ds.push(to="github")
