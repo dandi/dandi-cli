@@ -95,6 +95,9 @@ class DatasetInstantiator:
             return ds.repo.get_file_key(file).split("-")[-1].partition(".")[0]
 
         latest_mtime = None
+        added = 0
+        updated = 0
+        deleted = 0
         with navigate_url(f"https://dandiarchive.org/dandiset/{dandiset_id}/draft") as (
             _,
             dandiset,
@@ -126,6 +129,7 @@ class DatasetInstantiator:
                 if not dest.exists():
                     log.info("Asset not in dataset; will copy")
                     to_update = True
+                    added += 1
                 elif dandi_hash is not None:
                     if dandi_hash == get_annex_hash(deststr):
                         log.info(
@@ -137,6 +141,7 @@ class DatasetInstantiator:
                             "Asset in dataset, and hash shows modification; will update"
                         )
                         to_update = True
+                        updated += 1
                 else:
                     stat = dest.stat()
                     if (
@@ -152,6 +157,7 @@ class DatasetInstantiator:
                             "Asset in dataset, and size & mtime do not match; will update"
                         )
                         to_update = True
+                        updated += 1
                 if to_update:
                     src = self.assetstore_path / urlparse(bucket_url).path.lstrip("/")
                     if src.exists():
@@ -189,9 +195,17 @@ class DatasetInstantiator:
                     "Asset %s is in dataset but not in Dandiarchive; deleting", astr
                 )
                 ds.repo.remove([astr])
+                deleted += 1
         log.info("Commiting changes")
         with custom_commit_date(latest_mtime):
-            res = ds.save(message="Ran backups2datalad.py")
+            msgbody = ""
+            if added:
+                msgbody += f"{added} files added\n"
+            if updated:
+                msgbody += f"{updated} files updated\n"
+            if deleted:
+                msgbody += f"{deleted} files deleted\n"
+            res = ds.save(message="Ran backups2datalad.py\n\n{msgbody}")
         saveres, = [r for r in res if r["action"] == "save"]
         return saveres["status"] != "notneeded"
 
