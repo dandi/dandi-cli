@@ -41,7 +41,8 @@ log = logging.getLogger(Path(sys.argv[0]).name)
 @click.option("-i", "--ignore-errors", is_flag=True)
 @click.argument("assetstore", type=click.Path(exists=True, file_okay=False))
 @click.argument("target", type=click.Path(file_okay=False))
-def main(assetstore, target, ignore_errors, gh_org):
+@click.argument("dandisets", nargs=-1)
+def main(assetstore, target, dandisets, ignore_errors, gh_org):
     logging.basicConfig(
         format="%(asctime)s [%(levelname)-8s] %(name)s %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S%z",
@@ -53,7 +54,7 @@ def main(assetstore, target, ignore_errors, gh_org):
         target_path=Path(target),
         ignore_errors=ignore_errors,
         gh_org=gh_org,
-    ).run()
+    ).run(dandisets)
 
 
 class DatasetInstantiator:
@@ -67,11 +68,11 @@ class DatasetInstantiator:
         self.session = None
         self._s3client = None
 
-    def run(self):
+    def run(self, dandisets=()):
         self.target_path.mkdir(parents=True, exist_ok=True)
         datalad.cfg.set("datalad.repo.backend", "SHA256E", where="override")
         with requests.Session() as self.session:
-            for did in self.get_dandiset_ids():
+            for did in dandisets or self.get_dandiset_ids():
                 log.info("Syncing Dandiset %s", did)
                 ds = Dataset(str(self.target_path / did))
                 if not ds.is_installed():
