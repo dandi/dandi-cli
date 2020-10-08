@@ -75,12 +75,15 @@ class DatasetInstantiator:
         with requests.Session() as self.session:
             for did in dandisets or self.get_dandiset_ids():
                 dsdir = self.target_path / did
+                log.info("Syncing Dandiset %s", did)
+                ds = Dataset(str(dsdir))
+                if not ds.is_installed():
+                    log.info("Creating Datalad dataset")
+                    ds.create(cfg_proc="text2git")
                 with dandi_logging(dsdir):
-                    log.info("Syncing Dandiset %s", did)
-                    ds = Dataset(str(dsdir))
-                    if not ds.is_installed():
-                        log.info("Creating Datalad dataset")
-                        ds.create(cfg_proc="text2git")
+                    # dandi_logging() creates a file in the dataset directory,
+                    # which makes ds.create() fail if dandi_logging() is run
+                    # first.
                     if self.sync_dataset(did, ds):
                         log.info("Creating GitHub sibling for %s", ds.pathobj.name)
                         ds.create_sibling_github(
@@ -305,10 +308,20 @@ def dandi_logging(dandiset_path: Path):
     logdir.mkdir(exist_ok=True, parents=True)
     filename = "sync-{:%Y%m%d%H%M%SZ}-{}.log".format(datetime.utcnow(), os.getpid())
     fh = logging.FileHandler(logdir / filename, encoding="utf-8")
+    fmter = logging.Formatter(
+        fmt="%(asctime)s [%(levelname)-8s] %(name)s %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S%z",
+    )
+    fh.setFormatter(fmter)
     root = logging.getLogger()
     root.addHandler(fh)
-    yield
-    root.removeHandler(fh)
+    try:
+        yield
+    except Exception:
+        log.exception("Operation failed with exception:")
+        raise
+    finally:
+        root.removeHandler(fh)
 
 
 if __name__ == "__main__":
