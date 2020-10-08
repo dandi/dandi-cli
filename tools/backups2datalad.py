@@ -29,6 +29,7 @@ from dandi.consts import dandiset_metadata_file
 from dandi.dandiarchive import navigate_url
 from dandi.dandiset import Dandiset
 from dandi.utils import get_instance
+import datalad
 from datalad.api import Dataset
 import requests
 
@@ -68,6 +69,7 @@ class DatasetInstantiator:
 
     def run(self):
         self.target_path.mkdir(parents=True, exist_ok=True)
+        datalad.cfg.set("datalad.repo.backend", "SHA256E", where="override")
         with requests.Session() as self.session:
             for did in self.get_dandiset_ids():
                 log.info("Syncing Dandiset %s", did)
@@ -75,9 +77,6 @@ class DatasetInstantiator:
                 if not ds.is_installed():
                     log.info("Creating Datalad dataset")
                     ds.create(cfg_proc="text2git")
-                    ds.config.set("annex.backends", "SHA256E", where="local")
-                gitattrs = ds.pathobj / ".gitattributes"
-                gitattrs.write_text(gitattrs.read_text().replace("MD5E", "SHA256E"))
                 if self.sync_dataset(did, ds):
                     log.info("Creating GitHub sibling for %s", ds.pathobj.name)
                     ds.create_sibling_github(
