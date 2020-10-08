@@ -292,7 +292,7 @@ def dataset_files(dspath):
     files = deque(
         p
         for p in dspath.iterdir()
-        if dspath.name not in (".datalad", ".git", ".gitattributes")
+        if p.name not in (".dandi", ".datalad", ".git", ".gitattributes")
     )
     while files:
         p = files.popleft()
