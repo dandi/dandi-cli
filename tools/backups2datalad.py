@@ -172,7 +172,7 @@ class DatasetInstantiator:
                         log.info("Adding asset to dataset")
                         ds.repo.add([deststr])
                         log.info("Adding URL %s to asset", bucket_url)
-                        ds.repo.add_url_to_file(deststr, bucket_url)
+                        ds.repo.add_url_to_file(deststr, bucket_url, batch=True)
                     else:
                         log.info(
                             "Asset not found in assetstore; downloading from %s",
