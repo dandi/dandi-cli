@@ -94,6 +94,7 @@ class DatasetInstantiator:
                         ds.push(to="github")
 
     def sync_dataset(self, dandiset_id, ds):
+        # Returns true if any changes were committed to the repository
         def get_annex_hash(file):
             return ds.repo.get_file_key(file).split("-")[-1].partition(".")[0]
 
@@ -146,21 +147,19 @@ class DatasetInstantiator:
                         to_update = True
                         updated += 1
                 else:
-                    stat = dest.stat()
-                    if (
-                        stat.st_size == a["attrs"]["size"]
-                        and stat.st_mtime == mtime.timestamp()
-                    ):
+                    sz = dest.stat().st_size
+                    if sz == a["attrs"]["size"]:
                         log.info(
-                            "Asset in dataset, and size & mtime match; will not update"
+                            "Asset in dataset, hash not available,"
+                            " and size is unchanged; will not update"
                         )
                         to_update = False
                     else:
-                        log.info(
-                            "Asset in dataset, and size & mtime do not match; will update"
+                        raise RuntimeError(
+                            f"Size mismatch for {dest.relative_to(self.target_path)}!"
+                            f"  Dandiarchive reports {a['attrs']['size']},"
+                            f" local asset is size {sz}"
                         )
-                        to_update = True
-                        updated += 1
                 if to_update:
                     src = self.assetstore_path / urlparse(bucket_url).path.lstrip("/")
                     if src.exists():
@@ -188,7 +187,7 @@ class DatasetInstantiator:
                     annex_key = get_annex_hash(deststr)
                     if dandi_hash != annex_key:
                         raise RuntimeError(
-                            f"Hash mismatch for {deststr.relative_to(self.target_path)}!"
+                            f"Hash mismatch for {dest.relative_to(self.target_path)}!"
                             f"  Dandiarchive reports {dandi_hash},"
                             f" datalad reports {annex_key}"
                         )
