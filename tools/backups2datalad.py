@@ -13,6 +13,7 @@ registered with a GitHub account is needed for the second step.
 
 from collections import deque
 from contextlib import contextmanager
+from datetime import datetime
 import logging
 import os
 from pathlib import Path
@@ -73,22 +74,24 @@ class DatasetInstantiator:
         datalad.cfg.set("datalad.repo.backend", "SHA256E", where="override")
         with requests.Session() as self.session:
             for did in dandisets or self.get_dandiset_ids():
-                log.info("Syncing Dandiset %s", did)
-                ds = Dataset(str(self.target_path / did))
-                if not ds.is_installed():
-                    log.info("Creating Datalad dataset")
-                    ds.create(cfg_proc="text2git")
-                if self.sync_dataset(did, ds):
-                    log.info("Creating GitHub sibling for %s", ds.pathobj.name)
-                    ds.create_sibling_github(
-                        reponame=ds.pathobj.name,
-                        existing="skip",
-                        name="github",
-                        access_protocol="ssh",
-                        github_organization=self.gh_org,
-                    )
-                    log.info("Pushing to sibling")
-                    ds.push(to="github")
+                dsdir = self.target_path / did
+                with dandi_logging(dsdir):
+                    log.info("Syncing Dandiset %s", did)
+                    ds = Dataset(str(dsdir))
+                    if not ds.is_installed():
+                        log.info("Creating Datalad dataset")
+                        ds.create(cfg_proc="text2git")
+                    if self.sync_dataset(did, ds):
+                        log.info("Creating GitHub sibling for %s", ds.pathobj.name)
+                        ds.create_sibling_github(
+                            reponame=ds.pathobj.name,
+                            existing="skip",
+                            name="github",
+                            access_protocol="ssh",
+                            github_organization=self.gh_org,
+                        )
+                        log.info("Pushing to sibling")
+                        ds.push(to="github")
 
     def sync_dataset(self, dandiset_id, ds):
         def get_annex_hash(file):
@@ -120,7 +123,7 @@ class DatasetInstantiator:
                 dandi_hash = a.get("sha256")
                 if dandi_hash is None:
                     log.warning("Asset metadata does not include sha256 hash")
-                mtime = a["modified"]  # type: datetime.datetime
+                mtime = a["modified"]  # type: datetime
                 bucket_url = self.get_file_bucket_url(gid)
                 dest = dsdir / a["path"].lstrip("/")
                 dest.parent.mkdir(parents=True, exist_ok=True)
@@ -295,6 +298,18 @@ def dataset_files(dspath):
             yield p
         elif p.is_dir():
             files.extend(p.iterdir())
+
+
+@contextmanager
+def dandi_logging(dandiset_path: Path):
+    logdir = dandiset_path / ".dandi" / "logs"
+    logdir.mkdir(exist_ok=True, parents=True)
+    filename = "sync-{:%Y%m%d%H%M%SZ}-{}.log".format(datetime.utcnow(), os.getpid())
+    fh = logging.FileHandler(logdir / filename, encoding="utf-8")
+    root = logging.getLogger()
+    root.addHandler(fh)
+    yield
+    root.removeHandler(fh)
 
 
 if __name__ == "__main__":
