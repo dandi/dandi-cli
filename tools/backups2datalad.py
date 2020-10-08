@@ -210,7 +210,7 @@ class DatasetInstantiator:
                 msgbody += f"{updated} files updated\n"
             if deleted:
                 msgbody += f"{deleted} files deleted\n"
-            res = ds.save(message="Ran backups2datalad.py\n\n{msgbody}")
+            res = ds.save(message=f"Ran backups2datalad.py\n\n{msgbody}")
         saveres, = [r for r in res if r["action"] == "save"]
         return saveres["status"] != "notneeded"
 
