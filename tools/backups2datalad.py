@@ -72,6 +72,10 @@ class DatasetInstantiator:
         self._s3client = None
 
     def run(self, dandisets=()):
+        if not (self.assetstore_path / "girder-assetstore").exists():
+            raise RuntimeError(
+                "Given assetstore path does not contain girder-assetstore folder"
+            )
         self.target_path.mkdir(parents=True, exist_ok=True)
         datalad.cfg.set("datalad.repo.backend", "SHA256E", where="override")
         with requests.Session() as self.session:
