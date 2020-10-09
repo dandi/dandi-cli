@@ -32,6 +32,7 @@ from dandi import girder
 from dandi.consts import dandiset_metadata_file
 from dandi.dandiarchive import navigate_url
 from dandi.dandiset import Dandiset
+from dandi.support.digests import Digester
 from dandi.utils import get_instance
 import datalad
 from datalad.api import Dataset
@@ -115,9 +116,22 @@ class DatasetInstantiator:
 
     def sync_dataset(self, dandiset_id, ds):
         # Returns true if any changes were committed to the repository
-        def get_annex_hash(file):
-            return ds.repo.get_file_key(file).split("-")[-1].partition(".")[0]
 
+        digester = Digester(digests=["sha256"])
+        hash_mem = {}
+
+        def get_annex_hash(filepath):
+            if filepath not in hash_mem:
+                relpath = str(filepath.relative_to(dsdir))
+                if ds.repo.is_under_annex(relpath, batch=True):
+                    hash_mem[filepath] = (
+                        ds.repo.get_file_key(relpath).split("-")[-1].partition(".")[0]
+                    )
+                else:
+                    hash_mem[filepath] = digester(filepath)["sha256"]
+            return hash_mem[filepath]
+
+        dsdir = ds.pathobj
         latest_mtime = None
         added = 0
         updated = 0
@@ -127,7 +141,6 @@ class DatasetInstantiator:
             dandiset,
             assets,
         ):
-            dsdir = ds.pathobj
             log.info("Updating metadata file")
             try:
                 (dsdir / dandiset_metadata_file).unlink()
