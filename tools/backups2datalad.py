@@ -36,6 +36,7 @@ from dandi.support.digests import Digester
 from dandi.utils import get_instance
 import datalad
 from datalad.api import Dataset
+from datalad.support.json_py import dump
 import requests
 
 log = logging.getLogger(Path(sys.argv[0]).name)
@@ -151,9 +152,12 @@ class DatasetInstantiator:
             ds.repo.add([dandiset_metadata_file])
             local_assets = set(dataset_files(dsdir))
             local_assets.discard(dsdir / dandiset_metadata_file)
+            saved_assets = []
             for a in assets:
                 dest = dsdir / a["path"].lstrip("/")
+                deststr = str(dest.relative_to(dsdir))
                 local_assets.discard(dest)
+                saved_assets.append(deststr)
                 if self.re_filter and not self.re_filter.search(a["path"]):
                     log.info("Skipping asset %s", a["path"])
                     continue
@@ -165,7 +169,6 @@ class DatasetInstantiator:
                 mtime = a["modified"]  # type: datetime
                 bucket_url = self.get_file_bucket_url(gid)
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                deststr = str(dest.relative_to(dsdir))
                 if not dest.exists():
                     log.info("Asset not in dataset; will copy")
                     to_update = True
@@ -239,6 +242,8 @@ class DatasetInstantiator:
                 )
                 ds.repo.remove([astr])
                 deleted += 1
+            saved_assets.sort()
+            dump(saved_assets, dsdir / ".dandi" / "assets.json")
         log.info("Commiting changes")
         with custom_commit_date(latest_mtime):
             msgbody = ""
