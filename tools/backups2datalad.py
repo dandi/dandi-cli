@@ -19,6 +19,7 @@ from datetime import datetime
 import logging
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 from urllib.parse import urlparse, urlunparse
@@ -42,10 +43,13 @@ log = logging.getLogger(Path(sys.argv[0]).name)
 @click.command()
 @click.option("--gh-org", help="GitHub organization to create repositories under")
 @click.option("-i", "--ignore-errors", is_flag=True)
+@click.option(
+    "--re-filter", help="Only consider assets matching the given regex", metavar="REGEX"
+)
 @click.argument("assetstore", type=click.Path(exists=True, file_okay=False))
 @click.argument("target", type=click.Path(file_okay=False))
 @click.argument("dandisets", nargs=-1)
-def main(assetstore, target, dandisets, ignore_errors, gh_org):
+def main(assetstore, target, dandisets, ignore_errors, gh_org, re_filter):
     logging.basicConfig(
         format="%(asctime)s [%(levelname)-8s] %(name)s %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S%z",
@@ -57,17 +61,24 @@ def main(assetstore, target, dandisets, ignore_errors, gh_org):
         target_path=Path(target),
         ignore_errors=ignore_errors,
         gh_org=gh_org,
+        re_filter=re_filter and re.compile(re_filter),
     ).run(dandisets)
 
 
 class DatasetInstantiator:
     def __init__(
-        self, assetstore_path: Path, target_path: Path, ignore_errors=False, gh_org=None
+        self,
+        assetstore_path: Path,
+        target_path: Path,
+        ignore_errors=False,
+        gh_org=None,
+        re_filter=None,
     ):
         self.assetstore_path = assetstore_path
         self.target_path = target_path
         self.ignore_errors = ignore_errors
         self.gh_org = gh_org
+        self.re_filter = re_filter
         self.session = None
         self._s3client = None
 
@@ -128,6 +139,11 @@ class DatasetInstantiator:
             local_assets = set(dataset_files(dsdir))
             local_assets.discard(dsdir / dandiset_metadata_file)
             for a in assets:
+                dest = dsdir / a["path"].lstrip("/")
+                local_assets.discard(dest)
+                if self.re_filter and not self.re_filter.search(a["path"]):
+                    log.info("Skipping asset %s", a["path"])
+                    continue
                 log.info("Syncing asset %s", a["path"])
                 gid = a["girder"]["id"]
                 dandi_hash = a.get("sha256")
@@ -135,9 +151,7 @@ class DatasetInstantiator:
                     log.warning("Asset metadata does not include sha256 hash")
                 mtime = a["modified"]  # type: datetime
                 bucket_url = self.get_file_bucket_url(gid)
-                dest = dsdir / a["path"].lstrip("/")
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                local_assets.discard(dest)
                 deststr = str(dest.relative_to(dsdir))
                 if not dest.exists():
                     log.info("Asset not in dataset; will copy")
@@ -205,6 +219,8 @@ class DatasetInstantiator:
                         )
             for a in local_assets:
                 astr = str(a.relative_to(dsdir))
+                if self.re_filter and not self.re_filter.search(astr):
+                    continue
                 log.info(
                     "Asset %s is in dataset but not in Dandiarchive; deleting", astr
                 )
