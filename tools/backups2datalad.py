@@ -196,7 +196,7 @@ class DatasetInstantiator:
                                 raise
                         log.info("Adding asset to dataset")
                         ds.repo.add([deststr])
-                        if ds.repo.is_under_annex([deststr]):
+                        if ds.repo.is_under_annex(deststr):
                             log.info("Adding URL %s to asset", bucket_url)
                             ds.repo.add_url_to_file(deststr, bucket_url, batch=True)
                         else:
