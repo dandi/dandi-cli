@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 __requires__ = ["boto3", "click", "dandi", "datalad", "requests"]
 
 """
