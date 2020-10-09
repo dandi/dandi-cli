@@ -174,7 +174,7 @@ class DatasetInstantiator:
                     to_update = True
                     added += 1
                 elif dandi_hash is not None:
-                    if dandi_hash == get_annex_hash(deststr):
+                    if dandi_hash == get_annex_hash(dest):
                         log.info(
                             "Asset in dataset, and hash shows no modification; will not update"
                         )
@@ -226,7 +226,7 @@ class DatasetInstantiator:
                     if latest_mtime is None or mtime > latest_mtime:
                         latest_mtime = mtime
                 if dandi_hash is not None:
-                    annex_key = get_annex_hash(deststr)
+                    annex_key = get_annex_hash(dest)
                     if dandi_hash != annex_key:
                         raise RuntimeError(
                             f"Hash mismatch for {dest.relative_to(self.target_path)}!"
