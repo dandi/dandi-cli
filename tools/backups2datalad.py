@@ -176,8 +176,11 @@ class DatasetInstantiator:
                                 raise
                         log.info("Adding asset to dataset")
                         ds.repo.add([deststr])
-                        log.info("Adding URL %s to asset", bucket_url)
-                        ds.repo.add_url_to_file(deststr, bucket_url, batch=True)
+                        if ds.repo.is_under_annex([deststr]):
+                            log.info("Adding URL %s to asset", bucket_url)
+                            ds.repo.add_url_to_file(deststr, bucket_url, batch=True)
+                        else:
+                            log.info("File is not managed by git annex; not adding URL")
                     else:
                         log.info(
                             "Asset not found in assetstore; downloading from %s",
