@@ -40,7 +40,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install ".[test]"
     - name: Set environment variable when using Python 3.6 to cover more code
-      run: echo "::set-env name=DANDI_LOG_GIRDER::1"
+      run: echo DANDI_LOG_GIRDER=1 >> $GITHUB_ENV
       if: matrix.python == '3.6'
     - name: ${{ matrix.module }} tests
       run: |
