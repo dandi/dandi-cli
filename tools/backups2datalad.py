@@ -15,6 +15,7 @@ registered with a GitHub account is needed for the second step.
 
 from collections import deque
 from contextlib import contextmanager
+from copy import deepcopy
 from datetime import datetime
 import logging
 import os
@@ -152,12 +153,14 @@ class DatasetInstantiator:
             ds.repo.add([dandiset_metadata_file])
             local_assets = set(dataset_files(dsdir))
             local_assets.discard(dsdir / dandiset_metadata_file)
-            saved_assets = []
+            asset_metadata = []
             for a in assets:
                 dest = dsdir / a["path"].lstrip("/")
                 deststr = str(dest.relative_to(dsdir))
                 local_assets.discard(dest)
-                saved_assets.append(deststr)
+                am = deepcopy(a)
+                am["modified"] = str(am["modified"])
+                asset_metadata.append(am)
                 if self.re_filter and not self.re_filter.search(a["path"]):
                     log.info("Skipping asset %s", a["path"])
                     continue
@@ -242,8 +245,7 @@ class DatasetInstantiator:
                 )
                 ds.repo.remove([astr])
                 deleted += 1
-            saved_assets.sort()
-            dump(saved_assets, dsdir / ".dandi" / "assets.json")
+            dump(asset_metadata, dsdir / ".dandi" / "assets.json")
         log.info("Commiting changes")
         with custom_commit_date(latest_mtime):
             msgbody = ""
