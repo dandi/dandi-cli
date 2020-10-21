@@ -17,7 +17,6 @@ from collections import deque
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime
-import io
 import logging
 import os
 from pathlib import Path
@@ -180,7 +179,7 @@ class DatasetInstantiator:
         updated = 0
         deleted = 0
 
-        with capturing_logging() as logstream, navigate_url(
+        with dandi_logging(dsdir) as logfile, navigate_url(
             f"https://dandiarchive.org/dandiset/{dandiset_id}/draft"
         ) as (_, dandiset, assets):
             log.info("Updating metadata file")
@@ -287,14 +286,6 @@ class DatasetInstantiator:
                 deleted += 1
             dump(asset_metadata, dsdir / ".dandi" / "assets.json")
         if any(r["state"] != "clean" for r in ds.status()):
-            log.info("Saving local logs")
-            logtext = logstream.getvalue()
-            logdir = dsdir / ".dandi" / "logs"
-            logdir.mkdir(exist_ok=True, parents=True)
-            filename = "sync-{:%Y%m%d%H%M%SZ}-{}.log".format(
-                datetime.utcnow(), os.getpid()
-            )
-            (logdir / filename).write_text(logtext, encoding="utf-8")
             log.info("Commiting changes")
             msgbody = ""
             if added:
@@ -307,7 +298,8 @@ class DatasetInstantiator:
                 ds.save(message=f"Ran backups2datalad.py\n\n{msgbody}")
             return True
         else:
-            log.info("No changes made to repository")
+            log.info("No changes made to repository; deleting logfile")
+            logfile.unlink()
             return False
 
     @staticmethod
@@ -399,9 +391,12 @@ def dataset_files(dspath):
 
 
 @contextmanager
-def capturing_logging():
-    stream = io.StringIO()
-    handler = logging.StreamHandler(stream)
+def dandi_logging(dandiset_path: Path):
+    logdir = dandiset_path / ".dandi" / "logs"
+    logdir.mkdir(exist_ok=True, parents=True)
+    filename = "sync-{:%Y%m%d%H%M%SZ}-{}.log".format(datetime.utcnow(), os.getpid())
+    logfile = logdir / filename
+    handler = logging.FileHandler(logfile, encoding="utf-8")
     fmter = logging.Formatter(
         fmt="%(asctime)s [%(levelname)-8s] %(name)s %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S%z",
@@ -410,7 +405,7 @@ def capturing_logging():
     root = logging.getLogger()
     root.addHandler(handler)
     try:
-        yield stream
+        yield logfile
     except Exception:
         log.exception("Operation failed with exception:")
         raise
