@@ -48,13 +48,21 @@ log = logging.getLogger(Path(sys.argv[0]).name)
 @click.option("--gh-org", help="GitHub organization to create repositories under")
 @click.option("-i", "--ignore-errors", is_flag=True)
 @click.option(
+    "-J",
+    "--jobs",
+    type=int,
+    default=10,
+    help="How many parallel jobs to use when pushing",
+    show_default=True,
+)
+@click.option(
     "--re-filter", help="Only consider assets matching the given regex", metavar="REGEX"
 )
 @click.argument("assetstore", type=click.Path(exists=True, file_okay=False))
 @click.argument("target", type=click.Path(file_okay=False))
 @click.argument("dandisets", nargs=-1)
 def main(
-    assetstore, target, dandisets, ignore_errors, gh_org, re_filter, backup_remote
+    assetstore, target, dandisets, ignore_errors, gh_org, re_filter, backup_remote, jobs
 ):
     logging.basicConfig(
         format="%(asctime)s [%(levelname)-8s] %(name)s %(message)s",
@@ -69,6 +77,7 @@ def main(
         gh_org=gh_org,
         re_filter=re_filter and re.compile(re_filter),
         backup_remote=backup_remote,
+        jobs=jobs,
     ).run(dandisets)
 
 
@@ -81,6 +90,7 @@ class DatasetInstantiator:
         gh_org=None,
         re_filter=None,
         backup_remote=None,
+        jobs=10,
     ):
         self.assetstore_path = assetstore_path
         self.target_path = target_path
@@ -88,6 +98,7 @@ class DatasetInstantiator:
         self.gh_org = gh_org
         self.re_filter = re_filter
         self.backup_remote = backup_remote
+        self.jobs = jobs
         self.session = None
         self._s3client = None
 
@@ -146,7 +157,7 @@ class DatasetInstantiator:
                         )
                         ds.config.set("branch.master.remote", "github", where="local")
                         log.info("Pushing to sibling")
-                        ds.push(to="github", jobs=10)  # jobs for transferring the data
+                        ds.push(to="github", jobs=self.jobs)
 
     def sync_dataset(self, dandiset_id, ds):
         # Returns true if any changes were committed to the repository
