@@ -17,6 +17,7 @@ from collections import deque
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime
+import io
 import logging
 import os
 from pathlib import Path
@@ -141,23 +142,19 @@ class DatasetInstantiator:
                             remote=self.backup_remote,
                         )
 
-                with dandi_logging(dsdir):
-                    # dandi_logging() creates a file in the dataset directory,
-                    # which makes ds.create() fail if dandi_logging() is run
-                    # first.
-                    if self.sync_dataset(did, ds):
-                        log.info("Creating GitHub sibling for %s", ds.pathobj.name)
-                        ds.create_sibling_github(
-                            reponame=ds.pathobj.name,
-                            existing="skip",
-                            name="github",
-                            access_protocol="ssh",
-                            github_organization=self.gh_org,
-                            publish_depends=self.backup_remote,
-                        )
-                        ds.config.set("branch.master.remote", "github", where="local")
-                        log.info("Pushing to sibling")
-                        ds.push(to="github", jobs=self.jobs)
+                if self.sync_dataset(did, ds):
+                    log.info("Creating GitHub sibling for %s", ds.pathobj.name)
+                    ds.create_sibling_github(
+                        reponame=ds.pathobj.name,
+                        existing="skip",
+                        name="github",
+                        access_protocol="ssh",
+                        github_organization=self.gh_org,
+                        publish_depends=self.backup_remote,
+                    )
+                    ds.config.set("branch.master.remote", "github", where="local")
+                    log.info("Pushing to sibling")
+                    ds.push(to="github", jobs=self.jobs)
 
     def sync_dataset(self, dandiset_id, ds):
         # Returns true if any changes were committed to the repository
@@ -181,11 +178,10 @@ class DatasetInstantiator:
         added = 0
         updated = 0
         deleted = 0
-        with navigate_url(f"https://dandiarchive.org/dandiset/{dandiset_id}/draft") as (
-            _,
-            dandiset,
-            assets,
-        ):
+
+        with capturing_logging() as logstream, navigate_url(
+            f"https://dandiarchive.org/dandiset/{dandiset_id}/draft"
+        ) as (_, dandiset, assets):
             log.info("Updating metadata file")
             try:
                 (dsdir / dandiset_metadata_file).unlink()
@@ -289,8 +285,16 @@ class DatasetInstantiator:
                 ds.repo.remove([astr])
                 deleted += 1
             dump(asset_metadata, dsdir / ".dandi" / "assets.json")
-        log.info("Commiting changes")
-        with custom_commit_date(latest_mtime):
+        if any(r["state"] != "clean" for r in ds.status()):
+            log.info("Saving local logs")
+            logtext = logstream.getvalue()
+            logdir = dsdir / ".dandi" / "logs"
+            logdir.mkdir(exist_ok=True, parents=True)
+            filename = "sync-{:%Y%m%d%H%M%SZ}-{}.log".format(
+                datetime.utcnow(), os.getpid()
+            )
+            (logdir / filename).write_text(logtext, encoding="utf-8")
+            log.info("Commiting changes")
             msgbody = ""
             if added:
                 msgbody += f"{added} files added\n"
@@ -298,9 +302,12 @@ class DatasetInstantiator:
                 msgbody += f"{updated} files updated\n"
             if deleted:
                 msgbody += f"{deleted} files deleted\n"
-            res = ds.save(message=f"Ran backups2datalad.py\n\n{msgbody}")
-        saveres, = [r for r in res if r["action"] == "save"]
-        return saveres["status"] != "notneeded"
+            with custom_commit_date(latest_mtime):
+                ds.save(message=f"Ran backups2datalad.py\n\n{msgbody}")
+            return True
+        else:
+            log.info("No changes made to repository")
+            return False
 
     @staticmethod
     def get_dandiset_ids():
@@ -391,25 +398,23 @@ def dataset_files(dspath):
 
 
 @contextmanager
-def dandi_logging(dandiset_path: Path):
-    logdir = dandiset_path / ".dandi" / "logs"
-    logdir.mkdir(exist_ok=True, parents=True)
-    filename = "sync-{:%Y%m%d%H%M%SZ}-{}.log".format(datetime.utcnow(), os.getpid())
-    fh = logging.FileHandler(logdir / filename, encoding="utf-8")
+def capturing_logging():
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
     fmter = logging.Formatter(
         fmt="%(asctime)s [%(levelname)-8s] %(name)s %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S%z",
     )
-    fh.setFormatter(fmter)
+    handler.setFormatter(fmter)
     root = logging.getLogger()
-    root.addHandler(fh)
+    root.addHandler(handler)
     try:
-        yield
+        yield stream
     except Exception:
         log.exception("Operation failed with exception:")
         raise
     finally:
-        root.removeHandler(fh)
+        root.removeHandler(handler)
 
 
 if __name__ == "__main__":
