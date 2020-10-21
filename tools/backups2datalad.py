@@ -44,15 +44,26 @@ log = logging.getLogger(Path(sys.argv[0]).name)
 
 
 @click.command()
+@click.option("--backup-remote", help="Name of the rclone remote to push to")
 @click.option("--gh-org", help="GitHub organization to create repositories under")
 @click.option("-i", "--ignore-errors", is_flag=True)
+@click.option(
+    "-J",
+    "--jobs",
+    type=int,
+    default=10,
+    help="How many parallel jobs to use when pushing",
+    show_default=True,
+)
 @click.option(
     "--re-filter", help="Only consider assets matching the given regex", metavar="REGEX"
 )
 @click.argument("assetstore", type=click.Path(exists=True, file_okay=False))
 @click.argument("target", type=click.Path(file_okay=False))
 @click.argument("dandisets", nargs=-1)
-def main(assetstore, target, dandisets, ignore_errors, gh_org, re_filter):
+def main(
+    assetstore, target, dandisets, ignore_errors, gh_org, re_filter, backup_remote, jobs
+):
     logging.basicConfig(
         format="%(asctime)s [%(levelname)-8s] %(name)s %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S%z",
@@ -65,6 +76,8 @@ def main(assetstore, target, dandisets, ignore_errors, gh_org, re_filter):
         ignore_errors=ignore_errors,
         gh_org=gh_org,
         re_filter=re_filter and re.compile(re_filter),
+        backup_remote=backup_remote,
+        jobs=jobs,
     ).run(dandisets)
 
 
@@ -76,12 +89,16 @@ class DatasetInstantiator:
         ignore_errors=False,
         gh_org=None,
         re_filter=None,
+        backup_remote=None,
+        jobs=10,
     ):
         self.assetstore_path = assetstore_path
         self.target_path = target_path
         self.ignore_errors = ignore_errors
         self.gh_org = gh_org
         self.re_filter = re_filter
+        self.backup_remote = backup_remote
+        self.jobs = jobs
         self.session = None
         self._s3client = None
 
@@ -100,25 +117,48 @@ class DatasetInstantiator:
                 if not ds.is_installed():
                     log.info("Creating Datalad dataset")
                     ds.create(cfg_proc="text2git")
-                with dandi_logging(dsdir):
-                    # dandi_logging() creates a file in the dataset directory,
-                    # which makes ds.create() fail if dandi_logging() is run
-                    # first.
-                    if self.sync_dataset(did, ds):
-                        log.info("Creating GitHub sibling for %s", ds.pathobj.name)
-                        ds.create_sibling_github(
-                            reponame=ds.pathobj.name,
-                            existing="skip",
-                            name="github",
-                            access_protocol="ssh",
-                            github_organization=self.gh_org,
+                    if self.backup_remote is not None:
+                        ds.repo.init_remote(
+                            self.backup_remote,
+                            [],
+                            type="rclone",
+                            external=True,
+                            config={
+                                "chunk": "1GB",
+                                "target": self.backup_remote,  # I made them matching
+                                "prefix": "dandi-dandisets/annexstore",
+                                "embedcreds": "no",
+                                "uuid": "727f466f-60c3-4778-90b2-b2332856c2f8"
+                                # shared, initialized in 000003
+                            },
                         )
-                        log.info("Pushing to sibling")
-                        ds.push(to="github")
+                        ds.repo._run_annex_command(
+                            "untrust", annex_options=[self.backup_remote]
+                        )
+                        ds.repo.set_preferred_content(
+                            "wanted",
+                            "(not metadata=distribution-restrictions=*)",
+                            remote=self.backup_remote,
+                        )
+
+                if self.sync_dataset(did, ds):
+                    log.info("Creating GitHub sibling for %s", ds.pathobj.name)
+                    ds.create_sibling_github(
+                        reponame=ds.pathobj.name,
+                        existing="skip",
+                        name="github",
+                        access_protocol="ssh",
+                        github_organization=self.gh_org,
+                        publish_depends=self.backup_remote,
+                    )
+                    ds.config.set("branch.master.remote", "github", where="local")
+                    log.info("Pushing to sibling")
+                    ds.push(to="github", jobs=self.jobs)
 
     def sync_dataset(self, dandiset_id, ds):
         # Returns true if any changes were committed to the repository
-
+        if ds.repo.dirty:
+            raise RuntimeError("Dirty repository; clean or save before running")
         digester = Digester(digests=["sha256"])
         hash_mem = {}
 
@@ -138,11 +178,10 @@ class DatasetInstantiator:
         added = 0
         updated = 0
         deleted = 0
-        with navigate_url(f"https://dandiarchive.org/dandiset/{dandiset_id}/draft") as (
-            _,
-            dandiset,
-            assets,
-        ):
+
+        with dandi_logging(dsdir) as logfile, navigate_url(
+            f"https://dandiarchive.org/dandiset/{dandiset_id}/draft"
+        ) as (_, dandiset, assets):
             log.info("Updating metadata file")
             try:
                 (dsdir / dandiset_metadata_file).unlink()
@@ -246,8 +285,8 @@ class DatasetInstantiator:
                 ds.repo.remove([astr])
                 deleted += 1
             dump(asset_metadata, dsdir / ".dandi" / "assets.json")
-        log.info("Commiting changes")
-        with custom_commit_date(latest_mtime):
+        if any(r["state"] != "clean" for r in ds.status()):
+            log.info("Commiting changes")
             msgbody = ""
             if added:
                 msgbody += f"{added} files added\n"
@@ -255,9 +294,13 @@ class DatasetInstantiator:
                 msgbody += f"{updated} files updated\n"
             if deleted:
                 msgbody += f"{deleted} files deleted\n"
-            res = ds.save(message=f"Ran backups2datalad.py\n\n{msgbody}")
-        saveres, = [r for r in res if r["action"] == "save"]
-        return saveres["status"] != "notneeded"
+            with custom_commit_date(latest_mtime):
+                ds.save(message=f"Ran backups2datalad.py\n\n{msgbody}")
+            return True
+        else:
+            log.info("No changes made to repository; deleting logfile")
+            logfile.unlink()
+            return False
 
     @staticmethod
     def get_dandiset_ids():
@@ -352,21 +395,22 @@ def dandi_logging(dandiset_path: Path):
     logdir = dandiset_path / ".dandi" / "logs"
     logdir.mkdir(exist_ok=True, parents=True)
     filename = "sync-{:%Y%m%d%H%M%SZ}-{}.log".format(datetime.utcnow(), os.getpid())
-    fh = logging.FileHandler(logdir / filename, encoding="utf-8")
+    logfile = logdir / filename
+    handler = logging.FileHandler(logfile, encoding="utf-8")
     fmter = logging.Formatter(
         fmt="%(asctime)s [%(levelname)-8s] %(name)s %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S%z",
     )
-    fh.setFormatter(fmter)
+    handler.setFormatter(fmter)
     root = logging.getLogger()
-    root.addHandler(fh)
+    root.addHandler(handler)
     try:
-        yield
+        yield logfile
     except Exception:
         log.exception("Operation failed with exception:")
         raise
     finally:
-        root.removeHandler(fh)
+        root.removeHandler(handler)
 
 
 if __name__ == "__main__":
