@@ -43,6 +43,25 @@ import requests
 log = logging.getLogger(Path(sys.argv[0]).name)
 
 
+# might "move", see https://github.com/datalad/datalad/issues/5062
+# and needs nose, so we will just duplicate for now
+# from datalad.distributed.tests.ria_utils import initexternalremote
+def initremote(repo, name, encryption=None, config=None):
+    cfg = dict(config) if config else {}
+    cfg['encryption'] = encryption if encryption else 'none'
+    args = ['{}={}'.format(k, v) for k, v in cfg.items()]
+    repo.init_remote(name, args)
+
+
+def initexternalremote(repo, name, type, encryption=None, config=None):
+    config = dict(
+        config if config else {},
+        type='external',
+        externaltype=type,
+    )
+    return initremote(repo, name, encryption=encryption, config=config)
+
+
 @click.command()
 @click.option("--gh-org", help="GitHub organization to create repositories under")
 @click.option("-i", "--ignore-errors", is_flag=True)
@@ -92,6 +111,7 @@ class DatasetInstantiator:
             )
         self.target_path.mkdir(parents=True, exist_ok=True)
         datalad.cfg.set("datalad.repo.backend", "SHA256E", where="override")
+        backup_remote = "dandi-dandisets-dropbox"
         with requests.Session() as self.session:
             for did in dandisets or self.get_dandiset_ids():
                 dsdir = self.target_path / did
@@ -100,6 +120,20 @@ class DatasetInstantiator:
                 if not ds.is_installed():
                     log.info("Creating Datalad dataset")
                     ds.create(cfg_proc="text2git")
+                    initexternalremote(
+                            ds.repo,
+                            backup_remote,
+                            "rclone",
+                            config={
+                                "chunk": "1GB",
+                                "target": backup_remote,  # I made them matching
+                                "prefix": "dandi-dandisets/annexstore",
+                                "embedcreds": "no",
+                                "uuid": "727f466f-60c3-4778-90b2-b2332856c2f8" # shared, initialized in 000003
+                            })
+                    ds.repo._run_annex_command('untrust', annex_options=[backup_remote])
+                    ds.repo.set_preferred_content('wanted', '(not metadata=distribution-restrictions=*)', remote=backup_remote)
+
                 with dandi_logging(dsdir):
                     # dandi_logging() creates a file in the dataset directory,
                     # which makes ds.create() fail if dandi_logging() is run
@@ -112,9 +146,11 @@ class DatasetInstantiator:
                             name="github",
                             access_protocol="ssh",
                             github_organization=self.gh_org,
+                            publish_depends=backup_remote,
                         )
+                        ds.config.set('branch.master.remote', 'github', where='local')
                         log.info("Pushing to sibling")
-                        ds.push(to="github")
+                        ds.push(to="github", jobs=10)  # jobs for transferring the data
 
     def sync_dataset(self, dandiset_id, ds):
         # Returns true if any changes were committed to the repository
