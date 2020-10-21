@@ -158,7 +158,8 @@ class DatasetInstantiator:
 
     def sync_dataset(self, dandiset_id, ds):
         # Returns true if any changes were committed to the repository
-
+        if ds.repo.dirty:
+            raise RuntimeError("Dirty repository; clean or save before running")
         digester = Digester(digests=["sha256"])
         hash_mem = {}
 
