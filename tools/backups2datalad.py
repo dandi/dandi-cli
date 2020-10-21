@@ -44,6 +44,7 @@ log = logging.getLogger(Path(sys.argv[0]).name)
 
 
 @click.command()
+@click.option("--backup-remote", help="Name of the rclone remote to push to")
 @click.option("--gh-org", help="GitHub organization to create repositories under")
 @click.option("-i", "--ignore-errors", is_flag=True)
 @click.option(
@@ -52,7 +53,9 @@ log = logging.getLogger(Path(sys.argv[0]).name)
 @click.argument("assetstore", type=click.Path(exists=True, file_okay=False))
 @click.argument("target", type=click.Path(file_okay=False))
 @click.argument("dandisets", nargs=-1)
-def main(assetstore, target, dandisets, ignore_errors, gh_org, re_filter):
+def main(
+    assetstore, target, dandisets, ignore_errors, gh_org, re_filter, backup_remote
+):
     logging.basicConfig(
         format="%(asctime)s [%(levelname)-8s] %(name)s %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S%z",
@@ -65,6 +68,7 @@ def main(assetstore, target, dandisets, ignore_errors, gh_org, re_filter):
         ignore_errors=ignore_errors,
         gh_org=gh_org,
         re_filter=re_filter and re.compile(re_filter),
+        backup_remote=backup_remote,
     ).run(dandisets)
 
 
@@ -76,12 +80,14 @@ class DatasetInstantiator:
         ignore_errors=False,
         gh_org=None,
         re_filter=None,
+        backup_remote=None,
     ):
         self.assetstore_path = assetstore_path
         self.target_path = target_path
         self.ignore_errors = ignore_errors
         self.gh_org = gh_org
         self.re_filter = re_filter
+        self.backup_remote = backup_remote
         self.session = None
         self._s3client = None
 
@@ -92,7 +98,6 @@ class DatasetInstantiator:
             )
         self.target_path.mkdir(parents=True, exist_ok=True)
         datalad.cfg.set("datalad.repo.backend", "SHA256E", where="override")
-        backup_remote = "dandi-dandisets-dropbox"
         with requests.Session() as self.session:
             for did in dandisets or self.get_dandiset_ids():
                 dsdir = self.target_path / did
@@ -101,26 +106,29 @@ class DatasetInstantiator:
                 if not ds.is_installed():
                     log.info("Creating Datalad dataset")
                     ds.create(cfg_proc="text2git")
-                    ds.repo.init_remote(
-                        backup_remote,
-                        [],
-                        type="rclone",
-                        external=True,
-                        config={
-                            "chunk": "1GB",
-                            "target": backup_remote,  # I made them matching
-                            "prefix": "dandi-dandisets/annexstore",
-                            "embedcreds": "no",
-                            "uuid": "727f466f-60c3-4778-90b2-b2332856c2f8"
-                            # shared, initialized in 000003
-                        },
-                    )
-                    ds.repo._run_annex_command("untrust", annex_options=[backup_remote])
-                    ds.repo.set_preferred_content(
-                        "wanted",
-                        "(not metadata=distribution-restrictions=*)",
-                        remote=backup_remote,
-                    )
+                    if self.backup_remote is not None:
+                        ds.repo.init_remote(
+                            self.backup_remote,
+                            [],
+                            type="rclone",
+                            external=True,
+                            config={
+                                "chunk": "1GB",
+                                "target": self.backup_remote,  # I made them matching
+                                "prefix": "dandi-dandisets/annexstore",
+                                "embedcreds": "no",
+                                "uuid": "727f466f-60c3-4778-90b2-b2332856c2f8"
+                                # shared, initialized in 000003
+                            },
+                        )
+                        ds.repo._run_annex_command(
+                            "untrust", annex_options=[self.backup_remote]
+                        )
+                        ds.repo.set_preferred_content(
+                            "wanted",
+                            "(not metadata=distribution-restrictions=*)",
+                            remote=self.backup_remote,
+                        )
 
                 with dandi_logging(dsdir):
                     # dandi_logging() creates a file in the dataset directory,
@@ -134,7 +142,7 @@ class DatasetInstantiator:
                             name="github",
                             access_protocol="ssh",
                             github_organization=self.gh_org,
-                            publish_depends=backup_remote,
+                            publish_depends=self.backup_remote,
                         )
                         ds.config.set("branch.master.remote", "github", where="local")
                         log.info("Pushing to sibling")
