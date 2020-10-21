@@ -1,0 +1,28 @@
+name: Auto-release on PR merge
+
+on:
+  # ATM, this is the closest trigger to a PR merging
+  push:
+    branches:
+      - master
+
+jobs:
+  auto-release:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'ci skip') && !contains(github.event.head_commit.message, 'skip ci')"
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        #token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Download latest auto
+      run: |
+        curl -vL -o - "$(curl -fsSL https://api.github.com/repos/intuit/auto/releases/latest | jq -r '.assets[] | select(.name == "auto-linux.gz") | .browser_download_url')" | gunzip > ~/auto
+        chmod a+x ~/auto
+
+    - name: Create release
+      run: ~/auto shipit -vv
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
