@@ -11,7 +11,26 @@ credentials stored in the system's credentials store or else a GitHub OAuth
 token stored in the global Git config under `hub.oauthtoken`.  In addition,
 pushing to the GitHub remotes happens over SSH, so an SSH key that has been
 registered with a GitHub account is needed for the second step.
+
+TODOs:
+    - move to dandisets repo
+    - all logs should go under .git/dandi/logs -- do not "save" them at all
+    - make work with released datalad (so return back special remote setup helpers)
+    - use ssh only for "pushurl" and regular "https" for url for github sibling
+
+Maybes:
+    - do not push in here, push will be outside upon success of the entire hierarchy
+
+Later TODOs
+
+- become aware of superdataset, add new subdatasets if created and ran
+  not for a specific subdataset
+- parallelize across datasets or may be better files (would that be possible within 
+  dataset?) using DataLad's #5022 ConsumerProducer?
+
 """
+
+raise NotImplementedError("see above TODOs")
 
 from collections import deque
 from contextlib import contextmanager
