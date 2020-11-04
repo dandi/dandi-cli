@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Moved code for navigating Dandi Archive into new `dandiarchive` submodule
 - YAML output now sorts keys
 - `dandiset.yaml` is no longer uploaded to the archive
+- Restrict h5py dependency to pre-v3.0
 
 ## [0.6.4] - 2020-09-04
 
