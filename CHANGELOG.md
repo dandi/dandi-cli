@@ -5,6 +5,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
+## [0.7.0] - 2020-11-04
+
+### Added
+- Files are now stored in temporary directories while downloading alongside
+  metadata for use in resuming interrupted downloads
+
+### Changed
+- Moved code for navigating Dandi Archive into new `dandiarchive` submodule
+- YAML output now sorts keys
+- `dandiset.yaml` is no longer uploaded to the archive
+
 ## [0.6.4] - 2020-09-04
 
 Primarily a range of bugfixes to ensure correct operation with current state
