@@ -72,7 +72,10 @@ def test_download_multiple_files(monkeypatch, tmpdir):
 @pytest.mark.parametrize(
     "url",
     [  # Should go through API
-        "https://dandiarchive.org/dandiset/000027/0.200721.2222",
+        pytest.param(
+            "https://dandiarchive.org/dandiset/000027/0.200721.2222",
+            marks=pytest.mark.xfail(reason="publish.dandiarchive.org is gone"),
+        ),
         # Drafts do not go through API ATM, but that should not be visible to user
         "https://dandiarchive.org/dandiset/000027/draft",
     ],
@@ -107,7 +110,10 @@ def test_download_000027(url, tmpdir):
 @pytest.mark.parametrize(
     "url",
     [  # Should go through API
-        "https://dandiarchive.org/dandiset/000027/0.200721.2222",
+        pytest.param(
+            "https://dandiarchive.org/dandiset/000027/0.200721.2222",
+            marks=pytest.mark.xfail(reason="publish.dandiarchive.org is gone"),
+        ),
         # Drafts do not go through API ATM, but that should not be visible to user
         "https://dandiarchive.org/dandiset/000027/draft",
     ],
@@ -123,7 +129,10 @@ def test_download_000027_metadata_only(url, tmpdir):
 @pytest.mark.parametrize(
     "url",
     [  # Should go through API
-        "https://dandiarchive.org/dandiset/000027/0.200721.2222",
+        pytest.param(
+            "https://dandiarchive.org/dandiset/000027/0.200721.2222",
+            marks=pytest.mark.xfail(reason="publish.dandiarchive.org is gone"),
+        ),
         # Drafts do not go through API ATM, but that should not be visible to user
         "https://dandiarchive.org/dandiset/000027/draft",
     ],
@@ -148,7 +157,16 @@ def test_girder_tqdm(monkeypatch):
 
 
 @pytest.mark.parametrize("resizer", [lambda sz: 0, lambda sz: sz // 2, lambda sz: sz])
-@pytest.mark.parametrize("version", ["0.200721.2222", "draft"])
+@pytest.mark.parametrize(
+    "version",
+    [
+        pytest.param(
+            "0.200721.2222",
+            marks=pytest.mark.xfail(reason="publish.dandiarchive.org is gone"),
+        ),
+        "draft",
+    ],
+)
 def test_download_000027_resume(tmp_path, resizer, version):
     from ..support.digests import Digester
 
