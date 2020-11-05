@@ -195,5 +195,3 @@ Improvements to `ls` and `upload` commands
 - mitigated crashes in pynwb if neural data type schema is not cached
   in the file and requires import of the extension module.  ATM the
   known/handled only the `AIBS_ecephys` from `allensdk`
-
-[0.2.0]: https://github.com/dandi/dandi-cli/commits/0.2.0
