@@ -286,10 +286,10 @@ class GirderCli(gcl.GirderClient):
         elif a["type"] == "item":
             file_recs = list(self.listFile(g["_id"]))
             if len(file_recs) > 1:
-                raise ValueError(
-                    f"multiple files per item not yet supported (if ever will be)."
-                    f" Got: {file_recs}"
-                )
+                lgr.warning("Multiple files for one item found; using oldest one")
+                file_recs = [
+                    min(file_recs, key=lambda fr: ensure_datetime(fr["created"]))
+                ]
             if not file_recs:
                 lgr.warning(f"Ran into an empty item: {g}")
                 return
