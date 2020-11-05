@@ -1,3 +1,23 @@
+# 0.7.1 (Thu Nov 05 2020)
+
+#### 🐛 Bug Fix
+
+- Use oldest file when race condition causes multiple files per item [#265](https://github.com/dandi/dandi-cli/pull/265) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Set up workflow with auto for releasing & PyPI uploads [#257](https://github.com/dandi/dandi-cli/pull/257) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Remove unused link from CHANGELOG.md [#266](https://github.com/dandi/dandi-cli/pull/266) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # [0.7.0] - 2020-11-04
 
 ## Added
