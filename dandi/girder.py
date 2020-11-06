@@ -13,6 +13,7 @@ import girder_client as gcl
 
 from . import get_logger
 from .exceptions import LockingError
+from .support.ui import askyesno
 from .utils import ensure_datetime, flattened, flatten, remap_dict
 from .consts import known_instances_rev, MAX_CHUNK_SIZE
 
@@ -911,7 +912,9 @@ def keyring_lookup(service_name, username):
                 lgr.info("EncryptedKeyring file exists; using as keyring backend")
                 return (kb, kb.get_password(service_name, username))
             lgr.info("EncryptedKeyring file does not exist")
-            if askyesno("Would you like to establish an encrypted keyring?"):
+            if askyesno(
+                "Would you like to establish an encrypted keyring?", default=True
+            ):
                 keyring_cfg = Path(config_root()) / "keyringrc.cfg"
                 if keyring_cfg.exists():
                     lgr.info("%s exists; refusing to overwrite", keyring_cfg)
@@ -929,14 +932,3 @@ def keyring_lookup(service_name, username):
             raise
     else:
         return (kb, password)
-
-
-def askyesno(question):
-    while True:
-        answer = input(f"{question} [yes|no]: ").strip().lower()
-        if answer in ("y", "yes"):
-            return True
-        elif answer in ("n", "no"):
-            return False
-        elif answer:
-            print("Please answer 'y'/'yes'/'n'/'no'.")
