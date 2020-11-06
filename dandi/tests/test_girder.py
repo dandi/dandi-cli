@@ -1,5 +1,6 @@
 from base64 import b64encode
 from keyring.backends import null
+from keyring.errors import KeyringError
 from keyrings.alt import file as keyfile
 
 import pytest
@@ -91,3 +92,45 @@ def test_keyring_lookup_envvar_password(fs, monkeypatch):
     kb, password = girder.keyring_lookup("testservice", "testusername")
     assert isinstance(kb, keyfile.PlaintextKeyring)
     assert password == "testpassword"
+
+
+def test_keyring_lookup_envvar_fail(monkeypatch):
+    monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyring.backends.fail.Keyring")
+    with pytest.raises(KeyringError):
+        girder.keyring_lookup("test-service", "test-username")
+
+
+def test_keyring_lookup_rccfg_no_password(fs, monkeypatch):
+    monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
+    fs.create_file(
+        girder.keyringrc_file(),
+        contents="[backend]\ndefault-keyring = keyring.backends.null.Keyring\n",
+    )
+    kb, password = girder.keyring_lookup("test-service", "test-username")
+    assert isinstance(kb, null.Keyring)
+    assert password is None
+
+
+def test_keyring_lookup_rccfg_password(fs, monkeypatch):
+    monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
+    fs.create_file(
+        girder.keyringrc_file(),
+        contents="[backend]\ndefault-keyring = keyrings.alt.file.PlaintextKeyring\n",
+    )
+    fs.create_file(
+        keyfile.PlaintextKeyring().file_path,
+        contents=f"[testservice]\ntestusername = {b64encode(b'testpassword').decode()}\n",
+    )
+    kb, password = girder.keyring_lookup("testservice", "testusername")
+    assert isinstance(kb, keyfile.PlaintextKeyring)
+    assert password == "testpassword"
+
+
+def test_keyring_lookup_rccfg_fail(fs, monkeypatch):
+    monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
+    fs.create_file(
+        girder.keyringrc_file(),
+        contents="[backend]\ndefault-keyring = keyring.backends.fail.Keyring\n",
+    )
+    with pytest.raises(KeyringError):
+        girder.keyring_lookup("test-service", "test-username")

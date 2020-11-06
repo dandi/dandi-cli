@@ -885,8 +885,7 @@ def keyring_lookup(service_name, username):
 
     from keyring.core import get_keyring, load_config, load_env
     from keyring.backend import get_all_keyring
-    from keyring.errors import InitError
-    from keyring.util.platform_ import config_root
+    from keyring.errors import KeyringError
     from keyrings.alt.file import EncryptedKeyring
 
     kb = load_env() or load_config()
@@ -895,7 +894,7 @@ def keyring_lookup(service_name, username):
     kb = get_keyring()
     try:
         password = kb.get_password(service_name, username)
-    except InitError as e:
+    except KeyringError as e:
         lgr.info("Default keyring errors on query: %s", e)
         if isinstance(kb, EncryptedKeyring):
             lgr.info(
@@ -915,7 +914,7 @@ def keyring_lookup(service_name, username):
             if askyesno(
                 "Would you like to establish an encrypted keyring?", default=True
             ):
-                keyring_cfg = Path(config_root()) / "keyringrc.cfg"
+                keyring_cfg = Path(keyringrc_file())
                 if keyring_cfg.exists():
                     lgr.info("%s exists; refusing to overwrite", keyring_cfg)
                 else:
@@ -932,3 +931,9 @@ def keyring_lookup(service_name, username):
             raise
     else:
         return (kb, password)
+
+
+def keyringrc_file():
+    from keyring.util.platform_ import config_root
+
+    return op.join(config_root(), "keyringrc.cfg")
