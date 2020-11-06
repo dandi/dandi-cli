@@ -1,5 +1,4 @@
-from base64 import b64encode
-from keyring.backends import null
+from keyring.backends import fail, null
 from keyring.errors import KeyringError
 from keyrings.alt import file as keyfile
 
@@ -88,9 +87,8 @@ def setup_keyringrc_password(fs):
         girder.keyringrc_file(),
         contents="[backend]\ndefault-keyring = keyrings.alt.file.PlaintextKeyring\n",
     )
-    fs.create_file(
-        keyfile.PlaintextKeyring().file_path,
-        contents=f"[testservice]\ntestusername = {b64encode(b'testpassword').decode()}\n",
+    keyfile.PlaintextKeyring().set_password(
+        "testservice", "testusername", "testpassword"
     )
 
 
@@ -119,9 +117,8 @@ def test_keyring_lookup_envvar_no_password(fs, monkeypatch, rcconfig):
 )
 def test_keyring_lookup_envvar_password(fs, monkeypatch, rcconfig):
     monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyrings.alt.file.PlaintextKeyring")
-    fs.create_file(
-        keyfile.PlaintextKeyring().file_path,
-        contents=f"[testservice]\ntestusername = {b64encode(b'testpassword').decode()}\n",
+    keyfile.PlaintextKeyring().set_password(
+        "testservice", "testusername", "testpassword"
     )
     if rcconfig is not None:
         rcconfig(fs)
@@ -163,3 +160,56 @@ def test_keyring_lookup_rccfg_fail(fs, monkeypatch):
     setup_keyringrc_fail(fs)
     with pytest.raises(KeyringError):
         girder.keyring_lookup("testservice", "testusername")
+
+
+def test_keyring_lookup_default_no_password(fs, mocker, monkeypatch):
+    # Requesting the `fs` fixture (even if it's not directly used) should
+    # guarantee that a keyringrc.cfg file on the real filesystem isn't found.
+    monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
+    kb0 = null.Keyring()
+    get_keyring = mocker.patch("dandi.girder.get_keyring", return_value=kb0)
+    kb, password = girder.keyring_lookup("testservice", "testusername")
+    assert kb is kb0
+    assert password is None
+    get_keyring.assert_called_once_with()
+
+
+def test_keyring_lookup_default_password(fs, mocker, monkeypatch):
+    # Requesting the `fs` fixture (even if it's not directly used) should
+    # guarantee that a keyringrc.cfg file on the real filesystem isn't found
+    # and that the PlaintextKeyring file is only created on the fake
+    # filesystem.
+    monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
+    kb0 = keyfile.PlaintextKeyring()
+    kb0.set_password("testservice", "testusername", "testpassword")
+    get_keyring = mocker.patch("dandi.girder.get_keyring", return_value=kb0)
+    kb, password = girder.keyring_lookup("testservice", "testusername")
+    assert kb is kb0
+    assert password == "testpassword"
+    get_keyring.assert_called_once_with()
+
+
+class EncryptedFailure(fail.Keyring, keyfile.EncryptedKeyring):
+    pass
+
+
+def test_keyring_lookup_fail_default_encrypted(fs, mocker, monkeypatch):
+    # Requesting the `fs` fixture (even if it's not directly used) should
+    # guarantee that a keyringrc.cfg file on the real filesystem isn't found.
+    monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
+    get_keyring = mocker.patch(
+        "dandi.girder.get_keyring", return_value=EncryptedFailure()
+    )
+    with pytest.raises(KeyringError):
+        girder.keyring_lookup("testservice", "testusername")
+    get_keyring.assert_called_once_with()
+
+
+def test_keyring_lookup_encrypted_fallback_exists_no_password(fs, mocker, monkeypatch):
+    monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
+    get_keyring = mocker.patch("dandi.girder.get_keyring", return_value=fail.Keyring())
+    fs.create_file(keyfile.EncryptedKeyring().file_path)
+    kb, password = girder.keyring_lookup("testservice", "testusername")
+    assert isinstance(kb, keyfile.EncryptedKeyring)
+    assert password is None
+    get_keyring.assert_called_once_with()

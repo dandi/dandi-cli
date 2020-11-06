@@ -9,6 +9,12 @@ import time
 from functools import lru_cache
 from pathlib import Path
 
+from keyring.core import get_keyring, load_config, load_env
+from keyring.backend import get_all_keyring
+from keyring.errors import KeyringError
+from keyring.util.platform_ import config_root
+from keyrings.alt.file import EncryptedKeyring
+
 import girder_client as gcl
 
 from . import get_logger
@@ -883,11 +889,6 @@ def keyring_lookup(service_name, username):
     service and username.
     """
 
-    from keyring.core import get_keyring, load_config, load_env
-    from keyring.backend import get_all_keyring
-    from keyring.errors import KeyringError
-    from keyrings.alt.file import EncryptedKeyring
-
     kb = load_env() or load_config()
     if kb:
         return (kb, kb.get_password(service_name, username))
@@ -901,39 +902,35 @@ def keyring_lookup(service_name, username):
                 "Default keyring is EncryptedKeyring; abandoning keyring procedure"
             )
             raise
-        try:
-            [kb] = [k for k in get_all_keyring() if isinstance(k, EncryptedKeyring)]
-        except ValueError:
-            lgr.info("EncryptedKeyring not available; abandoning keyring procedure")
-            raise e
-        else:
-            if op.exists(kb.file_path):
-                lgr.info("EncryptedKeyring file exists; using as keyring backend")
-                return (kb, kb.get_password(service_name, username))
-            lgr.info("EncryptedKeyring file does not exist")
-            if askyesno(
-                "Would you like to establish an encrypted keyring?", default=True
-            ):
-                keyring_cfg = Path(keyringrc_file())
-                if keyring_cfg.exists():
-                    lgr.info("%s exists; refusing to overwrite", keyring_cfg)
-                else:
-                    lgr.info(
-                        "Configuring %s to use EncryptedKeyring as default backend",
-                        keyring_cfg,
-                    )
-                    keyring_cfg.parent.mkdir(parents=True, exist_ok=True)
-                    keyring_cfg.write_text(
-                        "[backend]\n"
-                        "default-keyring = keyrings.alt.file.EncryptedKeyring\n"
-                    )
-                return (kb, None)
-            raise
+        # Use `type(..) is` instead of `isinstance()` to weed out subclasses
+        kbs = [k for k in get_all_keyring() if type(k) is EncryptedKeyring]
+        assert (
+            len(kbs) == 1
+        ), "EncryptedKeyring not available; is pycryptodomex installed?"
+        kb = kbs[0]
+        if op.exists(kb.file_path):
+            lgr.info("EncryptedKeyring file exists; using as keyring backend")
+            return (kb, kb.get_password(service_name, username))
+        lgr.info("EncryptedKeyring file does not exist")
+        if askyesno("Would you like to establish an encrypted keyring?", default=True):
+            keyring_cfg = Path(keyringrc_file())
+            if keyring_cfg.exists():
+                lgr.info("%s exists; refusing to overwrite", keyring_cfg)
+            else:
+                lgr.info(
+                    "Configuring %s to use EncryptedKeyring as default backend",
+                    keyring_cfg,
+                )
+                keyring_cfg.parent.mkdir(parents=True, exist_ok=True)
+                keyring_cfg.write_text(
+                    "[backend]\n"
+                    "default-keyring = keyrings.alt.file.EncryptedKeyring\n"
+                )
+            return (kb, None)
+        raise
     else:
         return (kb, password)
 
 
 def keyringrc_file():
-    from keyring.util.platform_ import config_root
-
     return op.join(config_root(), "keyringrc.cfg")
