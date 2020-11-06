@@ -76,43 +76,14 @@ def test_dandi_authenticate_no_env_var_ask_twice(
     assert inputmock.call_args_list == [mocker.call(msg), mocker.call(msg)]
 
 
-def test_keyring_lookup_envvar_no_password(monkeypatch):
-    monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyring.backends.null.Keyring")
-    kb, password = girder.keyring_lookup("test-service", "test-username")
-    assert isinstance(kb, null.Keyring)
-    assert password is None
-
-
-def test_keyring_lookup_envvar_password(fs, monkeypatch):
-    monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyrings.alt.file.PlaintextKeyring")
-    fs.create_file(
-        keyfile.PlaintextKeyring().file_path,
-        contents=f"[testservice]\ntestusername = {b64encode(b'testpassword').decode()}\n",
-    )
-    kb, password = girder.keyring_lookup("testservice", "testusername")
-    assert isinstance(kb, keyfile.PlaintextKeyring)
-    assert password == "testpassword"
-
-
-def test_keyring_lookup_envvar_fail(monkeypatch):
-    monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyring.backends.fail.Keyring")
-    with pytest.raises(KeyringError):
-        girder.keyring_lookup("test-service", "test-username")
-
-
-def test_keyring_lookup_rccfg_no_password(fs, monkeypatch):
-    monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
+def setup_keyringrc_no_password(fs):
     fs.create_file(
         girder.keyringrc_file(),
         contents="[backend]\ndefault-keyring = keyring.backends.null.Keyring\n",
     )
-    kb, password = girder.keyring_lookup("test-service", "test-username")
-    assert isinstance(kb, null.Keyring)
-    assert password is None
 
 
-def test_keyring_lookup_rccfg_password(fs, monkeypatch):
-    monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
+def setup_keyringrc_password(fs):
     fs.create_file(
         girder.keyringrc_file(),
         contents="[backend]\ndefault-keyring = keyrings.alt.file.PlaintextKeyring\n",
@@ -121,6 +92,67 @@ def test_keyring_lookup_rccfg_password(fs, monkeypatch):
         keyfile.PlaintextKeyring().file_path,
         contents=f"[testservice]\ntestusername = {b64encode(b'testpassword').decode()}\n",
     )
+
+
+def setup_keyringrc_fail(fs):
+    fs.create_file(
+        girder.keyringrc_file(),
+        contents="[backend]\ndefault-keyring = keyring.backends.fail.Keyring\n",
+    )
+
+
+@pytest.mark.parametrize(
+    "rcconfig",
+    [None, setup_keyringrc_no_password, setup_keyringrc_password, setup_keyringrc_fail],
+)
+def test_keyring_lookup_envvar_no_password(fs, monkeypatch, rcconfig):
+    monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyring.backends.null.Keyring")
+    if rcconfig is not None:
+        rcconfig(fs)
+    kb, password = girder.keyring_lookup("testservice", "testusername")
+    assert isinstance(kb, null.Keyring)
+    assert password is None
+
+
+@pytest.mark.parametrize(
+    "rcconfig", [None, setup_keyringrc_no_password, setup_keyringrc_fail]
+)
+def test_keyring_lookup_envvar_password(fs, monkeypatch, rcconfig):
+    monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyrings.alt.file.PlaintextKeyring")
+    fs.create_file(
+        keyfile.PlaintextKeyring().file_path,
+        contents=f"[testservice]\ntestusername = {b64encode(b'testpassword').decode()}\n",
+    )
+    if rcconfig is not None:
+        rcconfig(fs)
+    kb, password = girder.keyring_lookup("testservice", "testusername")
+    assert isinstance(kb, keyfile.PlaintextKeyring)
+    assert password == "testpassword"
+
+
+@pytest.mark.parametrize(
+    "rcconfig",
+    [None, setup_keyringrc_no_password, setup_keyringrc_password, setup_keyringrc_fail],
+)
+def test_keyring_lookup_envvar_fail(fs, monkeypatch, rcconfig):
+    monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyring.backends.fail.Keyring")
+    if rcconfig is not None:
+        rcconfig(fs)
+    with pytest.raises(KeyringError):
+        girder.keyring_lookup("testservice", "testusername")
+
+
+def test_keyring_lookup_rccfg_no_password(fs, monkeypatch):
+    monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
+    setup_keyringrc_no_password(fs)
+    kb, password = girder.keyring_lookup("testservice", "testusername")
+    assert isinstance(kb, null.Keyring)
+    assert password is None
+
+
+def test_keyring_lookup_rccfg_password(fs, monkeypatch):
+    monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
+    setup_keyringrc_password(fs)
     kb, password = girder.keyring_lookup("testservice", "testusername")
     assert isinstance(kb, keyfile.PlaintextKeyring)
     assert password == "testpassword"
@@ -128,9 +160,6 @@ def test_keyring_lookup_rccfg_password(fs, monkeypatch):
 
 def test_keyring_lookup_rccfg_fail(fs, monkeypatch):
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
-    fs.create_file(
-        girder.keyringrc_file(),
-        contents="[backend]\ndefault-keyring = keyring.backends.fail.Keyring\n",
-    )
+    setup_keyringrc_fail(fs)
     with pytest.raises(KeyringError):
-        girder.keyring_lookup("test-service", "test-username")
+        girder.keyring_lookup("testservice", "testusername")
