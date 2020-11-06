@@ -41,3 +41,16 @@ def test_lock_dandiset_unlock_within(local_docker_compose_env):
         str(excinfo.value) == f"Failed to unlock dandiset {DANDISET_ID} due to: "
         f"Dandiset {DANDISET_ID} is currently unlocked"
     )
+
+
+def test_dandi_authenticate_no_env_var(local_docker_compose_env, monkeypatch, mocker):
+    monkeypatch.delenv("DANDI_API_KEY", raising=False)
+    monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyring.backends.null.Keyring")
+    inputmock = mocker.patch(
+        "dandi.girder.input", return_value=local_docker_compose_env["api_key"]
+    )
+    girder.get_client(local_docker_compose_env["instance"].girder)
+    inputmock.assert_called_once_with(
+        "Please provide API Key (created/found in My Account/API keys "
+        "in Girder) for {}: ".format(local_docker_compose_env["instance_id"])
+    )
