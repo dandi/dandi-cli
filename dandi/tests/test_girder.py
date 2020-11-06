@@ -1,3 +1,7 @@
+from base64 import b64encode
+from keyring.backends import null
+from keyrings.alt import file as keyfile
+
 import pytest
 from ..exceptions import LockingError
 from .. import girder
@@ -54,3 +58,21 @@ def test_dandi_authenticate_no_env_var(local_docker_compose_env, monkeypatch, mo
         "Please provide API Key (created/found in My Account/API keys "
         "in Girder) for {}: ".format(local_docker_compose_env["instance_id"])
     )
+
+
+def test_keyring_lookup_envvar_no_password(monkeypatch):
+    monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyring.backends.null.Keyring")
+    kb, password = girder.keyring_lookup("test-service", "test-username")
+    assert isinstance(kb, null.Keyring)
+    assert password is None
+
+
+def test_keyring_lookup_envvar_password(fs, monkeypatch):
+    monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyrings.alt.file.PlaintextKeyring")
+    fs.create_file(
+        keyfile.PlaintextKeyring().file_path,
+        contents=f"[testservice]\ntestusername = {b64encode(b'testpassword').decode()}\n",
+    )
+    kb, password = girder.keyring_lookup("testservice", "testusername")
+    assert isinstance(kb, keyfile.PlaintextKeyring)
+    assert password == "testpassword"
