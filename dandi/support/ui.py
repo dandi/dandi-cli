@@ -1,17 +1,17 @@
 def askyesno(question, default=None):
     if default is None:
-        options = "[yes|no]"
+        options = "[y/n]"
     elif default:
-        options = "[Yes|no]"
+        options = "[Y/n]"
     else:
-        options = "[yes|No]"
+        options = "[y/N]"
     while True:
-        answer = input(f"{question} {options}: ").strip().lower()
+        answer = input(f"{question} {options} ").strip().lower()
         if answer in ("y", "yes"):
             return True
         elif answer in ("n", "no"):
             return False
-        elif answer:
-            print("Please answer 'y'/'yes'/'n'/'no'.")
-        elif default is not None:
+        elif not answer and default is not None:
             return default
+        else:
+            print("Please answer 'y'/'yes'/'n'/'no'.")
