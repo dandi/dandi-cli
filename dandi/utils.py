@@ -7,6 +7,7 @@ import os.path as op
 import platform
 import re
 import shutil
+import subprocess
 import sys
 
 from pathlib import Path
@@ -355,13 +356,28 @@ def find_files(
                 yield path
 
 
-def copy_file(src, dst):
-    """Copy file from src to dst
+_cp_supports_reflink = None
 
-    TODO: support detection and use of `cp` command with `--reflink` support
-       to make possible to take advantage of CoW filesystems
-    """
-    return shutil.copy2(src, dst)
+
+def copy_file(src, dst):
+    """ Copy file from src to dst """
+    global _cp_supports_reflink
+    if _cp_supports_reflink is None:
+        r = subprocess.run(
+            ["cp", "--help"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+        )
+        # Ignore command failures (e.g., if cp doesn't support --help), as the
+        # command will still likely output its usage info.
+        _cp_supports_reflink = "--reflink" in r.stdout
+    if _cp_supports_reflink:
+        subprocess.run(
+            ["cp", "-f", "--reflink=auto", "--", str(src), str(dst)], check=True
+        )
+    else:
+        return shutil.copy2(src, dst)
 
 
 def move_file(src, dst):
