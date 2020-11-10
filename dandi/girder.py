@@ -292,7 +292,7 @@ class GirderCli(gcl.GirderClient):
         elif a["type"] == "item":
             file_recs = list(self.listFile(g["_id"]))
             if len(file_recs) > 1:
-                lgr.warning("Multiple files for one item found; using oldest one")
+                lgr.warning("Multiple files found for %s; using oldest one", a["path"])
                 file_recs = [
                     min(file_recs, key=lambda fr: ensure_datetime(fr["created"]))
                 ]
