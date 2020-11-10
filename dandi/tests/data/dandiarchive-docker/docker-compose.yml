@@ -4,7 +4,7 @@
 # <https://github.com/dandi/dandi-publish/blob/master/docker-compose.override.yml>,
 # but using images uploaded to Docker Hub instead of building them locally.
 
-version: '3'
+version: '2.1'
 
 services:
   mongo:
@@ -53,10 +53,14 @@ services:
     image: dandiarchive/dandiarchive-publish
     command: ["./manage.py", "runserver", "0.0.0.0:8000"]
     depends_on:
-      - girder
-      - minio
-      - postgres
-      - rabbitmq
+      girder:
+        condition: service_started
+      minio:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     environment:
       DJANGO_CELERY_BROKER_URL: amqp://rabbitmq:5672/
       DJANGO_CONFIGURATION: DevelopmentConfiguration
@@ -81,9 +85,12 @@ services:
       "--without-heartbeat"
     ]
     depends_on:
-      - minio
-      - postgres
-      - rabbitmq
+      minio:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     environment:
       DJANGO_CELERY_BROKER_URL: amqp://rabbitmq:5672/
       DJANGO_CONFIGURATION: DevelopmentConfiguration
@@ -101,6 +108,11 @@ services:
     image: girder/minio-nonroot:latest
     ports:
       - "9000:9000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 7s
+      timeout: 3s
+      retries: 5
 
   postgres:
     environment:
@@ -109,6 +121,11 @@ services:
     image: postgres
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 7s
+      timeout: 3s
+      retries: 5
 
   rabbitmq:
     image: rabbitmq:latest
