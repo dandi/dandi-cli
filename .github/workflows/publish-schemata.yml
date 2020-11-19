@@ -42,7 +42,7 @@ jobs:
         run: |
           git add releases
           if ! git diff --quiet
-          then git commit -m "Publish model schemata as of dandi $(git -C ../dandi describe --tags)"
+          then git commit -m "Publish model schemata as of dandi-cli $(git -C ../dandi describe --tags)"
                git push
           else echo "No changes to commit"
           fi
