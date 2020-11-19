@@ -6,8 +6,8 @@ on:
     branches:
       - master
     paths:
-      - dandi/models.py
-      - dandi/model_types.py
+      - dandi/model*.py
+      - tools/pubschemata.py
 
 jobs:
   publish:
