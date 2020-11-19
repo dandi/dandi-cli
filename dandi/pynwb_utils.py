@@ -180,6 +180,10 @@ def _get_pynwb_metadata(path):
                 # serialize into a basic container (list), since otherwise
                 # it would be a closed Dataset upon return
                 value = list(value)
+            if isinstance(value, (list, tuple)) and all(
+                isinstance(v, bytes) for v in value
+            ):
+                value = type(value)(v.decode("utf-8") for v in value)
             out[key] = value
 
         # .subject can be None as the test shows
