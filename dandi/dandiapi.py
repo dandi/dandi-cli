@@ -1,9 +1,7 @@
 from contextlib import contextmanager
-
 import requests
 
 from . import get_logger
-from .utils import ensure_datetime
 from .consts import MAX_CHUNK_SIZE
 
 lgr = get_logger()
@@ -147,10 +145,10 @@ class RESTFullAPIClient(object):
 
     def get_url(self, path):
         # Construct the url
-        if self.api_url.endswith("/") and path.startswith("/"):
-            path = path[1:]
-        url = self.api_url + path
-        return url
+        if path.lower().startswith(("http://", "https://")):
+            return path
+        else:
+            return self.api_url.rstrip("/") + "/" + path.lstrip("/")
 
     def get(self, path, parameters=None, json_resp=True):
         """
@@ -229,89 +227,28 @@ class DandiAPIClient(RESTFullAPIClient):
             self.get(f"/dandisets/{dandiset_id}/versions/{version}/")
         )
 
-    def get_dandiset_assets(self, dandiset_id, version, location=None, page_size=None):
-        """A generator to provide asset records
-        """
-        if location is not None:
-            raise NotImplementedError(
-                "location specific query. See https://github.com/dandi/dandi-publish/issues/77"
-            )
-            # although we could just provide ad-hoc implementation here for now. TODO
-        if page_size is not None:
-            raise NotImplementedError("paginated query is not supported yet")
-        page_size = 1000000
+    def get_dandiset_assets(self, dandiset_id, version, page_size=None):
+        """ A generator to provide asset records """
         resp = self.get(
             f"/dandisets/{dandiset_id}/versions/{version}/assets/",
             parameters={"page_size": page_size},
         )
-        try:
-            assert not resp.get(
-                "next"
-            ), "ATM we do not support pagination and result should have not been paginated"
-            assert not resp.get("prev")
-            results = resp.get("results", [])
-            assert len(results) == resp.get("count")
-            # Just some sanity checks for now, but might change, see
-            # https://github.com/dandi/dandi-publish/issues/79
-            assert all(
-                r.get("version", {}).get("dandiset", {}).get("identifier")
-                == dandiset_id
-                for r in results
-            )
-            assert all(r.get("version", {}).get("version") == version for r in results)
-        except AssertionError:
-            lgr.error(
-                f"Some expectations on returned /assets/ for {dandiset_id}@{version} are violated"
-            )
-            raise
-        # Things might change, so let's just return only "relevant" ATM information
-        # under assumption that assets belong to the current version of the dataset requested
-        # results_ = [
-        #     {k: r[k] for k in ("path", "uuid", "size", "sha256", "metadata") if k in r}
-        #     for r in results
-        # ]
-        for r in results:
-            # check for paranoid Yarik with current multitude of checksums
-            # r['sha256'] is what "dandi-publish" computed, but then
-            # metadata could contain multiple digests computed upon upload
-            metadata = r.get("metadata")
-            if (
-                "sha256" in r
-                and "sha256" in metadata
-                and metadata["sha256"] != r["sha256"]
-            ):
-                lgr.warning("sha256 mismatch for %s" % str(r))
-            # There is no "modified" time stamp and "updated" also shows something
-            # completely different, so if "modified" is not there -- we will try to
-            # get it from metadata
-            if "modified" not in r and metadata:
-                uploaded_mtime = metadata.get("uploaded_mtime")
-                if uploaded_mtime:
-                    r["modified"] = ensure_datetime(uploaded_mtime)
-            yield r
+        while True:
+            yield from resp["results"]
+            if "next" in resp:
+                resp = self.get(resp["next"])
+            else:
+                break
 
-    def get_dandiset_and_assets(self, dandiset_id, version, location=None):
+    def get_dandiset_and_assets(self, dandiset_id, version):
         """This is pretty much an adapter to provide "harmonized" output in both
         girder and DANDI api clients.
 
-        Harmonization should happen toward DADNDI API BUT AFAIK it is still influx
+        Harmonization should happen toward DANDI API BUT AFAIK it is still influx
         """
-        # Fun begins!
-        location_ = "/" + location if location else ""
-        lgr.info(f"Traversing {dandiset_id}{location_} (version: {version})")
-
-        # TODO: get all assets
-        # 1. includes sha256, created, updated but those are of "girder" level
-        # so lack "uploaded_mtime" and uploaded_nwb_object_id forbidding logic for
-        # deducing necessity to update/move. But we still might want to rely on its
-        # sha256 instead of metadata since older uploads would not have that metadata
-        # in them
-        # 2. there is no API to list assets given a location
-        #
-        # Get dandiset information
+        lgr.info(f"Traversing {dandiset_id} (version: {version})")
         dandiset = self.get_dandiset(dandiset_id, version)
-        # TODO: location
-        assets = self.get_dandiset_assets(dandiset_id, version, location=location)
+        assets = self.get_dandiset_assets(dandiset_id, version)
         return dandiset, assets
 
     def get_download_file_iter(

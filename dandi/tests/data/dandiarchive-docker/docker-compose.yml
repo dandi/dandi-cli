@@ -1,7 +1,7 @@
 # Based on
 # <https://github.com/dandi/dandiarchive/blob/master/docker/docker-compose.yml>,
-# <https://github.com/dandi/dandi-publish/blob/master/docker-compose.yml>, and
-# <https://github.com/dandi/dandi-publish/blob/master/docker-compose.override.yml>,
+# <https://github.com/dandi/dandi-api/blob/master/docker-compose.yml>, and
+# <https://github.com/dandi/dandi-api/blob/master/docker-compose.override.yml>,
 # but using images uploaded to Docker Hub instead of building them locally.
 
 version: '2.1'
@@ -50,8 +50,10 @@ services:
       #PUBLISH_API_URL: http://localhost:8000/api
 
   django:
-    image: dandiarchive/dandiarchive-publish
+    image: dandiarchive/dandiarchive-api
     command: ["./manage.py", "runserver", "0.0.0.0:8000"]
+    # Log printing via Rich is enhanced by a TTY
+    tty: true
     depends_on:
       girder:
         condition: service_started
@@ -68,22 +70,25 @@ services:
       DJANGO_DANDI_GIRDER_API_URL:
       DJANGO_DANDI_GIRDER_API_KEY:
       DJANGO_DATABASE_URL: postgres://postgres:postgres@postgres:5432/django
-      DJANGO_MINIO_STORAGE_ACCESS_KEY: minioUserAccessKey
+      DJANGO_MINIO_STORAGE_ACCESS_KEY: minioAccessKey
       DJANGO_MINIO_STORAGE_ENDPOINT: minio:9000
-      DJANGO_MINIO_STORAGE_SECRET_KEY: minioUserSecretKey
+      DJANGO_MINIO_STORAGE_SECRET_KEY: minioSecretKey
       DJANGO_STORAGE_BUCKET_NAME: django-storage
       DJANGO_MINIO_STORAGE_MEDIA_URL: http://localhost:9000/django-storage
     ports:
       - "8000:8000"
 
   celery:
-    image: dandiarchive/dandiarchive-publish
+    image: dandiarchive/dandiarchive-api
     command: [
-      "celery", "worker",
-      "--app", "dandi.celery",
-      "--loglevel", "info",
+      "celery",
+      "--app", "dandiapi.celery",
+      "worker",
+      "--loglevel", "INFO",
       "--without-heartbeat"
     ]
+    # Docker Compose does not set the TTY width, which causes Celery errors
+    tty: false
     depends_on:
       minio:
         condition: service_healthy
@@ -98,16 +103,22 @@ services:
       DJANGO_DANDI_GIRDER_API_URL:
       DJANGO_DANDI_GIRDER_API_KEY:
       DJANGO_DATABASE_URL: postgres://postgres:postgres@postgres:5432/django
-      DJANGO_MINIO_STORAGE_ACCESS_KEY: minioUserAccessKey
+      DJANGO_MINIO_STORAGE_ACCESS_KEY: minioAccessKey
       DJANGO_MINIO_STORAGE_ENDPOINT: minio:9000
-      DJANGO_MINIO_STORAGE_SECRET_KEY: minioUserSecretKey
+      DJANGO_MINIO_STORAGE_SECRET_KEY: minioSecretKey
       DJANGO_STORAGE_BUCKET_NAME: django-storage
       DJANGO_MINIO_STORAGE_MEDIA_URL: http://localhost:9000/django-storage
 
   minio:
-    image: girder/minio-nonroot:latest
+    image: minio/minio:latest
+    # When run with a TTY, minio prints credentials on startup
+    tty: true
+    command: ["server", "/data"]
     ports:
       - "9000:9000"
+    environment:
+      MINIO_ACCESS_KEY: minioAccessKey
+      MINIO_SECRET_KEY: minioSecretKey
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 7s
@@ -128,7 +139,7 @@ services:
       retries: 5
 
   rabbitmq:
-    image: rabbitmq:latest
+    image: rabbitmq:management
     ports:
       - "5672:5672"
 
