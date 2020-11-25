@@ -26,7 +26,7 @@ lgr = get_logger()
 
 # strip away possible development version marker
 dandi_rel_version = __version__.split("+", 1)[0]
-dandi_cache_tokens = [pynwb.__version__, dandi_rel_version]
+dandi_cache_tokens = [pynwb.__version__, dandi_rel_version, h5py.__version__]
 metadata_cache = PersistentCache(name="metadata", tokens=dandi_cache_tokens)
 validate_cache = PersistentCache(name="validate", tokens=dandi_cache_tokens)
 
