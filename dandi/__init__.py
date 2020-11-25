@@ -9,6 +9,16 @@ __version__ = _version.get_versions()["version"]
 # Basic logger configuration
 #
 
+from .due import due, Doi
+due.cite(
+    Doi("10.5281/zenodo.3692138"),
+    cite_module=True,  # highly specialized -- if imported, means used.
+    description="Client to interact with DANDI Archive",
+    path='dandi-cli',
+    version=__version__,  # since yoh hijacked dandi for module but is not brave enough
+                          # to claim it to be dandi as the whole
+)
+
 
 def get_logger(name=None):
     """Return a logger to use
