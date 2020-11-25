@@ -47,7 +47,7 @@ services:
       GIRDER_URL: http://localhost:8081
       GUI_URL: http://localhost:8086
       ABOUT_URL: http://www.dandiarchive.org
-      #PUBLISH_API_URL: http://localhost:8000/api
+      PUBLISH_API_URL: http://localhost:8000/api
 
   django:
     image: dandiarchive/dandiarchive-api
