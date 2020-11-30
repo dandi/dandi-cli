@@ -1,8 +1,11 @@
 from contextlib import contextmanager
+import os.path
+from time import sleep
 import requests
 
 from . import get_logger
 from .consts import MAX_CHUNK_SIZE
+from .support.digests import Digester
 
 lgr = get_logger()
 
@@ -291,3 +294,71 @@ class DandiAPIClient(RESTFullAPIClient):
         if "identifier" not in dandiset_metadata and "dandiset" in dandiset_metadata:
             dandiset["metadata"] = dandiset_metadata.pop("dandiset")
         return dandiset
+
+    def upload(self, dandiset_id, version_id, asset_path, asset_metadata, filepath):
+        filehash = Digester(["sha256"])(filepath)["sha256"]
+        lgr.debug("Calculated sha256 digest of %s for %s", filehash, filepath)
+        self.post("/uploads/validate/", json={"sha256": filehash})
+        try:
+            self.get(f"/uploads/validations/{filehash}/")
+        except requests.HTTPError:
+            lgr.debug("Blob does not already exist on server")
+            blob_exists = False
+        else:
+            lgr.debug("Blob is already uploaded to server")
+            blob_exists = True
+        if not blob_exists:
+            lgr.debug("Beginning upload")
+            resp = self.post(
+                "/uploads/initialize/",
+                json={"file_name": asset_path, "file_size": os.path.getsize(filepath)},
+            )
+            object_key = resp["object_key"]
+            upload_id = resp["upload_id"]
+            parts_out = []
+            with open(filepath, "rb") as fp:
+                for part in resp["parts"]:
+                    chunk = fp.read(part["size"])
+                    if len(chunk) != part["size"]:
+                        raise RuntimeError(
+                            f"End of file {filepath} reached unexpectedly early"
+                        )
+                    lgr.debug(
+                        "Uploading part %d (%d bytes)",
+                        part["part_number"],
+                        part["size"],
+                    )
+                    r = self.post(part["upload_url"], data=chunk, json_resp=False)
+                    parts_out.append(
+                        {
+                            "part_number": part["part_number"],
+                            "size": part["size"],
+                            "etag": r.headers["ETag"],
+                        }
+                    )
+            lgr.debug("Completing upload")
+            resp = self.post(
+                "/uploads/complete/",
+                json={
+                    "object_key": object_key,
+                    "upload_id": upload_id,
+                    "parts": parts_out,
+                },
+            )
+            self.post(resp["complete_url"])
+        while True:
+            lgr.debug("Waiting for server-side validation to complete")
+            resp = self.get(f"/uploads/validations/{filehash}/")
+            if resp["state"] != "IN_PROGRESS":
+                if resp["state"] == "FAILED":
+                    raise RuntimeError(
+                        "Server-side asset validation failed!"
+                        f"  Error reported: {resp.get('error')}"
+                    )
+                break
+            sleep(0.1)
+        lgr.debug("Assigning asset blob to dandiset & version")
+        self.post(
+            f"/dandisets/{dandiset_id}/versions/{version_id}/assets/",
+            json={"path": asset_path, "metadata": asset_metadata, "sha256": filehash},
+        )
