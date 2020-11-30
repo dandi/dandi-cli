@@ -1,0 +1,51 @@
+name: Publish model schemata
+
+on:
+  # ATM, this is the closest trigger to a PR merging
+  push:
+    branches:
+      - master
+    paths:
+      - dandi/model*.py
+      - tools/pubschemata.py
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0  # Need history for `git describe`
+          path: dandi
+
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: '3.8'
+
+      - name: Install dandi
+        run: python -m pip install .
+        working-directory: dandi
+
+      - name: Checkout dandi/schema
+        uses: actions/checkout@v2
+        with:
+          repository: dandi/schema
+          path: schema
+          token: ${{ secrets.DANDI_GITHUB_TOKEN }}
+
+      - name: Generate model schemata
+        run: python dandi/tools/pubschemata.py schema/releases
+
+      - name: Commit changes
+        run: |
+          git add releases
+          if ! git diff --quiet
+          then git commit -m "Publish model schemata as of dandi-cli $(git -C ../dandi describe --tags)"
+               git push
+          else echo "No changes to commit"
+          fi
+        working-directory: schema
+
+# vim:set sts=2:

@@ -1,6 +1,5 @@
 import contextlib
 import json
-import keyring
 import os
 import os.path as op
 import random
@@ -10,10 +9,17 @@ import time
 from functools import lru_cache
 from pathlib import Path
 
+from keyring.core import get_keyring, load_config, load_env
+from keyring.backend import get_all_keyring
+from keyring.errors import KeyringError
+from keyring.util.platform_ import config_root
+from keyrings.alt.file import EncryptedKeyring
+
 import girder_client as gcl
 
 from . import get_logger
 from .exceptions import LockingError
+from .support.ui import askyesno
 from .utils import ensure_datetime, flattened, flatten, remap_dict
 from .consts import known_instances_rev, MAX_CHUNK_SIZE
 
@@ -68,6 +74,13 @@ def get_HttpError_response(exc):
     except Exception as exc2:
         lgr.debug("Cannot parse response %s as json: %s", responseText, exc2)
     return None
+
+
+def get_HttpError_message(exc):
+    resp = get_HttpError_response(exc)
+    if isinstance(resp, dict):
+        return resp.get("message", None)
+    return resp
 
 
 def is_access_denied(exc):
@@ -132,6 +145,7 @@ class GirderCli(gcl.GirderClient):
         api_key = os.environ.get("DANDI_API_KEY", None)
         if api_key:
             self.authenticate(apiKey=api_key)
+            lgr.debug("Successfully authenticated using the key from the envvar")
             return
 
         if self._server_url in known_instances_rev:
@@ -140,7 +154,7 @@ class GirderCli(gcl.GirderClient):
             raise NotImplementedError("TODO client name derivation for keyring")
 
         app_id = "dandi-girder-{}".format(client_name)
-        api_key = keyring.get_password(app_id, "key")
+        keyring_backend, api_key = keyring_lookup(app_id, "key")
         # the dance about rejected authentication etc
         while True:
             if not api_key:
@@ -149,9 +163,12 @@ class GirderCli(gcl.GirderClient):
                     "Account/API keys "
                     "in Girder) for {}: ".format(client_name)
                 )
-                keyring.set_password(app_id, "key", api_key)
+                keyring_backend.set_password(app_id, "key", api_key)
+                lgr.debug("Stored key in keyring")
+
             try:
                 self.authenticate(apiKey=api_key)
+                lgr.debug("Successfully authenticated using the key")
                 break
             except Exception as exc:
                 sys.stderr.write("Failed to authenticate: {}".format(exc))
@@ -275,10 +292,10 @@ class GirderCli(gcl.GirderClient):
         elif a["type"] == "item":
             file_recs = list(self.listFile(g["_id"]))
             if len(file_recs) > 1:
-                raise ValueError(
-                    f"multiple files per item not yet supported (if ever will be)."
-                    f" Got: {file_recs}"
-                )
+                lgr.warning("Multiple files found for %s; using oldest one", a["path"])
+                file_recs = [
+                    min(file_recs, key=lambda fr: ensure_datetime(fr["created"]))
+                ]
             if not file_recs:
                 lgr.warning(f"Ran into an empty item: {g}")
                 return
@@ -357,14 +374,32 @@ class GirderCli(gcl.GirderClient):
         """
         """
 
-        def downloader():
+        def downloader(start_at=0):
             # TODO: make it a common decorator here?
             # Will do 3 attempts to avoid some problems due to flaky/overloaded
             # connections, see https://github.com/dandi/dandi-cli/issues/87
             for attempt in range(3):
                 try:
-                    return self.downloadFileAsIterator(file_id, chunkSize=chunk_size)
-                    break
+                    path = f"file/{file_id}/download"
+                    if start_at > 0:
+                        headers = {"Range": f"bytes={start_at}-"}
+                        # Range requests result in a 206 response, which the
+                        # Girder client treats as an error (at least until they
+                        # merge girder/girder#3301).  Hence, we need to make
+                        # the request directly through `requests`.
+                        import requests
+
+                        resp = requests.get(
+                            f"{self._server_url}/api/v1/{path}",
+                            stream=True,
+                            headers=headers,
+                        )
+                        resp.raise_for_status()
+                    else:
+                        resp = self.sendRestRequest(
+                            "get", path, stream=True, jsonResp=False
+                        )
+                    return resp.iter_content(chunk_size=chunk_size)
                 except gcl.HttpError as exc:
                     if is_access_denied(exc) or attempt >= 2:
                         raise
@@ -498,9 +533,13 @@ class GirderCli(gcl.GirderClient):
         try:
             lgr.debug("Trying to acquire lock for %s", dandiset_identifier)
             try:
-                self.post(f"dandi/{dandiset_identifier}/lock")
-            except gcl.HttpError:
-                raise LockingError(f"Failed to lock dandiset {dandiset_identifier}")
+                resp = self.post(f"dandi/{dandiset_identifier}/lock")
+                lgr.debug("Locking response: %s", str(resp))
+            except gcl.HttpError as exc:
+                msg = get_HttpError_message(exc) or str(exc)
+                raise LockingError(
+                    f"Failed to lock dandiset {dandiset_identifier} due to: {msg}"
+                )
             else:
                 presumably_locked = True
 
@@ -509,10 +548,12 @@ class GirderCli(gcl.GirderClient):
             if presumably_locked:
                 lgr.debug("Trying to release the lock for %s", dandiset_identifier)
                 try:
-                    self.post(f"dandi/{dandiset_identifier}/unlock")
-                except gcl.HttpError:
+                    resp = self.post(f"dandi/{dandiset_identifier}/unlock")
+                    lgr.debug("Unlocking response: %s", str(resp))
+                except gcl.HttpError as exc:
+                    msg = get_HttpError_message(exc) or str(exc)
                     raise LockingError(
-                        f"Failed to unlock dandiset {dandiset_identifier}"
+                        f"Failed to unlock dandiset {dandiset_identifier} due to: {msg}"
                     )
 
 
@@ -567,7 +608,7 @@ correspond in case of a draft, as it is served by girder ATM:
     return remap_dict(
         rec,
         {
-            "metadata": "metadata",  # 1-to-1 for now
+            "metadata": "metadata.dandiset",  # 1-to-1 for now
             "dandiset.created": "attrs.ctime",
             "created": "attrs.ctime",
             "dandiset.uptimed": "attrs.mtime",
@@ -680,7 +721,7 @@ def _harmonize_girder_asset_to_dandi_api(rec):
 
     if metadata_outdated:
         lgr.warning(
-            "Found discrepnancies in girder record and metadata: %s",
+            "Found discrepancies in girder record and metadata: %s",
             ", ".join(metadata_outdated),
         )
 
@@ -698,6 +739,14 @@ def _harmonize_girder_asset_to_dandi_api(rec):
         )
     rec["path"] = path
 
+    if "id" in rec:
+        # Let's create a dedicated section for girder specific information
+        rec["girder"] = {"id": rec.pop("id")}
+
+    # Some additional fields which should appear at the top level in the records returned
+    # by DANDI API
+    if "sha256" in metadata:
+        rec["sha256"] = metadata["sha256"]
     return rec
 
 
@@ -802,3 +851,86 @@ class TQDMProgressReporter(object):
             self._pbar.clear()  # remove from screen -- not in effect ATM TODO
             self._pbar.close()
             del self._pbar
+
+
+def keyring_lookup(service_name, username):
+    """
+    Determine a keyring backend to use for storing & retrieving credentials as
+    follows:
+
+    - If the user has specified a backend explicitly via the
+      ``PYTHON_KEYRING_BACKEND`` environment variable or a ``keyringrc.cfg``
+      file, use that backend without checking whether it's usable (If it's not,
+      the user messed up).
+
+    - Otherwise, query the default backend (which is guaranteed to already have
+      the requisite dependencies installed) for the credentials for the given
+      service name and username.  If this completes without error (regardless
+      of whether the backend contains any such credentials), use that backend.
+
+    - If the query fails (e.g., because a GUI is required but the session is in
+      a plain terminal), try using the ``EncryptedKeyring`` backend.
+
+      - If the default backend *was* the ``EncryptedKeyring`` backend, error.
+
+      - If the ``EncryptedKeyring`` backend is not in the list of available
+        backends (likely because its dependencies are not installed, though
+        that shouldn't happen if dandi was installed properly), error.
+
+      - If ``EncryptedKeyring``'s data file already exists, use it as the
+        backend.
+
+      - If ``EncryptedKeyring``'s data file does not already exist, ask the
+        user whether they want to start using ``EncryptedKeyring``.  If yes,
+        then set ``keyringrc.cfg`` (if it does not already exist) to specify it
+        as the default backend, and return the backend.  If no, error.
+
+    Returns a keyring backend and the password it holds (if any) for the given
+    service and username.
+    """
+
+    kb = load_env() or load_config()
+    if kb:
+        return (kb, kb.get_password(service_name, username))
+    kb = get_keyring()
+    try:
+        password = kb.get_password(service_name, username)
+    except KeyringError as e:
+        lgr.info("Default keyring errors on query: %s", e)
+        if isinstance(kb, EncryptedKeyring):
+            lgr.info(
+                "Default keyring is EncryptedKeyring; abandoning keyring procedure"
+            )
+            raise
+        # Use `type(..) is` instead of `isinstance()` to weed out subclasses
+        kbs = [k for k in get_all_keyring() if type(k) is EncryptedKeyring]
+        assert (
+            len(kbs) == 1
+        ), "EncryptedKeyring not available; is pycryptodomex installed?"
+        kb = kbs[0]
+        if op.exists(kb.file_path):
+            lgr.info("EncryptedKeyring file exists; using as keyring backend")
+            return (kb, kb.get_password(service_name, username))
+        lgr.info("EncryptedKeyring file does not exist")
+        if askyesno("Would you like to establish an encrypted keyring?", default=True):
+            keyring_cfg = Path(keyringrc_file())
+            if keyring_cfg.exists():
+                lgr.info("%s exists; refusing to overwrite", keyring_cfg)
+            else:
+                lgr.info(
+                    "Configuring %s to use EncryptedKeyring as default backend",
+                    keyring_cfg,
+                )
+                keyring_cfg.parent.mkdir(parents=True, exist_ok=True)
+                keyring_cfg.write_text(
+                    "[backend]\n"
+                    "default-keyring = keyrings.alt.file.EncryptedKeyring\n"
+                )
+            return (kb, None)
+        raise
+    else:
+        return (kb, password)
+
+
+def keyringrc_file():
+    return op.join(config_root(), "keyringrc.cfg")

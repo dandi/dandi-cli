@@ -1,7 +1,8 @@
 from datetime import datetime
+import json
 import os
 from pathlib import Path
-from subprocess import run
+from subprocess import check_output, run
 import shutil
 import tempfile
 
@@ -163,11 +164,15 @@ def local_docker_compose():
     if os.name != "posix":
         pytest.skip("Docker images require Unix host")
 
-    run(["docker-compose", "up", "-d"], cwd=str(LOCAL_DOCKER_DIR), check=True)
+    run(
+        ["docker-compose", "up", "-d", "provision"],
+        cwd=str(LOCAL_DOCKER_DIR),
+        check=True,
+    )
     try:
         run(["docker", "wait", f"{LOCAL_DOCKER_ENV}_provision_1"], check=True)
-
         # Should we check that the output of `docker wait` is 0?
+
         r = requests.get(
             f"{instance.girder}/api/v1/user/authentication", auth=("admin", "letmein")
         )
@@ -183,6 +188,108 @@ def local_docker_compose():
         )
         r.raise_for_status()
         api_key = r.json()["key"]
+
+        # dandi-publish requires an admin named "publish":
+        requests.post(
+            f"{instance.girder}/api/v1/user",
+            data={
+                "login": "publish",
+                "email": "nil@nil.nil",
+                "firstName": "Dandi",
+                "lastName": "Publish",
+                "password": "Z1lT4Fh7Kj",
+                "admin": "True",
+            },
+            headers={"Girder-Token": initial_api_key},
+        ).raise_for_status()
+
+        r = requests.get(
+            f"{instance.girder}/api/v1/user/authentication",
+            auth=("publish", "Z1lT4Fh7Kj"),
+        )
+        r.raise_for_status()
+        publish_api_key = r.json()["authToken"]["token"]
+
+        # We can't refer to the Girder container as "girder" in
+        # DJANGO_DANDI_GIRDER_API_URL because Django doesn't recognize
+        # single-component domain names as valid.  Hence, we need to instead
+        # use the Girder container's in-network IP address.
+        about_girder = check_output(
+            ["docker", "inspect", f"{LOCAL_DOCKER_ENV}_girder_1"]
+        )
+        # TODO: Figure out how to do this all with `docker inspect`'s "-f"
+        # argument (Note that the hyphen in LOCAL_DOCKER_ENV makes it tricky):
+        girder_ip = json.loads(about_girder)[0]["NetworkSettings"]["Networks"][
+            f"{LOCAL_DOCKER_ENV}_default"
+        ]["IPAddress"]
+
+        env = dict(os.environ)
+        env["DJANGO_DANDI_GIRDER_API_URL"] = f"http://{girder_ip}:8080/api/v1"
+        env["DJANGO_DANDI_GIRDER_API_KEY"] = publish_api_key
+
+        run(
+            ["docker-compose", "run", "--rm", "django", "./manage.py", "migrate"],
+            cwd=str(LOCAL_DOCKER_DIR),
+            env=env,
+            check=True,
+        )
+
+        run(
+            [
+                "docker-compose",
+                "run",
+                "--rm",
+                "-e",
+                "DJANGO_SUPERUSER_PASSWORD=nsNc48DBiS",
+                "django",
+                "./manage.py",
+                "createsuperuser",
+                "--no-input",
+                "--username",
+                "admin",
+                "--email",
+                "nil@nil.nil",
+            ],
+            cwd=str(LOCAL_DOCKER_DIR),
+            env=env,
+            check=True,
+        )
+
+        django_api_key = check_output(
+            [
+                "docker-compose",
+                "run",
+                "--rm",
+                "django",
+                "./manage.py",
+                "drf_create_token",
+                "admin",
+            ],
+            cwd=str(LOCAL_DOCKER_DIR),
+            env=env,
+        ).split()[2]
+
+        run(
+            ["docker-compose", "up", "-d", "django", "celery"],
+            cwd=str(LOCAL_DOCKER_DIR),
+            env=env,
+            check=True,
+        )
+
+        requests.put(
+            f"{instance.girder}/api/v1/system/setting",
+            data={
+                "key": "dandi.publish_api_url",
+                "value": "http://django:8000/api/",  # django or localhost?
+            },
+            headers={"Girder-Token": publish_api_key},
+        ).raise_for_status()
+
+        requests.put(
+            f"{instance.girder}/api/v1/system/setting",
+            data={"key": "dandi.publish_api_key", "value": django_api_key},
+            headers={"Girder-Token": publish_api_key},
+        ).raise_for_status()
 
         yield {"api_key": api_key, "instance": instance, "instance_id": instance_id}
     finally:

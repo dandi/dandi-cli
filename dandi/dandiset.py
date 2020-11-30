@@ -47,7 +47,7 @@ class Dandiset(object):
 
     @classmethod
     def get_dandiset_record(cls, meta):
-        dandiset_identifier = meta.get("identifier")
+        dandiset_identifier = cls._get_identifier(meta)
         if not dandiset_identifier:
             lgr.warning("No identifier for a dandiset was provided in %s", str(meta))
             obtain_msg = ""
@@ -85,6 +85,26 @@ class Dandiset(object):
         # and reload now by a pure yaml
         self._load_metadata()
 
+    @classmethod
+    def _get_identifier(cls, metadata):
+        """Given a metadata record, determine identifier"""
+        # ATM since we have dichotomy in dandiset metadata schema from drafts
+        # and from published versions, we will just test both locations
+        id_ = metadata.get("dandiset", {}).get("identifier")
+        if id_:
+            lgr.debug("Found identifier %s in 'dandiset.identifier'", id_)
+
+        if not id_ and "identifier" in metadata:
+            id_ = metadata["identifier"]
+            lgr.debug("Found identifier %s in top level 'identifier'", id_)
+
+        return id_
+
     @property
     def identifier(self):
-        return self.metadata["identifier"]
+        id_ = self._get_identifier(self.metadata)
+        if not id_:
+            raise ValueError(
+                f"Found no dandiset.identifier in metadata record: {self.metadata}"
+            )
+        return id_

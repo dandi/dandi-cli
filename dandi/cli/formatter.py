@@ -35,7 +35,10 @@ class JSONFormatter(Formatter):
         import json
 
         self.out.write(
-            json.dumps(rec, indent=self.indent, default=self._serializer) + "\n"
+            json.dumps(
+                rec, indent=self.indent, sort_keys=True, default=self._serializer
+            )
+            + "\n"
         )
 
 
@@ -47,7 +50,8 @@ class YAMLFormatter(Formatter):
     def __exit__(self, exc_type, exc_value, traceback):
         import ruamel.yaml
 
-        yaml = ruamel.yaml.YAML()
+        yaml = ruamel.yaml.YAML(typ="safe")
+        yaml.default_flow_style = False
         yaml.dump(self.records, self.out)
 
     def __call__(self, rec):

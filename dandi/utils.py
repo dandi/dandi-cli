@@ -7,6 +7,7 @@ import os.path as op
 import platform
 import re
 import shutil
+import subprocess
 import sys
 
 from pathlib import Path
@@ -273,6 +274,7 @@ def find_files(
     paths=os.curdir,
     exclude=None,
     exclude_dotfiles=True,
+    exclude_dotdirs=True,
     exclude_vcs=True,
     exclude_datalad=False,
     dirs=False,
@@ -290,6 +292,8 @@ def find_files(
     exclude_vcs:
       If True, excludes commonly known VCS subdirectories.  If string, used
       as regex to exclude those files (regex: `%r`)
+    exclude_dotdirs:
+      If True, does not descend into directories starting with ".".
     exclude_datalad:
       If True, excludes files known to be datalad meta-data files (e.g. under
       .datalad/ subdirectory) (regex: `%r`)
@@ -318,6 +322,7 @@ def find_files(
                     paths=path,
                     exclude=exclude,
                     exclude_dotfiles=exclude_dotfiles,
+                    exclude_dotdirs=exclude_dotdirs,
                     exclude_vcs=exclude_vcs,
                     exclude_datalad=exclude_datalad,
                     dirs=dirs,
@@ -338,19 +343,41 @@ def find_files(
         # TODO: might want to uniformize on windows to use '/'
         if exclude_dotfiles:
             names = (n for n in names if not n.startswith("."))
+        if exclude_dotdirs:
+            # and we should filter out directories from dirnames
+            # Since we need to del which would change index, let's
+            # start from the end
+            for i in range(len(dirnames))[::-1]:
+                if dirnames[i].startswith("."):
+                    del dirnames[i]
         paths = (op.join(dirpath, name) for name in names)
         for path in filter(re.compile(regex).search, paths):
             if not exclude_path(path):
                 yield path
 
 
-def copy_file(src, dst):
-    """Copy file from src to dst
+_cp_supports_reflink = None
 
-    TODO: support detection and use of `cp` command with `--reflink` support
-       to make possible to take advantage of CoW filesystems
-    """
-    return shutil.copy2(src, dst)
+
+def copy_file(src, dst):
+    """ Copy file from src to dst """
+    global _cp_supports_reflink
+    if _cp_supports_reflink is None:
+        r = subprocess.run(
+            ["cp", "--help"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+        )
+        # Ignore command failures (e.g., if cp doesn't support --help), as the
+        # command will still likely output its usage info.
+        _cp_supports_reflink = "--reflink" in r.stdout
+    if _cp_supports_reflink:
+        subprocess.run(
+            ["cp", "-f", "--reflink=auto", "--", str(src), str(dst)], check=True
+        )
+    else:
+        return shutil.copy2(src, dst)
 
 
 def move_file(src, dst):
