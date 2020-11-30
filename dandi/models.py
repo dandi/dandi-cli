@@ -100,9 +100,11 @@ class DandiBaseModel(BaseModel):
             try:
                 data[name]
             except KeyError:
-                if field.required:
-                    value = None
-                if field.default is None:
+                # if field.required:
+                #    value = None
+                if field.default_factory is not None:
+                    value = field.default_factory()
+                elif field.default is None:
                     # deepcopy is quite slow on None
                     value = None
                 else:
@@ -179,6 +181,15 @@ class SpeciesType(TypeModel):
 class Disease(TypeModel):
     """Biolink, SNOMED, or other identifier for disorder studied"""
 
+    dxdate: Optional[List[date]] = Field(
+        None,
+        title="Dates of diagnosis",
+        description="Dates of diagnosis",
+        readOnly=True,
+        nskey="dandi",
+        rangeIncludes="schema:Date",
+    )
+
 
 class ModalityType(TypeModel):
     """Identifier for modality used"""
@@ -244,6 +255,12 @@ class Person(Contributor):
     _ldmeta = {"rdfs:subClassOf": ["schema:Person", "prov:Person"], "nskey": "dandi"}
 
 
+class Software(DandiBaseModel):
+    identifier: Identifier = Field(nskey="schema")
+    name: str = Field(nskey="schema")
+    version: str = Field(nskey="schema")
+
+
 class EthicsApproval(DandiBaseModel):
     """Information about ethics committee approval for project"""
 
@@ -297,7 +314,7 @@ class AccessRequirements(DandiBaseModel):
         None,
         title="Embargo end date",
         description="Date on which embargo ends",
-        readonly=True,
+        readOnly=True,
         nskey="dandi",
         rangeIncludes="schema:Date",
     )
@@ -309,22 +326,24 @@ class AssetsSummary(DandiBaseModel):
     """Summary over assets contained in a dandiset (published or not)"""
 
     # stats which are not stats
-    numberOfBytes: int = Field(readonly=True, sameas="schema:contentSize")
-    numberOfFiles: int = Field(readonly=True)  # universe
-    numberOfSubjects: int = Field(readonly=True)  # NWB + BIDS
-    numberOfSamples: int = Field(None, readonly=True)  # more of NWB
-    numberOfCells: int = Field(None, readonly=True)
+    numberOfBytes: int = Field(readOnly=True, sameas="schema:contentSize")
+    numberOfFiles: int = Field(readOnly=True)  # universe
+    numberOfSubjects: int = Field(readOnly=True)  # NWB + BIDS
+    numberOfSamples: Optional[int] = Field(None, readOnly=True)  # more of NWB
+    numberOfCells: Optional[int] = Field(None, readOnly=True)
 
     dataStandard: List[StandardsType] = Field(
-        readonly=True
+        readOnly=True
     )  # TODO: types of things NWB, BIDS
     # Web UI: icons per each modality?
     modality: List[ModalityType] = Field(
-        readonly=True
+        readOnly=True
     )  # TODO: types of things, BIDS etc...
     # Web UI: could be an icon with number, which if hovered on  show a list?
-    measurementTechnique: List[MeasurementTechniqueType] = Field(readonly=True)
-    variableMeasured: List[PropertyValue] = Field(None, readonly=True)
+    measurementTechnique: List[MeasurementTechniqueType] = Field(readOnly=True)
+    variableMeasured: Optional[List[PropertyValue]] = Field(None, readOnly=True)
+
+    species: List[SpeciesType] = Field(readOnly=True)
 
     _ldmeta = {
         "rdfs:subClassOf": ["schema:CreativeWork", "prov:Entity"],
@@ -353,10 +372,11 @@ class BioSample(DandiBaseModel):
     """Description about the sample that was studied"""
 
     identifier: Identifier = Field(nskey="schema")
-    assayType: List[AssayType] = Field(
-        description="OBI based identifier for the assay(s) used", nskey="dandi"
+    assayType: Optional[List[AssayType]] = Field(
+        None, description="OBI based identifier for the assay(s) used", nskey="dandi"
     )
-    anatomy: List[Anatomy] = Field(
+    anatomy: Optional[List[Anatomy]] = Field(
+        None,
         description="UBERON based identifier for the location of the sample",
         nskey="dandi",
     )
@@ -380,7 +400,10 @@ class BioSample(DandiBaseModel):
         description="OBI based identifier for sex of the sample if available",
         nskey="dandi",
     )
-    taxonomy: Optional[SpeciesType] = Field(
+    genotype: Optional[Identifier] = Field(
+        None, description="Genotype descriptor of biosample if available", nskey="dandi"
+    )
+    species: Optional[SpeciesType] = Field(
         None,
         description="An identifier indicating the taxonomic classification of the biosample",
         nskey="dandi",
@@ -419,7 +442,9 @@ class Activity(DandiBaseModel):
 
     isPartOf: Optional["Activity"] = Field(None, nskey="schema")
     hasPart: Optional["Activity"] = Field(None, nskey="schema")
-    wasAssociatedWith: Optional[Union[Person, Organization]] = Field(None, nskey="prov")
+    wasAssociatedWith: Optional[Union[Person, Organization, Software]] = Field(
+        None, nskey="prov"
+    )
 
     _ldmeta = {"rdfs:subClassOf": ["prov:Activity", "schema:Thing"], "nskey": "dandi"}
 
@@ -432,8 +457,8 @@ class Project(Activity):
 
 
 class CommonModel(DandiBaseModel):
-    schemaVersion: str = Field(default="1.0.0-rc1", readonly=True, nskey="schema")
-    identifier: Identifier = Field(readonly=True, nskey="schema")
+    schemaVersion: str = Field(default="1.0.0-rc1", readOnly=True, nskey="schema")
+    identifier: Identifier = Field(readOnly=True, nskey="schema")
     name: Optional[str] = Field(
         None,
         title="Title",
@@ -460,34 +485,40 @@ class CommonModel(DandiBaseModel):
         nskey="schema",
     )
     studyTarget: Optional[List[Union[str, AnyUrl]]] = Field(
-        None, title="What the study is ", nskey="dandi"
+        None, title="What the study is related to", nskey="dandi"
     )
     protocol: Optional[List[str]] = Field(None, nskey="dandi")
     ethicsApproval: Optional[List[EthicsApproval]] = Field(None, nskey="dandi")
     license: List[License] = Field(nskey="schema")
-    keywords: List[str] = Field(
+    keywords: Optional[List[str]] = Field(
+        None,
         title="Keywords",
         description="Keywords or tags used to describe "
         "this content. Multiple entries in a "
         "keywords list are typically delimited "
         "by commas.",
-        min_items=1,
         nskey="schema",
     )
     acknowledgement: Optional[str] = Field(None, title="Acknowledgement", nskey="dandi")
 
     # Linking to this dandiset or the larger thing
-    access: List[AccessRequirements] = Field(nskey="dandi")
-    url: AnyUrl = Field(
-        readonly=True, description="permalink to the item", nskey="schema"
+    access: List[AccessRequirements] = Field(
+        default_factory=lambda: [AccessRequirements(status=AccessType.Open)],
+        nskey="dandi",
+    )
+    url: Optional[AnyUrl] = Field(
+        None, readOnly=True, description="permalink to the item", nskey="schema"
     )
     repository: AnyUrl = Field(
-        readonly=True, description="location of the item", nskey="dandi"
+        "https://dandiarchive.org/",
+        readOnly=True,
+        description="location of the item",
+        nskey="dandi",
     )
-    relatedResource: List[Resource] = Field(None, nskey="dandi")
+    relatedResource: Optional[List[Resource]] = Field(None, nskey="dandi")
 
     wasGeneratedBy: Optional[Union[Activity, AnyUrl]] = Field(
-        None, readonly=True, nskey="prov"
+        None, readOnly=True, nskey="prov"
     )
 
 
@@ -524,17 +555,17 @@ class DandiMeta(CommonModel):
         min_items=1,
     )
 
-    citation: str = Field(readonly=True, nskey="schema")
+    citation: str = Field(readOnly=True, nskey="schema")
 
     # From assets
-    assetsSummary: AssetsSummary = Field(readonly=True, nskey="dandi")
+    assetsSummary: AssetsSummary = Field(readOnly=True, nskey="dandi")
 
     # From server (requested by users even for drafts)
-    manifestLocation: List[AnyUrl] = Field(readonly=True, nskey="dandi")
+    manifestLocation: List[AnyUrl] = Field(readOnly=True, nskey="dandi")
 
     # On publish
-    version: str = Field(readonly=True, nskey="schema")
-    doi: Optional[Union[str, AnyUrl]] = Field(None, readonly=True, nskey="dandi")
+    version: str = Field(readOnly=True, nskey="schema")
+    doi: Optional[Union[str, AnyUrl]] = Field(None, readOnly=True, nskey="dandi")
 
     _ldmeta = {
         "rdfs:subClassOf": ["schema:Dataset", "prov:Entity"],
@@ -546,10 +577,10 @@ class DandiMeta(CommonModel):
 class PublishedDandiMeta(DandiMeta):
     publishedBy: AnyUrl = Field(
         description="The URL should contain the provenance of the publishing process.",
-        readonly=True,
+        readOnly=True,
         nskey="dandi",
     )  # TODO: formalize "publish" activity to at least the Actor
-    datePublished: date = Field(readonly=True, nskey="schema")
+    datePublished: date = Field(readOnly=True, nskey="schema")
 
 
 class AssetMeta(CommonModel):
@@ -558,29 +589,36 @@ class AssetMeta(CommonModel):
     Derived from C2M2 (Level 0 and 1) and schema.org
     """
 
+    # Overrides CommonModel.license
+    # TODO: https://github.com/NeurodataWithoutBorders/nwb-schema/issues/320
+    license: Optional[List[License]] = Field(None, nskey="schema")
+
     contentSize: str = Field(nskey="schema")
     encodingFormat: Union[str, AnyUrl] = Field(nskey="schema")
     digest: Digest = Field(nskey="dandi")
 
     path: str = Field(None, nskey="dandi")
-    isPartOf: Identifier = Field(nskey="schema")
 
     # this is from C2M2 level 1 - using EDAM vocabularies - in our case we would
     # need to come up with things for neurophys
-    dataType: AnyUrl = Field(nskey="dandi")
+    # TODO: waiting on input <https://github.com/dandi/dandi-cli/pull/226>
+    dataType: Optional[AnyUrl] = Field(None, nskey="dandi")
 
-    sameAs: AnyUrl = Field(None, nskey="schema")
+    sameAs: Optional[List[AnyUrl]] = Field(None, nskey="schema")
 
-    modality: List[ModalityType] = Field(readonly=True, nskey="dandi")
-    measurementTechnique: List[MeasurementTechniqueType] = Field(
-        readonly=True, nskey="schema"
+    # TODO
+    modality: Optional[List[ModalityType]] = Field(None, readOnly=True, nskey="dandi")
+    measurementTechnique: Optional[List[MeasurementTechniqueType]] = Field(
+        None, readOnly=True, nskey="schema"
     )
-    variableMeasured: List[PropertyValue] = Field(readonly=True, nskey="schema")
+    variableMeasured: Optional[List[PropertyValue]] = Field(
+        None, readOnly=True, nskey="schema"
+    )
 
-    wasDerivedFrom: List[BioSample] = Field(None, nskey="prov")
+    wasDerivedFrom: Optional[List[BioSample]] = Field(None, nskey="prov")
 
     # on publish or set by server
-    contentUrl: List[AnyUrl] = Field(None, readonly=True, nskey="schema")
+    contentUrl: Optional[List[AnyUrl]] = Field(None, readOnly=True, nskey="schema")
 
     _ldmeta = {
         "rdfs:subClassOf": ["schema:CreativeWork", "prov:Entity"],
@@ -592,7 +630,7 @@ class AssetMeta(CommonModel):
 class PublishedAssetMeta(AssetMeta):
     publishedBy: AnyUrl = Field(
         description="The URL should contain the provenance of the publishing process.",
-        readonly=True,
+        readOnly=True,
         nskey="dandi",
     )  # TODO: formalize "publish" activity to at least the Actor
-    datePublished: date = Field(readonly=True, nskey="schema")
+    datePublished: date = Field(readOnly=True, nskey="schema")
