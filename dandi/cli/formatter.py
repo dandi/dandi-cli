@@ -59,10 +59,11 @@ class YAMLFormatter(Formatter):
 
 
 class PYOUTFormatter(pyout.Tabular):
-    def __init__(self, fields):
+    def __init__(self, fields, **kwargs):
         PYOUT_STYLE = pyouts.get_style(hide_if_missing=not fields)
 
         kw = dict(style=PYOUT_STYLE)
+        kw.update(kwargs)
         if fields:
             kw["columns"] = fields
         super().__init__(**kw)

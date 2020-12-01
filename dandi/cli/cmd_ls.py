@@ -1,6 +1,5 @@
 import os
 import os.path as op
-import time
 
 import click
 
@@ -8,7 +7,6 @@ from collections import defaultdict
 
 from .base import lgr, map_to_click_exceptions
 
-from ..utils import safe_call
 
 # TODO: all the recursion options etc
 
@@ -36,9 +34,16 @@ from ..utils import safe_call
     "be considered.",
     is_flag=True,
 )
+@click.option(
+    "-J",
+    "--jobs",
+    help="Number of parallel download jobs.",
+    default=6,  # TODO: come up with smart auto-scaling etc
+    show_default=True,
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=False, dir_okay=True))
 @map_to_click_exceptions
-def ls(paths, fields=None, format="auto", recursive=False):
+def ls(paths, fields=None, format="auto", recursive=False, jobs=6):
     """List .nwb files and dandisets metadata.
     """
     from ..consts import metadata_all_fields
@@ -104,7 +109,7 @@ def ls(paths, fields=None, format="auto", recursive=False):
         if fields and fields[0] != "path":
             # we must always have path - our "id"
             fields = ["path"] + fields
-        out = PYOUTFormatter(fields=fields)
+        out = PYOUTFormatter(fields=fields, wait_for_top=3, max_workers=jobs)
     elif format == "json":
         out = JSONFormatter()
     elif format == "json_pp":
@@ -119,16 +124,10 @@ def ls(paths, fields=None, format="auto", recursive=False):
         async_keys = async_keys.intersection(fields)
     async_keys = tuple(async_keys.difference(common_fields))
 
-    process_assets = set()
     errors = defaultdict(list)  # problem: [] paths
     with out:
         for asset in assets_gen():
-            while len(process_assets) >= 10:
-                lgr.log(2, "Sleep waiting for some paths to finish processing")
-                time.sleep(0.5)
-
             if isinstance(asset, str):  # path
-                process_assets.add(asset)
                 rec = {}
                 rec["path"] = asset
 
@@ -138,11 +137,7 @@ def ls(paths, fields=None, format="auto", recursive=False):
 
                     if async_keys:
                         cb = get_metadata_ls(
-                            asset,
-                            async_keys,
-                            process_assets,
-                            errors=errors,
-                            flatten=format == "pyout",
+                            asset, async_keys, errors=errors, flatten=format == "pyout"
                         )
                         if format == "pyout":
                             rec[async_keys] = cb
@@ -264,7 +259,7 @@ def flatten_meta_to_pyout(meta):
     return out
 
 
-def get_metadata_ls(path, keys, process_paths, errors, flatten=False):
+def get_metadata_ls(path, keys, errors, flatten=False):
     from ..pynwb_utils import get_nwb_version, ignore_benign_pynwb_warnings
     from ..metadata import get_metadata
 
@@ -295,10 +290,7 @@ def get_metadata_ls(path, keys, process_paths, errors, flatten=False):
                     _add_exc_error(path, rec, errors, exc)
             return rec
         finally:
-            # TODO: this is a workaround, remove after
-            # https://github.com/pyout/pyout/issues/87 is resolved
-            if process_paths is not None and path in process_paths:
-                process_paths.remove(path)
+            pass
 
     return fn
 
