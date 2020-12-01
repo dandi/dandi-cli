@@ -68,7 +68,7 @@ def _sanitize_nwb_version(v, filename=None, log=None):
     return v
 
 
-def get_nwb_version(filepath, sanitize=True):
+def get_nwb_version(filepath, sanitize=False):
     """Return a version of the NWB standard used by a file
 
     Parameters
