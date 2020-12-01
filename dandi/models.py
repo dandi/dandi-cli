@@ -178,8 +178,17 @@ class SpeciesType(TypeModel):
     """Identifier for species of the sample"""
 
 
-class Disease(TypeModel):
+class Disorder(TypeModel):
     """Biolink, SNOMED, or other identifier for disorder studied"""
+
+    dxdate: Optional[List[date]] = Field(
+        None,
+        title="Dates of diagnosis",
+        description="Dates of diagnosis",
+        readOnly=True,
+        nskey="dandi",
+        rangeIncludes="schema:Date",
+    )
 
 
 class ModalityType(TypeModel):
@@ -305,7 +314,7 @@ class AccessRequirements(DandiBaseModel):
         None,
         title="Embargo end date",
         description="Date on which embargo ends",
-        readonly=True,
+        readOnly=True,
         nskey="dandi",
         rangeIncludes="schema:Date",
     )
@@ -317,22 +326,24 @@ class AssetsSummary(DandiBaseModel):
     """Summary over assets contained in a dandiset (published or not)"""
 
     # stats which are not stats
-    numberOfBytes: int = Field(readonly=True, sameas="schema:contentSize")
-    numberOfFiles: int = Field(readonly=True)  # universe
-    numberOfSubjects: int = Field(readonly=True)  # NWB + BIDS
-    numberOfSamples: Optional[int] = Field(None, readonly=True)  # more of NWB
-    numberOfCells: Optional[int] = Field(None, readonly=True)
+    numberOfBytes: int = Field(readOnly=True, sameas="schema:contentSize")
+    numberOfFiles: int = Field(readOnly=True)  # universe
+    numberOfSubjects: int = Field(readOnly=True)  # NWB + BIDS
+    numberOfSamples: Optional[int] = Field(None, readOnly=True)  # more of NWB
+    numberOfCells: Optional[int] = Field(None, readOnly=True)
 
     dataStandard: List[StandardsType] = Field(
-        readonly=True
+        readOnly=True
     )  # TODO: types of things NWB, BIDS
     # Web UI: icons per each modality?
     modality: List[ModalityType] = Field(
-        readonly=True
+        readOnly=True
     )  # TODO: types of things, BIDS etc...
     # Web UI: could be an icon with number, which if hovered on  show a list?
-    measurementTechnique: List[MeasurementTechniqueType] = Field(readonly=True)
-    variableMeasured: Optional[List[PropertyValue]] = Field(None, readonly=True)
+    measurementTechnique: List[MeasurementTechniqueType] = Field(readOnly=True)
+    variableMeasured: Optional[List[PropertyValue]] = Field(None, readOnly=True)
+
+    species: List[SpeciesType] = Field(readOnly=True)
 
     _ldmeta = {
         "rdfs:subClassOf": ["schema:CreativeWork", "prov:Entity"],
@@ -389,14 +400,17 @@ class BioSample(DandiBaseModel):
         description="OBI based identifier for sex of the sample if available",
         nskey="dandi",
     )
-    taxonomy: Optional[SpeciesType] = Field(
+    genotype: Optional[Identifier] = Field(
+        None, description="Genotype descriptor of biosample if available", nskey="dandi"
+    )
+    species: Optional[SpeciesType] = Field(
         None,
         description="An identifier indicating the taxonomic classification of the biosample",
         nskey="dandi",
     )
-    disease: Optional[List[Disease]] = Field(
+    disorder: Optional[List[Disorder]] = Field(
         None,
-        description="Any current diagnosed disease associated with the sample",
+        description="Any current diagnosed disease or disorder associated with the sample",
         nskey="dandi",
     )
 
@@ -443,8 +457,8 @@ class Project(Activity):
 
 
 class CommonModel(DandiBaseModel):
-    schemaVersion: str = Field(default="1.0.0-rc1", readonly=True, nskey="schema")
-    identifier: Identifier = Field(readonly=True, nskey="schema")
+    schemaVersion: str = Field(default="1.0.0-rc1", readOnly=True, nskey="schema")
+    identifier: Identifier = Field(readOnly=True, nskey="schema")
     name: Optional[str] = Field(
         None,
         title="Title",
@@ -464,14 +478,14 @@ class CommonModel(DandiBaseModel):
         description="Contributors to this item.",
         nskey="schema",
     )
-    about: Optional[List[Union[Disease, Anatomy, Identifier]]] = Field(
+    about: Optional[List[Union[Disorder, Anatomy, Identifier]]] = Field(
         None,
         title="Subject matter",
         description="The subject matter of the content, such as disorders, brain anatomy.",
         nskey="schema",
     )
     studyTarget: Optional[List[Union[str, AnyUrl]]] = Field(
-        None, title="What the study is ", nskey="dandi"
+        None, title="What the study is related to", nskey="dandi"
     )
     protocol: Optional[List[str]] = Field(None, nskey="dandi")
     ethicsApproval: Optional[List[EthicsApproval]] = Field(None, nskey="dandi")
@@ -493,18 +507,18 @@ class CommonModel(DandiBaseModel):
         nskey="dandi",
     )
     url: Optional[AnyUrl] = Field(
-        None, readonly=True, description="permalink to the item", nskey="schema"
+        None, readOnly=True, description="permalink to the item", nskey="schema"
     )
     repository: AnyUrl = Field(
         "https://dandiarchive.org/",
-        readonly=True,
+        readOnly=True,
         description="location of the item",
         nskey="dandi",
     )
     relatedResource: Optional[List[Resource]] = Field(None, nskey="dandi")
 
     wasGeneratedBy: Optional[Union[Activity, AnyUrl]] = Field(
-        None, readonly=True, nskey="prov"
+        None, readOnly=True, nskey="prov"
     )
 
 
@@ -541,17 +555,17 @@ class DandiMeta(CommonModel):
         min_items=1,
     )
 
-    citation: str = Field(readonly=True, nskey="schema")
+    citation: str = Field(readOnly=True, nskey="schema")
 
     # From assets
-    assetsSummary: AssetsSummary = Field(readonly=True, nskey="dandi")
+    assetsSummary: AssetsSummary = Field(readOnly=True, nskey="dandi")
 
     # From server (requested by users even for drafts)
-    manifestLocation: List[AnyUrl] = Field(readonly=True, nskey="dandi")
+    manifestLocation: List[AnyUrl] = Field(readOnly=True, nskey="dandi")
 
     # On publish
-    version: str = Field(readonly=True, nskey="schema")
-    doi: Optional[Union[str, AnyUrl]] = Field(None, readonly=True, nskey="dandi")
+    version: str = Field(readOnly=True, nskey="schema")
+    doi: Optional[Union[str, AnyUrl]] = Field(None, readOnly=True, nskey="dandi")
 
     _ldmeta = {
         "rdfs:subClassOf": ["schema:Dataset", "prov:Entity"],
@@ -563,10 +577,10 @@ class DandiMeta(CommonModel):
 class PublishedDandiMeta(DandiMeta):
     publishedBy: AnyUrl = Field(
         description="The URL should contain the provenance of the publishing process.",
-        readonly=True,
+        readOnly=True,
         nskey="dandi",
     )  # TODO: formalize "publish" activity to at least the Actor
-    datePublished: date = Field(readonly=True, nskey="schema")
+    datePublished: date = Field(readOnly=True, nskey="schema")
 
 
 class AssetMeta(CommonModel):
@@ -584,8 +598,6 @@ class AssetMeta(CommonModel):
     digest: Digest = Field(nskey="dandi")
 
     path: str = Field(None, nskey="dandi")
-    # TODO: Fill in when uploading:
-    isPartOf: Optional[Identifier] = Field(None, nskey="schema")
 
     # this is from C2M2 level 1 - using EDAM vocabularies - in our case we would
     # need to come up with things for neurophys
@@ -595,18 +607,18 @@ class AssetMeta(CommonModel):
     sameAs: Optional[List[AnyUrl]] = Field(None, nskey="schema")
 
     # TODO
-    modality: Optional[List[ModalityType]] = Field(None, readonly=True, nskey="dandi")
+    modality: Optional[List[ModalityType]] = Field(None, readOnly=True, nskey="dandi")
     measurementTechnique: Optional[List[MeasurementTechniqueType]] = Field(
-        None, readonly=True, nskey="schema"
+        None, readOnly=True, nskey="schema"
     )
     variableMeasured: Optional[List[PropertyValue]] = Field(
-        None, readonly=True, nskey="schema"
+        None, readOnly=True, nskey="schema"
     )
 
     wasDerivedFrom: Optional[List[BioSample]] = Field(None, nskey="prov")
 
     # on publish or set by server
-    contentUrl: Optional[List[AnyUrl]] = Field(None, readonly=True, nskey="schema")
+    contentUrl: Optional[List[AnyUrl]] = Field(None, readOnly=True, nskey="schema")
 
     _ldmeta = {
         "rdfs:subClassOf": ["schema:CreativeWork", "prov:Entity"],
@@ -618,7 +630,7 @@ class AssetMeta(CommonModel):
 class PublishedAssetMeta(AssetMeta):
     publishedBy: AnyUrl = Field(
         description="The URL should contain the provenance of the publishing process.",
-        readonly=True,
+        readOnly=True,
         nskey="dandi",
     )  # TODO: formalize "publish" activity to at least the Actor
-    datePublished: date = Field(readonly=True, nskey="schema")
+    datePublished: date = Field(readOnly=True, nskey="schema")

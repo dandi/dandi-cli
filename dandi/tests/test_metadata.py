@@ -11,6 +11,7 @@ from ..models import (
     DigestType,
     PropertyValue,
     SexType,
+    SpeciesType,
 )
 
 
@@ -118,7 +119,6 @@ def test_metadata2asset():
             value="783ad2afe455839e5ab2fa659861f58a423fd17f", cryptoType=DigestType.sha1
         ),
         path=None,
-        isPartOf=None,
         dataType=None,
         sameAs=None,
         modality=None,
@@ -134,8 +134,9 @@ def test_metadata2asset():
                 vendor=None,
                 age=PropertyValue(value="P170DT12212S", unitText="Years from birth"),
                 sex=SexType(identifier="sex", name="M"),
-                taxonomy=None,
-                disease=None,
+                species=SpeciesType(identifier="species", name="Examen exemplar"),
+                disorder=None,
+                genotype="Typical",
             )
         ],
         contentUrl=None,
@@ -194,7 +195,6 @@ def test_metadata2asset_simple1():
             value="783ad2afe455839e5ab2fa659861f58a423fd17f", cryptoType=DigestType.sha1
         ),
         path=None,
-        isPartOf=None,
         dataType=None,
         sameAs=None,
         modality=None,
@@ -210,8 +210,9 @@ def test_metadata2asset_simple1():
                 vendor=None,
                 age=None,
                 sex=None,
-                taxonomy=None,
-                disease=None,
+                species=None,
+                disorder=None,
+                genotype=None,
             )
         ],
         contentUrl=None,
