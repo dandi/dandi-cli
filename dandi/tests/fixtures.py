@@ -5,6 +5,7 @@ from pathlib import Path
 from subprocess import check_output, run
 import shutil
 import tempfile
+from time import sleep
 
 from dateutil.tz import tzutc
 import pynwb
@@ -291,6 +292,16 @@ def local_docker_compose():
             data={"key": "dandi.publish_api_key", "value": django_api_key},
             headers={"Girder-Token": publish_api_key},
         ).raise_for_status()
+
+        for _ in range(10):
+            try:
+                requests.get(f"{instance.api}/dandisets/")
+            except requests.ConnectionError:
+                sleep(1)
+            else:
+                break
+        else:
+            raise RuntimeError("Django container did not start up in time")
 
         yield {
             "api_key": api_key,
