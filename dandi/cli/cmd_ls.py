@@ -137,19 +137,28 @@ def ls(paths, fields=None, format="auto", recursive=False):
                         rec["size"] = os.stat(asset).st_size
 
                     if async_keys:
-                        cb = get_metadata_pyout(
-                            asset, async_keys, process_assets, flatten=format == "pyout"
+                        cb = get_metadata_ls(
+                            asset,
+                            async_keys,
+                            process_assets,
+                            errors=errors,
+                            flatten=format == "pyout",
                         )
                         if format == "pyout":
                             rec[async_keys] = cb
                         else:
                             # TODO: parallel execution
                             # For now just call callback and get all the fields
-                            for k, v in cb().items():
+                            cb_res = cb()
+                            # TODO: we should stop masking exceptions in get_metadata_ls,
+                            # and centralize logic regardless either it is for pyout or not
+                            # and do parallelizaion on our end, so at large it is
+                            if cb_res is None:
+                                raise
+                            for k, v in cb_res.items():
                                 rec[k] = v
                 except Exception as exc:
-                    lgr.debug("Problem obtaining metadata for %s: %s", asset, exc)
-                    errors[str(type(exc).__name__)].append(asset)
+                    _add_exc_error(asset, rec, errors, exc)
             elif isinstance(asset, dict):
                 # ready record
                 # TODO: harmonization for pyout
@@ -162,11 +171,18 @@ def ls(paths, fields=None, format="auto", recursive=False):
                 lgr.debug("Skipping a record for %s since empty", asset)
                 continue
             out(rec)
-        if errors:
-            lgr.warning(
-                "Failed to operate on some paths (empty records were listed):\n %s",
-                "\n ".join("%s: %d paths" % (k, len(v)) for k, v in errors.items()),
-            )
+    if errors:
+        lgr.warning(
+            "Failed to operate on some paths (empty records were listed):\n %s",
+            "\n ".join("%s: %d paths" % (k, len(v)) for k, v in errors.items()),
+        )
+
+
+def _add_exc_error(asset, rec, errors, exc):
+    """A helper to centralize collection of errors for pyout and non-pyout reporting"""
+    lgr.debug("Problem obtaining metadata for %s: %s", asset, exc)
+    errors[str(type(exc).__name__)].append(asset)
+    rec["errors"] = rec.get("errors", 0) + 1
 
 
 def display_known_fields(all_fields):
@@ -248,7 +264,7 @@ def flatten_meta_to_pyout(meta):
     return out
 
 
-def get_metadata_pyout(path, keys=None, process_paths=None, flatten=False):
+def get_metadata_ls(path, keys, process_paths, errors, flatten=False):
     from ..pynwb_utils import get_nwb_version, ignore_benign_pynwb_warnings
     from ..metadata import get_metadata
 
@@ -259,7 +275,10 @@ def get_metadata_pyout(path, keys=None, process_paths=None, flatten=False):
             rec = {}
             # No need for calling get_metadata if no keys are needed from it
             if keys is None or list(keys) != ["nwb_version"]:
-                rec = safe_call(get_metadata, path)
+                try:
+                    rec = get_metadata(path)
+                except Exception as exc:
+                    _add_exc_error(path, rec, errors, exc)
                 if flatten:
                     rec = flatten_meta_to_pyout(rec)
             if keys is not None:
@@ -270,7 +289,10 @@ def get_metadata_pyout(path, keys=None, process_paths=None, flatten=False):
                 and (keys and "nwb_version" in keys)
             ):
                 # Let's at least get that one
-                rec["nwb_version"] = safe_call(get_nwb_version, path, "ERROR") or ""
+                try:
+                    rec["nwb_version"] = get_nwb_version(path)
+                except Exception as exc:
+                    _add_exc_error(path, rec, errors, exc)
             return rec
         finally:
             # TODO: this is a workaround, remove after
