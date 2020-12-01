@@ -273,13 +273,20 @@ def validate(path):
 # way to get relevant warnings (not errors) from PyNWB.  It is a bad manner
 # to have this as a side effect of the importing this module, we should add/remove
 # that filter in our top level commands
+_ignored_benign_pynwb_warnings = False
+
+
 def ignore_benign_pynwb_warnings():
+    global _ignored_benign_pynwb_warnings
+    if _ignored_benign_pynwb_warnings:
+        return
     #   See https://github.com/dandi/dandi-cli/issues/14 for more info
     for s in (
         "No cached namespaces found .*",
         "ignoring namespace '.*' because it already exists",
     ):
         warnings.filterwarnings("ignore", s, UserWarning)
+    _ignored_benign_pynwb_warnings = True
 
 
 def get_object_id(path):
