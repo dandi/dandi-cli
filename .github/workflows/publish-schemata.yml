@@ -40,6 +40,9 @@ jobs:
 
       - name: Commit changes
         run: |
+          git config --global user.email "team@dandiarchive.org"
+          git config --global user.name "DANDI Bot"
+
           git add releases
           if ! git diff --quiet --cached
           then git commit -m "Publish model schemata as of dandi-cli $(git -C ../dandi describe --tags)"
