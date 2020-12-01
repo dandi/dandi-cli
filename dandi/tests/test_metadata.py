@@ -12,6 +12,7 @@ from ..models import (
     PropertyValue,
     SexType,
     SpeciesType,
+    AnyUrl,
 )
 
 
@@ -78,7 +79,7 @@ def test_metadata2asset():
             "date_of_birth": "2020-03-14T12:34:56-04:00",
             "genotype": "Typical",
             "sex": "M",
-            "species": "Examen exemplar",
+            "species": "human",
             "subject_id": "a1b2c3",
             "cell_id": "cell01",
             "slice_id": "slice02",
@@ -133,8 +134,28 @@ def test_metadata2asset():
                 cellLine=None,
                 vendor=None,
                 age=PropertyValue(value="P170DT12212S", unitText="Years from birth"),
-                sex=SexType(identifier="sex", name="M"),
-                species=SpeciesType(identifier="species", name="Examen exemplar"),
+                sex=SexType(
+                    identifier=AnyUrl(
+                        "http://purl.obolibrary.org/obo/PATO_0000384",
+                        scheme="http",
+                        host="purl.obolibrary.org",
+                        tld="org",
+                        host_type="domain",
+                        path="/obo/PATO_0000384",
+                    ),
+                    name="Male",
+                ),
+                species=SpeciesType(
+                    identifier=AnyUrl(
+                        "http://purl.obolibrary.org/obo/NCBITaxon_9606",
+                        scheme="http",
+                        host="purl.obolibrary.org",
+                        tld="org",
+                        host_type="domain",
+                        path="/obo/NCBITaxon_9606",
+                    ),
+                    name="Human",
+                ),
                 disorder=None,
                 genotype="Typical",
             )

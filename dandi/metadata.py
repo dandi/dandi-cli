@@ -154,15 +154,59 @@ def timedelta2duration(delta):
 
 
 def extract_sex(metadata):
-    if metadata.get("sex") is not None:
-        return models.SexType(identifier="sex", name=metadata["sex"])
+    value = metadata.get("sex", None)
+    if value is not None:
+        value = value.lower()
+        if value in ["m", "male"]:
+            value_id = "http://purl.obolibrary.org/obo/PATO_0000384"
+            value = "Male"
+        elif value in ["f", "female"]:
+            value_id = "http://purl.obolibrary.org/obo/PATO_0000383"
+            value = "Female"
+        elif value in ["unknown"]:
+            value_id = None
+            value = "Unknown"
+        elif value in ["other"]:
+            value_id = None
+            value = "Other"
+        elif value.startswith("http"):
+            value_id = value
+            value = None
+        else:
+            raise ValueError(f"Cannot interpret sex field: {value}")
+        return models.SexType(identifier=value_id, name=value)
     else:
         return ...
 
 
 def extract_species(metadata):
-    if metadata.get("species") is not None:
-        return models.SpeciesType(identifier="species", name=metadata["species"])
+    value = metadata.get("species", None)
+    if value is not None:
+        value = value.lower()
+        if "mouse" in value or "mus" in value:
+            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_10090"
+            value = "House mouse"
+        elif "human" in value or "homo" in value:
+            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
+            value = "Human"
+        elif "rat" in value:
+            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_10117"
+            value = "House rat"
+        elif "mulatta" in value or "rhesus" in value:
+            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_9544"
+            value = "Rhesus monkey"
+        elif "jacchus" in value:
+            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_9483"
+            value = "Common marmoset"
+        elif "melanogaster" in value or "fruit fly" in value:
+            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_7227"
+            value = "Common fruit fly"
+        elif value.startswith("http"):
+            value_id = value
+            value = None
+        else:
+            raise ValueError(f"Cannot interpret species field: {value}")
+        return models.SpeciesType(identifier=value_id, name=value.capitalize())
     else:
         return ...
 
