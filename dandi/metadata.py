@@ -160,6 +160,13 @@ def extract_sex(metadata):
         return ...
 
 
+def extract_species(metadata):
+    if metadata.get("species") is not None:
+        return models.SpeciesType(identifier="species", name=metadata["species"])
+    else:
+        return ...
+
+
 def extract_assay_type(metadata):
     if "assayType" in metadata:
         return [models.AssayType(identifier="assayType", name=metadata["assayType"])]
@@ -207,6 +214,7 @@ FIELD_EXTRACTORS = {
     "assayType": extract_assay_type,
     "anatomy": extract_anatomy,
     "digest": extract_digest,
+    "species": extract_species,
 }
 
 
