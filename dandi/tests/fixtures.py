@@ -267,6 +267,7 @@ def local_docker_compose():
             ],
             cwd=str(LOCAL_DOCKER_DIR),
             env=env,
+            universal_newlines=True,
         ).split()[2]
 
         run(
@@ -291,7 +292,12 @@ def local_docker_compose():
             headers={"Girder-Token": publish_api_key},
         ).raise_for_status()
 
-        yield {"api_key": api_key, "instance": instance, "instance_id": instance_id}
+        yield {
+            "api_key": api_key,
+            "instance": instance,
+            "instance_id": instance_id,
+            "django_api_key": django_api_key,
+        }
     finally:
         run(["docker-compose", "down", "-v"], cwd=str(LOCAL_DOCKER_DIR), check=True)
 

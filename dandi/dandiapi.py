@@ -19,6 +19,7 @@ class RESTFullAPIClient(object):
     def __init__(self, api_url):
         self.api_url = api_url
         self._session = None
+        self._headers = {}
 
     @contextmanager
     def session(self, session=None):
@@ -46,6 +47,7 @@ class RESTFullAPIClient(object):
         :param session: An existing :class:`requests.Session` object, or None.
         """
         self._session = session if session else requests.Session()
+        self._session.headers.update(self._headers)
 
         try:
             yield self._session
@@ -124,6 +126,7 @@ class RESTFullAPIClient(object):
         if json_resp and "accept" not in _headers:
             _headers["accept"] = "application/json"
 
+        lgr.debug("%s %s", method.upper(), url)
         result = f(
             url,
             params=parameters,
@@ -133,6 +136,7 @@ class RESTFullAPIClient(object):
             headers=_headers,
             **kwargs,
         )
+        lgr.debug("Response: %d", result.status_code)
 
         # If success, return the json object. Otherwise throw an exception.
         if not result.ok:
@@ -208,6 +212,11 @@ class RESTFullAPIClient(object):
 
 
 class DandiAPIClient(RESTFullAPIClient):
+    def __init__(self, api_url, token=None):
+        super().__init__(api_url)
+        if token is not None:
+            self._headers["Authorization"] = f"token {token}"
+
     def get_asset(self, dandiset_id, version, uuid):
         """
 
@@ -362,3 +371,6 @@ class DandiAPIClient(RESTFullAPIClient):
             f"/dandisets/{dandiset_id}/versions/{version_id}/assets/",
             json={"path": asset_path, "metadata": asset_metadata, "sha256": filehash},
         )
+
+    def create_dandiset(self, name, metadata):
+        return self.post("/dandisets/", json={"name": name, "metadata": metadata})
