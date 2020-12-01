@@ -178,7 +178,7 @@ class SpeciesType(TypeModel):
     """Identifier for species of the sample"""
 
 
-class Disease(TypeModel):
+class Disorder(TypeModel):
     """Biolink, SNOMED, or other identifier for disorder studied"""
 
     dxdate: Optional[List[date]] = Field(
@@ -408,9 +408,9 @@ class BioSample(DandiBaseModel):
         description="An identifier indicating the taxonomic classification of the biosample",
         nskey="dandi",
     )
-    disease: Optional[List[Disease]] = Field(
+    disorder: Optional[List[Disorder]] = Field(
         None,
-        description="Any current diagnosed disease associated with the sample",
+        description="Any current diagnosed disease or disorder associated with the sample",
         nskey="dandi",
     )
 
@@ -478,7 +478,7 @@ class CommonModel(DandiBaseModel):
         description="Contributors to this item.",
         nskey="schema",
     )
-    about: Optional[List[Union[Disease, Anatomy, Identifier]]] = Field(
+    about: Optional[List[Union[Disorder, Anatomy, Identifier]]] = Field(
         None,
         title="Subject matter",
         description="The subject matter of the content, such as disorders, brain anatomy.",
