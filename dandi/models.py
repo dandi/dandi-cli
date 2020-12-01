@@ -147,8 +147,8 @@ Identifier = Union[AnyUrl, PropertyValue, str]
 class TypeModel(DandiBaseModel):
     """Base class for enumerated types"""
 
-    identifier: Identifier = Field(nskey="schema")
-    name: str = Field(
+    identifier: Optional[Identifier] = Field(nskey="schema")
+    name: Optional[str] = Field(
         title="Title",
         description="The name of the item.",
         max_length=150,
