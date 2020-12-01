@@ -40,8 +40,8 @@ jobs:
 
       - name: Commit changes
         run: |
-          git config --global user.email "test@github.land"
-          git config --global user.name "GitHub Almighty"
+          git config --global user.email "team@dandiarchive.org"
+          git config --global user.name "DANDI Bot"
 
           git add releases
           if ! git diff --quiet --cached
