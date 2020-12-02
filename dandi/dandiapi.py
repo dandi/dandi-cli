@@ -322,7 +322,10 @@ class DandiAPIClient(RESTFullAPIClient):
             lgr.debug("Beginning upload")
             resp = self.post(
                 "/uploads/initialize/",
-                json={"file_name": asset_path, "file_size": os.path.getsize(filepath)},
+                json={
+                    "file_name": f"{dandiset_id}/{version_id}/{asset_path}",
+                    "file_size": os.path.getsize(filepath),
+                },
             )
             object_key = resp["object_key"]
             upload_id = resp["upload_id"]
