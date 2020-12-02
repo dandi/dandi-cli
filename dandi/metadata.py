@@ -183,10 +183,10 @@ def extract_species(metadata):
     value = metadata.get("species", None)
     if value is not None:
         value = value.lower()
-        if "mouse" in value or "mus" in value:
+        if "mouse" in value or value.startswith("mus"):
             value_id = "http://purl.obolibrary.org/obo/NCBITaxon_10090"
             value = "House mouse"
-        elif "human" in value or "homo" in value:
+        elif "human" in value or value.startswith("homo"):
             value_id = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
             value = "Human"
         elif "rat" in value:
