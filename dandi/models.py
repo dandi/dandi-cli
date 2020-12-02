@@ -129,7 +129,7 @@ class PropertyValue(DandiBaseModel):
     minValue: float = Field(None, nskey="schema")
     unitCode: Union[str, AnyUrl] = Field(None, nskey="schema")
     unitText: str = Field(None, nskey="schema")
-    value: Union[bool, float, str, int, List[Union[bool, float, str, int]]] = Field(
+    value: Union[str, bool, int, float, List[Union[str, bool, int, float]]] = Field(
         None, nskey="schema"
     )
     valueReference: "PropertyValue" = Field(
@@ -147,8 +147,8 @@ Identifier = Union[AnyUrl, PropertyValue, str]
 class TypeModel(DandiBaseModel):
     """Base class for enumerated types"""
 
-    identifier: Identifier = Field(nskey="schema")
-    name: str = Field(
+    identifier: Optional[Identifier] = Field(nskey="schema")
+    name: Optional[str] = Field(
         title="Title",
         description="The name of the item.",
         max_length=150,

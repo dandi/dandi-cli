@@ -57,7 +57,7 @@ def simple2_nwb(simple1_nwb_metadata, tmpdir_factory):
         str(tmpdir_factory.mktemp("data").join("simple2.nwb")),
         subject=pynwb.file.Subject(
             subject_id="mouse001",
-            date_of_birth=datetime(2019, 12, 1, tzinfo=tzutc()),
+            date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
             sex="M",
             species="mouse",
         ),
@@ -87,7 +87,7 @@ def organized_nwb_dir2(simple1_nwb_metadata, simple2_nwb, tmp_path_factory, clir
         str(tmp_path / "simple3.nwb"),
         subject=pynwb.file.Subject(
             subject_id="lizard001",
-            date_of_birth=datetime(2019, 12, 1, tzinfo=tzutc()),
+            date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
             sex="F",
             species="Gekko gecko",
         ),

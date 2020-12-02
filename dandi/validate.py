@@ -1,9 +1,9 @@
+import os
 import os.path as op
 from .consts import dandiset_metadata_file
-
+from .metadata import get_metadata
 from .pynwb_utils import validate as pynwb_validate, validate_cache
 from .utils import find_dandi_files, yaml_load
-from .metadata import get_metadata
 
 
 # TODO -- should come from schema.  This is just a simplistic example for now
@@ -48,12 +48,26 @@ def validate_dandiset_yaml(filepath):
 def validate_dandi_nwb(filepath):
     """Provide validation of .nwb file regarding requirements we impose
     """
-    # make sure that we have some basic metadata fields we require
-    try:
-        meta = get_metadata(filepath)
-    except BaseException as e:
-        return [f"Failed to read metadata: {e}"]
-    return _check_required_fields(meta, _required_nwb_metadata_fields)
+    if os.environ.get("DANDI_SCHEMA"):
+        from pydantic import ValidationError
+        from .metadata import nwb2asset
+        from .models import AssetMeta
+
+        try:
+            asset = nwb2asset(filepath, digest="dummy_value", digest_type="sha1")
+            AssetMeta(**asset.dict())
+        except ValidationError as e:
+            return [str(e)]
+        except Exception as e:
+            return [f"Failed to read metadata: {e}"]
+        return []
+    else:
+        # make sure that we have some basic metadata fields we require
+        try:
+            meta = get_metadata(filepath)
+        except BaseException as e:
+            return [f"Failed to read metadata: {e}"]
+        return _check_required_fields(meta, _required_nwb_metadata_fields)
 
 
 def _check_required_fields(d, required):

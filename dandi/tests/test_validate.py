@@ -1,11 +1,16 @@
 from ..validate import validate_file
 
 
-def test_validate_simple1(simple1_nwb):
+def test_validate_simple1(monkeypatch, simple1_nwb):
+    monkeypatch.setenv("DANDI_SCHEMA", "1")
     # this file lacks subject_id
     errors = validate_file(simple1_nwb)
     assert len(errors) == 1
-    assert errors[0] == "Required field 'subject_id' has no value"
+    assert errors[0] == (
+        "1 validation error for AssetMeta\n"
+        "wasDerivedFrom -> 0 -> identifier\n"
+        "  none is not an allowed value (type=type_error.none.not_allowed)"
+    )
 
 
 def test_validate_simple2(simple2_nwb):
