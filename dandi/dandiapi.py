@@ -146,7 +146,10 @@ class RESTFullAPIClient(object):
             )
 
         if json_resp:
-            return result.json()
+            if result.text.strip():
+                return result.json()
+            else:
+                return None
         else:
             return result
 
@@ -342,7 +345,7 @@ class DandiAPIClient(RESTFullAPIClient):
                         part["part_number"],
                         part["size"],
                     )
-                    r = self.post(part["upload_url"], data=chunk, json_resp=False)
+                    r = self.put(part["upload_url"], data=chunk, json_resp=False)
                     parts_out.append(
                         {
                             "part_number": part["part_number"],
@@ -359,8 +362,11 @@ class DandiAPIClient(RESTFullAPIClient):
                     "parts": parts_out,
                 },
             )
-            self.post(resp["complete_url"])
-            self.post("/uploads/validate/", json={"sha256": filehash})
+            self.post(resp["complete_url"], data=resp["body"], json_resp=False)
+            self.post(
+                "/uploads/validate/",
+                json={"sha256": filehash, "object_key": object_key},
+            )
         while True:
             lgr.debug("Waiting for server-side validation to complete")
             resp = self.get(f"/uploads/validations/{filehash}/")
