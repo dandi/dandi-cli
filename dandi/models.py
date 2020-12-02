@@ -138,7 +138,8 @@ class PropertyValue(DandiBaseModel):
     propertyID: Union[IdentifierType, AnyUrl, str] = Field(
         None,
         title="Property ID",
-        description="A commonly used identifier for the characteristic represented by the property.",
+        description="A commonly used identifier for"
+        "the characteristic represented by the property.",
         nskey="schema",
     )
 
