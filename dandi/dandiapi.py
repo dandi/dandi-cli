@@ -307,12 +307,14 @@ class DandiAPIClient(RESTFullAPIClient):
     def upload(self, dandiset_id, version_id, asset_path, asset_metadata, filepath):
         filehash = Digester(["sha256"])(filepath)["sha256"]
         lgr.debug("Calculated sha256 digest of %s for %s", filehash, filepath)
-        self.post("/uploads/validate/", json={"sha256": filehash})
         try:
-            self.get(f"/uploads/validations/{filehash}/")
-        except requests.HTTPError:
-            lgr.debug("Blob does not already exist on server")
-            blob_exists = False
+            self.post("/uploads/validate/", json={"sha256": filehash})
+        except requests.HTTPError as e:
+            if e.response.status_code == 400:
+                lgr.debug("Blob does not already exist on server")
+                blob_exists = False
+            else:
+                raise
         else:
             lgr.debug("Blob is already uploaded to server")
             blob_exists = True
@@ -355,6 +357,7 @@ class DandiAPIClient(RESTFullAPIClient):
                 },
             )
             self.post(resp["complete_url"])
+            self.post("/uploads/validate/", json={"sha256": filehash})
         while True:
             lgr.debug("Waiting for server-side validation to complete")
             resp = self.get(f"/uploads/validations/{filehash}/")
