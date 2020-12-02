@@ -86,8 +86,8 @@ def model2graph(model):
 
 AccessType = create_enum(AccessTypeDict)
 RoleType = create_enum(RoleTypeDict)
-Relation = create_enum(RelationTypeDict)
-License = create_enum(LicenseTypeDict)
+RelationType = create_enum(RelationTypeDict)
+LicenseType = create_enum(LicenseTypeDict)
 IdentifierType = create_enum(IdentifierTypeDict)
 DigestType = create_enum(DigestTypeDict)
 
@@ -136,7 +136,10 @@ class PropertyValue(DandiBaseModel):
         None, title="Value Reference", nskey="schema"
     )  # Note: recursive (circular or not)
     propertyID: Union[IdentifierType, AnyUrl, str] = Field(
-        None, title="Property ID", nskey="schema"
+        None,
+        title="Property ID",
+        description="A commonly used identifier for the characteristic represented by the property.",
+        nskey="schema",
     )
 
     _ldmeta = {"nskey": "schema"}
@@ -213,11 +216,18 @@ class ContactPoint(DandiBaseModel):
 
 
 class Contributor(DandiBaseModel):
-    identifier: Identifier = Field(None, nskey="schema")
+    identifier: Identifier = Field(
+        None,
+        title="A common identifier",
+        description="Use a common identifier such as ORCID for people or ROR for institutions",
+        nskey="schema",
+    )
     name: str = Field(None, nskey="schema")
     email: EmailStr = Field(None, nskey="schema")
     url: AnyUrl = Field(None, nskey="schema")
-    roleName: List[RoleType] = Field(title="Role Name", nskey="schema")
+    roleName: List[RoleType] = Field(
+        title="Role", description="Role of the contributor", nskey="schema"
+    )
     includeInCitation: bool = Field(
         True,
         title="Include contributor in citation",
@@ -268,7 +278,9 @@ class Software(DandiBaseModel):
 class EthicsApproval(DandiBaseModel):
     """Information about ethics committee approval for project"""
 
-    identifier: Identifier = Field(nskey="schema")
+    identifier: Identifier = Field(
+        nskey="schema", title="Identifier string for approved protocol"
+    )
     contactPoint: ContactPoint = Field(
         title="Contact Point",
         description="Information about the ethics approval committee.",
@@ -287,7 +299,8 @@ class Resource(DandiBaseModel):
         description="An identifier of a repository in which the resource is housed",
         nskey="dandi",
     )
-    relation: Relation = Field(
+    relation: RelationType = Field(
+        title="Relation",
         description="Indicates how the resource is related to the dataset",
         nskey="dandi",
     )
@@ -482,10 +495,7 @@ class Project(Activity):
 
 class CommonModel(DandiBaseModel):
     schemaVersion: str = Field(
-        default="1.0.0-rc1",
-        title="Schema Version",
-        readOnly=True,
-        nskey="schema",
+        default="1.0.0-rc1", title="Schema Version", readOnly=True, nskey="schema"
     )
     identifier: Identifier = Field(readOnly=True, nskey="schema")
     name: Optional[str] = Field(
@@ -519,11 +529,13 @@ class CommonModel(DandiBaseModel):
         description="What the study is related to",
         nskey="dandi",
     )
+    license: List[LicenseType] = Field(
+        title="License", description="License of item.", nskey="schema"
+    )
     protocol: Optional[List[str]] = Field(None, nskey="dandi")
     ethicsApproval: Optional[List[EthicsApproval]] = Field(
         None, title="Ethics Approval", nskey="dandi"
     )
-    license: List[License] = Field(nskey="schema")
     keywords: Optional[List[str]] = Field(
         None,
         title="Keywords",
@@ -537,6 +549,7 @@ class CommonModel(DandiBaseModel):
 
     # Linking to this dandiset or the larger thing
     access: List[AccessRequirements] = Field(
+        title="Access type",
         default_factory=lambda: [AccessRequirements(status=AccessType.Open)],
         nskey="dandi",
     )
@@ -634,10 +647,14 @@ class AssetMeta(CommonModel):
 
     # Overrides CommonModel.license
     # TODO: https://github.com/NeurodataWithoutBorders/nwb-schema/issues/320
-    license: Optional[List[License]] = Field(None, nskey="schema")
+    license: Optional[List[LicenseType]] = Field(
+        None, title="License", description="License of item", nskey="schema"
+    )
 
     contentSize: str = Field(title="Content Size", nskey="schema")
-    encodingFormat: Union[str, AnyUrl] = Field(title="Encoding Format", nskey="schema")
+    encodingFormat: Union[str, AnyUrl] = Field(
+        title="File encoding format", nskey="schema"
+    )
     digest: Digest = Field(nskey="dandi")
 
     path: str = Field(None, nskey="dandi")
