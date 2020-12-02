@@ -1,7 +1,8 @@
 from ..validate import validate_file
 
 
-def test_validate_simple1(simple1_nwb):
+def test_validate_simple1(monkeypatch, simple1_nwb):
+    monkeypatch.setenv("DANDI_SCHEMA", "1")
     # this file lacks subject_id
     errors = validate_file(simple1_nwb)
     assert len(errors) == 1
