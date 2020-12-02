@@ -385,10 +385,9 @@ def convertv1(data):
             value = toContributor(value)
         if oldkey == "access":
             value = [
-                {
-                    "email": value["access_contact_email"],
-                    "status": value["status"].capitalize(),
-                }
+                models.AccessRequirements(
+                    status=models.AccessType.Open, email=value["access_contact_email"]
+                )
             ]
         if oldkey == "identifier":
             value = models.PropertyValue(value=value, propertyID="DANDI")

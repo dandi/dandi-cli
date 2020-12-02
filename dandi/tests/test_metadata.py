@@ -539,7 +539,11 @@ def test_dandimeta_migration():
             }
         }
     ) == DandiMeta.unvalidated(
-        access=[{"email": "nand.chandravadia@cshs.org", "status": "Open"}],
+        access=[
+            AccessRequirements(
+                status=AccessType.Open, email="nand.chandravadia@cshs.org"
+            )
+        ],
         relatedResource=[
             {
                 "identifier": "DOI:10.17605/OSF.IO/HV7JA",
