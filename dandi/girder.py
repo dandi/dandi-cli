@@ -9,6 +9,7 @@ import time
 from functools import lru_cache
 from pathlib import Path
 
+import click
 from keyring.core import get_keyring, load_config, load_env
 from keyring.backend import get_all_keyring
 from keyring.errors import KeyringError
@@ -19,7 +20,6 @@ import girder_client as gcl
 
 from . import get_logger
 from .exceptions import LockingError
-from .support.ui import askyesno
 from .utils import ensure_datetime, flattened, flatten, remap_dict
 from .consts import known_instances_rev, MAX_CHUNK_SIZE
 
@@ -912,7 +912,9 @@ def keyring_lookup(service_name, username):
             lgr.info("EncryptedKeyring file exists; using as keyring backend")
             return (kb, kb.get_password(service_name, username))
         lgr.info("EncryptedKeyring file does not exist")
-        if askyesno("Would you like to establish an encrypted keyring?", default=True):
+        if click.confirm(
+            "Would you like to establish an encrypted keyring?", default=True
+        ):
             keyring_cfg = Path(keyringrc_file())
             if keyring_cfg.exists():
                 lgr.info("%s exists; refusing to overwrite", keyring_cfg)

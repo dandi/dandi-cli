@@ -239,11 +239,11 @@ def test_keyring_lookup_encrypted_fallback_not_exists_no_create(
     # guarantee that an encrypted keyring on the real filesystem isn't found.
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     get_keyring = mocker.patch("dandi.girder.get_keyring", return_value=fail.Keyring())
-    askyesno = mocker.patch("dandi.girder.askyesno", return_value=False)
+    confirm = mocker.patch("click.confirm", return_value=False)
     with pytest.raises(KeyringError):
         girder.keyring_lookup("testservice", "testusername")
     get_keyring.assert_called_once_with()
-    askyesno.assert_called_once_with(
+    confirm.assert_called_once_with(
         "Would you like to establish an encrypted keyring?", default=True
     )
 
@@ -255,12 +255,12 @@ def test_keyring_lookup_encrypted_fallback_not_exists_create_rcconf(
     # guarantee that a fake filesystem is used.
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     get_keyring = mocker.patch("dandi.girder.get_keyring", return_value=fail.Keyring())
-    askyesno = mocker.patch("dandi.girder.askyesno", return_value=True)
+    confirm = mocker.patch("click.confirm", return_value=True)
     kb, password = girder.keyring_lookup("testservice", "testusername")
     assert isinstance(kb, keyfile.EncryptedKeyring)
     assert password is None
     get_keyring.assert_called_once_with()
-    askyesno.assert_called_once_with(
+    confirm.assert_called_once_with(
         "Would you like to establish an encrypted keyring?", default=True
     )
     assert os.path.exists(girder.keyringrc_file())
@@ -275,13 +275,13 @@ def test_keyring_lookup_encrypted_fallback_not_exists_create_rcconf_exists(
 ):
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     get_keyring = mocker.patch("dandi.girder.get_keyring", return_value=fail.Keyring())
-    askyesno = mocker.patch("dandi.girder.askyesno", return_value=True)
+    confirm = mocker.patch("click.confirm", return_value=True)
     fs.create_file(girder.keyringrc_file(), contents="# placeholder\n")
     kb, password = girder.keyring_lookup("testservice", "testusername")
     assert isinstance(kb, keyfile.EncryptedKeyring)
     assert password is None
     get_keyring.assert_called_once_with()
-    askyesno.assert_called_once_with(
+    confirm.assert_called_once_with(
         "Would you like to establish an encrypted keyring?", default=True
     )
     with open(girder.keyringrc_file()) as fp:
