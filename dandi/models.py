@@ -218,7 +218,7 @@ class ContactPoint(DandiBaseModel):
 class Contributor(DandiBaseModel):
     identifier: Identifier = Field(
         None,
-        title="A common identifier",
+        title="A Common Identifier",
         description="Use a common identifier such as ORCID for people or ROR for institutions",
         nskey="schema",
     )
@@ -230,7 +230,7 @@ class Contributor(DandiBaseModel):
     )
     includeInCitation: bool = Field(
         True,
-        title="Include contributor in citation",
+        title="Include Contributor in Citation",
         description="A flag to indicate whether a contributor should be included "
         "when generating a citation for the item",
         nskey="dandi",
@@ -279,7 +279,7 @@ class EthicsApproval(DandiBaseModel):
     """Information about ethics committee approval for project"""
 
     identifier: Identifier = Field(
-        nskey="schema", title="Identifier string for approved protocol"
+        nskey="schema", title="Identifier String for Approved Protocol"
     )
     contactPoint: ContactPoint = Field(
         title="Contact Point",
@@ -549,7 +549,7 @@ class CommonModel(DandiBaseModel):
 
     # Linking to this dandiset or the larger thing
     access: List[AccessRequirements] = Field(
-        title="Access type",
+        title="Access Type",
         default_factory=lambda: [AccessRequirements(status=AccessType.Open)],
         nskey="dandi",
     )
@@ -653,7 +653,7 @@ class AssetMeta(CommonModel):
 
     contentSize: str = Field(title="Content Size", nskey="schema")
     encodingFormat: Union[str, AnyUrl] = Field(
-        title="File encoding format", nskey="schema"
+        title="File Encoding Format", nskey="schema"
     )
     digest: Digest = Field(nskey="dandi")
 
