@@ -253,7 +253,11 @@ def test_dandimeta_migration():
                 "associatedData": [
                     {
                         "identifier": "DOI:10.17605/OSF.IO/HV7JA",
-                        "name": "A NWB-based Dataset and Processing Pipeline of Human Single-Neuron Activity During a Declarative Memory Task",
+                        "name": (
+                            "A NWB-based Dataset and Processing Pipeline of"
+                            " Human Single-Neuron Activity During a Declarative"
+                            " Memory Task"
+                        ),
                         "repository": "Open Science Framework",
                         "url": "https://osf.io/hv7ja/",
                     }
@@ -264,7 +268,8 @@ def test_dandimeta_migration():
                 "contributors": [
                     {
                         "affiliations": [
-                            "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA"
+                            "Department of Neurosurgery, Cedars-Sinai Medical"
+                            " Center, Los Angeles, CA, USA"
                         ],
                         "email": "nand.chandravadia@cshs.org",
                         "name": "Nand Chandravadia",
@@ -289,7 +294,11 @@ def test_dandimeta_migration():
                     },
                     {
                         "affiliations": [
-                            "Institute for Interdisciplinary Brain and Behavioral Sciences, Crean College of Health and Behavioral Sciences, Schmid College of Science and Technology, Chapman University, Orange, CA, USA"
+                            "Institute for Interdisciplinary Brain and"
+                            " Behavioral Sciences, Crean College of Health and"
+                            " Behavioral Sciences, Schmid College of Science"
+                            " and Technology, Chapman University, Orange, CA,"
+                            " USA"
                         ],
                         "email": "liang134@mail.chapman.edu",
                         "name": "Dehua Liang",
@@ -304,7 +313,8 @@ def test_dandimeta_migration():
                     },
                     {
                         "affiliations": [
-                            "Krembil Brain Institute, Toronto Western Hospital, Toronto, Canada"
+                            "Krembil Brain Institute, Toronto Western Hospital,"
+                            " Toronto, Canada"
                         ],
                         "email": "Andrea.Schjetan@uhnresearch.ca",
                         "name": "Andrea Gomez Palacio Schjetnan",
@@ -318,7 +328,8 @@ def test_dandimeta_migration():
                     },
                     {
                         "affiliations": [
-                            "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA"
+                            "Department of Neurosurgery, Cedars-Sinai Medical"
+                            " Center, Los Angeles, CA, USA"
                         ],
                         "email": "april.carlson@tufts.edu",
                         "name": "April Carlson",
@@ -332,7 +343,8 @@ def test_dandimeta_migration():
                     },
                     {
                         "affiliations": [
-                            "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA"
+                            "Department of Neurosurgery, Cedars-Sinai Medical"
+                            " Center, Los Angeles, CA, USA"
                         ],
                         "email": "mailyscm.faraut@gmail.com",
                         "name": "Mailys Faraut",
@@ -345,7 +357,8 @@ def test_dandimeta_migration():
                     },
                     {
                         "affiliations": [
-                            "Department of Neurology, Cedars-Sinai Medical Center, Los Angeles, CA, USA"
+                            "Department of Neurology, Cedars-Sinai Medical"
+                            " Center, Los Angeles, CA, USA"
                         ],
                         "email": "Jeffrey.Chung@cshs.org",
                         "name": "Jeffrey M. Chung",
@@ -353,7 +366,8 @@ def test_dandimeta_migration():
                     },
                     {
                         "affiliations": [
-                            "Department of Neurology, Cedars-Sinai Medical Center, Los Angeles, CA, USA"
+                            "Department of Neurology, Cedars-Sinai Medical"
+                            " Center, Los Angeles, CA, USA"
                         ],
                         "email": "Chrystal.Reed@csmc.edu",
                         "name": "Chrystal M. Reed",
@@ -361,8 +375,11 @@ def test_dandimeta_migration():
                     },
                     {
                         "affiliations": [
-                            "Biological Systems & Engineering Division, Lawrence Berkeley National Laboratory, Berkeley, CA, USA",
-                            "Department of Neurosurgery, Stanford University, Stanford, CA, USA",
+                            "Biological Systems & Engineering Division,"
+                            " Lawrence Berkeley National Laboratory, Berkeley,"
+                            " CA, USA",
+                            "Department of Neurosurgery, Stanford University,"
+                            " Stanford, CA, USA",
                         ],
                         "email": "ben.dichter@gmail.com",
                         "name": "Ben Dichter",
@@ -370,8 +387,14 @@ def test_dandimeta_migration():
                     },
                     {
                         "affiliations": [
-                            "Institute for Interdisciplinary Brain and Behavioral Sciences, Crean College of Health and Behavioral Sciences, Schmid College of Science and Technology, Chapman University, Orange, CA, USA",
-                            "Division of Biology and Biological Engineering, California Institute of Technology, Pasadena, CA, USA",
+                            "Institute for Interdisciplinary Brain and"
+                            " Behavioral Sciences, Crean College of Health and"
+                            " Behavioral Sciences, Schmid College of Science"
+                            " and Technology, Chapman University, Orange, CA,"
+                            " USA",
+                            "Division of Biology and Biological Engineering,"
+                            " California Institute of Technology, Pasadena,"
+                            " CA, USA",
                         ],
                         "email": "maoz.uri@gmail.com",
                         "name": "Uri Maoz",
@@ -384,8 +407,10 @@ def test_dandimeta_migration():
                     },
                     {
                         "affiliations": [
-                            "Division of Neurosurgery, Department of Surgery, University of Toronto, Toronto, Canada",
-                            "Krembil Brain Institute, Toronto Western Hospital, Toronto, Canada",
+                            "Division of Neurosurgery, Department of Surgery,"
+                            " University of Toronto, Toronto, Canada",
+                            "Krembil Brain Institute, Toronto Western Hospital,"
+                            " Toronto, Canada",
                         ],
                         "email": "suneil.kalia@uhn.ca",
                         "name": "Suneil K. Kalia",
@@ -393,8 +418,10 @@ def test_dandimeta_migration():
                     },
                     {
                         "affiliations": [
-                            "Krembil Brain Institute, Toronto Western Hospital, Toronto, Canada",
-                            "Division of Neurosurgery, Department of Surgery, University of Toronto, Toronto, Canada",
+                            "Krembil Brain Institute, Toronto Western Hospital,"
+                            " Toronto, Canada",
+                            "Division of Neurosurgery, Department of Surgery,"
+                            " University of Toronto, Toronto, Canada",
                         ],
                         "email": "Taufik.Valiante@uhn.ca",
                         "name": "Taufik A. Valiante",
@@ -402,7 +429,8 @@ def test_dandimeta_migration():
                     },
                     {
                         "affiliations": [
-                            "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA"
+                            "Department of Neurosurgery, Cedars-Sinai Medical"
+                            " Center, Los Angeles, CA, USA"
                         ],
                         "email": "Adam.Mamelak@cshs.org",
                         "name": "Adam N. Mamelak",
@@ -410,11 +438,17 @@ def test_dandimeta_migration():
                     },
                     {
                         "affiliations": [
-                            "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
-                            "Department of Neurology, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
-                            "Division of Biology and Biological Engineering, California Institute of Technology, Pasadena, CA, USA",
-                            "Computational and Neural Systems Program, California Institute of Technology, Pasadena, CA, USA",
-                            "Center for Neural Science and Medicine, Department of Biomedical Science, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+                            "Department of Neurosurgery, Cedars-Sinai Medical"
+                            " Center, Los Angeles, CA, USA",
+                            "Department of Neurology, Cedars-Sinai Medical"
+                            " Center, Los Angeles, CA, USA",
+                            "Division of Biology and Biological Engineering,"
+                            " California Institute of Technology, Pasadena, CA, USA",
+                            "Computational and Neural Systems Program,"
+                            " California Institute of Technology, Pasadena, CA, USA",
+                            "Center for Neural Science and Medicine,"
+                            " Department of Biomedical Science, Cedars-Sinai"
+                            " Medical Center, Los Angeles, CA, USA",
                         ],
                         "email": "Ueli.Rutishauser@cshs.org",
                         "name": "Ueli Rutishauser",
@@ -431,7 +465,29 @@ def test_dandimeta_migration():
                         ],
                     },
                 ],
-                "description": "A challenge for data sharing in systems neuroscience is the multitude of different data formats used. Neurodata Without Borders: Neurophysiology 2.0 (NWB:N) has emerged as a standardized data format for the storage of cellular-level data together with meta-data, stimulus information, and behavior. A key next step to facilitate NWB:N adoption is to provide easy to use processing pipelines to import/export data from/to NWB:N. Here, we present a NWB-formatted dataset of 1863 single neurons recorded from the medial temporal lobes of 59 human subjects undergoing intracranial monitoring while they performed a recognition memory task. We provide code to analyze and export/import stimuli, behavior, and electrophysiological recordings to/from NWB in both MATLAB and Python. The data files are NWB:N compliant, which affords interoperability between programming languages and operating systems. This combined data and code release is a case study for how to utilize NWB:N for human single-neuron recordings and enables easy re-use of this hard-to-obtain data for both teaching and research on the mechanisms of human memory.",
+                "description": (
+                    "A challenge for data sharing in systems neuroscience is"
+                    " the multitude of different data formats used. Neurodata"
+                    " Without Borders: Neurophysiology 2.0 (NWB:N) has emerged"
+                    " as a standardized data format for the storage of"
+                    " cellular-level data together with meta-data, stimulus"
+                    " information, and behavior. A key next step to facilitate"
+                    " NWB:N adoption is to provide easy to use processing"
+                    " pipelines to import/export data from/to NWB:N. Here, we"
+                    " present a NWB-formatted dataset of 1863 single neurons"
+                    " recorded from the medial temporal lobes of 59 human"
+                    " subjects undergoing intracranial monitoring while they"
+                    " performed a recognition memory task. We provide code to"
+                    " analyze and export/import stimuli, behavior, and"
+                    " electrophysiological recordings to/from NWB in both"
+                    " MATLAB and Python. The data files are NWB:N compliant,"
+                    " which affords interoperability between programming"
+                    " languages and operating systems. This combined data and"
+                    " code release is a case study for how to utilize NWB:N"
+                    " for human single-neuron recordings and enables easy"
+                    " re-use of this hard-to-obtain data for both teaching and"
+                    " research on the mechanisms of human memory."
+                ),
                 "identifier": "000004",
                 "keywords": [
                     "cognitive neuroscience",
@@ -446,7 +502,10 @@ def test_dandimeta_migration():
                 ],
                 "language": "English",
                 "license": "CC-BY-4.0",
-                "name": "A NWB-based dataset and processing pipeline of human single-neuron activity during a declarative memory task",
+                "name": (
+                    "A NWB-based dataset and processing pipeline of human"
+                    " single-neuron activity during a declarative memory task"
+                ),
                 "number_of_subjects": 59,
                 "organism": [{"species": "Homo sapiens"}],
                 "publications": [
@@ -469,7 +528,10 @@ def test_dandimeta_migration():
                     },
                     {"name": "McKnight Endowment for Neuroscience"},
                     {
-                        "name": "NARSAD Young Investigator grant from the Brain & Behavior Research Foundation"
+                        "name": (
+                            "NARSAD Young Investigator grant from the Brain &"
+                            " Behavior Research Foundation"
+                        )
                     },
                     {"name": "Kavli Foundation"},
                     {"awardNumber": "U19NS104590", "name": "BRAIN initiative"},
@@ -481,7 +543,10 @@ def test_dandimeta_migration():
         relatedResource=[
             {
                 "identifier": "DOI:10.17605/OSF.IO/HV7JA",
-                "name": "A NWB-based Dataset and Processing Pipeline of Human Single-Neuron Activity During a Declarative Memory Task",
+                "name": (
+                    "A NWB-based Dataset and Processing Pipeline of Human"
+                    " Single-Neuron Activity During a Declarative Memory Task"
+                ),
                 "repository": "Open Science Framework",
                 "url": "https://osf.io/hv7ja/",
                 "relation": "IsDerivedFrom",
@@ -533,7 +598,10 @@ def test_dandimeta_migration():
                 "email": "liang134@mail.chapman.edu",
                 "name": "Liang, Dehua",
                 "affiliation": [
-                    "Institute for Interdisciplinary Brain and Behavioral Sciences, Crean College of Health and Behavioral Sciences, Schmid College of Science and Technology, Chapman University, Orange, CA, USA"
+                    "Institute for Interdisciplinary Brain and Behavioral"
+                    " Sciences, Crean College of Health and Behavioral"
+                    " Sciences, Schmid College of Science and Technology,"
+                    " Chapman University, Orange, CA, USA"
                 ],
             },
             {
@@ -587,7 +655,8 @@ def test_dandimeta_migration():
                 "email": "ben.dichter@gmail.com",
                 "name": "Dichter, Ben",
                 "affiliation": [
-                    "Biological Systems & Engineering Division, Lawrence Berkeley National Laboratory, Berkeley, CA, USA",
+                    "Biological Systems & Engineering Division, Lawrence"
+                    " Berkeley National Laboratory, Berkeley, CA, USA",
                     "Department of Neurosurgery, Stanford University, Stanford, CA, USA",
                 ],
             },
@@ -601,8 +670,12 @@ def test_dandimeta_migration():
                 "email": "maoz.uri@gmail.com",
                 "name": "Maoz, Uri",
                 "affiliation": [
-                    "Institute for Interdisciplinary Brain and Behavioral Sciences, Crean College of Health and Behavioral Sciences, Schmid College of Science and Technology, Chapman University, Orange, CA, USA",
-                    "Division of Biology and Biological Engineering, California Institute of Technology, Pasadena, CA, USA",
+                    "Institute for Interdisciplinary Brain and Behavioral"
+                    " Sciences, Crean College of Health and Behavioral"
+                    " Sciences, Schmid College of Science and Technology,"
+                    " Chapman University, Orange, CA, USA",
+                    "Division of Biology and Biological Engineering, California"
+                    " Institute of Technology, Pasadena, CA, USA",
                 ],
             },
             {
@@ -610,7 +683,8 @@ def test_dandimeta_migration():
                 "email": "suneil.kalia@uhn.ca",
                 "name": "Kalia, Suneil K.",
                 "affiliation": [
-                    "Division of Neurosurgery, Department of Surgery, University of Toronto, Toronto, Canada",
+                    "Division of Neurosurgery, Department of Surgery,"
+                    " University of Toronto, Toronto, Canada",
                     "Krembil Brain Institute, Toronto Western Hospital, Toronto, Canada",
                 ],
             },
@@ -620,7 +694,8 @@ def test_dandimeta_migration():
                 "name": "Valiante, Taufik A.",
                 "affiliation": [
                     "Krembil Brain Institute, Toronto Western Hospital, Toronto, Canada",
-                    "Division of Neurosurgery, Department of Surgery, University of Toronto, Toronto, Canada",
+                    "Division of Neurosurgery, Department of Surgery,"
+                    " University of Toronto, Toronto, Canada",
                 ],
             },
             {
@@ -650,9 +725,13 @@ def test_dandimeta_migration():
                 "affiliation": [
                     "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
                     "Department of Neurology, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
-                    "Division of Biology and Biological Engineering, California Institute of Technology, Pasadena, CA, USA",
-                    "Computational and Neural Systems Program, California Institute of Technology, Pasadena, CA, USA",
-                    "Center for Neural Science and Medicine, Department of Biomedical Science, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+                    "Division of Biology and Biological Engineering, California"
+                    " Institute of Technology, Pasadena, CA, USA",
+                    "Computational and Neural Systems Program, California"
+                    " Institute of Technology, Pasadena, CA, USA",
+                    "Center for Neural Science and Medicine, Department of"
+                    " Biomedical Science, Cedars-Sinai Medical Center,"
+                    " Los Angeles, CA, USA",
                 ],
             },
             {
@@ -672,7 +751,10 @@ def test_dandimeta_migration():
             },
             {"name": "Neuroscience, McKnight Endowment for", "roleName": ["Sponsor"]},
             {
-                "name": "Foundation, NARSAD Young Investigator grant from the Brain & Behavior Research",
+                "name": (
+                    "Foundation, NARSAD Young Investigator grant from the"
+                    " Brain & Behavior Research"
+                ),
                 "roleName": ["Sponsor"],
             },
             {"name": "Foundation, Kavli", "roleName": ["Sponsor"]},
@@ -682,7 +764,27 @@ def test_dandimeta_migration():
                 "roleName": ["Sponsor"],
             },
         ],
-        description="A challenge for data sharing in systems neuroscience is the multitude of different data formats used. Neurodata Without Borders: Neurophysiology 2.0 (NWB:N) has emerged as a standardized data format for the storage of cellular-level data together with meta-data, stimulus information, and behavior. A key next step to facilitate NWB:N adoption is to provide easy to use processing pipelines to import/export data from/to NWB:N. Here, we present a NWB-formatted dataset of 1863 single neurons recorded from the medial temporal lobes of 59 human subjects undergoing intracranial monitoring while they performed a recognition memory task. We provide code to analyze and export/import stimuli, behavior, and electrophysiological recordings to/from NWB in both MATLAB and Python. The data files are NWB:N compliant, which affords interoperability between programming languages and operating systems. This combined data and code release is a case study for how to utilize NWB:N for human single-neuron recordings and enables easy re-use of this hard-to-obtain data for both teaching and research on the mechanisms of human memory.",
+        description=(
+            "A challenge for data sharing in systems neuroscience is the"
+            " multitude of different data formats used. Neurodata Without"
+            " Borders: Neurophysiology 2.0 (NWB:N) has emerged as a"
+            " standardized data format for the storage of cellular-level data"
+            " together with meta-data, stimulus information, and behavior."
+            " A key next step to facilitate NWB:N adoption is to provide easy"
+            " to use processing pipelines to import/export data from/to NWB:N."
+            " Here, we present a NWB-formatted dataset of 1863 single neurons"
+            " recorded from the medial temporal lobes of 59 human subjects"
+            " undergoing intracranial monitoring while they performed a"
+            " recognition memory task. We provide code to analyze and"
+            " export/import stimuli, behavior, and electrophysiological"
+            " recordings to/from NWB in both MATLAB and Python. The data files"
+            " are NWB:N compliant, which affords interoperability between"
+            " programming languages and operating systems. This combined data"
+            " and code release is a case study for how to utilize NWB:N for"
+            " human single-neuron recordings and enables easy re-use of this"
+            " hard-to-obtain data for both teaching and research on the"
+            " mechanisms of human memory."
+        ),
         identifier=PropertyValue(value="000004", propertyID="DANDI"),
         keywords=[
             "cognitive neuroscience",
@@ -696,7 +798,10 @@ def test_dandimeta_migration():
             "single-neurons",
         ],
         license="CC-BY-4.0",
-        name="A NWB-based dataset and processing pipeline of human single-neuron activity during a declarative memory task",
+        name=(
+            "A NWB-based dataset and processing pipeline of human"
+            " single-neuron activity during a declarative memory task"
+        ),
         schemaVersion="1.0.0-rc1",
         studyTarget=None,
         protocol=None,
