@@ -331,6 +331,7 @@ def test_get_instance_bad_version_from_server():
         ("propertyID", "Property ID"),
         ("fieldINeed", "Field I Need"),
         ("needsADatum", "Needs a Datum"),
+        ("contentUrl", "Content URL"),
     ],
 )
 def test_name2title(name, title):

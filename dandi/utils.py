@@ -648,8 +648,8 @@ def name2title(name):
     # Don't split apart "ID":
     words = re.split(r"(?<=I)(?=[A-CE-Z])|(?<=[^I])(?=[A-Z])", name)
     for i, w in enumerate(words):
-        if w == "ID":
-            pass
+        if w == "ID" or w == "Url":
+            words[i] = w.upper()
         elif i == 0 or w.lower() not in TITLE_CASE_LOWER:
             words[i] = w.capitalize()
         else:
