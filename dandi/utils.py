@@ -645,13 +645,22 @@ TITLE_CASE_LOWER = {
 
 def name2title(name):
     # For use in autopopulating the titles of model schema fields
-    # Don't split apart "ID":
-    words = re.split(r"(?<=I)(?=[A-CE-Z])|(?<=[^I])(?=[A-Z])", name)
-    for i, w in enumerate(words):
-        if w == "ID" or w == "Url":
-            words[i] = w.upper()
-        elif i == 0 or w.lower() not in TITLE_CASE_LOWER:
-            words[i] = w.capitalize()
-        else:
-            words[i] = w.lower()
+    words = []
+    for w in split_camel_case(name):
+        w = w.lower()
+        if w == "id" or w == "url":
+            w = w.upper()
+        elif not words or w not in TITLE_CASE_LOWER:
+            w = w.capitalize()
+        words.append(w)
     return " ".join(words)
+
+
+def split_camel_case(s):
+    last_start = 0
+    # Don't split apart "ID":
+    for m in re.finditer(r"(?<=I)[A-CE-Z]|(?<=[^I])[A-Z]", s):
+        yield s[last_start : m.start()]
+        last_start = m.start()
+    if last_start < len(s):
+        yield s[last_start:]
