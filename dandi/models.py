@@ -86,8 +86,8 @@ def model2graph(model):
 
 AccessType = create_enum(AccessTypeDict)
 RoleType = create_enum(RoleTypeDict)
-Relation = create_enum(RelationTypeDict)
-License = create_enum(LicenseTypeDict)
+RelationType = create_enum(RelationTypeDict)
+LicenseType = create_enum(LicenseTypeDict)
 IdentifierType = create_enum(IdentifierTypeDict)
 DigestType = create_enum(DigestTypeDict)
 
@@ -125,17 +125,23 @@ class DandiBaseModel(BaseModel):
 
 
 class PropertyValue(DandiBaseModel):
-    maxValue: float = Field(None, nskey="schema")
-    minValue: float = Field(None, nskey="schema")
-    unitCode: Union[str, AnyUrl] = Field(None, nskey="schema")
-    unitText: str = Field(None, nskey="schema")
+    maxValue: float = Field(None, title="Max Value", nskey="schema")
+    minValue: float = Field(None, title="Min Value", nskey="schema")
+    unitCode: Union[str, AnyUrl] = Field(None, title="Unit Code", nskey="schema")
+    unitText: str = Field(None, title="Unit Text", nskey="schema")
     value: Union[str, bool, int, float, List[Union[str, bool, int, float]]] = Field(
         None, nskey="schema"
     )
     valueReference: "PropertyValue" = Field(
-        None, nskey="schema"
+        None, title="Value Reference", nskey="schema"
     )  # Note: recursive (circular or not)
-    propertyID: Union[IdentifierType, AnyUrl, str] = Field(None, nskey="schema")
+    propertyID: Union[IdentifierType, AnyUrl, str] = Field(
+        None,
+        title="Property ID",
+        description="A commonly used identifier for"
+        "the characteristic represented by the property.",
+        nskey="schema",
+    )
 
     _ldmeta = {"nskey": "schema"}
 
@@ -211,14 +217,21 @@ class ContactPoint(DandiBaseModel):
 
 
 class Contributor(DandiBaseModel):
-    identifier: Identifier = Field(None, nskey="schema")
+    identifier: Identifier = Field(
+        None,
+        title="A Common Identifier",
+        description="Use a common identifier such as ORCID for people or ROR for institutions",
+        nskey="schema",
+    )
     name: str = Field(None, nskey="schema")
     email: EmailStr = Field(None, nskey="schema")
     url: AnyUrl = Field(None, nskey="schema")
-    roleName: List[RoleType] = Field(nskey="schema")
+    roleName: List[RoleType] = Field(
+        title="Role", description="Role of the contributor", nskey="schema"
+    )
     includeInCitation: bool = Field(
         True,
-        title="Include contributor in citation",
+        title="Include Contributor in Citation",
         description="A flag to indicate whether a contributor should be included "
         "when generating a citation for the item",
         nskey="dandi",
@@ -233,7 +246,9 @@ class Contributor(DandiBaseModel):
 
 class Organization(Contributor):
     contactPoint: List[ContactPoint] = Field(
-        description="Contact for the organization", nskey="schema"
+        title="Contact Point",
+        description="Contact for the organization",
+        nskey="schema",
     )
     _ldmeta = {
         "rdfs:subClassOf": ["schema:Organization", "prov:Organization"],
@@ -264,9 +279,13 @@ class Software(DandiBaseModel):
 class EthicsApproval(DandiBaseModel):
     """Information about ethics committee approval for project"""
 
-    identifier: Identifier = Field(nskey="schema")
+    identifier: Identifier = Field(
+        nskey="schema", title="Identifier String for Approved Protocol"
+    )
     contactPoint: ContactPoint = Field(
-        description="Information about the ethics approval committee.", nskey="schema"
+        title="Contact Point",
+        description="Information about the ethics approval committee.",
+        nskey="schema",
     )
 
     _ldmeta = {"rdfs:subClassOf": ["schema:Thing", "prov:Entity"], "nskey": "dandi"}
@@ -281,7 +300,8 @@ class Resource(DandiBaseModel):
         description="An identifier of a repository in which the resource is housed",
         nskey="dandi",
     )
-    relation: Relation = Field(
+    relation: RelationType = Field(
+        title="Relation",
         description="Indicates how the resource is related to the dataset",
         nskey="dandi",
     )
@@ -303,7 +323,9 @@ class AccessRequirements(DandiBaseModel):
         nskey="dandi",
     )
     email: Optional[EmailStr] = Field(None, nskey="schema")
-    contactPoint: Optional[ContactPoint] = Field(None, nskey="schema")
+    contactPoint: Optional[ContactPoint] = Field(
+        None, title="Contact Point", nskey="schema"
+    )
     description: Optional[str] = Field(
         None,
         title="Description",
@@ -326,22 +348,32 @@ class AssetsSummary(DandiBaseModel):
     """Summary over assets contained in a dandiset (published or not)"""
 
     # stats which are not stats
-    numberOfBytes: int = Field(readOnly=True, sameas="schema:contentSize")
-    numberOfFiles: int = Field(readOnly=True)  # universe
-    numberOfSubjects: int = Field(readOnly=True)  # NWB + BIDS
-    numberOfSamples: Optional[int] = Field(None, readOnly=True)  # more of NWB
-    numberOfCells: Optional[int] = Field(None, readOnly=True)
+    numberOfBytes: int = Field(
+        title="Number of Bytes", readOnly=True, sameas="schema:contentSize"
+    )
+    numberOfFiles: int = Field(title="Number of Files", readOnly=True)  # universe
+    numberOfSubjects: int = Field(
+        title="Number of Subjects", readOnly=True
+    )  # NWB + BIDS
+    numberOfSamples: Optional[int] = Field(
+        None, title="Number of Samples", readOnly=True
+    )  # more of NWB
+    numberOfCells: Optional[int] = Field(None, title="Number of Cells", readOnly=True)
 
     dataStandard: List[StandardsType] = Field(
-        readOnly=True
+        title="Data Standard", readOnly=True
     )  # TODO: types of things NWB, BIDS
     # Web UI: icons per each modality?
     modality: List[ModalityType] = Field(
         readOnly=True
     )  # TODO: types of things, BIDS etc...
     # Web UI: could be an icon with number, which if hovered on  show a list?
-    measurementTechnique: List[MeasurementTechniqueType] = Field(readOnly=True)
-    variableMeasured: Optional[List[PropertyValue]] = Field(None, readOnly=True)
+    measurementTechnique: List[MeasurementTechniqueType] = Field(
+        title="Measurement Technique", readOnly=True
+    )
+    variableMeasured: Optional[List[PropertyValue]] = Field(
+        None, title="Variable Measured", readOnly=True
+    )
 
     species: List[SpeciesType] = Field(readOnly=True)
 
@@ -356,8 +388,8 @@ class Digest(DandiBaseModel):
 
     value: str = Field(nskey="schema")
     cryptoType: DigestType = Field(
-        description="Which cryptographic checksum is used",
         title="Cryptographic method used",
+        description="Which cryptographic checksum is used",
         nskey="dandi",
     )
 
@@ -373,7 +405,10 @@ class BioSample(DandiBaseModel):
 
     identifier: Identifier = Field(nskey="schema")
     assayType: Optional[List[AssayType]] = Field(
-        None, description="OBI based identifier for the assay(s) used", nskey="dandi"
+        None,
+        title="Assay Type",
+        description="OBI based identifier for the assay(s) used",
+        nskey="dandi",
     )
     anatomy: Optional[List[Anatomy]] = Field(
         None,
@@ -384,7 +419,10 @@ class BioSample(DandiBaseModel):
         None, description="Identifier for the strain of the sample", nskey="dandi"
     )
     cellLine: Optional[Identifier] = Field(
-        None, description="Cell line associated with the sample", nskey="dandi"
+        None,
+        title="Cell Line",
+        description="Cell line associated with the sample",
+        nskey="dandi",
     )
     vendor: Optional[Organization] = Field(None, nskey="dandi")
     age: Optional[PropertyValue] = Field(
@@ -437,13 +475,13 @@ class Activity(DandiBaseModel):
         description="A description of the item.",
         nskey="schema",
     )
-    startDate: Optional[date] = Field(None, nskey="schema")
-    endDate: Optional[date] = Field(None, nskey="schema")
+    startDate: Optional[date] = Field(None, title="Start Date", nskey="schema")
+    endDate: Optional[date] = Field(None, title="End Date", nskey="schema")
 
-    isPartOf: Optional["Activity"] = Field(None, nskey="schema")
-    hasPart: Optional["Activity"] = Field(None, nskey="schema")
+    isPartOf: Optional["Activity"] = Field(None, title="Is Part Of", nskey="schema")
+    hasPart: Optional["Activity"] = Field(None, title="Has Part", nskey="schema")
     wasAssociatedWith: Optional[Union[Person, Organization, Software]] = Field(
-        None, nskey="prov"
+        None, title="Was Associated With", nskey="prov"
     )
 
     _ldmeta = {"rdfs:subClassOf": ["prov:Activity", "schema:Thing"], "nskey": "dandi"}
@@ -457,7 +495,9 @@ class Project(Activity):
 
 
 class CommonModel(DandiBaseModel):
-    schemaVersion: str = Field(default="1.0.0-rc1", readOnly=True, nskey="schema")
+    schemaVersion: str = Field(
+        default="1.0.0-rc1", title="Schema Version", readOnly=True, nskey="schema"
+    )
     identifier: Identifier = Field(readOnly=True, nskey="schema")
     name: Optional[str] = Field(
         None,
@@ -480,16 +520,23 @@ class CommonModel(DandiBaseModel):
     )
     about: Optional[List[Union[Disorder, Anatomy, Identifier]]] = Field(
         None,
-        title="Subject matter",
+        title="Subject Matter",
         description="The subject matter of the content, such as disorders, brain anatomy.",
         nskey="schema",
     )
     studyTarget: Optional[List[Union[str, AnyUrl]]] = Field(
-        None, title="What the study is related to", nskey="dandi"
+        None,
+        title="Study Target",
+        description="What the study is related to",
+        nskey="dandi",
+    )
+    license: List[LicenseType] = Field(
+        title="License", description="License of item.", nskey="schema"
     )
     protocol: Optional[List[str]] = Field(None, nskey="dandi")
-    ethicsApproval: Optional[List[EthicsApproval]] = Field(None, nskey="dandi")
-    license: List[License] = Field(nskey="schema")
+    ethicsApproval: Optional[List[EthicsApproval]] = Field(
+        None, title="Ethics Approval", nskey="dandi"
+    )
     keywords: Optional[List[str]] = Field(
         None,
         title="Keywords",
@@ -503,6 +550,7 @@ class CommonModel(DandiBaseModel):
 
     # Linking to this dandiset or the larger thing
     access: List[AccessRequirements] = Field(
+        title="Access Type",
         default_factory=lambda: [AccessRequirements(status=AccessType.Open)],
         nskey="dandi",
     )
@@ -515,10 +563,12 @@ class CommonModel(DandiBaseModel):
         description="location of the item",
         nskey="dandi",
     )
-    relatedResource: Optional[List[Resource]] = Field(None, nskey="dandi")
+    relatedResource: Optional[List[Resource]] = Field(
+        None, title="Related Resource", nskey="dandi"
+    )
 
     wasGeneratedBy: Optional[Union[Activity, AnyUrl]] = Field(
-        None, readOnly=True, nskey="prov"
+        None, title="Was Generated By", readOnly=True, nskey="prov"
     )
 
 
@@ -558,14 +608,20 @@ class DandiMeta(CommonModel):
     citation: str = Field(readOnly=True, nskey="schema")
 
     # From assets
-    assetsSummary: AssetsSummary = Field(readOnly=True, nskey="dandi")
+    assetsSummary: AssetsSummary = Field(
+        title="Assets Summary", readOnly=True, nskey="dandi"
+    )
 
     # From server (requested by users even for drafts)
-    manifestLocation: List[AnyUrl] = Field(readOnly=True, nskey="dandi")
+    manifestLocation: List[AnyUrl] = Field(
+        title="Manifest Location", readOnly=True, nskey="dandi"
+    )
 
     # On publish
     version: str = Field(readOnly=True, nskey="schema")
-    doi: Optional[Union[str, AnyUrl]] = Field(None, readOnly=True, nskey="dandi")
+    doi: Optional[Union[str, AnyUrl]] = Field(
+        None, title="DOI", readOnly=True, nskey="dandi"
+    )
 
     _ldmeta = {
         "rdfs:subClassOf": ["schema:Dataset", "prov:Entity"],
@@ -576,11 +632,12 @@ class DandiMeta(CommonModel):
 
 class PublishedDandiMeta(DandiMeta):
     publishedBy: AnyUrl = Field(
+        title="Published By",
         description="The URL should contain the provenance of the publishing process.",
         readOnly=True,
         nskey="dandi",
     )  # TODO: formalize "publish" activity to at least the Actor
-    datePublished: date = Field(readOnly=True, nskey="schema")
+    datePublished: date = Field(title="Date Published", readOnly=True, nskey="schema")
 
 
 class AssetMeta(CommonModel):
@@ -591,10 +648,14 @@ class AssetMeta(CommonModel):
 
     # Overrides CommonModel.license
     # TODO: https://github.com/NeurodataWithoutBorders/nwb-schema/issues/320
-    license: Optional[List[License]] = Field(None, nskey="schema")
+    license: Optional[List[LicenseType]] = Field(
+        None, title="License", description="License of item", nskey="schema"
+    )
 
-    contentSize: str = Field(nskey="schema")
-    encodingFormat: Union[str, AnyUrl] = Field(nskey="schema")
+    contentSize: str = Field(title="Content Size", nskey="schema")
+    encodingFormat: Union[str, AnyUrl] = Field(
+        title="File Encoding Format", nskey="schema"
+    )
     digest: Digest = Field(nskey="dandi")
 
     path: str = Field(None, nskey="dandi")
@@ -602,23 +663,27 @@ class AssetMeta(CommonModel):
     # this is from C2M2 level 1 - using EDAM vocabularies - in our case we would
     # need to come up with things for neurophys
     # TODO: waiting on input <https://github.com/dandi/dandi-cli/pull/226>
-    dataType: Optional[AnyUrl] = Field(None, nskey="dandi")
+    dataType: Optional[AnyUrl] = Field(None, title="Data Type", nskey="dandi")
 
-    sameAs: Optional[List[AnyUrl]] = Field(None, nskey="schema")
+    sameAs: Optional[List[AnyUrl]] = Field(None, title="Same As", nskey="schema")
 
     # TODO
     modality: Optional[List[ModalityType]] = Field(None, readOnly=True, nskey="dandi")
     measurementTechnique: Optional[List[MeasurementTechniqueType]] = Field(
-        None, readOnly=True, nskey="schema"
+        None, title="Measurement Technique", readOnly=True, nskey="schema"
     )
     variableMeasured: Optional[List[PropertyValue]] = Field(
-        None, readOnly=True, nskey="schema"
+        None, title="Variable Measured", readOnly=True, nskey="schema"
     )
 
-    wasDerivedFrom: Optional[List[BioSample]] = Field(None, nskey="prov")
+    wasDerivedFrom: Optional[List[BioSample]] = Field(
+        None, title="Was Derived From", nskey="prov"
+    )
 
     # on publish or set by server
-    contentUrl: Optional[List[AnyUrl]] = Field(None, readOnly=True, nskey="schema")
+    contentUrl: Optional[List[AnyUrl]] = Field(
+        None, title="Content URL", readOnly=True, nskey="schema"
+    )
 
     _ldmeta = {
         "rdfs:subClassOf": ["schema:CreativeWork", "prov:Entity"],
@@ -629,8 +694,9 @@ class AssetMeta(CommonModel):
 
 class PublishedAssetMeta(AssetMeta):
     publishedBy: AnyUrl = Field(
+        title="Published By",
         description="The URL should contain the provenance of the publishing process.",
         readOnly=True,
         nskey="dandi",
     )  # TODO: formalize "publish" activity to at least the Actor
-    datePublished: date = Field(readOnly=True, nskey="schema")
+    datePublished: date = Field(title="Date Published", readOnly=True, nskey="schema")

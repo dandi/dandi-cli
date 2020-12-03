@@ -1,7 +1,14 @@
 import pytest
 
 from ..models import DandiMeta, AssetMeta
-from ..models import AccessType, RoleType, Relation, License, IdentifierType, DigestType
+from ..models import (
+    AccessType,
+    RoleType,
+    RelationType,
+    LicenseType,
+    IdentifierType,
+    DigestType,
+)
 
 
 def test_dandiset():
@@ -57,7 +64,7 @@ def test_asset():
             },
         ),
         (
-            Relation,
+            RelationType,
             {
                 "IsCitedBy": "dandi:IsCitedBy",
                 "Cites": "dandi:Cites",
@@ -95,7 +102,7 @@ def test_asset():
             },
         ),
         (
-            License,
+            LicenseType,
             {
                 "CC0": "dandi:CC0",
                 "CCBY40": "dandi:CCBY40",
