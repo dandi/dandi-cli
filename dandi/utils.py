@@ -622,3 +622,36 @@ def get_instance(dandi_instance_id):
         redirector=redirector_url,
         api=server_info["services"]["api"]["url"],
     )
+
+
+TITLE_CASE_LOWER = {
+    "a",
+    "an",
+    "and",
+    "as",
+    "but",
+    "by",
+    "for",
+    "in",
+    "nor",
+    "of",
+    "on",
+    "or",
+    "the",
+    "to",
+    "with",
+}
+
+
+def name2title(name):
+    # For use in autopopulating the titles of model schema fields
+    # Don't split apart "ID":
+    words = re.split(r"(?<=I)(?=[A-CE-Z])|(?<=[^I])(?=[A-Z])", name)
+    for i, w in enumerate(words):
+        if w == "ID":
+            pass
+        elif i == 0 or w.lower() not in TITLE_CASE_LOWER:
+            words[i] = w.capitalize()
+        else:
+            words[i] = w.lower()
+    return " ".join(words)

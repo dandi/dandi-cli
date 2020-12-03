@@ -1,6 +1,6 @@
 from enum import Enum
 from pydantic import BaseModel, Field, AnyUrl, EmailStr, validator
-from typing import List, Union, Optional, Any, Type
+from typing import Dict, List, Union, Optional, Any, Type
 from datetime import date
 from ruamel import yaml
 from copy import deepcopy
@@ -13,6 +13,8 @@ from .model_types import (
     IdentifierTypeDict,
     DigestTypeDict,
 )
+
+from .utils import name2title
 
 
 def create_enum(data):
@@ -122,6 +124,14 @@ class DandiBaseModel(BaseModel):
             .__repr__()
             .replace(__pydantic_cls__.__name__, "dict")
         )
+
+    class Config:
+        @staticmethod
+        def schema_extra(schema: Dict[str, Any]) -> None:
+            schema["title"] = name2title(schema["title"])
+            for name, prop in schema.get("properties", {}).items():
+                if prop.get("title") is None or prop["title"] == name.title():
+                    prop["title"] = name2title(name)
 
 
 class PropertyValue(DandiBaseModel):
