@@ -166,6 +166,14 @@ def upload(
             try:
                 path_stat = path.stat()
                 yield {"size": path_stat.st_size}
+                size_cut_off = 67108864000
+                if path_stat.st_size > size_cut_off:
+                    raise RuntimeError(
+                        "Too large! We are experiencing problems uploading files larger than %s. "
+                        "See https://github.com/dandi/dandiarchive/issues/517 and update "
+                        "client when the issue is resolved."
+                        % (naturalsize(size_cut_off))
+                    )
             except FileNotFoundError:
                 yield skip_file("ERROR: File not found")
                 return
