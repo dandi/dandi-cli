@@ -189,9 +189,9 @@ def extract_species(metadata):
         elif "human" in value or value.startswith("homo"):
             value_id = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
             value = "Human"
-        elif "rat" in value:
-            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_10117"
-            value = "House rat"
+        elif "norvegicus" in value:
+            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_10116"
+            value = "Brown rat"
         elif "mulatta" in value or "rhesus" in value:
             value_id = "http://purl.obolibrary.org/obo/NCBITaxon_9544"
             value = "Rhesus monkey"
