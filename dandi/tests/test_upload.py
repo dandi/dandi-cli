@@ -1,6 +1,7 @@
 import os
 import re
 import pytest
+import responses
 
 from .. import girder
 from ..consts import collection_drafts, dandiset_metadata_file
@@ -168,3 +169,41 @@ def test_upload_external_download(local_docker_compose_env, monkeypatch, tmp_pat
 
     monkeypatch.chdir(dandiset_path)
     upload(paths=[], dandi_instance=dandi_instance_id, devel_debug=True)
+
+
+def test_upload_size_mismatch(
+    capsys, local_docker_compose_env, monkeypatch, organized_nwb_dir
+):
+    nwb_file, = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
+    dirname = nwb_file.parent.name
+    dandi_instance_id = local_docker_compose_env["instance_id"]
+    register(
+        "Upload Test",
+        "Upload Test Description",
+        dandiset_path=organized_nwb_dir,
+        dandi_instance=dandi_instance_id,
+    )
+    monkeypatch.chdir(organized_nwb_dir)
+    with responses.RequestsMock() as rsps:
+        rsps.add_passthru(re.compile(r".+"))
+        rsps.add(
+            responses.GET,
+            re.compile(
+                r"^{}/api/v1/file/[^/]+/download$".format(
+                    re.escape(local_docker_compose_env["instance"].girder)
+                )
+            ),
+            body="Disregard this.",
+            headers={"Content-Length": "42"},
+            stream=True,
+        )
+        upload(paths=[dirname], dandi_instance=dandi_instance_id, devel_debug=True)
+    assert (
+        repr(
+            {
+                "status": "skipped",
+                "message": "File size on server does not match local file",
+            }
+        )
+        in capsys.readouterr().out
+    )
