@@ -332,6 +332,7 @@ def test_get_instance_bad_version_from_server():
         ("fieldINeed", "Field I Need"),
         ("needsADatum", "Needs a Datum"),
         ("contentUrl", "Content URL"),
+        ("ContactPoint", "Contact Point"),
     ],
 )
 def test_name2title(name, title):
