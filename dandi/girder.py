@@ -556,7 +556,7 @@ class GirderCli(gcl.GirderClient):
                         f"Failed to unlock dandiset {dandiset_identifier} due to: {msg}"
                     )
 
-    NGINX_MAX_CHUNK_SIZE = 100 * (1 << 20)
+    NGINX_MAX_CHUNK_SIZE = 100 * (1 << 20)  # 100 MiB
 
     def _uploadContents(self, uploadObj, stream, size, progressCallback=None):
         """
@@ -579,7 +579,7 @@ class GirderCli(gcl.GirderClient):
         offset = 0
         uploadId = uploadObj["_id"]
 
-        chunk_size = max(1 << 26, size // 1000)
+        chunk_size = max(self.MAX_CHUNK_SIZE, (size + 999) // 1000)
         if chunk_size > self.NGINX_MAX_CHUNK_SIZE:
             raise Exception("File requires too many chunks to upload")
 
