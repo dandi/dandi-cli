@@ -1,4 +1,5 @@
 import os
+import random
 import re
 import pytest
 import responses
@@ -207,3 +208,37 @@ def test_upload_size_mismatch(
         )
         in capsys.readouterr().out
     )
+
+
+@pytest.mark.skipif(
+    not os.environ.get("DANDI_DEVEL"), reason="Only run when DANDI_DEVEL is set"
+)
+def test_enormous_upload_breaks_girder(
+    capsys, local_docker_compose_env, monkeypatch, tmp_path
+):
+    dandi_instance_id = local_docker_compose_env["instance_id"]
+    register(
+        "Enormous File Upload Test",
+        "Enormous File Upload Test Description",
+        dandiset_path=tmp_path,
+        dandi_instance=dandi_instance_id,
+    )
+    bigfile = tmp_path / "blob.dat"
+    meg = bytes(random.choices(range(256), k=1 << 20))
+    try:
+        with bigfile.open("wb") as fp:
+            for _ in range(66 * 1024):
+                fp.write(meg)
+        monkeypatch.chdir(tmp_path)
+        upload(
+            paths=[str(bigfile)],
+            dandi_instance=dandi_instance_id,
+            allow_any_path=True,
+            devel_debug=True,
+        )
+        assert "'status': 'skipped'" in capsys.readouterr().out
+    finally:
+        try:
+            bigfile.unlink()
+        except FileNotFoundError:
+            pass
