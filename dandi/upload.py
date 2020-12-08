@@ -441,6 +441,16 @@ def upload(
                 yield skip_file("File on server was unexpectedly changed")
                 return
 
+            # Compare file size against what download headers report
+            # S3 doesn't seem to allow HEAD requests, so we need to instead do
+            # a GET with a streaming response and not read the body.
+            with client.sendRestRequest(
+                "GET", f"file/{file_id}/download", jsonResp=False, stream=True
+            ) as r:
+                if int(r.headers["Content-Length"]) != path.stat().st_size:
+                    yield skip_file("File size on server does not match local file")
+                    return
+
             #
             # 6. Upload metadata
             #
