@@ -556,7 +556,7 @@ class GirderCli(gcl.GirderClient):
                         f"Failed to unlock dandiset {dandiset_identifier} due to: {msg}"
                     )
 
-    NGINX_MAX_CHUNK_SIZE = 100 * (1 << 20)  # 100 MiB
+    NGINX_MAX_CHUNK_SIZE = 400 * (1 << 20)  # 400 MiB
 
     def _uploadContents(self, uploadObj, stream, size, progressCallback=None):
         """
