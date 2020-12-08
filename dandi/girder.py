@@ -556,6 +556,71 @@ class GirderCli(gcl.GirderClient):
                         f"Failed to unlock dandiset {dandiset_identifier} due to: {msg}"
                     )
 
+    NGINX_MAX_CHUNK_SIZE = 400 * (1 << 20)  # 400 MiB
+
+    def _uploadContents(self, uploadObj, stream, size, progressCallback=None):
+        """
+        Uploads contents of a file.  Overridden so that the chunk size can be
+        set on a per-file basis.
+
+        :param uploadObj: The upload object contain the upload id.
+        :type uploadObj: dict
+        :param stream: Readable stream object.
+        :type stream: file-like
+        :param size: The length of the file. This must be exactly equal to the
+            total number of bytes that will be read from ``stream``, otherwise
+            the upload will fail.
+        :type size: str
+        :param progressCallback: If passed, will be called after each chunk
+            with progress information. It passes a single positional argument
+            to the callable which is a dict of information about progress.
+        :type progressCallback: callable
+        """
+        offset = 0
+        uploadId = uploadObj["_id"]
+
+        chunk_size = max(self.MAX_CHUNK_SIZE, (size + 999) // 1000)
+        if chunk_size > self.NGINX_MAX_CHUNK_SIZE:
+            raise Exception("File requires too many chunks to upload")
+
+        with self.progressReporterCls(
+            label=uploadObj.get("name", ""), length=size
+        ) as reporter:
+
+            while True:
+                chunk = stream.read(min(chunk_size, (size - offset)))
+
+                if not chunk:
+                    break
+
+                if isinstance(chunk, str):
+                    chunk = chunk.encode("utf8")
+
+                uploadObj = self.post(
+                    "file/chunk?offset=%d&uploadId=%s" % (offset, uploadId),
+                    data=gcl._ProgressBytesIO(chunk, reporter=reporter),
+                )
+
+                if "_id" not in uploadObj:
+                    raise Exception(
+                        "After uploading a file chunk, did not receive object with _id. "
+                        "Got instead: " + json.dumps(uploadObj)
+                    )
+
+                offset += len(chunk)
+
+                if callable(progressCallback):
+                    progressCallback({"current": offset, "total": size})
+
+        if offset != size:
+            self.delete("file/upload/" + uploadId)
+            raise gcl.IncorrectUploadLengthError(
+                "Expected upload to be %d bytes, but received %d." % (size, offset),
+                upload=uploadObj,
+            )
+
+        return uploadObj
+
 
 def _harmonize_girder_dandiset_to_dandi_api(rec):
     """
