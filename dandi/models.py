@@ -396,9 +396,29 @@ class BioSample(DandiBaseModel):
     )
     anatomy: Optional[List[Anatomy]] = Field(
         None,
-        description="UBERON based identifier for the location of the sample",
+        description="UBERON based identifier for what organ the sample belongs "
+        "to. Use the most specific descriptor.",
         nskey="dandi",
     )
+
+    wasDerivedFrom: Optional[List["BioSample"]] = Field(None, nskey="prov")
+
+    _ldmeta = {
+        "rdfs:subClassOf": ["schema:Thing", "prov:Entity"],
+        "rdfs:label": "Information about the biosample.",
+        "nskey": "dandi",
+    }
+
+
+BioSample.update_forward_refs()
+
+
+class Participant(DandiBaseModel):
+    """Description about the sample that was studied"""
+
+    identifier: Identifier = Field(nskey="schema")
+    source_id: Optional[Identifier] = Field(None, nskey="dandi")
+
     strain: Optional[StrainType] = Field(
         None, description="Identifier for the strain of the sample", nskey="dandi"
     )
@@ -435,7 +455,7 @@ class BioSample(DandiBaseModel):
 
     _ldmeta = {
         "rdfs:subClassOf": ["schema:Thing", "prov:Entity"],
-        "rdfs:label": "Information about the biosample.",
+        "rdfs:label": "Information about the participant.",
         "nskey": "dandi",
     }
 
@@ -632,6 +652,9 @@ class AssetMeta(CommonModel):
     )
 
     wasDerivedFrom: Optional[List[BioSample]] = Field(None, nskey="prov")
+    wasAttributedTo: List[Participant] = Field(
+        None, description="Participant(s) to which this file belongs to", nskey="prov"
+    )
 
     # on publish or set by server
     contentUrl: Optional[List[AnyUrl]] = Field(None, readOnly=True, nskey="schema")
