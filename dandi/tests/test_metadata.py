@@ -15,7 +15,6 @@ from ..models import (
     AnyUrl,
     DandiMeta,
     Participant,
-    BioSample,
 )
 
 
