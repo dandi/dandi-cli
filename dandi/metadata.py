@@ -361,7 +361,7 @@ def toContributor(value):
                     roles.append("".join([val.capitalize() for val in tmp]))
                 else:
                     roles.append(tmp.pop())
-            contrib["roleName"] = roles
+            contrib["roleName"] = [getattr(models.RoleType, role) for role in roles]
             del item["roles"]
         if "awardNumber" in item:
             contrib["awardNumber"] = item["awardNumber"]
@@ -375,9 +375,17 @@ def toContributor(value):
                 contrib["identifier"] = models.PropertyValue()
             del item["orcid"]
         if "affiliations" in item:
-            item["affiliation"] = item["affiliations"]
+            item["affiliation"] = [
+                models.Organization.unvalidated(**{"name": affiliate})
+                for affiliate in item["affiliations"]
+            ]
+
             del item["affiliations"]
         contrib.update(**{f"{k}": v for k, v in item.items()})
+        if "awardNumber" in contrib:
+            contrib = models.Organization.unvalidated(**contrib)
+        else:
+            contrib = models.Person.unvalidated(**contrib)
         out.append(contrib)
     return out
 
@@ -417,14 +425,18 @@ def convertv1(data):
                 out = []
                 for item in value:
                     if isinstance(item, dict):
-                        out.append({k: v for k, v in item.items()})
+                        out.append(
+                            models.Resource.unvalidated(
+                                **{k: v for k, v in item.items()}
+                            )
+                        )
                     else:
                         present = False
                         for val in out:
                             if item in val.values():
                                 present = True
                         if not present:
-                            out.append({"url": item})
+                            out.append(models.Resource.unvalidated(**{"url": item}))
                 value = out
             if oldkey in [
                 "number_of_subjects",
@@ -436,7 +448,14 @@ def convertv1(data):
             if isinstance(value, list):
                 for val in value:
                     if extrakey:
-                        val[extrakey] = extra
+                        if extrakey == "relation":
+                            val.relation = getattr(models.RelationType, extra)
+                        elif extrakey == "roleName":
+                            val.roleName = [
+                                getattr(models.RoleType, role) for role in extra
+                            ]
+                        else:
+                            val[extrakey] = extra
             if isinstance(value, dict):
                 if extrakey:
                     value[extrakey] = extra

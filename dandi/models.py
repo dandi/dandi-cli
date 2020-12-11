@@ -226,17 +226,17 @@ class ContactPoint(DandiBaseModel):
 
 
 class Contributor(DandiBaseModel):
-    identifier: Identifier = Field(
+    identifier: Optional[Identifier] = Field(
         None,
         title="A Common Identifier",
         description="Use a common identifier such as ORCID for people or ROR for institutions",
         nskey="schema",
     )
-    name: str = Field(None, nskey="schema")
-    email: EmailStr = Field(None, nskey="schema")
-    url: AnyUrl = Field(None, nskey="schema")
-    roleName: List[RoleType] = Field(
-        title="Role", description="Role of the contributor", nskey="schema"
+    name: Optional[str] = Field(None, nskey="schema")
+    email: Optional[EmailStr] = Field(None, nskey="schema")
+    url: Optional[AnyUrl] = Field(None, nskey="schema")
+    roleName: Optional[List[RoleType]] = Field(
+        None, title="Role", description="Role of the contributor", nskey="schema"
     )
     includeInCitation: bool = Field(
         True,
@@ -245,7 +245,7 @@ class Contributor(DandiBaseModel):
         "when generating a citation for the item",
         nskey="dandi",
     )
-    awardNumber: Identifier = Field(
+    awardNumber: Optional[Identifier] = Field(
         None,
         title="Identifier for an award",
         description="Identifier associated with a sponsored or gidt award",
@@ -254,8 +254,15 @@ class Contributor(DandiBaseModel):
 
 
 class Organization(Contributor):
-    contactPoint: List[ContactPoint] = Field(
-        description="Contact for the organization", nskey="schema"
+    includeInCitation: bool = Field(
+        False,
+        title="Include Contributor in Citation",
+        description="A flag to indicate whether a contributor should be included "
+        "when generating a citation for the item",
+        nskey="dandi",
+    )
+    contactPoint: Optional[List[ContactPoint]] = Field(
+        None, description="Contact for the organization", nskey="schema"
     )
     _ldmeta = {
         "rdfs:subClassOf": ["schema:Organization", "prov:Organization"],
