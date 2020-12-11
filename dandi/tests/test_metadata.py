@@ -14,6 +14,8 @@ from ..models import (
     SpeciesType,
     AnyUrl,
     DandiMeta,
+    Participant,
+    BioSample,
 )
 
 
@@ -105,12 +107,20 @@ def test_metadata2asset():
         contributor=None,
         about=None,
         studyTarget=None,
+        license=None,
         protocol=None,
         ethicsApproval=None,
-        license=None,
         keywords=["test", "sample", "example", "test-case"],
         acknowledgement=None,
-        access=[AccessRequirements(status=AccessType.Open)],
+        access=[
+            AccessRequirements(
+                status=AccessType.Open,
+                email=None,
+                contactPoint=None,
+                description=None,
+                embargoedUntil=None,
+            )
+        ],
         url=None,
         repository="https://dandiarchive.org/",
         relatedResource=None,
@@ -128,13 +138,25 @@ def test_metadata2asset():
         variableMeasured=None,
         wasDerivedFrom=[
             BioSample(
+                identifier="tissue03", assayType=None, anatomy=None, wasDerivedFrom=None
+            )
+        ],
+        wasAttributedTo=[
+            Participant(
                 identifier="a1b2c3",
-                assayType=None,
-                anatomy=None,
+                source_id=None,
                 strain=None,
                 cellLine=None,
                 vendor=None,
-                age=PropertyValue(value="P170DT12212S", unitText="Years from birth"),
+                age=PropertyValue(
+                    maxValue=None,
+                    minValue=None,
+                    unitCode=None,
+                    unitText="Years from birth",
+                    value="P170DT12212S",
+                    valueReference=None,
+                    propertyID=None,
+                ),
                 sex=SexType(
                     identifier=AnyUrl(
                         "http://purl.obolibrary.org/obo/PATO_0000384",
@@ -146,6 +168,7 @@ def test_metadata2asset():
                     ),
                     name="Male",
                 ),
+                genotype="Typical",
                 species=SpeciesType(
                     identifier=AnyUrl(
                         "http://purl.obolibrary.org/obo/NCBITaxon_9606",
@@ -158,7 +181,6 @@ def test_metadata2asset():
                     name="Human",
                 ),
                 disorder=None,
-                genotype="Typical",
             )
         ],
         contentUrl=None,
@@ -201,12 +223,20 @@ def test_metadata2asset_simple1():
         contributor=None,
         about=None,
         studyTarget=None,
+        license=None,
         protocol=None,
         ethicsApproval=None,
-        license=None,
         keywords=["keyword1", "keyword 2"],
         acknowledgement=None,
-        access=[AccessRequirements(status=AccessType.Open)],
+        access=[
+            AccessRequirements(
+                status=AccessType.Open,
+                email=None,
+                contactPoint=None,
+                description=None,
+                embargoedUntil=None,
+            )
+        ],
         url=None,
         repository="https://dandiarchive.org/",
         relatedResource=None,
@@ -224,17 +254,21 @@ def test_metadata2asset_simple1():
         variableMeasured=None,
         wasDerivedFrom=[
             BioSample.unvalidated(
+                identifier=None, assayType=None, anatomy=None, wasDerivedFrom=None
+            )
+        ],
+        wasAttributedTo=[
+            Participant.unvalidated(
                 identifier=None,
-                assayType=None,
-                anatomy=None,
+                source_id=None,
                 strain=None,
                 cellLine=None,
                 vendor=None,
                 age=None,
                 sex=None,
+                genotype=None,
                 species=None,
                 disorder=None,
-                genotype=None,
             )
         ],
         contentUrl=None,

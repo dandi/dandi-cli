@@ -228,6 +228,8 @@ def extract_anatomy(metadata):
 def extract_model(modelcls, metadata, **kwargs):
     m = modelcls.unvalidated()
     for field in m.__fields__.keys():
+        if modelcls == models.BioSample and field == "wasDerivedFrom":
+            continue
         value = kwargs.get(field, extract_field(field, metadata))
         if value is not Ellipsis:
             setattr(m, field, value)
@@ -237,7 +239,17 @@ def extract_model(modelcls, metadata, **kwargs):
 
 def extract_wasDerivedFrom(metadata):
     return [
-        extract_model(models.BioSample, metadata, identifier=metadata.get("subject_id"))
+        extract_model(
+            models.BioSample, metadata, identifier=metadata.get("tissue_sample_id")
+        )
+    ]
+
+
+def extract_wasAttributedTo(metadata):
+    return [
+        extract_model(
+            models.Participant, metadata, identifier=metadata.get("subject_id")
+        )
     ]
 
 
@@ -253,6 +265,7 @@ def extract_digest(metadata):
 
 FIELD_EXTRACTORS = {
     "wasDerivedFrom": extract_wasDerivedFrom,
+    "wasAttributedTo": extract_wasAttributedTo,
     "age": extract_age,
     "sex": extract_sex,
     "assayType": extract_assay_type,
