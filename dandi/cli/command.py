@@ -2,8 +2,14 @@
 Commands definition for DANDI command line interface
 """
 
+from datetime import datetime
 import logging
+import os
+import os.path
+import sys
+from types import SimpleNamespace
 
+import appdirs
 import click
 from click_didyoumean import DYMGroup
 
@@ -70,7 +76,8 @@ def upper(ctx, param, value):
     show_default=True,
 )
 @click.option("--pdb", help="Fall into pdb if errors out", is_flag=True)
-def main(log_level, pdb=False):
+@click.pass_context
+def main(ctx, log_level, pdb=False):
     """A client to support interactions with DANDI archive (http://dandiarchive.org).
 
     To see help for a specific command, run
@@ -80,6 +87,25 @@ def main(log_level, pdb=False):
     e.g. dandi upload --help
     """
     set_logger_level(get_logger(), log_level)
+
+    logdir = appdirs.user_log_dir("dandi-cli", "dandi")
+    logfile = os.path.join(
+        logdir, "{:%Y%m%d%H%M%SZ}-{}.log".format(datetime.utcnow(), os.getpid())
+    )
+    os.makedirs(logdir, exist_ok=True)
+    with open(logfile, "w") as fp:
+        print("sys.argv =", sys.argv, file=fp)
+        print("os.getcwd() =", os.getcwd(), file=fp)
+    handler = logging.FileHandler(logfile, encoding="utf-8")
+    fmter = logging.Formatter(
+        fmt="%(asctime)s [%(levelname)-8s] %(name)s %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S%z",
+    )
+    handler.setFormatter(fmter)
+    logging.getLogger().addHandler(handler)
+
+    ctx.obj = SimpleNamespace(logfile=logfile)
+
     if pdb:
         map_to_click_exceptions._do_map = False
         from ..utils import setup_exceptionhook
@@ -94,6 +120,12 @@ def main(log_level, pdb=False):
             "Failed to check for a more recent version available with etelemetry: %s",
             exc,
         )
+
+
+@main.resultcallback()
+@click.pass_obj
+def cleanup(obj, *args, **kwargs):
+    lgr.info("Logs saved in %s", obj.logfile)
 
 
 #
