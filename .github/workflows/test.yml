@@ -25,6 +25,8 @@ jobs:
           - 3.8
           - 3.9
         exclude:
+          # Temporarily disabled due to h5py/hdf5 dependency issue
+          # See <https://github.com/dandi/dandi-cli/pull/315>
           - os: windows-2019
             python: 3.9
 
