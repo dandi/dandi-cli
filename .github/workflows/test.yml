@@ -46,7 +46,9 @@ jobs:
 
     - name: Install hdf5 (macOS)
       if: matrix.python == '3.9' && startsWith(matrix.os, 'macos')
-      run: brew install hdf5
+      run: |
+        brew install hdf5@1.8
+        brew link hdf5@1.8
 
     - name: Install dependencies
       run: |
