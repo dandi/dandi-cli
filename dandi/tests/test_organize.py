@@ -63,7 +63,8 @@ def test_populate_dataset_yml(tmpdir):
     # and if we set units and redo -- years should stay unchanged, while other fields change
     m = yaml_load(path.read())
     m["age"]["units"] = "years"
-    ruamel.yaml.YAML().dump(m, open(path, "w"))
+    with open(path, "w") as fp:
+        ruamel.yaml.YAML().dump(m, fp)
 
     populate_dataset_yml(str(path), metadata[:1])
     assert c() == {
