@@ -250,7 +250,7 @@ class DandiAPIClient(RESTFullAPIClient):
         )
         while True:
             yield from resp["results"]
-            if "next" in resp:
+            if resp.get("next"):
                 resp = self.get(resp["next"])
             else:
                 break
