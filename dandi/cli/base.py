@@ -97,8 +97,9 @@ def map_to_click_exceptions(f):
     Will be active only if DANDI_DEVEL is not set and --pdb is not given
     """
 
+    @click.pass_obj
     @wraps(f)
-    def wrapper(*args, **kwargs):
+    def wrapper(obj, *args, **kwargs):
         import girder_client as gcl
         from ..girder import get_HttpError_response
 
@@ -122,6 +123,8 @@ def map_to_click_exceptions(f):
             if not map_to_click_exceptions._do_map:
                 raise
             raise click.ClickException(e_str)
+        finally:
+            lgr.info("Logs saved in %s", obj.logfile)
 
     return wrapper
 

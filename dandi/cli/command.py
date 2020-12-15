@@ -128,12 +128,6 @@ def main(ctx, log_level, pdb=False):
         )
 
 
-@main.resultcallback()
-@click.pass_obj
-def cleanup(obj, *args, **kwargs):
-    lgr.info("Logs saved in %s", obj.logfile)
-
-
 #
 # Commands in the main group
 #
