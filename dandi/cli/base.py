@@ -124,7 +124,10 @@ def map_to_click_exceptions(f):
                 raise
             raise click.ClickException(e_str)
         finally:
-            lgr.info("Logs saved in %s", obj.logfile)
+            if obj is not None:
+                # obj is None when invoking a subcommand directly (as is done
+                # during testing) instead of via the `main` command.
+                lgr.info("Logs saved in %s", obj.logfile)
 
     return wrapper
 
