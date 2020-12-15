@@ -88,21 +88,27 @@ def main(ctx, log_level, pdb=False):
     """
     set_logger_level(get_logger(), log_level)
 
+    # Ensure that certain log messages are only sent to the log file, not the
+    # console:
+    root = logging.getLogger()
+    for h in root.handlers:
+        h.addFilter(lambda r: not r.msg.startswith("[META]"))
+
     logdir = appdirs.user_log_dir("dandi-cli", "dandi")
     logfile = os.path.join(
         logdir, "{:%Y%m%d%H%M%SZ}-{}.log".format(datetime.utcnow(), os.getpid())
     )
     os.makedirs(logdir, exist_ok=True)
-    with open(logfile, "w") as fp:
-        print("sys.argv =", sys.argv, file=fp)
-        print("os.getcwd() =", os.getcwd(), file=fp)
     handler = logging.FileHandler(logfile, encoding="utf-8")
     fmter = logging.Formatter(
         fmt="%(asctime)s [%(levelname)-8s] %(name)s %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S%z",
     )
     handler.setFormatter(fmter)
-    logging.getLogger().addHandler(handler)
+    root.addHandler(handler)
+
+    lgr.info("[META] sys.argv = %r", sys.argv)
+    lgr.info("[META] os.getcwd() = %s", os.getcwd())
 
     ctx.obj = SimpleNamespace(logfile=logfile)
 
