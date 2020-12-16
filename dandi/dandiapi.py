@@ -243,11 +243,11 @@ class DandiAPIClient(RESTFullAPIClient):
             self.get(f"/dandisets/{dandiset_id}/versions/{version}/")
         )
 
-    def get_dandiset_assets(self, dandiset_id, version, page_size=None):
+    def get_dandiset_assets(self, dandiset_id, version, page_size=None, path=None):
         """ A generator to provide asset records """
         resp = self.get(
             f"/dandisets/{dandiset_id}/versions/{version}/assets/",
-            parameters={"page_size": page_size},
+            parameters={"page_size": page_size, "path": None},
         )
         while True:
             yield from resp["results"]
@@ -396,17 +396,7 @@ class DandiAPIClient(RESTFullAPIClient):
         version="draft",
         chunk_size=MAX_CHUNK_SIZE,
     ):
-        assets = []
-        resp = self.get(
-            f"/dandisets/{dandiset_id}/versions/draft/assets/",
-            parameters={"path": asset_path},
-        )
-        while True:
-            assets.extend(resp["results"])
-            if resp.get("next"):
-                resp = self.get(resp["next"])
-            else:
-                break
+        assets = list(self.get_dandiset_assets(dandiset_id, version, path=asset_path))
         for a in assets:
             filepath = Path(dirpath, a["path"])
             filepath.parent.mkdir(parents=True, exist_ok=True)
