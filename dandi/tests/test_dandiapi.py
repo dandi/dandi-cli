@@ -13,7 +13,7 @@ def test_upload(local_docker_compose, simple1_nwb, tmp_path):
         client.upload(dandiset_id, "draft", "testing/simple1.nwb", {}, simple1_nwb)
         asset, = client.get_dandiset_assets(dandiset_id, "draft")
         assert asset["path"] == "testing/simple1.nwb"
-        client.download(dandiset_id, tmp_path)
-        p, = tmp_path.glob("*/*")
+        client.download_assets_directory(dandiset_id, "draft", "", tmp_path)
+        p, = [p for p in tmp_path.glob("**/*") if p.is_file()]
         assert p == tmp_path / "testing" / "simple1.nwb"
         assert p.stat().st_size == os.path.getsize(simple1_nwb)

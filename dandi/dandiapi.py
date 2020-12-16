@@ -388,21 +388,44 @@ class DandiAPIClient(RESTFullAPIClient):
     def create_dandiset(self, name, metadata):
         return self.post("/dandisets/", json={"name": name, "metadata": metadata})
 
-    def download(
-        self,
-        dandiset_id,
-        dirpath,
-        asset_path="",
-        version="draft",
-        chunk_size=MAX_CHUNK_SIZE,
+    def download_asset(
+        self, dandiset_id, version, asset_uuid, filepath, chunk_size=MAX_CHUNK_SIZE
     ):
-        assets = list(self.get_dandiset_assets(dandiset_id, version, path=asset_path))
-        for a in assets:
-            filepath = Path(dirpath, a["path"])
-            filepath.parent.mkdir(parents=True, exist_ok=True)
-            downloader = self.get_download_file_iter(
-                dandiset_id, version, a["uuid"], chunk_size=chunk_size
+        downloader = self.get_download_file_iter(
+            dandiset_id, version, asset_uuid, chunk_size=chunk_size
+        )
+        with open(filepath, "wb") as fp:
+            for chunk in downloader():
+                fp.write(chunk)
+
+    def download_asset_bypath(
+        self, dandiset_id, version, asset_path, filepath, chunk_size=MAX_CHUNK_SIZE
+    ):
+        try:
+            # Weed out any assets that happen to have the given path as a
+            # proper prefix:
+            (asset,) = (
+                a
+                for a in self.get_dandiset_assets(dandiset_id, version, path=asset_path)
+                if a["path"] == asset_path
             )
-            with filepath.open("wb") as fp:
-                for chunk in downloader():
-                    fp.write(chunk)
+        except ValueError:
+            raise RuntimeError(f"No asset found with path {asset_path!r}")
+        self.download_asset(
+            dandiset_id, version, asset["uuid"], filepath, chunk_size=chunk_size
+        )
+
+    def download_assets_directory(
+        self, dandiset_id, version, assets_dirpath, dirpath, chunk_size=MAX_CHUNK_SIZE
+    ):
+        if assets_dirpath and not assets_dirpath.endswith("/"):
+            assets_dirpath += "/"
+        assets = list(
+            self.get_dandiset_assets(dandiset_id, version, path=assets_dirpath)
+        )
+        for a in assets:
+            filepath = Path(dirpath, a["path"][len(assets_dirpath) :])
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            self.download_asset(
+                dandiset_id, version, a["uuid"], filepath, chunk_size=chunk_size
+            )
