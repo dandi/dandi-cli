@@ -589,7 +589,10 @@ def test_dandimeta_migration():
         relatedResource=[
             Resource(
                 identifier="DOI:10.17605/OSF.IO/HV7JA",
-                name="A NWB-based Dataset and Processing Pipeline of Human Single-Neuron Activity During a Declarative Memory Task",
+                name=(
+                    "A NWB-based Dataset and Processing Pipeline of Human"
+                    " Single-Neuron Activity During a Declarative Memory Task"
+                ),
                 repository="Open Science Framework",
                 url="https://osf.io/hv7ja/",
                 relation=RelationType.IsDerivedFrom,
@@ -635,7 +638,10 @@ def test_dandimeta_migration():
                 name="Chandravadia, Nand",
                 affiliation=[
                     Organization(
-                        name="Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+                        name=(
+                            "Department of Neurosurgery, Cedars-Sinai Medical"
+                            " Center, Los Angeles, CA, USA"
+                        ),
                         identifier=None,
                         email=None,
                         url=None,
@@ -670,7 +676,13 @@ def test_dandimeta_migration():
                 name="Liang, Dehua",
                 affiliation=[
                     Organization(
-                        name="Institute for Interdisciplinary Brain and Behavioral Sciences, Crean College of Health and Behavioral Sciences, Schmid College of Science and Technology, Chapman University, Orange, CA, USA",
+                        name=(
+                            "Institute for Interdisciplinary Brain and"
+                            " Behavioral Sciences, Crean College of Health and"
+                            " Behavioral Sciences, Schmid College of Science"
+                            " and Technology, Chapman University, Orange, CA,"
+                            " USA"
+                        ),
                         identifier=None,
                         email=None,
                         url=None,
@@ -738,7 +750,10 @@ def test_dandimeta_migration():
                 name="Carlson, April",
                 affiliation=[
                     Organization(
-                        name="Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+                        name=(
+                            "Department of Neurosurgery, Cedars-Sinai Medical"
+                            " Center, Los Angeles, CA, USA"
+                        ),
                         identifier=None,
                         email=None,
                         url=None,
@@ -763,7 +778,10 @@ def test_dandimeta_migration():
                 name="Faraut, Mailys",
                 affiliation=[
                     Organization(
-                        name="Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+                        name=(
+                            "Department of Neurosurgery, Cedars-Sinai Medical"
+                            " Center, Los Angeles, CA, USA"
+                        ),
                         identifier=None,
                         email=None,
                         url=None,
@@ -784,7 +802,10 @@ def test_dandimeta_migration():
                 name="Chung, Jeffrey M.",
                 affiliation=[
                     Organization(
-                        name="Department of Neurology, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+                        name=(
+                            "Department of Neurology, Cedars-Sinai Medical"
+                            " Center, Los Angeles, CA, USA"
+                        ),
                         identifier=None,
                         email=None,
                         url=None,
@@ -805,7 +826,10 @@ def test_dandimeta_migration():
                 name="Reed, Chrystal M.",
                 affiliation=[
                     Organization(
-                        name="Department of Neurology, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+                        name=(
+                            "Department of Neurology, Cedars-Sinai Medical"
+                            " Center, Los Angeles, CA, USA"
+                        ),
                         identifier=None,
                         email=None,
                         url=None,
@@ -831,7 +855,11 @@ def test_dandimeta_migration():
                 name="Dichter, Ben",
                 affiliation=[
                     Organization(
-                        name="Biological Systems & Engineering Division, Lawrence Berkeley National Laboratory, Berkeley, CA, USA",
+                        name=(
+                            "Biological Systems & Engineering Division,"
+                            " Lawrence Berkeley National Laboratory, Berkeley,"
+                            " CA, USA"
+                        ),
                         identifier=None,
                         email=None,
                         url=None,
@@ -867,7 +895,13 @@ def test_dandimeta_migration():
                 name="Maoz, Uri",
                 affiliation=[
                     Organization(
-                        name="Institute for Interdisciplinary Brain and Behavioral Sciences, Crean College of Health and Behavioral Sciences, Schmid College of Science and Technology, Chapman University, Orange, CA, USA",
+                        name=(
+                            "Institute for Interdisciplinary Brain and"
+                            " Behavioral Sciences, Crean College of Health and"
+                            " Behavioral Sciences, Schmid College of Science"
+                            " and Technology, Chapman University, Orange, CA,"
+                            " USA"
+                        ),
                         identifier=None,
                         email=None,
                         url=None,
@@ -877,7 +911,11 @@ def test_dandimeta_migration():
                         contactPoint=None,
                     ),
                     Organization(
-                        name="Division of Biology and Biological Engineering, California Institute of Technology, Pasadena, CA, USA",
+                        name=(
+                            "Division of Biology and Biological Engineering,"
+                            " California Institute of Technology, Pasadena, CA,"
+                            " USA"
+                        ),
                         identifier=None,
                         email=None,
                         url=None,
@@ -898,7 +936,10 @@ def test_dandimeta_migration():
                 name="Kalia, Suneil K.",
                 affiliation=[
                     Organization(
-                        name="Division of Neurosurgery, Department of Surgery, University of Toronto, Toronto, Canada",
+                        name=(
+                            "Division of Neurosurgery, Department of Surgery,"
+                            " University of Toronto, Toronto, Canada"
+                        ),
                         identifier=None,
                         email=None,
                         url=None,
@@ -939,7 +980,10 @@ def test_dandimeta_migration():
                         contactPoint=None,
                     ),
                     Organization(
-                        name="Division of Neurosurgery, Department of Surgery, University of Toronto, Toronto, Canada",
+                        name=(
+                            "Division of Neurosurgery, Department of Surgery,"
+                            " University of Toronto, Toronto, Canada"
+                        ),
                         identifier=None,
                         email=None,
                         url=None,
@@ -960,7 +1004,10 @@ def test_dandimeta_migration():
                 name="Mamelak, Adam N.",
                 affiliation=[
                     Organization(
-                        name="Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+                        name=(
+                            "Department of Neurosurgery, Cedars-Sinai Medical"
+                            " Center, Los Angeles, CA, USA"
+                        ),
                         identifier=None,
                         email=None,
                         url=None,
@@ -999,7 +1046,10 @@ def test_dandimeta_migration():
                 name="Rutishauser, Ueli",
                 affiliation=[
                     Organization(
-                        name="Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+                        name=(
+                            "Department of Neurosurgery, Cedars-Sinai Medical"
+                            " Center, Los Angeles, CA, USA"
+                        ),
                         identifier=None,
                         email=None,
                         url=None,
@@ -1009,7 +1059,10 @@ def test_dandimeta_migration():
                         contactPoint=None,
                     ),
                     Organization(
-                        name="Department of Neurology, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+                        name=(
+                            "Department of Neurology, Cedars-Sinai Medical"
+                            " Center, Los Angeles, CA, USA"
+                        ),
                         identifier=None,
                         email=None,
                         url=None,
@@ -1019,7 +1072,11 @@ def test_dandimeta_migration():
                         contactPoint=None,
                     ),
                     Organization(
-                        name="Division of Biology and Biological Engineering, California Institute of Technology, Pasadena, CA, USA",
+                        name=(
+                            "Division of Biology and Biological Engineering,"
+                            " California Institute of Technology, Pasadena, CA,"
+                            " USA"
+                        ),
                         identifier=None,
                         email=None,
                         url=None,
@@ -1029,7 +1086,11 @@ def test_dandimeta_migration():
                         contactPoint=None,
                     ),
                     Organization(
-                        name="Computational and Neural Systems Program, California Institute of Technology, Pasadena, CA, USA",
+                        name=(
+                            "Computational and Neural Systems Program,"
+                            " California Institute of Technology, Pasadena, CA,"
+                            " USA"
+                        ),
                         identifier=None,
                         email=None,
                         url=None,
@@ -1039,7 +1100,11 @@ def test_dandimeta_migration():
                         contactPoint=None,
                     ),
                     Organization(
-                        name="Center for Neural Science and Medicine, Department of Biomedical Science, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+                        name=(
+                            "Center for Neural Science and Medicine, Department"
+                            " of Biomedical Science, Cedars-Sinai Medical"
+                            " Center, Los Angeles, CA, USA"
+                        ),
                         identifier=None,
                         email=None,
                         url=None,
@@ -1094,7 +1159,10 @@ def test_dandimeta_migration():
                 affiliation=None,
             ),
             Person(
-                name="Foundation, NARSAD Young Investigator grant from the Brain & Behavior Research",
+                name=(
+                    "Foundation, NARSAD Young Investigator grant from the Brain"
+                    " & Behavior Research"
+                ),
                 identifier=None,
                 email=None,
                 url=None,
@@ -1124,7 +1192,27 @@ def test_dandimeta_migration():
                 contactPoint=None,
             ),
         ],
-        description="A challenge for data sharing in systems neuroscience is the multitude of different data formats used. Neurodata Without Borders: Neurophysiology 2.0 (NWB:N) has emerged as a standardized data format for the storage of cellular-level data together with meta-data, stimulus information, and behavior. A key next step to facilitate NWB:N adoption is to provide easy to use processing pipelines to import/export data from/to NWB:N. Here, we present a NWB-formatted dataset of 1863 single neurons recorded from the medial temporal lobes of 59 human subjects undergoing intracranial monitoring while they performed a recognition memory task. We provide code to analyze and export/import stimuli, behavior, and electrophysiological recordings to/from NWB in both MATLAB and Python. The data files are NWB:N compliant, which affords interoperability between programming languages and operating systems. This combined data and code release is a case study for how to utilize NWB:N for human single-neuron recordings and enables easy re-use of this hard-to-obtain data for both teaching and research on the mechanisms of human memory.",
+        description=(
+            "A challenge for data sharing in systems neuroscience is the"
+            " multitude of different data formats used. Neurodata Without"
+            " Borders: Neurophysiology 2.0 (NWB:N) has emerged as a"
+            " standardized data format for the storage of cellular-level data"
+            " together with meta-data, stimulus information, and behavior. A"
+            " key next step to facilitate NWB:N adoption is to provide easy to"
+            " use processing pipelines to import/export data from/to NWB:N."
+            " Here, we present a NWB-formatted dataset of 1863 single neurons"
+            " recorded from the medial temporal lobes of 59 human subjects"
+            " undergoing intracranial monitoring while they performed a"
+            " recognition memory task. We provide code to analyze and"
+            " export/import stimuli, behavior, and electrophysiological"
+            " recordings to/from NWB in both MATLAB and Python. The data files"
+            " are NWB:N compliant, which affords interoperability between"
+            " programming languages and operating systems. This combined data"
+            " and code release is a case study for how to utilize NWB:N for"
+            " human single-neuron recordings and enables easy re-use of this"
+            " hard-to-obtain data for both teaching and research on the"
+            " mechanisms of human memory."
+        ),
         identifier=PropertyValue(
             maxValue=None,
             minValue=None,
@@ -1146,7 +1234,10 @@ def test_dandimeta_migration():
             "single-neurons",
         ],
         license="CC-BY-4.0",
-        name="A NWB-based dataset and processing pipeline of human single-neuron activity during a declarative memory task",
+        name=(
+            "A NWB-based dataset and processing pipeline of human single-neuron"
+            " activity during a declarative memory task"
+        ),
         schemaVersion="1.0.0-rc1",
         studyTarget=None,
         protocol=None,
