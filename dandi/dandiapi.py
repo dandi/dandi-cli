@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 import os.path
+from pathlib import Path
 from time import sleep
 import requests
 
@@ -386,3 +387,32 @@ class DandiAPIClient(RESTFullAPIClient):
 
     def create_dandiset(self, name, metadata):
         return self.post("/dandisets/", json={"name": name, "metadata": metadata})
+
+    def download(
+        self,
+        dandiset_id,
+        dirpath,
+        asset_path="",
+        version="draft",
+        chunk_size=MAX_CHUNK_SIZE,
+    ):
+        assets = []
+        resp = self.get(
+            f"/dandisets/{dandiset_id}/versions/draft/assets/",
+            parameters={"path": asset_path},
+        )
+        while True:
+            assets.extend(resp["results"])
+            if resp.get("next"):
+                resp = self.get(resp["next"])
+            else:
+                break
+        for a in assets:
+            filepath = Path(dirpath, a["path"])
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            downloader = self.get_download_file_iter(
+                dandiset_id, version, a["uuid"], chunk_size=chunk_size
+            )
+            with filepath.open("wb") as fp:
+                for chunk in downloader():
+                    fp.write(chunk)
