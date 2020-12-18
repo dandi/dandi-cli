@@ -7,8 +7,10 @@ def test_validate_simple1(monkeypatch, simple1_nwb):
     errors = validate_file(simple1_nwb)
     assert len(errors) == 1
     assert errors[0] == (
-        "1 validation error for AssetMeta\n"
+        "2 validation errors for AssetMeta\n"
         "wasDerivedFrom -> 0 -> identifier\n"
+        "  none is not an allowed value (type=type_error.none.not_allowed)\n"
+        "wasAttributedTo -> 0 -> identifier\n"
         "  none is not an allowed value (type=type_error.none.not_allowed)"
     )
 
