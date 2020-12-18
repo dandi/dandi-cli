@@ -79,7 +79,7 @@ dandi_instance = namedtuple("dandi_instance", ("girder", "gui", "redirector", "a
 
 # So it could be easily mapped to external IP (e.g. from within VM)
 # to test against instance running outside of current environment
-instancehost = os.environ.get('DANDI_INSTANCEHOST', 'localhost')
+instancehost = os.environ.get("DANDI_INSTANCEHOST", "localhost")
 
 known_instances = {
     "local-girder-only": dandi_instance(
@@ -97,7 +97,7 @@ known_instances = {
         f"http://{instancehost}:8081",
         f"http://{instancehost}:8086",
         f"http://{instancehost}:8079",
-        None,  # TODO: https://github.com/dandi/dandi-cli/issues/164
+        f"http://{instancehost}:8000/api",
     ),
     "dandi": dandi_instance(
         "https://girder.dandiarchive.org",
