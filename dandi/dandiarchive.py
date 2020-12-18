@@ -149,7 +149,13 @@ class _dandi_url_parser:
     map_asset_types = {"dandiset": "folder"}
     # And lets create our mapping into girder instances from known_instances:
     map_to = {"girder": {}, "api": {}}
-    for girder, gui, redirector, api in known_instances.values():  # noqa: F402
+    for (
+        metadata_version,
+        girder,
+        gui,
+        redirector,
+        api,
+    ) in known_instances.values():  # noqa: F402
         for h in (gui, redirector):
             if h:
                 map_to["girder"][h] = girder

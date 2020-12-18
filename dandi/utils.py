@@ -617,6 +617,7 @@ def get_instance(dandi_instance_id):
     if our_version in bad_versions:
         raise BadCliVersionError(our_version, minversion, bad_versions)
     return dandi_instance(
+        metadata_version=0,
         girder=server_info["services"]["girder"]["url"],
         gui=server_info["services"]["webui"]["url"],
         redirector=redirector_url,
