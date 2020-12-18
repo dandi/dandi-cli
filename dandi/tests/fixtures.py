@@ -146,15 +146,15 @@ LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name
 
 
 @pytest.fixture(scope="session")
-def local_docker_compose():
-    instance_id = "local-docker-tests"
-    instance = known_instances[instance_id]
+def docker_compose_setup():
+    GIRDER_URL = known_instances["local-docker-tests"].girder
+    API_URL = known_instances["dandi-api-local-docker-tests"].api
 
     # if api_key is specified, we are reusing some already running instance
     # so we would not bother starting/stopping a new one here
     api_key = os.environ.get("DANDI_REUSE_LOCAL_DOCKER_TESTS_API_KEY")
     if api_key:
-        yield {"api_key": api_key, "instance": instance, "instance_id": instance_id}
+        yield {"api_key": api_key}
         return
 
     skipif.no_network()
@@ -175,7 +175,7 @@ def local_docker_compose():
         # Should we check that the output of `docker wait` is 0?
 
         r = requests.get(
-            f"{instance.girder}/api/v1/user/authentication", auth=("admin", "letmein")
+            f"{GIRDER_URL}/api/v1/user/authentication", auth=("admin", "letmein")
         )
         r.raise_for_status()
         initial_api_key = r.json()["authToken"]["token"]
@@ -183,7 +183,7 @@ def local_docker_compose():
         # Get an unscoped/full permissions API key that can be used for
         # uploading:
         r = requests.post(
-            f"{instance.girder}/api/v1/api_key",
+            f"{GIRDER_URL}/api/v1/api_key",
             params={"name": "testkey", "tokenDuration": 1},
             headers={"Girder-Token": initial_api_key},
         )
@@ -192,7 +192,7 @@ def local_docker_compose():
 
         # dandi-publish requires an admin named "publish":
         requests.post(
-            f"{instance.girder}/api/v1/user",
+            f"{GIRDER_URL}/api/v1/user",
             data={
                 "login": "publish",
                 "email": "nil@nil.nil",
@@ -205,8 +205,7 @@ def local_docker_compose():
         ).raise_for_status()
 
         r = requests.get(
-            f"{instance.girder}/api/v1/user/authentication",
-            auth=("publish", "Z1lT4Fh7Kj"),
+            f"{GIRDER_URL}/api/v1/user/authentication", auth=("publish", "Z1lT4Fh7Kj")
         )
         r.raise_for_status()
         publish_api_key = r.json()["authToken"]["token"]
@@ -279,7 +278,7 @@ def local_docker_compose():
         )
 
         requests.put(
-            f"{instance.girder}/api/v1/system/setting",
+            f"{GIRDER_URL}/api/v1/system/setting",
             data={
                 "key": "dandi.publish_api_url",
                 "value": "http://django:8000/api/",  # django or localhost?
@@ -288,14 +287,14 @@ def local_docker_compose():
         ).raise_for_status()
 
         requests.put(
-            f"{instance.girder}/api/v1/system/setting",
+            f"{GIRDER_URL}/api/v1/system/setting",
             data={"key": "dandi.publish_api_key", "value": django_api_key},
             headers={"Girder-Token": publish_api_key},
         ).raise_for_status()
 
         for _ in range(10):
             try:
-                requests.get(f"{instance.api}/dandisets/")
+                requests.get(f"{API_URL}/dandisets/")
             except requests.ConnectionError:
                 sleep(1)
             else:
@@ -303,17 +302,34 @@ def local_docker_compose():
         else:
             raise RuntimeError("Django container did not start up in time")
 
-        yield {
-            "api_key": api_key,
-            "instance": instance,
-            "instance_id": instance_id,
-            "django_api_key": django_api_key,
-        }
+        yield {"girder_api_key": api_key, "django_api_key": django_api_key}
     finally:
         run(["docker-compose", "down", "-v"], cwd=str(LOCAL_DOCKER_DIR), check=True)
+
+
+@pytest.fixture()
+def local_docker_compose(docker_compose_setup):
+    instance_id = "local-docker-tests"
+    instance = known_instances[instance_id]
+    return {
+        "api_key": docker_compose_setup["girder_api_key"],
+        "instance": instance,
+        "instance_id": instance_id,
+    }
 
 
 @pytest.fixture()
 def local_docker_compose_env(local_docker_compose, monkeypatch):
     monkeypatch.setenv("DANDI_API_KEY", local_docker_compose["api_key"])
     return local_docker_compose
+
+
+@pytest.fixture()
+def local_dandi_api(docker_compose_setup):
+    instance_id = "dandi-api-local-docker-tests"
+    instance = known_instances[instance_id]
+    return {
+        "api_key": docker_compose_setup["django_api_key"],
+        "instance": instance,
+        "instance_id": instance_id,
+    }

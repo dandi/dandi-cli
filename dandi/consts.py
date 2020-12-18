@@ -97,7 +97,7 @@ known_instances = {
         f"http://{instancehost}:8081",
         f"http://{instancehost}:8086",
         f"http://{instancehost}:8079",
-        f"http://{instancehost}:8000/api",
+        None,
     ),
     "dandi": dandi_instance(
         "https://girder.dandiarchive.org",
@@ -106,6 +106,9 @@ known_instances = {
         "https://publish.dandiarchive.org/api",  # ? might become api.
     ),
     "dandi-api": dandi_instance(None, None, None, "https://api.dandiarchive.org/api"),
+    "dandi-api-local-docker-tests": dandi_instance(
+        None, None, None, f"http://{instancehost}:8000/api"
+    ),
 }
 # to map back url: name
 known_instances_rev = {vv: k for k, v in known_instances.items() for vv in v if vv}

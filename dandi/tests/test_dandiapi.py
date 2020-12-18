@@ -2,10 +2,9 @@ import os.path
 from ..dandiapi import DandiAPIClient
 
 
-def test_upload(local_docker_compose, simple1_nwb, tmp_path):
+def test_upload(local_dandi_api, simple1_nwb, tmp_path):
     client = DandiAPIClient(
-        api_url=local_docker_compose["instance"].api,
-        token=local_docker_compose["django_api_key"],
+        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
     )
     with client.session():
         r = client.create_dandiset(name="Upload Test", metadata={})
