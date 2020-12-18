@@ -105,6 +105,7 @@ known_instances = {
         "https://dandiarchive.org",
         "https://publish.dandiarchive.org/api",  # ? might become api.
     ),
+    "dandi-api": dandi_instance(None, None, None, "https://api.dandiarchive.org/api"),
 }
 # to map back url: name
 known_instances_rev = {vv: k for k, v in known_instances.items() for vv in v if vv}
