@@ -2,6 +2,7 @@ from datetime import datetime
 import json
 import os
 from pathlib import Path
+import re
 from subprocess import check_output, run
 import shutil
 import tempfile
@@ -256,7 +257,7 @@ def local_docker_compose():
             check=True,
         )
 
-        django_api_key = check_output(
+        r = check_output(
             [
                 "docker-compose",
                 "run",
@@ -269,7 +270,13 @@ def local_docker_compose():
             cwd=str(LOCAL_DOCKER_DIR),
             env=env,
             universal_newlines=True,
-        ).split()[2]
+        )
+        m = re.search(r"^Generated token (\w+) for user admin$", r, flags=re.M)
+        if not m:
+            raise RuntimeError(
+                f"Could not extract Django auth token from drf_create_token output: {r!r}"
+            )
+        django_api_key = m[1]
 
         run(
             ["docker-compose", "up", "-d", "django", "celery"],
