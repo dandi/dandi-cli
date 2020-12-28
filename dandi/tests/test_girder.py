@@ -1,12 +1,18 @@
 import os.path
 
 from keyring.backends import fail, null
+from keyring.core import init_backend
 from keyring.errors import KeyringError
 from keyrings.alt import file as keyfile
 
 import pytest
 from ..exceptions import LockingError
 from .. import girder
+
+# Ensure that keyring backends are initialized before running any tests, as
+# EncryptedKeyring cannot be initialized (on macOS, at least) while pyfakefs is
+# in effect.
+init_backend()
 
 
 def test_lock_dandiset(local_docker_compose_env):
