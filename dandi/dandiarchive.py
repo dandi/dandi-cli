@@ -151,11 +151,11 @@ class _dandi_url_parser:
     map_to = {"girder": {}, "api": {}}
     for (
         metadata_version,
-        girder,
+        girder,  # noqa: F402
         gui,
         redirector,
         api,
-    ) in known_instances.values():  # noqa: F402
+    ) in known_instances.values():
         for h in (gui, redirector):
             if h:
                 map_to["girder"][h] = girder

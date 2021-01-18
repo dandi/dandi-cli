@@ -1,4 +1,7 @@
 from datetime import datetime
+
+# PurePosixPath to be cast to for paths on girder
+from pathlib import Path, PurePosixPath
 import re
 import sys
 import time
@@ -26,8 +29,7 @@ def upload(
     allow_any_path=False,
     devel_debug=False,
 ):
-    # PurePosixPath to be cast to for paths on girder
-    from pathlib import Path, PurePosixPath
+    from . import girder
     from .dandiset import Dandiset
     from .support.digests import Digester
 
@@ -40,6 +42,21 @@ def upload(
 
     # Should no longer be needed
     # dandiset_path = Path(dandiset_path).resolve()
+
+    instance = get_instance(dandi_instance)
+    if instance.girder is None:
+        assert instance.api is not None
+        return _new_upload(
+            instance.api,
+            dandiset,
+            paths,
+            validation,
+            dandiset_path,
+            allow_any_path,
+            devel_debug,
+        )
+
+    client = girder.get_client(instance.girder)
 
     # Girder side details:
 
@@ -70,7 +87,6 @@ def upload(
         )
 
     import multiprocessing
-    from . import girder
     from .pynwb_utils import ignore_benign_pynwb_warnings, get_object_id
     from .metadata import get_metadata
     from .validate import validate_file
@@ -79,8 +95,6 @@ def upload(
     from .support.pyout import naturalsize
 
     ignore_benign_pynwb_warnings()  # so validate doesn't whine
-
-    client = girder.get_client(get_instance(dandi_instance).girder)
 
     try:
         collection_rec = girder.ensure_collection(client, girder_collection)
@@ -573,3 +587,272 @@ def upload(
     #     lgr.error("Following errors were detected while uploading")
     #     for e, paths in errors.items():
     #         lgr.error(" %s: %d paths", e, len(paths))
+
+
+def _new_upload(
+    api_url, dandiset, paths, validation, dandiset_path, allow_any_path, devel_debug
+):
+    from .dandiapi import DandiAPIClient
+    from .support.digests import Digester
+
+    client = DandiAPIClient(api_url)
+
+    ds_identifier = dandiset.identifier
+    if not ds_identifier:
+        raise ValueError(
+            "No 'identifier' set for the dandiset yet.  Use 'dandi register'"
+        )
+    if not re.match(dandiset_identifier_regex, ds_identifier):
+        raise ValueError(
+            f"Dandiset identifier {ds_identifier} does not follow expected "
+            f"convention {dandiset_identifier_regex!r}.  Use "
+            f"'dandi register' to get a legit identifier"
+        )
+    # this is a path not a girder id
+
+    from .pynwb_utils import ignore_benign_pynwb_warnings, get_object_id
+    from .metadata import get_metadata
+    from .validate import validate_file
+    from .utils import find_dandi_files, find_files, path_is_subpath
+    from .support.pyout import naturalsize
+
+    ignore_benign_pynwb_warnings()  # so validate doesn't whine
+
+    #
+    # Treat paths
+    #
+    if not paths:
+        paths = [dandiset.path]
+
+    # Expand and validate all paths -- they should reside within dandiset
+    paths = find_files(".*", paths) if allow_any_path else find_dandi_files(paths)
+    paths = list(map(Path, paths))
+    npaths = len(paths)
+    lgr.info(f"Found {npaths} files to consider")
+    for path in paths:
+        if not (
+            allow_any_path
+            or path.name == dandiset_metadata_file
+            or path.name.endswith(".nwb")
+        ):
+            raise NotImplementedError(
+                f"ATM only .nwb and dandiset.yaml should be in the paths to upload. Got {path}"
+            )
+        if not path_is_subpath(str(path.absolute()), dandiset.path):
+            raise ValueError(f"{path} is not under {dandiset.path}")
+
+    # We will keep a shared set of "being processed" paths so
+    # we could limit the number of them until
+    #   https://github.com/pyout/pyout/issues/87
+    # properly addressed
+    process_paths = set()
+    from collections import defaultdict
+
+    uploaded_paths = defaultdict(lambda: {"size": 0, "errors": []})
+
+    def skip_file(msg):
+        return {"status": "skipped", "message": str(msg)}
+
+    # TODO: we might want to always yield a full record so no field is not
+    # provided to pyout to cause it to halt
+    def process_path(path, relpath):
+        """
+
+        Parameters
+        ----------
+        path: Path
+          Non Pure (OS specific) Path
+        relpath:
+          For location on server.  Will be cast to PurePosixPath
+
+        Yields
+        ------
+        dict
+          Records for pyout
+        """
+        # Ensure consistent types
+        path = Path(path)
+        relpath = PurePosixPath(relpath)
+        try:
+            try:
+                path_stat = path.stat()
+                yield {"size": path_stat.st_size}
+            except FileNotFoundError:
+                yield skip_file("ERROR: File not found")
+                return
+            except Exception as exc:
+                # without limiting [:50] it might cause some pyout indigestion
+                yield skip_file("ERROR: %s" % str(exc)[:50])
+                return
+
+            file_metadata_ = {
+                "uploaded_size": path_stat.st_size,
+                "uploaded_mtime": ensure_strtime(path_stat.st_mtime),
+                # "uploaded_date": None,  # to be filled out upon upload completion
+            }
+
+            #
+            # Validate first, so we do not bother server at all if not kosher
+            #
+            # TODO: enable back validation of dandiset.yaml
+            if path.name != dandiset_metadata_file and validation != "skip":
+                yield {"status": "validating"}
+                validation_errors = validate_file(path)
+                yield {"errors": len(validation_errors)}
+                # TODO: split for dandi, pynwb errors
+                if validation_errors:
+                    if validation == "require":
+                        yield skip_file("failed validation")
+                        return
+                else:
+                    yield {"status": "validated"}
+            else:
+                # yielding empty causes pyout to get stuck or crash
+                # https://github.com/pyout/pyout/issues/91
+                # yield {"errors": '',}
+                pass
+
+            #
+            # Special handling for dandiset.yaml
+            # Yarik hates it but that is life for now. TODO
+            #
+            if path.name == dandiset_metadata_file:
+                # TODO This is a temporary measure to avoid breaking web UI
+                # dandiset metadata schema assumptions.  All edits should happen
+                # online.
+                yield skip_file("should be edited online")
+                return
+
+            #
+            # Extract metadata - delayed since takes time, but is done before
+            # actual upload, so we could skip if this fails
+            #
+            # Extract metadata before actual upload and skip if fails
+            # TODO: allow for for non-nwb files to skip this step
+            # ad-hoc for dandiset.yaml for now
+            yield {"status": "extracting metadata"}
+            try:
+                metadata = get_metadata(path)
+            except Exception as exc:
+                if allow_any_path:
+                    yield {"status": "failed to extract metadata"}
+                    metadata = {}
+                else:
+                    yield skip_file("failed to extract metadata: %s" % str(exc))
+                    return
+
+            #
+            # Compute checksums and possible other digests (e.g. for s3, ipfs - TODO)
+            #
+            yield {"status": "digesting"}
+            try:
+                # TODO: in theory we could also cache the result, but since it is
+                # critical to get correct checksums, safer to just do it all the time.
+                # Should typically be faster than upload itself ;-)
+                digester = Digester(metadata_digests)
+                file_metadata_.update(digester(path))
+            except Exception as exc:
+                yield skip_file("failed to compute digests: %s" % str(exc))
+                return
+
+            #
+            # Determine metadata
+            #
+            metadata_ = {}
+            for k, v in metadata.items():
+                if v in ("", None):
+                    continue  # degenerate, why bother
+                # XXX TODO: remove this -- it is only temporary, search should handle
+                if isinstance(v, str):
+                    metadata_[k] = v.lower()
+                elif isinstance(v, datetime):
+                    metadata_[k] = ensure_strtime(v)
+            # we will add some fields which would help us with deciding to
+            # reupload or not
+            # .isoformat() would give is8601 representation but I see in girder
+            # already
+            # session_start_time   1971-01-01 12:00:00+00:00
+            # decided to go for .isoformat for internal consistency -- let's see
+            file_metadata_["uploaded_datetime"] = ensure_strtime(time.time())
+            metadata_.update(file_metadata_)
+            metadata_["uploaded_size"] = path_stat.st_size
+            metadata_["uploaded_mtime"] = ensure_strtime(path_stat.st_mtime)
+            metadata_["uploaded_by"] = "dandi %s" % __version__
+            # Also store object_id for the file to help identify changes/moves
+            try:
+                metadata_["uploaded_nwb_object_id"] = get_object_id(str(path))
+            except Exception as exc:
+                (lgr.debug if allow_any_path else lgr.warning)(
+                    "Failed to read object_id: %s", exc
+                )
+
+            #
+            # Upload file
+            #
+            yield {"status": "uploading"}
+            for r in client.iter_upload(dandiset, "draft", relpath, metadata_, path):
+                upload_perc = 100 * ((r["current"] / r["total"]) if r["total"] else 1.0)
+                uploaded_paths[str(path)]["size"] = r["current"]
+                yield {"upload": upload_perc}
+            yield {"status": "done"}
+
+        except Exception as exc:
+            if devel_debug:
+                raise
+            # Custom formatting for some exceptions we know to extract
+            # user-meaningful message
+            message = str(exc)
+            uploaded_paths[str(path)]["errors"].append(message)
+            yield {"status": "ERROR", "message": message}
+        finally:
+            process_paths.remove(str(path))
+
+    # We will again use pyout to provide a neat table summarizing our progress
+    # with upload etc
+    import pyout
+    from .support import pyout as pyouts
+
+    # for the upload speeds we need to provide a custom  aggregate
+    t0 = time.time()
+
+    def upload_agg(*ignored):
+        dt = time.time() - t0
+        total = sum(v["size"] for v in uploaded_paths.values())
+        if not total:
+            return ""
+        speed = total / dt if dt else 0
+        return "%s/s" % naturalsize(speed)
+
+    pyout_style = pyouts.get_style(hide_if_missing=False)
+    pyout_style["upload"]["aggregate"] = upload_agg
+
+    rec_fields = ["path", "size", "errors", "upload", "status", "message"]
+    out = pyout.Tabular(style=pyout_style, columns=rec_fields)
+
+    with out:
+        for path in paths:
+            while len(process_paths) >= 10:
+                lgr.log(2, "Sleep waiting for some paths to finish processing")
+                time.sleep(0.5)
+
+            rec = {"path": str(path)}
+            process_paths.add(str(path))
+
+            try:
+                relpath = path.absolute().relative_to(dandiset.path)
+
+                rec["path"] = str(relpath)
+                if devel_debug:
+                    # DEBUG: do serially
+                    for v in process_path(path, relpath):
+                        print(str(v), flush=True)
+                else:
+                    rec[tuple(rec_fields[1:])] = process_path(path, relpath)
+            except ValueError as exc:
+                if "does not start with" in str(exc):
+                    # if top_path is not the top path for the path
+                    # Provide more concise specific message without path details
+                    rec.update(skip_file("must be a child of top path"))
+                else:
+                    rec.update(skip_file(exc))
+            out(rec)

@@ -309,6 +309,14 @@ class DandiAPIClient(RESTFullAPIClient):
         return dandiset
 
     def upload(self, dandiset_id, version_id, asset_path, asset_metadata, filepath):
+        for _ in self.iter_upload(
+            dandiset_id, version_id, asset_path, asset_metadata, filepath
+        ):
+            pass
+
+    def iter_upload(
+        self, dandiset_id, version_id, asset_path, asset_metadata, filepath
+    ):
         filehash = Digester(["sha256"])(filepath)["sha256"]
         lgr.debug("Calculated sha256 digest of %s for %s", filehash, filepath)
         try:
@@ -323,17 +331,19 @@ class DandiAPIClient(RESTFullAPIClient):
             lgr.debug("Blob is already uploaded to server")
             blob_exists = True
         if not blob_exists:
+            total_size = os.path.getsize(filepath)
             lgr.debug("Beginning upload")
             resp = self.post(
                 "/uploads/initialize/",
                 json={
                     "file_name": f"{dandiset_id}/{version_id}/{asset_path}",
-                    "file_size": os.path.getsize(filepath),
+                    "file_size": total_size,
                 },
             )
             object_key = resp["object_key"]
             upload_id = resp["upload_id"]
             parts_out = []
+            bytes_uploaded = 0
             with open(filepath, "rb") as fp:
                 for part in resp["parts"]:
                     chunk = fp.read(part["size"])
@@ -347,6 +357,8 @@ class DandiAPIClient(RESTFullAPIClient):
                         part["size"],
                     )
                     r = self.put(part["upload_url"], data=chunk, json_resp=False)
+                    bytes_uploaded += len(chunk)
+                    yield {"current": bytes_uploaded, "total": total_size}
                     parts_out.append(
                         {
                             "part_number": part["part_number"],
