@@ -309,6 +309,21 @@ class DandiAPIClient(RESTFullAPIClient):
         return dandiset
 
     def upload(self, dandiset_id, version_id, asset_path, asset_metadata, filepath):
+        """
+        Parameters
+        ----------
+        dandiset_id: str
+          the ID of the Dandiset to which to upload the file
+        version_id: str
+          the ID of the version of the Dandiset to which to upload the file
+        asset_path: str
+          the POSIX path at which the uploaded file will be placed on the
+          server
+        asset_metadata: dict
+          metadata for the uploaded asset file
+        filepath: str or PathLike
+          the path to the local file to upload
+        """
         for _ in self.iter_upload(
             dandiset_id, version_id, asset_path, asset_metadata, filepath
         ):
@@ -317,6 +332,26 @@ class DandiAPIClient(RESTFullAPIClient):
     def iter_upload(
         self, dandiset_id, version_id, asset_path, asset_metadata, filepath
     ):
+        """
+        Parameters
+        ----------
+        dandiset_id: str
+          the ID of the Dandiset to which to upload the file
+        version_id: str
+          the ID of the version of the Dandiset to which to upload the file
+        asset_path: str
+          the POSIX path at which the uploaded file will be placed on the
+          server
+        asset_metadata: dict
+          metadata for the uploaded asset file
+        filepath: str or PathLike
+          the path to the local file to upload
+
+        Returns
+        -------
+        a generator of `dict`s with ``"current"`` and ``"total"`` keys, giving
+        the number of bytes uploaded so far and in total
+        """
         filehash = Digester(["sha256"])(filepath)["sha256"]
         lgr.debug("Calculated sha256 digest of %s for %s", filehash, filepath)
         try:
