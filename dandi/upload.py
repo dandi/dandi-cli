@@ -790,10 +790,10 @@ def _new_upload(
             # Upload file
             #
             yield {"status": "uploading"}
-            for r in client.iter_upload(dandiset, "draft", relpath, metadata_, path):
-                upload_perc = 100 * ((r["current"] / r["total"]) if r["total"] else 1.0)
-                uploaded_paths[str(path)]["size"] = r["current"]
-                yield {"upload": upload_perc}
+            for r in client.iter_upload(dandiset, "draft", relpath, metadata, path):
+                if r["status"] == "uploading":
+                    uploaded_paths[str(path)]["size"] = r["current"]
+                yield r
             yield {"status": "done"}
 
         except Exception as exc:

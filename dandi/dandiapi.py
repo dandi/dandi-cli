@@ -324,10 +324,11 @@ class DandiAPIClient(RESTFullAPIClient):
         filepath: str or PathLike
           the path to the local file to upload
         """
-        for _ in self.iter_upload(
+        for r in self.iter_upload(
             dandiset_id, version_id, asset_path, asset_metadata, filepath
         ):
-            pass
+            if r["status"] == "validating":
+                sleep(0.1)
 
     def iter_upload(
         self, dandiset_id, version_id, asset_path, asset_metadata, filepath
@@ -349,8 +350,7 @@ class DandiAPIClient(RESTFullAPIClient):
 
         Returns
         -------
-        a generator of `dict`s with ``"current"`` and ``"total"`` keys, giving
-        the number of bytes uploaded so far and in total
+        a generator of `dict`s containing at least a ``"status"`` key
         """
         filehash = Digester(["sha256"])(filepath)["sha256"]
         lgr.debug("Calculated sha256 digest of %s for %s", filehash, filepath)
@@ -393,7 +393,11 @@ class DandiAPIClient(RESTFullAPIClient):
                     )
                     r = self.put(part["upload_url"], data=chunk, json_resp=False)
                     bytes_uploaded += len(chunk)
-                    yield {"current": bytes_uploaded, "total": total_size}
+                    yield {
+                        "status": "uploading",
+                        "upload": 100 * bytes_uploaded / total_size,
+                        "current": bytes_uploaded,
+                    }
                     parts_out.append(
                         {
                             "part_number": part["part_number"],
@@ -425,12 +429,14 @@ class DandiAPIClient(RESTFullAPIClient):
                         f"  Error reported: {resp.get('error')}"
                     )
                 break
-            sleep(0.1)
+            yield {"status": "validating"}
         lgr.debug("Assigning asset blob to dandiset & version")
+        yield {"status": "producing asset"}
         self.post(
             f"/dandisets/{dandiset_id}/versions/{version_id}/assets/",
             json={"path": asset_path, "metadata": asset_metadata, "sha256": filehash},
         )
+        yield {"status": "done"}
 
     def create_dandiset(self, name, metadata):
         return self.post("/dandisets/", json={"name": name, "metadata": metadata})
