@@ -1,4 +1,5 @@
 from datetime import datetime
+import os.path
 
 # PurePosixPath to be cast to for paths on girder
 from pathlib import Path, PurePosixPath
@@ -610,8 +611,8 @@ def _new_upload(
         )
     # this is a path not a girder id
 
-    from .pynwb_utils import ignore_benign_pynwb_warnings, get_object_id
-    from .metadata import get_metadata
+    from .pynwb_utils import ignore_benign_pynwb_warnings
+    from .metadata import nwb2asset
     from .validate import validate_file
     from .utils import find_dandi_files, find_files, path_is_subpath
     from .support.pyout import naturalsize
@@ -685,12 +686,6 @@ def _new_upload(
                 yield skip_file("ERROR: %s" % str(exc)[:50])
                 return
 
-            file_metadata_ = {
-                "uploaded_size": path_stat.st_size,
-                "uploaded_mtime": ensure_strtime(path_stat.st_mtime),
-                # "uploaded_date": None,  # to be filled out upon upload completion
-            }
-
             #
             # Validate first, so we do not bother server at all if not kosher
             #
@@ -724,6 +719,20 @@ def _new_upload(
                 return
 
             #
+            # Compute checksums and possible other digests (e.g. for s3, ipfs - TODO)
+            #
+            yield {"status": "digesting"}
+            try:
+                # TODO: in theory we could also cache the result, but since it is
+                # critical to get correct checksums, safer to just do it all the time.
+                # Should typically be faster than upload itself ;-)
+                digester = Digester(["sha256"])
+                sha256_digest = digester(path)["sha256"]
+            except Exception as exc:
+                yield skip_file("failed to compute digests: %s" % str(exc))
+                return
+
+            #
             # Extract metadata - delayed since takes time, but is done before
             # actual upload, so we could skip if this fails
             #
@@ -732,59 +741,19 @@ def _new_upload(
             # ad-hoc for dandiset.yaml for now
             yield {"status": "extracting metadata"}
             try:
-                metadata = get_metadata(path)
+                metadata = nwb2asset(path, digest=sha256_digest, digest_type="sha256")
             except Exception as exc:
                 if allow_any_path:
                     yield {"status": "failed to extract metadata"}
-                    metadata = {}
+                    metadata = {
+                        "contentSize": os.path.getsize(path),
+                        "digest": sha256_digest,
+                        "digest_type": "sha256",
+                        # "encodingFormat": # TODO
+                    }
                 else:
                     yield skip_file("failed to extract metadata: %s" % str(exc))
                     return
-
-            #
-            # Compute checksums and possible other digests (e.g. for s3, ipfs - TODO)
-            #
-            yield {"status": "digesting"}
-            try:
-                # TODO: in theory we could also cache the result, but since it is
-                # critical to get correct checksums, safer to just do it all the time.
-                # Should typically be faster than upload itself ;-)
-                digester = Digester(metadata_digests)
-                file_metadata_.update(digester(path))
-            except Exception as exc:
-                yield skip_file("failed to compute digests: %s" % str(exc))
-                return
-
-            #
-            # Determine metadata
-            #
-            metadata_ = {}
-            for k, v in metadata.items():
-                if v in ("", None):
-                    continue  # degenerate, why bother
-                # XXX TODO: remove this -- it is only temporary, search should handle
-                if isinstance(v, str):
-                    metadata_[k] = v.lower()
-                elif isinstance(v, datetime):
-                    metadata_[k] = ensure_strtime(v)
-            # we will add some fields which would help us with deciding to
-            # reupload or not
-            # .isoformat() would give is8601 representation but I see in girder
-            # already
-            # session_start_time   1971-01-01 12:00:00+00:00
-            # decided to go for .isoformat for internal consistency -- let's see
-            file_metadata_["uploaded_datetime"] = ensure_strtime(time.time())
-            metadata_.update(file_metadata_)
-            metadata_["uploaded_size"] = path_stat.st_size
-            metadata_["uploaded_mtime"] = ensure_strtime(path_stat.st_mtime)
-            metadata_["uploaded_by"] = "dandi %s" % __version__
-            # Also store object_id for the file to help identify changes/moves
-            try:
-                metadata_["uploaded_nwb_object_id"] = get_object_id(str(path))
-            except Exception as exc:
-                (lgr.debug if allow_any_path else lgr.warning)(
-                    "Failed to read object_id: %s", exc
-                )
 
             #
             # Upload file
