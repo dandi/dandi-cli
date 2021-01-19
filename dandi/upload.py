@@ -51,6 +51,7 @@ def upload(
             instance.api,
             dandiset,
             paths,
+            existing,
             validation,
             dandiset_path,
             allow_any_path,
@@ -591,7 +592,14 @@ def upload(
 
 
 def _new_upload(
-    api_url, dandiset, paths, validation, dandiset_path, allow_any_path, devel_debug
+    api_url,
+    dandiset,
+    paths,
+    existing,
+    validation,
+    dandiset_path,
+    allow_any_path,
+    devel_debug,
 ):
     from .dandiapi import DandiAPIClient
     from .support.digests import Digester
@@ -687,6 +695,40 @@ def _new_upload(
                 return
 
             #
+            # Compute checksums and possible other digests (e.g. for s3, ipfs - TODO)
+            #
+            yield {"status": "digesting"}
+            try:
+                # TODO: in theory we could also cache the result, but since it is
+                # critical to get correct checksums, safer to just do it all the time.
+                # Should typically be faster than upload itself ;-)
+                digester = Digester(["sha256"])
+                sha256_digest = digester(path)["sha256"]
+            except Exception as exc:
+                yield skip_file("failed to compute digests: %s" % str(exc))
+                return
+
+            extant = client.get_asset_bypath(dandiset, "draft", relpath)
+            if extant is not None and extant["sha256"] == sha256_digest:
+                if existing == "error":
+                    # as promised -- not gentle at all!
+                    raise FileExistsError("file exists")
+                if existing == "skip":
+                    yield skip_file("file exists")
+                    return
+                # Logic below only for overwrite and reupload
+                if existing == "overwrite":
+                    if extant["sha256"] == sha256_digest:
+                        yield skip_file("file exists")
+                        return
+                elif existing == "refresh":
+                    pass
+                elif existing == "force":
+                    pass
+                else:
+                    raise ValueError("existing")
+
+            #
             # Validate first, so we do not bother server at all if not kosher
             #
             # TODO: enable back validation of dandiset.yaml
@@ -716,20 +758,6 @@ def _new_upload(
                 # dandiset metadata schema assumptions.  All edits should happen
                 # online.
                 yield skip_file("should be edited online")
-                return
-
-            #
-            # Compute checksums and possible other digests (e.g. for s3, ipfs - TODO)
-            #
-            yield {"status": "digesting"}
-            try:
-                # TODO: in theory we could also cache the result, but since it is
-                # critical to get correct checksums, safer to just do it all the time.
-                # Should typically be faster than upload itself ;-)
-                digester = Digester(["sha256"])
-                sha256_digest = digester(path)["sha256"]
-            except Exception as exc:
-                yield skip_file("failed to compute digests: %s" % str(exc))
                 return
 
             #

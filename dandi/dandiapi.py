@@ -482,3 +482,15 @@ class DandiAPIClient(RESTFullAPIClient):
             self.download_asset(
                 dandiset_id, version, a["uuid"], filepath, chunk_size=chunk_size
             )
+
+    def get_asset_bypath(self, dandiset_id, version, asset_path):
+        try:
+            # Weed out any assets that happen to have the given path as a
+            # proper prefix:
+            (asset,) = (
+                a
+                for a in self.get_dandiset_assets(dandiset_id, version, path=asset_path)
+                if a["path"] == asset_path
+            )
+        except ValueError:
+            return None
