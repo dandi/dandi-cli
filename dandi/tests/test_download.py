@@ -2,13 +2,10 @@ import json
 import os
 import os.path as op
 
-import time
 import tqdm
 
 from ..download import download
-from ..tests.skip import mark
-
-from ..girder import GirderCli, gcl, TQDMProgressReporter
+from ..girder import TQDMProgressReporter
 
 import pytest
 

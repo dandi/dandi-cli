@@ -130,7 +130,8 @@ class _dandi_url_parser:
         "(/(?P<version>([.0-9]{5,}|draft)))?"
         "(/files(\\?location=(?P<location>.*)?)?)?"
         "$": {"server_type": "api"},
-        # But for drafts files navigator it is a bit different beast and there could be no versions, only draft
+        # But for drafts files navigator it is a bit different beast and there
+        # could be no versions, only draft
         # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000027/draft/files?_id=5f176583f63d62e1dbd06943&_modelType=folder
         f"{server_grp}#.*/(?P<asset_type>dandiset)/{dandiset_id_grp}"
         "(/(?P<version>(draft)))?"
