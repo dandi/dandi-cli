@@ -137,7 +137,7 @@ class DandiBaseModel(BaseModel):
 class PropertyValue(DandiBaseModel):
     maxValue: float = Field(None, nskey="schema")
     minValue: float = Field(None, nskey="schema")
-    unitCode: Union[str, AnyUrl] = Field(None, nskey="schema")
+    unitCode: Union[AnyUrl, str] = Field(None, nskey="schema")
     unitText: str = Field(None, nskey="schema")
     value: Union[str, bool, int, float, List[Union[str, bool, int, float]]] = Field(
         None, nskey="schema"
@@ -305,7 +305,7 @@ class Resource(DandiBaseModel):
     identifier: Identifier = Field(None, nskey="schema")
     name: str = Field(None, nskey="schema")
     url: str = Field(None, nskey="schema")
-    repository: Union[str, AnyUrl] = Field(
+    repository: Union[AnyUrl, str] = Field(
         None,
         description="An identifier of a repository in which the resource is housed",
         nskey="dandi",
@@ -524,7 +524,7 @@ class CommonModel(DandiBaseModel):
         description="The subject matter of the content, such as disorders, brain anatomy.",
         nskey="schema",
     )
-    studyTarget: Optional[List[Union[str, AnyUrl]]] = Field(
+    studyTarget: Optional[List[Union[AnyUrl, str]]] = Field(
         None, description="What the study is related to", nskey="dandi"
     )
     license: List[LicenseType] = Field(description="License of item.", nskey="schema")
@@ -602,7 +602,7 @@ class DandiMeta(CommonModel):
 
     # On publish
     version: str = Field(readOnly=True, nskey="schema")
-    doi: Optional[Union[str, AnyUrl]] = Field(
+    doi: Optional[Union[AnyUrl, str]] = Field(
         None, title="DOI", readOnly=True, nskey="dandi"
     )
 
@@ -635,7 +635,7 @@ class AssetMeta(CommonModel):
     )
 
     contentSize: str = Field(nskey="schema")
-    encodingFormat: Union[str, AnyUrl] = Field(
+    encodingFormat: Union[AnyUrl, str] = Field(
         title="File Encoding Format", nskey="schema"
     )
     digest: Digest = Field(nskey="dandi")
