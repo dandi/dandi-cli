@@ -108,10 +108,14 @@ known_instances = {
         "https://girder.dandiarchive.org",
         "https://gui.dandiarchive.org",
         "https://dandiarchive.org",
-        "https://publish.dandiarchive.org/api",  # ? might become api.
+        None,  # publish. is gone, superseded by API which did not yet fully superseded the rest
     ),
     "dandi-api": dandi_instance(
-        1, None, None, None, "https://api.dandiarchive.org/api"
+        1,
+        None,
+        "https://gui.dandiarchive.org",
+        None,
+        "https://api.dandiarchive.org/api",
     ),
     "dandi-api-local-docker-tests": dandi_instance(
         1, None, None, None, f"http://{instancehost}:8000/api"
