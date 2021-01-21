@@ -1,5 +1,6 @@
 from datetime import datetime
 import os.path as op
+from pathlib import Path
 import re
 from uuid import uuid4
 from . import models
@@ -517,3 +518,11 @@ def migrate2newschema(meta):
     newmeta = convertv1(meta)
     dandimeta = models.DandiMeta.unvalidated(**newmeta)
     return dandimeta
+
+
+def publish_model_schemata(releasedir):
+    version = models.CommonModel.__fields__["schemaVersion"].default
+    vdir = Path(releasedir, version)
+    vdir.mkdir(exist_ok=True, parents=True)
+    (vdir / "dandiset.json").write_text(models.DandiMeta.schema_json(indent=2))
+    (vdir / "asset.json").write_text(models.AssetMeta.schema_json(indent=2))
