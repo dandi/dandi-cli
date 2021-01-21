@@ -113,7 +113,7 @@ known_instances = {
     "dandi-api": dandi_instance(
         1,
         None,
-        "https://gui.dandiarchive.org",
+        "https://gui-beta-dandiarchive-org.netlify.app",
         None,
         "https://api.dandiarchive.org/api",
     ),

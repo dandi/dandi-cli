@@ -13,10 +13,10 @@ def _assert_parse_girder_url(url):
     return a, aid
 
 
-def _assert_parse_api_url(url):
+def _assert_parse_api_url(url, instance="dandi-api"):
     st, s, a, aid = parse_dandi_url(url)
     assert st == "api"
-    assert s == known_instances["dandi-api"].api + "/"
+    assert s == known_instances[instance].api + "/"
     return a, aid
 
 
@@ -41,8 +41,7 @@ def test_parse_dandi_url():
     )
 
     # New DANDI web UI driven by DANDI API.
-    # api+ prefix is our convention to force talking to API
-    url1 = "api+https://gui.dandiarchive.org/#/dandiset/000001"
+    url1 = "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/000001"
     assert _assert_parse_api_url(url1) == (
         "dandiset",
         # TODO: in -cli we assume draft, but web ui might be taking the "latest"
@@ -56,6 +55,11 @@ def test_parse_dandi_url():
         "dandiset",
         {"dandiset_id": "000001", "version": "0.201104.2302"},
     )
+
+    assert _assert_parse_api_url(
+        "http://localhost:8000/api/dandisets/000002/versions/draft",
+        instance="dandi-api-local-docker-tests",
+    ) == ("dandiset", {"dandiset_id": "000002", "version": "draft"})
     # TODO: bring it inline with how it would look whenever there is a folder
     # ATM there is not a single dataset with a folder to see how it looks
     # no trailing / - Yarik considers it to be an item (file)

@@ -105,7 +105,9 @@ class _dandi_url_parser:
     id_regex = "[a-f0-9]{24}"
     id_grp = f"(?P<id>{id_regex})"
     dandiset_id_grp = "(?P<dandiset_id>[0-9]{6})"
-    server_grp = "(?P<server>(?P<protocol>https?)://(?P<hostname>[^/]+)/)"
+    server_grp = (
+        "(?P<server>(?P<protocol>https?)://(?P<hostname>[^/]+)/(api/)?)"
+    )  # should absorb port and api/
     known_urls = {
         # Those we first redirect and then handle the redirected URL
         # TODO: Later should better conform to our API, so we could allow
@@ -121,20 +123,30 @@ class _dandi_url_parser:
         "DANDI:": {"rewrite": lambda x: "https://identifiers.org/" + x},
         "https?://dandiarchive.org/.*": {"handle_redirect": "pass"},
         "https?://identifiers.org/DANDI:.*": {"handle_redirect": "pass"},
-        "https?://[^/]*dandiarchive-org.netlify.app/.*": {"map_instance": "dandi"},
         # New DANDI API, ATM can be reached only via enable('DJANGO_API')  in browser console
         # https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302/files
         # TODO: upload something to any dandiset to see what happens when there are files
         # and adjust for how path is provided (if not ?location=)
-        fr"api\+{server_grp}#.*/(?P<asset_type>dandiset)/{dandiset_id_grp}"
+        f"(?P<server>(?P<protocol>https?)://(?P<hostname>gui-beta-dandiarchive-org.netlify.app)/)"
+        f"#/(?P<asset_type>dandiset)/{dandiset_id_grp}"
         "(/(?P<version>([.0-9]{5,}|draft)))?"
-        "(/files(\\?location=(?P<location>.*)?)?)?"
+        f"(/files(\\?location=(?P<location>.*)?)?)?"
+        "$": {"server_type": "api"},
+        #
+        # PRs are also on netlify - so above takes precedence. TODO: make more specific?
+        "https?://[^/]*dandiarchive-org.netlify.app/.*": {"map_instance": "dandi"},
+        #
+        # Direct urls to our new API
+        f"{server_grp}"
+        f"(?P<asset_type>dandiset)s/{dandiset_id_grp}/?"
+        "(versions(/(?P<version>([.0-9]{5,}|draft)))?)?"
         "$": {"server_type": "api"},
         # But for drafts files navigator it is a bit different beast and there
         # could be no versions, only draft
         # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000027/draft/files?_id=5f176583f63d62e1dbd06943&_modelType=folder
-        f"{server_grp}#.*/(?P<asset_type>dandiset)/{dandiset_id_grp}"
-        "(/(?P<version>(draft)))?"
+        f"{server_grp}"
+        f"#/(?P<asset_type>dandiset)/{dandiset_id_grp}"
+        "(/(?P<version>draft))?"
         f"(/files(\\?_id={id_grp}(&_modelType=folder)?)?)?"
         "$": {"server_type": "girder"},
         # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000006/draft
