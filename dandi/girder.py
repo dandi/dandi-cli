@@ -279,6 +279,8 @@ class GirderCli(gcl.GirderClient):
 
     def _traverse_asset_girder(self, g, parent_path=None, recursive=True):
         """Helper which operates on girder record"""
+        import requests
+
         a = self._adapt_record(g)
         if parent_path:
             a["path"] = op.join(parent_path, a["name"])
@@ -290,7 +292,16 @@ class GirderCli(gcl.GirderClient):
             # item should be the one we care about
             pass
         elif a["type"] == "item":
-            file_recs = list(self.listFile(g["_id"]))
+            while True:
+                try:
+                    file_recs = list(self.listFile(g["_id"]))
+                except requests.ConnectionError:
+                    lgr.debug(
+                        "Connection error while listing files; waiting before trying again"
+                    )
+                    time.sleep(0.1)
+                else:
+                    break
             if len(file_recs) > 1:
                 lgr.warning("Multiple files found for %s; using oldest one", a["path"])
                 file_recs = [
