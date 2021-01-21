@@ -708,7 +708,7 @@ def _new_upload(
                 yield skip_file("failed to compute digests: %s" % str(exc))
                 return
 
-            extant = client.get_asset_bypath(dandiset, "draft", relpath)
+            extant = client.get_asset_bypath(ds_identifier, "draft", relpath)
             if extant is not None and extant["sha256"] == sha256_digest:
                 if existing == "error":
                     # as promised -- not gentle at all!
