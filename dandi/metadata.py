@@ -425,18 +425,9 @@ def convertv1(data):
                 out = []
                 for item in value:
                     if isinstance(item, dict):
-                        out.append(
-                            models.Resource.unvalidated(
-                                **{k: v for k, v in item.items()}
-                            )
-                        )
-                    else:
-                        present = False
-                        for val in out:
-                            if item in val.values():
-                                present = True
-                        if not present:
-                            out.append(models.Resource.unvalidated(**{"url": item}))
+                        out.append(models.Resource.unvalidated(**item))
+                    elif not any(item in val.dict().values() for val in out):
+                        out.append(models.Resource.unvalidated(url=item))
                 value = out
             if oldkey in [
                 "number_of_subjects",
