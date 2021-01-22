@@ -249,11 +249,13 @@ def extract_wasDerivedFrom(metadata):
 
 
 def extract_wasAttributedTo(metadata):
-    return [
-        extract_model(
-            models.Participant, metadata, identifier=metadata.get("subject_id")
-        )
-    ]
+    wat = extract_model(
+        models.Participant, metadata, identifier=metadata.get("subject_id")
+    )
+    if all(v is None for v in wat.dict().values()):
+        return []
+    else:
+        return [wat]
 
 
 def extract_digest(metadata):

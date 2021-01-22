@@ -1,7 +1,16 @@
 from datetime import datetime, timedelta
+import json
 from dateutil.tz import tzutc
 import pytest
-from ..metadata import metadata2asset, parse_age, timedelta2duration, migrate2newschema
+from ..metadata import (
+    metadata2asset,
+    parse_age,
+    publish_model_schemata,
+    timedelta2duration,
+    migrate2newschema,
+    validate_asset_json,
+    validate_dandiset_json,
+)
 from ..models import (
     AccessRequirements,
     AccessType,
@@ -21,6 +30,11 @@ from ..models import (
     Person,
     Organization,
 )
+
+
+@pytest.fixture(scope="module")
+def schema_dir(tmp_path_factory):
+    return publish_model_schemata(tmp_path_factory.mktemp("schema_dir"))
 
 
 @pytest.mark.parametrize(
@@ -65,8 +79,8 @@ def test_timedelta2duration(td, duration):
     assert timedelta2duration(td) == duration
 
 
-def test_metadata2asset():
-    assert metadata2asset(
+def test_metadata2asset(schema_dir):
+    data = metadata2asset(
         {
             "contentSize": 69105,
             "digest": "783ad2afe455839e5ab2fa659861f58a423fd17f",
@@ -103,7 +117,8 @@ def test_metadata2asset():
                 "Subject",
             ],
         }
-    ) == AssetMeta.unvalidated(
+    )
+    assert data == AssetMeta.unvalidated(
         schemaVersion="1.0.0-rc1",
         identifier="ABC123",
         name=None,
@@ -189,10 +204,14 @@ def test_metadata2asset():
         ],
         contentUrl=None,
     )
+    # We need to convert `data` to a `dict` this way instead of with `.dict()`
+    # so that enums will be converted to strings.
+    data_as_dict = json.loads(data.json(exclude_unset=True, exclude_none=True))
+    validate_asset_json(data_as_dict, schema_dir)
 
 
-def test_metadata2asset_simple1():
-    assert metadata2asset(
+def test_metadata2asset_simple1(schema_dir):
+    data = metadata2asset(
         {
             "contentSize": 69105,
             "digest": "783ad2afe455839e5ab2fa659861f58a423fd17f",
@@ -218,8 +237,10 @@ def test_metadata2asset_simple1():
             "number_of_electrodes": 0,
             "number_of_units": 0,
             "nd_types": [],
+            "tissue_sample_id": "tissue42",
         }
-    ) == AssetMeta.unvalidated(
+    )
+    assert data == AssetMeta.unvalidated(
         schemaVersion="1.0.0-rc1",
         identifier="identifier1",
         name=None,
@@ -257,30 +278,21 @@ def test_metadata2asset_simple1():
         measurementTechnique=None,
         variableMeasured=None,
         wasDerivedFrom=[
-            BioSample.unvalidated(
-                identifier=None, assayType=None, anatomy=None, wasDerivedFrom=None
+            BioSample(
+                identifier="tissue42", assayType=None, anatomy=None, wasDerivedFrom=None
             )
         ],
-        wasAttributedTo=[
-            Participant.unvalidated(
-                identifier=None,
-                source_id=None,
-                strain=None,
-                cellLine=None,
-                vendor=None,
-                age=None,
-                sex=None,
-                genotype=None,
-                species=None,
-                disorder=None,
-            )
-        ],
+        wasAttributedTo=[],
         contentUrl=None,
     )
+    # We need to convert `data` to a `dict` this way instead of with `.dict()`
+    # so that enums will be converted to strings.
+    data_as_dict = json.loads(data.json(exclude_unset=True, exclude_none=True))
+    validate_asset_json(data_as_dict, schema_dir)
 
 
-def test_dandimeta_migration():
-    assert migrate2newschema(
+def test_dandimeta_migration(schema_dir):
+    data = migrate2newschema(
         {
             "dandiset": {
                 "access": {
@@ -539,7 +551,7 @@ def test_dandimeta_migration():
                     "single-neurons",
                 ],
                 "language": "English",
-                "license": "CC-BY-4.0",
+                "license": ["dandi:CCBY40"],
                 "name": (
                     "A NWB-based dataset and processing pipeline of human"
                     " single-neuron activity during a declarative memory task"
@@ -576,7 +588,8 @@ def test_dandimeta_migration():
                 ],
             }
         }
-    ) == DandiMeta.unvalidated(
+    )
+    assert data == DandiMeta.unvalidated(
         access=[
             AccessRequirements(
                 status=AccessType.Open,
@@ -1233,7 +1246,7 @@ def test_dandimeta_migration():
             "open source",
             "single-neurons",
         ],
-        license="CC-BY-4.0",
+        license=["dandi:CCBY40"],
         name=(
             "A NWB-based dataset and processing pipeline of human single-neuron"
             " activity during a declarative memory task"
@@ -1252,3 +1265,7 @@ def test_dandimeta_migration():
         version=None,
         doi=None,
     )
+    # We need to convert `data` to a `dict` this way instead of with `.dict()`
+    # so that enums will be converted to strings.
+    data_as_dict = json.loads(data.json(exclude_unset=True, exclude_none=True))
+    validate_dandiset_json(data_as_dict, schema_dir)
