@@ -1,5 +1,5 @@
 from enum import Enum
-from pydantic import BaseModel, Field, AnyUrl, EmailStr, validator
+from pydantic import BaseModel, ByteSize, Field, AnyUrl, EmailStr, validator
 from typing import Dict, List, Union, Optional, Any, Type
 from datetime import date
 from ruamel import yaml
@@ -15,6 +15,8 @@ from .model_types import (
 )
 
 from .utils import name2title
+
+TempOptional = Optional
 
 
 def create_enum(data):
@@ -592,16 +594,16 @@ class DandiMeta(CommonModel):
         min_items=1,
     )
 
-    citation: str = Field(readOnly=True, nskey="schema")
+    citation: TempOptional[str] = Field(readOnly=True, nskey="schema")
 
     # From assets
-    assetsSummary: AssetsSummary = Field(readOnly=True, nskey="dandi")
+    assetsSummary: TempOptional[AssetsSummary] = Field(readOnly=True, nskey="dandi")
 
     # From server (requested by users even for drafts)
-    manifestLocation: List[AnyUrl] = Field(readOnly=True, nskey="dandi")
+    manifestLocation: TempOptional[List[AnyUrl]] = Field(readOnly=True, nskey="dandi")
 
     # On publish
-    version: str = Field(readOnly=True, nskey="schema")
+    version: TempOptional[str] = Field(readOnly=True, nskey="schema")
     doi: Optional[Union[AnyUrl, str]] = Field(
         None, title="DOI", readOnly=True, nskey="dandi"
     )
@@ -634,7 +636,7 @@ class AssetMeta(CommonModel):
         None, description="License of item", nskey="schema"
     )
 
-    contentSize: str = Field(nskey="schema")
+    contentSize: ByteSize = Field(nskey="schema")
     encodingFormat: Union[AnyUrl, str] = Field(
         title="File Encoding Format", nskey="schema"
     )

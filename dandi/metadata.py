@@ -1,7 +1,10 @@
 from datetime import datetime
+import json
 import os.path as op
+from pathlib import Path
 import re
 from uuid import uuid4
+import jsonschema
 from . import models
 from .pynwb_utils import (
     _get_pynwb_metadata,
@@ -246,11 +249,13 @@ def extract_wasDerivedFrom(metadata):
 
 
 def extract_wasAttributedTo(metadata):
-    return [
-        extract_model(
-            models.Participant, metadata, identifier=metadata.get("subject_id")
-        )
-    ]
+    wat = extract_model(
+        models.Participant, metadata, identifier=metadata.get("subject_id")
+    )
+    if all(v is None for v in wat.dict().values()):
+        return []
+    else:
+        return [wat]
 
 
 def extract_digest(metadata):
@@ -508,3 +513,24 @@ def migrate2newschema(meta):
     newmeta = convertv1(meta)
     dandimeta = models.DandiMeta.unvalidated(**newmeta)
     return dandimeta
+
+
+def publish_model_schemata(releasedir):
+    version = models.CommonModel.__fields__["schemaVersion"].default
+    vdir = Path(releasedir, version)
+    vdir.mkdir(exist_ok=True, parents=True)
+    (vdir / "dandiset.json").write_text(models.DandiMeta.schema_json(indent=2))
+    (vdir / "asset.json").write_text(models.AssetMeta.schema_json(indent=2))
+    return vdir
+
+
+def validate_dandiset_json(data, schema_dir):
+    with Path(schema_dir, "dandiset.json").open() as fp:
+        schema = json.load(fp)
+    jsonschema.validate(data, schema)
+
+
+def validate_asset_json(data, schema_dir):
+    with Path(schema_dir, "asset.json").open() as fp:
+        schema = json.load(fp)
+    jsonschema.validate(data, schema)
