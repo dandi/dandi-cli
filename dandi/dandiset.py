@@ -32,6 +32,7 @@ class Dandiset(object):
         """Find a dandiset possibly pointing to a directory within it
         """
         dandiset_path = find_parent_directory_containing(dandiset_metadata_file, path)
+        # TODO?: identify "class" for the dandiset to use (this one or APIDandiset)
         if dandiset_path:
             return cls(dandiset_path)
         return None
@@ -120,3 +121,23 @@ class Dandiset(object):
                 f"Found no dandiset.identifier in metadata record: {self.metadata}"
             )
         return id_
+
+
+class APIDandiset(Dandiset):
+    """A dandiset to replace "classical" Dandiset whenever we migrate to new API based server"""
+
+    def _load_metadata(self):
+        from .metadata import migrate2newschema
+
+        super()._load_metadata()
+        if self.metadata is None:
+            # can do nothing
+            return
+        # deduce either it is a new or old style metadata which would need to be converted
+        if (
+            "schemaVersion" in self.metadata
+            or self.metadata.get("identifier", {}).get("propertyID") == "DANDI"
+        ):
+            # new already, no conversion necessary
+            return
+        self.metadata = migrate2newschema(self.metadata)
