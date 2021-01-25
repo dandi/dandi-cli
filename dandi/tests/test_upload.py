@@ -265,5 +265,6 @@ def test_new_upload_download(
         f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
         tmp_path,
     )
-    nwb_file2, = tmp_path.glob(f"*{os.sep}*.nwb")
-    assert nwb_file2 == nwb_file
+    nwb_file2, = tmp_path.glob(f"{dandiset_id}{os.sep}*{os.sep}*.nwb")
+    assert nwb_file.name == nwb_file2.name
+    assert nwb_file.parent.name == nwb_file2.parent.name

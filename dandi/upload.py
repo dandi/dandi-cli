@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 import os.path
 
 # PurePosixPath to be cast to for paths on girder
@@ -770,7 +771,9 @@ def _new_upload(
             # ad-hoc for dandiset.yaml for now
             yield {"status": "extracting metadata"}
             try:
-                metadata = nwb2asset(path, digest=sha256_digest, digest_type="SHA256")
+                asset_metadata = nwb2asset(
+                    path, digest=sha256_digest, digest_type="SHA256"
+                )
             except Exception as exc:
                 if allow_any_path:
                     yield {"status": "failed to extract metadata"}
@@ -783,12 +786,20 @@ def _new_upload(
                 else:
                     yield skip_file("failed to extract metadata: %s" % str(exc))
                     return
+            else:
+                # We need to convert to a `dict` this way instead of with
+                # `.dict()` so that enums will be converted to strings.
+                metadata = json.loads(
+                    asset_metadata.json(exclude_unset=True, exclude_none=True)
+                )
 
             #
             # Upload file
             #
             yield {"status": "uploading"}
-            for r in client.iter_upload(dandiset, "draft", relpath, metadata, path):
+            for r in client.iter_upload(
+                ds_identifier, "draft", str(relpath), metadata, str(path)
+            ):
                 if r["status"] == "uploading":
                     uploaded_paths[str(path)]["size"] = r["current"]
                 yield r
