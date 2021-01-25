@@ -142,7 +142,7 @@ class GirderCli(gcl.GirderClient):
 
     def dandi_authenticate(self):
         # Shortcut for advanced folks
-        api_key = os.environ.get("DANDI_API_KEY", None)
+        api_key = os.environ.get("DANDI_GIRDER_API_KEY", None)
         if api_key:
             self.authenticate(apiKey=api_key)
             lgr.debug("Successfully authenticated using the key from the envvar")

@@ -64,7 +64,7 @@ def test_lock_dandiset_unlock_within(local_docker_compose_env):
 
 
 def test_dandi_authenticate_no_env_var(local_docker_compose_env, monkeypatch, mocker):
-    monkeypatch.delenv("DANDI_API_KEY", raising=False)
+    monkeypatch.delenv("DANDI_GIRDER_API_KEY", raising=False)
     monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyring.backends.null.Keyring")
     inputmock = mocker.patch(
         "dandi.girder.input", return_value=local_docker_compose_env["api_key"]
@@ -79,7 +79,7 @@ def test_dandi_authenticate_no_env_var(local_docker_compose_env, monkeypatch, mo
 def test_dandi_authenticate_no_env_var_ask_twice(
     local_docker_compose_env, monkeypatch, mocker
 ):
-    monkeypatch.delenv("DANDI_API_KEY", raising=False)
+    monkeypatch.delenv("DANDI_GIRDER_API_KEY", raising=False)
     monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyring.backends.null.Keyring")
     keyiter = iter(["badkey", local_docker_compose_env["api_key"]])
     inputmock = mocker.patch("dandi.girder.input", side_effect=lambda _: next(keyiter))

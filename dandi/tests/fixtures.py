@@ -320,7 +320,7 @@ def local_docker_compose(docker_compose_setup):
 
 @pytest.fixture()
 def local_docker_compose_env(local_docker_compose, monkeypatch):
-    monkeypatch.setenv("DANDI_API_KEY", local_docker_compose["api_key"])
+    monkeypatch.setenv("DANDI_GIRDER_API_KEY", local_docker_compose["api_key"])
     return local_docker_compose
 
 
