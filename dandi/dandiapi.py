@@ -402,46 +402,48 @@ class DandiAPIClient(RESTFullAPIClient):
             upload_id = resp["upload_id"]
             parts_out = []
             bytes_uploaded = 0
-            with open(filepath, "rb") as fp:
-                for part in resp["parts"]:
-                    chunk = fp.read(part["size"])
-                    if len(chunk) != part["size"]:
-                        raise RuntimeError(
-                            f"End of file {filepath} reached unexpectedly early"
+            storage = RESTFullAPIClient("http://nil.nil")
+            with storage.session():
+                with open(filepath, "rb") as fp:
+                    for part in resp["parts"]:
+                        chunk = fp.read(part["size"])
+                        if len(chunk) != part["size"]:
+                            raise RuntimeError(
+                                f"End of file {filepath} reached unexpectedly early"
+                            )
+                        lgr.debug(
+                            "Uploading part %d (%d bytes)",
+                            part["part_number"],
+                            part["size"],
                         )
-                    lgr.debug(
-                        "Uploading part %d (%d bytes)",
-                        part["part_number"],
-                        part["size"],
-                    )
-                    r = self.put(part["upload_url"], data=chunk, json_resp=False)
-                    bytes_uploaded += len(chunk)
-                    yield {
-                        "status": "uploading",
-                        "upload": 100 * bytes_uploaded / total_size,
-                        "current": bytes_uploaded,
-                    }
-                    parts_out.append(
-                        {
-                            "part_number": part["part_number"],
-                            "size": part["size"],
-                            "etag": r.headers["ETag"],
+                        r = storage.put(part["upload_url"], data=chunk, json_resp=False)
+                        bytes_uploaded += len(chunk)
+                        yield {
+                            "status": "uploading",
+                            "upload": 100 * bytes_uploaded / total_size,
+                            "current": bytes_uploaded,
                         }
-                    )
-            lgr.debug("Completing upload")
-            resp = self.post(
-                "/uploads/complete/",
-                json={
-                    "object_key": object_key,
-                    "upload_id": upload_id,
-                    "parts": parts_out,
-                },
-            )
-            self.post(resp["complete_url"], data=resp["body"], json_resp=False)
-            self.post(
-                "/uploads/validate/",
-                json={"sha256": filehash, "object_key": object_key},
-            )
+                        parts_out.append(
+                            {
+                                "part_number": part["part_number"],
+                                "size": part["size"],
+                                "etag": r.headers["ETag"],
+                            }
+                        )
+                lgr.debug("Completing upload")
+                resp = self.post(
+                    "/uploads/complete/",
+                    json={
+                        "object_key": object_key,
+                        "upload_id": upload_id,
+                        "parts": parts_out,
+                    },
+                )
+                storage.post(resp["complete_url"], data=resp["body"], json_resp=False)
+                self.post(
+                    "/uploads/validate/",
+                    json={"sha256": filehash, "object_key": object_key},
+                )
         while True:
             lgr.debug("Waiting for server-side validation to complete")
             resp = self.get(f"/uploads/validations/{filehash}/")
