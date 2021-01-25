@@ -608,8 +608,15 @@ def _new_upload(
     client = DandiAPIClient(api_url)
     client.dandi_authenticate()
 
-    ds_identifier = _get_ds_identifier(dandiset)
+    ds_identifier = dandiset.identifier
     # this is a path not a girder id
+
+    if not re.match(dandiset_identifier_regex, str(ds_identifier)):
+        raise ValueError(
+            f"Dandiset identifier {ds_identifier} does not follow expected "
+            f"convention {dandiset_identifier_regex!r}.  Use "
+            f"'dandi register' to get a legit identifier"
+        )
 
     from .pynwb_utils import ignore_benign_pynwb_warnings
     from .metadata import nwb2asset
@@ -855,32 +862,3 @@ def _new_upload(
                 else:
                     rec.update(skip_file(exc))
             out(rec)
-
-
-def _get_ds_identifier(dandiset):
-    """A little helper to absorb logic for getting dataset identifier which is in flux ATM
-    """
-    identifier = dandiset.identifier
-    if not identifier:
-        # Note: this is not reachable ATM since it would just blow up with ValueError in dandiset.identifier above
-        raise ValueError(
-            "No 'identifier' set for the dandiset yet.  Use 'dandi register'"
-        )
-    if isinstance(identifier, str):
-        # we just have a plain identifier. In principle should not happen
-        # but since API and model is still in flux, let's allow for that:
-        ds_identifier = identifier
-    elif not (isinstance(identifier, dict) and identifier.get("propertyID") == "DANDI"):
-        raise ValueError(
-            f"Got following identifier when was expecting a record with 'propertyID: DANDI': "
-            f"{identifier}"
-        )
-    else:
-        ds_identifier = str(identifier.get("value", ""))
-    if not re.match(dandiset_identifier_regex, ds_identifier):
-        raise ValueError(
-            f"Dandiset identifier {ds_identifier} does not follow expected "
-            f"convention {dandiset_identifier_regex!r}.  Use "
-            f"'dandi register' to get a legit identifier"
-        )
-    return ds_identifier
