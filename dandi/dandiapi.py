@@ -265,6 +265,13 @@ class DandiAPIClient(RESTFullAPIClient):
             self.get(f"/dandisets/{dandiset_id}/versions/{version}/")
         )
 
+    def set_dandiset_metadata(self, dandiset_id, *, metadata):
+        # CLI should not update metadata for released dandisets so always "draft"
+        return self.put(
+            f"/dandisets/{dandiset_id}/versions/draft/",
+            json={"metadata": metadata, "name": metadata.get("name", "")},
+        )
+
     def get_dandiset_assets(self, dandiset_id, version, page_size=None, path=None):
         """ A generator to provide asset records """
         resp = self.get(

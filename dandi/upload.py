@@ -29,6 +29,7 @@ def upload(
     dandi_instance="dandi",
     fake_data=False,  # TODO: not implemented, prune?
     allow_any_path=False,
+    upload_dandiset_metadata=False,
     devel_debug=False,
 ):
     from . import girder
@@ -56,7 +57,13 @@ def upload(
             validation,
             dandiset_path,
             allow_any_path,
+            upload_dandiset_metadata,
             devel_debug,
+        )
+
+    if upload_dandiset_metadata:
+        raise NotImplementedError(
+            "Upload of dandiset metadata to Girder based server is not supported."
         )
 
     client = girder.get_client(instance.girder)
@@ -600,13 +607,17 @@ def _new_upload(
     validation,
     dandiset_path,
     allow_any_path,
+    upload_dandiset_metadata,
     devel_debug,
 ):
     from .dandiapi import DandiAPIClient
+    from .dandiset import APIDandiset
     from .support.digests import Digester
 
     client = DandiAPIClient(api_url)
     client.dandi_authenticate()
+
+    dandiset = APIDandiset(dandiset.path)  # "cast" to a new API based dandiset
 
     ds_identifier = dandiset.identifier
     # this is a path not a girder id
@@ -756,7 +767,14 @@ def _new_upload(
                 # TODO This is a temporary measure to avoid breaking web UI
                 # dandiset metadata schema assumptions.  All edits should happen
                 # online.
-                yield skip_file("should be edited online")
+                if upload_dandiset_metadata:
+                    yield {"status": "updating metadata"}
+                    client.set_dandiset_metadata(
+                        dandiset.identifier, metadata=dandiset.metadata
+                    )
+                    yield {"status": "updated metadata"}
+                else:
+                    yield skip_file("should be edited online")
                 return
 
             #

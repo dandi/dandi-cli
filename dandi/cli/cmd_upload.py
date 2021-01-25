@@ -58,6 +58,12 @@ from ..consts import collection_drafts
     default=False,
     is_flag=True,
 )
+@devel_option(
+    "--upload-dandiset-metadata",
+    help="For development: do upload dandiset metadata",
+    default=False,
+    is_flag=True,
+)
 @devel_debug_option()
 @map_to_click_exceptions
 def upload(
@@ -71,6 +77,7 @@ def upload(
     dandi_instance="dandi",
     fake_data=False,  # TODO: not implemented, prune?
     allow_any_path=False,
+    upload_dandiset_metadata=False,
     devel_debug=False,
 ):
     """Upload dandiset (files) to DANDI archive.
@@ -98,5 +105,6 @@ def upload(
         dandi_instance=dandi_instance,
         fake_data=fake_data,
         allow_any_path=allow_any_path,
+        upload_dandiset_metadata=upload_dandiset_metadata,
         devel_debug=devel_debug,
     )
