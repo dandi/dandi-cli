@@ -1,5 +1,5 @@
 from enum import Enum
-from pydantic import BaseModel, Field, AnyUrl, EmailStr, validator
+from pydantic import BaseModel, ByteSize, Field, AnyUrl, EmailStr, validator
 from typing import Dict, List, Union, Optional, Any, Type
 from datetime import date
 from ruamel import yaml
@@ -15,6 +15,8 @@ from .model_types import (
 )
 
 from .utils import name2title
+
+TempOptional = Optional
 
 
 def create_enum(data):
@@ -137,7 +139,7 @@ class DandiBaseModel(BaseModel):
 class PropertyValue(DandiBaseModel):
     maxValue: float = Field(None, nskey="schema")
     minValue: float = Field(None, nskey="schema")
-    unitCode: Union[str, AnyUrl] = Field(None, nskey="schema")
+    unitCode: Union[AnyUrl, str] = Field(None, nskey="schema")
     unitText: str = Field(None, nskey="schema")
     value: Union[str, bool, int, float, List[Union[str, bool, int, float]]] = Field(
         None, nskey="schema"
@@ -305,7 +307,7 @@ class Resource(DandiBaseModel):
     identifier: Identifier = Field(None, nskey="schema")
     name: str = Field(None, nskey="schema")
     url: str = Field(None, nskey="schema")
-    repository: Union[str, AnyUrl] = Field(
+    repository: Union[AnyUrl, str] = Field(
         None,
         description="An identifier of a repository in which the resource is housed",
         nskey="dandi",
@@ -524,7 +526,7 @@ class CommonModel(DandiBaseModel):
         description="The subject matter of the content, such as disorders, brain anatomy.",
         nskey="schema",
     )
-    studyTarget: Optional[List[Union[str, AnyUrl]]] = Field(
+    studyTarget: Optional[List[Union[AnyUrl, str]]] = Field(
         None, description="What the study is related to", nskey="dandi"
     )
     license: List[LicenseType] = Field(description="License of item.", nskey="schema")
@@ -592,17 +594,17 @@ class DandiMeta(CommonModel):
         min_items=1,
     )
 
-    citation: str = Field(readOnly=True, nskey="schema")
+    citation: TempOptional[str] = Field(readOnly=True, nskey="schema")
 
     # From assets
-    assetsSummary: AssetsSummary = Field(readOnly=True, nskey="dandi")
+    assetsSummary: TempOptional[AssetsSummary] = Field(readOnly=True, nskey="dandi")
 
     # From server (requested by users even for drafts)
-    manifestLocation: List[AnyUrl] = Field(readOnly=True, nskey="dandi")
+    manifestLocation: TempOptional[List[AnyUrl]] = Field(readOnly=True, nskey="dandi")
 
     # On publish
-    version: str = Field(readOnly=True, nskey="schema")
-    doi: Optional[Union[str, AnyUrl]] = Field(
+    version: TempOptional[str] = Field(readOnly=True, nskey="schema")
+    doi: Optional[Union[AnyUrl, str]] = Field(
         None, title="DOI", readOnly=True, nskey="dandi"
     )
 
@@ -634,8 +636,8 @@ class AssetMeta(CommonModel):
         None, description="License of item", nskey="schema"
     )
 
-    contentSize: str = Field(nskey="schema")
-    encodingFormat: Union[str, AnyUrl] = Field(
+    contentSize: ByteSize = Field(nskey="schema")
+    encodingFormat: Union[AnyUrl, str] = Field(
         title="File Encoding Format", nskey="schema"
     )
     digest: Digest = Field(nskey="dandi")
