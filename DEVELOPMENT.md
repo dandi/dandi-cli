@@ -42,8 +42,11 @@ development command line options.
   All those options would otherwise be hidden from the user visible (`--help`)
   interface, unless this env variable is set to non-empty value
 
+- `DANDI_API_KEY` -- avoids using keyrings, thus making it possible to
+  "temporarily" use another account etc for the "API" version of the server.
+
 - `DANDI_GIRDER_API_KEY` -- avoids using keyrings, thus making it possible to
-  "temporarily" use another account etc.
+  "temporarily" use another account etc for the Girder version of the server.
 
 - `DANDI_LOG_LEVEL` -- set log level. By default `INFO`, should be an int (`10` - `DEBUG`).
 
