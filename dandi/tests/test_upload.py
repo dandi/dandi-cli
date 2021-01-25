@@ -259,6 +259,7 @@ def test_new_upload_download(
         f"identifier: '{dandiset_id}'\n"
     )
     monkeypatch.chdir(organized_nwb_dir)
+    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
     upload(paths=[], dandi_instance=local_dandi_api["instance_id"], devel_debug=True)
     download(
         f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",

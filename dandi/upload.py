@@ -605,6 +605,7 @@ def _new_upload(
     from .support.digests import Digester
 
     client = DandiAPIClient(api_url)
+    client.dandi_authenticate()
 
     ds_identifier = dandiset.identifier
     if not ds_identifier:

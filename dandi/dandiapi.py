@@ -5,7 +5,8 @@ from time import sleep
 import requests
 
 from . import get_logger
-from .consts import MAX_CHUNK_SIZE
+from .consts import MAX_CHUNK_SIZE, known_instances_rev
+from .girder import keyring_lookup
 from .support.digests import Digester
 
 lgr = get_logger()
@@ -219,7 +220,29 @@ class DandiAPIClient(RESTFullAPIClient):
     def __init__(self, api_url, token=None):
         super().__init__(api_url)
         if token is not None:
-            self._headers["Authorization"] = f"token {token}"
+            self.authenticate(token)
+
+    def authenticate(self, token):
+        self._headers["Authorization"] = f"token {token}"
+
+    def dandi_authenticate(self):
+        # Shortcut for advanced folks
+        api_key = os.environ.get("DANDI_API_KEY", None)
+        if api_key:
+            self.authenticate(api_key)
+            lgr.debug("Successfully authenticated using the key from the envvar")
+            return
+        if self.api_url in known_instances_rev:
+            client_name = known_instances_rev[self.api_url]
+        else:
+            raise NotImplementedError("TODO client name derivation for keyring")
+        app_id = f"dandi-api-{client_name}"
+        keyring_backend, api_key = keyring_lookup(app_id, "key")
+        if not api_key:
+            api_key = input(f"Please provide API Key for {client_name}: ")
+            keyring_backend.set_password(app_id, "key", api_key)
+            lgr.debug("Stored key in keyring")
+        self.authenticate(api_key)
 
     def get_asset(self, dandiset_id, version, uuid):
         """
