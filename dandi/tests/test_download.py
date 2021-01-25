@@ -2,69 +2,12 @@ import json
 import os
 import os.path as op
 
-import time
 import tqdm
 
 from ..download import download
-from ..tests.skip import mark
-
-from ..girder import GirderCli, gcl, TQDMProgressReporter
+from ..girder import TQDMProgressReporter
 
 import pytest
-
-
-@mark.skipif_no_network
-def test_download_multiple_files(monkeypatch, tmpdir):
-    url = (
-        "https://gui.dandiarchive.org/#/folder/5e70d3173da50caa9adaf334/selected/"
-        "item+5e70d3173da50caa9adaf335/item+5e70d3183da50caa9adaf336"
-    )
-
-    # In 0.6 RF of download we stopped using girder's downloadFile.
-    # But we still do up to 3 tries also while getting the downloadFileAsIterator,
-    # to this test will test those retries.
-    # While at it we will also test girder downloadFile to retry at least 3 times
-    # in case of some errors, and that it sleeps between retries
-    orig_sendRestRequest = GirderCli.sendRestRequest
-
-    class Mocks:
-        ntries = 0
-        sleeps = 0
-
-        @staticmethod
-        def sendRestRequest(self, *args, **kwargs):
-            if (
-                len(args) > 1
-                and args[1].startswith("file/")
-                and args[1].endswith("/download")
-            ):
-                Mocks.ntries += 1
-                if Mocks.ntries < 3:
-                    raise gcl.HttpError(
-                        text="Failing to download", url=url, method="GET", status=500
-                    )
-            return orig_sendRestRequest(self, *args, **kwargs)
-
-        @staticmethod
-        def sleep(duration):
-            Mocks.sleeps += duration
-            # no actual sleeping
-
-    monkeypatch.setattr(GirderCli, "sendRestRequest", Mocks.sendRestRequest)
-    monkeypatch.setattr(time, "sleep", Mocks.sleep)  # to not sleep in the test
-
-    ret = download(url, tmpdir)
-    assert not ret  # we return nothing ATM, might want to "generate"
-
-    assert Mocks.ntries == 3 + 1  # 3 on the first since 2 fail + 1 on 2nd file
-    assert Mocks.sleeps >= 2  # slept at least 1 sec each time
-
-    downloads = (x.basename for x in tmpdir.listdir())
-    assert sorted(downloads) == [
-        "sub-anm372795_ses-20170714.nwb",
-        "sub-anm372795_ses-20170715.nwb",
-    ]
-    assert all(x.lstat().size > 1e5 for x in tmpdir.listdir())  # all bigish files
 
 
 # both urls point to 000027 (lean test dataset), and both draft and "released"

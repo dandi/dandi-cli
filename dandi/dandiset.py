@@ -92,11 +92,23 @@ class Dandiset(object):
         # and from published versions, we will just test both locations
         id_ = metadata.get("dandiset", {}).get("identifier")
         if id_:
+            # very old but might still be present... TODO: API-migration-remove
             lgr.debug("Found identifier %s in 'dandiset.identifier'", id_)
 
         if not id_ and "identifier" in metadata:
+            # girder-based, used before migration to API  TODO: API-migration-remove
             id_ = metadata["identifier"]
-            lgr.debug("Found identifier %s in top level 'identifier'", id_)
+            lgr.debug("Found identifier %s in top level 'identifier'", str(id_))
+
+        if isinstance(id_, dict):
+            # New formalized model.
+            # TODO: add schemaVersion handling
+            if id_.get("propertyID") != "DANDI":
+                raise ValueError(
+                    f"Got following identifier record when was expecting a record "
+                    f"with 'propertyID: DANDI': {id_}"
+                )
+            id_ = str(id_.get("value", ""))
 
         return id_
 

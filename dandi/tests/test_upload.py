@@ -6,6 +6,7 @@ import responses
 
 from .. import girder
 from ..consts import collection_drafts, dandiset_metadata_file
+from ..dandiapi import DandiAPIClient
 from ..dandiset import Dandiset
 from ..download import download
 from ..register import register
@@ -242,3 +243,28 @@ def test_enormous_upload_breaks_girder(
             bigfile.unlink()
         except FileNotFoundError:
             pass
+
+
+def test_new_upload_download(
+    local_dandi_api, mocker, monkeypatch, organized_nwb_dir, tmp_path
+):
+    client = DandiAPIClient(
+        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
+    )
+    with client.session():
+        r = client.create_dandiset("Test Dandiset", {})
+    dandiset_id = r["identifier"]
+    nwb_file, = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
+    (organized_nwb_dir / dandiset_metadata_file).write_text(
+        f"identifier: '{dandiset_id}'\n"
+    )
+    monkeypatch.chdir(organized_nwb_dir)
+    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
+    upload(paths=[], dandi_instance=local_dandi_api["instance_id"], devel_debug=True)
+    download(
+        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
+        tmp_path,
+    )
+    nwb_file2, = tmp_path.glob(f"{dandiset_id}{os.sep}*{os.sep}*.nwb")
+    assert nwb_file.name == nwb_file2.name
+    assert nwb_file.parent.name == nwb_file2.parent.name

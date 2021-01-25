@@ -5,7 +5,8 @@ from time import sleep
 import requests
 
 from . import get_logger
-from .consts import MAX_CHUNK_SIZE
+from .consts import MAX_CHUNK_SIZE, known_instances_rev
+from .girder import keyring_lookup
 from .support.digests import Digester
 
 lgr = get_logger()
@@ -141,10 +142,9 @@ class RESTFullAPIClient(object):
 
         # If success, return the json object. Otherwise throw an exception.
         if not result.ok:
-            raise requests.HTTPError(
-                f"Error {result.status_code} while sending {method} request to {url}",
-                response=result,
-            )
+            msg = f"Error {result.status_code} while sending {method} request to {url}"
+            lgr.debug(f"{msg}: {result.text}")
+            raise requests.HTTPError(msg, response=result)
 
         if json_resp:
             if result.text.strip():
@@ -219,7 +219,29 @@ class DandiAPIClient(RESTFullAPIClient):
     def __init__(self, api_url, token=None):
         super().__init__(api_url)
         if token is not None:
-            self._headers["Authorization"] = f"token {token}"
+            self.authenticate(token)
+
+    def authenticate(self, token):
+        self._headers["Authorization"] = f"token {token}"
+
+    def dandi_authenticate(self):
+        # Shortcut for advanced folks
+        api_key = os.environ.get("DANDI_API_KEY", None)
+        if api_key:
+            self.authenticate(api_key)
+            lgr.debug("Successfully authenticated using the key from the envvar")
+            return
+        if self.api_url in known_instances_rev:
+            client_name = known_instances_rev[self.api_url]
+        else:
+            raise NotImplementedError("TODO client name derivation for keyring")
+        app_id = f"dandi-api-{client_name}"
+        keyring_backend, api_key = keyring_lookup(app_id, "key")
+        if not api_key:
+            api_key = input(f"Please provide API Key for {client_name}: ")
+            keyring_backend.set_password(app_id, "key", api_key)
+            lgr.debug("Stored key in keyring")
+        self.authenticate(api_key)
 
     def get_asset(self, dandiset_id, version, uuid):
         """
@@ -309,6 +331,49 @@ class DandiAPIClient(RESTFullAPIClient):
         return dandiset
 
     def upload(self, dandiset_id, version_id, asset_path, asset_metadata, filepath):
+        """
+        Parameters
+        ----------
+        dandiset_id: str
+          the ID of the Dandiset to which to upload the file
+        version_id: str
+          the ID of the version of the Dandiset to which to upload the file
+        asset_path: str
+          the POSIX path at which the uploaded file will be placed on the
+          server
+        asset_metadata: dict
+          metadata for the uploaded asset file
+        filepath: str or PathLike
+          the path to the local file to upload
+        """
+        for r in self.iter_upload(
+            dandiset_id, version_id, asset_path, asset_metadata, filepath
+        ):
+            if r["status"] == "validating":
+                sleep(0.1)
+
+    def iter_upload(
+        self, dandiset_id, version_id, asset_path, asset_metadata, filepath
+    ):
+        """
+        Parameters
+        ----------
+        dandiset_id: str
+          the ID of the Dandiset to which to upload the file
+        version_id: str
+          the ID of the version of the Dandiset to which to upload the file
+        asset_path: str
+          the POSIX path at which the uploaded file will be placed on the
+          server
+        asset_metadata: dict
+          metadata for the uploaded asset file
+        filepath: str or PathLike
+          the path to the local file to upload
+
+        Returns
+        -------
+        a generator of `dict`s containing at least a ``"status"`` key
+        """
         filehash = Digester(["sha256"])(filepath)["sha256"]
         lgr.debug("Calculated sha256 digest of %s for %s", filehash, filepath)
         try:
@@ -323,51 +388,61 @@ class DandiAPIClient(RESTFullAPIClient):
             lgr.debug("Blob is already uploaded to server")
             blob_exists = True
         if not blob_exists:
+            total_size = os.path.getsize(filepath)
             lgr.debug("Beginning upload")
             resp = self.post(
                 "/uploads/initialize/",
                 json={
                     "file_name": f"{dandiset_id}/{version_id}/{asset_path}",
-                    "file_size": os.path.getsize(filepath),
+                    "file_size": total_size,
                 },
             )
             object_key = resp["object_key"]
             upload_id = resp["upload_id"]
             parts_out = []
-            with open(filepath, "rb") as fp:
-                for part in resp["parts"]:
-                    chunk = fp.read(part["size"])
-                    if len(chunk) != part["size"]:
-                        raise RuntimeError(
-                            f"End of file {filepath} reached unexpectedly early"
+            bytes_uploaded = 0
+            storage = RESTFullAPIClient("http://nil.nil")
+            with storage.session():
+                with open(filepath, "rb") as fp:
+                    for part in resp["parts"]:
+                        chunk = fp.read(part["size"])
+                        if len(chunk) != part["size"]:
+                            raise RuntimeError(
+                                f"End of file {filepath} reached unexpectedly early"
+                            )
+                        lgr.debug(
+                            "Uploading part %d (%d bytes)",
+                            part["part_number"],
+                            part["size"],
                         )
-                    lgr.debug(
-                        "Uploading part %d (%d bytes)",
-                        part["part_number"],
-                        part["size"],
-                    )
-                    r = self.put(part["upload_url"], data=chunk, json_resp=False)
-                    parts_out.append(
-                        {
-                            "part_number": part["part_number"],
-                            "size": part["size"],
-                            "etag": r.headers["ETag"],
+                        r = storage.put(part["upload_url"], data=chunk, json_resp=False)
+                        bytes_uploaded += len(chunk)
+                        yield {
+                            "status": "uploading",
+                            "upload": 100 * bytes_uploaded / total_size,
+                            "current": bytes_uploaded,
                         }
-                    )
-            lgr.debug("Completing upload")
-            resp = self.post(
-                "/uploads/complete/",
-                json={
-                    "object_key": object_key,
-                    "upload_id": upload_id,
-                    "parts": parts_out,
-                },
-            )
-            self.post(resp["complete_url"], data=resp["body"], json_resp=False)
-            self.post(
-                "/uploads/validate/",
-                json={"sha256": filehash, "object_key": object_key},
-            )
+                        parts_out.append(
+                            {
+                                "part_number": part["part_number"],
+                                "size": part["size"],
+                                "etag": r.headers["ETag"],
+                            }
+                        )
+                lgr.debug("Completing upload")
+                resp = self.post(
+                    "/uploads/complete/",
+                    json={
+                        "object_key": object_key,
+                        "upload_id": upload_id,
+                        "parts": parts_out,
+                    },
+                )
+                storage.post(resp["complete_url"], data=resp["body"], json_resp=False)
+                self.post(
+                    "/uploads/validate/",
+                    json={"sha256": filehash, "object_key": object_key},
+                )
         while True:
             lgr.debug("Waiting for server-side validation to complete")
             resp = self.get(f"/uploads/validations/{filehash}/")
@@ -378,12 +453,14 @@ class DandiAPIClient(RESTFullAPIClient):
                         f"  Error reported: {resp.get('error')}"
                     )
                 break
-            sleep(0.1)
+            yield {"status": "validating"}
         lgr.debug("Assigning asset blob to dandiset & version")
+        yield {"status": "producing asset"}
         self.post(
             f"/dandisets/{dandiset_id}/versions/{version_id}/assets/",
             json={"path": asset_path, "metadata": asset_metadata, "sha256": filehash},
         )
+        yield {"status": "done"}
 
     def create_dandiset(self, name, metadata):
         return self.post("/dandisets/", json={"name": name, "metadata": metadata})
@@ -429,3 +506,15 @@ class DandiAPIClient(RESTFullAPIClient):
             self.download_asset(
                 dandiset_id, version, a["uuid"], filepath, chunk_size=chunk_size
             )
+
+    def get_asset_bypath(self, dandiset_id, version, asset_path):
+        try:
+            # Weed out any assets that happen to have the given path as a
+            # proper prefix:
+            (asset,) = (
+                a
+                for a in self.get_dandiset_assets(dandiset_id, version, path=asset_path)
+                if a["path"] == asset_path
+            )
+        except ValueError:
+            return None

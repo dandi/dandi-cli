@@ -169,6 +169,7 @@ def test_get_instance_dandi():
         },
     )
     assert get_instance("dandi") == dandi_instance(
+        metadata_version=0,
         girder="https://girder.dandi",
         gui="https://gui.dandi",
         redirector="https://dandiarchive.org",
@@ -194,6 +195,7 @@ def test_get_instance_url():
         },
     )
     assert get_instance("https://example.dandi/") == dandi_instance(
+        metadata_version=0,
         girder="https://girder.dandi",
         gui="https://gui.dandi",
         redirector="https://example.dandi/",

@@ -75,7 +75,9 @@ metadata_digests = ("sha1", "md5", "sha512", "sha256")
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = "^[0-9]{6}$"
 
-dandi_instance = namedtuple("dandi_instance", ("girder", "gui", "redirector", "api"))
+dandi_instance = namedtuple(
+    "dandi_instance", ("metadata_version", "girder", "gui", "redirector", "api")
+)
 
 # So it could be easily mapped to external IP (e.g. from within VM)
 # to test against instance running outside of current environment
@@ -83,10 +85,11 @@ instancehost = os.environ.get("DANDI_INSTANCEHOST", "localhost")
 
 known_instances = {
     "local-girder-only": dandi_instance(
-        f"http://{instancehost}:8080", None, None, None
+        0, f"http://{instancehost}:8080", None, None, None
     ),  # just pure girder
     # Redirector: TODO https://github.com/dandi/dandiarchive/issues/139
     "local-docker": dandi_instance(
+        0,
         f"http://{instancehost}:8080",
         f"http://{instancehost}:8085",
         None,
@@ -94,16 +97,28 @@ known_instances = {
         # may be https://github.com/dandi/dandi-publish/pull/71 would help
     ),
     "local-docker-tests": dandi_instance(
+        0,
         f"http://{instancehost}:8081",
         f"http://{instancehost}:8086",
         f"http://{instancehost}:8079",
-        f"http://{instancehost}:8000/api",
+        None,
     ),
     "dandi": dandi_instance(
+        0,
         "https://girder.dandiarchive.org",
         "https://gui.dandiarchive.org",
         "https://dandiarchive.org",
-        "https://publish.dandiarchive.org/api",  # ? might become api.
+        None,  # publish. is gone, superseded by API which did not yet fully superseded the rest
+    ),
+    "dandi-api": dandi_instance(
+        1,
+        None,
+        "https://gui-beta-dandiarchive-org.netlify.app",
+        None,
+        "https://api.dandiarchive.org/api",
+    ),
+    "dandi-api-local-docker-tests": dandi_instance(
+        1, None, None, None, f"http://{instancehost}:8000/api"
     ),
 }
 # to map back url: name

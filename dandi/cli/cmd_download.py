@@ -1,7 +1,7 @@
 import os
 
 import click
-from .base import devel_option, map_to_click_exceptions
+from .base import map_to_click_exceptions
 
 
 class ChoiceList(click.ParamType):
@@ -78,12 +78,12 @@ class ChoiceList(click.ParamType):
 #     type=click.Choice(["require", "skip", "ignore"]),
 #     default="require",
 # )
-@devel_option(
-    "--develop-debug",
-    help="For development: do not use pyout callbacks, do not swallow exception",
-    default=False,
-    is_flag=True,
-)
+# @devel_option(
+#     "--develop-debug",
+#     help="For development: do not use pyout callbacks, do not swallow exception",
+#     default=False,
+#     is_flag=True,
+# )
 @click.argument("url", nargs=-1)
 @map_to_click_exceptions
 def download(url, output_dir, existing, jobs, format, download_types):
