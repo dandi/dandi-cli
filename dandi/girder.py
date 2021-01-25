@@ -20,7 +20,7 @@ import girder_client as gcl
 
 from . import get_logger
 from .exceptions import LockingError
-from .utils import ensure_datetime, flattened, flatten, remap_dict
+from .utils import ensure_datetime, flattened, flatten, remap_dict, try_multiple
 from .consts import known_instances_rev, MAX_CHUNK_SIZE
 
 lgr = get_logger()
@@ -279,6 +279,8 @@ class GirderCli(gcl.GirderClient):
 
     def _traverse_asset_girder(self, g, parent_path=None, recursive=True):
         """Helper which operates on girder record"""
+        import requests
+
         a = self._adapt_record(g)
         if parent_path:
             a["path"] = op.join(parent_path, a["name"])
@@ -290,7 +292,9 @@ class GirderCli(gcl.GirderClient):
             # item should be the one we care about
             pass
         elif a["type"] == "item":
-            file_recs = list(self.listFile(g["_id"]))
+            file_recs = try_multiple(
+                5, requests.ConnectionError, 1.1, lambda: list(self.listFile(g["_id"]))
+            )
             if len(file_recs) > 1:
                 lgr.warning("Multiple files found for %s; using oldest one", a["path"])
                 file_recs = [

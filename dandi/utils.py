@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
+from time import sleep
 
 from pathlib import Path
 
@@ -664,3 +665,21 @@ def split_camel_case(s):
         last_start = m.start()
     if last_start < len(s):
         yield s[last_start:]
+
+
+def try_multiple(ntrials, exception, base, f, *args, **kwargs):
+    """
+    Call ``f`` multiple times until it succeeds, with exponentially increasing
+    delay between calls
+    """
+    for trial in range(1, ntrials + 1):
+        try:
+            return f(*args, **kwargs)
+        except exception as exc:
+            if trial == ntrials:
+                raise  # just reraise on the last trial
+            t = base ** trial
+            lgr.warning(
+                "Caught %s on trial #%d. Sleeping %f and retrying", exc, trial, t
+            )
+            sleep(t)
