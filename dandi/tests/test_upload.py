@@ -255,14 +255,14 @@ def test_new_upload_download(
         r = client.create_dandiset("Test Dandiset", {})
     dandiset_id = r["identifier"]
     nwb_file, = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
-    dirname = nwb_file.parent.name
-    monkeypatch.chdir(organized_nwb_dir)
-    upload(
-        paths=[dirname], dandi_instance=local_dandi_api["instance_id"], devel_debug=True
+    (organized_nwb_dir / dandiset_metadata_file).write_text(
+        f"identifier: '{dandiset_id}'\n"
     )
+    monkeypatch.chdir(organized_nwb_dir)
+    upload(paths=[], dandi_instance=local_dandi_api["instance_id"], devel_debug=True)
     download(
         f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
         tmp_path,
     )
-    nwb_file2, = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
+    nwb_file2, = tmp_path.glob(f"*{os.sep}*.nwb")
     assert nwb_file2 == nwb_file

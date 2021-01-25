@@ -769,14 +769,14 @@ def _new_upload(
             # ad-hoc for dandiset.yaml for now
             yield {"status": "extracting metadata"}
             try:
-                metadata = nwb2asset(path, digest=sha256_digest, digest_type="sha256")
+                metadata = nwb2asset(path, digest=sha256_digest, digest_type="SHA256")
             except Exception as exc:
                 if allow_any_path:
                     yield {"status": "failed to extract metadata"}
                     metadata = {
                         "contentSize": os.path.getsize(path),
                         "digest": sha256_digest,
-                        "digest_type": "sha256",
+                        "digest_type": "SHA256",
                         # "encodingFormat": # TODO
                     }
                 else:
@@ -826,7 +826,7 @@ def _new_upload(
     rec_fields = ["path", "size", "errors", "upload", "status", "message"]
     out = pyout.Tabular(style=pyout_style, columns=rec_fields)
 
-    with out:
+    with out, client.session():
         for path in paths:
             while len(process_paths) >= 10:
                 lgr.log(2, "Sleep waiting for some paths to finish processing")
