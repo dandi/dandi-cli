@@ -142,10 +142,9 @@ class RESTFullAPIClient(object):
 
         # If success, return the json object. Otherwise throw an exception.
         if not result.ok:
-            raise requests.HTTPError(
-                f"Error {result.status_code} while sending {method} request to {url}",
-                response=result,
-            )
+            msg = f"Error {result.status_code} while sending {method} request to {url}"
+            lgr.debug(f"{msg}: {result.text}")
+            raise requests.HTTPError(msg, response=result)
 
         if json_resp:
             if result.text.strip():
