@@ -810,6 +810,8 @@ def _new_upload(
             #
             # Upload file
             #
+            if extant is not None:
+                lgr.info("Replacing asset %s", extant["uuid"])
             yield {"status": "uploading"}
             for r in client.iter_upload(
                 ds_identifier, "draft", str(relpath), metadata, str(path)
