@@ -1,6 +1,7 @@
 from copy import deepcopy
 from datetime import date
 from enum import Enum
+import json
 import sys
 from typing import Any, Dict, List, Optional, Type, Union
 
@@ -659,6 +660,14 @@ class CommonModel(DandiBaseModel):
     relatedResource: Optional[List[Resource]] = Field(None, nskey="dandi")
 
     wasGeneratedBy: Optional[Activity] = Field(None, nskey="prov")
+
+    def asdict(self):
+        """
+        Recursively convert the instance to a `dict` of JSONable values,
+        including converting enum values to strings.  Unset and `None` fields
+        are omitted.
+        """
+        return json.loads(self.json(exclude_unset=True, exclude_none=True))
 
 
 class DandiMeta(CommonModel):

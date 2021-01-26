@@ -1,5 +1,4 @@
 from datetime import datetime
-import json
 import os.path
 
 # PurePosixPath to be cast to for paths on girder
@@ -801,11 +800,7 @@ def _new_upload(
                     yield skip_file("failed to extract metadata: %s" % str(exc))
                     return
             else:
-                # We need to convert to a `dict` this way instead of with
-                # `.dict()` so that enums will be converted to strings.
-                metadata = json.loads(
-                    asset_metadata.json(exclude_unset=True, exclude_none=True)
-                )
+                metadata = asset_metadata.asdict()
 
             #
             # Upload file
