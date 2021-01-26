@@ -277,7 +277,7 @@ class DandiAPIClient(RESTFullAPIClient):
         """ A generator to provide asset records """
         resp = self.get(
             f"/dandisets/{dandiset_id}/versions/{version}/assets/",
-            parameters={"page_size": page_size, "path": None},
+            parameters={"page_size": page_size, "path": path},
         )
         while True:
             yield from resp["results"]
@@ -526,3 +526,5 @@ class DandiAPIClient(RESTFullAPIClient):
             )
         except ValueError:
             return None
+        else:
+            return asset
