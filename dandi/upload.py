@@ -334,11 +334,9 @@ def upload(
                 remote_file_status = "no mtime"
             exists_msg = f"exists ({remote_file_status})"
 
-            if len(file_recs) > 1:
-                raise NotImplementedError(
-                    f"Item {item_rec} contains multiple files: {file_recs}"
-                )
-            elif file_recs:  # there is a file already
+            if file_recs:  # there is a file already
+                if len(file_recs) > 1:
+                    lgr.debug(f"Item {item_rec} contains multiple files: {file_recs}")
                 if existing == "error":
                     # as promised -- not gentle at all!
                     raise FileExistsError(exists_msg)
