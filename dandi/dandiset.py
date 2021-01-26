@@ -136,7 +136,9 @@ class APIDandiset(Dandiset):
         # deduce either it is a new or old style metadata which would need to be converted
         if (
             "schemaVersion" in self.metadata
-            or self.metadata.get("identifier", {}).get("propertyID") == "DANDI"
+            # TODO: remove the one below after we get schemaVersion reliably in all dandisets
+            # https://github.com/dandi/dandi-api/issues/64
+            or isinstance(self.metadata.get("identifier"), dict)
         ):
             # new already, no conversion necessary
             return
