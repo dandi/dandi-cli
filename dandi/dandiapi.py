@@ -49,7 +49,6 @@ class RESTFullAPIClient(object):
         :param session: An existing :class:`requests.Session` object, or None.
         """
         self._session = session if session else requests.Session()
-        self._session.headers.update(self._headers)
 
         try:
             yield self._session
@@ -123,7 +122,9 @@ class RESTFullAPIClient(object):
         url = self.get_url(path)
 
         # Make the request, passing parameters and authentication info
-        _headers = headers or {}
+        _headers = dict(self._headers)
+        if headers:
+            _headers.update(headers)
 
         if json_resp and "accept" not in _headers:
             _headers["accept"] = "application/json"
