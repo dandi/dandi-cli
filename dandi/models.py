@@ -3,7 +3,7 @@ from datetime import date
 from enum import Enum
 from typing import Any, Dict, List, Optional, Type, Union
 
-from pydantic import AnyUrl, BaseModel, ByteSize, EmailStr, Field, validator
+from pydantic import UUID4, AnyUrl, BaseModel, ByteSize, EmailStr, Field, validator
 from ruamel import yaml
 
 from .model_types import (
@@ -129,11 +129,39 @@ class DandiBaseModel(BaseModel):
 
     class Config:
         @staticmethod
-        def schema_extra(schema: Dict[str, Any]) -> None:
+        def schema_extra(schema: Dict[str, Any], model) -> None:
             schema["title"] = name2title(schema["title"])
-            for name, prop in schema.get("properties", {}).items():
-                if prop.get("title") is None or prop["title"] == name.title():
-                    prop["title"] = name2title(name)
+            for prop, value in schema.get("properties", {}).items():
+                if value.get("title") is None or value["title"] == prop.title():
+                    value["title"] = name2title(prop)
+                # retrieve right field from alias or name
+                field = [x for x in model.__fields__.values() if x.alias == prop][0]
+                allOf = value.get("allOf")
+                anyOf = value.get("anyOf")
+                items = value.get("items")
+                if allOf is not None:
+                    if len(allOf) == 1 and "$ref" in allOf[0]:
+                        value["$ref"] = allOf[0]["$ref"]
+                        del value["allOf"]
+                    elif len(allOf) > 1:
+                        value["oneOf"] = value["allOf"]
+                        value["type"] = "object"
+                        del value["allOf"]
+                if anyOf is not None:
+                    if len(anyOf) > 1 and any(["$ref" in val for val in anyOf]):
+                        value["type"] = "object"
+                if items is not None:
+                    anyOf = items.get("anyOf")
+                    if (
+                        anyOf is not None
+                        and len(anyOf) > 1
+                        and any(["$ref" in val for val in anyOf])
+                    ):
+                        value["items"]["type"] = "object"
+            schema["properties"]["schemaKey"] = {
+                "type": "string",
+                "const": model.__name__,
+            }
 
 
 class PropertyValue(DandiBaseModel):
@@ -144,9 +172,11 @@ class PropertyValue(DandiBaseModel):
     value: Union[str, bool, int, float, List[Union[str, bool, int, float]]] = Field(
         None, nskey="schema"
     )
+    """
     valueReference: "PropertyValue" = Field(
         None, nskey="schema"
     )  # Note: recursive (circular or not)
+    """
     propertyID: Union[IdentifierType, AnyUrl, str] = Field(
         None,
         description="A commonly used identifier for"
@@ -157,8 +187,11 @@ class PropertyValue(DandiBaseModel):
     _ldmeta = {"nskey": "schema"}
 
 
-PropertyValue.update_forward_refs()
-Identifier = Union[AnyUrl, PropertyValue, str]
+# PropertyValue.update_forward_refs()
+Identifier = str  # Union[AnyUrl, PropertyValue, str]
+ORCID = Identifier
+RORID = Identifier
+DANDI = Identifier
 
 
 class TypeModel(DandiBaseModel):
@@ -202,7 +235,6 @@ class Disorder(TypeModel):
         None,
         title="Dates of diagnosis",
         description="Dates of diagnosis",
-        readOnly=True,
         nskey="dandi",
         rangeIncludes="schema:Date",
     )
@@ -236,7 +268,7 @@ class Contributor(DandiBaseModel):
     )
     name: Optional[str] = Field(None, nskey="schema")
     email: Optional[EmailStr] = Field(None, nskey="schema")
-    url: Optional[AnyUrl] = Field(None, nskey="schema")
+    url: Optional[AnyUrl] = Field(None, maxLength=2000, nskey="schema")
     roleName: Optional[List[RoleType]] = Field(
         None, title="Role", description="Role of the contributor", nskey="schema"
     )
@@ -250,12 +282,19 @@ class Contributor(DandiBaseModel):
     awardNumber: Optional[Identifier] = Field(
         None,
         title="Identifier for an award",
-        description="Identifier associated with a sponsored or gidt award",
+        description="Identifier associated with a sponsored or gift award",
         nskey="dandi",
     )
 
 
 class Organization(Contributor):
+    identifier: Optional[RORID] = Field(
+        None,
+        title="A Common Identifier",
+        description="Use a common identifier such as ORCID for people or ROR for institutions",
+        nskey="schema",
+    )
+
     includeInCitation: bool = Field(
         False,
         title="Include Contributor in Citation",
@@ -273,6 +312,12 @@ class Organization(Contributor):
 
 
 class Person(Contributor):
+    identifier: Optional[ORCID] = Field(
+        None,
+        title="A Common Identifier",
+        description="Use a common identifier such as ORCID for people or ROR for institutions",
+        nskey="schema",
+    )
     name: str = Field(
         description="Use the format: lastname, firstname ...", nskey="schema"
     )
@@ -369,7 +414,7 @@ class AssetsSummary(DandiBaseModel):
     )  # TODO: types of things, BIDS etc...
     # Web UI: could be an icon with number, which if hovered on  show a list?
     measurementTechnique: List[MeasurementTechniqueType] = Field(readOnly=True)
-    variableMeasured: Optional[List[PropertyValue]] = Field(None, readOnly=True)
+    variableMeasured: Optional[List[str]] = Field(None, readOnly=True)
 
     species: List[SpeciesType] = Field(readOnly=True)
 
@@ -485,16 +530,16 @@ class Activity(DandiBaseModel):
     startDate: Optional[date] = Field(None, nskey="schema")
     endDate: Optional[date] = Field(None, nskey="schema")
 
-    isPartOf: Optional["Activity"] = Field(None, nskey="schema")
-    hasPart: Optional["Activity"] = Field(None, nskey="schema")
-    wasAssociatedWith: Optional[Union[Person, Organization, Software]] = Field(
+    # isPartOf: Optional["Activity"] = Field(None, nskey="schema")
+    # hasPart: Optional["Activity"] = Field(None, nskey="schema")
+    wasAssociatedWith: Optional[List[Union[Person, Organization, Software]]] = Field(
         None, nskey="prov"
     )
 
     _ldmeta = {"rdfs:subClassOf": ["prov:Activity", "schema:Thing"], "nskey": "dandi"}
 
 
-Activity.update_forward_refs()
+# Activity.update_forward_refs()
 
 
 class Project(Activity):
@@ -520,13 +565,13 @@ class CommonModel(DandiBaseModel):
         description="Contributors to this item.",
         nskey="schema",
     )
-    about: Optional[List[Union[Disorder, Anatomy, Identifier]]] = Field(
+    about: Optional[List[str]] = Field(
         None,
         title="Subject Matter",
         description="The subject matter of the content, such as disorders, brain anatomy.",
         nskey="schema",
     )
-    studyTarget: Optional[List[Union[AnyUrl, str]]] = Field(
+    studyTarget: Optional[List[str]] = Field(
         None, description="What the study is related to", nskey="dandi"
     )
     license: List[LicenseType] = Field(description="License of item.", nskey="schema")
@@ -559,9 +604,7 @@ class CommonModel(DandiBaseModel):
     )
     relatedResource: Optional[List[Resource]] = Field(None, nskey="dandi")
 
-    wasGeneratedBy: Optional[Union[Activity, AnyUrl]] = Field(
-        None, readOnly=True, nskey="prov"
-    )
+    wasGeneratedBy: Optional[Project] = Field(None, nskey="prov")
 
 
 class DandiMeta(CommonModel):
@@ -577,6 +620,7 @@ class DandiMeta(CommonModel):
             raise ValueError("At least one contributor must have role ContactPerson")
         return values
 
+    identifier: DANDI = Field(readOnly=True, nskey="schema")
     name: str = Field(
         title="Title",
         description="The name of the item.",
@@ -604,9 +648,7 @@ class DandiMeta(CommonModel):
 
     # On publish
     version: TempOptional[str] = Field(readOnly=True, nskey="schema")
-    doi: Optional[Union[AnyUrl, str]] = Field(
-        None, title="DOI", readOnly=True, nskey="dandi"
-    )
+    doi: Optional[str] = Field(None, title="DOI", readOnly=True, nskey="dandi")
 
     _ldmeta = {
         "rdfs:subClassOf": ["schema:Dataset", "prov:Entity"],
@@ -629,6 +671,8 @@ class AssetMeta(CommonModel):
 
     Derived from C2M2 (Level 0 and 1) and schema.org
     """
+
+    identifier: UUID4 = Field(readOnly=True, nskey="schema")
 
     # Overrides CommonModel.license
     # TODO: https://github.com/NeurodataWithoutBorders/nwb-schema/issues/320
