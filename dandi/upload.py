@@ -735,7 +735,7 @@ def _new_upload(
                 elif existing == "force":
                     pass
                 else:
-                    raise ValueError("existing")
+                    raise ValueError(f"invalid value for 'existing': {existing!r}")
 
             #
             # Validate first, so we do not bother server at all if not kosher
