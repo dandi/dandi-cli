@@ -3,7 +3,7 @@ import json
 import os.path as op
 from pathlib import Path
 import re
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import jsonschema
 
@@ -268,6 +268,10 @@ def extract_digest(metadata):
         return ...
 
 
+def extract_identifier(metadata):
+    return UUID(metadata["identifier"])
+
+
 FIELD_EXTRACTORS = {
     "wasDerivedFrom": extract_wasDerivedFrom,
     "wasAttributedTo": extract_wasAttributedTo,
@@ -277,6 +281,7 @@ FIELD_EXTRACTORS = {
     "anatomy": extract_anatomy,
     "digest": extract_digest,
     "species": extract_species,
+    "identifier": extract_identifier,
 }
 
 
@@ -349,7 +354,7 @@ mapping = {
 }
 
 
-def toContributor(value):
+def toContributor(value, contrib_type):
     if not isinstance(value, list):
         value = [value]
     out = []
@@ -368,16 +373,16 @@ def toContributor(value):
                     roles.append(tmp.pop())
             contrib["roleName"] = [getattr(models.RoleType, role) for role in roles]
             del item["roles"]
+        elif contrib_type == "sponsors":
+            contrib["roleName"] = [models.RoleType.Funder]
         if "awardNumber" in item:
             contrib["awardNumber"] = item["awardNumber"]
             del item["awardNumber"]
         if "orcid" in item:
             if item["orcid"]:
-                contrib["identifier"] = models.PropertyValue(
-                    value=item["orcid"], propertyID="ORCID"
-                )
-            else:
-                contrib["identifier"] = models.PropertyValue()
+                contrib["identifier"] = item["orcid"]
+            # else:
+            #    contrib["identifier"] = models.PropertyValue()
             del item["orcid"]
         if "affiliations" in item:
             item["affiliation"] = [
@@ -387,7 +392,7 @@ def toContributor(value):
 
             del item["affiliations"]
         contrib.update(**{f"{k}": v for k, v in item.items()})
-        if "awardNumber" in contrib:
+        if "awardNumber" in contrib or contrib_type == "sponsors":
             contrib = models.Organization.unvalidated(**contrib)
         else:
             contrib = models.Person.unvalidated(**contrib)
@@ -408,15 +413,20 @@ def convertv1(data):
         else:
             newkey = mapping[oldkey][0]
         if oldkey in ["contributors", "sponsors"]:
-            value = toContributor(value)
+            value = toContributor(value, oldkey)
         if oldkey == "access":
             value = [
                 models.AccessRequirements(
                     status=models.AccessType.Open, email=value["access_contact_email"]
                 )
             ]
+        if oldkey == "license":
+            newvalues = []
+            for val in value:
+                newvalues.append(getattr(models.LicenseType, val.split(":")[-1]))
+            value = newvalues
         if oldkey == "identifier":
-            value = models.PropertyValue(value=value, propertyID="DANDI")
+            value = f"DANDI:{value}"
         if len(mapping[oldkey]) == 2:
             extra = mapping[oldkey][1]
             if newkey == "contributor":
@@ -493,6 +503,14 @@ def convertv1(data):
                         newvalues.append(val["species"])
                 vm = {"name": "species", "value": newvalues}
             value = vm
+        if newkey == "about":
+            newvalues = []
+            for item in value:
+                id = item.get("identifier", None)
+                if id is not None and not id.startswith("http"):
+                    item["identifier"] = None
+                newvalues.append(models.TypeModel(**item))
+            value = newvalues
         if newkey not in newmeta:
             newmeta[newkey] = value
         else:

@@ -3,8 +3,9 @@ from datetime import date
 from enum import Enum
 from typing import Any, Dict, List, Optional, Type, Union
 
-from pydantic import UUID4, AnyUrl, BaseModel, ByteSize, EmailStr, Field, validator
+from pydantic import UUID4, BaseModel, ByteSize, EmailStr, Field, HttpUrl, validator
 from ruamel import yaml
+from typing_extensions import Literal
 
 from .model_types import (
     AccessTypeDict,
@@ -96,6 +97,13 @@ IdentifierType = create_enum(IdentifierTypeDict)
 DigestType = create_enum(DigestTypeDict)
 
 
+def diff_models(model1, model2):
+    """Perform a field-wise diff"""
+    for field in model1.__fields__:
+        if getattr(model1, field) != getattr(model2, field):
+            print(f"{field} is different")
+
+
 class DandiBaseModel(BaseModel):
     @classmethod
     def unvalidated(__pydantic_cls__: Type[BaseModel], **data: Any) -> BaseModel:
@@ -158,26 +166,17 @@ class DandiBaseModel(BaseModel):
                         and any(["$ref" in val for val in anyOf])
                     ):
                         value["items"]["type"] = "object"
-            schema["properties"]["schemaKey"] = {
-                "type": "string",
-                "const": model.__name__,
-            }
 
 
 class PropertyValue(DandiBaseModel):
     maxValue: float = Field(None, nskey="schema")
     minValue: float = Field(None, nskey="schema")
-    unitCode: Union[AnyUrl, str] = Field(None, nskey="schema")
     unitText: str = Field(None, nskey="schema")
-    value: Union[str, bool, int, float, List[Union[str, bool, int, float]]] = Field(
-        None, nskey="schema"
-    )
-    """
+    value: Union[Any, List[Any]] = Field(None, nskey="schema")
     valueReference: "PropertyValue" = Field(
         None, nskey="schema"
     )  # Note: recursive (circular or not)
-    """
-    propertyID: Union[IdentifierType, AnyUrl, str] = Field(
+    propertyID: Union[IdentifierType, HttpUrl] = Field(
         None,
         description="A commonly used identifier for"
         "the characteristic represented by the property.",
@@ -187,45 +186,54 @@ class PropertyValue(DandiBaseModel):
     _ldmeta = {"nskey": "schema"}
 
 
-# PropertyValue.update_forward_refs()
-Identifier = str  # Union[AnyUrl, PropertyValue, str]
+PropertyValue.update_forward_refs()
+
+Identifier = str
 ORCID = Identifier
-RORID = Identifier
+RORID = HttpUrl
 DANDI = Identifier
+RRID = Identifier
 
 
 class TypeModel(DandiBaseModel):
     """Base class for enumerated types"""
 
-    identifier: Optional[Identifier] = Field(nskey="schema")
+    identifier: Optional[HttpUrl] = Field(nskey="schema")
     name: Optional[str] = Field(
-        title="Title",
-        description="The name of the item.",
-        max_length=150,
-        nskey="schema",
+        description="The name of the item.", max_length=150, nskey="schema"
     )
-
+    schemaKey: Literal["GenericType"] = Field("GenericType", readOnly=True)
     _ldmeta = {"rdfs:subClassOf": ["prov:Entity", "schema:Thing"], "nskey": "dandi"}
 
 
 class AssayType(TypeModel):
     """OBI based identifier for the assay(s) used"""
 
+    schemaKey: Literal["AssayType"] = Field("AssayType", readOnly=True)
+
 
 class Anatomy(TypeModel):
     """UBERON or other identifier for anatomical part studied"""
+
+    schemaKey: Literal["Anatomy"] = Field("Anatomy", readOnly=True)
 
 
 class StrainType(TypeModel):
     """Identifier for the strain of the sample"""
 
+    schemaKey: Literal["StrainType"] = Field("StrainType", readOnly=True)
+
 
 class SexType(TypeModel):
     """Identifier for the sex of the sample"""
 
+    schemaKey: Literal["SexType"] = Field("SexType", readOnly=True)
+
 
 class SpeciesType(TypeModel):
     """Identifier for species of the sample"""
+
+    schemaKey: Literal["SpeciesType"] = Field("SpeciesType", readOnly=True)
 
 
 class Disorder(TypeModel):
@@ -238,24 +246,34 @@ class Disorder(TypeModel):
         nskey="dandi",
         rangeIncludes="schema:Date",
     )
+    schemaKey: Literal["Disorder"] = Field("Disorder", readOnly=True)
 
 
 class ModalityType(TypeModel):
     """Identifier for modality used"""
 
+    schemaKey: Literal["ModalityType"] = Field("ModalityType", readOnly=True)
+
 
 class MeasurementTechniqueType(TypeModel):
     """Identifier for measurement technique used"""
+
+    schemaKey: Literal["MeasurementTechniqueType"] = Field(
+        "MeasurementTechniqueType", readOnly=True
+    )
 
 
 class StandardsType(TypeModel):
     """Identifier for data standard used"""
 
+    schemaKey: Literal["StandardsType"] = Field("StandardsType", readOnly=True)
+
 
 class ContactPoint(DandiBaseModel):
     email: Optional[EmailStr] = Field(None, nskey="schema")
-    url: Optional[AnyUrl] = Field(None, nskey="schema")
+    url: Optional[HttpUrl] = Field(None, nskey="schema")
 
+    schemaKey: Literal["ContactPoint"] = Field("ContactPoint", readOnly=True)
     _ldmeta = {"nskey": "schema"}
 
 
@@ -268,7 +286,7 @@ class Contributor(DandiBaseModel):
     )
     name: Optional[str] = Field(None, nskey="schema")
     email: Optional[EmailStr] = Field(None, nskey="schema")
-    url: Optional[AnyUrl] = Field(None, maxLength=2000, nskey="schema")
+    url: Optional[HttpUrl] = Field(None, nskey="schema")
     roleName: Optional[List[RoleType]] = Field(
         None, title="Role", description="Role of the contributor", nskey="schema"
     )
@@ -290,8 +308,9 @@ class Contributor(DandiBaseModel):
 class Organization(Contributor):
     identifier: Optional[RORID] = Field(
         None,
-        title="A Common Identifier",
-        description="Use a common identifier such as ORCID for people or ROR for institutions",
+        title="A ror.org identifier",
+        description="Use an ror.org identifier for institutions",
+        pattern=r"^https://ror.org/[a-z0-9]+$",
         nskey="schema",
     )
 
@@ -305,6 +324,7 @@ class Organization(Contributor):
     contactPoint: Optional[List[ContactPoint]] = Field(
         None, description="Contact for the organization", nskey="schema"
     )
+    schemaKey: Literal["Organization"] = Field("Organization", readOnly=True)
     _ldmeta = {
         "rdfs:subClassOf": ["schema:Organization", "prov:Organization"],
         "nskey": "dandi",
@@ -314,8 +334,9 @@ class Organization(Contributor):
 class Person(Contributor):
     identifier: Optional[ORCID] = Field(
         None,
-        title="A Common Identifier",
-        description="Use a common identifier such as ORCID for people or ROR for institutions",
+        title="An ORCID Identifier",
+        description="An ORCID (orcid.org) identifer for an individual",
+        pattern=r"^\d{4}-\d{4}-\d{4}-(\d{3}X|\d{4})$",
         nskey="schema",
     )
     name: str = Field(
@@ -326,20 +347,32 @@ class Person(Contributor):
         description="An organization that this person is affiliated with.",
         nskey="schema",
     )
+    schemaKey: Literal["Person"] = Field("Person", readOnly=True)
+
     _ldmeta = {"rdfs:subClassOf": ["schema:Person", "prov:Person"], "nskey": "dandi"}
 
 
 class Software(DandiBaseModel):
-    identifier: Identifier = Field(nskey="schema")
+    identifier: Optional[RRID] = Field(
+        None,
+        pattern=r"^RRID\:.*",
+        title="Research Resource Identifier",
+        description="RRID of the software from scicrunch.org.",
+        nskey="schema",
+    )
     name: str = Field(nskey="schema")
     version: str = Field(nskey="schema")
+    url: Optional[HttpUrl] = Field(None, nskey="schema")
+    schemaKey: Literal["Software"] = Field("Software", readOnly=True)
 
 
 class EthicsApproval(DandiBaseModel):
     """Information about ethics committee approval for project"""
 
     identifier: Identifier = Field(
-        nskey="schema", title="Identifier String for Approved Protocol"
+        nskey="schema",
+        title="Approved protocol identifier",
+        description="Approved Protocol identifier, often a number or alpha-numeric string.",
     )
     contactPoint: ContactPoint = Field(
         description="Information about the ethics approval committee.", nskey="schema"
@@ -349,16 +382,18 @@ class EthicsApproval(DandiBaseModel):
 
 
 class Resource(DandiBaseModel):
-    identifier: Identifier = Field(None, nskey="schema")
-    name: str = Field(None, nskey="schema")
-    url: str = Field(None, nskey="schema")
-    repository: Union[AnyUrl, str] = Field(
+    identifier: Optional[Identifier] = Field(None, nskey="schema")
+    name: Optional[str] = Field(None, title="A title of the resource", nskey="schema")
+    url: HttpUrl = Field(None, title="URL of the resource", nskey="schema")
+    repository: Optional[str] = Field(
         None,
-        description="An identifier of a repository in which the resource is housed",
+        title="Name of the repository",
+        description="Name of the repository in which the resource is housed",
         nskey="dandi",
     )
     relation: RelationType = Field(
-        description="Indicates how the resource is related to the dataset",
+        title="Choose a relation satisfying: Dandiset <relation> Resource",
+        description="Indicates how the resource is related to the dataset. This relation should satisfy: dandiset <relation> resource",
         nskey="dandi",
     )
 
@@ -378,10 +413,15 @@ class AccessRequirements(DandiBaseModel):
         description="The access status of the item",
         nskey="dandi",
     )
-    email: Optional[EmailStr] = Field(None, nskey="schema")
-    contactPoint: Optional[ContactPoint] = Field(None, nskey="schema")
+    contactPoint: Optional[ContactPoint] = Field(
+        None,
+        description="Who or where to look for information about access",
+        nskey="schema",
+    )
     description: Optional[str] = Field(
-        None, description="A description of the item.", nskey="schema"
+        None,
+        description="Information about access requirements when embargoed or restricted",
+        nskey="schema",
     )
     embargoedUntil: Optional[date] = Field(
         None,
@@ -543,7 +583,15 @@ class Activity(DandiBaseModel):
 
 
 class Project(Activity):
-    pass
+    name: str = Field(
+        title="Title",
+        description="The name of the project that generated this Dandiset.",
+        max_length=150,
+        nskey="schema",
+    )
+    description: Optional[str] = Field(
+        None, description="A brief description of the project.", nskey="schema"
+    )
 
 
 class CommonModel(DandiBaseModel):
@@ -565,7 +613,7 @@ class CommonModel(DandiBaseModel):
         description="Contributors to this item.",
         nskey="schema",
     )
-    about: Optional[List[str]] = Field(
+    about: Optional[List[Union[Disorder, Anatomy, TypeModel]]] = Field(
         None,
         title="Subject Matter",
         description="The subject matter of the content, such as disorders, brain anatomy.",
@@ -575,7 +623,9 @@ class CommonModel(DandiBaseModel):
         None, description="What the study is related to", nskey="dandi"
     )
     license: List[LicenseType] = Field(description="License of item.", nskey="schema")
-    protocol: Optional[List[str]] = Field(None, nskey="dandi")
+    protocol: Optional[List[HttpUrl]] = Field(
+        None, description="A list of protocol.io URLs", nskey="dandi"
+    )
     ethicsApproval: Optional[List[EthicsApproval]] = Field(None, nskey="dandi")
     keywords: Optional[List[str]] = Field(
         None,
@@ -593,10 +643,10 @@ class CommonModel(DandiBaseModel):
         default_factory=lambda: [AccessRequirements(status=AccessType.Open)],
         nskey="dandi",
     )
-    url: Optional[AnyUrl] = Field(
+    url: Optional[HttpUrl] = Field(
         None, readOnly=True, description="permalink to the item", nskey="schema"
     )
-    repository: AnyUrl = Field(
+    repository: HttpUrl = Field(
         "https://dandiarchive.org/",
         readOnly=True,
         description="location of the item",
@@ -604,7 +654,7 @@ class CommonModel(DandiBaseModel):
     )
     relatedResource: Optional[List[Resource]] = Field(None, nskey="dandi")
 
-    wasGeneratedBy: Optional[Project] = Field(None, nskey="prov")
+    wasGeneratedBy: Optional[Activity] = Field(None, nskey="prov")
 
 
 class DandiMeta(CommonModel):
@@ -620,20 +670,26 @@ class DandiMeta(CommonModel):
             raise ValueError("At least one contributor must have role ContactPerson")
         return values
 
-    identifier: DANDI = Field(readOnly=True, nskey="schema")
+    identifier: DANDI = Field(
+        readOnly=True,
+        title="Dandiset identifier",
+        description="A Dandiset identifier that can be resolved by identifiers.org",
+        pattern=r"^DANDI\:\d{6}$",
+        nskey="schema",
+    )
     name: str = Field(
-        title="Title",
-        description="The name of the item.",
+        title="Dandiset Title",
+        description="A title associated with the Dandiset.",
         max_length=150,
         nskey="schema",
     )
 
     description: str = Field(
-        description="A description of the item.", max_length=3000, nskey="schema"
+        description="A description of the Dandiset", max_length=3000, nskey="schema"
     )
     contributor: List[Union[Person, Organization]] = Field(
-        title="Contributors",
-        description="Contributors to this item.",
+        title="Dandiset contributors",
+        description="People or Organizations that have contributed to this Dandiset.",
         nskey="schema",
         min_items=1,
     )
@@ -644,11 +700,20 @@ class DandiMeta(CommonModel):
     assetsSummary: TempOptional[AssetsSummary] = Field(readOnly=True, nskey="dandi")
 
     # From server (requested by users even for drafts)
-    manifestLocation: TempOptional[List[AnyUrl]] = Field(readOnly=True, nskey="dandi")
+    manifestLocation: TempOptional[List[HttpUrl]] = Field(readOnly=True, nskey="dandi")
 
     # On publish
     version: TempOptional[str] = Field(readOnly=True, nskey="schema")
-    doi: Optional[str] = Field(None, title="DOI", readOnly=True, nskey="dandi")
+    doi: Optional[str] = Field(
+        None, title="DOI", readOnly=True, pattern="^10\.[A-Za-z0-9.\/-]+", nskey="dandi"
+    )
+
+    wasGeneratedBy: Optional[Project] = Field(
+        None,
+        title="Name of the project",
+        description="Describe the project that generated this Dandiset",
+        nskey="prov",
+    )
 
     _ldmeta = {
         "rdfs:subClassOf": ["schema:Dataset", "prov:Entity"],
@@ -658,7 +723,7 @@ class DandiMeta(CommonModel):
 
 
 class PublishedDandiMeta(DandiMeta):
-    publishedBy: AnyUrl = Field(
+    publishedBy: HttpUrl = Field(
         description="The URL should contain the provenance of the publishing process.",
         readOnly=True,
         nskey="dandi",
@@ -681,7 +746,7 @@ class AssetMeta(CommonModel):
     )
 
     contentSize: ByteSize = Field(nskey="schema")
-    encodingFormat: Union[AnyUrl, str] = Field(
+    encodingFormat: Union[HttpUrl, str] = Field(
         title="File Encoding Format", nskey="schema"
     )
     digest: Digest = Field(nskey="dandi")
@@ -691,9 +756,9 @@ class AssetMeta(CommonModel):
     # this is from C2M2 level 1 - using EDAM vocabularies - in our case we would
     # need to come up with things for neurophys
     # TODO: waiting on input <https://github.com/dandi/dandi-cli/pull/226>
-    dataType: Optional[AnyUrl] = Field(None, nskey="dandi")
+    dataType: Optional[HttpUrl] = Field(None, nskey="dandi")
 
-    sameAs: Optional[List[AnyUrl]] = Field(None, nskey="schema")
+    sameAs: Optional[List[HttpUrl]] = Field(None, nskey="schema")
 
     # TODO
     modality: Optional[List[ModalityType]] = Field(None, readOnly=True, nskey="dandi")
@@ -710,7 +775,7 @@ class AssetMeta(CommonModel):
     )
 
     # on publish or set by server
-    contentUrl: Optional[List[AnyUrl]] = Field(None, readOnly=True, nskey="schema")
+    contentUrl: Optional[List[HttpUrl]] = Field(None, readOnly=True, nskey="schema")
 
     _ldmeta = {
         "rdfs:subClassOf": ["schema:CreativeWork", "prov:Entity"],
@@ -720,7 +785,7 @@ class AssetMeta(CommonModel):
 
 
 class PublishedAssetMeta(AssetMeta):
-    publishedBy: AnyUrl = Field(
+    publishedBy: HttpUrl = Field(
         description="The URL should contain the provenance of the publishing process.",
         readOnly=True,
         nskey="dandi",
