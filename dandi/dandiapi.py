@@ -487,15 +487,8 @@ class DandiAPIClient(RESTFullAPIClient):
     def download_asset_bypath(
         self, dandiset_id, version, asset_path, filepath, chunk_size=MAX_CHUNK_SIZE
     ):
-        try:
-            # Weed out any assets that happen to have the given path as a
-            # proper prefix:
-            (asset,) = (
-                a
-                for a in self.get_dandiset_assets(dandiset_id, version, path=asset_path)
-                if a["path"] == asset_path
-            )
-        except ValueError:
+        asset = self.get_asset_bypath(dandiset_id, version, asset_path)
+        if asset is None:
             raise RuntimeError(f"No asset found with path {asset_path!r}")
         self.download_asset(
             dandiset_id, version, asset["uuid"], filepath, chunk_size=chunk_size
@@ -529,3 +522,19 @@ class DandiAPIClient(RESTFullAPIClient):
             return None
         else:
             return asset
+
+    def publish_version(self, dandiset_id, base_version_id):
+        return self.post(
+            f"/dandisets/{dandiset_id}/versions/{base_version_id}/publish/"
+        )
+
+    def delete_asset(self, dandiset_id, version_id, asset_uuid):
+        self.delete(
+            f"/dandisets/{dandiset_id}/versions/{version_id}/assets/{asset_uuid}/"
+        )
+
+    def delete_asset_bypath(self, dandiset_id, version_id, asset_path):
+        asset = self.get_asset_bypath(dandiset_id, version_id, asset_path)
+        if asset is None:
+            raise RuntimeError(f"No asset found with path {asset_path!r}")
+        self.delete_asset(dandiset_id, version_id, asset["uuid"])
