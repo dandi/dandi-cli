@@ -705,7 +705,11 @@ class DandiMeta(CommonModel):
     # On publish
     version: TempOptional[str] = Field(readOnly=True, nskey="schema")
     doi: Optional[str] = Field(
-        None, title="DOI", readOnly=True, pattern="^10\.[A-Za-z0-9.\/-]+", nskey="dandi"
+        None,
+        title="DOI",
+        readOnly=True,
+        pattern=r"^10\.[A-Za-z0-9.\/-]+",
+        nskey="dandi",
     )
 
     wasGeneratedBy: Optional[Project] = Field(

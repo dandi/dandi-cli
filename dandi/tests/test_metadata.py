@@ -102,6 +102,7 @@ def test_metadata2asset(schema_dir):
             ],
         }
     )
+    # data.json(exclude_unset=True, exclude_none=True, indent=2)
     json_data = """{
   "schemaVersion": "1.0.0-rc1",
   "identifier": "6a42c273881f45e8ad4d538f7ede1437",
@@ -149,8 +150,6 @@ def test_metadata2asset(schema_dir):
 }"""
     data_as_dict = json.loads(json_data)
     assert data == AssetMeta(**data_as_dict)
-    # We need to convert `data` to a `dict` this way instead of with `.dict()`
-    # so that enums will be converted to strings.
     validate_asset_json(data_as_dict, schema_dir)
 
 
@@ -184,6 +183,7 @@ def test_metadata2asset_simple1(schema_dir):
             "tissue_sample_id": "tissue42",
         }
     )
+    # data.json(exclude_unset=True, exclude_none=True, indent=2)
     json_data = """{
   "schemaVersion": "1.0.0-rc1",
   "identifier": "bfc23fb6192b41c083a7257e09a3702b",
@@ -212,8 +212,6 @@ def test_metadata2asset_simple1(schema_dir):
 }"""
     data_as_dict = json.loads(json_data)
     assert data == AssetMeta(**data_as_dict)
-    # We need to convert `data` to a `dict` this way instead of with `.dict()`
-    # so that enums will be converted to strings.
     validate_asset_json(data_as_dict, schema_dir)
 
 
@@ -515,6 +513,8 @@ def test_dandimeta_migration(schema_dir):
             }
         }
     )
+    # This JSON dictionary is generated with:
+    # data.json(exclude_none=True, indent=2)
     json_data = """{
   "access": [
     {
@@ -927,6 +927,4 @@ def test_dandimeta_migration(schema_dir):
 }"""
     data_as_dict = json.loads(json_data)
     assert data == DandiMeta(**data_as_dict)
-    # We need to convert `data` to a `dict` this way instead of with `.dict()`
-    # so that enums will be converted to strings.
     validate_dandiset_json(data_as_dict, schema_dir)
