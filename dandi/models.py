@@ -17,7 +17,7 @@ from .model_types import (
 )
 from .utils import name2title
 
-if sys.version < (3, 8):
+if sys.version_info < (3, 8):
     from typing_extensions import Literal
 else:
     from typing import Literal
