@@ -49,7 +49,6 @@ class RESTFullAPIClient(object):
         :param session: An existing :class:`requests.Session` object, or None.
         """
         self._session = session if session else requests.Session()
-        self._session.headers.update(self._headers)
 
         try:
             yield self._session
@@ -123,7 +122,9 @@ class RESTFullAPIClient(object):
         url = self.get_url(path)
 
         # Make the request, passing parameters and authentication info
-        _headers = headers or {}
+        _headers = dict(self._headers)
+        if headers:
+            _headers.update(headers)
 
         if json_resp and "accept" not in _headers:
             _headers["accept"] = "application/json"
@@ -263,6 +264,13 @@ class DandiAPIClient(RESTFullAPIClient):
     def get_dandiset(self, dandiset_id, version):
         return self._migrate_dandiset_metadata(
             self.get(f"/dandisets/{dandiset_id}/versions/{version}/")
+        )
+
+    def set_dandiset_metadata(self, dandiset_id, *, metadata):
+        # CLI should not update metadata for released dandisets so always "draft"
+        return self.put(
+            f"/dandisets/{dandiset_id}/versions/draft/",
+            json={"metadata": metadata, "name": metadata.get("name", "")},
         )
 
     def get_dandiset_assets(self, dandiset_id, version, page_size=None, path=None):

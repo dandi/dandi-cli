@@ -1,5 +1,5 @@
 """Classes/utilities for support of a dandiset"""
-
+import json
 import os
 from pathlib import Path
 
@@ -32,6 +32,7 @@ class Dandiset(object):
         """Find a dandiset possibly pointing to a directory within it
         """
         dandiset_path = find_parent_directory_containing(dandiset_metadata_file, path)
+        # TODO?: identify "class" for the dandiset to use (this one or APIDandiset)
         if dandiset_path:
             return cls(dandiset_path)
         return None
@@ -120,3 +121,31 @@ class Dandiset(object):
                 f"Found no dandiset.identifier in metadata record: {self.metadata}"
             )
         return id_
+
+
+class APIDandiset(Dandiset):
+    """A dandiset to replace "classical" Dandiset whenever we migrate to new API based server"""
+
+    def _load_metadata(self):
+        from .metadata import migrate2newschema
+
+        super()._load_metadata()
+        if self.metadata is None:
+            # can do nothing
+            return
+        # deduce either it is a new or old style metadata which would need to be converted
+        if (
+            "schemaVersion" in self.metadata
+            # TODO: remove the one below after we get schemaVersion reliably in all dandisets
+            # https://github.com/dandi/dandi-api/issues/64
+            or isinstance(self.metadata.get("identifier"), dict)
+        ):
+            # new already, no conversion necessary
+            return
+        # we are not yet (if ever) "ready" to just carry/return pydantic
+        # models as metadata, so we take dict representation
+        # Do R/T through json since it then maps types, although
+        # "access" has a side-effect: https://github.com/dandi/dandi-cli/issues/343
+        self.metadata = json.loads(
+            migrate2newschema(self.metadata).json(exclude_unset=True, exclude_none=True)
+        )

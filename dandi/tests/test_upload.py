@@ -4,6 +4,8 @@ import re
 import pytest
 import responses
 
+from pathlib import Path
+
 from .. import girder
 from ..consts import collection_drafts, dandiset_metadata_file
 from ..dandiapi import DandiAPIClient
@@ -245,9 +247,7 @@ def test_enormous_upload_breaks_girder(
             pass
 
 
-def test_new_upload_download(
-    local_dandi_api, mocker, monkeypatch, organized_nwb_dir, tmp_path
-):
+def test_new_upload_download(local_dandi_api, monkeypatch, organized_nwb_dir, tmp_path):
     client = DandiAPIClient(
         api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
     )
@@ -268,3 +268,27 @@ def test_new_upload_download(
     nwb_file2, = tmp_path.glob(f"{dandiset_id}{os.sep}*{os.sep}*.nwb")
     assert nwb_file.name == nwb_file2.name
     assert nwb_file.parent.name == nwb_file2.parent.name
+
+    #
+    # test updating dandiset metadata record while at it
+    # For now let's "manually" populate dandiset.yaml in that downloaded location
+    # which is missing due to https://github.com/dandi/dandi-api/issues/63
+    from ..dandiset import APIDandiset
+    from ..utils import yaml_dump
+
+    ds_orig = APIDandiset(organized_nwb_dir)
+    ds_metadata = ds_orig.metadata
+    ds_metadata["description"] = "very long"
+    ds_metadata["name"] = "shorty"
+
+    monkeypatch.chdir(tmp_path / dandiset_id)
+    Path(dandiset_metadata_file).write_text(yaml_dump(ds_metadata))
+    upload(
+        paths=[dandiset_metadata_file],
+        dandi_instance=local_dandi_api["instance_id"],
+        devel_debug=True,
+        upload_dandiset_metadata=True,
+    )
+
+    r = client.get_dandiset(dandiset_id, "draft")
+    assert r["metadata"]["name"] == "shorty"
