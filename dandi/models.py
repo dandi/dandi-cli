@@ -1,11 +1,11 @@
 from copy import deepcopy
 from datetime import date
 from enum import Enum
+import sys
 from typing import Any, Dict, List, Optional, Type, Union
 
 from pydantic import UUID4, BaseModel, ByteSize, EmailStr, Field, HttpUrl, validator
 from ruamel import yaml
-from typing_extensions import Literal
 
 from .model_types import (
     AccessTypeDict,
@@ -16,6 +16,11 @@ from .model_types import (
     RoleTypeDict,
 )
 from .utils import name2title
+
+if sys.version < (3, 8):
+    from typing_extensions import Literal
+else:
+    from typing import Literal
 
 TempOptional = Optional
 
@@ -142,8 +147,6 @@ class DandiBaseModel(BaseModel):
             for prop, value in schema.get("properties", {}).items():
                 if value.get("title") is None or value["title"] == prop.title():
                     value["title"] = name2title(prop)
-                # retrieve right field from alias or name
-                field = [x for x in model.__fields__.values() if x.alias == prop][0]
                 allOf = value.get("allOf")
                 anyOf = value.get("anyOf")
                 items = value.get("items")
@@ -393,7 +396,8 @@ class Resource(DandiBaseModel):
     )
     relation: RelationType = Field(
         title="Choose a relation satisfying: Dandiset <relation> Resource",
-        description="Indicates how the resource is related to the dataset. This relation should satisfy: dandiset <relation> resource",
+        description="Indicates how the resource is related to the dataset. "
+        "This relation should satisfy: dandiset <relation> resource",
         nskey="dandi",
     )
 
