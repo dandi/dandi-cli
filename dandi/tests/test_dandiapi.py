@@ -2,9 +2,6 @@ from collections import deque
 import os.path
 from shutil import rmtree
 
-import pytest
-import requests
-
 from ..consts import dandiset_metadata_file
 from ..dandiapi import DandiAPIClient
 from ..download import download
@@ -27,13 +24,6 @@ def test_upload(local_dandi_api, simple1_nwb, tmp_path):
         assert p.stat().st_size == os.path.getsize(simple1_nwb)
 
 
-@pytest.mark.xfail(
-    reason=(
-        "https://github.com/dandi/dandi-cli/issues/345#issuecomment-768334263"
-        " and https://github.com/dandi/dandi-api/issues/70"
-    ),
-    raises=requests.HTTPError,
-)
 def test_publish_and_manipulate(local_dandi_api, mocker, monkeypatch, tmp_path):
     client = DandiAPIClient(
         api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]

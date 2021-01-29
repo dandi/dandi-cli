@@ -4,7 +4,6 @@ import random
 import re
 
 import pytest
-import requests
 import responses
 
 from ..consts import collection_drafts, dandiset_metadata_file
@@ -370,10 +369,6 @@ def test_new_upload_extant_eq_overwrite(
     iter_upload_spy.assert_not_called()
 
 
-@pytest.mark.xfail(
-    reason="https://github.com/dandi/dandi-cli/issues/345#issuecomment-768334263",
-    raises=requests.HTTPError,
-)
 def test_new_upload_extant_neq_overwrite(
     local_dandi_api, mocker, monkeypatch, tmp_path
 ):
@@ -419,10 +414,6 @@ def test_new_upload_extant_neq_overwrite(
     ).read_text() == "This is different text.\n"
 
 
-@pytest.mark.xfail(
-    reason="https://github.com/dandi/dandi-cli/issues/345#issuecomment-768334263",
-    raises=requests.HTTPError,
-)
 @pytest.mark.parametrize("existing", ["refresh", "force"])
 def test_new_upload_extant_reupload(
     existing, local_dandi_api, mocker, monkeypatch, organized_nwb_dir
