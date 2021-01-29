@@ -293,6 +293,7 @@ def test_new_upload_download(local_dandi_api, monkeypatch, organized_nwb_dir, tm
     r = client.get_dandiset(dandiset_id, "draft")
     assert r["metadata"]["name"] == "shorty"
 
+
 def test_new_upload_extant_existing(
     local_dandi_api, mocker, monkeypatch, organized_nwb_dir
 ):
