@@ -55,6 +55,14 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip wheel
+        # As of 2021-02-01, the latest version of hdmf (v2.3.0) requires numpy
+        # >=1.16, <1.19.4, so we end up with numpy 1.19.3 installed.  However,
+        # due to the release of numpy 1.20.0 on January 30, h5py gets built
+        # against the later version instead, and because numpy 1.20.0 changed
+        # the size of ndarray, an error results at runtime.  This can be worked
+        # around by installing numpy before the other dependencies so that it
+        # is available when h5py is built.
+        pip install 'numpy<1.19.4'
         pip install ".[test]"
 
     - name: Set environment variable when using Python 3.6 to cover more code
