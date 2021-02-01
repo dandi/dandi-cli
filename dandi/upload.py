@@ -341,6 +341,7 @@ def upload(
                 remote_file_status = "no mtime"
             exists_msg = f"exists ({remote_file_status})"
 
+            metadata_only = False
             if file_recs:  # there is a file already
                 if len(file_recs) > 1:
                     lgr.debug(f"Item {item_rec} contains multiple files: {file_recs}")
@@ -351,10 +352,17 @@ def upload(
                     yield skip_file(exists_msg)
                     return
                 # Logic below only for overwrite and reupload
-                if existing == "overwrite":
+                if existing in ("overwrite", "overwrite-metadata"):
                     if remote_file_status == "same":
-                        yield skip_file(exists_msg)
-                        return
+                        if existing == "overwrite":
+                            yield skip_file(exists_msg)
+                            return
+                        elif existing == "overwrite-metadata":
+                            metadata_only = True
+                        else:
+                            raise RuntimeError(
+                                f"Must have not got here with unknown {existing}"
+                            )
                 elif existing == "refresh":
                     if not remote_file_status == "older":
                         yield skip_file(exists_msg)
@@ -406,64 +414,69 @@ def upload(
                 yield skip_file("failed to compute digests: %s" % str(exc))
                 return
 
-            #
-            # 5. Upload file
-            #
-            # TODO: we could potentially keep new item "hidden" until we are
-            #  done with upload, and only then remove old one and replace with
-            #  a new one (rename from "hidden" name).
-            if delete_before_upload:
-                yield {"status": "deleting old"}
-                client.delete(delete_before_upload)
-                yield {"status": "old deleted"}
-                # create a a new item
-                item_rec = ensure_item()
+            if metadata_only:
+                yield {"status": "uploading only metadata"}
+            else:
+                #
+                # 5. Upload file
+                #
+                # TODO: we could potentially keep new item "hidden" until we are
+                #  done with upload, and only then remove old one and replace with
+                #  a new one (rename from "hidden" name).
+                if delete_before_upload:
+                    yield {"status": "deleting old"}
+                    client.delete(delete_before_upload)
+                    yield {"status": "old deleted"}
+                    # create a a new item
+                    item_rec = ensure_item()
 
-            yield {"status": "uploading"}
-            # Upload file to an item
-            # XXX TODO progress reporting back to pyout is actually tricky
-            #     if possible to implement via callback since
-            #     callback would need to yield somehow from the context here.
-            #     yoh doesn't see how that could be done yet. In the worst
-            #     case we would copy uploadFileToItem and _uploadContents
-            #     and make them into generators to relay progress instead of
-            #     via callback
-            # https://stackoverflow.com/questions/9968592/turn-functions-with-a-callback-into-python-generators
-            # has some solutions but all IMHO are abit too complex
+                yield {"status": "uploading"}
+                # Upload file to an item
+                # XXX TODO progress reporting back to pyout is actually tricky
+                #     if possible to implement via callback since
+                #     callback would need to yield somehow from the context here.
+                #     yoh doesn't see how that could be done yet. In the worst
+                #     case we would copy uploadFileToItem and _uploadContents
+                #     and make them into generators to relay progress instead of
+                #     via callback
+                # https://stackoverflow.com/questions/9968592/turn-functions-with-a-callback-into-python-generators
+                # has some solutions but all IMHO are abit too complex
 
-            for r in generator_from_callback(
-                lambda c: client.uploadFileToItem(
-                    item_rec["_id"], str(path), progressCallback=c
-                )
-            ):
-                upload_perc = 100 * ((r["current"] / r["total"]) if r["total"] else 1.0)
-                if girder._DANDI_LOG_GIRDER:
-                    girder.lgr.debug(
-                        "PROGRESS[%s]: done=%d %%done=%s",
-                        str(path),
-                        r["current"],
-                        upload_perc,
+                for r in generator_from_callback(
+                    lambda c: client.uploadFileToItem(
+                        item_rec["_id"], str(path), progressCallback=c
                     )
-                uploaded_paths[str(path)]["size"] = r["current"]
-                yield {"upload": upload_perc}
+                ):
+                    upload_perc = 100 * (
+                        (r["current"] / r["total"]) if r["total"] else 1.0
+                    )
+                    if girder._DANDI_LOG_GIRDER:
+                        girder.lgr.debug(
+                            "PROGRESS[%s]: done=%d %%done=%s",
+                            str(path),
+                            r["current"],
+                            upload_perc,
+                        )
+                    uploaded_paths[str(path)]["size"] = r["current"]
+                    yield {"upload": upload_perc}
 
-            # Get uploaded file id
-            file_id, current = client.isFileCurrent(
-                item_rec["_id"], path.name, path.absolute()
-            )
-            if not current:
-                yield skip_file("File on server was unexpectedly changed")
-                return
-
-            # Compare file size against what download headers report
-            # S3 doesn't seem to allow HEAD requests, so we need to instead do
-            # a GET with a streaming response and not read the body.
-            with client.sendRestRequest(
-                "GET", f"file/{file_id}/download", jsonResp=False, stream=True
-            ) as r:
-                if int(r.headers["Content-Length"]) != path.stat().st_size:
-                    yield skip_file("File size on server does not match local file")
+                # Get uploaded file id
+                file_id, current = client.isFileCurrent(
+                    item_rec["_id"], path.name, path.absolute()
+                )
+                if not current:
+                    yield skip_file("File on server was unexpectedly changed")
                     return
+
+                # Compare file size against what download headers report
+                # S3 doesn't seem to allow HEAD requests, so we need to instead do
+                # a GET with a streaming response and not read the body.
+                with client.sendRestRequest(
+                    "GET", f"file/{file_id}/download", jsonResp=False, stream=True
+                ) as r:
+                    if int(r.headers["Content-Length"]) != path.stat().st_size:
+                        yield skip_file("File size on server does not match local file")
+                        return
 
             #
             # 6. Upload metadata
@@ -670,6 +683,11 @@ def _new_upload(
 
     def skip_file(msg):
         return {"status": "skipped", "message": str(msg)}
+
+    if existing == "overwrite-metadata":
+        raise NotImplementedError(
+            "No existing=overwrite-metadata for new dandi-api version (yet)"
+        )
 
     # TODO: we might want to always yield a full record so no field is not
     # provided to pyout to cause it to halt

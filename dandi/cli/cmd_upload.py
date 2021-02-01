@@ -18,11 +18,14 @@ from ..consts import collection_drafts
 @click.option(
     "-e",
     "--existing",
-    type=click.Choice(["error", "skip", "force", "overwrite", "refresh"]),
+    type=click.Choice(
+        ["error", "skip", "force", "overwrite", "overwrite-metadata", "refresh"]
+    ),
     help="What to do if a file found existing on the server. 'skip' would skip"
     "the file, 'force' - force reupload, 'overwrite' - force upload if "
-    "either size or modification time differs; 'refresh' - upload only if "
-    "local modification time is ahead of the remote.",
+    "either size or modification time differs; 'overwrite-metadata' - like 'overwrite' "
+    "but would still upload metadata record; 'refresh' - upload only if local modification "
+    "time is ahead of the remote.",
     default="refresh",
     show_default=True,
 )
