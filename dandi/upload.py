@@ -376,6 +376,15 @@ def upload(
 
                 yield {"message": exists_msg + " - reuploading"}
 
+            # For "internal" use -- primarily for use with existing == "overwrite-metadata"
+            if os.environ.get("DANDI_UPLOAD_SAME_MUST_EXIST"):
+                if not file_recs:
+                    yield skip_file("File does not exist!")
+                    return
+                if remote_file_status != "same":
+                    yield skip_file("File is not the same!")
+                    return
+
             #
             # 4. Extract metadata - delayed since takes time, but is done
             #    before actual upload, so we could skip if this fails
@@ -687,6 +696,10 @@ def _new_upload(
     if existing == "overwrite-metadata":
         raise NotImplementedError(
             "No existing=overwrite-metadata for new dandi-api version (yet)"
+        )
+    if os.environ.get("DANDI_UPLOAD_SAME_MUST_EXIST"):
+        raise NotImplementedError(
+            "Not DANDI_UPLOAD_SAME_MUST_EXIST in new dandi-api version (yet)"
         )
 
     # TODO: we might want to always yield a full record so no field is not

@@ -72,6 +72,9 @@ development command line options.
   new set on each run.  Set this environment variable to `0` to cause the
   containers to be destroyed at the end of the next run.
 
+- `DANDI_UPLOAD_SAME_MUST_EXIST` -- primarily for internal use with
+ `--existing=overwrite-metadata` so we do not upload some outdated file.
+
 ## Sourcegraph
 
 The [Sourcegraph](https://sourcegraph.com) browser extension can be used to
