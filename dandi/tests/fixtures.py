@@ -7,6 +7,7 @@ import shutil
 from subprocess import check_output, run
 import tempfile
 from time import sleep
+from uuid import uuid4
 
 from dateutil.tz import tzutc
 import pynwb
@@ -28,6 +29,7 @@ lgr = get_logger()
 def simple1_nwb_metadata(tmpdir_factory):
     # very simple assignment with the same values as the key with 1 as suffix
     metadata = {f: "{}1".format(f) for f in metadata_nwb_file_fields}
+    metadata["identifier"] = uuid4().hex
     # subject_fields
 
     # tune specific ones:

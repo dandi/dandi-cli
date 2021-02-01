@@ -13,25 +13,7 @@ from ..metadata import (
     validate_asset_json,
     validate_dandiset_json,
 )
-from ..models import (
-    AccessRequirements,
-    AccessType,
-    AnyUrl,
-    AssetMeta,
-    BioSample,
-    DandiMeta,
-    Digest,
-    DigestType,
-    Organization,
-    Participant,
-    Person,
-    PropertyValue,
-    RelationType,
-    Resource,
-    RoleType,
-    SexType,
-    SpeciesType,
-)
+from ..models import AssetMeta, DandiMeta
 
 
 @pytest.fixture(scope="module")
@@ -90,7 +72,7 @@ def test_metadata2asset(schema_dir):
             "encodingFormat": "application/x-nwb",
             "experiment_description": "Experiment Description",
             "experimenter": "Joe Q. Experimenter",
-            "identifier": "ABC123",
+            "identifier": "6a42c273881f45e8ad4d538f7ede1437",
             "institution": "University College",
             "keywords": ["test", "sample", "example", "test-case"],
             "lab": "Retriever Laboratory",
@@ -120,95 +102,54 @@ def test_metadata2asset(schema_dir):
             ],
         }
     )
-    assert data == AssetMeta.unvalidated(
-        schemaVersion="1.0.0-rc1",
-        identifier="ABC123",
-        name=None,
-        description=None,
-        contributor=None,
-        about=None,
-        studyTarget=None,
-        license=None,
-        protocol=None,
-        ethicsApproval=None,
-        keywords=["test", "sample", "example", "test-case"],
-        acknowledgement=None,
-        access=[
-            AccessRequirements(
-                status=AccessType.Open,
-                email=None,
-                contactPoint=None,
-                description=None,
-                embargoedUntil=None,
-            )
-        ],
-        url=None,
-        repository="https://dandiarchive.org/",
-        relatedResource=None,
-        wasGeneratedBy=None,
-        contentSize=69105,
-        encodingFormat="application/x-nwb",
-        digest=Digest(
-            value="783ad2afe455839e5ab2fa659861f58a423fd17f", cryptoType=DigestType.sha1
-        ),
-        path=None,
-        dataType=None,
-        sameAs=None,
-        modality=None,
-        measurementTechnique=None,
-        variableMeasured=None,
-        wasDerivedFrom=[
-            BioSample(
-                identifier="tissue03", assayType=None, anatomy=None, wasDerivedFrom=None
-            )
-        ],
-        wasAttributedTo=[
-            Participant(
-                identifier="a1b2c3",
-                source_id=None,
-                strain=None,
-                cellLine=None,
-                vendor=None,
-                age=PropertyValue(
-                    maxValue=None,
-                    minValue=None,
-                    unitCode=None,
-                    unitText="Years from birth",
-                    value="P170DT12212S",
-                    valueReference=None,
-                    propertyID=None,
-                ),
-                sex=SexType(
-                    identifier=AnyUrl(
-                        "http://purl.obolibrary.org/obo/PATO_0000384",
-                        scheme="http",
-                        host="purl.obolibrary.org",
-                        tld="org",
-                        host_type="domain",
-                        path="/obo/PATO_0000384",
-                    ),
-                    name="Male",
-                ),
-                genotype="Typical",
-                species=SpeciesType(
-                    identifier=AnyUrl(
-                        "http://purl.obolibrary.org/obo/NCBITaxon_9606",
-                        scheme="http",
-                        host="purl.obolibrary.org",
-                        tld="org",
-                        host_type="domain",
-                        path="/obo/NCBITaxon_9606",
-                    ),
-                    name="Human",
-                ),
-                disorder=None,
-            )
-        ],
-        contentUrl=None,
-    )
-    # We need to convert `data` to a `dict` this way instead of with `.dict()`
-    # so that enums will be converted to strings.
-    data_as_dict = json.loads(data.json(exclude_unset=True, exclude_none=True))
+    # data.json(exclude_unset=True, exclude_none=True, indent=2)
+    json_data = """{
+  "schemaVersion": "1.0.0-rc1",
+  "identifier": "6a42c273881f45e8ad4d538f7ede1437",
+  "keywords": [
+    "test",
+    "sample",
+    "example",
+    "test-case"
+  ],
+  "access": [
+    {
+      "status": "dandi:Open"
+    }
+  ],
+  "repository": "https://dandiarchive.org/",
+  "contentSize": 69105,
+  "encodingFormat": "application/x-nwb",
+  "digest": {
+    "value": "783ad2afe455839e5ab2fa659861f58a423fd17f",
+    "cryptoType": "dandi:sha1"
+  },
+  "wasDerivedFrom": [
+    {
+      "identifier": "tissue03"
+    }
+  ],
+  "wasAttributedTo": [
+    {
+      "identifier": "a1b2c3",
+      "age": {
+        "unitText": "Years from birth",
+        "value": "P170DT12212S"
+      },
+      "sex": {
+        "identifier": "http://purl.obolibrary.org/obo/PATO_0000384",
+        "name": "Male"
+      },
+      "genotype": "Typical",
+      "species": {
+        "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_9606",
+        "name": "Human"
+      }
+    }
+  ]
+}"""
+    data_as_dict = json.loads(json_data)
+    assert data == AssetMeta(**data_as_dict)
     validate_asset_json(data_as_dict, schema_dir)
 
 
@@ -222,7 +163,7 @@ def test_metadata2asset_simple1(schema_dir):
             "nwb_version": "2.2.5",
             "experiment_description": "experiment_description1",
             "experimenter": ("experimenter1",),
-            "identifier": "identifier1",
+            "identifier": "bfc23fb6192b41c083a7257e09a3702b",
             "institution": "institution1",
             "keywords": ["keyword1", "keyword 2"],
             "lab": "lab1",
@@ -242,54 +183,35 @@ def test_metadata2asset_simple1(schema_dir):
             "tissue_sample_id": "tissue42",
         }
     )
-    assert data == AssetMeta.unvalidated(
-        schemaVersion="1.0.0-rc1",
-        identifier="identifier1",
-        name=None,
-        description=None,
-        contributor=None,
-        about=None,
-        studyTarget=None,
-        license=None,
-        protocol=None,
-        ethicsApproval=None,
-        keywords=["keyword1", "keyword 2"],
-        acknowledgement=None,
-        access=[
-            AccessRequirements(
-                status=AccessType.Open,
-                email=None,
-                contactPoint=None,
-                description=None,
-                embargoedUntil=None,
-            )
-        ],
-        url=None,
-        repository="https://dandiarchive.org/",
-        relatedResource=None,
-        wasGeneratedBy=None,
-        contentSize=69105,
-        encodingFormat="application/x-nwb",
-        digest=Digest(
-            value="783ad2afe455839e5ab2fa659861f58a423fd17f", cryptoType=DigestType.sha1
-        ),
-        path=None,
-        dataType=None,
-        sameAs=None,
-        modality=None,
-        measurementTechnique=None,
-        variableMeasured=None,
-        wasDerivedFrom=[
-            BioSample(
-                identifier="tissue42", assayType=None, anatomy=None, wasDerivedFrom=None
-            )
-        ],
-        wasAttributedTo=[],
-        contentUrl=None,
-    )
-    # We need to convert `data` to a `dict` this way instead of with `.dict()`
-    # so that enums will be converted to strings.
-    data_as_dict = json.loads(data.json(exclude_unset=True, exclude_none=True))
+    # data.json(exclude_unset=True, exclude_none=True, indent=2)
+    json_data = """{
+  "schemaVersion": "1.0.0-rc1",
+  "identifier": "bfc23fb6192b41c083a7257e09a3702b",
+  "keywords": [
+    "keyword1",
+    "keyword 2"
+  ],
+  "access": [
+    {
+      "status": "dandi:Open"
+    }
+  ],
+  "repository": "https://dandiarchive.org/",
+  "contentSize": 69105,
+  "encodingFormat": "application/x-nwb",
+  "digest": {
+    "value": "783ad2afe455839e5ab2fa659861f58a423fd17f",
+    "cryptoType": "dandi:sha1"
+  },
+  "wasDerivedFrom": [
+    {
+      "identifier": "tissue42"
+    }
+  ],
+  "wasAttributedTo": []
+}"""
+    data_as_dict = json.loads(json_data)
+    assert data == AssetMeta(**data_as_dict)
     validate_asset_json(data_as_dict, schema_dir)
 
 
@@ -591,683 +513,418 @@ def test_dandimeta_migration(schema_dir):
             }
         }
     )
-    assert data == DandiMeta.unvalidated(
-        access=[
-            AccessRequirements(
-                status=AccessType.Open,
-                email="nand.chandravadia@cshs.org",
-                contactPoint=None,
-                description=None,
-                embargoedUntil=None,
-            )
-        ],
-        relatedResource=[
-            Resource(
-                identifier="DOI:10.17605/OSF.IO/HV7JA",
-                name=(
-                    "A NWB-based Dataset and Processing Pipeline of Human"
-                    " Single-Neuron Activity During a Declarative Memory Task"
-                ),
-                repository="Open Science Framework",
-                url="https://osf.io/hv7ja/",
-                relation=RelationType.IsDerivedFrom,
-            ),
-            Resource(
-                identifier="DOI:10.1038/s41597-020-0415-9",
-                relation=RelationType.IsDescribedBy,
-                url="https://www.nature.com/articles/s41597-020-0415-9",
-                name=None,
-                repository=None,
-            ),
-        ],
-        about=[{"identifier": "MTL", "name": "Medial Temporal Lobe"}],
-        contributor=[
-            Person(
-                roleName=[
-                    RoleType.Author,
-                    RoleType.ContactPerson,
-                    RoleType.DataCurator,
-                    RoleType.DataManager,
-                    RoleType.FormalAnalysis,
-                    RoleType.Investigation,
-                    RoleType.Maintainer,
-                    RoleType.Methodology,
-                    RoleType.ProjectLeader,
-                    RoleType.ProjectManager,
-                    RoleType.ProjectMember,
-                    RoleType.Researcher,
-                    RoleType.Software,
-                    RoleType.Validation,
-                    RoleType.Visualization,
-                ],
-                identifier=PropertyValue(
-                    maxValue=None,
-                    minValue=None,
-                    unitCode=None,
-                    unitText=None,
-                    value="0000-0003-0161-4007",
-                    valueReference=None,
-                    propertyID="ORCID",
-                ),
-                email="nand.chandravadia@cshs.org",
-                name="Chandravadia, Nand",
-                affiliation=[
-                    Organization(
-                        name=(
-                            "Department of Neurosurgery, Cedars-Sinai Medical"
-                            " Center, Los Angeles, CA, USA"
-                        ),
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    )
-                ],
-                url=None,
-                includeInCitation=True,
-                awardNumber=None,
-            ),
-            Person(
-                roleName=[
-                    RoleType.Author,
-                    RoleType.Methodology,
-                    RoleType.ProjectMember,
-                    RoleType.Software,
-                    RoleType.Validation,
-                ],
-                identifier=PropertyValue(
-                    maxValue=None,
-                    minValue=None,
-                    unitCode=None,
-                    unitText=None,
-                    value=None,
-                    valueReference=None,
-                    propertyID=None,
-                ),
-                email="liang134@mail.chapman.edu",
-                name="Liang, Dehua",
-                affiliation=[
-                    Organization(
-                        name=(
-                            "Institute for Interdisciplinary Brain and"
-                            " Behavioral Sciences, Crean College of Health and"
-                            " Behavioral Sciences, Schmid College of Science"
-                            " and Technology, Chapman University, Orange, CA,"
-                            " USA"
-                        ),
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    )
-                ],
-                url=None,
-                includeInCitation=True,
-                awardNumber=None,
-            ),
-            Person(
-                roleName=[
-                    RoleType.Author,
-                    RoleType.DataCollector,
-                    RoleType.ProjectMember,
-                    RoleType.Validation,
-                ],
-                identifier=PropertyValue(
-                    maxValue=None,
-                    minValue=None,
-                    unitCode=None,
-                    unitText=None,
-                    value="0000-0002-4319-7689",
-                    valueReference=None,
-                    propertyID="ORCID",
-                ),
-                email="Andrea.Schjetan@uhnresearch.ca",
-                name="Schjetnan, Andrea Gomez Palacio",
-                affiliation=[
-                    Organization(
-                        name="Krembil Brain Institute, Toronto Western Hospital, Toronto, Canada",
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    )
-                ],
-                url=None,
-                includeInCitation=True,
-                awardNumber=None,
-            ),
-            Person(
-                roleName=[
-                    RoleType.Author,
-                    RoleType.DataCurator,
-                    RoleType.ProjectMember,
-                    RoleType.Validation,
-                ],
-                identifier=PropertyValue(
-                    maxValue=None,
-                    minValue=None,
-                    unitCode=None,
-                    unitText=None,
-                    value="0000-0002-9207-7069",
-                    valueReference=None,
-                    propertyID="ORCID",
-                ),
-                email="april.carlson@tufts.edu",
-                name="Carlson, April",
-                affiliation=[
-                    Organization(
-                        name=(
-                            "Department of Neurosurgery, Cedars-Sinai Medical"
-                            " Center, Los Angeles, CA, USA"
-                        ),
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    )
-                ],
-                url=None,
-                includeInCitation=True,
-                awardNumber=None,
-            ),
-            Person(
-                roleName=[
-                    RoleType.Author,
-                    RoleType.DataCollector,
-                    RoleType.ProjectMember,
-                    RoleType.Validation,
-                ],
-                email="mailyscm.faraut@gmail.com",
-                name="Faraut, Mailys",
-                affiliation=[
-                    Organization(
-                        name=(
-                            "Department of Neurosurgery, Cedars-Sinai Medical"
-                            " Center, Los Angeles, CA, USA"
-                        ),
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    )
-                ],
-                identifier=None,
-                url=None,
-                includeInCitation=True,
-                awardNumber=None,
-            ),
-            Person(
-                roleName=[RoleType.Author, RoleType.ProjectMember, RoleType.Validation],
-                email="Jeffrey.Chung@cshs.org",
-                name="Chung, Jeffrey M.",
-                affiliation=[
-                    Organization(
-                        name=(
-                            "Department of Neurology, Cedars-Sinai Medical"
-                            " Center, Los Angeles, CA, USA"
-                        ),
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    )
-                ],
-                identifier=None,
-                url=None,
-                includeInCitation=True,
-                awardNumber=None,
-            ),
-            Person(
-                roleName=[RoleType.Author, RoleType.ProjectMember, RoleType.Validation],
-                email="Chrystal.Reed@csmc.edu",
-                name="Reed, Chrystal M.",
-                affiliation=[
-                    Organization(
-                        name=(
-                            "Department of Neurology, Cedars-Sinai Medical"
-                            " Center, Los Angeles, CA, USA"
-                        ),
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    )
-                ],
-                identifier=None,
-                url=None,
-                includeInCitation=True,
-                awardNumber=None,
-            ),
-            Person(
-                roleName=[
-                    RoleType.Author,
-                    RoleType.Software,
-                    RoleType.ProjectMember,
-                    RoleType.Validation,
-                ],
-                email="ben.dichter@gmail.com",
-                name="Dichter, Ben",
-                affiliation=[
-                    Organization(
-                        name=(
-                            "Biological Systems & Engineering Division,"
-                            " Lawrence Berkeley National Laboratory, Berkeley,"
-                            " CA, USA"
-                        ),
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    ),
-                    Organization(
-                        name="Department of Neurosurgery, Stanford University, Stanford, CA, USA",
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    ),
-                ],
-                identifier=None,
-                url=None,
-                includeInCitation=True,
-                awardNumber=None,
-            ),
-            Person(
-                roleName=[
-                    RoleType.Author,
-                    RoleType.Conceptualization,
-                    RoleType.ProjectMember,
-                    RoleType.Validation,
-                ],
-                email="maoz.uri@gmail.com",
-                name="Maoz, Uri",
-                affiliation=[
-                    Organization(
-                        name=(
-                            "Institute for Interdisciplinary Brain and"
-                            " Behavioral Sciences, Crean College of Health and"
-                            " Behavioral Sciences, Schmid College of Science"
-                            " and Technology, Chapman University, Orange, CA,"
-                            " USA"
-                        ),
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    ),
-                    Organization(
-                        name=(
-                            "Division of Biology and Biological Engineering,"
-                            " California Institute of Technology, Pasadena, CA,"
-                            " USA"
-                        ),
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    ),
-                ],
-                identifier=None,
-                url=None,
-                includeInCitation=True,
-                awardNumber=None,
-            ),
-            Person(
-                roleName=[RoleType.Author, RoleType.ProjectMember, RoleType.Validation],
-                email="suneil.kalia@uhn.ca",
-                name="Kalia, Suneil K.",
-                affiliation=[
-                    Organization(
-                        name=(
-                            "Division of Neurosurgery, Department of Surgery,"
-                            " University of Toronto, Toronto, Canada"
-                        ),
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    ),
-                    Organization(
-                        name="Krembil Brain Institute, Toronto Western Hospital, Toronto, Canada",
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    ),
-                ],
-                identifier=None,
-                url=None,
-                includeInCitation=True,
-                awardNumber=None,
-            ),
-            Person(
-                roleName=[RoleType.Author, RoleType.ProjectMember, RoleType.Validation],
-                email="Taufik.Valiante@uhn.ca",
-                name="Valiante, Taufik A.",
-                affiliation=[
-                    Organization(
-                        name="Krembil Brain Institute, Toronto Western Hospital, Toronto, Canada",
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    ),
-                    Organization(
-                        name=(
-                            "Division of Neurosurgery, Department of Surgery,"
-                            " University of Toronto, Toronto, Canada"
-                        ),
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    ),
-                ],
-                identifier=None,
-                url=None,
-                includeInCitation=True,
-                awardNumber=None,
-            ),
-            Person(
-                roleName=[RoleType.Author, RoleType.ProjectMember, RoleType.Validation],
-                email="Adam.Mamelak@cshs.org",
-                name="Mamelak, Adam N.",
-                affiliation=[
-                    Organization(
-                        name=(
-                            "Department of Neurosurgery, Cedars-Sinai Medical"
-                            " Center, Los Angeles, CA, USA"
-                        ),
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    )
-                ],
-                identifier=None,
-                url=None,
-                includeInCitation=True,
-                awardNumber=None,
-            ),
-            Person(
-                roleName=[
-                    RoleType.Author,
-                    RoleType.Conceptualization,
-                    RoleType.FundingAcquisition,
-                    RoleType.ProjectMember,
-                    RoleType.Resources,
-                    RoleType.Software,
-                    RoleType.Supervision,
-                    RoleType.Validation,
-                ],
-                identifier=PropertyValue(
-                    maxValue=None,
-                    minValue=None,
-                    unitCode=None,
-                    unitText=None,
-                    value="0000-0002-9207-7069",
-                    valueReference=None,
-                    propertyID="ORCID",
-                ),
-                email="Ueli.Rutishauser@cshs.org",
-                name="Rutishauser, Ueli",
-                affiliation=[
-                    Organization(
-                        name=(
-                            "Department of Neurosurgery, Cedars-Sinai Medical"
-                            " Center, Los Angeles, CA, USA"
-                        ),
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    ),
-                    Organization(
-                        name=(
-                            "Department of Neurology, Cedars-Sinai Medical"
-                            " Center, Los Angeles, CA, USA"
-                        ),
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    ),
-                    Organization(
-                        name=(
-                            "Division of Biology and Biological Engineering,"
-                            " California Institute of Technology, Pasadena, CA,"
-                            " USA"
-                        ),
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    ),
-                    Organization(
-                        name=(
-                            "Computational and Neural Systems Program,"
-                            " California Institute of Technology, Pasadena, CA,"
-                            " USA"
-                        ),
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    ),
-                    Organization(
-                        name=(
-                            "Center for Neural Science and Medicine, Department"
-                            " of Biomedical Science, Cedars-Sinai Medical"
-                            " Center, Los Angeles, CA, USA"
-                        ),
-                        identifier=None,
-                        email=None,
-                        url=None,
-                        roleName=None,
-                        includeInCitation=False,
-                        awardNumber=None,
-                        contactPoint=None,
-                    ),
-                ],
-                url=None,
-                includeInCitation=True,
-                awardNumber=None,
-            ),
-            Organization(
-                awardNumber="U01NS103792",
-                name="Stroke, National Institute of Neurological Disorders and",
-                identifier=None,
-                email=None,
-                url=None,
-                roleName=[RoleType.Sponsor],
-                includeInCitation=False,
-                contactPoint=None,
-            ),
-            Organization(
-                awardNumber="1554105",
-                name="Foundation, National Science",
-                identifier=None,
-                email=None,
-                url=None,
-                roleName=[RoleType.Sponsor],
-                includeInCitation=False,
-                contactPoint=None,
-            ),
-            Organization(
-                awardNumber="R01MH110831",
-                name="Health, National Institute of Mental",
-                identifier=None,
-                email=None,
-                url=None,
-                roleName=[RoleType.Sponsor],
-                includeInCitation=False,
-                contactPoint=None,
-            ),
-            Person(
-                name="Neuroscience, McKnight Endowment for",
-                identifier=None,
-                email=None,
-                url=None,
-                roleName=[RoleType.Sponsor],
-                includeInCitation=True,
-                awardNumber=None,
-                affiliation=None,
-            ),
-            Person(
-                name=(
-                    "Foundation, NARSAD Young Investigator grant from the Brain"
-                    " & Behavior Research"
-                ),
-                identifier=None,
-                email=None,
-                url=None,
-                roleName=[RoleType.Sponsor],
-                includeInCitation=True,
-                awardNumber=None,
-                affiliation=None,
-            ),
-            Person(
-                name="Foundation, Kavli",
-                identifier=None,
-                email=None,
-                url=None,
-                roleName=[RoleType.Sponsor],
-                includeInCitation=True,
-                awardNumber=None,
-                affiliation=None,
-            ),
-            Organization(
-                awardNumber="U19NS104590",
-                name="initiative, BRAIN",
-                identifier=None,
-                email=None,
-                url=None,
-                roleName=[RoleType.Sponsor],
-                includeInCitation=False,
-                contactPoint=None,
-            ),
-        ],
-        description=(
-            "A challenge for data sharing in systems neuroscience is the"
-            " multitude of different data formats used. Neurodata Without"
-            " Borders: Neurophysiology 2.0 (NWB:N) has emerged as a"
-            " standardized data format for the storage of cellular-level data"
-            " together with meta-data, stimulus information, and behavior. A"
-            " key next step to facilitate NWB:N adoption is to provide easy to"
-            " use processing pipelines to import/export data from/to NWB:N."
-            " Here, we present a NWB-formatted dataset of 1863 single neurons"
-            " recorded from the medial temporal lobes of 59 human subjects"
-            " undergoing intracranial monitoring while they performed a"
-            " recognition memory task. We provide code to analyze and"
-            " export/import stimuli, behavior, and electrophysiological"
-            " recordings to/from NWB in both MATLAB and Python. The data files"
-            " are NWB:N compliant, which affords interoperability between"
-            " programming languages and operating systems. This combined data"
-            " and code release is a case study for how to utilize NWB:N for"
-            " human single-neuron recordings and enables easy re-use of this"
-            " hard-to-obtain data for both teaching and research on the"
-            " mechanisms of human memory."
-        ),
-        identifier=PropertyValue(
-            maxValue=None,
-            minValue=None,
-            unitCode=None,
-            unitText=None,
-            value="000004",
-            valueReference=None,
-            propertyID="DANDI",
-        ),
-        keywords=[
-            "cognitive neuroscience",
-            "data standardization",
-            "decision making",
-            "declarative memory",
-            "neurophysiology",
-            "neurosurgery",
-            "NWB",
-            "open source",
-            "single-neurons",
-        ],
-        license=["dandi:CCBY40"],
-        name=(
-            "A NWB-based dataset and processing pipeline of human single-neuron"
-            " activity during a declarative memory task"
-        ),
-        schemaVersion="1.0.0-rc1",
-        studyTarget=None,
-        protocol=None,
-        ethicsApproval=None,
-        acknowledgement=None,
-        url=None,
-        repository="https://dandiarchive.org/",
-        wasGeneratedBy=None,
-        citation=None,
-        assetsSummary=None,
-        manifestLocation=None,
-        version=None,
-        doi=None,
-    )
-    # We need to convert `data` to a `dict` this way instead of with `.dict()`
-    # so that enums will be converted to strings.
-    data_as_dict = json.loads(data.json(exclude_unset=True, exclude_none=True))
+    # This JSON dictionary is generated with:
+    # data.json(exclude_none=True, indent=2)
+    json_data = """{
+  "access": [
+    {
+      "status": "dandi:Open"
+    }
+  ],
+  "relatedResource": [
+    {
+      "identifier": "DOI:10.17605/OSF.IO/HV7JA",
+      "name": "A NWB-based Dataset and Processing Pipeline of Human Single-Neuron Activity During a Declarative Memory Task",
+      "repository": "Open Science Framework",
+      "url": "https://osf.io/hv7ja/",
+      "relation": "dandi:IsDerivedFrom"
+    },
+    {
+      "identifier": "DOI:10.1038/s41597-020-0415-9",
+      "relation": "dandi:IsDescribedBy",
+      "url": "https://www.nature.com/articles/s41597-020-0415-9"
+    }
+  ],
+  "about": [
+    {
+      "name": "Medial Temporal Lobe",
+      "schemaKey": "GenericType"
+    }
+  ],
+  "contributor": [
+    {
+      "roleName": [
+        "dandi:Author",
+        "dandi:ContactPerson",
+        "dandi:DataCurator",
+        "dandi:DataManager",
+        "dandi:FormalAnalysis",
+        "dandi:Investigation",
+        "dandi:Maintainer",
+        "dandi:Methodology",
+        "dandi:ProjectLeader",
+        "dandi:ProjectManager",
+        "dandi:ProjectMember",
+        "dandi:Researcher",
+        "dandi:Software",
+        "dandi:Validation",
+        "dandi:Visualization"
+      ],
+      "identifier": "0000-0003-0161-4007",
+      "email": "nand.chandravadia@cshs.org",
+      "name": "Chandravadia, Nand",
+      "affiliation": [
+        {
+          "name": "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        }
+      ],
+      "includeInCitation": true,
+      "schemaKey": "Person"
+    },
+    {
+      "roleName": [
+        "dandi:Author",
+        "dandi:Methodology",
+        "dandi:ProjectMember",
+        "dandi:Software",
+        "dandi:Validation"
+      ],
+      "email": "liang134@mail.chapman.edu",
+      "name": "Liang, Dehua",
+      "affiliation": [
+        {
+          "name": "Institute for Interdisciplinary Brain and Behavioral Sciences, Crean College of Health and Behavioral Sciences, Schmid College of Science and Technology, Chapman University, Orange, CA, USA",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        }
+      ],
+      "includeInCitation": true,
+      "schemaKey": "Person"
+    },
+    {
+      "roleName": [
+        "dandi:Author",
+        "dandi:DataCollector",
+        "dandi:ProjectMember",
+        "dandi:Validation"
+      ],
+      "identifier": "0000-0002-4319-7689",
+      "email": "Andrea.Schjetan@uhnresearch.ca",
+      "name": "Schjetnan, Andrea Gomez Palacio",
+      "affiliation": [
+        {
+          "name": "Krembil Brain Institute, Toronto Western Hospital, Toronto, Canada",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        }
+      ],
+      "includeInCitation": true,
+      "schemaKey": "Person"
+    },
+    {
+      "roleName": [
+        "dandi:Author",
+        "dandi:DataCurator",
+        "dandi:ProjectMember",
+        "dandi:Validation"
+      ],
+      "identifier": "0000-0002-9207-7069",
+      "email": "april.carlson@tufts.edu",
+      "name": "Carlson, April",
+      "affiliation": [
+        {
+          "name": "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        }
+      ],
+      "includeInCitation": true,
+      "schemaKey": "Person"
+    },
+    {
+      "roleName": [
+        "dandi:Author",
+        "dandi:DataCollector",
+        "dandi:ProjectMember",
+        "dandi:Validation"
+      ],
+      "email": "mailyscm.faraut@gmail.com",
+      "name": "Faraut, Mailys",
+      "affiliation": [
+        {
+          "name": "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        }
+      ],
+      "includeInCitation": true,
+      "schemaKey": "Person"
+    },
+    {
+      "roleName": [
+        "dandi:Author",
+        "dandi:ProjectMember",
+        "dandi:Validation"
+      ],
+      "email": "Jeffrey.Chung@cshs.org",
+      "name": "Chung, Jeffrey M.",
+      "affiliation": [
+        {
+          "name": "Department of Neurology, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        }
+      ],
+      "includeInCitation": true,
+      "schemaKey": "Person"
+    },
+    {
+      "roleName": [
+        "dandi:Author",
+        "dandi:ProjectMember",
+        "dandi:Validation"
+      ],
+      "email": "Chrystal.Reed@csmc.edu",
+      "name": "Reed, Chrystal M.",
+      "affiliation": [
+        {
+          "name": "Department of Neurology, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        }
+      ],
+      "includeInCitation": true,
+      "schemaKey": "Person"
+    },
+    {
+      "roleName": [
+        "dandi:Author",
+        "dandi:Software",
+        "dandi:ProjectMember",
+        "dandi:Validation"
+      ],
+      "email": "ben.dichter@gmail.com",
+      "name": "Dichter, Ben",
+      "affiliation": [
+        {
+          "name": "Biological Systems & Engineering Division, Lawrence Berkeley National Laboratory, Berkeley, CA, USA",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        },
+        {
+          "name": "Department of Neurosurgery, Stanford University, Stanford, CA, USA",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        }
+      ],
+      "includeInCitation": true,
+      "schemaKey": "Person"
+    },
+    {
+      "roleName": [
+        "dandi:Author",
+        "dandi:Conceptualization",
+        "dandi:ProjectMember",
+        "dandi:Validation"
+      ],
+      "email": "maoz.uri@gmail.com",
+      "name": "Maoz, Uri",
+      "affiliation": [
+        {
+          "name": "Institute for Interdisciplinary Brain and Behavioral Sciences, Crean College of Health and Behavioral Sciences, Schmid College of Science and Technology, Chapman University, Orange, CA, USA",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        },
+        {
+          "name": "Division of Biology and Biological Engineering, California Institute of Technology, Pasadena, CA, USA",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        }
+      ],
+      "includeInCitation": true,
+      "schemaKey": "Person"
+    },
+    {
+      "roleName": [
+        "dandi:Author",
+        "dandi:ProjectMember",
+        "dandi:Validation"
+      ],
+      "email": "suneil.kalia@uhn.ca",
+      "name": "Kalia, Suneil K.",
+      "affiliation": [
+        {
+          "name": "Division of Neurosurgery, Department of Surgery, University of Toronto, Toronto, Canada",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        },
+        {
+          "name": "Krembil Brain Institute, Toronto Western Hospital, Toronto, Canada",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        }
+      ],
+      "includeInCitation": true,
+      "schemaKey": "Person"
+    },
+    {
+      "roleName": [
+        "dandi:Author",
+        "dandi:ProjectMember",
+        "dandi:Validation"
+      ],
+      "email": "Taufik.Valiante@uhn.ca",
+      "name": "Valiante, Taufik A.",
+      "affiliation": [
+        {
+          "name": "Krembil Brain Institute, Toronto Western Hospital, Toronto, Canada",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        },
+        {
+          "name": "Division of Neurosurgery, Department of Surgery, University of Toronto, Toronto, Canada",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        }
+      ],
+      "includeInCitation": true,
+      "schemaKey": "Person"
+    },
+    {
+      "roleName": [
+        "dandi:Author",
+        "dandi:ProjectMember",
+        "dandi:Validation"
+      ],
+      "email": "Adam.Mamelak@cshs.org",
+      "name": "Mamelak, Adam N.",
+      "affiliation": [
+        {
+          "name": "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        }
+      ],
+      "includeInCitation": true,
+      "schemaKey": "Person"
+    },
+    {
+      "roleName": [
+        "dandi:Author",
+        "dandi:Conceptualization",
+        "dandi:FundingAcquisition",
+        "dandi:ProjectMember",
+        "dandi:Resources",
+        "dandi:Software",
+        "dandi:Supervision",
+        "dandi:Validation"
+      ],
+      "identifier": "0000-0002-9207-7069",
+      "email": "Ueli.Rutishauser@cshs.org",
+      "name": "Rutishauser, Ueli",
+      "affiliation": [
+        {
+          "name": "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        },
+        {
+          "name": "Department of Neurology, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        },
+        {
+          "name": "Division of Biology and Biological Engineering, California Institute of Technology, Pasadena, CA, USA",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        },
+        {
+          "name": "Computational and Neural Systems Program, California Institute of Technology, Pasadena, CA, USA",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        },
+        {
+          "name": "Center for Neural Science and Medicine, Department of Biomedical Science, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
+          "includeInCitation": false,
+          "schemaKey": "Organization"
+        }
+      ],
+      "includeInCitation": true,
+      "schemaKey": "Person"
+    },
+    {
+      "roleName": [
+        "dandi:Sponsor"
+      ],
+      "awardNumber": "U01NS103792",
+      "name": "Stroke, National Institute of Neurological Disorders and",
+      "includeInCitation": false,
+      "schemaKey": "Organization"
+    },
+    {
+      "roleName": [
+        "dandi:Sponsor"
+      ],
+      "awardNumber": "1554105",
+      "name": "Foundation, National Science",
+      "includeInCitation": false,
+      "schemaKey": "Organization"
+    },
+    {
+      "roleName": [
+        "dandi:Sponsor"
+      ],
+      "awardNumber": "R01MH110831",
+      "name": "Health, National Institute of Mental",
+      "includeInCitation": false,
+      "schemaKey": "Organization"
+    },
+    {
+      "roleName": [
+        "dandi:Sponsor"
+      ],
+      "name": "Neuroscience, McKnight Endowment for",
+      "includeInCitation": false,
+      "schemaKey": "Organization"
+    },
+    {
+      "roleName": [
+        "dandi:Sponsor"
+      ],
+      "name": "Foundation, NARSAD Young Investigator grant from the Brain & Behavior Research",
+      "includeInCitation": false,
+      "schemaKey": "Organization"
+    },
+    {
+      "roleName": [
+        "dandi:Sponsor"
+      ],
+      "name": "Foundation, Kavli",
+      "includeInCitation": false,
+      "schemaKey": "Organization"
+    },
+    {
+      "roleName": [
+        "dandi:Sponsor"
+      ],
+      "awardNumber": "U19NS104590",
+      "name": "initiative, BRAIN",
+      "includeInCitation": false,
+      "schemaKey": "Organization"
+    }
+  ],
+  "description": "A challenge for data sharing in systems neuroscience is the multitude of different data formats used. Neurodata Without Borders: Neurophysiology 2.0 (NWB:N) has emerged as a standardized data format for the storage of cellular-level data together with meta-data, stimulus information, and behavior. A key next step to facilitate NWB:N adoption is to provide easy to use processing pipelines to import/export data from/to NWB:N. Here, we present a NWB-formatted dataset of 1863 single neurons recorded from the medial temporal lobes of 59 human subjects undergoing intracranial monitoring while they performed a recognition memory task. We provide code to analyze and export/import stimuli, behavior, and electrophysiological recordings to/from NWB in both MATLAB and Python. The data files are NWB:N compliant, which affords interoperability between programming languages and operating systems. This combined data and code release is a case study for how to utilize NWB:N for human single-neuron recordings and enables easy re-use of this hard-to-obtain data for both teaching and research on the mechanisms of human memory.",
+  "identifier": "DANDI:000004",
+  "keywords": [
+    "cognitive neuroscience",
+    "data standardization",
+    "decision making",
+    "declarative memory",
+    "neurophysiology",
+    "neurosurgery",
+    "NWB",
+    "open source",
+    "single-neurons"
+  ],
+  "license": [
+    "dandi:CCBY40"
+  ],
+  "name": "A NWB-based dataset and processing pipeline of human single-neuron activity during a declarative memory task",
+  "schemaVersion": "1.0.0-rc1",
+  "repository": "https://dandiarchive.org/"
+}"""
+    data_as_dict = json.loads(json_data)
+    assert data == DandiMeta(**data_as_dict)
     validate_dandiset_json(data_as_dict, schema_dir)
