@@ -3,17 +3,19 @@ from ..validate import validate_file
 
 def test_validate_simple1(monkeypatch, simple1_nwb):
     monkeypatch.setenv("DANDI_SCHEMA", "1")
-    # this file lacks subject_id
+    # this file should be ok
     errors = validate_file(simple1_nwb)
-    assert len(errors) == 1
-    assert errors[0] == (
-        "1 validation error for Software\n"
-        "identifier\n"
-        "  str type expected (type=type_error.str)"
-    )
+    assert not errors
 
 
 def test_validate_simple2(simple2_nwb):
+    # this file should be ok
+    errors = validate_file(simple2_nwb)
+    assert not errors
+
+
+def test_validate_simple2_new(monkeypatch, simple2_nwb):
+    monkeypatch.setenv("DANDI_SCHEMA", "1")
     # this file should be ok
     errors = validate_file(simple2_nwb)
     assert not errors
