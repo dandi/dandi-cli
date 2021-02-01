@@ -800,7 +800,7 @@ def _new_upload(
                     yield skip_file("failed to extract metadata: %s" % str(exc))
                     return
             else:
-                metadata = asset_metadata.asdict()
+                metadata = asset_metadata.json_dict()
 
             #
             # Upload file

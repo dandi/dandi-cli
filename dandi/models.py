@@ -661,7 +661,7 @@ class CommonModel(DandiBaseModel):
 
     wasGeneratedBy: Optional[Activity] = Field(None, nskey="prov")
 
-    def asdict(self):
+    def json_dict(self):
         """
         Recursively convert the instance to a `dict` of JSONable values,
         including converting enum values to strings.  Unset and `None` fields
