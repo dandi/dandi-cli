@@ -67,6 +67,10 @@ development command line options.
  `local_docker_compose*` fixtures use the given API key for
  `DANDI_INSTANCEHOST` instead of spinning up a new environment with a new key.
 
+- `DANDI_TESTS_PERSIST_DOCKER_COMPOSE` -- When set, the tests will reuse the
+  same Docker containers across test runs instead of creating & destroying a
+  new set on each run.  Set this environment variable to `0` to cause the
+  containers to be destroyed at the end of the next run.
 
 ## Sourcegraph
 

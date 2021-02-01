@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import re
 import shutil
-from subprocess import check_output, run
+from subprocess import DEVNULL, check_output, run
 import tempfile
 from time import sleep
 
@@ -154,7 +154,7 @@ def docker_compose_setup():
     # so we would not bother starting/stopping a new one here
     api_key = os.environ.get("DANDI_REUSE_LOCAL_DOCKER_TESTS_API_KEY")
     if api_key:
-        yield {"api_key": api_key}
+        yield {"girder_api_key": api_key}
         return
 
     skipif.no_network()
@@ -165,14 +165,28 @@ def docker_compose_setup():
     if os.name != "posix":
         pytest.skip("Docker images require Unix host")
 
-    run(
-        ["docker-compose", "up", "-d", "provision"],
-        cwd=str(LOCAL_DOCKER_DIR),
-        check=True,
+    persist = os.environ.get("DANDI_TESTS_PERSIST_DOCKER_COMPOSE")
+
+    create = (
+        persist is None
+        or run(
+            ["docker", "inspect", f"{LOCAL_DOCKER_ENV}_django_1"],
+            stdout=DEVNULL,
+            stderr=DEVNULL,
+        ).returncode
+        != 0
     )
+
+    if create:
+        run(
+            ["docker-compose", "up", "-d", "provision"],
+            cwd=str(LOCAL_DOCKER_DIR),
+            check=True,
+        )
     try:
-        run(["docker", "wait", f"{LOCAL_DOCKER_ENV}_provision_1"], check=True)
-        # Should we check that the output of `docker wait` is 0?
+        if create:
+            run(["docker", "wait", f"{LOCAL_DOCKER_ENV}_provision_1"], check=True)
+            # Should we check that the output of `docker wait` is 0?
 
         r = requests.get(
             f"{GIRDER_URL}/api/v1/user/authentication", auth=("admin", "letmein")
@@ -190,19 +204,20 @@ def docker_compose_setup():
         r.raise_for_status()
         api_key = r.json()["key"]
 
-        # dandi-publish requires an admin named "publish":
-        requests.post(
-            f"{GIRDER_URL}/api/v1/user",
-            data={
-                "login": "publish",
-                "email": "nil@nil.nil",
-                "firstName": "Dandi",
-                "lastName": "Publish",
-                "password": "Z1lT4Fh7Kj",
-                "admin": "True",
-            },
-            headers={"Girder-Token": initial_api_key},
-        ).raise_for_status()
+        if create:
+            # dandi-publish requires an admin named "publish":
+            requests.post(
+                f"{GIRDER_URL}/api/v1/user",
+                data={
+                    "login": "publish",
+                    "email": "nil@nil.nil",
+                    "firstName": "Dandi",
+                    "lastName": "Publish",
+                    "password": "Z1lT4Fh7Kj",
+                    "admin": "True",
+                },
+                headers={"Girder-Token": initial_api_key},
+            ).raise_for_status()
 
         r = requests.get(
             f"{GIRDER_URL}/api/v1/user/authentication", auth=("publish", "Z1lT4Fh7Kj")
@@ -227,33 +242,33 @@ def docker_compose_setup():
         env["DJANGO_DANDI_GIRDER_API_URL"] = f"http://{girder_ip}:8080/api/v1"
         env["DJANGO_DANDI_GIRDER_API_KEY"] = publish_api_key
 
-        run(
-            ["docker-compose", "run", "--rm", "django", "./manage.py", "migrate"],
-            cwd=str(LOCAL_DOCKER_DIR),
-            env=env,
-            check=True,
-        )
-
-        run(
-            [
-                "docker-compose",
-                "run",
-                "--rm",
-                "-e",
-                "DJANGO_SUPERUSER_PASSWORD=nsNc48DBiS",
-                "django",
-                "./manage.py",
-                "createsuperuser",
-                "--no-input",
-                "--username",
-                "admin",
-                "--email",
-                "nil@nil.nil",
-            ],
-            cwd=str(LOCAL_DOCKER_DIR),
-            env=env,
-            check=True,
-        )
+        if create:
+            run(
+                ["docker-compose", "run", "--rm", "django", "./manage.py", "migrate"],
+                cwd=str(LOCAL_DOCKER_DIR),
+                env=env,
+                check=True,
+            )
+            run(
+                [
+                    "docker-compose",
+                    "run",
+                    "--rm",
+                    "-e",
+                    "DJANGO_SUPERUSER_PASSWORD=nsNc48DBiS",
+                    "django",
+                    "./manage.py",
+                    "createsuperuser",
+                    "--no-input",
+                    "--username",
+                    "admin",
+                    "--email",
+                    "nil@nil.nil",
+                ],
+                cwd=str(LOCAL_DOCKER_DIR),
+                env=env,
+                check=True,
+            )
 
         r = check_output(
             [
@@ -276,41 +291,43 @@ def docker_compose_setup():
             )
         django_api_key = m[1]
 
-        run(
-            ["docker-compose", "up", "-d", "django", "celery"],
-            cwd=str(LOCAL_DOCKER_DIR),
-            env=env,
-            check=True,
-        )
+        if create:
+            run(
+                ["docker-compose", "up", "-d", "django", "celery"],
+                cwd=str(LOCAL_DOCKER_DIR),
+                env=env,
+                check=True,
+            )
 
-        requests.put(
-            f"{GIRDER_URL}/api/v1/system/setting",
-            data={
-                "key": "dandi.publish_api_url",
-                "value": "http://django:8000/api/",  # django or localhost?
-            },
-            headers={"Girder-Token": publish_api_key},
-        ).raise_for_status()
+            requests.put(
+                f"{GIRDER_URL}/api/v1/system/setting",
+                data={
+                    "key": "dandi.publish_api_url",
+                    "value": "http://django:8000/api/",  # django or localhost?
+                },
+                headers={"Girder-Token": publish_api_key},
+            ).raise_for_status()
 
-        requests.put(
-            f"{GIRDER_URL}/api/v1/system/setting",
-            data={"key": "dandi.publish_api_key", "value": django_api_key},
-            headers={"Girder-Token": publish_api_key},
-        ).raise_for_status()
+            requests.put(
+                f"{GIRDER_URL}/api/v1/system/setting",
+                data={"key": "dandi.publish_api_key", "value": django_api_key},
+                headers={"Girder-Token": publish_api_key},
+            ).raise_for_status()
 
-        for _ in range(10):
-            try:
-                requests.get(f"{API_URL}/dandisets/")
-            except requests.ConnectionError:
-                sleep(1)
+            for _ in range(10):
+                try:
+                    requests.get(f"{API_URL}/dandisets/")
+                except requests.ConnectionError:
+                    sleep(1)
+                else:
+                    break
             else:
-                break
-        else:
-            raise RuntimeError("Django container did not start up in time")
+                raise RuntimeError("Django container did not start up in time")
 
         yield {"girder_api_key": api_key, "django_api_key": django_api_key}
     finally:
-        run(["docker-compose", "down", "-v"], cwd=str(LOCAL_DOCKER_DIR), check=True)
+        if persist in (None, "0"):
+            run(["docker-compose", "down", "-v"], cwd=str(LOCAL_DOCKER_DIR), check=True)
 
 
 @pytest.fixture()
