@@ -1,6 +1,6 @@
+import collections.abc
 import queue
 import threading
-import collections.abc
 
 
 class generator_from_callback(collections.abc.Generator):

@@ -4,8 +4,8 @@ from keyring.backend import get_all_keyring
 from keyring.backends import fail, null
 from keyring.errors import KeyringError
 from keyrings.alt import file as keyfile
-
 import pytest
+
 from ..exceptions import LockingError
 from .. import girder
 

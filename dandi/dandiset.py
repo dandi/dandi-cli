@@ -4,9 +4,8 @@ import os
 from pathlib import Path
 
 from .consts import dandiset_metadata_file
-from .utils import find_parent_directory_containing, yaml_dump, yaml_load
-
 from . import get_logger
+from .utils import find_parent_directory_containing, yaml_dump, yaml_load
 
 lgr = get_logger()
 

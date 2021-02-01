@@ -3,8 +3,8 @@ import json
 import os
 from pathlib import Path
 import re
-from subprocess import check_output, run
 import shutil
+from subprocess import check_output, run
 import tempfile
 from time import sleep
 
@@ -14,11 +14,10 @@ import pytest
 import requests
 
 from .skip import skipif
-from .. import get_logger
 from ..cli.command import organize
 from ..consts import dandiset_metadata_file, known_instances
+from .. import get_logger
 from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
-
 
 lgr = get_logger()
 

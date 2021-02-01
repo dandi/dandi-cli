@@ -1,12 +1,12 @@
 import os
 import re
+from subprocess import PIPE, Popen
 import sys
-from subprocess import Popen, PIPE
-
-from ..command import ls, validate, __all_commands__
 
 from click.testing import CliRunner
 import pytest
+
+from ..command import __all_commands__, ls, validate
 
 
 @pytest.mark.parametrize("command", (ls, validate))

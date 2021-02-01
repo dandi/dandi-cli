@@ -1,34 +1,36 @@
 from datetime import datetime, timedelta
 import json
+
 from dateutil.tz import tzutc
 import pytest
+
 from ..metadata import (
     metadata2asset,
+    migrate2newschema,
     parse_age,
     publish_model_schemata,
     timedelta2duration,
-    migrate2newschema,
     validate_asset_json,
     validate_dandiset_json,
 )
 from ..models import (
     AccessRequirements,
     AccessType,
+    AnyUrl,
     AssetMeta,
     BioSample,
+    DandiMeta,
     Digest,
     DigestType,
-    PropertyValue,
-    SexType,
-    SpeciesType,
-    AnyUrl,
-    DandiMeta,
+    Organization,
     Participant,
+    Person,
+    PropertyValue,
+    RelationType,
     Resource,
     RoleType,
-    RelationType,
-    Person,
-    Organization,
+    SexType,
+    SpeciesType,
 )
 
 

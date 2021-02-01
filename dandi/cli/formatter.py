@@ -2,9 +2,9 @@ import datetime
 import sys
 
 import pyout
-from ..support import pyout as pyouts
 
 from .. import get_logger
+from ..support import pyout as pyouts
 
 lgr = get_logger()
 

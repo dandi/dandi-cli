@@ -1,12 +1,10 @@
+from collections import defaultdict
 import os
 import os.path as op
 
 import click
 
-from collections import defaultdict
-
 from .base import lgr, map_to_click_exceptions
-
 
 # TODO: all the recursion options etc
 
@@ -46,10 +44,9 @@ from .base import lgr, map_to_click_exceptions
 def ls(paths, fields=None, format="auto", recursive=False, jobs=6):
     """List .nwb files and dandisets metadata.
     """
-    from ..consts import metadata_all_fields
-
     # TODO: more logical ordering in case of fields = None
-    from .formatter import JSONFormatter, YAMLFormatter, PYOUTFormatter
+    from .formatter import JSONFormatter, PYOUTFormatter, YAMLFormatter
+    from ..consts import metadata_all_fields
 
     # TODO: avoid
     from ..support.pyout import PYOUT_SHORT_NAMES_rev
@@ -260,8 +257,8 @@ def flatten_meta_to_pyout(meta):
 
 
 def get_metadata_ls(path, keys, errors, flatten=False):
-    from ..pynwb_utils import get_nwb_version, ignore_benign_pynwb_warnings
     from ..metadata import get_metadata
+    from ..pynwb_utils import get_nwb_version, ignore_benign_pynwb_warnings
 
     ignore_benign_pynwb_warnings()
 

@@ -1,26 +1,23 @@
-import numpy as np
-import h5py
+from collections import Counter
+from distutils.version import LooseVersion
 import os
 import os.path as op
 import re
 import warnings
-from distutils.version import LooseVersion
-from collections import Counter
 
+import h5py
+import numpy as np
 import pynwb
 from pynwb import NWBHDF5IO
 import semantic_version
 
-from . import get_logger
-
 from .consts import (
-    metadata_nwb_file_fields,
     metadata_nwb_computed_fields,
+    metadata_nwb_file_fields,
     metadata_nwb_subject_fields,
 )
+from . import __version__, get_logger
 from .support.cache import PersistentCache
-
-from . import __version__
 
 lgr = get_logger()
 

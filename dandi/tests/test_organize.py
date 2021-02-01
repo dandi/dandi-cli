@@ -1,23 +1,23 @@
-import os
 from glob import glob
+import os
 import os.path as op
 from pathlib import Path
+
+import pytest
 import ruamel.yaml
 
-from ..consts import file_operation_modes
-
 from ..cli.command import organize
+from ..consts import file_operation_modes
 from ..organize import (
     _sanitize_value,
     create_dataset_yml_template,
     create_unique_filenames_from_metadata,
+    detect_link_type,
     get_obj_id,
     populate_dataset_yml,
-    detect_link_type,
 )
-from ..utils import find_files, on_windows, yaml_load
 from ..pynwb_utils import copy_nwb_file, get_object_id
-import pytest
+from ..utils import find_files, on_windows, yaml_load
 
 
 def test_sanitize_value():

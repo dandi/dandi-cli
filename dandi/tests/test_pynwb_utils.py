@@ -1,8 +1,9 @@
 import re
+
 import pynwb
 
-from ..pynwb_utils import metadata_nwb_subject_fields, _sanitize_nwb_version
 from ..metadata import get_metadata
+from ..pynwb_utils import _sanitize_nwb_version, metadata_nwb_subject_fields
 
 
 def test_get_metadata(simple1_nwb, simple1_nwb_metadata):

@@ -1,16 +1,16 @@
 import os
+from pathlib import Path
 import random
 import re
+
 import pytest
 import responses
 
-from pathlib import Path
-
-from .. import girder
 from ..consts import collection_drafts, dandiset_metadata_file
 from ..dandiapi import DandiAPIClient
 from ..dandiset import Dandiset
 from ..download import download
+from .. import girder
 from ..register import register
 from ..upload import upload
 from ..utils import yaml_load

@@ -1,16 +1,15 @@
 """pyout support helpers
 """
-import datetime
-import time
-import sys
-
 from collections import Counter
+import datetime
+import sys
+import time
 
 import humanize
 import pyout
 
+from ..consts import metadata_dandiset_fields, metadata_nwb_fields
 from .. import get_logger
-from ..consts import metadata_nwb_fields, metadata_dandiset_fields
 
 lgr = get_logger()
 

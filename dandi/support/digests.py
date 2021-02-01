@@ -10,10 +10,9 @@
 """
 
 import hashlib
+import logging
 
 from ..utils import auto_repr
-
-import logging
 
 lgr = logging.getLogger("dandi.support.digests")
 

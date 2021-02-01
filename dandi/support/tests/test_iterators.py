@@ -1,8 +1,8 @@
 from time import sleep
 
-from ..iterators import IteratorWithAggregation
-
 import pytest
+
+from ..iterators import IteratorWithAggregation
 
 
 def sleeping_range(n, secs=0.01, thr=None):

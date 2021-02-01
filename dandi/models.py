@@ -1,19 +1,19 @@
-from enum import Enum
-from pydantic import BaseModel, ByteSize, Field, AnyUrl, EmailStr, validator
-from typing import Dict, List, Union, Optional, Any, Type
-from datetime import date
-from ruamel import yaml
 from copy import deepcopy
+from datetime import date
+from enum import Enum
+from typing import Any, Dict, List, Optional, Type, Union
+
+from pydantic import AnyUrl, BaseModel, ByteSize, EmailStr, Field, validator
+from ruamel import yaml
 
 from .model_types import (
     AccessTypeDict,
-    RoleTypeDict,
-    RelationTypeDict,
-    LicenseTypeDict,
-    IdentifierTypeDict,
     DigestTypeDict,
+    IdentifierTypeDict,
+    LicenseTypeDict,
+    RelationTypeDict,
+    RoleTypeDict,
 )
-
 from .utils import name2title
 
 TempOptional = Optional

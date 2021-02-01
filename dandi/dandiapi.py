@@ -2,11 +2,12 @@ from contextlib import contextmanager
 import os.path
 from pathlib import Path
 from time import sleep
+
 import requests
 
-from . import get_logger
 from .consts import MAX_CHUNK_SIZE, known_instances_rev
 from .girder import keyring_lookup
+from . import get_logger
 from .support.digests import Digester
 
 lgr = get_logger()

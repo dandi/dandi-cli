@@ -1,10 +1,9 @@
 import os
 import os.path as op
 
-from . import get_logger
-from . import girder
 from .consts import dandiset_metadata_file, routes
 from .dandiset import Dandiset
+from . import get_logger, girder
 from .utils import get_instance
 
 lgr = get_logger()

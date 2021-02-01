@@ -3,14 +3,14 @@ ATM primarily a sandbox for some functionality for  dandi organize
 """
 
 import binascii
-from copy import deepcopy
-import numpy as np
-import re
 from collections import Counter
-
+from copy import deepcopy
 import os
 import os.path as op
 from pathlib import Path
+import re
+
+import numpy as np
 
 from .exceptions import OrganizeImpossibleError
 from . import get_logger

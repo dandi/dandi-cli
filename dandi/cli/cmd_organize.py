@@ -1,6 +1,7 @@
-import click
 import os
 import os.path as op
+
+import click
 
 from .base import dandiset_path_option, devel_debug_option, lgr, map_to_click_exceptions
 from ..consts import dandiset_metadata_file, file_operation_modes
@@ -78,17 +79,17 @@ def organize(
     You can visit https://dandiarchive.org/dandisets/drafts for a growing
     collection of (re)organized datasets (files content is original filenames).
     """
-    from ..utils import copy_file, delayed, find_files, load_jsonl, move_file, Parallel
-    from ..pynwb_utils import ignore_benign_pynwb_warnings
+    from ..dandiset import Dandiset
+    from ..metadata import get_metadata
     from ..organize import (
+        create_dataset_yml_template,
         create_unique_filenames_from_metadata,
+        detect_link_type,
         filter_invalid_metadata_rows,
         populate_dataset_yml,
-        create_dataset_yml_template,
-        detect_link_type,
     )
-    from ..metadata import get_metadata
-    from ..dandiset import Dandiset
+    from ..pynwb_utils import ignore_benign_pynwb_warnings
+    from ..utils import Parallel, copy_file, delayed, find_files, load_jsonl, move_file
 
     in_place = False  # If we deduce that we are organizing in-place
 
