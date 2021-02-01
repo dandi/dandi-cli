@@ -101,14 +101,18 @@ class Dandiset(object):
             lgr.debug("Found identifier %s in top level 'identifier'", str(id_))
 
         if isinstance(id_, dict):
-            # New formalized model.
-            # TODO: add schemaVersion handling
+            # New formalized model, but see below DANDI: way
+            # TODO: add schemaVersion handling but only after we have them provided
+            # in all metadata records from dandi-api server
             if id_.get("propertyID") != "DANDI":
                 raise ValueError(
                     f"Got following identifier record when was expecting a record "
                     f"with 'propertyID: DANDI': {id_}"
                 )
             id_ = str(id_.get("value", ""))
+        elif id_.startswith("DANDI:"):
+            # result of https://github.com/dandi/dandi-cli/pull/348 which
+            id_ = id_[len("DANDI:") :]
 
         return id_
 
