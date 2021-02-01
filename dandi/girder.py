@@ -1,27 +1,25 @@
 import contextlib
+from functools import lru_cache
 import json
 import os
 import os.path as op
+from pathlib import Path
 import random
 import sys
 import time
 
-from functools import lru_cache
-from pathlib import Path
-
 import click
-from keyring.core import get_keyring, load_config, load_env
+import girder_client as gcl
 from keyring.backend import get_all_keyring
+from keyring.core import get_keyring, load_config, load_env
 from keyring.errors import KeyringError
 from keyring.util.platform_ import config_root
 from keyrings.alt.file import EncryptedKeyring
 
-import girder_client as gcl
-
-from . import get_logger
+from .consts import MAX_CHUNK_SIZE, known_instances_rev
 from .exceptions import LockingError
-from .utils import ensure_datetime, flattened, flatten, remap_dict, try_multiple
-from .consts import known_instances_rev, MAX_CHUNK_SIZE
+from . import get_logger
+from .utils import ensure_datetime, flatten, flattened, remap_dict, try_multiple
 
 lgr = get_logger()
 

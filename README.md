@@ -75,7 +75,7 @@ Options:
 
 See [DANDI Handbook](https://www.dandiarchive.org/handbook/10_using_dandi/)
 for examples on how to use this client in various use cases.
- 
+
 ## Development/contributing
 
 Please see [DEVELOPMENT.md](./DEVELOPMENT.md) file.

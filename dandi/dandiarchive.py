@@ -7,18 +7,17 @@ abstract higher level code from specifics of any particular client.
 Eventually it is largely to be "dissolved" whenever we stop talking to girder.
 """
 
+from contextlib import contextmanager
 import re
 from urllib.parse import unquote as urlunquote
-from contextlib import contextmanager
 
 import requests
 
 from .consts import known_instances, known_instances_rev
-from .exceptions import UnknownURLError, NotFoundError, FailedToConnectError
-from .utils import get_instance
 from .dandiapi import DandiAPIClient
-from . import girder, get_logger
-
+from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
+from . import get_logger, girder
+from .utils import get_instance
 
 lgr = get_logger()
 

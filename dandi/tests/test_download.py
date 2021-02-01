@@ -2,12 +2,11 @@ import json
 import os
 import os.path as op
 
+import pytest
 import tqdm
 
 from ..download import download
 from ..girder import TQDMProgressReporter
-
-import pytest
 
 
 # both urls point to 000027 (lean test dataset), and both draft and "released"

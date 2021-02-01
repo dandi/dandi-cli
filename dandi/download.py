@@ -4,21 +4,20 @@ import os
 import os.path as op
 from pathlib import Path
 import random
-import requests
 from shutil import rmtree
 import sys
 import time
 
-from .dandiapi import DandiAPIClient
-from . import girder, get_logger
+import humanize
+import requests
+
 from .consts import dandiset_metadata_file, metadata_digests
+from .dandiapi import DandiAPIClient
 from .dandiarchive import navigate_url
 from .dandiset import Dandiset
-from .utils import ensure_datetime, flattened, is_same_time
-
-
-import humanize
+from . import get_logger, girder
 from .support.pyout import naturalsize
+from .utils import ensure_datetime, flattened, is_same_time
 
 lgr = get_logger()
 
@@ -37,6 +36,7 @@ def download(
     # We will again use pyout to provide a neat table summarizing our progress
     # with upload etc
     import pyout
+
     from .support import pyout as pyouts
 
     # dandi.cli.formatters are used in cmd_ls to provide switchable

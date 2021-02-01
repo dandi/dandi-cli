@@ -4,6 +4,7 @@ import io
 import itertools
 import os
 import os.path as op
+from pathlib import Path
 import platform
 import re
 import shutil
@@ -11,23 +12,18 @@ import subprocess
 import sys
 from time import sleep
 
-from pathlib import Path
-
+import dateutil.parser
 import requests
 import ruamel.yaml
 from semantic_version import Version
 
-from . import __version__
 from .consts import dandi_instance, known_instances, known_instances_rev
 from .exceptions import BadCliVersionError, CliVersionTooOldError
-
-import dateutil.parser
 
 #
 # Additional handlers
 #
-from . import get_logger
-
+from . import __version__, get_logger
 
 lgr = get_logger()
 

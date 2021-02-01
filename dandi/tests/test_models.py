@@ -1,13 +1,14 @@
 import pytest
 
-from ..models import DandiMeta, AssetMeta
 from ..models import (
     AccessType,
-    RoleType,
-    RelationType,
-    LicenseType,
-    IdentifierType,
+    AssetMeta,
+    DandiMeta,
     DigestType,
+    IdentifierType,
+    LicenseType,
+    RelationType,
+    RoleType,
 )
 
 

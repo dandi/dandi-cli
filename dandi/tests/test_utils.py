@@ -1,11 +1,13 @@
 import inspect
 import os.path as op
 import time
+
 import pytest
 import responses
-from .. import __version__
+
 from ..consts import dandi_instance, known_instances
 from ..exceptions import BadCliVersionError, CliVersionTooOldError
+from .. import __version__
 from ..utils import (
     ensure_datetime,
     ensure_strtime,

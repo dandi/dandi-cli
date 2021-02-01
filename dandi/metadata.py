@@ -4,8 +4,11 @@ import os.path as op
 from pathlib import Path
 import re
 from uuid import uuid4
+
 import jsonschema
-from . import models
+
+from .dandiset import Dandiset
+from . import __version__, get_logger, models
 from .pynwb_utils import (
     _get_pynwb_metadata,
     get_neurodata_types,
@@ -14,9 +17,6 @@ from .pynwb_utils import (
     metadata_cache,
 )
 from .utils import ensure_datetime
-
-from . import __version__, get_logger
-from .dandiset import Dandiset
 
 lgr = get_logger()
 

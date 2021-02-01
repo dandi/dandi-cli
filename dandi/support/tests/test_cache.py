@@ -4,11 +4,10 @@ import random
 import sys
 import time
 
-from dandi.support.cache import PersistentCache
-from dandi.utils import on_windows
-
 import pytest
 
+from dandi.support.cache import PersistentCache
+from dandi.utils import on_windows
 
 # not doing random for now within fixtures, so they could share the same name
 _cache_name = "test-%d" % random.randint(1, 1000)
@@ -161,7 +160,7 @@ def test_memoize_path(cache, tmp_path):
 
 
 def test_memoize_path_persist(tmp_path):
-    from subprocess import run, PIPE
+    from subprocess import PIPE, run
 
     cache_name = op.basename(tmp_path)
     script = op.join(tmp_path, "script.py")

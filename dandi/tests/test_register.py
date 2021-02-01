@@ -1,10 +1,10 @@
 import re
 
+import pytest
+
 from ..consts import dandiset_identifier_regex, dandiset_metadata_file
 from ..register import register
 from ..utils import yaml_load
-
-import pytest
 
 
 @pytest.mark.parametrize("present", [True, False])

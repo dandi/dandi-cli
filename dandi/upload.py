@@ -8,15 +8,14 @@ import re
 import sys
 import time
 
-
-from . import __version__, lgr
-from .utils import ensure_datetime, ensure_strtime, get_instance
 from .consts import (
     collection_drafts,
     dandiset_identifier_regex,
     dandiset_metadata_file,
     metadata_digests,
 )
+from . import __version__, lgr
+from .utils import ensure_datetime, ensure_strtime, get_instance
 
 
 def upload(
@@ -32,8 +31,8 @@ def upload(
     upload_dandiset_metadata=False,
     devel_debug=False,
 ):
-    from . import girder
     from .dandiset import Dandiset
+    from . import girder
     from .support.digests import Digester
 
     dandiset = Dandiset.find(dandiset_path)
@@ -97,12 +96,13 @@ def upload(
         )
 
     import multiprocessing
-    from .pynwb_utils import ignore_benign_pynwb_warnings, get_object_id
+
     from .metadata import get_metadata
-    from .validate import validate_file
-    from .utils import find_dandi_files, find_files, path_is_subpath
+    from .pynwb_utils import get_object_id, ignore_benign_pynwb_warnings
     from .support.generatorify import generator_from_callback
     from .support.pyout import naturalsize
+    from .utils import find_dandi_files, find_files, path_is_subpath
+    from .validate import validate_file
 
     ignore_benign_pynwb_warnings()  # so validate doesn't whine
 
@@ -537,6 +537,7 @@ def upload(
     # We will again use pyout to provide a neat table summarizing our progress
     # with upload etc
     import pyout
+
     from .support import pyout as pyouts
 
     # for the upload speeds we need to provide a custom  aggregate
@@ -627,11 +628,11 @@ def _new_upload(
             f"'dandi register' to get a legit identifier"
         )
 
-    from .pynwb_utils import ignore_benign_pynwb_warnings
     from .metadata import nwb2asset
-    from .validate import validate_file
-    from .utils import find_dandi_files, find_files, path_is_subpath
+    from .pynwb_utils import ignore_benign_pynwb_warnings
     from .support.pyout import naturalsize
+    from .utils import find_dandi_files, find_files, path_is_subpath
+    from .validate import validate_file
 
     ignore_benign_pynwb_warnings()  # so validate doesn't whine
 
@@ -832,6 +833,7 @@ def _new_upload(
     # We will again use pyout to provide a neat table summarizing our progress
     # with upload etc
     import pyout
+
     from .support import pyout as pyouts
 
     # for the upload speeds we need to provide a custom  aggregate

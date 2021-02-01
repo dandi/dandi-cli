@@ -1,6 +1,8 @@
 import os
+
 import click
 from click.testing import CliRunner
+
 from ..command import download
 
 

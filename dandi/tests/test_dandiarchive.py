@@ -1,7 +1,7 @@
 import pytest
 
 from dandi.consts import known_instances
-from dandi.dandiarchive import parse_dandi_url, follow_redirect
+from dandi.dandiarchive import follow_redirect, parse_dandi_url
 from dandi.exceptions import NotFoundError
 from dandi.tests.skip import mark
 

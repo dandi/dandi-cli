@@ -1,9 +1,11 @@
 from functools import wraps
 import os
 from os import path as op
+
 import click
-from .. import get_logger, set_logger_level  # noqa: F401
+
 from ..consts import dandiset_metadata_file, known_instances
+from .. import get_logger, set_logger_level  # noqa: F401
 
 lgr = get_logger()
 
@@ -101,6 +103,7 @@ def map_to_click_exceptions(f):
     @wraps(f)
     def wrapper(obj, *args, **kwargs):
         import girder_client as gcl
+
         from ..girder import get_HttpError_response
 
         try:

@@ -1,10 +1,11 @@
 import os
 import os.path as op
+
 from .consts import dandiset_metadata_file
 from .metadata import get_metadata
-from .pynwb_utils import validate as pynwb_validate, validate_cache
+from .pynwb_utils import validate as pynwb_validate
+from .pynwb_utils import validate_cache
 from .utils import find_dandi_files, yaml_load
-
 
 # TODO -- should come from schema.  This is just a simplistic example for now
 _required_dandiset_metadata_fields = ["identifier", "name", "description"]
@@ -50,6 +51,7 @@ def validate_dandi_nwb(filepath):
     """
     if os.environ.get("DANDI_SCHEMA"):
         from pydantic import ValidationError
+
         from .metadata import nwb2asset
         from .models import AssetMeta
 

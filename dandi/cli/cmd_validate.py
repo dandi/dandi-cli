@@ -1,5 +1,7 @@
-import click
 import os
+
+import click
+
 from .base import map_to_click_exceptions
 
 
