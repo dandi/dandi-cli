@@ -55,6 +55,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip wheel
+        pip install 'numpy<1.19.4'
         pip install ".[test]"
 
     - name: Set environment variable when using Python 3.6 to cover more code
