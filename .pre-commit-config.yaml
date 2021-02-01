@@ -13,3 +13,8 @@ repos:
     hooks:
     -   id: black
         exclude: ^(dandi/_version\.py|versioneer\.py)$
+-   repo: https://github.com/PyCQA/isort
+    rev: 5.7.0
+    hooks:
+    -   id: isort
+        exclude: ^(dandi/_version\.py|dandi/due\.py|versioneer\.py)$
