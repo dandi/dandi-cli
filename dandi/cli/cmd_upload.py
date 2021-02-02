@@ -39,6 +39,8 @@ from ..consts import collection_drafts
 #
 # TODO: should always go to dandi for now
 @instance_option()
+# TODO remove this once migration is complete
+@devel_option("-d", "--identifier", help="Override the identifier in dandiset.yaml")
 # TODO: should always go into 'drafts' (consts.collection_drafts)
 @devel_option(
     "-c", "--girder-collection", help="For development: Girder collection to upload to"
@@ -72,6 +74,8 @@ def upload(
     validation="require",
     dandiset_path=None,
     # Development options should come as kwargs
+    # TODO remove this once migration is complete
+    identifier=None,
     girder_collection=collection_drafts,
     girder_top_folder=None,
     dandi_instance="dandi",
@@ -100,6 +104,8 @@ def upload(
         existing=existing,
         validation=validation,
         dandiset_path=dandiset_path,
+        # TODO remove this once migration is complete
+        identifier=identifier,
         girder_collection=girder_collection,
         girder_top_folder=girder_top_folder,
         dandi_instance=dandi_instance,

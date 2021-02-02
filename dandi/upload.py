@@ -23,6 +23,8 @@ def upload(
     existing="refresh",
     validation="require",
     dandiset_path=None,
+    # TODO remove this once migration is complete
+    identifier=None,
     girder_collection=collection_drafts,
     girder_top_folder=None,
     dandi_instance="dandi",
@@ -58,6 +60,8 @@ def upload(
             allow_any_path,
             upload_dandiset_metadata,
             devel_debug,
+            # TODO remove this once migration is complete
+            identifier,
         )
 
     if upload_dandiset_metadata:
@@ -608,6 +612,8 @@ def _new_upload(
     allow_any_path,
     upload_dandiset_metadata,
     devel_debug,
+    # TODO remove this once migration is complete
+    identifier,
 ):
     from .dandiapi import DandiAPIClient
     from .dandiset import APIDandiset
@@ -618,7 +624,8 @@ def _new_upload(
 
     dandiset = APIDandiset(dandiset.path)  # "cast" to a new API based dandiset
 
-    ds_identifier = dandiset.identifier
+    # TODO remove this once migration is complete
+    ds_identifier = identifier or dandiset.identifier
     # this is a path not a girder id
 
     if not re.match(dandiset_identifier_regex, str(ds_identifier)):
