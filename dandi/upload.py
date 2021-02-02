@@ -363,17 +363,16 @@ def upload(
                     yield skip_file(exists_msg)
                     return
                 # Logic below only for overwrite and reupload
-                if existing in ("overwrite", "overwrite-metadata"):
+                if existing == "overwrite":
                     if remote_file_status == "same":
-                        if existing == "overwrite":
-                            yield skip_file(exists_msg)
-                            return
-                        elif existing == "overwrite-metadata":
-                            metadata_only = True
-                        else:
-                            raise RuntimeError(
-                                f"Must have not got here with unknown {existing}"
-                            )
+                        yield skip_file(exists_msg)
+                        return
+                elif existing == "overwrite-metadata":
+                    if remote_file_status in ("same", "no mtime"):
+                        metadata_only = True
+                    else:
+                        yield skip_file("File exists but known to differ")
+                        return
                 elif existing == "refresh":
                     if not remote_file_status == "older":
                         yield skip_file(exists_msg)
@@ -396,7 +395,10 @@ def upload(
                 if not file_recs:
                     yield skip_file("File does not exist!")
                     return
-                if remote_file_status != "same":
+                if remote_file_status == "no mtime":
+                    # just inform about the fact and proceed
+                    yield {"message": "file is missing mtime info"}
+                elif remote_file_status != "same":
                     yield skip_file("File is not the same!")
                     return
 
