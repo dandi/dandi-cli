@@ -233,10 +233,21 @@ def upload(
                         client, collection_rec, girder_collection, girder_folder
                     )
 
-                    # Get (if already exists) or create an item
-                    item_rec = client.createItem(
-                        folder_rec["_id"], name=relpath.name, reuseExisting=True
-                    )
+                    if not os.environ.get("DANDI_UPLOAD_SAME_MUST_EXIST"):
+                        # Get (if already exists) or create an item
+                        item_rec = client.createItem(
+                            folder_rec["_id"], name=relpath.name, reuseExisting=True
+                        )
+                    else:
+                        item_recs = list(
+                            client.listItem(folder_rec["_id"], name=relpath.name)
+                        )
+                        if not item_recs:
+                            raise FileNotFoundError(f"No item for {relpath.name}")
+                        elif len(item_recs) > 1:
+                            # should not happen
+                            raise RuntimeError(f"Multiple items returned: {item_recs}")
+                        item_rec = item_recs[0]
                 finally:
                     lock.release()
                 return item_rec
@@ -374,7 +385,11 @@ def upload(
 
                 delete_before_upload = f'/item/{item_rec["_id"]}'
 
-                yield {"message": exists_msg + " - reuploading"}
+                yield {
+                    "message": exists_msg
+                    + " - reuploading"
+                    + (" metadata" if metadata_only else "")
+                }
 
             # For "internal" use -- primarily for use with existing == "overwrite-metadata"
             if os.environ.get("DANDI_UPLOAD_SAME_MUST_EXIST"):
