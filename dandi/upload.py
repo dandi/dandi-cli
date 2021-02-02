@@ -776,7 +776,7 @@ def _new_upload(
                 if upload_dandiset_metadata:
                     yield {"status": "updating metadata"}
                     client.set_dandiset_metadata(
-                        dandiset.identifier, metadata=dandiset.metadata
+                        ds_identifier, metadata=dandiset.metadata
                     )
                     yield {"status": "updated metadata"}
                 else:
