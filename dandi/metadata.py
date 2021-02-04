@@ -427,7 +427,9 @@ def convertv1(data):
         if oldkey == "license":
             newvalues = []
             for val in value:
-                newvalues.append(getattr(models.LicenseType, val.split(":")[-1]))
+                newvalues.append(
+                    getattr(models.LicenseType, val.replace("-", "").replace(".", ""))
+                )
             value = newvalues
         if oldkey == "identifier":
             value = f"DANDI:{value}"
