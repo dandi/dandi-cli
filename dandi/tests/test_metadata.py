@@ -475,7 +475,7 @@ def test_dandimeta_migration(schema_dir):
                     "single-neurons",
                 ],
                 "language": "English",
-                "license": ["CC-BY-4.0"],
+                "license": "CC-BY-4.0",
                 "name": (
                     "A NWB-based dataset and processing pipeline of human"
                     " single-neuron activity during a declarative memory task"
