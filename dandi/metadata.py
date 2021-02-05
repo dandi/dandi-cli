@@ -425,10 +425,9 @@ def convertv1(data):
                 )
             ]
         if oldkey == "license":
-            newvalues = []
-            for val in value:
-                newvalues.append(getattr(models.LicenseType, val.split(":")[-1]))
-            value = newvalues
+            value = [
+                getattr(models.LicenseType, value.replace("-", "").replace(".", ""))
+            ]
         if oldkey == "identifier":
             value = f"DANDI:{value}"
         if len(mapping[oldkey]) == 2:
@@ -475,7 +474,7 @@ def convertv1(data):
                 if oldkey == "sex":
                     vm["value"] = value
                 else:
-                    if "maximum" in value:
+                    if "maximum" in value and isinstance(value["maximum"], str):
                         if "days" in value["maximum"]:
                             value["units"] = "days"
                         if "Gestational" in value["maximum"]:
@@ -486,7 +485,7 @@ def convertv1(data):
                             value["units"] = value["maximum"][-1]
                         if "None" not in value["maximum"]:
                             value["maximum"] = float(value["maximum"].split()[0])
-                    if "minimum" in value:
+                    if "minimum" in value and isinstance(value["minimum"], str):
                         if "days" in value["minimum"]:
                             value["units"] = "days"
                         if "Gestational" in value["minimum"]:
