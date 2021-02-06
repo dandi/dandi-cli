@@ -1,5 +1,4 @@
 """Classes/utilities for support of a dandiset"""
-import json
 import os
 from pathlib import Path
 
@@ -149,6 +148,4 @@ class APIDandiset(Dandiset):
         # models as metadata, so we take dict representation
         # Do R/T through json since it then maps types, although
         # "access" has a side-effect: https://github.com/dandi/dandi-cli/issues/343
-        self.metadata = json.loads(
-            migrate2newschema(self.metadata).json(exclude_unset=True, exclude_none=True)
-        )
+        self.metadata = migrate2newschema(self.metadata).json_dict()
