@@ -801,6 +801,7 @@ def _new_upload(
                     return
             else:
                 metadata = asset_metadata.json_dict()
+            metadata["path"] = str(relpath)
 
             #
             # Upload file

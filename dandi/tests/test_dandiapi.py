@@ -2,6 +2,9 @@ from collections import deque
 import os.path
 from shutil import rmtree
 
+import pytest
+import requests
+
 from ..consts import dandiset_metadata_file
 from ..dandiapi import DandiAPIClient
 from ..download import download
@@ -135,3 +138,25 @@ def test_publish_and_manipulate(local_dandi_api, mocker, monkeypatch, tmp_path):
     )
     assert sorted(downloaded_files()) == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
+
+
+def test_upload_asset_path_mismatch_error(local_dandi_api, simple1_nwb, tmp_path):
+    client = DandiAPIClient(
+        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
+    )
+    with client.session():
+        r = client.create_dandiset(name="Upload Test", metadata={})
+        dandiset_id = r["identifier"]
+        with pytest.raises(requests.HTTPError) as exc:
+            client.upload(
+                dandiset_id,
+                "draft",
+                "testing/simple1.nwb",
+                {"path": "not-testing/complex2.nwb"},
+                simple1_nwb,
+            )
+        assert (
+            exc.value.request.url
+            == f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft/assets/"
+        )
+        assert exc.value.reponse.status_code == 400
