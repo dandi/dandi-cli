@@ -271,7 +271,10 @@ def extract_digest(metadata):
 
 
 def extract_identifier(metadata):
-    return UUID(metadata["identifier"])
+    try:
+        return UUID(metadata["identifier"])
+    except Exception:
+        return ...
 
 
 FIELD_EXTRACTORS = {
