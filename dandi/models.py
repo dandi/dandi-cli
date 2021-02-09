@@ -599,9 +599,12 @@ class Project(Activity):
     )
 
 
+class Identifiable(DandiBaseModel):
+    identifier: Identifier = Field(readOnly=True, nskey="schema")
+
+
 class CommonModel(DandiBaseModel):
     schemaVersion: str = Field(default="1.0.0-rc1", readOnly=True, nskey="schema")
-    identifier: Identifier = Field(readOnly=True, nskey="schema")
     name: Optional[str] = Field(
         None,
         title="Title",
@@ -670,7 +673,7 @@ class CommonModel(DandiBaseModel):
         return json.loads(self.json(exclude_unset=True, exclude_none=True))
 
 
-class DandiMeta(CommonModel):
+class DandiMeta(CommonModel, Identifiable):
     """A body of structured information describing a DANDI dataset."""
 
     @validator("contributor")
@@ -748,13 +751,11 @@ class PublishedDandiMeta(DandiMeta):
     datePublished: date = Field(readOnly=True, nskey="schema")
 
 
-class AssetMeta(CommonModel):
-    """Metadata used to describe an asset.
+class BareAssetMeta(CommonModel):
+    """Metadata used to describe an asset anywhere (local or server).
 
     Derived from C2M2 (Level 0 and 1) and schema.org
     """
-
-    identifier: UUID4 = Field(readOnly=True, nskey="schema")
 
     # Overrides CommonModel.license
     # TODO: https://github.com/NeurodataWithoutBorders/nwb-schema/issues/320
@@ -790,6 +791,14 @@ class AssetMeta(CommonModel):
     wasAttributedTo: List[Participant] = Field(
         None, description="Participant(s) to which this file belongs to", nskey="prov"
     )
+
+
+class AssetMeta(BareAssetMeta, Identifiable):
+    """Metadata used to describe an asset on the server.
+
+    """
+
+    identifier: UUID4 = Field(readOnly=True, nskey="schema")
 
     # on publish or set by server
     contentUrl: Optional[List[HttpUrl]] = Field(None, readOnly=True, nskey="schema")
