@@ -716,8 +716,8 @@ def _new_upload(
                 yield skip_file("failed to compute digests: %s" % str(exc))
                 return
 
-            extant = client.get_asset_bypath(ds_identifier, "draft", relpath)
-            if extant is not None and extant["sha256"] == sha256_digest:
+            extant = client.get_asset_bypath(ds_identifier, "draft", str(relpath))
+            if extant is not None:
                 if existing == "error":
                     # as promised -- not gentle at all!
                     raise FileExistsError("file exists")
@@ -734,7 +734,7 @@ def _new_upload(
                 elif existing == "force":
                     pass
                 else:
-                    raise ValueError("existing")
+                    raise ValueError(f"invalid value for 'existing': {existing!r}")
 
             #
             # Validate first, so we do not bother server at all if not kosher
@@ -805,6 +805,9 @@ def _new_upload(
             #
             # Upload file
             #
+            if extant is not None:
+                lgr.info("Replacing asset %s", extant["uuid"])
+                client.delete_asset(ds_identifier, "draft", extant["uuid"])
             yield {"status": "uploading"}
             for r in client.iter_upload(
                 ds_identifier, "draft", str(relpath), metadata, str(path)
