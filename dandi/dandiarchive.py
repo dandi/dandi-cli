@@ -49,22 +49,28 @@ def navigate_url(url):
         args = (asset_id["dandiset_id"], asset_id["version"])
         kwargs["include_metadata"] = True
         if asset_id.get("location"):
-            # API interface was RFed in 6ba45daf7c00d6cbffd33aed91a984ad28419f56
-            # and no longer takes "location" kwarg. There is `get_dandiset_assets`
-            # but it doesn't provide dandiset... review the use of navigate_url
-            # to see if we should keep its interface as is and provide dandiset...
-            raise NotImplementedError(
-                "No support for path specific handling via API yet"
-            )
+            with client.session():
+                dandiset = client.get_dandiset(*args)
+                if asset_type == "folder":
+                    assets = client.get_dandiset_assets(
+                        *args, path=asset_id["location"]
+                    )
+                elif asset_type == "item":
+                    asset = client.get_asset_bypath(*args, asset_id["location"])
+                    assets = [asset] if asset is not None else []
+                else:
+                    raise NotImplementedError(
+                        f"Do not know how to handle asset type {asset_type} with location"
+                    )
+                yield (client, dandiset, assets)
+            return
     else:
         raise NotImplementedError(
             f"Download from server of type {server_type} is not yet implemented"
         )
 
     with client.session():
-        dandiset, assets = client.get_dandiset_and_assets(
-            *args, **kwargs
-        )  # , recursive=recursive)
+        dandiset, assets = client.get_dandiset_and_assets(*args, **kwargs)
         yield client, dandiset, assets
 
 
