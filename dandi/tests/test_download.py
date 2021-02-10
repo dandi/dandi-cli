@@ -7,11 +7,8 @@ from shutil import rmtree
 import pytest
 import tqdm
 
-from ..consts import dandiset_metadata_file
-from ..dandiapi import DandiAPIClient
 from ..download import download
 from ..girder import TQDMProgressReporter
-from ..upload import upload
 from ..utils import find_files
 
 
@@ -143,109 +140,39 @@ def test_download_000027_resume(tmp_path, resizer, version):
     assert digester(str(nwb)) == digests
 
 
-def test_download_newest_version(local_dandi_api, monkeypatch, tmp_path):
-    client = DandiAPIClient(
-        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
-    )
-    dandiset_id = client.create_dandiset("Test Dandiset", {})["identifier"]
-    upload_dir = tmp_path / "upload"
-    upload_dir.mkdir()
-    (upload_dir / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
-    (upload_dir / "file.txt").write_text("This is test text.\n")
-    monkeypatch.chdir(upload_dir)
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    upload(
-        paths=[],
-        dandi_instance=local_dandi_api["instance_id"],
-        devel_debug=True,
-        allow_any_path=True,
-        validation="skip",
-    )
-    download_dir = tmp_path / "download"
-    download_dir.mkdir()
-    download(f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}", download_dir)
-    assert (
-        download_dir / dandiset_id / "file.txt"
-    ).read_text() == "This is test text.\n"
-    client.publish_version(dandiset_id, "draft")
-    (upload_dir / "file.txt").write_text("This is different text.\n")
-    upload(
-        paths=[],
-        dandi_instance=local_dandi_api["instance_id"],
-        devel_debug=True,
-        allow_any_path=True,
-        validation="skip",
-    )
-    rmtree(download_dir / dandiset_id)
-    download(f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}", download_dir)
-    assert (
-        download_dir / dandiset_id / "file.txt"
-    ).read_text() == "This is test text.\n"
+def test_download_newest_version(local_dandi_api, text_dandiset, tmp_path):
+    dandiset_id = text_dandiset["dandiset_id"]
+    download(f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}", tmp_path)
+    assert (tmp_path / dandiset_id / "file.txt").read_text() == "This is test text.\n"
+    text_dandiset["client"].publish_version(dandiset_id, "draft")
+    (text_dandiset["dspath"] / "file.txt").write_text("This is different text.\n")
+    text_dandiset["reupload"]()
+    rmtree(tmp_path / dandiset_id)
+    download(f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}", tmp_path)
+    assert (tmp_path / dandiset_id / "file.txt").read_text() == "This is test text.\n"
 
 
-def test_download_folder(local_dandi_api, monkeypatch, tmp_path):
-    client = DandiAPIClient(
-        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
-    )
-    dandiset_id = client.create_dandiset("Test Dandiset", {})["identifier"]
-    upload_dir = tmp_path / "upload"
-    upload_dir.mkdir()
-    (upload_dir / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
-    (upload_dir / "subdir1").mkdir()
-    (upload_dir / "subdir1" / "file.txt").write_text("This is test text.\n")
-    (upload_dir / "subdir2").mkdir()
-    (upload_dir / "subdir2" / "apple.txt").write_text("Apple\n")
-    (upload_dir / "subdir2" / "banana.txt").write_text("Banana\n")
-    monkeypatch.chdir(upload_dir)
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    upload(
-        paths=[],
-        dandi_instance=local_dandi_api["instance_id"],
-        devel_debug=True,
-        allow_any_path=True,
-        validation="skip",
-    )
-    download_dir = tmp_path / "download"
-    download_dir.mkdir()
+def test_download_folder(local_dandi_api, text_dandiset, tmp_path):
+    dandiset_id = text_dandiset["dandiset_id"]
     download(
-        f"dandi://{local_dandi_api['instance_id']}/{dandiset_id}/subdir2/", download_dir
+        f"dandi://{local_dandi_api['instance_id']}/{dandiset_id}/subdir2/", tmp_path
     )
-    assert sorted(map(Path, find_files(r".*", paths=[download_dir], dirs=True))) == [
-        download_dir / "subdir2",
-        download_dir / "subdir2" / "apple.txt",
-        download_dir / "subdir2" / "banana.txt",
+    assert sorted(map(Path, find_files(r".*", paths=[tmp_path], dirs=True))) == [
+        tmp_path / "subdir2",
+        tmp_path / "subdir2" / "banana.txt",
+        tmp_path / "subdir2" / "coconut.txt",
     ]
-    assert (download_dir / "subdir2" / "apple.txt").read_text() == "Apple\n"
-    assert (download_dir / "subdir2" / "banana.txt").read_text() == "Banana\n"
+    assert (tmp_path / "subdir2" / "banana.txt").read_text() == "Banana\n"
+    assert (tmp_path / "subdir2" / "coconut.txt").read_text() == "Coconut\n"
 
 
-def test_download_item(local_dandi_api, monkeypatch, tmp_path):
-    client = DandiAPIClient(
-        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
-    )
-    dandiset_id = client.create_dandiset("Test Dandiset", {})["identifier"]
-    upload_dir = tmp_path / "upload"
-    upload_dir.mkdir()
-    (upload_dir / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
-    (upload_dir / "subdir").mkdir()
-    (upload_dir / "subdir" / "apple.txt").write_text("Apple\n")
-    (upload_dir / "subdir" / "banana.txt").write_text("Banana\n")
-    monkeypatch.chdir(upload_dir)
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    upload(
-        paths=[],
-        dandi_instance=local_dandi_api["instance_id"],
-        devel_debug=True,
-        allow_any_path=True,
-        validation="skip",
-    )
-    download_dir = tmp_path / "download"
-    download_dir.mkdir()
+def test_download_item(local_dandi_api, text_dandiset, tmp_path):
+    dandiset_id = text_dandiset["dandiset_id"]
     download(
-        f"dandi://{local_dandi_api['instance_id']}/{dandiset_id}/subdir/banana.txt",
-        download_dir,
+        f"dandi://{local_dandi_api['instance_id']}/{dandiset_id}/subdir2/coconut.txt",
+        tmp_path,
     )
-    assert list(map(Path, find_files(r".*", paths=[download_dir], dirs=True))) == [
-        download_dir / "banana.txt"
+    assert list(map(Path, find_files(r".*", paths=[tmp_path], dirs=True))) == [
+        tmp_path / "coconut.txt"
     ]
-    assert (download_dir / "banana.txt").read_text() == "Banana\n"
+    assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"

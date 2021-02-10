@@ -17,8 +17,10 @@ import requests
 from .skip import skipif
 from ..cli.command import organize
 from ..consts import dandiset_metadata_file, known_instances
+from ..dandiapi import DandiAPIClient
 from .. import get_logger
 from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
+from ..upload import upload
 
 lgr = get_logger()
 
@@ -357,4 +359,41 @@ def local_dandi_api(docker_compose_setup):
         "api_key": docker_compose_setup["django_api_key"],
         "instance": instance,
         "instance_id": instance_id,
+    }
+
+
+@pytest.fixture()
+def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
+    client = DandiAPIClient(
+        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
+    )
+    dandiset_id = client.create_dandiset("Text Dandiset", {})["identifier"]
+    dspath = tmp_path_factory.mktemp("text_dandiset")
+    (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
+    (dspath / "file.txt").write_text("This is test text.\n")
+    (dspath / "subdir1").mkdir()
+    (dspath / "subdir1" / "apple.txt").write_text("Apple\n")
+    (dspath / "subdir2").mkdir()
+    (dspath / "subdir2" / "banana.txt").write_text("Banana\n")
+    (dspath / "subdir2" / "coconut.txt").write_text("Coconut\n")
+
+    def upload_dandiset(**kwargs):
+        with monkeypatch.context() as m:
+            m.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
+            upload(
+                paths=[],
+                dandiset_path=dspath,
+                dandi_instance=local_dandi_api["instance_id"],
+                devel_debug=True,
+                allow_any_path=True,
+                validation="skip",
+                **kwargs,
+            )
+
+    upload_dandiset()
+    return {
+        "client": client,
+        "dspath": dspath,
+        "dandiset_id": dandiset_id,
+        "reupload": upload_dandiset,
     }
