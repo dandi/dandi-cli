@@ -46,8 +46,7 @@ def test_parse_girder_url(url, asset_type, asset_id):
             "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/000001",
             "dandi-api",
             "dandiset",
-            # TODO: in -cli we assume draft, but web ui might be taking the "latest"
-            {"dandiset_id": "000001", "version": "draft"},
+            {"dandiset_id": "000001", "version": None},
         ),
         (
             "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/000001/0.201104.2302",

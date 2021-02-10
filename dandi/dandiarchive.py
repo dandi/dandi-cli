@@ -46,6 +46,9 @@ def navigate_url(url):
         args = asset_id, asset_type
     elif server_type == "api":
         client = DandiAPIClient(server_url)
+        if asset_id["version"] is None:
+            r = client.get(f"/dandisets/{asset_id['dandiset_id']}/")
+            asset_id["version"] = r["most_recent_version"]["version"]
         args = (asset_id["dandiset_id"], asset_id["version"])
         kwargs["include_metadata"] = True
         if asset_id.get("location"):
@@ -291,12 +294,8 @@ class _dandi_url_parser:
             location = location.lstrip("/")
         if not (asset_type == "dandiset" and dandiset_id):
             raise ValueError(f"{url} does not point to a dandiset")
-        if not version:
+        if server_type == "girder" and not version:
             version = "draft"
-            # TODO: verify since web UI might have different opinion: it does show e.g.
-            # released version for 000001 now, but that one could be produced only from draft
-            # so we should be ok.  Otherwise we should always then query "dandiset_read" endpoint
-            # to figure out what is the "most recent one"
         # Let's just return a structured record for the requested asset
         asset_ids = {"dandiset_id": dandiset_id, "version": version}
         # if location is not degenerate -- it would be a folder or a file
