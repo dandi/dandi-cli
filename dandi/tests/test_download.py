@@ -211,18 +211,12 @@ def test_download_folder(local_dandi_api, monkeypatch, tmp_path):
         f"dandi://{local_dandi_api['instance_id']}/{dandiset_id}/subdir2/", download_dir
     )
     assert sorted(map(Path, find_files(r".*", paths=[download_dir], dirs=True))) == [
-        download_dir / dandiset_id,
-        download_dir / dandiset_id / dandiset_metadata_file,
-        download_dir / dandiset_id / "subdir2",
-        download_dir / dandiset_id / "subdir2" / "apple.txt",
-        download_dir / dandiset_id / "subdir2" / "banana.txt",
+        download_dir / "subdir2",
+        download_dir / "subdir2" / "apple.txt",
+        download_dir / "subdir2" / "banana.txt",
     ]
-    assert (
-        download_dir / dandiset_id / "subdir2" / "apple.txt"
-    ).read_text() == "Apple\n"
-    assert (
-        download_dir / dandiset_id / "subdir2" / "banana.txt"
-    ).read_text() == "Banana\n"
+    assert (download_dir / "subdir2" / "apple.txt").read_text() == "Apple\n"
+    assert (download_dir / "subdir2" / "banana.txt").read_text() == "Banana\n"
 
 
 def test_download_item(local_dandi_api, monkeypatch, tmp_path):
@@ -251,12 +245,7 @@ def test_download_item(local_dandi_api, monkeypatch, tmp_path):
         f"dandi://{local_dandi_api['instance_id']}/{dandiset_id}/subdir/banana.txt",
         download_dir,
     )
-    assert sorted(map(Path, find_files(r".*", paths=[download_dir], dirs=True))) == [
-        download_dir / dandiset_id,
-        download_dir / dandiset_id / dandiset_metadata_file,
-        download_dir / dandiset_id / "subdir",
-        download_dir / dandiset_id / "subdir" / "banana.txt",
+    assert list(map(Path, find_files(r".*", paths=[download_dir], dirs=True))) == [
+        download_dir / "banana.txt"
     ]
-    assert (
-        download_dir / dandiset_id / "subdir" / "banana.txt"
-    ).read_text() == "Banana\n"
+    assert (download_dir / "banana.txt").read_text() == "Banana\n"
