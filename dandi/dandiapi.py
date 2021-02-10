@@ -274,20 +274,27 @@ class DandiAPIClient(RESTFullAPIClient):
             json={"metadata": metadata, "name": metadata.get("name", "")},
         )
 
-    def get_dandiset_assets(self, dandiset_id, version, page_size=None, path=None):
+    def get_dandiset_assets(
+        self, dandiset_id, version, page_size=None, path=None, include_metadata=False
+    ):
         """ A generator to provide asset records """
         resp = self.get(
             f"/dandisets/{dandiset_id}/versions/{version}/assets/",
             parameters={"page_size": page_size, "path": path},
         )
         while True:
-            yield from resp["results"]
+            for asset in resp["results"]:
+                if include_metadata:
+                    asset_rec = self.get_asset(dandiset_id, version, asset["uuid"])
+                    if "metadata" in asset_rec:
+                        asset["metadata"] = asset_rec["metadata"]
+                yield asset
             if resp.get("next"):
                 resp = self.get(resp["next"])
             else:
                 break
 
-    def get_dandiset_and_assets(self, dandiset_id, version):
+    def get_dandiset_and_assets(self, dandiset_id, version, include_metadata=False):
         """This is pretty much an adapter to provide "harmonized" output in both
         girder and DANDI api clients.
 
@@ -295,7 +302,9 @@ class DandiAPIClient(RESTFullAPIClient):
         """
         lgr.info(f"Traversing {dandiset_id} (version: {version})")
         dandiset = self.get_dandiset(dandiset_id, version)
-        assets = self.get_dandiset_assets(dandiset_id, version)
+        assets = self.get_dandiset_assets(
+            dandiset_id, version, include_metadata=include_metadata
+        )
         return dandiset, assets
 
     def get_download_file_iter(
@@ -509,13 +518,20 @@ class DandiAPIClient(RESTFullAPIClient):
                 dandiset_id, version, a["uuid"], filepath, chunk_size=chunk_size
             )
 
-    def get_asset_bypath(self, dandiset_id, version, asset_path):
+    def get_asset_bypath(
+        self, dandiset_id, version, asset_path, include_metadata=False
+    ):
         try:
             # Weed out any assets that happen to have the given path as a
             # proper prefix:
             (asset,) = (
                 a
-                for a in self.get_dandiset_assets(dandiset_id, version, path=asset_path)
+                for a in self.get_dandiset_assets(
+                    dandiset_id,
+                    version,
+                    path=asset_path,
+                    include_metadata=include_metadata,
+                )
                 if a["path"] == asset_path
             )
         except ValueError:

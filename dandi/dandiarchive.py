@@ -40,12 +40,14 @@ def navigate_url(url):
 
     # We could later try to "dandi_authenticate" if run into permission issues.
     # May be it could be not just boolean but the "id" to be used?
+    kwargs = {}
     if server_type == "girder":
         asset_id, asset_type, client, server_type = _map_to_girder(url)
         args = asset_id, asset_type
     elif server_type == "api":
         client = DandiAPIClient(server_url)
         args = (asset_id["dandiset_id"], asset_id["version"])
+        kwargs["include_metadata"] = True
         if asset_id.get("location"):
             # API interface was RFed in 6ba45daf7c00d6cbffd33aed91a984ad28419f56
             # and no longer takes "location" kwarg. There is `get_dandiset_assets`
@@ -61,7 +63,7 @@ def navigate_url(url):
 
     with client.session():
         dandiset, assets = client.get_dandiset_and_assets(
-            *args
+            *args, **kwargs
         )  # , recursive=recursive)
         yield client, dandiset, assets
 
