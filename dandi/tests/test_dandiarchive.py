@@ -66,19 +66,37 @@ def test_parse_girder_url(url, asset_type, asset_id):
             "dandiset",
             {"dandiset_id": "000002", "version": "draft"},
         ),
-        # TODO: bring it inline with how it would look whenever there is a folder
-        # ATM there is not a single dataset with a folder to see how it looks
-        # no trailing / - Yarik considers it to be an item (file)
-        # (
-        #     "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/000001/files?location=%2Fsub-anm369962",
-        #     "dandi-api",
-        #     "item",
-        #     {
-        #         "dandiset_id": "000006",
-        #         "version": "0.200714.1807",
-        #         "location": "sub-anm369962",
-        #     },
-        # ),
+        (
+            "http://dandi-api-docker-gui.nil/#/dandiset/000001/0.201104.2302",
+            "dandi-api-local-docker-tests",
+            "dandiset",
+            {"dandiset_id": "000001", "version": "0.201104.2302"},
+        ),
+        (
+            "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/000001/"
+            "files?location=%2Fsub-anm369962",
+            "dandi-api",
+            "item",
+            {"dandiset_id": "000001", "version": None, "location": "sub-anm369962"},
+        ),
+        (
+            "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/000006/"
+            "0.200714.1807/files?location=%2Fsub-anm369962",
+            "dandi-api",
+            "item",
+            {
+                "dandiset_id": "000006",
+                "version": "0.200714.1807",
+                "location": "sub-anm369962",
+            },
+        ),
+        (
+            "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/001001/"
+            "draft/files?location=sub-RAT123%2F",
+            "dandi-api",
+            "folder",
+            {"dandiset_id": "001001", "version": "draft", "location": "sub-RAT123/"},
+        ),
         # TODO: bring back a test on deploy-preview-
         # # And the hybrid for "drafts" where it still goes by girder ID
         # (

@@ -118,7 +118,11 @@ known_instances = {
         "https://api.dandiarchive.org/api",
     ),
     "dandi-api-local-docker-tests": dandi_instance(
-        1, None, None, None, f"http://{instancehost}:8000/api"
+        1,
+        None,
+        "http://dandi-api-docker-gui.nil",
+        None,
+        f"http://{instancehost}:8000/api",
     ),
 }
 # to map back url: name
