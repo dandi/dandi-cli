@@ -135,3 +135,36 @@ def test_publish_and_manipulate(local_dandi_api, mocker, monkeypatch, tmp_path):
     )
     assert sorted(downloaded_files()) == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
+
+
+def test_get_asset_include_metadata(local_dandi_api, simple1_nwb, tmp_path):
+    client = DandiAPIClient(
+        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
+    )
+    with client.session():
+        r = client.create_dandiset(name="Include Metadata Test", metadata={})
+        dandiset_id = r["identifier"]
+        client.upload(
+            dandiset_id, "draft", "testing/simple1.nwb", {"foo": "bar"}, simple1_nwb
+        )
+
+        asset, = client.get_dandiset_assets(dandiset_id, "draft")
+        assert "metadata" not in asset
+        asset, = client.get_dandiset_assets(dandiset_id, "draft", include_metadata=True)
+        assert asset["metadata"] == {"foo": "bar"}
+
+        _, (asset,) = client.get_dandiset_and_assets(dandiset_id, "draft")
+        assert "metadata" not in asset
+        _, (asset,) = client.get_dandiset_and_assets(
+            dandiset_id, "draft", include_metadata=True
+        )
+        assert asset["metadata"] == {"foo": "bar"}
+
+        asset = client.get_asset_bypath(dandiset_id, "draft", "testing/simple1.nwb")
+        assert asset is not None
+        assert "metadata" not in asset
+        asset = client.get_asset_bypath(
+            dandiset_id, "draft", "testing/simple1.nwb", include_metadata=True
+        )
+        assert asset is not None
+        assert asset["metadata"] == {"foo": "bar"}
