@@ -67,12 +67,6 @@ def test_parse_girder_url(url, asset_type, asset_id):
             {"dandiset_id": "000002", "version": "draft"},
         ),
         (
-            "http://dandi-api-docker-gui.nil/#/dandiset/000001/0.201104.2302",
-            "dandi-api-local-docker-tests",
-            "dandiset",
-            {"dandiset_id": "000001", "version": "0.201104.2302"},
-        ),
-        (
             "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/000001/"
             "files?location=%2Fsub-anm369962",
             "dandi-api",

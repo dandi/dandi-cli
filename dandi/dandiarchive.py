@@ -138,7 +138,7 @@ class _dandi_url_parser:
         # TODO: upload something to any dandiset to see what happens when there are files
         # and adjust for how path is provided (if not ?location=)
         "(?P<server>(?P<protocol>https?)://"
-        "(?P<hostname>gui-beta-dandiarchive-org\\.netlify\\.app|dandi-api-docker-gui\\.nil)/)"
+        "(?P<hostname>gui-beta-dandiarchive-org\\.netlify\\.app)/)"
         f"#/(?P<asset_type>dandiset)/{dandiset_id_grp}"
         "(/(?P<version>([.0-9]{5,}|draft)))?"
         f"(/files(\\?location=(?P<location>.*)?)?)?"

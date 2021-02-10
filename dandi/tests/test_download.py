@@ -208,8 +208,7 @@ def test_download_folder(local_dandi_api, monkeypatch, tmp_path):
     download_dir = tmp_path / "download"
     download_dir.mkdir()
     download(
-        f"{local_dandi_api['instance'].gui}/#/dandiset/{dandiset_id}/files?location=subdir2/",
-        download_dir,
+        f"dandi://{local_dandi_api['instance_id']}/{dandiset_id}/subdir2/", download_dir
     )
     assert sorted(map(Path, find_files(r".*", paths=[download_dir], dirs=True))) == [
         download_dir / dandiset_id,
@@ -249,8 +248,7 @@ def test_download_item(local_dandi_api, monkeypatch, tmp_path):
     download_dir = tmp_path / "download"
     download_dir.mkdir()
     download(
-        f"{local_dandi_api['instance'].gui}/#/dandiset/{dandiset_id}/files"
-        "?location=subdir/banana.txt",
+        f"dandi://{local_dandi_api['instance_id']}/{dandiset_id}/subdir/banana.txt",
         download_dir,
     )
     assert sorted(map(Path, find_files(r".*", paths=[download_dir], dirs=True))) == [
