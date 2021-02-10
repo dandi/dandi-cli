@@ -1,11 +1,12 @@
-from collections import deque
 import os.path
+from pathlib import Path
 from shutil import rmtree
 
 from ..consts import dandiset_metadata_file
 from ..dandiapi import DandiAPIClient
 from ..download import download
 from ..upload import upload
+from ..utils import find_files
 
 
 def test_upload(local_dandi_api, simple1_nwb, tmp_path):
@@ -50,14 +51,7 @@ def test_publish_and_manipulate(local_dandi_api, mocker, monkeypatch, tmp_path):
     download_dir.mkdir()
 
     def downloaded_files():
-        dirs = deque([download_dir])
-        while dirs:
-            d = dirs.popleft()
-            for p in d.iterdir():
-                if p.is_dir():
-                    dirs.append(p)
-                else:
-                    yield p
+        return list(map(Path, find_files(r".*", paths=[download_dir])))
 
     dandiset_yaml = download_dir / dandiset_id / dandiset_metadata_file
     file_in_version = download_dir / dandiset_id / "subdir" / "file.txt"
@@ -66,7 +60,7 @@ def test_publish_and_manipulate(local_dandi_api, mocker, monkeypatch, tmp_path):
         f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/{version_id}",
         download_dir,
     )
-    assert sorted(downloaded_files()) == [dandiset_yaml, file_in_version]
+    assert downloaded_files() == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
 
     (upload_dir / "subdir" / "file.txt").write_text("This is different text.\n")
@@ -82,7 +76,7 @@ def test_publish_and_manipulate(local_dandi_api, mocker, monkeypatch, tmp_path):
         f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/{version_id}",
         download_dir,
     )
-    assert sorted(downloaded_files()) == [dandiset_yaml, file_in_version]
+    assert downloaded_files() == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
 
     (upload_dir / "subdir" / "file2.txt").write_text("This is more text.\n")
@@ -112,7 +106,7 @@ def test_publish_and_manipulate(local_dandi_api, mocker, monkeypatch, tmp_path):
         f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/{version_id}",
         download_dir,
     )
-    assert sorted(downloaded_files()) == [dandiset_yaml, file_in_version]
+    assert downloaded_files() == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
 
     client.delete_asset_bypath(dandiset_id, "draft", "subdir/file.txt")
@@ -122,10 +116,7 @@ def test_publish_and_manipulate(local_dandi_api, mocker, monkeypatch, tmp_path):
         f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
         download_dir,
     )
-    assert sorted(downloaded_files()) == [
-        dandiset_yaml,
-        file_in_version.with_name("file2.txt"),
-    ]
+    assert downloaded_files() == [dandiset_yaml, file_in_version.with_name("file2.txt")]
     assert file_in_version.with_name("file2.txt").read_text() == "This is more text.\n"
 
     rmtree(download_dir / dandiset_id)
@@ -133,7 +124,7 @@ def test_publish_and_manipulate(local_dandi_api, mocker, monkeypatch, tmp_path):
         f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/{version_id}",
         download_dir,
     )
-    assert sorted(downloaded_files()) == [dandiset_yaml, file_in_version]
+    assert downloaded_files() == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
 
 

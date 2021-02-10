@@ -1,6 +1,7 @@
 import json
 import os
 import os.path as op
+from pathlib import Path
 from shutil import rmtree
 
 import pytest
@@ -11,6 +12,7 @@ from ..dandiapi import DandiAPIClient
 from ..download import download
 from ..girder import TQDMProgressReporter
 from ..upload import upload
+from ..utils import find_files
 
 
 # both urls point to 000027 (lean test dataset), and both draft and "released"
@@ -179,3 +181,84 @@ def test_download_newest_version(local_dandi_api, monkeypatch, tmp_path):
     assert (
         download_dir / dandiset_id / "file.txt"
     ).read_text() == "This is test text.\n"
+
+
+def test_download_folder(local_dandi_api, monkeypatch, tmp_path):
+    client = DandiAPIClient(
+        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
+    )
+    dandiset_id = client.create_dandiset("Test Dandiset", {})["identifier"]
+    upload_dir = tmp_path / "upload"
+    upload_dir.mkdir()
+    (upload_dir / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
+    (upload_dir / "subdir1").mkdir()
+    (upload_dir / "subdir1" / "file.txt").write_text("This is test text.\n")
+    (upload_dir / "subdir2").mkdir()
+    (upload_dir / "subdir2" / "apple.txt").write_text("Apple\n")
+    (upload_dir / "subdir2" / "banana.txt").write_text("Banana\n")
+    monkeypatch.chdir(upload_dir)
+    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
+    upload(
+        paths=[],
+        dandi_instance=local_dandi_api["instance_id"],
+        devel_debug=True,
+        allow_any_path=True,
+        validation="skip",
+    )
+    download_dir = tmp_path / "download"
+    download_dir.mkdir()
+    download(
+        f"{local_dandi_api['instance'].gui}/#/dandiset/{dandiset_id}/files?location=subdir2/",
+        download_dir,
+    )
+    assert sorted(map(Path, find_files(r".*", paths=[download_dir], dirs=True))) == [
+        download_dir / dandiset_id,
+        download_dir / dandiset_id / dandiset_metadata_file,
+        download_dir / dandiset_id / "subdir2",
+        download_dir / dandiset_id / "subdir2" / "apple.txt",
+        download_dir / dandiset_id / "subdir2" / "banana.txt",
+    ]
+    assert (
+        download_dir / dandiset_id / "subdir2" / "apple.txt"
+    ).read_text() == "Apple\n"
+    assert (
+        download_dir / dandiset_id / "subdir2" / "banana.txt"
+    ).read_text() == "Banana\n"
+
+
+def test_download_item(local_dandi_api, monkeypatch, tmp_path):
+    client = DandiAPIClient(
+        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
+    )
+    dandiset_id = client.create_dandiset("Test Dandiset", {})["identifier"]
+    upload_dir = tmp_path / "upload"
+    upload_dir.mkdir()
+    (upload_dir / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
+    (upload_dir / "subdir").mkdir()
+    (upload_dir / "subdir" / "apple.txt").write_text("Apple\n")
+    (upload_dir / "subdir" / "banana.txt").write_text("Banana\n")
+    monkeypatch.chdir(upload_dir)
+    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
+    upload(
+        paths=[],
+        dandi_instance=local_dandi_api["instance_id"],
+        devel_debug=True,
+        allow_any_path=True,
+        validation="skip",
+    )
+    download_dir = tmp_path / "download"
+    download_dir.mkdir()
+    download(
+        f"{local_dandi_api['instance'].gui}/#/dandiset/{dandiset_id}/files"
+        "?location=subdir/banana.txt",
+        download_dir,
+    )
+    assert sorted(map(Path, find_files(r".*", paths=[download_dir], dirs=True))) == [
+        download_dir / dandiset_id,
+        download_dir / dandiset_id / dandiset_metadata_file,
+        download_dir / dandiset_id / "subdir",
+        download_dir / dandiset_id / "subdir" / "banana.txt",
+    ]
+    assert (
+        download_dir / dandiset_id / "subdir" / "banana.txt"
+    ).read_text() == "Banana\n"
