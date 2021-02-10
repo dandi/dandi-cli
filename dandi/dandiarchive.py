@@ -160,6 +160,14 @@ class _dandi_url_parser:
         "(/(?P<version>draft))?"
         f"(/files(\\?_id={id_grp}(&_modelType=folder)?)?)?"
         "$": {"server_type": "girder"},
+        # ad-hoc explicitly pointing within URL to the specific instance to use
+        # and otherwise really simple: dandi://INSTANCE/DANDISET_ID[@VERSION][/PATH]
+        # For now to not be promoted to the users, and primarily for internal use
+        f"dandi://(?P<instance_name>({'|'.join(known_instances)}))"
+        f"/{dandiset_id_grp}"
+        "(@(?P<version>([.0-9]{5,}|draft)))?"
+        f"(/(?P<location>.*)?)?"
+        "$": {"server_type": "api"},
         # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000006/draft
         # (no API yet)
         "https?://.*": {"handle_redirect": "only"},
@@ -225,6 +233,8 @@ class _dandi_url_parser:
             match = re.match(regex, url)
             if not match:
                 continue
+            groups = match.groupdict()
+            lgr.log(5, "Matched %r into %s", url, groups)
             rewrite = settings.get("rewrite", False)
             handle_redirect = settings.get("handle_redirect", False)
             if rewrite:
@@ -263,21 +273,27 @@ class _dandi_url_parser:
                         server += "/"
                     return (server_type, server) + tuple(_)
                 continue  # in this run we ignore an match further
+            elif "instance_name" in groups:
+                known_instance = get_instance(groups["instance_name"])
+                server_type = "girder" if known_instance.girder else "api"
+                assert known_instance.api  # must be defined
+                groups["server"] = known_instance.api
+                # could be overloaded later depending if location is provided
+                groups["asset_type"] = "dandiset"
+                break
             else:
                 server_type = settings.get("server_type", "girder")
                 break
-
         if not match:
             known_regexes = "\n - ".join([""] + list(cls.known_urls))
             # TODO: may be make use of etelemetry and report if newer client
             # which might know is available?
             raise UnknownURLError(
-                f"We do not know how to map URL {url} to girder.\n"
+                f"We do not know how to map URL {url} to our servers.\n"
                 f"Regular expressions for known setups:"
                 f"{known_regexes}"
             )
 
-        groups = match.groupdict()
         url_server = groups["server"]
         server = cls.map_to[server_type].get(url_server.rstrip("/"), url_server)
 

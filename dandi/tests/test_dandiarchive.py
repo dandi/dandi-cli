@@ -97,6 +97,31 @@ def test_parse_girder_url(url, asset_type, asset_id):
             "folder",
             {"dandiset_id": "001001", "version": "draft", "location": "sub-RAT123/"},
         ),
+        # by direct instance name ad-hoc URI instance:ID[@version][/path]
+        (
+            "dandi://dandi-api-local-docker-tests/000002@draft",
+            "dandi-api-local-docker-tests",
+            "dandiset",
+            {"dandiset_id": "000002", "version": "draft"},
+        ),
+        (
+            "dandi://dandi-api-local-docker-tests/000002@draft/path",
+            "dandi-api-local-docker-tests",
+            "item",
+            {"dandiset_id": "000002", "location": "path", "version": "draft"},
+        ),
+        (
+            "dandi://dandi-api-local-docker-tests/000002/path",
+            "dandi-api-local-docker-tests",
+            "item",
+            {"dandiset_id": "000002", "location": "path", "version": None},
+        ),
+        (  # test on "public" instance and have trailing / to signal the folder
+            "dandi://dandi-api/000002/path/",
+            "dandi-api",
+            "folder",
+            {"dandiset_id": "000002", "location": "path/", "version": None},
+        ),
         # TODO: bring back a test on deploy-preview-
         # # And the hybrid for "drafts" where it still goes by girder ID
         # (
