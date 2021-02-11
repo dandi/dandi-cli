@@ -294,173 +294,50 @@ def test_new_upload_download(local_dandi_api, monkeypatch, organized_nwb_dir, tm
     assert r["metadata"]["name"] == "shorty"
 
 
-def test_new_upload_extant_existing(
-    local_dandi_api, mocker, monkeypatch, organized_nwb_dir
-):
-    client = DandiAPIClient(
-        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
-    )
-    with client.session():
-        r = client.create_dandiset("Test Dandiset", {})
-    dandiset_id = r["identifier"]
-    (organized_nwb_dir / dandiset_metadata_file).write_text(
-        f"identifier: '{dandiset_id}'\n"
-    )
-    monkeypatch.chdir(organized_nwb_dir)
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    upload(paths=[], dandi_instance=local_dandi_api["instance_id"], devel_debug=True)
+def test_new_upload_extant_existing(mocker, text_dandiset):
     iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
     with pytest.raises(FileExistsError):
-        upload(
-            paths=[],
-            dandi_instance=local_dandi_api["instance_id"],
-            devel_debug=True,
-            existing="error",
-        )
+        text_dandiset["reupload"](existing="error")
     iter_upload_spy.assert_not_called()
 
 
-def test_new_upload_extant_skip(
-    local_dandi_api, mocker, monkeypatch, organized_nwb_dir
-):
-    client = DandiAPIClient(
-        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
-    )
-    with client.session():
-        r = client.create_dandiset("Test Dandiset", {})
-    dandiset_id = r["identifier"]
-    (organized_nwb_dir / dandiset_metadata_file).write_text(
-        f"identifier: '{dandiset_id}'\n"
-    )
-    monkeypatch.chdir(organized_nwb_dir)
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    upload(paths=[], dandi_instance=local_dandi_api["instance_id"], devel_debug=True)
+def test_new_upload_extant_skip(mocker, text_dandiset):
     iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
-    upload(
-        paths=[],
-        dandi_instance=local_dandi_api["instance_id"],
-        devel_debug=True,
-        existing="skip",
-    )
+    text_dandiset["reupload"](existing="skip")
     iter_upload_spy.assert_not_called()
 
 
-def test_new_upload_extant_eq_overwrite(
-    local_dandi_api, mocker, monkeypatch, organized_nwb_dir
-):
-    client = DandiAPIClient(
-        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
-    )
-    with client.session():
-        r = client.create_dandiset("Test Dandiset", {})
-    dandiset_id = r["identifier"]
-    (organized_nwb_dir / dandiset_metadata_file).write_text(
-        f"identifier: '{dandiset_id}'\n"
-    )
-    monkeypatch.chdir(organized_nwb_dir)
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    upload(paths=[], dandi_instance=local_dandi_api["instance_id"], devel_debug=True)
+def test_new_upload_extant_eq_overwrite(mocker, text_dandiset):
     iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
-    upload(
-        paths=[],
-        dandi_instance=local_dandi_api["instance_id"],
-        devel_debug=True,
-        existing="overwrite",
-    )
+    text_dandiset["reupload"](existing="overwrite")
     iter_upload_spy.assert_not_called()
 
 
 def test_new_upload_extant_neq_overwrite(
-    local_dandi_api, mocker, monkeypatch, tmp_path
+    local_dandi_api, mocker, text_dandiset, tmp_path
 ):
-    client = DandiAPIClient(
-        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
-    )
-    with client.session():
-        r = client.create_dandiset("Test Dandiset", {})
-    dandiset_id = r["identifier"]
-    upload_dir = tmp_path / "upload"
-    upload_dir.mkdir()
-    (upload_dir / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
-    (upload_dir / "subdir").mkdir()
-    (upload_dir / "subdir" / "file.txt").write_text("This is test text.\n")
-    monkeypatch.chdir(upload_dir)
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    upload(
-        paths=[],
-        dandi_instance=local_dandi_api["instance_id"],
-        devel_debug=True,
-        allow_any_path=True,
-        validation="skip",
-    )
-    (upload_dir / "subdir" / "file.txt").write_text("This is different text.\n")
+    dandiset_id = text_dandiset["dandiset_id"]
+    (text_dandiset["dspath"] / "file.txt").write_text("This is different text.\n")
     iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
-    upload(
-        paths=[],
-        dandi_instance=local_dandi_api["instance_id"],
-        devel_debug=True,
-        existing="overwrite",
-        allow_any_path=True,
-        validation="skip",
-    )
+    text_dandiset["reupload"](existing="overwrite")
     iter_upload_spy.assert_called()
-    download_dir = tmp_path / "download"
-    download_dir.mkdir()
     download(
         f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
-        download_dir,
+        tmp_path,
     )
     assert (
-        download_dir / dandiset_id / "subdir" / "file.txt"
+        tmp_path / dandiset_id / "file.txt"
     ).read_text() == "This is different text.\n"
 
 
 @pytest.mark.parametrize("existing", ["refresh", "force"])
-def test_new_upload_extant_reupload(
-    existing, local_dandi_api, mocker, monkeypatch, organized_nwb_dir
-):
-    client = DandiAPIClient(
-        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
-    )
-    with client.session():
-        r = client.create_dandiset("Test Dandiset", {})
-    dandiset_id = r["identifier"]
-    (organized_nwb_dir / dandiset_metadata_file).write_text(
-        f"identifier: '{dandiset_id}'\n"
-    )
-    monkeypatch.chdir(organized_nwb_dir)
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    upload(paths=[], dandi_instance=local_dandi_api["instance_id"], devel_debug=True)
+def test_new_upload_extant_reupload(existing, mocker, text_dandiset):
     iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
-    upload(
-        paths=[],
-        dandi_instance=local_dandi_api["instance_id"],
-        devel_debug=True,
-        existing=existing,
-    )
+    text_dandiset["reupload"](existing=existing)
     iter_upload_spy.assert_called()
 
 
-def test_new_upload_extant_bad_existing(
-    local_dandi_api, mocker, monkeypatch, organized_nwb_dir
-):
-    client = DandiAPIClient(
-        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
-    )
-    with client.session():
-        r = client.create_dandiset("Test Dandiset", {})
-    dandiset_id = r["identifier"]
-    (organized_nwb_dir / dandiset_metadata_file).write_text(
-        f"identifier: '{dandiset_id}'\n"
-    )
-    monkeypatch.chdir(organized_nwb_dir)
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    upload(paths=[], dandi_instance=local_dandi_api["instance_id"], devel_debug=True)
+def test_new_upload_extant_bad_existing(mocker, text_dandiset):
     iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
-    upload(
-        paths=[],
-        dandi_instance=local_dandi_api["instance_id"],
-        devel_debug=True,
-        existing="foobar",
-    )
+    text_dandiset["reupload"](existing="foobar")
     iter_upload_spy.assert_not_called()
