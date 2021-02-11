@@ -13,7 +13,7 @@ import requests
 
 from .consts import dandiset_metadata_file, metadata_digests
 from .dandiapi import DandiAPIClient
-from .dandiarchive import navigate_url
+from .dandiarchive import navigate_url, parse_dandi_url
 from .dandiset import Dandiset
 from . import get_logger, girder
 from .support.pyout import naturalsize
@@ -119,6 +119,7 @@ def download_generator(
         # on which instance it exists!  Thus ATM we would do nothing but crash
         raise NotImplementedError("No URLs were provided.  Cannot download anything")
 
+    server_type, _, asset_type, asset_id = parse_dandi_url(urls[0])
     with navigate_url(urls[0]) as (client, dandiset, assets):
         if assets_it:
             assets_it.gen = assets
@@ -130,13 +131,17 @@ def download_generator(
             identifier = Dandiset._get_identifier(dandiset)
             if not identifier:
                 raise ValueError(f"Cannot deduce dandiset identifier from {dandiset}")
-            output_path = op.join(output_dir, identifier)
-            if get_metadata:
-                dandiset_metadata = dandiset.get("metadata", {})
-                for resp in _populate_dandiset_yaml(
-                    output_path, dandiset_metadata, existing == "overwrite"
-                ):
-                    yield dict(path=dandiset_metadata_file, **resp)
+            if server_type == "girder" or asset_type == "dandiset":
+                output_path = op.join(output_dir, identifier)
+                if get_metadata:
+                    dandiset_metadata = dandiset.get("metadata", {})
+                    for resp in _populate_dandiset_yaml(
+                        output_path, dandiset_metadata, existing == "overwrite"
+                    ):
+                        yield dict(path=dandiset_metadata_file, **resp)
+            else:
+                output_path = output_dir
+
         else:
             output_path = output_dir
 
@@ -185,6 +190,16 @@ def download_generator(
 
             path = asset["path"].lstrip("/")  # make into relative path
             path = op.normpath(path)
+            if server_type == "api" and asset_type != "dandiset":
+                if asset_type == "folder":
+                    folder_path = op.normpath(asset_id["location"])
+                    path = op.join(
+                        op.basename(folder_path), op.relpath(path, folder_path)
+                    )
+                elif asset_type == "item":
+                    path = op.basename(path)
+                else:
+                    raise NotImplementedError(f"Unexpected asset type {asset_type}")
             download_path = op.join(output_path, path)
 
             downloader = client.get_download_file_iter(*down_args)

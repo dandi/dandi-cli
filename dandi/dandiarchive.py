@@ -46,25 +46,34 @@ def navigate_url(url):
         args = asset_id, asset_type
     elif server_type == "api":
         client = DandiAPIClient(server_url)
+        if asset_id["version"] is None:
+            r = client.get(f"/dandisets/{asset_id['dandiset_id']}/")
+            asset_id["version"] = r["most_recent_version"]["version"]
         args = (asset_id["dandiset_id"], asset_id["version"])
         kwargs["include_metadata"] = True
         if asset_id.get("location"):
-            # API interface was RFed in 6ba45daf7c00d6cbffd33aed91a984ad28419f56
-            # and no longer takes "location" kwarg. There is `get_dandiset_assets`
-            # but it doesn't provide dandiset... review the use of navigate_url
-            # to see if we should keep its interface as is and provide dandiset...
-            raise NotImplementedError(
-                "No support for path specific handling via API yet"
-            )
+            with client.session():
+                dandiset = client.get_dandiset(*args)
+                if asset_type == "folder":
+                    assets = client.get_dandiset_assets(
+                        *args, path=asset_id["location"]
+                    )
+                elif asset_type == "item":
+                    asset = client.get_asset_bypath(*args, asset_id["location"])
+                    assets = [asset] if asset is not None else []
+                else:
+                    raise NotImplementedError(
+                        f"Do not know how to handle asset type {asset_type} with location"
+                    )
+                yield (client, dandiset, assets)
+            return
     else:
         raise NotImplementedError(
             f"Download from server of type {server_type} is not yet implemented"
         )
 
     with client.session():
-        dandiset, assets = client.get_dandiset_and_assets(
-            *args, **kwargs
-        )  # , recursive=recursive)
+        dandiset, assets = client.get_dandiset_and_assets(*args, **kwargs)
         yield client, dandiset, assets
 
 
@@ -128,7 +137,8 @@ class _dandi_url_parser:
         # https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302/files
         # TODO: upload something to any dandiset to see what happens when there are files
         # and adjust for how path is provided (if not ?location=)
-        f"(?P<server>(?P<protocol>https?)://(?P<hostname>gui-beta-dandiarchive-org.netlify.app)/)"
+        "(?P<server>(?P<protocol>https?)://"
+        "(?P<hostname>gui-beta-dandiarchive-org\\.netlify\\.app)/)"
         f"#/(?P<asset_type>dandiset)/{dandiset_id_grp}"
         "(/(?P<version>([.0-9]{5,}|draft)))?"
         f"(/files(\\?location=(?P<location>.*)?)?)?"
@@ -150,6 +160,14 @@ class _dandi_url_parser:
         "(/(?P<version>draft))?"
         f"(/files(\\?_id={id_grp}(&_modelType=folder)?)?)?"
         "$": {"server_type": "girder"},
+        # ad-hoc explicitly pointing within URL to the specific instance to use
+        # and otherwise really simple: dandi://INSTANCE/DANDISET_ID[@VERSION][/PATH]
+        # For now to not be promoted to the users, and primarily for internal use
+        f"dandi://(?P<instance_name>({'|'.join(known_instances)}))"
+        f"/{dandiset_id_grp}"
+        "(@(?P<version>([.0-9]{5,}|draft)))?"
+        f"(/(?P<location>.*)?)?"
+        "$": {"server_type": "api"},
         # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000006/draft
         # (no API yet)
         "https?://.*": {"handle_redirect": "only"},
@@ -215,6 +233,8 @@ class _dandi_url_parser:
             match = re.match(regex, url)
             if not match:
                 continue
+            groups = match.groupdict()
+            lgr.log(5, "Matched %r into %s", url, groups)
             rewrite = settings.get("rewrite", False)
             handle_redirect = settings.get("handle_redirect", False)
             if rewrite:
@@ -253,21 +273,27 @@ class _dandi_url_parser:
                         server += "/"
                     return (server_type, server) + tuple(_)
                 continue  # in this run we ignore an match further
+            elif "instance_name" in groups:
+                known_instance = get_instance(groups["instance_name"])
+                server_type = "girder" if known_instance.girder else "api"
+                assert known_instance.api  # must be defined
+                groups["server"] = known_instance.api
+                # could be overloaded later depending if location is provided
+                groups["asset_type"] = "dandiset"
+                break
             else:
                 server_type = settings.get("server_type", "girder")
                 break
-
         if not match:
             known_regexes = "\n - ".join([""] + list(cls.known_urls))
             # TODO: may be make use of etelemetry and report if newer client
             # which might know is available?
             raise UnknownURLError(
-                f"We do not know how to map URL {url} to girder.\n"
+                f"We do not know how to map URL {url} to our servers.\n"
                 f"Regular expressions for known setups:"
                 f"{known_regexes}"
             )
 
-        groups = match.groupdict()
         url_server = groups["server"]
         server = cls.map_to[server_type].get(url_server.rstrip("/"), url_server)
 
@@ -285,12 +311,8 @@ class _dandi_url_parser:
             location = location.lstrip("/")
         if not (asset_type == "dandiset" and dandiset_id):
             raise ValueError(f"{url} does not point to a dandiset")
-        if not version:
+        if server_type == "girder" and not version:
             version = "draft"
-            # TODO: verify since web UI might have different opinion: it does show e.g.
-            # released version for 000001 now, but that one could be produced only from draft
-            # so we should be ok.  Otherwise we should always then query "dandiset_read" endpoint
-            # to figure out what is the "most recent one"
         # Let's just return a structured record for the requested asset
         asset_ids = {"dandiset_id": dandiset_id, "version": version}
         # if location is not degenerate -- it would be a folder or a file
