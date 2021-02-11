@@ -118,3 +118,6 @@ organized by label.  `auto` recognizes the following PR labels:
   component; this is the default label for unlabelled PRs
 - `internal` — for changes only affecting the internal API
 - `documentation` — for changes only affecting the documentation
+- `tests` — for changes to tests
+- `dependencies` — for updates to dependency versions
+- `performance` — for performance improvements
