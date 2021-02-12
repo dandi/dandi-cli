@@ -348,7 +348,7 @@ class DandiAPIClient(RESTFullAPIClient):
             dandiset["metadata"] = dandiset_metadata.pop("dandiset")
         return dandiset
 
-    def upload(self, dandiset_id, version_id, asset_path, asset_metadata, filepath):
+    def upload(self, dandiset_id, version_id, asset_metadata, filepath):
         """
         Parameters
         ----------
@@ -356,23 +356,18 @@ class DandiAPIClient(RESTFullAPIClient):
           the ID of the Dandiset to which to upload the file
         version_id: str
           the ID of the version of the Dandiset to which to upload the file
-        asset_path: str
-          the POSIX path at which the uploaded file will be placed on the
-          server
         asset_metadata: dict
-          metadata for the uploaded asset file
+          Metadata for the uploaded asset file.  Must include a "path" field
+          giving the POSIX path at which the uploaded file will be placed on
+          the server.
         filepath: str or PathLike
           the path to the local file to upload
         """
-        for r in self.iter_upload(
-            dandiset_id, version_id, asset_path, asset_metadata, filepath
-        ):
+        for r in self.iter_upload(dandiset_id, version_id, asset_metadata, filepath):
             if r["status"] == "validating":
                 sleep(0.1)
 
-    def iter_upload(
-        self, dandiset_id, version_id, asset_path, asset_metadata, filepath
-    ):
+    def iter_upload(self, dandiset_id, version_id, asset_metadata, filepath):
         """
         Parameters
         ----------
@@ -380,11 +375,10 @@ class DandiAPIClient(RESTFullAPIClient):
           the ID of the Dandiset to which to upload the file
         version_id: str
           the ID of the version of the Dandiset to which to upload the file
-        asset_path: str
-          the POSIX path at which the uploaded file will be placed on the
-          server
         asset_metadata: dict
-          metadata for the uploaded asset file
+          Metadata for the uploaded asset file.  Must include a "path" field
+          giving the POSIX path at which the uploaded file will be placed on
+          the server.
         filepath: str or PathLike
           the path to the local file to upload
 
@@ -411,7 +405,7 @@ class DandiAPIClient(RESTFullAPIClient):
             resp = self.post(
                 "/uploads/initialize/",
                 json={
-                    "file_name": f"{dandiset_id}/{version_id}/{asset_path}",
+                    "file_name": f"{dandiset_id}/{version_id}/{asset_metadata['path']}",
                     "file_size": total_size,
                 },
             )
@@ -476,7 +470,7 @@ class DandiAPIClient(RESTFullAPIClient):
         yield {"status": "producing asset"}
         self.post(
             f"/dandisets/{dandiset_id}/versions/{version_id}/assets/",
-            json={"path": asset_path, "metadata": asset_metadata, "sha256": filehash},
+            json={"metadata": asset_metadata, "sha256": filehash},
         )
         yield {"status": "done"}
 
