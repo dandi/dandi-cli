@@ -2,7 +2,9 @@ import os
 
 import click
 
-from .base import map_to_click_exceptions
+from .base import instance_option, map_to_click_exceptions
+from ..consts import known_instances, known_instances_rev
+from ..dandiarchive import parse_dandi_url
 
 
 class ChoiceList(click.ParamType):
@@ -71,6 +73,7 @@ class ChoiceList(click.ParamType):
     default="all",
     show_default=True,
 )
+@instance_option()
 # Might be a cool feature, not unlike verifying a checksum, we verify that
 # downloaded file passes the validator, and if not -- alert
 # @click.option(
@@ -87,11 +90,40 @@ class ChoiceList(click.ParamType):
 # )
 @click.argument("url", nargs=-1)
 @map_to_click_exceptions
-def download(url, output_dir, existing, jobs, format, download_types):
+def download(
+    url, output_dir, existing, jobs, format, download_types, dandi_instance=None
+):
     """Download a file or entire folder from DANDI"""
     # We need to import the download module rather than the download function
     # so that the tests can properly patch the function with a mock.
     from .. import download
+
+    if dandi_instance is not None:
+        if url:
+            for u in url:
+                _, server_url, _, _ = parse_dandi_url(u)
+                if known_instances_rev.get(server_url.rstrip("/")) != dandi_instance:
+                    raise click.UsageError(
+                        f"{u} does not point to {dandi_instance!r} instance"
+                    )
+        else:
+            from ..dandiset import Dandiset
+
+            try:
+                dandiset_id = Dandiset(os.curdir).identifier
+            except ValueError:
+                # No Dandiset here; leave `url` alone
+                pass
+            else:
+                instance = known_instances[dandi_instance]
+                if instance.gui is not None:
+                    url = [f"{instance.gui}/#/dandiset/{dandiset_id}/draft"]
+                elif instance.api is not None:
+                    url = [f"{instance.api}/dandisets/{dandiset_id}/"]
+                else:
+                    raise NotImplementedError(
+                        f"Do not know how to construct URLs for {dandi_instance!r}"
+                    )
 
     return download.download(
         url,
