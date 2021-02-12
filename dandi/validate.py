@@ -13,7 +13,7 @@ _required_nwb_metadata_fields = ["subject_id"]
 
 
 # TODO: provide our own "errors" records, which would also include warnings etc
-def validate(paths):
+def validate(paths, schema_version=None):
     """Validate content
 
     Parameters
@@ -27,29 +27,65 @@ def validate(paths):
       errors for a path
     """
     for path in find_dandi_files(paths):
-        errors = validate_file(path)
+        errors = validate_file(path, schema_version=schema_version)
         yield path, errors
 
 
 @validate_cache.memoize_path
-def validate_file(filepath):
+def validate_file(filepath, schema_version=None):
     if op.basename(filepath) == dandiset_metadata_file:
-        return validate_dandiset_yaml(filepath)
+        return validate_dandiset_yaml(filepath, schema_version=None)
     else:
-        return pynwb_validate(filepath) + validate_dandi_nwb(filepath)
+        return pynwb_validate(filepath) + validate_dandi_nwb(
+            filepath, schema_version=schema_version
+        )
 
 
-def validate_dandiset_yaml(filepath):
+def validate_dandiset_yaml(filepath, schema_version=None):
     """Validate dandiset.yaml"""
     with open(filepath) as f:
         meta = yaml_load(f, typ="safe")
-    return _check_required_fields(meta, _required_dandiset_metadata_fields)
+    if schema_version is None:
+        schema_version = meta.get("schemaVersion")
+    if schema_version is None:
+        return _check_required_fields(meta, _required_dandiset_metadata_fields)
+    else:
+        from pydantic import ValidationError
+
+        from .metadata import migrate2newschema
+        from .models import CommonModel, DandiMeta
+
+        current_version = CommonModel.__fields__["schemaVersion"].default
+        if schema_version != current_version:
+            raise ValueError(
+                f"Unsupported schema version: {schema_version}; expected {current_version}"
+            )
+        try:
+            new_meta = migrate2newschema(meta)
+            DandiMeta(**new_meta.dict())
+        except ValidationError as e:
+            return [str(e)]
+        except Exception as e:
+            return [f"Failed to convert metadata: {e}"]
+        return []
 
 
-def validate_dandi_nwb(filepath):
+def validate_dandi_nwb(filepath, schema_version=None):
     """Provide validation of .nwb file regarding requirements we impose
     """
-    if os.environ.get("DANDI_SCHEMA"):
+    use_new_schema = False
+    if schema_version is not None:
+        from .models import CommonModel
+
+        current_version = CommonModel.__fields__["schemaVersion"].default
+        if schema_version != current_version:
+            raise ValueError(
+                f"Unsupported schema version: {schema_version}; expected {current_version}"
+            )
+        use_new_schema = True
+    elif os.environ.get("DANDI_SCHEMA"):
+        use_new_schema = True
+    if use_new_schema:
         from pydantic import ValidationError
 
         from .metadata import nwb2asset

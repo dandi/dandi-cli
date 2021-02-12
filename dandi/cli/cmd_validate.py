@@ -2,13 +2,14 @@ import os
 
 import click
 
-from .base import map_to_click_exceptions
+from .base import devel_option, map_to_click_exceptions
 
 
 @click.command()
+@devel_option("--schema", help="Validate against new schema version", metavar="VERSION")
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
 @map_to_click_exceptions
-def validate(paths):
+def validate(paths, schema=None):
     """Validate files for NWB (and DANDI) compliance.
 
     Exits with non-0 exit code if any file is not compliant.
@@ -27,7 +28,7 @@ def validate(paths):
 
     all_files_errors = {}
     nfiles = 0
-    for path, errors in validate_(paths):
+    for path, errors in validate_(paths, schema_version=schema):
         nfiles += 1
         if view == "one-at-a-time":
             display_errors(path, errors)
