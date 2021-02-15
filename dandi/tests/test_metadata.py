@@ -132,8 +132,20 @@ def test_metadata2asset(schema_dir):
   },
   "wasDerivedFrom": [
     {
-      "identifier": "tissue03",
-      "schemaKey": "BioSample"
+      "identifier": "cell01",
+      "schemaKey": "BioSample",
+      "wasDerivedFrom": [
+        {
+          "identifier": "slice02",
+          "schemaKey": "BioSample",
+          "wasDerivedFrom": [
+            {
+              "identifier": "tissue03",
+              "schemaKey": "BioSample"
+            }
+          ]
+        }
+      ]
     }
   ],
   "wasAttributedTo": [
