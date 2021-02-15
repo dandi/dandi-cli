@@ -792,6 +792,12 @@ class BareAssetMeta(CommonModel):
         None, description="Participant(s) to which this file belongs to", nskey="prov"
     )
 
+    _ldmeta = {
+        "rdfs:subClassOf": ["schema:CreativeWork", "prov:Entity"],
+        "rdfs:label": "Information about the asset",
+        "nskey": "dandi",
+    }
+
 
 class AssetMeta(BareAssetMeta, Identifiable):
     """Metadata used to describe an asset on the server.
@@ -802,12 +808,6 @@ class AssetMeta(BareAssetMeta, Identifiable):
 
     # on publish or set by server
     contentUrl: Optional[List[HttpUrl]] = Field(None, readOnly=True, nskey="schema")
-
-    _ldmeta = {
-        "rdfs:subClassOf": ["schema:CreativeWork", "prov:Entity"],
-        "rdfs:label": "Information about the asset",
-        "nskey": "dandi",
-    }
 
 
 class PublishedAssetMeta(AssetMeta):
