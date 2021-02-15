@@ -16,7 +16,9 @@ def test_upload(local_dandi_api, simple1_nwb, tmp_path):
     with client.session():
         r = client.create_dandiset(name="Upload Test", metadata={})
         dandiset_id = r["identifier"]
-        client.upload(dandiset_id, "draft", "testing/simple1.nwb", {}, simple1_nwb)
+        client.upload(
+            dandiset_id, "draft", {"path": "testing/simple1.nwb"}, simple1_nwb
+        )
         asset, = client.get_dandiset_assets(dandiset_id, "draft")
         assert asset["path"] == "testing/simple1.nwb"
         client.download_assets_directory(dandiset_id, "draft", "", tmp_path)
@@ -136,20 +138,23 @@ def test_get_asset_include_metadata(local_dandi_api, simple1_nwb, tmp_path):
         r = client.create_dandiset(name="Include Metadata Test", metadata={})
         dandiset_id = r["identifier"]
         client.upload(
-            dandiset_id, "draft", "testing/simple1.nwb", {"foo": "bar"}, simple1_nwb
+            dandiset_id,
+            "draft",
+            {"path": "testing/simple1.nwb", "foo": "bar"},
+            simple1_nwb,
         )
 
         asset, = client.get_dandiset_assets(dandiset_id, "draft")
         assert "metadata" not in asset
         asset, = client.get_dandiset_assets(dandiset_id, "draft", include_metadata=True)
-        assert asset["metadata"] == {"foo": "bar"}
+        assert asset["metadata"] == {"path": "testing/simple1.nwb", "foo": "bar"}
 
         _, (asset,) = client.get_dandiset_and_assets(dandiset_id, "draft")
         assert "metadata" not in asset
         _, (asset,) = client.get_dandiset_and_assets(
             dandiset_id, "draft", include_metadata=True
         )
-        assert asset["metadata"] == {"foo": "bar"}
+        assert asset["metadata"] == {"path": "testing/simple1.nwb", "foo": "bar"}
 
         asset = client.get_asset_bypath(dandiset_id, "draft", "testing/simple1.nwb")
         assert asset is not None
@@ -158,4 +163,4 @@ def test_get_asset_include_metadata(local_dandi_api, simple1_nwb, tmp_path):
             dandiset_id, "draft", "testing/simple1.nwb", include_metadata=True
         )
         assert asset is not None
-        assert asset["metadata"] == {"foo": "bar"}
+        assert asset["metadata"] == {"path": "testing/simple1.nwb", "foo": "bar"}
