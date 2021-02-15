@@ -145,19 +145,13 @@ def ensure_strtime(t, isoformat=True):
     raise TypeError(f"Do not know how to convert {t_orig!r} to string datetime")
 
 
-def fromisoformat(t, impl=None):
-    if impl is None:
-        # datetime parser "does not support parsing arbitrary ISO 8601 strings"
-        # https://docs.python.org/3/library/datetime.html
-        # In particular it does not parse time zone suffix which was recently
-        # introduced into datetime's provided by API
-        impl = "dateutil"
-    if impl == "datetime":
-        return datetime.datetime.fromisoformat(t)
-    elif impl == "dateutil":
-        return dateutil.parser.isoparse(t)
-    else:
-        raise ValueError(impl)
+def fromisoformat(t):
+    # datetime.fromisoformat "does not support parsing arbitrary ISO 8601
+    # strings" <https://docs.python.org/3/library/datetime.html>.  In
+    # particular, it does not parse the time zone suffixes recently
+    # introduced into timestamps provided by the API.  Hence, we need to use
+    # dateutil instead.
+    return dateutil.parser.isoparse(t)
 
 
 def ensure_datetime(t, strip_tzinfo=False, tz=None):
