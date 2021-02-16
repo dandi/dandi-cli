@@ -110,68 +110,116 @@ def _map_to_girder(url):
 
 
 class _dandi_url_parser:
-    # Defining as a class with all the attributes to not leak all the variables etc
-    # into module space, and later we might end up with classes for those anyways
+    # Defining as a class with all the attributes to not leak all the variables
+    # etc into module space, and later we might end up with classes for those
+    # anyways
     id_regex = "[a-f0-9]{24}"
     id_grp = f"(?P<id>{id_regex})"
     dandiset_id_grp = "(?P<dandiset_id>[0-9]{6})"
     server_grp = (
         "(?P<server>(?P<protocol>https?)://(?P<hostname>[^/]+)/(api/)?)"
     )  # should absorb port and api/
-    known_urls = {
+    known_urls = [
+        # List of (regex, settings, display string) triples
+        #
+        # Settings:
+        # - handle_redirect:
+        #   - 'pass' - would continue with original url if no redirect happen
+        #   - 'only' - would interrupt if no redirection happens
+        # - server_type:
+        #   - 'girder' - underlying requests should go to girder server
+        #   - 'api' - the "new" API service
+        # - rewrite:
+        #   - callable -- which would rewrite that "URI"
+        # - map_instance
+        #
         # Those we first redirect and then handle the redirected URL
         # TODO: Later should better conform to our API, so we could allow
         #       for not only "dandiarchive.org" URLs
-        # handle_redirect:
-        #   - 'pass' - would continue with original url if no redirect happen
-        #   - 'only' - would interrupt if no redirection happens
-        # server_type:
-        #   - 'girder' - underlying requests should go to girder server
-        #   - 'api' - the "new" API service
-        # rewrite:
-        #   - callable -- which would rewrite that "URI"
-        "DANDI:": {"rewrite": lambda x: "https://identifiers.org/" + x},
-        "https?://dandiarchive.org/.*": {"handle_redirect": "pass"},
-        "https?://identifiers.org/DANDI:.*": {"handle_redirect": "pass"},
-        # New DANDI API, ATM can be reached only via enable('DJANGO_API')  in browser console
+        (
+            re.compile(r"DANDI:.*"),
+            {"rewrite": lambda x: "https://identifiers.org/" + x},
+            "DANDI:<dandiset id>",
+        ),
+        (
+            re.compile(r"https?://dandiarchive\.org/.*"),
+            {"handle_redirect": "pass"},
+            "https://dandiarchive.org/...",
+        ),
+        (
+            re.compile(r"https?://identifiers\.org/DANDI:.*"),
+            {"handle_redirect": "pass"},
+            "https://identifiers.org/DANDI:<dandiset id>",
+        ),
+        # New DANDI API, ATM can be reached only via enable('DJANGO_API')  in
+        # browser console
         # https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302/files
-        # TODO: upload something to any dandiset to see what happens when there are files
-        # and adjust for how path is provided (if not ?location=)
-        "(?P<server>(?P<protocol>https?)://"
-        "(?P<hostname>gui-beta-dandiarchive-org\\.netlify\\.app)/)"
-        f"#/(?P<asset_type>dandiset)/{dandiset_id_grp}"
-        "(/(?P<version>([.0-9]{5,}|draft)))?"
-        f"(/files(\\?location=(?P<location>.*)?)?)?"
-        "$": {"server_type": "api"},
-        #
-        # PRs are also on netlify - so above takes precedence. TODO: make more specific?
-        "https?://[^/]*dandiarchive-org.netlify.app/.*": {"map_instance": "dandi"},
-        #
+        # TODO: upload something to any dandiset to see what happens when there
+        # are files and adjust for how path is provided (if not ?location=)
+        (
+            re.compile(
+                r"(?P<server>(?P<protocol>https?)://"
+                r"(?P<hostname>gui-beta-dandiarchive-org\.netlify\.app)/)"
+                rf"#/(?P<asset_type>dandiset)/{dandiset_id_grp}"
+                r"(/(?P<version>[.0-9]{5,}|draft))?"
+                rf"(/files(\?location=(?P<location>.*)?)?)?"
+            ),
+            {"server_type": "api"},
+            "https://gui-beta-dandiarchive-org.netflif.app/#/dandiset"
+            "/<dandiset id>[/<version>][/files[?location=<path>]]",
+        ),
+        # PRs are also on netlify - so above takes precedence. TODO: make more
+        # specific?
+        (
+            re.compile(r"https?://[^/]*dandiarchive-org\.netlify\.app/.*"),
+            {"map_instance": "dandi"},
+            "https://*dandiarchive-org.netflify.app/...",
+        ),
         # Direct urls to our new API
-        f"{server_grp}"
-        f"(?P<asset_type>dandiset)s/{dandiset_id_grp}/?"
-        "(versions(/(?P<version>([.0-9]{5,}|draft)))?)?"
-        "$": {"server_type": "api"},
+        (
+            re.compile(
+                rf"{server_grp}(?P<asset_type>dandiset)s/{dandiset_id_grp}"
+                r"(/(versions(/(?P<version>[.0-9]{5,}|draft))?)?)?"
+            ),
+            {"server_type": "api"},
+            "https://<server>[/api]/dandisets/<dandiset id>[/versions[/<version>]]",
+        ),
         # But for drafts files navigator it is a bit different beast and there
         # could be no versions, only draft
         # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000027/draft/files?_id=5f176583f63d62e1dbd06943&_modelType=folder
-        f"{server_grp}"
-        f"#/(?P<asset_type>dandiset)/{dandiset_id_grp}"
-        "(/(?P<version>draft))?"
-        f"(/files(\\?_id={id_grp}(&_modelType=folder)?)?)?"
-        "$": {"server_type": "girder"},
+        (
+            re.compile(
+                rf"{server_grp}#/(?P<asset_type>dandiset)/{dandiset_id_grp}"
+                r"(/(?P<version>draft))?"
+                rf"(/files(\?_id={id_grp}(&_modelType=folder)?)?)?"
+            ),
+            {"server_type": "girder"},
+            "https://<server>[/api]#/dandiset/<dandiset id>[/draft]"
+            "[/files[?_id=<id>[&_modelType=folder]]]",
+        ),
         # ad-hoc explicitly pointing within URL to the specific instance to use
-        # and otherwise really simple: dandi://INSTANCE/DANDISET_ID[@VERSION][/PATH]
-        # For now to not be promoted to the users, and primarily for internal use
-        f"dandi://(?P<instance_name>({'|'.join(known_instances)}))"
-        f"/{dandiset_id_grp}"
-        "(@(?P<version>([.0-9]{5,}|draft)))?"
-        f"(/(?P<location>.*)?)?"
-        "$": {"server_type": "api"},
+        # and otherwise really simple:
+        # dandi://INSTANCE/DANDISET_ID[@VERSION][/PATH]
+        # For now to not be promoted to the users, and primarily for internal
+        # use
+        (
+            re.compile(
+                rf"dandi://(?P<instance_name>({'|'.join(known_instances)}))"
+                rf"/{dandiset_id_grp}"
+                r"(@(?P<version>[.0-9]{5,}|draft))?"
+                rf"(/(?P<location>.*)?)?"
+            ),
+            {"server_type": "api"},
+            "dandi://<instance name>/<dandiset id>[@<version>][/<path>]",
+        ),
         # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000006/draft
         # (no API yet)
-        "https?://.*": {"handle_redirect": "only"},
-    }
+        (
+            re.compile(r"https?://.*"),
+            {"handle_redirect": "only"},
+            "https://<server>/...",
+        ),
+    ]
     # We might need to remap some assert_types
     map_asset_types = {"dandiset": "folder"}
     # And lets create our mapping into girder instances from known_instances:
@@ -229,8 +277,8 @@ class _dandi_url_parser:
 
         # Loop through known url regexes and stop as soon as one is matching
         match = None
-        for regex, settings in cls.known_urls.items():
-            match = re.match(regex, url)
+        for regex, settings, _ in cls.known_urls:
+            match = regex.fullmatch(url)
             if not match:
                 continue
             groups = match.groupdict()
@@ -285,12 +333,14 @@ class _dandi_url_parser:
                 server_type = settings.get("server_type", "girder")
                 break
         if not match:
-            known_regexes = "\n - ".join([""] + list(cls.known_urls))
+            known_regexes = "\n - ".join(
+                [""] + [display for _, _, display in cls.known_urls]
+            )
             # TODO: may be make use of etelemetry and report if newer client
             # which might know is available?
             raise UnknownURLError(
                 f"We do not know how to map URL {url} to our servers.\n"
-                f"Regular expressions for known setups:"
+                f"Patterns for known setups:"
                 f"{known_regexes}"
             )
 
