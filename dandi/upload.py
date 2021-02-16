@@ -810,7 +810,9 @@ def _new_upload(
                 lgr.info("Replacing asset %s", extant["uuid"])
                 client.delete_asset(ds_identifier, "draft", extant["uuid"])
             yield {"status": "uploading"}
-            for r in client.iter_upload(ds_identifier, "draft", metadata, str(path)):
+            for r in client.iter_upload(
+                ds_identifier, "draft", metadata, str(path), sha256_digest=sha256_digest
+            ):
                 if r["status"] == "uploading":
                     uploaded_paths[str(path)]["size"] = r["current"]
                 yield r
