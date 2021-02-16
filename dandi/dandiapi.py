@@ -8,7 +8,6 @@ import requests
 from .consts import MAX_CHUNK_SIZE, known_instances_rev
 from .girder import keyring_lookup
 from . import get_logger
-from .support.digests import Digester
 
 lgr = get_logger()
 
@@ -386,8 +385,19 @@ class DandiAPIClient(RESTFullAPIClient):
         -------
         a generator of `dict`s containing at least a ``"status"`` key
         """
-        filehash = Digester(["sha256"])(filepath)["sha256"]
+        from .support.digests import get_digest
+
+        filehash = get_digest(filepath)
         lgr.debug("Calculated sha256 digest of %s for %s", filehash, filepath)
+        if (
+            asset_metadata.get("digest") is not None
+            and asset_metadata.get("digest_type") == "SHA256"
+            and asset_metadata["digest"] != filehash
+        ):
+            raise RuntimeError(
+                "File digest changed; was originally {asset_metadata['digest']}"
+                " but is now {filehash}"
+            )
         try:
             self.post("/uploads/validate/", json={"sha256": filehash})
         except requests.HTTPError as e:

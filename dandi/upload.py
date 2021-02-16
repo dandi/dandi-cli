@@ -610,7 +610,7 @@ def _new_upload(
 ):
     from .dandiapi import DandiAPIClient
     from .dandiset import APIDandiset
-    from .support.digests import Digester
+    from .support.digests import get_digest
 
     client = DandiAPIClient(api_url)
     client.dandi_authenticate()
@@ -703,15 +703,11 @@ def _new_upload(
                 return
 
             #
-            # Compute checksums and possible other digests (e.g. for s3, ipfs - TODO)
+            # Compute checksums
             #
             yield {"status": "digesting"}
             try:
-                # TODO: in theory we could also cache the result, but since it is
-                # critical to get correct checksums, safer to just do it all the time.
-                # Should typically be faster than upload itself ;-)
-                digester = Digester(["sha256"])
-                sha256_digest = digester(path)["sha256"]
+                sha256_digest = get_digest(path)
             except Exception as exc:
                 yield skip_file("failed to compute digests: %s" % str(exc))
                 return

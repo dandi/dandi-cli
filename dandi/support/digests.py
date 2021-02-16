@@ -12,6 +12,7 @@
 import hashlib
 import logging
 
+from .cache import PersistentCache
 from ..utils import auto_repr
 
 lgr = logging.getLogger("dandi.support.digests")
@@ -69,3 +70,11 @@ class Digester(object):
                 [d.update(block) for d in digests]
 
         return {n: d.hexdigest() for n, d in zip(self.digests, digests)}
+
+
+checksums = PersistentCache(name="checksums")
+
+
+@checksums.memoize_path
+def get_digest(filepath, digest="sha256"):
+    return Digester([digest])(filepath)[digest]
