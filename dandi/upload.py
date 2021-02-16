@@ -725,12 +725,10 @@ def _new_upload(
                     yield skip_file("file exists")
                     return
                 # Logic below only for overwrite and reupload
-                if existing == "overwrite":
+                if existing == "overwrite" or existing == "refresh":
                     if extant["sha256"] == sha256_digest:
                         yield skip_file("file exists")
                         return
-                elif existing == "refresh":
-                    pass
                 elif existing == "force":
                     pass
                 else:
@@ -807,7 +805,7 @@ def _new_upload(
             # Upload file
             #
             if extant is not None:
-                lgr.info("Replacing asset %s", extant["uuid"])
+                lgr.debug("Replacing asset %s", extant["uuid"])
                 client.delete_asset(ds_identifier, "draft", extant["uuid"])
             yield {"status": "uploading"}
             for r in client.iter_upload(

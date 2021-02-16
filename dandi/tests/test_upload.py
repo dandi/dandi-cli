@@ -307,19 +307,21 @@ def test_new_upload_extant_skip(mocker, text_dandiset):
     iter_upload_spy.assert_not_called()
 
 
-def test_new_upload_extant_eq_overwrite(mocker, text_dandiset):
+@pytest.mark.parametrize("existing", ["overwrite", "refresh"])
+def test_new_upload_extant_eq_overwrite(existing, mocker, text_dandiset):
     iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
-    text_dandiset["reupload"](existing="overwrite")
+    text_dandiset["reupload"](existing=existing)
     iter_upload_spy.assert_not_called()
 
 
+@pytest.mark.parametrize("existing", ["overwrite", "refresh"])
 def test_new_upload_extant_neq_overwrite(
-    local_dandi_api, mocker, text_dandiset, tmp_path
+    existing, local_dandi_api, mocker, text_dandiset, tmp_path
 ):
     dandiset_id = text_dandiset["dandiset_id"]
     (text_dandiset["dspath"] / "file.txt").write_text("This is different text.\n")
     iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
-    text_dandiset["reupload"](existing="overwrite")
+    text_dandiset["reupload"](existing=existing)
     iter_upload_spy.assert_called()
     download(
         f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
@@ -330,10 +332,9 @@ def test_new_upload_extant_neq_overwrite(
     ).read_text() == "This is different text.\n"
 
 
-@pytest.mark.parametrize("existing", ["refresh", "force"])
-def test_new_upload_extant_reupload(existing, mocker, text_dandiset):
+def test_new_upload_extant_force(mocker, text_dandiset):
     iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
-    text_dandiset["reupload"](existing=existing)
+    text_dandiset["reupload"](existing="force")
     iter_upload_spy.assert_called()
 
 
