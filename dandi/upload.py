@@ -610,7 +610,7 @@ def _new_upload(
 ):
     from .dandiapi import DandiAPIClient
     from .dandiset import APIDandiset
-    from .support.digests import Digester
+    from .support.digests import get_digest
 
     client = DandiAPIClient(api_url)
     client.dandi_authenticate()
@@ -703,15 +703,11 @@ def _new_upload(
                 return
 
             #
-            # Compute checksums and possible other digests (e.g. for s3, ipfs - TODO)
+            # Compute checksums
             #
             yield {"status": "digesting"}
             try:
-                # TODO: in theory we could also cache the result, but since it is
-                # critical to get correct checksums, safer to just do it all the time.
-                # Should typically be faster than upload itself ;-)
-                digester = Digester(["sha256"])
-                sha256_digest = digester(path)["sha256"]
+                sha256_digest = get_digest(path)
             except Exception as exc:
                 yield skip_file("failed to compute digests: %s" % str(exc))
                 return
@@ -808,9 +804,7 @@ def _new_upload(
                 lgr.debug("Replacing asset %s", extant["uuid"])
                 client.delete_asset(ds_identifier, "draft", extant["uuid"])
             yield {"status": "uploading"}
-            for r in client.iter_upload(
-                ds_identifier, "draft", metadata, str(path), sha256_digest=sha256_digest
-            ):
+            for r in client.iter_upload(ds_identifier, "draft", metadata, str(path)):
                 if r["status"] == "uploading":
                     uploaded_paths[str(path)]["size"] = r["current"]
                 yield r
