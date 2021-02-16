@@ -348,9 +348,7 @@ class DandiAPIClient(RESTFullAPIClient):
             dandiset["metadata"] = dandiset_metadata.pop("dandiset")
         return dandiset
 
-    def upload(
-        self, dandiset_id, version_id, asset_metadata, filepath, sha256_digest=None
-    ):
+    def upload(self, dandiset_id, version_id, asset_metadata, filepath):
         """
         Parameters
         ----------
@@ -364,22 +362,12 @@ class DandiAPIClient(RESTFullAPIClient):
           the server.
         filepath: str or PathLike
           the path to the local file to upload
-        sha256_digest: str, optional
-          a precalculated SHA 256 digest for the file
         """
-        for r in self.iter_upload(
-            dandiset_id,
-            version_id,
-            asset_metadata,
-            filepath,
-            sha256_digest=sha256_digest,
-        ):
+        for r in self.iter_upload(dandiset_id, version_id, asset_metadata, filepath):
             if r["status"] == "validating":
                 sleep(0.1)
 
-    def iter_upload(
-        self, dandiset_id, version_id, asset_metadata, filepath, sha256_digest=None
-    ):
+    def iter_upload(self, dandiset_id, version_id, asset_metadata, filepath):
         """
         Parameters
         ----------
@@ -393,21 +381,13 @@ class DandiAPIClient(RESTFullAPIClient):
           the server.
         filepath: str or PathLike
           the path to the local file to upload
-        sha256_digest: str, optional
-          a precalculated SHA 256 digest for the file
 
         Returns
         -------
         a generator of `dict`s containing at least a ``"status"`` key
         """
-        if sha256_digest is not None:
-            filehash = sha256_digest
-            lgr.debug(
-                "Using precalculated sha256 digest of %s for %s", filehash, filepath
-            )
-        else:
-            filehash = Digester(["sha256"])(filepath)["sha256"]
-            lgr.debug("Calculated sha256 digest of %s for %s", filehash, filepath)
+        filehash = Digester(["sha256"])(filepath)["sha256"]
+        lgr.debug("Calculated sha256 digest of %s for %s", filehash, filepath)
         try:
             self.post("/uploads/validate/", json={"sha256": filehash})
         except requests.HTTPError as e:
