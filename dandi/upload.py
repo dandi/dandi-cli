@@ -725,12 +725,10 @@ def _new_upload(
                     yield skip_file("file exists")
                     return
                 # Logic below only for overwrite and reupload
-                if existing == "overwrite":
+                if existing == "overwrite" or existing == "refresh":
                     if extant["sha256"] == sha256_digest:
                         yield skip_file("file exists")
                         return
-                elif existing == "refresh":
-                    pass
                 elif existing == "force":
                     pass
                 else:
