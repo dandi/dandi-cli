@@ -13,7 +13,7 @@ from ..metadata import (
     validate_asset_json,
     validate_dandiset_json,
 )
-from ..models import AssetMeta, DandiMeta
+from ..models import BareAssetMeta, DandiMeta
 
 
 @pytest.fixture(scope="module")
@@ -149,7 +149,7 @@ def test_metadata2asset(schema_dir):
   ]
 }"""
     data_as_dict = json.loads(json_data)
-    assert data == AssetMeta(**data_as_dict)
+    assert data == BareAssetMeta(**data_as_dict)
     validate_asset_json(data_as_dict, schema_dir)
 
 
@@ -211,7 +211,7 @@ def test_metadata2asset_simple1(schema_dir):
   "wasAttributedTo": []
 }"""
     data_as_dict = json.loads(json_data)
-    assert data == AssetMeta(**data_as_dict)
+    assert data == BareAssetMeta(**data_as_dict)
     validate_asset_json(data_as_dict, schema_dir)
 
 

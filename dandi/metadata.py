@@ -3,7 +3,7 @@ import json
 import os.path as op
 from pathlib import Path
 import re
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import jsonschema
 
@@ -270,13 +270,6 @@ def extract_digest(metadata):
         return ...
 
 
-def extract_identifier(metadata):
-    try:
-        return UUID(metadata["identifier"])
-    except Exception:
-        return ...
-
-
 FIELD_EXTRACTORS = {
     "wasDerivedFrom": extract_wasDerivedFrom,
     "wasAttributedTo": extract_wasAttributedTo,
@@ -286,7 +279,6 @@ FIELD_EXTRACTORS = {
     "anatomy": extract_anatomy,
     "digest": extract_digest,
     "species": extract_species,
-    "identifier": extract_identifier,
 }
 
 
@@ -327,7 +319,7 @@ def nwb2asset(nwb_path, digest=None, digest_type=None):
 
 
 def metadata2asset(metadata):
-    return extract_model(models.AssetMeta, metadata)
+    return extract_model(models.BareAssetMeta, metadata)
 
 
 """
