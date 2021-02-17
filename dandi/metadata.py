@@ -244,7 +244,7 @@ def extract_wasDerivedFrom(metadata):
     wdf = extract_model(
         models.BioSample, metadata, identifier=metadata.get("tissue_sample_id")
     )
-    if all(v is None for v in wdf.dict().values()):
+    if all(v is None for k, v in wdf.dict().items() if k != "schemaKey"):
         return []
     else:
         return [wdf]
@@ -254,7 +254,7 @@ def extract_wasAttributedTo(metadata):
     wat = extract_model(
         models.Participant, metadata, identifier=metadata.get("subject_id")
     )
-    if all(v is None for v in wat.dict().values()):
+    if all(v is None for k, v in wat.dict().items() if k != "schemaKey"):
         return []
     else:
         return [wat]
