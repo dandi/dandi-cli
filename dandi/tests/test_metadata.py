@@ -105,7 +105,6 @@ def test_metadata2asset(schema_dir):
     # data.json(exclude_unset=True, exclude_none=True, indent=2)
     json_data = """{
   "schemaVersion": "1.0.0-rc1",
-  "identifier": "6a42c273881f45e8ad4d538f7ede1437",
   "keywords": [
     "test",
     "sample",
@@ -118,6 +117,12 @@ def test_metadata2asset(schema_dir):
     }
   ],
   "repository": "https://dandiarchive.org/",
+  "wasGeneratedBy": [
+    {
+      "name": "XYZ789",
+      "schemaKey": "Session"
+    }
+  ],
   "contentSize": 69105,
   "encodingFormat": "application/x-nwb",
   "digest": {
@@ -126,13 +131,8 @@ def test_metadata2asset(schema_dir):
   },
   "wasDerivedFrom": [
     {
-      "identifier": "tissue03"
-    }
-  ],
-  "wasGeneratedBy": [
-    {
-        "name": "XYZ789",
-        "schemaKey": "Session"
+      "identifier": "tissue03",
+      "schemaKey": "BioSample"
     }
   ],
   "wasAttributedTo": [
@@ -150,7 +150,8 @@ def test_metadata2asset(schema_dir):
       "species": {
         "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_9606",
         "name": "Human"
-      }
+      },
+      "schemaKey": "Participant"
     }
   ]
 }"""
