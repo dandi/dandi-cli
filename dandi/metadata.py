@@ -260,6 +260,14 @@ def extract_wasAttributedTo(metadata):
         return [wat]
 
 
+def extract_wasGeneratedBy(metadata):
+    wat = extract_model(models.Session, metadata, identifier=metadata.get("session_id"))
+    if all(v is None for v in wat.dict().values()):
+        return []
+    else:
+        return [wat]
+
+
 def extract_digest(metadata):
     if "digest" in metadata:
         return models.Digest(
@@ -273,6 +281,7 @@ def extract_digest(metadata):
 FIELD_EXTRACTORS = {
     "wasDerivedFrom": extract_wasDerivedFrom,
     "wasAttributedTo": extract_wasAttributedTo,
+    "wasGeneratedBy": extract_wasGeneratedBy,
     "age": extract_age,
     "sex": extract_sex,
     "assayType": extract_assay_type,

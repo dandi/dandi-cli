@@ -7,6 +7,7 @@ from ..models import (
     DigestType,
     IdentifierType,
     LicenseType,
+    ParticipantRelationType,
     RelationType,
     RoleType,
 )
@@ -100,6 +101,16 @@ def test_asset():
                 "Requires": "dandi:Requires",
                 "Obsoletes": "dandi:Obsoletes",
                 "IsObsoletedBy": "dandi:IsObsoletedBy",
+            },
+        ),
+        (
+            ParticipantRelationType,
+            {
+                "IsChildOf": "dandi:IsChildOf",
+                "IsDizygoticTwinOf": "dandi:IsDizygoticTwinOf",
+                "IsMonozygoticTwinOf": "dandi:IsMonozygoticTwinOf",
+                "IsSiblingOf": "dandi:IsSiblingOf",
+                "isParentOf": "dandi:isParentOf",
             },
         ),
         (

@@ -176,7 +176,7 @@ def test_metadata2asset_simple1(schema_dir):
             "genotype": None,
             "sex": None,
             "species": None,
-            "subject_id": None,
+            "subject_id": "sub-01",
             "number_of_electrodes": 0,
             "number_of_units": 0,
             "nd_types": [],
@@ -208,7 +208,12 @@ def test_metadata2asset_simple1(schema_dir):
       "identifier": "tissue42"
     }
   ],
-  "wasAttributedTo": []
+  "wasAttributedTo": [
+    {
+        "identifier": "sub-01",
+        "schemaKey": "Participant"
+    }
+  ]
 }"""
     data_as_dict = json.loads(json_data)
     assert data == BareAssetMeta(**data_as_dict)

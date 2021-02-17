@@ -348,6 +348,52 @@ RelationTypeDict = {
         },
     ]
 }
+
+ParticipantRelationTypeDict = {
+    "@graph": [
+        {
+            "@id": "dandi:ParticipantRelationType",
+            "@type": "rdfs:Class",
+            "rdfs:comment": "An enumeration of participant relations",
+            "rdfs:label": "Participant relation type",
+            "rdfs:subClassOf": {"@id": "schema:Enumeration"},
+            "prov:wasDerivedFrom": (
+                "https://www.ebi.ac.uk/biosamples/docs/guides/relationships"
+            ),
+        },
+        {
+            "@id": "dandi:IsChildOf",
+            "@type": "dandi:RelationType",
+            "rdfs:comment": "Indicates that A is a child of B",
+            "rdfs:label": "Child of",
+        },
+        {
+            "@id": "dandi:isParentOf",
+            "@type": "dandi:RelationType",
+            "rdfs:comment": "Indicates that A is a parent of B",
+            "rdfs:label": "Parent of",
+        },
+        {
+            "@id": "dandi:IsSiblingOf",
+            "@type": "dandi:RelationType",
+            "rdfs:comment": "Indicates that A is a sibling of B",
+            "rdfs:label": "Sibling of",
+        },
+        {
+            "@id": "dandi:IsMonozygoticTwinOf",
+            "@type": "dandi:RelationType",
+            "rdfs:comment": "Indicates that A is a monozygotic twin of B",
+            "rdfs:label": "Monozygotic twin of",
+        },
+        {
+            "@id": "dandi:IsDizygoticTwinOf",
+            "@type": "dandi:RelationType",
+            "rdfs:comment": "Indicates that A is a dizygotic twin of B",
+            "rdfs:label": "Dizygotic twin of",
+        },
+    ]
+}
+
 RoleTypeDict = {
     "@graph": [
         {

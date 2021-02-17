@@ -13,6 +13,7 @@ from .model_types import (
     DigestTypeDict,
     IdentifierTypeDict,
     LicenseTypeDict,
+    ParticipantRelationTypeDict,
     RelationTypeDict,
     RoleTypeDict,
 )
@@ -98,6 +99,7 @@ def model2graph(model):
 AccessType = create_enum(AccessTypeDict)
 RoleType = create_enum(RoleTypeDict)
 RelationType = create_enum(RelationTypeDict)
+ParticipantRelationType = create_enum(ParticipantRelationTypeDict)
 LicenseType = create_enum(LicenseTypeDict)
 IdentifierType = create_enum(IdentifierTypeDict)
 DigestType = create_enum(DigestTypeDict)
@@ -214,6 +216,12 @@ class AssayType(TypeModel):
     """OBI based identifier for the assay(s) used"""
 
     schemaKey: Literal["AssayType"] = Field("AssayType", readOnly=True)
+
+
+class SampleType(TypeModel):
+    """OBI based identifier for the sample type used"""
+
+    schemaKey: Literal["SampleType"] = Field("SampleType", readOnly=True)
 
 
 class Anatomy(TypeModel):
@@ -369,6 +377,11 @@ class Software(DandiBaseModel):
     url: Optional[HttpUrl] = Field(None, nskey="schema")
     schemaKey: Literal["Software"] = Field("Software", readOnly=True)
 
+    _ldmeta = {
+        "rdfs:subClassOf": ["schema:SoftwareApplication", "prov:Software"],
+        "nskey": "dandi",
+    }
+
 
 class EthicsApproval(DandiBaseModel):
     """Information about ethics committee approval for project"""
@@ -490,6 +503,9 @@ class BioSample(DandiBaseModel):
     """Description about the sample that was studied"""
 
     identifier: Identifier = Field(nskey="schema")
+    sampleType: Optional[SampleType] = Field(
+        None, description="OBI based identifier for the sample used", nskey="dandi"
+    )
     assayType: Optional[List[AssayType]] = Field(
         None, description="OBI based identifier for the assay(s) used", nskey="dandi"
     )
@@ -501,6 +517,10 @@ class BioSample(DandiBaseModel):
     )
 
     wasDerivedFrom: Optional[List["BioSample"]] = Field(None, nskey="prov")
+    sameAs: Optional[List[Identifier]] = Field(None, nskey="schema")
+    hasMember: Optional[List[Identifier]] = Field(None, nskey="prov")
+
+    schemaKey: Literal["BioSample"] = Field("BioSample", readOnly=True)
 
     _ldmeta = {
         "rdfs:subClassOf": ["schema:Thing", "prov:Entity"],
@@ -510,6 +530,25 @@ class BioSample(DandiBaseModel):
 
 
 BioSample.update_forward_refs()
+
+
+class RelatedParticipant(DandiBaseModel):
+    identifier: Optional[Identifier] = Field(None, nskey="schema")
+    name: Optional[str] = Field(None, title="A title of the resource", nskey="schema")
+    url: Optional[HttpUrl] = Field(None, title="URL of the resource", nskey="schema")
+    relation: ParticipantRelationType = Field(
+        title="Choose a relation satisfying: Participant <relation> relatedParticipant",
+        description="Indicates how the current participant is related to the other participant "
+        "This relation should satisfy: Participant <relation> relatedParticipant",
+        nskey="dandi",
+    )
+
+    _ldmeta = {
+        "rdfs:subClassOf": ["schema:CreativeWork", "prov:Entity"],
+        "rdfs:comment": "Another participant related to the participant (e.g., another "
+        "parent, sibling, child)",
+        "nskey": "dandi",
+    }
 
 
 class Participant(DandiBaseModel):
@@ -551,6 +590,9 @@ class Participant(DandiBaseModel):
         description="Any current diagnosed disease or disorder associated with the sample",
         nskey="dandi",
     )
+    relatedParticipant: Optional[List[RelatedParticipant]] = Field(None, nskey="dandi")
+
+    schemaKey: Literal["Participant"] = Field("Participant", readOnly=True)
 
     _ldmeta = {
         "rdfs:subClassOf": ["schema:Thing", "prov:Entity"],
@@ -581,6 +623,8 @@ class Activity(DandiBaseModel):
         None, nskey="prov"
     )
 
+    schemaKey: Literal["Activity"] = Field("Activity", readOnly=True)
+
     _ldmeta = {"rdfs:subClassOf": ["prov:Activity", "schema:Thing"], "nskey": "dandi"}
 
 
@@ -590,13 +634,27 @@ class Activity(DandiBaseModel):
 class Project(Activity):
     name: str = Field(
         title="Title",
-        description="The name of the project that generated this Dandiset.",
+        description="The name of the project that generated this Dandiset or asset.",
         max_length=150,
         nskey="schema",
     )
     description: Optional[str] = Field(
         None, description="A brief description of the project.", nskey="schema"
     )
+    schemaKey: Literal["Project"] = Field("Project", readOnly=True)
+
+
+class Session(Activity):
+    name: str = Field(
+        title="Title",
+        description="The name of the logical session associated with the asset.",
+        max_length=150,
+        nskey="schema",
+    )
+    description: Optional[str] = Field(
+        None, description="A brief description of the session.", nskey="schema"
+    )
+    schemaKey: Literal["Session"] = Field("Session", readOnly=True)
 
 
 class Identifiable(DandiBaseModel):
@@ -790,6 +848,12 @@ class BareAssetMeta(CommonModel):
     wasDerivedFrom: Optional[List[BioSample]] = Field(None, nskey="prov")
     wasAttributedTo: List[Participant] = Field(
         None, description="Participant(s) to which this file belongs to", nskey="prov"
+    )
+    wasGeneratedBy: Optional[List[Union[Session, Project, Activity]]] = Field(
+        None,
+        title="Name of the session, project or activity.",
+        description="Describe the session, project or activity that generated this asset",
+        nskey="prov",
     )
 
     _ldmeta = {
