@@ -104,6 +104,7 @@ def test_metadata2asset(schema_dir):
     )
     # data.json(exclude_unset=True, exclude_none=True, indent=2)
     json_data = """{
+  "identifier": "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be",
   "schemaVersion": "1.0.0-rc1",
   "keywords": [
     "test",
