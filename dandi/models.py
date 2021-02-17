@@ -604,7 +604,7 @@ class Participant(DandiBaseModel):
 class Activity(DandiBaseModel):
     """Information about the Project activity"""
 
-    identifier: Identifier = Field(nskey="schema")
+    identifier: Optional[Identifier] = Field(None, nskey="schema")
     name: str = Field(
         title="Title",
         description="The name of the item.",
@@ -786,10 +786,10 @@ class DandiMeta(CommonModel, Identifiable):
         nskey="dandi",
     )
 
-    wasGeneratedBy: Optional[Project] = Field(
+    wasGeneratedBy: Optional[List[Project]] = Field(
         None,
         title="Name of the project",
-        description="Describe the project that generated this Dandiset",
+        description="Describe the project(s) that generated this Dandiset",
         nskey="prov",
     )
 

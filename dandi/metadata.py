@@ -261,7 +261,9 @@ def extract_wasAttributedTo(metadata):
 
 
 def extract_wasGeneratedBy(metadata):
-    wat = extract_model(models.Session, metadata, identifier=metadata.get("session_id"))
+    wat = extract_model(
+        models.Session, metadata, identifier=None, name=metadata.get("session_id")
+    )
     if all(v is None for v in wat.dict().values()):
         return []
     else:

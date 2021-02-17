@@ -129,6 +129,12 @@ def test_metadata2asset(schema_dir):
       "identifier": "tissue03"
     }
   ],
+  "wasGeneratedBy": [
+    {
+        "name": "XYZ789",
+        "schemaKey": "Session"
+    }
+  ],
   "wasAttributedTo": [
     {
       "identifier": "a1b2c3",
@@ -206,6 +212,12 @@ def test_metadata2asset_simple1(schema_dir):
   "wasDerivedFrom": [
     {
       "identifier": "tissue42"
+    }
+  ],
+  "wasGeneratedBy": [
+    {
+        "name": "session_id1",
+        "schemaKey": "Session"
     }
   ],
   "wasAttributedTo": [
