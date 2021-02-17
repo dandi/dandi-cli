@@ -720,7 +720,7 @@ class CommonModel(DandiBaseModel):
     )
     relatedResource: Optional[List[Resource]] = Field(None, nskey="dandi")
 
-    wasGeneratedBy: Optional[Activity] = Field(None, nskey="prov")
+    wasGeneratedBy: Optional[List[Activity]] = Field(None, nskey="prov")
 
     def json_dict(self):
         """
