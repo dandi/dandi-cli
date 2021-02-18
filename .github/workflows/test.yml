@@ -28,7 +28,7 @@ jobs:
           - false
         include:
           - os: ubuntu-18.04
-            python: 3.6
+            python: 3.7
             dev_deps: true
         exclude:
           # Temporarily disabled due to h5py/hdf5 dependency issue
