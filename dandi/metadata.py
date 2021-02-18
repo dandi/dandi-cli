@@ -240,35 +240,30 @@ def extract_model(modelcls, metadata, **kwargs):
     return m
 
 
-def model2list(m):
-    if all(v is None for k, v in m.dict().items() if k != "schemaKey"):
-        return []
-    else:
-        return [m]
-
-
-def extract_wasDerivedFrom(metadata):
-    return model2list(
-        extract_model(
-            models.BioSample, metadata, identifier=metadata.get("tissue_sample_id")
+def extract_model_list(modelcls, id_field, id_source, **kwargs):
+    def func(metadata):
+        m = extract_model(
+            modelcls, metadata, **{id_field: metadata.get(id_source)}, **kwargs
         )
-    )
+        if all(v is None for k, v in m.dict().items() if k != "schemaKey"):
+            return []
+        else:
+            return [m]
+
+    return func
 
 
-def extract_wasAttributedTo(metadata):
-    return model2list(
-        extract_model(
-            models.Participant, metadata, identifier=metadata.get("subject_id")
-        )
-    )
+extract_wasDerivedFrom = extract_model_list(
+    models.BioSample, "identifier", "tissue_sample_id"
+)
 
+extract_wasAttributedTo = extract_model_list(
+    models.Participant, "identifier", "subject_id"
+)
 
-def extract_wasGeneratedBy(metadata):
-    return model2list(
-        extract_model(
-            models.Session, metadata, identifier=None, name=metadata.get("session_id")
-        )
-    )
+extract_wasGeneratedBy = extract_model_list(
+    models.Session, "name", "session_id", identifier=None
+)
 
 
 def extract_digest(metadata):
