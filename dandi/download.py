@@ -35,15 +35,13 @@ def download(
     # TODO: unduplicate with upload. For now stole from that one
     # We will again use pyout to provide a neat table summarizing our progress
     # with upload etc
-    import pyout
-
     from .support import pyout as pyouts
 
     # dandi.cli.formatters are used in cmd_ls to provide switchable
     pyout_style = pyouts.get_style(hide_if_missing=False)
 
     rec_fields = ("path", "size", "done", "done%", "checksum", "status", "message")
-    out = pyout.Tabular(style=pyout_style, columns=rec_fields, max_workers=jobs)
+    out = pyouts.LogSafeTabular(style=pyout_style, columns=rec_fields, max_workers=jobs)
 
     out_helper = PYOUTHelper()
     pyout_style["done"] = pyout_style["size"].copy()

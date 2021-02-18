@@ -2,6 +2,7 @@
 """
 from collections import Counter
 import datetime
+import logging
 import sys
 import time
 
@@ -213,3 +214,30 @@ def get_style(hide_if_missing=True):
         STYLE["width_"] = 200
 
     return STYLE
+
+
+def exclude_all(r):
+    return False
+
+
+class LogSafeTabular(pyout.Tabular):
+    def __enter__(self):
+        super().__enter__()
+        root = logging.getLogger()
+        for h in root.handlers:
+            # Use `type()` instead of `isinstance()` because FileHandler is a
+            # subclass of StreamHandler, and we don't want to disable it:
+            if type(h) is logging.StreamHandler:
+                h.addFilter(exclude_all)
+        return self
+
+    def __exit__(self, exc_type, exc_value, tb):
+        try:
+            super().__exit__(exc_type, exc_value, tb)
+        finally:
+            root = logging.getLogger()
+            for h in root.handlers:
+                # Use `type()` instead of `isinstance()` because FileHandler is
+                # a subclass of StreamHandler, and we don't want to disable it:
+                if type(h) is logging.StreamHandler:
+                    h.removeFilter(exclude_all)
