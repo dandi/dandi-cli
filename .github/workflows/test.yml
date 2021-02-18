@@ -20,7 +20,6 @@ jobs:
           - ubuntu-18.04
           - macos-latest
         python:
-          - 3.6  # will also be used to test with _DANDI_LOG_GIRDER set
           - 3.7
           - 3.8
           - 3.9
