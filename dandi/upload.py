@@ -800,9 +800,6 @@ def _new_upload(
             #
             # Upload file
             #
-            if extant is not None:
-                lgr.debug("Replacing asset %s", extant["uuid"])
-                client.delete_asset(ds_identifier, "draft", extant["uuid"])
             yield {"status": "uploading"}
             for r in client.iter_upload(ds_identifier, "draft", metadata, str(path)):
                 if r["status"] == "uploading":

@@ -5,6 +5,7 @@ import os.path as op
 import re
 import warnings
 
+from fscacher import PersistentCache
 import h5py
 import numpy as np
 import pynwb
@@ -17,15 +18,18 @@ from .consts import (
     metadata_nwb_subject_fields,
 )
 from . import __version__, get_logger
-from .support.cache import PersistentCache
 
 lgr = get_logger()
 
 # strip away possible development version marker
 dandi_rel_version = __version__.split("+", 1)[0]
 dandi_cache_tokens = [pynwb.__version__, dandi_rel_version, h5py.__version__]
-metadata_cache = PersistentCache(name="metadata", tokens=dandi_cache_tokens)
-validate_cache = PersistentCache(name="validate", tokens=dandi_cache_tokens)
+metadata_cache = PersistentCache(
+    name="dandi-metadata", tokens=dandi_cache_tokens, envvar="DANDI_CACHE"
+)
+validate_cache = PersistentCache(
+    name="dandi-validate", tokens=dandi_cache_tokens, envvar="DANDI_CACHE"
+)
 
 
 def _sanitize_nwb_version(v, filename=None, log=None):

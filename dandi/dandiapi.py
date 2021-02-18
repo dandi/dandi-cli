@@ -478,10 +478,18 @@ class DandiAPIClient(RESTFullAPIClient):
             yield {"status": "validating"}
         lgr.debug("Assigning asset blob to dandiset & version")
         yield {"status": "producing asset"}
-        self.post(
-            f"/dandisets/{dandiset_id}/versions/{version_id}/assets/",
-            json={"metadata": asset_metadata, "sha256": filehash},
-        )
+        extant = self.get_asset_bypath(dandiset_id, version_id, asset_metadata["path"])
+        if extant is None:
+            self.post(
+                f"/dandisets/{dandiset_id}/versions/{version_id}/assets/",
+                json={"metadata": asset_metadata, "sha256": filehash},
+            )
+        else:
+            lgr.debug("Asset already exists at path; updating")
+            self.put(
+                f"/dandisets/{dandiset_id}/versions/{version_id}/assets/{extant['uuid']}/",
+                json={"metadata": asset_metadata, "sha256": filehash},
+            )
         yield {"status": "done"}
 
     def create_dandiset(self, name, metadata):
