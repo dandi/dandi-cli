@@ -64,9 +64,9 @@ jobs:
         pip install 'numpy<1.19.4'
         pip install ".[test]"
 
-    - name: Set environment variable when using Python 3.6 to cover more code
+    - name: Set environment variable when using Python 3.7 to cover more code
       run: echo DANDI_LOG_GIRDER=1 >> "$GITHUB_ENV"
-      if: matrix.python == '3.6'
+      if: matrix.python == '3.7'
     - name: ${{ matrix.module }} tests
       run: |
         python -m pytest -s -v --cov=dandi --cov-report=xml dandi
