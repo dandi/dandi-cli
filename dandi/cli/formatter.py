@@ -1,8 +1,6 @@
 import datetime
 import sys
 
-import pyout
-
 from .. import get_logger
 from ..support import pyout as pyouts
 
@@ -58,7 +56,7 @@ class YAMLFormatter(Formatter):
         self.records.append(rec)
 
 
-class PYOUTFormatter(pyout.Tabular):
+class PYOUTFormatter(pyouts.LogSafeTabular):
     def __init__(self, fields, **kwargs):
         PYOUT_STYLE = pyouts.get_style(hide_if_missing=not fields)
 

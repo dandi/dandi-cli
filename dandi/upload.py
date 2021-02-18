@@ -535,8 +535,6 @@ def upload(
 
     # We will again use pyout to provide a neat table summarizing our progress
     # with upload etc
-    import pyout
-
     from .support import pyout as pyouts
 
     # for the upload speeds we need to provide a custom  aggregate
@@ -554,7 +552,7 @@ def upload(
     pyout_style["upload"]["aggregate"] = upload_agg
 
     rec_fields = ["path", "size", "errors", "upload", "status", "message"]
-    out = pyout.Tabular(style=pyout_style, columns=rec_fields)
+    out = pyouts.LogSafeTabular(style=pyout_style, columns=rec_fields)
 
     with out, client.lock_dandiset(dandiset.identifier):
         for path in paths:
@@ -820,8 +818,6 @@ def _new_upload(
 
     # We will again use pyout to provide a neat table summarizing our progress
     # with upload etc
-    import pyout
-
     from .support import pyout as pyouts
 
     # for the upload speeds we need to provide a custom  aggregate
@@ -839,7 +835,7 @@ def _new_upload(
     pyout_style["upload"]["aggregate"] = upload_agg
 
     rec_fields = ["path", "size", "errors", "upload", "status", "message"]
-    out = pyout.Tabular(style=pyout_style, columns=rec_fields)
+    out = pyouts.LogSafeTabular(style=pyout_style, columns=rec_fields)
 
     with out, client.session():
         for path in paths:
