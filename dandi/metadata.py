@@ -253,11 +253,17 @@ def extract_model_list(modelcls, id_field, id_source, **kwargs):
 
 def extract_wasDerivedFrom(metadata):
     derived_from = None
-    for field in ("tissue_sample_id", "slice_id", "cell_id"):
+    for field, sample_name in [
+        ("tissue_sample_id", "tissuesample"),
+        ("slice_id", "slice"),
+        ("cell_id", "cell"),
+    ]:
         if metadata.get(field) is not None:
             derived_from = [
                 models.BioSample(
-                    identifier=metadata[field], wasDerivedFrom=derived_from
+                    identifier=metadata[field],
+                    wasDerivedFrom=derived_from,
+                    sampleType=models.SampleType(name=sample_name),
                 )
             ]
     return derived_from

@@ -134,14 +134,26 @@ def test_metadata2asset(schema_dir):
     {
       "identifier": "cell01",
       "schemaKey": "BioSample",
+      "sampleType": {
+        "name": "cell",
+        "schemaKey": "SampleType"
+      },
       "wasDerivedFrom": [
         {
           "identifier": "slice02",
           "schemaKey": "BioSample",
+          "sampleType": {
+            "name": "slice",
+            "schemaKey": "SampleType"
+          },
           "wasDerivedFrom": [
             {
               "identifier": "tissue03",
-              "schemaKey": "BioSample"
+              "schemaKey": "BioSample",
+              "sampleType": {
+                "name": "tissuesample",
+                "schemaKey": "SampleType"
+              }
             }
           ]
         }
@@ -225,7 +237,11 @@ def test_metadata2asset_simple1(schema_dir):
   },
   "wasDerivedFrom": [
     {
-      "identifier": "tissue42"
+      "identifier": "tissue42",
+      "sampleType": {
+        "name": "tissuesample",
+        "schemaKey": "SampleType"
+      }
     }
   ],
   "wasGeneratedBy": [
