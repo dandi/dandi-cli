@@ -231,8 +231,6 @@ def extract_anatomy(metadata):
 def extract_model(modelcls, metadata, **kwargs):
     m = modelcls.unvalidated()
     for field in m.__fields__.keys():
-        if modelcls == models.BioSample and field == "wasDerivedFrom":
-            continue
         value = kwargs.get(field, extract_field(field, metadata))
         if value is not Ellipsis:
             setattr(m, field, value)
@@ -253,9 +251,23 @@ def extract_model_list(modelcls, id_field, id_source, **kwargs):
     return func
 
 
-extract_wasDerivedFrom = extract_model_list(
-    models.BioSample, "identifier", "tissue_sample_id"
-)
+def extract_wasDerivedFrom(metadata):
+    derived_from = None
+    for field, sample_name in [
+        ("tissue_sample_id", "tissuesample"),
+        ("slice_id", "slice"),
+        ("cell_id", "cell"),
+    ]:
+        if metadata.get(field) is not None:
+            derived_from = [
+                models.BioSample(
+                    identifier=metadata[field],
+                    wasDerivedFrom=derived_from,
+                    sampleType=models.SampleType(name=sample_name),
+                )
+            ]
+    return derived_from
+
 
 extract_wasAttributedTo = extract_model_list(
     models.Participant, "identifier", "subject_id"
