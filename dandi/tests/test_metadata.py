@@ -104,8 +104,8 @@ def test_metadata2asset(schema_dir):
     )
     # data.json(exclude_unset=True, exclude_none=True, indent=2)
     json_data = """{
+  "identifier": "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be",
   "schemaVersion": "1.0.0-rc1",
-  "identifier": "6a42c273881f45e8ad4d538f7ede1437",
   "keywords": [
     "test",
     "sample",
@@ -118,6 +118,12 @@ def test_metadata2asset(schema_dir):
     }
   ],
   "repository": "https://dandiarchive.org/",
+  "wasGeneratedBy": [
+    {
+      "name": "XYZ789",
+      "schemaKey": "Session"
+    }
+  ],
   "contentSize": 69105,
   "encodingFormat": "application/x-nwb",
   "digest": {
@@ -126,7 +132,8 @@ def test_metadata2asset(schema_dir):
   },
   "wasDerivedFrom": [
     {
-      "identifier": "tissue03"
+      "identifier": "tissue03",
+      "schemaKey": "BioSample"
     }
   ],
   "wasAttributedTo": [
@@ -144,7 +151,8 @@ def test_metadata2asset(schema_dir):
       "species": {
         "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_9606",
         "name": "Human"
-      }
+      },
+      "schemaKey": "Participant"
     }
   ]
 }"""
@@ -176,7 +184,7 @@ def test_metadata2asset_simple1(schema_dir):
             "genotype": None,
             "sex": None,
             "species": None,
-            "subject_id": None,
+            "subject_id": "sub-01",
             "number_of_electrodes": 0,
             "number_of_units": 0,
             "nd_types": [],
@@ -208,7 +216,18 @@ def test_metadata2asset_simple1(schema_dir):
       "identifier": "tissue42"
     }
   ],
-  "wasAttributedTo": []
+  "wasGeneratedBy": [
+    {
+        "name": "session_id1",
+        "schemaKey": "Session"
+    }
+  ],
+  "wasAttributedTo": [
+    {
+        "identifier": "sub-01",
+        "schemaKey": "Participant"
+    }
+  ]
 }"""
     data_as_dict = json.loads(json_data)
     assert data == BareAssetMeta(**data_as_dict)
