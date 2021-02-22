@@ -188,3 +188,18 @@ def test_get_asset_include_metadata(local_dandi_api, simple1_nwb, tmp_path):
         )
         assert asset is not None
         assert asset["metadata"] == {"path": "testing/simple1.nwb", "foo": "bar"}
+
+
+def test_large_upload(local_dandi_api, tmp_path):
+    client = DandiAPIClient(
+        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
+    )
+    asset_file = tmp_path / "asset.dat"
+    meg = bytes(random.choices(range(256), k=1 << 20))
+    with asset_file.open("wb") as fp:
+        for _ in range(100):
+            fp.write(meg)
+    with client.session():
+        r = client.create_dandiset(name="Large Upload Test", metadata={})
+        dandiset_id = r["identifier"]
+        client.upload(dandiset_id, "draft", {"path": "testing/asset.dat"}, asset_file)
