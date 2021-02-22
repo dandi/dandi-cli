@@ -144,7 +144,7 @@ class RESTFullAPIClient(object):
         # If success, return the json object. Otherwise throw an exception.
         if not result.ok:
             msg = f"Error {result.status_code} while sending {method} request to {url}"
-            lgr.debug(f"{msg}: {result.text}")
+            lgr.error("%s: %s", msg, result.text)
             raise requests.HTTPError(msg, response=result)
 
         if json_resp:
@@ -328,6 +328,7 @@ class DandiAPIClient(RESTFullAPIClient):
             for chunk in result.raw.stream(chunk_size, decode_content=False):
                 if chunk:  # could be some "keep alive"?
                     yield chunk
+            lgr.info("Asset %s successfully downloaded", uuid)
 
         return downloader
 
@@ -470,6 +471,11 @@ class DandiAPIClient(RESTFullAPIClient):
             resp = self.get(f"/uploads/validations/{filehash}/")
             if resp["state"] != "IN_PROGRESS":
                 if resp["state"] == "FAILED":
+                    lgr.error(
+                        "Server-side validation of asset %s failed!  Error: %s",
+                        asset_metadata["path"],
+                        resp.get("error"),
+                    )
                     raise RuntimeError(
                         "Server-side asset validation failed!"
                         f"  Error reported: {resp.get('error')}"
@@ -495,6 +501,7 @@ class DandiAPIClient(RESTFullAPIClient):
                 f"/dandisets/{dandiset_id}/versions/{version_id}/assets/{extant['uuid']}/",
                 json={"metadata": asset_metadata, "sha256": filehash},
             )
+        lgr.info("Asset %s successfully uploaded", asset_metadata["path"])
         yield {"status": "done"}
 
     def create_dandiset(self, name, metadata):
