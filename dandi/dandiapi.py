@@ -1,4 +1,6 @@
+from base64 import b64encode
 from contextlib import contextmanager
+from hashlib import md5
 import os.path
 from pathlib import Path
 from time import sleep
@@ -192,13 +194,21 @@ class RESTFullAPIClient(object):
             json_resp=json_resp,
         )
 
-    def put(self, path, parameters=None, data=None, json=None, json_resp=True):
+    def put(
+        self, path, parameters=None, data=None, json=None, headers=None, json_resp=True
+    ):
         """
         Convenience method to call :py:func:`send_request` with the 'PUT'
         HTTP method.
         """
         return self.send_request(
-            "PUT", path, parameters, data=data, json=json, json_resp=json_resp
+            "PUT",
+            path,
+            parameters,
+            data=data,
+            json=json,
+            headers=headers,
+            json_resp=json_resp,
         )
 
     def delete(self, path, parameters=None, json_resp=True):
@@ -437,7 +447,13 @@ class DandiAPIClient(RESTFullAPIClient):
                             part["part_number"],
                             part["size"],
                         )
-                        r = storage.put(part["upload_url"], data=chunk, json_resp=False)
+                        chunk_md5 = md5(chunk).digest()
+                        r = storage.put(
+                            part["upload_url"],
+                            data=chunk,
+                            json_resp=False,
+                            headers={"Content-MD5": b64encode(chunk_md5).decode()},
+                        )
                         bytes_uploaded += len(chunk)
                         yield {
                             "status": "uploading",
