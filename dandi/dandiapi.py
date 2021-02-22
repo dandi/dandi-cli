@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 import os.path
 from pathlib import Path
-from time import sleep
+from time import monotonic, sleep
 
 import requests
 
@@ -362,9 +362,8 @@ class DandiAPIClient(RESTFullAPIClient):
         filepath: str or PathLike
           the path to the local file to upload
         """
-        for r in self.iter_upload(dandiset_id, version_id, asset_metadata, filepath):
-            if r["status"] == "validating":
-                sleep(0.1)
+        for _ in self.iter_upload(dandiset_id, version_id, asset_metadata, filepath):
+            pass
 
     def iter_upload(self, dandiset_id, version_id, asset_metadata, filepath):
         """
@@ -465,6 +464,7 @@ class DandiAPIClient(RESTFullAPIClient):
                     "/uploads/validate/",
                     json={"sha256": filehash, "object_key": object_key},
                 )
+        s = 1
         while True:
             lgr.debug("Waiting for server-side validation to complete")
             resp = self.get(f"/uploads/validations/{filehash}/")
@@ -475,7 +475,12 @@ class DandiAPIClient(RESTFullAPIClient):
                         f"  Error reported: {resp.get('error')}"
                     )
                 break
+            before_time = monotonic()
             yield {"status": "validating"}
+            after_time = monotonic()
+            if after_time - before_time < s:
+                sleep(s - (after_time - before_time))
+            s = min(60, s * 2)
         lgr.debug("Assigning asset blob to dandiset & version")
         yield {"status": "producing asset"}
         extant = self.get_asset_bypath(dandiset_id, version_id, asset_metadata["path"])
