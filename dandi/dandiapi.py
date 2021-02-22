@@ -132,15 +132,20 @@ class RESTFullAPIClient(object):
             _headers["accept"] = "application/json"
 
         lgr.debug("%s %s", method.upper(), url)
-        result = f(
-            url,
-            params=parameters,
-            data=data,
-            files=files,
-            json=json,
-            headers=_headers,
-            **kwargs,
-        )
+        try:
+            result = f(
+                url,
+                params=parameters,
+                data=data,
+                files=files,
+                json=json,
+                headers=_headers,
+                **kwargs,
+            )
+        except Exception:
+            lgr.exception("HTTP connection failed")
+            raise
+
         lgr.debug("Response: %d", result.status_code)
 
         # If success, return the json object. Otherwise throw an exception.
