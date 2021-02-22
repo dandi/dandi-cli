@@ -1,5 +1,6 @@
 from datetime import datetime
 import json
+import logging
 import os
 from pathlib import Path
 import re
@@ -23,6 +24,11 @@ from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
 from ..upload import upload
 
 lgr = get_logger()
+
+
+@pytest.fixture(autouse=True)
+def capture_all_logs(caplog):
+    caplog.set_level(logging.DEBUG, logger="dandi")
 
 
 # TODO: move into some common fixtures.  We might produce a number of files
