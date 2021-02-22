@@ -799,10 +799,18 @@ def _new_upload(
             # Upload file
             #
             yield {"status": "uploading"}
+            validating = False
             for r in client.iter_upload(ds_identifier, "draft", metadata, str(path)):
                 if r["status"] == "uploading":
                     uploaded_paths[str(path)]["size"] = r["current"]
-                yield r
+                    yield r
+                elif r["status"] == "validating":
+                    # Only yield the first "validating" status
+                    if not validating:
+                        yield r
+                        validating = True
+                else:
+                    yield r
             yield {"status": "done"}
 
         except Exception as exc:
