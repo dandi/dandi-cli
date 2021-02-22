@@ -1,6 +1,6 @@
 from base64 import b64encode
 from contextlib import contextmanager
-from hashlib import md5
+import hashlib
 import os.path
 from pathlib import Path
 from time import sleep
@@ -447,7 +447,7 @@ class DandiAPIClient(RESTFullAPIClient):
                             part["part_number"],
                             part["size"],
                         )
-                        chunk_md5 = md5(chunk).digest()
+                        chunk_md5 = hashlib.md5(chunk).digest()
                         r = storage.put(
                             part["upload_url"],
                             data=chunk,
