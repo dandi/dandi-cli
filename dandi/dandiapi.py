@@ -130,15 +130,20 @@ class RESTFullAPIClient(object):
             _headers["accept"] = "application/json"
 
         lgr.debug("%s %s", method.upper(), url)
-        result = f(
-            url,
-            params=parameters,
-            data=data,
-            files=files,
-            json=json,
-            headers=_headers,
-            **kwargs,
-        )
+        try:
+            result = f(
+                url,
+                params=parameters,
+                data=data,
+                files=files,
+                json=json,
+                headers=_headers,
+                **kwargs,
+            )
+        except Exception:
+            lgr.exception("HTTP connection failed")
+            raise
+
         lgr.debug("Response: %d", result.status_code)
 
         # If success, return the json object. Otherwise throw an exception.
@@ -387,6 +392,7 @@ class DandiAPIClient(RESTFullAPIClient):
         """
         from .support.digests import get_digest
 
+        asset_path = asset_metadata["path"]
         filehash = get_digest(filepath)
         lgr.debug("Calculated sha256 digest of %s for %s", filehash, filepath)
         if (
@@ -395,27 +401,27 @@ class DandiAPIClient(RESTFullAPIClient):
             and asset_metadata["digest"] != filehash
         ):
             raise RuntimeError(
-                "File digest changed; was originally {asset_metadata['digest']}"
-                " but is now {filehash}"
+                f"{filepath}: File digest changed; was originally"
+                f" {asset_metadata['digest']} but is now {filehash}"
             )
         try:
             self.post("/uploads/validate/", json={"sha256": filehash})
         except requests.HTTPError as e:
             if e.response.status_code == 400:
-                lgr.debug("Blob does not already exist on server")
+                lgr.debug("%s: Blob does not already exist on server", asset_path)
                 blob_exists = False
             else:
                 raise
         else:
-            lgr.debug("Blob is already uploaded to server")
+            lgr.debug("%s: Blob is already uploaded to server", asset_path)
             blob_exists = True
         if not blob_exists:
             total_size = os.path.getsize(filepath)
-            lgr.debug("Beginning upload")
+            lgr.debug("%s: Beginning upload", asset_path)
             resp = self.post(
                 "/uploads/initialize/",
                 json={
-                    "file_name": f"{dandiset_id}/{version_id}/{asset_metadata['path']}",
+                    "file_name": f"{dandiset_id}/{version_id}/{asset_path}",
                     "file_size": total_size,
                 },
             )
@@ -433,8 +439,10 @@ class DandiAPIClient(RESTFullAPIClient):
                                 f"End of file {filepath} reached unexpectedly early"
                             )
                         lgr.debug(
-                            "Uploading part %d (%d bytes)",
+                            "%s: Uploading part %d/%d (%d bytes)",
+                            asset_path,
                             part["part_number"],
+                            len(resp["parts"]),
                             part["size"],
                         )
                         r = storage.put(part["upload_url"], data=chunk, json_resp=False)
@@ -451,7 +459,7 @@ class DandiAPIClient(RESTFullAPIClient):
                                 "etag": r.headers["ETag"],
                             }
                         )
-                lgr.debug("Completing upload")
+                lgr.debug("%s: Completing upload", asset_path)
                 resp = self.post(
                     "/uploads/complete/",
                     json={
@@ -467,13 +475,13 @@ class DandiAPIClient(RESTFullAPIClient):
                 )
         s = 1
         while True:
-            lgr.debug("Waiting for server-side validation to complete")
+            lgr.debug("%s: Waiting for server-side validation to complete", asset_path)
             resp = self.get(f"/uploads/validations/{filehash}/")
             if resp["state"] != "IN_PROGRESS":
                 if resp["state"] == "FAILED":
                     lgr.error(
-                        "Server-side validation of asset %s failed!  Error: %s",
-                        asset_metadata["path"],
+                        "%s: Server-side validation of asset failed!  Error: %s",
+                        asset_path,
                         resp.get("error"),
                     )
                     raise RuntimeError(
@@ -487,21 +495,21 @@ class DandiAPIClient(RESTFullAPIClient):
             if after_time - before_time < s:
                 sleep(s - (after_time - before_time))
             s = min(60, s * 2)
-        lgr.debug("Assigning asset blob to dandiset & version")
+        lgr.debug("%s: Assigning asset blob to dandiset & version", asset_path)
         yield {"status": "producing asset"}
-        extant = self.get_asset_bypath(dandiset_id, version_id, asset_metadata["path"])
+        extant = self.get_asset_bypath(dandiset_id, version_id, asset_path)
         if extant is None:
             self.post(
                 f"/dandisets/{dandiset_id}/versions/{version_id}/assets/",
                 json={"metadata": asset_metadata, "sha256": filehash},
             )
         else:
-            lgr.debug("Asset already exists at path; updating")
+            lgr.debug("%s: Asset already exists at path; updating", asset_path)
             self.put(
                 f"/dandisets/{dandiset_id}/versions/{version_id}/assets/{extant['uuid']}/",
                 json={"metadata": asset_metadata, "sha256": filehash},
             )
-        lgr.info("Asset %s successfully uploaded", asset_metadata["path"])
+        lgr.info("%s: Asset successfully uploaded", asset_path)
         yield {"status": "done"}
 
     def create_dandiset(self, name, metadata):

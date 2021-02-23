@@ -99,7 +99,7 @@ def main(ctx, log_level, pdb=False):
     os.makedirs(logdir, exist_ok=True)
     handler = logging.FileHandler(logfile, encoding="utf-8")
     fmter = logging.Formatter(
-        fmt="%(asctime)s [%(levelname)-8s] %(name)s %(message)s",
+        fmt="%(asctime)s [%(levelname)-8s] %(name)s %(process)d:%(thread)d %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S%z",
     )
     handler.setFormatter(fmter)
