@@ -3,9 +3,6 @@ from pathlib import Path
 import random
 from shutil import rmtree
 
-import pytest
-import requests
-
 from ..consts import dandiset_metadata_file
 from ..dandiapi import DandiAPIClient
 from ..download import download
@@ -29,26 +26,6 @@ def test_upload(local_dandi_api, simple1_nwb, tmp_path):
         p, = [p for p in tmp_path.glob("**/*") if p.is_file()]
         assert p == tmp_path / "testing" / "simple1.nwb"
         assert p.stat().st_size == os.path.getsize(simple1_nwb)
-
-
-def test_upload_bad_md5(local_dandi_api, mocker, tmp_path):
-    mock_md5 = mocker.Mock(**{"digest.return_value": b"12345"})
-    m = mocker.patch("hashlib.md5", return_value=mock_md5)
-    asset_file = tmp_path / "asset.dat"
-    asset_file.write_bytes(bytes(random.choices(range(256), k=1024)))
-    client = DandiAPIClient(
-        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
-    )
-    with client.session():
-        r = client.create_dandiset(name="Upload Test", metadata={})
-        dandiset_id = r["identifier"]
-        with pytest.raises(requests.HTTPError) as excinfo:
-            client.upload(
-                dandiset_id, "draft", {"path": "testing/asset.dat"}, asset_file
-            )
-        assert excinfo.value.response.status_code == 400
-    m.assert_called_once()
-    assert mock_md5.method_calls == [mocker.call.digest()]
 
 
 def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
