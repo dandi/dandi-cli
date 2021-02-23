@@ -1,5 +1,6 @@
 import os.path
 from pathlib import Path
+import random
 from shutil import rmtree
 
 from ..consts import dandiset_metadata_file
@@ -27,7 +28,7 @@ def test_upload(local_dandi_api, simple1_nwb, tmp_path):
         assert p.stat().st_size == os.path.getsize(simple1_nwb)
 
 
-def test_publish_and_manipulate(local_dandi_api, mocker, monkeypatch, tmp_path):
+def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
     client = DandiAPIClient(
         api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
     )
