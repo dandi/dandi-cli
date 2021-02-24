@@ -490,7 +490,7 @@ class DandiAPIClient(RESTFullAPIClient):
                     )
                 break
             before_time = monotonic()
-            yield {"status": "validating"}
+            yield {"status": "post-validating"}
             after_time = monotonic()
             if after_time - before_time < s:
                 sleep(s - (after_time - before_time))

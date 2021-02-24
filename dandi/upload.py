@@ -255,7 +255,7 @@ def upload(
             #
             # TODO: enable back validation of dandiset.yaml
             if path.name != dandiset_metadata_file and validation != "skip":
-                yield {"status": "validating"}
+                yield {"status": "pre-validating"}
                 validation_errors = validate_file(path)
                 yield {"errors": len(validation_errors)}
                 # TODO: split for dandi, pynwb errors
@@ -733,7 +733,7 @@ def _new_upload(
             #
             # TODO: enable back validation of dandiset.yaml
             if path.name != dandiset_metadata_file and validation != "skip":
-                yield {"status": "validating"}
+                yield {"status": "pre-validating"}
                 validation_errors = validate_file(path)
                 yield {"errors": len(validation_errors)}
                 # TODO: split for dandi, pynwb errors
@@ -804,8 +804,8 @@ def _new_upload(
                 if r["status"] == "uploading":
                     uploaded_paths[str(path)]["size"] = r["current"]
                     yield r
-                elif r["status"] == "validating":
-                    # Only yield the first "validating" status
+                elif r["status"] == "post-validating":
+                    # Only yield the first "post-validating" status
                     if not validating:
                         yield r
                         validating = True
