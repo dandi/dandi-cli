@@ -42,6 +42,13 @@ on_msys_tainted_paths = (
     and os.environ.get("MSYSTEM", "")[:4] in ("MSYS", "MING")
 )
 
+USER_AGENT = "dandi/{} requests/{} {}/{}".format(
+    __version__,
+    requests.__version__,
+    platform.python_implementation(),
+    platform.python_version(),
+)
+
 
 def is_interactive():
     """Return True if all in/outs are tty"""

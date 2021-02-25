@@ -8,6 +8,7 @@ import requests
 from .consts import MAX_CHUNK_SIZE, known_instances_rev
 from .girder import keyring_lookup
 from . import get_logger
+from .utils import USER_AGENT
 
 lgr = get_logger()
 
@@ -21,7 +22,7 @@ class RESTFullAPIClient(object):
     def __init__(self, api_url):
         self.api_url = api_url
         self._session = None
-        self._headers = {}
+        self._headers = {"User-Agent": USER_AGENT}
 
     @contextmanager
     def session(self, session=None):
