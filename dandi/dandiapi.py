@@ -235,7 +235,6 @@ class DandiAPIClient(RESTFullAPIClient):
         api_key = os.environ.get("DANDI_API_KEY", None)
         if api_key:
             self.authenticate(api_key)
-            lgr.debug("Successfully authenticated using the key from the envvar")
             return
         if self.api_url in known_instances_rev:
             client_name = known_instances_rev[self.api_url]
