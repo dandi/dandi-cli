@@ -330,7 +330,7 @@ class DandiAPIClient(RESTFullAPIClient):
             # if result.status_code not in (200, 201):
             result.raise_for_status()
 
-            for chunk in result.raw.stream(chunk_size, decode_content=False):
+            for chunk in result.iter_content(chunk_size=chunk_size):
                 if chunk:  # could be some "keep alive"?
                     yield chunk
             lgr.info("Asset %s successfully downloaded", uuid)
