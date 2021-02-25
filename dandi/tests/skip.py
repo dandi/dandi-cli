@@ -177,15 +177,13 @@ class NamespaceAttributeError(AttributeError):
 
 
 class Namespace(object, metaclass=abc.ABCMeta):
-    """Provide namespace skip conditions in CONDITION_FNS.
-    """
+    """Provide namespace skip conditions in CONDITION_FNS."""
 
     fns = {c.__name__: c for c in CONDITION_FNS}
 
     @abc.abstractmethod
     def attr_value(self, condition_func):
-        """Given a condition function, return an attribute value.
-        """
+        """Given a condition function, return an attribute value."""
 
     def __getattr__(self, item):
         try:

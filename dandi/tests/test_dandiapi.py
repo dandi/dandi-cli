@@ -20,10 +20,10 @@ def test_upload(local_dandi_api, simple1_nwb, tmp_path):
         client.upload(
             dandiset_id, "draft", {"path": "testing/simple1.nwb"}, simple1_nwb
         )
-        asset, = client.get_dandiset_assets(dandiset_id, "draft")
+        (asset,) = client.get_dandiset_assets(dandiset_id, "draft")
         assert asset["path"] == "testing/simple1.nwb"
         client.download_assets_directory(dandiset_id, "draft", "", tmp_path)
-        p, = [p for p in tmp_path.glob("**/*") if p.is_file()]
+        (p,) = [p for p in tmp_path.glob("**/*") if p.is_file()]
         assert p == tmp_path / "testing" / "simple1.nwb"
         assert p.stat().st_size == os.path.getsize(simple1_nwb)
 
@@ -145,9 +145,11 @@ def test_get_asset_include_metadata(local_dandi_api, simple1_nwb, tmp_path):
             simple1_nwb,
         )
 
-        asset, = client.get_dandiset_assets(dandiset_id, "draft")
+        (asset,) = client.get_dandiset_assets(dandiset_id, "draft")
         assert "metadata" not in asset
-        asset, = client.get_dandiset_assets(dandiset_id, "draft", include_metadata=True)
+        (asset,) = client.get_dandiset_assets(
+            dandiset_id, "draft", include_metadata=True
+        )
         assert asset["metadata"] == {"path": "testing/simple1.nwb", "foo": "bar"}
 
         _, (asset,) = client.get_dandiset_and_assets(dandiset_id, "draft")

@@ -73,7 +73,7 @@ def test_upload_existing_error(
 
 
 def test_upload_locks(local_docker_compose_env, mocker, monkeypatch, organized_nwb_dir):
-    nwb_file, = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
+    (nwb_file,) = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
     dirname = nwb_file.parent.name
     dandi_instance_id = local_docker_compose_env["instance_id"]
     register(
@@ -96,7 +96,7 @@ def test_upload_locks(local_docker_compose_env, mocker, monkeypatch, organized_n
 
 
 def test_upload_unregistered(local_docker_compose_env, monkeypatch, organized_nwb_dir):
-    nwb_file, = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
+    (nwb_file,) = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
     dirname = nwb_file.parent.name
     dandi_instance_id = local_docker_compose_env["instance_id"]
     (organized_nwb_dir / dandiset_metadata_file).write_text("identifier: '999999'\n")
@@ -178,7 +178,7 @@ def test_upload_external_download(local_docker_compose_env, monkeypatch, tmp_pat
 def test_upload_size_mismatch(
     capsys, local_docker_compose_env, monkeypatch, organized_nwb_dir
 ):
-    nwb_file, = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
+    (nwb_file,) = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
     dirname = nwb_file.parent.name
     dandi_instance_id = local_docker_compose_env["instance_id"]
     register(
@@ -254,7 +254,7 @@ def test_new_upload_download(local_dandi_api, monkeypatch, organized_nwb_dir, tm
     with client.session():
         r = client.create_dandiset("Test Dandiset", {})
     dandiset_id = r["identifier"]
-    nwb_file, = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
+    (nwb_file,) = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
     (organized_nwb_dir / dandiset_metadata_file).write_text(
         f"identifier: '{dandiset_id}'\n"
     )
@@ -265,7 +265,7 @@ def test_new_upload_download(local_dandi_api, monkeypatch, organized_nwb_dir, tm
         f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
         tmp_path,
     )
-    nwb_file2, = tmp_path.glob(f"{dandiset_id}{os.sep}*{os.sep}*.nwb")
+    (nwb_file2,) = tmp_path.glob(f"{dandiset_id}{os.sep}*{os.sep}*.nwb")
     assert nwb_file.name == nwb_file2.name
     assert nwb_file.parent.name == nwb_file2.parent.name
 

@@ -23,8 +23,7 @@ due.cite(
 
 
 def get_logger(name=None):
-    """Return a logger to use
-    """
+    """Return a logger to use"""
     return logging.getLogger("dandi" + (".%s" % name if name else ""))
 
 
