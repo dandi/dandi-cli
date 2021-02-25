@@ -179,7 +179,7 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
         assert not any(op.islink(p) for p in produced_paths)
 
 
-def test_ambigous(simple2_nwb, tmp_path, clirunner):
+def test_ambiguous(simple2_nwb, tmp_path, clirunner):
     copy2 = copy_nwb_file(simple2_nwb, tmp_path)
     outdir = str(tmp_path / "organized")
     args = ["--files-mode", "copy", "-d", outdir, simple2_nwb, copy2]
@@ -198,7 +198,7 @@ def test_ambigous(simple2_nwb, tmp_path, clirunner):
     )
 
 
-def test_ambiguos_probe1():
+def test_ambiguous_probe1():
     base = dict(subject_id="1", session="2", extension="nwb")
     # fake filenames should be ok since we never should get to reading them for object_id
     metadata = [
