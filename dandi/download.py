@@ -170,8 +170,7 @@ def download_generator(
                     asset["uuid"],
                 )
                 if "sha256" not in asset:
-                    lgr.warning("For some reason - there no sha256 in %s", str(asset))
-                    digests = digests_from_metadata
+                    raise RuntimeError("sha256 hash not available for asset")
                 else:
                     digests = {"sha256": asset["sha256"]}
                     if (
