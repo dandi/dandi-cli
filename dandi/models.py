@@ -864,9 +864,7 @@ class BareAssetMeta(CommonModel):
 
 
 class AssetMeta(BareAssetMeta, Identifiable):
-    """Metadata used to describe an asset on the server.
-
-    """
+    """Metadata used to describe an asset on the server."""
 
     identifier: UUID4 = Field(readOnly=True, nskey="schema")
 

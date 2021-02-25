@@ -116,9 +116,8 @@ class _dandi_url_parser:
     id_regex = "[a-f0-9]{24}"
     id_grp = f"(?P<id>{id_regex})"
     dandiset_id_grp = "(?P<dandiset_id>[0-9]{6})"
-    server_grp = (
-        "(?P<server>(?P<protocol>https?)://(?P<hostname>[^/]+)/(api/)?)"
-    )  # should absorb port and api/
+    # Should absorb port and "api/":
+    server_grp = "(?P<server>(?P<protocol>https?)://(?P<hostname>[^/]+)/(api/)?)"
     known_urls = [
         # List of (regex, settings, display string) triples
         #

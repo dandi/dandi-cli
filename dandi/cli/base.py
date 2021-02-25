@@ -13,8 +13,7 @@ lgr = get_logger()
 
 
 def get_files(paths, recursive=True, recursion_limit=None):
-    """Given a list of paths, return a list of paths
-    """
+    """Given a list of paths, return a list of paths"""
     # For now we support only individual files
     dirs = list(filter(op.isdir, paths))
     if dirs:

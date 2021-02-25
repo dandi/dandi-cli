@@ -311,7 +311,7 @@ def make_nwb_file(filename, *args, cache_spec=False, **kwargs):
 
 
 def copy_nwb_file(src, dest):
-    """"Copy" .nwb file by opening and saving into a new path.
+    """ "Copy" .nwb file by opening and saving into a new path.
 
     New file (`dest`) then should have new `object_id` attribute, and thus be
     considered "different" although containing the same data

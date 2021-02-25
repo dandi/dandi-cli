@@ -239,8 +239,7 @@ def _get_unique_values_among_non_unique(metadata, non_unique_paths, field):
 
 
 def get_obj_id(object_id):
-    """Given full object_id, get its shortened version
-    """
+    """Given full object_id, get its shortened version"""
     return np.base_repr(binascii.crc32(object_id.encode("ascii")), 36).lower()
 
 

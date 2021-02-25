@@ -21,8 +21,7 @@ lgr = logging.getLogger("dandi.support.digests")
 
 @auto_repr
 class Digester(object):
-    """Helper to compute multiple digests in one pass for a file
-    """
+    """Helper to compute multiple digests in one pass for a file"""
 
     # Loosely based on snippet by PM 2Ring 2014.10.23
     # http://unix.stackexchange.com/a/163769/55543

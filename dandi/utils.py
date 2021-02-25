@@ -60,8 +60,8 @@ def is_interactive():
 def setup_exceptionhook(ipython=False):
     """Overloads default sys.excepthook with our exceptionhook handler.
 
-       If interactive, our exceptionhook handler will invoke
-       pdb.post_mortem; if not interactive, then invokes default handler.
+    If interactive, our exceptionhook handler will invoke
+    pdb.post_mortem; if not interactive, then invokes default handler.
     """
 
     def _pdb_excepthook(type, value, tb):
@@ -379,15 +379,12 @@ def copy_file(src, dst):
 
 
 def move_file(src, dst):
-    """Move file from src to dst
-
-    """
+    """Move file from src to dst"""
     return shutil.move(src, dst)
 
 
 def find_dandi_files(paths):
-    """Adapter to find_files to find files of interest to dandi project
-    """
+    """Adapter to find_files to find files of interest to dandi project"""
     sep = re.escape(os.sep)
     yield from find_files(rf"((^|{sep})dandiset\.yaml|\.nwb)\Z", paths)
 
@@ -557,8 +554,7 @@ def auto_repr(cls):
 
 
 def Parallel(**kwargs):  # TODO: disable lint complaint
-    """Adapter for joblib.Parallel so we could if desired, centralize control
-    """
+    """Adapter for joblib.Parallel so we could if desired, centralize control"""
     # ATM just a straight invocation
     import joblib
 
@@ -566,8 +562,7 @@ def Parallel(**kwargs):  # TODO: disable lint complaint
 
 
 def delayed(*args, **kwargs):
-    """Adapter for joblib.delayed so we could if desired, centralize control
-    """
+    """Adapter for joblib.delayed so we could if desired, centralize control"""
     # ATM just a straight invocation
     import joblib
 

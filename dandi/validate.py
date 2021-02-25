@@ -71,8 +71,7 @@ def validate_dandiset_yaml(filepath, schema_version=None):
 
 
 def validate_dandi_nwb(filepath, schema_version=None):
-    """Provide validation of .nwb file regarding requirements we impose
-    """
+    """Provide validation of .nwb file regarding requirements we impose"""
     use_new_schema = False
     if schema_version is not None:
         from .models import CommonModel

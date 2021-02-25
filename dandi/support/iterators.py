@@ -82,7 +82,7 @@ class IteratorWithAggregation:
 
         def worker():
             """That is the one which interrogates gen and places total
-             into queue_total upon completion"""
+            into queue_total upon completion"""
             total = None
             try:
                 for value in self.gen:

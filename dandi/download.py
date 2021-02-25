@@ -310,8 +310,7 @@ class PYOUTHelper:
         return v
 
     def agg_done(self, done_sizes):
-        """Formatter for "DONE" column
-        """
+        """Formatter for "DONE" column"""
         done = sum(done_sizes)
         if self.it.finished and done == 0 and self.items_summary.size == 0:
             # even with 0s everywhere consider it 100%

@@ -373,9 +373,6 @@ class GirderCli(gcl.GirderClient):
                     break
 
     def get_download_file_iter(self, file_id, chunk_size=MAX_CHUNK_SIZE):
-        """
-        """
-
         def downloader(start_at=0):
             # TODO: make it a common decorator here?
             # Will do 3 attempts to avoid some problems due to flaky/overloaded
@@ -628,40 +625,39 @@ def _harmonize_girder_dandiset_to_dandi_api(rec):
     """
     Compare API (on a released version):
 
-{'count': 1,
- 'created': '2020-07-21T22:22:15.396171Z',
- 'dandiset': {'created': '2020-07-21T22:22:14.732729Z',
-              'identifier': '000027',
-              'updated': '2020-07-21T22:22:14.732762Z'},
- 'metadata': {'dandiset': {...}},
- 'updated': '2020-07-21T22:22:15.396295Z',
- 'version': '0.200721.2222'}
+    {'count': 1,
+     'created': '2020-07-21T22:22:15.396171Z',
+     'dandiset': {'created': '2020-07-21T22:22:14.732729Z',
+                  'identifier': '000027',
+                  'updated': '2020-07-21T22:22:14.732762Z'},
+     'metadata': {'dandiset': {...}},
+     'updated': '2020-07-21T22:22:15.396295Z',
+     'version': '0.200721.2222'}
 
     to Girder (on drafts):
 
-{'attrs': {'ctime': '2020-07-08T21:54:42.543000+00:00',
-           'mtime': '2020-07-21T22:02:34.918000+00:00',
-           'size': 0},
- 'id': '5f0640a2ab90ac46c4561e4f',
- 'metadata': {'dandiset': {...}},
- 'name': '000027',
- 'path': '000027',
- 'type': 'dandiset'}
+    {'attrs': {'ctime': '2020-07-08T21:54:42.543000+00:00',
+               'mtime': '2020-07-21T22:02:34.918000+00:00',
+               'size': 0},
+     'id': '5f0640a2ab90ac46c4561e4f',
+     'metadata': {'dandiset': {...}},
+     'name': '000027',
+     'path': '000027',
+     'type': 'dandiset'}
 
-So we will place some girder specific ones under 'girder' and populate 'dandiset', e.g.
-(there is absent clarify of what date times API returns:
-https://github.com/dandi/dandi-publish/issues/107
-so we will assume that my take was more or less correct and then we would have them
-correspond in case of a draft, as it is served by girder ATM:
+    So we will place some girder specific ones under 'girder' and populate 'dandiset', e.g.
+    (there is absent clarify of what date times API returns:
+    https://github.com/dandi/dandi-publish/issues/107
+    so we will assume that my take was more or less correct and then we would have them
+    correspond in case of a draft, as it is served by girder ATM:
 
-{# 'count': 1,  # no count
- 'created': '2020-07-21T22:22:15.396171Z',  # attrs.ctime
- 'dandiset': {'created': '2020-07-08T21:54:42.543000+00:00',  # attrs.ctime
-              'identifier': '000027',  # name
-              'updated': '2020-07-21T22:02:34.918000+00:00' },  # attrs.mtime
- 'metadata': {'dandiset': {...}},
- 'updated': '2020-07-21T22:02:34.918000+00:00'}  # attrs.mtime
-
+    {# 'count': 1,  # no count
+     'created': '2020-07-21T22:22:15.396171Z',  # attrs.ctime
+     'dandiset': {'created': '2020-07-08T21:54:42.543000+00:00',  # attrs.ctime
+                  'identifier': '000027',  # name
+                  'updated': '2020-07-21T22:02:34.918000+00:00' },  # attrs.mtime
+     'metadata': {'dandiset': {...}},
+     'updated': '2020-07-21T22:02:34.918000+00:00'}  # attrs.mtime
 
     Parameters
     ----------
@@ -696,53 +692,52 @@ def _get_file_mtime(attrs):
 
 def _harmonize_girder_asset_to_dandi_api(rec):
     """
-
     girder rec:
 
-*(Pdb) pprint(_a[0])
-{'attrs': {'ctime': '2020-07-21T22:00:36.362000+00:00',
-           'mtime': '2020-07-21T17:31:55.283394-04:00',
-           'size': 18792},
- 'id': '5f176584f63d62e1dbd06946',
- 'metadata': {... identical at this level
-              'uploaded_by': 'dandi 0.5.0+12.gd4ef762.dirty',
-              'uploaded_datetime': '2020-07-21T18:00:36.703727-04:00',
-              'uploaded_mtime': '2020-07-21T17:31:55.283394-04:00',
-              'uploaded_size': 18792},
- 'name': 'sub-RAT123.nwb',
- 'path': '000027/sub-RAT123/sub-RAT123.nwb',
- 'type': 'file'}
+    *(Pdb) pprint(_a[0])
+    {'attrs': {'ctime': '2020-07-21T22:00:36.362000+00:00',
+               'mtime': '2020-07-21T17:31:55.283394-04:00',
+               'size': 18792},
+     'id': '5f176584f63d62e1dbd06946',
+     'metadata': {... identical at this level
+                  'uploaded_by': 'dandi 0.5.0+12.gd4ef762.dirty',
+                  'uploaded_datetime': '2020-07-21T18:00:36.703727-04:00',
+                  'uploaded_mtime': '2020-07-21T17:31:55.283394-04:00',
+                  'uploaded_size': 18792},
+     'name': 'sub-RAT123.nwb',
+     'path': '000027/sub-RAT123/sub-RAT123.nwb',
+     'type': 'file'}
 
     and API (lacking clear "modified" so needs tuning too):
 
-    {
-      "version": {
-        "dandiset": {
-          "identifier": "000027",
-          "created": "2020-07-21T22:22:14.732729Z",
-          "updated": "2020-07-21T22:22:14.732762Z"
-        },
-        "version": "0.200721.2222",
-        "created": "2020-07-21T22:22:15.396171Z",
-        "updated": "2020-07-21T22:22:15.396295Z",
-        "count": 1
-      },
-      "uuid": "bca53c42-7fc2-41b6-b836-5ed102ba8447",
-      "path": "/sub-RAT123/sub-RAT123.nwb",
-      "size": 18792,
-      "sha256": "1a765509384ea96b7b12136353d9c5b94f23d764ad0431e049197f7875eb352c",
-      "created": "2020-07-21T22:22:16.882594Z",
-      "updated": "2020-07-21T22:22:16.882641Z",
-      "metadata": {
-...
-        "sha256": "1a765509384ea96b7b12136353d9c5b94f23d764ad0431e049197f7875eb352c",
-...
-        "uploaded_size": 18792,
-        "uploaded_mtime": "2020-07-21T17:31:55.283394-04:00",
-        "uploaded_datetime": "2020-07-21T18:00:36.703727-04:00",
-...
-      }
-    }
+        {
+          "version": {
+            "dandiset": {
+              "identifier": "000027",
+              "created": "2020-07-21T22:22:14.732729Z",
+              "updated": "2020-07-21T22:22:14.732762Z"
+            },
+            "version": "0.200721.2222",
+            "created": "2020-07-21T22:22:15.396171Z",
+            "updated": "2020-07-21T22:22:15.396295Z",
+            "count": 1
+          },
+          "uuid": "bca53c42-7fc2-41b6-b836-5ed102ba8447",
+          "path": "/sub-RAT123/sub-RAT123.nwb",
+          "size": 18792,
+          "sha256": "1a765509384ea96b7b12136353d9c5b94f23d764ad0431e049197f7875eb352c",
+          "created": "2020-07-21T22:22:16.882594Z",
+          "updated": "2020-07-21T22:22:16.882641Z",
+          "metadata": {
+    ...
+            "sha256": "1a765509384ea96b7b12136353d9c5b94f23d764ad0431e049197f7875eb352c",
+    ...
+            "uploaded_size": 18792,
+            "uploaded_mtime": "2020-07-21T17:31:55.283394-04:00",
+            "uploaded_datetime": "2020-07-21T18:00:36.703727-04:00",
+    ...
+          }
+        }
 
 
     Parameters
@@ -751,7 +746,6 @@ def _harmonize_girder_asset_to_dandi_api(rec):
 
     Returns
     -------
-
     """
     rec = rec.copy()  # we will modify in place
 

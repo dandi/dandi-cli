@@ -2,17 +2,17 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.0.0
+    rev: v3.4.0
     hooks:
     -   id: trailing-whitespace
     -   id: end-of-file-fixer
     -   id: check-yaml
     -   id: check-added-large-files
 -   repo: https://github.com/psf/black
-    rev: 19.3b0
+    rev: 20.8b1
     hooks:
     -   id: black
-        exclude: ^(dandi/_version\.py|versioneer\.py)$
+        exclude: ^(dandi/_version\.py|dandi/due\.py|versioneer\.py)$
 -   repo: https://github.com/PyCQA/isort
     rev: 5.7.0
     hooks:
