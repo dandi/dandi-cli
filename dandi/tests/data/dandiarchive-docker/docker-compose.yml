@@ -75,6 +75,7 @@ services:
       DJANGO_MINIO_STORAGE_SECRET_KEY: minioSecretKey
       DJANGO_STORAGE_BUCKET_NAME: django-storage
       DJANGO_MINIO_STORAGE_MEDIA_URL: http://localhost:9000/django-storage
+      DJANGO_DANDI_SCHEMA_VERSION: 1.0.0-rc1
     ports:
       - "8000:8000"
 
@@ -108,6 +109,7 @@ services:
       DJANGO_MINIO_STORAGE_SECRET_KEY: minioSecretKey
       DJANGO_STORAGE_BUCKET_NAME: django-storage
       DJANGO_MINIO_STORAGE_MEDIA_URL: http://localhost:9000/django-storage
+      DJANGO_DANDI_SCHEMA_VERSION: 1.0.0-rc1
 
   minio:
     image: minio/minio:latest
