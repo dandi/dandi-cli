@@ -347,7 +347,7 @@ class Person(Contributor):
     identifier: Optional[ORCID] = Field(
         None,
         title="An ORCID Identifier",
-        description="An ORCID (orcid.org) identifer for an individual",
+        description="An ORCID (orcid.org) identifier for an individual",
         pattern=r"^\d{4}-\d{4}-\d{4}-(\d{3}X|\d{4})$",
         nskey="schema",
     )
