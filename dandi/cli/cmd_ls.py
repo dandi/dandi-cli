@@ -60,7 +60,13 @@ def ls(paths, new_schema, fields=None, format="auto", recursive=False, jobs=6):
     if new_schema:
         from ..models import AssetMeta, DandiMeta
 
-        all_fields = tuple(sorted(set(common_fields) | DandiMeta.__fields__.keys() | AssetMeta.__fields__.keys()))
+        all_fields = tuple(
+            sorted(
+                set(common_fields)
+                | DandiMeta.__fields__.keys()
+                | AssetMeta.__fields__.keys()
+            )
+        )
     else:
         all_fields = tuple(sorted(set(common_fields + metadata_all_fields)))
 
