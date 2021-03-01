@@ -53,9 +53,9 @@ def validate_dandiset_yaml(filepath, schema_version=None):
         from pydantic import ValidationError
 
         from .metadata import migrate2newschema
-        from .models import CommonModel, DandiMeta
+        from .models import DandiMeta, get_schema_version
 
-        current_version = CommonModel.__fields__["schemaVersion"].default
+        current_version = get_schema_version()
         if schema_version != current_version:
             raise ValueError(
                 f"Unsupported schema version: {schema_version}; expected {current_version}"
@@ -74,9 +74,9 @@ def validate_dandi_nwb(filepath, schema_version=None):
     """Provide validation of .nwb file regarding requirements we impose"""
     use_new_schema = False
     if schema_version is not None:
-        from .models import CommonModel
+        from .models import get_schema_version
 
-        current_version = CommonModel.__fields__["schemaVersion"].default
+        current_version = get_schema_version()
         if schema_version != current_version:
             raise ValueError(
                 f"Unsupported schema version: {schema_version}; expected {current_version}"
