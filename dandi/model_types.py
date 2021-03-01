@@ -399,7 +399,7 @@ RoleTypeDict = {
         {
             "@id": "dandi:RoleType",
             "@type": "rdfs:Class",
-            "rdfs:comment": "An enumeration of rols",
+            "rdfs:comment": "An enumeration of roles",
             "rdfs:label": "Role Type",
             "rdfs:subClassOf": {"@id": "schema:Enumeration"},
         },
