@@ -39,9 +39,14 @@ from .base import lgr, map_to_click_exceptions
     default=6,  # TODO: come up with smart auto-scaling etc
     show_default=True,
 )
+@click.option(
+    "--new-schema",
+    is_flag=True,
+    help="Convert metadata to new schema",
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=False, dir_okay=True))
 @map_to_click_exceptions
-def ls(paths, fields=None, format="auto", recursive=False, jobs=6):
+def ls(paths, new_schema, fields=None, format="auto", recursive=False, jobs=6):
     """List .nwb files and dandisets metadata."""
     # TODO: more logical ordering in case of fields = None
     from .formatter import JSONFormatter, PYOUTFormatter, YAMLFormatter
@@ -133,7 +138,11 @@ def ls(paths, fields=None, format="auto", recursive=False, jobs=6):
 
                     if async_keys:
                         cb = get_metadata_ls(
-                            asset, async_keys, errors=errors, flatten=format == "pyout"
+                            asset,
+                            async_keys,
+                            errors=errors,
+                            flatten=format == "pyout",
+                            new_schema=new_schema,
                         )
                         if format == "pyout":
                             rec[async_keys] = cb
@@ -255,8 +264,9 @@ def flatten_meta_to_pyout(meta):
     return out
 
 
-def get_metadata_ls(path, keys, errors, flatten=False):
-    from ..metadata import get_metadata
+def get_metadata_ls(path, keys, errors, flatten=False, new_schema=False):
+    from ..dandiset import APIDandiset
+    from ..metadata import get_metadata, nwb2asset
     from ..pynwb_utils import get_nwb_version, ignore_benign_pynwb_warnings
 
     ignore_benign_pynwb_warnings()
@@ -267,7 +277,14 @@ def get_metadata_ls(path, keys, errors, flatten=False):
             # No need for calling get_metadata if no keys are needed from it
             if keys is None or list(keys) != ["nwb_version"]:
                 try:
-                    rec = get_metadata(path)
+                    if new_schema:
+                        if op.isdir(path):
+                            dandiset = APIDandiset(path)
+                            rec = dandiset.metadata.json_dict()
+                        else:
+                            rec = nwb2asset(path).json_dict()
+                    else:
+                        rec = get_metadata(path)
                 except Exception as exc:
                     _add_exc_error(path, rec, errors, exc)
                 if flatten:
