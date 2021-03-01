@@ -124,8 +124,6 @@ def extract_age(metadata):
         except (KeyError, TypeError, ValueError):
             return ...
     else:
-        if start < dob:
-            raise ValueError("session_start_time precedes date_of_birth")
         duration = timedelta2duration(start - dob)
     return models.PropertyValue(value=duration, unitText="Years from birth")
 
