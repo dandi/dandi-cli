@@ -1,10 +1,10 @@
+from ..models import get_schema_version
 from ..validate import validate_file
 
 
-def test_validate_simple1(monkeypatch, simple1_nwb):
-    monkeypatch.setenv("DANDI_SCHEMA", "1")
+def test_validate_simple1(simple1_nwb):
     # this file should be ok
-    errors = validate_file(simple1_nwb)
+    errors = validate_file(simple1_nwb, schema_version=get_schema_version())
     assert not errors
 
 
@@ -14,10 +14,9 @@ def test_validate_simple2(simple2_nwb):
     assert not errors
 
 
-def test_validate_simple2_new(monkeypatch, simple2_nwb):
-    monkeypatch.setenv("DANDI_SCHEMA", "1")
+def test_validate_simple2_new(simple2_nwb):
     # this file should be ok
-    errors = validate_file(simple2_nwb)
+    errors = validate_file(simple2_nwb, schema_version=get_schema_version())
     assert not errors
 
 

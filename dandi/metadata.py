@@ -555,7 +555,7 @@ def migrate2newschema(meta):
 
 
 def publish_model_schemata(releasedir):
-    version = models.CommonModel.__fields__["schemaVersion"].default
+    version = models.get_schema_version()
     vdir = Path(releasedir, version)
     vdir.mkdir(exist_ok=True, parents=True)
     (vdir / "dandiset.json").write_text(models.DandiMeta.schema_json(indent=2))

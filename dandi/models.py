@@ -879,3 +879,7 @@ class PublishedAssetMeta(AssetMeta):
         nskey="dandi",
     )  # TODO: formalize "publish" activity to at least the Actor
     datePublished: date = Field(readOnly=True, nskey="schema")
+
+
+def get_schema_version():
+    return CommonModel.__fields__["schemaVersion"].default

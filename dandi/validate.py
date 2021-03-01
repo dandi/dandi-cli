@@ -1,4 +1,3 @@
-import os
 import os.path as op
 
 from .consts import dandiset_metadata_file
@@ -53,9 +52,9 @@ def validate_dandiset_yaml(filepath, schema_version=None):
         from pydantic import ValidationError
 
         from .metadata import migrate2newschema
-        from .models import CommonModel, DandiMeta
+        from .models import DandiMeta, get_schema_version
 
-        current_version = CommonModel.__fields__["schemaVersion"].default
+        current_version = get_schema_version()
         if schema_version != current_version:
             raise ValueError(
                 f"Unsupported schema version: {schema_version}; expected {current_version}"
@@ -72,24 +71,17 @@ def validate_dandiset_yaml(filepath, schema_version=None):
 
 def validate_dandi_nwb(filepath, schema_version=None):
     """Provide validation of .nwb file regarding requirements we impose"""
-    use_new_schema = False
     if schema_version is not None:
-        from .models import CommonModel
+        from pydantic import ValidationError
 
-        current_version = CommonModel.__fields__["schemaVersion"].default
+        from .metadata import nwb2asset
+        from .models import BareAssetMeta, get_schema_version
+
+        current_version = get_schema_version()
         if schema_version != current_version:
             raise ValueError(
                 f"Unsupported schema version: {schema_version}; expected {current_version}"
             )
-        use_new_schema = True
-    elif os.environ.get("DANDI_SCHEMA"):
-        use_new_schema = True
-    if use_new_schema:
-        from pydantic import ValidationError
-
-        from .metadata import nwb2asset
-        from .models import BareAssetMeta
-
         try:
             asset = nwb2asset(filepath, digest="dummy_value", digest_type="sha1")
             BareAssetMeta(**asset.dict())
