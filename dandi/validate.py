@@ -30,7 +30,6 @@ def validate(paths, schema_version=None):
         yield path, errors
 
 
-@validate_cache.memoize_path
 def validate_file(filepath, schema_version=None):
     if op.basename(filepath) == dandiset_metadata_file:
         return validate_dandiset_yaml(filepath, schema_version=None)
@@ -40,6 +39,7 @@ def validate_file(filepath, schema_version=None):
         )
 
 
+@validate_cache.memoize_path
 def validate_dandiset_yaml(filepath, schema_version=None):
     """Validate dandiset.yaml"""
     with open(filepath) as f:
@@ -69,6 +69,7 @@ def validate_dandiset_yaml(filepath, schema_version=None):
         return []
 
 
+@validate_cache.memoize_path
 def validate_dandi_nwb(filepath, schema_version=None):
     """Provide validation of .nwb file regarding requirements we impose"""
     if schema_version is not None:

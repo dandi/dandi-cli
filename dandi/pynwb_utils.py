@@ -228,6 +228,7 @@ def _get_pynwb_metadata(path):
     return out
 
 
+@validate_cache.memoize_path
 def validate(path):
     """Run validation on a file and return errors
 
