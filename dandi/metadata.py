@@ -158,7 +158,7 @@ def timedelta2duration(delta):
 
 def extract_sex(metadata):
     value = metadata.get("sex", None)
-    if value is not None:
+    if value is not None and value != "":
         value = value.lower()
         if value in ["m", "male"]:
             value_id = "http://purl.obolibrary.org/obo/PATO_0000384"
@@ -184,7 +184,7 @@ def extract_sex(metadata):
 
 def extract_species(metadata):
     value = metadata.get("species", None)
-    if value is not None:
+    if value is not None and value != "":
         value = value.lower()
         if "mouse" in value or value.startswith("mus"):
             value_id = "http://purl.obolibrary.org/obo/NCBITaxon_10090"
