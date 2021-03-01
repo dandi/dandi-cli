@@ -8,7 +8,7 @@ import requests
 from .consts import MAX_CHUNK_SIZE, known_instances_rev
 from .girder import keyring_lookup
 from . import get_logger
-from .utils import USER_AGENT
+from .utils import USER_AGENT, try_multiple
 
 lgr = get_logger()
 
@@ -132,14 +132,22 @@ class RESTFullAPIClient(object):
 
         lgr.debug("%s %s", method.upper(), url)
         try:
-            result = f(
-                url,
-                params=parameters,
-                data=data,
-                files=files,
-                json=json,
-                headers=_headers,
-                **kwargs,
+            # urllib3's ConnectionPool isn't thread-safe, so we sometimes hit
+            # ConnectionErrors on the start of an upload.  Retry when this
+            # happens.  Cf. <https://github.com/urllib3/urllib3/issues/951>.
+            result = try_multiple(
+                5,
+                requests.ConnectionError,
+                1.1,
+                lambda: f(
+                    url,
+                    params=parameters,
+                    data=data,
+                    files=files,
+                    json=json,
+                    headers=_headers,
+                    **kwargs,
+                ),
             )
         except Exception:
             lgr.exception("HTTP connection failed")
