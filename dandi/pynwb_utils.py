@@ -7,6 +7,7 @@ import warnings
 
 from fscacher import PersistentCache
 import h5py
+import hdmf
 import numpy as np
 import pynwb
 from pynwb import NWBHDF5IO
@@ -23,7 +24,12 @@ lgr = get_logger()
 
 # strip away possible development version marker
 dandi_rel_version = __version__.split("+", 1)[0]
-dandi_cache_tokens = [pynwb.__version__, dandi_rel_version, h5py.__version__]
+dandi_cache_tokens = [
+    pynwb.__version__,
+    dandi_rel_version,
+    hdmf.__version__,
+    h5py.__version__,
+]
 metadata_cache = PersistentCache(
     name="dandi-metadata", tokens=dandi_cache_tokens, envvar="DANDI_CACHE"
 )
