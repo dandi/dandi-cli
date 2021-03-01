@@ -57,7 +57,12 @@ def ls(paths, new_schema, fields=None, format="auto", recursive=False, jobs=6):
     from ..utils import find_files
 
     common_fields = ("path", "size")
-    all_fields = tuple(sorted(set(common_fields + metadata_all_fields)))
+    if new_schema:
+        from ..models import AssetMeta, DandiMeta
+
+        all_fields = tuple(sorted(set(common_fields) | DandiMeta.__fields__.keys() | AssetMeta.__fields__.keys()))
+    else:
+        all_fields = tuple(sorted(set(common_fields + metadata_all_fields)))
 
     if fields is not None:
         if fields.strip() == "":
@@ -280,7 +285,7 @@ def get_metadata_ls(path, keys, errors, flatten=False, new_schema=False):
                     if new_schema:
                         if op.isdir(path):
                             dandiset = APIDandiset(path)
-                            rec = dandiset.metadata.json_dict()
+                            rec = dandiset.metadata
                         else:
                             rec = nwb2asset(path).json_dict()
                     else:
