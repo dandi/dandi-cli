@@ -306,7 +306,13 @@ def extract_field(field, metadata):
         return metadata.get(field, ...)
 
 
-def nwb2asset(nwb_path, digest=None, digest_type=None):
+def nwb2asset(nwb_path, digest=None, digest_type=None, schema_version=None):
+    if schema_version is not None:
+        current_version = models.get_schema_version()
+        if schema_version != current_version:
+            raise ValueError(
+                f"Unsupported schema version: {schema_version}; expected {current_version}"
+            )
     start_time = datetime.now().astimezone()
     metadata = get_metadata(nwb_path)
     if digest is not None:
