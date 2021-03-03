@@ -39,9 +39,14 @@ from .base import lgr, map_to_click_exceptions
     default=6,  # TODO: come up with smart auto-scaling etc
     show_default=True,
 )
+@click.option(
+    "--schema",
+    help="Convert metadata to new schema version",
+    metavar="VERSION",
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=False, dir_okay=True))
 @map_to_click_exceptions
-def ls(paths, fields=None, format="auto", recursive=False, jobs=6):
+def ls(paths, schema, fields=None, format="auto", recursive=False, jobs=6):
     """List .nwb files and dandisets metadata."""
     # TODO: more logical ordering in case of fields = None
     from .formatter import JSONFormatter, PYOUTFormatter, YAMLFormatter
@@ -52,7 +57,18 @@ def ls(paths, fields=None, format="auto", recursive=False, jobs=6):
     from ..utils import find_files
 
     common_fields = ("path", "size")
-    all_fields = tuple(sorted(set(common_fields + metadata_all_fields)))
+    if schema is not None:
+        from ..models import AssetMeta, DandiMeta
+
+        all_fields = tuple(
+            sorted(
+                set(common_fields)
+                | DandiMeta.__fields__.keys()
+                | AssetMeta.__fields__.keys()
+            )
+        )
+    else:
+        all_fields = tuple(sorted(set(common_fields + metadata_all_fields)))
 
     if fields is not None:
         if fields.strip() == "":
@@ -133,7 +149,11 @@ def ls(paths, fields=None, format="auto", recursive=False, jobs=6):
 
                     if async_keys:
                         cb = get_metadata_ls(
-                            asset, async_keys, errors=errors, flatten=format == "pyout"
+                            asset,
+                            async_keys,
+                            errors=errors,
+                            flatten=format == "pyout",
+                            schema=schema,
                         )
                         if format == "pyout":
                             rec[async_keys] = cb
@@ -255,8 +275,9 @@ def flatten_meta_to_pyout(meta):
     return out
 
 
-def get_metadata_ls(path, keys, errors, flatten=False):
-    from ..metadata import get_metadata
+def get_metadata_ls(path, keys, errors, flatten=False, schema=None):
+    from ..dandiset import APIDandiset
+    from ..metadata import get_metadata, nwb2asset
     from ..pynwb_utils import get_nwb_version, ignore_benign_pynwb_warnings
 
     ignore_benign_pynwb_warnings()
@@ -267,7 +288,14 @@ def get_metadata_ls(path, keys, errors, flatten=False):
             # No need for calling get_metadata if no keys are needed from it
             if keys is None or list(keys) != ["nwb_version"]:
                 try:
-                    rec = get_metadata(path)
+                    if schema is not None:
+                        if op.isdir(path):
+                            dandiset = APIDandiset(path, schema_version=schema)
+                            rec = dandiset.metadata
+                        else:
+                            rec = nwb2asset(path, schema_version=schema).json_dict()
+                    else:
+                        rec = get_metadata(path)
                 except Exception as exc:
                     _add_exc_error(path, rec, errors, exc)
                 if flatten:

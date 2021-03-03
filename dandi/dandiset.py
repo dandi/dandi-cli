@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .consts import dandiset_metadata_file
 from . import get_logger
+from .models import get_schema_version
 from .utils import find_parent_directory_containing, yaml_dump, yaml_load
 
 lgr = get_logger()
@@ -126,6 +127,15 @@ class Dandiset(object):
 
 class APIDandiset(Dandiset):
     """A dandiset to replace "classical" Dandiset whenever we migrate to new API based server"""
+
+    def __init__(self, path, allow_empty=False, schema_version=None):
+        if schema_version is not None:
+            current_version = get_schema_version()
+            if schema_version != current_version:
+                raise ValueError(
+                    f"Unsupported schema version: {schema_version}; expected {current_version}"
+                )
+        super().__init__(path, allow_empty=allow_empty)
 
     def _load_metadata(self):
         from .metadata import migrate2newschema
