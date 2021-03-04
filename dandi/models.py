@@ -1,5 +1,5 @@
 from copy import deepcopy
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
 import json
 import sys
@@ -833,6 +833,7 @@ class BareAssetMeta(CommonModel):
         title="File Encoding Format", nskey="schema"
     )
     digest: Digest = Field(nskey="dandi")
+    dateModified: Optional[datetime] = Field(nskey="dandi")
 
     path: str = Field(None, nskey="dandi")
 

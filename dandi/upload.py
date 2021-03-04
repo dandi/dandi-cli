@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 import os.path
 
 # PurePosixPath to be cast to for paths on girder
@@ -786,6 +787,7 @@ def _new_upload(
                         "contentSize": os.path.getsize(path),
                         "digest": sha256_digest,
                         "digest_type": "SHA256",
+                        "dateModified": ensure_strtime(os.stat(path).st_mtime),
                         # "encodingFormat": # TODO
                     }
                 else:

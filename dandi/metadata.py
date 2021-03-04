@@ -1,5 +1,6 @@
 from datetime import datetime
 import json
+import os
 import os.path as op
 from pathlib import Path
 import re
@@ -320,6 +321,7 @@ def nwb2asset(nwb_path, digest=None, digest_type=None, schema_version=None):
         metadata["digest_type"] = digest_type
     metadata["contentSize"] = op.getsize(nwb_path)
     metadata["encodingFormat"] = "application/x-nwb"
+    metadata["dateModified"] = os.stat(nwb_path).st_mtime
     asset = metadata2asset(metadata)
     end_time = datetime.now().astimezone()
     if asset.wasGeneratedBy is None:
