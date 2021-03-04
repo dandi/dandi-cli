@@ -63,6 +63,7 @@ Designs for an improved Python API
         * `set_users(users: List[User]) -> None`
             * Should this method also accept strings giving the usernames directly?
         * `get_metadata() -> DandiMeta`
+        * `get_raw_metadata() -> dict` — useful when the metadata is invalid
         * `publish() -> Version` (Should this be moved to `DraftDandiset`?)
         * `get_all_assets() -> Iterator[RemoteAsset]`
         * `get_assets_under_path(path: str) -> Iterator[RemoteAsset]`
@@ -102,6 +103,7 @@ Designs for an improved Python API
         * `dandiset_id: str`
         * `version_id: str`
         * `get_metadata() -> RemoteAssetMeta`
+        * `get_raw_metadata() -> dict` — useful when the metadata is invalid
         * `set_metadata(metadata: BareAssetMeta) -> RemoteAsset` — returns the new, modified object
         * `delete() -> None`
         * `download(filepath: str, show_progress=True, chunk_size=...) -> ???`
