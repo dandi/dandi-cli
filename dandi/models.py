@@ -172,6 +172,13 @@ class DandiBaseModel(BaseModel):
                         and any(["$ref" in val for val in anyOf])
                     ):
                         value["items"]["type"] = "object"
+                # In pydantic 1.8+ all Literals are mapped on to enum
+                # This presently breaks the schema editor UI. Revert
+                # to const when generating the schema.
+                if prop == "schemaKey":
+                    if len(value["enum"]) == 1:
+                        value["const"] = value["enum"][0]
+                        del value["enum"]
 
 
 class PropertyValue(DandiBaseModel):
