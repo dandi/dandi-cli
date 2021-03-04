@@ -713,6 +713,16 @@ def _new_upload(
 
             extant = client.get_asset_bypath(ds_identifier, "draft", str(relpath))
             if extant is not None:
+                # The endpoint used to search by paths doesn't include asset
+                # metadata, so we need to make another API call:
+                extant = client.get_asset(ds_identifier, "draft", extant["uuid"])
+                local_mtime = ensure_datetime(path_stat.st_mtime)
+                remote_mtime_str = extant.get("metadata", {}).get("dateModified")
+                if remote_mtime_str is not None:
+                    remote_mtime = ensure_datetime(remote_mtime_str)
+                else:
+                    remote_mtime = None
+
                 if existing == "error":
                     # as promised -- not gentle at all!
                     raise FileExistsError("file exists")
@@ -720,8 +730,14 @@ def _new_upload(
                     yield skip_file("file exists")
                     return
                 # Logic below only for overwrite and reupload
-                if existing == "overwrite" or existing == "refresh":
+                if existing == "overwrite":
                     if extant["sha256"] == sha256_digest:
+                        yield skip_file("file exists")
+                        return
+                elif existing == "refresh":
+                    if extant["sha256"] == sha256_digest or (
+                        remote_mtime is not None and remote_mtime >= local_mtime
+                    ):
                         yield skip_file("file exists")
                         return
                 elif existing == "force":

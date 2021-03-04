@@ -332,6 +332,14 @@ def test_new_upload_extant_neq_overwrite(
     ).read_text() == "This is different text.\n"
 
 
+def test_new_upload_extant_old_refresh(mocker, text_dandiset):
+    (text_dandiset["dspath"] / "file.txt").write_text("This is different text.\n")
+    os.utime(text_dandiset["dspath"] / "file.txt", times=(0, 0))
+    iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
+    text_dandiset["reupload"](existing="refresh")
+    iter_upload_spy.assert_not_called()
+
+
 def test_new_upload_extant_force(mocker, text_dandiset):
     iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
     text_dandiset["reupload"](existing="force")
