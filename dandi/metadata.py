@@ -347,6 +347,22 @@ def nwb2asset(nwb_path, digest=None, digest_type=None, schema_version=None):
     return asset
 
 
+def get_default_metadata(path, digest=None, digest_type=None):
+    if digest is not None:
+        digest_model = models.Digest(
+            value=digest,
+            cryptoType=models.DigestType[digest_type],
+        )
+    else:
+        digest_model = None
+    return models.BareAssetMeta.unvalidated(
+        contentSize=os.path.getsize(path),
+        digest=digest_model,
+        dateModified=ensure_datetime(os.stat(path).st_mtime),
+        # encodingFormat # TODO
+    )
+
+
 def metadata2asset(metadata):
     return extract_model(models.BareAssetMeta, metadata)
 

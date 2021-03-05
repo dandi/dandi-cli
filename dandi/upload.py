@@ -1,6 +1,4 @@
 from datetime import datetime
-import os
-import os.path
 
 # PurePosixPath to be cast to for paths on girder
 from pathlib import Path, PurePosixPath
@@ -626,7 +624,7 @@ def _new_upload(
             f"'dandi register' to get a legit identifier"
         )
 
-    from .metadata import nwb2asset
+    from .metadata import get_default_metadata, nwb2asset
     from .pynwb_utils import ignore_benign_pynwb_warnings
     from .support.pyout import naturalsize
     from .utils import find_dandi_files, find_files, path_is_subpath
@@ -815,18 +813,13 @@ def _new_upload(
             except Exception as exc:
                 if allow_any_path:
                     yield {"status": "failed to extract metadata"}
-                    metadata = {
-                        "contentSize": os.path.getsize(path),
-                        "digest": sha256_digest,
-                        "digest_type": "SHA256",
-                        "dateModified": ensure_strtime(os.stat(path).st_mtime),
-                        # "encodingFormat": # TODO
-                    }
+                    asset_metadata = get_default_metadata(
+                        path, digest=sha256_digest, digest_type="SHA256"
+                    )
                 else:
                     yield skip_file("failed to extract metadata: %s" % str(exc))
                     return
-            else:
-                metadata = asset_metadata.json_dict()
+            metadata = asset_metadata.json_dict()
             metadata["path"] = str(relpath)
 
             #
