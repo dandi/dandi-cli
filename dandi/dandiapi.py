@@ -297,9 +297,9 @@ class DandiAPIClient(RESTFullAPIClient):
         while True:
             for asset in resp["results"]:
                 if include_metadata:
-                    asset_rec = self.get_asset(dandiset_id, version, asset["uuid"])
-                    if "metadata" in asset_rec:
-                        asset["metadata"] = asset_rec["metadata"]
+                    asset["metadata"] = self.get_asset(
+                        dandiset_id, version, asset["uuid"]
+                    )
                 yield asset
             if resp.get("next"):
                 resp = self.get(resp["next"])

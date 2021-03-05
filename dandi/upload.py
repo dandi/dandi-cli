@@ -715,9 +715,9 @@ def _new_upload(
             if extant is not None:
                 # The endpoint used to search by paths doesn't include asset
                 # metadata, so we need to make another API call:
-                extant = client.get_asset(ds_identifier, "draft", extant["uuid"])
+                metadata = client.get_asset(ds_identifier, "draft", extant["uuid"])
                 local_mtime = ensure_datetime(path_stat.st_mtime)
-                remote_mtime_str = extant.get("metadata", {}).get("dateModified")
+                remote_mtime_str = metadata.get("dateModified")
                 if remote_mtime_str is not None:
                     remote_mtime = ensure_datetime(remote_mtime_str)
                     remote_file_status = (
