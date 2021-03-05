@@ -13,10 +13,10 @@ Designs for an improved Python API
         * `get_metadata() -> DandiMeta`
    * `Asset`:
         * `path: str`
-        * `sha256: str` — Should this only be on `RemoteAsset`?
+        * `sha256: str`
         * `size: int`
-        * `created: datetime` — Should this only be on `RemoteAsset`?
-        * `modified: datetime` — Should this only be on `RemoteAsset`?
+        * `created: datetime`
+        * `modified: datetime`
         * `get_metadata() -> BareAssetMeta`
 
 * `dandi.dandiapi`:
@@ -32,12 +32,13 @@ Designs for an improved Python API
         * These classes (except `Version`?) will all contain a private `_client` attribute referring back to the associated `DandiAPIClient` instance.
     * Changes to `DandiAPIClient` methods:
         * Add a `get_dandiset(dandiset_id: Union[str, RemoteDandiset], version_id=None) -> RemoteDandiset` method
-            * **To discuss:** Should the default `version` be "draft" or the most recent version?  Either way, there should be another method that explicitly gets the other option.
+            * The default version retrieved is the one in the response's `most_recent_version`
             * **To discuss:** Should this take a `lazy=False` parameter that, if true, constructs a `RemoteDandiset` containing only an identifier, without making any requests at the time of creation?  This would allow calling a `RemoteDandiset`'s methods without having to make a request for the Dandiset's data beforehand.  If & when any non-identifiers attributes of a lazy `RemoteDandiset` are requested, a request is made at that point and the results cached.
+        * Add a `get_draft_dandiset(dandiset_id: Union[str, RemoteDandiset]) -> DraftDandiset` method
         * Add a `get_all_dandisets() -> Iterator[RemoteDandiset]` method
-            * **To discuss:** What should these objects' `Version`s be?
-        * Retype `create_dandiset` to `create_dandiset(name: str, metadata: DandiMeta) -> RemoteDandiset`
-        * Add a `register_dandiset(dirpath: Union[str, Path], name: str, description: str) -> LocalDandiset` method that, in addition to calling `create_dandiset()`, also creates a `dandiset.yaml` file in `dirpath`?
+            * These objects' `Version`s are the `most_recent_version`s
+        * Retype `create_dandiset` to `create_dandiset(metadata: DandiMeta) -> RemoteDandiset`
+        * Add a `create_local_dandiset(dirpath: Union[str, Path], name: str, description: str) -> LocalDandiset` method that, in addition to calling `create_dandiset()`, also creates a `dandiset.yaml` file in `dirpath`?
         * Add a `get_current_user() -> User` method
         * Add a `search_users(username: str) -> Iterator[User]` method
         * Add an `upload(dandiset: LocalDandiset, paths: Optional[List[str]] = None, show_progress=True, existing="refesh", validation="require") -> List[RemoteAsset]` method
@@ -168,7 +169,8 @@ Designs for an improved Python API
         - [something for disabling auto-registration of files on construction; `register_files=True`?]
 
     * `LocalDandiset` uses `LocalAsset`s, a subclass of the new `Asset` base class:
-         * `local_path: Path` — the path of the asset on disk
+        * `sha256: str` — lazy/cached property
+        * `local_path: Path` — the path of the asset on disk
 
 * Miscellaneous changes:
     * Add a `DRAFT = "draft"` constant so that misspellings can be caught by static analysis
