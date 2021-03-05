@@ -720,30 +720,46 @@ def _new_upload(
                 remote_mtime_str = extant.get("metadata", {}).get("dateModified")
                 if remote_mtime_str is not None:
                     remote_mtime = ensure_datetime(remote_mtime_str)
+                    remote_file_status = (
+                        "same"
+                        if extant["sha256"] == sha256_digest
+                        and remote_mtime == local_mtime
+                        else (
+                            "newer"
+                            if remote_mtime > local_mtime
+                            else ("older" if remote_mtime < local_mtime else "diff")
+                        )
+                    )
                 else:
                     remote_mtime = None
+                    remote_file_status = "no mtime"
+
+                exists_msg = f"exists ({remote_file_status})"
 
                 if existing == "error":
                     # as promised -- not gentle at all!
-                    raise FileExistsError("file exists")
+                    raise FileExistsError(exists_msg)
                 if existing == "skip":
-                    yield skip_file("file exists")
+                    yield skip_file(exists_msg)
                     return
                 # Logic below only for overwrite and reupload
                 if existing == "overwrite":
                     if extant["sha256"] == sha256_digest:
-                        yield skip_file("file exists")
+                        yield skip_file(exists_msg)
                         return
                 elif existing == "refresh":
-                    if extant["sha256"] == sha256_digest or (
-                        remote_mtime is not None and remote_mtime >= local_mtime
-                    ):
+                    if extant["sha256"] == sha256_digest:
                         yield skip_file("file exists")
+                        return
+                    elif remote_mtime is not None and remote_mtime >= local_mtime:
+                        yield skip_file(exists_msg)
                         return
                 elif existing == "force":
                     pass
                 else:
                     raise ValueError(f"invalid value for 'existing': {existing!r}")
+
+                yield {"message": f"{exists_msg} - reuploading"}
 
             #
             # Validate first, so we do not bother server at all if not kosher
