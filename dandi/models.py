@@ -833,7 +833,9 @@ class BareAssetMeta(CommonModel):
         title="File Encoding Format", nskey="schema"
     )
     digest: Digest = Field(nskey="dandi")
-    dateModified: Optional[datetime] = Field(nskey="dandi")
+    dateModified: Optional[datetime] = Field(
+        nskey="schema", title="Asset file modification date and time"
+    )
 
     path: str = Field(None, nskey="dandi")
 
