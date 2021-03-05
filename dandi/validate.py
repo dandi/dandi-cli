@@ -52,7 +52,7 @@ def validate_dandiset_yaml(filepath, schema_version=None):
         from pydantic import ValidationError
 
         from .metadata import migrate2newschema
-        from .models import DandiMeta, get_schema_version
+        from .models import DandisetMeta, get_schema_version
 
         current_version = get_schema_version()
         if schema_version != current_version:
@@ -61,7 +61,7 @@ def validate_dandiset_yaml(filepath, schema_version=None):
             )
         try:
             new_meta = migrate2newschema(meta)
-            DandiMeta(**new_meta.dict())
+            DandisetMeta(**new_meta.dict())
         except ValidationError as e:
             return [str(e)]
         except Exception as e:

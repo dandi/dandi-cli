@@ -589,7 +589,7 @@ def convertv1(data):
 
 def migrate2newschema(meta):
     newmeta = convertv1(meta)
-    dandimeta = models.DandiMeta.unvalidated(**newmeta)
+    dandimeta = models.DandisetMeta.unvalidated(**newmeta)
     return dandimeta
 
 
@@ -597,7 +597,7 @@ def publish_model_schemata(releasedir):
     version = models.get_schema_version()
     vdir = Path(releasedir, version)
     vdir.mkdir(exist_ok=True, parents=True)
-    (vdir / "dandiset.json").write_text(models.DandiMeta.schema_json(indent=2))
+    (vdir / "dandiset.json").write_text(models.DandisetMeta.schema_json(indent=2))
     (vdir / "asset.json").write_text(models.AssetMeta.schema_json(indent=2))
     return vdir
 

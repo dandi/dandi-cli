@@ -738,7 +738,7 @@ class CommonModel(DandiBaseModel):
         return json.loads(self.json(exclude_unset=True, exclude_none=True))
 
 
-class DandiMeta(CommonModel, Identifiable):
+class DandisetMeta(CommonModel, Identifiable):
     """A body of structured information describing a DANDI dataset."""
 
     @validator("contributor")
@@ -807,7 +807,7 @@ class DandiMeta(CommonModel, Identifiable):
     }
 
 
-class PublishedDandiMeta(DandiMeta):
+class PublishedDandisetMeta(DandisetMeta):
     publishedBy: HttpUrl = Field(
         description="The URL should contain the provenance of the publishing process.",
         readOnly=True,
