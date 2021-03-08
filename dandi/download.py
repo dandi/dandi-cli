@@ -165,8 +165,8 @@ def download_generator(
                 # At least according to our 0.1.0 state of v1
                 # https://github.com/dandi/dandi-publish/issues/79
                 down_args = (
-                    asset["version"]["dandiset"]["identifier"],
-                    asset["version"]["version"],
+                    dandiset["dandiset"]["identifier"],
+                    dandiset["version"],
                     asset["uuid"],
                 )
                 if "sha256" not in asset:
