@@ -150,14 +150,16 @@ def test_get_asset_include_metadata(local_dandi_api, simple1_nwb, tmp_path):
         (asset,) = client.get_dandiset_assets(
             dandiset_id, "draft", include_metadata=True
         )
-        assert asset["metadata"] == {"path": "testing/simple1.nwb", "foo": "bar"}
+        assert asset["metadata"]["path"] == "testing/simple1.nwb"
+        assert asset["metadata"]["foo"] == "bar"
 
         _, (asset,) = client.get_dandiset_and_assets(dandiset_id, "draft")
         assert "metadata" not in asset
         _, (asset,) = client.get_dandiset_and_assets(
             dandiset_id, "draft", include_metadata=True
         )
-        assert asset["metadata"] == {"path": "testing/simple1.nwb", "foo": "bar"}
+        assert asset["metadata"]["path"] == "testing/simple1.nwb"
+        assert asset["metadata"]["foo"] == "bar"
 
         asset = client.get_asset_bypath(dandiset_id, "draft", "testing/simple1.nwb")
         assert asset is not None
@@ -166,7 +168,8 @@ def test_get_asset_include_metadata(local_dandi_api, simple1_nwb, tmp_path):
             dandiset_id, "draft", "testing/simple1.nwb", include_metadata=True
         )
         assert asset is not None
-        assert asset["metadata"] == {"path": "testing/simple1.nwb", "foo": "bar"}
+        assert asset["metadata"]["path"] == "testing/simple1.nwb"
+        assert asset["metadata"]["foo"] == "bar"
 
 
 def test_large_upload(local_dandi_api, tmp_path):

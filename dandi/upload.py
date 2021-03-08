@@ -1,5 +1,4 @@
 from datetime import datetime
-import os.path
 
 # PurePosixPath to be cast to for paths on girder
 from pathlib import Path, PurePosixPath
@@ -625,7 +624,7 @@ def _new_upload(
             f"'dandi register' to get a legit identifier"
         )
 
-    from .metadata import nwb2asset
+    from .metadata import get_default_metadata, nwb2asset
     from .pynwb_utils import ignore_benign_pynwb_warnings
     from .support.pyout import naturalsize
     from .utils import find_dandi_files, find_files, path_is_subpath
@@ -712,21 +711,53 @@ def _new_upload(
 
             extant = client.get_asset_bypath(ds_identifier, "draft", str(relpath))
             if extant is not None:
+                # The endpoint used to search by paths doesn't include asset
+                # metadata, so we need to make another API call:
+                metadata = client.get_asset(ds_identifier, "draft", extant["uuid"])
+                local_mtime = ensure_datetime(path_stat.st_mtime)
+                remote_mtime_str = metadata.get("blobDateModified")
+                if remote_mtime_str is not None:
+                    remote_mtime = ensure_datetime(remote_mtime_str)
+                    remote_file_status = (
+                        "same"
+                        if extant["sha256"] == sha256_digest
+                        and remote_mtime == local_mtime
+                        else (
+                            "newer"
+                            if remote_mtime > local_mtime
+                            else ("older" if remote_mtime < local_mtime else "diff")
+                        )
+                    )
+                else:
+                    remote_mtime = None
+                    remote_file_status = "no mtime"
+
+                exists_msg = f"exists ({remote_file_status})"
+
                 if existing == "error":
                     # as promised -- not gentle at all!
-                    raise FileExistsError("file exists")
+                    raise FileExistsError(exists_msg)
                 if existing == "skip":
-                    yield skip_file("file exists")
+                    yield skip_file(exists_msg)
                     return
                 # Logic below only for overwrite and reupload
-                if existing == "overwrite" or existing == "refresh":
+                if existing == "overwrite":
+                    if extant["sha256"] == sha256_digest:
+                        yield skip_file(exists_msg)
+                        return
+                elif existing == "refresh":
                     if extant["sha256"] == sha256_digest:
                         yield skip_file("file exists")
+                        return
+                    elif remote_mtime is not None and remote_mtime >= local_mtime:
+                        yield skip_file(exists_msg)
                         return
                 elif existing == "force":
                     pass
                 else:
                     raise ValueError(f"invalid value for 'existing': {existing!r}")
+
+                yield {"message": f"{exists_msg} - reuploading"}
 
             #
             # Validate first, so we do not bother server at all if not kosher
@@ -782,17 +813,13 @@ def _new_upload(
             except Exception as exc:
                 if allow_any_path:
                     yield {"status": "failed to extract metadata"}
-                    metadata = {
-                        "contentSize": os.path.getsize(path),
-                        "digest": sha256_digest,
-                        "digest_type": "SHA256",
-                        # "encodingFormat": # TODO
-                    }
+                    asset_metadata = get_default_metadata(
+                        path, digest=sha256_digest, digest_type="SHA256"
+                    )
                 else:
                     yield skip_file("failed to extract metadata: %s" % str(exc))
                     return
-            else:
-                metadata = asset_metadata.json_dict()
+            metadata = asset_metadata.json_dict()
             metadata["path"] = str(relpath)
 
             #

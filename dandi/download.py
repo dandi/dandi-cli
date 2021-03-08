@@ -165,8 +165,8 @@ def download_generator(
                 # At least according to our 0.1.0 state of v1
                 # https://github.com/dandi/dandi-publish/issues/79
                 down_args = (
-                    asset["version"]["dandiset"]["identifier"],
-                    asset["version"]["version"],
+                    dandiset["dandiset"]["identifier"],
+                    dandiset["version"],
                     asset["uuid"],
                 )
                 if "sha256" not in asset:
@@ -201,17 +201,33 @@ def download_generator(
 
             downloader = client.get_download_file_iter(*down_args)
 
+            if isinstance(client, girder.GirderCli):
+                mtime = asset.get("modified")
+            else:
+                assert isinstance(client, DandiAPIClient)
+                try:
+                    mtime = asset["metadata"]["blobDateModified"]
+                except KeyError:
+                    mtime = None
+                if mtime is None:
+                    lgr.warning(
+                        "Asset %s is missing blobDateModified metadata field",
+                        asset["path"],
+                    )
+                    mtime = asset.get("modified")
+
             # Get size from the metadata, although I guess it could be returned directly
             # by server while establishing downloader... but it seems that girder itself
             # does get it from the "file" resource, not really from direct URL.  So I guess
             # we will just follow. For now we must find it in "attrs"
+
             _download_generator = _download_file(
                 downloader,
                 download_path,
                 # size and modified generally should be there but better to redownload
                 # than to crash
                 size=asset.get("size"),
-                mtime=asset.get("modified"),
+                mtime=mtime,
                 existing=existing,
                 digests=digests,
             )
