@@ -210,6 +210,10 @@ def download_generator(
                 except KeyError:
                     mtime = None
                 if mtime is None:
+                    lgr.warning(
+                        "Asset %s is missing blobDateModified metadata field",
+                        asset["path"],
+                    )
                     mtime = asset.get("modified")
 
             # Get size from the metadata, although I guess it could be returned directly
