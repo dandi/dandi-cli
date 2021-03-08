@@ -17,7 +17,7 @@ from .pynwb_utils import (
     ignore_benign_pynwb_warnings,
     metadata_cache,
 )
-from .utils import ensure_datetime
+from .utils import ensure_datetime, get_utcnow_datetime
 
 lgr = get_logger()
 
@@ -321,7 +321,10 @@ def nwb2asset(nwb_path, digest=None, digest_type=None, schema_version=None):
         metadata["digest_type"] = digest_type
     metadata["contentSize"] = op.getsize(nwb_path)
     metadata["encodingFormat"] = "application/x-nwb"
-    metadata["dateModified"] = os.stat(nwb_path).st_mtime
+    metadata["dateModified"] = get_utcnow_datetime()
+    metadata["blobDateModified"] = ensure_datetime(os.stat(nwb_path).st_mtime)
+    if metadata["blobDateModified"] > metadata["dateModified"]:
+        lgr.warning("mtime of %s is in the future", nwb_path)
     asset = metadata2asset(metadata)
     end_time = datetime.now().astimezone()
     if asset.wasGeneratedBy is None:
@@ -355,10 +358,15 @@ def get_default_metadata(path, digest=None, digest_type=None):
         )
     else:
         digest_model = None
+    dateModified = get_utcnow_datetime()
+    blobDateModified = ensure_datetime(os.stat(path).st_mtime)
+    if blobDateModified > dateModified:
+        lgr.warning("mtime of %s is in the future", path)
     return models.BareAssetMeta.unvalidated(
         contentSize=os.path.getsize(path),
         digest=digest_model,
-        dateModified=ensure_datetime(os.stat(path).st_mtime),
+        dateModified=dateModified,
+        blobDateModified=blobDateModified,
         # encodingFormat # TODO
     )
 

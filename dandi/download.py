@@ -206,7 +206,7 @@ def download_generator(
             else:
                 assert isinstance(client, DandiAPIClient)
                 try:
-                    mtime = asset["metadata"]["dateModified"]
+                    mtime = asset["metadata"]["blobDateModified"]
                 except KeyError:
                     mtime = None
                 if mtime is None:

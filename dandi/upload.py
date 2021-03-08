@@ -715,7 +715,7 @@ def _new_upload(
                 # metadata, so we need to make another API call:
                 metadata = client.get_asset(ds_identifier, "draft", extant["uuid"])
                 local_mtime = ensure_datetime(path_stat.st_mtime)
-                remote_mtime_str = metadata.get("dateModified")
+                remote_mtime_str = metadata.get("blobDateModified")
                 if remote_mtime_str is not None:
                     remote_mtime = ensure_datetime(remote_mtime_str)
                     remote_file_status = (

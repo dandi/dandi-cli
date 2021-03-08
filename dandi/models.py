@@ -834,7 +834,10 @@ class BareAssetMeta(CommonModel):
     )
     digest: Digest = Field(nskey="dandi")
     dateModified: Optional[datetime] = Field(
-        nskey="schema", title="Asset file modification date and time"
+        nskey="schema", title="Asset (file or metadata) modification date and time"
+    )
+    blobDateModified: Optional[datetime] = Field(
+        nskey="dandi", title="Asset file modification date and time"
     )
 
     path: str = Field(None, nskey="dandi")
