@@ -7,7 +7,7 @@ Designs for an improved Python API
         * `created: datetime`
         * `modified: datetime`
         * `version: Optional[Version]`
-        * `get_all_assets() -> Iterator[Asset]`
+        * `get_assets() -> Iterator[Asset]`
         * `get_assets_under_path(path: str) -> Iterator[Asset]` — Returns all assets whose paths are either under the given folder or equal the given filepath
         * `get_asset_by_path(path: str) -> Optional[Asset]` — Finds the unique asset with the given exact path; returns `None` if no such asset
         * `get_metadata() -> DandiMeta`
@@ -35,7 +35,7 @@ Designs for an improved Python API
             * The default version retrieved is the one in the response's `most_recent_version`
             * **To discuss:** Should this take a `lazy=False` parameter that, if true, constructs a `RemoteDandiset` containing only an identifier, without making any requests at the time of creation?  This would allow calling a `RemoteDandiset`'s methods without having to make a request for the Dandiset's data beforehand.  If & when any non-identifiers attributes of a lazy `RemoteDandiset` are requested, a request is made at that point and the results cached.
         * Add a `get_draft_dandiset(dandiset_id: Union[str, RemoteDandiset]) -> DraftDandiset` method
-        * Add a `get_all_dandisets() -> Iterator[RemoteDandiset]` method
+        * Add a `get_dandisets() -> Iterator[RemoteDandiset]` method
             * These objects' `Version`s are the `most_recent_version`s
         * Retype `create_dandiset` to `create_dandiset(metadata: DandiMeta) -> RemoteDandiset`
         * Add a `create_local_dandiset(dirpath: Union[str, Path], name: str, description: str) -> LocalDandiset` method that, in addition to calling `create_dandiset()`, also creates a `dandiset.yaml` file in `dirpath`?
@@ -55,7 +55,7 @@ Designs for an improved Python API
         * `version: Version`
         * `most_recent_version: Version` ?
         * `get_version(version_id: Union[str, Version]) -> Version` ?
-        * `get_all_versions() -> Iterator[Version]`
+        * `get_versions() -> Iterator[Version]`
         * `for_version(version_id: Union[str, Version]) -> RemoteDandiset`
             * When `version_id == "draft"`, this is the same as `for_draft_version()`
         * `for_draft_version() -> DraftDandiset`
@@ -66,7 +66,7 @@ Designs for an improved Python API
         * `get_metadata() -> DandiMeta`
         * `get_raw_metadata() -> dict` — useful when the metadata is invalid
         * `publish() -> Version` (Should this be moved to `DraftDandiset`?)
-        * `get_all_assets() -> Iterator[RemoteAsset]`
+        * `get_assets() -> Iterator[RemoteAsset]`
         * `get_assets_under_path(path: str) -> Iterator[RemoteAsset]`
         * `get_asset_by_path(path: str) -> Optional[RemoteAsset]`
         * `get_asset_by_uuid(uuid: str) -> Optional[RemoteAsset]` — Returns `None` if the given asset does not exist
