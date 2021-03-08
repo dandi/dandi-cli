@@ -3,6 +3,9 @@ import os
 
 from . import _version
 
+# nothing to see here
+
+
 __version__ = _version.get_versions()["version"]
 
 
