@@ -592,7 +592,7 @@ AgeReferenceTypeDict = {
         {
             "@id": "dandi:GestationalReference",
             "@type": "dandi:AgeReferenceType",
-            "rdfs:comment": "Age of a pregnancy",
+            "rdfs:comment": "Age of a pregnancy (see https://en.wikipedia.org/wiki/Gestational_age)",
             "rdfs:label": "GestationalReference",
         },
     ]
