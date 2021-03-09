@@ -164,8 +164,9 @@ def test_metadata2asset(schema_dir):
     {
       "identifier": "a1b2c3",
       "age": {
-        "unitText": "Years from birth",
-        "value": "P170DT12212S"
+        "unitText": "ISO-8601 duration",
+        "value": "P170DT12212S",
+        "valueReference": "dandi:BirthReference"
       },
       "sex": {
         "identifier": "http://purl.obolibrary.org/obo/PATO_0000384",

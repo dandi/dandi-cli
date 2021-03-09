@@ -125,12 +125,11 @@ def extract_age(metadata):
             return ...
     else:
         duration = timedelta2duration(start - dob)
-    if duration.endswith("D"):
-        return models.PropertyValue(value=duration, unitText="Days from birth")
-    elif duration.endswith("S"):
-        return models.PropertyValue(value=duration, unitText="Seconds from birth")
-    else:
-        return models.PropertyValue(value=duration, unitText="Years from birth")
+    return models.PropertyValue(
+        value=duration,
+        unitText="ISO-8601 duration",
+        valueReference="dandi:BirthReference",
+    )
 
 
 def timedelta2duration(delta):
@@ -148,7 +147,7 @@ def timedelta2duration(delta):
     s = "P"
     if delta.days:
         s += f"{delta.days}D"
-    elif delta.seconds or delta.microseconds:
+    if delta.seconds or delta.microseconds:
         sec = delta.seconds
         if delta.microseconds:
             # Don't add when microseconds is 0, so that sec will be an int then

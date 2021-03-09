@@ -573,3 +573,21 @@ RoleTypeDict = {
         },
     ]
 }
+
+AgeReferenceTypeDict = {
+    "@graph": [
+        {
+            "@id": "dandi:AgeReferenceType",
+            "@type": "rdfs:Class",
+            "rdfs:comment": "An enumeration of age reference",
+            "rdfs:label": "Age reference type",
+            "rdfs:subClassOf": {"@id": "schema:Enumeration"},
+        },
+        {
+            "@id": "dandi:BirthReference",
+            "@type": "dandi:AgeReferenceType",
+            "rdfs:comment": "Age since Birth",
+            "rdfs:label": "BirthReference",
+        },
+    ]
+}
