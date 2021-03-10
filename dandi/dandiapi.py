@@ -438,6 +438,7 @@ class DandiAPIClient(RESTFullAPIClient):
             parts_out = []
             bytes_uploaded = 0
             storage = RESTFullAPIClient("http://nil.nil")
+            lgr.debug("Uploading %s in %d parts", filepath, len(resp.get("parts", [])))
             with storage.session():
                 with open(filepath, "rb") as fp:
                     for part in resp["parts"]:
@@ -454,6 +455,12 @@ class DandiAPIClient(RESTFullAPIClient):
                             part["size"],
                         )
                         r = storage.put(part["upload_url"], data=chunk, json_resp=False)
+                        lgr.debug(
+                            "%s: Part upload finished ETag=%s Content-Length=%s",
+                            asset_path,
+                            r.headers.get("ETag"),
+                            r.headers.get("Content-Length"),
+                        )
                         bytes_uploaded += len(chunk)
                         yield {
                             "status": "uploading",
@@ -476,7 +483,19 @@ class DandiAPIClient(RESTFullAPIClient):
                         "parts": parts_out,
                     },
                 )
-                storage.post(resp["complete_url"], data=resp["body"], json_resp=False)
+                lgr.debug(
+                    "%s: Announcing completion to %s",
+                    asset_path,
+                    resp["complete_url"],
+                )
+                r = storage.post(
+                    resp["complete_url"], data=resp["body"], json_resp=False
+                )
+                lgr.debug(
+                    "%s: Upload completed. Response content: %s",
+                    asset_path,
+                    r.content,
+                )
                 self.post(
                     "/uploads/validate/",
                     json={"sha256": filehash, "object_key": object_key},
