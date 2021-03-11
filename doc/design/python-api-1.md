@@ -77,7 +77,7 @@ Designs for an improved Python API
             * TO DO: Add an argument for controlling whether to create a directory under `target_dir` with the same name as the Dandiset ID?
 
     * Methods of the `DraftDandiset` class (a subclass of `RemoteDandiset` used only for mutable draft versions):
-        * `set_metadata(metadata: DandisetMeta) -> DraftDandiset` — returns the new, modified object
+        * `set_metadata(metadata: DandisetMeta) -> None` — modifies instance in-place
         * Methods for uploading an individual asset:
             * `upload_file(filepath: Union[str, Path], metadata: BareAssetMeta, show_progress=True, existing="refesh", validation="require") -> RemoteAsset`
             * `iter_upload_file(filepath: Union[str, Path], metadata: BareAssetMeta, existing="refesh", validation="require") -> Iterator[UploadProgressDict]`
@@ -105,7 +105,7 @@ Designs for an improved Python API
         * `version_id: str`
         * `get_metadata() -> RemoteAssetMeta`
         * `get_raw_metadata() -> dict` — useful when the metadata is invalid
-        * `set_metadata(metadata: BareAssetMeta) -> RemoteAsset` — returns the new, modified object
+        * `set_metadata(metadata: BareAssetMeta) -> None` — Assuming assets keep their identifier on metadata change, this modifies the instance in-place; otherwise, it should return the new, modified instance
         * `delete() -> None`
         * `download(filepath: str, show_progress=True, chunk_size=...) -> ???`
         * `iter_download(filepath: str, chunk_size=...) -> Iterator[DownloadProgressDict]`
