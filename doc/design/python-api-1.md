@@ -69,7 +69,7 @@ Designs for an improved Python API
         * `get_assets() -> Iterator[RemoteAsset]`
         * `get_assets_under_path(path: str) -> Iterator[RemoteAsset]`
         * `get_asset_by_path(path: str) -> Optional[RemoteAsset]`
-        * `get_asset_by_uuid(uuid: str) -> Optional[RemoteAsset]` — Returns `None` if the given asset does not exist
+        * `get_asset(identifier: str) -> Optional[RemoteAsset]` — Returns `None` if the given asset does not exist
         * `download(target_dir: Union[str, Path], paths: Optional[List[str]] = None, show_progress=True, existing="error", get_metadata: Optional[bool] = None) -> ???`
             * Use this to replace the `download()` function?
             * The elements of `paths` are interpreted the same way as the argument to `get_assets_under_path()`
@@ -95,7 +95,7 @@ Designs for an improved Python API
         * `size: int`
 
     * Attributes & methods of the `RemoteAsset` class (a subclass of `Asset`):
-        * `uuid: str`
+        * `identifier: str`
         * `path: str`
         * `sha256: str`
         * `size: int`
