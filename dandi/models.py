@@ -832,7 +832,7 @@ class BareAssetMeta(CommonModel):
     encodingFormat: Union[HttpUrl, str] = Field(
         title="File Encoding Format", nskey="schema"
     )
-    digest: Digest = Field(nskey="dandi")
+    digest: List[Digest] = Field(nskey="dandi", default_factory=list)
     dateModified: Optional[datetime] = Field(
         nskey="schema", title="Asset (file or metadata) modification date and time"
     )

@@ -126,10 +126,12 @@ def test_metadata2asset(schema_dir):
   ],
   "contentSize": 69105,
   "encodingFormat": "application/x-nwb",
-  "digest": {
-    "value": "783ad2afe455839e5ab2fa659861f58a423fd17f",
-    "cryptoType": "dandi:sha1"
-  },
+  "digest": [
+    {
+      "value": "783ad2afe455839e5ab2fa659861f58a423fd17f",
+      "cryptoType": "dandi:sha1"
+    }
+  ],
   "wasDerivedFrom": [
     {
       "identifier": "cell01",
@@ -231,10 +233,12 @@ def test_metadata2asset_simple1(schema_dir):
   "repository": "https://dandiarchive.org/",
   "contentSize": 69105,
   "encodingFormat": "application/x-nwb",
-  "digest": {
-    "value": "783ad2afe455839e5ab2fa659861f58a423fd17f",
-    "cryptoType": "dandi:sha1"
-  },
+  "digest": [
+    {
+      "value": "783ad2afe455839e5ab2fa659861f58a423fd17f",
+      "cryptoType": "dandi:sha1"
+    }
+  ],
   "wasDerivedFrom": [
     {
       "identifier": "tissue42",
