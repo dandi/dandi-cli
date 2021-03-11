@@ -10,7 +10,7 @@ Designs for an improved Python API
         * `get_assets() -> Iterator[Asset]`
         * `get_assets_under_path(path: str) -> Iterator[Asset]` — Returns all assets whose paths are either under the given folder or equal the given filepath
         * `get_asset_by_path(path: str) -> Optional[Asset]` — Finds the unique asset with the given exact path; returns `None` if no such asset
-        * `get_metadata() -> DandiMeta`
+        * `get_metadata() -> DandisetMeta`
    * `Asset`:
         * `path: str`
         * `sha256: str`
@@ -37,7 +37,7 @@ Designs for an improved Python API
         * Add a `get_draft_dandiset(dandiset_id: Union[str, RemoteDandiset]) -> DraftDandiset` method
         * Add a `get_dandisets() -> Iterator[RemoteDandiset]` method
             * These objects' `Version`s are the `most_recent_version`s
-        * Retype `create_dandiset` to `create_dandiset(metadata: DandiMeta) -> RemoteDandiset`
+        * Retype `create_dandiset` to `create_dandiset(metadata: DandisetMeta) -> RemoteDandiset`
         * Add a `create_local_dandiset(dirpath: Union[str, Path], name: str, description: str) -> LocalDandiset` method that, in addition to calling `create_dandiset()`, also creates a `dandiset.yaml` file in `dirpath`?
         * Add a `get_current_user() -> User` method
         * Add a `search_users(username: str) -> Iterator[User]` method
@@ -63,7 +63,7 @@ Designs for an improved Python API
         * `get_users() -> Iterator[User]`
         * `set_users(users: List[User]) -> None`
             * Should this method also accept strings giving the usernames directly?
-        * `get_metadata() -> DandiMeta`
+        * `get_metadata() -> DandisetMeta`
         * `get_raw_metadata() -> dict` — useful when the metadata is invalid
         * `publish() -> Version` (Should this be moved to `DraftDandiset`?)
         * `get_assets() -> Iterator[RemoteAsset]`
@@ -77,7 +77,7 @@ Designs for an improved Python API
             * TO DO: Add an argument for controlling whether to create a directory under `target_dir` with the same name as the Dandiset ID?
 
     * Methods of the `DraftDandiset` class (a subclass of `RemoteDandiset` used only for mutable draft versions):
-        * `set_metadata(metadata: DandiMeta) -> DraftDandiset` — returns the new, modified object
+        * `set_metadata(metadata: DandisetMeta) -> DraftDandiset` — returns the new, modified object
         * Methods for uploading an individual asset:
             * `upload_file(filepath: Union[str, Path], metadata: BareAssetMeta, show_progress=True, existing="refesh", validation="require") -> RemoteAsset`
             * `iter_upload_file(filepath: Union[str, Path], metadata: BareAssetMeta, existing="refesh", validation="require") -> Iterator[UploadProgressDict]`
@@ -146,11 +146,11 @@ Designs for an improved Python API
         * `done%: float` — percentage of bytes downloaded (Rename to "download"? or "pct"?)
         * `checksum: str` — `"differs"`, `"ok"`, or `"-"`
 
-    * **To discuss:** Should methods that accept `DandiMeta` and `(Bare|Remote)AssetMeta` instances also accept raw `dict`s?  If so, should any validation be done on these `dict`s?
+    * **To discuss:** Should methods that accept `DandisetMeta` and `(Bare|Remote)AssetMeta` instances also accept raw `dict`s?  If so, should any validation be done on these `dict`s?
 
 * `dandi.dandiset`: Expand the ability for `Dandiset` (renamed to `LocalDandiset` and made a subclass of the new `Dandiset` base class) to represent a Dandiset on disk:
     * `path: Path` (or `dandiset_path`?)
-    * `set_metadata(metadata: DandiMeta) -> None` ?
+    * `set_metadata(metadata: DandisetMeta) -> None` ?
     * `validate_metadata() -> None`
     * `validate_assets() -> ???` ?
     * Make `organize()` a method of this class?
