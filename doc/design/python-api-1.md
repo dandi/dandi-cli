@@ -70,10 +70,10 @@ Designs for an improved Python API
         * `get_assets_under_path(path: str) -> Iterator[RemoteAsset]`
         * `get_asset_by_path(path: str) -> Optional[RemoteAsset]`
         * `get_asset_by_uuid(uuid: str) -> Optional[RemoteAsset]` — Returns `None` if the given asset does not exist
-        * `download(target_dir: Union[str, Path], paths: Optional[List[str]] = None, show_progress=True, existing="error", get_metadata=True) -> ???`
+        * `download(target_dir: Union[str, Path], paths: Optional[List[str]] = None, show_progress=True, existing="error", get_metadata: Optional[bool] = None) -> ???`
             * Use this to replace the `download()` function?
             * The elements of `paths` are interpreted the same way as the argument to `get_assets_under_path()`
-            * `get_metadata` controls whether to create a `dandiset.yaml` file; should it default to `False` when `paths` is not `None`?
+            * `get_metadata` controls whether to create a `dandiset.yaml` file.  When `None`, it defaults to `True` if `paths` is `None` or empty, `False` otherwise.
             * TO DO: Add an argument for controlling whether to create a directory under `target_dir` with the same name as the Dandiset ID?
 
     * Methods of the `DraftDandiset` class (a subclass of `RemoteDandiset` used only for mutable draft versions):
