@@ -1,5 +1,5 @@
 from copy import deepcopy
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
 import json
 import sys
@@ -174,6 +174,13 @@ class DandiBaseModel(BaseModel):
                         and any(["$ref" in val for val in anyOf])
                     ):
                         value["items"]["type"] = "object"
+                # In pydantic 1.8+ all Literals are mapped on to enum
+                # This presently breaks the schema editor UI. Revert
+                # to const when generating the schema.
+                if prop == "schemaKey":
+                    if len(value["enum"]) == 1:
+                        value["const"] = value["enum"][0]
+                        del value["enum"]
 
 
 class PropertyValue(DandiBaseModel):
@@ -733,7 +740,7 @@ class CommonModel(DandiBaseModel):
         return json.loads(self.json(exclude_unset=True, exclude_none=True))
 
 
-class DandiMeta(CommonModel, Identifiable):
+class DandisetMeta(CommonModel, Identifiable):
     """A body of structured information describing a DANDI dataset."""
 
     @validator("contributor")
@@ -802,7 +809,7 @@ class DandiMeta(CommonModel, Identifiable):
     }
 
 
-class PublishedDandiMeta(DandiMeta):
+class PublishedDandisetMeta(DandisetMeta):
     publishedBy: HttpUrl = Field(
         description="The URL should contain the provenance of the publishing process.",
         readOnly=True,
@@ -828,6 +835,12 @@ class BareAssetMeta(CommonModel):
         title="File Encoding Format", nskey="schema"
     )
     digest: Digest = Field(nskey="dandi")
+    dateModified: Optional[datetime] = Field(
+        nskey="schema", title="Asset (file or metadata) modification date and time"
+    )
+    blobDateModified: Optional[datetime] = Field(
+        nskey="dandi", title="Asset file modification date and time"
+    )
 
     path: str = Field(None, nskey="dandi")
 

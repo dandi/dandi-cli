@@ -2,7 +2,7 @@ import os
 
 import click
 
-from .base import devel_option, map_to_click_exceptions
+from .base import devel_option, lgr, map_to_click_exceptions
 
 
 @click.command()
@@ -71,13 +71,9 @@ def validate(paths, schema=None):
 
 
 def display_errors(path, errors):
-    click.echo(
-        "{}: {}".format(
-            click.style(path, bold=True),
-            click.style("ok", fg="green")
-            if not errors
-            else click.style("{} error(s)".format(len(errors)), fg="red"),
-        )
-    )
-    for error in errors:
-        click.secho("  {}".format(error), fg="red")
+    if not errors:
+        lgr.info("%s: ok")
+    else:
+        lgr.error("%s: %d error(s)", path, len(errors))
+        for error in errors:
+            lgr.error("  %s", error)

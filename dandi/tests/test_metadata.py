@@ -13,7 +13,7 @@ from ..metadata import (
     validate_asset_json,
     validate_dandiset_json,
 )
-from ..models import BareAssetMeta, DandiMeta
+from ..models import BareAssetMeta, DandisetMeta
 
 
 @pytest.fixture(scope="module")
@@ -974,5 +974,5 @@ def test_dandimeta_migration(schema_dir):
   "repository": "https://dandiarchive.org/"
 }"""
     data_as_dict = json.loads(json_data)
-    assert data == DandiMeta(**data_as_dict)
+    assert data == DandisetMeta(**data_as_dict)
     validate_dandiset_json(data_as_dict, schema_dir)

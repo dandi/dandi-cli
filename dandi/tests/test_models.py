@@ -3,7 +3,7 @@ import pytest
 from ..models import (
     AccessType,
     AssetMeta,
-    DandiMeta,
+    DandisetMeta,
     DigestType,
     IdentifierType,
     LicenseType,
@@ -14,7 +14,7 @@ from ..models import (
 
 
 def test_dandiset():
-    assert DandiMeta.unvalidated()
+    assert DandisetMeta.unvalidated()
 
 
 def test_asset():
