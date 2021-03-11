@@ -72,7 +72,7 @@ def validate(paths, schema=None):
 
 def display_errors(path, errors):
     if not errors:
-        lgr.info("%s: ok")
+        lgr.info("%s: ok", path)
     else:
         lgr.error("%s: %d error(s)", path, len(errors))
         for error in errors:
