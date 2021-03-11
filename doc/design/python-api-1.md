@@ -13,11 +13,11 @@ Designs for an improved Python API
         * `get_metadata() -> DandisetMeta`
    * `Asset`:
         * `path: str`
-        * `sha256: str`
         * `size: int`
         * `created: datetime`
         * `modified: datetime`
         * `get_metadata() -> BareAssetMeta`
+        * `get_digest(method: str) -> str`
 
 * `dandi.dandiapi`:
     * Upon creating a new `RESTFullAPIClient` instance, a new session object should automatically be created and used for all of the client's requests; the `session()` method should thus be eliminated
@@ -97,13 +97,13 @@ Designs for an improved Python API
     * Attributes & methods of the `RemoteAsset` class (a subclass of `Asset`):
         * `identifier: str`
         * `path: str`
-        * `sha256: str`
         * `size: int`
         * `created: datetime`
         * `modified: datetime`
         * `dandiset_id: str`
         * `version_id: str`
         * `get_metadata() -> RemoteAssetMeta`
+        * `get_digest(method: str) -> str` — Queries the metadata
         * `get_raw_metadata() -> dict` — useful when the metadata is invalid
         * `set_metadata(metadata: BareAssetMeta) -> None` — Assuming assets keep their identifier on metadata change, this modifies the instance in-place; otherwise, it should return the new, modified instance
         * `delete() -> None`
@@ -169,7 +169,7 @@ Designs for an improved Python API
         - [something for disabling auto-registration of files on construction; `register_files=True`?]
 
     * `LocalDandiset` uses `LocalAsset`s, a subclass of the new `Asset` base class:
-        * `sha256: str` — lazy/cached property
+        * `get_digest(method: str) -> str` — cached
         * `local_path: Path` — the path of the asset on disk
 
 * Miscellaneous changes:
