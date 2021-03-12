@@ -872,7 +872,7 @@ def _new_upload(
     pyout_style = pyouts.get_style(hide_if_missing=False)
     pyout_style["upload"]["aggregate"] = upload_agg
 
-    rec_fields = ["path", "size", "errors", "pct", "status", "message"]
+    rec_fields = ["path", "size", "errors", "upload", "status", "message"]
     out = pyouts.LogSafeTabular(style=pyout_style, columns=rec_fields)
 
     with out, client.session():

@@ -464,7 +464,7 @@ class DandiAPIClient(RESTFullAPIClient):
                         bytes_uploaded += len(chunk)
                         yield {
                             "status": "uploading",
-                            "pct": 100 * bytes_uploaded / total_size,
+                            "upload": 100 * bytes_uploaded / total_size,
                             "current": bytes_uploaded,
                         }
                         parts_out.append(
