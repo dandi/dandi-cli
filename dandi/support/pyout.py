@@ -3,6 +3,7 @@
 from collections import Counter
 import datetime
 import logging
+import re
 import sys
 import time
 
@@ -55,6 +56,10 @@ def summary_dates(values):
 
 def counts(values):
     return ["{:d} {}".format(v, k) for k, v in Counter(values).items()]
+
+
+def counts_no_progress(values):
+    return counts(re.sub(r"\s+\(.+\)$", "", v) for v in values)
 
 
 def minmax(values, fmt="%s"):
@@ -166,7 +171,7 @@ def get_style(hide_if_missing=True):
         ),
         "status": dict(
             color=dict(lookup={"skipped": "yellow", "done": "green", "error": "red"}),
-            aggregate=counts,
+            aggregate=counts_no_progress,
         ),
         "message": dict(
             color=dict(
