@@ -187,3 +187,4 @@ Designs for an improved Python API
     * Rename the `download()` function to `download_url()`?
     * Add a `process_uploads(Iterable[Iterator[UploadProgressDict]], show_progress=True) -> List[RemoteAsset]` function that takes a collection of upload iterators and consumes them in parallel, using pyout if `show_progress` is true
     * Add a `process_downloads(Iterable[Iterator[DownloadProgressDict]], show_progress=True) -> ???` function that takes a collection of download iterators and consumes them in parallel, using pyout if `show_progress` is true
+    * Note to self: The `show_progress=False` versions of `process_{uploads,downloads}()` can be implemented using `concurrent.futures.ThreadPoolExecutor`, which is what pyout uses
