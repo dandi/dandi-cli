@@ -129,7 +129,7 @@ Designs for an improved Python API
         * `version_id: str` — always present
         * `path: str` — always present
         * `status: str`
-        * `upload: float` — percentage of file uploaded (rename to "pct"?)
+        * `pct: float` — percentage of file digested/uploaded
         * `current: int` — number of bytes uploaded
         * `message: str`
         * `size: int` — the total size of the file
@@ -142,8 +142,8 @@ Designs for an improved Python API
         * `status: str`
         * `message: str`
         * `size: int` — the total size of the file
-        * `done: int` — number of bytes downloaded (Rename to "current"?)
-        * `done%: float` — percentage of bytes downloaded (Rename to "download"? or "pct"?)
+        * `current: int` — number of bytes downloaded (formerly "done")
+        * `pct: float` — percentage of bytes downloaded (formerly "done%")
         * `checksum: str` — `"differs"`, `"ok"`, or `"-"`
 
     * **To discuss:** Should methods that accept `DandisetMeta` and `(Bare|Remote)AssetMeta` instances also accept raw `dict`s?  If so, should any validation be done on these `dict`s?
