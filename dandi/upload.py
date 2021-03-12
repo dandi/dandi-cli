@@ -607,7 +607,7 @@ def _new_upload(
 ):
     from .dandiapi import DandiAPIClient
     from .dandiset import APIDandiset
-    from .support.digests import get_digest
+    from .support.digests import get_progressive_digests
 
     client = DandiAPIClient(api_url)
     client.dandi_authenticate()
@@ -704,7 +704,10 @@ def _new_upload(
             #
             yield {"status": "digesting"}
             try:
-                sha256_digest = get_digest(path)
+                for status in get_progressive_digests(path, ["sha256"]):
+                    yield status
+                    if status["status"] == "digested":
+                        sha256_digest = status["digests"]["sha256"]
             except Exception as exc:
                 yield skip_file("failed to compute digests: %s" % str(exc))
                 return
@@ -869,7 +872,7 @@ def _new_upload(
     pyout_style = pyouts.get_style(hide_if_missing=False)
     pyout_style["upload"]["aggregate"] = upload_agg
 
-    rec_fields = ["path", "size", "errors", "upload", "status", "message"]
+    rec_fields = ["path", "size", "errors", "pct", "status", "message"]
     out = pyouts.LogSafeTabular(style=pyout_style, columns=rec_fields)
 
     with out, client.session():

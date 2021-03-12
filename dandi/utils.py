@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 from time import sleep
+from typing import Union
 
 import dateutil.parser
 import requests
@@ -48,6 +49,8 @@ USER_AGENT = "dandi/{} requests/{} {}/{}".format(
     platform.python_implementation(),
     platform.python_version(),
 )
+
+AnyPath = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
 
 
 def is_interactive():
