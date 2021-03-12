@@ -95,7 +95,6 @@ class Digester(object):
 class DigestProgress(TypedDict, total=False):
     status: str
     size: int
-    current: int
     pct: float
     digests: Dict[str, str]
 
@@ -135,7 +134,7 @@ def get_progressive_digests(
     except KeyError:
         lgr.debug("Digesting %s", path)
         digestions = [getattr(hashlib, d)() for d in digest_tuple]
-        size = os.path.getsize(path)
+        total_size = os.path.getsize(path)
         current = 0
         with open(path, "rb") as f:
             while True:
@@ -147,9 +146,8 @@ def get_progressive_digests(
                 current += len(block)
                 yield {
                     "status": "digesting",
-                    "size": size,
-                    "current": current,
-                    "pct": 100 * current / size,
+                    "size": current,
+                    "pct": 100 * current / total_size,
                 }
         digested = {n: d.hexdigest() for n, d in zip(digest_tuple, digestions)}
         # Calculate the key again just in case:

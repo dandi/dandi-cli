@@ -705,9 +705,9 @@ def _new_upload(
             yield {"status": "digesting"}
             try:
                 for status in get_progressive_digests(path, ["sha256"]):
-                    yield status
                     if status["status"] == "digested":
-                        sha256_digest = status["digests"]["sha256"]
+                        sha256_digest = status.pop("digests")["sha256"]
+                    yield status
             except Exception as exc:
                 yield skip_file("failed to compute digests: %s" % str(exc))
                 return
