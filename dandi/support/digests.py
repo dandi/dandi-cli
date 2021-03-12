@@ -34,7 +34,7 @@ lgr = logging.getLogger("dandi.support.digests")
 # once.
 SHARD_QTY = min(32, os.cpu_count() + 4)
 
-CACHE_DIR = os.path.join(appdirs.user_cache_dir("dandi", "dandi"), "digests")
+CACHE_DIR = os.path.join(appdirs.user_cache_dir("dandi-cli", "dandi"), "digests")
 
 DEFAULT_DIGESTS = ["md5", "sha1", "sha256", "sha512"]
 
