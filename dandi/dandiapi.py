@@ -403,15 +403,14 @@ class DandiAPIClient(RESTFullAPIClient):
         asset_path = asset_metadata["path"]
         filehash = get_digest(filepath)
         lgr.debug("Calculated sha256 digest of %s for %s", filehash, filepath)
-        if (
-            asset_metadata.get("digest") is not None
-            and asset_metadata.get("digest_type") == "SHA256"
-            and asset_metadata["digest"] != filehash
-        ):
-            raise RuntimeError(
-                f"{filepath}: File digest changed; was originally"
-                f" {asset_metadata['digest']} but is now {filehash}"
-            )
+        for digest in asset_metadata.get("digest", []):
+            if digest["cryptoType"] == "SHA256":
+                if digest["value"] != filehash:
+                    raise RuntimeError(
+                        f"{filepath}: File digest changed; was originally"
+                        f" {asset_metadata['digest']} but is now {filehash}"
+                    )
+                break
         try:
             self.post("/uploads/validate/", json={"sha256": filehash})
         except requests.HTTPError as e:
