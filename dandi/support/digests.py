@@ -94,7 +94,7 @@ class Digester(object):
 
 class DigestProgress(TypedDict, total=False):
     status: str
-    #size: int
+    # size: int
     digests: Dict[str, str]
 
 
@@ -146,7 +146,7 @@ def get_progressive_digests(
                 pct = 100 * current / total_size
                 yield {
                     "status": f"digesting ({pct:.2f}%)",
-                    #"size": current,
+                    # "size": current,
                 }
         digested = {n: d.hexdigest() for n, d in zip(digest_tuple, digestions)}
         # Calculate the key again just in case:
