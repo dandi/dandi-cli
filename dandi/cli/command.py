@@ -84,6 +84,7 @@ def main(ctx, log_level, pdb=False):
 
     e.g. dandi upload --help
     """
+    logging.basicConfig(format="%(asctime)-15s [%(levelname)8s] %(message)s")
     set_logger_level(get_logger(), log_level)
 
     # Ensure that certain log messages are only sent to the log file, not the
