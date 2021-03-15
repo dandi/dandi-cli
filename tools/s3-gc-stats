@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+
+# Assumptions made by this code:
+# - list_object_versions sorts all versions (including delete markers) by key
+#   (in ascending order) and last modified date (in descending order, sometimes
+#   with consecutive equal timestamps) and returns them in chunks of 1000 (by
+#   default), with each chunk divided into proper versions and delete markers.
+# - Objects that have been deleted will have a delete marker as their latest
+#   version and at least one proper version dated before that.
+
+__requires__ = ["boto3", "click >= 7.0"]
+
+from bisect import bisect
+from datetime import datetime
+import sys
+from typing import List, NamedTuple
+from urllib.parse import urlparse
+
+import boto3
+from botocore import UNSIGNED
+from botocore.client import Config
+import click
+
+
+class Version(NamedTuple):
+    bucket: str
+    key: str
+    version_id: str
+    size: int
+    last_modified: datetime
+
+    @classmethod
+    def from_data(cls, bucket, data):
+        return cls(
+            bucket=bucket,
+            key=data["Key"],
+            version_id=data["VersionId"],
+            size=data["Size"],
+            last_modified=data["LastModified"],
+        )
+
+    def __str__(self):
+        return f"s3://{self.bucket}/{self.key}?versionId={self.version_id} {self.size}"
+
+
+class BucketStats:
+    def __init__(self, bucket, prefix, list_files=False, stat="all"):
+        self.bucket: str = bucket
+        self.prefix: str = prefix
+        self.list_files: bool = list_files
+        self.stat: str = stat
+        #: Versions of the current key
+        self.versions: List[Version] = []
+        # Deleted keys, in ascending order:
+        self.deleted: List[str] = []
+        self.total_qty: int = 0
+        self.total_size: int = 0
+
+    def run(self):
+        # Use s3 anonymously/without credentials:
+        client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+        for page in client.get_paginator("list_object_versions").paginate(
+            Bucket=self.bucket, Prefix=self.prefix
+        ):
+            # TODO: Filter out keys that ends with slashes?
+            for dm in page.get("DeleteMarkers", []):
+                if dm["IsLatest"]:
+                    self.mark_deleted(dm["Key"])
+            for v in page["Versions"]:
+                self.add_version(v)
+        self.end_key()
+        print("TOTAL FILES:", self.total_qty)
+        print("TOTAL SIZE:", self.total_size)
+
+    def add_version(self, data):
+        v = Version.from_data(self.bucket, data)
+        if self.versions:
+            if self.versions[-1].key == v.key:
+                assert (
+                    self.versions[-1].last_modified >= v.last_modified
+                ), f"Versions for key {v.key!r} not in reverse chronological order"
+            else:
+                assert self.versions[-1].key < v.key, (
+                    f"Keys not in lexicographic order;"
+                    " {self.versions[-1].key!r} listed before {v.key!r}"
+                )
+                self.end_key()
+        self.versions.append(v)
+
+    def mark_deleted(self, key):
+        if self.deleted:
+            assert (
+                self.deleted[-1] < key
+            ), f"DeleteMarkers not in lexicographic order; {self.deleted[-1]} listed before {key}"
+        self.deleted.append(key)
+
+    def end_key(self):
+        if self.versions:
+            key = self.versions[0].key
+            if self.deleted:
+                i = bisect(self.deleted, key)
+                # Error/warn if i>1?
+                deleted = i > 0 and self.deleted[i - 1] == key
+                del self.deleted[:i]
+            else:
+                deleted = False
+            if deleted:
+                self.report_invisible(self.versions[0])
+            else:
+                self.report_visible(self.versions[0])
+                self.report_old(*self.versions[1:])
+            self.report_invisible(*self.versions[1:])
+            self.versions = []
+
+    def report_visible(self, *versions):
+        if self.stat in ("all", "visible"):
+            for v in versions:
+                if self.list_files:
+                    print(v)
+                self.total_qty += 1
+                self.total_size += v.size
+
+    def report_invisible(self, *versions):
+        if self.stat in ("all", "invisible"):
+            for v in versions:
+                if self.list_files:
+                    print(v)
+                self.total_qty += 1
+                self.total_size += v.size
+
+    def report_old(self, *versions):
+        if self.stat in ("all", "old"):
+            for v in versions:
+                if self.list_files:
+                    print(v)
+                self.total_qty += 1
+                self.total_size += v.size
+
+
+@click.command()
+@click.option(
+    "--stat", type=click.Choice(["all", "visible", "invisible", "old"]), default="all"
+)
+@click.option("--list", "list_files", is_flag=True)
+@click.option("--fail-if-any", is_flag=True)
+@click.argument("url")
+def main(stat, list_files, fail_if_any, url):
+    bucket, prefix = parse_s3_url(url)
+    stats = BucketStats(bucket, prefix, list_files=list_files, stat=stat)
+    stats.run()
+    if fail_if_any and stats.total_qty:
+        sys.exit(1)
+
+
+def parse_s3_url(url):
+    parts = urlparse(url, allow_fragments=False)
+    if parts.scheme != "s3":
+        raise ValueError(f"not an S3 URL: {url}")
+    return (parts.netloc, parts.path.lstrip("/"))
+
+
+if __name__ == "__main__":
+    main()
