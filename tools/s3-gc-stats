@@ -13,7 +13,7 @@ __requires__ = ["boto3", "click >= 7.0"]
 from bisect import bisect
 from datetime import datetime
 import sys
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Tuple
 from urllib.parse import urlparse
 
 import boto3
@@ -44,17 +44,28 @@ class Version(NamedTuple):
 
 
 class BucketStats:
-    def __init__(self, bucket, prefix, list_files=False, stat="all"):
+    def __init__(self, bucket, prefix, list_files=False, stat=("all",)):
         self.bucket: str = bucket
         self.prefix: str = prefix
         self.list_files: bool = list_files
-        self.stat: str = stat
+        self.stat: Tuple[str, ...] = stat
         #: Versions of the current key
         self.versions: List[Version] = []
         # Deleted keys, in ascending order:
         self.deleted: List[str] = []
-        self.total_qty: int = 0
-        self.total_size: int = 0
+        self.qtys = {
+            "all": 0,
+            "visible": 0,
+            "invisible": 0,
+            "old": 0,
+        }
+        self.sizes = {
+            "all": 0,
+            "visible": 0,
+            "invisible": 0,
+            "old": 0,
+        }
+        self.found_any = False
 
     def run(self):
         # Use s3 anonymously/without credentials:
@@ -69,8 +80,10 @@ class BucketStats:
             for v in page["Versions"]:
                 self.add_version(v)
         self.end_key()
-        print("TOTAL FILES:", self.total_qty)
-        print("TOTAL SIZE:", self.total_size)
+        for rtype in self.stat:
+            print(
+                f"{rtype.title()} files: {self.qtys[rtype]} / Size: {self.sizes[rtype]}"
+            )
 
     def add_version(self, data):
         v = Version.from_data(self.bucket, data)
@@ -81,8 +94,8 @@ class BucketStats:
                 ), f"Versions for key {v.key!r} not in reverse chronological order"
             else:
                 assert self.versions[-1].key < v.key, (
-                    f"Keys not in lexicographic order;"
-                    " {self.versions[-1].key!r} listed before {v.key!r}"
+                    "Keys not in lexicographic order;"
+                    f" {self.versions[-1].key!r} listed before {v.key!r}"
                 )
                 self.end_key()
         self.versions.append(v)
@@ -112,34 +125,32 @@ class BucketStats:
             self.report_invisible(*self.versions[1:])
             self.versions = []
 
+    def report(self, rtype, versions):
+        for v in versions:
+            if self.list_files and (rtype in self.stat or "all" in self.stat):
+                print(v)
+            self.qtys[rtype] += 1
+            self.sizes[rtype] += v.size
+            self.qtys["all"] += 1
+            self.sizes["all"] += v.size
+        self.found_any = True
+
     def report_visible(self, *versions):
-        if self.stat in ("all", "visible"):
-            for v in versions:
-                if self.list_files:
-                    print(v)
-                self.total_qty += 1
-                self.total_size += v.size
+        self.report("visible", versions)
 
     def report_invisible(self, *versions):
-        if self.stat in ("all", "invisible"):
-            for v in versions:
-                if self.list_files:
-                    print(v)
-                self.total_qty += 1
-                self.total_size += v.size
+        self.report("invisible", versions)
 
     def report_old(self, *versions):
-        if self.stat in ("all", "old"):
-            for v in versions:
-                if self.list_files:
-                    print(v)
-                self.total_qty += 1
-                self.total_size += v.size
+        self.report("old", versions)
 
 
 @click.command()
 @click.option(
-    "--stat", type=click.Choice(["all", "visible", "invisible", "old"]), default="all"
+    "--stat",
+    type=click.Choice(["all", "visible", "invisible", "old"]),
+    multiple=True,
+    default=["all"],
 )
 @click.option("--list", "list_files", is_flag=True)
 @click.option("--fail-if-any", is_flag=True)
@@ -148,7 +159,7 @@ def main(stat, list_files, fail_if_any, url):
     bucket, prefix = parse_s3_url(url)
     stats = BucketStats(bucket, prefix, list_files=list_files, stat=stat)
     stats.run()
-    if fail_if_any and stats.total_qty:
+    if fail_if_any and stats.found_any:
         sys.exit(1)
 
 
