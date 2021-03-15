@@ -279,10 +279,12 @@ extract_wasGeneratedBy = extract_model_list(
 
 def extract_digest(metadata):
     if "digest" in metadata:
-        return models.Digest(
-            value=metadata["digest"],
-            cryptoType=models.DigestType[metadata["digest_type"]],
-        )
+        return [
+            models.Digest(
+                value=metadata["digest"],
+                cryptoType=models.DigestType[metadata["digest_type"]],
+            )
+        ]
     else:
         return ...
 
@@ -340,12 +342,14 @@ def nwb2asset(
 def get_default_metadata(path, digest=None, digest_type=None) -> models.BareAssetMeta:
     start_time = datetime.now().astimezone()
     if digest is not None:
-        digest_model = models.Digest(
-            value=digest,
-            cryptoType=models.DigestType[digest_type],
-        )
+        digest_model = [
+            models.Digest(
+                value=digest,
+                cryptoType=models.DigestType[digest_type],
+            )
+        ]
     else:
-        digest_model = None
+        digest_model = []
     dateModified = get_utcnow_datetime()
     blobDateModified = ensure_datetime(os.stat(path).st_mtime)
     if blobDateModified > dateModified:
