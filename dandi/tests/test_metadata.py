@@ -105,7 +105,7 @@ def test_metadata2asset(schema_dir):
     # data.json(exclude_unset=True, exclude_none=True, indent=2)
     json_data = """{
   "identifier": "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be",
-  "schemaVersion": "1.0.0-rc1",
+  "schemaVersion": "0.1.0",
   "keywords": [
     "test",
     "sample",
@@ -219,7 +219,7 @@ def test_metadata2asset_simple1(schema_dir):
     )
     # data.json(exclude_unset=True, exclude_none=True, indent=2)
     json_data = """{
-  "schemaVersion": "1.0.0-rc1",
+  "schemaVersion": "0.1.0",
   "identifier": "bfc23fb6192b41c083a7257e09a3702b",
   "keywords": [
     "keyword1",
@@ -973,7 +973,7 @@ def test_dandimeta_migration(schema_dir):
     "dandi:CCBY40"
   ],
   "name": "A NWB-based dataset and processing pipeline of human single-neuron activity during a declarative memory task",
-  "schemaVersion": "1.0.0-rc1",
+  "schemaVersion": "0.1.0",
   "repository": "https://dandiarchive.org/"
 }"""
     data_as_dict = json.loads(json_data)

@@ -154,3 +154,6 @@ MAX_CHUNK_SIZE = int(os.environ.get("DANDI_MAX_CHUNK_SIZE", 1024 * 1024 * 8))  #
 # just a structure, better than dict for RFing etc
 class routes(object):
     dandiset_draft = "{dandi_instance.redirector}/dandiset/{dandiset[identifier]}/draft"
+
+
+DANDI_SCHEMA_VERSION = "0.1.0"

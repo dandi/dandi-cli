@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Type, Union
 from pydantic import UUID4, BaseModel, ByteSize, EmailStr, Field, HttpUrl, validator
 from ruamel import yaml
 
+from .consts import DANDI_SCHEMA_VERSION
 from .model_types import (
     AccessTypeDict,
     DigestTypeDict,
@@ -669,7 +670,9 @@ class Identifiable(DandiBaseModel):
 
 
 class CommonModel(DandiBaseModel):
-    schemaVersion: str = Field(default="1.0.0-rc1", readOnly=True, nskey="schema")
+    schemaVersion: str = Field(
+        default=DANDI_SCHEMA_VERSION, readOnly=True, nskey="schema"
+    )
     name: Optional[str] = Field(
         None,
         title="Title",
@@ -895,4 +898,4 @@ class PublishedAssetMeta(AssetMeta):
 
 
 def get_schema_version():
-    return CommonModel.__fields__["schemaVersion"].default
+    return DANDI_SCHEMA_VERSION
