@@ -8,7 +8,7 @@
 # - Objects that have been deleted will have a delete marker as their latest
 #   version and at least one proper version dated before that.
 
-__requires__ = ["boto3", "click >= 7.0"]
+__requires__ = ["boto3", "click >= 7.0", "humanize"]
 
 from bisect import bisect
 from datetime import datetime
@@ -20,6 +20,7 @@ import boto3
 from botocore import UNSIGNED
 from botocore.client import Config
 import click
+from humanize import naturalsize
 
 
 class Version(NamedTuple):
@@ -82,7 +83,9 @@ class BucketStats:
         self.end_key()
         for rtype in self.stat:
             print(
-                f"{rtype.title()} files: {self.qtys[rtype]} / Size: {self.sizes[rtype]}"
+                f"{rtype.title()} files: {self.qtys[rtype]}",
+                "/",
+                f"Size: {self.sizes[rtype]} ({naturalsize(self.sizes[rtype])})",
             )
 
     def add_version(self, data):
