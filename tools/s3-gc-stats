@@ -118,31 +118,21 @@ class BucketStats:
             else:
                 deleted = False
             if deleted:
-                self.report_invisible(self.versions[0])
+                self.report({"all", "invisible"}, self.versions)
             else:
-                self.report_visible(self.versions[0])
-                self.report_old(*self.versions[1:])
-            self.report_invisible(*self.versions[1:])
+                self.report({"all", "visible"}, self.versions[:1])
+                self.report({"all", "old", "invisible"}, self.versions[1:])
             self.versions = []
 
-    def report(self, rtype, versions):
-        for v in versions:
-            if self.list_files and (rtype in self.stat or "all" in self.stat):
-                print(v)
-            self.qtys[rtype] += 1
-            self.sizes[rtype] += v.size
-            self.qtys["all"] += 1
-            self.sizes["all"] += v.size
-        self.found_any = True
-
-    def report_visible(self, *versions):
-        self.report("visible", versions)
-
-    def report_invisible(self, *versions):
-        self.report("invisible", versions)
-
-    def report_old(self, *versions):
-        self.report("old", versions)
+    def report(self, rtypes, versions):
+        if rtypes.intersection(self.stat):
+            for v in versions:
+                self.found_any = True
+                if self.list_files:
+                    print(v)
+                for t in rtypes:
+                    self.qtys[t] += 1
+                    self.sizes[t] += v.size
 
 
 @click.command()
