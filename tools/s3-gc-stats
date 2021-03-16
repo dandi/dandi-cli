@@ -12,6 +12,7 @@ __requires__ = ["boto3", "click >= 7.0", "humanize"]
 
 from bisect import bisect
 from datetime import datetime
+import re
 import sys
 from typing import List, NamedTuple, Tuple
 from urllib.parse import urlparse
@@ -40,16 +41,25 @@ class Version(NamedTuple):
             last_modified=data["LastModified"],
         )
 
+    @property
+    def key_url(self):
+        return f"s3://{self.bucket}/{self.key}"
+
+    @property
+    def url(self):
+        return f"s3://{self.bucket}/{self.key}?versionId={self.version_id}"
+
     def __str__(self):
-        return f"s3://{self.bucket}/{self.key}?versionId={self.version_id} {self.size}"
+        return f"{self.url} {self.size}"
 
 
 class BucketStats:
-    def __init__(self, bucket, prefix, list_files=False, stat=("all",)):
+    def __init__(self, bucket, prefix, list_files=False, stat=("all",), exclude=()):
         self.bucket: str = bucket
         self.prefix: str = prefix
         self.list_files: bool = list_files
         self.stat: Tuple[str, ...] = stat
+        self.exclude: Tuple[str, ...] = exclude
         #: Versions of the current key
         self.versions: List[Version] = []
         # Deleted keys, in ascending order:
@@ -128,6 +138,10 @@ class BucketStats:
             self.versions = []
 
     def report(self, rtypes, versions):
+        if not versions:
+            return
+        if any(re.search(rgx, versions[0].key_url) for rgx in self.exclude):
+            return
         if rtypes.intersection(self.stat):
             for v in versions:
                 self.found_any = True
@@ -139,18 +153,21 @@ class BucketStats:
 
 
 @click.command()
+@click.option("--exclude", metavar="URLREGEX", multiple=True)
+@click.option("--fail-if-any", is_flag=True)
+@click.option("--list", "list_files", is_flag=True)
 @click.option(
     "--stat",
     type=click.Choice(["all", "visible", "invisible", "old"]),
     multiple=True,
     default=["all"],
 )
-@click.option("--list", "list_files", is_flag=True)
-@click.option("--fail-if-any", is_flag=True)
 @click.argument("url")
-def main(stat, list_files, fail_if_any, url):
+def main(stat, list_files, fail_if_any, url, exclude):
     bucket, prefix = parse_s3_url(url)
-    stats = BucketStats(bucket, prefix, list_files=list_files, stat=stat)
+    stats = BucketStats(
+        bucket, prefix, list_files=list_files, stat=stat, exclude=exclude
+    )
     stats.run()
     if fail_if_any and stats.found_any:
         sys.exit(1)
