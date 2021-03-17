@@ -18,8 +18,8 @@ def tb(bytes_size: int) -> int:
 
 
 class DandiETag:
-    REGEX = r"[0-9a-f]{32}-\d{1,4}"
-    MAX_STR_LENGTH = 37
+    REGEX = r"[0-9a-f]{32}-\d{1,5}"
+    MAX_STR_LENGTH = 38
 
     # S3 multipart limits: https://docs.aws.amazon.com/AmazonS3/latest/dev/qfacts.html
     # 10k is the maximum number of allowed parts allowed by S3
