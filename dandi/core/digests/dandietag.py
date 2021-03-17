@@ -3,7 +3,7 @@ import math
 import os
 
 # from https://github.com/girder/django-s3-file-field/blob/master/s3_file_field/_multipart.py
-from typing import Iterator, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 
 def mb(bytes_size: int) -> int:
@@ -31,7 +31,7 @@ class DANDIEtag(object):
     @property
     def part_sizes(self) -> Tuple[int, ...]:
         if self._part_sizes is None:
-            self._part_sizes = tuple(self.gen_part_sizes(self._file_size))
+            self._part_sizes = self.gen_part_sizes(self._file_size)
         return self._part_sizes
 
     def __str__(self) -> str:
@@ -47,7 +47,7 @@ class DANDIEtag(object):
     # but removing yielding sequential index. Could be wrapped
     # with enumerate where needed
     @classmethod
-    def gen_part_sizes(cls, file_size: int) -> Iterator[int]:
+    def gen_part_sizes(cls, file_size: int) -> Tuple[int, ...]:
         """Generator to yield sequential part sizes given a file size"""
         part_size = mb(64)  # cls.part_size
 
@@ -71,17 +71,11 @@ class DANDIEtag(object):
         if part_size > max_part_size:
             part_size = max_part_size
 
-        remaining_file_size = file_size
-        while remaining_file_size > 0:
-            current_part_size = (
-                part_size
-                if remaining_file_size - part_size > 0
-                else remaining_file_size
-            )
-
-            yield current_part_size
-
-            remaining_file_size -= part_size
+        d, m = divmod(file_size, part_size)
+        sizes = [part_size] * d
+        if m:
+            sizes.append(m)
+        return tuple(sizes)
 
     @classmethod
     def from_file(cls, path: str) -> "DANDIEtag":
@@ -103,6 +97,6 @@ class DANDIEtag(object):
 if __name__ == "__main__":
     import sys
 
-    print(f"Get {len(list(DANDIEtag.gen_part_sizes(tb(5))))} parts for 5TB file")
+    print(f"Get {len(DANDIEtag.gen_part_sizes(tb(5)))} parts for 5TB file")
     for p in sys.argv[1:]:
         print(f"{p}: {DANDIEtag.from_file(p)}")
