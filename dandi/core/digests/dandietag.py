@@ -1,8 +1,7 @@
+# from https://github.com/girder/django-s3-file-field/blob/master/s3_file_field/_multipart.py
 from hashlib import md5
 import math
 import os
-
-# from https://github.com/girder/django-s3-file-field/blob/master/s3_file_field/_multipart.py
 from typing import List, Optional, Tuple
 
 
@@ -19,9 +18,16 @@ def tb(bytes_size: int) -> int:
 
 
 class DandiETag:
-
     REGEX = r"[0-9a-f]{32}-\d{1,4}"
-    MAX_LENGTH = 37
+    MAX_STR_LENGTH = 37
+
+    # S3 multipart limits: https://docs.aws.amazon.com/AmazonS3/latest/dev/qfacts.html
+    # 10k is the maximum number of allowed parts allowed by S3
+    MAX_PARTS = 10_000
+    # 5MB is the minimum part size allowed by S3
+    MIN_PART_SIZE = mb(5)
+    # 5GB is the maximum part size allowed by S3
+    MAX_PART_SIZE = gb(5)
 
     def __init__(self, file_size: int):
         self._file_size: int = file_size
@@ -48,28 +54,20 @@ class DandiETag:
     # with enumerate where needed
     @classmethod
     def gen_part_sizes(cls, file_size: int) -> Tuple[int, ...]:
-        """Generator to yield sequential part sizes given a file size"""
-        part_size = mb(64)  # cls.part_size
-
-        # S3 multipart limits: https://docs.aws.amazon.com/AmazonS3/latest/dev/qfacts.html
+        """Method to calculate sequential part sizes given a file size"""
+        part_size = mb(64)
 
         if file_size > tb(5):
             raise ValueError("File is larger than the S3 maximum object size.")
 
-        # 10k is the maximum number of allowed parts allowed by S3
-        max_parts = 10_000
-        if math.ceil(file_size / part_size) >= max_parts:
-            part_size = math.ceil(file_size / max_parts)
+        if math.ceil(file_size / part_size) >= cls.MAX_PARTS:
+            part_size = math.ceil(file_size / cls.MAX_PARTS)
 
-        # 5MB is the minimum part size allowed by S3
-        min_part_size = mb(5)
-        if part_size < min_part_size:
-            part_size = min_part_size
+        if part_size < cls.MIN_PART_SIZE:
+            part_size = cls.MIN_PART_SIZE
 
-        # 5GB is the maximum part size allowed by S3
-        max_part_size = gb(5)
-        if part_size > max_part_size:
-            part_size = max_part_size
+        if part_size > cls.MAX_PART_SIZE:
+            part_size = cls.MAX_PART_SIZE
 
         d, m = divmod(file_size, part_size)
         sizes = [part_size] * d
