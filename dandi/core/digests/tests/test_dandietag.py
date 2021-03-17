@@ -1,6 +1,6 @@
 import pytest
 
-from ..dandietag import DANDIEtag, mb, tb
+from ..dandietag import DandiETag, mb, tb
 
 
 @pytest.mark.parametrize(
@@ -14,7 +14,7 @@ from ..dandietag import DANDIEtag, mb, tb
     ],
 )
 def test_gen_part_sizes(file_size, initial_part_size, final_part_size, part_count):
-    sizes = DANDIEtag.gen_part_sizes(file_size)
+    sizes = DandiETag.gen_part_sizes(file_size)
     assert len(sizes) == part_count
     assert all(sz == initial_part_size for sz in sizes[:-1])
     assert sizes[-1] == final_part_size

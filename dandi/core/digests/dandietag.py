@@ -18,7 +18,7 @@ def tb(bytes_size: int) -> int:
     return bytes_size * 2 ** 40
 
 
-class DANDIEtag:
+class DandiETag:
 
     REGEX = r"[0-9a-f]{32}-\d{1,4}"
     MAX_LENGTH = 37
@@ -78,7 +78,7 @@ class DANDIEtag:
         return tuple(sizes)
 
     @classmethod
-    def from_file(cls, path: str) -> "DANDIEtag":
+    def from_file(cls, path: str) -> "DandiETag":
         etag = cls(file_size=os.path.getsize(path))
         with open(path, "rb") as f:
             for part in etag.part_sizes:
@@ -98,6 +98,6 @@ class DANDIEtag:
 if __name__ == "__main__":
     import sys
 
-    print(f"Get {len(DANDIEtag.gen_part_sizes(tb(5)))} parts for 5TB file")
+    print(f"Get {len(DandiETag.gen_part_sizes(tb(5)))} parts for 5TB file")
     for p in sys.argv[1:]:
-        print(f"{p}: {DANDIEtag.from_file(p)}")
+        print(f"{p}: {DandiETag.from_file(p)}")
