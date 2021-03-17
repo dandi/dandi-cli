@@ -3,7 +3,7 @@ import math
 import os
 
 # from https://github.com/girder/django-s3-file-field/blob/master/s3_file_field/_multipart.py
-from typing import Iterator, List, Tuple
+from typing import Iterator, List, Optional, Tuple
 
 
 def mb(bytes_size: int) -> int:
@@ -25,16 +25,16 @@ class DANDIEtag(object):
 
     def __init__(self, file_size: int):
         self._file_size: int = file_size
-        self._part_sizes: Tuple[int] = None
+        self._part_sizes: Optional[Tuple[int, ...]] = None
         self._md5_digests: List[bytes] = []
 
     @property
-    def part_sizes(self) -> Tuple[int]:
+    def part_sizes(self) -> Tuple[int, ...]:
         if self._part_sizes is None:
             self._part_sizes = tuple(self.gen_part_sizes(self._file_size))
         return self._part_sizes
 
-    def __str__(self):
+    def __str__(self) -> str:
         if len(self._md5_digests) != len(self._part_sizes):
             # TODO: too harsh for __str__? just say "incomplete"?
             raise RuntimeError(
@@ -84,7 +84,7 @@ class DANDIEtag(object):
             remaining_file_size -= part_size
 
     @classmethod
-    def from_file(cls, path: str):
+    def from_file(cls, path: str) -> "DANDIEtag":
         etag = cls(file_size=os.path.getsize(path))
         with open(path, "rb") as f:
             for part in etag.part_sizes:
