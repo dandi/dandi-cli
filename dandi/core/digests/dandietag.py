@@ -18,7 +18,7 @@ def tb(bytes_size: int) -> int:
     return bytes_size * 2 ** 40
 
 
-class DANDIEtag(object):
+class DANDIEtag:
 
     REGEX = r"[0-9a-f]{32}-\d{1,4}"
     MAX_LENGTH = 37
@@ -38,7 +38,7 @@ class DANDIEtag(object):
         if len(self._md5_digests) != len(self._part_sizes):
             # TODO: too harsh for __str__? just say "incomplete"?
             raise RuntimeError(
-                f"Collected {len(self._md5_digests)} out from {len(self._part_sizes)}"
+                f"Collected {len(self._md5_digests)} out of {len(self._part_sizes)}"
             )
         parts_digest = md5(b"".join(self._md5_digests)).hexdigest()
         return f"{parts_digest}-{len(self._md5_digests)}"
@@ -89,7 +89,8 @@ class DANDIEtag(object):
         """Update etag with the new block of data"""
         if len(self._md5_digests) == self.part_sizes:
             raise RuntimeError(
-                "Trying to update {self} with a new block having already processed {len(self._md5_digests)"
+                f"Trying to update {self} with a new block having already"
+                f" processed {len(self._md5_digests)}"
             )
         self._md5_digests.append(md5(block).digest())
 
