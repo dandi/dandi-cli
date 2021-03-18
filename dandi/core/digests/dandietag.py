@@ -108,7 +108,7 @@ class DandiETag:
     def get_parts(self) -> Iterator[Part]:
         return iter(self._part_gen)
 
-    def next_part(self) -> Optional[Part]:
+    def get_next_part(self) -> Optional[Part]:
         if self._next_index < self.part_qty:
             return self._part_gen[self._next_index + 1]
         else:
