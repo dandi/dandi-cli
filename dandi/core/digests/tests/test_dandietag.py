@@ -65,7 +65,7 @@ def test_add_next_digest():
     assert etagger.part_qty == 10
     for i, d in enumerate(PART_DIGESTS):
         assert not etagger.complete
-        assert etagger.next_part().number == i + 1
+        assert etagger.get_next_part().number == i + 1
         etagger.add_next_digest(d)
     assert etagger.complete
     assert etagger.get_next_part() is None
