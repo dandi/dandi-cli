@@ -165,11 +165,3 @@ class DandiETag:
                 f" processed all {self.part_qty} parts"
             )
         self.add_next_digest(md5(block).digest())
-
-
-if __name__ == "__main__":
-    import sys
-
-    print(f"Get {len(DandiETag.gen_part_sizes(tb(5)))} parts for 5TB file")
-    for p in sys.argv[1:]:
-        print(f"{p}: {DandiETag.from_file(p).as_str()}")
