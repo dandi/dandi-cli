@@ -40,11 +40,11 @@ class DandiETag:
             self._part_sizes = self.gen_part_sizes(self._file_size)
         return self._part_sizes
 
-    def __str__(self) -> str:
+    def as_str(self) -> str:
         if len(self._md5_digests) != len(self._part_sizes):
-            # TODO: too harsh for __str__? just say "incomplete"?
-            raise RuntimeError(
-                f"Collected {len(self._md5_digests)} out of {len(self._part_sizes)}"
+            raise ValueError(
+                f"Cannot compute ETag with only {len(self._md5_digests)} out of"
+                f" {len(self._part_sizes)} parts collected"
             )
         parts_digest = md5(b"".join(self._md5_digests)).hexdigest()
         return f"{parts_digest}-{len(self._md5_digests)}"
@@ -89,8 +89,8 @@ class DandiETag:
         """Update etag with the new block of data"""
         if len(self._md5_digests) == self.part_sizes:
             raise RuntimeError(
-                f"Trying to update {self} with a new block having already"
-                f" processed {len(self._md5_digests)}"
+                "Trying to update DandiETag with a new block having already"
+                f" processed all {len(self._md5_digests)} parts"
             )
         self._md5_digests.append(md5(block).digest())
 
@@ -100,4 +100,4 @@ if __name__ == "__main__":
 
     print(f"Get {len(DandiETag.gen_part_sizes(tb(5)))} parts for 5TB file")
     for p in sys.argv[1:]:
-        print(f"{p}: {DandiETag.from_file(p)}")
+        print(f"{p}: {DandiETag.from_file(p).as_str()}")
