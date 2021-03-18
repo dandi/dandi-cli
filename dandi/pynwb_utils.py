@@ -229,7 +229,7 @@ def _get_pynwb_metadata(path):
 
 
 @validate_cache.memoize_path
-def validate(path):
+def validate(path, devel_debug=False):
     """Run validation on a file and return errors
 
     In case of an exception being thrown, an error message added to the
@@ -244,6 +244,8 @@ def validate(path):
         with pynwb.NWBHDF5IO(path, "r", load_namespaces=True) as reader:
             errors = pynwb.validate(reader)
     except Exception as exc:
+        if devel_debug:
+            raise
         errors = [f"Failed to validate {path}: {exc}"]
 
     # To overcome
