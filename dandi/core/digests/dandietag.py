@@ -1,4 +1,7 @@
-# from https://github.com/girder/django-s3-file-field/blob/master/s3_file_field/_multipart.py
+# Derived from <https://github.com/girder/django-s3-file-field/blob/master/
+# s3_file_field/_multipart.py>, copyright Kitware, Inc. <kitware@kitware.com>
+# under the Apache 2.0 license
+
 from dataclasses import dataclass
 from hashlib import md5
 import math
@@ -38,7 +41,6 @@ class PartGenerator:
     # 5GB is the maximum part size allowed by S3
     MAX_PART_SIZE = gb(5)
 
-    # from https://github.com/girder/django-s3-file-field/blob/master/s3_file_field/_multipart.py
     @classmethod
     def for_file_size(cls, file_size: int) -> "PartGenerator":
         """Method to calculate sequential part sizes given a file size"""
