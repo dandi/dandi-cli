@@ -1,8 +1,9 @@
 # from https://github.com/girder/django-s3-file-field/blob/master/s3_file_field/_multipart.py
+from dataclasses import dataclass
 from hashlib import md5
 import math
 import os
-from typing import List, Optional, Tuple, Union
+from typing import Iterator, List, NamedTuple, Optional, Union
 
 
 def mb(bytes_size: int) -> int:
@@ -17,9 +18,17 @@ def tb(bytes_size: int) -> int:
     return bytes_size * 2 ** 40
 
 
-class DandiETag:
-    REGEX = r"[0-9a-f]{32}-\d{1,5}"
-    MAX_STR_LENGTH = 38
+class Part(NamedTuple):
+    number: int
+    offset: int
+    size: int
+
+
+@dataclass
+class PartGenerator:
+    part_qty: int
+    initial_part_size: int
+    final_part_size: int
 
     # S3 multipart limits: https://docs.aws.amazon.com/AmazonS3/latest/dev/qfacts.html
     # 10k is the maximum number of allowed parts allowed by S3
@@ -29,31 +38,9 @@ class DandiETag:
     # 5GB is the maximum part size allowed by S3
     MAX_PART_SIZE = gb(5)
 
-    def __init__(self, file_size: int):
-        self._file_size: int = file_size
-        self._part_sizes: Optional[Tuple[int, ...]] = None
-        self._md5_digests: List[bytes] = []
-
-    @property
-    def part_sizes(self) -> Tuple[int, ...]:
-        if self._part_sizes is None:
-            self._part_sizes = self.gen_part_sizes(self._file_size)
-        return self._part_sizes
-
-    def as_str(self) -> str:
-        if len(self._md5_digests) != len(self._part_sizes):
-            raise ValueError(
-                f"Cannot compute ETag with only {len(self._md5_digests)} out of"
-                f" {len(self._part_sizes)} parts collected"
-            )
-        parts_digest = md5(b"".join(self._md5_digests)).hexdigest()
-        return f"{parts_digest}-{len(self._md5_digests)}"
-
     # from https://github.com/girder/django-s3-file-field/blob/master/s3_file_field/_multipart.py
-    # but removing yielding sequential index. Could be wrapped
-    # with enumerate where needed
     @classmethod
-    def gen_part_sizes(cls, file_size: int) -> Tuple[int, ...]:
+    def for_file_size(cls, file_size: int) -> "PartGenerator":
         """Method to calculate sequential part sizes given a file size"""
         part_size = mb(64)
 
@@ -69,11 +56,73 @@ class DandiETag:
         if part_size > cls.MAX_PART_SIZE:
             part_size = cls.MAX_PART_SIZE
 
-        d, m = divmod(file_size, part_size)
-        sizes = [part_size] * d
-        if m:
-            sizes.append(m)
-        return tuple(sizes)
+        part_qty, final_part_size = divmod(file_size, part_size)
+        if final_part_size == 0:
+            final_part_size = part_size
+        else:
+            part_qty += 1
+        if part_qty == 1:
+            part_size = final_part_size
+        return cls(part_qty, part_size, final_part_size)
+
+    def __len__(self) -> int:
+        return self.part_qty
+
+    def __getitem__(self, index: int) -> Part:
+        if 1 <= index < self.part_qty:
+            return Part(
+                index, self.initial_part_size * (index - 1), self.initial_part_size
+            )
+        elif index == self.part_qty:
+            return Part(
+                index, self.initial_part_size * (index - 1), self.final_part_size
+            )
+        else:
+            raise IndexError(index)
+
+    def __iter__(self) -> Iterator[Part]:
+        offset = 0
+        for number in range(1, self.part_qty):
+            yield Part(number, offset, self.initial_part_size)
+            offset += self.initial_part_size
+        yield Part(self.part_qty, offset, self.final_part_size)
+
+
+class DandiETag:
+    REGEX = r"[0-9a-f]{32}-\d{1,5}"
+    MAX_STR_LENGTH = 38
+
+    def __init__(self, file_size: int):
+        self._part_gen: PartGenerator = PartGenerator.for_file_size(file_size)
+        self._md5_digests: List[Optional[bytes]] = [None] * len(self._part_gen)
+        self._next_index: int = 0
+
+    @property
+    def part_qty(self) -> int:
+        return len(self._part_gen)
+
+    @property
+    def complete(self) -> bool:
+        return self._next_index == self.part_qty
+
+    def get_parts(self) -> Iterator[Part]:
+        return iter(self._part_gen)
+
+    def next_part(self) -> Optional[Part]:
+        if self._next_index < self.part_qty:
+            return self._part_gen[self._next_index + 1]
+        else:
+            return None
+
+    def as_str(self) -> str:
+        if not self.complete:
+            raise ValueError("Not all part hashes submitted")
+        blob = b""
+        for d in self._md5_digests:
+            assert d is not None
+            blob += d
+        parts_digest = md5(blob).hexdigest()
+        return f"{parts_digest}-{len(self._md5_digests)}"
 
     @classmethod
     def from_file(
@@ -81,18 +130,41 @@ class DandiETag:
     ) -> "DandiETag":
         etag = cls(file_size=os.path.getsize(path))
         with open(path, "rb") as f:
-            for part in etag.part_sizes:
-                etag.update(f.read(part))
+            for part in etag.get_parts():
+                etag.update(f.read(part.size))
         return etag
+
+    def add_digest(self, p: Part, part_digest: bytes) -> None:
+        i = p.number - 1
+        if self._md5_digests[i] is not None:
+            raise RuntimeError(f"Digest for part {p.number} submitted more than once")
+        self._md5_digests[i] = part_digest
+        self._update_index()
+
+    def add_next_digest(self, part_digest: bytes) -> None:
+        if self.complete:
+            raise RuntimeError(
+                "Trying to update DandiETag with a new digest having already"
+                f" processed all {self.part_qty} parts"
+            )
+        self._md5_digests[self._next_index] = part_digest
+        self._update_index()
+
+    def _update_index(self) -> None:
+        while (
+            self._next_index < self.part_qty
+            and self._md5_digests[self._next_index] is not None
+        ):
+            self._next_index += 1
 
     def update(self, block):
         """Update etag with the new block of data"""
-        if len(self._md5_digests) == self.part_sizes:
+        if self.complete:
             raise RuntimeError(
                 "Trying to update DandiETag with a new block having already"
-                f" processed all {len(self._md5_digests)} parts"
+                f" processed all {self.part_qty} parts"
             )
-        self._md5_digests.append(md5(block).digest())
+        self.add_next_digest(md5(block).digest())
 
 
 if __name__ == "__main__":
