@@ -2,7 +2,7 @@
 from hashlib import md5
 import math
 import os
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 
 def mb(bytes_size: int) -> int:
@@ -76,7 +76,9 @@ class DandiETag:
         return tuple(sizes)
 
     @classmethod
-    def from_file(cls, path: str) -> "DandiETag":
+    def from_file(
+        cls, path: Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
+    ) -> "DandiETag":
         etag = cls(file_size=os.path.getsize(path))
         with open(path, "rb") as f:
             for part in etag.part_sizes:
