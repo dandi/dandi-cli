@@ -716,11 +716,18 @@ def _new_upload(
                 metadata = client.get_asset(ds_identifier, "draft", extant["uuid"])
                 local_mtime = ensure_datetime(path_stat.st_mtime)
                 remote_mtime_str = metadata.get("blobDateModified")
+                for d in metadata.get("digest", []):
+                    if d["cryptoType"] == "dandi:SHA256":
+                        extant_sha256 = d["value"]
+                        break
+                else:
+                    # TODO: Should this error instead?
+                    extant_sha256 = None
                 if remote_mtime_str is not None:
                     remote_mtime = ensure_datetime(remote_mtime_str)
                     remote_file_status = (
                         "same"
-                        if extant["sha256"] == sha256_digest
+                        if extant_sha256 == sha256_digest
                         and remote_mtime == local_mtime
                         else (
                             "newer"
@@ -742,11 +749,11 @@ def _new_upload(
                     return
                 # Logic below only for overwrite and reupload
                 if existing == "overwrite":
-                    if extant["sha256"] == sha256_digest:
+                    if extant_sha256 == sha256_digest:
                         yield skip_file(exists_msg)
                         return
                 elif existing == "refresh":
-                    if extant["sha256"] == sha256_digest:
+                    if extant_sha256 == sha256_digest:
                         yield skip_file("file exists")
                         return
                     elif remote_mtime is not None and remote_mtime >= local_mtime:
