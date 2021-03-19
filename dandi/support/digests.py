@@ -14,6 +14,7 @@ import logging
 
 from fscacher import PersistentCache
 
+from ..core.digests.dandietag import DandiETag
 from ..utils import auto_repr
 
 lgr = logging.getLogger("dandi.support.digests")
@@ -78,8 +79,6 @@ checksums = PersistentCache(name="dandi-checksums", envvar="DANDI_CACHE")
 @checksums.memoize_path
 def get_digest(filepath, digest="sha256"):
     if digest == "dandi-etag":
-        from ..core.digests.dandietag import DandiETag
-
         return DandiETag.from_file(filepath).as_str()
     else:
         return Digester([digest])(filepath)[digest]
