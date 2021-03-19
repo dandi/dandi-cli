@@ -169,19 +169,13 @@ def download_generator(
                     dandiset["version"],
                     asset["uuid"],
                 )
-                if "sha256" not in asset:
-                    raise RuntimeError("sha256 hash not available for asset")
+                metadata = client.get_asset(*down_args)
+                for d in metadata.get("digest", []):
+                    if d["cryptoType"] == "dandi:SHA256":
+                        digests = {"sha256": d["value"]}
+                        break
                 else:
-                    digests = {"sha256": asset["sha256"]}
-                    if (
-                        "sha256" in digests_from_metadata
-                        and asset["sha256"] != digests_from_metadata["sha256"]
-                    ):
-                        lgr.warning(
-                            "Metadata seems to be outdated since API returned different "
-                            "sha256 for %(path)s",
-                            asset,
-                        )
+                    raise RuntimeError("sha256 hash not available for asset")
             else:
                 raise TypeError(f"Don't know here how to handle {client}")
 
