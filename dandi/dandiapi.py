@@ -5,6 +5,7 @@ from pathlib import Path
 import requests
 
 from .consts import MAX_CHUNK_SIZE, known_instances_rev
+from .core.digests.dandietag import DandiETag
 from .girder import keyring_lookup
 from . import get_logger
 from .utils import USER_AGENT, try_multiple
@@ -444,6 +445,19 @@ class DandiAPIClient(RESTFullAPIClient):
             # object_key = resp["multipart_upload"]["object_key"]
             # upload_id = resp["multipart_upload"]["upload_id"]
             parts = resp["multipart_upload"].get("parts", [])
+            etagger = DandiETag(total_size)
+            if len(parts) != etagger.part_qty:
+                raise RuntimeError(
+                    f"Server and client disagree on number of parts for upload;"
+                    f" server says {len(parts)}, client says {etagger.part_qty}"
+                )
+            for sp, cp in zip(parts, etagger.get_parts()):
+                if sp["size"] != cp.size:
+                    raise RuntimeError(
+                        f"Server and client disagree on size of upload part"
+                        f" {sp['size']['part_number']}; server says"
+                        f" {sp['size']}, client says {cp.size}"
+                    )
             parts_out = []
             bytes_uploaded = 0
             storage = RESTFullAPIClient("http://nil.nil")
