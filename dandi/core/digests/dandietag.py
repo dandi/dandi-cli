@@ -55,11 +55,7 @@ class PartGenerator:
         if math.ceil(file_size / part_size) >= cls.MAX_PARTS:
             part_size = math.ceil(file_size / cls.MAX_PARTS)
 
-        if part_size < cls.MIN_PART_SIZE:
-            part_size = cls.MIN_PART_SIZE
-
-        if part_size > cls.MAX_PART_SIZE:
-            part_size = cls.MAX_PART_SIZE
+        assert cls.MIN_PART_SIZE <= part_size <= cls.MAX_PART_SIZE
 
         part_qty, final_part_size = divmod(file_size, part_size)
         if final_part_size == 0:
