@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from ..dandietag import DandiETag, Part, PartGenerator, mb, tb
@@ -6,6 +8,8 @@ from ..dandietag import DandiETag, Part, PartGenerator, mb, tb
 @pytest.mark.parametrize(
     "file_size,initial_part_size,final_part_size,part_count",
     [
+        (0, 0, 0, 0),
+        (1, 1, 1, 1),
         (mb(64), mb(64), mb(64), 1),
         (mb(50), mb(50), mb(50), 1),
         (mb(70), mb(64), mb(6), 2),
@@ -21,27 +25,47 @@ def test_part_generator(file_size, initial_part_size, final_part_size, part_coun
     parts = list(pg)
     assert [p.number for p in parts] == list(range(1, part_count + 1))
     assert all(p.size == initial_part_size for p in parts[:-1])
-    assert parts[-1].size == final_part_size
+    if parts:
+        assert parts[-1].size == final_part_size
     offset = 0
     for p in parts:
         assert p.offset == offset
         offset += p.size
-    assert pg[1] == Part(1, 0, initial_part_size)
-    assert pg[part_count] == Part(
-        part_count, initial_part_size * (part_count - 1), final_part_size
-    )
+    if parts:
+        assert pg[1] == Part(1, 0, initial_part_size)
+        assert pg[part_count] == Part(
+            part_count, initial_part_size * (part_count - 1), final_part_size
+        )
+    with pytest.raises(IndexError):
+        pg[0]
+    with pytest.raises(IndexError):
+        pg[part_count + 1]
+    with pytest.raises(IndexError):
+        pg[-1]
+
+
+def test_part_generator_too_large():
+    with pytest.raises(ValueError) as excinfo:
+        PartGenerator.for_file_size(tb(5) + 1)
+    assert str(excinfo.value) == "File is larger than the S3 maximum object size."
 
 
 def test_dandietag_tiny(tmp_path):
     f = tmp_path / "sample.txt"
     f.write_bytes(b"123")
-    assert DandiETag.from_file(f).as_str() == "d022646351048ac0ba397d12dfafa304-1"
+    s = DandiETag.from_file(f).as_str()
+    assert s == "d022646351048ac0ba397d12dfafa304-1"
+    assert re.fullmatch(DandiETag.REGEX, s)
+    assert len(s) <= DandiETag.MAX_STR_LENGTH
 
 
 def test_dandietag_null(tmp_path):
     f = tmp_path / "sample.dat"
     f.write_bytes(b"\0")
-    assert DandiETag.from_file(f).as_str() == "7e4696ef25d5faececd853ce5e2a233b-1"
+    s = DandiETag.from_file(f).as_str()
+    assert s == "7e4696ef25d5faececd853ce5e2a233b-1"
+    assert re.fullmatch(DandiETag.REGEX, s)
+    assert len(s) <= DandiETag.MAX_STR_LENGTH
 
 
 PART_DIGESTS = [
@@ -65,11 +89,17 @@ def test_add_next_digest():
     assert etagger.part_qty == 10
     for i, d in enumerate(PART_DIGESTS):
         assert not etagger.complete
+        with pytest.raises(ValueError) as excinfo:
+            etagger.as_str()
+        assert str(excinfo.value) == "Not all part hashes submitted"
         assert etagger.get_next_part().number == i + 1
         etagger.add_next_digest(d)
     assert etagger.complete
     assert etagger.get_next_part() is None
-    assert etagger.as_str() == ETAG
+    s = etagger.as_str()
+    assert s == ETAG
+    assert re.fullmatch(DandiETag.REGEX, s)
+    assert len(s) <= DandiETag.MAX_STR_LENGTH
 
 
 def test_add_digest_reversed():

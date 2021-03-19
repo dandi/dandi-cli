@@ -44,6 +44,9 @@ class PartGenerator:
     @classmethod
     def for_file_size(cls, file_size: int) -> "PartGenerator":
         """Method to calculate sequential part sizes given a file size"""
+        if file_size == 0:
+            return cls(0, 0, 0)
+
         part_size = mb(64)
 
         if file_size > tb(5):
@@ -75,7 +78,7 @@ class PartGenerator:
             return Part(
                 index, self.initial_part_size * (index - 1), self.initial_part_size
             )
-        elif index == self.part_qty:
+        elif 1 <= index == self.part_qty:
             return Part(
                 index, self.initial_part_size * (index - 1), self.final_part_size
             )
@@ -83,6 +86,8 @@ class PartGenerator:
             raise IndexError(index)
 
     def __iter__(self) -> Iterator[Part]:
+        if self.part_qty == 0:
+            return
         offset = 0
         for number in range(1, self.part_qty):
             yield Part(number, offset, self.initial_part_size)
@@ -161,9 +166,4 @@ class DandiETag:
 
     def update(self, block):
         """Update etag with the new block of data"""
-        if self.complete:
-            raise RuntimeError(
-                "Trying to update DandiETag with a new block having already"
-                f" processed all {self.part_qty} parts"
-            )
         self.add_next_digest(md5(block).digest())
