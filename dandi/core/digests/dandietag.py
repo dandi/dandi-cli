@@ -141,14 +141,14 @@ class DandiETag:
                 etag.update(f.read(part.size))
         return etag
 
-    def add_digest(self, p: Part, part_digest: bytes) -> None:
+    def _add_digest(self, p: Part, part_digest: bytes) -> None:
         i = p.number - 1
         if self._md5_digests[i] is not None:
             raise RuntimeError(f"Digest for part {p.number} submitted more than once")
         self._md5_digests[i] = part_digest
         self._update_index()
 
-    def add_next_digest(self, part_digest: bytes) -> None:
+    def _add_next_digest(self, part_digest: bytes) -> None:
         if self.complete:
             raise RuntimeError(
                 "Trying to update DandiETag with a new digest having already"
@@ -164,6 +164,10 @@ class DandiETag:
         ):
             self._next_index += 1
 
-    def update(self, block):
+    def update(self, block: bytes, part: Optional[Part] = None) -> None:
         """Update etag with the new block of data"""
-        self.add_next_digest(md5(block).digest())
+        part_digest = md5(block).digest()
+        if part is None:
+            self._add_next_digest(part_digest)
+        else:
+            self._add_digest(part, part_digest)

@@ -93,7 +93,7 @@ def test_add_next_digest():
             etagger.as_str()
         assert str(excinfo.value) == "Not all part hashes submitted"
         assert etagger.get_next_part().number == i + 1
-        etagger.add_next_digest(d)
+        etagger._add_next_digest(d)
     assert etagger.complete
     assert etagger.get_next_part() is None
     s = etagger.as_str()
@@ -108,7 +108,7 @@ def test_add_digest_reversed():
     assert not etagger.complete
     for p, d in reversed(list(zip(etagger.get_parts(), PART_DIGESTS))):
         assert not etagger.complete
-        etagger.add_digest(p, d)
+        etagger._add_digest(p, d)
     assert etagger.complete
     assert etagger.as_str() == ETAG
 
@@ -120,6 +120,6 @@ def test_add_digest_out_of_order():
     pieces = list(zip(etagger.get_parts(), PART_DIGESTS))
     for p, d in pieces[::2] + pieces[1::2]:
         assert not etagger.complete
-        etagger.add_digest(p, d)
+        etagger._add_digest(p, d)
     assert etagger.complete
     assert etagger.as_str() == ETAG
