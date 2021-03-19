@@ -82,6 +82,11 @@ Please see [DEVELOPMENT.md](./DEVELOPMENT.md) file.
 
 ## 3rd party components included
 
+### dandi/core/digests/dandietag.py
+
+From <https://github.com/girder/django-s3-file-field> as of v0.1.1-10-g829b9b0
+Copyright (c) 2019-2021 Kitware, Inc., Apache 2.0 license
+
 ### dandi/support/generatorify.py
 
 From https://github.com/eric-wieser/generatorify, as of 7bd759ecf88f836ece6cdbcf7ce1074260c0c5ef
