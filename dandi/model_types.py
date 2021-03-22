@@ -61,6 +61,12 @@ DigestTypeDict = {
             "rdfs:comment": "SHA-512 checksum",
             "rdfs:label": "SHA-512",
         },
+        {
+            "@id": "dandi:dandi_etag",
+            "@type": "dandi:DigestType",
+            "rdfs:comment": "S3-style ETag",
+            "rdfs:label": "DANDI ETag",
+        },
     ]
 }
 
