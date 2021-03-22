@@ -42,7 +42,7 @@ def create_enum(data):
                 key = item["@id"].split(":")[-1]
             if key in items:
                 key = item["@id"].replace(":", "_")
-            items[f"{key}"] = item["@id"]
+            items[key.replace("-", "_")] = item["@id"]
     if klass is None or len(items) == 0:
         raise ValueError(f"Could not generate a klass or items from {data}")
     newklass = Enum(klass, items)
