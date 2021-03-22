@@ -117,6 +117,9 @@ class DandiETag:
         else:
             return None
 
+    def get_part_etag(self, p: Part) -> Optional[str]:
+        return self._md5_digests[p.number - 1].hex()
+
     def as_str(self) -> str:
         if not self.complete:
             raise ValueError("Not all part hashes submitted")

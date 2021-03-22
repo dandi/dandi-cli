@@ -5,7 +5,6 @@ from pathlib import Path
 import requests
 
 from .consts import MAX_CHUNK_SIZE, known_instances_rev
-from .core.digests.dandietag import DandiETag
 from .girder import keyring_lookup
 from . import get_logger
 from .utils import USER_AGENT, try_multiple
@@ -398,11 +397,12 @@ class DandiAPIClient(RESTFullAPIClient):
         -------
         a generator of `dict`s containing at least a ``"status"`` key
         """
-        from .support.digests import get_digest
+        from .support.digests import get_dandietag
 
         asset_path = asset_metadata["path"]
         yield {"status": "calculating etag"}
-        filetag = get_digest(filepath, "dandi-etag")
+        etagger = get_dandietag(filepath)
+        filetag = etagger.as_str()
         lgr.debug("Calculated dandi-etag of %s for %s", filetag, filepath)
         # TODO: Uncomment this once dandi-etags have a DigestType enum value:
         # for digest in asset_metadata.get("digest", []):
@@ -445,26 +445,24 @@ class DandiAPIClient(RESTFullAPIClient):
             # object_key = resp["multipart_upload"]["object_key"]
             # upload_id = resp["multipart_upload"]["upload_id"]
             parts = resp["multipart_upload"].get("parts", [])
-            etagger = DandiETag(total_size)
             if len(parts) != etagger.part_qty:
                 raise RuntimeError(
                     f"Server and client disagree on number of parts for upload;"
                     f" server says {len(parts)}, client says {etagger.part_qty}"
                 )
-            for sp, cp in zip(parts, etagger.get_parts()):
-                if sp["size"] != cp.size:
-                    raise RuntimeError(
-                        f"Server and client disagree on size of upload part"
-                        f" {sp['size']['part_number']}; server says"
-                        f" {sp['size']}, client says {cp.size}"
-                    )
             parts_out = []
             bytes_uploaded = 0
             storage = RESTFullAPIClient("http://nil.nil")
             lgr.debug("Uploading %s in %d parts", filepath, len(parts))
             with storage.session():
                 with open(filepath, "rb") as fp:
-                    for part in parts:
+                    for part, etag_part in zip(parts, etagger.get_parts()):
+                        if part["size"] != etag_part.size:
+                            raise RuntimeError(
+                                f"Server and client disagree on size of upload part"
+                                f" {part['part_number']}; server says"
+                                f" {part['size']}, client says {etag_part.size}"
+                            )
                         chunk = fp.read(part["size"])
                         if len(chunk) != part["size"]:
                             raise RuntimeError(
@@ -478,12 +476,20 @@ class DandiAPIClient(RESTFullAPIClient):
                             part["size"],
                         )
                         r = storage.put(part["upload_url"], data=chunk, json_resp=False)
+                        server_etag = r.headers["ETag"].strip('"')
                         lgr.debug(
                             "%s: Part upload finished ETag=%s Content-Length=%s",
                             asset_path,
-                            r.headers.get("ETag"),
+                            server_etag,
                             r.headers.get("Content-Length"),
                         )
+                        client_etag = etagger.get_part_etag(etag_part)
+                        if server_etag != client_etag:
+                            raise RuntimeError(
+                                f"Server and client disagree on ETag of upload part"
+                                f" {part['part_number']}; server says"
+                                f" {server_etag}, client says {client_etag}"
+                            )
                         bytes_uploaded += len(chunk)
                         yield {
                             "status": "uploading",
@@ -494,7 +500,7 @@ class DandiAPIClient(RESTFullAPIClient):
                             {
                                 "part_number": part["part_number"],
                                 "size": part["size"],
-                                "etag": r.headers["ETag"],
+                                "etag": server_etag,
                             }
                         )
                 lgr.debug("%s: Completing upload", asset_path)
@@ -515,6 +521,12 @@ class DandiAPIClient(RESTFullAPIClient):
                     asset_path,
                     r.content,
                 )
+                final_etag = r.headers["ETag"].strip('"')
+                if final_etag != filetag:
+                    raise RuntimeError(
+                        "Server and client disagree on final ETag of uploaded file;"
+                        f" server says {final_etag}, client says {filetag}"
+                    )
                 resp = self.post(f"/uploads/{asset_uuid}/validate/")
                 # Another upload may have completed before this one, so the
                 # UUID in `resp` may not necessarily be the same as the upload

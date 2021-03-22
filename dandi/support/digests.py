@@ -77,8 +77,13 @@ checksums = PersistentCache(name="dandi-checksums", envvar="DANDI_CACHE")
 
 
 @checksums.memoize_path
-def get_digest(filepath, digest="sha256"):
+def get_digest(filepath, digest="sha256") -> str:
     if digest == "dandi-etag":
         return DandiETag.from_file(filepath).as_str()
     else:
         return Digester([digest])(filepath)[digest]
+
+
+@checksums.memoize_path
+def get_dandietag(filepath) -> DandiETag:
+    return DandiETag.from_file(filepath)
