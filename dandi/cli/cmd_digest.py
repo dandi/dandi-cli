@@ -1,7 +1,6 @@
 import click
 
 from .base import map_to_click_exceptions
-from ..support.digests import get_digest
 
 
 @click.command()
@@ -20,5 +19,7 @@ from ..support.digests import get_digest
 @map_to_click_exceptions
 def digest(paths, digest_alg):
     """ Calculate file digests """
+    from ..support.digests import get_digest
+
     for p in paths:
         print(f"{p}:", get_digest(p, digest=digest_alg))
