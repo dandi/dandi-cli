@@ -427,7 +427,7 @@ class DandiAPIClient(RESTFullAPIClient):
         else:
             lgr.debug("%s: Blob is already uploaded to server", asset_path)
             blob_exists = True
-            asset_uuid = resp["uuid"]
+            blob_uuid = resp["uuid"]
         if not blob_exists:
             total_size = os.path.getsize(filepath)
             lgr.debug("%s: Beginning upload", asset_path)
@@ -441,7 +441,7 @@ class DandiAPIClient(RESTFullAPIClient):
                     },
                 },
             )
-            asset_uuid = resp["uuid"]
+            blob_uuid = resp["uuid"]
             # object_key = resp["multipart_upload"]["object_key"]
             # upload_id = resp["multipart_upload"]["upload_id"]
             parts = resp["multipart_upload"].get("parts", [])
@@ -505,7 +505,7 @@ class DandiAPIClient(RESTFullAPIClient):
                         )
                 lgr.debug("%s: Completing upload", asset_path)
                 resp = self.post(
-                    f"/uploads/{asset_uuid}/complete/",
+                    f"/uploads/{blob_uuid}/complete/",
                     json={"parts": parts_out},
                 )
                 lgr.debug(
@@ -527,24 +527,24 @@ class DandiAPIClient(RESTFullAPIClient):
                         "Server and client disagree on final ETag of uploaded file;"
                         f" server says {final_etag}, client says {filetag}"
                     )
-                resp = self.post(f"/uploads/{asset_uuid}/validate/")
+                resp = self.post(f"/uploads/{blob_uuid}/validate/")
                 # Another upload may have completed before this one, so the
                 # UUID in `resp` may not necessarily be the same as the upload
                 # UUID, so we should use `resp["uuid"]` instead from now on.
-                asset_uuid = resp["uuid"]
+                blob_uuid = resp["uuid"]
         lgr.debug("%s: Assigning asset blob to dandiset & version", asset_path)
         yield {"status": "producing asset"}
         extant = self.get_asset_bypath(dandiset_id, version_id, asset_path)
         if extant is None:
             self.post(
                 f"/dandisets/{dandiset_id}/versions/{version_id}/assets/",
-                json={"metadata": asset_metadata, "uuid": asset_uuid},
+                json={"metadata": asset_metadata, "uuid": blob_uuid},
             )
         else:
             lgr.debug("%s: Asset already exists at path; updating", asset_path)
             self.put(
                 f"/dandisets/{dandiset_id}/versions/{version_id}/assets/{extant['uuid']}/",
-                json={"metadata": asset_metadata, "uuid": asset_uuid},
+                json={"metadata": asset_metadata, "uuid": blob_uuid},
             )
         lgr.info("%s: Asset successfully uploaded", asset_path)
         yield {"status": "done"}
