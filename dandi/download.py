@@ -171,11 +171,11 @@ def download_generator(
                 )
                 metadata = client.get_asset(*down_args)
                 for d in metadata.get("digest", []):
-                    if d["cryptoType"] == "dandi:SHA256":
-                        digests = {"sha256": d["value"]}
+                    if d["cryptoType"] == "dandi:dandi_etag":
+                        digests = {"dandi-etag": d["value"]}
                         break
                 else:
-                    raise RuntimeError("sha256 hash not available for asset")
+                    raise RuntimeError("Dandi ETag not available for asset")
             else:
                 raise TypeError(f"Don't know here how to handle {client}")
 
@@ -444,7 +444,12 @@ def _download_file(
         # choose first available for now.
         # TODO: reuse that sorting based on speed
         for algo, digest in digests.items():
-            digester = getattr(hashlib, algo, None)
+            if algo == "dandi-etag":
+                from .core.digests import ETagHashlike
+
+                digester = lambda: ETagHashlike(size)  # noqa: E731
+            else:
+                digester = getattr(hashlib, algo, None)
             if digester:
                 break
         if not digester:

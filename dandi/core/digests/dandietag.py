@@ -95,10 +95,11 @@ class DandiETag:
     REGEX = r"[0-9a-f]{32}-\d{1,5}"
     MAX_STR_LENGTH = 38
 
-    def __init__(self, file_size: int):
+    def __init__(self, file_size: int) -> None:
         self._part_gen: PartGenerator = PartGenerator.for_file_size(file_size)
         self._md5_digests: List[Optional[bytes]] = [None] * len(self._part_gen)
         self._next_index: int = 0
+        self._partial_blob: bytes = b""
 
     @property
     def part_qty(self) -> int:
@@ -165,8 +166,34 @@ class DandiETag:
 
     def update(self, block: bytes, part: Optional[Part] = None) -> None:
         """Update etag with the new block of data"""
+        if self._partial_blob:
+            raise ValueError("Digesting new part when current part is not complete")
         part_digest = md5(block).digest()
         if part is None:
             self._add_next_digest(part_digest)
         else:
             self._add_digest(part, part_digest)
+
+    def partial_update(self, block: bytes) -> None:
+        self._partial_blob += block
+        p = self.get_next_part()
+        while p is not None and p.size <= len(self._partial_blob):
+            next_block = self._partial_blob[: p.size]
+            self._partial_blob = self._partial_blob[p.size :]
+            self._add_next_digest(md5(next_block).digest())
+            p = self.get_next_part()
+        if p is None and self._partial_blob:
+            raise ValueError("Partial update extended past end of file")
+
+
+class ETagHashlike:
+    # For compatibility with hashlib classes
+
+    def __init__(self, file_size: int) -> None:
+        self.etagger: DandiETag = DandiETag(file_size)
+
+    def update(self, data: bytes) -> None:
+        self.etagger.partial_update(data)
+
+    def hexdigest(self) -> str:
+        return self.etagger.as_str()
