@@ -171,7 +171,7 @@ def download_generator(
                 )
                 metadata = client.get_asset(*down_args)
                 for d in metadata.get("digest", []):
-                    if d["cryptoType"] == "dandi:dandi_etag":
+                    if d["cryptoType"] == "dandi:dandi-etag":
                         digests = {"dandi-etag": d["value"]}
                         break
                 else:
@@ -445,7 +445,7 @@ def _download_file(
         # TODO: reuse that sorting based on speed
         for algo, digest in digests.items():
             if algo == "dandi-etag":
-                from .core.digests import ETagHashlike
+                from .core.digests.dandietag import ETagHashlike
 
                 digester = lambda: ETagHashlike(size)  # noqa: E731
             else:

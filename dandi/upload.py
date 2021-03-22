@@ -717,7 +717,7 @@ def _new_upload(
                 local_mtime = ensure_datetime(path_stat.st_mtime)
                 remote_mtime_str = metadata.get("blobDateModified")
                 for d in metadata.get("digest", []):
-                    if d["cryptoType"] == "dandi:dandi_etag":
+                    if d["cryptoType"] == "dandi:dandi-etag":
                         extant_etag = d["value"]
                         break
                 else:
@@ -814,13 +814,13 @@ def _new_upload(
             yield {"status": "extracting metadata"}
             try:
                 asset_metadata = nwb2asset(
-                    path, digest=file_etag, digest_type="dandi-etag"
+                    path, digest=file_etag, digest_type="dandi_etag"
                 )
             except Exception as exc:
                 if allow_any_path:
                     yield {"status": "failed to extract metadata"}
                     asset_metadata = get_default_metadata(
-                        path, digest=file_etag, digest_type="dandi-etag"
+                        path, digest=file_etag, digest_type="dandi_etag"
                     )
                 else:
                     yield skip_file("failed to extract metadata: %s" % str(exc))
