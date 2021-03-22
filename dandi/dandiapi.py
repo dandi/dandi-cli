@@ -442,8 +442,6 @@ class DandiAPIClient(RESTFullAPIClient):
                 },
             )
             blob_uuid = resp["uuid"]
-            # object_key = resp["multipart_upload"]["object_key"]
-            # upload_id = resp["multipart_upload"]["upload_id"]
             parts = resp["multipart_upload"].get("parts", [])
             if len(parts) != etagger.part_qty:
                 raise RuntimeError(
