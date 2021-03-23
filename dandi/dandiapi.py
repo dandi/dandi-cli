@@ -1,6 +1,8 @@
 from contextlib import contextmanager
 import os.path
 from pathlib import Path
+import re
+from xml.etree.ElementTree import fromstring
 
 import requests
 
@@ -520,12 +522,18 @@ class DandiAPIClient(RESTFullAPIClient):
                     asset_path,
                     r.content,
                 )
-                final_etag = r.headers["ETag"].strip('"')
-                if final_etag != filetag:
-                    raise RuntimeError(
-                        "Server and client disagree on final ETag of uploaded file;"
-                        f" server says {final_etag}, client says {filetag}"
-                    )
+                rxml = fromstring(r.text)
+                m = re.match(r"\{.+?\}", rxml.tag)
+                ns = m.group(0) if m else ""
+                final_etag = rxml.findtext(f"{ns}ETag")
+                if final_etag is not None:
+                    final_etag = final_etag.strip('"')
+                    if final_etag != filetag:
+                        raise RuntimeError(
+                            "Server and client disagree on final ETag of uploaded file;"
+                            f" server says {final_etag}, client says {filetag}"
+                        )
+                # else: Error? Warning?
                 resp = self.post(f"/uploads/{upload_id}/validate/")
                 blob_id = resp["blob_id"]
         lgr.debug("%s: Assigning asset blob to dandiset & version", asset_path)
