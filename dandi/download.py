@@ -167,7 +167,7 @@ def download_generator(
                 down_args = (
                     dandiset["dandiset"]["identifier"],
                     dandiset["version"],
-                    asset["uuid"],
+                    asset["asset_id"],
                 )
                 metadata = client.get_asset(*down_args)
                 for d in metadata.get("digest", []):

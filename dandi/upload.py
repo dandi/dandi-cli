@@ -713,7 +713,7 @@ def _new_upload(
             if extant is not None:
                 # The endpoint used to search by paths doesn't include asset
                 # metadata, so we need to make another API call:
-                metadata = client.get_asset(ds_identifier, "draft", extant["uuid"])
+                metadata = client.get_asset(ds_identifier, "draft", extant["asset_id"])
                 local_mtime = ensure_datetime(path_stat.st_mtime)
                 remote_mtime_str = metadata.get("blobDateModified")
                 for d in metadata.get("digest", []):

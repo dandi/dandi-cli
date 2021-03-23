@@ -256,22 +256,24 @@ class DandiAPIClient(RESTFullAPIClient):
             lgr.debug("Stored key in keyring")
         self.authenticate(api_key)
 
-    def get_asset(self, dandiset_id, version, uuid):
+    def get_asset(self, dandiset_id, version, asset_id):
         """
 
-        /dandisets/{version__dandiset__pk}/versions/{version__version}/assets/{uuid}/
+        /dandisets/{version__dandiset__pk}/versions/{version__version}/assets/{asset_id}/
 
         Parameters
         ----------
         dandiset_id
         version
-        uuid
+        asset_id
 
         Returns
         -------
 
         """
-        return self.get(f"/dandisets/{dandiset_id}/versions/{version}/assets/{uuid}/")
+        return self.get(
+            f"/dandisets/{dandiset_id}/versions/{version}/assets/{asset_id}/"
+        )
 
     def get_dandiset(self, dandiset_id, version):
         return self._migrate_dandiset_metadata(
@@ -297,7 +299,7 @@ class DandiAPIClient(RESTFullAPIClient):
             for asset in resp["results"]:
                 if include_metadata:
                     asset["metadata"] = self.get_asset(
-                        dandiset_id, version, asset["uuid"]
+                        dandiset_id, version, asset["asset_id"]
                     )
                 yield asset
             if resp.get("next"):
@@ -319,10 +321,10 @@ class DandiAPIClient(RESTFullAPIClient):
         return dandiset, assets
 
     def get_download_file_iter(
-        self, dandiset_id, version, uuid, chunk_size=MAX_CHUNK_SIZE
+        self, dandiset_id, version, asset_id, chunk_size=MAX_CHUNK_SIZE
     ):
         url = self.get_url(
-            f"/dandisets/{dandiset_id}/versions/{version}/assets/{uuid}/download/"
+            f"/dandisets/{dandiset_id}/versions/{version}/assets/{asset_id}/download/"
         )
 
         def downloader(start_at=0):
@@ -340,7 +342,7 @@ class DandiAPIClient(RESTFullAPIClient):
             for chunk in result.iter_content(chunk_size=chunk_size):
                 if chunk:  # could be some "keep alive"?
                     yield chunk
-            lgr.info("Asset %s successfully downloaded", uuid)
+            lgr.info("Asset %s successfully downloaded", asset_id)
 
         return downloader
 
@@ -427,7 +429,7 @@ class DandiAPIClient(RESTFullAPIClient):
         else:
             lgr.debug("%s: Blob is already uploaded to server", asset_path)
             blob_exists = True
-            blob_uuid = resp["uuid"]
+            blob_id = resp["blob_id"]
         if not blob_exists:
             total_size = os.path.getsize(filepath)
             lgr.debug("%s: Beginning upload", asset_path)
@@ -441,8 +443,8 @@ class DandiAPIClient(RESTFullAPIClient):
                     },
                 },
             )
-            blob_uuid = resp["uuid"]
-            parts = resp["multipart_upload"].get("parts", [])
+            upload_id = resp["upload_id"]
+            parts = resp["parts"]
             if len(parts) != etagger.part_qty:
                 raise RuntimeError(
                     f"Server and client disagree on number of parts for upload;"
@@ -503,7 +505,7 @@ class DandiAPIClient(RESTFullAPIClient):
                         )
                 lgr.debug("%s: Completing upload", asset_path)
                 resp = self.post(
-                    f"/uploads/{blob_uuid}/complete/",
+                    f"/uploads/{upload_id}/complete/",
                     json={"parts": parts_out},
                 )
                 lgr.debug(
@@ -525,24 +527,21 @@ class DandiAPIClient(RESTFullAPIClient):
                         "Server and client disagree on final ETag of uploaded file;"
                         f" server says {final_etag}, client says {filetag}"
                     )
-                resp = self.post(f"/uploads/{blob_uuid}/validate/")
-                # Another upload may have completed before this one, so the
-                # UUID in `resp` may not necessarily be the same as the upload
-                # UUID, so we should use `resp["uuid"]` instead from now on.
-                blob_uuid = resp["uuid"]
+                resp = self.post(f"/uploads/{upload_id}/validate/")
+                blob_id = resp["blob_id"]
         lgr.debug("%s: Assigning asset blob to dandiset & version", asset_path)
         yield {"status": "producing asset"}
         extant = self.get_asset_bypath(dandiset_id, version_id, asset_path)
         if extant is None:
             self.post(
                 f"/dandisets/{dandiset_id}/versions/{version_id}/assets/",
-                json={"metadata": asset_metadata, "uuid": blob_uuid},
+                json={"metadata": asset_metadata, "blob_id": blob_id},
             )
         else:
             lgr.debug("%s: Asset already exists at path; updating", asset_path)
             self.put(
-                f"/dandisets/{dandiset_id}/versions/{version_id}/assets/{extant['uuid']}/",
-                json={"metadata": asset_metadata, "uuid": blob_uuid},
+                f"/dandisets/{dandiset_id}/versions/{version_id}/assets/{extant['asset_id']}/",
+                json={"metadata": asset_metadata, "blob_id": blob_id},
             )
         lgr.info("%s: Asset successfully uploaded", asset_path)
         yield {"status": "done"}
@@ -551,10 +550,10 @@ class DandiAPIClient(RESTFullAPIClient):
         return self.post("/dandisets/", json={"name": name, "metadata": metadata})
 
     def download_asset(
-        self, dandiset_id, version, asset_uuid, filepath, chunk_size=MAX_CHUNK_SIZE
+        self, dandiset_id, version, asset_id, filepath, chunk_size=MAX_CHUNK_SIZE
     ):
         downloader = self.get_download_file_iter(
-            dandiset_id, version, asset_uuid, chunk_size=chunk_size
+            dandiset_id, version, asset_id, chunk_size=chunk_size
         )
         with open(filepath, "wb") as fp:
             for chunk in downloader():
@@ -567,7 +566,7 @@ class DandiAPIClient(RESTFullAPIClient):
         if asset is None:
             raise RuntimeError(f"No asset found with path {asset_path!r}")
         self.download_asset(
-            dandiset_id, version, asset["uuid"], filepath, chunk_size=chunk_size
+            dandiset_id, version, asset["asset_id"], filepath, chunk_size=chunk_size
         )
 
     def download_assets_directory(
@@ -582,7 +581,7 @@ class DandiAPIClient(RESTFullAPIClient):
             filepath = Path(dirpath, a["path"][len(assets_dirpath) :])
             filepath.parent.mkdir(parents=True, exist_ok=True)
             self.download_asset(
-                dandiset_id, version, a["uuid"], filepath, chunk_size=chunk_size
+                dandiset_id, version, a["asset_id"], filepath, chunk_size=chunk_size
             )
 
     def get_asset_bypath(
@@ -611,13 +610,13 @@ class DandiAPIClient(RESTFullAPIClient):
             f"/dandisets/{dandiset_id}/versions/{base_version_id}/publish/"
         )
 
-    def delete_asset(self, dandiset_id, version_id, asset_uuid):
+    def delete_asset(self, dandiset_id, version_id, asset_id):
         self.delete(
-            f"/dandisets/{dandiset_id}/versions/{version_id}/assets/{asset_uuid}/"
+            f"/dandisets/{dandiset_id}/versions/{version_id}/assets/{asset_id}/"
         )
 
     def delete_asset_bypath(self, dandiset_id, version_id, asset_path):
         asset = self.get_asset_bypath(dandiset_id, version_id, asset_path)
         if asset is None:
             raise RuntimeError(f"No asset found with path {asset_path!r}")
-        self.delete_asset(dandiset_id, version_id, asset["uuid"])
+        self.delete_asset(dandiset_id, version_id, asset["asset_id"])
