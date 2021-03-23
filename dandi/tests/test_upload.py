@@ -352,7 +352,18 @@ def test_new_upload_extant_bad_existing(mocker, text_dandiset):
     iter_upload_spy.assert_not_called()
 
 
-@pytest.mark.parametrize("contents", [b"", b"x"])
+@pytest.mark.parametrize(
+    "contents",
+    [
+        pytest.param(
+            b"",
+            marks=pytest.mark.xfail(
+                reason="https://github.com/dandi/dandi-api/issues/168"
+            ),
+        ),
+        b"x",
+    ],
+)
 def test_upload_download_small_file(contents, local_dandi_api, monkeypatch, tmp_path):
     client = DandiAPIClient(
         api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
