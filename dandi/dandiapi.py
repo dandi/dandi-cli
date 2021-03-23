@@ -406,15 +406,14 @@ class DandiAPIClient(RESTFullAPIClient):
         etagger = get_dandietag(filepath)
         filetag = etagger.as_str()
         lgr.debug("Calculated dandi-etag of %s for %s", filetag, filepath)
-        # TODO: Uncomment this once dandi-etags have a DigestType enum value:
-        # for digest in asset_metadata.get("digest", []):
-        #     if digest["cryptoType"] == ??? :
-        #         if digest["value"] != filetag:
-        #             raise RuntimeError(
-        #                 f"{filepath}: File etag changed; was originally"
-        #                 f" {asset_metadata['digest']} but is now {filetag}"
-        #             )
-        #         break
+        for digest in asset_metadata.get("digest", []):
+            if digest["cryptoType"] == "dandi:dandi-etag":
+                if digest["value"] != filetag:
+                    raise RuntimeError(
+                        f"{filepath}: File etag changed; was originally"
+                        f" {digest['value']} but is now {filetag}"
+                    )
+                break
         try:
             resp = self.post(
                 "/blobs/digest/",
