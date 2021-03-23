@@ -829,8 +829,7 @@ def _new_upload(
             validating = False
             for r in client.iter_upload(ds_identifier, "draft", metadata, str(path)):
                 if r["status"] == "uploading":
-                    uploaded_paths[str(path)]["size"] = r["current"]
-                    r.pop("current")
+                    uploaded_paths[str(path)]["size"] = r.pop("current")
                     yield r
                 elif r["status"] == "post-validating":
                     # Only yield the first "post-validating" status
