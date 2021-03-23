@@ -1,3 +1,35 @@
+# 0.12.0 (Tue Mar 23 2021)
+
+#### 🚀 Enhancement
+
+- Add "digest" command [#480](https://github.com/dandi/dandi-cli/pull/480) ([@jwodder](https://github.com/jwodder))
+- ENH: prototype for the DANDIEtag "digester" [#474](https://github.com/dandi/dandi-cli/pull/474) ([@yarikoptic](https://github.com/yarikoptic) [@jwodder](https://github.com/jwodder))
+- Change BareAssetMeta.digest to a list [#460](https://github.com/dandi/dandi-cli/pull/460) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Remove "current" column from upload progress display [#486](https://github.com/dandi/dandi-cli/pull/486) ([@jwodder](https://github.com/jwodder))
+- Add dandi_etag digest type to schema [#481](https://github.com/dandi/dandi-cli/pull/481) ([@jwodder](https://github.com/jwodder))
+- Add --devel-debug to `dandi validate` [#476](https://github.com/dandi/dandi-cli/pull/476) ([@jwodder](https://github.com/jwodder))
+- Only call logging.basicConfig() when used as a command [#468](https://github.com/dandi/dandi-cli/pull/468) ([@jwodder](https://github.com/jwodder))
+- BF: Require pydantic >= 1.8.1 [#461](https://github.com/dandi/dandi-cli/pull/461) ([@yarikoptic](https://github.com/yarikoptic))
+- Fix "%s: ok" log message from `dandi validate` [#462](https://github.com/dandi/dandi-cli/pull/462) ([@jwodder](https://github.com/jwodder))
+- Display `dandi validate` errors using logger [#459](https://github.com/dandi/dandi-cli/pull/459) ([@jwodder](https://github.com/jwodder))
+- ENH: more of lgr.debug for multipart upload [#457](https://github.com/dandi/dandi-cli/pull/457) ([@yarikoptic](https://github.com/yarikoptic))
+- Rename DandiMeta to DandisetMeta [#454](https://github.com/dandi/dandi-cli/pull/454) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Script for generating S3 versioned file stats [#473](https://github.com/dandi/dandi-cli/pull/473) ([@jwodder](https://github.com/jwodder))
+- Add `-vv` option to `auto shipit` [#471](https://github.com/dandi/dandi-cli/pull/471) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.11.0 (Mon Mar 08 2021)
 
 #### 🚀 Enhancement
