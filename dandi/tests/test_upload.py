@@ -13,7 +13,7 @@ from ..download import download
 from .. import girder
 from ..register import register
 from ..upload import upload
-from ..utils import yaml_load
+from ..utils import find_files, yaml_load
 
 
 def test_upload(local_docker_compose_env, monkeypatch, organized_nwb_dir2):
@@ -350,3 +350,36 @@ def test_new_upload_extant_bad_existing(mocker, text_dandiset):
     iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
     text_dandiset["reupload"](existing="foobar")
     iter_upload_spy.assert_not_called()
+
+
+@pytest.mark.parametrize("contents", [b"", b"x"])
+def test_upload_download_small_file(contents, local_dandi_api, monkeypatch, tmp_path):
+    client = DandiAPIClient(
+        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
+    )
+    dandiset_id = client.create_dandiset("Small Dandiset", {})["identifier"]
+    dspath = tmp_path / "upload"
+    dspath.mkdir()
+    (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
+    (dspath / "file.txt").write_bytes(contents)
+    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
+    upload(
+        paths=[],
+        dandiset_path=dspath,
+        dandi_instance=local_dandi_api["instance_id"],
+        devel_debug=True,
+        allow_any_path=True,
+        validation="skip",
+    )
+    download_dir = tmp_path / "download"
+    download_dir.mkdir()
+    download(
+        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
+        download_dir,
+    )
+    files = sorted(map(Path, find_files(r".*", paths=[download_dir])))
+    assert files == [
+        download_dir / dandiset_id / dandiset_metadata_file,
+        download_dir / dandiset_id / "file.txt",
+    ]
+    assert files[1].read_bytes() == contents
