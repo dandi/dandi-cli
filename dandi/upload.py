@@ -700,6 +700,45 @@ def _new_upload(
                 return
 
             #
+            # Validate first, so we do not bother server at all if not kosher
+            #
+            # TODO: enable back validation of dandiset.yaml
+            if path.name != dandiset_metadata_file and validation != "skip":
+                yield {"status": "pre-validating"}
+                validation_errors = validate_file(path)
+                yield {"errors": len(validation_errors)}
+                # TODO: split for dandi, pynwb errors
+                if validation_errors:
+                    if validation == "require":
+                        yield skip_file("failed validation")
+                        return
+                else:
+                    yield {"status": "validated"}
+            else:
+                # yielding empty causes pyout to get stuck or crash
+                # https://github.com/pyout/pyout/issues/91
+                # yield {"errors": '',}
+                pass
+
+            #
+            # Special handling for dandiset.yaml
+            # Yarik hates it but that is life for now. TODO
+            #
+            if path.name == dandiset_metadata_file:
+                # TODO This is a temporary measure to avoid breaking web UI
+                # dandiset metadata schema assumptions.  All edits should happen
+                # online.
+                if upload_dandiset_metadata:
+                    yield {"status": "updating metadata"}
+                    client.set_dandiset_metadata(
+                        dandiset.identifier, metadata=dandiset.metadata
+                    )
+                    yield {"status": "updated metadata"}
+                else:
+                    yield skip_file("should be edited online")
+                return
+
+            #
             # Compute checksums
             #
             yield {"status": "digesting"}
@@ -764,45 +803,6 @@ def _new_upload(
                     raise ValueError(f"invalid value for 'existing': {existing!r}")
 
                 yield {"message": f"{exists_msg} - reuploading"}
-
-            #
-            # Validate first, so we do not bother server at all if not kosher
-            #
-            # TODO: enable back validation of dandiset.yaml
-            if path.name != dandiset_metadata_file and validation != "skip":
-                yield {"status": "pre-validating"}
-                validation_errors = validate_file(path)
-                yield {"errors": len(validation_errors)}
-                # TODO: split for dandi, pynwb errors
-                if validation_errors:
-                    if validation == "require":
-                        yield skip_file("failed validation")
-                        return
-                else:
-                    yield {"status": "validated"}
-            else:
-                # yielding empty causes pyout to get stuck or crash
-                # https://github.com/pyout/pyout/issues/91
-                # yield {"errors": '',}
-                pass
-
-            #
-            # Special handling for dandiset.yaml
-            # Yarik hates it but that is life for now. TODO
-            #
-            if path.name == dandiset_metadata_file:
-                # TODO This is a temporary measure to avoid breaking web UI
-                # dandiset metadata schema assumptions.  All edits should happen
-                # online.
-                if upload_dandiset_metadata:
-                    yield {"status": "updating metadata"}
-                    client.set_dandiset_metadata(
-                        dandiset.identifier, metadata=dandiset.metadata
-                    )
-                    yield {"status": "updated metadata"}
-                else:
-                    yield skip_file("should be edited online")
-                return
 
             #
             # Extract metadata - delayed since takes time, but is done before
