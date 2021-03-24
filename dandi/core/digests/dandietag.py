@@ -109,6 +109,9 @@ class DandiETag:
     def complete(self) -> bool:
         return self._next_index == self.part_qty
 
+    def get_part(self, number: int) -> Part:
+        return self._part_gen[number]
+
     def get_parts(self) -> Iterator[Part]:
         return iter(self._part_gen)
 

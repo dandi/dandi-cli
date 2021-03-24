@@ -1,7 +1,9 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 import os.path
 from pathlib import Path
 import re
+from threading import Lock
 from xml.etree.ElementTree import fromstring
 
 import requests
@@ -450,53 +452,29 @@ class DandiAPIClient(RESTFullAPIClient):
             lgr.debug("Uploading %s in %d parts", filepath, len(parts))
             with storage.session():
                 with open(filepath, "rb") as fp:
-                    for part, etag_part in zip(parts, etagger.get_parts()):
-                        if part["size"] != etag_part.size:
-                            raise RuntimeError(
-                                f"Server and client disagree on size of upload part"
-                                f" {part['part_number']}; server says"
-                                f" {part['size']}, client says {etag_part.size}"
+                    with ThreadPoolExecutor() as executor:
+                        lock = Lock()
+                        futures = [
+                            executor.submit(
+                                upload_part,
+                                storage_session=storage,
+                                fp=fp,
+                                lock=lock,
+                                etagger=etagger,
+                                asset_path=asset_path,
+                                part=part,
                             )
-                        chunk = fp.read(part["size"])
-                        if len(chunk) != part["size"]:
-                            raise RuntimeError(
-                                f"End of file {filepath} reached unexpectedly early"
-                            )
-                        lgr.debug(
-                            "%s: Uploading part %d/%d (%d bytes)",
-                            asset_path,
-                            part["part_number"],
-                            len(parts),
-                            part["size"],
-                        )
-                        r = storage.put(part["upload_url"], data=chunk, json_resp=False)
-                        server_etag = r.headers["ETag"].strip('"')
-                        lgr.debug(
-                            "%s: Part upload finished ETag=%s Content-Length=%s",
-                            asset_path,
-                            server_etag,
-                            r.headers.get("Content-Length"),
-                        )
-                        client_etag = etagger.get_part_etag(etag_part)
-                        if server_etag != client_etag:
-                            raise RuntimeError(
-                                f"Server and client disagree on ETag of upload part"
-                                f" {part['part_number']}; server says"
-                                f" {server_etag}, client says {client_etag}"
-                            )
-                        bytes_uploaded += len(chunk)
-                        yield {
-                            "status": "uploading",
-                            "upload": 100 * bytes_uploaded / total_size,
-                            "current": bytes_uploaded,
-                        }
-                        parts_out.append(
-                            {
-                                "part_number": part["part_number"],
-                                "size": part["size"],
-                                "etag": server_etag,
+                            for part in parts
+                        ]
+                        for fut in as_completed(futures):
+                            out_part = fut.result()
+                            bytes_uploaded += out_part["size"]
+                            yield {
+                                "status": "uploading",
+                                "upload": 100 * bytes_uploaded / total_size,
+                                "current": bytes_uploaded,
                             }
-                        )
+                            parts_out.append(out_part)
                 lgr.debug("%s: Completing upload", asset_path)
                 resp = self.post(
                     f"/uploads/{upload_id}/complete/",
@@ -620,3 +598,45 @@ class DandiAPIClient(RESTFullAPIClient):
         if asset is None:
             raise RuntimeError(f"No asset found with path {asset_path!r}")
         self.delete_asset(dandiset_id, version_id, asset["asset_id"])
+
+
+def upload_part(storage_session, fp, lock, etagger, asset_path, part):
+    etag_part = etagger.get_part(part["part_number"])
+    if part["size"] != etag_part.size:
+        raise RuntimeError(
+            f"Server and client disagree on size of upload part"
+            f" {part['part_number']}; server says {part['size']},"
+            f" client says {etag_part.size}"
+        )
+    with lock:
+        fp.seek(etag_part.offset)
+        chunk = fp.read(part["size"])
+    if len(chunk) != part["size"]:
+        raise RuntimeError(f"End of file {fp.name} reached unexpectedly early")
+    lgr.debug(
+        "%s: Uploading part %d/%d (%d bytes)",
+        asset_path,
+        part["part_number"],
+        etagger.part_qty,
+        part["size"],
+    )
+    r = storage_session.put(part["upload_url"], data=chunk, json_resp=False)
+    server_etag = r.headers["ETag"].strip('"')
+    lgr.debug(
+        "%s: Part upload finished ETag=%s Content-Length=%s",
+        asset_path,
+        server_etag,
+        r.headers.get("Content-Length"),
+    )
+    client_etag = etagger.get_part_etag(etag_part)
+    if server_etag != client_etag:
+        raise RuntimeError(
+            f"Server and client disagree on ETag of upload part"
+            f" {part['part_number']}; server says"
+            f" {server_etag}, client says {client_etag}"
+        )
+    return {
+        "part_number": part["part_number"],
+        "size": part["size"],
+        "etag": server_etag,
+    }
