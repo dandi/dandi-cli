@@ -704,24 +704,30 @@ def _new_upload(
             #
             yield {"status": "digesting"}
             try:
-                sha256_digest = get_digest(path)
+                file_etag = get_digest(path, digest="dandi-etag")
             except Exception as exc:
-                yield skip_file("failed to compute digests: %s" % str(exc))
+                yield skip_file("failed to compute digest: %s" % str(exc))
                 return
 
             extant = client.get_asset_bypath(ds_identifier, "draft", str(relpath))
             if extant is not None:
                 # The endpoint used to search by paths doesn't include asset
                 # metadata, so we need to make another API call:
-                metadata = client.get_asset(ds_identifier, "draft", extant["uuid"])
+                metadata = client.get_asset(ds_identifier, "draft", extant["asset_id"])
                 local_mtime = ensure_datetime(path_stat.st_mtime)
                 remote_mtime_str = metadata.get("blobDateModified")
+                for d in metadata.get("digest", []):
+                    if d["cryptoType"] == "dandi:dandi-etag":
+                        extant_etag = d["value"]
+                        break
+                else:
+                    # TODO: Should this error instead?
+                    extant_etag = None
                 if remote_mtime_str is not None:
                     remote_mtime = ensure_datetime(remote_mtime_str)
                     remote_file_status = (
                         "same"
-                        if extant["sha256"] == sha256_digest
-                        and remote_mtime == local_mtime
+                        if extant_etag == file_etag and remote_mtime == local_mtime
                         else (
                             "newer"
                             if remote_mtime > local_mtime
@@ -742,11 +748,11 @@ def _new_upload(
                     return
                 # Logic below only for overwrite and reupload
                 if existing == "overwrite":
-                    if extant["sha256"] == sha256_digest:
+                    if extant_etag == file_etag:
                         yield skip_file(exists_msg)
                         return
                 elif existing == "refresh":
-                    if extant["sha256"] == sha256_digest:
+                    if extant_etag == file_etag:
                         yield skip_file("file exists")
                         return
                     elif remote_mtime is not None and remote_mtime >= local_mtime:
@@ -808,13 +814,13 @@ def _new_upload(
             yield {"status": "extracting metadata"}
             try:
                 asset_metadata = nwb2asset(
-                    path, digest=sha256_digest, digest_type="SHA256"
+                    path, digest=file_etag, digest_type="dandi_etag"
                 )
             except Exception as exc:
                 if allow_any_path:
                     yield {"status": "failed to extract metadata"}
                     asset_metadata = get_default_metadata(
-                        path, digest=sha256_digest, digest_type="SHA256"
+                        path, digest=file_etag, digest_type="dandi_etag"
                     )
                 else:
                     yield skip_file("failed to extract metadata: %s" % str(exc))
