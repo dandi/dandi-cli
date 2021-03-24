@@ -50,7 +50,7 @@ DigestTypeDict = {
             "rdfs:label": "SHA-1",
         },
         {
-            "@id": "dandi:SHA256",
+            "@id": "dandi:sha256",
             "@type": "dandi:DigestType",
             "rdfs:comment": "SHA-256 checksum",
             "rdfs:label": "SHA-256",
