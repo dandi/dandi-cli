@@ -4,6 +4,7 @@ import json
 from dateutil.tz import tzutc
 import pytest
 
+from ..consts import DANDI_SCHEMA_VERSION
 from ..metadata import (
     metadata2asset,
     migrate2newschema,
@@ -105,7 +106,7 @@ def test_metadata2asset(schema_dir):
     # data.json(exclude_unset=True, exclude_none=True, indent=2)
     json_data = """{
   "identifier": "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be",
-  "schemaVersion": "0.1.1",
+  "schemaVersion": null,
   "keywords": [
     "test",
     "sample",
@@ -183,6 +184,7 @@ def test_metadata2asset(schema_dir):
   ]
 }"""
     data_as_dict = json.loads(json_data)
+    data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
     assert data == BareAssetMeta(**data_as_dict)
     validate_asset_json(data_as_dict, schema_dir)
 
@@ -219,7 +221,7 @@ def test_metadata2asset_simple1(schema_dir):
     )
     # data.json(exclude_unset=True, exclude_none=True, indent=2)
     json_data = """{
-  "schemaVersion": "0.1.1",
+  "schemaVersion": null,
   "identifier": "bfc23fb6192b41c083a7257e09a3702b",
   "keywords": [
     "keyword1",
@@ -262,6 +264,7 @@ def test_metadata2asset_simple1(schema_dir):
   ]
 }"""
     data_as_dict = json.loads(json_data)
+    data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
     assert data == BareAssetMeta(**data_as_dict)
     validate_asset_json(data_as_dict, schema_dir)
 
@@ -973,9 +976,10 @@ def test_dandimeta_migration(schema_dir):
     "dandi:CCBY40"
   ],
   "name": "A NWB-based dataset and processing pipeline of human single-neuron activity during a declarative memory task",
-  "schemaVersion": "0.1.1",
+  "schemaVersion": null,
   "repository": "https://dandiarchive.org/"
 }"""
     data_as_dict = json.loads(json_data)
+    data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
     assert data == DandisetMeta(**data_as_dict)
     validate_dandiset_json(data_as_dict, schema_dir)
