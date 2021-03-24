@@ -416,24 +416,10 @@ class DandiAPIClient(RESTFullAPIClient):
                         f" {digest['value']} but is now {filetag}"
                     )
                 break
+        yield {"status": "initiating upload"}
+        lgr.debug("%s: Beginning upload", asset_path)
+        total_size = os.path.getsize(filepath)
         try:
-            resp = self.post(
-                "/blobs/digest/",
-                json={"algorithm": "dandi:dandi-etag", "value": filetag},
-            )
-        except requests.HTTPError as e:
-            if e.response.status_code == 404:
-                lgr.debug("%s: Blob does not already exist on server", asset_path)
-                blob_exists = False
-            else:
-                raise
-        else:
-            lgr.debug("%s: Blob is already uploaded to server", asset_path)
-            blob_exists = True
-            blob_id = resp["blob_id"]
-        if not blob_exists:
-            total_size = os.path.getsize(filepath)
-            lgr.debug("%s: Beginning upload", asset_path)
             resp = self.post(
                 "/uploads/initialize/",
                 json={
@@ -444,6 +430,13 @@ class DandiAPIClient(RESTFullAPIClient):
                     },
                 },
             )
+        except requests.HTTPError as e:
+            if e.response.status_code == 409:
+                lgr.debug("%s: Blob already exists on server", asset_path)
+                blob_id = e.response.headers["Location"]
+            else:
+                raise
+        else:
             upload_id = resp["upload_id"]
             parts = resp["parts"]
             if len(parts) != etagger.part_qty:
