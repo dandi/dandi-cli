@@ -136,7 +136,7 @@ def test_asset():
             {
                 "md5": "dandi:md5",
                 "sha1": "dandi:sha1",
-                "SHA256": "dandi:SHA256",
+                "sha256": "dandi:sha256",
                 "sha512": "dandi:sha512",
                 "dandi_etag": "dandi:dandi-etag",
             },
