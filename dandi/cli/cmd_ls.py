@@ -172,6 +172,13 @@ def ls(paths, schema, fields=None, format="auto", recursive=False, jobs=6):
                     _add_exc_error(asset, rec, errors, exc)
             elif isinstance(asset, dict):
                 # ready record
+                if schema is not None and asset.get("schemaVersion") != schema:
+                    raise NotImplementedError(
+                        "Record conversion between schema versions is not"
+                        " implemented.  Found schemaVersion="
+                        f"{asset.get('schemaVersion')} where {schema} was"
+                        " requested"
+                    )
                 # TODO: harmonization for pyout
                 rec = asset
             else:
