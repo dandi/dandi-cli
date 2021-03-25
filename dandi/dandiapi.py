@@ -612,7 +612,10 @@ def upload_part(storage_session, fp, lock, etagger, asset_path, part):
         fp.seek(etag_part.offset)
         chunk = fp.read(part["size"])
     if len(chunk) != part["size"]:
-        raise RuntimeError(f"End of file {fp.name} reached unexpectedly early")
+        raise RuntimeError(
+            f"End of file {fp.name} reached unexpectedly early:"
+            f" read {len(chunk)} bytes of out of an expected {part['size']}"
+        )
     lgr.debug(
         "%s: Uploading part %d/%d (%d bytes)",
         asset_path,
