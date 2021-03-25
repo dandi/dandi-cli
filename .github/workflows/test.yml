@@ -23,11 +23,18 @@ jobs:
           - 3.7
           - 3.8
           - 3.9
+        dandi_api:
+          - false
         dev_deps:
           - false
         include:
           - os: ubuntu-18.04
             python: 3.7
+            dandi_api: true
+            dev_deps: false
+          - os: ubuntu-18.04
+            python: 3.7
+            dandi_api: false
             dev_deps: true
         exclude:
           # Temporarily disabled due to h5py/hdf5 dependency issue
@@ -78,9 +85,17 @@ jobs:
     - name: Set environment variable when using Python 3.7 to cover more code
       run: echo DANDI_LOG_GIRDER=1 >> "$GITHUB_ENV"
       if: matrix.python == '3.7'
-    - name: Run tests
+
+    - name: Run all tests
+      if: "!matrix.dandi_api"
       run: |
         python -m pytest -s -v --cov=dandi --cov-report=xml dandi
+
+    - name: Run Dandi API tests only
+      if: matrix.dandi_api
+      run: |
+        python -m pytest -s -v --cov=dandi --cov-report=xml --dandi-api dandi
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
       with:
