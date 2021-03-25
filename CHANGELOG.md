@@ -1,3 +1,24 @@
+# 0.12.1 (Thu Mar 25 2021)
+
+#### 🐛 Bug Fix
+
+- Lowercase "sha256" [#493](https://github.com/dandi/dandi-cli/pull/493) ([@jwodder](https://github.com/jwodder))
+- Validate uploads before digesting [#495](https://github.com/dandi/dandi-cli/pull/495) ([@jwodder](https://github.com/jwodder))
+- Check for already-uploaded blobs via /uploads/initialize/ instead of /blobs/digest/ [#496](https://github.com/dandi/dandi-cli/pull/496) ([@jwodder](https://github.com/jwodder))
+- Update upload code for changes in API [#479](https://github.com/dandi/dandi-cli/pull/479) ([@jwodder](https://github.com/jwodder))
+- dandi ls: Error if --schema is given with remote resource of different version [#489](https://github.com/dandi/dandi-cli/pull/489) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Add option for only running new Dandi API tests [#500](https://github.com/dandi/dandi-cli/pull/500) ([@jwodder](https://github.com/jwodder))
+- Don't hardcode DANDI_SCHEMA_VERSION value in tests [#491](https://github.com/dandi/dandi-cli/pull/491) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.12.0 (Tue Mar 23 2021)
 
 #### 🚀 Enhancement
