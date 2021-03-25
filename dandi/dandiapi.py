@@ -366,7 +366,7 @@ class DandiAPIClient(RESTFullAPIClient):
             dandiset["metadata"] = dandiset_metadata.pop("dandiset")
         return dandiset
 
-    def upload(self, dandiset_id, version_id, asset_metadata, filepath):
+    def upload(self, dandiset_id, version_id, asset_metadata, filepath, jobs=None):
         """
         Parameters
         ----------
@@ -381,10 +381,12 @@ class DandiAPIClient(RESTFullAPIClient):
         filepath: str or PathLike
           the path to the local file to upload
         """
-        for _ in self.iter_upload(dandiset_id, version_id, asset_metadata, filepath):
+        for _ in self.iter_upload(
+            dandiset_id, version_id, asset_metadata, filepath, jobs=jobs
+        ):
             pass
 
-    def iter_upload(self, dandiset_id, version_id, asset_metadata, filepath):
+    def iter_upload(self, dandiset_id, version_id, asset_metadata, filepath, jobs=None):
         """
         Parameters
         ----------
@@ -452,7 +454,7 @@ class DandiAPIClient(RESTFullAPIClient):
             lgr.debug("Uploading %s in %d parts", filepath, len(parts))
             with storage.session():
                 with open(filepath, "rb") as fp:
-                    with ThreadPoolExecutor() as executor:
+                    with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
                         lock = Lock()
                         futures = [
                             executor.submit(
