@@ -28,6 +28,8 @@ def upload(
     allow_any_path=False,
     upload_dandiset_metadata=False,
     devel_debug=False,
+    jobs=None,
+    jobs_per_file=None,
 ):
     from .dandiset import Dandiset
     from . import girder
@@ -56,6 +58,8 @@ def upload(
             allow_any_path,
             upload_dandiset_metadata,
             devel_debug,
+            jobs=jobs,
+            jobs_per_file=jobs_per_file,
         )
 
     if upload_dandiset_metadata:
@@ -604,6 +608,8 @@ def _new_upload(
     allow_any_path,
     upload_dandiset_metadata,
     devel_debug,
+    jobs=None,
+    jobs_per_file=None,
 ):
     from .dandiapi import DandiAPIClient
     from .dandiset import APIDandiset
@@ -833,7 +839,9 @@ def _new_upload(
             #
             yield {"status": "uploading"}
             validating = False
-            for r in client.iter_upload(ds_identifier, "draft", metadata, str(path)):
+            for r in client.iter_upload(
+                ds_identifier, "draft", metadata, str(path), jobs=jobs_per_file
+            ):
                 if r["status"] == "uploading":
                     uploaded_paths[str(path)]["size"] = r.pop("current")
                     yield r
@@ -876,7 +884,7 @@ def _new_upload(
     pyout_style["upload"]["aggregate"] = upload_agg
 
     rec_fields = ["path", "size", "errors", "upload", "status", "message"]
-    out = pyouts.LogSafeTabular(style=pyout_style, columns=rec_fields)
+    out = pyouts.LogSafeTabular(style=pyout_style, columns=rec_fields, max_workers=jobs)
 
     with out, client.session():
         for path in paths:
