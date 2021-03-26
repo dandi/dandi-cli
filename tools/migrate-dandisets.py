@@ -10,10 +10,11 @@ from dandi.dandiset import APIDandiset
 @click.option(
     "-d", "--delete-extant", is_flag=True, help="Delete Dandisets that already exist"
 )
+@click.option("--only-metadata", is_flag=True, help="Only update Dandiset metadata")
 @click.argument("api_url")
 @click.argument("token")
 @click.argument("dandiset_path", nargs=-1)
-def main(api_url, token, dandiset_path, delete_extant):
+def main(api_url, token, dandiset_path, delete_extant, only_metadata):
     client = DandiAPIClient(api_url=api_url, token=token)
     with client.session():
         for dpath in dandiset_path:
@@ -27,10 +28,16 @@ def main(api_url, token, dandiset_path, delete_extant):
                 else:
                     print("Dandiset", dandiset.identifier, "already exists; deleting")
                     client.delete(f"/dandisets/{dandiset.identifier}/")
-            print("Creating Dandiset", dandiset.identifier)
-            client.create_dandiset(
-                name=dandiset.metadata.get("name", ""), metadata=dandiset.metadata
-            )
+            if only_metadata:
+                print("Setting metadata for Dandiset", dandiset.identifier)
+                client.set_dandiset_metadata(
+                    dandiset.identifier, metadata=dandiset.metadata
+                )
+            else:
+                print("Creating Dandiset", dandiset.identifier)
+                client.create_dandiset(
+                    name=dandiset.metadata.get("name", ""), metadata=dandiset.metadata
+                )
 
 
 if __name__ == "__main__":
