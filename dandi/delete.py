@@ -157,19 +157,21 @@ class Deleter:
             yield {"path": asset.path, ("status", "message"): process(asset)}
 
     def process_assets_debug(self) -> Iterator[Iterator[dict]]:
-        def process(asset):
-            yield {"path": asset.path, "status": "Deleting"}
-            try:
-                self.client.delete_asset(
-                    asset.dandiset_id, asset.version_id, asset.asset_id
-                )
-            except Exception as e:
-                yield {"status": "Error", "message": f"{type(e).__name__}: {e}"}
-            else:
-                yield {"status": "Deleted"}
+        with self.client.session():
 
-        for asset in sorted(self.remote_assets, key=attrgetter("path")):
-            yield process(asset)
+            def process(asset):
+                yield {"path": asset.path, "status": "Deleting"}
+                try:
+                    self.client.delete_asset(
+                        asset.dandiset_id, asset.version_id, asset.asset_id
+                    )
+                except Exception as e:
+                    yield {"status": "Error", "message": f"{type(e).__name__}: {e}"}
+                else:
+                    yield {"status": "Deleted"}
+
+            for asset in sorted(self.remote_assets, key=attrgetter("path")):
+                yield process(asset)
 
 
 def delete(
@@ -177,6 +179,7 @@ def delete(
     dandi_instance: str = "dandi",
     devel_debug: bool = False,
     jobs: Optional[int] = None,
+    force: bool = False,
 ) -> None:
     deleter = Deleter()
     for p in paths:
@@ -184,7 +187,7 @@ def delete(
             deleter.register_url(p)
         else:
             deleter.register_local_path_equivalent(dandi_instance, p)
-    if deleter and deleter.confirm():
+    if deleter and (force or deleter.confirm()):
         if deleter.deleting_dandiset:
             deleter.delete_dandiset()
         elif devel_debug:

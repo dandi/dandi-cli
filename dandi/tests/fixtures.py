@@ -376,7 +376,8 @@ def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
     client = DandiAPIClient(
         api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
     )
-    dandiset_id = client.create_dandiset("Text Dandiset", {})["identifier"]
+    with client.session():
+        dandiset_id = client.create_dandiset("Text Dandiset", {})["identifier"]
     dspath = tmp_path_factory.mktemp("text_dandiset")
     (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
     (dspath / "file.txt").write_text("This is test text.\n")
