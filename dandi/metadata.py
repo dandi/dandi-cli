@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import datetime
 import json
 import os
@@ -471,7 +472,7 @@ def toContributor(value, contrib_type):
 
 
 def convertv1(data):
-    oldmeta = data["dandiset"] if "dandiset" in data else data
+    oldmeta = deepcopy(data["dandiset"]) if "dandiset" in data else deepcopy(data)
     newmeta = {}
     for oldkey, value in oldmeta.items():
         if oldkey in ["language", "altid", "number_of_slices"]:
