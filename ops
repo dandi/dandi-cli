@@ -1,0 +1,1 @@
+{"version":2,"ops":[{"type":1,"author":{"id":"12cb25e6e3f19b53447b05d00d7d4d53c925c908"},"timestamp":1565988009,"metadata":{"github-id":"MDU6SXNzdWU0ODE3NzczMDY=","github-url":"https://github.com/dandi/dandi-cli/issues/1","origin":"github"},"title":"DANDI cli","message":"- [ ] Python CLI\n- [ ] Girder support\n- [ ] datalad support","files":null}]}
