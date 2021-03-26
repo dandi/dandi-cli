@@ -5,6 +5,7 @@ import os.path as op
 import click
 
 from .base import lgr, map_to_click_exceptions
+from ..utils import is_url
 
 # TODO: all the recursion options etc
 
@@ -324,11 +325,3 @@ def get_metadata_ls(path, keys, errors, flatten=False, schema=None):
             pass
 
     return fn
-
-
-def is_url(s):
-    """Very primitive url detection for now
-
-    TODO: redo
-    """
-    return s.lower().startswith(("http://", "https://"))
