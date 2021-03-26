@@ -735,10 +735,10 @@ class CommonModel(DandiBaseModel):
     def json_dict(self):
         """
         Recursively convert the instance to a `dict` of JSONable values,
-        including converting enum values to strings.  Unset and `None` fields
+        including converting enum values to strings.  `None` fields
         are omitted.
         """
-        return json.loads(self.json(exclude_unset=True, exclude_none=True))
+        return json.loads(self.json(exclude_none=True))
 
 
 class DandisetMeta(CommonModel, Identifiable):
