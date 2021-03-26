@@ -269,10 +269,10 @@ class Disorder(TypeModel):
     schemaKey: Literal["Disorder"] = Field("Disorder", readOnly=True)
 
 
-class ModalityType(TypeModel):
-    """Identifier for modality used"""
+class ApproachType(TypeModel):
+    """Identifier for approach used"""
 
-    schemaKey: Literal["ModalityType"] = Field("ModalityType", readOnly=True)
+    schemaKey: Literal["ApproachType"] = Field("ApproachType", readOnly=True)
 
 
 class MeasurementTechniqueType(TypeModel):
@@ -475,7 +475,7 @@ class AssetsSummary(DandiBaseModel):
         readOnly=True
     )  # TODO: types of things NWB, BIDS
     # Web UI: icons per each modality?
-    modality: List[ModalityType] = Field(
+    approach: List[ApproachType] = Field(
         readOnly=True
     )  # TODO: types of things, BIDS etc...
     # Web UI: could be an icon with number, which if hovered on  show a list?
@@ -853,7 +853,7 @@ class BareAssetMeta(CommonModel):
     sameAs: Optional[List[HttpUrl]] = Field(None, nskey="schema")
 
     # TODO
-    modality: Optional[List[ModalityType]] = Field(None, readOnly=True, nskey="dandi")
+    approach: Optional[List[ApproachType]] = Field(None, readOnly=True, nskey="dandi")
     measurementTechnique: Optional[List[MeasurementTechniqueType]] = Field(
         None, readOnly=True, nskey="schema"
     )

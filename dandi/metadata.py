@@ -424,6 +424,8 @@ def toContributor(value, contrib_type):
         value = [value]
     out = []
     for item in value:
+        if item == {"orcid": "", "roles": []}:
+            continue
         contrib = {}
         if "name" in item:
             name = item["name"].split()
@@ -449,18 +451,21 @@ def toContributor(value, contrib_type):
             # else:
             #    contrib["identifier"] = models.PropertyValue()
             del item["orcid"]
+        if "affiliation" in item:
+            item["affiliation"] = [models.Organization(name=item["affiliation"])]
         if "affiliations" in item:
             item["affiliation"] = [
-                models.Organization.unvalidated(**{"name": affiliate})
+                models.Organization(name=affiliate)
                 for affiliate in item["affiliations"]
             ]
-
             del item["affiliations"]
         contrib.update(**{f"{k}": v for k, v in item.items()})
         if "awardNumber" in contrib or contrib_type == "sponsors":
-            contrib = models.Organization.unvalidated(**contrib)
+            contrib = models.Organization(**contrib)
         else:
-            contrib = models.Person.unvalidated(**contrib)
+            if "name" not in contrib:
+                contrib["name"] = "Last, First"
+            contrib = models.Person(**contrib)
         out.append(contrib)
     return out
 
@@ -504,9 +509,23 @@ def convertv1(data):
                 out = []
                 for item in value:
                     if isinstance(item, dict):
-                        out.append(models.Resource.unvalidated(**item))
+                        if (
+                            "relation" in item
+                            and "publication" in item["relation"].lower()
+                        ):
+                            del item["relation"]
+                        if "relation" not in item:
+                            if oldkey == "publications":
+                                item["relation"] = models.RelationType.IsDescribedBy
+                            if oldkey == "associatedData":
+                                item["relation"] = models.RelationType.IsDerivedFrom
+                        out.append(models.Resource(**item))
                     elif not any(item in val.dict().values() for val in out):
-                        out.append(models.Resource.unvalidated(url=item))
+                        out.append(
+                            models.Resource(
+                                url=item, relation=models.RelationType.IsDescribedBy
+                            )
+                        )
                 value = out
             if oldkey in [
                 "number_of_subjects",
