@@ -424,7 +424,6 @@ def toContributor(value, contrib_type):
         value = [value]
     out = []
     for item in value:
-        print(item)
         if item == {"orcid": "", "roles": []}:
             continue
         contrib = {}
