@@ -1,0 +1,1 @@
+{"version":2,"ops":[{"type":1,"author":{"id":"34bb3b7763ea6d04cae1c21ede40209df34305b5"},"timestamp":1566845868,"metadata":{"github-id":"MDU6SXNzdWU0ODUzOTAzMTk=","github-url":"https://github.com/dandi/dandi-cli/issues/3","origin":"github"},"title":"CMD: validate","message":"basic validation of .pynwb files via pynwb","files":null}]}
