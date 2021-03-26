@@ -93,18 +93,18 @@ class Deleter:
                     "Dandi API server does not support deletion of individual"
                     " versions of a dandiset"
                 )
-            self.register_dandiset(server_url, asset_id["dandiset"])
+            self.register_dandiset(server_url, asset_id["dandiset_id"])
         elif asset_type == "item":
             self.register_asset(
                 server_url,
-                asset_id["dandiset"],
+                asset_id["dandiset_id"],
                 asset_id.get("version") or "draft",
                 asset_id["location"],
             )
         elif asset_type == "folder":
             self.register_asset_folder(
                 server_url,
-                asset_id["dandiset"],
+                asset_id["dandiset_id"],
                 asset_id.get("version") or "draft",
                 asset_id["location"],
             )
