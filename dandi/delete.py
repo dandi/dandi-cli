@@ -141,7 +141,22 @@ class Deleter:
                 "delete_dandiset() called when Dandiset not registered for deletion"
             )
 
-    def process_assets(self) -> Iterator[Iterator[dict]]:
+    def process_assets_pyout(self) -> Iterator[dict]:
+        def process(asset):
+            yield {"status": "Deleting"}
+            try:
+                self.client.delete_asset(
+                    asset.dandiset_id, asset.version_id, asset.asset_id
+                )
+            except Exception as e:
+                yield {"status": "Error", "message": f"{type(e).__name__}: {e}"}
+            else:
+                yield {"status": "Deleted"}
+
+        for asset in sorted(self.remote_assets, key=attrgetter("path")):
+            yield {"path": asset.path, ("status", "message"): process(asset)}
+
+    def process_assets_debug(self) -> Iterator[Iterator[dict]]:
         def process(asset):
             yield {"path": asset.path, "status": "Deleting"}
             try:
@@ -173,7 +188,7 @@ def delete(
         if deleter.deleting_dandiset:
             deleter.delete_dandiset()
         elif devel_debug:
-            for gen in deleter.process_assets():
+            for gen in deleter.process_assets_debug():
                 for r in gen:
                     print(r, flush=True)
         else:
@@ -185,7 +200,7 @@ def delete(
                 style=pyout_style, columns=rec_fields, max_workers=jobs
             )
             with out:
-                for gen in deleter.process_assets():
+                for gen in deleter.process_assets_pyout():
                     out(gen)
 
 
