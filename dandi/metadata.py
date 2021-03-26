@@ -452,10 +452,10 @@ def toContributor(value, contrib_type):
             #    contrib["identifier"] = models.PropertyValue()
             del item["orcid"]
         if "affiliation" in item:
-            item["affiliation"] = [models.Organization(**{"name": item["affiliation"]})]
+            item["affiliation"] = [models.Organization(name=item["affiliation"])]
         if "affiliations" in item:
             item["affiliation"] = [
-                models.Organization(**{"name": affiliate})
+                models.Organization(name=affiliate)
                 for affiliate in item["affiliations"]
             ]
             del item["affiliations"]
