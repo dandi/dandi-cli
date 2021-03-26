@@ -521,7 +521,6 @@ def convertv1(data):
                                 item["relation"] = models.RelationType.IsDerivedFrom
                         out.append(models.Resource(**item))
                     elif not any(item in val.dict().values() for val in out):
-                        print(item)
                         out.append(
                             models.Resource(
                                 url=item, relation=models.RelationType.IsDescribedBy
