@@ -1,0 +1,1 @@
+{"version":2,"ops":[{"type":1,"author":{"id":"12cb25e6e3f19b53447b05d00d7d4d53c925c908"},"timestamp":1582398880,"metadata":{"github-id":"MDU6SXNzdWU1NjkzNzk4NDY=","github-url":"https://github.com/dandi/dandi-cli/issues/37","origin":"github"},"title":"option to override keyring","message":"is there an option to change the api key once stored in the keyring?","files":null}]}
