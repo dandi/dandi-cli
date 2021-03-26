@@ -1,0 +1,1 @@
+{"version":2,"ops":[{"type":1,"author":{"id":"12cb25e6e3f19b53447b05d00d7d4d53c925c908"},"timestamp":1607651537,"metadata":{"github-id":"MDU6SXNzdWU3NjE3ODQ3MzI=","github-url":"https://github.com/dandi/dandi-cli/issues/313","origin":"github"},"title":"h5py started to error on install with python 3.9","message":"In #312 i am seeing a h5py installation error.","files":null}]}
