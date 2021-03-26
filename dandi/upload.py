@@ -874,7 +874,11 @@ def _new_upload(
 
     def upload_agg(*ignored):
         dt = time.time() - t0
-        total = sum(v["size"] for v in uploaded_paths.values())
+        # to help avoiding dict length changes during upload
+        # might be not a proper solution
+        # see https://github.com/dandi/dandi-cli/issues/502 for more info
+        uploaded_recs = list(uploaded_paths.values())
+        total = sum(v["size"] for v in uploaded_recs)
         if not total:
             return ""
         speed = total / dt if dt else 0
