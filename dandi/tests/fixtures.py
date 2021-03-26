@@ -189,14 +189,17 @@ def docker_compose_setup():
 
     if create:
         run(
-            ["docker-compose", "up", "-d", "provision"],
+            ["docker-compose", "up", "-d", "client"],
             cwd=str(LOCAL_DOCKER_DIR),
             check=True,
         )
     try:
         if create:
-            run(["docker", "wait", f"{LOCAL_DOCKER_ENV}_provision_1"], check=True)
-            # Should we check that the output of `docker wait` is 0?
+            run(
+                ["docker-compose", "run", "--rm", "provision"],
+                cwd=str(LOCAL_DOCKER_DIR),
+                check=True,
+            )
 
         r = requests.get(
             f"{GIRDER_URL}/api/v1/user/authentication", auth=("admin", "letmein")
