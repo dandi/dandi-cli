@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
+from operator import attrgetter
 from pathlib import Path, PurePosixPath
-from typing import Iterable, Iterator, List, NamedTuple, Optional, Tuple
+from typing import Iterable, Iterator, NamedTuple, Optional, Set, Tuple
 
 import click
 import requests
@@ -24,7 +25,7 @@ class Deleter:
     client: Optional[DandiAPIClient] = None
     dandiset_id: Optional[str] = None
     deleting_dandiset: bool = False
-    remote_assets: List[RemoteAsset] = field(default_factory=list)
+    remote_assets: Set[RemoteAsset] = field(default_factory=set)
 
     def __bool__(self) -> bool:
         return self.deleting_dandiset or bool(self.remote_assets)
@@ -61,7 +62,7 @@ class Deleter:
             raise NotFoundError(
                 f"Asset at path {asset_path!r} not found in Dandiset {dandiset_id}"
             )
-        self.remote_assets.append(
+        self.remote_assets.add(
             RemoteAsset(dandiset_id, version_id, asset["asset_id"], asset["path"])
         )
 
@@ -75,7 +76,7 @@ class Deleter:
         for asset in self.client.get_dandiset_assets(
             dandiset_id, version_id, path=folder_path
         ):
-            self.remote_assets.append(
+            self.remote_assets.add(
                 RemoteAsset(dandiset_id, version_id, asset["asset_id"], asset["path"])
             )
             any_assets = True
@@ -152,7 +153,7 @@ class Deleter:
             else:
                 yield {"status": "Deleted"}
 
-        for asset in self.remote_assets:
+        for asset in sorted(self.remote_assets, key=attrgetter("path")):
             yield process(asset)
 
 
