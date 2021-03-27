@@ -141,37 +141,29 @@ class Deleter:
                 "delete_dandiset() called when Dandiset not registered for deletion"
             )
 
-    def process_assets_pyout(self) -> Iterator[dict]:
-        def process(asset):
-            yield {"status": "Deleting"}
-            try:
-                self.client.delete_asset(
-                    asset.dandiset_id, asset.version_id, asset.asset_id
-                )
-            except Exception as e:
-                yield {"status": "Error", "message": f"{type(e).__name__}: {e}"}
-            else:
-                yield {"status": "Deleted"}
+    def _process_asset(self, asset: RemoteAsset) -> Iterator[dict]:
+        yield {"status": "Deleting"}
+        try:
+            self.client.delete_asset(
+                asset.dandiset_id, asset.version_id, asset.asset_id
+            )
+        except Exception as e:
+            yield {"status": "Error", "message": f"{type(e).__name__}: {e}"}
+        else:
+            yield {"status": "Deleted"}
 
-        for asset in sorted(self.remote_assets, key=attrgetter("path")):
-            yield {"path": asset.path, ("status", "message"): process(asset)}
+    def process_assets_pyout(self) -> Iterator[dict]:
+        with self.client.session():
+            for asset in sorted(self.remote_assets, key=attrgetter("path")):
+                yield {
+                    "path": asset.path,
+                    ("status", "message"): self._process_asset(asset),
+                }
 
     def process_assets_debug(self) -> Iterator[Iterator[dict]]:
         with self.client.session():
-
-            def process(asset):
-                yield {"path": asset.path, "status": "Deleting"}
-                try:
-                    self.client.delete_asset(
-                        asset.dandiset_id, asset.version_id, asset.asset_id
-                    )
-                except Exception as e:
-                    yield {"status": "Error", "message": f"{type(e).__name__}: {e}"}
-                else:
-                    yield {"status": "Deleted"}
-
             for asset in sorted(self.remote_assets, key=attrgetter("path")):
-                yield process(asset)
+                yield ({"path": asset.path, **d} for d in self._process_asset(asset))
 
 
 def delete(
