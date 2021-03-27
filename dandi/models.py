@@ -113,6 +113,87 @@ def diff_models(model1, model2):
             print(f"{field} is different")
 
 
+def to_datacite(dandiset):
+    from .metadata import migrate2newschema
+
+    meta = dandiset.metadata
+    newmeta = migrate2newschema(meta)
+
+    prefix = "10.80507"
+    dandiset_id = dandiset.identifier
+
+    version_id = newmeta.version  # this is None e.g. for 08, what should I use?
+    # taken from dandi-api
+    doi = f"{prefix}/{dandiset_id}/{version_id}"
+    url = f"https://dandiarchive.org/dandiset/{dandiset_id}/{version_id}"
+
+    attributes = {}
+    # from the examples I understand that many fields should be provided as a list,
+    # even identifier or a title
+    attributes["identifiers"] = (
+        [
+            {
+                "identifier": "https://doi.org/10.5438/0012",
+                # not sure if I can use it in the schema description the only option is DOI...
+                "identifierType": "Dandi",
+            }
+        ],
+    )
+    attributes["titles"] = [{"title": newmeta.name}]
+    attributes["descriptions"] = [
+        {"description": newmeta.description, "descriptionType": "Other"}
+    ]
+    attributes["publisher"] = "DANDI Archive"
+    attributes["publicationYear"] = datetime.now().year
+    # not sure about it dandi-api had "resourceTypeGeneral": "NWB"
+    attributes["types"] = {"resourceType": "NWB", "resourceTypeGeneral": "Dataset"}
+    attributes["url"] = url
+    attributes["rightsList"] = [{"rights": newmeta.license}]
+    # not sure if these is correct schema or should I provide newmeta.schemaVersion
+    # if not here, i'm not sure where newmeta.schemaVersion should go
+    attributes["schemaVersion"] = "http://datacite.org/schema/kernel-4"
+
+    creators = []
+    contributors = []
+
+    for contr_el in newmeta.contributor:
+        if "dandi:Author" in contr_el["roleName"]:
+            contr_dict = {
+                # "name" is not officially in the schema, but its in the example, should I keep it?
+                "name": contr_el["name"],
+                "creatorName": contr_el["name"],
+                # I'm assuming that we do not have to have Family Name and First name
+                "schemeURI": "orcid.org",
+                "affiliation": contr_el["affiliation"],
+            }
+            if isinstance(contr_el, Person):
+                contr_dict["nameType"] = "Personal"
+            elif isinstance(contr_el, Organization):
+                contr_dict["nameType"] = "Organizational"
+            creators.append(contr_dict)
+        # is creator also a contributor?
+        else:
+            contr_dict = {
+                "name": contr_el["name"],
+                "contributorName": contr_el["name"],
+                "schemeURI": "orcid.org",
+                "affiliation": contr_el["affiliation"],
+                # it's not clear to me if schema allows this to be a list
+                "contributorType": contr_el["roleName"],
+            }
+            if isinstance(contr_el, Person):
+                contr_dict["nameType"] = "Personal"
+            elif isinstance(contr_el, Organization):
+                contr_dict["nameType"] = "Organizational"
+            contributors.append(contr_dict)
+
+    attributes["contributors"] = contributors
+    attributes["creators"] = creators
+
+    datacite_dict = {"data": {"id": doi, "type": "dois", "attributes": attributes}}
+    return datacite_dict
+
+
 class DandiBaseModel(BaseModel):
     @classmethod
     def unvalidated(__pydantic_cls__: Type[BaseModel], **data: Any) -> BaseModel:
