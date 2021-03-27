@@ -320,37 +320,34 @@ def get_metadata_ls(path, keys, errors, flatten=False, schema=None):
     ignore_benign_pynwb_warnings()
 
     def fn():
-        try:
-            rec = {}
-            # No need for calling get_metadata if no keys are needed from it
-            if keys is None or list(keys) != ["nwb_version"]:
-                try:
-                    if schema is not None:
-                        if op.isdir(path):
-                            dandiset = APIDandiset(path, schema_version=schema)
-                            rec = dandiset.metadata
-                        else:
-                            rec = nwb2asset(path, schema_version=schema).json_dict()
+        rec = {}
+        # No need for calling get_metadata if no keys are needed from it
+        if keys is None or list(keys) != ["nwb_version"]:
+            try:
+                if schema is not None:
+                    if op.isdir(path):
+                        dandiset = APIDandiset(path, schema_version=schema)
+                        rec = dandiset.metadata
                     else:
-                        rec = get_metadata(path)
-                except Exception as exc:
-                    _add_exc_error(path, rec, errors, exc)
-                if flatten:
-                    rec = flatten_meta_to_pyout(rec)
-            if keys is not None:
-                rec = {k: v for k, v in rec.items() if k in keys}
-            if (
-                not op.isdir(path)
-                and "nwb_version" not in rec
-                and (keys and "nwb_version" in keys)
-            ):
-                # Let's at least get that one
-                try:
-                    rec["nwb_version"] = get_nwb_version(path)
-                except Exception as exc:
-                    _add_exc_error(path, rec, errors, exc)
-            return rec
-        finally:
-            pass
+                        rec = nwb2asset(path, schema_version=schema).json_dict()
+                else:
+                    rec = get_metadata(path)
+            except Exception as exc:
+                _add_exc_error(path, rec, errors, exc)
+            if flatten:
+                rec = flatten_meta_to_pyout(rec)
+        if keys is not None:
+            rec = {k: v for k, v in rec.items() if k in keys}
+        if (
+            not op.isdir(path)
+            and "nwb_version" not in rec
+            and (keys and "nwb_version" in keys)
+        ):
+            # Let's at least get that one
+            try:
+                rec["nwb_version"] = get_nwb_version(path)
+            except Exception as exc:
+                _add_exc_error(path, rec, errors, exc)
+        return rec
 
     return fn
