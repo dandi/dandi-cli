@@ -413,6 +413,7 @@ class DandiAPIClient(RESTFullAPIClient):
         filetag = etagger.as_str()
         lgr.debug("Calculated dandi-etag of %s for %s", filetag, filepath)
         for digest in asset_metadata.get("digest", {}):
+            lgr.debug("Digest: ", digest)
             if "dandi:dandi-etag" in digest:
                 if digest["dandi:dandi-etag"] != filetag:
                     raise RuntimeError(
