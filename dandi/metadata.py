@@ -647,9 +647,7 @@ def generate_context():
             elif name == "digest":
                 fields[name] = "@nest"
             elif "nskey" in field.field_info.extra:
-                if name in fields:
-                    print(f"{name} also in {klass}")
-                else:
+                if name not in fields:
                     fields[name] = {"@id": field.field_info.extra["nskey"] + ":" + name}
                     if "List" in str(field.outer_type_):
                         fields[name]["@container"] = "@set"

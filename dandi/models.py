@@ -113,6 +113,21 @@ def diff_models(model1, model2):
             print(f"{field} is different")
 
 
+def _sanitize(o):
+    if isinstance(o, dict):
+        return {_sanitize(k): _sanitize(v) for k, v in o.items()}
+    elif isinstance(o, (set, tuple, list)):
+        return type(o)(_sanitize(x) for x in o)
+    elif isinstance(o, enum.Enum):
+        return o.value
+    return o
+
+
+class HandleKeyEnumEncoder(json.JSONEncoder):
+    def encode(self, o):
+        return super().encode(_sanitize(o))
+
+
 class DandiBaseModel(BaseModel):
     @classmethod
     def unvalidated(__pydantic_cls__: Type[BaseModel], **data: Any) -> BaseModel:
@@ -729,7 +744,7 @@ class CommonModel(DandiBaseModel):
         including converting enum values to strings.  `None` fields
         are omitted.
         """
-        return json.loads(self.json(exclude_none=True))
+        return json.loads(self.json(exclude_none=True, cls=HandleKeyEnumEncoder))
 
 
 class DandisetMeta(CommonModel, Identifiable):
@@ -868,9 +883,6 @@ class BareAssetMeta(CommonModel):
         "rdfs:label": "Information about the asset",
         "nskey": "dandi",
     }
-
-    class Config:
-        use_enum_values = True
 
 
 class AssetMeta(BareAssetMeta, Identifiable):
