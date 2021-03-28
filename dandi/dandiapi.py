@@ -412,15 +412,15 @@ class DandiAPIClient(RESTFullAPIClient):
         etagger = get_dandietag(filepath)
         filetag = etagger.as_str()
         lgr.debug("Calculated dandi-etag of %s for %s", filetag, filepath)
-        for digest in asset_metadata.get("digest", {}):
-            lgr.debug("Digest: %s", str(digest.items()))
-            if "dandi:dandi-etag" in digest:
-                if digest["dandi:dandi-etag"] != filetag:
-                    raise RuntimeError(
-                        f"{filepath}: File etag changed; was originally"
-                        f" {digest['dandi:dandi-etag']} but is now {filetag}"
-                    )
-                break
+        digest = asset_metadata.get("digest", {})
+        if "dandi:dandi-etag" in digest:
+            if digest["dandi:dandi-etag"] != filetag:
+                raise RuntimeError(
+                    f"{filepath}: File etag changed; was originally"
+                    f" {digest['dandi:dandi-etag']} but is now {filetag}"
+                )
+        else:
+            raise RuntimeError(f"{filepath}: No etag for file")
         yield {"status": "initiating upload"}
         lgr.debug("%s: Beginning upload", asset_path)
         total_size = os.path.getsize(filepath)
