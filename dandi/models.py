@@ -518,7 +518,7 @@ class Activity(DandiBaseModel):
         nskey="schema",
     )
     description: Optional[str] = Field(
-        None, description="A description of the item.", nskey="schema"
+        None, description="The description of the activity.", nskey="schema"
     )
     startDate: Optional[date] = Field(None, nskey="schema")
     endDate: Optional[date] = Field(None, nskey="schema")
