@@ -869,6 +869,9 @@ class BareAssetMeta(CommonModel):
         "nskey": "dandi",
     }
 
+    class Config:
+        use_enum_values = True
+
 
 class AssetMeta(BareAssetMeta, Identifiable):
     """Metadata used to describe an asset on the server."""
