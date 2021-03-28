@@ -513,12 +513,12 @@ class Activity(DandiBaseModel):
     identifier: Optional[Identifier] = Field(None, nskey="schema")
     name: str = Field(
         title="Title",
-        description="The name of the item.",
+        description="The name of the activity.",
         max_length=150,
         nskey="schema",
     )
     description: Optional[str] = Field(
-        None, description="A description of the item.", nskey="schema"
+        None, description="The description of the activity.", nskey="schema"
     )
     startDate: Optional[date] = Field(None, nskey="schema")
     endDate: Optional[date] = Field(None, nskey="schema")
