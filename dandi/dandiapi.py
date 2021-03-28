@@ -419,8 +419,6 @@ class DandiAPIClient(RESTFullAPIClient):
                     f"{filepath}: File etag changed; was originally"
                     f" {digest['dandi:dandi-etag']} but is now {filetag}"
                 )
-        else:
-            raise RuntimeError(f"{filepath}: No etag for file")
         yield {"status": "initiating upload"}
         lgr.debug("%s: Beginning upload", asset_path)
         total_size = os.path.getsize(filepath)
