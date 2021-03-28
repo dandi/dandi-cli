@@ -118,7 +118,7 @@ def _sanitize(o):
         return {_sanitize(k): _sanitize(v) for k, v in o.items()}
     elif isinstance(o, (set, tuple, list)):
         return type(o)(_sanitize(x) for x in o)
-    elif isinstance(o, enum.Enum):
+    elif isinstance(o, Enum):
         return o.value
     return o
 
