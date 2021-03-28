@@ -513,7 +513,7 @@ class Activity(DandiBaseModel):
     identifier: Optional[Identifier] = Field(None, nskey="schema")
     name: str = Field(
         title="Title",
-        description="The name of the item.",
+        description="The name of the activity.",
         max_length=150,
         nskey="schema",
     )
