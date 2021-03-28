@@ -170,9 +170,9 @@ def download_generator(
                     asset["asset_id"],
                 )
                 metadata = client.get_asset(*down_args)
-                for d in metadata.get("digest", []):
-                    if d["cryptoType"] == "dandi:dandi-etag":
-                        digests = {"dandi-etag": d["value"]}
+                for d in metadata.get("digest", {}):
+                    if "dandi:dandi-etag" in d:
+                        digests = {"dandi-etag": d["dandi:dandi-etag"]}
                         break
                 else:
                     raise RuntimeError("Dandi ETag not available for asset")
