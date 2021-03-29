@@ -97,6 +97,15 @@ def test_delete_path_confirm(
         delete_spy.assert_not_called()
 
 
+def test_delete_path_pyout(local_dandi_api, mocker, monkeypatch, text_dandiset):
+    monkeypatch.chdir(text_dandiset["dspath"])
+    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
+    instance = local_dandi_api["instance_id"]
+    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
+    delete(["subdir2/coconut.txt"], dandi_instance=instance, force=True)
+    delete_spy.assert_called()
+
+
 @pytest.mark.parametrize(
     "paths",
     [
@@ -277,28 +286,6 @@ def test_delete_version(local_dandi_api, mocker, monkeypatch):
         "Dandi API server does not support deletion of individual versions of a"
         " dandiset"
     )
-    delete_spy.assert_not_called()
-
-
-@pytest.mark.parametrize(
-    "url",
-    [
-        "dandi://{instance}/999999@0.210326.2211/file.txt",
-        "dandi://{instance}/999999@0.210326.2211/subdir/",
-    ],
-)
-def test_delete_published_asset(local_dandi_api, mocker, monkeypatch, url):
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    instance = local_dandi_api["instance_id"]
-    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
-    with pytest.raises(ValueError) as excinfo:
-        delete(
-            [url.format(instance=instance)],
-            dandi_instance=instance,
-            devel_debug=True,
-            force=True,
-        )
-    assert str(excinfo.value) == "Cannot delete assets from published versions"
     delete_spy.assert_not_called()
 
 

@@ -22,8 +22,13 @@ class RemoteAsset(NamedTuple):
 
 @dataclass
 class Deleter:
+    """
+    Class for registering assets & Dandisets to delete and then deleting them
+    """
+
     client: Optional[DandiAPIClient] = None
     dandiset_id: Optional[str] = None
+    #: Whether we are deleting an entire Dandiset (true) or just assets (false)
     deleting_dandiset: bool = False
     remote_assets: Set[RemoteAsset] = field(default_factory=set)
 
@@ -54,8 +59,6 @@ class Deleter:
     def register_asset(
         self, api_url: str, dandiset_id: str, version_id: str, asset_path: str
     ) -> None:
-        if version_id != "draft":
-            raise ValueError("Cannot delete assets from published versions")
         self.set_dandiset(api_url, dandiset_id)
         asset = self.client.get_asset_bypath(dandiset_id, version_id, asset_path)
         if asset is None:
@@ -69,8 +72,6 @@ class Deleter:
     def register_asset_folder(
         self, api_url: str, dandiset_id: str, version_id: str, folder_path: str
     ) -> None:
-        if version_id != "draft":
-            raise ValueError("Cannot delete assets from published versions")
         self.set_dandiset(api_url, dandiset_id)
         any_assets = False
         for asset in self.client.get_dandiset_assets(
@@ -113,7 +114,7 @@ class Deleter:
 
     def register_local_path_equivalent(self, instance_name: str, filepath: str) -> None:
         instance = known_instances[instance_name]
-        if instance.metadata_version == 0:
+        if instance.girder is not None:
             raise NotImplementedError("Cannot delete assets from Girder instances")
         api_url = instance.api
         dandiset_id, asset_path = find_local_asset(filepath)
