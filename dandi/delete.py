@@ -39,7 +39,7 @@ class Deleter:
                 self.client.get_dandiset(dandiset_id, "draft")
             except requests.HTTPError as e:
                 if e.response.status_code == 404:
-                    raise RuntimeError(f"Dandiset {dandiset_id} not found on server")
+                    raise NotFoundError(f"Dandiset {dandiset_id} not found on server")
                 else:
                     raise
         elif not is_same_url(self.client.api_url, api_url):
