@@ -139,7 +139,7 @@ def test_asset():
                 "sha2_256": "dandi:sha2-256",
                 "sha3_256": "dandi:sha3-256",
                 "blake2b_256": "dandi:blake2b-256",
-                "blake3_256": "dandi:blake3-256",
+                "blake3": "dandi:blake3",
                 "dandi_etag": "dandi:dandi-etag",
             },
         ),
