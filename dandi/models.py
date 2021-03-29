@@ -113,6 +113,21 @@ def diff_models(model1, model2):
             print(f"{field} is different")
 
 
+def _sanitize(o):
+    if isinstance(o, dict):
+        return {_sanitize(k): _sanitize(v) for k, v in o.items()}
+    elif isinstance(o, (set, tuple, list)):
+        return type(o)(_sanitize(x) for x in o)
+    elif isinstance(o, Enum):
+        return o.value
+    return o
+
+
+class HandleKeyEnumEncoder(json.JSONEncoder):
+    def encode(self, o):
+        return super().encode(_sanitize(o))
+
+
 class DandiBaseModel(BaseModel):
     @classmethod
     def unvalidated(__pydantic_cls__: Type[BaseModel], **data: Any) -> BaseModel:
@@ -360,7 +375,9 @@ class Person(Contributor):
         nskey="schema",
     )
     name: str = Field(
-        description="Use the format: lastname, firstname ...", nskey="schema"
+        description="Use the format: familyname, given names ...",
+        nskey="schema",
+        examples=["Lovelace, Augusta Ada", "Smith, John", "Chan, Kong-sang"],
     )
     affiliation: List[Organization] = Field(
         None,
@@ -467,7 +484,7 @@ class AssetsSummary(DandiBaseModel):
     # stats which are not stats
     numberOfBytes: int = Field(readOnly=True, sameas="schema:contentSize")
     numberOfFiles: int = Field(readOnly=True)  # universe
-    numberOfSubjects: int = Field(readOnly=True)  # NWB + BIDS
+    numberOfSubjects: Optional[int] = Field(None, readOnly=True)  # NWB + BIDS
     numberOfSamples: Optional[int] = Field(None, readOnly=True)  # more of NWB
     numberOfCells: Optional[int] = Field(None, readOnly=True)
 
@@ -490,137 +507,18 @@ class AssetsSummary(DandiBaseModel):
     }
 
 
-class Digest(DandiBaseModel):
-    """Information about the crytographic checksum of the item."""
-
-    value: str = Field(nskey="schema")
-    cryptoType: DigestType = Field(
-        title="Cryptographic method used",
-        description="Which cryptographic checksum is used",
-        nskey="dandi",
-    )
-
-    _ldmeta = {
-        "rdfs:subClassOf": ["schema:Thing", "prov:Entity"],
-        "rdfs:label": "Cryptographic checksum information",
-        "nskey": "dandi",
-    }
-
-
-class BioSample(DandiBaseModel):
-    """Description about the sample that was studied"""
-
-    identifier: Identifier = Field(nskey="schema")
-    sampleType: Optional[SampleType] = Field(
-        None, description="OBI based identifier for the sample used", nskey="dandi"
-    )
-    assayType: Optional[List[AssayType]] = Field(
-        None, description="OBI based identifier for the assay(s) used", nskey="dandi"
-    )
-    anatomy: Optional[List[Anatomy]] = Field(
-        None,
-        description="UBERON based identifier for what organ the sample belongs "
-        "to. Use the most specific descriptor.",
-        nskey="dandi",
-    )
-
-    wasDerivedFrom: Optional[List["BioSample"]] = Field(None, nskey="prov")
-    sameAs: Optional[List[Identifier]] = Field(None, nskey="schema")
-    hasMember: Optional[List[Identifier]] = Field(None, nskey="prov")
-
-    schemaKey: Literal["BioSample"] = Field("BioSample", readOnly=True)
-
-    _ldmeta = {
-        "rdfs:subClassOf": ["schema:Thing", "prov:Entity"],
-        "rdfs:label": "Information about the biosample.",
-        "nskey": "dandi",
-    }
-
-
-BioSample.update_forward_refs()
-
-
-class RelatedParticipant(DandiBaseModel):
-    identifier: Optional[Identifier] = Field(None, nskey="schema")
-    name: Optional[str] = Field(None, title="A title of the resource", nskey="schema")
-    url: Optional[HttpUrl] = Field(None, title="URL of the resource", nskey="schema")
-    relation: ParticipantRelationType = Field(
-        title="Choose a relation satisfying: Participant <relation> relatedParticipant",
-        description="Indicates how the current participant is related to the other participant "
-        "This relation should satisfy: Participant <relation> relatedParticipant",
-        nskey="dandi",
-    )
-
-    _ldmeta = {
-        "rdfs:subClassOf": ["schema:CreativeWork", "prov:Entity"],
-        "rdfs:comment": "Another participant related to the participant (e.g., another "
-        "parent, sibling, child)",
-        "nskey": "dandi",
-    }
-
-
-class Participant(DandiBaseModel):
-    """Description about the sample that was studied"""
-
-    identifier: Identifier = Field(nskey="schema")
-    source_id: Optional[Identifier] = Field(None, nskey="dandi")
-
-    strain: Optional[StrainType] = Field(
-        None, description="Identifier for the strain of the sample", nskey="dandi"
-    )
-    cellLine: Optional[Identifier] = Field(
-        None, description="Cell line associated with the sample", nskey="dandi"
-    )
-    vendor: Optional[Organization] = Field(None, nskey="dandi")
-    age: Optional[PropertyValue] = Field(
-        None,
-        description="A representation of age using ISO 8601 duration. This "
-        "should include a valueReference if anything other than "
-        "date of birth is used.",
-        nskey="dandi",
-        rangeIncludes="schema:Duration",
-    )
-    sex: Optional[SexType] = Field(
-        None,
-        description="OBI based identifier for sex of the sample if available",
-        nskey="dandi",
-    )
-    genotype: Optional[Identifier] = Field(
-        None, description="Genotype descriptor of biosample if available", nskey="dandi"
-    )
-    species: Optional[SpeciesType] = Field(
-        None,
-        description="An identifier indicating the taxonomic classification of the biosample",
-        nskey="dandi",
-    )
-    disorder: Optional[List[Disorder]] = Field(
-        None,
-        description="Any current diagnosed disease or disorder associated with the sample",
-        nskey="dandi",
-    )
-    relatedParticipant: Optional[List[RelatedParticipant]] = Field(None, nskey="dandi")
-
-    schemaKey: Literal["Participant"] = Field("Participant", readOnly=True)
-
-    _ldmeta = {
-        "rdfs:subClassOf": ["schema:Thing", "prov:Entity"],
-        "rdfs:label": "Information about the participant.",
-        "nskey": "dandi",
-    }
-
-
 class Activity(DandiBaseModel):
     """Information about the Project activity"""
 
     identifier: Optional[Identifier] = Field(None, nskey="schema")
     name: str = Field(
         title="Title",
-        description="The name of the item.",
+        description="The name of the activity.",
         max_length=150,
         nskey="schema",
     )
     description: Optional[str] = Field(
-        None, description="A description of the item.", nskey="schema"
+        None, description="The description of the activity.", nskey="schema"
     )
     startDate: Optional[date] = Field(None, nskey="schema")
     endDate: Optional[date] = Field(None, nskey="schema")
@@ -634,9 +532,6 @@ class Activity(DandiBaseModel):
     schemaKey: Literal["Activity"] = Field("Activity", readOnly=True)
 
     _ldmeta = {"rdfs:subClassOf": ["prov:Activity", "schema:Thing"], "nskey": "dandi"}
-
-
-# Activity.update_forward_refs()
 
 
 class Project(Activity):
@@ -663,6 +558,117 @@ class Session(Activity):
         None, description="A brief description of the session.", nskey="schema"
     )
     schemaKey: Literal["Session"] = Field("Session", readOnly=True)
+
+
+class RelatedParticipant(DandiBaseModel):
+    identifier: Optional[Identifier] = Field(None, nskey="schema")
+    name: Optional[str] = Field(None, title="A name of the Participant", nskey="schema")
+    url: Optional[HttpUrl] = Field(
+        None, title="URL of the related participant", nskey="schema"
+    )
+    relation: ParticipantRelationType = Field(
+        title="Choose a relation satisfying: Participant <relation> relatedParticipant",
+        description="Indicates how the current participant is related to the other participant "
+        "This relation should satisfy: Participant <relation> relatedParticipant",
+        nskey="dandi",
+    )
+
+    _ldmeta = {
+        "rdfs:subClassOf": ["schema:CreativeWork", "prov:Entity"],
+        "rdfs:comment": "Another participant related to the participant (e.g., another "
+        "parent, sibling, child)",
+        "nskey": "dandi",
+    }
+
+
+class Participant(DandiBaseModel):
+    """Description about the sample that was studied"""
+
+    identifier: Optional[Identifier] = Field(nskey="schema")
+    altName: Optional[List[Identifier]] = Field(None, nskey="dandi")
+
+    strain: Optional[StrainType] = Field(
+        None, description="Identifier for the strain of the sample", nskey="dandi"
+    )
+    cellLine: Optional[Identifier] = Field(
+        None, description="Cell line associated with the sample", nskey="dandi"
+    )
+    vendor: Optional[Organization] = Field(None, nskey="dandi")
+    age: Optional[PropertyValue] = Field(
+        None,
+        description="A representation of age using ISO 8601 duration. This "
+        "should include a valueReference if anything other than "
+        "date of birth is used.",
+        nskey="dandi",
+        rangeIncludes="schema:Duration",
+    )
+
+    sex: Optional[SexType] = Field(
+        None,
+        description="OBI based identifier for sex of the sample if available",
+        nskey="dandi",
+    )
+    genotype: Optional[Identifier] = Field(
+        None, description="Genotype descriptor of biosample if available", nskey="dandi"
+    )
+    species: Optional[SpeciesType] = Field(
+        None,
+        description="An identifier indicating the taxonomic classification of the biosample",
+        nskey="dandi",
+    )
+    disorder: Optional[List[Disorder]] = Field(
+        None,
+        description="Any current diagnosed disease or disorder associated with the sample",
+        nskey="dandi",
+    )
+
+    relatedParticipant: Optional[List[RelatedParticipant]] = Field(None, nskey="dandi")
+    sameAs: Optional[List[Identifier]] = Field(None, nskey="schema")
+
+    schemaKey: Literal["Participant"] = Field("Participant", readOnly=True)
+
+    _ldmeta = {
+        "rdfs:subClassOf": ["schema:Person", "prov:Agent"],
+        "rdfs:label": "Information about the participant.",
+        "nskey": "dandi",
+    }
+
+
+class BioSample(DandiBaseModel):
+    """Description of the sample that was studied"""
+
+    identifier: Optional[Identifier] = Field(nskey="schema")
+    altName: Optional[List[Identifier]] = Field(None, nskey="dandi")
+    sampleType: Optional[SampleType] = Field(
+        None, description="OBI based identifier for the sample used", nskey="dandi"
+    )
+    assayType: Optional[List[AssayType]] = Field(
+        None, description="OBI based identifier for the assay(s) used", nskey="dandi"
+    )
+    anatomy: Optional[List[Anatomy]] = Field(
+        None,
+        description="UBERON based identifier for what organ the sample belongs "
+        "to. Use the most specific descriptor.",
+        nskey="dandi",
+    )
+
+    wasDerivedFrom: Optional[List["BioSample"]] = Field(None, nskey="prov")
+    wasAttributedTo: Optional[List[Participant]] = Field(
+        None, description="Participant(s) to which this sample belongs to", nskey="prov"
+    )
+    sameAs: Optional[List[Identifier]] = Field(None, nskey="schema")
+    hasMember: Optional[List[Identifier]] = Field(None, nskey="prov")
+
+    schemaKey: Literal["BioSample"] = Field("BioSample", readOnly=True)
+
+    _ldmeta = {
+        "rdfs:subClassOf": ["schema:Thing", "prov:Entity"],
+        "rdfs:label": "Information about the biosample.",
+        "nskey": "dandi",
+    }
+
+
+BioSample.update_forward_refs()
 
 
 class Identifiable(DandiBaseModel):
@@ -738,7 +744,7 @@ class CommonModel(DandiBaseModel):
         including converting enum values to strings.  `None` fields
         are omitted.
         """
-        return json.loads(self.json(exclude_none=True))
+        return json.loads(self.json(exclude_none=True, cls=HandleKeyEnumEncoder))
 
 
 class DandisetMeta(CommonModel, Identifiable):
@@ -835,7 +841,7 @@ class BareAssetMeta(CommonModel):
     encodingFormat: Union[HttpUrl, str] = Field(
         title="File Encoding Format", nskey="schema"
     )
-    digest: List[Digest] = Field(nskey="dandi", default_factory=list)
+    digest: Dict[DigestType, str] = Field(default_factory=dict)
     dateModified: Optional[datetime] = Field(
         nskey="schema", title="Asset (file or metadata) modification date and time"
     )

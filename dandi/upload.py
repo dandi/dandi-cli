@@ -761,10 +761,9 @@ def _new_upload(
                 metadata = client.get_asset(ds_identifier, "draft", extant["asset_id"])
                 local_mtime = ensure_datetime(path_stat.st_mtime)
                 remote_mtime_str = metadata.get("blobDateModified")
-                for d in metadata.get("digest", []):
-                    if d["cryptoType"] == "dandi:dandi-etag":
-                        extant_etag = d["value"]
-                        break
+                d = metadata.get("digest", {})
+                if "dandi:dandi-etag" in d:
+                    extant_etag = d["dandi:dandi-etag"]
                 else:
                     # TODO: Should this error instead?
                     extant_etag = None
