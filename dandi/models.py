@@ -153,25 +153,17 @@ def to_datacite(dandiset):
     # if not here, i'm not sure where newmeta.schemaVersion should go
     attributes["schemaVersion"] = "http://datacite.org/schema/kernel-4"
 
-    creators = []
     contributors = []
-
+    create_dict = {}
     for contr_el in newmeta.contributor:
-        if "dandi:Author" in contr_el["roleName"]:
-            contr_dict = {
-                # "name" is not officially in the schema, but its in the example, should I keep it?
-                "name": contr_el["name"],
-                "creatorName": contr_el["name"],
-                # I'm assuming that we do not have to have Family Name and First name
-                "schemeURI": "orcid.org",
-                "affiliation": contr_el["affiliation"],
-            }
-            if isinstance(contr_el, Person):
-                contr_dict["nameType"] = "Personal"
-            elif isinstance(contr_el, Organization):
-                contr_dict["nameType"] = "Organizational"
-            creators.append(contr_dict)
-        # is creator also a contributor?
+        if not create_dict and isinstance(contr_el, Person):
+            # "name" is not officially in the schema, but its in the example, should I keep it?
+            create_dict["name"] = (contr_el["name"],)
+            create_dict["creatorName"] = (contr_el["name"],)
+            # I'm assuming that we do not have to have Family Name and First name
+            create_dict["schemeURI"] = ("orcid.org",)
+            create_dict["affiliation"] = contr_el["affiliation"]
+            create_dict["nameType"] = "Personal"
         else:
             contr_dict = {
                 "name": contr_el["name"],
@@ -188,7 +180,7 @@ def to_datacite(dandiset):
             contributors.append(contr_dict)
 
     attributes["contributors"] = contributors
-    attributes["creators"] = creators
+    attributes["creators"] = [create_dict]
 
     datacite_dict = {"data": {"id": doi, "type": "dois", "attributes": attributes}}
     return datacite_dict
