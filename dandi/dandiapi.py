@@ -135,22 +135,15 @@ class RESTFullAPIClient(object):
 
         lgr.debug("%s %s", method.upper(), url)
         try:
-            # urllib3's ConnectionPool isn't thread-safe, so we sometimes hit
-            # ConnectionErrors on the start of an upload.  Retry when this
-            # happens.  Cf. <https://github.com/urllib3/urllib3/issues/951>.
-            result = try_multiple(
-                5,
-                requests.ConnectionError,
-                1.1,
-                lambda: f(
-                    url,
-                    params=parameters,
-                    data=data,
-                    files=files,
-                    json=json,
-                    headers=_headers,
-                    **kwargs,
-                ),
+            result = try_multiple(5, doretry, 1.1)(
+                f,
+                url,
+                params=parameters,
+                data=data,
+                files=files,
+                json=json,
+                headers=_headers,
+                **kwargs,
             )
         except Exception:
             lgr.exception("HTTP connection failed")
@@ -648,3 +641,12 @@ def upload_part(storage_session, fp, lock, etagger, asset_path, part):
         "size": part["size"],
         "etag": server_etag,
     }
+
+
+def doretry(exc):
+    # urllib3's ConnectionPool isn't thread-safe, so we sometimes hit
+    # ConnectionErrors on the start of an upload.  Retry when this happens.
+    # Cf. <https://github.com/urllib3/urllib3/issues/951>.
+    return isinstance(exc, requests.ConnectionError) or (
+        isinstance(exc, requests.HTTPError) and exc.response.status_code == 503
+    )

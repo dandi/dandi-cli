@@ -2,6 +2,7 @@ import datetime
 import inspect
 import io
 import itertools
+import logging
 import os
 import os.path as op
 from pathlib import Path
@@ -10,12 +11,12 @@ import re
 import shutil
 import subprocess
 import sys
-from time import sleep
 
 import dateutil.parser
 import requests
 import ruamel.yaml
 from semantic_version import Version
+import tenacity
 
 from .consts import dandi_instance, known_instances, known_instances_rev
 from .exceptions import BadCliVersionError, CliVersionTooOldError
@@ -660,22 +661,25 @@ def split_camel_case(s):
         yield s[last_start:]
 
 
-def try_multiple(ntrials, exception, base, f, *args, **kwargs):
+def try_multiple(ntrials, exception, base):
     """
-    Call ``f`` multiple times until it succeeds, with exponentially increasing
-    delay between calls
+    ``try_multiple(ntrials, exc, base)(f, *args, **kwargs)`` calls ``f``
+    multiple times until it succeeds, with exponentially increasing delay
+    between calls
     """
-    for trial in range(1, ntrials + 1):
-        try:
-            return f(*args, **kwargs)
-        except exception as exc:
-            if trial == ntrials:
-                raise  # just reraise on the last trial
-            t = base ** trial
-            lgr.warning(
-                "Caught %s on trial #%d. Sleeping %f and retrying", exc, trial, t
-            )
-            sleep(t)
+    if isinstance(exception, (type, tuple)):
+        retry = tenacity.retry_if_exception_type(exception)
+    else:
+        # `exception` must be a predicate that matches exceptions on which to
+        # retry
+        retry = tenacity.retry_if_exception(exception)
+    return tenacity.Retrying(
+        wait=tenacity.wait_exponential(exp_base=base, multiplier=base),
+        retry=retry,
+        stop=tenacity.stop_after_attempt(ntrials),
+        before_sleep=tenacity.before_sleep_log(lgr, logging.WARNING),
+        reraise=True,
+    )
 
 
 def is_url(s):

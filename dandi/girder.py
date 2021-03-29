@@ -290,8 +290,8 @@ class GirderCli(gcl.GirderClient):
             # item should be the one we care about
             pass
         elif a["type"] == "item":
-            file_recs = try_multiple(
-                5, requests.ConnectionError, 1.1, lambda: list(self.listFile(g["_id"]))
+            file_recs = try_multiple(5, requests.ConnectionError, 1.1)(
+                lambda: list(self.listFile(g["_id"]))
             )
             if len(file_recs) > 1:
                 lgr.warning("Multiple files found for %s; using oldest one", a["path"])
