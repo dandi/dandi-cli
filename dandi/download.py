@@ -174,7 +174,7 @@ def download_generator(
                 if "dandi:dandi-etag" in d:
                     digests = {"dandi-etag": d["dandi:dandi-etag"]}
                 else:
-                    raise RuntimeError("Dandi ETag not available for asset")
+                    raise RuntimeError(f"dandi-etag not available for asset. Known digests: {d}")
             else:
                 raise TypeError(f"Don't know here how to handle {client}")
 

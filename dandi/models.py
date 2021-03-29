@@ -635,7 +635,7 @@ class Participant(DandiBaseModel):
 
 
 class BioSample(DandiBaseModel):
-    """Description about the sample that was studied"""
+    """Description of the sample that was studied"""
 
     identifier: Optional[Identifier] = Field(nskey="schema")
     altName: Optional[List[Identifier]] = Field(None, nskey="dandi")

@@ -68,7 +68,7 @@ DigestTypeDict = {
             "rdfs:label": "BLAKE2B-256",
         },
         {
-            "@id": "dandi:blake3-256",
+            "@id": "dandi:blake3",
             "@type": "dandi:DigestType",
             "rdfs:comment": "BLAKE3-256 checksum",
             "rdfs:label": "BLAKE3-256",
