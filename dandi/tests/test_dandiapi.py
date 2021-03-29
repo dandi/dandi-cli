@@ -4,34 +4,26 @@ import random
 from shutil import rmtree
 
 from ..consts import dandiset_metadata_file
-from ..dandiapi import DandiAPIClient
 from ..download import download
 from ..upload import upload
 from ..utils import find_files
 
 
 def test_upload(local_dandi_api, simple1_nwb, tmp_path):
-    client = DandiAPIClient(
-        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
-    )
-    with client.session():
-        r = client.create_dandiset(name="Upload Test", metadata={})
-        dandiset_id = r["identifier"]
-        client.upload(
-            dandiset_id, "draft", {"path": "testing/simple1.nwb"}, simple1_nwb
-        )
-        (asset,) = client.get_dandiset_assets(dandiset_id, "draft")
-        assert asset["path"] == "testing/simple1.nwb"
-        client.download_assets_directory(dandiset_id, "draft", "", tmp_path)
-        (p,) = [p for p in tmp_path.glob("**/*") if p.is_file()]
-        assert p == tmp_path / "testing" / "simple1.nwb"
-        assert p.stat().st_size == os.path.getsize(simple1_nwb)
+    client = local_dandi_api["client"]
+    r = client.create_dandiset(name="Upload Test", metadata={})
+    dandiset_id = r["identifier"]
+    client.upload(dandiset_id, "draft", {"path": "testing/simple1.nwb"}, simple1_nwb)
+    (asset,) = client.get_dandiset_assets(dandiset_id, "draft")
+    assert asset["path"] == "testing/simple1.nwb"
+    client.download_assets_directory(dandiset_id, "draft", "", tmp_path)
+    (p,) = [p for p in tmp_path.glob("**/*") if p.is_file()]
+    assert p == tmp_path / "testing" / "simple1.nwb"
+    assert p.stat().st_size == os.path.getsize(simple1_nwb)
 
 
 def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
-    client = DandiAPIClient(
-        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
-    )
+    client = local_dandi_api["client"]
     dandiset_id = client.create_dandiset("Test Dandiset", {})["identifier"]
     upload_dir = tmp_path / "upload"
     upload_dir.mkdir()
@@ -132,56 +124,48 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
 
 
 def test_get_asset_include_metadata(local_dandi_api, simple1_nwb, tmp_path):
-    client = DandiAPIClient(
-        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
+    client = local_dandi_api["client"]
+    r = client.create_dandiset(name="Include Metadata Test", metadata={})
+    dandiset_id = r["identifier"]
+    client.upload(
+        dandiset_id,
+        "draft",
+        {"path": "testing/simple1.nwb", "foo": "bar"},
+        simple1_nwb,
     )
-    with client.session():
-        r = client.create_dandiset(name="Include Metadata Test", metadata={})
-        dandiset_id = r["identifier"]
-        client.upload(
-            dandiset_id,
-            "draft",
-            {"path": "testing/simple1.nwb", "foo": "bar"},
-            simple1_nwb,
-        )
 
-        (asset,) = client.get_dandiset_assets(dandiset_id, "draft")
-        assert "metadata" not in asset
-        (asset,) = client.get_dandiset_assets(
-            dandiset_id, "draft", include_metadata=True
-        )
-        assert asset["metadata"]["path"] == "testing/simple1.nwb"
-        assert asset["metadata"]["foo"] == "bar"
+    (asset,) = client.get_dandiset_assets(dandiset_id, "draft")
+    assert "metadata" not in asset
+    (asset,) = client.get_dandiset_assets(dandiset_id, "draft", include_metadata=True)
+    assert asset["metadata"]["path"] == "testing/simple1.nwb"
+    assert asset["metadata"]["foo"] == "bar"
 
-        _, (asset,) = client.get_dandiset_and_assets(dandiset_id, "draft")
-        assert "metadata" not in asset
-        _, (asset,) = client.get_dandiset_and_assets(
-            dandiset_id, "draft", include_metadata=True
-        )
-        assert asset["metadata"]["path"] == "testing/simple1.nwb"
-        assert asset["metadata"]["foo"] == "bar"
+    _, (asset,) = client.get_dandiset_and_assets(dandiset_id, "draft")
+    assert "metadata" not in asset
+    _, (asset,) = client.get_dandiset_and_assets(
+        dandiset_id, "draft", include_metadata=True
+    )
+    assert asset["metadata"]["path"] == "testing/simple1.nwb"
+    assert asset["metadata"]["foo"] == "bar"
 
-        asset = client.get_asset_bypath(dandiset_id, "draft", "testing/simple1.nwb")
-        assert asset is not None
-        assert "metadata" not in asset
-        asset = client.get_asset_bypath(
-            dandiset_id, "draft", "testing/simple1.nwb", include_metadata=True
-        )
-        assert asset is not None
-        assert asset["metadata"]["path"] == "testing/simple1.nwb"
-        assert asset["metadata"]["foo"] == "bar"
+    asset = client.get_asset_bypath(dandiset_id, "draft", "testing/simple1.nwb")
+    assert asset is not None
+    assert "metadata" not in asset
+    asset = client.get_asset_bypath(
+        dandiset_id, "draft", "testing/simple1.nwb", include_metadata=True
+    )
+    assert asset is not None
+    assert asset["metadata"]["path"] == "testing/simple1.nwb"
+    assert asset["metadata"]["foo"] == "bar"
 
 
 def test_large_upload(local_dandi_api, tmp_path):
-    client = DandiAPIClient(
-        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
-    )
+    client = local_dandi_api["client"]
     asset_file = tmp_path / "asset.dat"
     meg = bytes(random.choices(range(256), k=1 << 20))
     with asset_file.open("wb") as fp:
         for _ in range(100):
             fp.write(meg)
-    with client.session():
-        r = client.create_dandiset(name="Large Upload Test", metadata={})
-        dandiset_id = r["identifier"]
-        client.upload(dandiset_id, "draft", {"path": "testing/asset.dat"}, asset_file)
+    r = client.create_dandiset(name="Large Upload Test", metadata={})
+    dandiset_id = r["identifier"]
+    client.upload(dandiset_id, "draft", {"path": "testing/asset.dat"}, asset_file)

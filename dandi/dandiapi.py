@@ -291,6 +291,9 @@ class DandiAPIClient(RESTFullAPIClient):
             json={"metadata": metadata, "name": metadata.get("name", "")},
         )
 
+    def delete_dandiset(self, dandiset_id):
+        self.delete(f"/dandisets/{dandiset_id}/")
+
     def get_dandiset_assets(
         self, dandiset_id, version, page_size=None, path=None, include_metadata=False
     ):

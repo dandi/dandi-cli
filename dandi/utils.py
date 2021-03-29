@@ -676,3 +676,11 @@ def try_multiple(ntrials, exception, base, f, *args, **kwargs):
                 "Caught %s on trial #%d. Sleeping %f and retrying", exc, trial, t
             )
             sleep(t)
+
+
+def is_url(s):
+    """Very primitive url detection for now
+
+    TODO: redo
+    """
+    return s.lower().startswith(("http://", "https://", "dandi://"))
