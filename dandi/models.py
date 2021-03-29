@@ -158,20 +158,20 @@ def to_datacite(dandiset):
     for contr_el in newmeta.contributor:
         if not create_dict and isinstance(contr_el, Person):
             # "name" is not officially in the schema, but its in the example, should I keep it?
-            create_dict["name"] = (contr_el["name"],)
-            create_dict["creatorName"] = (contr_el["name"],)
+            create_dict["name"] = getattr(contr_el, "name")
+            create_dict["creatorName"] = getattr(contr_el, "name")
             # I'm assuming that we do not have to have Family Name and First name
-            create_dict["schemeURI"] = ("orcid.org",)
-            create_dict["affiliation"] = contr_el["affiliation"]
+            create_dict["schemeURI"] = "orcid.org"
+            create_dict["affiliation"] = getattr(contr_el, "affiliation")
             create_dict["nameType"] = "Personal"
         else:
             contr_dict = {
-                "name": contr_el["name"],
-                "contributorName": contr_el["name"],
+                "name": getattr(contr_el, "name"),
+                "contributorName": getattr(contr_el, "name"),
                 "schemeURI": "orcid.org",
-                "affiliation": contr_el["affiliation"],
+                "affiliation": getattr(contr_el, "affiliation"),
                 # it's not clear to me if schema allows this to be a list
-                "contributorType": contr_el["roleName"],
+                "contributorType": getattr(contr_el, "roleName"),
             }
             if isinstance(contr_el, Person):
                 contr_dict["nameType"] = "Personal"
