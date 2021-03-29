@@ -42,7 +42,7 @@ class Deleter:
                     raise RuntimeError(f"Dandiset {dandiset_id} not found on server")
                 else:
                     raise
-        elif self.client.api_url != api_url:
+        elif not is_same_url(self.client.api_url, api_url):
             raise ValueError("Cannot delete assets from multiple API instances at once")
         elif self.dandiset_id != dandiset_id:
             raise ValueError("Cannot delete assets from multiple Dandisets at once")
@@ -213,3 +213,8 @@ def find_local_asset(filepath: str) -> Tuple[str, str]:
     if path.is_dir():
         relpath += "/"
     return (dandiset.identifier, relpath)
+
+
+def is_same_url(url1: str, url2: str) -> bool:
+    # TODO: Use a real URL library like furl, purl, or yarl
+    return url1.rstrip("/") == url2.rstrip("/")
