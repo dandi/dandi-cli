@@ -64,12 +64,14 @@
       },
       "sex": {
         "identifier": "http://purl.obolibrary.org/obo/PATO_0000384",
-        "name": "Male"
+        "name": "Male",
+        "schemaKey": "SexType"
       },
       "genotype": "Typical",
       "species": {
         "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_9606",
-        "name": "Human"
+        "name": "Human",
+        "schemaKey": "SpeciesType"
       },
       "schemaKey": "Participant"
     }
