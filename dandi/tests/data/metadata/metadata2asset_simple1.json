@@ -23,7 +23,8 @@
       "sampleType": {
         "name": "tissuesample",
         "schemaKey": "SampleType"
-      }
+      },
+      "schemaKey": "BioSample"
     }
   ],
   "wasGeneratedBy": [

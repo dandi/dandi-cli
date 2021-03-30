@@ -111,6 +111,9 @@ def test_metadata2asset(schema_dir):
         data_as_dict = json.load(fp)
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
     assert data == BareAssetMeta(**data_as_dict)
+    bare_dict = deepcopy(data_as_dict)
+    bare_dict.pop("identifier")
+    assert data.json_dict() == bare_dict
     validate_asset_json(data_as_dict, schema_dir)
 
 
@@ -148,6 +151,9 @@ def test_metadata2asset_simple1(schema_dir):
         data_as_dict = json.load(fp)
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
     assert data == BareAssetMeta(**data_as_dict)
+    bare_dict = deepcopy(data_as_dict)
+    bare_dict.pop("identifier")
+    assert data.json_dict() == bare_dict
     validate_asset_json(data_as_dict, schema_dir)
 
 
@@ -162,4 +168,5 @@ def test_dandimeta_migration(schema_dir):
         data_as_dict = json.load(fp)
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
     assert data == DandisetMeta(**data_as_dict)
+    assert data.json_dict() == data_as_dict
     validate_dandiset_json(data_as_dict, schema_dir)
