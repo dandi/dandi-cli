@@ -7,6 +7,7 @@ from threading import Lock
 from xml.etree.ElementTree import fromstring
 
 import requests
+import tenacity
 
 from .consts import MAX_CHUNK_SIZE, known_instances_rev
 from .girder import keyring_lookup
@@ -642,10 +643,9 @@ def upload_part(storage_session, fp, lock, etagger, asset_path, part):
     }
 
 
-def doretry(exc):
-    # urllib3's ConnectionPool isn't thread-safe, so we sometimes hit
-    # ConnectionErrors on the start of an upload.  Retry when this happens.
-    # Cf. <https://github.com/urllib3/urllib3/issues/951>.
-    return isinstance(exc, requests.ConnectionError) or (
-        isinstance(exc, requests.HTTPError) and exc.response.status_code == 503
-    )
+# urllib3's ConnectionPool isn't thread-safe, so we sometimes hit
+# ConnectionErrors on the start of an upload.  Retry when this happens.
+# Cf. <https://github.com/urllib3/urllib3/issues/951>.
+doretry = tenacity.retry_if_exception_type(
+    requests.ConnectionError
+) | tenacity.retry_if_result(lambda r: r.status_code == 503)

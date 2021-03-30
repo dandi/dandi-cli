@@ -661,18 +661,16 @@ def split_camel_case(s):
         yield s[last_start:]
 
 
-def try_multiple(ntrials, exception, base):
+def try_multiple(ntrials, retry, base):
     """
-    ``try_multiple(ntrials, exc, base)(f, *args, **kwargs)`` calls ``f``
+    ``try_multiple(ntrials, retry, base)(f, *args, **kwargs)`` calls ``f``
     multiple times until it succeeds, with exponentially increasing delay
     between calls
     """
-    if isinstance(exception, (type, tuple)):
-        retry = tenacity.retry_if_exception_type(exception)
-    else:
-        # `exception` must be a predicate that matches exceptions on which to
-        # retry
-        retry = tenacity.retry_if_exception(exception)
+    # `retry` must be an exception type, a tuple of exception types, or a valid
+    # `retry` argument to tenacity.
+    if isinstance(retry, (type, tuple)):
+        retry = tenacity.retry_if_exception_type(retry)
     return tenacity.Retrying(
         wait=tenacity.wait_exponential(exp_base=base, multiplier=base),
         retry=retry,
