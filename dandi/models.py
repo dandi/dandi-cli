@@ -125,6 +125,14 @@ def to_datacite(dandiset):
     attributes["identifiers"] = [
         {"identifier": newmeta.doi, "identifierType": "DOI"},
     ]
+    attributes["relatedIdentifiers"] = [
+        {
+            "relatedIdentifier": f"https://identifiers.org/DANDI:{dandiset_id}/{newmeta.version}",
+            "relatedIdentifierType": "URL",
+            "relationType": "IsIdenticalTo",
+        }
+    ]
+
     attributes["titles"] = [{"title": newmeta.name}]
     attributes["descriptions"] = [
         {"description": newmeta.description, "descriptionType": "Abstract"}
@@ -190,18 +198,18 @@ def to_datacite(dandiset):
     attributes["creators"] = creators
 
     if getattr(newmeta, "relatedResource"):
-        attributes["relatedIdentifiers"] = []
         for rel_el in newmeta.relatedResource:
-            rel_dict = {}
             ident = rel_el.identifier.split(":")
             if len(ident) == 2:
                 ident_tp, ident_nr = ident
             else:
                 raise Exception("identifier is expected to be type:number")
-            rel_dict["relatedIdentifier"] = ident_nr
-            # in theory it should be from the specific list that contains e.g. DOI, arXiv, ...
-            rel_dict["relatedIdentifierType"] = ident_tp
-            rel_dict["relationType"] = rel_el.relation.name
+            rel_dict = {
+                "relatedIdentifier": ident_nr,
+                # in theory it should be from the specific list that contains e.g. DOI, arXiv, ...
+                "relatedIdentifierType": ident_tp,
+                "relationType": rel_el.relation.name,
+            }
             attributes["relatedIdentifiers"].append(rel_dict)
 
     if getattr(newmeta, "keywords"):
