@@ -1,0 +1,79 @@
+{
+  "identifier": "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be",
+  "schemaVersion": null,
+  "keywords": [
+    "test",
+    "sample",
+    "example",
+    "test-case"
+  ],
+  "access": [
+    {
+      "status": "dandi:Open"
+    }
+  ],
+  "repository": "https://dandiarchive.org/",
+  "wasGeneratedBy": [
+    {
+      "name": "XYZ789",
+      "schemaKey": "Session"
+    }
+  ],
+  "contentSize": 69105,
+  "encodingFormat": "application/x-nwb",
+  "digest":
+    {
+      "dandi:sha1": "783ad2afe455839e5ab2fa659861f58a423fd17f"
+    },
+  "wasDerivedFrom": [
+    {
+      "identifier": "cell01",
+      "schemaKey": "BioSample",
+      "sampleType": {
+        "name": "cell",
+        "schemaKey": "SampleType"
+      },
+      "wasDerivedFrom": [
+        {
+          "identifier": "slice02",
+          "schemaKey": "BioSample",
+          "sampleType": {
+            "name": "slice",
+            "schemaKey": "SampleType"
+          },
+          "wasDerivedFrom": [
+            {
+              "identifier": "tissue03",
+              "schemaKey": "BioSample",
+              "sampleType": {
+                "name": "tissuesample",
+                "schemaKey": "SampleType"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "wasAttributedTo": [
+    {
+      "identifier": "a1b2c3",
+      "age": {
+        "unitText": "Years from birth",
+        "value": "P170DT12212S"
+      },
+      "sex": {
+        "identifier": "http://purl.obolibrary.org/obo/PATO_0000384",
+        "name": "Male",
+        "schemaKey": "SexType"
+      },
+      "genotype": "Typical",
+      "species": {
+        "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_9606",
+        "name": "Human",
+        "schemaKey": "SpeciesType"
+      },
+      "schemaKey": "Participant"
+    }
+  ]
+}

@@ -140,5 +140,5 @@ def upload(
         upload_dandiset_metadata=upload_dandiset_metadata,
         devel_debug=devel_debug,
         jobs=jobs,
-        jobs_per_file=jobs,
+        jobs_per_file=jobs_per_file,
     )

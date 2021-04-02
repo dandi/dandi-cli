@@ -7,6 +7,7 @@ from threading import Lock
 from xml.etree.ElementTree import fromstring
 
 import requests
+import tenacity
 
 from .consts import MAX_CHUNK_SIZE, known_instances_rev
 from .girder import keyring_lookup
@@ -135,22 +136,15 @@ class RESTFullAPIClient(object):
 
         lgr.debug("%s %s", method.upper(), url)
         try:
-            # urllib3's ConnectionPool isn't thread-safe, so we sometimes hit
-            # ConnectionErrors on the start of an upload.  Retry when this
-            # happens.  Cf. <https://github.com/urllib3/urllib3/issues/951>.
-            result = try_multiple(
-                5,
-                requests.ConnectionError,
-                1.1,
-                lambda: f(
-                    url,
-                    params=parameters,
-                    data=data,
-                    files=files,
-                    json=json,
-                    headers=_headers,
-                    **kwargs,
-                ),
+            result = try_multiple(5, doretry, 1.1)(
+                f,
+                url,
+                params=parameters,
+                data=data,
+                files=files,
+                json=json,
+                headers=_headers,
+                **kwargs,
             )
         except Exception:
             lgr.exception("HTTP connection failed")
@@ -291,6 +285,9 @@ class DandiAPIClient(RESTFullAPIClient):
             json={"metadata": metadata, "name": metadata.get("name", "")},
         )
 
+    def delete_dandiset(self, dandiset_id):
+        self.delete(f"/dandisets/{dandiset_id}/")
+
     def get_dandiset_assets(
         self, dandiset_id, version, page_size=None, path=None, include_metadata=False
     ):
@@ -412,14 +409,13 @@ class DandiAPIClient(RESTFullAPIClient):
         etagger = get_dandietag(filepath)
         filetag = etagger.as_str()
         lgr.debug("Calculated dandi-etag of %s for %s", filetag, filepath)
-        for digest in asset_metadata.get("digest", []):
-            if digest["cryptoType"] == "dandi:dandi-etag":
-                if digest["value"] != filetag:
-                    raise RuntimeError(
-                        f"{filepath}: File etag changed; was originally"
-                        f" {digest['value']} but is now {filetag}"
-                    )
-                break
+        digest = asset_metadata.get("digest", {})
+        if "dandi:dandi-etag" in digest:
+            if digest["dandi:dandi-etag"] != filetag:
+                raise RuntimeError(
+                    f"{filepath}: File etag changed; was originally"
+                    f" {digest['dandi:dandi-etag']} but is now {filetag}"
+                )
         yield {"status": "initiating upload"}
         lgr.debug("%s: Beginning upload", asset_path)
         total_size = os.path.getsize(filepath)
@@ -645,3 +641,11 @@ def upload_part(storage_session, fp, lock, etagger, asset_path, part):
         "size": part["size"],
         "etag": server_etag,
     }
+
+
+# urllib3's ConnectionPool isn't thread-safe, so we sometimes hit
+# ConnectionErrors on the start of an upload.  Retry when this happens.
+# Cf. <https://github.com/urllib3/urllib3/issues/951>.
+doretry = tenacity.retry_if_exception_type(
+    requests.ConnectionError
+) | tenacity.retry_if_result(lambda r: r.status_code == 503)
