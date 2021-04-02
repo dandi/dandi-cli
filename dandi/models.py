@@ -119,18 +119,11 @@ def to_datacite(dandiset):
     meta = dandiset.metadata
     newmeta = migrate2newschema(meta)
 
-    prefix = "10.80507"
     dandiset_id = dandiset.identifier
-
-    # version is None e.g. for 08, what should I use as a version?
-    version_id = newmeta.version
-    # taken from dandi-api
-    doi = f"{prefix}/{dandiset_id}/{version_id}"
-    url = f"https://dandiarchive.org/dandiset/{dandiset_id}/{version_id}"
 
     attributes = {}
     attributes["identifiers"] = [
-        {"identifier": doi, "identifierType": "DOI"},
+        {"identifier": newmeta.doi, "identifierType": "DOI"},
         # not sure if I can add dandi_id in the PDF documentation the only option is DOI...
         {"identifier": dandiset_id, "identifierType": "Dandi"},
     ]
@@ -146,7 +139,7 @@ def to_datacite(dandiset):
     # not sure about it dandi-api had "resourceTypeGeneral": "NWB"
     attributes["types"] = {"resourceType": "NWB", "resourceTypeGeneral": "Dataset"}
     # newmeta has also attribute url, but it often empty
-    attributes["url"] = url
+    attributes["url"] = newmeta.url
     # assuming that all licenses are from SPDX?
     attributes["rightsList"] = [
         {
@@ -212,7 +205,9 @@ def to_datacite(dandiset):
     if getattr(newmeta, "keywords"):
         attributes["subjects"] = [{"subject": el} for el in newmeta.keywords]
 
-    datacite_dict = {"data": {"id": doi, "type": "dois", "attributes": attributes}}
+    datacite_dict = {
+        "data": {"id": newmeta.doi, "type": "dois", "attributes": attributes}
+    }
     return datacite_dict
 
 
