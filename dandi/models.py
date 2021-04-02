@@ -124,15 +124,10 @@ def to_datacite(dandiset):
     attributes = {}
     attributes["identifiers"] = [
         {"identifier": newmeta.doi, "identifierType": "DOI"},
-        # not sure if I can add dandi_id in the PDF documentation the only option is DOI...
-        {"identifier": dandiset_id, "identifierType": "Dandi"},
     ]
     attributes["titles"] = [{"title": newmeta.name}]
     attributes["descriptions"] = [
-        # not sure what should be the type os use Other
-        # options are: Abstract, Methods, SeriesInformation,
-        # TableOfContents, TechnicalInfo, Other
-        {"description": newmeta.description, "descriptionType": "Other"}
+        {"description": newmeta.description, "descriptionType": "Abstract"}
     ]
     attributes["publisher"] = "DANDI Archive"
     attributes["publicationYear"] = datetime.now().year
@@ -149,8 +144,6 @@ def to_datacite(dandiset):
         }
         for el in newmeta.license
     ]
-    # not sure if these is correct schema or should I provide newmeta.schemaVersion
-    # if not here, i'm not sure where newmeta.schemaVersion should go
     attributes["schemaVersion"] = "http://datacite.org/schema/kernel-4"
 
     contributors = []
@@ -160,7 +153,6 @@ def to_datacite(dandiset):
             "name": contr_el.name,
             "contributorName": contr_el.name,
             "schemeURI": "orcid.org",
-            "affiliation": getattr(contr_el, "affiliation", []),
         }
         if isinstance(contr_el, Person):
             contr_dict["nameType"] = "Personal"
@@ -168,21 +160,31 @@ def to_datacite(dandiset):
                 contr_dict["familyName"], contr_dict["givenName"] = contr_el.name.split(
                     ","
                 )
+            if getattr(contr_el, "affiliation"):
+                contr_dict["affiliation"] = [el.name for el in contr_el.affiliation]
+            else:
+                contr_dict["affiliation"] = []
         elif isinstance(contr_el, Organization):
             contr_dict["nameType"] = "Organizational"
 
         if RoleType("dandi:Author") in getattr(contr_el, "roleName"):
-            creators.append(contr_dict)
-        # should creators  be also contributors if they have more roles
-        # I don't see a way to add more roles to the Contributor
-        else:
-            contr_dict["contributorType"] = getattr(contr_el, "roleName")
-            contributors.append(contr_dict)
+            create_dict = deepcopy(contr_dict)
+            create_dict["creatorName"] = create_dict.pop("contributorName")
+            creators.append(create_dict)
+            if len(getattr(contr_el, "roleName")) == 1:
+                continue
 
+        if getattr(contr_el, "roleName"):
+            contr_dict["contributorType"] = [
+                el.name for el in contr_el.roleName if el.name != "Author"
+            ]
+        contributors.append(contr_dict)
+
+    # if there are no creators, the first contributor is also treated as the creator
     if not creators and contributors:
-        creator, contributors = contributors[0], contributors[1:]
-        creator["creatorName"] = creator.pop("contributorName")
-        creators = [creator]
+        creators = [deepcopy(contributors[0])]
+        creators[0]["creatorName"] = creators[0].pop("contributorName")
+        creators[0].pop("contributorType")
 
     attributes["contributors"] = contributors
     attributes["creators"] = creators
