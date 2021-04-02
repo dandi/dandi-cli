@@ -122,65 +122,95 @@ def to_datacite(dandiset):
     prefix = "10.80507"
     dandiset_id = dandiset.identifier
 
-    version_id = newmeta.version  # this is None e.g. for 08, what should I use?
+    # version is None e.g. for 08, what should I use as a version?
+    version_id = newmeta.version
     # taken from dandi-api
     doi = f"{prefix}/{dandiset_id}/{version_id}"
     url = f"https://dandiarchive.org/dandiset/{dandiset_id}/{version_id}"
 
     attributes = {}
-    # from the examples I understand that many fields should be provided as a list,
-    # even identifier or a title
-    attributes["identifiers"] = (
-        [
-            {
-                "identifier": "https://doi.org/10.5438/0012",
-                # not sure if I can use it in the schema description the only option is DOI...
-                "identifierType": "Dandi",
-            }
-        ],
-    )
+    attributes["identifiers"] = [
+        {"identifier": doi, "identifierType": "DOI"},
+        # not sure if I can add dandi_id in the PDF documentation the only option is DOI...
+        {"identifier": dandiset_id, "identifierType": "Dandi"},
+    ]
     attributes["titles"] = [{"title": newmeta.name}]
     attributes["descriptions"] = [
+        # not sure what should be the type os use Other
+        # options are: Abstract, Methods, SeriesInformation,
+        # TableOfContents, TechnicalInfo, Other
         {"description": newmeta.description, "descriptionType": "Other"}
     ]
     attributes["publisher"] = "DANDI Archive"
     attributes["publicationYear"] = datetime.now().year
     # not sure about it dandi-api had "resourceTypeGeneral": "NWB"
     attributes["types"] = {"resourceType": "NWB", "resourceTypeGeneral": "Dataset"}
+    # newmeta has also attribute url, but it often empty
     attributes["url"] = url
-    attributes["rightsList"] = [{"rights": newmeta.license}]
+    # assuming that all licenses are from SPDX?
+    attributes["rightsList"] = [
+        {
+            "schemeURI": "https://spdx.org/licenses/",
+            "rightsIdentifierScheme": "SPDX",
+            "rightsIdentifier": el.name,
+        }
+        for el in newmeta.license
+    ]
     # not sure if these is correct schema or should I provide newmeta.schemaVersion
     # if not here, i'm not sure where newmeta.schemaVersion should go
     attributes["schemaVersion"] = "http://datacite.org/schema/kernel-4"
 
     contributors = []
-    create_dict = {}
+    creators = []
     for contr_el in newmeta.contributor:
-        if not create_dict and isinstance(contr_el, Person):
-            # "name" is not officially in the schema, but its in the example, should I keep it?
-            create_dict["name"] = getattr(contr_el, "name")
-            create_dict["creatorName"] = getattr(contr_el, "name")
-            # I'm assuming that we do not have to have Family Name and First name
-            create_dict["schemeURI"] = "orcid.org"
-            create_dict["affiliation"] = getattr(contr_el, "affiliation")
-            create_dict["nameType"] = "Personal"
+        contr_dict = {
+            "name": contr_el.name,
+            "contributorName": contr_el.name,
+            "schemeURI": "orcid.org",
+            "affiliation": getattr(contr_el, "affiliation", []),
+        }
+        if isinstance(contr_el, Person):
+            contr_dict["nameType"] = "Personal"
+            if len(contr_el.name.split(",")) == 2:
+                contr_dict["familyName"], contr_dict["givenName"] = contr_el.name.split(
+                    ","
+                )
+        elif isinstance(contr_el, Organization):
+            contr_dict["nameType"] = "Organizational"
+
+        if RoleType("dandi:Author") in getattr(contr_el, "roleName"):
+            creators.append(contr_dict)
+        # should creators  be also contributors if they have more roles
+        # I don't see a way to add more roles to the Contributor
         else:
-            contr_dict = {
-                "name": getattr(contr_el, "name"),
-                "contributorName": getattr(contr_el, "name"),
-                "schemeURI": "orcid.org",
-                "affiliation": getattr(contr_el, "affiliation"),
-                # it's not clear to me if schema allows this to be a list
-                "contributorType": getattr(contr_el, "roleName"),
-            }
-            if isinstance(contr_el, Person):
-                contr_dict["nameType"] = "Personal"
-            elif isinstance(contr_el, Organization):
-                contr_dict["nameType"] = "Organizational"
+            contr_dict["contributorType"] = getattr(contr_el, "roleName")
             contributors.append(contr_dict)
 
+    if not creators and contributors:
+        creator, contributors = contributors[0], contributors[1:]
+        creator["creatorName"] = creator.pop("contributorName")
+        creators = [creator]
+
     attributes["contributors"] = contributors
-    attributes["creators"] = [create_dict]
+    attributes["creators"] = creators
+
+    if getattr(newmeta, "relatedResource"):
+        attributes["relatedIdentifiers"] = []
+        for rel_el in newmeta.relatedResource:
+            rel_dict = {}
+            ident = rel_el.identifier.split(":")
+            if len(ident) == 2:
+                ident_tp, ident_nr = ident
+            else:
+                raise Exception("identifier is expected to be type:number")
+            rel_dict["relatedIdentifier"] = ident_nr
+            # in theory it should be from the specific list that contains e.g. DOI, arXiv, ...
+            rel_dict["relatedIdentifierType"] = ident_tp
+            rel_dict["relationType"] = rel_el.relation.name
+            attributes["relatedIdentifiers"].append(rel_dict)
+
+    if getattr(newmeta, "keywords"):
+        attributes["subjects"] = [{"subject": el} for el in newmeta.keywords]
 
     datacite_dict = {"data": {"id": doi, "type": "dois", "attributes": attributes}}
     return datacite_dict
