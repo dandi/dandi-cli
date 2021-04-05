@@ -35,6 +35,20 @@ as `local-docker` (as opposed from `local` for a plain girder instance).  See no
 below on `DANDI_DEVEL` environment variable which would be needed to expose
 development command line options.
 
+## Operating against current "beta" instance of the dandiarchive.org
+
+`dandi-cli` has all functionality for interaction with the beta instance deployed at
+https://gui-beta-dandiarchive-org.netlify.app . Some operations (like `upload`) would
+need that instance to be explicitly specified, and for that `DANDI_DEVEL=1` env variable
+should be set.  Here is an example for the upload invocation
+
+   DANDI_DEVEL=1 dandi upload -i dandi-api
+
+in the simplest scenario.  Additional options might come handy, such as
+
+- `--jobs 10:2` - upload 10 files in parallel with up to 2 threads per file
+- `--allow-any-path --validation ignore` - if you need to upload non-nwb files
+
 ## Environment variables
 
 - `DANDI_DEVEL` -- enables otherwise hidden command line options,
