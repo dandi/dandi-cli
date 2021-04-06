@@ -184,6 +184,7 @@ Designs for an improved Python API
     * Give `CommonModel` a `validate()` method that just does `type(self)(**self.dict())`
     * Add a `UserInputError` exception class subclassing `ValueError`, use it for all errors caused by bad user input, and make `map_to_click_exceptions` only remap it and nothing else to `click.UsageError`
     * Make the return value of `parse_dandi_url()` a structured class
+        * Give it `get_dandiset(client: DandiAPIClient) -> RemoteDandiset` and `get_assets(client: DandiAPIClient) -> Iterator[RemoteAsset]` methods
     * Rename the `download()` function to `download_url()`?
     * Add a `process_uploads(Iterable[Iterator[UploadProgressDict]], show_progress=True) -> List[RemoteAsset]` function that takes a collection of upload iterators and consumes them in parallel, using pyout if `show_progress` is true
     * Add a `process_downloads(Iterable[Iterator[DownloadProgressDict]], show_progress=True) -> ???` function that takes a collection of download iterators and consumes them in parallel, using pyout if `show_progress` is true
