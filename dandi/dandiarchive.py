@@ -51,7 +51,7 @@ def navigate_url(url):
             asset_id["version"] = r["most_recent_version"]["version"]
         args = (asset_id["dandiset_id"], asset_id["version"])
         kwargs["include_metadata"] = True
-        if asset_id.get("location"):
+        if asset_id.get("location") or asset_id.get("asset_id"):
             with client.session():
                 dandiset = client.get_dandiset(*args)
                 if asset_type == "folder":
@@ -59,8 +59,11 @@ def navigate_url(url):
                         *args, path=asset_id["location"]
                     )
                 elif asset_type == "item":
-                    asset = client.get_asset_bypath(*args, asset_id["location"])
-                    assets = [asset] if asset is not None else []
+                    if "location" in asset_id:
+                        asset = client.get_asset_bypath(*args, asset_id["location"])
+                        assets = [asset] if asset is not None else []
+                    else:
+                        assets = [client.get_asset(*args, asset_id["asset_id"])]
                 else:
                     raise NotImplementedError(
                         f"Do not know how to handle asset type {asset_type} with location"
@@ -182,6 +185,16 @@ class _dandi_url_parser:
             ),
             {"server_type": "api"},
             "https://<server>[/api]/dandisets/<dandiset id>[/versions[/<version>]]",
+        ),
+        (
+            re.compile(
+                rf"{server_grp}(?P<asset_type>dandiset)s/{dandiset_id_grp}"
+                r"/versions/(?P<version>[.0-9]{5,}|draft)"
+                r"/assets/(?P<asset_id>[^/]+)(/(download/?)?)?"
+            ),
+            {"server_type": "api"},
+            "https://<server>[/api]/dandisets/<dandiset id>/versions/<version>"
+            "/assets/<asset id>[/download]",
         ),
         # But for drafts files navigator it is a bit different beast and there
         # could be no versions, only draft
@@ -353,6 +366,7 @@ class _dandi_url_parser:
         dandiset_id = groups.get("dandiset_id")
         version = groups.get("version")
         location = groups.get("location")
+        asset_key = groups.get("asset_id")
         if location:
             location = urlunquote(location)
             # ATM carries leading '/' which IMHO is not needed/misguiding somewhat, so
@@ -371,6 +385,9 @@ class _dandi_url_parser:
             else:
                 asset_type = "item"
             asset_ids["location"] = location
+        elif asset_key:
+            asset_type = "item"
+            asset_ids["asset_id"] = asset_key
         # TODO: remove whenever API supports "draft" and this type of url
         if groups.get("id"):
             assert version == "draft"
