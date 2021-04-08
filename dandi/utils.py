@@ -1,4 +1,5 @@
 import datetime
+import importlib.metadata
 import inspect
 import io
 import itertools
@@ -11,7 +12,8 @@ import re
 import shutil
 import subprocess
 import sys
-from typing import Union
+import types
+from typing import Optional, Union
 
 import dateutil.parser
 import pkg_resources
@@ -690,7 +692,7 @@ def is_url(s):
     return s.lower().startswith(("http://", "https://", "dandi://"))
 
 
-def get_module_version(module: Union[str, "Module"]) -> object:
+def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
     """Return version of the module
 
     Return module's `__version__` and if present, or use pkg_resources
@@ -702,7 +704,9 @@ def get_module_version(module: Union[str, "Module"]) -> object:
     """
     if isinstance(module, str):
         mod_name = module
-        module = sys.modules.get(module, None)
+        if module not in sys.modules:
+            return None
+        module = sys.modules[module]
     else:
         mod_name = module.__name__.split(".", 1)[0]
 
@@ -711,7 +715,7 @@ def get_module_version(module: Union[str, "Module"]) -> object:
         # Let's use the standard Python mechanism if underlying module
         # did not provide __version__
         try:
-            version = pkg_resources.get_distribution(mod_name).version
+            version = importlib.metadata.version(mod_name)
         except Exception as exc:
             lgr.debug("Failed to determine version of the %s: %s", mod_name, exc)
     return version
