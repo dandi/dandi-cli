@@ -48,7 +48,10 @@ def navigate_url(url):
         client = DandiAPIClient(server_url)
         if asset_id["version"] is None:
             r = client.get(f"/dandisets/{asset_id['dandiset_id']}/")
-            asset_id["version"] = r["most_recent_version"]["version"]
+            asset_id["version"] = r["draft_version"]["version"]
+            published_version = r["most_recent_published_version"]
+            if published_version:
+                asset_id["version"] = published_version["version"]
         args = (asset_id["dandiset_id"], asset_id["version"])
         kwargs["include_metadata"] = True
         if asset_id.get("location") or asset_id.get("asset_id"):
