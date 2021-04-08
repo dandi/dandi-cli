@@ -54,8 +54,9 @@ def navigate_url(url):
                 if published_version:
                     asset_id["version"] = published_version["version"]
             else:
-                # TODO: remove `if` after https://github.com/dandi/dandi-api/pull/219 is merged/deployed
-                asset_id["version"] = r["most_recent_version"]["version"]            
+                # TODO: remove `if` after https://github.com/dandi/dandi-api/pull/219
+                # is merged/deployed
+                asset_id["version"] = r["most_recent_version"]["version"]
         args = (asset_id["dandiset_id"], asset_id["version"])
         kwargs["include_metadata"] = True
         if asset_id.get("location") or asset_id.get("asset_id"):
