@@ -11,8 +11,10 @@ import re
 import shutil
 import subprocess
 import sys
+from typing import Union
 
 import dateutil.parser
+import pkg_resources
 import requests
 import ruamel.yaml
 from semantic_version import Version
@@ -686,3 +688,30 @@ def is_url(s):
     TODO: redo
     """
     return s.lower().startswith(("http://", "https://", "dandi://"))
+
+
+def get_module_version(module: Union[str, "Module"]) -> object:
+    """Return version of the module
+
+    Return module's `__version__` and if present, or use pkg_resources
+    to get version.
+
+    Returns
+    -------
+    object
+    """
+    if isinstance(module, str):
+        mod_name = module
+        module = sys.modules.get(module, None)
+    else:
+        mod_name = module.__name__.split(".", 1)[0]
+
+    version = getattr(module, "__version__", None)
+    if version is None:
+        # Let's use the standard Python mechanism if underlying module
+        # did not provide __version__
+        try:
+            version = pkg_resources.get_distribution(mod_name).version
+        except Exception as exc:
+            lgr.debug("Failed to determine version of the %s: %s", mod_name, exc)
+    return version
