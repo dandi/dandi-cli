@@ -106,6 +106,14 @@ def main(ctx, log_level, pdb=False):
     handler.setFormatter(fmter)
     root.addHandler(handler)
 
+    import h5py
+    import hdmf
+    import pynwb
+
+    lgr.info("dandi v%s", __version__, extra={"file_only": True})
+    lgr.info("hdmf v%s", hdmf.__version__, extra={"file_only": True})
+    lgr.info("pynwb v%s", pynwb.__version__, extra={"file_only": True})
+    lgr.info("h5py v%s", h5py.__version__, extra={"file_only": True})
     lgr.info("sys.argv = %r", sys.argv, extra={"file_only": True})
     lgr.info("os.getcwd() = %s", os.getcwd(), extra={"file_only": True})
 
