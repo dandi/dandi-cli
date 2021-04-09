@@ -822,6 +822,7 @@ def _new_upload(
                     path, digest=file_etag, digest_type="dandi_etag"
                 )
             except Exception as exc:
+                lgr.exception("Failed to extract metadata from %s", path)
                 if allow_any_path:
                     yield {"status": "failed to extract metadata"}
                     asset_metadata = get_default_metadata(
