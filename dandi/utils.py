@@ -1,5 +1,10 @@
 import datetime
-import importlib.metadata
+
+try:
+    from importlib.metadata import version as importlib_version
+except ImportError:
+    # TODO - remove whenever python >= 3.8
+    from importlib_metadata import version as importlib_version
 import inspect
 import io
 import itertools
@@ -714,7 +719,7 @@ def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
         # Let's use the standard Python mechanism if underlying module
         # did not provide __version__
         try:
-            version = importlib.metadata.version(mod_name)
+            version = importlib_version(mod_name)
         except Exception as exc:
             lgr.debug("Failed to determine version of the %s: %s", mod_name, exc)
     return version
