@@ -166,7 +166,7 @@ def extract_sex(metadata):
         elif value in ["f", "female"]:
             value_id = "http://purl.obolibrary.org/obo/PATO_0000383"
             value = "Female"
-        elif value in ["unknown"]:
+        elif value in ["unknown", "u"]:
             value_id = None
             value = "Unknown"
         elif value in ["other"]:
