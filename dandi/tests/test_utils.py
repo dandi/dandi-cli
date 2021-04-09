@@ -15,6 +15,7 @@ from ..utils import (
     flatten,
     flattened,
     get_instance,
+    get_module_version,
     get_utcnow_datetime,
     is_same_time,
     name2title,
@@ -341,3 +342,14 @@ def test_get_instance_bad_version_from_server():
 )
 def test_name2title(name, title):
     assert name2title(name) == title
+
+
+def test_get_module_version():
+    import pynwb
+
+    import dandi
+
+    assert get_module_version(dandi) == __version__
+    assert get_module_version("dandi") == __version__
+    assert get_module_version("pynwb") == pynwb.__version__
+    assert get_module_version("abracadabra123") is None
