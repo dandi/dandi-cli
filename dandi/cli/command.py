@@ -15,6 +15,7 @@ from click_didyoumean import DYMGroup
 
 from .base import get_logger, lgr, map_to_click_exceptions, set_logger_level
 from .. import __version__
+from ..utils import get_module_version
 
 # Delay imports leading to import of heavy modules such as pynwb and h5py
 # Import at the point of use
@@ -110,10 +111,14 @@ def main(ctx, log_level, pdb=False):
     import hdmf
     import pynwb
 
-    lgr.info("dandi v%s", __version__, extra={"file_only": True})
-    lgr.info("hdmf v%s", hdmf.__version__, extra={"file_only": True})
-    lgr.info("pynwb v%s", pynwb.__version__, extra={"file_only": True})
-    lgr.info("h5py v%s", h5py.__version__, extra={"file_only": True})
+    lgr.info(
+        "dandi v%s, hdmf v%s, pynwb v%s, h5py v%s",
+        __version__,
+        get_module_version(hdmf),
+        get_module_version(pynwb),
+        get_module_version(h5py),
+        extra={"file_only": True},
+    )
     lgr.info("sys.argv = %r", sys.argv, extra={"file_only": True})
     lgr.info("os.getcwd() = %s", os.getcwd(), extra={"file_only": True})
 
