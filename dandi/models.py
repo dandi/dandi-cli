@@ -628,7 +628,7 @@ class Participant(DandiBaseModel):
     schemaKey: Literal["Participant"] = Field("Participant", readOnly=True)
 
     _ldmeta = {
-        "rdfs:subClassOf": ["schema:Person", "prov:Agent"],
+        "rdfs:subClassOf": ["prov:Agent"],
         "rdfs:label": "Information about the participant.",
         "nskey": "dandi",
     }
