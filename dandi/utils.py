@@ -16,7 +16,6 @@ import types
 from typing import Optional, Union
 
 import dateutil.parser
-import pkg_resources
 import requests
 import ruamel.yaml
 from semantic_version import Version
@@ -695,7 +694,7 @@ def is_url(s):
 def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
     """Return version of the module
 
-    Return module's `__version__` and if present, or use pkg_resources
+    Return module's `__version__` and if present, or use importlib
     to get version.
 
     Returns
