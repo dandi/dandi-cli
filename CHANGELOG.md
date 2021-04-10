@@ -1,3 +1,24 @@
+# 0.13.1 (Sat Apr 10 2021)
+
+#### 🐛 Bug Fix
+
+- Log dandi, hdmf, h5py, and pynwb versions to log file [#545](https://github.com/dandi/dandi-cli/pull/545) ([@jwodder](https://github.com/jwodder))
+- small fix of extract_sex [#549](https://github.com/dandi/dandi-cli/pull/549) ([@djarecka](https://github.com/djarecka))
+- Add and use get_module_version for cache tokens [#539](https://github.com/dandi/dandi-cli/pull/539) ([@yarikoptic](https://github.com/yarikoptic))
+- Log errors in extracting metadata for upload [#546](https://github.com/dandi/dandi-cli/pull/546) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- DOC: minor tune up to README.md on installation instructions and WiP [#551](https://github.com/dandi/dandi-cli/pull/551) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 3
+
+- Dorota Jarecka ([@djarecka](https://github.com/djarecka))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.13.0 (Thu Apr 08 2021)
 
 #### 🚀 Enhancement
