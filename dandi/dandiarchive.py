@@ -198,11 +198,21 @@ class _dandi_url_parser:
             re.compile(
                 rf"{server_grp}(?P<asset_type>dandiset)s/{dandiset_id_grp}"
                 r"/versions/(?P<version>[.0-9]{5,}|draft)"
-                r"/assets/(?P<asset_id>[^/]+)(/(download/?)?)?"
+                r"/assets/(?P<asset_id>[^?/]+)(/(download/?)?)?"
             ),
             {"server_type": "api"},
             "https://<server>[/api]/dandisets/<dandiset id>/versions/<version>"
             "/assets/<asset id>[/download]",
+        ),
+        (
+            re.compile(
+                rf"{server_grp}(?P<asset_type>dandiset)s/{dandiset_id_grp}"
+                r"/versions/(?P<version>[.0-9]{5,}|draft)"
+                r"/assets/\?path=(?P<path>[^&]+)",
+            ),
+            {"server_type": "api"},
+            "https://<server>[/api]/dandisets/<dandiset id>/versions/<version>"
+            "/assets/?path=<path>",
         ),
         # But for drafts files navigator it is a bit different beast and there
         # could be no versions, only draft
@@ -375,6 +385,7 @@ class _dandi_url_parser:
         version = groups.get("version")
         location = groups.get("location")
         asset_key = groups.get("asset_id")
+        path = groups.get("path")
         if location:
             location = urlunquote(location)
             # ATM carries leading '/' which IMHO is not needed/misguiding somewhat, so
@@ -396,6 +407,9 @@ class _dandi_url_parser:
         elif asset_key:
             asset_type = "item"
             asset_ids["asset_id"] = asset_key
+        elif path:
+            asset_type = "folder"
+            asset_ids["location"] = path
         # TODO: remove whenever API supports "draft" and this type of url
         if groups.get("id"):
             assert version == "draft"
