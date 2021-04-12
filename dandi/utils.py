@@ -212,16 +212,6 @@ def flattened(it):
     return list(flatten(it))
 
 
-def updated(d, update):
-    """Return a copy of the input with the 'update'
-
-    Primarily for updating dictionaries
-    """
-    d = d.copy()
-    d.update(update)
-    return d
-
-
 def remap_dict(rec, revmapping):
     """Remap nested dicts according to mapping
 
