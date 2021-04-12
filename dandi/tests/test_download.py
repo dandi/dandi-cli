@@ -94,8 +94,8 @@ def test_download_000027_assets_only(url, tmpdir):
     "url",
     [
         "https://api.dandiarchive.org/api/dandisets/000027",
-        # TODO
-        #'https://api.dandiarchive.org/api/dandisets/000027/versions/draft/assets/?path=sub-RAT123'
+        # TODO: can't find any assets for 27
+        # 'https://api.dandiarchive.org/api/dandisets/000027/versions/draft/assets/?path=sub-RAT123'
     ],
 )
 def test_download_000027_assets_api(url, tmpdir):
