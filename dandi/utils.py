@@ -699,7 +699,7 @@ def is_url(s):
 def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
     """Return version of the module
 
-    Return module's `__version__` and if present, or use importlib
+    Return module's `__version__` if present, or use importlib
     to get version.
 
     Returns
@@ -708,13 +708,14 @@ def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
     """
     if isinstance(module, str):
         mod_name = module
-        if module not in sys.modules:
-            return None
-        module = sys.modules[module]
+        module = sys.modules.get(module)
     else:
         mod_name = module.__name__.split(".", 1)[0]
 
-    version = getattr(module, "__version__", None)
+    if module is not None:
+        version = getattr(module, "__version__", None)
+    else:
+        version = None
     if version is None:
         # Let's use the standard Python mechanism if underlying module
         # did not provide __version__
