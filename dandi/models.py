@@ -113,32 +113,77 @@ def diff_models(model1, model2):
             print(f"{field} is different")
 
 
-def to_datacite(dandiset):
-    from .metadata import migrate2newschema
+DATACITE_CONTRTYPE = [
+    "ContactPerson",
+    "DataCollector",
+    "DataCurator",
+    "DataManager",
+    "Distributor",
+    "Editor",
+    "HostingInstitution",
+    "Producer",
+    "ProjectLeader",
+    "ProjectManager",
+    "ProjectMember",
+    "RegistrationAgency",
+    "RegistrationAuthority",
+    "RelatedPerson",
+    "Researcher",
+    "ResearchGroup",
+    "RightsHolder",
+    "Sponsor",
+    "Supervisor",
+    "WorkPackageLeader",
+    "Other",
+]
 
-    meta = dandiset.metadata
-    newmeta = migrate2newschema(meta)
 
-    dandiset_id = dandiset.identifier
+DATACITE_IDENTYPE = [
+    "ARK",
+    "arXiv",
+    "bibcode",
+    "DOI",
+    "EAN13",
+    "EISSN",
+    "Handle",
+    "IGSN",
+    "ISBN",
+    "ISSN",
+    "ISTC",
+    "LISSN",
+    "LSID",
+    "PMID",
+    "PURL",
+    "UPC",
+    "URL",
+    "URN",
+    "w3id",
+]
+DATACITE_MAP = dict([(el.lower(), el) for el in DATACITE_IDENTYPE])
+
+
+def to_datacite(meta):
+    newmeta = meta
+    dandiset_id = newmeta.identifier.split(":")[1]
+    doi = newmeta.doi
 
     attributes = {}
     attributes["identifiers"] = [
-        {"identifier": newmeta.doi, "identifierType": "DOI"},
-    ]
-    attributes["relatedIdentifiers"] = [
+        # TODO: the first elementis ignored, not sure how to fix it...
+        {"identifier": f"https://doi.org/{doi}", "identifierType": "DOI"},
         {
-            "relatedIdentifier": f"https://identifiers.org/DANDI:{dandiset_id}/{newmeta.version}",
-            "relatedIdentifierType": "URL",
-            "relationType": "IsIdenticalTo",
-        }
+            "identifier": f"https://identifiers.org/DANDI:{dandiset_id}/{newmeta.version}",
+            "identifierType": "URL",
+        },
     ]
 
+    attributes["doi"] = doi
     attributes["titles"] = [{"title": newmeta.name}]
     attributes["descriptions"] = [
         {"description": newmeta.description, "descriptionType": "Abstract"}
     ]
     attributes["publisher"] = "DANDI Archive"
-    attributes["publicationYear"] = datetime.now().year
+    attributes["publicationYear"] = str(newmeta.datePublished)
     # not sure about it dandi-api had "resourceTypeGeneral": "NWB"
     attributes["types"] = {"resourceType": "NWB", "resourceTypeGeneral": "Dataset"}
     # newmeta has also attribute url, but it often empty
@@ -157,6 +202,19 @@ def to_datacite(dandiset):
     contributors = []
     creators = []
     for contr_el in newmeta.contributor:
+        if RoleType("dandi:Sponsor") in contr_el.roleName:
+            # no info about "funderIdentifierType", "awardUri", "awardTitle"
+            dict_fund = {"funderName": contr_el.name}
+            if contr_el.identifier:
+                dict_fund["funderIdentifier"] = contr_el.identifier
+            if contr_el.awardNumber:
+                dict_fund["awardNumber"] = contr_el.awardNumber
+            attributes.setdefault("fundingReferences", []).append(dict_fund)
+            # if no more roles, it shouldn't be added to creators or contributors
+            contr_el.roleName.remove(RoleType("dandi:Sponsor"))
+            if not contr_el.roleName:
+                continue
+
         contr_dict = {
             "name": contr_el.name,
             "contributorName": contr_el.name,
@@ -169,7 +227,9 @@ def to_datacite(dandiset):
                     ","
                 )
             if getattr(contr_el, "affiliation"):
-                contr_dict["affiliation"] = [el.name for el in contr_el.affiliation]
+                contr_dict["affiliation"] = [
+                    {"name": el.name} for el in contr_el.affiliation
+                ]
             else:
                 contr_dict["affiliation"] = []
         elif isinstance(contr_el, Organization):
@@ -179,13 +239,19 @@ def to_datacite(dandiset):
             create_dict = deepcopy(contr_dict)
             create_dict["creatorName"] = create_dict.pop("contributorName")
             creators.append(create_dict)
-            if len(getattr(contr_el, "roleName")) == 1:
+            contr_el.roleName.remove(RoleType("dandi:Author"))
+            # if no more roles, it shouldn't be added to contributors
+            if not contr_el.roleName:
                 continue
 
         if getattr(contr_el, "roleName"):
-            contr_dict["contributorType"] = [
-                el.name for el in contr_el.roleName if el.name != "Author"
+            contr_all = [
+                el.name for el in contr_el.roleName if el.name in DATACITE_CONTRTYPE
             ]
+            if contr_all:
+                contr_dict["contributorType"] = contr_all[0]
+            else:
+                contr_dict["contributorType"] = "Other"
         contributors.append(contr_dict)
 
     # if there are no creators, the first contributor is also treated as the creator
@@ -198,10 +264,18 @@ def to_datacite(dandiset):
     attributes["creators"] = creators
 
     if getattr(newmeta, "relatedResource"):
+        attributes["relatedIdentifiers"] = []
         for rel_el in newmeta.relatedResource:
             ident = rel_el.identifier.split(":")
             if len(ident) == 2:
                 ident_tp, ident_nr = ident
+                if ident_tp.lower() in DATACITE_MAP:
+                    ident_tp = DATACITE_MAP[ident_tp.lower()]
+                else:
+                    raise Exception(
+                        f"identifier has to be from the list: {DATACITE_IDENTYPE}, "
+                        f"but {ident_tp} provided"
+                    )
             else:
                 raise Exception("identifier is expected to be type:number")
             rel_dict = {
@@ -215,9 +289,7 @@ def to_datacite(dandiset):
     if getattr(newmeta, "keywords"):
         attributes["subjects"] = [{"subject": el} for el in newmeta.keywords]
 
-    datacite_dict = {
-        "data": {"id": newmeta.doi, "type": "dois", "attributes": attributes}
-    }
+    datacite_dict = {"data": {"id": doi, "type": "dois", "attributes": attributes}}
     return datacite_dict
 
 
