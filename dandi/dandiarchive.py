@@ -71,7 +71,9 @@ def navigate_url(url):
                         asset = client.get_asset_bypath(*args, asset_id["location"])
                         assets = [asset] if asset is not None else []
                     else:
-                        assets = [client.get_asset(*args, asset_id["asset_id"])]
+                        assets = client.get_asset(*args, asset_id["asset_id"])[
+                            "results"
+                        ]
                 else:
                     raise NotImplementedError(
                         f"Do not know how to handle asset type {asset_type} with location"

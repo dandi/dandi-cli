@@ -90,6 +90,24 @@ def test_download_000027_assets_only(url, tmpdir):
     assert sorted(downloads) == ["sub-RAT123", op.join("sub-RAT123", "sub-RAT123.nwb")]
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://api.dandiarchive.org/api/dandisets/000027",
+        # TODO
+        #'https://api.dandiarchive.org/api/dandisets/000027/versions/draft/assets/?path=sub-RAT123'
+    ],
+)
+def test_download_000027_assets_api(url, tmpdir):
+    # TODO: the test doesn't work with get_metadata=False
+    ret = download(url, tmpdir)  # , get_metadata=False)
+    assert not ret  # we return nothing ATM, might want to "generate"
+    dsdir = tmpdir / "000027"
+    assert dsdir.exists()
+    # downloads = (x.relto(dsdir) for x in dsdir.visit())
+    # assert sorted(downloads) == ["sub-RAT123", op.join("sub-RAT123", "sub-RAT123.nwb")]
+
+
 def test_girder_tqdm(monkeypatch):
     # smoke test to ensure we do not blow up
     def raise_assertion_error(*args, **kwargs):
