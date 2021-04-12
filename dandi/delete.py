@@ -37,7 +37,9 @@ class Deleter:
 
     def set_dandiset(self, api_url: str, dandiset_id: str) -> None:
         if self.client is None:
-            self.client = DandiAPIClient(api_url)
+            # Strip the trailing slash so that dandi_authenticate can find the
+            # URL in known_instances_rev:
+            self.client = DandiAPIClient(api_url.rstrip("/"))
             self.client.dandi_authenticate()
             self.dandiset_id = dandiset_id
             try:
