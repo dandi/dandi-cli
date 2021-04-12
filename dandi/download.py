@@ -167,21 +167,14 @@ def download_generator(
                 down_args = (
                     dandiset["dandiset"]["identifier"],
                     dandiset["version"],
-                    asset["uuid"],
+                    asset["asset_id"],
                 )
-                if "sha256" not in asset:
-                    raise RuntimeError("sha256 hash not available for asset")
+                metadata = client.get_asset(*down_args)
+                d = metadata.get("digest", {})
+                if "dandi:dandi-etag" in d:
+                    digests = {"dandi-etag": d["dandi:dandi-etag"]}
                 else:
-                    digests = {"sha256": asset["sha256"]}
-                    if (
-                        "sha256" in digests_from_metadata
-                        and asset["sha256"] != digests_from_metadata["sha256"]
-                    ):
-                        lgr.warning(
-                            "Metadata seems to be outdated since API returned different "
-                            "sha256 for %(path)s",
-                            asset,
-                        )
+                    raise RuntimeError(f"dandi-etag not available for asset. Known digests: {d}")
             else:
                 raise TypeError(f"Don't know here how to handle {client}")
 
@@ -450,7 +443,12 @@ def _download_file(
         # choose first available for now.
         # TODO: reuse that sorting based on speed
         for algo, digest in digests.items():
-            digester = getattr(hashlib, algo, None)
+            if algo == "dandi-etag":
+                from .core.digests.dandietag import ETagHashlike
+
+                digester = lambda: ETagHashlike(size)  # noqa: E731
+            else:
+                digester = getattr(hashlib, algo, None)
             if digester:
                 break
         if not digester:

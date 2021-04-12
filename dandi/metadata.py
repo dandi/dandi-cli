@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import datetime
 import json
 import os
@@ -169,7 +170,7 @@ def extract_sex(metadata):
         elif value in ["f", "female"]:
             value_id = "http://purl.obolibrary.org/obo/PATO_0000383"
             value = "Female"
-        elif value in ["unknown"]:
+        elif value in ["unknown", "u"]:
             value_id = None
             value = "Unknown"
         elif value in ["other"]:
@@ -283,10 +284,7 @@ extract_wasGeneratedBy = extract_model_list(
 
 def extract_digest(metadata):
     if "digest" in metadata:
-        return models.Digest(
-            value=metadata["digest"],
-            cryptoType=models.DigestType[metadata["digest_type"]],
-        )
+        return {models.DigestType[metadata["digest_type"]]: metadata["digest"]}
     else:
         return ...
 
@@ -344,12 +342,9 @@ def nwb2asset(
 def get_default_metadata(path, digest=None, digest_type=None) -> models.BareAssetMeta:
     start_time = datetime.now().astimezone()
     if digest is not None:
-        digest_model = models.Digest(
-            value=digest,
-            cryptoType=models.DigestType[digest_type],
-        )
+        digest_model = {models.DigestType[digest_type]: digest}
     else:
-        digest_model = None
+        digest_model = []
     dateModified = get_utcnow_datetime()
     blobDateModified = ensure_datetime(os.stat(path).st_mtime)
     if blobDateModified > dateModified:
@@ -424,6 +419,8 @@ def toContributor(value, contrib_type):
         value = [value]
     out = []
     for item in value:
+        if item == {"orcid": "", "roles": []}:
+            continue
         contrib = {}
         if "name" in item:
             name = item["name"].split()
@@ -449,24 +446,27 @@ def toContributor(value, contrib_type):
             # else:
             #    contrib["identifier"] = models.PropertyValue()
             del item["orcid"]
+        if "affiliation" in item:
+            item["affiliation"] = [models.Organization(name=item["affiliation"])]
         if "affiliations" in item:
             item["affiliation"] = [
-                models.Organization.unvalidated(**{"name": affiliate})
+                models.Organization(name=affiliate)
                 for affiliate in item["affiliations"]
             ]
-
             del item["affiliations"]
         contrib.update(**{f"{k}": v for k, v in item.items()})
         if "awardNumber" in contrib or contrib_type == "sponsors":
-            contrib = models.Organization.unvalidated(**contrib)
+            contrib = models.Organization(**contrib)
         else:
-            contrib = models.Person.unvalidated(**contrib)
+            if "name" not in contrib:
+                contrib["name"] = "Last, First"
+            contrib = models.Person(**contrib)
         out.append(contrib)
     return out
 
 
 def convertv1(data):
-    oldmeta = data["dandiset"] if "dandiset" in data else data
+    oldmeta = deepcopy(data["dandiset"]) if "dandiset" in data else deepcopy(data)
     newmeta = {}
     for oldkey, value in oldmeta.items():
         if oldkey in ["language", "altid", "number_of_slices"]:
@@ -504,9 +504,23 @@ def convertv1(data):
                 out = []
                 for item in value:
                     if isinstance(item, dict):
-                        out.append(models.Resource.unvalidated(**item))
+                        if (
+                            "relation" in item
+                            and "publication" in item["relation"].lower()
+                        ):
+                            del item["relation"]
+                        if "relation" not in item:
+                            if oldkey == "publications":
+                                item["relation"] = models.RelationType.IsDescribedBy
+                            if oldkey == "associatedData":
+                                item["relation"] = models.RelationType.IsDerivedFrom
+                        out.append(models.Resource(**item))
                     elif not any(item in val.dict().values() for val in out):
-                        out.append(models.Resource.unvalidated(url=item))
+                        out.append(
+                            models.Resource(
+                                url=item, relation=models.RelationType.IsDescribedBy
+                            )
+                        )
                 value = out
             if oldkey in [
                 "number_of_subjects",
@@ -597,12 +611,67 @@ def migrate2newschema(meta):
     return dandimeta
 
 
+def generate_context():
+    import pydantic
+
+    fields = {
+        "@version": 1.1,
+        "dandi": "http://schema.dandiarchive.org/",
+        "DANDI": "http://identifiers.org/DANDI:",
+        "dct": "http://purl.org/dc/terms/",
+        "owl": "http://www.w3.org/2002/07/owl#",
+        "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+        "rdfa": "http://www.w3.org/ns/rdfa#",
+        "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+        "schema": "http://schema.org/",
+        "xsd": "http://www.w3.org/2001/XMLSchema#",
+        "skos": "http://www.w3.org/2004/02/skos/core#",
+        "prov": "http://www.w3.org/ns/prov#",
+        "pav": "http://purl.org/pav/",
+        "nidm": "http://purl.org/nidash/nidm#",
+        "uuid": "http://uuid.repronim.org/",
+        "rs": "http://schema.repronim.org/",
+        "RRID": "https://scicrunch.org/resolver/RRID:",
+        "ORCID": "https://orcid.org/",
+        "ROR": "https://ror.org/",
+        "PATO": "http://purl.obolibrary.org/obo/PATO_",
+    }
+    for val in dir(models):
+        klass = getattr(models, val)
+        if not isinstance(klass, pydantic.main.ModelMetaclass):
+            continue
+        if hasattr(klass, "_ldmeta"):
+            if "nskey" in klass._ldmeta:
+                name = klass.__name__
+                fields[name] = f'{klass._ldmeta["nskey"]}:{name}'
+        for name, field in klass.__fields__.items():
+            if name == "identifier":
+                fields[name] = "@id"
+            elif name == "schemaKey":
+                fields[name] = "@type"
+            elif name == "digest":
+                fields[name] = "@nest"
+            elif "nskey" in field.field_info.extra:
+                if name not in fields:
+                    fields[name] = {"@id": field.field_info.extra["nskey"] + ":" + name}
+                    if "List" in str(field.outer_type_):
+                        fields[name]["@container"] = "@set"
+                    if name == "contributor":
+                        fields[name]["@container"] = "@list"
+                    if "enum" in str(field.type_) or name == "url":
+                        fields[name]["@type"] = "@id"
+    for item in models.DigestType:
+        fields[item.value] = {"@id": item.value, "@nest": "digest"}
+    return {"@context": fields}
+
+
 def publish_model_schemata(releasedir):
     version = models.get_schema_version()
     vdir = Path(releasedir, version)
     vdir.mkdir(exist_ok=True, parents=True)
     (vdir / "dandiset.json").write_text(models.DandisetMeta.schema_json(indent=2))
     (vdir / "asset.json").write_text(models.AssetMeta.schema_json(indent=2))
+    (vdir / "context.json").write_text(json.dumps(generate_context(), indent=2))
     return vdir
 
 

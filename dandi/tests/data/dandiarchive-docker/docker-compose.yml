@@ -51,7 +51,7 @@ services:
 
   django:
     image: dandiarchive/dandiarchive-api
-    command: ["./manage.py", "runserver", "0.0.0.0:8000"]
+    command: ["./manage.py", "runserver", "--nothreading", "0.0.0.0:8000"]
     # Log printing via Rich is enhanced by a TTY
     tty: true
     depends_on:

@@ -189,14 +189,17 @@ def docker_compose_setup():
 
     if create:
         run(
-            ["docker-compose", "up", "-d", "provision"],
+            ["docker-compose", "up", "-d", "client"],
             cwd=str(LOCAL_DOCKER_DIR),
             check=True,
         )
     try:
         if create:
-            run(["docker", "wait", f"{LOCAL_DOCKER_ENV}_provision_1"], check=True)
-            # Should we check that the output of `docker wait` is 0?
+            run(
+                ["docker-compose", "run", "--rm", "provision"],
+                cwd=str(LOCAL_DOCKER_DIR),
+                check=True,
+            )
 
         r = requests.get(
             f"{GIRDER_URL}/api/v1/user/authentication", auth=("admin", "letmein")
@@ -357,23 +360,26 @@ def local_docker_compose_env(local_docker_compose, monkeypatch):
     return local_docker_compose
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def local_dandi_api(docker_compose_setup):
     instance_id = "dandi-api-local-docker-tests"
     instance = known_instances[instance_id]
-    return {
-        "api_key": docker_compose_setup["django_api_key"],
-        "instance": instance,
-        "instance_id": instance_id,
-    }
+    api_key = docker_compose_setup["django_api_key"]
+    client = DandiAPIClient(api_url=instance.api, token=api_key)
+    with client.session():
+        yield {
+            "api_key": api_key,
+            "client": client,
+            "instance": instance,
+            "instance_id": instance_id,
+        }
 
 
 @pytest.fixture()
 def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
-    client = DandiAPIClient(
-        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
-    )
-    dandiset_id = client.create_dandiset("Text Dandiset", {})["identifier"]
+    dandiset_id = local_dandi_api["client"].create_dandiset("Text Dandiset", {})[
+        "identifier"
+    ]
     dspath = tmp_path_factory.mktemp("text_dandiset")
     (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
     (dspath / "file.txt").write_text("This is test text.\n")
@@ -398,7 +404,7 @@ def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
 
     upload_dandiset()
     return {
-        "client": client,
+        "client": local_dandi_api["client"],
         "dspath": dspath,
         "dandiset_id": dandiset_id,
         "reupload": upload_dandiset,

@@ -1,3 +1,124 @@
+# 0.13.1 (Sat Apr 10 2021)
+
+#### 🐛 Bug Fix
+
+- Log dandi, hdmf, h5py, and pynwb versions to log file [#545](https://github.com/dandi/dandi-cli/pull/545) ([@jwodder](https://github.com/jwodder))
+- small fix of extract_sex [#549](https://github.com/dandi/dandi-cli/pull/549) ([@djarecka](https://github.com/djarecka))
+- Add and use get_module_version for cache tokens [#539](https://github.com/dandi/dandi-cli/pull/539) ([@yarikoptic](https://github.com/yarikoptic))
+- Log errors in extracting metadata for upload [#546](https://github.com/dandi/dandi-cli/pull/546) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- DOC: minor tune up to README.md on installation instructions and WiP [#551](https://github.com/dandi/dandi-cli/pull/551) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 3
+
+- Dorota Jarecka ([@djarecka](https://github.com/djarecka))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.13.0 (Thu Apr 08 2021)
+
+#### 🚀 Enhancement
+
+- Add "delete" command [#509](https://github.com/dandi/dandi-cli/pull/509) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Update dandiarchive client to use most_recent_published_version [#537](https://github.com/dandi/dandi-cli/pull/537) ([@dchiquito](https://github.com/dchiquito) [@yarikoptic](https://github.com/yarikoptic))
+- Support parsing & navigating asset download URLs [#535](https://github.com/dandi/dandi-cli/pull/535) ([@jwodder](https://github.com/jwodder))
+- Give `ls` a `--metadata` option [#536](https://github.com/dandi/dandi-cli/pull/536) ([@jwodder](https://github.com/jwodder))
+- Fix retrying 503's [#528](https://github.com/dandi/dandi-cli/pull/528) ([@jwodder](https://github.com/jwodder))
+- Retry requests that fail with 503 [#521](https://github.com/dandi/dandi-cli/pull/521) ([@jwodder](https://github.com/jwodder))
+- Better filtering of file-only log messages [#523](https://github.com/dandi/dandi-cli/pull/523) ([@jwodder](https://github.com/jwodder))
+- Fix typo in setting jobs_per_file for upload command [#519](https://github.com/dandi/dandi-cli/pull/519) ([@jwodder](https://github.com/jwodder))
+- fix to migrate2newschema [#515](https://github.com/dandi/dandi-cli/pull/515) ([@djarecka](https://github.com/djarecka))
+- BF(workaround): get the list of entries with sizes before querying [#513](https://github.com/dandi/dandi-cli/pull/513) ([@yarikoptic](https://github.com/yarikoptic))
+- fix: remove unset fields to enable schemaKey [#512](https://github.com/dandi/dandi-cli/pull/512) ([@satra](https://github.com/satra))
+- Fixes conversion of existing dandiset metadata with sub-object validation [#505](https://github.com/dandi/dandi-cli/pull/505) ([@satra](https://github.com/satra))
+- Upload file parts in parallel [#499](https://github.com/dandi/dandi-cli/pull/499) ([@jwodder](https://github.com/jwodder))
+
+#### ⚠️ Pushed to `master`
+
+- DOC: provide instructions in DEVELOPMENT.md for interaction with dandi-api instance ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- ENH: Enhancements to metadata schema and compatibility with JSONLD [#517](https://github.com/dandi/dandi-cli/pull/517) ([@satra](https://github.com/satra) [@yarikoptic](https://github.com/yarikoptic))
+- Add --only-metadata option to migrate-dandisets.py [#511](https://github.com/dandi/dandi-cli/pull/511) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Add tests of json_dict() method [#526](https://github.com/dandi/dandi-cli/pull/526) ([@jwodder](https://github.com/jwodder))
+- Store metadata test JSON in files [#525](https://github.com/dandi/dandi-cli/pull/525) ([@jwodder](https://github.com/jwodder))
+- Run "provision" container in the foreground [#506](https://github.com/dandi/dandi-cli/pull/506) ([@jwodder](https://github.com/jwodder))
+- Ignore warnings from ruamel.yaml caused by hdmf using deprecated functions [#507](https://github.com/dandi/dandi-cli/pull/507) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 5
+
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- Dorota Jarecka ([@djarecka](https://github.com/djarecka))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.12.1 (Thu Mar 25 2021)
+
+#### 🐛 Bug Fix
+
+- Lowercase "sha256" [#493](https://github.com/dandi/dandi-cli/pull/493) ([@jwodder](https://github.com/jwodder))
+- Validate uploads before digesting [#495](https://github.com/dandi/dandi-cli/pull/495) ([@jwodder](https://github.com/jwodder))
+- Check for already-uploaded blobs via /uploads/initialize/ instead of /blobs/digest/ [#496](https://github.com/dandi/dandi-cli/pull/496) ([@jwodder](https://github.com/jwodder))
+- Update upload code for changes in API [#479](https://github.com/dandi/dandi-cli/pull/479) ([@jwodder](https://github.com/jwodder))
+- dandi ls: Error if --schema is given with remote resource of different version [#489](https://github.com/dandi/dandi-cli/pull/489) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Add option for only running new Dandi API tests [#500](https://github.com/dandi/dandi-cli/pull/500) ([@jwodder](https://github.com/jwodder))
+- Don't hardcode DANDI_SCHEMA_VERSION value in tests [#491](https://github.com/dandi/dandi-cli/pull/491) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.12.0 (Tue Mar 23 2021)
+
+#### 🚀 Enhancement
+
+- Add "digest" command [#480](https://github.com/dandi/dandi-cli/pull/480) ([@jwodder](https://github.com/jwodder))
+- ENH: prototype for the DANDIEtag "digester" [#474](https://github.com/dandi/dandi-cli/pull/474) ([@yarikoptic](https://github.com/yarikoptic) [@jwodder](https://github.com/jwodder))
+- Change BareAssetMeta.digest to a list [#460](https://github.com/dandi/dandi-cli/pull/460) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Remove "current" column from upload progress display [#486](https://github.com/dandi/dandi-cli/pull/486) ([@jwodder](https://github.com/jwodder))
+- Add dandi_etag digest type to schema [#481](https://github.com/dandi/dandi-cli/pull/481) ([@jwodder](https://github.com/jwodder))
+- Add --devel-debug to `dandi validate` [#476](https://github.com/dandi/dandi-cli/pull/476) ([@jwodder](https://github.com/jwodder))
+- Only call logging.basicConfig() when used as a command [#468](https://github.com/dandi/dandi-cli/pull/468) ([@jwodder](https://github.com/jwodder))
+- BF: Require pydantic >= 1.8.1 [#461](https://github.com/dandi/dandi-cli/pull/461) ([@yarikoptic](https://github.com/yarikoptic))
+- Fix "%s: ok" log message from `dandi validate` [#462](https://github.com/dandi/dandi-cli/pull/462) ([@jwodder](https://github.com/jwodder))
+- Display `dandi validate` errors using logger [#459](https://github.com/dandi/dandi-cli/pull/459) ([@jwodder](https://github.com/jwodder))
+- ENH: more of lgr.debug for multipart upload [#457](https://github.com/dandi/dandi-cli/pull/457) ([@yarikoptic](https://github.com/yarikoptic))
+- Rename DandiMeta to DandisetMeta [#454](https://github.com/dandi/dandi-cli/pull/454) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Script for generating S3 versioned file stats [#473](https://github.com/dandi/dandi-cli/pull/473) ([@jwodder](https://github.com/jwodder))
+- Add `-vv` option to `auto shipit` [#471](https://github.com/dandi/dandi-cli/pull/471) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.11.0 (Mon Mar 08 2021)
 
 #### 🚀 Enhancement

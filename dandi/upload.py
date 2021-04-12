@@ -28,6 +28,8 @@ def upload(
     allow_any_path=False,
     upload_dandiset_metadata=False,
     devel_debug=False,
+    jobs=None,
+    jobs_per_file=None,
 ):
     from .dandiset import Dandiset
     from . import girder
@@ -56,6 +58,8 @@ def upload(
             allow_any_path,
             upload_dandiset_metadata,
             devel_debug,
+            jobs=jobs,
+            jobs_per_file=jobs_per_file,
         )
 
     if upload_dandiset_metadata:
@@ -604,6 +608,8 @@ def _new_upload(
     allow_any_path,
     upload_dandiset_metadata,
     devel_debug,
+    jobs=None,
+    jobs_per_file=None,
 ):
     from .dandiapi import DandiAPIClient
     from .dandiset import APIDandiset
@@ -700,66 +706,6 @@ def _new_upload(
                 return
 
             #
-            # Compute checksums
-            #
-            yield {"status": "digesting"}
-            try:
-                sha256_digest = get_digest(path)
-            except Exception as exc:
-                yield skip_file("failed to compute digests: %s" % str(exc))
-                return
-
-            extant = client.get_asset_bypath(ds_identifier, "draft", str(relpath))
-            if extant is not None:
-                # The endpoint used to search by paths doesn't include asset
-                # metadata, so we need to make another API call:
-                metadata = client.get_asset(ds_identifier, "draft", extant["uuid"])
-                local_mtime = ensure_datetime(path_stat.st_mtime)
-                remote_mtime_str = metadata.get("blobDateModified")
-                if remote_mtime_str is not None:
-                    remote_mtime = ensure_datetime(remote_mtime_str)
-                    remote_file_status = (
-                        "same"
-                        if extant["sha256"] == sha256_digest
-                        and remote_mtime == local_mtime
-                        else (
-                            "newer"
-                            if remote_mtime > local_mtime
-                            else ("older" if remote_mtime < local_mtime else "diff")
-                        )
-                    )
-                else:
-                    remote_mtime = None
-                    remote_file_status = "no mtime"
-
-                exists_msg = f"exists ({remote_file_status})"
-
-                if existing == "error":
-                    # as promised -- not gentle at all!
-                    raise FileExistsError(exists_msg)
-                if existing == "skip":
-                    yield skip_file(exists_msg)
-                    return
-                # Logic below only for overwrite and reupload
-                if existing == "overwrite":
-                    if extant["sha256"] == sha256_digest:
-                        yield skip_file(exists_msg)
-                        return
-                elif existing == "refresh":
-                    if extant["sha256"] == sha256_digest:
-                        yield skip_file("file exists")
-                        return
-                    elif remote_mtime is not None and remote_mtime >= local_mtime:
-                        yield skip_file(exists_msg)
-                        return
-                elif existing == "force":
-                    pass
-                else:
-                    raise ValueError(f"invalid value for 'existing': {existing!r}")
-
-                yield {"message": f"{exists_msg} - reuploading"}
-
-            #
             # Validate first, so we do not bother server at all if not kosher
             #
             # TODO: enable back validation of dandiset.yaml
@@ -799,6 +745,71 @@ def _new_upload(
                 return
 
             #
+            # Compute checksums
+            #
+            yield {"status": "digesting"}
+            try:
+                file_etag = get_digest(path, digest="dandi-etag")
+            except Exception as exc:
+                yield skip_file("failed to compute digest: %s" % str(exc))
+                return
+
+            extant = client.get_asset_bypath(ds_identifier, "draft", str(relpath))
+            if extant is not None:
+                # The endpoint used to search by paths doesn't include asset
+                # metadata, so we need to make another API call:
+                metadata = client.get_asset(ds_identifier, "draft", extant["asset_id"])
+                local_mtime = ensure_datetime(path_stat.st_mtime)
+                remote_mtime_str = metadata.get("blobDateModified")
+                d = metadata.get("digest", {})
+                if "dandi:dandi-etag" in d:
+                    extant_etag = d["dandi:dandi-etag"]
+                else:
+                    # TODO: Should this error instead?
+                    extant_etag = None
+                if remote_mtime_str is not None:
+                    remote_mtime = ensure_datetime(remote_mtime_str)
+                    remote_file_status = (
+                        "same"
+                        if extant_etag == file_etag and remote_mtime == local_mtime
+                        else (
+                            "newer"
+                            if remote_mtime > local_mtime
+                            else ("older" if remote_mtime < local_mtime else "diff")
+                        )
+                    )
+                else:
+                    remote_mtime = None
+                    remote_file_status = "no mtime"
+
+                exists_msg = f"exists ({remote_file_status})"
+
+                if existing == "error":
+                    # as promised -- not gentle at all!
+                    raise FileExistsError(exists_msg)
+                if existing == "skip":
+                    yield skip_file(exists_msg)
+                    return
+                # Logic below only for overwrite and reupload
+                if existing == "overwrite":
+                    if extant_etag == file_etag:
+                        yield skip_file(exists_msg)
+                        return
+                elif existing == "refresh":
+                    if extant_etag == file_etag:
+                        yield skip_file("file exists")
+                        return
+                    elif remote_mtime is not None and remote_mtime >= local_mtime:
+                        yield skip_file(exists_msg)
+                        return
+                elif existing == "force":
+                    pass
+                else:
+                    raise ValueError(f"invalid value for 'existing': {existing!r}")
+
+                yield {"message": f"{exists_msg} - reuploading"}
+
+            #
             # Extract metadata - delayed since takes time, but is done before
             # actual upload, so we could skip if this fails
             #
@@ -808,13 +819,14 @@ def _new_upload(
             yield {"status": "extracting metadata"}
             try:
                 asset_metadata = nwb2asset(
-                    path, digest=sha256_digest, digest_type="SHA256"
+                    path, digest=file_etag, digest_type="dandi_etag"
                 )
             except Exception as exc:
+                lgr.exception("Failed to extract metadata from %s", path)
                 if allow_any_path:
                     yield {"status": "failed to extract metadata"}
                     asset_metadata = get_default_metadata(
-                        path, digest=sha256_digest, digest_type="SHA256"
+                        path, digest=file_etag, digest_type="dandi_etag"
                     )
                 else:
                     yield skip_file("failed to extract metadata: %s" % str(exc))
@@ -827,9 +839,11 @@ def _new_upload(
             #
             yield {"status": "uploading"}
             validating = False
-            for r in client.iter_upload(ds_identifier, "draft", metadata, str(path)):
+            for r in client.iter_upload(
+                ds_identifier, "draft", metadata, str(path), jobs=jobs_per_file
+            ):
                 if r["status"] == "uploading":
-                    uploaded_paths[str(path)]["size"] = r["current"]
+                    uploaded_paths[str(path)]["size"] = r.pop("current")
                     yield r
                 elif r["status"] == "post-validating":
                     # Only yield the first "post-validating" status
@@ -860,7 +874,11 @@ def _new_upload(
 
     def upload_agg(*ignored):
         dt = time.time() - t0
-        total = sum(v["size"] for v in uploaded_paths.values())
+        # to help avoiding dict length changes during upload
+        # might be not a proper solution
+        # see https://github.com/dandi/dandi-cli/issues/502 for more info
+        uploaded_recs = list(uploaded_paths.values())
+        total = sum(v["size"] for v in uploaded_recs)
         if not total:
             return ""
         speed = total / dt if dt else 0
@@ -870,7 +888,7 @@ def _new_upload(
     pyout_style["upload"]["aggregate"] = upload_agg
 
     rec_fields = ["path", "size", "errors", "upload", "status", "message"]
-    out = pyouts.LogSafeTabular(style=pyout_style, columns=rec_fields)
+    out = pyouts.LogSafeTabular(style=pyout_style, columns=rec_fields, max_workers=jobs)
 
     with out, client.session():
         for path in paths:

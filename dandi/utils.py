@@ -1,7 +1,14 @@
 import datetime
+
+try:
+    from importlib.metadata import version as importlib_version
+except ImportError:
+    # TODO - remove whenever python >= 3.8
+    from importlib_metadata import version as importlib_version
 import inspect
 import io
 import itertools
+import logging
 import os
 import os.path as op
 from pathlib import Path
@@ -10,12 +17,14 @@ import re
 import shutil
 import subprocess
 import sys
-from time import sleep
+import types
+from typing import Optional, Union
 
 import dateutil.parser
 import requests
 import ruamel.yaml
 from semantic_version import Version
+import tenacity
 
 from .consts import dandi_instance, known_instances, known_instances_rev
 from .exceptions import BadCliVersionError, CliVersionTooOldError
@@ -660,19 +669,58 @@ def split_camel_case(s):
         yield s[last_start:]
 
 
-def try_multiple(ntrials, exception, base, f, *args, **kwargs):
+def try_multiple(ntrials, retry, base):
     """
-    Call ``f`` multiple times until it succeeds, with exponentially increasing
-    delay between calls
+    ``try_multiple(ntrials, retry, base)(f, *args, **kwargs)`` calls ``f``
+    multiple times until it succeeds, with exponentially increasing delay
+    between calls
     """
-    for trial in range(1, ntrials + 1):
+    # `retry` must be an exception type, a tuple of exception types, or a valid
+    # `retry` argument to tenacity.
+    if isinstance(retry, (type, tuple)):
+        retry = tenacity.retry_if_exception_type(retry)
+    return tenacity.Retrying(
+        wait=tenacity.wait_exponential(exp_base=base, multiplier=base),
+        retry=retry,
+        stop=tenacity.stop_after_attempt(ntrials),
+        before_sleep=tenacity.before_sleep_log(lgr, logging.WARNING),
+        reraise=True,
+    )
+
+
+def is_url(s):
+    """Very primitive url detection for now
+
+    TODO: redo
+    """
+    return s.lower().startswith(("http://", "https://", "dandi://"))
+
+
+def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
+    """Return version of the module
+
+    Return module's `__version__` if present, or use importlib
+    to get version.
+
+    Returns
+    -------
+    object
+    """
+    if isinstance(module, str):
+        mod_name = module
+        module = sys.modules.get(module)
+    else:
+        mod_name = module.__name__.split(".", 1)[0]
+
+    if module is not None:
+        version = getattr(module, "__version__", None)
+    else:
+        version = None
+    if version is None:
+        # Let's use the standard Python mechanism if underlying module
+        # did not provide __version__
         try:
-            return f(*args, **kwargs)
-        except exception as exc:
-            if trial == ntrials:
-                raise  # just reraise on the last trial
-            t = base ** trial
-            lgr.warning(
-                "Caught %s on trial #%d. Sleeping %f and retrying", exc, trial, t
-            )
-            sleep(t)
+            version = importlib_version(mod_name)
+        except Exception as exc:
+            lgr.debug("Failed to determine version of the %s: %s", mod_name, exc)
+    return version

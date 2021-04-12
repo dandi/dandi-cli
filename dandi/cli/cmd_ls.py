@@ -5,6 +5,7 @@ import os.path as op
 import click
 
 from .base import lgr, map_to_click_exceptions
+from ..utils import is_url
 
 # TODO: all the recursion options etc
 
@@ -40,17 +41,23 @@ from .base import lgr, map_to_click_exceptions
     show_default=True,
 )
 @click.option(
+    "--metadata",
+    type=click.Choice(["api", "all", "assets"]),
+    default="api",
+)
+@click.option(
     "--schema",
     help="Convert metadata to new schema version",
     metavar="VERSION",
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=False, dir_okay=True))
 @map_to_click_exceptions
-def ls(paths, schema, fields=None, format="auto", recursive=False, jobs=6):
+def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, jobs=6):
     """List .nwb files and dandisets metadata."""
     # TODO: more logical ordering in case of fields = None
     from .formatter import JSONFormatter, PYOUTFormatter, YAMLFormatter
     from ..consts import metadata_all_fields
+    from ..dandiapi import DandiAPIClient
 
     # TODO: avoid
     from ..support.pyout import PYOUT_SHORT_NAMES_rev
@@ -97,6 +104,7 @@ def ls(paths, schema, fields=None, format="auto", recursive=False, jobs=6):
 
                 with navigate_url(path) as (client, dandiset, assets):
                     if dandiset:
+                        dandiset_id = dandiset.get("dandiset", {}).get("identifier")
                         rec = {
                             "path": dandiset.pop("dandiset", {}).get(
                                 "identifier", "ERR#%s" % id(dandiset)
@@ -106,8 +114,23 @@ def ls(paths, schema, fields=None, format="auto", recursive=False, jobs=6):
                         # rec.update(dandiset.get('metadata', {}))
                         rec.update(dandiset)
                         yield rec
+                    else:
+                        dandiset_id = None
                     if recursive and assets:
-                        yield from assets
+                        if isinstance(client, DandiAPIClient) and metadata in (
+                            "all",
+                            "assets",
+                        ):
+                            for a in assets:
+                                if "metadata" not in a:
+                                    a["metadata"] = client.get_asset(
+                                        dandiset_id,
+                                        dandiset["version"],
+                                        a["asset_id"],
+                                    )
+                                yield a
+                        else:
+                            yield from assets
             else:
                 # For now we support only individual files
                 yield path
@@ -172,6 +195,13 @@ def ls(paths, schema, fields=None, format="auto", recursive=False, jobs=6):
                     _add_exc_error(asset, rec, errors, exc)
             elif isinstance(asset, dict):
                 # ready record
+                if schema is not None and asset.get("schemaVersion") != schema:
+                    raise NotImplementedError(
+                        "Record conversion between schema versions is not"
+                        " implemented.  Found schemaVersion="
+                        f"{asset.get('schemaVersion')} where {schema} was"
+                        " requested"
+                    )
                 # TODO: harmonization for pyout
                 rec = asset
             else:
@@ -317,11 +347,3 @@ def get_metadata_ls(path, keys, errors, flatten=False, schema=None):
             pass
 
     return fn
-
-
-def is_url(s):
-    """Very primitive url detection for now
-
-    TODO: redo
-    """
-    return s.lower().startswith(("http://", "https://"))

@@ -1,0 +1,42 @@
+{
+  "schemaVersion": null,
+  "identifier": "bfc23fb6192b41c083a7257e09a3702b",
+  "keywords": [
+    "keyword1",
+    "keyword 2"
+  ],
+  "access": [
+    {
+      "status": "dandi:Open"
+    }
+  ],
+  "repository": "https://dandiarchive.org/",
+  "contentSize": 69105,
+  "encodingFormat": "application/x-nwb",
+  "digest":
+    {
+      "dandi:sha1": "783ad2afe455839e5ab2fa659861f58a423fd17f"
+    },
+  "wasDerivedFrom": [
+    {
+      "identifier": "tissue42",
+      "sampleType": {
+        "name": "tissuesample",
+        "schemaKey": "SampleType"
+      },
+      "schemaKey": "BioSample"
+    }
+  ],
+  "wasGeneratedBy": [
+    {
+        "name": "session_id1",
+        "schemaKey": "Session"
+    }
+  ],
+  "wasAttributedTo": [
+    {
+        "identifier": "sub-01",
+        "schemaKey": "Participant"
+    }
+  ]
+}

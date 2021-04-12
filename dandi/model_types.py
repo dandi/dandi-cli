@@ -46,20 +46,38 @@ DigestTypeDict = {
         {
             "@id": "dandi:sha1",
             "@type": "dandi:DigestType",
-            "rdfs:comment": "SHA-1 checksum",
-            "rdfs:label": "SHA-1",
+            "rdfs:comment": "SHA1 checksum",
+            "rdfs:label": "SHA1",
         },
         {
-            "@id": "dandi:SHA256",
+            "@id": "dandi:sha2-256",
             "@type": "dandi:DigestType",
-            "rdfs:comment": "SHA-256 checksum",
-            "rdfs:label": "SHA-256",
+            "rdfs:comment": "SHA2-256 checksum",
+            "rdfs:label": "SHA2-256",
         },
         {
-            "@id": "dandi:sha512",
+            "@id": "dandi:sha3-256",
             "@type": "dandi:DigestType",
-            "rdfs:comment": "SHA-512 checksum",
-            "rdfs:label": "SHA-512",
+            "rdfs:comment": "SHA3-256 checksum",
+            "rdfs:label": "SHA3-256",
+        },
+        {
+            "@id": "dandi:blake2b-256",
+            "@type": "dandi:DigestType",
+            "rdfs:comment": "BLAKE2B-256 checksum",
+            "rdfs:label": "BLAKE2B-256",
+        },
+        {
+            "@id": "dandi:blake3",
+            "@type": "dandi:DigestType",
+            "rdfs:comment": "BLAKE3-256 checksum",
+            "rdfs:label": "BLAKE3-256",
+        },
+        {
+            "@id": "dandi:dandi-etag",
+            "@type": "dandi:DigestType",
+            "rdfs:comment": "S3-style ETag",
+            "rdfs:label": "DANDI ETag",
         },
     ]
 }

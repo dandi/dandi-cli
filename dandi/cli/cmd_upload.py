@@ -9,6 +9,25 @@ from .base import (
 from ..consts import collection_drafts
 
 
+class IntColonInt(click.ParamType):
+    name = "int:int"
+
+    def convert(self, value, param, ctx):
+        if isinstance(value, str):
+            v1, colon, v2 = value.partition(":")
+            try:
+                v1 = int(v1)
+                v2 = int(v2) if colon else None
+            except ValueError:
+                self.fail("Value must be of the form `N[:M]`", param, ctx)
+            return (v1, v2)
+        else:
+            return value
+
+    def get_metavar(self, param):
+        return "N[:M]"
+
+
 @click.command()
 # @dandiset_path_option(
 #     help="Top directory (local) of the dandiset.  Files will be uploaded with "
@@ -25,6 +44,12 @@ from ..consts import collection_drafts
     "local modification time is ahead of the remote.",
     default="refresh",
     show_default=True,
+)
+@click.option(
+    "-J",
+    "--jobs",
+    type=IntColonInt(),
+    help="Number of files to upload in parallel and, optionally, number of upload threads per file",
 )
 @click.option(
     "--validation",
@@ -68,6 +93,7 @@ from ..consts import collection_drafts
 @map_to_click_exceptions
 def upload(
     paths,
+    jobs,
     existing="refresh",
     validation="require",
     dandiset_path=None,
@@ -95,6 +121,12 @@ def upload(
     """
     from ..upload import upload
 
+    if jobs is None:
+        jobs = None
+        jobs_per_file = None
+    else:
+        jobs, jobs_per_file = jobs
+
     upload(
         paths,
         existing=existing,
@@ -107,4 +139,6 @@ def upload(
         allow_any_path=allow_any_path,
         upload_dandiset_metadata=upload_dandiset_metadata,
         devel_debug=devel_debug,
+        jobs=jobs,
+        jobs_per_file=jobs_per_file,
     )

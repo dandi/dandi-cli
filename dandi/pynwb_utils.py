@@ -19,16 +19,17 @@ from .consts import (
     metadata_nwb_subject_fields,
 )
 from . import __version__, get_logger
+from .utils import get_module_version
 
 lgr = get_logger()
 
 # strip away possible development version marker
 dandi_rel_version = __version__.split("+", 1)[0]
 dandi_cache_tokens = [
-    pynwb.__version__,
+    get_module_version(pynwb),
     dandi_rel_version,
-    hdmf.__version__,
-    h5py.__version__,
+    get_module_version(hdmf),
+    get_module_version(h5py),
 ]
 metadata_cache = PersistentCache(
     name="dandi-metadata", tokens=dandi_cache_tokens, envvar="DANDI_CACHE"
@@ -229,7 +230,7 @@ def _get_pynwb_metadata(path):
 
 
 @validate_cache.memoize_path
-def validate(path):
+def validate(path, devel_debug=False):
     """Run validation on a file and return errors
 
     In case of an exception being thrown, an error message added to the
@@ -244,6 +245,8 @@ def validate(path):
         with pynwb.NWBHDF5IO(path, "r", load_namespaces=True) as reader:
             errors = pynwb.validate(reader)
     except Exception as exc:
+        if devel_debug:
+            raise
         errors = [f"Failed to validate {path}: {exc}"]
 
     # To overcome
@@ -259,19 +262,20 @@ def validate(path):
         # we just will not remove any errors, it is required so should be some
         pass
     else:
-        # Explicitly sanitize so we collect warnings.
-        # TODO: later cast into proper ERRORs
-        version = _sanitize_nwb_version(version, log=errors.append)
-        loosever = LooseVersion(version)
-        if loosever and loosever < "2.1.0":
-            errors_ = errors[:]
-            errors = [e for e in errors if not re_ok_prior_210.search(str(e))]
-            if errors != errors_:
-                lgr.debug(
-                    "Filtered out %d validation errors on %s",
-                    len(errors_) - len(errors),
-                    path,
-                )
+        if version is not None:
+            # Explicitly sanitize so we collect warnings.
+            # TODO: later cast into proper ERRORs
+            version = _sanitize_nwb_version(version, log=errors.append)
+            loosever = LooseVersion(version)
+            if loosever and loosever < "2.1.0":
+                errors_ = errors[:]
+                errors = [e for e in errors if not re_ok_prior_210.search(str(e))]
+                if errors != errors_:
+                    lgr.debug(
+                        "Filtered out %d validation errors on %s",
+                        len(errors_) - len(errors),
+                        path,
+                    )
     return errors
 
 

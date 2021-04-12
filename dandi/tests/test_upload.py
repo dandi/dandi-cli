@@ -13,7 +13,7 @@ from ..download import download
 from .. import girder
 from ..register import register
 from ..upload import upload
-from ..utils import yaml_load
+from ..utils import find_files, yaml_load
 
 
 def test_upload(local_docker_compose_env, monkeypatch, organized_nwb_dir2):
@@ -248,11 +248,7 @@ def test_enormous_upload_breaks_girder(
 
 
 def test_new_upload_download(local_dandi_api, monkeypatch, organized_nwb_dir, tmp_path):
-    client = DandiAPIClient(
-        api_url=local_dandi_api["instance"].api, token=local_dandi_api["api_key"]
-    )
-    with client.session():
-        r = client.create_dandiset("Test Dandiset", {})
+    r = local_dandi_api["client"].create_dandiset("Test Dandiset", {})
     dandiset_id = r["identifier"]
     (nwb_file,) = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
     (organized_nwb_dir / dandiset_metadata_file).write_text(
@@ -290,7 +286,7 @@ def test_new_upload_download(local_dandi_api, monkeypatch, organized_nwb_dir, tm
         upload_dandiset_metadata=True,
     )
 
-    r = client.get_dandiset(dandiset_id, "draft")
+    r = local_dandi_api["client"].get_dandiset(dandiset_id, "draft")
     assert r["metadata"]["name"] == "shorty"
 
 
@@ -350,3 +346,45 @@ def test_new_upload_extant_bad_existing(mocker, text_dandiset):
     iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
     text_dandiset["reupload"](existing="foobar")
     iter_upload_spy.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [
+        pytest.param(
+            b"",
+            marks=pytest.mark.xfail(
+                reason="https://github.com/dandi/dandi-api/issues/168"
+            ),
+        ),
+        b"x",
+    ],
+)
+def test_upload_download_small_file(contents, local_dandi_api, monkeypatch, tmp_path):
+    client = local_dandi_api["client"]
+    dandiset_id = client.create_dandiset("Small Dandiset", {})["identifier"]
+    dspath = tmp_path / "upload"
+    dspath.mkdir()
+    (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
+    (dspath / "file.txt").write_bytes(contents)
+    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
+    upload(
+        paths=[],
+        dandiset_path=dspath,
+        dandi_instance=local_dandi_api["instance_id"],
+        devel_debug=True,
+        allow_any_path=True,
+        validation="skip",
+    )
+    download_dir = tmp_path / "download"
+    download_dir.mkdir()
+    download(
+        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
+        download_dir,
+    )
+    files = sorted(map(Path, find_files(r".*", paths=[download_dir])))
+    assert files == [
+        download_dir / dandiset_id / dandiset_metadata_file,
+        download_dir / dandiset_id / "file.txt",
+    ]
+    assert files[1].read_bytes() == contents

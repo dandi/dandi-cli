@@ -6,16 +6,22 @@
 [![PyPI version fury.io](https://badge.fury.io/py/dandi.svg)](https://pypi.python.org/pypi/dandi/)
 
 This project is under heavy development.  Beware of [hidden](I-wish-we-knew) and
-[disclosed](https://github.com/dandi/dandi-cli/issues) issues and
-Work-in-Progress (WiP) (again might be [hidden](still-on-the-laptop-only) or
-[public](https://github.com/dandi/dandi-cli/pulls)).
+[disclosed](https://github.com/dandi/dandi-cli/issues) issues, or
+[Work-in-Progress (WiP)](https://github.com/dandi/dandi-cli/pulls).
 
 ## Installation
 
-At the moment DANDI client releases are [available from PyPI](https://pypi.org/project/dandi).  You could
+At the moment DANDI client releases are [available from PyPI](https://pypi.org/project/dandi)
+and [conda-forge](https://anaconda.org/conda-forge/dandi).  You could
 install them in your Python (native, virtualenv, or conda) environment via
 
     pip install dandi
+
+or
+
+   conda install -c conda-forge dandi
+
+if you are in a conda environment.
 
 ## dandi tool
 
@@ -81,6 +87,11 @@ for examples on how to use this client in various use cases.
 Please see [DEVELOPMENT.md](./DEVELOPMENT.md) file.
 
 ## 3rd party components included
+
+### dandi/core/digests/dandietag.py
+
+From <https://github.com/girder/django-s3-file-field> as of v0.1.1-10-g829b9b0
+Copyright (c) 2019-2021 Kitware, Inc., Apache 2.0 license
 
 ### dandi/support/generatorify.py
 
