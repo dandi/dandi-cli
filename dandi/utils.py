@@ -618,14 +618,27 @@ def get_instance(dandi_instance_id):
         raise CliVersionTooOldError(our_version, minversion, bad_versions)
     if our_version in bad_versions:
         raise BadCliVersionError(our_version, minversion, bad_versions)
-    services = server_info["services"]
-    return dandi_instance(
-        metadata_version=0,
-        girder=services.get("girder", {}).get("url"),
-        gui=services.get("webui", {}).get("url"),
-        redirector=redirector_url,
-        api=services.get("api", {}).get("url"),
-    )
+    if "girder" in server_info["services"]:
+        return dandi_instance(
+            metadata_version=0,
+            girder=server_info["services"]["girder"]["url"],
+            gui=server_info["services"]["webui"]["url"],
+            redirector=redirector_url,
+            api=None,
+        )
+    elif "api" in server_info["services"]:
+        return dandi_instance(
+            metadata_version=1,
+            girder=None,
+            gui=server_info["services"]["webui"]["url"],
+            redirector=redirector_url,
+            api=server_info["services"]["api"]["url"],
+        )
+    else:
+        raise RuntimeError(
+            "redirector's server-info returned unknown set of services keys: "
+            + ", ".join(server_info["services"].keys())
+        )
 
 
 TITLE_CASE_LOWER = {
