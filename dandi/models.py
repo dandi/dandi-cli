@@ -1003,6 +1003,12 @@ class PublishedDandisetMeta(DandisetMeta):
         nskey="dandi",
     )  # TODO: formalize "publish" activity to at least the Actor
     datePublished: date = Field(readOnly=True, nskey="schema")
+    doi: str = Field(
+        title="DOI",
+        readOnly=True,
+        pattern=r"^10\.[A-Za-z0-9.\/-]+",
+        nskey="dandi",
+    )
 
 
 class BareAssetMeta(CommonModel):
