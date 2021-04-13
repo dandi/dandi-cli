@@ -182,7 +182,8 @@ def test_datacite(dandi_nr):
     datacite = to_datacite(meta=newmeta)
 
     sr = requests.get(
-        "https://raw.githubusercontent.com/datacite/schema/master/source/json/kernel-4.3/datacite_4.3_schema.json"
+        "https://raw.githubusercontent.com/datacite/schema/master/source/"
+        "json/kernel-4.3/datacite_4.3_schema.json"
     )
     schema = sr.json()
     Draft6Validator.check_schema(schema)
@@ -215,9 +216,9 @@ def test_dantimeta_1():
     }
 
     # should work for DandisetMeta but PublishedDandisetMeta should raise an error
-    meta = DandisetMeta(**meta_dict)
+    DandisetMeta(**meta_dict)
     with pytest.raises(Exception) as exc:
-        meta_p = PublishedDandisetMeta(**meta_dict)
+        PublishedDandisetMeta(**meta_dict)
 
     assert [el["msg"] == "field required" for el in exc.value.errors()]
     assert set([el["loc"][0] for el in exc.value.errors()]) == {
@@ -230,4 +231,4 @@ def test_dantimeta_1():
     meta_dict["doi"] = "00000"
     meta_dict["datePublished"] = datetime.now().year
     meta_dict["publishedBy"] = "https://doi.test.datacite.org/dois"
-    meta_p = PublishedDandisetMeta(**meta_dict)
+    PublishedDandisetMeta(**meta_dict)
