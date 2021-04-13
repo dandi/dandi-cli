@@ -163,12 +163,25 @@ def download_generator(
             elif isinstance(client, DandiAPIClient):
                 # At least according to our 0.1.0 state of v1
                 # https://github.com/dandi/dandi-publish/issues/79
-                down_args = (
-                    dandiset["dandiset"]["identifier"],
-                    dandiset["version"],
-                    asset["asset_id"],
-                )
-                metadata = client.get_asset(*down_args)
+                if "asset_id" in asset_id:
+                    down_args = (
+                        dandiset["dandiset"]["identifier"],
+                        dandiset["version"],
+                        asset_id["asset_id"],
+                    )
+                    metadata = asset
+                    asset = {
+                        "path": metadata["path"],
+                        "size": metadata["contentSize"],
+                        "metadata": metadata,
+                    }
+                else:
+                    down_args = (
+                        dandiset["dandiset"]["identifier"],
+                        dandiset["version"],
+                        asset["asset_id"],
+                    )
+                    metadata = client.get_asset(*down_args)
                 d = metadata.get("digest", {})
                 if "dandi:dandi-etag" in d:
                     digests = {"dandi-etag": d["dandi:dandi-etag"]}

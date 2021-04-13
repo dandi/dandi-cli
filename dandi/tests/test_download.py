@@ -176,3 +176,20 @@ def test_download_item(local_dandi_api, text_dandiset, tmp_path):
         tmp_path / "coconut.txt"
     ]
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
+
+
+def test_download_asset_id(local_dandi_api, text_dandiset, tmp_path):
+    dandiset_id = text_dandiset["dandiset_id"]
+    asset = local_dandi_api["client"].get_asset_bypath(
+        dandiset_id, "draft", "subdir2/coconut.txt"
+    )
+    assert asset is not None
+    download(
+        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions"
+        f"/draft/assets/{asset['asset_id']}/download/",
+        tmp_path,
+    )
+    assert list(map(Path, find_files(r".*", paths=[tmp_path], dirs=True))) == [
+        tmp_path / "coconut.txt"
+    ]
+    assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
