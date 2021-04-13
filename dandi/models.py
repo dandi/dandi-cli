@@ -163,31 +163,30 @@ DATACITE_MAP = dict([(el.lower(), el) for el in DATACITE_IDENTYPE])
 
 
 def to_datacite(meta):
-    newmeta = meta
-    dandiset_id = newmeta.identifier.split(":")[1]
-    doi = newmeta.doi
+    dandiset_id = meta.identifier.split(":")[1]
+    doi = meta.doi
 
     attributes = {}
     attributes["identifiers"] = [
         # TODO: the first elementis ignored, not sure how to fix it...
         {"identifier": f"https://doi.org/{doi}", "identifierType": "DOI"},
         {
-            "identifier": f"https://identifiers.org/DANDI:{dandiset_id}/{newmeta.version}",
+            "identifier": f"https://identifiers.org/DANDI:{dandiset_id}/{meta.version}",
             "identifierType": "URL",
         },
     ]
 
     attributes["doi"] = doi
-    attributes["titles"] = [{"title": newmeta.name}]
+    attributes["titles"] = [{"title": meta.name}]
     attributes["descriptions"] = [
-        {"description": newmeta.description, "descriptionType": "Abstract"}
+        {"description": meta.description, "descriptionType": "Abstract"}
     ]
     attributes["publisher"] = "DANDI Archive"
-    attributes["publicationYear"] = str(newmeta.datePublished)
+    attributes["publicationYear"] = str(meta.datePublished)
     # not sure about it dandi-api had "resourceTypeGeneral": "NWB"
     attributes["types"] = {"resourceType": "NWB", "resourceTypeGeneral": "Dataset"}
-    # newmeta has also attribute url, but it often empty
-    attributes["url"] = newmeta.url
+    # meta has also attribute url, but it often empty
+    attributes["url"] = meta.url
     # assuming that all licenses are from SPDX?
     attributes["rightsList"] = [
         {
@@ -195,13 +194,13 @@ def to_datacite(meta):
             "rightsIdentifierScheme": "SPDX",
             "rightsIdentifier": el.name,
         }
-        for el in newmeta.license
+        for el in meta.license
     ]
     attributes["schemaVersion"] = "http://datacite.org/schema/kernel-4"
 
     contributors = []
     creators = []
-    for contr_el in newmeta.contributor:
+    for contr_el in meta.contributor:
         if RoleType("dandi:Sponsor") in contr_el.roleName:
             # no info about "funderIdentifierType", "awardUri", "awardTitle"
             dict_fund = {"funderName": contr_el.name}
@@ -263,9 +262,9 @@ def to_datacite(meta):
     attributes["contributors"] = contributors
     attributes["creators"] = creators
 
-    if getattr(newmeta, "relatedResource"):
+    if getattr(meta, "relatedResource"):
         attributes["relatedIdentifiers"] = []
-        for rel_el in newmeta.relatedResource:
+        for rel_el in meta.relatedResource:
             ident = rel_el.identifier.split(":")
             if len(ident) == 2:
                 ident_tp, ident_nr = ident
@@ -286,8 +285,8 @@ def to_datacite(meta):
             }
             attributes["relatedIdentifiers"].append(rel_dict)
 
-    if getattr(newmeta, "keywords"):
-        attributes["subjects"] = [{"subject": el} for el in newmeta.keywords]
+    if getattr(meta, "keywords"):
+        attributes["subjects"] = [{"subject": el} for el in meta.keywords]
 
     datacite_dict = {"data": {"id": doi, "type": "dois", "attributes": attributes}}
     return datacite_dict
