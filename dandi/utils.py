@@ -1,4 +1,10 @@
 import datetime
+
+try:
+    from importlib.metadata import version as importlib_version
+except ImportError:
+    # TODO - remove whenever python >= 3.8
+    from importlib_metadata import version as importlib_version
 import inspect
 import io
 import itertools
@@ -11,6 +17,8 @@ import re
 import shutil
 import subprocess
 import sys
+import types
+from typing import Optional, Union
 
 import dateutil.parser
 import requests
@@ -686,3 +694,33 @@ def is_url(s):
     TODO: redo
     """
     return s.lower().startswith(("http://", "https://", "dandi://"))
+
+
+def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
+    """Return version of the module
+
+    Return module's `__version__` if present, or use importlib
+    to get version.
+
+    Returns
+    -------
+    object
+    """
+    if isinstance(module, str):
+        mod_name = module
+        module = sys.modules.get(module)
+    else:
+        mod_name = module.__name__.split(".", 1)[0]
+
+    if module is not None:
+        version = getattr(module, "__version__", None)
+    else:
+        version = None
+    if version is None:
+        # Let's use the standard Python mechanism if underlying module
+        # did not provide __version__
+        try:
+            version = importlib_version(mod_name)
+        except Exception as exc:
+            lgr.debug("Failed to determine version of the %s: %s", mod_name, exc)
+    return version

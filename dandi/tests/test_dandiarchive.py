@@ -129,6 +129,28 @@ def test_parse_girder_url(url, asset_type, asset_id):
         #         "folder_id": "5f176583f63d62e1dbd06943",
         #     },
         # )
+        (
+            "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
+            "/assets/0a748f90-d497-4a9c-822e-9c63811db412/download/",
+            "dandi-api",
+            "item",
+            {
+                "dandiset_id": "000003",
+                "version": "draft",
+                "asset_id": "0a748f90-d497-4a9c-822e-9c63811db412",
+            },
+        ),
+        (
+            "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
+            "/assets/?path=sub-YutaMouse20",
+            "dandi-api",
+            "folder",
+            {
+                "dandiset_id": "000003",
+                "version": "draft",
+                "location": "sub-YutaMouse20",
+            },
+        ),
     ],
 )
 def test_parse_api_url(url, instance, asset_type, asset_id):
