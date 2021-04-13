@@ -6,11 +6,11 @@ from typing import Iterable, Iterator, NamedTuple, Optional, Set, Tuple
 import click
 import requests
 
-from .consts import dandiset_metadata_file, known_instances
+from .consts import dandiset_metadata_file
 from .dandiapi import DandiAPIClient
 from .dandiarchive import parse_dandi_url
 from .exceptions import NotFoundError
-from .utils import is_url
+from .utils import get_instance, is_url
 
 
 class RemoteAsset(NamedTuple):
@@ -115,7 +115,7 @@ class Deleter:
             raise RuntimeError(f"Unexpected asset type for {url}: {asset_type}")
 
     def register_local_path_equivalent(self, instance_name: str, filepath: str) -> None:
-        instance = known_instances[instance_name]
+        instance = get_instance(instance_name)
         if instance.girder is not None:
             raise NotImplementedError("Cannot delete assets from Girder instances")
         api_url = instance.api
