@@ -42,7 +42,7 @@ def create_enum(data):
                 key = item["@id"].split(":")[-1]
             if key in items:
                 key = item["@id"].replace(":", "_")
-            items[key.replace("-", "_")] = item["@id"]
+            items[key.replace("-", "_").replace(".", "")] = item["@id"]
     if klass is None or len(items) == 0:
         raise ValueError(f"Could not generate a klass or items from {data}")
     newklass = Enum(klass, items)
@@ -657,7 +657,7 @@ class Participant(DandiBaseModel):
         description="OBI based identifier for sex of the sample if available",
         nskey="dandi",
     )
-    genotype: Optional[Identifier, List[GenotypeInfo]] = Field(
+    genotype: Optional[Union[Identifier, List[GenotypeInfo]]] = Field(
         None, description="Genotype descriptor of biosample if available", nskey="dandi"
     )
     species: Optional[SpeciesType] = Field(
@@ -808,9 +808,6 @@ class DandisetMeta(CommonModel, Identifiable):
             raise ValueError("At least one contributor must have role ContactPerson")
         return values
 
-    id: HttpUrl = Field(
-        readOnly=True, title="Dandiset URI", description="A Dandiset URI"
-    )
     identifier: DANDI = Field(
         readOnly=True,
         title="Dandiset identifier",

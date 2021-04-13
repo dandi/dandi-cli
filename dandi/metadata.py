@@ -483,7 +483,7 @@ def convertv1(data):
             ]
         if oldkey == "license":
             value = [
-                getattr(models.LicenseType, value.replace("-", "").replace(".", ""))
+                getattr(models.LicenseType, value.replace("-", "_").replace(".", ""))
             ]
         if oldkey == "identifier":
             value = f"DANDI:{value}"
