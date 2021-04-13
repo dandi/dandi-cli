@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 import requests
 
+from ..consts import dandiset_metadata_file
 from ..dandiapi import RESTFullAPIClient
 from ..delete import delete
 from ..download import download
@@ -299,4 +300,21 @@ def test_delete_girder_api(mocker):
             force=True,
         )
     assert str(excinfo.value) == "Cannot delete assets from Girder instances"
+    delete_spy.assert_not_called()
+
+
+def test_delete_no_dandiset(mocker, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
+    with pytest.raises(RuntimeError) as excinfo:
+        delete(
+            ["dir/file.txt"],
+            dandi_instance="dandi-api",
+            devel_debug=True,
+            force=True,
+        )
+    assert str(excinfo.value) == (
+        f"Found no {dandiset_metadata_file} anywhere.  "
+        "Use 'dandi register', 'download', or 'organize' first"
+    )
     delete_spy.assert_not_called()
