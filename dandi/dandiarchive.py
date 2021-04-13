@@ -175,7 +175,7 @@ class _dandi_url_parser:
                 rf"(/files(\?location=(?P<location>.*)?)?)?"
             ),
             {"server_type": "api"},
-            "https://gui-beta-dandiarchive-org.netflif.app/#/dandiset"
+            "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset"
             "/<dandiset id>[/<version>][/files[?location=<path>]]",
         ),
         # PRs are also on netlify - so above takes precedence. TODO: make more
