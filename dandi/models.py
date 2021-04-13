@@ -129,6 +129,8 @@ class HandleKeyEnumEncoder(json.JSONEncoder):
 
 
 class DandiBaseModel(BaseModel):
+    id: Optional[str] = Field(description="Uniform resource identifier", readOnly=True)
+
     @classmethod
     def unvalidated(__pydantic_cls__: Type[BaseModel], **data: Any) -> BaseModel:
         """Allow model to be returned without validation"""
@@ -274,7 +276,7 @@ class SpeciesType(TypeModel):
 class Disorder(TypeModel):
     """Biolink, SNOMED, or other identifier for disorder studied"""
 
-    dxdate: Optional[List[date]] = Field(
+    dxdate: Optional[List[Union[date, datetime]]] = Field(
         None,
         title="Dates of diagnosis",
         description="Dates of diagnosis",
@@ -302,6 +304,36 @@ class StandardsType(TypeModel):
     """Identifier for data standard used"""
 
     schemaKey: Literal["StandardsType"] = Field("StandardsType", readOnly=True)
+
+
+class Locus(DandiBaseModel):
+    identifier: Union[Identifier, List[Identifier]] = Field(
+        description="Identifier for genotyping locus"
+    )
+    locus_type: str = Field()
+    symbol: str = Field()
+    schemaKey: Literal["Locus"] = Field("Locus", readOnly=True)
+    _ldmeta = {"nskey": "dandi"}
+
+
+class Allele(DandiBaseModel):
+    identifier: Union[Identifier, List[Identifier]] = Field(
+        description="Identifier for genotyping allele"
+    )
+    allele_type: str = Field()
+    symbol: str = Field()
+    schemaKey: Literal["Allele"] = Field("Allele", readOnly=True)
+    _ldmeta = {"nskey": "dandi"}
+
+
+class GenotypeInfo(DandiBaseModel):
+    locus: Locus = Field(description="Locus at which information was extracted")
+    allele1: Allele = Field(description="Information about one allele")
+    allele2: Allele = Field(description="Information about other allele")
+    wasDerivedFrom: Optional[List["BioSample"]] = Field(None, nskey="prov")
+    wasGeneratedBy: Optional[List["Session"]] = Field(None, nskey="prov")
+    schemaKey: Literal["GenotypeInfo"] = Field("GenotypeInfo", readOnly=True)
+    _ldmeta = {"nskey": "dandi"}
 
 
 class ContactPoint(DandiBaseModel):
@@ -404,6 +436,23 @@ class Software(DandiBaseModel):
 
     _ldmeta = {
         "rdfs:subClassOf": ["schema:SoftwareApplication", "prov:Software"],
+        "nskey": "dandi",
+    }
+
+
+class Agent(DandiBaseModel):
+    identifier: Optional[Identifier] = Field(
+        None,
+        title="Identifier",
+        description="Identifier for an agent",
+        nskey="schema",
+    )
+    name: str = Field(nskey="schema")
+    url: Optional[HttpUrl] = Field(None, nskey="schema")
+    schemaKey: Literal["Software"] = Field("Agent", readOnly=True)
+
+    _ldmeta = {
+        "rdfs:subClassOf": ["prov:Agent"],
         "nskey": "dandi",
     }
 
@@ -520,14 +569,14 @@ class Activity(DandiBaseModel):
     description: Optional[str] = Field(
         None, description="The description of the activity.", nskey="schema"
     )
-    startDate: Optional[date] = Field(None, nskey="schema")
-    endDate: Optional[date] = Field(None, nskey="schema")
+    startDate: Optional[datetime] = Field(None, nskey="schema")
+    endDate: Optional[datetime] = Field(None, nskey="schema")
 
     # isPartOf: Optional["Activity"] = Field(None, nskey="schema")
     # hasPart: Optional["Activity"] = Field(None, nskey="schema")
-    wasAssociatedWith: Optional[List[Union[Person, Organization, Software]]] = Field(
-        None, nskey="prov"
-    )
+    wasAssociatedWith: Optional[
+        List[Union[Person, Organization, Software, Agent]]
+    ] = Field(None, nskey="prov")
 
     schemaKey: Literal["Activity"] = Field("Activity", readOnly=True)
 
@@ -608,7 +657,7 @@ class Participant(DandiBaseModel):
         description="OBI based identifier for sex of the sample if available",
         nskey="dandi",
     )
-    genotype: Optional[Identifier] = Field(
+    genotype: Optional[Identifier, List[GenotypeInfo]] = Field(
         None, description="Genotype descriptor of biosample if available", nskey="dandi"
     )
     species: Optional[SpeciesType] = Field(
@@ -638,7 +687,6 @@ class BioSample(DandiBaseModel):
     """Description of the sample that was studied"""
 
     identifier: Optional[Identifier] = Field(nskey="schema")
-    altName: Optional[List[Identifier]] = Field(None, nskey="dandi")
     sampleType: Optional[SampleType] = Field(
         None, description="OBI based identifier for the sample used", nskey="dandi"
     )
@@ -760,6 +808,9 @@ class DandisetMeta(CommonModel, Identifiable):
             raise ValueError("At least one contributor must have role ContactPerson")
         return values
 
+    id: HttpUrl = Field(
+        readOnly=True, title="Dandiset URI", description="A Dandiset URI"
+    )
     identifier: DANDI = Field(
         readOnly=True,
         title="Dandiset identifier",
@@ -773,7 +824,6 @@ class DandisetMeta(CommonModel, Identifiable):
         max_length=150,
         nskey="schema",
     )
-
     description: str = Field(
         description="A description of the Dandiset", max_length=3000, nskey="schema"
     )
@@ -782,6 +832,12 @@ class DandisetMeta(CommonModel, Identifiable):
         description="People or Organizations that have contributed to this Dandiset.",
         nskey="schema",
         min_items=1,
+    )
+    dateCreated: Optional[datetime] = Field(
+        nskey="schema", title="Dandiset creation date and time", readOnly=True
+    )
+    dateModified: Optional[datetime] = Field(
+        nskey="schema", title="Last modification date and time", readOnly=True
     )
 
     citation: TempOptional[str] = Field(readOnly=True, nskey="schema")
@@ -888,7 +944,7 @@ class BareAssetMeta(CommonModel):
 class AssetMeta(BareAssetMeta, Identifiable):
     """Metadata used to describe an asset on the server."""
 
-    identifier: UUID4 = Field(readOnly=True, nskey="schema")
+    id: str = Field(readOnly=True, description="URN from UUID4")
 
     # on publish or set by server
     contentUrl: Optional[List[HttpUrl]] = Field(None, readOnly=True, nskey="schema")

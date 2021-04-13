@@ -641,7 +641,7 @@ def generate_context():
                 name = klass.__name__
                 fields[name] = f'{klass._ldmeta["nskey"]}:{name}'
         for name, field in klass.__fields__.items():
-            if name == "identifier":
+            if name == "id":
                 fields[name] = "@id"
             elif name == "schemaKey":
                 fields[name] = "@type"
