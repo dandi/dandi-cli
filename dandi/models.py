@@ -5,7 +5,7 @@ import json
 import sys
 from typing import Any, Dict, List, Optional, Type, Union
 
-from pydantic import UUID4, BaseModel, ByteSize, EmailStr, Field, HttpUrl, validator
+from pydantic import BaseModel, ByteSize, EmailStr, Field, HttpUrl, validator
 from ruamel import yaml
 
 from .consts import DANDI_SCHEMA_VERSION
