@@ -402,7 +402,7 @@
     "single-neurons"
   ],
   "license": [
-    "dandi:CCBY40"
+    "dandi:CC-BY-4.0"
   ],
   "name": "A NWB-based dataset and processing pipeline of human single-neuron activity during a declarative memory task",
   "schemaVersion": null,

@@ -77,7 +77,7 @@ def test_metadata2asset(schema_dir):
             "encodingFormat": "application/x-nwb",
             "experiment_description": "Experiment Description",
             "experimenter": "Joe Q. Experimenter",
-            "identifier": "6a42c273881f45e8ad4d538f7ede1437",
+            "id": "urn:uuid:0b0a1a0b-e3ea-4cf6-be94-e02c830d54be",
             "institution": "University College",
             "keywords": ["test", "sample", "example", "test-case"],
             "lab": "Retriever Laboratory",
@@ -112,7 +112,6 @@ def test_metadata2asset(schema_dir):
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
     assert data == BareAssetMeta(**data_as_dict)
     bare_dict = deepcopy(data_as_dict)
-    bare_dict.pop("identifier")
     assert data.json_dict() == bare_dict
     validate_asset_json(data_as_dict, schema_dir)
 
@@ -127,7 +126,7 @@ def test_metadata2asset_simple1(schema_dir):
             "nwb_version": "2.2.5",
             "experiment_description": "experiment_description1",
             "experimenter": ("experimenter1",),
-            "identifier": "bfc23fb6192b41c083a7257e09a3702b",
+            "id": "urn:uuid:bfc23fb6192b41c083a7257e09a3702b",
             "institution": "institution1",
             "keywords": ["keyword1", "keyword 2"],
             "lab": "lab1",
@@ -152,7 +151,6 @@ def test_metadata2asset_simple1(schema_dir):
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
     assert data == BareAssetMeta(**data_as_dict)
     bare_dict = deepcopy(data_as_dict)
-    bare_dict.pop("identifier")
     assert data.json_dict() == bare_dict
     validate_asset_json(data_as_dict, schema_dir)
 

@@ -306,36 +306,6 @@ class StandardsType(TypeModel):
     schemaKey: Literal["StandardsType"] = Field("StandardsType", readOnly=True)
 
 
-class Locus(DandiBaseModel):
-    identifier: Union[Identifier, List[Identifier]] = Field(
-        description="Identifier for genotyping locus"
-    )
-    locus_type: str = Field()
-    symbol: str = Field()
-    schemaKey: Literal["Locus"] = Field("Locus", readOnly=True)
-    _ldmeta = {"nskey": "dandi"}
-
-
-class Allele(DandiBaseModel):
-    identifier: Union[Identifier, List[Identifier]] = Field(
-        description="Identifier for genotyping allele"
-    )
-    allele_type: str = Field()
-    symbol: str = Field()
-    schemaKey: Literal["Allele"] = Field("Allele", readOnly=True)
-    _ldmeta = {"nskey": "dandi"}
-
-
-class GenotypeInfo(DandiBaseModel):
-    locus: Locus = Field(description="Locus at which information was extracted")
-    allele1: Allele = Field(description="Information about one allele")
-    allele2: Allele = Field(description="Information about other allele")
-    wasDerivedFrom: Optional[List["BioSample"]] = Field(None, nskey="prov")
-    wasGeneratedBy: Optional[List["Session"]] = Field(None, nskey="prov")
-    schemaKey: Literal["GenotypeInfo"] = Field("GenotypeInfo", readOnly=True)
-    _ldmeta = {"nskey": "dandi"}
-
-
 class ContactPoint(DandiBaseModel):
     email: Optional[EmailStr] = Field(None, nskey="schema")
     url: Optional[HttpUrl] = Field(None, nskey="schema")
@@ -609,6 +579,35 @@ class Session(Activity):
     schemaKey: Literal["Session"] = Field("Session", readOnly=True)
 
 
+class Locus(DandiBaseModel):
+    identifier: Union[Identifier, List[Identifier]] = Field(
+        description="Identifier for genotyping locus"
+    )
+    locus_type: str = Field()
+    symbol: str = Field()
+    schemaKey: Literal["Locus"] = Field("Locus", readOnly=True)
+    _ldmeta = {"nskey": "dandi"}
+
+
+class Allele(DandiBaseModel):
+    identifier: Union[Identifier, List[Identifier]] = Field(
+        description="Identifier for genotyping allele"
+    )
+    allele_type: str = Field()
+    symbol: str = Field()
+    schemaKey: Literal["Allele"] = Field("Allele", readOnly=True)
+    _ldmeta = {"nskey": "dandi"}
+
+
+class GenotypeInfo(DandiBaseModel):
+    locus: Locus = Field(description="Locus at which information was extracted")
+    allele1: Allele = Field(description="Information about one allele")
+    allele2: Allele = Field(description="Information about other allele")
+    wasGeneratedBy: Optional[List["Session"]] = Field(None, nskey="prov")
+    schemaKey: Literal["GenotypeInfo"] = Field("GenotypeInfo", readOnly=True)
+    _ldmeta = {"nskey": "dandi"}
+
+
 class RelatedParticipant(DandiBaseModel):
     identifier: Optional[Identifier] = Field(None, nskey="schema")
     name: Optional[str] = Field(None, title="A name of the Participant", nskey="schema")
@@ -657,7 +656,7 @@ class Participant(DandiBaseModel):
         description="OBI based identifier for sex of the sample if available",
         nskey="dandi",
     )
-    genotype: Optional[Union[Identifier, List[GenotypeInfo]]] = Field(
+    genotype: Optional[Union[List[GenotypeInfo], Identifier]] = Field(
         None, description="Genotype descriptor of biosample if available", nskey="dandi"
     )
     species: Optional[SpeciesType] = Field(
@@ -720,7 +719,7 @@ BioSample.update_forward_refs()
 
 
 class Identifiable(DandiBaseModel):
-    identifier: Identifier = Field(readOnly=True, nskey="schema")
+    identifier: Optional[Identifier] = Field(readOnly=True, nskey="schema")
 
 
 class CommonModel(DandiBaseModel):
