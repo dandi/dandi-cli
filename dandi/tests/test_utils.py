@@ -3,7 +3,9 @@ import os.path as op
 import time
 
 import pytest
+import requests
 import responses
+from semantic_version import Version
 
 from ..consts import dandi_instance, known_instances
 from ..exceptions import BadCliVersionError, CliVersionTooOldError
@@ -322,6 +324,28 @@ def test_get_instance_bad_version_from_server():
         " please contact that server's administrators: "
     )
     assert "foobar" in str(excinfo.value)
+
+
+def test_get_instance_actual_dandi():
+    inst = get_instance("dandi")
+    assert inst.metadata_version in (0, 1)
+    if inst.metadata_version == 0:
+        assert inst.girder is not None
+        assert inst.api is None
+    else:
+        assert inst.girder is None
+        assert inst.api is not None
+
+
+def test_server_info():
+    r = requests.get(known_instances["dandi"].redirector.rstrip("/") + "/server-info")
+    r.raise_for_status()
+    data = r.json()
+    assert "version" in data
+    assert Version(data["version"]) >= Version("1.2.0")
+    assert "cli-minimal-version" in data
+    assert "cli-bad-versions" in data
+    assert "services" in data
 
 
 @pytest.mark.parametrize(
