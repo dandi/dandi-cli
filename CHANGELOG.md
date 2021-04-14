@@ -1,3 +1,23 @@
+# 0.13.2 (Tue Apr 13 2021)
+
+#### 🐛 Bug Fix
+
+- BF: do not assume that service record of redirector is present/has url [#567](https://github.com/dandi/dandi-cli/pull/567) ([@yarikoptic](https://github.com/yarikoptic))
+- Fix a typo in the display string for one of the known URL patterns [#564](https://github.com/dandi/dandi-cli/pull/564) ([@jwodder](https://github.com/jwodder))
+- Error with a decent message when trying to delete() a path not in a Dandiset [#563](https://github.com/dandi/dandi-cli/pull/563) ([@jwodder](https://github.com/jwodder))
+- Fix & test for downloading by asset ID URL [#561](https://github.com/dandi/dandi-cli/pull/561) ([@jwodder](https://github.com/jwodder))
+- Strip trailing slash from API URL used by delete() [#559](https://github.com/dandi/dandi-cli/pull/559) ([@jwodder](https://github.com/jwodder))
+- Refresh dandiset.yaml on download if out of date [#556](https://github.com/dandi/dandi-cli/pull/556) ([@jwodder](https://github.com/jwodder))
+- Support "…/assets/?path=<path>" URLs [#555](https://github.com/dandi/dandi-cli/pull/555) ([@jwodder](https://github.com/jwodder))
+- Get hdmf, pynwb, h5py versions without importing [#553](https://github.com/dandi/dandi-cli/pull/553) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.13.1 (Sat Apr 10 2021)
 
 #### 🐛 Bug Fix

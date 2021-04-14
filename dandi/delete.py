@@ -6,7 +6,7 @@ from typing import Iterable, Iterator, NamedTuple, Optional, Set, Tuple
 import click
 import requests
 
-from .consts import known_instances
+from .consts import dandiset_metadata_file, known_instances
 from .dandiapi import DandiAPIClient
 from .dandiarchive import parse_dandi_url
 from .exceptions import NotFoundError
@@ -212,6 +212,11 @@ def find_local_asset(filepath: str) -> Tuple[str, str]:
 
     path = Path(filepath).absolute()
     dandiset = Dandiset.find(path.parent)
+    if dandiset is None:
+        raise RuntimeError(
+            f"Found no {dandiset_metadata_file} anywhere.  "
+            "Use 'dandi register', 'download', or 'organize' first"
+        )
     relpath = str(PurePosixPath(path.relative_to(dandiset.path)))
     if path.is_dir():
         relpath += "/"
