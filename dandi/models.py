@@ -168,6 +168,8 @@ class DandiBaseModel(BaseModel):
             for prop, value in schema.get("properties", {}).items():
                 if value.get("title") is None or value["title"] == prop.title():
                     value["title"] = name2title(prop)
+                if value.get("format", None) == "uri":
+                    value["maxLength"] = 1000
                 allOf = value.get("allOf")
                 anyOf = value.get("anyOf")
                 items = value.get("items")
