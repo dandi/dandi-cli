@@ -5,7 +5,7 @@ import json
 import sys
 from typing import Any, Dict, List, Optional, Type, Union
 
-from pydantic import BaseModel, ByteSize, EmailStr, Field, HttpUrl, validator
+from pydantic import UUID4, BaseModel, ByteSize, EmailStr, Field, HttpUrl, validator
 from ruamel import yaml
 
 from .consts import DANDI_SCHEMA_VERSION
@@ -956,13 +956,14 @@ class BareAssetMeta(CommonModel):
 class AssetMeta(BareAssetMeta, Identifiable):
     """Metadata used to describe an asset on the server."""
 
-    id: str = Field(readOnly=True, description="URN from UUID4")
-
+    id: Optional[str] = Field(readOnly=True, description="Dandi asset id")
+    identifier: Optional[UUID4] = Field(readOnly=True, nskey="schema")
     # on publish or set by server
     contentUrl: Optional[List[HttpUrl]] = Field(None, readOnly=True, nskey="schema")
 
 
 class PublishedAssetMeta(AssetMeta):
+    id: str = Field(readOnly=True, description="Dandi asset id")
     publishedBy: HttpUrl = Field(
         description="The URL should contain the provenance of the publishing process.",
         readOnly=True,
