@@ -601,8 +601,9 @@ class Allele(DandiBaseModel):
 
 class GenotypeInfo(DandiBaseModel):
     locus: Locus = Field(description="Locus at which information was extracted")
-    allele1: Allele = Field(description="Information about one allele")
-    allele2: Allele = Field(description="Information about other allele")
+    alleles: List[Allele] = Field(
+        max_items=3, description="Information about one allele"
+    )
     wasGeneratedBy: Optional[List["Session"]] = Field(None, nskey="prov")
     schemaKey: Literal["GenotypeInfo"] = Field("GenotypeInfo", readOnly=True)
     _ldmeta = {"nskey": "dandi"}
@@ -807,6 +808,8 @@ class DandisetMeta(CommonModel, Identifiable):
             raise ValueError("At least one contributor must have role ContactPerson")
         return values
 
+    id: str = Field(description="Uniform resource identifier", readOnly=True)
+
     identifier: DANDI = Field(
         readOnly=True,
         title="Dandiset identifier",
@@ -875,6 +878,17 @@ class PublishedDandisetMeta(DandisetMeta):
         nskey="dandi",
     )  # TODO: formalize "publish" activity to at least the Actor
     datePublished: date = Field(readOnly=True, nskey="schema")
+    version: str = Field(readOnly=True, nskey="schema")
+    doi: str = Field(
+        None,
+        title="DOI",
+        readOnly=True,
+        pattern=r"^10\.[A-Za-z0-9.\/-]+",
+        nskey="dandi",
+    )
+    url: HttpUrl = Field(
+        None, readOnly=True, description="permalink to the item", nskey="schema"
+    )
 
 
 class BareAssetMeta(CommonModel):
@@ -953,6 +967,9 @@ class PublishedAssetMeta(AssetMeta):
         nskey="dandi",
     )  # TODO: formalize "publish" activity to at least the Actor
     datePublished: date = Field(readOnly=True, nskey="schema")
+    url: HttpUrl = Field(
+        None, readOnly=True, description="permalink to the item", nskey="schema"
+    )
 
 
 def get_schema_version():

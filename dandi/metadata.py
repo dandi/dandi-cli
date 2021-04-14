@@ -603,6 +603,10 @@ def convertv1(data):
 
 def migrate2newschema(meta):
     newmeta = convertv1(meta)
+    if "version" in newmeta:
+        newmeta["id"] = f"{newmeta['identifier']}/{newmeta['version']}"
+    else:
+        newmeta["id"] = f"{newmeta['identifier']}/draft"
     dandimeta = models.DandisetMeta.unvalidated(**newmeta)
     return dandimeta
 
@@ -613,6 +617,7 @@ def generate_context():
     fields = {
         "@version": 1.1,
         "dandi": "http://schema.dandiarchive.org/",
+        "dandiasset": "http://iri.dandiarchive.org/",
         "DANDI": "http://identifiers.org/DANDI:",
         "dct": "http://purl.org/dc/terms/",
         "owl": "http://www.w3.org/2002/07/owl#",
