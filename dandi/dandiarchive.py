@@ -139,6 +139,7 @@ class _dandi_url_parser:
         # - server_type:
         #   - 'girder' - underlying requests should go to girder server
         #   - 'api' - the "new" API service
+        #   - 'redirect' - use redirector's server-info
         # - rewrite:
         #   - callable -- which would rewrite that "URI"
         # - map_instance
@@ -223,7 +224,7 @@ class _dandi_url_parser:
                 r"(/(?P<version>draft))?"
                 rf"(/files(\?_id={id_grp}(&_modelType=folder)?)?)?"
             ),
-            {"server_type": "girder"},
+            {"server_type": "redirect"},
             "https://<server>[/api]#/dandiset/<dandiset id>[/draft]"
             "[/files[?_id=<id>[&_modelType=folder]]]",
         ),
@@ -375,7 +376,24 @@ class _dandi_url_parser:
             )
 
         url_server = groups["server"]
-        server = cls.map_to[server_type].get(url_server.rstrip("/"), url_server)
+        if server_type == "redirect":
+            try:
+                instance_name = known_instances_rev[url_server.rstrip("/")]
+            except KeyError:
+                raise UnknownURLError(f"{url} does not map to a known instance")
+            instance = get_instance(instance_name)
+            if instance.metadata_version == 0:
+                server_type = "girder"
+                server = instance.girder
+            elif instance.metadata_version == 1:
+                server_type = "api"
+                server = instance.api
+            else:
+                raise RuntimeError(
+                    f"Unknown instance metadata_version: {instance.metadata_version}"
+                )
+        else:
+            server = cls.map_to[server_type].get(url_server.rstrip("/"), url_server)
 
         if not server.endswith("/"):
             server += "/"  # we expected '/' to be there so let it be
