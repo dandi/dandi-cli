@@ -621,8 +621,8 @@ def get_instance(dandi_instance_id):
     if server_info["services"].get("girder"):
         return dandi_instance(
             metadata_version=0,
-            girder=server_info["services"]["girder"]["url"],
-            gui=server_info["services"]["webui"]["url"],
+            girder=server_info["services"].get("girder", {}).get("url"),
+            gui=server_info["services"].get("webui", {}).get("url"),
             redirector=redirector_url,
             api=None,
         )
@@ -630,9 +630,9 @@ def get_instance(dandi_instance_id):
         return dandi_instance(
             metadata_version=1,
             girder=None,
-            gui=server_info["services"]["webui"]["url"],
+            gui=server_info["services"].get("webui", {}).get("url"),
             redirector=redirector_url,
-            api=server_info["services"]["api"]["url"],
+            api=server_info["services"].get("api", {}).get("url"),
         )
     else:
         raise RuntimeError(
