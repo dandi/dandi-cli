@@ -1,3 +1,21 @@
+# 0.14.0 (Thu Apr 15 2021)
+
+#### 🚀 Enhancement
+
+- Models: define id, add various additional types (genotype, etc), boost model version to 0.3.0 [#560](https://github.com/dandi/dandi-cli/pull/560) ([@satra](https://github.com/satra))
+- Switch default dandi instance to dandi-api based on redirector [#565](https://github.com/dandi/dandi-cli/pull/565) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Add further tests of get_instance() and server-info [#571](https://github.com/dandi/dandi-cli/pull/571) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+
+---
+
 # 0.13.2 (Tue Apr 13 2021)
 
 #### 🐛 Bug Fix
