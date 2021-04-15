@@ -879,7 +879,7 @@ class PublishedDandisetMeta(DandisetMeta):
         readOnly=True,
         nskey="dandi",
     )  # TODO: formalize "publish" activity to at least the Actor
-    datePublished: date = Field(readOnly=True, nskey="schema")
+    datePublished: date = Field(readOnly=True,  title="Publication date and time", nskey="schema")
     version: str = Field(readOnly=True, nskey="schema")
     doi: str = Field(
         None,
@@ -956,14 +956,14 @@ class BareAssetMeta(CommonModel):
 class AssetMeta(BareAssetMeta, Identifiable):
     """Metadata used to describe an asset on the server."""
 
-    id: Optional[str] = Field(readOnly=True, description="Dandi asset id")
+    id: Optional[str] = Field(readOnly=True, description="Uniform resource identifier")
     identifier: Optional[UUID4] = Field(readOnly=True, nskey="schema")
     # on publish or set by server
     contentUrl: Optional[List[HttpUrl]] = Field(None, readOnly=True, nskey="schema")
 
 
 class PublishedAssetMeta(AssetMeta):
-    id: str = Field(readOnly=True, description="Dandi asset id")
+    id: str = Field(readOnly=True, description="Uniform resource identifier")
     publishedBy: HttpUrl = Field(
         description="The URL should contain the provenance of the publishing process.",
         readOnly=True,
