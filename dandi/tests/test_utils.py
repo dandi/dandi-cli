@@ -168,7 +168,7 @@ def test_get_instance_dandi():
             "services": {
                 "girder": {"url": "https://girder.dandi"},
                 "webui": {"url": "https://gui.dandi"},
-                "api": {"url": "https://publish.dandi/api"},
+                "api": None,
                 "jupyterhub": {"url": "https://hub.dandi"},
             },
         },
@@ -178,7 +178,33 @@ def test_get_instance_dandi():
         girder="https://girder.dandi",
         gui="https://gui.dandi",
         redirector="https://dandiarchive.org",
-        api="https://publish.dandi/api",
+        api=None,
+    )
+
+
+@responses.activate
+def test_get_instance_dandi_with_api():
+    responses.add(
+        responses.GET,
+        "https://dandiarchive.org/server-info",
+        json={
+            "version": "1.0.0",
+            "cli-minimal-version": "0.5.0",
+            "cli-bad-versions": [],
+            "services": {
+                "girder": None,
+                "webui": {"url": "https://gui.dandi"},
+                "api": {"url": "https://api.dandi"},
+                "jupyterhub": {"url": "https://hub.dandi"},
+            },
+        },
+    )
+    assert get_instance("dandi") == dandi_instance(
+        metadata_version=1,
+        girder=None,
+        gui="https://gui.dandi",
+        redirector="https://dandiarchive.org",
+        api="https://api.dandi",
     )
 
 
@@ -194,7 +220,7 @@ def test_get_instance_url():
             "services": {
                 "girder": {"url": "https://girder.dandi"},
                 "webui": {"url": "https://gui.dandi"},
-                "api": {"url": "https://publish.dandi/api"},
+                "api": None,
                 "jupyterhub": {"url": "https://hub.dandi"},
             },
         },
@@ -204,7 +230,7 @@ def test_get_instance_url():
         girder="https://girder.dandi",
         gui="https://gui.dandi",
         redirector="https://example.dandi/",
-        api="https://publish.dandi/api",
+        api=None,
     )
 
 
@@ -220,7 +246,7 @@ def test_get_instance_cli_version_too_old():
             "services": {
                 "girder": {"url": "https://girder.dandi"},
                 "webui": {"url": "https://gui.dandi"},
-                "api": {"url": "https://publish.dandi/api"},
+                "api": None,
                 "jupyterhub": {"url": "https://hub.dandi"},
             },
         },
@@ -245,7 +271,7 @@ def test_get_instance_bad_cli_version():
             "services": {
                 "girder": {"url": "https://girder.dandi"},
                 "webui": {"url": "https://gui.dandi"},
-                "api": {"url": "https://publish.dandi/api"},
+                "api": None,
                 "jupyterhub": {"url": "https://hub.dandi"},
             },
         },
@@ -312,7 +338,7 @@ def test_get_instance_bad_version_from_server():
             "services": {
                 "girder": {"url": "https://girder.dandi"},
                 "webui": {"url": "https://gui.dandi"},
-                "api": {"url": "https://publish.dandi/api"},
+                "api": None,
                 "jupyterhub": {"url": "https://hub.dandi"},
             },
         },

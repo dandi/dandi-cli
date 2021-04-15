@@ -1,4 +1,5 @@
 import pytest
+import responses
 
 from dandi.consts import known_instances
 from dandi.dandiarchive import follow_redirect, parse_dandi_url
@@ -173,4 +174,54 @@ def test_follow_redirect():
     assert (
         follow_redirect("https://bit.ly/dandi12")
         == "https://gui.dandiarchive.org/#/file-browser/folder/5e72b6ac3da50caa9adb0498"
+    )
+
+
+@responses.activate
+def test_parse_gui_old_redirect():
+    responses.add(
+        responses.GET,
+        "https://dandiarchive.org/server-info",
+        json={
+            "version": "1.2.0",
+            "cli-minimal-version": "0.6.0",
+            "cli-bad-versions": [],
+            "services": {
+                "girder": {"url": "https://girder.dandiarchive.org"},
+                "webui": {"url": "https://gui.dandirchive.org"},
+                "api": None,
+                "jupyterhub": {"url": "https://hub.dandiarchive.org"},
+            },
+        },
+    )
+    assert parse_dandi_url("https://gui.dandiarchive.org/#/dandiset/000003") == (
+        "girder",
+        "https://girder.dandiarchive.org/",
+        "dandiset",
+        {"dandiset_id": "000003", "version": "draft"},
+    )
+
+
+@responses.activate
+def test_parse_gui_new_redirect():
+    responses.add(
+        responses.GET,
+        "https://dandiarchive.org/server-info",
+        json={
+            "version": "1.2.0",
+            "cli-minimal-version": "0.6.0",
+            "cli-bad-versions": [],
+            "services": {
+                "girder": None,
+                "webui": {"url": "https://gui.dandirchive.org"},
+                "api": {"url": "https://api.dandiarchive.org/api"},
+                "jupyterhub": {"url": "https://hub.dandiarchive.org"},
+            },
+        },
+    )
+    assert parse_dandi_url("https://gui.dandiarchive.org/#/dandiset/000003") == (
+        "api",
+        "https://api.dandiarchive.org/api/",
+        "dandiset",
+        {"dandiset_id": "000003", "version": None},
     )
