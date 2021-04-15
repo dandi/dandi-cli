@@ -116,9 +116,9 @@ def test_asset():
         (
             LicenseType,
             {
-                "CC0_10": "dandi:CC0-1.0",
-                "CC_BY_40": "dandi:CC-BY-4.0",
-                "CC_BY_NC_40": "dandi:CC-BY-NC-4.0",
+                "CC0_10": "spdx:CC0-1.0",
+                "CC_BY_40": "spdx:CC-BY-4.0",
+                "CC_BY_NC_40": "spdx:CC-BY-NC-4.0",
             },
         ),
         (

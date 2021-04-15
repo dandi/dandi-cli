@@ -483,7 +483,10 @@ def convertv1(data):
             ]
         if oldkey == "license":
             value = [
-                getattr(models.LicenseType, value.replace("-", "_").replace(".", ""))
+                getattr(
+                    models.LicenseType,
+                    value.replace("dandi", "spdx").replace("-", "_").replace(".", ""),
+                )
             ]
         if oldkey == "identifier":
             value = f"DANDI:{value}"
@@ -636,6 +639,7 @@ def generate_context():
         "ORCID": "https://orcid.org/",
         "ROR": "https://ror.org/",
         "PATO": "http://purl.obolibrary.org/obo/PATO_",
+        "spdx": "http://spdx.org/licenses/",
     }
     for val in dir(models):
         klass = getattr(models, val)
