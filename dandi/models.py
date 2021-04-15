@@ -581,6 +581,10 @@ class Session(Activity):
     schemaKey: Literal["Session"] = Field("Session", readOnly=True)
 
 
+class PublishActivity(Activity):
+    schemaKey: Literal["PublishActivity"] = Field("PublishActivity", readOnly=True)
+
+
 class Locus(DandiBaseModel):
     identifier: Union[Identifier, List[Identifier]] = Field(
         description="Identifier for genotyping locus"
@@ -873,26 +877,6 @@ class DandisetMeta(CommonModel, Identifiable):
     }
 
 
-class PublishedDandisetMeta(DandisetMeta):
-    publishedBy: HttpUrl = Field(
-        description="The URL should contain the provenance of the publishing process.",
-        readOnly=True,
-        nskey="dandi",
-    )  # TODO: formalize "publish" activity to at least the Actor
-    datePublished: date = Field(readOnly=True,  title="Publication date and time", nskey="schema")
-    version: str = Field(readOnly=True, nskey="schema")
-    doi: str = Field(
-        None,
-        title="DOI",
-        readOnly=True,
-        pattern=r"^10\.[A-Za-z0-9.\/-]+",
-        nskey="dandi",
-    )
-    url: HttpUrl = Field(
-        None, readOnly=True, description="permalink to the item", nskey="schema"
-    )
-
-
 class BareAssetMeta(CommonModel):
     """Metadata used to describe an asset anywhere (local or server).
 
@@ -962,17 +946,32 @@ class AssetMeta(BareAssetMeta, Identifiable):
     contentUrl: Optional[List[HttpUrl]] = Field(None, readOnly=True, nskey="schema")
 
 
-class PublishedAssetMeta(AssetMeta):
+class Publishable(DandiBaseModel):
     id: str = Field(readOnly=True, description="Uniform resource identifier")
-    publishedBy: HttpUrl = Field(
+    publishedBy: Union[HttpUrl, PublishActivity] = Field(
         description="The URL should contain the provenance of the publishing process.",
         readOnly=True,
         nskey="dandi",
     )  # TODO: formalize "publish" activity to at least the Actor
-    datePublished: date = Field(readOnly=True, nskey="schema")
+    datePublished: datetime = Field(readOnly=True, nskey="schema")
     url: HttpUrl = Field(
-        None, readOnly=True, description="permalink to the item", nskey="schema"
+        readOnly=True, description="permalink to the item", nskey="schema"
     )
+
+
+class PublishedDandisetMeta(DandisetMeta, Publishable):
+    version: str = Field(readOnly=True, nskey="schema")
+    doi: str = Field(
+        None,
+        title="DOI",
+        readOnly=True,
+        pattern=r"^10\.[A-Za-z0-9.\/-]+",
+        nskey="dandi",
+    )
+
+
+class PublishedAssetMeta(AssetMeta, Publishable):
+    pass
 
 
 def get_schema_version():
