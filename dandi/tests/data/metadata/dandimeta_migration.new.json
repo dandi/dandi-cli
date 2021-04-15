@@ -389,6 +389,7 @@
     }
   ],
   "description": "A challenge for data sharing in systems neuroscience is the multitude of different data formats used. Neurodata Without Borders: Neurophysiology 2.0 (NWB:N) has emerged as a standardized data format for the storage of cellular-level data together with meta-data, stimulus information, and behavior. A key next step to facilitate NWB:N adoption is to provide easy to use processing pipelines to import/export data from/to NWB:N. Here, we present a NWB-formatted dataset of 1863 single neurons recorded from the medial temporal lobes of 59 human subjects undergoing intracranial monitoring while they performed a recognition memory task. We provide code to analyze and export/import stimuli, behavior, and electrophysiological recordings to/from NWB in both MATLAB and Python. The data files are NWB:N compliant, which affords interoperability between programming languages and operating systems. This combined data and code release is a case study for how to utilize NWB:N for human single-neuron recordings and enables easy re-use of this hard-to-obtain data for both teaching and research on the mechanisms of human memory.",
+  "id": "DANDI:000004/draft",
   "identifier": "DANDI:000004",
   "keywords": [
     "cognitive neuroscience",
@@ -402,7 +403,7 @@
     "single-neurons"
   ],
   "license": [
-    "dandi:CCBY40"
+    "spdx:CC-BY-4.0"
   ],
   "name": "A NWB-based dataset and processing pipeline of human single-neuron activity during a declarative memory task",
   "schemaVersion": null,
