@@ -279,7 +279,7 @@ class DandiAPIClient(RESTFullAPIClient):
 
     def get_dandiset(self, dandiset_id, version):
         return self._migrate_dandiset_metadata(
-            self.get(f"/dandisets/{dandiset_id}/versions/{version}/")
+            self.get(f"/dandisets/{dandiset_id}/versions/{version}/info/")
         )
 
     def set_dandiset_metadata(self, dandiset_id, *, metadata):
