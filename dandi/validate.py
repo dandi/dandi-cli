@@ -72,12 +72,19 @@ def validate_dandiset_yaml(filepath, schema_version=None, devel_debug=False):
         except ValidationError as e:
             if devel_debug:
                 raise
-            lgr.warning("Validation error for %s: %s", filepath, e)
+            lgr.warning(
+                "Validation error for %s: %s", filepath, e, extra={"validating": True}
+            )
             return [str(e)]
         except Exception as e:
             if devel_debug:
                 raise
-            lgr.warning("Unexpected validation error for %s: %s", filepath, e)
+            lgr.warning(
+                "Unexpected validation error for %s: %s",
+                filepath,
+                e,
+                extra={"validating": True},
+            )
             return [f"Failed to convert metadata: {e}"]
         return []
 
@@ -102,12 +109,19 @@ def validate_dandi_nwb(filepath, schema_version=None, devel_debug=False):
         except ValidationError as e:
             if devel_debug:
                 raise
-            lgr.warning("Validation error for %s: %s", filepath, e)
+            lgr.warning(
+                "Validation error for %s: %s", filepath, e, extra={"validating": True}
+            )
             return [str(e)]
         except Exception as e:
             if devel_debug:
                 raise
-            lgr.warning("Unexpected validation error for %s: %s", filepath, e)
+            lgr.warning(
+                "Unexpected validation error for %s: %s",
+                filepath,
+                e,
+                extra={"validating": True},
+            )
             return [f"Failed to read metadata: {e}"]
         return []
     else:
@@ -117,7 +131,12 @@ def validate_dandi_nwb(filepath, schema_version=None, devel_debug=False):
         except Exception as e:
             if devel_debug:
                 raise
-            lgr.warning("Failed to read metadata in %s: %s", filepath, e)
+            lgr.warning(
+                "Failed to read metadata in %s: %s",
+                filepath,
+                e,
+                extra={"validating": True},
+            )
             return [f"Failed to read metadata: {e}"]
         return _check_required_fields(meta, _required_nwb_metadata_fields)
 
