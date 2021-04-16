@@ -247,6 +247,7 @@ def validate(path, devel_debug=False):
     except Exception as exc:
         if devel_debug:
             raise
+        lgr.warning("Failed to validate %s: %s", path, exc)
         errors = [f"Failed to validate {path}: {exc}"]
 
     # To overcome
