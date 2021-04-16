@@ -1,3 +1,18 @@
+# 0.14.1 (Fri Apr 16 2021)
+
+#### 🐛 Bug Fix
+
+- Update for the version /info endpoint in dandi-api [#575](https://github.com/dandi/dandi-cli/pull/575) ([@dchiquito](https://github.com/dchiquito))
+- Log validation errors [#579](https://github.com/dandi/dandi-cli/pull/579) ([@jwodder](https://github.com/jwodder))
+- Log 409 responses at DEBUG level [#578](https://github.com/dandi/dandi-cli/pull/578) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.14.0 (Thu Apr 15 2021)
 
 #### 🚀 Enhancement
