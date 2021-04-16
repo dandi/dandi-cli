@@ -1,3 +1,4 @@
+import logging
 import os
 
 import click
@@ -17,6 +18,12 @@ def validate(paths, schema=None, devel_debug=False):
     """
     from ..pynwb_utils import ignore_benign_pynwb_warnings
     from ..validate import validate as validate_
+
+    # Don't log validation warnings, as this command reports them to the user
+    # anyway:
+    root = logging.getLogger()
+    for h in root.handlers:
+        h.addFilter(lambda r: not getattr(r, "validating", False))
 
     if not paths:
         paths = [os.curdir]
