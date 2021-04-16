@@ -155,7 +155,11 @@ class RESTFullAPIClient(object):
         # If success, return the json object. Otherwise throw an exception.
         if not result.ok:
             msg = f"Error {result.status_code} while sending {method} request to {url}"
-            lgr.error("%s: %s", msg, result.text)
+            if result.status_code == 409:
+                # Blob exists on server; log at DEBUG level
+                lgr.debug("%s: %s", msg, result.text)
+            else:
+                lgr.error("%s: %s", msg, result.text)
             raise requests.HTTPError(msg, response=result)
 
         if json_resp:
