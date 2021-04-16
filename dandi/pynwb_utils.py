@@ -244,6 +244,7 @@ def validate(path, devel_debug=False):
     try:
         with pynwb.NWBHDF5IO(path, "r", load_namespaces=True) as reader:
             errors = pynwb.validate(reader)
+        lgr.warning("pynwb validation errors for %s: %s", path, errors)
     except Exception as exc:
         if devel_debug:
             raise
