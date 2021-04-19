@@ -234,7 +234,7 @@ def docker_compose_setup():
 
         if create:
             run(
-                ["docker-compose", "up", "-d", "django", "celery"],
+                ["docker-compose", "up", "-d", "django", "celery", "redirector"],
                 cwd=str(LOCAL_DOCKER_DIR),
                 env=env,
                 check=True,

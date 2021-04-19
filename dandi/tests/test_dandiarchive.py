@@ -1,3 +1,5 @@
+import os
+
 import pytest
 import responses
 
@@ -152,9 +154,12 @@ def test_follow_redirect():
 
 @responses.activate
 def test_parse_gui_new_redirect():
+    redirector_base = os.environ.get(
+        "DANDI_REDIRECTOR_BASE", "https://dandiarchive.org"
+    )
     responses.add(
         responses.GET,
-        "https://dandiarchive.org/server-info",
+        f"{redirector_base}/server-info",
         json={
             "version": "1.2.0",
             "cli-minimal-version": "0.6.0",
