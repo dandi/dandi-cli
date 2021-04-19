@@ -109,7 +109,7 @@ def get_utcnow_datetime(microseconds=True):
         return ret.replace(microsecond=0)
 
 
-def is_same_time(*times, tollerance=1e-6, strip_tzinfo=False):
+def is_same_time(*times, tolerance=1e-6, strip_tzinfo=False):
     """Helper to do comparison between time points
 
     Time zone information gets stripped
@@ -118,8 +118,8 @@ def is_same_time(*times, tollerance=1e-6, strip_tzinfo=False):
 
     Parameters
     ----------
-    tollerance: float, optional
-      Seconds of difference between times to tollerate.  By default difference
+    tolerance: float, optional
+      Seconds of difference between times to tolerate.  By default difference
       up to a microsecond is ok
     """
     assert len(times) >= 2
@@ -130,10 +130,10 @@ def is_same_time(*times, tollerance=1e-6, strip_tzinfo=False):
     ]
 
     # we need to have all pairs
-    tollerance_dt = datetime.timedelta(seconds=tollerance)
+    tolerance_dt = datetime.timedelta(seconds=tolerance)
     return all(
         # if we subtract from smaller - we get negative days etc
-        (t1 - t2 if t1 > t2 else t2 - t1) <= tollerance_dt
+        (t1 - t2 if t1 > t2 else t2 - t1) <= tolerance_dt
         for (t1, t2) in itertools.combinations(norm_times, 2)
     )
 

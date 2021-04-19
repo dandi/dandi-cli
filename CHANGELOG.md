@@ -532,7 +532,7 @@ of a new DANDI API, and improving DX (Development eXperience).
 ## Fixed
 - Caching of multiple functions re-using the same cache -- it could
   have resulted in our case neural data types returned where full metadata
-  was requested, or vise vera
+  was requested, or vice versa
 - Tolerate outdated (before 2.0.0) etelemetry
 
 
