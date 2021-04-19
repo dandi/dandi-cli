@@ -49,7 +49,7 @@ def organize(
     """(Re)organize files according to the metadata.
 
     The purpose of this command is to take advantage of metadata contained in
-    the .nwb fils to provide datasets with consistently named files, so their
+    the .nwb files to provide datasets with consistently named files, so their
     naming reflects data they contain. In addition it will also populate
     the dataset level descriptor file dandiset.yaml with some of the
     collected metadata and statistics (e.g. number_of_cells).

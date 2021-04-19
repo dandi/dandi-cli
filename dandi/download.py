@@ -97,7 +97,7 @@ def download_generator(
     (as identified by URL)
 
     This function is a generator which would yield records on ongoing activities.
-    Activites include traversal of the remote resource (DANDI archive), download of
+    Activities include traversal of the remote resource (DANDI archive), download of
     individual assets while yielding records (TODO: schema) while validating their
     checksums "on the fly", etc.
 

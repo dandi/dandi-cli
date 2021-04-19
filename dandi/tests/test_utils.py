@@ -95,7 +95,7 @@ def test_times_manipulations():
     # Test comparison and round-trips
     assert is_same_time(t0, t0_isoformat, t0_str)
     assert is_same_time(t0, t0_str)
-    assert is_same_time(t0, t0_str, tollerance=0)  # exactly the same
+    assert is_same_time(t0, t0_str, tolerance=0)  # exactly the same
     assert t0_str != t0_isoformat  # " " vs "T"
 
     time.sleep(0.001)  # so there is a definite notable delay, in particular for Windows
@@ -104,12 +104,12 @@ def test_times_manipulations():
     assert is_same_time(t1, t1_epoch)
     # We must not consume more than half a second between start of this test
     # and here
-    assert is_same_time(t0, t1, tollerance=0.5)
-    assert is_same_time(t1, t0, tollerance=0.5)
+    assert is_same_time(t0, t1, tolerance=0.5)
+    assert is_same_time(t1, t0, tolerance=0.5)
     # but must not be exactly the same unless we are way too fast or disregard
     # milliseconds
-    assert not is_same_time(t0, t1, tollerance=0)
-    assert is_same_time(t0, t1_epoch + 100, tollerance=101)
+    assert not is_same_time(t0, t1, tolerance=0)
+    assert is_same_time(t0, t1_epoch + 100, tolerance=101)
 
 
 @pytest.mark.parametrize(
@@ -117,7 +117,7 @@ def test_times_manipulations():
 )
 def test_time_samples(t):
     assert is_same_time(
-        ensure_datetime(t), "2018-09-27 00:29:17-00:00", tollerance=0
+        ensure_datetime(t), "2018-09-27 00:29:17-00:00", tolerance=0
     )  # exactly the same
 
 

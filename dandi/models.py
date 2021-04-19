@@ -435,7 +435,7 @@ class EthicsApproval(DandiBaseModel):
     identifier: Identifier = Field(
         nskey="schema",
         title="Approved protocol identifier",
-        description="Approved Protocol identifier, often a number or alpha-numeric string.",
+        description="Approved Protocol identifier, often a number or alphanumeric string.",
     )
     contactPoint: ContactPoint = Field(
         description="Information about the ethics approval committee.", nskey="schema"
