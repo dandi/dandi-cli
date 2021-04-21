@@ -16,7 +16,7 @@ import requests
 from .consts import known_instances, known_instances_rev
 from .dandiapi import DandiAPIClient
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
-from . import get_logger, girder
+from . import get_logger
 from .utils import get_instance
 
 lgr = get_logger()
@@ -37,87 +37,42 @@ def navigate_url(url):
       `client` will have established a session for the duration of the context
     """
     server_type, server_url, asset_type, asset_id = parse_dandi_url(url)
-
     # We could later try to "dandi_authenticate" if run into permission issues.
     # May be it could be not just boolean but the "id" to be used?
-    kwargs = {}
-    if server_type == "girder":
-        asset_id, asset_type, client, server_type = _map_to_girder(url)
-        args = asset_id, asset_type
-    elif server_type == "api":
-        client = DandiAPIClient(server_url)
-        if asset_id["version"] is None:
-            r = client.get(f"/dandisets/{asset_id['dandiset_id']}/")
-            if "draft_version" in r:
-                asset_id["version"] = r["draft_version"]["version"]
-                published_version = r["most_recent_published_version"]
-                if published_version:
-                    asset_id["version"] = published_version["version"]
-            else:
-                # TODO: remove `if` after https://github.com/dandi/dandi-api/pull/219
-                # is merged/deployed
-                asset_id["version"] = r["most_recent_version"]["version"]
-        args = (asset_id["dandiset_id"], asset_id["version"])
-        kwargs["include_metadata"] = True
-        if asset_id.get("location") or asset_id.get("asset_id"):
-            with client.session():
-                dandiset = client.get_dandiset(*args)
-                if asset_type == "folder":
-                    assets = client.get_dandiset_assets(
-                        *args, path=asset_id["location"]
-                    )
-                elif asset_type == "item":
-                    if "location" in asset_id:
-                        asset = client.get_asset_bypath(*args, asset_id["location"])
-                        assets = [asset] if asset is not None else []
-                    else:
-                        assets = [client.get_asset(*args, asset_id["asset_id"])]
-                else:
-                    raise NotImplementedError(
-                        f"Do not know how to handle asset type {asset_type} with location"
-                    )
-                yield (client, dandiset, assets)
-            return
-    else:
-        raise NotImplementedError(
-            f"Download from server of type {server_type} is not yet implemented"
-        )
-
+    assert server_type == "api"
+    client = DandiAPIClient(server_url)
+    if asset_id["version"] is None:
+        r = client.get(f"/dandisets/{asset_id['dandiset_id']}/")
+        if "draft_version" in r:
+            asset_id["version"] = r["draft_version"]["version"]
+            published_version = r["most_recent_published_version"]
+            if published_version:
+                asset_id["version"] = published_version["version"]
+        else:
+            # TODO: remove `if` after https://github.com/dandi/dandi-api/pull/219
+            # is merged/deployed
+            asset_id["version"] = r["most_recent_version"]["version"]
+    args = (asset_id["dandiset_id"], asset_id["version"])
     with client.session():
-        dandiset, assets = client.get_dandiset_and_assets(*args, **kwargs)
+        if asset_id.get("location") or asset_id.get("asset_id"):
+            dandiset = client.get_dandiset(*args)
+            if asset_type == "folder":
+                assets = client.get_dandiset_assets(*args, path=asset_id["location"])
+            elif asset_type == "item":
+                if "location" in asset_id:
+                    asset = client.get_asset_bypath(*args, asset_id["location"])
+                    assets = [asset] if asset is not None else []
+                else:
+                    assets = [client.get_asset(*args, asset_id["asset_id"])]
+            else:
+                raise NotImplementedError(
+                    f"Do not know how to handle asset type {asset_type} with location"
+                )
+        else:
+            dandiset, assets = client.get_dandiset_and_assets(
+                *args, include_metadata=True
+            )
         yield client, dandiset, assets
-
-
-def _map_to_girder(url):
-    """
-    discover girder_id for a draft dataset
-    """
-    # This is a duplicate call from above but it is cheap, so decided to just redo
-    # it here instead of passing all the variables + url
-    server_type, server_url, asset_type, asset_id = parse_dandi_url(url)
-    server_url = known_instances[known_instances_rev[server_url.rstrip("/")]].girder
-    client = girder.get_client(server_url, authenticate=False, progressbars=True)
-    # TODO: RF if https://github.com/dandi/dandiarchive/issues/316 gets addressed
-    # A hybrid UI case not yet adjusted for drafts API.
-    # TODO: remove whenever it is gone in an unknown version
-    if asset_id.get("folder_id"):
-        asset_type = "folder"
-        asset_id = [asset_id.get("folder_id")]
-    else:
-        girder_path = "{}/{}".format("drafts", asset_id["dandiset_id"])
-        asset_type = "folder"
-        if asset_id.get("location"):
-            # Not implemented by UI ATM but might come
-            girder_path = "{}/{}".format(girder_path, asset_id["location"])
-        try:
-            girder_rec = girder.lookup(client, girder_path)
-        except BaseException:
-            lgr.warning(f"Failed to lookup girder information for {girder_path}")
-            girder_rec = None
-        if not girder_rec:
-            raise RuntimeError(f"Cannot download from {url}")
-        asset_id = girder_rec.get("_id")
-    return asset_id, asset_type, client, "girder"
 
 
 class _dandi_url_parser:
@@ -137,7 +92,6 @@ class _dandi_url_parser:
         #   - 'pass' - would continue with original url if no redirect happen
         #   - 'only' - would interrupt if no redirection happens
         # - server_type:
-        #   - 'girder' - underlying requests should go to girder server
         #   - 'api' - the "new" API service
         #   - 'redirect' - use redirector's server-info
         # - rewrite:
@@ -254,7 +208,7 @@ class _dandi_url_parser:
     # We might need to remap some assert_types
     map_asset_types = {"dandiset": "folder"}
     # And lets create our mapping into girder instances from known_instances:
-    map_to = {"girder": {}, "api": {}}
+    map_to = {}
     for (
         metadata_version,
         girder,  # noqa: F402
@@ -263,11 +217,8 @@ class _dandi_url_parser:
         api,
     ) in known_instances.values():
         for h in (gui, redirector):
-            if h:
-                if girder:
-                    map_to["girder"][h] = girder
-                if api:
-                    map_to["api"][h] = api
+            if h and api:
+                map_to[h] = api
 
     @classmethod
     def parse(cls, url, *, map_instance=True):
@@ -382,10 +333,7 @@ class _dandi_url_parser:
             except KeyError:
                 raise UnknownURLError(f"{url} does not map to a known instance")
             instance = get_instance(instance_name)
-            if instance.metadata_version == 0:
-                server_type = "girder"
-                server = instance.girder
-            elif instance.metadata_version == 1:
+            if instance.metadata_version == 1:
                 server_type = "api"
                 server = instance.api
             else:
@@ -393,7 +341,7 @@ class _dandi_url_parser:
                     f"Unknown instance metadata_version: {instance.metadata_version}"
                 )
         else:
-            server = cls.map_to[server_type].get(url_server.rstrip("/"), url_server)
+            server = cls.map_to.get(url_server.rstrip("/"), url_server)
 
         if not server.endswith("/"):
             server += "/"  # we expected '/' to be there so let it be
@@ -411,8 +359,6 @@ class _dandi_url_parser:
             location = location.lstrip("/")
         if not (asset_type == "dandiset" and dandiset_id):
             raise ValueError(f"{url} does not point to a dandiset")
-        if server_type == "girder" and not version:
-            version = "draft"
         # Let's just return a structured record for the requested asset
         asset_ids = {"dandiset_id": dandiset_id, "version": version}
         # if location is not degenerate -- it would be a folder or a file

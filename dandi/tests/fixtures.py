@@ -160,13 +160,6 @@ def docker_compose_setup():
     GIRDER_URL = known_instances["local-docker-tests"].girder
     API_URL = known_instances["dandi-api-local-docker-tests"].api
 
-    # if api_key is specified, we are reusing some already running instance
-    # so we would not bother starting/stopping a new one here
-    api_key = os.environ.get("DANDI_REUSE_LOCAL_DOCKER_TESTS_API_KEY")
-    if api_key:
-        yield {"girder_api_key": api_key}
-        return
-
     skipif.no_network()
     skipif.no_docker_engine()
 
@@ -341,23 +334,6 @@ def docker_compose_setup():
     finally:
         if persist in (None, "0"):
             run(["docker-compose", "down", "-v"], cwd=str(LOCAL_DOCKER_DIR), check=True)
-
-
-@pytest.fixture()
-def local_docker_compose(docker_compose_setup):
-    instance_id = "local-docker-tests"
-    instance = known_instances[instance_id]
-    return {
-        "api_key": docker_compose_setup["girder_api_key"],
-        "instance": instance,
-        "instance_id": instance_id,
-    }
-
-
-@pytest.fixture()
-def local_docker_compose_env(local_docker_compose, monkeypatch):
-    monkeypatch.setenv("DANDI_GIRDER_API_KEY", local_docker_compose["api_key"])
-    return local_docker_compose
 
 
 @pytest.fixture(scope="session")

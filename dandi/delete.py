@@ -138,8 +138,6 @@ class Deleter:
 
     def register_local_path_equivalent(self, instance_name: str, filepath: str) -> None:
         instance = get_instance(instance_name)
-        if instance.girder is not None:
-            raise NotImplementedError("Cannot delete assets from Girder instances")
         api_url = instance.api
         dandiset_id, asset_path = find_local_asset(filepath)
         try:

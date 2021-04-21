@@ -66,12 +66,6 @@ metadata_dandiset_fields = (
 
 metadata_all_fields = metadata_nwb_fields + metadata_dandiset_fields
 
-# checksums and other digests to compute on the files to upload
-# Order matters - observed compute time from shorter to longer
-# Those are not to be included in metadata reported for a local file,
-# but will be available for files in the archive
-metadata_digests = ("sha1", "md5", "sha512", "sha256")
-
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = "^[0-9]{6}$"
 
@@ -84,18 +78,7 @@ dandi_instance = namedtuple(
 instancehost = os.environ.get("DANDI_INSTANCEHOST", "localhost")
 
 known_instances = {
-    "local-girder-only": dandi_instance(
-        0, f"http://{instancehost}:8080", None, None, None
-    ),  # just pure girder
     # Redirector: TODO https://github.com/dandi/dandiarchive/issues/139
-    "local-docker": dandi_instance(
-        0,
-        f"http://{instancehost}:8080",
-        f"http://{instancehost}:8085",
-        None,
-        f"http://{instancehost}:9000",  # ATM it is minio, not sure where /api etc
-        # may be https://github.com/dandi/dandi-publish/pull/71 would help
-    ),
     "local-docker-tests": dandi_instance(
         0,
         f"http://{instancehost}:8081",
@@ -123,9 +106,6 @@ known_instances = {
 }
 # to map back url: name
 known_instances_rev = {vv: k for k, v in known_instances.items() for vv in v if vv}
-
-collection_drafts = "drafts"
-collection_releases = "releases"
 
 file_operation_modes = [
     "dry",

@@ -157,32 +157,6 @@ def test_remap_dict(from_, revmapping, to):
 
 
 @responses.activate
-def test_get_instance_dandi():
-    responses.add(
-        responses.GET,
-        "https://dandiarchive.org/server-info",
-        json={
-            "version": "1.0.0",
-            "cli-minimal-version": "0.5.0",
-            "cli-bad-versions": [],
-            "services": {
-                "girder": {"url": "https://girder.dandi"},
-                "webui": {"url": "https://gui.dandi"},
-                "api": None,
-                "jupyterhub": {"url": "https://hub.dandi"},
-            },
-        },
-    )
-    assert get_instance("dandi") == dandi_instance(
-        metadata_version=0,
-        girder="https://girder.dandi",
-        gui="https://gui.dandi",
-        redirector="https://dandiarchive.org",
-        api=None,
-    )
-
-
-@responses.activate
 def test_get_instance_dandi_with_api():
     responses.add(
         responses.GET,
@@ -218,19 +192,18 @@ def test_get_instance_url():
             "cli-minimal-version": "0.5.0",
             "cli-bad-versions": [],
             "services": {
-                "girder": {"url": "https://girder.dandi"},
                 "webui": {"url": "https://gui.dandi"},
-                "api": None,
+                "api": {"url": "https://api.dandi"},
                 "jupyterhub": {"url": "https://hub.dandi"},
             },
         },
     )
     assert get_instance("https://example.dandi/") == dandi_instance(
-        metadata_version=0,
-        girder="https://girder.dandi",
+        metadata_version=1,
+        girder=None,
         gui="https://gui.dandi",
         redirector="https://example.dandi/",
-        api=None,
+        api="https://api.dandi",
     )
 
 
@@ -320,10 +293,6 @@ def test_get_instance_unknown_url_bad_response():
         "Could not retrieve server info from https://dandi.nil,"
         " and client does not recognize URL"
     )
-
-
-def test_get_instance_id_no_redirector():
-    assert get_instance("local-girder-only") is known_instances["local-girder-only"]
 
 
 @responses.activate

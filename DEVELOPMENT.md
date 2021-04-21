@@ -73,13 +73,7 @@ in the simplest scenario.  Additional options might come handy, such as
   `clear` to have cache `clear()`ed before use.
 
 - `DANDI_INSTANCEHOST` -- defaults to `localhost`. Point to host/IP which hosts
-  a local instance of dandiarchive. Typically,
-  `DANDI_REUSE_LOCAL_DOCKER_TESTS_API_KEY`
-  should also be set.
-
-- `DANDI_REUSE_LOCAL_DOCKER_TESTS_API_KEY` -- make the
- `local_docker_compose*` fixtures use the given API key for
- `DANDI_INSTANCEHOST` instead of spinning up a new environment with a new key.
+  a local instance of dandiarchive.
 
 - `DANDI_TESTS_PERSIST_DOCKER_COMPOSE` -- When set, the tests will reuse the
   same Docker containers across test runs instead of creating & destroying a
