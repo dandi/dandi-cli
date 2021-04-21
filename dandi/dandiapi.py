@@ -79,6 +79,7 @@ class RESTFullAPIClient(object):
         json=None,
         headers=None,
         json_resp=True,
+        retry=None,
         **kwargs,
     ):
         """
@@ -117,6 +118,8 @@ class RESTFullAPIClient(object):
                 print(resp.headers)  # Dict of headers
 
         :type json_resp: bool
+        :param retry: an optional tenacity `retry` argument for retrying the
+            request method
         """
         if not parameters:
             parameters = {}
@@ -135,6 +138,16 @@ class RESTFullAPIClient(object):
             _headers["accept"] = "application/json"
 
         lgr.debug("%s %s", method.upper(), url)
+
+        # urllib3's ConnectionPool isn't thread-safe, so we sometimes hit
+        # ConnectionErrors on the start of an upload.  Retry when this happens.
+        # Cf. <https://github.com/urllib3/urllib3/issues/951>.
+        doretry = tenacity.retry_if_exception_type(
+            requests.ConnectionError
+        ) | tenacity.retry_if_result(lambda r: r.status_code == 503)
+        if retry is not None:
+            doretry |= retry
+
         try:
             result = try_multiple(5, doretry, 1.1)(
                 f,
@@ -207,13 +220,21 @@ class RESTFullAPIClient(object):
             json_resp=json_resp,
         )
 
-    def put(self, path, parameters=None, data=None, json=None, json_resp=True):
+    def put(
+        self, path, parameters=None, data=None, json=None, json_resp=True, retry=None
+    ):
         """
         Convenience method to call :py:func:`send_request` with the 'PUT'
         HTTP method.
         """
         return self.send_request(
-            "PUT", path, parameters, data=data, json=json, json_resp=json_resp
+            "PUT",
+            path,
+            parameters,
+            data=data,
+            json=json,
+            json_resp=json_resp,
+            retry=retry,
         )
 
     def delete(self, path, parameters=None, json_resp=True):
@@ -625,7 +646,12 @@ def upload_part(storage_session, fp, lock, etagger, asset_path, part):
         etagger.part_qty,
         part["size"],
     )
-    r = storage_session.put(part["upload_url"], data=chunk, json_resp=False)
+    r = storage_session.put(
+        part["upload_url"],
+        data=chunk,
+        json_resp=False,
+        retry=tenacity.retry_if_result(lambda r: r.status_code == 500),
+    )
     server_etag = r.headers["ETag"].strip('"')
     lgr.debug(
         "%s: Part upload finished ETag=%s Content-Length=%s",
@@ -645,11 +671,3 @@ def upload_part(storage_session, fp, lock, etagger, asset_path, part):
         "size": part["size"],
         "etag": server_etag,
     }
-
-
-# urllib3's ConnectionPool isn't thread-safe, so we sometimes hit
-# ConnectionErrors on the start of an upload.  Retry when this happens.
-# Cf. <https://github.com/urllib3/urllib3/issues/951>.
-doretry = tenacity.retry_if_exception_type(
-    requests.ConnectionError
-) | tenacity.retry_if_result(lambda r: r.status_code == 503)
