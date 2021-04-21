@@ -1,4 +1,5 @@
 import inspect
+import os
 import os.path as op
 import time
 
@@ -364,7 +365,12 @@ def test_get_instance_actual_dandi():
 
 
 def test_server_info():
-    r = requests.get(known_instances["dandi"].redirector.rstrip("/") + "/server-info")
+    r = requests.get(
+        os.environ.get(
+            "DANDI_REDIRECTOR_BASE", known_instances["dandi"].redirector
+        ).rstrip("/")
+        + "/server-info"
+    )
     r.raise_for_status()
     data = r.json()
     assert "version" in data
