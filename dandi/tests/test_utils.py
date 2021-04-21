@@ -364,6 +364,7 @@ def test_get_instance_actual_dandi():
         assert inst.api is not None
 
 
+@pytest.mark.redirector
 def test_server_info():
     r = requests.get(
         os.environ.get(
