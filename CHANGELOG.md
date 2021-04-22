@@ -1,3 +1,21 @@
+# 0.14.2 (Thu Apr 22 2021)
+
+#### 🐛 Bug Fix
+
+- BF: "girder" record might be there but "url" might be None [#591](https://github.com/dandi/dandi-cli/pull/591) ([@yarikoptic](https://github.com/yarikoptic))
+- Retry upload requests that result in 500 responses [#585](https://github.com/dandi/dandi-cli/pull/585) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Add codespell [#582](https://github.com/dandi/dandi-cli/pull/582) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.14.1 (Fri Apr 16 2021)
 
 #### 🐛 Bug Fix
