@@ -1,5 +1,3 @@
-import os
-
 import pytest
 import responses
 
@@ -154,9 +152,7 @@ def test_follow_redirect():
 
 @responses.activate
 def test_parse_gui_new_redirect():
-    redirector_base = os.environ.get(
-        "DANDI_REDIRECTOR_BASE", "https://dandiarchive.org"
-    )
+    redirector_base = known_instances["dandi"].redirector
     responses.add(
         responses.GET,
         f"{redirector_base}/server-info",

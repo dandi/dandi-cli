@@ -1,5 +1,4 @@
 import inspect
-import os
 import os.path as op
 import time
 
@@ -157,7 +156,7 @@ def test_remap_dict(from_, revmapping, to):
     assert remap_dict(from_, revmapping) == to
 
 
-redirector_base = os.environ.get("DANDI_REDIRECTOR_BASE", "https://dandiarchive.org")
+redirector_base = known_instances["dandi"].redirector
 
 
 @responses.activate
