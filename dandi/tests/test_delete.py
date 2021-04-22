@@ -290,19 +290,6 @@ def test_delete_version(local_dandi_api, mocker, monkeypatch):
     delete_spy.assert_not_called()
 
 
-def test_delete_girder_api(mocker):
-    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
-    with pytest.raises(NotImplementedError) as excinfo:
-        delete(
-            ["dir/file.txt"],
-            dandi_instance="dandi",
-            devel_debug=True,
-            force=True,
-        )
-    assert str(excinfo.value) == "Cannot delete assets from Girder instances"
-    delete_spy.assert_not_called()
-
-
 def test_delete_no_dandiset(mocker, monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
