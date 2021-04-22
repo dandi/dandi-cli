@@ -8,38 +8,6 @@ from dandi.tests.skip import mark
 
 
 @pytest.mark.parametrize(
-    "url,asset_type,asset_id",
-    [
-        # ATM we point to drafts, so girder
-        ("DANDI:000027", "dandiset", {"dandiset_id": "000027", "version": "draft"}),
-        # Example of current web ui (with girder backend) as of 20210119
-        (
-            "https://gui.dandiarchive.org/#/dandiset/000003/draft/"
-            "files?_id=5e74ee41368d3c79a8006d29&_modelType=folder",
-            "folder",
-            {
-                "dandiset_id": "000003",
-                "version": "draft",
-                "folder_id": "5e74ee41368d3c79a8006d29",
-            },
-        ),
-        pytest.param(
-            "https://dandiarchive.org/dandiset/000003",
-            "dandiset",
-            {"dandiset_id": "000003", "version": "draft"},
-            marks=mark.skipif_no_network,
-        ),
-    ],
-)
-def test_parse_girder_url(url, asset_type, asset_id):
-    st, s, a, aid = parse_dandi_url(url)
-    assert st == "girder"
-    assert s == known_instances["dandi"].girder + "/"
-    assert a == asset_type
-    assert aid == asset_id
-
-
-@pytest.mark.parametrize(
     "url,instance,asset_type,asset_id",
     [
         # New DANDI web UI driven by DANDI API.
@@ -60,6 +28,26 @@ def test_parse_girder_url(url, asset_type, asset_id):
             "dandi-api",
             "dandiset",
             {"dandiset_id": "000001", "version": "0.201104.2302"},
+        ),
+        # It is deployed now.
+        (
+            "https://gui.dandiarchive.org/#/dandiset/000001",
+            "dandi-api",
+            "dandiset",
+            {"dandiset_id": "000001", "version": None},
+        ),
+        (
+            "https://gui.dandiarchive.org/#/dandiset/000001/draft",
+            "dandi-api",
+            "dandiset",
+            {"dandiset_id": "000001", "version": "draft"},
+        ),
+        # ATM we point to drafts, so girder
+        (
+            "DANDI:000027",
+            "dandi-api",
+            "dandiset",
+            {"dandiset_id": "000027", "version": "draft"},  # TODO: why not None?
         ),
         (
             "http://localhost:8000/api/dandisets/000002/versions/draft",
