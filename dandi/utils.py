@@ -618,26 +618,35 @@ def get_instance(dandi_instance_id):
         raise CliVersionTooOldError(our_version, minversion, bad_versions)
     if our_version in bad_versions:
         raise BadCliVersionError(our_version, minversion, bad_versions)
-    if server_info["services"].get("girder"):
+    # note: service: url, not a full record
+    services = {
+        name: (rec or {}).get(
+            "url"
+        )  # note: somehow was ending up with {"girder": None}
+        for name, rec in server_info.get("services", {}).items()
+    }
+    if services.get("girder"):
         return dandi_instance(
             metadata_version=0,
-            girder=server_info["services"].get("girder", {}).get("url"),
-            gui=server_info["services"].get("webui", {}).get("url"),
+            girder=services.get("girder"),
+            gui=services.get("webui"),
             redirector=redirector_url,
             api=None,
         )
-    elif server_info["services"].get("api"):
+    elif services.get("api"):
         return dandi_instance(
             metadata_version=1,
             girder=None,
-            gui=server_info["services"].get("webui", {}).get("url"),
+            gui=services.get("webui"),
             redirector=redirector_url,
-            api=server_info["services"].get("api", {}).get("url"),
+            api=services.get("api"),
         )
     else:
         raise RuntimeError(
             "redirector's server-info returned unknown set of services keys: "
-            + ", ".join(k for k, v in server_info["services"].items() if v is not None)
+            + ", ".join(
+                k for k, v in server_info.get("services", {}).items() if v is not None
+            )
         )
 
 
