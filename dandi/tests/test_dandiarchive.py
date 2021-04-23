@@ -166,31 +166,6 @@ def test_follow_redirect():
 
 
 @responses.activate
-def test_parse_gui_old_redirect():
-    responses.add(
-        responses.GET,
-        "https://dandiarchive.org/server-info",
-        json={
-            "version": "1.2.0",
-            "cli-minimal-version": "0.6.0",
-            "cli-bad-versions": [],
-            "services": {
-                "girder": {"url": "https://girder.dandiarchive.org"},
-                "webui": {"url": "https://gui.dandirchive.org"},
-                "api": None,
-                "jupyterhub": {"url": "https://hub.dandiarchive.org"},
-            },
-        },
-    )
-    assert parse_dandi_url("https://gui.dandiarchive.org/#/dandiset/000003") == (
-        "girder",
-        "https://girder.dandiarchive.org/",
-        "dandiset",
-        {"dandiset_id": "000003", "version": "draft"},
-    )
-
-
-@responses.activate
 def test_parse_gui_new_redirect():
     responses.add(
         responses.GET,
