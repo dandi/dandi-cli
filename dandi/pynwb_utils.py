@@ -19,16 +19,17 @@ from .consts import (
     metadata_nwb_subject_fields,
 )
 from . import __version__, get_logger
+from .utils import get_module_version
 
 lgr = get_logger()
 
 # strip away possible development version marker
 dandi_rel_version = __version__.split("+", 1)[0]
 dandi_cache_tokens = [
-    pynwb.__version__,
+    get_module_version(pynwb),
     dandi_rel_version,
-    hdmf.__version__,
-    h5py.__version__,
+    get_module_version(hdmf),
+    get_module_version(h5py),
 ]
 metadata_cache = PersistentCache(
     name="dandi-metadata", tokens=dandi_cache_tokens, envvar="DANDI_CACHE"
@@ -243,9 +244,16 @@ def validate(path, devel_debug=False):
     try:
         with pynwb.NWBHDF5IO(path, "r", load_namespaces=True) as reader:
             errors = pynwb.validate(reader)
+        lgr.warning(
+            "pynwb validation errors for %s: %s",
+            path,
+            errors,
+            extra={"validating": True},
+        )
     except Exception as exc:
         if devel_debug:
             raise
+        lgr.warning("Failed to validate %s: %s", path, exc, extra={"validating": True})
         errors = [f"Failed to validate {path}: {exc}"]
 
     # To overcome

@@ -1,4 +1,10 @@
 import datetime
+
+try:
+    from importlib.metadata import version as importlib_version
+except ImportError:
+    # TODO - remove whenever python >= 3.8
+    from importlib_metadata import version as importlib_version
 import inspect
 import io
 import itertools
@@ -11,6 +17,8 @@ import re
 import shutil
 import subprocess
 import sys
+import types
+from typing import Optional, Union
 
 import dateutil.parser
 import requests
@@ -101,7 +109,7 @@ def get_utcnow_datetime(microseconds=True):
         return ret.replace(microsecond=0)
 
 
-def is_same_time(*times, tollerance=1e-6, strip_tzinfo=False):
+def is_same_time(*times, tolerance=1e-6, strip_tzinfo=False):
     """Helper to do comparison between time points
 
     Time zone information gets stripped
@@ -110,8 +118,8 @@ def is_same_time(*times, tollerance=1e-6, strip_tzinfo=False):
 
     Parameters
     ----------
-    tollerance: float, optional
-      Seconds of difference between times to tollerate.  By default difference
+    tolerance: float, optional
+      Seconds of difference between times to tolerate.  By default difference
       up to a microsecond is ok
     """
     assert len(times) >= 2
@@ -122,10 +130,10 @@ def is_same_time(*times, tollerance=1e-6, strip_tzinfo=False):
     ]
 
     # we need to have all pairs
-    tollerance_dt = datetime.timedelta(seconds=tollerance)
+    tolerance_dt = datetime.timedelta(seconds=tolerance)
     return all(
         # if we subtract from smaller - we get negative days etc
-        (t1 - t2 if t1 > t2 else t2 - t1) <= tollerance_dt
+        (t1 - t2 if t1 > t2 else t2 - t1) <= tolerance_dt
         for (t1, t2) in itertools.combinations(norm_times, 2)
     )
 
@@ -610,13 +618,36 @@ def get_instance(dandi_instance_id):
         raise CliVersionTooOldError(our_version, minversion, bad_versions)
     if our_version in bad_versions:
         raise BadCliVersionError(our_version, minversion, bad_versions)
-    return dandi_instance(
-        metadata_version=0,
-        girder=server_info["services"]["girder"]["url"],
-        gui=server_info["services"]["webui"]["url"],
-        redirector=redirector_url,
-        api=server_info["services"]["api"]["url"],
-    )
+    # note: service: url, not a full record
+    services = {
+        name: (rec or {}).get(
+            "url"
+        )  # note: somehow was ending up with {"girder": None}
+        for name, rec in server_info.get("services", {}).items()
+    }
+    if services.get("girder"):
+        return dandi_instance(
+            metadata_version=0,
+            girder=services.get("girder"),
+            gui=services.get("webui"),
+            redirector=redirector_url,
+            api=None,
+        )
+    elif services.get("api"):
+        return dandi_instance(
+            metadata_version=1,
+            girder=None,
+            gui=services.get("webui"),
+            redirector=redirector_url,
+            api=services.get("api"),
+        )
+    else:
+        raise RuntimeError(
+            "redirector's server-info returned unknown set of services keys: "
+            + ", ".join(
+                k for k, v in server_info.get("services", {}).items() if v is not None
+            )
+        )
 
 
 TITLE_CASE_LOWER = {
@@ -686,3 +717,33 @@ def is_url(s):
     TODO: redo
     """
     return s.lower().startswith(("http://", "https://", "dandi://"))
+
+
+def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
+    """Return version of the module
+
+    Return module's `__version__` if present, or use importlib
+    to get version.
+
+    Returns
+    -------
+    object
+    """
+    if isinstance(module, str):
+        mod_name = module
+        module = sys.modules.get(module)
+    else:
+        mod_name = module.__name__.split(".", 1)[0]
+
+    if module is not None:
+        version = getattr(module, "__version__", None)
+    else:
+        version = None
+    if version is None:
+        # Let's use the standard Python mechanism if underlying module
+        # did not provide __version__
+        try:
+            version = importlib_version(mod_name)
+        except Exception as exc:
+            lgr.debug("Failed to determine version of the %s: %s", mod_name, exc)
+    return version
