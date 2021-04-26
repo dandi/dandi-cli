@@ -174,8 +174,6 @@ def test_get_instance_dandi_with_api():
         },
     )
     assert get_instance("dandi") == dandi_instance(
-        metadata_version=1,
-        girder=None,
         gui="https://gui.dandi",
         redirector="https://dandiarchive.org",
         api="https://api.dandi",
@@ -199,8 +197,6 @@ def test_get_instance_url():
         },
     )
     assert get_instance("https://example.dandi/") == dandi_instance(
-        metadata_version=1,
-        girder=None,
         gui="https://gui.dandi",
         redirector="https://example.dandi/",
         api="https://api.dandi",
@@ -323,13 +319,7 @@ def test_get_instance_bad_version_from_server():
 
 def test_get_instance_actual_dandi():
     inst = get_instance("dandi")
-    assert inst.metadata_version in (0, 1)
-    if inst.metadata_version == 0:
-        assert inst.girder is not None
-        assert inst.api is None
-    else:
-        assert inst.girder is None
-        assert inst.api is not None
+    assert inst.api is not None
 
 
 def test_server_info():

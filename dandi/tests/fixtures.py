@@ -157,7 +157,7 @@ LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name
 
 @pytest.fixture(scope="session")
 def docker_compose_setup():
-    GIRDER_URL = known_instances["local-docker-tests"].girder
+    GIRDER_URL = "http://localhost:8081"
     API_URL = known_instances["dandi-api-local-docker-tests"].api
 
     skipif.no_network()

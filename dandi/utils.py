@@ -627,8 +627,6 @@ def get_instance(dandi_instance_id):
     }
     if services.get("api"):
         return dandi_instance(
-            metadata_version=1,
-            girder=None,
             gui=services.get("webui"),
             redirector=redirector_url,
             api=services.get("api"),

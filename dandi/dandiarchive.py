@@ -187,15 +187,8 @@ class _dandi_url_parser:
     ]
     # We might need to remap some assert_types
     map_asset_types = {"dandiset": "folder"}
-    # And lets create our mapping into girder instances from known_instances:
     map_to = {}
-    for (
-        metadata_version,
-        girder,  # noqa: F402
-        gui,
-        redirector,
-        api,
-    ) in known_instances.values():
+    for (gui, redirector, api) in known_instances.values():
         for h in (gui, redirector):
             if h and api:
                 map_to[h] = api
@@ -285,14 +278,14 @@ class _dandi_url_parser:
                 continue  # in this run we ignore an match further
             elif "instance_name" in groups:
                 known_instance = get_instance(groups["instance_name"])
-                server_type = "girder" if known_instance.girder else "api"
+                server_type = "api"
                 assert known_instance.api  # must be defined
                 groups["server"] = known_instance.api
                 # could be overloaded later depending if location is provided
                 groups["asset_type"] = "dandiset"
                 break
             else:
-                server_type = settings.get("server_type", "girder")
+                server_type = settings.get("server_type", "api")
                 break
         if not match:
             known_regexes = "\n - ".join(
@@ -313,13 +306,9 @@ class _dandi_url_parser:
             except KeyError:
                 raise UnknownURLError(f"{url} does not map to a known instance")
             instance = get_instance(instance_name)
-            if instance.metadata_version == 1:
-                server_type = "api"
-                server = instance.api
-            else:
-                raise RuntimeError(
-                    f"Unknown instance metadata_version: {instance.metadata_version}"
-                )
+            server_type = "api"
+            assert known_instance.api  # must be defined
+            server = instance.api
         else:
             server = cls.map_to.get(url_server.rstrip("/"), url_server)
 
