@@ -1,3 +1,74 @@
+# 0.14.2 (Thu Apr 22 2021)
+
+#### 🐛 Bug Fix
+
+- BF: "girder" record might be there but "url" might be None [#591](https://github.com/dandi/dandi-cli/pull/591) ([@yarikoptic](https://github.com/yarikoptic))
+- Retry upload requests that result in 500 responses [#585](https://github.com/dandi/dandi-cli/pull/585) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Add codespell [#582](https://github.com/dandi/dandi-cli/pull/582) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.14.1 (Fri Apr 16 2021)
+
+#### 🐛 Bug Fix
+
+- Update for the version /info endpoint in dandi-api [#575](https://github.com/dandi/dandi-cli/pull/575) ([@dchiquito](https://github.com/dchiquito))
+- Log validation errors [#579](https://github.com/dandi/dandi-cli/pull/579) ([@jwodder](https://github.com/jwodder))
+- Log 409 responses at DEBUG level [#578](https://github.com/dandi/dandi-cli/pull/578) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.14.0 (Thu Apr 15 2021)
+
+#### 🚀 Enhancement
+
+- Models: define id, add various additional types (genotype, etc), boost model version to 0.3.0 [#560](https://github.com/dandi/dandi-cli/pull/560) ([@satra](https://github.com/satra))
+- Switch default dandi instance to dandi-api based on redirector [#565](https://github.com/dandi/dandi-cli/pull/565) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Add further tests of get_instance() and server-info [#571](https://github.com/dandi/dandi-cli/pull/571) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+
+---
+
+# 0.13.2 (Tue Apr 13 2021)
+
+#### 🐛 Bug Fix
+
+- BF: do not assume that service record of redirector is present/has url [#567](https://github.com/dandi/dandi-cli/pull/567) ([@yarikoptic](https://github.com/yarikoptic))
+- Fix a typo in the display string for one of the known URL patterns [#564](https://github.com/dandi/dandi-cli/pull/564) ([@jwodder](https://github.com/jwodder))
+- Error with a decent message when trying to delete() a path not in a Dandiset [#563](https://github.com/dandi/dandi-cli/pull/563) ([@jwodder](https://github.com/jwodder))
+- Fix & test for downloading by asset ID URL [#561](https://github.com/dandi/dandi-cli/pull/561) ([@jwodder](https://github.com/jwodder))
+- Strip trailing slash from API URL used by delete() [#559](https://github.com/dandi/dandi-cli/pull/559) ([@jwodder](https://github.com/jwodder))
+- Refresh dandiset.yaml on download if out of date [#556](https://github.com/dandi/dandi-cli/pull/556) ([@jwodder](https://github.com/jwodder))
+- Support "…/assets/?path=<path>" URLs [#555](https://github.com/dandi/dandi-cli/pull/555) ([@jwodder](https://github.com/jwodder))
+- Get hdmf, pynwb, h5py versions without importing [#553](https://github.com/dandi/dandi-cli/pull/553) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.13.1 (Sat Apr 10 2021)
 
 #### 🐛 Bug Fix
@@ -479,7 +550,7 @@ of a new DANDI API, and improving DX (Development eXperience).
 ## Fixed
 - Caching of multiple functions re-using the same cache -- it could
   have resulted in our case neural data types returned where full metadata
-  was requested, or vise vera
+  was requested, or vice versa
 - Tolerate outdated (before 2.0.0) etelemetry
 
 

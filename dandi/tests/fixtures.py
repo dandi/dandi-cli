@@ -119,9 +119,9 @@ def clirunner():
     yield CliRunner()
 
 
-def get_gitrepo_fixture(url, commitish=None, scope="session"):
+def get_gitrepo_fixture(url, committish=None, scope="session"):
 
-    if commitish:
+    if committish:
         raise NotImplementedError()
 
     @pytest.fixture(scope=scope)

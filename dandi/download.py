@@ -97,7 +97,7 @@ def download_generator(
     (as identified by URL)
 
     This function is a generator which would yield records on ongoing activities.
-    Activites include traversal of the remote resource (DANDI archive), download of
+    Activities include traversal of the remote resource (DANDI archive), download of
     individual assets while yielding records (TODO: schema) while validating their
     checksums "on the fly", etc.
 
@@ -132,9 +132,8 @@ def download_generator(
             if server_type == "girder" or asset_type == "dandiset":
                 output_path = op.join(output_dir, identifier)
                 if get_metadata:
-                    dandiset_metadata = dandiset.get("metadata", {})
                     for resp in _populate_dandiset_yaml(
-                        output_path, dandiset_metadata, existing == "overwrite"
+                        output_path, dandiset, existing
                     ):
                         yield dict(path=dandiset_metadata_file, **resp)
             else:
@@ -164,17 +163,32 @@ def download_generator(
             elif isinstance(client, DandiAPIClient):
                 # At least according to our 0.1.0 state of v1
                 # https://github.com/dandi/dandi-publish/issues/79
-                down_args = (
-                    dandiset["dandiset"]["identifier"],
-                    dandiset["version"],
-                    asset["asset_id"],
-                )
-                metadata = client.get_asset(*down_args)
+                if "asset_id" in asset_id:
+                    down_args = (
+                        dandiset["dandiset"]["identifier"],
+                        dandiset["version"],
+                        asset_id["asset_id"],
+                    )
+                    metadata = asset
+                    asset = {
+                        "path": metadata["path"],
+                        "size": metadata["contentSize"],
+                        "metadata": metadata,
+                    }
+                else:
+                    down_args = (
+                        dandiset["dandiset"]["identifier"],
+                        dandiset["version"],
+                        asset["asset_id"],
+                    )
+                    metadata = client.get_asset(*down_args)
                 d = metadata.get("digest", {})
                 if "dandi:dandi-etag" in d:
                     digests = {"dandi-etag": d["dandi:dandi-etag"]}
                 else:
-                    raise RuntimeError(f"dandi-etag not available for asset. Known digests: {d}")
+                    raise RuntimeError(
+                        f"dandi-etag not available for asset. Known digests: {d}"
+                    )
             else:
                 raise TypeError(f"Don't know here how to handle {client}")
 
@@ -355,7 +369,8 @@ def _skip_file(msg):
     return {"status": "skipped", "message": str(msg)}
 
 
-def _populate_dandiset_yaml(dandiset_path, metadata, overwrite):
+def _populate_dandiset_yaml(dandiset_path, dandiset_data, existing):
+    metadata = dandiset_data.get("metadata")
     if not metadata:
         lgr.warning(
             "Got completely empty metadata record for dandiset, not producing dandiset.yaml"
@@ -363,19 +378,31 @@ def _populate_dandiset_yaml(dandiset_path, metadata, overwrite):
         return
     dandiset_yaml = op.join(dandiset_path, dandiset_metadata_file)
     yield {"message": "updating"}
-    lgr.debug(f"Updating {dandiset_metadata_file} from obtained dandiset " f"metadata")
-    if op.lexists(dandiset_yaml) and not overwrite:
-        yield _skip_file("already exists")
-        return
+    lgr.debug("Updating %s from obtained dandiset metadata", dandiset_metadata_file)
+    if "modified" in dandiset_data:
+        # Django API
+        mtime = ensure_datetime(dandiset_data["modified"])
     else:
-        dandiset = Dandiset(dandiset_path, allow_empty=True)
-        dandiset.path_obj.mkdir(exist_ok=True)  # exist_ok in case of parallel race
-        old_metadata = dandiset.metadata
-        dandiset.update_metadata(metadata)
-        yield {
-            "status": "done",
-            "message": "updated" if metadata != old_metadata else "same",
-        }
+        # Girder
+        mtime = ensure_datetime(dandiset_data["updated"])
+    if op.lexists(dandiset_yaml):
+        if existing == "error":
+            raise FileExistsError(dandiset_yaml)
+        elif existing == "skip" or (
+            existing == "refresh"
+            and os.lstat(dandiset_yaml).st_mtime >= mtime.timestamp()
+        ):
+            yield _skip_file("already exists")
+            return
+    dandiset = Dandiset(dandiset_path, allow_empty=True)
+    dandiset.path_obj.mkdir(exist_ok=True)  # exist_ok in case of parallel race
+    old_metadata = dandiset.metadata
+    dandiset.update_metadata(metadata)
+    os.utime(dandiset_yaml, (time.time(), mtime.timestamp()))
+    yield {
+        "status": "done",
+        "message": "updated" if metadata != old_metadata else "same",
+    }
 
 
 def _download_file(

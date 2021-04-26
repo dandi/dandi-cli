@@ -43,7 +43,7 @@ def create_enum(data):
                 key = item["@id"].split(":")[-1]
             if key in items:
                 key = item["@id"].replace(":", "_")
-            items[key.replace("-", "_")] = item["@id"]
+            items[key.replace("-", "_").replace(".", "")] = item["@id"]
     if klass is None or len(items) == 0:
         raise ValueError(f"Could not generate a klass or items from {data}")
     newklass = Enum(klass, items)
@@ -131,6 +131,8 @@ class HandleKeyEnumEncoder(json.JSONEncoder):
 
 
 class DandiBaseModel(BaseModel):
+    id: Optional[str] = Field(description="Uniform resource identifier", readOnly=True)
+
     @classmethod
     def unvalidated(__pydantic_cls__: Type[BaseModel], **data: Any) -> BaseModel:
         """Allow model to be returned without validation"""
@@ -168,6 +170,8 @@ class DandiBaseModel(BaseModel):
             for prop, value in schema.get("properties", {}).items():
                 if value.get("title") is None or value["title"] == prop.title():
                     value["title"] = name2title(prop)
+                if value.get("format", None) == "uri":
+                    value["maxLength"] = 1000
                 allOf = value.get("allOf")
                 anyOf = value.get("anyOf")
                 items = value.get("items")
@@ -276,7 +280,7 @@ class SpeciesType(TypeModel):
 class Disorder(TypeModel):
     """Biolink, SNOMED, or other identifier for disorder studied"""
 
-    dxdate: Optional[List[date]] = Field(
+    dxdate: Optional[List[Union[date, datetime]]] = Field(
         None,
         title="Dates of diagnosis",
         description="Dates of diagnosis",
@@ -410,13 +414,30 @@ class Software(DandiBaseModel):
     }
 
 
+class Agent(DandiBaseModel):
+    identifier: Optional[Identifier] = Field(
+        None,
+        title="Identifier",
+        description="Identifier for an agent",
+        nskey="schema",
+    )
+    name: str = Field(nskey="schema")
+    url: Optional[HttpUrl] = Field(None, nskey="schema")
+    schemaKey: Literal["Software"] = Field("Agent", readOnly=True)
+
+    _ldmeta = {
+        "rdfs:subClassOf": ["prov:Agent"],
+        "nskey": "dandi",
+    }
+
+
 class EthicsApproval(DandiBaseModel):
     """Information about ethics committee approval for project"""
 
     identifier: Identifier = Field(
         nskey="schema",
         title="Approved protocol identifier",
-        description="Approved Protocol identifier, often a number or alpha-numeric string.",
+        description="Approved Protocol identifier, often a number or alphanumeric string.",
     )
     contactPoint: ContactPoint = Field(
         description="Information about the ethics approval committee.", nskey="schema"
@@ -522,14 +543,14 @@ class Activity(DandiBaseModel):
     description: Optional[str] = Field(
         None, description="The description of the activity.", nskey="schema"
     )
-    startDate: Optional[date] = Field(None, nskey="schema")
-    endDate: Optional[date] = Field(None, nskey="schema")
+    startDate: Optional[datetime] = Field(None, nskey="schema")
+    endDate: Optional[datetime] = Field(None, nskey="schema")
 
     # isPartOf: Optional["Activity"] = Field(None, nskey="schema")
     # hasPart: Optional["Activity"] = Field(None, nskey="schema")
-    wasAssociatedWith: Optional[List[Union[Person, Organization, Software]]] = Field(
-        None, nskey="prov"
-    )
+    wasAssociatedWith: Optional[
+        List[Union[Person, Organization, Software, Agent]]
+    ] = Field(None, nskey="prov")
 
     schemaKey: Literal["Activity"] = Field("Activity", readOnly=True)
 
@@ -560,6 +581,40 @@ class Session(Activity):
         None, description="A brief description of the session.", nskey="schema"
     )
     schemaKey: Literal["Session"] = Field("Session", readOnly=True)
+
+
+class PublishActivity(Activity):
+    schemaKey: Literal["PublishActivity"] = Field("PublishActivity", readOnly=True)
+
+
+class Locus(DandiBaseModel):
+    identifier: Union[Identifier, List[Identifier]] = Field(
+        description="Identifier for genotyping locus"
+    )
+    locus_type: str = Field()
+    symbol: str = Field()
+    schemaKey: Literal["Locus"] = Field("Locus", readOnly=True)
+    _ldmeta = {"nskey": "dandi"}
+
+
+class Allele(DandiBaseModel):
+    identifier: Union[Identifier, List[Identifier]] = Field(
+        description="Identifier for genotyping allele"
+    )
+    allele_type: str = Field()
+    symbol: str = Field()
+    schemaKey: Literal["Allele"] = Field("Allele", readOnly=True)
+    _ldmeta = {"nskey": "dandi"}
+
+
+class GenotypeInfo(DandiBaseModel):
+    locus: Locus = Field(description="Locus at which information was extracted")
+    alleles: List[Allele] = Field(
+        max_items=3, description="Information about one allele"
+    )
+    wasGeneratedBy: Optional[List["Session"]] = Field(None, nskey="prov")
+    schemaKey: Literal["GenotypeInfo"] = Field("GenotypeInfo", readOnly=True)
+    _ldmeta = {"nskey": "dandi"}
 
 
 class RelatedParticipant(DandiBaseModel):
@@ -610,7 +665,7 @@ class Participant(DandiBaseModel):
         description="OBI based identifier for sex of the sample if available",
         nskey="dandi",
     )
-    genotype: Optional[Identifier] = Field(
+    genotype: Optional[Union[List[GenotypeInfo], Identifier]] = Field(
         None, description="Genotype descriptor of biosample if available", nskey="dandi"
     )
     species: Optional[SpeciesType] = Field(
@@ -630,7 +685,7 @@ class Participant(DandiBaseModel):
     schemaKey: Literal["Participant"] = Field("Participant", readOnly=True)
 
     _ldmeta = {
-        "rdfs:subClassOf": ["schema:Person", "prov:Agent"],
+        "rdfs:subClassOf": ["prov:Agent"],
         "rdfs:label": "Information about the participant.",
         "nskey": "dandi",
     }
@@ -640,7 +695,6 @@ class BioSample(DandiBaseModel):
     """Description of the sample that was studied"""
 
     identifier: Optional[Identifier] = Field(nskey="schema")
-    altName: Optional[List[Identifier]] = Field(None, nskey="dandi")
     sampleType: Optional[SampleType] = Field(
         None, description="OBI based identifier for the sample used", nskey="dandi"
     )
@@ -674,7 +728,7 @@ BioSample.update_forward_refs()
 
 
 class Identifiable(DandiBaseModel):
-    identifier: Identifier = Field(readOnly=True, nskey="schema")
+    identifier: Optional[Identifier] = Field(readOnly=True, nskey="schema")
 
 
 class CommonModel(DandiBaseModel):
@@ -762,6 +816,8 @@ class DandisetMeta(CommonModel, Identifiable):
             raise ValueError("At least one contributor must have role ContactPerson")
         return values
 
+    id: str = Field(description="Uniform resource identifier", readOnly=True)
+
     identifier: DANDI = Field(
         readOnly=True,
         title="Dandiset identifier",
@@ -775,7 +831,6 @@ class DandisetMeta(CommonModel, Identifiable):
         max_length=150,
         nskey="schema",
     )
-
     description: str = Field(
         description="A description of the Dandiset", max_length=3000, nskey="schema"
     )
@@ -784,6 +839,12 @@ class DandisetMeta(CommonModel, Identifiable):
         description="People or Organizations that have contributed to this Dandiset.",
         nskey="schema",
         min_items=1,
+    )
+    dateCreated: Optional[datetime] = Field(
+        nskey="schema", title="Dandiset creation date and time", readOnly=True
+    )
+    dateModified: Optional[datetime] = Field(
+        nskey="schema", title="Last modification date and time", readOnly=True
     )
 
     citation: TempOptional[str] = Field(readOnly=True, nskey="schema")
@@ -816,15 +877,6 @@ class DandisetMeta(CommonModel, Identifiable):
         "rdfs:label": "Information about the dataset",
         "nskey": "dandi",
     }
-
-
-class PublishedDandisetMeta(DandisetMeta):
-    publishedBy: HttpUrl = Field(
-        description="The URL should contain the provenance of the publishing process.",
-        readOnly=True,
-        nskey="dandi",
-    )  # TODO: formalize "publish" activity to at least the Actor
-    datePublished: date = Field(readOnly=True, nskey="schema")
 
 
 class BareAssetMeta(CommonModel):
@@ -890,19 +942,38 @@ class BareAssetMeta(CommonModel):
 class AssetMeta(BareAssetMeta, Identifiable):
     """Metadata used to describe an asset on the server."""
 
-    identifier: UUID4 = Field(readOnly=True, nskey="schema")
-
+    id: Optional[str] = Field(readOnly=True, description="Uniform resource identifier")
+    identifier: Optional[UUID4] = Field(readOnly=True, nskey="schema")
     # on publish or set by server
     contentUrl: Optional[List[HttpUrl]] = Field(None, readOnly=True, nskey="schema")
 
 
-class PublishedAssetMeta(AssetMeta):
-    publishedBy: HttpUrl = Field(
+class Publishable(DandiBaseModel):
+    id: str = Field(readOnly=True, description="Uniform resource identifier")
+    publishedBy: Union[HttpUrl, PublishActivity] = Field(
         description="The URL should contain the provenance of the publishing process.",
         readOnly=True,
         nskey="dandi",
     )  # TODO: formalize "publish" activity to at least the Actor
-    datePublished: date = Field(readOnly=True, nskey="schema")
+    datePublished: datetime = Field(readOnly=True, nskey="schema")
+    url: HttpUrl = Field(
+        readOnly=True, description="permalink to the item", nskey="schema"
+    )
+
+
+class PublishedDandisetMeta(DandisetMeta, Publishable):
+    version: str = Field(readOnly=True, nskey="schema")
+    doi: str = Field(
+        None,
+        title="DOI",
+        readOnly=True,
+        pattern=r"^10\.[A-Za-z0-9.\/-]+",
+        nskey="dandi",
+    )
+
+
+class PublishedAssetMeta(AssetMeta, Publishable):
+    pass
 
 
 def get_schema_version():

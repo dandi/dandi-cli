@@ -3,7 +3,9 @@ import os.path as op
 import time
 
 import pytest
+import requests
 import responses
+from semantic_version import Version
 
 from ..consts import dandi_instance, known_instances
 from ..exceptions import BadCliVersionError, CliVersionTooOldError
@@ -93,7 +95,7 @@ def test_times_manipulations():
     # Test comparison and round-trips
     assert is_same_time(t0, t0_isoformat, t0_str)
     assert is_same_time(t0, t0_str)
-    assert is_same_time(t0, t0_str, tollerance=0)  # exactly the same
+    assert is_same_time(t0, t0_str, tolerance=0)  # exactly the same
     assert t0_str != t0_isoformat  # " " vs "T"
 
     time.sleep(0.001)  # so there is a definite notable delay, in particular for Windows
@@ -102,12 +104,12 @@ def test_times_manipulations():
     assert is_same_time(t1, t1_epoch)
     # We must not consume more than half a second between start of this test
     # and here
-    assert is_same_time(t0, t1, tollerance=0.5)
-    assert is_same_time(t1, t0, tollerance=0.5)
+    assert is_same_time(t0, t1, tolerance=0.5)
+    assert is_same_time(t1, t0, tolerance=0.5)
     # but must not be exactly the same unless we are way too fast or disregard
     # milliseconds
-    assert not is_same_time(t0, t1, tollerance=0)
-    assert is_same_time(t0, t1_epoch + 100, tollerance=101)
+    assert not is_same_time(t0, t1, tolerance=0)
+    assert is_same_time(t0, t1_epoch + 100, tolerance=101)
 
 
 @pytest.mark.parametrize(
@@ -115,7 +117,7 @@ def test_times_manipulations():
 )
 def test_time_samples(t):
     assert is_same_time(
-        ensure_datetime(t), "2018-09-27 00:29:17-00:00", tollerance=0
+        ensure_datetime(t), "2018-09-27 00:29:17-00:00", tolerance=0
     )  # exactly the same
 
 
@@ -166,7 +168,7 @@ def test_get_instance_dandi():
             "services": {
                 "girder": {"url": "https://girder.dandi"},
                 "webui": {"url": "https://gui.dandi"},
-                "api": {"url": "https://publish.dandi/api"},
+                "api": None,
                 "jupyterhub": {"url": "https://hub.dandi"},
             },
         },
@@ -176,7 +178,33 @@ def test_get_instance_dandi():
         girder="https://girder.dandi",
         gui="https://gui.dandi",
         redirector="https://dandiarchive.org",
-        api="https://publish.dandi/api",
+        api=None,
+    )
+
+
+@responses.activate
+def test_get_instance_dandi_with_api():
+    responses.add(
+        responses.GET,
+        "https://dandiarchive.org/server-info",
+        json={
+            "version": "1.0.0",
+            "cli-minimal-version": "0.5.0",
+            "cli-bad-versions": [],
+            "services": {
+                "girder": None,
+                "webui": {"url": "https://gui.dandi"},
+                "api": {"url": "https://api.dandi"},
+                "jupyterhub": {"url": "https://hub.dandi"},
+            },
+        },
+    )
+    assert get_instance("dandi") == dandi_instance(
+        metadata_version=1,
+        girder=None,
+        gui="https://gui.dandi",
+        redirector="https://dandiarchive.org",
+        api="https://api.dandi",
     )
 
 
@@ -192,7 +220,7 @@ def test_get_instance_url():
             "services": {
                 "girder": {"url": "https://girder.dandi"},
                 "webui": {"url": "https://gui.dandi"},
-                "api": {"url": "https://publish.dandi/api"},
+                "api": None,
                 "jupyterhub": {"url": "https://hub.dandi"},
             },
         },
@@ -202,7 +230,7 @@ def test_get_instance_url():
         girder="https://girder.dandi",
         gui="https://gui.dandi",
         redirector="https://example.dandi/",
-        api="https://publish.dandi/api",
+        api=None,
     )
 
 
@@ -218,7 +246,7 @@ def test_get_instance_cli_version_too_old():
             "services": {
                 "girder": {"url": "https://girder.dandi"},
                 "webui": {"url": "https://gui.dandi"},
-                "api": {"url": "https://publish.dandi/api"},
+                "api": None,
                 "jupyterhub": {"url": "https://hub.dandi"},
             },
         },
@@ -243,7 +271,7 @@ def test_get_instance_bad_cli_version():
             "services": {
                 "girder": {"url": "https://girder.dandi"},
                 "webui": {"url": "https://gui.dandi"},
-                "api": {"url": "https://publish.dandi/api"},
+                "api": None,
                 "jupyterhub": {"url": "https://hub.dandi"},
             },
         },
@@ -310,7 +338,7 @@ def test_get_instance_bad_version_from_server():
             "services": {
                 "girder": {"url": "https://girder.dandi"},
                 "webui": {"url": "https://gui.dandi"},
-                "api": {"url": "https://publish.dandi/api"},
+                "api": None,
                 "jupyterhub": {"url": "https://hub.dandi"},
             },
         },
@@ -322,6 +350,28 @@ def test_get_instance_bad_version_from_server():
         " please contact that server's administrators: "
     )
     assert "foobar" in str(excinfo.value)
+
+
+def test_get_instance_actual_dandi():
+    inst = get_instance("dandi")
+    assert inst.metadata_version in (0, 1)
+    if inst.metadata_version == 0:
+        assert inst.girder is not None
+        assert inst.api is None
+    else:
+        assert inst.girder is None
+        assert inst.api is not None
+
+
+def test_server_info():
+    r = requests.get(known_instances["dandi"].redirector.rstrip("/") + "/server-info")
+    r.raise_for_status()
+    data = r.json()
+    assert "version" in data
+    assert Version(data["version"]) >= Version("1.2.0")
+    assert "cli-minimal-version" in data
+    assert "cli-bad-versions" in data
+    assert "services" in data
 
 
 @pytest.mark.parametrize(

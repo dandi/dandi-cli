@@ -86,7 +86,7 @@ def devel_debug_option():
     return devel_option(
         "--devel-debug",
         help="For development: do not use pyout callbacks, do not swallow"
-        " exception, do not parallize",
+        " exception, do not parallelize",
         default=False,
         is_flag=True,
     )
