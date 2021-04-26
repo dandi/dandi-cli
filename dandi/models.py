@@ -1156,7 +1156,6 @@ class Publishable(DandiBaseModel):
 class PublishedDandisetMeta(DandisetMeta, Publishable):
     version: str = Field(readOnly=True, nskey="schema")
     doi: str = Field(
-        None,
         title="DOI",
         readOnly=True,
         pattern=r"^10\.[A-Za-z0-9.\/-]+",
