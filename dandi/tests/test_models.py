@@ -186,6 +186,7 @@ def test_datacite(dandi_nr):
     newmeta_js["doi"] = f"{prefix}/dandi.{dandi_nr}.v.0"
     newmeta_js["datePublished"] = str(datetime.now().year)
     newmeta_js["publishedBy"] = "https://doi.test.datacite.org/dois"
+    newmeta_js["version"] = "v.0.1"
     newmeta = PublishedDandisetMeta(**newmeta_js)
 
     datacite = to_datacite(meta=newmeta)
@@ -228,6 +229,8 @@ def test_dantimeta_1():
     # meta data without doi, datePublished and publishedBy
     meta_dict = {
         "identifier": "DANDI:912",
+        "id": "DANDI:912/draft",
+        "version": "v.1",
         "name": "testing dataset",
         "description": "testing",
         "contributor": [
@@ -236,7 +239,7 @@ def test_dantimeta_1():
                 "roleName": [RoleType("dandi:ContactPerson")],
             }
         ],
-        "license": [LicenseType("dandi:CCBYNC40")],
+        "license": [LicenseType("spdx:CC-BY-4.0")],
     }
 
     # should work for DandisetMeta but PublishedDandisetMeta should raise an error

@@ -1151,12 +1151,7 @@ class Publishable(DandiBaseModel):
     url: HttpUrl = Field(
         readOnly=True, description="permalink to the item", nskey="schema"
     )
-
-
-class PublishedDandisetMeta(DandisetMeta, Publishable):
-    version: str = Field(readOnly=True, nskey="schema")
     doi: str = Field(
-        None,
         title="DOI",
         readOnly=True,
         pattern=r"^10\.[A-Za-z0-9.\/-]+",
