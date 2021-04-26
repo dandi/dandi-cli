@@ -12,40 +12,39 @@ from dandi.tests.skip import mark
     [
         # New DANDI web UI driven by DANDI API.
         (
-            "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/000001",
-            "dandi-api",
+            "https://gui.dandiarchive.org/#/dandiset/000001",
+            "dandi",
             "dandiset",
             {"dandiset_id": "000001", "version": None},
         ),
         (
-            "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/000001/0.201104.2302",
-            "dandi-api",
+            "https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302",
+            "dandi",
             "dandiset",
             {"dandiset_id": "000001", "version": "0.201104.2302"},
         ),
         (
-            "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/000001/0.201104.2302/files",
-            "dandi-api",
+            "https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302/files",
+            "dandi",
             "dandiset",
             {"dandiset_id": "000001", "version": "0.201104.2302"},
         ),
-        # It is deployed now.
         (
             "https://gui.dandiarchive.org/#/dandiset/000001",
-            "dandi-api",
+            "dandi",
             "dandiset",
             {"dandiset_id": "000001", "version": None},
         ),
         (
             "https://gui.dandiarchive.org/#/dandiset/000001/draft",
-            "dandi-api",
+            "dandi",
             "dandiset",
             {"dandiset_id": "000001", "version": "draft"},
         ),
         # ATM we point to drafts, so girder
         (
             "DANDI:000027",
-            "dandi-api",
+            "dandi",
             "dandiset",
             {"dandiset_id": "000027", "version": "draft"},  # TODO: why not None?
         ),
@@ -56,16 +55,16 @@ from dandi.tests.skip import mark
             {"dandiset_id": "000002", "version": "draft"},
         ),
         (
-            "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/000001/"
-            "files?location=%2Fsub-anm369962",
-            "dandi-api",
+            "https://gui.dandiarchive.org/#/dandiset/000001/files"
+            "?location=%2Fsub-anm369962",
+            "dandi",
             "item",
             {"dandiset_id": "000001", "version": None, "location": "sub-anm369962"},
         ),
         (
-            "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/000006/"
-            "0.200714.1807/files?location=%2Fsub-anm369962",
-            "dandi-api",
+            "https://gui.dandiarchive.org/#/dandiset/000006/0.200714.1807/files"
+            "?location=%2Fsub-anm369962",
+            "dandi",
             "item",
             {
                 "dandiset_id": "000006",
@@ -74,9 +73,9 @@ from dandi.tests.skip import mark
             },
         ),
         (
-            "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/001001/"
-            "draft/files?location=sub-RAT123%2F",
-            "dandi-api",
+            "https://gui.dandiarchive.org/#/dandiset/001001/draft/files"
+            "?location=sub-RAT123%2F",
+            "dandi",
             "folder",
             {"dandiset_id": "001001", "version": "draft", "location": "sub-RAT123/"},
         ),
@@ -100,8 +99,8 @@ from dandi.tests.skip import mark
             {"dandiset_id": "000002", "location": "path", "version": None},
         ),
         (  # test on "public" instance and have trailing / to signal the folder
-            "dandi://dandi-api/000002/path/",
-            "dandi-api",
+            "dandi://dandi/000002/path/",
+            "dandi",
             "folder",
             {"dandiset_id": "000002", "location": "path/", "version": None},
         ),
@@ -121,7 +120,7 @@ from dandi.tests.skip import mark
         (
             "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
             "/assets/0a748f90-d497-4a9c-822e-9c63811db412/download/",
-            "dandi-api",
+            "dandi",
             "item",
             {
                 "dandiset_id": "000003",
@@ -132,7 +131,7 @@ from dandi.tests.skip import mark
         (
             "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
             "/assets/?path=sub-YutaMouse20",
-            "dandi-api",
+            "dandi",
             "folder",
             {
                 "dandiset_id": "000003",

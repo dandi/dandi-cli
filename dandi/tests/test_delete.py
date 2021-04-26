@@ -195,11 +195,11 @@ def test_delete_instance_mismatch(local_dandi_api, mocker, monkeypatch, text_dan
     for paths in [
         [
             "subdir1/apple.txt",
-            f"dandi://dandi-api/{dandiset_id}/subdir2/coconut.txt",
+            f"dandi://dandi/{dandiset_id}/subdir2/coconut.txt",
         ],
         [
             f"dandi://{instance}/{dandiset_id}/subdir2/coconut.txt",
-            f"dandi://dandi-api/{dandiset_id}/subdir1/apple.txt",
+            f"dandi://dandi/{dandiset_id}/subdir1/apple.txt",
         ],
     ]:
         with pytest.raises(ValueError) as excinfo:
@@ -372,7 +372,7 @@ def test_delete_no_dandiset(mocker, monkeypatch, tmp_path):
     with pytest.raises(RuntimeError) as excinfo:
         delete(
             ["dir/file.txt"],
-            dandi_instance="dandi-api",
+            dandi_instance="dandi",
             devel_debug=True,
             force=True,
         )

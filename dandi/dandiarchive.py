@@ -116,22 +116,15 @@ class _dandi_url_parser:
             {"handle_redirect": "pass"},
             "https://identifiers.org/DANDI:<dandiset id>",
         ),
-        # New DANDI API, ATM can be reached only via enable('DJANGO_API')  in
-        # browser console
-        # https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302/files
-        # TODO: upload something to any dandiset to see what happens when there
-        # are files and adjust for how path is provided (if not ?location=)
         (
             re.compile(
-                r"(?P<server>(?P<protocol>https?)://"
-                r"(?P<hostname>gui-beta-dandiarchive-org\.netlify\.app)/)"
-                rf"#/(?P<asset_type>dandiset)/{dandiset_id_grp}"
+                rf"{server_grp}#/(?P<asset_type>dandiset)/{dandiset_id_grp}"
                 r"(/(?P<version>[.0-9]{5,}|draft))?"
-                rf"(/files(\?location=(?P<location>.*)?)?)?"
+                r"(/files(\?location=(?P<location>.*)?)?)?"
             ),
             {"server_type": "api"},
-            "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset"
-            "/<dandiset id>[/<version>][/files[?location=<path>]]",
+            "https://<server>[/api]/#/dandiset/<dandiset id>[/<version>]"
+            "[/files[?location=<path>]]",
         ),
         # PRs are also on netlify - so above takes precedence. TODO: make more
         # specific?
@@ -168,19 +161,6 @@ class _dandi_url_parser:
             {"server_type": "api"},
             "https://<server>[/api]/dandisets/<dandiset id>/versions/<version>"
             "/assets/?path=<path>",
-        ),
-        # But for drafts files navigator it is a bit different beast and there
-        # could be no versions, only draft
-        # https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000027/draft/files?_id=5f176583f63d62e1dbd06943&_modelType=folder
-        (
-            re.compile(
-                rf"{server_grp}#/(?P<asset_type>dandiset)/{dandiset_id_grp}"
-                r"(/(?P<version>draft))?"
-                rf"(/files(\?_id={id_grp}(&_modelType=folder)?)?)?"
-            ),
-            {"server_type": "redirect"},
-            "https://<server>[/api]#/dandiset/<dandiset id>[/draft]"
-            "[/files[?_id=<id>[&_modelType=folder]]]",
         ),
         # ad-hoc explicitly pointing within URL to the specific instance to use
         # and otherwise really simple:
