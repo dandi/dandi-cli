@@ -59,12 +59,7 @@ in the simplest scenario.  Additional options might come handy, such as
 - `DANDI_API_KEY` -- avoids using keyrings, thus making it possible to
   "temporarily" use another account etc for the "API" version of the server.
 
-- `DANDI_GIRDER_API_KEY` -- avoids using keyrings, thus making it possible to
-  "temporarily" use another account etc for the Girder version of the server.
-
 - `DANDI_LOG_LEVEL` -- set log level. By default `INFO`, should be an int (`10` - `DEBUG`).
-
-- `DANDI_LOG_GIRDER` -- log REST requests.
 
 - `DANDI_CACHE` -- clear persistent cache handling. Known values
   are `clear` - would clear the cache, `ignore` - would ignore it. Note that for
