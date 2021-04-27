@@ -166,7 +166,6 @@ def test_get_instance_dandi_with_api():
             "cli-minimal-version": "0.5.0",
             "cli-bad-versions": [],
             "services": {
-                "girder": None,
                 "webui": {"url": "https://gui.dandi"},
                 "api": {"url": "https://api.dandi"},
                 "jupyterhub": {"url": "https://hub.dandi"},
@@ -213,9 +212,8 @@ def test_get_instance_cli_version_too_old():
             "cli-minimal-version": "99.99.99",
             "cli-bad-versions": [],
             "services": {
-                "girder": {"url": "https://girder.dandi"},
                 "webui": {"url": "https://gui.dandi"},
-                "api": None,
+                "api": {"url": "https://api.dandi"},
                 "jupyterhub": {"url": "https://hub.dandi"},
             },
         },
@@ -238,9 +236,8 @@ def test_get_instance_bad_cli_version():
             "cli-minimal-version": "0.5.0",
             "cli-bad-versions": [__version__],
             "services": {
-                "girder": {"url": "https://girder.dandi"},
                 "webui": {"url": "https://gui.dandi"},
-                "api": None,
+                "api": {"url": "https://api.dandi"},
                 "jupyterhub": {"url": "https://hub.dandi"},
             },
         },
@@ -301,9 +298,8 @@ def test_get_instance_bad_version_from_server():
             "cli-minimal-version": "foobar",
             "cli-bad-versions": [],
             "services": {
-                "girder": {"url": "https://girder.dandi"},
                 "webui": {"url": "https://gui.dandi"},
-                "api": None,
+                "api": {"url": "https://api.dandi"},
                 "jupyterhub": {"url": "https://hub.dandi"},
             },
         },
