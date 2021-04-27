@@ -274,3 +274,83 @@ def test_dantimeta_1():
     meta_dict["datePublished"] = str(datetime.now().year)
     meta_dict["publishedBy"] = "https://doi.test.datacite.org/dois"
     PublishedDandisetMeta(**meta_dict)
+
+
+@pytest.mark.parametrize(
+    "additional_meta, datacite_checks",
+    [
+        # no additional meta
+        ({}, {"creators": (1, {"name": "A_last, A_first"})}),
+        # additional contributor with dandi:Author
+        (
+            {
+                "contributor": [
+                    {
+                        "name": "A_last, A_first",
+                        "roleName": [RoleType("dandi:ContactPerson")],
+                    },
+                    {"name": "B_last, B_first", "roleName": [RoleType("dandi:Author")]},
+                ],
+            },
+            {
+                "creators": (1, {"name": "B_last, B_first"}),
+                "contributors": (
+                    1,
+                    {"name": "A_last, A_first", "contributorType": "ContactPerson"},
+                ),
+            },
+        ),
+    ],
+)
+def test_dantimeta_datacite(schema, additional_meta, datacite_checks):
+    """ checking datacite objects for specific metadata dictionaries"""
+
+    prefix = "10.80507"
+    version = "v.0"
+    dandi_id = "DANDI:999"
+
+    # meta data without doi, datePublished and publishedBy
+    meta_dict = {
+        "identifier": dandi_id,
+        "id": f"{dandi_id}/draft",
+        "version": version,
+        "name": "testing dataset",
+        "description": "testing",
+        "contributor": [
+            {
+                "name": "A_last, A_first",
+                "roleName": [RoleType("dandi:ContactPerson")],
+            }
+        ],
+        "license": [LicenseType("spdx:CC-BY-4.0")],
+        "publishedBy": "https://doi.test.datacite.org/dois",
+        "datePublished": str(datetime.now().year),
+        "doi": f"{prefix}/dandi.{dandi_id}.{version}",
+    }
+    meta_dict.update(additional_meta)
+
+    # creating PublishedDandisetMeta from the dictionary
+    meta = PublishedDandisetMeta(**meta_dict)
+    # creating and validating datacite objects
+    datacite = to_datacite(meta)
+    Draft6Validator.check_schema(schema)
+    validator = Draft6Validator(schema)
+    validator.validate(datacite["data"]["attributes"])
+
+    # checking some datacite fields
+    attr = datacite["data"]["attributes"]
+    for key, el in datacite_checks.items():
+        el_len, el_flds = el
+        if el_len:
+            # checking length and some fields from the first element
+            assert len(attr[key]) == el_len
+            for k, v in el_flds.items():
+                assert attr[key][0][k] == v
+        else:
+            for k, v in el_flds.items():
+                assert attr[key][k] == v
+
+    # posting datacite, and checking status codes
+    post_status_code, get_status_code = datacite_post(datacite, meta.doi)
+    assert post_status_code == 201
+    assert get_status_code == 200
