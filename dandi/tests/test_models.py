@@ -220,7 +220,7 @@ def test_datacite(dandi_nr, schema):
     with (METADATA_DIR / f"newmeta{dandi_nr}.json").open() as f:
         newmeta_js = json.load(f)
 
-    newmeta_js["doi"] = f"{prefix}/dandi.{dandi_nr}.{version}"
+    newmeta_js["doi"] = f"{prefix}/dandi.{random.randrange(99)}{dandi_nr}.{version}"
     newmeta_js["datePublished"] = str(datetime.now().year)
     newmeta_js["publishedBy"] = "https://doi.test.datacite.org/dois"
     newmeta_js["version"] = version
