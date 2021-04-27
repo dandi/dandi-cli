@@ -2,6 +2,7 @@ from datetime import datetime
 import json
 import os
 from pathlib import Path
+import random
 
 from jsonschema import Draft6Validator
 import pytest
@@ -307,7 +308,7 @@ def test_dantimeta_datacite(schema, additional_meta, datacite_checks):
 
     prefix = "10.80507"
     version = "v.0"
-    dandi_id = "DANDI:999"
+    dandi_id = f"DANDI:{random.randrange(100, 999)}"
 
     # meta data without doi, datePublished and publishedBy
     meta_dict = {
