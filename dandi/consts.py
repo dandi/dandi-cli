@@ -76,12 +76,6 @@ dandi_instance = namedtuple("dandi_instance", ("gui", "redirector", "api"))
 instancehost = os.environ.get("DANDI_INSTANCEHOST", "localhost")
 
 known_instances = {
-    # Redirector: TODO https://github.com/dandi/dandiarchive/issues/139
-    "local-docker-tests": dandi_instance(
-        f"http://{instancehost}:8086",
-        f"http://{instancehost}:8079",
-        None,
-    ),
     "dandi": dandi_instance(
         "https://gui.dandiarchive.org",
         "https://dandiarchive.org",
