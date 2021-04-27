@@ -186,9 +186,7 @@ def datacite_post(datacite, doi):
     )
 
     # checking if i'm able to get the url
-    rg = requests.get(
-        url=f"https://api.test.datacite.org/dois/{doi.replace('/','%2F')}/activities"
-    )
+    rg = requests.get(url=f"https://api.test.datacite.org/dois/{doi}/activities")
 
     # cleaning url
     _clean_doi(doi)
@@ -198,7 +196,7 @@ def datacite_post(datacite, doi):
 def _clean_doi(doi):
     """removing doi, ignoring the status code"""
     requests.delete(
-        f"https://api.test.datacite.org/dois/{doi.replace('/', '%2F')}",
+        f"https://api.test.datacite.org/dois/{doi}",
         auth=("DARTLIB.DANDI", os.environ["DATACITE_DEV_PASSWORD"]),
     )
 
