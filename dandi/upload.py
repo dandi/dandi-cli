@@ -41,7 +41,6 @@ def upload(
     dandiset = APIDandiset(dandiset.path)  # "cast" to a new API based dandiset
 
     ds_identifier = dandiset.identifier
-    # this is a path not a girder id
 
     if not re.match(dandiset_identifier_regex, str(ds_identifier)):
         raise ValueError(

@@ -203,11 +203,6 @@ def download_generator(
                 )
                 mtime = asset.get("modified")
 
-            # Get size from the metadata, although I guess it could be returned directly
-            # by server while establishing downloader... but it seems that girder itself
-            # does get it from the "file" resource, not really from direct URL.  So I guess
-            # we will just follow. For now we must find it in "attrs"
-
             _download_generator = _download_file(
                 downloader,
                 download_path,
@@ -395,8 +390,8 @@ def _download_file(
     Parameters
     ----------
     downloader: callable returning a generator
-      A backend (girder or api) specific fixture for downloading some file into
-      path. It should be a generator yielding downloaded blocks.
+      A backend-specific fixture for downloading some file into path. It should
+      be a generator yielding downloaded blocks.
     size: int, optional
       Target size if known
     digests: dict, optional
@@ -492,7 +487,6 @@ def _download_file(
                     yield msg
                     dldir.append(block)
             break
-            # both girder and we use HttpError
         except requests.exceptions.HTTPError as exc:
             # TODO: actually we should probably retry only on selected codes, and also
             # respect Retry-After
@@ -531,7 +525,6 @@ def _download_file(
             # "message": "no digests were provided"
         }
 
-    # It seems that girder might not care about setting either mtime, so we will do if we know
     # TODO: dissolve attrs and pass specific mtime?
     if mtime:
         yield {"status": "setting mtime"}

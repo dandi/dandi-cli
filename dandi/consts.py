@@ -1,11 +1,9 @@
-# name: url
 from collections import namedtuple
+import os
 
 # A list of metadata fields which dandi extracts from .nwb files.
 # Additional fields (such as `number_of_*`) might be added by the
 # get_metadata`
-import os
-
 metadata_nwb_file_fields = (
     "experiment_description",
     "experimenter",

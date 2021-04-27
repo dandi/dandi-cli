@@ -41,7 +41,6 @@ from dandi.tests.skip import mark
             "dandiset",
             {"dandiset_id": "000001", "version": "draft"},
         ),
-        # ATM we point to drafts, so girder
         (
             "DANDI:000027",
             "dandi",
@@ -104,19 +103,6 @@ from dandi.tests.skip import mark
             "folder",
             {"dandiset_id": "000002", "location": "path/", "version": None},
         ),
-        # TODO: bring back a test on deploy-preview-
-        # # And the hybrid for "drafts" where it still goes by girder ID
-        # (
-        #     "https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000027"
-        #     "/draft/files?_id=5f176583f63d62e1dbd06943&_modelType=folder",
-        #     "dandi-api",
-        #     "folder",
-        #     {
-        #         "dandiset_id": "000027",
-        #         "version": "draft",
-        #         "folder_id": "5f176583f63d62e1dbd06943",
-        #     },
-        # )
         (
             "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
             "/assets/0a748f90-d497-4a9c-822e-9c63811db412/download/",
@@ -174,7 +160,6 @@ def test_parse_gui_new_redirect():
             "cli-minimal-version": "0.6.0",
             "cli-bad-versions": [],
             "services": {
-                "girder": None,
                 "webui": {"url": "https://gui.dandirchive.org"},
                 "api": {"url": "https://api.dandiarchive.org/api"},
                 "jupyterhub": {"url": "https://hub.dandiarchive.org"},
