@@ -21,40 +21,26 @@ In the source directory
 pre-commit install
 ```
 
-### dandiarchive instance
+### dandi-api instance
 
-[dandiarchive](https://github.com/dandi/dandiarchive) repository provides
-docker-compose recipe to establish local instance of the minimally provisioned
-dandiarchive (both with our web frontend, and girder backend).
-See [README.md:Docker](https://github.com/dandi/dandiarchive#docker) for the
-instructions.  In a new instance you would need to generate a new API key to be
-used by `dandi` client for upload etc.
+The [dandi-api](https://github.com/dandi/dandi-api) repository provides a
+docker-compose recipe for establishing a local instance of a fresh dandi-api.
+See
+[README.md:Docker](https://github.com/dandi/dandi-api#develop-with-docker-recommended-quickstart)
+for the instructions.  In a new instance, you would need to generate a new API
+key to be used by the `dandi` client for upload etc.
 
-Relevant `dandi` client commands are aware of such an instance (such as `upload`)
-as `local-docker` (as opposed from `local` for a plain girder instance).  See note
-below on `DANDI_DEVEL` environment variable which would be needed to expose
+Relevant `dandi` client commands (such as `upload`) are aware of such an
+instance as `dandi-api-local-docker-tests`.  See the note below on the
+`DANDI_DEVEL` environment variable, which is needed in order to expose the
 development command line options.
-
-## Operating against current "beta" instance of the dandiarchive.org
-
-`dandi-cli` has all functionality for interaction with the beta instance deployed at
-https://gui-beta-dandiarchive-org.netlify.app . Some operations (like `upload`) would
-need that instance to be explicitly specified, and for that `DANDI_DEVEL=1` env variable
-should be set.  Here is an example for the upload invocation
-
-   DANDI_DEVEL=1 dandi upload -i dandi-api
-
-in the simplest scenario.  Additional options might come handy, such as
-
-- `--jobs 10:2` - upload 10 files in parallel with up to 2 threads per file
-- `--allow-any-path --validation ignore` - if you need to upload non-nwb files
 
 ## Environment variables
 
-- `DANDI_DEVEL` -- enables otherwise hidden command line options,
-  such as explicit specification of the girder instance, collection, etc.
-  All those options would otherwise be hidden from the user visible (`--help`)
-  interface, unless this env variable is set to non-empty value
+- `DANDI_DEVEL` -- enables otherwise hidden command line options, such as
+  explicit specification of the dandi-api instance.  All those options would
+  otherwise be hidden from the user-visible (`--help`) interface, unless this
+  env variable is set to a non-empty value
 
 - `DANDI_API_KEY` -- avoids using keyrings, thus making it possible to
   "temporarily" use another account etc for the "API" version of the server.
