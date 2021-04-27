@@ -82,10 +82,6 @@ jobs:
       run: |
         pip install git+https://github.com/NeurodataWithoutBorders/pynwb
 
-    - name: Set environment variable when using Python 3.7 to cover more code
-      run: echo DANDI_LOG_GIRDER=1 >> "$GITHUB_ENV"
-      if: matrix.python == '3.7'
-
     - name: Run all tests
       if: "!matrix.dandi_api"
       run: |
