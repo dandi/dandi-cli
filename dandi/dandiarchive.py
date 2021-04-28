@@ -41,19 +41,15 @@ def navigate_url(url):
     # May be it could be not just boolean but the "id" to be used?
     assert server_type == "api"
     client = DandiAPIClient(server_url)
-    if asset_id["version"] is None:
-        r = client.get(f"/dandisets/{asset_id['dandiset_id']}/")
-        if "draft_version" in r:
-            asset_id["version"] = r["draft_version"]["version"]
+    with client.session():
+        if asset_id["version"] is None:
+            r = client.get(f"/dandisets/{asset_id['dandiset_id']}/")
             published_version = r["most_recent_published_version"]
             if published_version:
                 asset_id["version"] = published_version["version"]
-        else:
-            # TODO: remove `if` after https://github.com/dandi/dandi-api/pull/219
-            # is merged/deployed
-            asset_id["version"] = r["most_recent_version"]["version"]
-    args = (asset_id["dandiset_id"], asset_id["version"])
-    with client.session():
+            else:
+                asset_id["version"] = r["draft_version"]["version"]
+        args = (asset_id["dandiset_id"], asset_id["version"])
         if asset_id.get("location") or asset_id.get("asset_id"):
             dandiset = client.get_dandiset(*args)
             if asset_type == "folder":
@@ -197,17 +193,9 @@ class _dandi_url_parser:
     def parse(cls, url, *, map_instance=True):
         """Parse url like and return server (address), asset_id and/or directory
 
-        Example URLs (as of 20200310):
-        - User public: (Users -> bendichter/Public/Tolias2020)
-          [seems to be visible only if logged in]
-          old (girder inflicted): https://gui.dandiarchive.org/#/folder/5e5593cc1a343161ff7c5a92
-        - Collection top level (Collections -> yarik):
-          https://gui.dandiarchive.org/#/collection/5daa5ca7e3489855a3027682
-        - Collections: (Collections -> yarik/svoboda)
-          old (girder inflicted): https://gui.dandiarchive.org/#/folder/5dab0830f377535c7d96c2b4
-        - Dataset landing page metadata
-          old (girder inflicted): https://gui.dandiarchive.org/#/dandiset/5e6d5c6976569eb93f451e4f
-          now (20210119): https://gui.dandiarchive.org/#/dandiset/000003
+        Example URLs (as of 20210428):
+        - Dataset landing page metadata:
+          https://gui.dandiarchive.org/#/dandiset/000003
 
         Individual and multiple files:
           - dandi???
