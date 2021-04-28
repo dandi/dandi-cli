@@ -284,7 +284,26 @@ def test_dantimeta_1():
     "additional_meta, datacite_checks",
     [
         # no additional meta
-        ({}, {"creators": (1, {"name": "A_last, A_first"})}),
+        (
+            {},
+            {
+                "creators": (1, {"name": "A_last, A_first"}),
+                "titles": (1, {"title": "testing dataset"}),
+                "descriptions": (
+                    1,
+                    {"description": "testing", "descriptionType": "Abstract"},
+                ),
+                "publisher": (None, "DANDI Archive"),
+                "rightsList": (
+                    1,
+                    {"rightsIdentifierScheme": "SPDX", "rightsIdentifier": "CC_BY_40"},
+                ),
+                "types": (
+                    None,
+                    {"resourceType": "NWB", "resourceTypeGeneral": "Dataset"},
+                ),
+            },
+        ),
         # additional contributor with dandi:Author
         (
             {
@@ -304,10 +323,58 @@ def test_dantimeta_1():
                 ),
             },
         ),
+        # additional contributor with dandi:Sponsor, fundingReferences should be created
+        (
+            {
+                "contributor": [
+                    {
+                        "name": "A_last, A_first",
+                        "roleName": [RoleType("dandi:ContactPerson")],
+                    },
+                    {
+                        "name": "B_last, B_first",
+                        "roleName": [RoleType("dandi:Sponsor")],
+                    },
+                ],
+            },
+            {
+                "creators": (1, {"name": "A_last, A_first"}),
+                "fundingReferences": (1, {"funderName": "B_last, B_first"}),
+            },
+        ),
+        # additional contributor with 2 roles: Author and Software (doesn't exist in datacite)
+        # the person should be in creators and contributors (with contributorType Other)
+        (
+            {
+                "contributor": [
+                    {
+                        "name": "A_last, A_first",
+                        "roleName": [
+                            RoleType("dandi:Author"),
+                            RoleType("dandi:Software"),
+                        ],
+                    },
+                    {
+                        "name": "B_last, B_first",
+                        "roleName": [RoleType("dandi:ContactPerson")],
+                    },
+                ],
+            },
+            {
+                "creators": (1, {"name": "A_last, A_first"}),
+                "contributors": (
+                    2,
+                    {"name": "A_last, A_first", "contributorType": "Other"},
+                ),
+            },
+        ),
     ],
 )
 def test_dantimeta_datacite(schema, additional_meta, datacite_checks):
-    """ checking datacite objects for specific metadata dictionaries"""
+    """
+    checking datacite objects for specific metadata dictionaries,
+    posting datacite object and checking the status code
+    """
 
     prefix = "10.80507"
     version = "v.0"
@@ -351,8 +418,11 @@ def test_dantimeta_datacite(schema, additional_meta, datacite_checks):
             for k, v in el_flds.items():
                 assert attr[key][0][k] == v
         else:
-            for k, v in el_flds.items():
-                assert attr[key][k] == v
+            if isinstance(el_flds, dict):
+                for k, v in el_flds.items():
+                    assert attr[key][k] == v
+            else:
+                assert attr[key] == el_flds
 
     # posting datacite, and checking status codes
     post_status_code, get_status_code = datacite_post(datacite, meta.doi)
