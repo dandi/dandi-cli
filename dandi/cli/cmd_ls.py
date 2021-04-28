@@ -5,12 +5,22 @@ import os.path as op
 import click
 
 from .base import lgr, map_to_click_exceptions
+from ..dandiarchive import _dandi_url_parser
 from ..utils import is_url
 
 # TODO: all the recursion options etc
 
 
-@click.command()
+# The use of f-strings apparently makes this not a proper docstring, and so
+# click doesn't use it unless we explicitly assign it to `help`:
+@click.command(
+    help=f"""\
+List .nwb files and dandisets metadata.
+
+\b
+{_dandi_url_parser.known_patterns}
+"""
+)
 @click.option(
     "-F",
     "--fields",
@@ -53,7 +63,8 @@ from ..utils import is_url
 @click.argument("paths", nargs=-1, type=click.Path(exists=False, dir_okay=True))
 @map_to_click_exceptions
 def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, jobs=6):
-    """List .nwb files and dandisets metadata."""
+    """ List .nwb files and dandisets metadata. """
+
     # TODO: more logical ordering in case of fields = None
     from .formatter import JSONFormatter, PYOUTFormatter, YAMLFormatter
     from ..consts import metadata_all_fields
