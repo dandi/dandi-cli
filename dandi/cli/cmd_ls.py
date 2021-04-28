@@ -68,7 +68,6 @@ def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, job
     # TODO: more logical ordering in case of fields = None
     from .formatter import JSONFormatter, PYOUTFormatter, YAMLFormatter
     from ..consts import metadata_all_fields
-    from ..dandiapi import DandiAPIClient
 
     # TODO: avoid
     from ..support.pyout import PYOUT_SHORT_NAMES_rev
@@ -128,10 +127,7 @@ def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, job
                     else:
                         dandiset_id = None
                     if recursive and assets:
-                        if isinstance(client, DandiAPIClient) and metadata in (
-                            "all",
-                            "assets",
-                        ):
+                        if metadata in ("all", "assets"):
                             for a in assets:
                                 if "metadata" not in a:
                                     a["metadata"] = client.get_asset(

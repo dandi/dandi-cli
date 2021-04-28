@@ -7,47 +7,16 @@
 version: '2.1'
 
 services:
-  mongo:
-    image: mongo:latest
-    volumes:
-      - dandi_girder_mongo_db:/data/db
-
-  girder:
-    image: dandiarchive/dandiarchive-girder
-    volumes:
-      - dandi_girder_assetstore:/home/assetstore
-    depends_on:
-      - mongo
-    ports:
-      - "8081:8080"
-
-  client:
-    image: dandiarchive/dandiarchive-client
-    depends_on:
-      - girder
-    ports:
-      - "8086:80"
-    #environment:
-    #  VUE_APP_API_ROOT: http://localhost:8081/api/v1
-
-  provision:
-    image: dandiarchive/dandiarchive-provision
-    depends_on:
-      - client
-      - girder
-
   redirector:
     image: dandiarchive/dandiarchive-redirector
     depends_on:
-      - client
-      - girder
+      - django
     ports:
       - "8079:8080"
     environment:
-      GIRDER_URL: http://localhost:8081
-      GUI_URL: http://localhost:8086
+      #GUI_URL: http://localhost:8086
       ABOUT_URL: http://www.dandiarchive.org
-      PUBLISH_API_URL: http://localhost:8000/api
+      API_URL: http://localhost:8000/api
 
   django:
     image: dandiarchive/dandiarchive-api
@@ -55,8 +24,6 @@ services:
     # Log printing via Rich is enhanced by a TTY
     tty: true
     depends_on:
-      girder:
-        condition: service_started
       minio:
         condition: service_healthy
       postgres:
@@ -144,7 +111,3 @@ services:
     image: rabbitmq:management
     ports:
       - "5672:5672"
-
-volumes:
-  dandi_girder_mongo_db:
-  dandi_girder_assetstore:

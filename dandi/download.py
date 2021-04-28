@@ -11,11 +11,10 @@ import time
 import humanize
 import requests
 
-from .consts import dandiset_metadata_file, metadata_digests
-from .dandiapi import DandiAPIClient
+from .consts import dandiset_metadata_file
 from .dandiarchive import navigate_url, parse_dandi_url
 from .dandiset import Dandiset
-from . import get_logger, girder
+from . import get_logger
 from .support.pyout import naturalsize
 from .utils import ensure_datetime, flattened, is_same_time
 
@@ -129,7 +128,7 @@ def download_generator(
             identifier = Dandiset._get_identifier(dandiset)
             if not identifier:
                 raise ValueError(f"Cannot deduce dandiset identifier from {dandiset}")
-            if server_type == "girder" or asset_type == "dandiset":
+            if asset_type == "dandiset":
                 output_path = op.join(output_dir, identifier)
                 if get_metadata:
                     for resp in _populate_dandiset_yaml(
@@ -150,47 +149,32 @@ def download_generator(
             return
 
         for asset in assets:
-            # unavoidable ugliness since girder and API have different "scopes" for
-            # identifying an asset
-            digests_from_metadata = {
-                d: asset.get("metadata")[d]
-                for d in metadata_digests
-                if d in asset.get("metadata", {})
-            }
-            if isinstance(client, girder.GirderCli):
-                down_args = (asset["girder"]["id"],)
-                digests = digests_from_metadata
-            elif isinstance(client, DandiAPIClient):
-                # At least according to our 0.1.0 state of v1
-                # https://github.com/dandi/dandi-publish/issues/79
-                if "asset_id" in asset_id:
-                    down_args = (
-                        dandiset["dandiset"]["identifier"],
-                        dandiset["version"],
-                        asset_id["asset_id"],
-                    )
-                    metadata = asset
-                    asset = {
-                        "path": metadata["path"],
-                        "size": metadata["contentSize"],
-                        "metadata": metadata,
-                    }
-                else:
-                    down_args = (
-                        dandiset["dandiset"]["identifier"],
-                        dandiset["version"],
-                        asset["asset_id"],
-                    )
-                    metadata = client.get_asset(*down_args)
-                d = metadata.get("digest", {})
-                if "dandi:dandi-etag" in d:
-                    digests = {"dandi-etag": d["dandi:dandi-etag"]}
-                else:
-                    raise RuntimeError(
-                        f"dandi-etag not available for asset. Known digests: {d}"
-                    )
+            if "asset_id" in asset_id:
+                down_args = (
+                    dandiset["dandiset"]["identifier"],
+                    dandiset["version"],
+                    asset_id["asset_id"],
+                )
+                metadata = asset
+                asset = {
+                    "path": metadata["path"],
+                    "size": metadata["contentSize"],
+                    "metadata": metadata,
+                }
             else:
-                raise TypeError(f"Don't know here how to handle {client}")
+                down_args = (
+                    dandiset["dandiset"]["identifier"],
+                    dandiset["version"],
+                    asset["asset_id"],
+                )
+                metadata = client.get_asset(*down_args)
+            d = metadata.get("digest", {})
+            if "dandi:dandi-etag" in d:
+                digests = {"dandi-etag": d["dandi:dandi-etag"]}
+            else:
+                raise RuntimeError(
+                    f"dandi-etag not available for asset. Known digests: {d}"
+                )
 
             path = asset["path"].lstrip("/")  # make into relative path
             path = op.normpath(path)
@@ -208,25 +192,16 @@ def download_generator(
 
             downloader = client.get_download_file_iter(*down_args)
 
-            if isinstance(client, girder.GirderCli):
+            try:
+                mtime = asset["metadata"]["blobDateModified"]
+            except KeyError:
+                mtime = None
+            if mtime is None:
+                lgr.warning(
+                    "Asset %s is missing blobDateModified metadata field",
+                    asset["path"],
+                )
                 mtime = asset.get("modified")
-            else:
-                assert isinstance(client, DandiAPIClient)
-                try:
-                    mtime = asset["metadata"]["blobDateModified"]
-                except KeyError:
-                    mtime = None
-                if mtime is None:
-                    lgr.warning(
-                        "Asset %s is missing blobDateModified metadata field",
-                        asset["path"],
-                    )
-                    mtime = asset.get("modified")
-
-            # Get size from the metadata, although I guess it could be returned directly
-            # by server while establishing downloader... but it seems that girder itself
-            # does get it from the "file" resource, not really from direct URL.  So I guess
-            # we will just follow. For now we must find it in "attrs"
 
             _download_generator = _download_file(
                 downloader,
@@ -379,12 +354,7 @@ def _populate_dandiset_yaml(dandiset_path, dandiset_data, existing):
     dandiset_yaml = op.join(dandiset_path, dandiset_metadata_file)
     yield {"message": "updating"}
     lgr.debug("Updating %s from obtained dandiset metadata", dandiset_metadata_file)
-    if "modified" in dandiset_data:
-        # Django API
-        mtime = ensure_datetime(dandiset_data["modified"])
-    else:
-        # Girder
-        mtime = ensure_datetime(dandiset_data["updated"])
+    mtime = ensure_datetime(dandiset_data["modified"])
     if op.lexists(dandiset_yaml):
         if existing == "error":
             raise FileExistsError(dandiset_yaml)
@@ -420,8 +390,8 @@ def _download_file(
     Parameters
     ----------
     downloader: callable returning a generator
-      A backend (girder or api) specific fixture for downloading some file into
-      path. It should be a generator yielding downloaded blocks.
+      A backend-specific fixture for downloading some file into path. It should
+      be a generator yielding downloaded blocks.
     size: int, optional
       Target size if known
     digests: dict, optional
@@ -517,7 +487,6 @@ def _download_file(
                     yield msg
                     dldir.append(block)
             break
-            # both girder and we use HttpError
         except requests.exceptions.HTTPError as exc:
             # TODO: actually we should probably retry only on selected codes, and also
             # respect Retry-After
@@ -556,7 +525,6 @@ def _download_file(
             # "message": "no digests were provided"
         }
 
-    # It seems that girder might not care about setting either mtime, so we will do if we know
     # TODO: dissolve attrs and pass specific mtime?
     if mtime:
         yield {"status": "setting mtime"}

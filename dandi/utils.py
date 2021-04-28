@@ -625,18 +625,8 @@ def get_instance(dandi_instance_id):
         )  # note: somehow was ending up with {"girder": None}
         for name, rec in server_info.get("services", {}).items()
     }
-    if services.get("girder"):
+    if services.get("api"):
         return dandi_instance(
-            metadata_version=0,
-            girder=services.get("girder"),
-            gui=services.get("webui"),
-            redirector=redirector_url,
-            api=None,
-        )
-    elif services.get("api"):
-        return dandi_instance(
-            metadata_version=1,
-            girder=None,
             gui=services.get("webui"),
             redirector=redirector_url,
             api=services.get("api"),

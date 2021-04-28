@@ -101,10 +101,6 @@ def map_to_click_exceptions(f):
     @click.pass_obj
     @wraps(f)
     def wrapper(obj, *args, **kwargs):
-        import girder_client as gcl
-
-        from ..girder import get_HttpError_response
-
         try:
             return f(*args, **kwargs)
         # Prints global Usage: useless in majority of cases.
@@ -113,14 +109,7 @@ def map_to_click_exceptions(f):
         # except ValueError as e:
         #     raise click.UsageError(str(e))
         except Exception as e:
-            if isinstance(e, gcl.HttpError):
-                resp = get_HttpError_response(e)
-                if resp is None:
-                    e_str = str(e)
-                else:
-                    e_str = resp.get("message", str(e))
-            else:
-                e_str = str(e)
+            e_str = str(e)
             lgr.debug("Caught exception %s", e_str)
             if not map_to_click_exceptions._do_map:
                 raise

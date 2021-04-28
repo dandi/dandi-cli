@@ -6,7 +6,6 @@ from .base import (
     instance_option,
     map_to_click_exceptions,
 )
-from ..consts import collection_drafts
 
 
 class IntColonInt(click.ParamType):
@@ -64,13 +63,6 @@ class IntColonInt(click.ParamType):
 #
 # TODO: should always go to dandi for now
 @instance_option()
-# TODO: should always go into 'drafts' (consts.collection_drafts)
-@devel_option(
-    "-c", "--girder-collection", help="For development: Girder collection to upload to"
-)
-# TODO: figure out folder for the dandiset
-@devel_option("--girder-top-folder", help="For development: Girder top folder")
-#
 @devel_option(
     "--fake-data",
     help="For development: fake file content (filename will be stored instead of actual load)",
@@ -98,8 +90,6 @@ def upload(
     validation="require",
     dandiset_path=None,
     # Development options should come as kwargs
-    girder_collection=collection_drafts,
-    girder_top_folder=None,
     dandi_instance="dandi",
     fake_data=False,  # TODO: not implemented, prune?
     allow_any_path=False,
@@ -132,8 +122,6 @@ def upload(
         existing=existing,
         validation=validation,
         dandiset_path=dandiset_path,
-        girder_collection=girder_collection,
-        girder_top_folder=girder_top_folder,
         dandi_instance=dandi_instance,
         fake_data=fake_data,
         allow_any_path=allow_any_path,

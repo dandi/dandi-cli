@@ -5,10 +5,8 @@ from pathlib import Path
 from shutil import rmtree
 
 import pytest
-import tqdm
 
 from ..download import download
-from ..girder import TQDMProgressReporter
 from ..utils import find_files
 
 
@@ -88,17 +86,6 @@ def test_download_000027_assets_only(url, tmpdir):
     dsdir = tmpdir / "000027"
     downloads = (x.relto(dsdir) for x in dsdir.visit())
     assert sorted(downloads) == ["sub-RAT123", op.join("sub-RAT123", "sub-RAT123.nwb")]
-
-
-def test_girder_tqdm(monkeypatch):
-    # smoke test to ensure we do not blow up
-    def raise_assertion_error(*args, **kwargs):
-        assert False, "pretend locking failed"
-
-    monkeypatch.setattr(tqdm, "tqdm", raise_assertion_error)
-
-    with TQDMProgressReporter() as pr:
-        pr.update(10)
 
 
 @pytest.mark.parametrize("resizer", [lambda sz: 0, lambda sz: sz // 2, lambda sz: sz])

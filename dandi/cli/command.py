@@ -144,11 +144,10 @@ from .cmd_digest import digest  # noqa: E402
 from .cmd_download import download  # noqa: E402
 from .cmd_ls import ls  # noqa: E402
 from .cmd_organize import organize  # noqa: E402
-from .cmd_register import register  # noqa: E402
 from .cmd_upload import upload  # noqa: E402
 from .cmd_validate import validate  # noqa: E402
 
-__all_commands__ = (ls, organize, upload, download, validate, register, digest, delete)
+__all_commands__ = (ls, organize, upload, download, validate, digest, delete)
 
 for cmd in __all_commands__:
     main.add_command(cmd)

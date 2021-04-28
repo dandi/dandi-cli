@@ -157,32 +157,6 @@ def test_remap_dict(from_, revmapping, to):
 
 
 @responses.activate
-def test_get_instance_dandi():
-    responses.add(
-        responses.GET,
-        "https://dandiarchive.org/server-info",
-        json={
-            "version": "1.0.0",
-            "cli-minimal-version": "0.5.0",
-            "cli-bad-versions": [],
-            "services": {
-                "girder": {"url": "https://girder.dandi"},
-                "webui": {"url": "https://gui.dandi"},
-                "api": None,
-                "jupyterhub": {"url": "https://hub.dandi"},
-            },
-        },
-    )
-    assert get_instance("dandi") == dandi_instance(
-        metadata_version=0,
-        girder="https://girder.dandi",
-        gui="https://gui.dandi",
-        redirector="https://dandiarchive.org",
-        api=None,
-    )
-
-
-@responses.activate
 def test_get_instance_dandi_with_api():
     responses.add(
         responses.GET,
@@ -192,7 +166,6 @@ def test_get_instance_dandi_with_api():
             "cli-minimal-version": "0.5.0",
             "cli-bad-versions": [],
             "services": {
-                "girder": None,
                 "webui": {"url": "https://gui.dandi"},
                 "api": {"url": "https://api.dandi"},
                 "jupyterhub": {"url": "https://hub.dandi"},
@@ -200,8 +173,6 @@ def test_get_instance_dandi_with_api():
         },
     )
     assert get_instance("dandi") == dandi_instance(
-        metadata_version=1,
-        girder=None,
         gui="https://gui.dandi",
         redirector="https://dandiarchive.org",
         api="https://api.dandi",
@@ -218,19 +189,16 @@ def test_get_instance_url():
             "cli-minimal-version": "0.5.0",
             "cli-bad-versions": [],
             "services": {
-                "girder": {"url": "https://girder.dandi"},
                 "webui": {"url": "https://gui.dandi"},
-                "api": None,
+                "api": {"url": "https://api.dandi"},
                 "jupyterhub": {"url": "https://hub.dandi"},
             },
         },
     )
     assert get_instance("https://example.dandi/") == dandi_instance(
-        metadata_version=0,
-        girder="https://girder.dandi",
         gui="https://gui.dandi",
         redirector="https://example.dandi/",
-        api=None,
+        api="https://api.dandi",
     )
 
 
@@ -244,9 +212,8 @@ def test_get_instance_cli_version_too_old():
             "cli-minimal-version": "99.99.99",
             "cli-bad-versions": [],
             "services": {
-                "girder": {"url": "https://girder.dandi"},
                 "webui": {"url": "https://gui.dandi"},
-                "api": None,
+                "api": {"url": "https://api.dandi"},
                 "jupyterhub": {"url": "https://hub.dandi"},
             },
         },
@@ -269,9 +236,8 @@ def test_get_instance_bad_cli_version():
             "cli-minimal-version": "0.5.0",
             "cli-bad-versions": [__version__],
             "services": {
-                "girder": {"url": "https://girder.dandi"},
                 "webui": {"url": "https://gui.dandi"},
-                "api": None,
+                "api": {"url": "https://api.dandi"},
                 "jupyterhub": {"url": "https://hub.dandi"},
             },
         },
@@ -322,10 +288,6 @@ def test_get_instance_unknown_url_bad_response():
     )
 
 
-def test_get_instance_id_no_redirector():
-    assert get_instance("local-girder-only") is known_instances["local-girder-only"]
-
-
 @responses.activate
 def test_get_instance_bad_version_from_server():
     responses.add(
@@ -336,9 +298,8 @@ def test_get_instance_bad_version_from_server():
             "cli-minimal-version": "foobar",
             "cli-bad-versions": [],
             "services": {
-                "girder": {"url": "https://girder.dandi"},
                 "webui": {"url": "https://gui.dandi"},
-                "api": None,
+                "api": {"url": "https://api.dandi"},
                 "jupyterhub": {"url": "https://hub.dandi"},
             },
         },
@@ -354,13 +315,7 @@ def test_get_instance_bad_version_from_server():
 
 def test_get_instance_actual_dandi():
     inst = get_instance("dandi")
-    assert inst.metadata_version in (0, 1)
-    if inst.metadata_version == 0:
-        assert inst.girder is not None
-        assert inst.api is None
-    else:
-        assert inst.girder is None
-        assert inst.api is not None
+    assert inst.api is not None
 
 
 def test_server_info():
