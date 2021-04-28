@@ -251,6 +251,9 @@ class _dandi_url_parser:
             "https://<server>/...",
         ),
     ]
+    known_patterns = "Patterns for known setups:" + "\n - ".join(
+        [""] + [display for _, _, display in known_urls]
+    )
     # We might need to remap some assert_types
     map_asset_types = {"dandiset": "folder"}
     # And lets create our mapping into girder instances from known_instances:
@@ -364,15 +367,11 @@ class _dandi_url_parser:
                 server_type = settings.get("server_type", "girder")
                 break
         if not match:
-            known_regexes = "\n - ".join(
-                [""] + [display for _, _, display in cls.known_urls]
-            )
             # TODO: may be make use of etelemetry and report if newer client
             # which might know is available?
             raise UnknownURLError(
                 f"We do not know how to map URL {url} to our servers.\n"
-                f"Patterns for known setups:"
-                f"{known_regexes}"
+                f"{cls.known_patterns}"
             )
 
         url_server = groups["server"]
