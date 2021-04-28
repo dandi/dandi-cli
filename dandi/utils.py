@@ -716,7 +716,8 @@ def is_url(s):
 
     TODO: redo
     """
-    return s.lower().startswith(("http://", "https://", "dandi://"))
+    return s.lower().startswith(("http://", "https://", "dandi:"))
+    # Slashes are not required after "dandi:" so as to support "DANDI:<id>"
 
 
 def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
