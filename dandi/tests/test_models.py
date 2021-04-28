@@ -8,6 +8,7 @@ from jsonschema import Draft6Validator
 import pytest
 import requests
 
+from ..dandiapi import DandiAPIClient
 from ..models import (
     AccessType,
     AssetMeta,
@@ -211,16 +212,21 @@ def schema():
     return schema
 
 
-@pytest.mark.parametrize("dandi_nr", ["000004", "000008"])
-def test_datacite(dandi_nr, schema):
+@pytest.fixture(scope="module")
+def client():
+    return DandiAPIClient("https://api.dandiarchive.org/api/")
+
+
+@pytest.mark.parametrize("dandi_id", ["000004", "000008"])
+def test_datacite(dandi_id, schema, client):
     """ checking to_datacite for a specific datasets"""
     prefix = "10.80507"
-    version = "v.0"
+    version = "draft"
 
-    with (METADATA_DIR / f"newmeta{dandi_nr}.json").open() as f:
-        newmeta_js = json.load(f)
+    # getting metadata from the dandiarchive api
+    newmeta_js = client.get_dandiset(dandi_id, version)["metadata"]
 
-    newmeta_js["doi"] = f"{prefix}/dandi.{random.randrange(99)}{dandi_nr}.{version}"
+    newmeta_js["doi"] = f"{prefix}/dandi.{random.randrange(99)}{dandi_id}.{version}"
     newmeta_js["datePublished"] = str(datetime.now().year)
     newmeta_js["publishedBy"] = "https://doi.test.datacite.org/dois"
     newmeta_js["version"] = version
