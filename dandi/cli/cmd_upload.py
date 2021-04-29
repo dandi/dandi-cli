@@ -64,12 +64,6 @@ class IntColonInt(click.ParamType):
 # TODO: should always go to dandi for now
 @instance_option()
 @devel_option(
-    "--fake-data",
-    help="For development: fake file content (filename will be stored instead of actual load)",
-    default=False,
-    is_flag=True,
-)
-@devel_option(
     "--allow-any-path",
     help="For development: allow DANDI 'unsupported' file types/paths",
     default=False,
@@ -91,7 +85,6 @@ def upload(
     dandiset_path=None,
     # Development options should come as kwargs
     dandi_instance="dandi",
-    fake_data=False,  # TODO: not implemented, prune?
     allow_any_path=False,
     upload_dandiset_metadata=False,
     devel_debug=False,
@@ -123,7 +116,6 @@ def upload(
         validation=validation,
         dandiset_path=dandiset_path,
         dandi_instance=dandi_instance,
-        fake_data=fake_data,
         allow_any_path=allow_any_path,
         upload_dandiset_metadata=upload_dandiset_metadata,
         devel_debug=devel_debug,

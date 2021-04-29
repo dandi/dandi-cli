@@ -109,15 +109,4 @@ file_operation_modes = [
 # ATM used only in download
 MAX_CHUNK_SIZE = int(os.environ.get("DANDI_MAX_CHUNK_SIZE", 1024 * 1024 * 8))  # 64
 
-#
-# Some routes
-# TODO: possibly centralize in dandi-common from our redirection service
-#
-
-
-# just a structure, better than dict for RFing etc
-class routes(object):
-    dandiset_draft = "{dandi_instance.redirector}/dandiset/{dandiset[identifier]}/draft"
-
-
 DANDI_SCHEMA_VERSION = "0.3.0"

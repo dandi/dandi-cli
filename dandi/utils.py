@@ -212,16 +212,6 @@ def flattened(it):
     return list(flatten(it))
 
 
-def updated(d, update):
-    """Return a copy of the input with the 'update'
-
-    Primarily for updating dictionaries
-    """
-    d = d.copy()
-    d.update(update)
-    return d
-
-
 def remap_dict(rec, revmapping):
     """Remap nested dicts according to mapping
 
@@ -472,18 +462,6 @@ def _get_normalized_paths(path, prefix):
     return path, prefix
 
 
-def path_startswith(path, prefix):
-    """Return True if path starts with prefix path
-
-    Parameters
-    ----------
-    path: str
-    prefix: str
-    """
-    path, prefix = _get_normalized_paths(path, prefix)
-    return path.startswith(prefix)
-
-
 def path_is_subpath(path, prefix):
     """Return True if path is a subpath of prefix
 
@@ -496,14 +474,6 @@ def path_is_subpath(path, prefix):
     """
     path, prefix = _get_normalized_paths(path, prefix)
     return (len(prefix) < len(path)) and path.startswith(prefix)
-
-
-def safe_call(func, path, default=None):
-    try:
-        return func(path)
-    except Exception as exc:
-        lgr.debug("Call to %s on %s failed: %s", func.__name__, path, exc)
-        return default
 
 
 def shortened_repr(value, length=30):

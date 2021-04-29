@@ -75,8 +75,6 @@ class _dandi_url_parser:
     # Defining as a class with all the attributes to not leak all the variables
     # etc into module space, and later we might end up with classes for those
     # anyways
-    id_regex = "[a-f0-9]{24}"
-    id_grp = f"(?P<id>{id_regex})"
     dandiset_id_grp = "(?P<dandiset_id>[0-9]{6})"
     # Should absorb port and "api/":
     server_grp = "(?P<server>(?P<protocol>https?)://(?P<hostname>[^/]+)/(api/)?)"
@@ -184,8 +182,6 @@ class _dandi_url_parser:
     known_patterns = "Patterns for known setups:" + "\n - ".join(
         [""] + [display for _, _, display in known_urls]
     )
-    # We might need to remap some assert_types
-    map_asset_types = {"dandiset": "folder"}
     map_to = {}
     for (gui, redirector, api) in known_instances.values():
         for h in (gui, redirector):
