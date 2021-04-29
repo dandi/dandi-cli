@@ -140,15 +140,36 @@ class AssetItemURL(SingleAssetURL):
     def get_assets(
         self, client: DandiAPIClient, include_metadata=False
     ) -> Iterator[dict]:
-        """ Yields nothing if the asset does not exist """
+        """
+        If the asset does not exist, this method yields nothing, unless the
+        path happens to be the path to an asset directory, in which case an
+        error is raised indicating that the user left off a trailing slash.
+        """
+        version_id = self.get_version_id(client)
         asset = client.get_asset_bypath(
             self.dandiset_id,
-            self.get_version_id(client),
+            version_id,
             self.path,
             include_metadata=include_metadata,
         )
         if asset is not None:
             yield asset
+        else:
+            try:
+                next(
+                    client.get_dandiset_assets(
+                        self.dandiset_id,
+                        version_id,
+                        path=self.path + "/",
+                        include_metadata=False,
+                    )
+                )
+            except StopIteration:
+                pass
+            else:
+                raise ValueError(
+                    f"Asset path {self.path!r} points to a directory but lacks trailing /"
+                )
 
 
 class AssetFolderURL(MultiAssetURL):
