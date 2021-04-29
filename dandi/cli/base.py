@@ -1,10 +1,9 @@
 from functools import wraps
 import os
-from os import path as op
 
 import click
 
-from ..consts import dandiset_metadata_file, known_instances
+from ..consts import known_instances
 from .. import get_logger, set_logger_level  # noqa: F401
 
 lgr = get_logger()
