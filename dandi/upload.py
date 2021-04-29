@@ -13,7 +13,6 @@ def upload(
     validation="require",
     dandiset_path=None,
     dandi_instance="dandi",
-    fake_data=False,  # TODO: not implemented, prune?
     allow_any_path=False,
     upload_dandiset_metadata=False,
     devel_debug=False,
