@@ -8,7 +8,7 @@ import requests
 
 from .consts import dandiset_metadata_file
 from .dandiapi import DandiAPIClient
-from .dandiarchive import parse_dandi_url
+from .dandiarchive import DandisetURL, ParsedDandiURL, parse_dandi_url
 from .exceptions import NotFoundError
 from .utils import get_instance, is_url
 
@@ -110,31 +110,41 @@ class Deleter:
                 f"No assets under path {folder_path!r} found in Dandiset {dandiset_id}"
             )
 
+    def register_assets_url(self, url: str, parsed_url: ParsedDandiURL) -> None:
+        try:
+            self.set_dandiset(parsed_url.api_url, parsed_url.dandiset_id)
+        except NotFoundError:
+            if self.skip_missing:
+                return
+            else:
+                raise
+        any_assets = False
+        for a in parsed_url.get_assets(self.client, include_metadata=False):
+            self.remote_assets.add(
+                RemoteAsset(
+                    parsed_url.dandiset_id,
+                    parsed_url.version_id,
+                    a["asset_id"],
+                    a["path"],
+                )
+            )
+            any_assets = True
+        if not any_assets and not self.skip_missing:
+            raise NotFoundError(f"No assets found for {url}")
+
     def register_url(self, url: str) -> None:
-        server_type, server_url, asset_type, asset_id = parse_dandi_url(url)
-        if asset_type == "dandiset":
-            if asset_id.get("version") is not None:
+        parsed_url = parse_dandi_url(url)
+        if isinstance(parsed_url, DandisetURL):
+            if parsed_url.version_id is not None:
                 raise NotImplementedError(
                     "Dandi API server does not support deletion of individual"
                     " versions of a dandiset"
                 )
-            self.register_dandiset(server_url, asset_id["dandiset_id"])
-        elif asset_type == "item":
-            self.register_asset(
-                server_url,
-                asset_id["dandiset_id"],
-                asset_id.get("version") or "draft",
-                asset_id["location"],
-            )
-        elif asset_type == "folder":
-            self.register_asset_folder(
-                server_url,
-                asset_id["dandiset_id"],
-                asset_id.get("version") or "draft",
-                asset_id["location"],
-            )
+            self.register_dandiset(parsed_url.api_url, parsed_url.dandiset_id)
         else:
-            raise RuntimeError(f"Unexpected asset type for {url}: {asset_type}")
+            if parsed_url.version_id is None:
+                parsed_url.version_id = "draft"
+            self.register_assets_url(url, parsed_url)
 
     def register_local_path_equivalent(self, instance_name: str, filepath: str) -> None:
         instance = get_instance(instance_name)

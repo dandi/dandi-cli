@@ -12,7 +12,13 @@ import humanize
 import requests
 
 from .consts import dandiset_metadata_file
-from .dandiarchive import navigate_url, parse_dandi_url
+from .dandiarchive import (
+    DandisetURL,
+    MultiAssetURL,
+    SingleAssetURL,
+    navigate_url,
+    parse_dandi_url,
+)
 from .dandiset import Dandiset
 from . import get_logger
 from .support.pyout import naturalsize
@@ -116,7 +122,7 @@ def download_generator(
         # on which instance it exists!  Thus ATM we would do nothing but crash
         raise NotImplementedError("No URLs were provided.  Cannot download anything")
 
-    server_type, _, asset_type, asset_id = parse_dandi_url(urls[0])
+    parsed_url = parse_dandi_url(urls[0])
     with navigate_url(urls[0]) as (client, dandiset, assets):
         if assets_it:
             assets_it.gen = assets
@@ -128,7 +134,7 @@ def download_generator(
             identifier = Dandiset._get_identifier(dandiset)
             if not identifier:
                 raise ValueError(f"Cannot deduce dandiset identifier from {dandiset}")
-            if asset_type == "dandiset":
+            if isinstance(parsed_url, DandisetURL):
                 output_path = op.join(output_dir, identifier)
                 if get_metadata:
                     for resp in _populate_dandiset_yaml(
@@ -137,7 +143,6 @@ def download_generator(
                         yield dict(path=dandiset_metadata_file, **resp)
             else:
                 output_path = output_dir
-
         else:
             output_path = output_dir
 
@@ -149,25 +154,12 @@ def download_generator(
             return
 
         for asset in assets:
-            if "asset_id" in asset_id:
-                down_args = (
-                    dandiset["dandiset"]["identifier"],
-                    dandiset["version"],
-                    asset_id["asset_id"],
-                )
-                metadata = asset
-                asset = {
-                    "path": metadata["path"],
-                    "size": metadata["contentSize"],
-                    "metadata": metadata,
-                }
-            else:
-                down_args = (
-                    dandiset["dandiset"]["identifier"],
-                    dandiset["version"],
-                    asset["asset_id"],
-                )
-                metadata = client.get_asset(*down_args)
+            down_args = (
+                dandiset["dandiset"]["identifier"],
+                dandiset["version"],
+                asset["asset_id"],
+            )
+            metadata = asset["metadata"]
             d = metadata.get("digest", {})
             if "dandi:dandi-etag" in d:
                 digests = {"dandi-etag": d["dandi:dandi-etag"]}
@@ -178,16 +170,18 @@ def download_generator(
 
             path = asset["path"].lstrip("/")  # make into relative path
             path = op.normpath(path)
-            if server_type == "api" and asset_type != "dandiset":
-                if asset_type == "folder":
-                    folder_path = op.normpath(asset_id["location"])
+            if not isinstance(parsed_url, DandisetURL):
+                if isinstance(parsed_url, MultiAssetURL):
+                    folder_path = op.normpath(parsed_url.path)
                     path = op.join(
                         op.basename(folder_path), op.relpath(path, folder_path)
                     )
-                elif asset_type == "item":
+                elif isinstance(parsed_url, SingleAssetURL):
                     path = op.basename(path)
                 else:
-                    raise NotImplementedError(f"Unexpected asset type {asset_type}")
+                    raise NotImplementedError(
+                        f"Unexpected URL type {type(parsed_url).__name__}"
+                    )
             download_path = op.join(output_path, path)
 
             downloader = client.get_download_file_iter(*down_args)
