@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 import re
-from typing import Iterator, Optional
+from typing import Iterator, Optional, Tuple
 from urllib.parse import unquote as urlunquote
 
 from pydantic import AnyHttpUrl, BaseModel, parse_obj_as, validator
@@ -44,13 +44,27 @@ class ParsedDandiURL(ABC, BaseModel):
 
     @abstractmethod
     def get_assets(
-        self, client: DandiAPIClient, include_metadata=False
+        self, client: DandiAPIClient, include_metadata: bool = False
     ) -> Iterator[dict]:
         ...
 
     def get_asset_ids(self, client: DandiAPIClient) -> Iterator[str]:
         for a in self.get_assets(client):
             yield a["asset_id"]
+
+    @contextmanager
+    def navigate(
+        self, include_metadata: bool = True
+    ) -> Iterator[Tuple[DandiAPIClient, dict, Iterator[dict]]]:
+        # We could later try to "dandi_authenticate" if run into permission
+        # issues.  May be it could be not just boolean but the "id" to be used?
+        client = self.get_client()
+        with client.session():
+            yield (
+                client,
+                self.get_dandiset(client),
+                self.get_assets(client, include_metadata=include_metadata),
+            )
 
 
 class DandisetURL(ParsedDandiURL):
@@ -59,7 +73,7 @@ class DandisetURL(ParsedDandiURL):
     """
 
     def get_assets(
-        self, client: DandiAPIClient, include_metadata=False
+        self, client: DandiAPIClient, include_metadata: bool = False
     ) -> Iterator[dict]:
         """ Returns all assets in the Dandiset """
         return client.get_dandiset_assets(
@@ -87,7 +101,7 @@ class AssetIDURL(SingleAssetURL):
     asset_id: str
 
     def get_assets(
-        self, client: DandiAPIClient, include_metadata=False
+        self, client: DandiAPIClient, include_metadata: bool = False
     ) -> Iterator[dict]:
         """
         `include_metadata` is ignored; metadata is always returned.
@@ -122,7 +136,7 @@ class AssetPathPrefixURL(MultiAssetURL):
     """
 
     def get_assets(
-        self, client: DandiAPIClient, include_metadata=False
+        self, client: DandiAPIClient, include_metadata: bool = False
     ) -> Iterator[dict]:
         return client.get_dandiset_assets(
             self.dandiset_id,
@@ -138,7 +152,7 @@ class AssetItemURL(SingleAssetURL):
     path: str
 
     def get_assets(
-        self, client: DandiAPIClient, include_metadata=False
+        self, client: DandiAPIClient, include_metadata: bool = False
     ) -> Iterator[dict]:
         """
         If the asset does not exist, this method yields nothing, unless the
@@ -180,7 +194,7 @@ class AssetFolderURL(MultiAssetURL):
     path: str
 
     def get_assets(
-        self, client: DandiAPIClient, include_metadata=False
+        self, client: DandiAPIClient, include_metadata: bool = False
     ) -> Iterator[dict]:
         """ Yields nothing if the folder does not exist """
         path = self.path
@@ -195,7 +209,7 @@ class AssetFolderURL(MultiAssetURL):
 
 
 @contextmanager
-def navigate_url(url):
+def navigate_url(url, include_metadata=True):
     """Context manager to 'navigate' URL pointing to DANDI archive.
 
     Parameters
@@ -208,17 +222,13 @@ def navigate_url(url):
     client, dandiset, assets (generator)
       `client` will have established a session for the duration of the context
     """
-
     parsed_url = parse_dandi_url(url)
-    # We could later try to "dandi_authenticate" if run into permission issues.
-    # May be it could be not just boolean but the "id" to be used?
-    client = parsed_url.get_client()
-    with client.session():
-        yield (
-            client,
-            parsed_url.get_dandiset(client),
-            parsed_url.get_assets(client, include_metadata=True),
-        )
+    with parsed_url.navigate(include_metadata=include_metadata) as (
+        client,
+        dandiset,
+        assets,
+    ):
+        yield (client, dandiset, assets)
 
 
 class _dandi_url_parser:

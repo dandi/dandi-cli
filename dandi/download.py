@@ -12,13 +12,7 @@ import humanize
 import requests
 
 from .consts import dandiset_metadata_file
-from .dandiarchive import (
-    DandisetURL,
-    MultiAssetURL,
-    SingleAssetURL,
-    navigate_url,
-    parse_dandi_url,
-)
+from .dandiarchive import DandisetURL, MultiAssetURL, SingleAssetURL, parse_dandi_url
 from .dandiset import Dandiset
 from . import get_logger
 from .support.pyout import naturalsize
@@ -123,7 +117,7 @@ def download_generator(
         raise NotImplementedError("No URLs were provided.  Cannot download anything")
 
     parsed_url = parse_dandi_url(urls[0])
-    with navigate_url(urls[0]) as (client, dandiset, assets):
+    with parsed_url.navigate() as (client, dandiset, assets):
         if assets_it:
             assets_it.gen = assets
             assets = assets_it
