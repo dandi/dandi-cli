@@ -17,8 +17,23 @@ lgr = get_logger()
 
 
 class ParsedDandiURL(ABC, BaseModel):
-    api_url: AnyHttpUrl  # Does not have a trailing slash
+    """
+    Parsed representation of a URL pointing to a Dandi Archive resource
+    (Dandiset or asset(s)).  Subclasses must implement `get_assets()`.
+
+    Most methods take a ``client: DandiAPIClient`` argument, which must be a
+    `DandiAPIClient` object for querying `api_url` (This is not checked).  Such
+    a client instance can be obtained by calling `get_client()`, or an
+    appropriate pre-existing client instance can be passed instead.
+    """
+
+    #: The base URL of the Dandi API service, without a trailing slash
+    api_url: AnyHttpUrl
+    #: The ID of the Dandiset given in the URL
     dandiset_id: str
+    #: The version of the Dandiset, if specified.  If this is not set, methods
+    #: that need the Dandiset version will call `get_version_id()` to get an
+    #: appropriate default value.
     version_id: Optional[str] = None
 
     @validator("api_url")
@@ -26,19 +41,28 @@ class ParsedDandiURL(ABC, BaseModel):
         return parse_obj_as(AnyHttpUrl, v.rstrip("/"))
 
     def get_client(self) -> DandiAPIClient:
+        """ Returns an unauthenticated `DandiAPIClient` for `api_url` """
         return DandiAPIClient(self.api_url)
 
     def get_dandiset(self, client: DandiAPIClient) -> dict:
+        """
+        Returns information about the specified (or default) version of the
+        specified Dandiset
+        """
         return client.get_dandiset(self.dandiset_id, self.get_version_id(client))
 
     def get_version_id(self, client: DandiAPIClient) -> str:
+        """
+        Returns `version_id` or determines a default value if unset.
+
+        If `version_id` is non-`None`, returns it.  Otherwise, the ID of the
+        most recent published version of the Dandiset is returned, if any,
+        otherwise the ID of the draft version is returned.
+        """
         if self.version_id is None:
             r = client.get(f"/dandisets/{self.dandiset_id}/")
-            published_version = r["most_recent_published_version"]
-            if published_version:
-                return published_version["version"]
-            else:
-                return r["draft_version"]["version"]
+            version = r["most_recent_published_version"] or r["draft_version"]
+            return version["version"]
         else:
             return self.version_id
 
@@ -46,9 +70,23 @@ class ParsedDandiURL(ABC, BaseModel):
     def get_assets(
         self, client: DandiAPIClient, include_metadata: bool = False
     ) -> Iterator[dict]:
+        """
+        Returns an iterator of asset structures for the assets referred to by
+        or associated with the URL.  For a URL pointing to just a Dandiset,
+        this is the set of all assets in the given or default version of the
+        Dandiset.  For a URL that specifies a specific asset or collection of
+        assets in a Dandiset, this is all of those assets.
+
+        Subclasses may ignore `include_metadata` if it is not practical to
+        honor it.
+        """
         ...
 
     def get_asset_ids(self, client: DandiAPIClient) -> Iterator[str]:
+        """
+        Returns an iterator of IDs of the assets referred to by or associated
+        with the URL
+        """
         for a in self.get_assets(client):
             yield a["asset_id"]
 
@@ -56,6 +94,12 @@ class ParsedDandiURL(ABC, BaseModel):
     def navigate(
         self, include_metadata: bool = True
     ) -> Iterator[Tuple[DandiAPIClient, dict, Iterator[dict]]]:
+        """
+        A context manager that returns a triple of a `DandiAPIClient` (with an
+        open session that is closed when the context manager closes), the
+        return value of `get_dandiset()`, and the return value of
+        `get_assets()` with the given ``include_metadata`` setting.
+        """
         # We could later try to "dandi_authenticate" if run into permission
         # issues.  May be it could be not just boolean but the "id" to be used?
         client = self.get_client()
@@ -104,9 +148,10 @@ class AssetIDURL(SingleAssetURL):
         self, client: DandiAPIClient, include_metadata: bool = False
     ) -> Iterator[dict]:
         """
-        `include_metadata` is ignored; metadata is always returned.
+        Yields the asset with the given ID.  Yields nothing if the asset does
+        not exist.
 
-        Yields nothing if the asset does not exist.
+        ``include_metadata`` is ignored; metadata is always returned.
         """
         try:
             metadata = client.get_asset(
@@ -127,6 +172,7 @@ class AssetIDURL(SingleAssetURL):
         }
 
     def get_asset_ids(self, client: DandiAPIClient) -> Iterator[str]:
+        """ Yields the ID of the asset (regardless of whether it exists) """
         yield self.asset_id
 
 
@@ -138,6 +184,7 @@ class AssetPathPrefixURL(MultiAssetURL):
     def get_assets(
         self, client: DandiAPIClient, include_metadata: bool = False
     ) -> Iterator[dict]:
+        """ Returns the assets whose paths start with `path` """
         return client.get_dandiset_assets(
             self.dandiset_id,
             self.get_version_id(client),
@@ -155,9 +202,10 @@ class AssetItemURL(SingleAssetURL):
         self, client: DandiAPIClient, include_metadata: bool = False
     ) -> Iterator[dict]:
         """
-        If the asset does not exist, this method yields nothing, unless the
-        path happens to be the path to an asset directory, in which case an
-        error is raised indicating that the user left off a trailing slash.
+        Yields the asset whose path equals `path`.  If there is no such asset,
+        this method yields nothing, unless the path happens to be the path to
+        an asset directory, in which case an error is raised indicating that
+        the user left off a trailing slash.
         """
         version_id = self.get_version_id(client)
         asset = client.get_asset_bypath(
@@ -196,7 +244,10 @@ class AssetFolderURL(MultiAssetURL):
     def get_assets(
         self, client: DandiAPIClient, include_metadata: bool = False
     ) -> Iterator[dict]:
-        """ Yields nothing if the folder does not exist """
+        """
+        Returns all assets under the folder at `path`.  Yields nothing if the
+        folder does not exist.
+        """
         path = self.path
         if not path.endswith("/"):
             path += "/"
