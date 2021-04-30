@@ -1,3 +1,32 @@
+# 0.15.0 (Fri Apr 30 2021)
+
+#### 🚀 Enhancement
+
+- Remove unused functions (and other cleanups) [#604](https://github.com/dandi/dandi-cli/pull/604) ([@jwodder](https://github.com/jwodder))
+- Remove Girder support [#588](https://github.com/dandi/dandi-cli/pull/588) ([@jwodder](https://github.com/jwodder))
+- Give "delete" a --skip-missing option [#594](https://github.com/dandi/dandi-cli/pull/594) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Include list of supported URL patterns in `dandi ls --help` [#601](https://github.com/dandi/dandi-cli/pull/601) ([@jwodder](https://github.com/jwodder))
+- Recognize "DANDI:<identifier>" strings as URL-likes [#602](https://github.com/dandi/dandi-cli/pull/602) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Support specifying the dandi redirector via an env var [#581](https://github.com/dandi/dandi-cli/pull/581) ([@jwodder](https://github.com/jwodder))
+- a script to validate dandi-api collection listing against girder [#589](https://github.com/dandi/dandi-cli/pull/589) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Remove numpy pre-pinning in test.yml [#603](https://github.com/dandi/dandi-cli/pull/603) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.14.2 (Thu Apr 22 2021)
 
 #### 🐛 Bug Fix
