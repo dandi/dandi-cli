@@ -23,19 +23,18 @@ jobs:
           - 3.7
           - 3.8
           - 3.9
-        dandi_api:
-          - false
-        dev_deps:
-          - false
+        mode:
+          - normal
         include:
           - os: ubuntu-18.04
             python: 3.7
-            dandi_api: true
-            dev_deps: false
+            mode: dandi-api
           - os: ubuntu-18.04
             python: 3.7
-            dandi_api: false
-            dev_deps: true
+            mode: dev-deps
+          - os: ubuntu-18.04
+            python: 3.7
+            mode: dandi-devel
         exclude:
           # Temporarily disabled due to h5py/hdf5 dependency issue
           # See <https://github.com/dandi/dandi-cli/pull/315>
@@ -70,17 +69,21 @@ jobs:
         pip install ".[test]"
 
     - name: Install dev version of pynwb
-      if: ${{ matrix.dev_deps }}
+      if: matrix.mode == 'dev-deps'
       run: |
         pip install git+https://github.com/NeurodataWithoutBorders/pynwb
 
+    - name: Set DANDI_DEVEL=1
+      if: matrix.mode == 'dandi-devel'
+      run: echo DANDI_DEVEL=1 >> "$GITHUB_ENV"
+
     - name: Run all tests
-      if: "!matrix.dandi_api"
+      if: matrix.mode != 'dandi-api'
       run: |
         python -m pytest -s -v --cov=dandi --cov-report=xml dandi
 
     - name: Run Dandi API tests only
-      if: matrix.dandi_api
+      if: matrix.mode == 'dandi-api'
       run: |
         python -m pytest -s -v --cov=dandi --cov-report=xml --dandi-api dandi
 
