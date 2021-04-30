@@ -114,7 +114,7 @@ def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, job
                 with parsed_url.navigate(
                     include_metadata=metadata in ("all", "assets")
                 ) as (client, dandiset, assets):
-                    if isinstance(parsed_url, DandisetURL) or not recursive:
+                    if isinstance(parsed_url, DandisetURL):
                         rec = {
                             "path": dandiset.pop("dandiset", {}).get(
                                 "identifier", "ERR#%s" % id(dandiset)
@@ -124,7 +124,7 @@ def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, job
                         # rec.update(dandiset.get('metadata', {}))
                         rec.update(dandiset)
                         yield rec
-                    else:
+                    if not isinstance(parsed_url, DandisetURL) or recursive:
                         yield from assets
             else:
                 # For now we support only individual files
