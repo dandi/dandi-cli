@@ -10,7 +10,11 @@ from .base import devel_debug_option, instance_option, map_to_click_exceptions
 @devel_debug_option()
 @map_to_click_exceptions
 def delete(paths, skip_missing, dandi_instance="dandi", devel_debug=False):
-    """ Delete Dandisets and assets from the server """
+    """Delete dandisets and assets from the server.
+
+    PATH could be a local path or a URL to an asset, directory, or an entire
+    dandiset.
+    """
     from ..delete import delete
 
     delete(
