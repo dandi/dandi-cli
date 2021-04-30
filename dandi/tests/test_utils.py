@@ -156,11 +156,14 @@ def test_remap_dict(from_, revmapping, to):
     assert remap_dict(from_, revmapping) == to
 
 
+redirector_base = known_instances["dandi"].redirector
+
+
 @responses.activate
 def test_get_instance_dandi_with_api():
     responses.add(
         responses.GET,
-        "https://dandiarchive.org/server-info",
+        f"{redirector_base}/server-info",
         json={
             "version": "1.0.0",
             "cli-minimal-version": "0.5.0",
@@ -174,7 +177,7 @@ def test_get_instance_dandi_with_api():
     )
     assert get_instance("dandi") == dandi_instance(
         gui="https://gui.dandi",
-        redirector="https://dandiarchive.org",
+        redirector=redirector_base,
         api="https://api.dandi",
     )
 
@@ -254,7 +257,7 @@ def test_get_instance_bad_cli_version():
 def test_get_instance_id_bad_response():
     responses.add(
         responses.GET,
-        "https://dandiarchive.org/server-info",
+        f"{redirector_base}/server-info",
         body="404 -- not found",
         status=404,
     )
@@ -265,11 +268,11 @@ def test_get_instance_id_bad_response():
 def test_get_instance_known_url_bad_response():
     responses.add(
         responses.GET,
-        "https://dandiarchive.org/server-info",
+        f"{redirector_base}/server-info",
         body="404 -- not found",
         status=404,
     )
-    assert get_instance("https://dandiarchive.org") is known_instances["dandi"]
+    assert get_instance(redirector_base) is known_instances["dandi"]
 
 
 @responses.activate
@@ -318,8 +321,9 @@ def test_get_instance_actual_dandi():
     assert inst.api is not None
 
 
+@pytest.mark.redirector
 def test_server_info():
-    r = requests.get(known_instances["dandi"].redirector.rstrip("/") + "/server-info")
+    r = requests.get(f"{redirector_base}/server-info")
     r.raise_for_status()
     data = r.json()
     assert "version" in data

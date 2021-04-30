@@ -73,10 +73,12 @@ dandi_instance = namedtuple("dandi_instance", ("gui", "redirector", "api"))
 # to test against instance running outside of current environment
 instancehost = os.environ.get("DANDI_INSTANCEHOST", "localhost")
 
+redirector_base = os.environ.get("DANDI_REDIRECTOR_BASE", "https://dandiarchive.org")
+
 known_instances = {
     "dandi": dandi_instance(
         "https://gui.dandiarchive.org",
-        "https://dandiarchive.org",
+        redirector_base,
         "https://api.dandiarchive.org/api",
     ),
     "dandi-devel": dandi_instance(

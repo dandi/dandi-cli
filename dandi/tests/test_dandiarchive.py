@@ -152,9 +152,10 @@ def test_follow_redirect():
 
 @responses.activate
 def test_parse_gui_new_redirect():
+    redirector_base = known_instances["dandi"].redirector
     responses.add(
         responses.GET,
-        "https://dandiarchive.org/server-info",
+        f"{redirector_base}/server-info",
         json={
             "version": "1.2.0",
             "cli-minimal-version": "0.6.0",
