@@ -5,7 +5,7 @@ import os.path as op
 import click
 
 from .base import lgr, map_to_click_exceptions
-from ..dandiarchive import _dandi_url_parser
+from ..dandiarchive import DandisetURL, _dandi_url_parser, parse_dandi_url
 from ..utils import is_url
 
 # TODO: all the recursion options etc
@@ -110,11 +110,11 @@ def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, job
     def assets_gen():
         for path in paths:
             if is_url(path):
-                from ..dandiarchive import navigate_url
-
-                with navigate_url(path) as (client, dandiset, assets):
-                    if dandiset:
-                        dandiset_id = dandiset.get("dandiset", {}).get("identifier")
+                parsed_url = parse_dandi_url(path)
+                with parsed_url.navigate(
+                    include_metadata=metadata in ("all", "assets")
+                ) as (client, dandiset, assets):
+                    if isinstance(parsed_url, DandisetURL):
                         rec = {
                             "path": dandiset.pop("dandiset", {}).get(
                                 "identifier", "ERR#%s" % id(dandiset)
@@ -124,20 +124,8 @@ def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, job
                         # rec.update(dandiset.get('metadata', {}))
                         rec.update(dandiset)
                         yield rec
-                    else:
-                        dandiset_id = None
-                    if recursive and assets:
-                        if metadata in ("all", "assets"):
-                            for a in assets:
-                                if "metadata" not in a:
-                                    a["metadata"] = client.get_asset(
-                                        dandiset_id,
-                                        dandiset["version"],
-                                        a["asset_id"],
-                                    )
-                                yield a
-                        else:
-                            yield from assets
+                    if not isinstance(parsed_url, DandisetURL) or recursive:
+                        yield from assets
             else:
                 # For now we support only individual files
                 yield path

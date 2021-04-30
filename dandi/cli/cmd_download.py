@@ -101,8 +101,8 @@ def download(
     if dandi_instance is not None:
         if url:
             for u in url:
-                _, server_url, _, _ = parse_dandi_url(u)
-                if known_instances_rev.get(server_url.rstrip("/")) != dandi_instance:
+                parsed_url = parse_dandi_url(u)
+                if known_instances_rev.get(parsed_url.api_url) != dandi_instance:
                     raise click.UsageError(
                         f"{u} does not point to {dandi_instance!r} instance"
                     )

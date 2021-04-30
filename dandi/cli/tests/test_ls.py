@@ -33,3 +33,40 @@ def test_smoke(simple1_nwb_metadata, simple1_nwb, format):
     assert metadata.pop("nwb_version").startswith("2.")
     for f in ["session_id", "experiment_description"]:
         assert metadata[f] == simple1_nwb_metadata[f]
+
+
+def test_ls_dandiset_url():
+    r = CliRunner().invoke(
+        ls, ["-f", "yaml", "https://api.dandiarchive.org/api/dandisets/000027"]
+    )
+    assert r.exit_code == 0, r.output
+    data = yaml_load(r.stdout, "safe")
+    assert len(data) == 1
+    assert data[0]["path"] == "000027"
+
+
+def test_ls_dandiset_url_recursive():
+    r = CliRunner().invoke(
+        ls, ["-f", "yaml", "-r", "https://api.dandiarchive.org/api/dandisets/000027"]
+    )
+    assert r.exit_code == 0, r.output
+    data = yaml_load(r.stdout, "safe")
+    assert len(data) == 2
+    assert data[0]["path"] == "000027"
+    assert data[1]["path"] == "sub-RAT123/sub-RAT123.nwb"
+
+
+def test_ls_path_url():
+    r = CliRunner().invoke(
+        ls,
+        [
+            "-f",
+            "yaml",
+            "https://api.dandiarchive.org/api/dandisets/000027/versions/draft"
+            "/assets/?path=sub-RAT123/",
+        ],
+    )
+    assert r.exit_code == 0, r.output
+    data = yaml_load(r.stdout, "safe")
+    assert len(data) == 1
+    assert data[0]["path"] == "sub-RAT123/sub-RAT123.nwb"

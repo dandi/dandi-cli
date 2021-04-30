@@ -257,7 +257,7 @@ def test_delete_nonexistent_asset(local_dandi_api, mocker, monkeypatch, text_dan
         )
     assert (
         str(excinfo.value)
-        == f"Asset at path 'subdir3/mango.txt' not found in Dandiset {dandiset_id}"
+        == f"No assets found for dandi://{instance}/{dandiset_id}/subdir3/mango.txt"
     )
     delete_spy.assert_not_called()
 
@@ -312,7 +312,7 @@ def test_delete_nonexistent_asset_folder(
         )
     assert (
         str(excinfo.value)
-        == f"No assets under path 'subdir3/' found in Dandiset {dandiset_id}"
+        == f"No assets found for dandi://{instance}/{dandiset_id}/subdir3/"
     )
     delete_spy.assert_not_called()
 
