@@ -36,7 +36,11 @@ class Deleter:
     def __bool__(self) -> bool:
         return self.deleting_dandiset or bool(self.remote_assets)
 
-    def set_dandiset(self, api_url: str, dandiset_id: str) -> None:
+    def set_dandiset(self, api_url: str, dandiset_id: str) -> bool:
+        """
+        Returns `False` if no action should be taken due to the Dandiset not
+        existing
+        """
         if self.client is None:
             # Strip the trailing slash so that dandi_authenticate can find the
             # URL in known_instances_rev:
@@ -47,34 +51,30 @@ class Deleter:
                 self.client.get_dandiset(dandiset_id, "draft")
             except requests.HTTPError as e:
                 if e.response.status_code == 404:
-                    raise NotFoundError(f"Dandiset {dandiset_id} not found on server")
+                    if self.skip_missing:
+                        return False
+                    else:
+                        raise NotFoundError(
+                            f"Dandiset {dandiset_id} not found on server"
+                        )
                 else:
                     raise
         elif not is_same_url(self.client.api_url, api_url):
             raise ValueError("Cannot delete assets from multiple API instances at once")
         elif self.dandiset_id != dandiset_id:
             raise ValueError("Cannot delete assets from multiple Dandisets at once")
+        return True
 
     def register_dandiset(self, api_url: str, dandiset_id: str) -> None:
-        try:
-            self.set_dandiset(api_url, dandiset_id)
-        except NotFoundError:
-            if self.skip_missing:
-                return
-            else:
-                raise
+        if not self.set_dandiset(api_url, dandiset_id):
+            return
         self.deleting_dandiset = True
 
     def register_asset(
         self, api_url: str, dandiset_id: str, version_id: str, asset_path: str
     ) -> None:
-        try:
-            self.set_dandiset(api_url, dandiset_id)
-        except NotFoundError:
-            if self.skip_missing:
-                return
-            else:
-                raise
+        if not self.set_dandiset(api_url, dandiset_id):
+            return
         asset = self.client.get_asset_bypath(dandiset_id, version_id, asset_path)
         if asset is None:
             if self.skip_missing:
@@ -90,13 +90,8 @@ class Deleter:
     def register_asset_folder(
         self, api_url: str, dandiset_id: str, version_id: str, folder_path: str
     ) -> None:
-        try:
-            self.set_dandiset(api_url, dandiset_id)
-        except NotFoundError:
-            if self.skip_missing:
-                return
-            else:
-                raise
+        if not self.set_dandiset(api_url, dandiset_id):
+            return
         any_assets = False
         for asset in self.client.get_dandiset_assets(
             dandiset_id, version_id, path=folder_path
@@ -111,13 +106,8 @@ class Deleter:
             )
 
     def register_assets_url(self, url: str, parsed_url: ParsedDandiURL) -> None:
-        try:
-            self.set_dandiset(parsed_url.api_url, parsed_url.dandiset_id)
-        except NotFoundError:
-            if self.skip_missing:
-                return
-            else:
-                raise
+        if not self.set_dandiset(parsed_url.api_url, parsed_url.dandiset_id):
+            return
         any_assets = False
         for a in parsed_url.get_assets(self.client, include_metadata=False):
             self.remote_assets.add(
@@ -150,13 +140,8 @@ class Deleter:
         instance = get_instance(instance_name)
         api_url = instance.api
         dandiset_id, asset_path = find_local_asset(filepath)
-        try:
-            self.set_dandiset(api_url, dandiset_id)
-        except NotFoundError:
-            if self.skip_missing:
-                return
-            else:
-                raise
+        if not self.set_dandiset(api_url, dandiset_id):
+            return
         if asset_path.endswith("/"):
             self.register_asset_folder(api_url, dandiset_id, "draft", asset_path)
         else:
