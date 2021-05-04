@@ -1,3 +1,29 @@
+# 0.16.0 (Tue May 04 2021)
+
+#### 🚀 Enhancement
+
+- Restructure parse_dandi_url() return type [#605](https://github.com/dandi/dandi-cli/pull/605) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- DOC: Extend description for delete to point that it could be URL etc [#609](https://github.com/dandi/dandi-cli/pull/609) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Cut down on some code duplication in delete.py [#610](https://github.com/dandi/dandi-cli/pull/610) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Make test_server_info use Docker fixture if DANDI_REDIRECTOR_BASE is set [#612](https://github.com/dandi/dandi-cli/pull/612) ([@jwodder](https://github.com/jwodder))
+- Add DANDI_DEVEL=1 job to GitHub Actions tests [#607](https://github.com/dandi/dandi-cli/pull/607) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.15.0 (Fri Apr 30 2021)
 
 #### 🚀 Enhancement
