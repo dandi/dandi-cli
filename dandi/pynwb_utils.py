@@ -176,7 +176,7 @@ def _scan_neurodata_types(grp):
         if isinstance(v, h5py._hl.dataset.Dataset):
             if "neurodata_type" in v.attrs:
                 out.append((v.attrs["neurodata_type"], v.attrs.get("description", None)))
-        if isinstance(v, h5py._hl.group.Group):
+        elif isinstance(v, h5py._hl.group.Group):
             out += _scan_neurodata_types(v)
     return out
 
