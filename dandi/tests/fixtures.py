@@ -284,11 +284,11 @@ def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
     (dspath / "subdir2" / "banana.txt").write_text("Banana\n")
     (dspath / "subdir2" / "coconut.txt").write_text("Coconut\n")
 
-    def upload_dandiset(**kwargs):
+    def upload_dandiset(paths=None, **kwargs):
         with monkeypatch.context() as m:
             m.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
             upload(
-                paths=[],
+                paths=paths or [],
                 dandiset_path=dspath,
                 dandi_instance=local_dandi_api["instance_id"],
                 devel_debug=True,

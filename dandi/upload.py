@@ -1,6 +1,10 @@
+from functools import reduce
+import os.path
 from pathlib import Path, PurePosixPath
 import re
 import time
+
+import click
 
 from .consts import dandiset_identifier_regex, dandiset_metadata_file
 from . import lgr
@@ -18,6 +22,7 @@ def upload(
     devel_debug=False,
     jobs=None,
     jobs_per_file=None,
+    sync=False,
 ):
     from .dandiapi import DandiAPIClient
     from .dandiset import APIDandiset, Dandiset
@@ -61,6 +66,7 @@ def upload(
     #
     if not paths:
         paths = [dandiset.path]
+    original_paths = paths
 
     # Expand and validate all paths -- they should reside within dandiset
     paths = find_files(".*", paths) if allow_any_path else find_dandi_files(paths)
@@ -335,3 +341,22 @@ def upload(
                 else:
                     rec.update(skip_file(exc))
             out(rec)
+
+    if sync:
+        relpaths = []
+        for p in original_paths:
+            rp = os.path.relpath(p, dandiset.path)
+            relpaths.append("" if rp == "." else rp)
+        path_prefix = reduce(os.path.commonprefix, relpaths)
+        to_delete = []
+        for asset in client.get_dandiset_assets(
+            ds_identifier, "draft", path=path_prefix
+        ):
+            if (
+                any(p == "" or path_is_subpath(asset["path"], p) for p in relpaths)
+                and not Path(dandiset.path, asset["path"]).exists()
+            ):
+                to_delete.append(asset["asset_id"])
+        if to_delete and click.confirm(f"Delete {len(to_delete)} assets on server?"):
+            for asset_id in to_delete:
+                client.delete_asset(ds_identifier, "draft", asset_id)
