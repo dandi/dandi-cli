@@ -4,7 +4,7 @@ import os.path as op
 import click
 
 from .base import dandiset_path_option, devel_debug_option, lgr, map_to_click_exceptions
-from ..consts import dandiset_metadata_file, file_operation_modes
+from ..consts import file_operation_modes
 
 
 @click.command()
@@ -14,7 +14,6 @@ from ..consts import dandiset_metadata_file, file_operation_modes
     "For 'simulate' mode target dandiset/directory must not exist.",
     type=click.Path(dir_okay=True, file_okay=False),
 )
-# @dandiset_id_option()
 @click.option(
     "--invalid",
     help="What to do if files without sufficient metadata are encountered.",
@@ -41,7 +40,6 @@ from ..consts import dandiset_metadata_file, file_operation_modes
 def organize(
     paths,
     dandiset_path=None,
-    dandiset_id=None,
     invalid="fail",
     files_mode="auto",
     devel_debug=False,
@@ -50,9 +48,7 @@ def organize(
 
     The purpose of this command is to take advantage of metadata contained in
     the .nwb files to provide datasets with consistently named files, so their
-    naming reflects data they contain. In addition it will also populate
-    the dataset level descriptor file dandiset.yaml with some of the
-    collected metadata and statistics (e.g. number_of_cells).
+    naming reflects data they contain.
 
     .nwb files are organized into a hierarchy of subfolders one per each
     "subject", e.g. sub-0001 if .nwb file had contained a Subject group with
@@ -76,17 +72,15 @@ def organize(
     "object_id" is added if aforementioned keys and the list of modalities are
     not sufficient to disambiguate different files.
 
-    You can visit https://dandiarchive.org/dandisets/drafts for a growing
-    collection of (re)organized datasets (files content is original filenames).
+    You can visit https://dandiarchive.org for a growing collection of
+    (re)organized dandisets.
     """
     from ..dandiset import Dandiset
     from ..metadata import get_metadata
     from ..organize import (
-        create_dataset_yml_template,
         create_unique_filenames_from_metadata,
         detect_link_type,
         filter_invalid_metadata_rows,
-        populate_dataset_yml,
     )
     from ..pynwb_utils import ignore_benign_pynwb_warnings
     from ..utils import Parallel, copy_file, delayed, find_files, load_jsonl, move_file
@@ -216,38 +210,6 @@ def organize(
     if files_mode == "auto":
         files_mode = detect_link_type(dandiset_path)
 
-    dandiset_metadata_filepath = op.join(dandiset_path, dandiset_metadata_file)
-    if op.lexists(dandiset_metadata_filepath):
-        if dandiset_id is not None:
-            lgr.info(f"We found {dandiset_metadata_filepath} present")
-    elif dandiset_id:
-        # TODO: request it from the server and store into dandiset.yaml
-        lgr.debug(
-            f"Requesting metadata for the dandiset {dandiset_id} and"
-            f" storing into {dandiset_metadata_filepath}"
-        )
-        # TODO
-        pass
-    elif files_mode == "simulate":
-        lgr.info(
-            f"In 'simulate' mode, since no {dandiset_metadata_filepath} found, "
-            f"we will use a template"
-        )
-        create_dataset_yml_template(dandiset_metadata_filepath)
-    elif files_mode == "dry":
-        lgr.info(f"We do nothing about {dandiset_metadata_filepath} in 'dry' mode.")
-        dandiset_metadata_filepath = None
-    else:
-        lgr.warning(
-            f"Found no {dandiset_metadata_filepath}. This file will lack mandatory metadata."
-            f" For upload later on, you must first use 'register'"
-            f" to obtain a dandiset id.  Meanwhile you could use 'simulate' mode"
-            f" to generate a sample dandiset.yaml if you are interested."
-        )
-    # If it was not decided not to do that above:
-    if dandiset_metadata_filepath:
-        populate_dataset_yml(dandiset_metadata_filepath, metadata)
-
     metadata = create_unique_filenames_from_metadata(metadata)
 
     # Verify first that the target paths do not exist yet, and fail if they do
@@ -349,7 +311,7 @@ def organize(
             if op.exists(d):
                 try:
                     os.rmdir(d)
-                    lgr.info(f"Removed mepty directory {d}")
+                    lgr.info(f"Removed empty directory {d}")
                 except Exception as exc:
                     lgr.debug("Failed to remove directory %s: %s", d, exc)
 
