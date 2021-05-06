@@ -156,7 +156,7 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
     r = clirunner.invoke(organize, cmd + ["--invalid", "warn"])
     assert r.exit_code == 0
     # this beast doesn't capture our logs ATM so cannot check anything there.
-    # At the end we endup only with dandiset.yaml and a single file
+    # At the end we endup only with a single file (we no longer produce dandiset.yaml)
     produced_paths = sorted(find_files(".*", paths=outdir))
     produced_nwb_paths = sorted(find_files(r"\.nwb\Z", paths=outdir))
     produced_relpaths = [op.relpath(p, outdir) for p in produced_paths]
@@ -164,7 +164,6 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
         assert produced_relpaths == []
     else:
         assert produced_relpaths == [
-            "dandiset.yaml",
             op.join("sub-RAT123", "sub-RAT123.nwb"),
         ]
         # and that all files are accessible (so in case of symlinking - no broken
@@ -188,13 +187,10 @@ def test_ambiguous(simple2_nwb, tmp_path, clirunner):
     produced_paths = sorted(find_files(".*", paths=outdir))
     produced_paths_rel = [op.relpath(p, outdir) for p in produced_paths]
     assert produced_paths_rel == sorted(
-        ["dandiset.yaml"]
-        + [
-            op.join(
-                "sub-mouse001", "sub-mouse001_obj-%s.nwb" % get_obj_id(get_object_id(f))
-            )
-            for f in [simple2_nwb, copy2]
-        ]
+        op.join(
+            "sub-mouse001", "sub-mouse001_obj-%s.nwb" % get_obj_id(get_object_id(f))
+        )
+        for f in [simple2_nwb, copy2]
     )
 
 
