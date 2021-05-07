@@ -21,6 +21,7 @@ def test_download_defaults(mocker):
         jobs=6,
         get_metadata=True,
         get_assets=True,
+        sync=False,
     )
 
 
@@ -36,6 +37,7 @@ def test_download_all_types(mocker):
         jobs=6,
         get_metadata=True,
         get_assets=True,
+        sync=False,
     )
 
 
@@ -51,6 +53,7 @@ def test_download_metadata_only(mocker):
         jobs=6,
         get_metadata=True,
         get_assets=False,
+        sync=False,
     )
 
 
@@ -66,6 +69,7 @@ def test_download_assets_only(mocker):
         jobs=6,
         get_metadata=False,
         get_assets=True,
+        sync=False,
     )
 
 
@@ -96,6 +100,7 @@ def test_download_gui_instance_in_dandiset(mocker):
         jobs=6,
         get_metadata=True,
         get_assets=True,
+        sync=False,
     )
 
 
@@ -117,6 +122,7 @@ def test_download_api_instance_in_dandiset(mocker):
         jobs=6,
         get_metadata=True,
         get_assets=True,
+        sync=False,
     )
 
 
@@ -142,6 +148,7 @@ def test_download_url_instance_match(mocker):
         jobs=6,
         get_metadata=True,
         get_assets=True,
+        sync=False,
     )
 
 

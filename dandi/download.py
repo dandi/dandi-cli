@@ -8,6 +8,7 @@ from shutil import rmtree
 import sys
 import time
 
+import click
 import humanize
 import requests
 
@@ -16,7 +17,7 @@ from .dandiarchive import DandisetURL, MultiAssetURL, SingleAssetURL, parse_dand
 from .dandiset import Dandiset
 from . import get_logger
 from .support.pyout import naturalsize
-from .utils import ensure_datetime, flattened, is_same_time
+from .utils import ensure_datetime, find_files, flattened, is_same_time, on_windows
 
 lgr = get_logger()
 
@@ -30,11 +31,30 @@ def download(
     jobs=1,
     get_metadata=True,
     get_assets=True,
+    sync=False,
 ):
     # TODO: unduplicate with upload. For now stole from that one
     # We will again use pyout to provide a neat table summarizing our progress
     # with upload etc
     from .support import pyout as pyouts
+
+    urls = flattened([urls])
+    if len(urls) > 1:
+        raise NotImplementedError("multiple URLs not supported")
+    if not urls:
+        # if no paths provided etc, we will download dandiset path
+        # we are at, BUT since we are not git -- we do not even know
+        # on which instance it exists!  Thus ATM we would do nothing but crash
+        raise NotImplementedError("No URLs were provided.  Cannot download anything")
+
+    parsed_url = parse_dandi_url(urls[0])
+
+    # TODO: if we are ALREADY in a dandiset - we can validate that it is the
+    # same dandiset and use that dandiset path as the one to download under
+    if isinstance(parsed_url, DandisetURL):
+        output_path = op.join(output_dir, parsed_url.dandiset_id)
+    else:
+        output_path = output_dir
 
     # dandi.cli.formatters are used in cmd_ls to provide switchable
     pyout_style = pyouts.get_style(hide_if_missing=False)
@@ -56,8 +76,8 @@ def download(
         kw["yield_generator_for_fields"] = rec_fields[1:]  # all but path
 
     gen_ = download_generator(
-        urls,
-        output_dir,
+        parsed_url,
+        output_path,
         existing=existing,
         get_metadata=get_metadata,
         get_assets=get_assets,
@@ -81,10 +101,38 @@ def download(
     else:
         raise ValueError(format)
 
+    if sync and not isinstance(parsed_url, SingleAssetURL):
+        client = parsed_url.get_client()
+        with client.session():
+            asset_paths = {asset["path"] for asset in parsed_url.get_assets(client)}
+        if isinstance(parsed_url, DandisetURL):
+            prefix = os.curdir
+            download_dir = output_path
+        elif isinstance(parsed_url, MultiAssetURL):
+            folder_path = op.normpath(parsed_url.path)
+            prefix = folder_path
+            download_dir = op.join(output_path, op.basename(folder_path))
+        else:
+            raise NotImplementedError(
+                f"Unexpected URL type {type(parsed_url).__name__}"
+            )
+        to_delete = []
+        for p in find_files(".*", download_dir, exclude_datalad=True):
+            if p == op.join(output_path, dandiset_metadata_file):
+                continue
+            a_path = op.normpath(op.join(prefix, op.relpath(p, download_dir)))
+            if on_windows:
+                a_path = a_path.replace("\\", "/")
+            if a_path not in asset_paths:
+                to_delete.append(p)
+        if to_delete and click.confirm(f"Delete {len(to_delete)} local assets?"):
+            for p in to_delete:
+                os.unlink(p)
+
 
 def download_generator(
-    urls,
-    output_dir,
+    parsed_url,
+    output_path,
     *,
     assets_it=None,
     yield_generator_for_fields=None,
@@ -107,38 +155,15 @@ def download_generator(
       summary statistics while already downloading.  TODO: reimplement properly!
 
     """
-    urls = flattened([urls])
-    if len(urls) > 1:
-        raise NotImplementedError("multiple URLs not supported")
-    if not urls:
-        # if no paths provided etc, we will download dandiset path
-        # we are at, BUT since we are not git -- we do not even know
-        # on which instance it exists!  Thus ATM we would do nothing but crash
-        raise NotImplementedError("No URLs were provided.  Cannot download anything")
 
-    parsed_url = parse_dandi_url(urls[0])
     with parsed_url.navigate() as (client, dandiset, assets):
         if assets_it:
             assets_it.gen = assets
             assets = assets_it
 
-        # TODO: if we are ALREADY in a dandiset - we can validate that it is the
-        # same dandiset and use that dandiset path as the one to download under
-        if dandiset:
-            identifier = Dandiset._get_identifier(dandiset)
-            if not identifier:
-                raise ValueError(f"Cannot deduce dandiset identifier from {dandiset}")
-            if isinstance(parsed_url, DandisetURL):
-                output_path = op.join(output_dir, identifier)
-                if get_metadata:
-                    for resp in _populate_dandiset_yaml(
-                        output_path, dandiset, existing
-                    ):
-                        yield dict(path=dandiset_metadata_file, **resp)
-            else:
-                output_path = output_dir
-        else:
-            output_path = output_dir
+        if isinstance(parsed_url, DandisetURL) and get_metadata:
+            for resp in _populate_dandiset_yaml(output_path, dandiset, existing):
+                yield dict(path=dandiset_metadata_file, **resp)
 
         # TODO: do analysis of assets for early detection of needed renames etc
         # to avoid any need for late treatment of existing and also for

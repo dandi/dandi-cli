@@ -180,3 +180,43 @@ def test_download_asset_id(local_dandi_api, text_dandiset, tmp_path):
         tmp_path / "coconut.txt"
     ]
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
+
+
+@pytest.mark.parametrize("confirm", [True, False])
+def test_download_sync(confirm, local_dandi_api, mocker, text_dandiset, tmp_path):
+    text_dandiset["client"].delete_asset_bypath(
+        text_dandiset["dandiset_id"], "draft", "file.txt"
+    )
+    dspath = tmp_path / text_dandiset["dandiset_id"]
+    os.rename(text_dandiset["dspath"], dspath)
+    confirm_mock = mocker.patch("click.confirm", return_value=confirm)
+    download(
+        f"dandi://{local_dandi_api['instance_id']}/{text_dandiset['dandiset_id']}",
+        tmp_path,
+        existing="overwrite",
+        sync=True,
+    )
+    confirm_mock.assert_called_with("Delete 1 local assets?")
+    if confirm:
+        assert not (dspath / "file.txt").exists()
+    else:
+        assert (dspath / "file.txt").exists()
+
+
+def test_download_sync_folder(local_dandi_api, mocker, text_dandiset):
+    text_dandiset["client"].delete_asset_bypath(
+        text_dandiset["dandiset_id"], "draft", "file.txt"
+    )
+    text_dandiset["client"].delete_asset_bypath(
+        text_dandiset["dandiset_id"], "draft", "subdir2/banana.txt"
+    )
+    confirm_mock = mocker.patch("click.confirm", return_value=True)
+    download(
+        f"dandi://{local_dandi_api['instance_id']}/{text_dandiset['dandiset_id']}/subdir2/",
+        text_dandiset["dspath"],
+        existing="overwrite",
+        sync=True,
+    )
+    confirm_mock.assert_called_with("Delete 1 local assets?")
+    assert (text_dandiset["dspath"] / "file.txt").exists()
+    assert not (text_dandiset["dspath"] / "subdir2" / "banana.txt").exists()
