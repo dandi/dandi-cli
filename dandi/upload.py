@@ -8,7 +8,7 @@ import click
 
 from .consts import dandiset_identifier_regex, dandiset_metadata_file
 from . import lgr
-from .utils import ensure_datetime, get_instance
+from .utils import ensure_datetime, get_instance, pluralize
 
 
 def upload(
@@ -357,6 +357,8 @@ def upload(
                 and not Path(dandiset.path, asset["path"]).exists()
             ):
                 to_delete.append(asset["asset_id"])
-        if to_delete and click.confirm(f"Delete {len(to_delete)} assets on server?"):
+        if to_delete and click.confirm(
+            f"Delete {pluralize(len(to_delete), 'asset')} on server?"
+        ):
             for asset_id in to_delete:
                 client.delete_asset(ds_identifier, "draft", asset_id)

@@ -708,3 +708,12 @@ def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
         except Exception as exc:
             lgr.debug("Failed to determine version of the %s: %s", mod_name, exc)
     return version
+
+
+def pluralize(n: int, word: str, plural: Optional[str] = None) -> str:
+    if n == 1:
+        return f"{n} {word}"
+    else:
+        if plural is None:
+            plural = word + "s"
+        return f"{n} {plural}"

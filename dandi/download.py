@@ -17,7 +17,14 @@ from .dandiarchive import DandisetURL, MultiAssetURL, SingleAssetURL, parse_dand
 from .dandiset import Dandiset
 from . import get_logger
 from .support.pyout import naturalsize
-from .utils import ensure_datetime, find_files, flattened, is_same_time, on_windows
+from .utils import (
+    ensure_datetime,
+    find_files,
+    flattened,
+    is_same_time,
+    on_windows,
+    pluralize,
+)
 
 lgr = get_logger()
 
@@ -125,7 +132,9 @@ def download(
                 a_path = a_path.replace("\\", "/")
             if a_path not in asset_paths:
                 to_delete.append(p)
-        if to_delete and click.confirm(f"Delete {len(to_delete)} local assets?"):
+        if to_delete and click.confirm(
+            f"Delete {pluralize(len(to_delete), 'local asset')}?"
+        ):
             for p in to_delete:
                 os.unlink(p)
 

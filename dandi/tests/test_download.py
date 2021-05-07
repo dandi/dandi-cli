@@ -196,7 +196,7 @@ def test_download_sync(confirm, local_dandi_api, mocker, text_dandiset, tmp_path
         existing="overwrite",
         sync=True,
     )
-    confirm_mock.assert_called_with("Delete 1 local assets?")
+    confirm_mock.assert_called_with("Delete 1 local asset?")
     if confirm:
         assert not (dspath / "file.txt").exists()
     else:
@@ -217,6 +217,6 @@ def test_download_sync_folder(local_dandi_api, mocker, text_dandiset):
         existing="overwrite",
         sync=True,
     )
-    confirm_mock.assert_called_with("Delete 1 local assets?")
+    confirm_mock.assert_called_with("Delete 1 local asset?")
     assert (text_dandiset["dspath"] / "file.txt").exists()
     assert not (text_dandiset["dspath"] / "subdir2" / "banana.txt").exists()

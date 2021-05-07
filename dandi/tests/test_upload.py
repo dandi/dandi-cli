@@ -158,7 +158,7 @@ def test_upload_sync(confirm, mocker, text_dandiset):
     (text_dandiset["dspath"] / "file.txt").unlink()
     confirm_mock = mocker.patch("click.confirm", return_value=confirm)
     text_dandiset["reupload"](sync=True)
-    confirm_mock.assert_called_with("Delete 1 assets on server?")
+    confirm_mock.assert_called_with("Delete 1 asset on server?")
     asset = text_dandiset["client"].get_asset_bypath(
         text_dandiset["dandiset_id"], "draft", "file.txt"
     )
@@ -173,7 +173,7 @@ def test_upload_sync_folder(mocker, text_dandiset):
     (text_dandiset["dspath"] / "subdir2" / "banana.txt").unlink()
     confirm_mock = mocker.patch("click.confirm", return_value=True)
     text_dandiset["reupload"](paths=[text_dandiset["dspath"] / "subdir2"], sync=True)
-    confirm_mock.assert_called_with("Delete 1 assets on server?")
+    confirm_mock.assert_called_with("Delete 1 asset on server?")
     assert (
         text_dandiset["client"].get_asset_bypath(
             text_dandiset["dandiset_id"], "draft", "file.txt"
