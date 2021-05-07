@@ -8,6 +8,7 @@ import pytest
 
 from ..consts import DANDI_SCHEMA_VERSION
 from ..metadata import (
+    extract_age,
     metadata2asset,
     migrate2newschema,
     parse_age,
@@ -16,7 +17,7 @@ from ..metadata import (
     validate_asset_json,
     validate_dandiset_json,
 )
-from ..models import BareAssetMeta, DandisetMeta
+from ..models import AgeReferenceType, BareAssetMeta, DandisetMeta
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
 
@@ -66,6 +67,25 @@ def test_parse_age(age, duration):
 )
 def test_timedelta2duration(td, duration):
     assert timedelta2duration(td) == duration
+
+
+def test_time_extract():
+    # if metadata contains date_of_birth and session_start_time,
+    # age will be calculated from the values
+    meta_birth = {
+        "session_start_time": "2020-08-31T12:21:28-04:00",
+        "age": "31 days",
+        "date_of_birth": "2020-07-31T12:20:00-04:00",
+    }
+    age_birth = extract_age(meta_birth)
+    assert age_birth.value == "P31DT88S"
+    assert age_birth.valueReference == AgeReferenceType("dandi:BirthReference")
+
+    # if metadata doesn't contain date_of_birth, the age field will be used
+    meta = {"session_start_time": "2020-08-31T12:21:28-04:00", "age": "31 days"}
+    age = extract_age(meta)
+    assert age.value == "P31D"
+    assert age.valueReference == AgeReferenceType("dandi:BirthReference")
 
 
 def test_metadata2asset(schema_dir):
