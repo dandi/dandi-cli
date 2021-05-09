@@ -830,7 +830,7 @@ class DandisetMeta(CommonModel, Identifiable):
 
     id: str = Field(
         description="Uniform resource identifier",
-        regex=r"^(dandi|DANDI):\d{6}(/draft|\d+\.\d+\.\d+)?$",
+        regex=r"^(dandi|DANDI):\d{6}(/(draft|\d+\.\d+\.\d+))$",
         readOnly=True,
     )
 
