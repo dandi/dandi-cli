@@ -5,7 +5,16 @@ import json
 import sys
 from typing import Any, Dict, List, Optional, Type, Union
 
-from pydantic import UUID4, BaseModel, ByteSize, EmailStr, Field, HttpUrl, validator
+from pydantic import (
+    UUID4,
+    AnyUrl,
+    BaseModel,
+    ByteSize,
+    EmailStr,
+    Field,
+    HttpUrl,
+    validator,
+)
 from ruamel import yaml
 
 from .consts import DANDI_SCHEMA_VERSION
@@ -222,16 +231,21 @@ class PropertyValue(DandiBaseModel):
 PropertyValue.update_forward_refs()
 
 Identifier = str
-ORCID = Identifier
-RORID = HttpUrl
-DANDI = Identifier
-RRID = Identifier
+ORCID = str
+RORID = str
+DANDI = str
+RRID = str
 
 
 class TypeModel(DandiBaseModel):
     """Base class for enumerated types"""
 
-    identifier: Optional[HttpUrl] = Field(nskey="schema")
+    identifier: Optional[Union[HttpUrl, str]] = Field(
+        description="The identifier can be any url or a compact URI, preferably"
+        " supported by identifiers.org",
+        regex=r"^[a-zA-Z0-9]+:[a-zA-Z0-9-/\.]+$",
+        nskey="schema",
+    )
     name: Optional[str] = Field(
         description="The name of the item.", max_length=150, nskey="schema"
     )
@@ -280,7 +294,7 @@ class Disorder(TypeModel):
 
     dxdate: Optional[List[Union[date, datetime]]] = Field(
         None,
-        title="Dates of diagnosis",
+        title="Dates of Diagnosis",
         description="Dates of diagnosis",
         nskey="dandi",
         rangeIncludes="schema:Date",
@@ -349,7 +363,7 @@ class Organization(Contributor):
         None,
         title="A ror.org identifier",
         description="Use an ror.org identifier for institutions",
-        pattern=r"^https://ror.org/[a-z0-9]+$",
+        regex=r"^https://ror.org/[a-z0-9]+$",
         nskey="schema",
     )
 
@@ -361,7 +375,10 @@ class Organization(Contributor):
         nskey="dandi",
     )
     contactPoint: Optional[List[ContactPoint]] = Field(
-        None, description="Contact for the organization", nskey="schema"
+        None,
+        title="Organization Contact Information",
+        description="Contact for the organization",
+        nskey="schema",
     )
     schemaKey: Literal["Organization"] = Field("Organization", readOnly=True)
     _ldmeta = {
@@ -375,7 +392,7 @@ class Person(Contributor):
         None,
         title="An ORCID Identifier",
         description="An ORCID (orcid.org) identifier for an individual",
-        pattern=r"^\d{4}-\d{4}-\d{4}-(\d{3}X|\d{4})$",
+        regex=r"^\d{4}-\d{4}-\d{4}-(\d{3}X|\d{4})$",
         nskey="schema",
     )
     name: str = Field(
@@ -396,14 +413,16 @@ class Person(Contributor):
 class Software(DandiBaseModel):
     identifier: Optional[RRID] = Field(
         None,
-        pattern=r"^RRID\:.*",
+        regex=r"^RRID\:.*",
         title="Research Resource Identifier",
         description="RRID of the software from scicrunch.org.",
         nskey="schema",
     )
     name: str = Field(nskey="schema")
     version: str = Field(nskey="schema")
-    url: Optional[HttpUrl] = Field(None, nskey="schema")
+    url: Optional[HttpUrl] = Field(
+        None, description="Web page for the software", nskey="schema"
+    )
     schemaKey: Literal["Software"] = Field("Software", readOnly=True)
 
     _ldmeta = {
@@ -434,7 +453,7 @@ class EthicsApproval(DandiBaseModel):
 
     identifier: Identifier = Field(
         nskey="schema",
-        title="Approved protocol identifier",
+        title="Approved Protocol Identifier",
         description="Approved Protocol identifier, often a number or alphanumeric string.",
     )
     contactPoint: ContactPoint = Field(
@@ -557,7 +576,7 @@ class Activity(DandiBaseModel):
 
 class Project(Activity):
     name: str = Field(
-        title="Title",
+        title="Name of Project",
         description="The name of the project that generated this Dandiset or asset.",
         max_length=150,
         nskey="schema",
@@ -570,7 +589,7 @@ class Project(Activity):
 
 class Session(Activity):
     name: str = Field(
-        title="Title",
+        title="Name of Session",
         description="The name of the logical session associated with the asset.",
         max_length=150,
         nskey="schema",
@@ -758,11 +777,15 @@ class CommonModel(DandiBaseModel):
     studyTarget: Optional[List[str]] = Field(
         None, description="What the study is related to", nskey="dandi"
     )
-    license: List[LicenseType] = Field(description="License of item.", nskey="schema")
+    license: List[LicenseType] = Field(
+        description="Licenses associated with the item.", nskey="schema"
+    )
     protocol: Optional[List[HttpUrl]] = Field(
         None, description="A list of protocol.io URLs", nskey="dandi"
     )
-    ethicsApproval: Optional[List[EthicsApproval]] = Field(None, nskey="dandi")
+    ethicsApproval: Optional[List[EthicsApproval]] = Field(
+        None, title="Ethics approvals", nskey="dandi"
+    )
     keywords: Optional[List[str]] = Field(
         None,
         description="Keywords or tags used to describe "
@@ -775,7 +798,7 @@ class CommonModel(DandiBaseModel):
 
     # Linking to this dandiset or the larger thing
     access: List[AccessRequirements] = Field(
-        title="Access Type",
+        title="Access Information",
         default_factory=lambda: [AccessRequirements(status=AccessType.Open)],
         nskey="dandi",
     )
@@ -814,13 +837,17 @@ class DandisetMeta(CommonModel, Identifiable):
             raise ValueError("At least one contributor must have role ContactPerson")
         return values
 
-    id: str = Field(description="Uniform resource identifier", readOnly=True)
+    id: str = Field(
+        description="Uniform resource identifier",
+        regex=r"^(dandi|DANDI):\d{6}(/draft|\d+\.\d+\.\d+)?$",
+        readOnly=True,
+    )
 
     identifier: DANDI = Field(
         readOnly=True,
         title="Dandiset identifier",
         description="A Dandiset identifier that can be resolved by identifiers.org",
-        pattern=r"^DANDI\:\d{6}$",
+        regex=r"^DANDI\:\d{6}$",
         nskey="schema",
     )
     name: str = Field(
@@ -833,7 +860,7 @@ class DandisetMeta(CommonModel, Identifiable):
         description="A description of the Dandiset", max_length=3000, nskey="schema"
     )
     contributor: List[Union[Person, Organization]] = Field(
-        title="Dandiset contributors",
+        title="Dandiset Contributors",
         description="People or Organizations that have contributed to this Dandiset.",
         nskey="schema",
         min_items=1,
@@ -853,19 +880,11 @@ class DandisetMeta(CommonModel, Identifiable):
     # From server (requested by users even for drafts)
     manifestLocation: TempOptional[List[HttpUrl]] = Field(readOnly=True, nskey="dandi")
 
-    # On publish
-    version: TempOptional[str] = Field(readOnly=True, nskey="schema")
-    doi: Optional[str] = Field(
-        None,
-        title="DOI",
-        readOnly=True,
-        pattern=r"^10\.[A-Za-z0-9.\/-]+",
-        nskey="dandi",
-    )
+    version: str = Field(readOnly=True, nskey="schema")
 
     wasGeneratedBy: Optional[List[Project]] = Field(
         None,
-        title="Name of the project",
+        title="Associated Projects",
         description="Describe the project(s) that generated this Dandiset",
         nskey="prov",
     )
@@ -965,9 +984,10 @@ class PublishedDandisetMeta(DandisetMeta, Publishable):
         None,
         title="DOI",
         readOnly=True,
-        pattern=r"^10\.[A-Za-z0-9.\/-]+",
+        regex=r"^10\.[A-Za-z0-9.\/-]+",
         nskey="dandi",
     )
+    assetsSummary: AssetsSummary = Field(readOnly=True, nskey="dandi")
 
 
 class PublishedAssetMeta(AssetMeta, Publishable):

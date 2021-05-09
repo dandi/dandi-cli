@@ -9,7 +9,6 @@ import pytest
 from ..consts import DANDI_SCHEMA_VERSION
 from ..metadata import (
     metadata2asset,
-    migrate2newschema,
     parse_age,
     publish_model_schemata,
     timedelta2duration,
@@ -156,15 +155,8 @@ def test_metadata2asset_simple1(schema_dir):
 
 
 def test_dandimeta_migration(schema_dir):
-    with (METADATA_DIR / "dandimeta_migration.old.json").open() as fp:
-        data_orig = json.load(fp)
-    data_orig_dc = deepcopy(data_orig)
-    data = migrate2newschema(data_orig)
-    # Check that data_orig has not changed after migrate2newschema:
-    assert data_orig_dc == data_orig
     with (METADATA_DIR / "dandimeta_migration.new.json").open() as fp:
         data_as_dict = json.load(fp)
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
-    assert data == DandisetMeta(**data_as_dict)
-    assert data.json_dict() == data_as_dict
+    DandisetMeta(**data_as_dict)
     validate_dandiset_json(data_as_dict, schema_dir)
