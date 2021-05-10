@@ -708,3 +708,41 @@ def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
         except Exception as exc:
             lgr.debug("Failed to determine version of the %s: %s", mod_name, exc)
     return version
+
+
+def pluralize(n: int, word: str, plural: Optional[str] = None) -> str:
+    if n == 1:
+        return f"{n} {word}"
+    else:
+        if plural is None:
+            plural = word + "s"
+        return f"{n} {plural}"
+
+
+def abbrev_prompt(msg: str, *options: str) -> str:
+    """
+    Prompt the user to input one of several options, which can be entered as
+    either a whole word or the first letter of a word.  All input is handled
+    case-insensitively.  Returns the complete word corresponding to the input,
+    lowercased.
+
+    For example, ``abbrev_prompt("Delete assets?", "yes", "no", "list")``
+    prompts the user with the message ``Delete assets? ([y]es/[n]o/[l]ist): ``
+    and accepts as input ``y`, ``yes``, ``n``, ``no``, ``l``, and ``list``.
+    """
+    options_map = {}
+    optstrs = []
+    for opt in options:
+        opt = opt.lower()
+        if opt in options_map:
+            raise ValueError(f"Repeated option: {opt}")
+        elif opt[0] in options_map:
+            raise ValueError(f"Repeated abbreviated option: {opt[0]}")
+        options_map[opt] = opt
+        options_map[opt[0]] = opt
+        optstrs.append(f"[{opt[0]}]{opt[1:]}")
+    msg += " (" + "/".join(optstrs) + "): "
+    while True:
+        answer = input(msg).lower()
+        if answer in options_map:
+            return options_map[answer]

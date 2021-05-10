@@ -180,3 +180,66 @@ def test_download_asset_id(local_dandi_api, text_dandiset, tmp_path):
         tmp_path / "coconut.txt"
     ]
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
+
+
+@pytest.mark.parametrize("confirm", [True, False])
+def test_download_sync(confirm, local_dandi_api, mocker, text_dandiset, tmp_path):
+    text_dandiset["client"].delete_asset_bypath(
+        text_dandiset["dandiset_id"], "draft", "file.txt"
+    )
+    dspath = tmp_path / text_dandiset["dandiset_id"]
+    os.rename(text_dandiset["dspath"], dspath)
+    confirm_mock = mocker.patch(
+        "dandi.download.abbrev_prompt", return_value="yes" if confirm else "no"
+    )
+    download(
+        f"dandi://{local_dandi_api['instance_id']}/{text_dandiset['dandiset_id']}",
+        tmp_path,
+        existing="overwrite",
+        sync=True,
+    )
+    confirm_mock.assert_called_with("Delete 1 local asset?", "yes", "no", "list")
+    if confirm:
+        assert not (dspath / "file.txt").exists()
+    else:
+        assert (dspath / "file.txt").exists()
+
+
+def test_download_sync_folder(local_dandi_api, mocker, text_dandiset):
+    text_dandiset["client"].delete_asset_bypath(
+        text_dandiset["dandiset_id"], "draft", "file.txt"
+    )
+    text_dandiset["client"].delete_asset_bypath(
+        text_dandiset["dandiset_id"], "draft", "subdir2/banana.txt"
+    )
+    confirm_mock = mocker.patch("dandi.download.abbrev_prompt", return_value="yes")
+    download(
+        f"dandi://{local_dandi_api['instance_id']}/{text_dandiset['dandiset_id']}/subdir2/",
+        text_dandiset["dspath"],
+        existing="overwrite",
+        sync=True,
+    )
+    confirm_mock.assert_called_with("Delete 1 local asset?", "yes", "no", "list")
+    assert (text_dandiset["dspath"] / "file.txt").exists()
+    assert not (text_dandiset["dspath"] / "subdir2" / "banana.txt").exists()
+
+
+def test_download_sync_list(capsys, local_dandi_api, mocker, text_dandiset, tmp_path):
+    text_dandiset["client"].delete_asset_bypath(
+        text_dandiset["dandiset_id"], "draft", "file.txt"
+    )
+    dspath = tmp_path / text_dandiset["dandiset_id"]
+    os.rename(text_dandiset["dspath"], dspath)
+    input_mock = mocker.patch("dandi.utils.input", side_effect=["list", "yes"])
+    download(
+        f"dandi://{local_dandi_api['instance_id']}/{text_dandiset['dandiset_id']}",
+        tmp_path,
+        existing="overwrite",
+        sync=True,
+    )
+    assert not (dspath / "file.txt").exists()
+    assert input_mock.call_args_list == [
+        mocker.call("Delete 1 local asset? ([y]es/[n]o/[l]ist): "),
+        mocker.call("Delete 1 local asset? ([y]es/[n]o/[l]ist): "),
+    ]
+    assert capsys.readouterr().out.splitlines()[-1] == str(dspath / "file.txt")
