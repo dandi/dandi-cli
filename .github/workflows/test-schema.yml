@@ -35,12 +35,12 @@ jobs:
           repository: dandi/schema
           path: schema
 
-      - name: Generate model schemata
-        run: python dandi/tools/pubschemata.py schema/releases
-
-      - name: Commit changes
+      - name: Test for unversioned changes
         run: |
-          if git status --porcelain | grep -q "^.M"
+          dirs="$(echo releases/*)"
+          python ../dandi/tools/pubschemata.py releases
+          git add -A releases
+          if git diff --quiet --cached $dirs
           then echo "[ERROR] Existing schema files modified instead of creating a new version"
                exit 1
           fi
