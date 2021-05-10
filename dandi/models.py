@@ -894,6 +894,9 @@ class BareAssetMeta(CommonModel):
         title="File Encoding Format", nskey="schema"
     )
     digest: Dict[DigestType, str] = Field(default_factory=dict)
+    dateCreated: Optional[datetime] = Field(
+        nskey="schema", title="Asset (file or metadata) creation date and time"
+    )
     dateModified: Optional[datetime] = Field(
         nskey="schema", title="Asset (file or metadata) modification date and time"
     )
