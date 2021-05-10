@@ -66,7 +66,7 @@ def validate_dandiset_yaml(filepath, schema_version=None, devel_debug=False):
                 f"Unsupported schema version: {schema_version}; expected {current_version}"
             )
         try:
-            DandisetMeta(**meta.dict())
+            DandisetMeta(**meta)
         except ValidationError as e:
             if devel_debug:
                 raise
@@ -83,7 +83,7 @@ def validate_dandiset_yaml(filepath, schema_version=None, devel_debug=False):
                 e,
                 extra={"validating": True},
             )
-            return [f"Failed to convert metadata: {e}"]
+            return [f"Failed to initialize Dandiset meta: {e}"]
         return []
 
 
