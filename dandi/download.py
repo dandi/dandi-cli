@@ -8,7 +8,6 @@ from shutil import rmtree
 import sys
 import time
 
-import click
 import humanize
 import requests
 
@@ -18,6 +17,7 @@ from .dandiset import Dandiset
 from . import get_logger
 from .support.pyout import naturalsize
 from .utils import (
+    abbrev_prompt,
     ensure_datetime,
     find_files,
     flattened,
@@ -132,11 +132,23 @@ def download(
                 a_path = a_path.replace("\\", "/")
             if a_path not in asset_paths:
                 to_delete.append(p)
-        if to_delete and click.confirm(
-            f"Delete {pluralize(len(to_delete), 'local asset')}?"
-        ):
-            for p in to_delete:
-                os.unlink(p)
+        if to_delete:
+            while True:
+                opt = abbrev_prompt(
+                    f"Delete {pluralize(len(to_delete), 'local asset')}?",
+                    "yes",
+                    "no",
+                    "list",
+                )
+                if opt == "list":
+                    for p in to_delete:
+                        print(p)
+                elif opt == "yes":
+                    for p in to_delete:
+                        os.unlink(p)
+                    break
+                else:
+                    break
 
 
 def download_generator(
