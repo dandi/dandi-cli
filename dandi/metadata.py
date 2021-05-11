@@ -184,7 +184,7 @@ def parse_age(age):
     """ parsing age field and converting into an ISO 8601 duration"""
 
     if not age:
-        raise ValueError(f"age is empty")
+        raise ValueError("age is empty")
 
     age_orig = age
     # removing some symbols
