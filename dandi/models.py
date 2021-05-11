@@ -768,8 +768,8 @@ class CommonModel(DandiBaseModel):
     studyTarget: Optional[List[str]] = Field(
         None, description="What the study is related to", nskey="dandi"
     )
-    license: List[LicenseType] = Field(
-        description="Licenses associated with the item.", nskey="schema"
+    license: Optional[List[LicenseType]] = Field(
+        None, description="Licenses associated with the item.", nskey="schema"
     )
     protocol: Optional[List[HttpUrl]] = Field(
         None, description="A list of protocol.io URLs", nskey="dandi"
@@ -863,6 +863,10 @@ class DandisetMeta(CommonModel, Identifiable):
         nskey="schema", title="Last modification date and time", readOnly=True
     )
 
+    license: List[LicenseType] = Field(
+        min_items=1, description="Licenses associated with the item.", nskey="schema"
+    )
+
     citation: TempOptional[str] = Field(readOnly=True, nskey="schema")
 
     # From assets
@@ -892,12 +896,6 @@ class BareAssetMeta(CommonModel):
 
     Derived from C2M2 (Level 0 and 1) and schema.org
     """
-
-    # Overrides CommonModel.license
-    # TODO: https://github.com/NeurodataWithoutBorders/nwb-schema/issues/320
-    license: Optional[List[LicenseType]] = Field(
-        None, description="License of item", nskey="schema"
-    )
 
     contentSize: ByteSize = Field(nskey="schema")
     encodingFormat: Union[HttpUrl, str] = Field(
