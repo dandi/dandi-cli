@@ -97,6 +97,9 @@ def model2graph(model):
     return jsonld_doc
 
 
+if len(AccessTypeDict["@graph"]) > 2:
+    AccessTypeDict["@graph"].pop()
+    AccessTypeDict["@graph"].pop()
 AccessType = create_enum(AccessTypeDict)
 RoleType = create_enum(RoleTypeDict)
 RelationType = create_enum(RelationTypeDict)
