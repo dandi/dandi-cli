@@ -49,6 +49,11 @@ def schema_dir(tmp_path_factory):
         ("7 D", "P7D"),
         ("7d", "P7D"),
         ("7D", "P7D"),
+        ("P136D", "P136D"),
+        ("P22265.0D", "P22265D"),
+        ("349 days, 4 hours", "P349DT4H"),
+        ("342 days, 4:30:02", "P342DT4H30M2S"),
+        ("342 days, 00:00:00", "P342DT0H0M0S"),
     ],
 )
 def test_parse_age(age, duration):
