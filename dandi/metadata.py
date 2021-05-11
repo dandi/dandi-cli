@@ -133,12 +133,13 @@ def _parse_iso8601_part(age, unit):
 
 
 def _parse_age_re(age, unit, tp="date"):
+    """ finding parts that have <value> <unit> in various forms"""
     import re
 
     if unit == "Y":
         pat_un = "y(ear)?"
     elif unit == "M" and tp == "date":
-        pat_un = "(month|mon|m)"
+        pat_un = "(month|mon|mo|m)"
     elif unit == "W":
         pat_un = "w(eek)?"
     elif unit == "D":
@@ -151,10 +152,14 @@ def _parse_age_re(age, unit, tp="date"):
         pat_un = "(sec|s(econd)?)"
 
     pattern = rf"(\d+\.?\d*)\s*({pat_un}s?)"
-
     matchstr = re.match(pattern, age, flags=re.I)
     if matchstr is None:
-        return age, None
+        # checking pattern with "unit" word
+        pattern_unit = rf"(\d+\.?\d*)\s*units?:?\s*({pat_un}s?)"
+        matchstr = re.match(pattern_unit, age, flags=re.I)
+        if matchstr is None:
+            return age, None
+
     if "." in matchstr.group(1):
         qty = float(matchstr.group(1))
         if int(qty) == qty:
@@ -169,6 +174,7 @@ def _parse_age_re(age, unit, tp="date"):
 
 
 def _parse_hours_format(age):
+    """ parsing format 0:30:10"""
     pattern = r"\s*(\d\d?):(\d\d):(\d\d)"
     matchstr = re.match(pattern, age, flags=re.I)
     if matchstr:
@@ -181,7 +187,17 @@ def _parse_hours_format(age):
 
 
 def parse_age(age):
-    """ parsing age field and converting into an ISO 8601 duration"""
+    """
+    Parsing age field and converting into an ISO 8601 duration
+
+    Parameters
+    ----------
+    age : str
+
+    Returns
+    -------
+    str
+    """
 
     if not age:
         raise ValueError("age is empty")
@@ -191,6 +207,9 @@ def parse_age(age):
     for symb in [",", ";", "(", ")"]:
         age = age.replace(symb, " ")
     age = age.strip()
+
+    if not age:
+        raise ValueError("age doesn't have any information")
 
     if age[0] == "P":
         age_f = _parse_iso8601(age)
@@ -220,32 +239,11 @@ def parse_age(age):
 
         age_f = date_f + time_f
         if set(age) - {" ", ".", ",", ":", ";"}:
-            raise ValueError(f"not able to parse the age: {age_orig}")
+            raise ValueError(
+                f"not able to parse the age: {age_orig}, no rules to convert: {age}"
+            )
 
-    if not age_f:
-        raise ValueError(f"not able to parse the age: {age_orig}")
     return "".join(age_f)
-
-
-# def parse_age(age):
-#     """
-#     Convert a human-friendly duration string into an ISO 8601 duration
-#
-#     Parameters
-#     ----------
-#     age : str
-#
-#     Returns
-#     -------
-#     str
-#     """
-#     m = re.fullmatch(r"(\d+)\s*(y(ear)?|m(onth)?|w(eek)?|d(ay)?)s?", age, flags=re.I)
-#     if m:
-#         qty = int(m.group(1))
-#         unit = m.group(2)[0].upper()
-#         return f"P{qty}{unit}"
-#     else:
-#         raise ValueError(age)
 
 
 def extract_age(metadata):
