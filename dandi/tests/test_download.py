@@ -229,7 +229,7 @@ def test_download_sync_list(capsys, local_dandi_api, mocker, text_dandiset, tmp_
         text_dandiset["dandiset_id"], "draft", "file.txt"
     )
     dspath = tmp_path / text_dandiset["dandiset_id"]
-    os.rename(text_dandiset["dspath"], dspath)
+    text_dandiset["dspath"].rename(dspath)
     input_mock = mocker.patch("dandi.utils.input", side_effect=["list", "yes"])
     download(
         f"dandi://{local_dandi_api['instance_id']}/{text_dandiset['dandiset_id']}",
@@ -243,3 +243,19 @@ def test_download_sync_list(capsys, local_dandi_api, mocker, text_dandiset, tmp_
         mocker.call("Delete 1 local asset? ([y]es/[n]o/[l]ist): "),
     ]
     assert capsys.readouterr().out.splitlines()[-1] == str(dspath / "file.txt")
+
+
+def test_download_sync_rename(local_dandi_api, mocker, text_dandiset, tmp_path):
+    dspath = tmp_path / text_dandiset["dandiset_id"]
+    text_dandiset["dspath"].rename(dspath)
+    (dspath / "file.txt").rename(dspath / "foo.txt")
+    rename_spy = mocker.spy(os, "rename")
+    download(
+        f"dandi://{local_dandi_api['instance_id']}/{text_dandiset['dandiset_id']}",
+        tmp_path,
+        existing="skip",
+        sync=True,
+    )
+    rename_spy.assert_called_once_with(
+        str(dspath / "foo.txt"), str(dspath / "file.txt")
+    )
