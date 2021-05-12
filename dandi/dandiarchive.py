@@ -320,12 +320,12 @@ class _dandi_url_parser:
         ),
         (
             re.compile(
-                rf"{server_grp}#/(?P<asset_type>dandiset)/{dandiset_id_grp}"
+                rf"{server_grp}(#/)?(?P<asset_type>dandiset)/{dandiset_id_grp}"
                 r"(/(?P<version>[.0-9]{5,}|draft))?"
                 r"(/files(\?location=(?P<location>.*)?)?)?"
             ),
             {},
-            "https://<server>[/api]/#/dandiset/<dandiset id>[/<version>]"
+            "https://<server>[/api]/[#/]dandiset/<dandiset id>[/<version>]"
             "[/files[?location=<path>]]",
         ),
         # PRs are also on netlify - so above takes precedence. TODO: make more
