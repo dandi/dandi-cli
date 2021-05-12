@@ -28,7 +28,23 @@ from dandi.tests.skip import mark
             ),
         ),
         (
+            "https://gui.dandiarchive.org/#/dandiset/000001/",
+            DandisetURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000001",
+                version_id=None,
+            ),
+        ),
+        (
             "https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302",
+            DandisetURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000001",
+                version_id="0.201104.2302",
+            ),
+        ),
+        (
+            "https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302/",
             DandisetURL(
                 api_url=known_instances["dandi"].api,
                 dandiset_id="000001",
