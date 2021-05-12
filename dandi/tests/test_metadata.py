@@ -53,7 +53,8 @@ def schema_dir(tmp_path_factory):
         ("7 day", "P7D"),
         ("7 Days", "P7D"),
         ("P136D", "P136D"),
-        ("P22265.0D", "P22265D"),
+        ("P22265.0D", "P22265.0D"),  # "P22265.D" is not allowed
+        ("P22265,0D", "P22265.0D"),
         ("349 days, 4 hours", "P349DT4H"),
         ("12 weeks, 13 d; 10 hours, 30 min 1sec", "P12W13DT10H30M1S"),
         ("342 days, 4:30:02", "P342DT4H30M2S"),

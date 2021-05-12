@@ -97,39 +97,26 @@ def get_metadata(path):
 
 def _parse_iso8601(age):
     """ checking if age is proper iso8601, additional formatting"""
-    if "T" in age[1:]:
-        date, time = age[1:].split("T")
-    else:
-        date, time = age[1:], ""
-    age_frm = ["P"]
+    # allowing for comma instead of ., e.g. P1,5D
+    age = age.replace(",", ".")
+    pattern = (
+        "^P(?!$)(\\d+(?:\\.\\d+)?Y)?(\\d+(?:\\.\\d+)?M)?(\\d+(?:\\.\\d+)?W)?(\\d+(?:\\.\\d+)?D)?"
+        "(T(?=\\d)(\\d+(?:\\.\\d+)?H)?(\\d+(?:\\.\\d+)?M)?(\\d+(?:\\.\\d+)?S)?)?$"
+    )
 
-    if date:
-        for unit in ["Y", "M", "W", "D"]:
-            if unit in date:
-                date, part_frm = _parse_iso8601_part(date, unit)
-                age_frm.append(part_frm)
-        if date:  # if there is still anything left
-            raise ValueError(f"ISO 8601 expected, but {age} was received")
-    if time:
-        age_frm.append("T")
-        for unit in ["H", "M", "S"]:
-            if unit in time:
-                time, part_frm = _parse_iso8601_part(time, unit)
-                age_frm.append(part_frm)
-        if date:  # if there is still anything left
-            raise ValueError(f"ISO 8601 expected, but {age} was received")
-    if age_frm == ["P"]:
+    matchstr = re.match(pattern, age, flags=re.I)
+    if matchstr:
+        age_rem = age.replace(matchstr.group(0), "")
+        if age_rem:
+            raise ValueError(
+                f"ISO 8601 expected, but {age} was received,"
+                f"no rules to parse {age_rem}"
+            )
+        age_frm = [matchstr.group(i) for i in range(1, 6) if matchstr.group(i)]
+        age_frm = ["P"] + age_frm
+        return age_frm
+    else:
         raise ValueError(f"ISO 8601 expected, but {age} was received")
-    return age_frm
-
-
-def _parse_iso8601_part(age, unit):
-    # splitting to value and remaining part
-    val, age_rem = age.split(unit)
-    if float(val) == int(float(val)):
-        return age_rem, f"{int(float(val))}{unit}"
-    else:
-        return age_rem, f"{val}{unit}"
 
 
 def _parse_age_re(age, unit, tp="date"):
@@ -203,17 +190,18 @@ def parse_age(age):
         raise ValueError("age is empty")
 
     age_orig = age
-    # removing some symbols
-    for symb in [",", ";", "(", ")"]:
-        age = age.replace(symb, " ")
     age = age.strip()
-
-    if not age:
-        raise ValueError("age doesn't have any information")
 
     if age[0] == "P":
         age_f = _parse_iso8601(age)
     else:  # trying to figure out any free form
+        # removing some symbols
+        for symb in [",", ";", "(", ")"]:
+            age = age.replace(symb, " ")
+        age = age.strip()
+        if not age:
+            raise ValueError("age doesn't have any information")
+
         date_f = []
         for unit in ["Y", "M", "W", "D"]:
             if not age:
