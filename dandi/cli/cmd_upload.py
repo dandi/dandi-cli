@@ -51,6 +51,9 @@ class IntColonInt(click.ParamType):
     help="Number of files to upload in parallel and, optionally, number of upload threads per file",
 )
 @click.option(
+    "--sync", is_flag=True, help="Delete assets on the server that do not exist locally"
+)
+@click.option(
     "--validation",
     help="Data must pass validation before the upload.  Use of this option is highly discouraged.",
     type=click.Choice(["require", "skip", "ignore"]),
@@ -80,6 +83,7 @@ class IntColonInt(click.ParamType):
 def upload(
     paths,
     jobs,
+    sync,
     existing="refresh",
     validation="require",
     dandiset_path=None,
@@ -121,4 +125,5 @@ def upload(
         devel_debug=devel_debug,
         jobs=jobs,
         jobs_per_file=jobs_per_file,
+        sync=sync,
     )

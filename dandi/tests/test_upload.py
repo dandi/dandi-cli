@@ -151,3 +151,38 @@ def test_upload_download_small_file(contents, local_dandi_api, monkeypatch, tmp_
         download_dir / dandiset_id / "file.txt",
     ]
     assert files[1].read_bytes() == contents
+
+
+@pytest.mark.parametrize("confirm", [True, False])
+def test_upload_sync(confirm, mocker, text_dandiset):
+    (text_dandiset["dspath"] / "file.txt").unlink()
+    confirm_mock = mocker.patch("click.confirm", return_value=confirm)
+    text_dandiset["reupload"](sync=True)
+    confirm_mock.assert_called_with("Delete 1 asset on server?")
+    asset = text_dandiset["client"].get_asset_bypath(
+        text_dandiset["dandiset_id"], "draft", "file.txt"
+    )
+    if confirm:
+        assert asset is None
+    else:
+        assert asset is not None
+
+
+def test_upload_sync_folder(mocker, text_dandiset):
+    (text_dandiset["dspath"] / "file.txt").unlink()
+    (text_dandiset["dspath"] / "subdir2" / "banana.txt").unlink()
+    confirm_mock = mocker.patch("click.confirm", return_value=True)
+    text_dandiset["reupload"](paths=[text_dandiset["dspath"] / "subdir2"], sync=True)
+    confirm_mock.assert_called_with("Delete 1 asset on server?")
+    assert (
+        text_dandiset["client"].get_asset_bypath(
+            text_dandiset["dandiset_id"], "draft", "file.txt"
+        )
+        is not None
+    )
+    assert (
+        text_dandiset["client"].get_asset_bypath(
+            text_dandiset["dandiset_id"], "draft", "subdir2/banana.txt"
+        )
+        is None
+    )
