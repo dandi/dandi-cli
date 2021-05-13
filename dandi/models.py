@@ -113,7 +113,7 @@ def diff_models(model1, model2):
             print(f"{field} is different")
 
 
-DATACITE_CONTRTYPE = [
+DATACITE_CONTRTYPE = {
     "ContactPerson",
     "DataCollector",
     "DataCurator",
@@ -135,10 +135,10 @@ DATACITE_CONTRTYPE = [
     "Supervisor",
     "WorkPackageLeader",
     "Other",
-]
+}
 
 
-DATACITE_IDENTYPE = [
+DATACITE_IDENTYPE = {
     "ARK",
     "arXiv",
     "bibcode",
@@ -158,7 +158,7 @@ DATACITE_IDENTYPE = [
     "URL",
     "URN",
     "w3id",
-]
+}
 DATACITE_MAP = dict([(el.lower(), el) for el in DATACITE_IDENTYPE])
 
 
@@ -182,7 +182,7 @@ def to_datacite(meta):
         {"description": meta.description, "descriptionType": "Abstract"}
     ]
     attributes["publisher"] = "DANDI Archive"
-    attributes["publicationYear"] = str(meta.datePublished)
+    attributes["publicationYear"] = str(meta.datePublished.year)
     # not sure about it dandi-api had "resourceTypeGeneral": "NWB"
     attributes["types"] = {"resourceType": "NWB", "resourceTypeGeneral": "Dataset"}
     # meta has also attribute url, but it often empty
@@ -271,7 +271,7 @@ def to_datacite(meta):
                 if ident_tp.lower() in DATACITE_MAP:
                     ident_tp = DATACITE_MAP[ident_tp.lower()]
                 else:
-                    raise Exception(
+                    raise ValueError(
                         f"identifier has to be from the list: {DATACITE_IDENTYPE}, "
                         f"but {ident_tp} provided"
                     )
