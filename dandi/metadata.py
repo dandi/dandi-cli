@@ -431,6 +431,14 @@ def generate_context():
                         fields[name]["@type"] = "@id"
     for item in models.DigestType:
         fields[item.value] = {"@id": item.value, "@nest": "digest"}
+    fields["Dandiset"] = {
+        "@id": "dandi:Dandiset",
+        "rdfs:subClassOf": ["schema:Dataset", "prov:Entity"],
+    }
+    fields["Asset"] = {
+        "@id": "dandi:Asset",
+        "rdfs:subClassOf": ["schema:CreativeWork", "prov:Entity"],
+    }
     return {"@context": fields}
 
 

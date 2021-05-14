@@ -887,6 +887,8 @@ class DandisetMeta(CommonModel, Identifiable):
         nskey="prov",
     )
 
+    schemaKey: Literal["Dandiset"] = Field("Dandiset", readOnly=True)
+
     _ldmeta = {
         "rdfs:subClassOf": ["schema:Dataset", "prov:Entity"],
         "rdfs:label": "Information about the dataset",
@@ -940,6 +942,8 @@ class BareAssetMeta(CommonModel):
         description="Describe the session, project or activity that generated this asset",
         nskey="prov",
     )
+
+    schemaKey: Literal["Asset"] = Field("Asset", readOnly=True)
 
     _ldmeta = {
         "rdfs:subClassOf": ["schema:CreativeWork", "prov:Entity"],

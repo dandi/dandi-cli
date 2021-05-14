@@ -89,7 +89,7 @@ known_instances = {
     "dandi-staging": dandi_instance(
         "https://gui-staging.dandiarchive.org",
         None,
-        "https://api-staging.dandiarchive.org/api"
+        "https://api-staging.dandiarchive.org/api",
     ),
     "dandi-api-local-docker-tests": dandi_instance(
         None, None, f"http://{instancehost}:8000/api"
@@ -116,4 +116,4 @@ file_operation_modes = [
 # ATM used only in download
 MAX_CHUNK_SIZE = int(os.environ.get("DANDI_MAX_CHUNK_SIZE", 1024 * 1024 * 8))  # 64
 
-DANDI_SCHEMA_VERSION = "0.3.0"
+DANDI_SCHEMA_VERSION = "0.3.1"
