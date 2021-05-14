@@ -38,9 +38,11 @@ jobs:
       - name: Test for unversioned changes
         run: |
           dirs="$(echo releases/*)"
+          echo "Following directories will be checked for differences: $dirs"
           python ../dandi/tools/pubschemata.py releases
+          git status
           git add -A releases
-          if git diff --quiet --cached $dirs
+          if ! git diff --cached --exit-code $dirs
           then echo "[ERROR] Existing schema files modified instead of creating a new version"
                exit 1
           fi

@@ -28,8 +28,8 @@ def test_asset():
             AccessType,
             {
                 "Open": "dandi:Open",
-                "Embargoed": "dandi:Embargoed",
-                "Restricted": "dandi:Restricted",
+                # "Embargoed": "dandi:Embargoed",
+                # "Restricted": "dandi:Restricted",
             },
         ),
         (
