@@ -75,5 +75,6 @@
       },
       "schemaKey": "Participant"
     }
-  ]
+  ],
+  "schemaKey": "Asset"
 }

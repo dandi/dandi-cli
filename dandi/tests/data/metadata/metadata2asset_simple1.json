@@ -38,5 +38,6 @@
         "identifier": "sub-01",
         "schemaKey": "Participant"
     }
-  ]
+  ],
+  "schemaKey": "Asset"
 }
