@@ -42,7 +42,7 @@ jobs:
           python ../dandi/tools/pubschemata.py releases
           git status
           git add -A releases
-          if git diff --cached $dirs
+          if ! git diff --cached --exit-code $dirs
           then echo "[ERROR] Existing schema files modified instead of creating a new version"
                exit 1
           fi
