@@ -213,6 +213,28 @@ def client():
     return DandiAPIClient("https://api.dandiarchive.org/api/")
 
 
+def _basic_publishmeta(dandi_id, version="v.0", prefix="10.80507"):
+    """
+    adding basic info required by PublishedDandisetMeta in addition to
+    fields required by DandisetMeta
+    """
+    publish_meta = {
+        "datePublished": str(datetime.now().year),
+        "publishedBy": "https://doi.test.datacite.org/dois",
+        "version": version,
+        "doi": f"{prefix}/dandi.{dandi_id}.{version}",
+        "assetsSummary": {
+            "numberOfBytes": 10,
+            "numberOfFiles": 1,
+            "dataStandard": [{"key": "value"}],
+            "approach": [{"key": "value"}],
+            "measurementTechnique": [{"key": "value"}],
+            "species": [{"key": "value"}],
+        },
+    }
+    return publish_meta
+
+
 @pytest.mark.skipif(
     not os.getenv("DATACITE_DEV_PASSWORD"), reason="no datacite password available"
 )
@@ -224,11 +246,7 @@ def test_datacite(dandi_id, schema, client):
 
     # getting metadata from the dandiarchive api
     newmeta_js = client.get_dandiset(dandi_id, version)["metadata"]
-
-    newmeta_js["doi"] = f"{prefix}/dandi.{random.randrange(99)}{dandi_id}.{version}"
-    newmeta_js["datePublished"] = str(datetime.now().year)
-    newmeta_js["publishedBy"] = "https://doi.test.datacite.org/dois"
-    newmeta_js["version"] = version
+    newmeta_js.update(_basic_publishmeta(dandi_id))
     newmeta = PublishedDandisetMeta(**newmeta_js)
 
     datacite = to_datacite(meta=newmeta)
@@ -245,8 +263,8 @@ def test_dantimeta_1():
     """ checking basic metadata for publishing"""
     # meta data without doi, datePublished and publishedBy
     meta_dict = {
-        "identifier": "DANDI:912",
-        "id": "DANDI:912/draft",
+        "identifier": "DANDI:999999",
+        "id": "DANDI:999999/draft",
         "version": "v.1",
         "name": "testing dataset",
         "description": "testing",
@@ -269,12 +287,12 @@ def test_dantimeta_1():
         "datePublished",
         "publishedBy",
         "doi",
+        "assetsSummary",
     }
 
-    # after adding doi, datePublished, publishedBy, PublishedDandisetMeta should work
-    meta_dict["doi"] = "00000"
-    meta_dict["datePublished"] = str(datetime.now().year)
-    meta_dict["publishedBy"] = "https://doi.test.datacite.org/dois"
+    # after adding basic meta required to publish: doi, datePublished, publishedBy, assetsSummary,
+    # so PublishedDandisetMeta should work
+    meta_dict.update(_basic_publishmeta(dandi_id="DANDI:999999"))
     PublishedDandisetMeta(**meta_dict)
 
 
@@ -377,15 +395,12 @@ def test_dantimeta_datacite(schema, additional_meta, datacite_checks):
     posting datacite object and checking the status code
     """
 
-    prefix = "10.80507"
-    version = "v.0"
-    dandi_id = f"DANDI:{random.randrange(100, 999)}"
+    dandi_id = f"DANDI:000{random.randrange(100, 999)}"
 
     # meta data without doi, datePublished and publishedBy
     meta_dict = {
         "identifier": dandi_id,
         "id": f"{dandi_id}/draft",
-        "version": version,
         "name": "testing dataset",
         "description": "testing",
         "contributor": [
@@ -395,10 +410,8 @@ def test_dantimeta_datacite(schema, additional_meta, datacite_checks):
             }
         ],
         "license": [LicenseType("spdx:CC-BY-4.0")],
-        "publishedBy": "https://doi.test.datacite.org/dois",
-        "datePublished": str(datetime.now().year),
-        "doi": f"{prefix}/dandi.{dandi_id}.{version}",
     }
+    meta_dict.update(_basic_publishmeta(dandi_id=dandi_id))
     meta_dict.update(additional_meta)
 
     # creating PublishedDandisetMeta from the dictionary
