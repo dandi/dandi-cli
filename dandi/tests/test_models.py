@@ -1,5 +1,7 @@
 from datetime import datetime
+import json
 import os
+from pathlib import Path
 import random
 
 from jsonschema import Draft6Validator
@@ -241,22 +243,25 @@ def _basic_publishmeta(dandi_id, version="v.0", prefix="10.80507"):
 @pytest.mark.parametrize("dandi_id", ["000004", "000008"])
 def test_datacite(dandi_id, schema, client):
     """ checking to_datacite for a specific datasets"""
-    prefix = "10.80507"
-    version = "draft"
 
-    # getting metadata from the dandiarchive api
-    newmeta_js = client.get_dandiset(dandi_id, version)["metadata"]
-    newmeta_js.update(_basic_publishmeta(dandi_id))
-    newmeta = PublishedDandisetMeta(**newmeta_js)
+    # reading metadata taken from exemplary dandisets and saved in json files
+    with (
+        Path(__file__).with_name("data") / "metadata" / f"meta_{dandi_id}.json"
+    ).open() as f:
+        meta_js = json.load(f)
 
-    datacite = to_datacite(meta=newmeta)
+    # updating with basic fields required for PublishDandisetMeta
+    meta_js.update(_basic_publishmeta(dandi_id))
+    meta = PublishedDandisetMeta(**meta_js)
+
+    datacite = to_datacite(meta=meta)
 
     Draft6Validator.check_schema(schema)
     validator = Draft6Validator(schema)
     validator.validate(datacite["data"]["attributes"])
 
     # trying to post datacite
-    datacite_post(datacite, newmeta.doi)
+    datacite_post(datacite, meta.doi)
 
 
 def test_dantimeta_1():
