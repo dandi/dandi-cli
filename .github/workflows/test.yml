@@ -24,19 +24,18 @@ jobs:
           - 3.7
           - 3.8
           - 3.9
-        dandi_api:
-          - false
-        dev_deps:
-          - false
+        mode:
+          - normal
         include:
           - os: ubuntu-18.04
             python: 3.7
-            dandi_api: true
-            dev_deps: false
+            mode: dandi-api
           - os: ubuntu-18.04
             python: 3.7
-            dandi_api: false
-            dev_deps: true
+            mode: dev-deps
+          - os: ubuntu-18.04
+            python: 3.7
+            mode: dandi-devel
         exclude:
           # Temporarily disabled due to h5py/hdf5 dependency issue
           # See <https://github.com/dandi/dandi-cli/pull/315>
@@ -68,32 +67,24 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip wheel
-        # As of 2021-02-01, the latest version of hdmf (v2.3.0) requires numpy
-        # >=1.16, <1.19.4, so we end up with numpy 1.19.3 installed.  However,
-        # due to the release of numpy 1.20.0 on January 30, h5py gets built
-        # against the later version instead, and because numpy 1.20.0 changed
-        # the size of ndarray, an error results at runtime.  This can be worked
-        # around by installing numpy before the other dependencies so that it
-        # is available when h5py is built.
-        pip install 'numpy<1.19.4'
         pip install ".[test]"
 
     - name: Install dev version of pynwb
-      if: ${{ matrix.dev_deps }}
+      if: matrix.mode == 'dev-deps'
       run: |
         pip install git+https://github.com/NeurodataWithoutBorders/pynwb
 
-    - name: Set environment variable when using Python 3.7 to cover more code
-      run: echo DANDI_LOG_GIRDER=1 >> "$GITHUB_ENV"
-      if: matrix.python == '3.7'
+    - name: Set DANDI_DEVEL=1
+      if: matrix.mode == 'dandi-devel'
+      run: echo DANDI_DEVEL=1 >> "$GITHUB_ENV"
 
     - name: Run all tests
-      if: "!matrix.dandi_api"
+      if: matrix.mode != 'dandi-api'
       run: |
         python -m pytest -s -v --cov=dandi --cov-report=xml dandi
 
     - name: Run Dandi API tests only
-      if: matrix.dandi_api
+      if: matrix.mode == 'dandi-api'
       run: |
         python -m pytest -s -v --cov=dandi --cov-report=xml --dandi-api dandi
 

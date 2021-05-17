@@ -195,11 +195,11 @@ def test_delete_instance_mismatch(local_dandi_api, mocker, monkeypatch, text_dan
     for paths in [
         [
             "subdir1/apple.txt",
-            f"dandi://dandi-api/{dandiset_id}/subdir2/coconut.txt",
+            f"dandi://dandi/{dandiset_id}/subdir2/coconut.txt",
         ],
         [
             f"dandi://{instance}/{dandiset_id}/subdir2/coconut.txt",
-            f"dandi://dandi-api/{dandiset_id}/subdir1/apple.txt",
+            f"dandi://dandi/{dandiset_id}/subdir1/apple.txt",
         ],
     ]:
         with pytest.raises(ValueError) as excinfo:
@@ -226,6 +226,20 @@ def test_delete_nonexistent_dandiset(local_dandi_api, mocker, monkeypatch):
     delete_spy.assert_not_called()
 
 
+def test_delete_nonexistent_dandiset_skip_missing(local_dandi_api, mocker, monkeypatch):
+    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
+    instance = local_dandi_api["instance_id"]
+    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
+    delete(
+        [f"dandi://{instance}/999999/subdir1/apple.txt"],
+        dandi_instance=instance,
+        devel_debug=True,
+        force=True,
+        skip_missing=True,
+    )
+    delete_spy.assert_not_called()
+
+
 def test_delete_nonexistent_asset(local_dandi_api, mocker, monkeypatch, text_dandiset):
     monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
     instance = local_dandi_api["instance_id"]
@@ -243,9 +257,40 @@ def test_delete_nonexistent_asset(local_dandi_api, mocker, monkeypatch, text_dan
         )
     assert (
         str(excinfo.value)
-        == f"Asset at path 'subdir3/mango.txt' not found in Dandiset {dandiset_id}"
+        == f"No assets found for dandi://{instance}/{dandiset_id}/subdir3/mango.txt"
     )
     delete_spy.assert_not_called()
+
+
+def test_delete_nonexistent_asset_skip_missing(
+    local_dandi_api, mocker, monkeypatch, text_dandiset, tmp_path
+):
+    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
+    instance = local_dandi_api["instance_id"]
+    dandiset_id = text_dandiset["dandiset_id"]
+    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
+    delete(
+        [
+            f"dandi://{instance}/{dandiset_id}/file.txt",
+            f"dandi://{instance}/{dandiset_id}/subdir3/mango.txt",
+        ],
+        dandi_instance=instance,
+        devel_debug=True,
+        force=True,
+        skip_missing=True,
+    )
+    delete_spy.assert_called()
+    download(
+        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
+        tmp_path,
+    )
+    files = sorted(map(Path, find_files(r".*", paths=[tmp_path])))
+    assert files == [
+        tmp_path / dandiset_id / "dandiset.yaml",
+        tmp_path / dandiset_id / "subdir1" / "apple.txt",
+        tmp_path / dandiset_id / "subdir2" / "banana.txt",
+        tmp_path / dandiset_id / "subdir2" / "coconut.txt",
+    ]
 
 
 def test_delete_nonexistent_asset_folder(
@@ -267,9 +312,40 @@ def test_delete_nonexistent_asset_folder(
         )
     assert (
         str(excinfo.value)
-        == f"No assets under path 'subdir3/' found in Dandiset {dandiset_id}"
+        == f"No assets found for dandi://{instance}/{dandiset_id}/subdir3/"
     )
     delete_spy.assert_not_called()
+
+
+def test_delete_nonexistent_asset_folder_skip_missing(
+    local_dandi_api, mocker, monkeypatch, text_dandiset, tmp_path
+):
+    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
+    instance = local_dandi_api["instance_id"]
+    dandiset_id = text_dandiset["dandiset_id"]
+    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
+    delete(
+        [
+            f"dandi://{instance}/{dandiset_id}/subdir1/",
+            f"dandi://{instance}/{dandiset_id}/subdir3/",
+        ],
+        dandi_instance=instance,
+        devel_debug=True,
+        force=True,
+        skip_missing=True,
+    )
+    delete_spy.assert_called()
+    download(
+        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
+        tmp_path,
+    )
+    files = sorted(map(Path, find_files(r".*", paths=[tmp_path])))
+    assert files == [
+        tmp_path / dandiset_id / "dandiset.yaml",
+        tmp_path / dandiset_id / "file.txt",
+        tmp_path / dandiset_id / "subdir2" / "banana.txt",
+        tmp_path / dandiset_id / "subdir2" / "coconut.txt",
+    ]
 
 
 def test_delete_version(local_dandi_api, mocker, monkeypatch):
@@ -296,7 +372,7 @@ def test_delete_no_dandiset(mocker, monkeypatch, tmp_path):
     with pytest.raises(RuntimeError) as excinfo:
         delete(
             ["dir/file.txt"],
-            dandi_instance="dandi-api",
+            dandi_instance="dandi",
             devel_debug=True,
             force=True,
         )

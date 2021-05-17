@@ -5,12 +5,22 @@ import os.path as op
 import click
 
 from .base import lgr, map_to_click_exceptions
+from ..dandiarchive import DandisetURL, _dandi_url_parser, parse_dandi_url
 from ..utils import is_url
 
 # TODO: all the recursion options etc
 
 
-@click.command()
+# The use of f-strings apparently makes this not a proper docstring, and so
+# click doesn't use it unless we explicitly assign it to `help`:
+@click.command(
+    help=f"""\
+List .nwb files and dandisets metadata.
+
+\b
+{_dandi_url_parser.known_patterns}
+"""
+)
 @click.option(
     "-F",
     "--fields",
@@ -53,11 +63,11 @@ from ..utils import is_url
 @click.argument("paths", nargs=-1, type=click.Path(exists=False, dir_okay=True))
 @map_to_click_exceptions
 def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, jobs=6):
-    """List .nwb files and dandisets metadata."""
+    """ List .nwb files and dandisets metadata. """
+
     # TODO: more logical ordering in case of fields = None
     from .formatter import JSONFormatter, PYOUTFormatter, YAMLFormatter
     from ..consts import metadata_all_fields
-    from ..dandiapi import DandiAPIClient
 
     # TODO: avoid
     from ..support.pyout import PYOUT_SHORT_NAMES_rev
@@ -100,11 +110,11 @@ def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, job
     def assets_gen():
         for path in paths:
             if is_url(path):
-                from ..dandiarchive import navigate_url
-
-                with navigate_url(path) as (client, dandiset, assets):
-                    if dandiset:
-                        dandiset_id = dandiset.get("dandiset", {}).get("identifier")
+                parsed_url = parse_dandi_url(path)
+                with parsed_url.navigate(
+                    include_metadata=metadata in ("all", "assets")
+                ) as (client, dandiset, assets):
+                    if isinstance(parsed_url, DandisetURL):
                         rec = {
                             "path": dandiset.pop("dandiset", {}).get(
                                 "identifier", "ERR#%s" % id(dandiset)
@@ -114,23 +124,8 @@ def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, job
                         # rec.update(dandiset.get('metadata', {}))
                         rec.update(dandiset)
                         yield rec
-                    else:
-                        dandiset_id = None
-                    if recursive and assets:
-                        if isinstance(client, DandiAPIClient) and metadata in (
-                            "all",
-                            "assets",
-                        ):
-                            for a in assets:
-                                if "metadata" not in a:
-                                    a["metadata"] = client.get_asset(
-                                        dandiset_id,
-                                        dandiset["version"],
-                                        a["asset_id"],
-                                    )
-                                yield a
-                        else:
-                            yield from assets
+                    if not isinstance(parsed_url, DandisetURL) or recursive:
+                        yield from assets
             else:
                 # For now we support only individual files
                 yield path
@@ -313,37 +308,34 @@ def get_metadata_ls(path, keys, errors, flatten=False, schema=None):
     ignore_benign_pynwb_warnings()
 
     def fn():
-        try:
-            rec = {}
-            # No need for calling get_metadata if no keys are needed from it
-            if keys is None or list(keys) != ["nwb_version"]:
-                try:
-                    if schema is not None:
-                        if op.isdir(path):
-                            dandiset = APIDandiset(path, schema_version=schema)
-                            rec = dandiset.metadata
-                        else:
-                            rec = nwb2asset(path, schema_version=schema).json_dict()
+        rec = {}
+        # No need for calling get_metadata if no keys are needed from it
+        if keys is None or list(keys) != ["nwb_version"]:
+            try:
+                if schema is not None:
+                    if op.isdir(path):
+                        dandiset = APIDandiset(path, schema_version=schema)
+                        rec = dandiset.metadata
                     else:
-                        rec = get_metadata(path)
-                except Exception as exc:
-                    _add_exc_error(path, rec, errors, exc)
-                if flatten:
-                    rec = flatten_meta_to_pyout(rec)
-            if keys is not None:
-                rec = {k: v for k, v in rec.items() if k in keys}
-            if (
-                not op.isdir(path)
-                and "nwb_version" not in rec
-                and (keys and "nwb_version" in keys)
-            ):
-                # Let's at least get that one
-                try:
-                    rec["nwb_version"] = get_nwb_version(path)
-                except Exception as exc:
-                    _add_exc_error(path, rec, errors, exc)
-            return rec
-        finally:
-            pass
+                        rec = nwb2asset(path, schema_version=schema).json_dict()
+                else:
+                    rec = get_metadata(path)
+            except Exception as exc:
+                _add_exc_error(path, rec, errors, exc)
+            if flatten:
+                rec = flatten_meta_to_pyout(rec)
+        if keys is not None:
+            rec = {k: v for k, v in rec.items() if k in keys}
+        if (
+            not op.isdir(path)
+            and "nwb_version" not in rec
+            and (keys and "nwb_version" in keys)
+        ):
+            # Let's at least get that one
+            try:
+                rec["nwb_version"] = get_nwb_version(path)
+            except Exception as exc:
+                _add_exc_error(path, rec, errors, exc)
+        return rec
 
     return fn

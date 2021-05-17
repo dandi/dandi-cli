@@ -73,6 +73,9 @@ class ChoiceList(click.ParamType):
     default="all",
     show_default=True,
 )
+@click.option(
+    "--sync", is_flag=True, help="Delete local assets that do not exist on the server"
+)
 @instance_option()
 # Might be a cool feature, not unlike verifying a checksum, we verify that
 # downloaded file passes the validator, and if not -- alert
@@ -91,7 +94,7 @@ class ChoiceList(click.ParamType):
 @click.argument("url", nargs=-1)
 @map_to_click_exceptions
 def download(
-    url, output_dir, existing, jobs, format, download_types, dandi_instance=None
+    url, output_dir, existing, jobs, format, download_types, sync, dandi_instance=None
 ):
     """Download a file or entire folder from DANDI"""
     # We need to import the download module rather than the download function
@@ -101,8 +104,8 @@ def download(
     if dandi_instance is not None:
         if url:
             for u in url:
-                _, server_url, _, _ = parse_dandi_url(u)
-                if known_instances_rev.get(server_url.rstrip("/")) != dandi_instance:
+                parsed_url = parse_dandi_url(u)
+                if known_instances_rev.get(parsed_url.api_url) != dandi_instance:
                     raise click.UsageError(
                         f"{u} does not point to {dandi_instance!r} instance"
                     )
@@ -133,5 +136,6 @@ def download(
         jobs=jobs,
         get_metadata="dandiset.yaml" in download_types,
         get_assets="assets" in download_types,
+        sync=sync,
         # develop_debug=develop_debug
     )

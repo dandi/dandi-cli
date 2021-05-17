@@ -8,8 +8,8 @@ import pytest
 
 from ..consts import DANDI_SCHEMA_VERSION
 from ..metadata import (
+    get_metadata,
     metadata2asset,
-    migrate2newschema,
     parse_age,
     publish_model_schemata,
     timedelta2duration,
@@ -17,6 +17,7 @@ from ..metadata import (
     validate_dandiset_json,
 )
 from ..models import BareAssetMeta, DandisetMeta
+from ..pynwb_utils import metadata_nwb_subject_fields
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
 
@@ -24,6 +25,25 @@ METADATA_DIR = Path(__file__).with_name("data") / "metadata"
 @pytest.fixture(scope="module")
 def schema_dir(tmp_path_factory):
     return publish_model_schemata(tmp_path_factory.mktemp("schema_dir"))
+
+
+def test_get_metadata(simple1_nwb, simple1_nwb_metadata):
+    target_metadata = simple1_nwb_metadata.copy()
+    # we will also get some counts
+    target_metadata["number_of_electrodes"] = 0
+    target_metadata["number_of_units"] = 0
+    target_metadata["number_of_units"] = 0
+    # We also populate with nd_types now, although here they would be empty
+    target_metadata["nd_types"] = []
+    # we do not populate any subject fields in our simple1_nwb
+    for f in metadata_nwb_subject_fields:
+        target_metadata[f] = None
+    metadata = get_metadata(str(simple1_nwb))
+    # we also load nwb_version field, so it must not be degenerate and ATM
+    # it is 2.X.Y. And since I don't know how to query pynwb on what
+    # version it currently "supports", we will just pop it
+    assert metadata.pop("nwb_version").startswith("2.")
+    assert target_metadata == metadata
 
 
 @pytest.mark.parametrize(
@@ -156,15 +176,8 @@ def test_metadata2asset_simple1(schema_dir):
 
 
 def test_dandimeta_migration(schema_dir):
-    with (METADATA_DIR / "dandimeta_migration.old.json").open() as fp:
-        data_orig = json.load(fp)
-    data_orig_dc = deepcopy(data_orig)
-    data = migrate2newschema(data_orig)
-    # Check that data_orig has not changed after migrate2newschema:
-    assert data_orig_dc == data_orig
     with (METADATA_DIR / "dandimeta_migration.new.json").open() as fp:
         data_as_dict = json.load(fp)
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
-    assert data == DandisetMeta(**data_as_dict)
-    assert data.json_dict() == data_as_dict
+    DandisetMeta(**data_as_dict)
     validate_dandiset_json(data_as_dict, schema_dir)

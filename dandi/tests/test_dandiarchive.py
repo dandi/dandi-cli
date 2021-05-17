@@ -2,152 +2,209 @@ import pytest
 import responses
 
 from dandi.consts import known_instances
-from dandi.dandiarchive import follow_redirect, parse_dandi_url
+from dandi.dandiarchive import (
+    AssetFolderURL,
+    AssetIDURL,
+    AssetItemURL,
+    AssetPathPrefixURL,
+    DandisetURL,
+    follow_redirect,
+    parse_dandi_url,
+)
 from dandi.exceptions import NotFoundError
 from dandi.tests.skip import mark
 
 
 @pytest.mark.parametrize(
-    "url,instance,asset_type,asset_id",
+    "url,parsed_url",
     [
         # New DANDI web UI driven by DANDI API.
         (
-            "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/000001",
-            "dandi-api",
-            "dandiset",
-            {"dandiset_id": "000001", "version": None},
-        ),
-        (
-            "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/000001/0.201104.2302",
-            "dandi-api",
-            "dandiset",
-            {"dandiset_id": "000001", "version": "0.201104.2302"},
-        ),
-        (
-            "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/000001/0.201104.2302/files",
-            "dandi-api",
-            "dandiset",
-            {"dandiset_id": "000001", "version": "0.201104.2302"},
-        ),
-        # It is deployed now.
-        (
             "https://gui.dandiarchive.org/#/dandiset/000001",
-            "dandi-api",
-            "dandiset",
-            {"dandiset_id": "000001", "version": None},
+            DandisetURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000001",
+                version_id=None,
+            ),
+        ),
+        (
+            "https://gui.dandiarchive.org/#/dandiset/000001/",
+            DandisetURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000001",
+                version_id=None,
+            ),
+        ),
+        (
+            "https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302",
+            DandisetURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000001",
+                version_id="0.201104.2302",
+            ),
+        ),
+        (
+            "https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302/",
+            DandisetURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000001",
+                version_id="0.201104.2302",
+            ),
+        ),
+        (
+            "https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302/files",
+            DandisetURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000001",
+                version_id="0.201104.2302",
+            ),
         ),
         (
             "https://gui.dandiarchive.org/#/dandiset/000001/draft",
-            "dandi-api",
-            "dandiset",
-            {"dandiset_id": "000001", "version": "draft"},
+            DandisetURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000001",
+                version_id="draft",
+            ),
         ),
-        # ATM we point to drafts, so girder
+        (
+            "https://gui.dandiarchive.org/dandiset/000001",
+            DandisetURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000001",
+                version_id=None,
+            ),
+        ),
+        (
+            "https://gui.dandiarchive.org/dandiset/000001/0.201104.2302",
+            DandisetURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000001",
+                version_id="0.201104.2302",
+            ),
+        ),
+        (
+            "https://gui.dandiarchive.org/dandiset/000001/0.201104.2302/files",
+            DandisetURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000001",
+                version_id="0.201104.2302",
+            ),
+        ),
+        (
+            "https://gui.dandiarchive.org/dandiset/000001/draft",
+            DandisetURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000001",
+                version_id="draft",
+            ),
+        ),
         (
             "DANDI:000027",
-            "dandi-api",
-            "dandiset",
-            {"dandiset_id": "000027", "version": "draft"},  # TODO: why not None?
+            DandisetURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000027",
+                version_id="draft",  # TODO: why not None?
+            ),
         ),
         (
             "http://localhost:8000/api/dandisets/000002/versions/draft",
-            "dandi-api-local-docker-tests",
-            "dandiset",
-            {"dandiset_id": "000002", "version": "draft"},
+            DandisetURL(
+                api_url="http://localhost:8000/api",
+                dandiset_id="000002",
+                version_id="draft",
+            ),
         ),
         (
-            "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/000001/"
-            "files?location=%2Fsub-anm369962",
-            "dandi-api",
-            "item",
-            {"dandiset_id": "000001", "version": None, "location": "sub-anm369962"},
+            "https://gui.dandiarchive.org/#/dandiset/000001/files"
+            "?location=%2Fsub-anm369962",
+            AssetItemURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000001",
+                version_id=None,
+                path="sub-anm369962",
+            ),
         ),
         (
-            "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/000006/"
-            "0.200714.1807/files?location=%2Fsub-anm369962",
-            "dandi-api",
-            "item",
-            {
-                "dandiset_id": "000006",
-                "version": "0.200714.1807",
-                "location": "sub-anm369962",
-            },
+            "https://gui.dandiarchive.org/#/dandiset/000006/0.200714.1807/files"
+            "?location=%2Fsub-anm369962",
+            AssetItemURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000006",
+                version_id="0.200714.1807",
+                path="sub-anm369962",
+            ),
         ),
         (
-            "https://gui-beta-dandiarchive-org.netlify.app/#/dandiset/001001/"
-            "draft/files?location=sub-RAT123%2F",
-            "dandi-api",
-            "folder",
-            {"dandiset_id": "001001", "version": "draft", "location": "sub-RAT123/"},
+            "https://gui.dandiarchive.org/#/dandiset/001001/draft/files"
+            "?location=sub-RAT123%2F",
+            AssetFolderURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="001001",
+                version_id="draft",
+                path="sub-RAT123/",
+            ),
         ),
         # by direct instance name ad-hoc URI instance:ID[@version][/path]
         (
             "dandi://dandi-api-local-docker-tests/000002@draft",
-            "dandi-api-local-docker-tests",
-            "dandiset",
-            {"dandiset_id": "000002", "version": "draft"},
+            DandisetURL(
+                api_url=known_instances["dandi-api-local-docker-tests"].api,
+                dandiset_id="000002",
+                version_id="draft",
+            ),
         ),
         (
             "dandi://dandi-api-local-docker-tests/000002@draft/path",
-            "dandi-api-local-docker-tests",
-            "item",
-            {"dandiset_id": "000002", "location": "path", "version": "draft"},
+            AssetItemURL(
+                api_url=known_instances["dandi-api-local-docker-tests"].api,
+                dandiset_id="000002",
+                version_id="draft",
+                path="path",
+            ),
         ),
         (
             "dandi://dandi-api-local-docker-tests/000002/path",
-            "dandi-api-local-docker-tests",
-            "item",
-            {"dandiset_id": "000002", "location": "path", "version": None},
+            AssetItemURL(
+                api_url=known_instances["dandi-api-local-docker-tests"].api,
+                dandiset_id="000002",
+                version_id=None,
+                path="path",
+            ),
         ),
         (  # test on "public" instance and have trailing / to signal the folder
-            "dandi://dandi-api/000002/path/",
-            "dandi-api",
-            "folder",
-            {"dandiset_id": "000002", "location": "path/", "version": None},
+            "dandi://dandi/000002/path/",
+            AssetFolderURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000002",
+                version_id=None,
+                path="path/",
+            ),
         ),
-        # TODO: bring back a test on deploy-preview-
-        # # And the hybrid for "drafts" where it still goes by girder ID
-        # (
-        #     "https://deploy-preview-341--gui-dandiarchive-org.netlify.app/#/dandiset/000027"
-        #     "/draft/files?_id=5f176583f63d62e1dbd06943&_modelType=folder",
-        #     "dandi-api",
-        #     "folder",
-        #     {
-        #         "dandiset_id": "000027",
-        #         "version": "draft",
-        #         "folder_id": "5f176583f63d62e1dbd06943",
-        #     },
-        # )
         (
             "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
             "/assets/0a748f90-d497-4a9c-822e-9c63811db412/download/",
-            "dandi-api",
-            "item",
-            {
-                "dandiset_id": "000003",
-                "version": "draft",
-                "asset_id": "0a748f90-d497-4a9c-822e-9c63811db412",
-            },
+            AssetIDURL(
+                api_url="https://api.dandiarchive.org/api",
+                dandiset_id="000003",
+                version_id="draft",
+                asset_id="0a748f90-d497-4a9c-822e-9c63811db412",
+            ),
         ),
         (
             "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
             "/assets/?path=sub-YutaMouse20",
-            "dandi-api",
-            "folder",
-            {
-                "dandiset_id": "000003",
-                "version": "draft",
-                "location": "sub-YutaMouse20",
-            },
+            AssetPathPrefixURL(
+                api_url="https://api.dandiarchive.org/api",
+                dandiset_id="000003",
+                version_id="draft",
+                path="sub-YutaMouse20",
+            ),
         ),
     ],
 )
-def test_parse_api_url(url, instance, asset_type, asset_id):
-    st, s, a, aid = parse_dandi_url(url)
-    assert st == "api"
-    assert s == known_instances[instance].api + "/"
-    assert a == asset_type
-    assert aid == asset_id
+def test_parse_api_url(url, parsed_url):
+    assert parse_dandi_url(url) == parsed_url
 
 
 @mark.skipif_no_network
@@ -166,50 +223,26 @@ def test_follow_redirect():
 
 
 @responses.activate
-def test_parse_gui_old_redirect():
-    responses.add(
-        responses.GET,
-        "https://dandiarchive.org/server-info",
-        json={
-            "version": "1.2.0",
-            "cli-minimal-version": "0.6.0",
-            "cli-bad-versions": [],
-            "services": {
-                "girder": {"url": "https://girder.dandiarchive.org"},
-                "webui": {"url": "https://gui.dandirchive.org"},
-                "api": None,
-                "jupyterhub": {"url": "https://hub.dandiarchive.org"},
-            },
-        },
-    )
-    assert parse_dandi_url("https://gui.dandiarchive.org/#/dandiset/000003") == (
-        "girder",
-        "https://girder.dandiarchive.org/",
-        "dandiset",
-        {"dandiset_id": "000003", "version": "draft"},
-    )
-
-
-@responses.activate
 def test_parse_gui_new_redirect():
+    redirector_base = known_instances["dandi"].redirector
     responses.add(
         responses.GET,
-        "https://dandiarchive.org/server-info",
+        f"{redirector_base}/server-info",
         json={
             "version": "1.2.0",
             "cli-minimal-version": "0.6.0",
             "cli-bad-versions": [],
             "services": {
-                "girder": None,
                 "webui": {"url": "https://gui.dandirchive.org"},
                 "api": {"url": "https://api.dandiarchive.org/api"},
                 "jupyterhub": {"url": "https://hub.dandiarchive.org"},
             },
         },
     )
-    assert parse_dandi_url("https://gui.dandiarchive.org/#/dandiset/000003") == (
-        "api",
-        "https://api.dandiarchive.org/api/",
-        "dandiset",
-        {"dandiset_id": "000003", "version": None},
+    assert parse_dandi_url(
+        "https://gui.dandiarchive.org/#/dandiset/000003"
+    ) == DandisetURL(
+        api_url="https://api.dandiarchive.org/api",
+        dandiset_id="000003",
+        version_id=None,
     )

@@ -1,3 +1,89 @@
+# 0.17.0 (Wed May 12 2021)
+
+#### 🚀 Enhancement
+
+- Add "sync" option for upload & download [#616](https://github.com/dandi/dandi-cli/pull/616) ([@jwodder](https://github.com/jwodder))
+- RF: organize - should no longer alter dandiset.yaml [#615](https://github.com/dandi/dandi-cli/pull/615) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🐛 Bug Fix
+
+- Allow trailing slash in GUI URLs [#636](https://github.com/dandi/dandi-cli/pull/636) ([@jwodder](https://github.com/jwodder))
+- Make the "#/" in GUI URLs optional [#637](https://github.com/dandi/dandi-cli/pull/637) ([@jwodder](https://github.com/jwodder))
+- Add dandi-staging to known_instances [#621](https://github.com/dandi/dandi-cli/pull/621) ([@dchiquito](https://github.com/dchiquito))
+
+#### ⚠️ Pushed to `master`
+
+- RM: .github/workflows/test-populate-dandiset-yaml.yml ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- move test_get_metaadata to test_metadata.py [#634](https://github.com/dandi/dandi-cli/pull/634) ([@bendichter](https://github.com/bendichter))
+- Error on PRs that modify existing schemata instead of creating a new version [#626](https://github.com/dandi/dandi-cli/pull/626) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 4
+
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.16.0 (Tue May 04 2021)
+
+#### 🚀 Enhancement
+
+- Restructure parse_dandi_url() return type [#605](https://github.com/dandi/dandi-cli/pull/605) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- DOC: Extend description for delete to point that it could be URL etc [#609](https://github.com/dandi/dandi-cli/pull/609) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Cut down on some code duplication in delete.py [#610](https://github.com/dandi/dandi-cli/pull/610) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Make test_server_info use Docker fixture if DANDI_REDIRECTOR_BASE is set [#612](https://github.com/dandi/dandi-cli/pull/612) ([@jwodder](https://github.com/jwodder))
+- Add DANDI_DEVEL=1 job to GitHub Actions tests [#607](https://github.com/dandi/dandi-cli/pull/607) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.15.0 (Fri Apr 30 2021)
+
+#### 🚀 Enhancement
+
+- Remove unused functions (and other cleanups) [#604](https://github.com/dandi/dandi-cli/pull/604) ([@jwodder](https://github.com/jwodder))
+- Remove Girder support [#588](https://github.com/dandi/dandi-cli/pull/588) ([@jwodder](https://github.com/jwodder))
+- Give "delete" a --skip-missing option [#594](https://github.com/dandi/dandi-cli/pull/594) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Include list of supported URL patterns in `dandi ls --help` [#601](https://github.com/dandi/dandi-cli/pull/601) ([@jwodder](https://github.com/jwodder))
+- Recognize "DANDI:<identifier>" strings as URL-likes [#602](https://github.com/dandi/dandi-cli/pull/602) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Support specifying the dandi redirector via an env var [#581](https://github.com/dandi/dandi-cli/pull/581) ([@jwodder](https://github.com/jwodder))
+- a script to validate dandi-api collection listing against girder [#589](https://github.com/dandi/dandi-cli/pull/589) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Remove numpy pre-pinning in test.yml [#603](https://github.com/dandi/dandi-cli/pull/603) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.14.2 (Thu Apr 22 2021)
 
 #### 🐛 Bug Fix

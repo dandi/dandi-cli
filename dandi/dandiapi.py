@@ -10,8 +10,8 @@ import requests
 import tenacity
 
 from .consts import MAX_CHUNK_SIZE, known_instances_rev
-from .girder import keyring_lookup
 from . import get_logger
+from .keyring import keyring_lookup
 from .utils import USER_AGENT, try_multiple
 
 lgr = get_logger()

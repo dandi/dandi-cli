@@ -212,16 +212,6 @@ def flattened(it):
     return list(flatten(it))
 
 
-def updated(d, update):
-    """Return a copy of the input with the 'update'
-
-    Primarily for updating dictionaries
-    """
-    d = d.copy()
-    d.update(update)
-    return d
-
-
 def remap_dict(rec, revmapping):
     """Remap nested dicts according to mapping
 
@@ -472,18 +462,6 @@ def _get_normalized_paths(path, prefix):
     return path, prefix
 
 
-def path_startswith(path, prefix):
-    """Return True if path starts with prefix path
-
-    Parameters
-    ----------
-    path: str
-    prefix: str
-    """
-    path, prefix = _get_normalized_paths(path, prefix)
-    return path.startswith(prefix)
-
-
 def path_is_subpath(path, prefix):
     """Return True if path is a subpath of prefix
 
@@ -496,14 +474,6 @@ def path_is_subpath(path, prefix):
     """
     path, prefix = _get_normalized_paths(path, prefix)
     return (len(prefix) < len(path)) and path.startswith(prefix)
-
-
-def safe_call(func, path, default=None):
-    try:
-        return func(path)
-    except Exception as exc:
-        lgr.debug("Call to %s on %s failed: %s", func.__name__, path, exc)
-        return default
 
 
 def shortened_repr(value, length=30):
@@ -625,18 +595,8 @@ def get_instance(dandi_instance_id):
         )  # note: somehow was ending up with {"girder": None}
         for name, rec in server_info.get("services", {}).items()
     }
-    if services.get("girder"):
+    if services.get("api"):
         return dandi_instance(
-            metadata_version=0,
-            girder=services.get("girder"),
-            gui=services.get("webui"),
-            redirector=redirector_url,
-            api=None,
-        )
-    elif services.get("api"):
-        return dandi_instance(
-            metadata_version=1,
-            girder=None,
             gui=services.get("webui"),
             redirector=redirector_url,
             api=services.get("api"),
@@ -716,7 +676,8 @@ def is_url(s):
 
     TODO: redo
     """
-    return s.lower().startswith(("http://", "https://", "dandi://"))
+    return s.lower().startswith(("http://", "https://", "dandi:"))
+    # Slashes are not required after "dandi:" so as to support "DANDI:<id>"
 
 
 def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
@@ -747,3 +708,41 @@ def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
         except Exception as exc:
             lgr.debug("Failed to determine version of the %s: %s", mod_name, exc)
     return version
+
+
+def pluralize(n: int, word: str, plural: Optional[str] = None) -> str:
+    if n == 1:
+        return f"{n} {word}"
+    else:
+        if plural is None:
+            plural = word + "s"
+        return f"{n} {plural}"
+
+
+def abbrev_prompt(msg: str, *options: str) -> str:
+    """
+    Prompt the user to input one of several options, which can be entered as
+    either a whole word or the first letter of a word.  All input is handled
+    case-insensitively.  Returns the complete word corresponding to the input,
+    lowercased.
+
+    For example, ``abbrev_prompt("Delete assets?", "yes", "no", "list")``
+    prompts the user with the message ``Delete assets? ([y]es/[n]o/[l]ist): ``
+    and accepts as input ``y`, ``yes``, ``n``, ``no``, ``l``, and ``list``.
+    """
+    options_map = {}
+    optstrs = []
+    for opt in options:
+        opt = opt.lower()
+        if opt in options_map:
+            raise ValueError(f"Repeated option: {opt}")
+        elif opt[0] in options_map:
+            raise ValueError(f"Repeated abbreviated option: {opt[0]}")
+        options_map[opt] = opt
+        options_map[opt[0]] = opt
+        optstrs.append(f"[{opt[0]}]{opt[1:]}")
+    msg += " (" + "/".join(optstrs) + "): "
+    while True:
+        answer = input(msg).lower()
+        if answer in options_map:
+            return options_map[answer]

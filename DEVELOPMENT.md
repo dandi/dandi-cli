@@ -21,50 +21,31 @@ In the source directory
 pre-commit install
 ```
 
-### dandiarchive instance
+### dandi-api instance
 
-[dandiarchive](https://github.com/dandi/dandiarchive) repository provides
-docker-compose recipe to establish local instance of the minimally provisioned
-dandiarchive (both with our web frontend, and girder backend).
-See [README.md:Docker](https://github.com/dandi/dandiarchive#docker) for the
-instructions.  In a new instance you would need to generate a new API key to be
-used by `dandi` client for upload etc.
+The [dandi-api](https://github.com/dandi/dandi-api) repository provides a
+docker-compose recipe for establishing a local instance of a fresh dandi-api.
+See
+[README.md:Docker](https://github.com/dandi/dandi-api#develop-with-docker-recommended-quickstart)
+for the instructions.  In a new instance, you would need to generate a new API
+key to be used by the `dandi` client for upload etc.
 
-Relevant `dandi` client commands are aware of such an instance (such as `upload`)
-as `local-docker` (as opposed from `local` for a plain girder instance).  See note
-below on `DANDI_DEVEL` environment variable which would be needed to expose
+Relevant `dandi` client commands (such as `upload`) are aware of such an
+instance as `dandi-api-local-docker-tests`.  See the note below on the
+`DANDI_DEVEL` environment variable, which is needed in order to expose the
 development command line options.
-
-## Operating against current "beta" instance of the dandiarchive.org
-
-`dandi-cli` has all functionality for interaction with the beta instance deployed at
-https://gui-beta-dandiarchive-org.netlify.app . Some operations (like `upload`) would
-need that instance to be explicitly specified, and for that `DANDI_DEVEL=1` env variable
-should be set.  Here is an example for the upload invocation
-
-   DANDI_DEVEL=1 dandi upload -i dandi-api
-
-in the simplest scenario.  Additional options might come handy, such as
-
-- `--jobs 10:2` - upload 10 files in parallel with up to 2 threads per file
-- `--allow-any-path --validation ignore` - if you need to upload non-nwb files
 
 ## Environment variables
 
-- `DANDI_DEVEL` -- enables otherwise hidden command line options,
-  such as explicit specification of the girder instance, collection, etc.
-  All those options would otherwise be hidden from the user visible (`--help`)
-  interface, unless this env variable is set to non-empty value
+- `DANDI_DEVEL` -- enables otherwise hidden command line options, such as
+  explicit specification of the dandi-api instance.  All those options would
+  otherwise be hidden from the user-visible (`--help`) interface, unless this
+  env variable is set to a non-empty value
 
 - `DANDI_API_KEY` -- avoids using keyrings, thus making it possible to
   "temporarily" use another account etc for the "API" version of the server.
 
-- `DANDI_GIRDER_API_KEY` -- avoids using keyrings, thus making it possible to
-  "temporarily" use another account etc for the Girder version of the server.
-
 - `DANDI_LOG_LEVEL` -- set log level. By default `INFO`, should be an int (`10` - `DEBUG`).
-
-- `DANDI_LOG_GIRDER` -- log REST requests.
 
 - `DANDI_CACHE` -- clear persistent cache handling. Known values
   are `clear` - would clear the cache, `ignore` - would ignore it. Note that for
@@ -73,13 +54,7 @@ in the simplest scenario.  Additional options might come handy, such as
   `clear` to have cache `clear()`ed before use.
 
 - `DANDI_INSTANCEHOST` -- defaults to `localhost`. Point to host/IP which hosts
-  a local instance of dandiarchive. Typically,
-  `DANDI_REUSE_LOCAL_DOCKER_TESTS_API_KEY`
-  should also be set.
-
-- `DANDI_REUSE_LOCAL_DOCKER_TESTS_API_KEY` -- make the
- `local_docker_compose*` fixtures use the given API key for
- `DANDI_INSTANCEHOST` instead of spinning up a new environment with a new key.
+  a local instance of dandiarchive.
 
 - `DANDI_TESTS_PERSIST_DOCKER_COMPOSE` -- When set, the tests will reuse the
   same Docker containers across test runs instead of creating & destroying a

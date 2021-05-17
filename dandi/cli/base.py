@@ -1,27 +1,14 @@
 from functools import wraps
 import os
-from os import path as op
 
 import click
 
-from ..consts import dandiset_metadata_file, known_instances
+from ..consts import known_instances
 from .. import get_logger, set_logger_level  # noqa: F401
 
 lgr = get_logger()
 
 # Aux common functionality
-
-
-def get_files(paths, recursive=True, recursion_limit=None):
-    """Given a list of paths, return a list of paths"""
-    # For now we support only individual files
-    dirs = list(filter(op.isdir, paths))
-    if dirs:
-        raise NotImplementedError(
-            "ATM supporting only listing of individual files, no recursive "
-            "operation. Was provided following directories: {}".format(", ".join(dirs))
-        )
-    return paths
 
 
 # ???: could make them always available but hidden
@@ -48,17 +35,6 @@ def _updated_option(*args, **kwargs):
     args, d = args[:-1], args[-1]
     kwargs.update(d)
     return click.option(*args, **kwargs)
-
-
-def dandiset_id_option(**kwargs):
-    return _updated_option(
-        "--dandiset-id",
-        kwargs,
-        help=f"ID of the dandiset on DANDI archive.  Necessary to populate "
-        f"{dandiset_metadata_file}. Please use 'register' command to first "
-        f"register a new dandiset.",
-        # TODO: could add a check for correct regexp
-    )
 
 
 def dandiset_path_option(**kwargs):
@@ -101,10 +77,6 @@ def map_to_click_exceptions(f):
     @click.pass_obj
     @wraps(f)
     def wrapper(obj, *args, **kwargs):
-        import girder_client as gcl
-
-        from ..girder import get_HttpError_response
-
         try:
             return f(*args, **kwargs)
         # Prints global Usage: useless in majority of cases.
@@ -113,14 +85,7 @@ def map_to_click_exceptions(f):
         # except ValueError as e:
         #     raise click.UsageError(str(e))
         except Exception as e:
-            if isinstance(e, gcl.HttpError):
-                resp = get_HttpError_response(e)
-                if resp is None:
-                    e_str = str(e)
-                else:
-                    e_str = resp.get("message", str(e))
-            else:
-                e_str = str(e)
+            e_str = str(e)
             lgr.debug("Caught exception %s", e_str)
             if not map_to_click_exceptions._do_map:
                 raise

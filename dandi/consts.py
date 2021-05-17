@@ -1,11 +1,9 @@
-# name: url
 from collections import namedtuple
+import os
 
 # A list of metadata fields which dandi extracts from .nwb files.
 # Additional fields (such as `number_of_*`) might be added by the
 # get_metadata`
-import os
-
 metadata_nwb_file_fields = (
     "experiment_description",
     "experimenter",
@@ -66,66 +64,39 @@ metadata_dandiset_fields = (
 
 metadata_all_fields = metadata_nwb_fields + metadata_dandiset_fields
 
-# checksums and other digests to compute on the files to upload
-# Order matters - observed compute time from shorter to longer
-# Those are not to be included in metadata reported for a local file,
-# but will be available for files in the archive
-metadata_digests = ("sha1", "md5", "sha512", "sha256")
-
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = "^[0-9]{6}$"
 
-dandi_instance = namedtuple(
-    "dandi_instance", ("metadata_version", "girder", "gui", "redirector", "api")
-)
+dandi_instance = namedtuple("dandi_instance", ("gui", "redirector", "api"))
 
 # So it could be easily mapped to external IP (e.g. from within VM)
 # to test against instance running outside of current environment
 instancehost = os.environ.get("DANDI_INSTANCEHOST", "localhost")
 
+redirector_base = os.environ.get("DANDI_REDIRECTOR_BASE", "https://dandiarchive.org")
+
 known_instances = {
-    "local-girder-only": dandi_instance(
-        0, f"http://{instancehost}:8080", None, None, None
-    ),  # just pure girder
-    # Redirector: TODO https://github.com/dandi/dandiarchive/issues/139
-    "local-docker": dandi_instance(
-        0,
-        f"http://{instancehost}:8080",
-        f"http://{instancehost}:8085",
-        None,
-        f"http://{instancehost}:9000",  # ATM it is minio, not sure where /api etc
-        # may be https://github.com/dandi/dandi-publish/pull/71 would help
-    ),
-    "local-docker-tests": dandi_instance(
-        0,
-        f"http://{instancehost}:8081",
-        f"http://{instancehost}:8086",
-        f"http://{instancehost}:8079",
-        None,
-    ),
     "dandi": dandi_instance(
-        0,
-        "https://girder.dandiarchive.org",
         "https://gui.dandiarchive.org",
-        "https://dandiarchive.org",
-        None,  # publish. is gone, superseded by API which did not yet fully superseded the rest
-    ),
-    "dandi-api": dandi_instance(
-        1,
-        None,
-        "https://gui-beta-dandiarchive-org.netlify.app",
-        None,
+        redirector_base,
         "https://api.dandiarchive.org/api",
     ),
+    "dandi-devel": dandi_instance(
+        "https://gui-beta-dandiarchive-org.netlify.app",
+        None,
+        None,
+    ),
+    "dandi-staging": dandi_instance(
+        "https://gui-staging.dandiarchive.org",
+        None,
+        "https://api-staging.dandiarchive.org/api",
+    ),
     "dandi-api-local-docker-tests": dandi_instance(
-        1, None, None, None, f"http://{instancehost}:8000/api"
+        None, None, f"http://{instancehost}:8000/api"
     ),
 }
 # to map back url: name
 known_instances_rev = {vv: k for k, v in known_instances.items() for vv in v if vv}
-
-collection_drafts = "drafts"
-collection_releases = "releases"
 
 file_operation_modes = [
     "dry",
@@ -145,15 +116,4 @@ file_operation_modes = [
 # ATM used only in download
 MAX_CHUNK_SIZE = int(os.environ.get("DANDI_MAX_CHUNK_SIZE", 1024 * 1024 * 8))  # 64
 
-#
-# Some routes
-# TODO: possibly centralize in dandi-common from our redirection service
-#
-
-
-# just a structure, better than dict for RFing etc
-class routes(object):
-    dandiset_draft = "{dandi_instance.redirector}/dandiset/{dandiset[identifier]}/draft"
-
-
-DANDI_SCHEMA_VERSION = "0.3.0"
+DANDI_SCHEMA_VERSION = "0.3.1"

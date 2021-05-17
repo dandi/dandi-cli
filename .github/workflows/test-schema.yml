@@ -1,0 +1,51 @@
+name: Test model schemata
+
+on:
+  push:
+    paths:
+      - dandi/model*.py
+      - tools/pubschemata.py
+  pull_request:
+    paths:
+      - dandi/model*.py
+      - tools/pubschemata.py
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0  # Need history for `git describe`
+          path: dandi
+
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: '3.8'
+
+      - name: Install dandi
+        run: python -m pip install .
+        working-directory: dandi
+
+      - name: Checkout dandi/schema
+        uses: actions/checkout@v2
+        with:
+          repository: dandi/schema
+          path: schema
+
+      - name: Test for unversioned changes
+        run: |
+          dirs="$(echo releases/*)"
+          echo "Following directories will be checked for differences: $dirs"
+          python ../dandi/tools/pubschemata.py releases
+          git status
+          git add -A releases
+          if ! git diff --cached --exit-code $dirs
+          then echo "[ERROR] Existing schema files modified instead of creating a new version"
+               exit 1
+          fi
+        working-directory: schema
+
+# vim:set sts=2:
