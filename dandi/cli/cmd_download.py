@@ -48,7 +48,7 @@ class ChoiceList(click.ParamType):
     help="What to do if a file found existing locally. 'refresh': verify "
     "that according to the size and mtime, it is the same file, if not - "
     "download and overwrite.",
-    default="refresh",
+    default="error",
     show_default=True,
 )
 @click.option(
