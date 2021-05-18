@@ -9,7 +9,6 @@ from pydantic import ValidationError
 import pytest
 import requests
 
-from ..dandiapi import DandiAPIClient
 from ..models import (
     AccessType,
     AssetMeta,
@@ -210,11 +209,6 @@ def schema():
     return schema
 
 
-@pytest.fixture(scope="module")
-def client():
-    return DandiAPIClient("https://api.dandiarchive.org/api/")
-
-
 def _basic_publishmeta(dandi_id, version="v.0", prefix="10.80507"):
     """
     adding basic info required by PublishedDandisetMeta in addition to
@@ -241,7 +235,7 @@ def _basic_publishmeta(dandi_id, version="v.0", prefix="10.80507"):
     not os.getenv("DATACITE_DEV_PASSWORD"), reason="no datacite password available"
 )
 @pytest.mark.parametrize("dandi_id", ["000004", "000008"])
-def test_datacite(dandi_id, schema, client):
+def test_datacite(dandi_id, schema):
     """ checking to_datacite for a specific datasets"""
 
     # reading metadata taken from exemplary dandisets and saved in json files
@@ -251,7 +245,9 @@ def test_datacite(dandi_id, schema, client):
         meta_js = json.load(f)
 
     # updating with basic fields required for PublishDandisetMeta
-    meta_js.update(_basic_publishmeta(dandi_id))
+    meta_js.update(
+        _basic_publishmeta(dandi_id.replace("000", str(random.randrange(100, 999))))
+    )
     meta = PublishedDandisetMeta(**meta_js)
 
     datacite = to_datacite(meta=meta)
