@@ -240,6 +240,7 @@ def download_generator(
             _download_generator = _download_file(
                 downloader,
                 download_path,
+                toplevel_path=output_path,
                 # size and modified generally should be there but better to redownload
                 # than to crash
                 size=asset.get("size"),
@@ -392,6 +393,10 @@ def _populate_dandiset_yaml(dandiset_path, dandiset_data, existing):
     if op.lexists(dandiset_yaml):
         if existing == "error":
             raise FileExistsError(dandiset_yaml)
+        elif existing == "refresh" and op.lexists(
+            op.join(dandiset_path, ".git", "annex")
+        ):
+            raise RuntimeError("Not refreshing path in git annex repository")
         elif existing == "skip" or (
             existing == "refresh"
             and os.lstat(dandiset_yaml).st_mtime >= mtime.timestamp()
@@ -410,7 +415,13 @@ def _populate_dandiset_yaml(dandiset_path, dandiset_data, existing):
 
 
 def _download_file(
-    downloader, path, size=None, mtime=None, existing="error", digests=None
+    downloader,
+    path,
+    toplevel_path,
+    size=None,
+    mtime=None,
+    existing="error",
+    digests=None,
 ):
     """Common logic for downloading a single file
 
@@ -442,6 +453,8 @@ def _download_file(
         elif existing == "overwrite":
             pass
         elif existing == "refresh":
+            if op.lexists(op.join(toplevel_path, ".git", "annex")):
+                raise RuntimeError("Not refreshing path in git annex repository")
             if mtime is None:
                 lgr.warning(
                     f"{path!r} - no mtime or ctime in the record, redownloading"
