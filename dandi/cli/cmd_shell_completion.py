@@ -13,10 +13,22 @@ SHELLS = ["bash", "zsh", "fish"]
     "--shell",
     type=click.Choice(["auto"] + SHELLS),
     default="auto",
-    help="The shell for which to generate completion code",
+    show_default=True,
+    help="The shell for which to generate completion code; `auto` attempts autodetection",
 )
 def shell_completion(shell):
-    """ Emit command completion activation code """
+    """
+    Emit shell script for enabling command completion.
+
+    The output of this command should be "sourced" by bash or zsh to enable
+    command completion.
+
+    Example:
+
+    \b
+        $ source <(dandi shell-completion)
+        $ dandi --<PRESS TAB to display available option>
+    """
     if shell == "auto":
         try:
             shell = basename(os.environ["SHELL"])
