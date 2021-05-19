@@ -279,7 +279,10 @@ def to_datacite(meta):
                         f"but {ident_tp} provided"
                     )
             else:
-                raise Exception("identifier is expected to be type:number")
+                raise ValueError(
+                    "identifier is expected to be type:number,"
+                    f" got {rel_el.identifier}"
+                )
             rel_dict = {
                 "relatedIdentifier": ident_nr,
                 # in theory it should be from the specific list that contains e.g. DOI, arXiv, ...
