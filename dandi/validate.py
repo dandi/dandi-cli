@@ -56,9 +56,8 @@ def validate_dandiset_yaml(filepath, schema_version=None, devel_debug=False):
     if schema_version is None:
         return _check_required_fields(meta, _required_dandiset_metadata_fields)
     else:
+        from dandischema.models import DandisetMeta, get_schema_version
         from pydantic import ValidationError
-
-        from .models import DandisetMeta, get_schema_version
 
         current_version = get_schema_version()
         if schema_version != current_version:
@@ -91,10 +90,10 @@ def validate_dandiset_yaml(filepath, schema_version=None, devel_debug=False):
 def validate_dandi_nwb(filepath, schema_version=None, devel_debug=False):
     """Provide validation of .nwb file regarding requirements we impose"""
     if schema_version is not None:
+        from dandischema.models import BareAssetMeta, get_schema_version
         from pydantic import ValidationError
 
         from .metadata import nwb2asset
-        from .models import BareAssetMeta, get_schema_version
 
         current_version = get_schema_version()
         if schema_version != current_version:
