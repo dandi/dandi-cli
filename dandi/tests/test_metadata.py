@@ -3,20 +3,17 @@ from datetime import datetime, timedelta
 import json
 from pathlib import Path
 
-from dateutil.tz import tzutc
-import pytest
-
-from ..consts import DANDI_SCHEMA_VERSION
-from ..metadata import (
-    get_metadata,
-    metadata2asset,
-    parse_age,
+from dandischema.consts import DANDI_SCHEMA_VERSION
+from dandischema.metadata import (
     publish_model_schemata,
-    timedelta2duration,
     validate_asset_json,
     validate_dandiset_json,
 )
-from ..models import BareAssetMeta, DandisetMeta
+from dandischema.models import BareAssetMeta, DandisetMeta
+from dateutil.tz import tzutc
+import pytest
+
+from ..metadata import get_metadata, metadata2asset, parse_age, timedelta2duration
 from ..pynwb_utils import metadata_nwb_subject_fields
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"

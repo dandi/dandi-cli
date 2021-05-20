@@ -1,4 +1,5 @@
-from ..models import get_schema_version
+from dandischema.models import get_schema_version
+
 from ..validate import validate_file
 
 
