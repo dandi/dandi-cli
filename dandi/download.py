@@ -537,6 +537,7 @@ def _download_file(
 
     # TODO: how do we discover the total size????
     # TODO: do not do it in-place, but rather into some "hidden" file
+    resuming = False
     for attempt in range(3):
         try:
             if digester:
@@ -545,6 +546,7 @@ def _download_file(
             # I wonder if we could make writing async with downloader
             with DownloadDirectory(path, digests) as dldir:
                 downloaded = dldir.offset
+                resuming = downloaded > 0
                 if size is not None and downloaded == size:
                     # Exit early when downloaded == size, as making a Range
                     # request in such a case results in a 416 error from S3.
@@ -592,7 +594,7 @@ def _download_file(
             )
             time.sleep(random.random() * 5)
 
-    if downloaded_digest:
+    if downloaded_digest and not resuming:
         downloaded_digest = downloaded_digest.hexdigest()  # we care only about hex
         if digest != downloaded_digest:
             msg = f"{algo}: downloaded {downloaded_digest} != {digest}"
