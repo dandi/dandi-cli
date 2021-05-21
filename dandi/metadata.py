@@ -250,16 +250,6 @@ def extract_model_list(modelcls, id_field, id_source, **kwargs):
 
 def extract_wasDerivedFrom(metadata):
     derived_from = None
-    probe_ids = metadata.get("probe_ids", [])
-    if isinstance(probe_ids, str):
-        probe_ids = [probe_ids]
-    assaytype = []
-    for val in probe_ids:
-        assaytype.append(
-            models.AssayType(identifier=f"probe:{val}", name="Ecephys Probe")
-        )
-    if len(assaytype) == 0:
-        assaytype = None
     for field, sample_name in [
         ("tissue_sample_id", "tissuesample"),
         ("slice_id", "slice"),
@@ -270,17 +260,9 @@ def extract_wasDerivedFrom(metadata):
                 models.BioSample(
                     identifier=metadata[field],
                     wasDerivedFrom=derived_from,
-                    assayType=assaytype if derived_from is None else None,
                     sampleType=models.SampleType(name=sample_name),
                 )
             ]
-    if derived_from is None and assaytype:
-        derived_from = [
-            models.BioSample(
-                assayType=assaytype,
-                sampleType=models.SampleType(name="tissuesample"),
-            )
-        ]
     return derived_from
 
 
@@ -290,11 +272,21 @@ extract_wasAttributedTo = extract_model_list(
 
 
 def extract_session(metadata):
+    probe_ids = metadata.get("probe_ids", [])
+    if isinstance(probe_ids, str):
+        probe_ids = [probe_ids]
+    probes = []
+    for val in probe_ids:
+        probes.append(models.Agent(identifier=f"probe:{val}", name="Ecephys Probe"))
+    if len(probes) == 0:
+        probes = None
+
     return [
         models.Session(
             identifier=metadata.get("session_id"),
             name=metadata.get("session_id"),
             description=metadata.get("session_description", None),
+            wasAssociatedWith=probes,
         )
     ]
 

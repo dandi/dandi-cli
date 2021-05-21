@@ -18,7 +18,14 @@
       "identifier": "XYZ789",
       "name": "XYZ789",
       "description": "Some test data",
-      "schemaKey": "Session"
+      "schemaKey": "Session",
+      "wasAssociatedWith": [
+        {
+          "identifier": "probe:probe04",
+          "name": "Ecephys Probe",
+          "schemaKey": "Agent"
+        }
+      ]
     }
   ],
   "contentSize": 69105,
@@ -50,14 +57,7 @@
               "sampleType": {
                 "name": "tissuesample",
                 "schemaKey": "SampleType"
-              },
-              "assayType": [
-                {
-                  "identifier": "probe:probe04",
-                  "name": "Ecephys Probe",
-                  "schemaKey": "AssayType"
-                }
-              ]
+              }
             }
           ]
         }
