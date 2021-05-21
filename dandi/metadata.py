@@ -271,7 +271,7 @@ extract_wasAttributedTo = extract_model_list(
 )
 
 
-def extract_session(metadata):
+def extract_session(metadata: dict) -> list:
     probe_ids = metadata.get("probe_ids", [])
     if isinstance(probe_ids, str):
         probe_ids = [probe_ids]
