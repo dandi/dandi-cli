@@ -249,8 +249,11 @@ def extract_model_list(modelcls, id_field, id_source, **kwargs):
 
 
 def extract_wasDerivedFrom(metadata):
+    print(metadata)
     derived_from = None
-    probe_ids = metadata.get("probe_ids", None)
+    probe_ids = metadata.get("probe_ids", [])
+    if isinstance(probe_ids, str):
+        probe_ids = [probe_ids]
     assaytype = []
     for val in probe_ids:
         assaytype.append(
@@ -268,18 +271,17 @@ def extract_wasDerivedFrom(metadata):
                 models.BioSample(
                     identifier=metadata[field],
                     wasDerivedFrom=derived_from,
-                    assayType=assaytype if derived_from[0].assayType is None else None,
+                    assayType=assaytype if derived_from is None else None,
                     sampleType=models.SampleType(name=sample_name),
                 )
             ]
-    else:
-        if assaytype:
-            derived_from = [
-                models.BioSample(
-                    assayType=assaytype,
-                    sampleType=models.SampleType(name="tissuesample"),
-                )
-            ]
+    if derived_from is None and assaytype:
+        derived_from = [
+            models.BioSample(
+                assayType=assaytype,
+                sampleType=models.SampleType(name="tissuesample"),
+            )
+        ]
     return derived_from
 
 
@@ -546,7 +548,6 @@ def nwb2asset(
             )
     start_time = datetime.now().astimezone()
     metadata = get_metadata(nwb_path)
-    print(metadata)
     if digest is not None:
         metadata["digest"] = digest
         metadata["digest_type"] = digest_type

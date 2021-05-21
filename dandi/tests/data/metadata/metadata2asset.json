@@ -15,7 +15,9 @@
   "repository": "https://dandiarchive.org/",
   "wasGeneratedBy": [
     {
+      "identifier": "XYZ789",
       "name": "XYZ789",
+      "description": "Some test data",
       "schemaKey": "Session"
     }
   ],
@@ -48,7 +50,14 @@
               "sampleType": {
                 "name": "tissuesample",
                 "schemaKey": "SampleType"
-              }
+              },
+              "assayType": [
+                {
+                  "identifier": "probe:probe04",
+                  "name": "Ecephys Probe",
+                  "schemaKey": "AssayType"
+                }
+              ]
             }
           ]
         }

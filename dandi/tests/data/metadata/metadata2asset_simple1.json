@@ -29,8 +29,10 @@
   ],
   "wasGeneratedBy": [
     {
-        "name": "session_id1",
-        "schemaKey": "Session"
+      "identifier": "session_id1",
+      "name": "session_id1",
+      "description": "session_description1",
+      "schemaKey": "Session"
     }
   ],
   "wasAttributedTo": [
