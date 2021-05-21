@@ -250,6 +250,14 @@ def extract_model_list(modelcls, id_field, id_source, **kwargs):
 
 def extract_wasDerivedFrom(metadata):
     derived_from = None
+    probe_ids = metadata.get("probe_ids", None)
+    assaytype = []
+    for val in probe_ids:
+        assaytype.append(
+            models.AssayType(identifier=f"probe:{val}", name="Ecephys Probe")
+        )
+    if len(assaytype) == 0:
+        assaytype = None
     for field, sample_name in [
         ("tissue_sample_id", "tissuesample"),
         ("slice_id", "slice"),
@@ -260,7 +268,16 @@ def extract_wasDerivedFrom(metadata):
                 models.BioSample(
                     identifier=metadata[field],
                     wasDerivedFrom=derived_from,
+                    assayType=assaytype if derived_from[0].assayType is None else None,
                     sampleType=models.SampleType(name=sample_name),
+                )
+            ]
+    else:
+        if assaytype:
+            derived_from = [
+                models.BioSample(
+                    assayType=assaytype,
+                    sampleType=models.SampleType(name="tissuesample"),
                 )
             ]
     return derived_from
@@ -270,9 +287,15 @@ extract_wasAttributedTo = extract_model_list(
     models.Participant, "identifier", "subject_id", id=...
 )
 
-extract_wasGeneratedBy = extract_model_list(
-    models.Session, "name", "session_id", id=...
-)
+
+def extract_session(metadata):
+    return [
+        models.Session(
+            identifier=metadata.get("session_id"),
+            name=metadata.get("session_id"),
+            description=metadata.get("session_description", None),
+        )
+    ]
 
 
 def extract_digest(metadata):
@@ -285,7 +308,7 @@ def extract_digest(metadata):
 FIELD_EXTRACTORS = {
     "wasDerivedFrom": extract_wasDerivedFrom,
     "wasAttributedTo": extract_wasAttributedTo,
-    "wasGeneratedBy": extract_wasGeneratedBy,
+    "wasGeneratedBy": extract_session,
     "age": extract_age,
     "sex": extract_sex,
     "assayType": extract_assay_type,
@@ -302,6 +325,216 @@ def extract_field(field, metadata):
         return metadata.get(field, ...)
 
 
+nd_list = {
+    "ElectricalSeries": {
+        "module": "ecephys",
+        "neurodata_type": "ElectricalSeries",
+        "technique": "multi electrode extracellular electrophysiology recording technique",
+        "approach": "electrophysiological approach",
+    },
+    "SpikeEventSeries": {
+        "module": "ecephys",
+        "neurodata_type": "SpikeEventSeries",
+        "technique": "spike sorting technique",
+        "approach": "electrophysiological approach",
+    },
+    "FeatureExtraction": {
+        "module": "ecephys",
+        "neurodata_type": "FeatureExtraction",
+        "technique": "spike sorting technique",
+        "approach": "electrophysiological approach",
+    },
+    "LFP": {
+        "module": "ecephys",
+        "neurodata_type": "LFP",
+        "technique": "signal filtering technique",
+        "approach": "electrophysiological approach",
+    },
+    "EventWaveform": {
+        "module": "ecephys",
+        "neurodata_type": "EventWaveform",
+        "technique": "spike sorting technique",
+        "approach": "electrophysiological approach",
+    },
+    "EventDetection": {
+        "module": "ecephys",
+        "neurodata_type": "EventDetection",
+        "technique": "spike sorting technique",
+        "approach": "electrophysiological approach",
+    },
+    "ElectrodeGroup": {
+        "module": "ecephys",
+        "neurodata_type": "ElectrodeGroup",
+        "technique": "surgical technique",
+        "approach": "electrophysiological approach",
+    },
+    "PatchClampSeries": {
+        "module": "icephys",
+        "neurodata_type": "PatchClampSeries",
+        "technique": "patch clamp technique",
+        "approach": "electrophysiological approach",
+    },
+    "CurrentClampSeries": {
+        "module": "icephys",
+        "neurodata_type": "CurrentClampSeries",
+        "technique": "current clamp technique",
+        "approach": "electrophysiological approach",
+    },
+    "CurrentClampStimulusSeries": {
+        "module": "icephys",
+        "neurodata_type": "CurrentClampStimulusSeries",
+        "technique": "current clamp technique",
+        "approach": "electrophysiological approach",
+    },
+    "VoltageClampSeries": {
+        "module": "icephys",
+        "neurodata_type": "VoltageClampSeries",
+        "technique": "voltage clamp technique",
+        "approach": "electrophysiological approach",
+    },
+    "VoltageClampStimulusSeries": {
+        "module": "icephys",
+        "neurodata_type": "VoltageClampStimulusSeries",
+        "technique": "voltage clamp technique",
+        "approach": "electrophysiological approach",
+    },
+    "TwoPhotonSeries": {
+        "module": "ophys",
+        "neurodata_type": "TwoPhotonSeries",
+        "technique": "two-photon microscopy technique",
+        "approach": "microscopy approach; cell population imaging",
+    },
+    "OpticalChannel": {
+        "module": "ophys",
+        "neurodata_type": "OpticalChannel",
+        "technique": "surgical technique",
+        "approach": "microscopy approach; cell population imaging",
+    },
+    "ImagingPlane": {
+        "module": "ophys",
+        "neurodata_type": "ImagingPlane",
+        "technique": None,
+        "approach": "microscopy approach; cell population imaging",
+    },
+    "PlaneSegmentation": {
+        "module": "ophys",
+        "neurodata_type": "PlaneSegmentation",
+        "technique": None,
+        "approach": "microscopy approach; cell population imaging",
+    },
+    "Position": {
+        "module": "behavior",
+        "neurodata_type": "Position",
+        "technique": "behavioral technique",
+        "approach": "behavioral approach",
+    },
+    "SpatialSeries": {
+        "module": "behavior",
+        "neurodata_type": "SpatialSeries",
+        "technique": "behavioral technique",
+        "approach": "behavioral approach",
+    },
+    "BehavioralEpochs": {
+        "module": "behavior",
+        "neurodata_type": "BehavioralEpochs",
+        "technique": "behavioral technique",
+        "approach": "behavioral approach",
+    },
+    "BehavioralEvents": {
+        "module": "behavior",
+        "neurodata_type": "BehavioralEvents",
+        "technique": "behavioral technique",
+        "approach": "behavioral approach",
+    },
+    "BehavioralTimeSeries": {
+        "module": "behavior",
+        "neurodata_type": "BehavioralTimeSeries",
+        "technique": "behavioral technique",
+        "approach": "behavioral approach",
+    },
+    "PupilTracking": {
+        "module": "behavior",
+        "neurodata_type": "PupilTracking",
+        "technique": "behavioral technique",
+        "approach": "behavioral approach",
+    },
+    "EyeTracking": {
+        "module": "behavior",
+        "neurodata_type": "EyeTracking",
+        "technique": "behavioral technique",
+        "approach": "behavioral approach",
+    },
+    "CompassDirection": {
+        "module": "behavior",
+        "neurodata_type": "CompassDirection",
+        "technique": "behavioral technique",
+        "approach": "behavioral approach",
+    },
+    "ProcessingModule": {
+        "module": "base",
+        "neurodata_type": "ProcessingModule",
+        "technique": "analytical technique",
+        "approach": None,
+    },
+    "RGBImage": {
+        "module": "image",
+        "neurodata_type": "RGBImage",
+        "technique": "photographic technique",
+        "approach": None,
+    },
+    "DecompositionSeries": {
+        "module": "misc",
+        "neurodata_type": "DecompositionSeries",
+        "technique": "fourier analysis technique",
+        "approach": None,
+    },
+    "Units": {
+        "module": "misc",
+        "neurodata_type": "Units",
+        "technique": "spike sorting technique",
+        "approach": "electrophysiological approach",
+    },
+    "Spectrum": {
+        "module": "ndx-spectrum",
+        "neurodata_type": "Spectrum",
+        "technique": "fourier analysis technique",
+        "approach": None,
+    },
+    "OptogeneticStimulusSIte": {
+        "module": "ogen",
+        "neurodata_type": "OptogeneticStimulusSIte",
+        "technique": None,
+        "approach": "optogenetic approach",
+    },
+    "OptogeneticSeries": {
+        "module": "ogen",
+        "neurodata_type": "OptogeneticSeries",
+        "technique": None,
+        "approach": "optogenetic approach",
+    },
+}
+
+
+def process_ndtypes(asset, nd_types):
+    approach = set()
+    technique = set()
+    variables = set()
+    for val in nd_types:
+        if val not in nd_list:
+            continue
+        if nd_list[val]["approach"]:
+            approach.add(nd_list[val]["approach"])
+        if nd_list[val]["technique"]:
+            technique.add(nd_list[val]["technique"])
+        variables.add(val)
+    asset.approach = [models.ApproachType(name=val) for val in approach]
+    asset.measurementTechnique = [
+        models.MeasurementTechniqueType(name=val) for val in technique
+    ]
+    asset.variableMeasured = [models.PropertyValue(value=val) for val in variables]
+    return asset
+
+
 def nwb2asset(
     nwb_path, digest=None, digest_type=None, schema_version=None
 ) -> models.BareAssetMeta:
@@ -313,6 +546,7 @@ def nwb2asset(
             )
     start_time = datetime.now().astimezone()
     metadata = get_metadata(nwb_path)
+    print(metadata)
     if digest is not None:
         metadata["digest"] = digest
         metadata["digest_type"] = digest_type
@@ -325,6 +559,7 @@ def nwb2asset(
             "mtime %s of %s is in the future", metadata["blobDateModified"], nwb_path
         )
     asset = metadata2asset(metadata)
+    asset = process_ndtypes(asset, metadata["nd_types"])
     end_time = datetime.now().astimezone()
     if asset.wasGeneratedBy is None:
         asset.wasGeneratedBy = []
