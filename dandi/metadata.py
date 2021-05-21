@@ -278,8 +278,7 @@ def extract_session(metadata: dict) -> list:
     probes = []
     for val in probe_ids:
         probes.append(models.Equipment(identifier=f"probe:{val}", name="Ecephys Probe"))
-    if len(probes) == 0:
-        probes = None
+    probes = probes or None
 
     return [
         models.Session(
