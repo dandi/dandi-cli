@@ -277,7 +277,7 @@ def extract_session(metadata):
         probe_ids = [probe_ids]
     probes = []
     for val in probe_ids:
-        probes.append(models.Agent(identifier=f"probe:{val}", name="Ecephys Probe"))
+        probes.append(models.Equipment(identifier=f"probe:{val}", name="Ecephys Probe"))
     if len(probes) == 0:
         probes = None
 
@@ -286,7 +286,7 @@ def extract_session(metadata):
             identifier=metadata.get("session_id"),
             name=metadata.get("session_id"),
             description=metadata.get("session_description", None),
-            wasAssociatedWith=probes,
+            used=probes,
         )
     ]
 
@@ -318,7 +318,7 @@ def extract_field(field, metadata):
         return metadata.get(field, ...)
 
 
-nd_list = {
+neurodata_typemap = {
     "ElectricalSeries": {
         "module": "ecephys",
         "neurodata_type": "ElectricalSeries",
@@ -513,12 +513,12 @@ def process_ndtypes(asset, nd_types):
     technique = set()
     variables = set()
     for val in nd_types:
-        if val not in nd_list:
+        if val not in neurodata_typemap:
             continue
-        if nd_list[val]["approach"]:
-            approach.add(nd_list[val]["approach"])
-        if nd_list[val]["technique"]:
-            technique.add(nd_list[val]["technique"])
+        if neurodata_typemap[val]["approach"]:
+            approach.add(neurodata_typemap[val]["approach"])
+        if neurodata_typemap[val]["technique"]:
+            technique.add(neurodata_typemap[val]["technique"])
         variables.add(val)
     asset.approach = [models.ApproachType(name=val) for val in approach]
     asset.measurementTechnique = [
