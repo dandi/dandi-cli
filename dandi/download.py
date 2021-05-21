@@ -15,6 +15,7 @@ from .consts import dandiset_metadata_file
 from .dandiarchive import DandisetURL, MultiAssetURL, SingleAssetURL, parse_dandi_url
 from .dandiset import Dandiset
 from . import get_logger
+from .support.digests import get_digest
 from .support.pyout import naturalsize
 from .utils import (
     abbrev_prompt,
@@ -23,6 +24,7 @@ from .utils import (
     flattened,
     is_same_time,
     on_windows,
+    path_is_subpath,
     pluralize,
 )
 
@@ -207,6 +209,10 @@ def download_generator(
                 raise RuntimeError(
                     f"dandi-etag not available for asset. Known digests: {d}"
                 )
+            try:
+                digests["sha256"] = d["dandi:sha2-256"]
+            except KeyError:
+                pass
 
             path = asset["path"].lstrip("/")  # make into relative path
             path = op.normpath(path)
@@ -445,6 +451,7 @@ def _download_file(
     """
     if op.lexists(path):
         block = f"File {path!r} already exists"
+        annex_path = op.join(toplevel_path, ".git", "annex")
         if existing == "error":
             raise FileExistsError(block)
         elif existing == "skip":
@@ -452,8 +459,38 @@ def _download_file(
             return
         elif existing == "overwrite":
             pass
+        elif existing == "overwrite-different":
+            realpath = op.realpath(path)
+            key_parts = op.basename(realpath).split("-")
+            if size is not None and os.stat(realpath).st_size != size:
+                lgr.debug(
+                    "Size of %s does not match size on server; redownloading", path
+                )
+            elif (
+                op.lexists(annex_path)
+                and op.islink(path)
+                and path_is_subpath(realpath, op.abspath(annex_path))
+                and key_parts[0] == "SHA256E"
+                and digests
+                and "sha256" in digests
+            ):
+                if key_parts[-1].partition(".")[0] == digests["sha256"]:
+                    yield _skip_file("already exists")
+                    return
+                else:
+                    lgr.debug(
+                        "%s is in git-annex, and hash does not match hash on server; redownloading",
+                        path,
+                    )
+            elif get_digest(path, "dandi-etag") == digests["dandi-etag"]:
+                yield _skip_file("already exists")
+                return
+            else:
+                lgr.debug(
+                    "Etag of %s does not match etag on server; redownloading", path
+                )
         elif existing == "refresh":
-            if op.lexists(op.join(toplevel_path, ".git", "annex")):
+            if op.lexists(annex_path):
                 raise RuntimeError("Not refreshing path in git annex repository")
             if mtime is None:
                 lgr.warning(
