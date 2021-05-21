@@ -285,7 +285,7 @@ def extract_session(metadata):
         models.Session(
             identifier=metadata.get("session_id"),
             name=metadata.get("session_id"),
-            description=metadata.get("session_description", None),
+            description=metadata.get("session_description"),
             used=probes,
         )
     ]
