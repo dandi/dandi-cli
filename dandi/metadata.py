@@ -249,7 +249,6 @@ def extract_model_list(modelcls, id_field, id_source, **kwargs):
 
 
 def extract_wasDerivedFrom(metadata):
-    print(metadata)
     derived_from = None
     probe_ids = metadata.get("probe_ids", [])
     if isinstance(probe_ids, str):
