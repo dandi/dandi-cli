@@ -545,6 +545,7 @@ def nwb2asset(
     metadata["encodingFormat"] = "application/x-nwb"
     metadata["dateModified"] = get_utcnow_datetime()
     metadata["blobDateModified"] = ensure_datetime(os.stat(nwb_path).st_mtime)
+    metadata["path"] = nwb_path
     if metadata["blobDateModified"] > metadata["dateModified"]:
         lgr.warning(
             "mtime %s of %s is in the future", metadata["blobDateModified"], nwb_path
@@ -599,4 +600,5 @@ def get_generator(start_time: datetime, end_time: datetime) -> models.Activity:
 
 
 def metadata2asset(metadata):
-    return extract_model(models.BareAssetMeta, metadata)
+    bare_dict = extract_model(models.BareAssetMeta, metadata).json_dict()
+    return models.BareAssetMeta(**bare_dict)

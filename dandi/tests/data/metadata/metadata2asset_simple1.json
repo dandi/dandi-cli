@@ -23,8 +23,9 @@
   "contentSize": 69105,
   "encodingFormat": "application/x-nwb",
   "digest": {
-    "dandi:sha1": "783ad2afe455839e5ab2fa659861f58a423fd17f"
+    "dandi:dandi-etag": "e455839e5ab2fa659861f58a423fd17f"
   },
+  "path": "/test/path",
   "wasDerivedFrom": [
     {
       "identifier": "tissue42",
