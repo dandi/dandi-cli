@@ -7,7 +7,7 @@
   ],
   "access": [
     {
-      "status": "dandi:Open",
+      "status": "dandi:OpenAccess",
       "schemaKey": "AccessRequirements"
     }
   ],
