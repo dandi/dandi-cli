@@ -350,7 +350,12 @@ def find_files(
         paths = (op.join(dirpath, name) for name in names)
         for path in filter(re.compile(regex).search, paths):
             if not exclude_path(path):
-                yield path
+                if op.islink(path) and op.isdir(path):
+                    lgr.warning(
+                        "%s: Ignoring unsupported symbolic link to directory", path
+                    )
+                else:
+                    yield path
 
 
 _cp_supports_reflink = None
