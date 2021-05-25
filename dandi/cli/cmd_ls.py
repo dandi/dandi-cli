@@ -75,7 +75,8 @@ def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, job
 
     common_fields = ("path", "size")
     if schema is not None:
-        from dandischema.models import AssetMeta, DandisetMeta
+        from dandischema.models import Asset as AssetMeta
+        from dandischema.models import Dandiset as DandisetMeta
 
         all_fields = tuple(
             sorted(

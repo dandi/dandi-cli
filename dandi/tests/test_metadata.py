@@ -9,7 +9,8 @@ from dandischema.metadata import (
     validate_asset_json,
     validate_dandiset_json,
 )
-from dandischema.models import BareAssetMeta, DandisetMeta
+from dandischema.models import BareAsset as BareAssetMeta
+from dandischema.models import Dandiset as DandisetMeta
 from dateutil.tz import tzutc
 import pytest
 

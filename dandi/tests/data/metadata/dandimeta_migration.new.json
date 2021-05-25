@@ -11,21 +11,21 @@
       "name": "Chandravadia, Nand",
       "email": "nandc10@gmail.com",
       "roleName": [
-        "dandirole:Author",
-        "dandirole:ContactPerson",
-        "dandirole:DataCurator",
-        "dandirole:DataManager",
-        "dandirole:FormalAnalysis",
-        "dandirole:Investigation",
-        "dandirole:Maintainer",
-        "dandirole:Methodology",
-        "dandirole:ProjectLeader",
-        "dandirole:ProjectManager",
-        "dandirole:ProjectMember",
-        "dandirole:Researcher",
-        "dandirole:Software",
-        "dandirole:Validation",
-        "dandirole:Visualization"
+        "dcite:Author",
+        "dcite:ContactPerson",
+        "dcite:DataCurator",
+        "dcite:DataManager",
+        "dcite:FormalAnalysis",
+        "dcite:Investigation",
+        "dcite:Maintainer",
+        "dcite:Methodology",
+        "dcite:ProjectLeader",
+        "dcite:ProjectManager",
+        "dcite:ProjectMember",
+        "dcite:Researcher",
+        "dcite:Software",
+        "dcite:Validation",
+        "dcite:Visualization"
       ],
       "includeInCitation": true,
       "affiliation": [
@@ -41,11 +41,11 @@
       "name": "Liang, Dehua",
       "email": "liang134@mail.chapman.edu",
       "roleName": [
-        "dandirole:Author",
-        "dandirole:Methodology",
-        "dandirole:ProjectMember",
-        "dandirole:Software",
-        "dandirole:Validation"
+        "dcite:Author",
+        "dcite:Methodology",
+        "dcite:ProjectMember",
+        "dcite:Software",
+        "dcite:Validation"
       ],
       "includeInCitation": true,
       "affiliation": [
@@ -62,10 +62,10 @@
       "name": "Schjetnan, Andrea Gomez Palacio",
       "email": "Andrea.Schjetan@uhnresearch.ca",
       "roleName": [
-        "dandirole:Author",
-        "dandirole:DataCollector",
-        "dandirole:ProjectMember",
-        "dandirole:Validation"
+        "dcite:Author",
+        "dcite:DataCollector",
+        "dcite:ProjectMember",
+        "dcite:Validation"
       ],
       "includeInCitation": true,
       "affiliation": [
@@ -82,10 +82,10 @@
       "name": "Carlson, April",
       "email": "april.carlson@tufts.edu",
       "roleName": [
-        "dandirole:Author",
-        "dandirole:DataCurator",
-        "dandirole:ProjectMember",
-        "dandirole:Validation"
+        "dcite:Author",
+        "dcite:DataCurator",
+        "dcite:ProjectMember",
+        "dcite:Validation"
       ],
       "includeInCitation": true,
       "affiliation": [
@@ -101,10 +101,10 @@
       "name": "Faraut, Mailys",
       "email": "mailyscm.faraut@gmail.com",
       "roleName": [
-        "dandirole:Author",
-        "dandirole:DataCollector",
-        "dandirole:ProjectMember",
-        "dandirole:Validation"
+        "dcite:Author",
+        "dcite:DataCollector",
+        "dcite:ProjectMember",
+        "dcite:Validation"
       ],
       "includeInCitation": true,
       "affiliation": [
@@ -120,9 +120,9 @@
       "name": "Chung, Jeffrey M.",
       "email": "Jeffrey.Chung@cshs.org",
       "roleName": [
-        "dandirole:Author",
-        "dandirole:ProjectMember",
-        "dandirole:Validation"
+        "dcite:Author",
+        "dcite:ProjectMember",
+        "dcite:Validation"
       ],
       "includeInCitation": true,
       "affiliation": [
@@ -138,9 +138,9 @@
       "name": "Reed, Chrystal M.",
       "email": "Chrystal.Reed@csmc.edu",
       "roleName": [
-        "dandirole:Author",
-        "dandirole:ProjectMember",
-        "dandirole:Validation"
+        "dcite:Author",
+        "dcite:ProjectMember",
+        "dcite:Validation"
       ],
       "includeInCitation": true,
       "affiliation": [
@@ -156,10 +156,10 @@
       "name": "Dichter, Ben",
       "email": "ben.dichter@gmail.com",
       "roleName": [
-        "dandirole:Author",
-        "dandirole:Software",
-        "dandirole:ProjectMember",
-        "dandirole:Validation"
+        "dcite:Author",
+        "dcite:Software",
+        "dcite:ProjectMember",
+        "dcite:Validation"
       ],
       "includeInCitation": true,
       "affiliation": [
@@ -180,10 +180,10 @@
       "name": "Maoz, Uri",
       "email": "maoz.uri@gmail.com",
       "roleName": [
-        "dandirole:Author",
-        "dandirole:Conceptualization",
-        "dandirole:ProjectMember",
-        "dandirole:Validation"
+        "dcite:Author",
+        "dcite:Conceptualization",
+        "dcite:ProjectMember",
+        "dcite:Validation"
       ],
       "includeInCitation": true,
       "affiliation": [
@@ -204,9 +204,9 @@
       "name": "Kalia, Suneil K.",
       "email": "suneil.kalia@uhn.ca",
       "roleName": [
-        "dandirole:Author",
-        "dandirole:ProjectMember",
-        "dandirole:Validation"
+        "dcite:Author",
+        "dcite:ProjectMember",
+        "dcite:Validation"
       ],
       "includeInCitation": true,
       "affiliation": [
@@ -227,9 +227,9 @@
       "name": "Valiante, Taufik A.",
       "email": "Taufik.Valiante@uhn.ca",
       "roleName": [
-        "dandirole:Author",
-        "dandirole:ProjectMember",
-        "dandirole:Validation"
+        "dcite:Author",
+        "dcite:ProjectMember",
+        "dcite:Validation"
       ],
       "includeInCitation": true,
       "affiliation": [
@@ -250,9 +250,9 @@
       "name": "Mamelak, Adam N.",
       "email": "Adam.Mamelak@cshs.org",
       "roleName": [
-        "dandirole:Author",
-        "dandirole:ProjectMember",
-        "dandirole:Validation"
+        "dcite:Author",
+        "dcite:ProjectMember",
+        "dcite:Validation"
       ],
       "includeInCitation": true,
       "affiliation": [
@@ -269,14 +269,14 @@
       "name": "Rutishauser, Ueli",
       "email": "Ueli.Rutishauser@cshs.org",
       "roleName": [
-        "dandirole:Author",
-        "dandirole:Conceptualization",
-        "dandirole:FundingAcquisition",
-        "dandirole:ProjectMember",
-        "dandirole:Resources",
-        "dandirole:Software",
-        "dandirole:Supervision",
-        "dandirole:Validation"
+        "dcite:Author",
+        "dcite:Conceptualization",
+        "dcite:FundingAcquisition",
+        "dcite:ProjectMember",
+        "dcite:Resources",
+        "dcite:Software",
+        "dcite:Supervision",
+        "dcite:Validation"
       ],
       "includeInCitation": true,
       "affiliation": [
@@ -311,7 +311,7 @@
       "schemaKey": "Organization",
       "name": "Stroke, National Institute of Neurological Disorders and",
       "roleName": [
-        "dandirole:Sponsor"
+        "dcite:Sponsor"
       ],
       "includeInCitation": false,
       "awardNumber": "U01NS103792"
@@ -320,7 +320,7 @@
       "schemaKey": "Organization",
       "name": "Foundation, National Science",
       "roleName": [
-        "dandirole:Sponsor"
+        "dcite:Sponsor"
       ],
       "includeInCitation": false,
       "awardNumber": "1554105"
@@ -329,7 +329,7 @@
       "schemaKey": "Organization",
       "name": "Health, National Institute of Mental",
       "roleName": [
-        "dandirole:Sponsor"
+        "dcite:Sponsor"
       ],
       "includeInCitation": false,
       "awardNumber": "R01MH110831"
@@ -338,7 +338,7 @@
       "schemaKey": "Organization",
       "name": "Neuroscience, McKnight Endowment for",
       "roleName": [
-        "dandirole:Sponsor"
+        "dcite:Sponsor"
       ],
       "includeInCitation": false
     },
@@ -346,7 +346,7 @@
       "schemaKey": "Organization",
       "name": "Foundation, NARSAD Young Investigator grant from the Brain & Behavior Research",
       "roleName": [
-        "dandirole:Sponsor"
+        "dcite:Sponsor"
       ],
       "includeInCitation": false
     },
@@ -354,7 +354,7 @@
       "schemaKey": "Organization",
       "name": "Foundation, Kavli",
       "roleName": [
-        "dandirole:Sponsor"
+        "dcite:Sponsor"
       ],
       "includeInCitation": false
     },
@@ -362,7 +362,7 @@
       "schemaKey": "Organization",
       "name": "initiative, BRAIN",
       "roleName": [
-        "dandirole:Sponsor"
+        "dcite:Sponsor"
       ],
       "includeInCitation": false,
       "awardNumber": "U19NS104590"
@@ -403,13 +403,13 @@
       "name": "A NWB-based Dataset and Processing Pipeline of Human Single-Neuron Activity During a Declarative Memory Task",
       "url": "https://osf.io/hv7ja/",
       "repository": "Open Science Framework",
-      "relation": "dandi:IsDerivedFrom"
+      "relation": "dcite:IsDerivedFrom"
     },
     {
       "schemaKey": "Resource",
       "identifier": "DOI:10.1038/s41597-020-0415-9",
       "url": "https://www.nature.com/articles/s41597-020-0415-9",
-      "relation": "dandi:IsDescribedBy"
+      "relation": "dcite:IsDescribedBy"
     }
   ],
   "identifier": "DANDI:000004",

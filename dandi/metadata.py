@@ -529,7 +529,7 @@ def process_ndtypes(asset, nd_types):
 
 def nwb2asset(
     nwb_path, digest=None, digest_type=None, schema_version=None
-) -> models.BareAssetMeta:
+) -> models.BareAsset:
     if schema_version is not None:
         current_version = models.get_schema_version()
         if schema_version != current_version:
@@ -559,7 +559,7 @@ def nwb2asset(
     return asset
 
 
-def get_default_metadata(path, digest=None, digest_type=None) -> models.BareAssetMeta:
+def get_default_metadata(path, digest=None, digest_type=None) -> models.BareAsset:
     start_time = datetime.now().astimezone()
     if digest is not None:
         digest_model = {models.DigestType[digest_type]: digest}
@@ -570,7 +570,7 @@ def get_default_metadata(path, digest=None, digest_type=None) -> models.BareAsse
     if blobDateModified > dateModified:
         lgr.warning("mtime %s of %s is in the future", blobDateModified, path)
     end_time = datetime.now().astimezone()
-    return models.BareAssetMeta.unvalidated(
+    return models.BareAsset.unvalidated(
         contentSize=os.path.getsize(path),
         digest=digest_model,
         dateModified=dateModified,
@@ -600,5 +600,5 @@ def get_generator(start_time: datetime, end_time: datetime) -> models.Activity:
 
 
 def metadata2asset(metadata):
-    bare_dict = extract_model(models.BareAssetMeta, metadata).json_dict()
-    return models.BareAssetMeta(**bare_dict)
+    bare_dict = extract_model(models.BareAsset, metadata).json_dict()
+    return models.BareAsset(**bare_dict)
