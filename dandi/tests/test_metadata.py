@@ -5,9 +5,9 @@ from pathlib import Path
 
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dandischema.metadata import (
+    _validate_asset_json,
+    _validate_dandiset_json,
     publish_model_schemata,
-    validate_asset_json,
-    validate_dandiset_json,
 )
 from dandischema.models import BareAsset as BareAssetMeta
 from dandischema.models import Dandiset as DandisetMeta
@@ -133,7 +133,7 @@ def test_metadata2asset(schema_dir):
     bare_dict = deepcopy(data_as_dict)
     assert data.json_dict() == bare_dict
     data_as_dict["identifier"] = "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be"
-    validate_asset_json(data_as_dict, schema_dir)
+    _validate_asset_json(data_as_dict, schema_dir)
 
 
 def test_metadata2asset_simple1(schema_dir):
@@ -174,7 +174,7 @@ def test_metadata2asset_simple1(schema_dir):
     bare_dict = deepcopy(data_as_dict)
     assert data.json_dict() == bare_dict
     data_as_dict["identifier"] = "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be"
-    validate_asset_json(data_as_dict, schema_dir)
+    _validate_asset_json(data_as_dict, schema_dir)
 
 
 def test_dandimeta_migration(schema_dir):
@@ -182,4 +182,4 @@ def test_dandimeta_migration(schema_dir):
         data_as_dict = json.load(fp)
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
     DandisetMeta(**data_as_dict)
-    validate_dandiset_json(data_as_dict, schema_dir)
+    _validate_dandiset_json(data_as_dict, schema_dir)

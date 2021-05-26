@@ -1,7 +1,7 @@
 {
   "id": "DANDI:000004/draft",
   "schemaKey": "Dandiset",
-  "schemaVersion": "0.3.2",
+  "schemaVersion": "0.4.0",
   "name": "A NWB-based dataset and processing pipeline of human single-neuron activity during a declarative memory task",
   "description": "A challenge for data sharing in systems neuroscience is the multitude of different data formats used. Neurodata Without Borders: Neurophysiology 2.0 (NWB:N) has emerged as a standardized data format for the storage of cellular-level data together with meta-data, stimulus information, and behavior. A key next step to facilitate NWB:N adoption is to provide easy to use processing pipelines to import/export data from/to NWB:N. Here, we present a NWB-formatted dataset of 1863 single neurons recorded from the medial temporal lobes of 59 human subjects undergoing intracranial monitoring while they performed a recognition memory task. We provide code to analyze and export/import stimuli, behavior, and electrophysiological recordings to/from NWB in both MATLAB and Python. The data files are NWB:N compliant, which affords interoperability between programming languages and operating systems. This combined data and code release is a case study for how to utilize NWB:N for human single-neuron recordings and enables easy re-use of this hard-to-obtain data for both teaching and research on the mechanisms of human memory.",
   "contributor": [
@@ -30,9 +30,8 @@
       "includeInCitation": true,
       "affiliation": [
         {
-          "schemaKey": "Organization",
-          "name": "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA"
         }
       ]
     },
@@ -50,9 +49,8 @@
       "includeInCitation": true,
       "affiliation": [
         {
-          "schemaKey": "Organization",
-          "name": "Institute for Interdisciplinary Brain and Behavioral Sciences, Crean College of Health and Behavioral Sciences, Schmid College of Science and Technology, Chapman University, Orange, CA, USA",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Institute for Interdisciplinary Brain and Behavioral Sciences, Crean College of Health and Behavioral Sciences, Schmid College of Science and Technology, Chapman University, Orange, CA, USA"
         }
       ]
     },
@@ -70,9 +68,8 @@
       "includeInCitation": true,
       "affiliation": [
         {
-          "schemaKey": "Organization",
-          "name": "Krembil Brain Institute, Toronto Western Hospital, Toronto, Canada",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Krembil Brain Institute, Toronto Western Hospital, Toronto, Canada"
         }
       ]
     },
@@ -90,9 +87,8 @@
       "includeInCitation": true,
       "affiliation": [
         {
-          "schemaKey": "Organization",
-          "name": "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA"
         }
       ]
     },
@@ -109,9 +105,8 @@
       "includeInCitation": true,
       "affiliation": [
         {
-          "schemaKey": "Organization",
-          "name": "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA"
         }
       ]
     },
@@ -127,9 +122,8 @@
       "includeInCitation": true,
       "affiliation": [
         {
-          "schemaKey": "Organization",
-          "name": "Department of Neurology, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Department of Neurology, Cedars-Sinai Medical Center, Los Angeles, CA, USA"
         }
       ]
     },
@@ -145,9 +139,8 @@
       "includeInCitation": true,
       "affiliation": [
         {
-          "schemaKey": "Organization",
-          "name": "Department of Neurology, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Department of Neurology, Cedars-Sinai Medical Center, Los Angeles, CA, USA"
         }
       ]
     },
@@ -164,14 +157,12 @@
       "includeInCitation": true,
       "affiliation": [
         {
-          "schemaKey": "Organization",
-          "name": "Biological Systems & Engineering Division, Lawrence Berkeley National Laboratory, Berkeley, CA, USA",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Biological Systems & Engineering Division, Lawrence Berkeley National Laboratory, Berkeley, CA, USA"
         },
         {
-          "schemaKey": "Organization",
-          "name": "Department of Neurosurgery, Stanford University, Stanford, CA, USA",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Department of Neurosurgery, Stanford University, Stanford, CA, USA"
         }
       ]
     },
@@ -188,14 +179,12 @@
       "includeInCitation": true,
       "affiliation": [
         {
-          "schemaKey": "Organization",
-          "name": "Institute for Interdisciplinary Brain and Behavioral Sciences, Crean College of Health and Behavioral Sciences, Schmid College of Science and Technology, Chapman University, Orange, CA, USA",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Institute for Interdisciplinary Brain and Behavioral Sciences, Crean College of Health and Behavioral Sciences, Schmid College of Science and Technology, Chapman University, Orange, CA, USA"
         },
         {
-          "schemaKey": "Organization",
-          "name": "Division of Biology and Biological Engineering, California Institute of Technology, Pasadena, CA, USA",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Division of Biology and Biological Engineering, California Institute of Technology, Pasadena, CA, USA"
         }
       ]
     },
@@ -211,14 +200,12 @@
       "includeInCitation": true,
       "affiliation": [
         {
-          "schemaKey": "Organization",
-          "name": "Division of Neurosurgery, Department of Surgery, University of Toronto, Toronto, Canada",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Division of Neurosurgery, Department of Surgery, University of Toronto, Toronto, Canada"
         },
         {
-          "schemaKey": "Organization",
-          "name": "Krembil Brain Institute, Toronto Western Hospital, Toronto, Canada",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Krembil Brain Institute, Toronto Western Hospital, Toronto, Canada"
         }
       ]
     },
@@ -234,14 +221,12 @@
       "includeInCitation": true,
       "affiliation": [
         {
-          "schemaKey": "Organization",
-          "name": "Krembil Brain Institute, Toronto Western Hospital, Toronto, Canada",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Krembil Brain Institute, Toronto Western Hospital, Toronto, Canada"
         },
         {
-          "schemaKey": "Organization",
-          "name": "Division of Neurosurgery, Department of Surgery, University of Toronto, Toronto, Canada",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Division of Neurosurgery, Department of Surgery, University of Toronto, Toronto, Canada"
         }
       ]
     },
@@ -257,9 +242,8 @@
       "includeInCitation": true,
       "affiliation": [
         {
-          "schemaKey": "Organization",
-          "name": "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA"
         }
       ]
     },
@@ -281,29 +265,24 @@
       "includeInCitation": true,
       "affiliation": [
         {
-          "schemaKey": "Organization",
-          "name": "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Department of Neurosurgery, Cedars-Sinai Medical Center, Los Angeles, CA, USA"
         },
         {
-          "schemaKey": "Organization",
-          "name": "Department of Neurology, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Department of Neurology, Cedars-Sinai Medical Center, Los Angeles, CA, USA"
         },
         {
-          "schemaKey": "Organization",
-          "name": "Division of Biology and Biological Engineering, California Institute of Technology, Pasadena, CA, USA",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Division of Biology and Biological Engineering, California Institute of Technology, Pasadena, CA, USA"
         },
         {
-          "schemaKey": "Organization",
-          "name": "Computational and Neural Systems Program, California Institute of Technology, Pasadena, CA, USA",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Computational and Neural Systems Program, California Institute of Technology, Pasadena, CA, USA"
         },
         {
-          "schemaKey": "Organization",
-          "name": "Center for Neural Science and Medicine, Department of Biomedical Science, Cedars-Sinai Medical Center, Los Angeles, CA, USA",
-          "includeInCitation": false
+          "schemaKey": "Affiliation",
+          "name": "Center for Neural Science and Medicine, Department of Biomedical Science, Cedars-Sinai Medical Center, Los Angeles, CA, USA"
         }
       ]
     },
