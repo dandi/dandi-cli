@@ -90,7 +90,7 @@ def test_metadata2asset(schema_dir):
     data = metadata2asset(
         {
             "contentSize": 69105,
-            "digest": "e455839e5ab2fa659861f58a423fd17f",
+            "digest": "e455839e5ab2fa659861f58a423fd17f-1",
             "digest_type": "dandi_etag",
             "encodingFormat": "application/x-nwb",
             "experiment_description": "Experiment Description",
@@ -140,7 +140,7 @@ def test_metadata2asset_simple1(schema_dir):
     data = metadata2asset(
         {
             "contentSize": 69105,
-            "digest": "e455839e5ab2fa659861f58a423fd17f",
+            "digest": "e455839e5ab2fa659861f58a423fd17f-1",
             "digest_type": "dandi_etag",
             "encodingFormat": "application/x-nwb",
             "nwb_version": "2.2.5",

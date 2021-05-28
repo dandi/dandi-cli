@@ -23,7 +23,7 @@
   "contentSize": 69105,
   "encodingFormat": "application/x-nwb",
   "digest": {
-    "dandi:dandi-etag": "e455839e5ab2fa659861f58a423fd17f"
+    "dandi:dandi-etag": "e455839e5ab2fa659861f58a423fd17f-1"
   },
   "path": "/test/path",
   "wasDerivedFrom": [
