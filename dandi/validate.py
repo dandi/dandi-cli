@@ -102,7 +102,9 @@ def validate_dandi_nwb(filepath, schema_version=None, devel_debug=False):
                 f"Unsupported schema version: {schema_version}; expected {current_version}"
             )
         try:
-            asset = nwb2asset(filepath, digest=32 * "d", digest_type="dandi_etag")
+            asset = nwb2asset(
+                filepath, digest=32 * "d" + "-1", digest_type="dandi_etag"
+            )
             BareAsset(**asset.dict())
         except ValidationError as e:
             if devel_debug:
