@@ -15,6 +15,7 @@ from .consts import dandiset_metadata_file
 from .dandiarchive import DandisetURL, MultiAssetURL, SingleAssetURL, parse_dandi_url
 from .dandiset import Dandiset
 from . import get_logger
+from .support.digests import get_digest
 from .support.pyout import naturalsize
 from .utils import (
     abbrev_prompt,
@@ -23,6 +24,7 @@ from .utils import (
     flattened,
     is_same_time,
     on_windows,
+    path_is_subpath,
     pluralize,
 )
 
@@ -207,6 +209,10 @@ def download_generator(
                 raise RuntimeError(
                     f"dandi-etag not available for asset. Known digests: {d}"
                 )
+            try:
+                digests["sha256"] = d["dandi:sha2-256"]
+            except KeyError:
+                pass
 
             path = asset["path"].lstrip("/")  # make into relative path
             path = op.normpath(path)
@@ -240,6 +246,7 @@ def download_generator(
             _download_generator = _download_file(
                 downloader,
                 download_path,
+                toplevel_path=output_path,
                 # size and modified generally should be there but better to redownload
                 # than to crash
                 size=asset.get("size"),
@@ -392,6 +399,10 @@ def _populate_dandiset_yaml(dandiset_path, dandiset_data, existing):
     if op.lexists(dandiset_yaml):
         if existing == "error":
             raise FileExistsError(dandiset_yaml)
+        elif existing == "refresh" and op.lexists(
+            op.join(dandiset_path, ".git", "annex")
+        ):
+            raise RuntimeError("Not refreshing path in git annex repository")
         elif existing == "skip" or (
             existing == "refresh"
             and os.lstat(dandiset_yaml).st_mtime >= mtime.timestamp()
@@ -410,7 +421,13 @@ def _populate_dandiset_yaml(dandiset_path, dandiset_data, existing):
 
 
 def _download_file(
-    downloader, path, size=None, mtime=None, existing="error", digests=None
+    downloader,
+    path,
+    toplevel_path,
+    size=None,
+    mtime=None,
+    existing="error",
+    digests=None,
 ):
     """Common logic for downloading a single file
 
@@ -434,6 +451,7 @@ def _download_file(
     """
     if op.lexists(path):
         block = f"File {path!r} already exists"
+        annex_path = op.join(toplevel_path, ".git", "annex")
         if existing == "error":
             raise FileExistsError(block)
         elif existing == "skip":
@@ -441,7 +459,39 @@ def _download_file(
             return
         elif existing == "overwrite":
             pass
+        elif existing == "overwrite-different":
+            realpath = op.realpath(path)
+            key_parts = op.basename(realpath).split("-")
+            if size is not None and os.stat(realpath).st_size != size:
+                lgr.debug(
+                    "Size of %s does not match size on server; redownloading", path
+                )
+            elif (
+                op.lexists(annex_path)
+                and op.islink(path)
+                and path_is_subpath(realpath, op.abspath(annex_path))
+                and key_parts[0] == "SHA256E"
+                and digests
+                and "sha256" in digests
+            ):
+                if key_parts[-1].partition(".")[0] == digests["sha256"]:
+                    yield _skip_file("already exists")
+                    return
+                else:
+                    lgr.debug(
+                        "%s is in git-annex, and hash does not match hash on server; redownloading",
+                        path,
+                    )
+            elif get_digest(path, "dandi-etag") == digests["dandi-etag"]:
+                yield _skip_file("already exists")
+                return
+            else:
+                lgr.debug(
+                    "Etag of %s does not match etag on server; redownloading", path
+                )
         elif existing == "refresh":
+            if op.lexists(annex_path):
+                raise RuntimeError("Not refreshing path in git annex repository")
             if mtime is None:
                 lgr.warning(
                     f"{path!r} - no mtime or ctime in the record, redownloading"
@@ -487,6 +537,7 @@ def _download_file(
 
     # TODO: how do we discover the total size????
     # TODO: do not do it in-place, but rather into some "hidden" file
+    resuming = False
     for attempt in range(3):
         try:
             if digester:
@@ -495,6 +546,7 @@ def _download_file(
             # I wonder if we could make writing async with downloader
             with DownloadDirectory(path, digests) as dldir:
                 downloaded = dldir.offset
+                resuming = downloaded > 0
                 if size is not None and downloaded == size:
                     # Exit early when downloaded == size, as making a Range
                     # request in such a case results in a 416 error from S3.
@@ -542,7 +594,7 @@ def _download_file(
             )
             time.sleep(random.random() * 5)
 
-    if downloaded_digest:
+    if downloaded_digest and not resuming:
         downloaded_digest = downloaded_digest.hexdigest()  # we care only about hex
         if digest != downloaded_digest:
             msg = f"{algo}: downloaded {downloaded_digest} != {digest}"
