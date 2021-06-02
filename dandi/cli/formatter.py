@@ -51,7 +51,7 @@ class JSONFormatter(Formatter):
         s = json.dumps(
             rec, indent=self.indent, sort_keys=True, default=self._serializer
         )
-        print(indent(s, " " * 4), end="", file=self.out)
+        print(indent(s, " " * (self.indent or 2)), end="", file=self.out)
 
 
 class JSONLinesFormatter(Formatter):

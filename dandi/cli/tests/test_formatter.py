@@ -13,8 +13,8 @@ def test_json_formatter():
         fmtr({"bar": "gnusto", "foo": "cleesh"})
     assert out.getvalue() == (
         "[\n"
-        '    {"bar": 42, "foo": 23},\n'
-        '    {"bar": "gnusto", "foo": "cleesh"}\n'
+        '  {"bar": 42, "foo": 23},\n'
+        '  {"bar": "gnusto", "foo": "cleesh"}\n'
         "]\n"
     )
 
@@ -27,14 +27,14 @@ def test_json_formatter_indented():
         fmtr({"bar": "gnusto", "foo": "cleesh"})
     assert out.getvalue() == (
         "[\n"
-        "    {\n"
-        '      "bar": 42,\n'
-        '      "foo": 23\n'
-        "    },\n"
-        "    {\n"
-        '      "bar": "gnusto",\n'
-        '      "foo": "cleesh"\n'
-        "    }\n"
+        "  {\n"
+        '    "bar": 42,\n'
+        '    "foo": 23\n'
+        "  },\n"
+        "  {\n"
+        '    "bar": "gnusto",\n'
+        '    "foo": "cleesh"\n'
+        "  }\n"
         "]\n"
     )
 
