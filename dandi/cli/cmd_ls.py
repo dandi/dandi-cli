@@ -33,7 +33,7 @@ List .nwb files and dandisets metadata.
     "--format",
     help="Choose the format/frontend for output. If 'auto', 'pyout' will be "
     "used in case of multiple files, and 'yaml' for a single file.",
-    type=click.Choice(["auto", "pyout", "json", "json_pp", "yaml"]),
+    type=click.Choice(["auto", "pyout", "json", "json_pp", "json_lines", "yaml"]),
     default="auto",
 )
 @click.option(
@@ -66,7 +66,12 @@ def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, job
     """ List .nwb files and dandisets metadata. """
 
     # TODO: more logical ordering in case of fields = None
-    from .formatter import JSONFormatter, PYOUTFormatter, YAMLFormatter
+    from .formatter import (
+        JSONFormatter,
+        JSONLinesFormatter,
+        PYOUTFormatter,
+        YAMLFormatter,
+    )
     from ..consts import metadata_all_fields
 
     # TODO: avoid
@@ -144,6 +149,8 @@ def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, job
         out = JSONFormatter()
     elif format == "json_pp":
         out = JSONFormatter(indent=2)
+    elif format == "json_lines":
+        out = JSONLinesFormatter()
     elif format == "yaml":
         out = YAMLFormatter()
     else:
