@@ -260,6 +260,12 @@ class DandiAPIClient(RESTFullAPIClient):
 
     def authenticate(self, token):
         self._headers["Authorization"] = f"token {token}"
+        try:
+            # Fails if token is invalid:
+            self.get("/auth/token")
+        except requests.HTTPError:
+            del self._headers["Authorization"]
+            raise
 
     def dandi_authenticate(self):
         # Shortcut for advanced folks
