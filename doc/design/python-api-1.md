@@ -16,6 +16,7 @@ Designs for an improved Python API
         * `size: int`
         * `created: datetime`
         * `modified: datetime`
+            * **Problem:** The API reports `created` and `modified` dates when paginating through a version's assets, but the data is absent when getting an asset's metadata directly from the asset-specific endpoint (Note that, although there are two timestamps for modification times in asset metadata, neither of them match the `modified` time in the pagination results.)
         * `get_metadata() -> BareAssetMeta`
         * `get_digest(method: str) -> str`
 
@@ -37,11 +38,12 @@ Designs for an improved Python API
         * Add a `get_draft_dandiset(dandiset_id: Union[str, RemoteDandiset]) -> DraftDandiset` method
         * Add a `get_dandisets() -> Iterator[RemoteDandiset]` method
             * These objects' `Version`s are the `most_recent_version`s
-        * Retype `create_dandiset` to `create_dandiset(metadata: DandisetMeta) -> RemoteDandiset`
+        * Add a `get_draft_dandisets() -> Iterator[DraftDandiset]` method
+        * Retype `create_dandiset` to `create_dandiset(metadata: DandisetMeta) -> DraftDandiset`
         * Add a `create_local_dandiset(dirpath: Union[str, Path], name: str, description: str) -> LocalDandiset` method that, in addition to calling `create_dandiset()`, also creates a `dandiset.yaml` file in `dirpath`?
         * Add a `get_current_user() -> User` method
         * Add a `search_users(username: str) -> Iterator[User]` method
-        * Add an `upload(dandiset: LocalDandiset, paths: Optional[List[str]] = None, show_progress=True, existing="refesh", validation="require") -> List[RemoteAsset]` method
+        * Add an `upload(dandiset: LocalDandiset, paths: Optional[List[str]] = None, show_progress=True, existing="refesh", validation="require") -> List[RemoteAsset]` method?
             * Use this to replace the `upload()` function
             * The elements of `paths` are interpreted the same way as the argument to `get_assets_under_path()`
         * The remaining methods should be either deleted or made private.
@@ -79,8 +81,6 @@ Designs for an improved Python API
     * Methods of the `DraftDandiset` class (a subclass of `RemoteDandiset` used only for mutable draft versions):
         * `set_metadata(metadata: DandisetMeta) -> None` — modifies instance in-place
         * Methods for uploading an individual asset:
-            * `upload_file(filepath: Union[str, Path], metadata: BareAssetMeta, show_progress=True, existing="refesh", validation="require") -> RemoteAsset`
-            * `iter_upload_file(filepath: Union[str, Path], metadata: BareAssetMeta, existing="refesh", validation="require") -> Iterator[UploadProgressDict]`
             * `upload_asset(asset: LocalAsset, show_progress=True, existing="refesh", validation="require") -> RemoteAsset` ?
             * `iter_upload_asset(asset: LocalAsset, existing="refesh", validation="require") -> Iterator[UploadProgressDict]` ?
         * Methods for uploading a directory/collection of assets:
@@ -146,6 +146,11 @@ Designs for an improved Python API
         * `pct: float` — percentage of bytes downloaded (formerly "done%")
         * `checksum: str` — `"differs"`, `"ok"`, or `"-"`
 
+    * On success, blocking upload methods for uploading multiple assets return structures with the following fields:
+        * `assets: List[RemoteAsset]` — list of assets successfully uploaded
+        * `skipped: List[Tuple[LocalAsset, str]]` — list of skipped assets, paired with the reasons why they were skipped
+    * For blocking upload methods that upload multiple assets, if an error occurs while uploading, an exception is raised after all threads have completed; this exception has the same `assets` and `skipped` attributes as above plus an `errored: List[Tuple[LocalAsset, str]]` attribute pairing errored assets with error messages
+
     * **To discuss:** Should methods that accept `DandisetMeta` and `(Bare|Remote)AssetMeta` instances also accept raw `dict`s?  If so, should any validation be done on these `dict`s?
 
 * `dandi.dandiset`: Expand the ability for `Dandiset` (renamed to `LocalDandiset` and made a subclass of the new `Dandiset` base class) to represent a Dandiset on disk:
@@ -183,8 +188,6 @@ Designs for an improved Python API
     * Add a `VERSION_ID_RGX` constant
     * Give `CommonModel` a `validate()` method that just does `type(self)(**self.dict())`
     * Add a `UserInputError` exception class subclassing `ValueError`, use it for all errors caused by bad user input, and make `map_to_click_exceptions` only remap it and nothing else to `click.UsageError`
-    * Make the return value of `parse_dandi_url()` a structured class
-        * Give it `get_dandiset(client: DandiAPIClient) -> RemoteDandiset` and `get_assets(client: DandiAPIClient) -> Iterator[RemoteAsset]` methods
     * Rename the `download()` function to `download_url()`?
     * Add a `process_uploads(Iterable[Iterator[UploadProgressDict]], show_progress=True) -> List[RemoteAsset]` function that takes a collection of upload iterators and consumes them in parallel, using pyout if `show_progress` is true
     * Add a `process_downloads(Iterable[Iterator[DownloadProgressDict]], show_progress=True) -> ???` function that takes a collection of download iterators and consumes them in parallel, using pyout if `show_progress` is true
