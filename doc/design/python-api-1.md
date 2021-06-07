@@ -110,8 +110,7 @@ Designs for an improved Python API
 
     * Attributes of the `User` class:
         * `username: str`
-        * `first_name: str`
-        * `last_name: str`
+        * `name: str`
         * `admin: bool`
         * **Note:** We should ask the dandi-api developers to make the `GET/PUT /dandisets/{dandiset__pk}/users/` endpoints return full user structures, not just ones with only `username` fields, so that instances of this class can be properly populated
 
