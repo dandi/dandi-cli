@@ -32,7 +32,7 @@ class LockingError(RuntimeError):
 
 
 class CliVersionError(RuntimeError):
-    """ Base class for `CliVersionTooOldError` and `BadCliVersionError` """
+    """Base class for `CliVersionTooOldError` and `BadCliVersionError`"""
 
     def __init__(self, our_version, minversion, bad_versions):
         self.our_version = our_version

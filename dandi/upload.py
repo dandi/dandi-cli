@@ -6,8 +6,8 @@ import time
 
 import click
 
-from .consts import dandiset_identifier_regex, dandiset_metadata_file
 from . import lgr
+from .consts import dandiset_identifier_regex, dandiset_metadata_file
 from .utils import ensure_datetime, get_instance, pluralize
 
 

@@ -3,8 +3,8 @@ import os
 
 import click
 
-from ..consts import known_instances
 from .. import get_logger, set_logger_level  # noqa: F401
+from ..consts import known_instances
 
 lgr = get_logger()
 

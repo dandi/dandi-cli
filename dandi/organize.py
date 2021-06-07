@@ -12,8 +12,8 @@ import re
 
 import numpy as np
 
-from .exceptions import OrganizeImpossibleError
 from . import get_logger
+from .exceptions import OrganizeImpossibleError
 from .pynwb_utils import get_neurodata_types_to_modalities_map, get_object_id
 from .utils import ensure_datetime, flattened, yaml_load
 
@@ -230,7 +230,7 @@ def _get_hashable(v):
 
 
 def _get_unique_values_among_non_unique(metadata, non_unique_paths, field):
-    """Per each non-unique path return values """
+    """Per each non-unique path return values"""
     return {
         _get_hashable(r.get(field))
         for r in metadata

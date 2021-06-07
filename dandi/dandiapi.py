@@ -10,8 +10,8 @@ import click
 import requests
 import tenacity
 
-from .consts import MAX_CHUNK_SIZE, known_instances_rev
 from . import get_logger
+from .consts import MAX_CHUNK_SIZE, known_instances_rev
 from .keyring import keyring_lookup
 from .utils import USER_AGENT, is_interactive, try_multiple
 
@@ -334,7 +334,7 @@ class DandiAPIClient(RESTFullAPIClient):
     def get_dandiset_assets(
         self, dandiset_id, version, page_size=None, path=None, include_metadata=False
     ):
-        """ A generator to provide asset records """
+        """A generator to provide asset records"""
         resp = self.get(
             f"/dandisets/{dandiset_id}/versions/{version}/assets/",
             parameters={"page_size": page_size, "path": path},

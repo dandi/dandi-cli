@@ -3,8 +3,8 @@ from pathlib import Path
 
 from dandischema.models import get_schema_version
 
-from .consts import dandiset_metadata_file
 from . import get_logger
+from .consts import dandiset_metadata_file
 from .utils import find_parent_directory_containing, yaml_dump, yaml_load
 
 lgr = get_logger()
