@@ -14,7 +14,6 @@ Designs for an improved Python API
    * `Asset`:
         * `path: str`
         * `size: int`
-        * `created: datetime`
         * `modified: datetime`
             * **Problem:** The API reports `created` and `modified` dates when paginating through a version's assets, but the data is absent when getting an asset's metadata directly from the asset-specific endpoint (Note that, although there are two timestamps for modification times in asset metadata, neither of them match the `modified` time in the pagination results.)
         * `get_metadata() -> BareAssetMeta`
@@ -43,7 +42,7 @@ Designs for an improved Python API
         * Add a `create_local_dandiset(dirpath: Union[str, Path], name: str, description: str) -> LocalDandiset` method that, in addition to calling `create_dandiset()`, also creates a `dandiset.yaml` file in `dirpath`?
         * Add a `get_current_user() -> User` method
         * Add a `search_users(username: str) -> Iterator[User]` method
-        * Add an `upload(dandiset: LocalDandiset, paths: Optional[List[str]] = None, show_progress=True, existing="refesh", validation="require") -> List[RemoteAsset]` method?
+        * Add an `upload(dandiset: LocalDandiset, paths: Optional[List[str]] = None, show_progress=True, existing="refresh", validation="require") -> List[RemoteAsset]` method?
             * Use this to replace the `upload()` function
             * The elements of `paths` are interpreted the same way as the argument to `get_assets_under_path()`
         * The remaining methods should be either deleted or made private.
@@ -81,10 +80,10 @@ Designs for an improved Python API
     * Methods of the `DraftDandiset` class (a subclass of `RemoteDandiset` used only for mutable draft versions):
         * `set_metadata(metadata: DandisetMeta) -> None` — modifies instance in-place
         * Methods for uploading an individual asset:
-            * `upload_asset(asset: LocalAsset, show_progress=True, existing="refesh", validation="require") -> RemoteAsset` ?
-            * `iter_upload_asset(asset: LocalAsset, existing="refesh", validation="require") -> Iterator[UploadProgressDict]` ?
+            * `upload_asset(asset: LocalAsset, show_progress=True, existing="refresh", validation="require") -> RemoteAsset` ?
+            * `iter_upload_asset(asset: LocalAsset, existing="refresh", validation="require") -> Iterator[UploadProgressDict]` ?
         * Methods for uploading a directory/collection of assets:
-            * `upload_assets(assets: Iterable[LocalAsset], show_progress=True, existing="refesh", validation="require") -> List[RemoteAsset]`
+            * `upload_assets(assets: Iterable[LocalAsset], show_progress=True, existing="refresh", validation="require") -> List[RemoteAsset]`
 
     * Attributes & methods of the `Version` class:
         * `identifier: str`
@@ -98,7 +97,6 @@ Designs for an improved Python API
         * `identifier: str`
         * `path: str`
         * `size: int`
-        * `created: datetime`
         * `modified: datetime`
         * `dandiset_id: str`
         * `version_id: str`
