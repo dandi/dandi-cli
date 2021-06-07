@@ -4,6 +4,7 @@ import random
 from shutil import rmtree
 
 from ..consts import dandiset_metadata_file
+from ..dandiapi import DandiAPIClient
 from ..download import download
 from ..upload import upload
 from ..utils import find_files
@@ -169,3 +170,35 @@ def test_large_upload(local_dandi_api, tmp_path):
     r = client.create_dandiset(name="Large Upload Test", metadata={})
     dandiset_id = r["identifier"]
     client.upload(dandiset_id, "draft", {"path": "testing/asset.dat"}, asset_file)
+
+
+def test_authenticate_bad_key(local_dandi_api, mocker, monkeypatch):
+    good_key = local_dandi_api["api_key"]
+    bad_key = "1234567890"
+    client_name = local_dandi_api["instance_id"]
+    app_id = f"dandi-api-{client_name}"
+
+    backend_mock = mocker.Mock(spec=["set_password"])
+    keyring_lookup_mock = mocker.patch(
+        "dandi.dandiapi.keyring_lookup", return_value=(backend_mock, None)
+    )
+    input_mock = mocker.patch("dandi.dandiapi.input", side_effect=[bad_key, good_key])
+    is_interactive_mock = mocker.patch(
+        "dandi.dandiapi.is_interactive", return_value=True
+    )
+    confirm_mock = mocker.patch("click.confirm", return_value=True)
+
+    monkeypatch.delenv("DANDI_API_KEY", raising=False)
+
+    client = DandiAPIClient(local_dandi_api["instance"].api)
+    assert "Authorization" not in client._headers
+    client.dandi_authenticate()
+    assert client._headers["Authorization"] == f"token {good_key}"
+
+    backend_mock.set_password.assert_called_once_with(app_id, "key", good_key)
+    keyring_lookup_mock.assert_called_once_with(app_id, "key")
+    assert input_mock.call_args_list == (
+        [mocker.call(f"Please provide API Key for {client_name}: ")] * 2
+    )
+    is_interactive_mock.assert_called()
+    confirm_mock.assert_called_once_with("API key is invalid; enter another?")
