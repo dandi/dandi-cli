@@ -66,8 +66,6 @@ def get_metadata(path):
             break
         except KeyError as exc:  # ATM there is
             lgr.debug("Failed to read %s: %s", path, exc)
-            import re
-
             res = re.match(r"^['\"\\]+(\S+). not a namespace", str(exc))
             if not res:
                 raise

@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
 import click
-import requests
 
 from dandi.dandiapi import DandiAPIClient
-from dandi.dandiset import APIDandiset
 from dandi.girder import GirderCli
 
 
 def adhoc_list_girder(_id, client, prefix=""):
     """Pure girder API has no recursive listing, so let's do it manually"""
-    res = list()
-    ret = []
     for r in client.listItem(_id):
         assert r.get("_modelType", None) == "item"
         f = list(client.listFile(r["_id"]))
