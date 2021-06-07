@@ -1,3 +1,21 @@
+# 0.19.0 (Mon Jun 07 2021)
+
+#### 🚀 Enhancement
+
+- Reprompt or fail on attempt to use an invalid API token [#655](https://github.com/dandi/dandi-cli/pull/655) ([@jwodder](https://github.com/jwodder))
+- dandi ls: Make json and json_pp formats output arrays; add json_lines for old json format [#654](https://github.com/dandi/dandi-cli/pull/654) ([@jwodder](https://github.com/jwodder))
+- Change `download --existing` default to "error"; add "overwrite-different" option; handle git-annex repos [#646](https://github.com/dandi/dandi-cli/pull/646) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Set `auto` author to "DANDI Bot" [#649](https://github.com/dandi/dandi-cli/pull/649) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.18.0 (Wed May 26 2021)
 
 #### 🚀 Enhancement
