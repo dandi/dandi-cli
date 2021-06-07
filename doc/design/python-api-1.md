@@ -148,8 +148,6 @@ Designs for an improved Python API
         * `skipped: List[Tuple[LocalAsset, str]]` — list of skipped assets, paired with the reasons why they were skipped
     * For blocking upload methods that upload multiple assets, if an error occurs while uploading, an exception is raised after all threads have completed; this exception has the same `assets` and `skipped` attributes as above plus an `errored: List[Tuple[LocalAsset, str]]` attribute pairing errored assets with error messages
 
-    * **To discuss:** Should methods that accept `DandisetMeta` and `(Bare|Remote)AssetMeta` instances also accept raw `dict`s?  If so, should any validation be done on these `dict`s?
-
 * `dandi.dandiset`: Expand the ability for `Dandiset` (renamed to `LocalDandiset` and made a subclass of the new `Dandiset` base class) to represent a Dandiset on disk:
     * `path: Path` (or `dandiset_path`?)
     * `set_metadata(metadata: DandisetMeta) -> None` ?
