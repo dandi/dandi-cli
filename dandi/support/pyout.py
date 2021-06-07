@@ -9,8 +9,8 @@ import time
 import humanize
 import pyout
 
-from ..consts import metadata_dandiset_fields, metadata_nwb_fields
 from .. import get_logger
+from ..consts import metadata_dandiset_fields, metadata_nwb_fields
 
 lgr = get_logger()
 

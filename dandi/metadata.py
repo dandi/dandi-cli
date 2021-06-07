@@ -6,8 +6,8 @@ from uuid import uuid4
 
 from dandischema import models
 
-from .dandiset import Dandiset
 from . import __version__, get_logger
+from .dandiset import Dandiset
 from .pynwb_utils import (
     _get_pynwb_metadata,
     get_neurodata_types,

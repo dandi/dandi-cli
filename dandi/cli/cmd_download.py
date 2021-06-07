@@ -43,12 +43,12 @@ class ChoiceList(click.ParamType):
     "-e",
     "--existing",
     type=click.Choice(
-        ["error", "skip", "overwrite", "refresh"]
+        ["error", "skip", "overwrite", "overwrite-different", "refresh"]
     ),  # TODO: verify-reupload (to become default)
     help="What to do if a file found existing locally. 'refresh': verify "
     "that according to the size and mtime, it is the same file, if not - "
     "download and overwrite.",
-    default="refresh",
+    default="error",
     show_default=True,
 )
 @click.option(

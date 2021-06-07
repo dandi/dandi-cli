@@ -6,13 +6,14 @@ import re
 from threading import Lock
 from xml.etree.ElementTree import fromstring
 
+import click
 import requests
 import tenacity
 
-from .consts import MAX_CHUNK_SIZE, known_instances_rev
 from . import get_logger
+from .consts import MAX_CHUNK_SIZE, known_instances_rev
 from .keyring import keyring_lookup
-from .utils import USER_AGENT, try_multiple
+from .utils import USER_AGENT, is_interactive, try_multiple
 
 lgr = get_logger()
 
@@ -190,11 +191,11 @@ class RESTFullAPIClient(object):
         else:
             return self.api_url.rstrip("/") + "/" + path.lstrip("/")
 
-    def get(self, path, parameters=None, json_resp=True):
+    def get(self, path, parameters=None, json_resp=True, **kwargs):
         """
         Convenience method to call :py:func:`send_request` with the 'GET' HTTP method.
         """
-        return self.send_request("GET", path, parameters, json_resp=json_resp)
+        return self.send_request("GET", path, parameters, json_resp=json_resp, **kwargs)
 
     def post(
         self,
@@ -259,6 +260,8 @@ class DandiAPIClient(RESTFullAPIClient):
             self.authenticate(token)
 
     def authenticate(self, token):
+        # Fails if token is invalid:
+        self.get("/auth/token", headers={"Authorization": f"token {token}"})
         self._headers["Authorization"] = f"token {token}"
 
     def dandi_authenticate(self):
@@ -273,11 +276,26 @@ class DandiAPIClient(RESTFullAPIClient):
             raise NotImplementedError("TODO client name derivation for keyring")
         app_id = f"dandi-api-{client_name}"
         keyring_backend, api_key = keyring_lookup(app_id, "key")
-        if not api_key:
-            api_key = input(f"Please provide API Key for {client_name}: ")
-            keyring_backend.set_password(app_id, "key", api_key)
-            lgr.debug("Stored key in keyring")
-        self.authenticate(api_key)
+        key_from_keyring = api_key is not None
+        while True:
+            if not api_key:
+                api_key = input(f"Please provide API Key for {client_name}: ")
+                key_from_keyring = False
+            try:
+                self.authenticate(api_key)
+            except requests.HTTPError:
+                if is_interactive() and click.confirm(
+                    "API key is invalid; enter another?"
+                ):
+                    api_key = None
+                    continue
+                else:
+                    raise
+            else:
+                if not key_from_keyring:
+                    keyring_backend.set_password(app_id, "key", api_key)
+                    lgr.debug("Stored key in keyring")
+                break
 
     def get_asset(self, dandiset_id, version, asset_id):
         """
@@ -316,7 +334,7 @@ class DandiAPIClient(RESTFullAPIClient):
     def get_dandiset_assets(
         self, dandiset_id, version, page_size=None, path=None, include_metadata=False
     ):
-        """ A generator to provide asset records """
+        """A generator to provide asset records"""
         resp = self.get(
             f"/dandisets/{dandiset_id}/versions/{version}/assets/",
             parameters={"page_size": page_size, "path": path},

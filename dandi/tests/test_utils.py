@@ -8,9 +8,9 @@ import requests
 import responses
 from semantic_version import Version
 
+from .. import __version__
 from ..consts import dandi_instance, known_instances
 from ..exceptions import BadCliVersionError, CliVersionTooOldError
-from .. import __version__
 from ..utils import (
     ensure_datetime,
     ensure_strtime,

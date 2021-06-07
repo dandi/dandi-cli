@@ -13,8 +13,8 @@ import appdirs
 import click
 from click_didyoumean import DYMGroup
 
-from .base import get_logger, lgr, map_to_click_exceptions, set_logger_level
-from .. import __version__
+from .base import get_logger, lgr, map_to_click_exceptions
+from .. import __version__, set_logger_level
 from ..utils import get_module_version
 
 # Delay imports leading to import of heavy modules such as pynwb and h5py
