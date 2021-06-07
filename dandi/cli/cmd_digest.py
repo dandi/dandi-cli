@@ -18,7 +18,7 @@ from .base import map_to_click_exceptions
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=False))
 @map_to_click_exceptions
 def digest(paths, digest_alg):
-    """ Calculate file digests """
+    """Calculate file digests"""
     from ..support.digests import get_digest
 
     for p in paths:

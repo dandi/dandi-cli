@@ -6,10 +6,10 @@ from shutil import rmtree
 
 import click
 
+from .. import dandiapi
 from ..consts import dandiset_metadata_file
 from ..dandiapi import DandiAPIClient
 from ..download import download
-from .. import dandiapi
 from ..upload import upload
 from ..utils import find_files
 

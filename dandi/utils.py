@@ -5,6 +5,7 @@ try:
 except ImportError:
     # TODO - remove whenever python >= 3.8
     from importlib_metadata import version as importlib_version
+
 import inspect
 import io
 import itertools
@@ -26,13 +27,12 @@ import ruamel.yaml
 from semantic_version import Version
 import tenacity
 
-from .consts import dandi_instance, known_instances, known_instances_rev
-from .exceptions import BadCliVersionError, CliVersionTooOldError
-
 #
 # Additional handlers
 #
 from . import __version__, get_logger
+from .consts import dandi_instance, known_instances, known_instances_rev
+from .exceptions import BadCliVersionError, CliVersionTooOldError
 
 lgr = get_logger()
 
@@ -362,7 +362,7 @@ _cp_supports_reflink = None
 
 
 def copy_file(src, dst):
-    """ Copy file from src to dst """
+    """Copy file from src to dst"""
     global _cp_supports_reflink
     if _cp_supports_reflink is None:
         r = subprocess.run(

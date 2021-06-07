@@ -63,7 +63,7 @@ List .nwb files and dandisets metadata.
 @click.argument("paths", nargs=-1, type=click.Path(exists=False, dir_okay=True))
 @map_to_click_exceptions
 def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, jobs=6):
-    """ List .nwb files and dandisets metadata. """
+    """List .nwb files and dandisets metadata."""
 
     # TODO: more logical ordering in case of fields = None
     from .formatter import (

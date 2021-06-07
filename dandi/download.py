@@ -11,10 +11,10 @@ import time
 import humanize
 import requests
 
+from . import get_logger
 from .consts import dandiset_metadata_file
 from .dandiarchive import DandisetURL, MultiAssetURL, SingleAssetURL, parse_dandi_url
 from .dandiset import Dandiset
-from . import get_logger
 from .support.digests import get_digest
 from .support.pyout import naturalsize
 from .utils import (

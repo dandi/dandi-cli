@@ -1,7 +1,7 @@
 import os.path as op
 
-from .consts import dandiset_metadata_file
 from . import get_logger
+from .consts import dandiset_metadata_file
 from .metadata import get_metadata
 from .pynwb_utils import validate as pynwb_validate
 from .pynwb_utils import validate_cache
