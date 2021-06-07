@@ -1,11 +1,15 @@
+import builtins
 import os.path
 from pathlib import Path
 import random
 from shutil import rmtree
 
+import click
+
 from ..consts import dandiset_metadata_file
 from ..dandiapi import DandiAPIClient
 from ..download import download
+from .. import dandiapi
 from ..upload import upload
 from ..utils import find_files
 
@@ -172,7 +176,7 @@ def test_large_upload(local_dandi_api, tmp_path):
     client.upload(dandiset_id, "draft", {"path": "testing/asset.dat"}, asset_file)
 
 
-def test_authenticate_bad_key(local_dandi_api, mocker, monkeypatch):
+def test_authenticate_bad_key_good_key_input(local_dandi_api, mocker, monkeypatch):
     good_key = local_dandi_api["api_key"]
     bad_key = "1234567890"
     client_name = local_dandi_api["instance_id"]
@@ -200,5 +204,64 @@ def test_authenticate_bad_key(local_dandi_api, mocker, monkeypatch):
     assert input_mock.call_args_list == (
         [mocker.call(f"Please provide API Key for {client_name}: ")] * 2
     )
-    is_interactive_mock.assert_called()
+    is_interactive_mock.assert_called_once()
+    confirm_mock.assert_called_once_with("API key is invalid; enter another?")
+
+
+def test_authenticate_good_key_keyring(local_dandi_api, mocker, monkeypatch):
+    good_key = local_dandi_api["api_key"]
+    client_name = local_dandi_api["instance_id"]
+    app_id = f"dandi-api-{client_name}"
+
+    backend_mock = mocker.Mock(spec=["set_password"])
+    keyring_lookup_mock = mocker.patch(
+        "dandi.dandiapi.keyring_lookup", return_value=(backend_mock, good_key)
+    )
+    input_spy = mocker.spy(builtins, "input")
+    is_interactive_spy = mocker.spy(dandiapi, "is_interactive")
+    confirm_spy = mocker.spy(click, "confirm")
+
+    monkeypatch.delenv("DANDI_API_KEY", raising=False)
+
+    client = DandiAPIClient(local_dandi_api["instance"].api)
+    assert "Authorization" not in client._headers
+    client.dandi_authenticate()
+    assert client._headers["Authorization"] == f"token {good_key}"
+
+    backend_mock.set_password.assert_not_called()
+    keyring_lookup_mock.assert_called_once_with(app_id, "key")
+    input_spy.assert_not_called()
+    is_interactive_spy.assert_not_called()
+    confirm_spy.assert_not_called()
+
+
+def test_authenticate_bad_key_keyring_good_key_input(
+    local_dandi_api, mocker, monkeypatch
+):
+    good_key = local_dandi_api["api_key"]
+    bad_key = "1234567890"
+    client_name = local_dandi_api["instance_id"]
+    app_id = f"dandi-api-{client_name}"
+
+    backend_mock = mocker.Mock(spec=["set_password"])
+    keyring_lookup_mock = mocker.patch(
+        "dandi.dandiapi.keyring_lookup", return_value=(backend_mock, bad_key)
+    )
+    input_mock = mocker.patch("dandi.dandiapi.input", return_value=good_key)
+    is_interactive_mock = mocker.patch(
+        "dandi.dandiapi.is_interactive", return_value=True
+    )
+    confirm_mock = mocker.patch("click.confirm", return_value=True)
+
+    monkeypatch.delenv("DANDI_API_KEY", raising=False)
+
+    client = DandiAPIClient(local_dandi_api["instance"].api)
+    assert "Authorization" not in client._headers
+    client.dandi_authenticate()
+    assert client._headers["Authorization"] == f"token {good_key}"
+
+    backend_mock.set_password.assert_called_once_with(app_id, "key", good_key)
+    keyring_lookup_mock.assert_called_once_with(app_id, "key")
+    input_mock.assert_called_once_with(f"Please provide API Key for {client_name}: ")
+    is_interactive_mock.assert_called_once()
     confirm_mock.assert_called_once_with("API key is invalid; enter another?")

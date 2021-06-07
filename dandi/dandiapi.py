@@ -276,24 +276,26 @@ class DandiAPIClient(RESTFullAPIClient):
             raise NotImplementedError("TODO client name derivation for keyring")
         app_id = f"dandi-api-{client_name}"
         keyring_backend, api_key = keyring_lookup(app_id, "key")
-        if api_key:
-            self.authenticate(api_key)
-        else:
-            while True:
+        key_from_keyring = api_key is not None
+        while True:
+            if not api_key:
                 api_key = input(f"Please provide API Key for {client_name}: ")
-                try:
-                    self.authenticate(api_key)
-                except requests.HTTPError:
-                    if is_interactive() and click.confirm(
-                        "API key is invalid; enter another?"
-                    ):
-                        continue
-                    else:
-                        raise
+                key_from_keyring = False
+            try:
+                self.authenticate(api_key)
+            except requests.HTTPError:
+                if is_interactive() and click.confirm(
+                    "API key is invalid; enter another?"
+                ):
+                    api_key = None
+                    continue
                 else:
+                    raise
+            else:
+                if not key_from_keyring:
                     keyring_backend.set_password(app_id, "key", api_key)
                     lgr.debug("Stored key in keyring")
-                    break
+                break
 
     def get_asset(self, dandiset_id, version, asset_id):
         """
