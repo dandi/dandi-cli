@@ -1,0 +1,5 @@
+path_classifiers:
+  external:
+    - dandi/_version.py
+    - dandi/due.py
+    - versioneer.py
