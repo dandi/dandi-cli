@@ -55,7 +55,7 @@ def _donothing_func(*args, **kwargs):
 
 
 try:
-    from duecredit import due, BibTeX, Doi, Url, Text
+    from duecredit import due, Doi  # lgtm [py/unused-import]
 
     if "due" in locals() and not hasattr(due, "cite"):
         raise RuntimeError("Imported due lacks .cite. DueCredit is now disabled")
@@ -68,7 +68,7 @@ except Exception as e:
         )
     # Initiate due stub
     due = InactiveDueCreditCollector()
-    BibTeX = Doi = Url = Text = _donothing_func
+    Doi = _donothing_func
 
 # Emacs mode definitions
 # Local Variables:
