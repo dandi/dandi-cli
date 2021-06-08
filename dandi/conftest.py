@@ -1,4 +1,4 @@
-from .tests.fixtures import *  # noqa: F401, F403
+from .tests.fixtures import *  # noqa: F401, F403  # lgtm [py/polluting-import]
 
 
 def pytest_addoption(parser):
