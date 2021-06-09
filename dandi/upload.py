@@ -314,7 +314,7 @@ def upload(
     rec_fields = ["path", "size", "errors", "upload", "status", "message"]
     out = pyouts.LogSafeTabular(style=pyout_style, columns=rec_fields, max_workers=jobs)
 
-    with out, client.session():
+    with out, client:
         for path in paths:
             while len(process_paths) >= 10:
                 lgr.log(2, "Sleep waiting for some paths to finish processing")

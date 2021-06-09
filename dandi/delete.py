@@ -177,17 +177,15 @@ class Deleter:
             yield {"status": "Deleted"}
 
     def process_assets_pyout(self) -> Iterator[dict]:
-        with self.client.session():
-            for asset in sorted(self.remote_assets, key=attrgetter("path")):
-                yield {
-                    "path": asset.path,
-                    ("status", "message"): self._process_asset(asset),
-                }
+        for asset in sorted(self.remote_assets, key=attrgetter("path")):
+            yield {
+                "path": asset.path,
+                ("status", "message"): self._process_asset(asset),
+            }
 
     def process_assets_debug(self) -> Iterator[Iterator[dict]]:
-        with self.client.session():
-            for asset in sorted(self.remote_assets, key=attrgetter("path")):
-                yield ({"path": asset.path, **d} for d in self._process_asset(asset))
+        for asset in sorted(self.remote_assets, key=attrgetter("path")):
+            yield ({"path": asset.path, **d} for d in self._process_asset(asset))
 
 
 def delete(

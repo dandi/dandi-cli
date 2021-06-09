@@ -102,8 +102,7 @@ class ParsedDandiURL(ABC, BaseModel):
         """
         # We could later try to "dandi_authenticate" if run into permission
         # issues.  May be it could be not just boolean but the "id" to be used?
-        client = self.get_client()
-        with client.session():
+        with self.get_client() as client:
             yield (
                 client,
                 self.get_dandiset(client),

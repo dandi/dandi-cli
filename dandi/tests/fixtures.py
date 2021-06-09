@@ -260,8 +260,7 @@ def local_dandi_api(docker_compose_setup):
     instance_id = "dandi-api-local-docker-tests"
     instance = known_instances[instance_id]
     api_key = docker_compose_setup["django_api_key"]
-    client = DandiAPIClient(api_url=instance.api, token=api_key)
-    with client.session():
+    with DandiAPIClient(api_url=instance.api, token=api_key) as client:
         yield {
             "api_key": api_key,
             "client": client,

@@ -111,8 +111,7 @@ def download(
         raise ValueError(format)
 
     if sync and not isinstance(parsed_url, SingleAssetURL):
-        client = parsed_url.get_client()
-        with client.session():
+        with parsed_url.get_client() as client:
             asset_paths = {asset["path"] for asset in parsed_url.get_assets(client)}
         if isinstance(parsed_url, DandisetURL):
             prefix = os.curdir

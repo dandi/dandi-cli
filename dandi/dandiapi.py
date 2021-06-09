@@ -1,5 +1,4 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from contextlib import contextmanager
 import os.path
 from pathlib import Path
 import re
@@ -24,57 +23,26 @@ lgr = get_logger()
 class RESTFullAPIClient(object):
     """A base class for REST clients"""
 
-    def __init__(self, api_url):
+    def __init__(self, api_url, session=None, headers=None):
         self.api_url = api_url
-        self._session = None
-        self._headers = {"User-Agent": USER_AGENT}
+        if session is None:
+            session = requests.Session()
+        if headers is not None:
+            session.headers.update(headers)
+        session.headers.setdefault("User-Agent", USER_AGENT)
+        self.session = session
 
-    @contextmanager
-    def session(self, session=None):
-        """
-        Use a :class:`requests.Session` object for all outgoing requests.
-        If `session` isn't passed into the context manager
-        then one will be created and yielded. Session objects are useful for enabling
-        persistent HTTP connections as well as partially applying arguments to many
-        requests, such as headers.
+    def __enter__(self):
+        return self
 
-        Note: `session` is closed when the context manager exits, regardless of who
-        created it.
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.session.close()
 
-        .. code-block:: python
-
-            with client.session() as session:
-                session.headers.update({'User-Agent': 'myapp 1.0'})
-
-                for item in items:
-                    client.downloadItem(item, fh)
-
-        In the above example, each request will be executed with the User-Agent header
-        while reusing the same TCP connection.
-
-        :param session: An existing :class:`requests.Session` object, or None.
-        """
-        self._session = session if session else requests.Session()
-
-        try:
-            yield self._session
-        finally:
-            # close only if we started a new one
-            if not session:
-                self._session.close()
-            self._session = None
-
-    def _request_func(self, method):
-        if self._session is not None:
-            return getattr(self._session, method.lower())
-        else:
-            return getattr(requests, method.lower())
-
-    def send_request(
+    def request(
         self,
         method,
         path,
-        parameters=None,
+        params=None,
         data=None,
         files=None,
         json=None,
@@ -98,9 +66,9 @@ class RESTFullAPIClient(object):
         :param path: A string containing the path elements for this request.
             Note that the path string should not begin or end with the path  separator, '/'.
         :type path: str
-        :param parameters: A dictionary mapping strings to strings, to be used
+        :param params: A dictionary mapping strings to strings, to be used
             as the key/value pairs in the request parameters.
-        :type parameters: dict
+        :type params: dict
         :param data: A dictionary, bytes or file-like object to send in the body.
         :param files: A dictionary of 'name' => file-like-objects for multipart encoding upload.
         :type files: dict
@@ -122,21 +90,16 @@ class RESTFullAPIClient(object):
         :param retry: an optional tenacity `retry` argument for retrying the
             request method
         """
-        if not parameters:
-            parameters = {}
 
         # Look up the HTTP method we need
-        f = self._request_func(method)
+        f = getattr(self.session, method.lower())
 
         url = self.get_url(path)
 
-        # Make the request, passing parameters and authentication info
-        _headers = dict(self._headers)
-        if headers:
-            _headers.update(headers)
-
-        if json_resp and "accept" not in _headers:
-            _headers["accept"] = "application/json"
+        if headers is None:
+            headers = {}
+        if json_resp and "accept" not in headers:
+            headers["accept"] = "application/json"
 
         lgr.debug("%s %s", method.upper(), url)
 
@@ -153,11 +116,11 @@ class RESTFullAPIClient(object):
             result = try_multiple(5, doretry, 1.1)(
                 f,
                 url,
-                params=parameters,
+                params=params,
                 data=data,
                 files=files,
                 json=json,
-                headers=_headers,
+                headers=headers,
                 **kwargs,
             )
         except Exception:
@@ -191,66 +154,38 @@ class RESTFullAPIClient(object):
         else:
             return self.api_url.rstrip("/") + "/" + path.lstrip("/")
 
-    def get(self, path, parameters=None, json_resp=True, **kwargs):
+    def get(self, path, **kwargs):
         """
-        Convenience method to call :py:func:`send_request` with the 'GET' HTTP method.
+        Convenience method to call :py:func:`request` with the 'GET' HTTP method.
         """
-        return self.send_request("GET", path, parameters, json_resp=json_resp, **kwargs)
+        return self.request("GET", path, **kwargs)
 
-    def post(
-        self,
-        path,
-        parameters=None,
-        files=None,
-        data=None,
-        json=None,
-        headers=None,
-        json_resp=True,
-    ):
+    def post(self, path, **kwargs):
         """
-        Convenience method to call :py:func:`send_request` with the 'POST' HTTP method.
+        Convenience method to call :py:func:`request` with the 'POST' HTTP method.
         """
-        return self.send_request(
-            "POST",
-            path,
-            parameters,
-            files=files,
-            data=data,
-            json=json,
-            headers=headers,
-            json_resp=json_resp,
-        )
+        return self.request("POST", path, **kwargs)
 
-    def put(
-        self, path, parameters=None, data=None, json=None, json_resp=True, retry=None
-    ):
+    def put(self, path, **kwargs):
         """
-        Convenience method to call :py:func:`send_request` with the 'PUT'
-        HTTP method.
+        Convenience method to call :py:func:`request` with the 'PUT' HTTP
+        method.
         """
-        return self.send_request(
-            "PUT",
-            path,
-            parameters,
-            data=data,
-            json=json,
-            json_resp=json_resp,
-            retry=retry,
-        )
+        return self.request("PUT", path, **kwargs)
 
-    def delete(self, path, parameters=None, json_resp=True):
+    def delete(self, path, **kwargs):
         """
-        Convenience method to call :py:func:`send_request` with the 'DELETE' HTTP method.
+        Convenience method to call :py:func:`request` with the 'DELETE' HTTP
+        method.
         """
-        return self.send_request("DELETE", path, parameters, json_resp=json_resp)
+        return self.request("DELETE", path, **kwargs)
 
-    def patch(self, path, parameters=None, data=None, json=None, json_resp=True):
+    def patch(self, path, **kwargs):
         """
-        Convenience method to call :py:func:`send_request` with the 'PATCH' HTTP method.
+        Convenience method to call :py:func:`request` with the 'PATCH' HTTP
+        method.
         """
-        return self.send_request(
-            "PATCH", path, parameters, data=data, json=json, json_resp=json_resp
-        )
+        return self.request("PATCH", path, **kwargs)
 
 
 class DandiAPIClient(RESTFullAPIClient):
@@ -262,7 +197,7 @@ class DandiAPIClient(RESTFullAPIClient):
     def authenticate(self, token):
         # Fails if token is invalid:
         self.get("/auth/token", headers={"Authorization": f"token {token}"})
-        self._headers["Authorization"] = f"token {token}"
+        self.session.headers["Authorization"] = f"token {token}"
 
     def dandi_authenticate(self):
         # Shortcut for advanced folks
@@ -337,7 +272,7 @@ class DandiAPIClient(RESTFullAPIClient):
         """A generator to provide asset records"""
         resp = self.get(
             f"/dandisets/{dandiset_id}/versions/{version}/assets/",
-            parameters={"page_size": page_size, "path": path},
+            params={"page_size": page_size, "path": path},
         )
         while True:
             for asset in resp["results"]:
@@ -376,9 +311,7 @@ class DandiAPIClient(RESTFullAPIClient):
             headers = None
             if start_at > 0:
                 headers = {"Range": f"bytes={start_at}-"}
-            result = (self._session if self._session else requests).get(
-                url, stream=True, headers=headers
-            )
+            result = self.session.get(url, stream=True, headers=headers)
             # TODO: apparently we might need retries here as well etc
             # if result.status_code not in (200, 201):
             result.raise_for_status()
@@ -489,9 +422,8 @@ class DandiAPIClient(RESTFullAPIClient):
                 )
             parts_out = []
             bytes_uploaded = 0
-            storage = RESTFullAPIClient("http://nil.nil")
             lgr.debug("Uploading %s in %d parts", filepath, len(parts))
-            with storage.session():
+            with RESTFullAPIClient("http://nil.nil") as storage:
                 with open(filepath, "rb") as fp:
                     with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
                         lock = Lock()

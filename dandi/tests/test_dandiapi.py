@@ -195,9 +195,9 @@ def test_authenticate_bad_key_good_key_input(local_dandi_api, mocker, monkeypatc
     monkeypatch.delenv("DANDI_API_KEY", raising=False)
 
     client = DandiAPIClient(local_dandi_api["instance"].api)
-    assert "Authorization" not in client._headers
+    assert "Authorization" not in client.session.headers
     client.dandi_authenticate()
-    assert client._headers["Authorization"] == f"token {good_key}"
+    assert client.session.headers["Authorization"] == f"token {good_key}"
 
     backend_mock.set_password.assert_called_once_with(app_id, "key", good_key)
     keyring_lookup_mock.assert_called_once_with(app_id, "key")
@@ -224,9 +224,9 @@ def test_authenticate_good_key_keyring(local_dandi_api, mocker, monkeypatch):
     monkeypatch.delenv("DANDI_API_KEY", raising=False)
 
     client = DandiAPIClient(local_dandi_api["instance"].api)
-    assert "Authorization" not in client._headers
+    assert "Authorization" not in client.session.headers
     client.dandi_authenticate()
-    assert client._headers["Authorization"] == f"token {good_key}"
+    assert client.session.headers["Authorization"] == f"token {good_key}"
 
     backend_mock.set_password.assert_not_called()
     keyring_lookup_mock.assert_called_once_with(app_id, "key")
@@ -256,9 +256,9 @@ def test_authenticate_bad_key_keyring_good_key_input(
     monkeypatch.delenv("DANDI_API_KEY", raising=False)
 
     client = DandiAPIClient(local_dandi_api["instance"].api)
-    assert "Authorization" not in client._headers
+    assert "Authorization" not in client.session.headers
     client.dandi_authenticate()
-    assert client._headers["Authorization"] == f"token {good_key}"
+    assert client.session.headers["Authorization"] == f"token {good_key}"
 
     backend_mock.set_password.assert_called_once_with(app_id, "key", good_key)
     keyring_lookup_mock.assert_called_once_with(app_id, "key")
