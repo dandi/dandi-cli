@@ -16,7 +16,7 @@ def test_download_defaults(mocker):
     mock_download.assert_called_once_with(
         (),
         os.curdir,
-        existing="refresh",
+        existing="error",
         format="pyout",
         jobs=6,
         get_metadata=True,
@@ -32,7 +32,7 @@ def test_download_all_types(mocker):
     mock_download.assert_called_once_with(
         (),
         os.curdir,
-        existing="refresh",
+        existing="error",
         format="pyout",
         jobs=6,
         get_metadata=True,
@@ -48,7 +48,7 @@ def test_download_metadata_only(mocker):
     mock_download.assert_called_once_with(
         (),
         os.curdir,
-        existing="refresh",
+        existing="error",
         format="pyout",
         jobs=6,
         get_metadata=True,
@@ -64,7 +64,7 @@ def test_download_assets_only(mocker):
     mock_download.assert_called_once_with(
         (),
         os.curdir,
-        existing="refresh",
+        existing="error",
         format="pyout",
         jobs=6,
         get_metadata=False,
@@ -95,7 +95,7 @@ def test_download_gui_instance_in_dandiset(mocker):
     mock_download.assert_called_once_with(
         ["https://gui.dandiarchive.org/#/dandiset/123456/draft"],
         os.curdir,
-        existing="refresh",
+        existing="error",
         format="pyout",
         jobs=6,
         get_metadata=True,
@@ -117,7 +117,7 @@ def test_download_api_instance_in_dandiset(mocker):
     mock_download.assert_called_once_with(
         ["http://localhost:8000/api/dandisets/123456/"],
         os.curdir,
-        existing="refresh",
+        existing="error",
         format="pyout",
         jobs=6,
         get_metadata=True,
@@ -143,7 +143,7 @@ def test_download_url_instance_match(mocker):
     mock_download.assert_called_once_with(
         ("http://localhost:8000/api/dandisets/123456/",),
         os.curdir,
-        existing="refresh",
+        existing="error",
         format="pyout",
         jobs=6,
         get_metadata=True,

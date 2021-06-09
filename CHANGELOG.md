@@ -1,3 +1,81 @@
+# 0.19.0 (Mon Jun 07 2021)
+
+#### 🚀 Enhancement
+
+- Reprompt or fail on attempt to use an invalid API token [#655](https://github.com/dandi/dandi-cli/pull/655) ([@jwodder](https://github.com/jwodder))
+- dandi ls: Make json and json_pp formats output arrays; add json_lines for old json format [#654](https://github.com/dandi/dandi-cli/pull/654) ([@jwodder](https://github.com/jwodder))
+- Change `download --existing` default to "error"; add "overwrite-different" option; handle git-annex repos [#646](https://github.com/dandi/dandi-cli/pull/646) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Set `auto` author to "DANDI Bot" [#649](https://github.com/dandi/dandi-cli/pull/649) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.18.0 (Wed May 26 2021)
+
+#### 🚀 Enhancement
+
+- Move schema code to dandischema [#643](https://github.com/dandi/dandi-cli/pull/643) ([@jwodder](https://github.com/jwodder))
+- Add "shell-completion" command [#640](https://github.com/dandi/dandi-cli/pull/640) ([@jwodder](https://github.com/jwodder))
+- REF: updated model requirements [#623](https://github.com/dandi/dandi-cli/pull/623) ([@satra](https://github.com/satra) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🐛 Bug Fix
+
+- Pin dandischema to compatible 0.minor version [#650](https://github.com/dandi/dandi-cli/pull/650) ([@yarikoptic](https://github.com/yarikoptic))
+- Warn on ignored symlinks to directories [#647](https://github.com/dandi/dandi-cli/pull/647) ([@jwodder](https://github.com/jwodder))
+- Delete name2title() [#645](https://github.com/dandi/dandi-cli/pull/645) ([@jwodder](https://github.com/jwodder))
+- adding to_datacite method [#596](https://github.com/dandi/dandi-cli/pull/596) ([@djarecka](https://github.com/djarecka) [@yarikoptic](https://github.com/yarikoptic))
+- Datacite tmp [#595](https://github.com/dandi/dandi-cli/pull/595) ([@djarecka](https://github.com/djarecka))
+
+#### 🏠 Internal
+
+- Include CHANGELOG.md and tox.ini in sdists [#648](https://github.com/dandi/dandi-cli/pull/648) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 4
+
+- Dorota Jarecka ([@djarecka](https://github.com/djarecka))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.17.0 (Wed May 12 2021)
+
+#### 🚀 Enhancement
+
+- Add "sync" option for upload & download [#616](https://github.com/dandi/dandi-cli/pull/616) ([@jwodder](https://github.com/jwodder))
+- RF: organize - should no longer alter dandiset.yaml [#615](https://github.com/dandi/dandi-cli/pull/615) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🐛 Bug Fix
+
+- Allow trailing slash in GUI URLs [#636](https://github.com/dandi/dandi-cli/pull/636) ([@jwodder](https://github.com/jwodder))
+- Make the "#/" in GUI URLs optional [#637](https://github.com/dandi/dandi-cli/pull/637) ([@jwodder](https://github.com/jwodder))
+- Add dandi-staging to known_instances [#621](https://github.com/dandi/dandi-cli/pull/621) ([@dchiquito](https://github.com/dchiquito))
+
+#### ⚠️ Pushed to `master`
+
+- RM: .github/workflows/test-populate-dandiset-yaml.yml ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- move test_get_metaadata to test_metadata.py [#634](https://github.com/dandi/dandi-cli/pull/634) ([@bendichter](https://github.com/bendichter))
+- Error on PRs that modify existing schemata instead of creating a new version [#626](https://github.com/dandi/dandi-cli/pull/626) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 4
+
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.16.0 (Tue May 04 2021)
 
 #### 🚀 Enhancement

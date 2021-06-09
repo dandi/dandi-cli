@@ -13,12 +13,12 @@ import pynwb
 from pynwb import NWBHDF5IO
 import semantic_version
 
+from . import __version__, get_logger
 from .consts import (
     metadata_nwb_computed_fields,
     metadata_nwb_file_fields,
     metadata_nwb_subject_fields,
 )
-from . import __version__, get_logger
 from .utils import get_module_version
 
 lgr = get_logger()

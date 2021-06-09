@@ -13,8 +13,8 @@ import appdirs
 import click
 from click_didyoumean import DYMGroup
 
-from .base import get_logger, lgr, map_to_click_exceptions, set_logger_level
-from .. import __version__
+from .base import get_logger, lgr, map_to_click_exceptions
+from .. import __version__, set_logger_level
 from ..utils import get_module_version
 
 # Delay imports leading to import of heavy modules such as pynwb and h5py
@@ -144,10 +144,20 @@ from .cmd_digest import digest  # noqa: E402
 from .cmd_download import download  # noqa: E402
 from .cmd_ls import ls  # noqa: E402
 from .cmd_organize import organize  # noqa: E402
+from .cmd_shell_completion import shell_completion  # noqa: E402
 from .cmd_upload import upload  # noqa: E402
 from .cmd_validate import validate  # noqa: E402
 
-__all_commands__ = (ls, organize, upload, download, validate, digest, delete)
+__all_commands__ = (
+    ls,
+    organize,
+    upload,
+    download,
+    validate,
+    digest,
+    delete,
+    shell_completion,
+)
 
 for cmd in __all_commands__:
     main.add_command(cmd)

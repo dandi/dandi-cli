@@ -90,7 +90,7 @@ class IteratorWithAggregation:
                     self.total = total = (
                         self.agg(value, total) if total is not None else self.agg(value)
                     )
-            except BaseException as e:
+            except BaseException as e:  # lgtm [py/catch-base-exception]
                 self._exc = e
             finally:
                 self.finished = True
@@ -114,4 +114,4 @@ class IteratorWithAggregation:
                 continue
         t.join()
         if self._exc is not None:
-            raise self._exc
+            raise self._exc  # lgtm [py/illegal-raise]

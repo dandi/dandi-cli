@@ -15,5 +15,5 @@ try:
     import mpi4py
 
     mpi4py.rc(initialize=False)
-except:
+except Exception:
     pass

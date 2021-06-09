@@ -1,16 +1,13 @@
-from copy import deepcopy
 from datetime import datetime
-import json
 import os
 import os.path as op
-from pathlib import Path
 import re
 from uuid import uuid4
 
-import jsonschema
+from dandischema import models
 
+from . import __version__, get_logger
 from .dandiset import Dandiset
-from . import __version__, get_logger, models
 from .pynwb_utils import (
     _get_pynwb_metadata,
     get_neurodata_types,
@@ -69,8 +66,6 @@ def get_metadata(path):
             break
         except KeyError as exc:  # ATM there is
             lgr.debug("Failed to read %s: %s", path, exc)
-            import re
-
             res = re.match(r"^['\"\\]+(\S+). not a namespace", str(exc))
             if not res:
                 raise
@@ -391,9 +386,24 @@ extract_wasAttributedTo = extract_model_list(
     models.Participant, "identifier", "subject_id", id=...
 )
 
-extract_wasGeneratedBy = extract_model_list(
-    models.Session, "name", "session_id", id=...
-)
+
+def extract_session(metadata: dict) -> list:
+    probe_ids = metadata.get("probe_ids", [])
+    if isinstance(probe_ids, str):
+        probe_ids = [probe_ids]
+    probes = []
+    for val in probe_ids:
+        probes.append(models.Equipment(identifier=f"probe:{val}", name="Ecephys Probe"))
+    probes = probes or None
+
+    return [
+        models.Session(
+            identifier=metadata.get("session_id"),
+            name=metadata.get("session_id"),
+            description=metadata.get("session_description"),
+            used=probes,
+        )
+    ]
 
 
 def extract_digest(metadata):
@@ -406,7 +416,7 @@ def extract_digest(metadata):
 FIELD_EXTRACTORS = {
     "wasDerivedFrom": extract_wasDerivedFrom,
     "wasAttributedTo": extract_wasAttributedTo,
-    "wasGeneratedBy": extract_wasGeneratedBy,
+    "wasGeneratedBy": extract_session,
     "age": extract_age,
     "sex": extract_sex,
     "assayType": extract_assay_type,
@@ -423,9 +433,219 @@ def extract_field(field, metadata):
         return metadata.get(field, ...)
 
 
+neurodata_typemap = {
+    "ElectricalSeries": {
+        "module": "ecephys",
+        "neurodata_type": "ElectricalSeries",
+        "technique": "multi electrode extracellular electrophysiology recording technique",
+        "approach": "electrophysiological approach",
+    },
+    "SpikeEventSeries": {
+        "module": "ecephys",
+        "neurodata_type": "SpikeEventSeries",
+        "technique": "spike sorting technique",
+        "approach": "electrophysiological approach",
+    },
+    "FeatureExtraction": {
+        "module": "ecephys",
+        "neurodata_type": "FeatureExtraction",
+        "technique": "spike sorting technique",
+        "approach": "electrophysiological approach",
+    },
+    "LFP": {
+        "module": "ecephys",
+        "neurodata_type": "LFP",
+        "technique": "signal filtering technique",
+        "approach": "electrophysiological approach",
+    },
+    "EventWaveform": {
+        "module": "ecephys",
+        "neurodata_type": "EventWaveform",
+        "technique": "spike sorting technique",
+        "approach": "electrophysiological approach",
+    },
+    "EventDetection": {
+        "module": "ecephys",
+        "neurodata_type": "EventDetection",
+        "technique": "spike sorting technique",
+        "approach": "electrophysiological approach",
+    },
+    "ElectrodeGroup": {
+        "module": "ecephys",
+        "neurodata_type": "ElectrodeGroup",
+        "technique": "surgical technique",
+        "approach": "electrophysiological approach",
+    },
+    "PatchClampSeries": {
+        "module": "icephys",
+        "neurodata_type": "PatchClampSeries",
+        "technique": "patch clamp technique",
+        "approach": "electrophysiological approach",
+    },
+    "CurrentClampSeries": {
+        "module": "icephys",
+        "neurodata_type": "CurrentClampSeries",
+        "technique": "current clamp technique",
+        "approach": "electrophysiological approach",
+    },
+    "CurrentClampStimulusSeries": {
+        "module": "icephys",
+        "neurodata_type": "CurrentClampStimulusSeries",
+        "technique": "current clamp technique",
+        "approach": "electrophysiological approach",
+    },
+    "VoltageClampSeries": {
+        "module": "icephys",
+        "neurodata_type": "VoltageClampSeries",
+        "technique": "voltage clamp technique",
+        "approach": "electrophysiological approach",
+    },
+    "VoltageClampStimulusSeries": {
+        "module": "icephys",
+        "neurodata_type": "VoltageClampStimulusSeries",
+        "technique": "voltage clamp technique",
+        "approach": "electrophysiological approach",
+    },
+    "TwoPhotonSeries": {
+        "module": "ophys",
+        "neurodata_type": "TwoPhotonSeries",
+        "technique": "two-photon microscopy technique",
+        "approach": "microscopy approach; cell population imaging",
+    },
+    "OpticalChannel": {
+        "module": "ophys",
+        "neurodata_type": "OpticalChannel",
+        "technique": "surgical technique",
+        "approach": "microscopy approach; cell population imaging",
+    },
+    "ImagingPlane": {
+        "module": "ophys",
+        "neurodata_type": "ImagingPlane",
+        "technique": None,
+        "approach": "microscopy approach; cell population imaging",
+    },
+    "PlaneSegmentation": {
+        "module": "ophys",
+        "neurodata_type": "PlaneSegmentation",
+        "technique": None,
+        "approach": "microscopy approach; cell population imaging",
+    },
+    "Position": {
+        "module": "behavior",
+        "neurodata_type": "Position",
+        "technique": "behavioral technique",
+        "approach": "behavioral approach",
+    },
+    "SpatialSeries": {
+        "module": "behavior",
+        "neurodata_type": "SpatialSeries",
+        "technique": "behavioral technique",
+        "approach": "behavioral approach",
+    },
+    "BehavioralEpochs": {
+        "module": "behavior",
+        "neurodata_type": "BehavioralEpochs",
+        "technique": "behavioral technique",
+        "approach": "behavioral approach",
+    },
+    "BehavioralEvents": {
+        "module": "behavior",
+        "neurodata_type": "BehavioralEvents",
+        "technique": "behavioral technique",
+        "approach": "behavioral approach",
+    },
+    "BehavioralTimeSeries": {
+        "module": "behavior",
+        "neurodata_type": "BehavioralTimeSeries",
+        "technique": "behavioral technique",
+        "approach": "behavioral approach",
+    },
+    "PupilTracking": {
+        "module": "behavior",
+        "neurodata_type": "PupilTracking",
+        "technique": "behavioral technique",
+        "approach": "behavioral approach",
+    },
+    "EyeTracking": {
+        "module": "behavior",
+        "neurodata_type": "EyeTracking",
+        "technique": "behavioral technique",
+        "approach": "behavioral approach",
+    },
+    "CompassDirection": {
+        "module": "behavior",
+        "neurodata_type": "CompassDirection",
+        "technique": "behavioral technique",
+        "approach": "behavioral approach",
+    },
+    "ProcessingModule": {
+        "module": "base",
+        "neurodata_type": "ProcessingModule",
+        "technique": "analytical technique",
+        "approach": None,
+    },
+    "RGBImage": {
+        "module": "image",
+        "neurodata_type": "RGBImage",
+        "technique": "photographic technique",
+        "approach": None,
+    },
+    "DecompositionSeries": {
+        "module": "misc",
+        "neurodata_type": "DecompositionSeries",
+        "technique": "fourier analysis technique",
+        "approach": None,
+    },
+    "Units": {
+        "module": "misc",
+        "neurodata_type": "Units",
+        "technique": "spike sorting technique",
+        "approach": "electrophysiological approach",
+    },
+    "Spectrum": {
+        "module": "ndx-spectrum",
+        "neurodata_type": "Spectrum",
+        "technique": "fourier analysis technique",
+        "approach": None,
+    },
+    "OptogeneticStimulusSIte": {
+        "module": "ogen",
+        "neurodata_type": "OptogeneticStimulusSIte",
+        "technique": None,
+        "approach": "optogenetic approach",
+    },
+    "OptogeneticSeries": {
+        "module": "ogen",
+        "neurodata_type": "OptogeneticSeries",
+        "technique": None,
+        "approach": "optogenetic approach",
+    },
+}
+
+
+def process_ndtypes(asset, nd_types):
+    approach = set()
+    technique = set()
+    variables = set()
+    for val in nd_types:
+        if val not in neurodata_typemap:
+            continue
+        if neurodata_typemap[val]["approach"]:
+            approach.add(neurodata_typemap[val]["approach"])
+        if neurodata_typemap[val]["technique"]:
+            technique.add(neurodata_typemap[val]["technique"])
+        variables.add(val)
+    asset.approach = [models.ApproachType(name=val) for val in approach]
+    asset.measurementTechnique = [
+        models.MeasurementTechniqueType(name=val) for val in technique
+    ]
+    asset.variableMeasured = [models.PropertyValue(value=val) for val in variables]
+    return asset
+
+
 def nwb2asset(
     nwb_path, digest=None, digest_type=None, schema_version=None
-) -> models.BareAssetMeta:
+) -> models.BareAsset:
     if schema_version is not None:
         current_version = models.get_schema_version()
         if schema_version != current_version:
@@ -441,11 +661,13 @@ def nwb2asset(
     metadata["encodingFormat"] = "application/x-nwb"
     metadata["dateModified"] = get_utcnow_datetime()
     metadata["blobDateModified"] = ensure_datetime(os.stat(nwb_path).st_mtime)
+    metadata["path"] = nwb_path
     if metadata["blobDateModified"] > metadata["dateModified"]:
         lgr.warning(
             "mtime %s of %s is in the future", metadata["blobDateModified"], nwb_path
         )
     asset = metadata2asset(metadata)
+    asset = process_ndtypes(asset, metadata["nd_types"])
     end_time = datetime.now().astimezone()
     if asset.wasGeneratedBy is None:
         asset.wasGeneratedBy = []
@@ -453,7 +675,7 @@ def nwb2asset(
     return asset
 
 
-def get_default_metadata(path, digest=None, digest_type=None) -> models.BareAssetMeta:
+def get_default_metadata(path, digest=None, digest_type=None) -> models.BareAsset:
     start_time = datetime.now().astimezone()
     if digest is not None:
         digest_model = {models.DigestType[digest_type]: digest}
@@ -464,7 +686,7 @@ def get_default_metadata(path, digest=None, digest_type=None) -> models.BareAsse
     if blobDateModified > dateModified:
         lgr.warning("mtime %s of %s is in the future", blobDateModified, path)
     end_time = datetime.now().astimezone()
-    return models.BareAssetMeta.unvalidated(
+    return models.BareAsset.unvalidated(
         contentSize=os.path.getsize(path),
         digest=digest_model,
         dateModified=dateModified,
@@ -494,317 +716,5 @@ def get_generator(start_time: datetime, end_time: datetime) -> models.Activity:
 
 
 def metadata2asset(metadata):
-    return extract_model(models.BareAssetMeta, metadata)
-
-
-"""
-The following section converts metadata schema from the current girder dandiset
-model to the new schema in dandi-cli. This section should be removed
-after the migration is finished to the
-"""
-
-mapping = {
-    "identifier": ["identifier"],
-    "name": ["name"],
-    "description": ["description"],
-    "contributors": ["contributor"],
-    "sponsors": ["contributor", ["Sponsor"]],
-    "license": ["license"],
-    "keywords": ["keywords"],
-    "project": ["generatedBy"],
-    "conditions_studied": ["about"],
-    "associated_anatomy": ["about"],
-    "protocols": ["protocol"],
-    "ethicsApprovals": ["ethicsApproval"],
-    "access": ["access"],
-    "associatedData": ["relatedResource", "IsDerivedFrom"],
-    "publications": ["relatedResource", "IsDescribedBy"],
-    "age": ["variableMeasured"],
-    "organism": ["variableMeasured"],
-    "sex": ["variableMeasured"],
-    "number_of_subjects": ["assetsSummary", "numberOfSubjects"],
-    "number_of_cells": ["assetsSummary", "numberOfCells"],
-    "number_of_tissue_samples": ["assetsSummary", "numberOfSamples"],
-}
-
-
-def toContributor(value, contrib_type):
-    if not isinstance(value, list):
-        value = [value]
-    out = []
-    for item in value:
-        if item == {"orcid": "", "roles": []}:
-            continue
-        contrib = {}
-        if "name" in item:
-            name = item["name"].split()
-            item["name"] = f"{name[-1]}, {' '.join(name[:-1])}"
-        if "roles" in item:
-            roles = []
-            for role in item["roles"]:
-                tmp = role.split()
-                if len(tmp) > 1:
-                    roles.append("".join([val.capitalize() for val in tmp]))
-                else:
-                    roles.append(tmp.pop())
-            contrib["roleName"] = [getattr(models.RoleType, role) for role in roles]
-            del item["roles"]
-        elif contrib_type == "sponsors":
-            contrib["roleName"] = [models.RoleType.Funder]
-        if "awardNumber" in item:
-            contrib["awardNumber"] = item["awardNumber"]
-            del item["awardNumber"]
-        if "orcid" in item:
-            if item["orcid"]:
-                contrib["identifier"] = item["orcid"]
-            # else:
-            #    contrib["identifier"] = models.PropertyValue()
-            del item["orcid"]
-        if "affiliation" in item:
-            item["affiliation"] = [models.Organization(name=item["affiliation"])]
-        if "affiliations" in item:
-            item["affiliation"] = [
-                models.Organization(name=affiliate)
-                for affiliate in item["affiliations"]
-            ]
-            del item["affiliations"]
-        contrib.update(**{f"{k}": v for k, v in item.items()})
-        if "awardNumber" in contrib or contrib_type == "sponsors":
-            contrib = models.Organization(**contrib)
-        else:
-            if "name" not in contrib:
-                contrib["name"] = "Last, First"
-            contrib = models.Person(**contrib)
-        out.append(contrib)
-    return out
-
-
-def convertv1(data):
-    oldmeta = deepcopy(data["dandiset"]) if "dandiset" in data else deepcopy(data)
-    newmeta = {}
-    for oldkey, value in oldmeta.items():
-        if oldkey in ["language", "altid", "number_of_slices"]:
-            continue
-        if oldkey not in mapping:
-            raise KeyError(f"Could not find {oldkey}")
-        if len(mapping[oldkey]) == 0:
-            newkey = f"schema:{oldkey}"
-        else:
-            newkey = mapping[oldkey][0]
-        if oldkey in ["contributors", "sponsors"]:
-            value = toContributor(value, oldkey)
-        if oldkey == "access":
-            value = [
-                models.AccessRequirements(
-                    status=models.AccessType.Open, email=value["access_contact_email"]
-                )
-            ]
-        if oldkey == "license":
-            value = [
-                getattr(
-                    models.LicenseType,
-                    value.replace("dandi", "spdx").replace("-", "_").replace(".", ""),
-                )
-            ]
-        if oldkey == "identifier":
-            value = f"DANDI:{value}"
-        if len(mapping[oldkey]) == 2:
-            extra = mapping[oldkey][1]
-            if newkey == "contributor":
-                extrakey = "roleName"
-            if oldkey == "sponsors":
-                extrakey = "roleName"
-            if oldkey in ["publications", "associatedData"]:
-                extrakey = "relation"
-                if not isinstance(value, list):
-                    value = [value]
-                out = []
-                for item in value:
-                    if isinstance(item, dict):
-                        if (
-                            "relation" in item
-                            and "publication" in item["relation"].lower()
-                        ):
-                            del item["relation"]
-                        if "relation" not in item:
-                            if oldkey == "publications":
-                                item["relation"] = models.RelationType.IsDescribedBy
-                            if oldkey == "associatedData":
-                                item["relation"] = models.RelationType.IsDerivedFrom
-                        out.append(models.Resource(**item))
-                    elif not any(item in val.dict().values() for val in out):
-                        out.append(
-                            models.Resource(
-                                url=item, relation=models.RelationType.IsDescribedBy
-                            )
-                        )
-                value = out
-            if oldkey in [
-                "number_of_subjects",
-                "number_of_cells",
-                "number_of_tissue_samples",
-            ]:
-                value = {extra: value}
-                extrakey = None
-            if isinstance(value, list):
-                for val in value:
-                    if extrakey:
-                        if extrakey == "relation":
-                            val.relation = getattr(models.RelationType, extra)
-                        elif extrakey == "roleName":
-                            val.roleName = [
-                                getattr(models.RoleType, role) for role in extra
-                            ]
-                        else:
-                            val[extrakey] = extra
-            if isinstance(value, dict):
-                if extrakey:
-                    value[extrakey] = extra
-        if newkey == "variableMeasured":
-            if oldkey in ["age", "sex"]:
-                vm = {"name": oldkey}
-                if oldkey == "sex":
-                    vm["value"] = value
-                else:
-                    if "maximum" in value and isinstance(value["maximum"], str):
-                        if "days" in value["maximum"]:
-                            value["units"] = "days"
-                        if "Gestational" in value["maximum"]:
-                            value["units"] = "Gestational Week"
-                            value["maximum"] = value["maximum"].split()[-1]
-                        if value["maximum"].startswith("P"):
-                            value["maximum"] = value["maximum"][1:-1]
-                            value["units"] = value["maximum"][-1]
-                        if "None" not in value["maximum"]:
-                            value["maximum"] = float(value["maximum"].split()[0])
-                    if "minimum" in value and isinstance(value["minimum"], str):
-                        if "days" in value["minimum"]:
-                            value["units"] = "days"
-                        if "Gestational" in value["minimum"]:
-                            value["units"] = "Gestational Week"
-                            value["minimum"] = value["minimum"].split()[-1]
-                        if value["minimum"].startswith("P"):
-                            value["minimum"] = value["minimum"][1:-1]
-                            value["units"] = value["minimum"][-1]
-                        if "None" not in value["minimum"]:
-                            value["minimum"] = float(value["minimum"].split()[0])
-                    value["unitText"] = value["units"]
-                    del value["units"]
-                    vm.update(**value)
-            else:
-                newvalues = []
-                for val in value:
-                    if "species" in val:
-                        newvalues.append(val["species"])
-                vm = {"name": "species", "value": newvalues}
-            value = vm
-        if newkey == "about":
-            newvalues = []
-            for item in value:
-                id = item.get("identifier", None)
-                if id is not None and not id.startswith("http"):
-                    item["identifier"] = None
-                newvalues.append(models.TypeModel(**item))
-            value = newvalues
-        if newkey not in newmeta:
-            newmeta[newkey] = value
-        else:
-            curvalue = newmeta[newkey]
-            if not isinstance(curvalue, list):
-                newmeta[newkey] = [curvalue]
-            if not isinstance(value, list):
-                value = [value]
-            newmeta[newkey].extend(value)
-    if "assetsSummary" in newmeta:
-        del newmeta["assetsSummary"]
-    if "variableMeasured" in newmeta:
-        del newmeta["variableMeasured"]
-    return newmeta
-
-
-def migrate2newschema(meta):
-    newmeta = convertv1(meta)
-    if "version" in newmeta:
-        newmeta["id"] = f"{newmeta['identifier']}/{newmeta['version']}"
-    else:
-        newmeta["id"] = f"{newmeta['identifier']}/draft"
-    dandimeta = models.DandisetMeta.unvalidated(**newmeta)
-    return dandimeta
-
-
-def generate_context():
-    import pydantic
-
-    fields = {
-        "@version": 1.1,
-        "dandi": "http://schema.dandiarchive.org/",
-        "dandiasset": "http://iri.dandiarchive.org/",
-        "DANDI": "http://identifiers.org/DANDI:",
-        "dct": "http://purl.org/dc/terms/",
-        "owl": "http://www.w3.org/2002/07/owl#",
-        "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-        "rdfa": "http://www.w3.org/ns/rdfa#",
-        "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
-        "schema": "http://schema.org/",
-        "xsd": "http://www.w3.org/2001/XMLSchema#",
-        "skos": "http://www.w3.org/2004/02/skos/core#",
-        "prov": "http://www.w3.org/ns/prov#",
-        "pav": "http://purl.org/pav/",
-        "nidm": "http://purl.org/nidash/nidm#",
-        "uuid": "http://uuid.repronim.org/",
-        "rs": "http://schema.repronim.org/",
-        "RRID": "https://scicrunch.org/resolver/RRID:",
-        "ORCID": "https://orcid.org/",
-        "ROR": "https://ror.org/",
-        "PATO": "http://purl.obolibrary.org/obo/PATO_",
-        "spdx": "http://spdx.org/licenses/",
-    }
-    for val in dir(models):
-        klass = getattr(models, val)
-        if not isinstance(klass, pydantic.main.ModelMetaclass):
-            continue
-        if hasattr(klass, "_ldmeta"):
-            if "nskey" in klass._ldmeta:
-                name = klass.__name__
-                fields[name] = f'{klass._ldmeta["nskey"]}:{name}'
-        for name, field in klass.__fields__.items():
-            if name == "id":
-                fields[name] = "@id"
-            elif name == "schemaKey":
-                fields[name] = "@type"
-            elif name == "digest":
-                fields[name] = "@nest"
-            elif "nskey" in field.field_info.extra:
-                if name not in fields:
-                    fields[name] = {"@id": field.field_info.extra["nskey"] + ":" + name}
-                    if "List" in str(field.outer_type_):
-                        fields[name]["@container"] = "@set"
-                    if name == "contributor":
-                        fields[name]["@container"] = "@list"
-                    if "enum" in str(field.type_) or name == "url":
-                        fields[name]["@type"] = "@id"
-    for item in models.DigestType:
-        fields[item.value] = {"@id": item.value, "@nest": "digest"}
-    return {"@context": fields}
-
-
-def publish_model_schemata(releasedir):
-    version = models.get_schema_version()
-    vdir = Path(releasedir, version)
-    vdir.mkdir(exist_ok=True, parents=True)
-    (vdir / "dandiset.json").write_text(models.DandisetMeta.schema_json(indent=2))
-    (vdir / "asset.json").write_text(models.AssetMeta.schema_json(indent=2))
-    (vdir / "context.json").write_text(json.dumps(generate_context(), indent=2))
-    return vdir
-
-
-def validate_dandiset_json(data, schema_dir):
-    with Path(schema_dir, "dandiset.json").open() as fp:
-        schema = json.load(fp)
-    jsonschema.validate(data, schema)
-
-
-def validate_asset_json(data, schema_dir):
-    with Path(schema_dir, "asset.json").open() as fp:
-        schema = json.load(fp)
-    jsonschema.validate(data, schema)
+    bare_dict = extract_model(models.BareAsset, metadata).json_dict()
+    return models.BareAsset(**bare_dict)

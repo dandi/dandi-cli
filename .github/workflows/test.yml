@@ -11,6 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       NO_ET: 1
+      DATACITE_DEV_PASSWORD: ${{ secrets.DATACITE_DEV_PASSWORD }}
 
     strategy:
       fail-fast: false

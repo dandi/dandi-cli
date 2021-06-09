@@ -22,21 +22,57 @@ class JSONFormatter(Formatter):
     def __init__(self, indent=None, out=None):
         self.out = out or sys.stdout
         self.indent = indent
+        self.first = True
 
     @staticmethod
     def _serializer(o):
         if isinstance(o, datetime.datetime):
-            return o.__str__()
+            return str(o)
+        return o
+
+    def __enter__(self):
+        print("[", end="", file=self.out)
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if not self.first:
+            print(file=self.out)
+        print("]", file=self.out)
+
+    def __call__(self, rec):
+        import json
+        from textwrap import indent
+
+        if self.first:
+            print(file=self.out)
+            self.first = False
+        else:
+            print(",", file=self.out)
+
+        s = json.dumps(
+            rec, indent=self.indent, sort_keys=True, default=self._serializer
+        )
+        print(indent(s, " " * (self.indent or 2)), end="", file=self.out)
+
+
+class JSONLinesFormatter(Formatter):
+    def __init__(self, indent=None, out=None):
+        self.out = out or sys.stdout
+        self.indent = indent
+
+    @staticmethod
+    def _serializer(o):
+        if isinstance(o, datetime.datetime):
+            return str(o)
         return o
 
     def __call__(self, rec):
         import json
 
-        self.out.write(
+        print(
             json.dumps(
                 rec, indent=self.indent, sort_keys=True, default=self._serializer
-            )
-            + "\n"
+            ),
+            file=self.out,
         )
 
 

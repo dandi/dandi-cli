@@ -121,7 +121,7 @@ class callback_from_generator(collections.abc.Callable):
             while True:
                 try:
                     v_from_c = callback(from_g)
-                except BaseException as e_from_c:
+                except BaseException as e_from_c:  # lgtm [py/catch-base-exception]
                     try:
                         from_g = g.throw(e_from_c)
                     except StopIteration as si:

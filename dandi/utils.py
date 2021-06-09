@@ -5,6 +5,7 @@ try:
 except ImportError:
     # TODO - remove whenever python >= 3.8
     from importlib_metadata import version as importlib_version
+
 import inspect
 import io
 import itertools
@@ -26,13 +27,12 @@ import ruamel.yaml
 from semantic_version import Version
 import tenacity
 
-from .consts import dandi_instance, known_instances, known_instances_rev
-from .exceptions import BadCliVersionError, CliVersionTooOldError
-
 #
 # Additional handlers
 #
 from . import __version__, get_logger
+from .consts import dandi_instance, known_instances, known_instances_rev
+from .exceptions import BadCliVersionError, CliVersionTooOldError
 
 lgr = get_logger()
 
@@ -350,14 +350,19 @@ def find_files(
         paths = (op.join(dirpath, name) for name in names)
         for path in filter(re.compile(regex).search, paths):
             if not exclude_path(path):
-                yield path
+                if op.islink(path) and op.isdir(path):
+                    lgr.warning(
+                        "%s: Ignoring unsupported symbolic link to directory", path
+                    )
+                else:
+                    yield path
 
 
 _cp_supports_reflink = None
 
 
 def copy_file(src, dst):
-    """ Copy file from src to dst """
+    """Copy file from src to dst"""
     global _cp_supports_reflink
     if _cp_supports_reflink is None:
         r = subprocess.run(
@@ -608,48 +613,6 @@ def get_instance(dandi_instance_id):
                 k for k, v in server_info.get("services", {}).items() if v is not None
             )
         )
-
-
-TITLE_CASE_LOWER = {
-    "a",
-    "an",
-    "and",
-    "as",
-    "but",
-    "by",
-    "for",
-    "in",
-    "nor",
-    "of",
-    "on",
-    "or",
-    "the",
-    "to",
-    "with",
-}
-
-
-def name2title(name):
-    # For use in autopopulating the titles of model schema fields
-    words = []
-    for w in split_camel_case(name):
-        w = w.lower()
-        if w == "id" or w == "url":
-            w = w.upper()
-        elif not words or w not in TITLE_CASE_LOWER:
-            w = w.capitalize()
-        words.append(w)
-    return " ".join(words)
-
-
-def split_camel_case(s):
-    last_start = 0
-    # Don't split apart "ID":
-    for m in re.finditer(r"(?<=I)[A-CE-Z]|(?<=[^I])[A-Z]", s):
-        yield s[last_start : m.start()]
-        last_start = m.start()
-    if last_start < len(s):
-        yield s[last_start:]
 
 
 def try_multiple(ntrials, retry, base):

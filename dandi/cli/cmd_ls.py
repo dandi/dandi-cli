@@ -33,7 +33,7 @@ List .nwb files and dandisets metadata.
     "--format",
     help="Choose the format/frontend for output. If 'auto', 'pyout' will be "
     "used in case of multiple files, and 'yaml' for a single file.",
-    type=click.Choice(["auto", "pyout", "json", "json_pp", "yaml"]),
+    type=click.Choice(["auto", "pyout", "json", "json_pp", "json_lines", "yaml"]),
     default="auto",
 )
 @click.option(
@@ -63,10 +63,15 @@ List .nwb files and dandisets metadata.
 @click.argument("paths", nargs=-1, type=click.Path(exists=False, dir_okay=True))
 @map_to_click_exceptions
 def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, jobs=6):
-    """ List .nwb files and dandisets metadata. """
+    """List .nwb files and dandisets metadata."""
 
     # TODO: more logical ordering in case of fields = None
-    from .formatter import JSONFormatter, PYOUTFormatter, YAMLFormatter
+    from .formatter import (
+        JSONFormatter,
+        JSONLinesFormatter,
+        PYOUTFormatter,
+        YAMLFormatter,
+    )
     from ..consts import metadata_all_fields
 
     # TODO: avoid
@@ -75,13 +80,13 @@ def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, job
 
     common_fields = ("path", "size")
     if schema is not None:
-        from ..models import AssetMeta, DandisetMeta
+        from dandischema import models
 
         all_fields = tuple(
             sorted(
                 set(common_fields)
-                | DandisetMeta.__fields__.keys()
-                | AssetMeta.__fields__.keys()
+                | models.Dandiset.__fields__.keys()
+                | models.Asset.__fields__.keys()
             )
         )
     else:
@@ -144,6 +149,8 @@ def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, job
         out = JSONFormatter()
     elif format == "json_pp":
         out = JSONFormatter(indent=2)
+    elif format == "json_lines":
+        out = JSONLinesFormatter()
     elif format == "yaml":
         out = YAMLFormatter()
     else:

@@ -13,7 +13,7 @@ __version__ = _version.get_versions()["version"]
 from .due import Doi, due
 
 due.cite(
-    Doi("10.5281/zenodo.3692138"),
+    Doi("10.5281/zenodo.3692138"),  # lgtm [py/procedure-return-value-used]
     cite_module=True,  # highly specialized -- if imported, means used.
     description="Client to interact with DANDI Archive",
     path="dandi-cli",

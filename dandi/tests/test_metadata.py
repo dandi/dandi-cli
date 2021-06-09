@@ -3,20 +3,19 @@ from datetime import datetime, timedelta
 import json
 from pathlib import Path
 
+from dandischema.consts import DANDI_SCHEMA_VERSION
+from dandischema.metadata import (
+    _validate_asset_json,
+    _validate_dandiset_json,
+    publish_model_schemata,
+)
+from dandischema.models import BareAsset as BareAssetMeta
+from dandischema.models import Dandiset as DandisetMeta
 from dateutil.tz import tzutc
 import pytest
 
-from ..consts import DANDI_SCHEMA_VERSION
-from ..metadata import (
-    metadata2asset,
-    migrate2newschema,
-    parse_age,
-    publish_model_schemata,
-    timedelta2duration,
-    validate_asset_json,
-    validate_dandiset_json,
-)
-from ..models import BareAssetMeta, DandisetMeta
+from ..metadata import get_metadata, metadata2asset, parse_age, timedelta2duration
+from ..pynwb_utils import metadata_nwb_subject_fields
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
 
@@ -24,6 +23,25 @@ METADATA_DIR = Path(__file__).with_name("data") / "metadata"
 @pytest.fixture(scope="module")
 def schema_dir(tmp_path_factory):
     return publish_model_schemata(tmp_path_factory.mktemp("schema_dir"))
+
+
+def test_get_metadata(simple1_nwb, simple1_nwb_metadata):
+    target_metadata = simple1_nwb_metadata.copy()
+    # we will also get some counts
+    target_metadata["number_of_electrodes"] = 0
+    target_metadata["number_of_units"] = 0
+    target_metadata["number_of_units"] = 0
+    # We also populate with nd_types now, although here they would be empty
+    target_metadata["nd_types"] = []
+    # we do not populate any subject fields in our simple1_nwb
+    for f in metadata_nwb_subject_fields:
+        target_metadata[f] = None
+    metadata = get_metadata(str(simple1_nwb))
+    # we also load nwb_version field, so it must not be degenerate and ATM
+    # it is 2.X.Y. And since I don't know how to query pynwb on what
+    # version it currently "supports", we will just pop it
+    assert metadata.pop("nwb_version").startswith("2.")
+    assert target_metadata == metadata
 
 
 @pytest.mark.parametrize(
@@ -102,8 +120,8 @@ def test_metadata2asset(schema_dir):
     data = metadata2asset(
         {
             "contentSize": 69105,
-            "digest": "783ad2afe455839e5ab2fa659861f58a423fd17f",
-            "digest_type": "sha1",
+            "digest": "e455839e5ab2fa659861f58a423fd17f-1",
+            "digest_type": "dandi_etag",
             "encodingFormat": "application/x-nwb",
             "experiment_description": "Experiment Description",
             "experimenter": "Joe Q. Experimenter",
@@ -135,6 +153,7 @@ def test_metadata2asset(schema_dir):
                 "ElectrodeGroup",
                 "Subject",
             ],
+            "path": "/test/path",
         }
     )
     with (METADATA_DIR / "metadata2asset.json").open() as fp:
@@ -143,15 +162,16 @@ def test_metadata2asset(schema_dir):
     assert data == BareAssetMeta(**data_as_dict)
     bare_dict = deepcopy(data_as_dict)
     assert data.json_dict() == bare_dict
-    validate_asset_json(data_as_dict, schema_dir)
+    data_as_dict["identifier"] = "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be"
+    _validate_asset_json(data_as_dict, schema_dir)
 
 
 def test_metadata2asset_simple1(schema_dir):
     data = metadata2asset(
         {
             "contentSize": 69105,
-            "digest": "783ad2afe455839e5ab2fa659861f58a423fd17f",
-            "digest_type": "sha1",
+            "digest": "e455839e5ab2fa659861f58a423fd17f-1",
+            "digest_type": "dandi_etag",
             "encodingFormat": "application/x-nwb",
             "nwb_version": "2.2.5",
             "experiment_description": "experiment_description1",
@@ -174,6 +194,7 @@ def test_metadata2asset_simple1(schema_dir):
             "number_of_units": 0,
             "nd_types": [],
             "tissue_sample_id": "tissue42",
+            "path": "/test/path",
         }
     )
     with (METADATA_DIR / "metadata2asset_simple1.json").open() as fp:
@@ -182,19 +203,13 @@ def test_metadata2asset_simple1(schema_dir):
     assert data == BareAssetMeta(**data_as_dict)
     bare_dict = deepcopy(data_as_dict)
     assert data.json_dict() == bare_dict
-    validate_asset_json(data_as_dict, schema_dir)
+    data_as_dict["identifier"] = "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be"
+    _validate_asset_json(data_as_dict, schema_dir)
 
 
 def test_dandimeta_migration(schema_dir):
-    with (METADATA_DIR / "dandimeta_migration.old.json").open() as fp:
-        data_orig = json.load(fp)
-    data_orig_dc = deepcopy(data_orig)
-    data = migrate2newschema(data_orig)
-    # Check that data_orig has not changed after migrate2newschema:
-    assert data_orig_dc == data_orig
     with (METADATA_DIR / "dandimeta_migration.new.json").open() as fp:
         data_as_dict = json.load(fp)
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
-    assert data == DandisetMeta(**data_as_dict)
-    assert data.json_dict() == data_as_dict
-    validate_dandiset_json(data_as_dict, schema_dir)
+    DandisetMeta(**data_as_dict)
+    _validate_dandiset_json(data_as_dict, schema_dir)

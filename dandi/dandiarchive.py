@@ -7,10 +7,10 @@ from urllib.parse import unquote as urlunquote
 from pydantic import AnyHttpUrl, BaseModel, parse_obj_as, validator
 import requests
 
+from . import get_logger
 from .consts import known_instances
 from .dandiapi import DandiAPIClient
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
-from . import get_logger
 from .utils import get_instance
 
 lgr = get_logger()
@@ -41,7 +41,7 @@ class ParsedDandiURL(ABC, BaseModel):
         return parse_obj_as(AnyHttpUrl, v.rstrip("/"))
 
     def get_client(self) -> DandiAPIClient:
-        """ Returns an unauthenticated `DandiAPIClient` for `api_url` """
+        """Returns an unauthenticated `DandiAPIClient` for `api_url`"""
         return DandiAPIClient(self.api_url)
 
     def get_dandiset(self, client: DandiAPIClient) -> dict:
@@ -119,7 +119,7 @@ class DandisetURL(ParsedDandiURL):
     def get_assets(
         self, client: DandiAPIClient, include_metadata: bool = False
     ) -> Iterator[dict]:
-        """ Returns all assets in the Dandiset """
+        """Returns all assets in the Dandiset"""
         return client.get_dandiset_assets(
             self.dandiset_id,
             self.get_version_id(client),
@@ -128,19 +128,19 @@ class DandisetURL(ParsedDandiURL):
 
 
 class SingleAssetURL(ParsedDandiURL):
-    """ Superclass for parsed URLs that refer to a single asset """
+    """Superclass for parsed URLs that refer to a single asset"""
 
     pass
 
 
 class MultiAssetURL(ParsedDandiURL):
-    """ Superclass for parsed URLs that refer to multiple assets """
+    """Superclass for parsed URLs that refer to multiple assets"""
 
     path: str
 
 
 class AssetIDURL(SingleAssetURL):
-    """ Parsed from a URL that refers to an asset by ID """
+    """Parsed from a URL that refers to an asset by ID"""
 
     asset_id: str
 
@@ -172,7 +172,7 @@ class AssetIDURL(SingleAssetURL):
         }
 
     def get_asset_ids(self, client: DandiAPIClient) -> Iterator[str]:
-        """ Yields the ID of the asset (regardless of whether it exists) """
+        """Yields the ID of the asset (regardless of whether it exists)"""
         yield self.asset_id
 
 
@@ -184,7 +184,7 @@ class AssetPathPrefixURL(MultiAssetURL):
     def get_assets(
         self, client: DandiAPIClient, include_metadata: bool = False
     ) -> Iterator[dict]:
-        """ Returns the assets whose paths start with `path` """
+        """Returns the assets whose paths start with `path`"""
         return client.get_dandiset_assets(
             self.dandiset_id,
             self.get_version_id(client),
@@ -194,7 +194,7 @@ class AssetPathPrefixURL(MultiAssetURL):
 
 
 class AssetItemURL(SingleAssetURL):
-    """ Parsed from a URL that refers to a specific asset by path """
+    """Parsed from a URL that refers to a specific asset by path"""
 
     path: str
 
@@ -320,12 +320,12 @@ class _dandi_url_parser:
         ),
         (
             re.compile(
-                rf"{server_grp}#/(?P<asset_type>dandiset)/{dandiset_id_grp}"
+                rf"{server_grp}(#/)?(?P<asset_type>dandiset)/{dandiset_id_grp}"
                 r"(/(?P<version>[.0-9]{5,}|draft))?"
-                r"(/files(\?location=(?P<location>.*)?)?)?"
+                r"(/(files(\?location=(?P<location>.*)?)?)?)?"
             ),
             {},
-            "https://<server>[/api]/#/dandiset/<dandiset id>[/<version>]"
+            "https://<server>[/api]/[#/]dandiset/<dandiset id>[/<version>]"
             "[/files[?location=<path>]]",
         ),
         # PRs are also on netlify - so above takes precedence. TODO: make more

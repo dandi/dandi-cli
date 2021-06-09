@@ -1,9 +1,10 @@
 """Classes/utilities for support of a dandiset"""
 from pathlib import Path
 
-from .consts import dandiset_metadata_file
+from dandischema.models import get_schema_version
+
 from . import get_logger
-from .models import get_schema_version
+from .consts import dandiset_metadata_file
 from .utils import find_parent_directory_containing, yaml_dump, yaml_load
 
 lgr = get_logger()
@@ -134,25 +135,3 @@ class APIDandiset(Dandiset):
                     f"Unsupported schema version: {schema_version}; expected {current_version}"
                 )
         super().__init__(path, allow_empty=allow_empty)
-
-    def _load_metadata(self):
-        from .metadata import migrate2newschema
-
-        super()._load_metadata()
-        if self.metadata is None:
-            # can do nothing
-            return
-        # deduce either it is a new or old style metadata which would need to be converted
-        if (
-            "schemaVersion" in self.metadata
-            # TODO: remove the one below after we get schemaVersion reliably in all dandisets
-            # https://github.com/dandi/dandi-api/issues/64
-            or isinstance(self.metadata.get("identifier"), dict)
-        ):
-            # new already, no conversion necessary
-            return
-        # we are not yet (if ever) "ready" to just carry/return pydantic
-        # models as metadata, so we take dict representation
-        # Do R/T through json since it then maps types, although
-        # "access" has a side-effect: https://github.com/dandi/dandi-cli/issues/343
-        self.metadata = migrate2newschema(self.metadata).json_dict()

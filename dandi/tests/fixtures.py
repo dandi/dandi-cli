@@ -15,10 +15,10 @@ import pytest
 import requests
 
 from .skip import skipif
+from .. import get_logger
 from ..cli.command import organize
 from ..consts import dandiset_metadata_file, known_instances
 from ..dandiapi import DandiAPIClient
-from .. import get_logger
 from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
 from ..upload import upload
 
