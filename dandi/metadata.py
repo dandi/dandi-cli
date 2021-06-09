@@ -101,12 +101,6 @@ def _parse_iso8601(age):
 
     matchstr = re.match(pattern, age, flags=re.I)
     if matchstr:
-        age_rem = age.replace(matchstr.group(0), "")
-        if age_rem:
-            raise ValueError(
-                f"ISO 8601 expected, but {age} was received,"
-                f"no rules to parse {age_rem}"
-            )
         age_frm = [matchstr.group(i) for i in range(1, 6) if matchstr.group(i)]
         age_frm = ["P"] + age_frm
         return age_frm
@@ -149,8 +143,6 @@ def _parse_age_re(age, unit, tp="date"):
         qty = int(matchstr.group(1))
     age_rem = age.replace(matchstr.group(0), "")
     age_rem = age_rem.strip()
-    if age_rem and age_rem[0] in [",", ";", "."]:
-        age_rem = age_rem[1:]
     return age_rem, f"{qty}{unit}"
 
 

@@ -70,6 +70,8 @@ def test_get_metadata(simple1_nwb, simple1_nwb_metadata):
         ("7D", "P7D"),
         ("7 day", "P7D"),
         ("7 Days", "P7D"),
+        ("7.5 Days", "P7.5D"),
+        ("7.0 Days", "P7D"),
         ("P136D", "P136D"),
         ("P22265.0D", "P22265.0D"),  # "P22265.D" is not allowed
         ("P22265,0D", "P22265.0D"),
