@@ -282,7 +282,7 @@ def extract_session(metadata: dict) -> list:
     return [
         models.Session(
             identifier=metadata.get("session_id"),
-            name=metadata.get("session_id", "Generating session"),
+            name=metadata.get("session_id", "Acquisition session"),
             description=metadata.get("session_description"),
             used=probes,
         )
