@@ -4,7 +4,7 @@ import os.path
 from pathlib import Path
 import re
 from threading import Lock
-from typing import Any, Dict, Iterator, Optional, cast
+from typing import Any, Callable, Dict, Iterator, Optional, Union, cast
 from xml.etree.ElementTree import fromstring
 
 import click
@@ -58,6 +58,11 @@ class RemoteDandiset(APIBase):
     def version_api_path(self) -> str:
         return f"/dandisets/{self.identifier}/versions/{self.version_id}/"
 
+    def _mkasset(self, data: Dict[str, Any]) -> "RemoteAsset":
+        return RemoteAsset(
+            dandiset_id=self.identifier, version_id=self.version_id, **data
+        )
+
     def get_versions(self) -> Iterator[Version]:
         for v in self.client.paginate(f"{self.api_path}versions/"):
             yield Version.parse_obj(v)
@@ -76,18 +81,30 @@ class RemoteDandiset(APIBase):
     def get_raw_metadata(self) -> Dict[str, Any]:
         return cast(Dict[str, Any], self.client.get(self.version_api_path))
 
+    def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
+        self.client.put(
+            self.version_api_path,
+            json={"metadata": metadata, "name": metadata.get("name", "")},
+        )
+
     def publish(self) -> Version:
         return Version.parse_obj(self.client.post(f"{self.version_api_path}publish/"))
 
     def get_assets(self, path=None) -> Iterator["RemoteAsset"]:
         for a in self.client.paginate(f"{self.version_api_path}assets/"):
-            yield RemoteAsset.parse_obj(a)
+            yield self._mkasset(a)
+
+    def get_asset(self, asset_id: str) -> "RemoteAsset":
+        # Raises a 404 if the asset does not exist
+        return self._mkasset(
+            self.client.get(f"{self.version_api_path}assets/{asset_id}/")
+        )
 
     def get_assets_under_path(self, path: str) -> Iterator["RemoteAsset"]:
         for a in self.client.paginate(
             f"{self.version_api_path}assets/", params={"path": path}
         ):
-            yield RemoteAsset.parse_obj(a)
+            yield self._mkasset(a)
 
     def get_asset_by_path(self, path: str) -> "RemoteAsset":
         # Raises NotFoundError if the asset does not exist
@@ -100,13 +117,179 @@ class RemoteDandiset(APIBase):
         except ValueError:
             raise NotFoundError(f"No asset at path {path!r}")
         else:
-            return RemoteAsset.parse_obj(asset)
+            return asset
 
-    def get_asset(self, asset_id: str) -> "RemoteAsset":
-        # Raises a 404 if the asset does not exist
-        return RemoteAsset.parse_obj(
-            self.client.get(f"{self.version_api_path}assets/{asset_id}/")
-        )
+    def download_directory(
+        self,
+        assets_dirpath: str,
+        dirpath: Union[str, Path],
+        chunk_size: int = MAX_CHUNK_SIZE,
+    ) -> None:
+        if assets_dirpath and not assets_dirpath.endswith("/"):
+            assets_dirpath += "/"
+        assets = list(self.get_assets_under_path(assets_dirpath))
+        for a in assets:
+            filepath = Path(dirpath, a["path"][len(assets_dirpath) :])
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            a.download(filepath, chunk_size=chunk_size)
+
+    def upload_raw_asset(
+        self,
+        filepath: Union[str, Path],
+        asset_metadata: Dict[str, Any],
+        jobs: Optional[int] = None,
+    ) -> None:
+        """
+        Parameters
+        ----------
+        filepath: str or PathLike
+          the path to the local file to upload
+        asset_metadata: dict
+          Metadata for the uploaded asset file.  Must include a "path" field
+          giving the POSIX path at which the uploaded file will be placed on
+          the server.
+        """
+        for _ in self.iter_upload_raw_asset(filepath, asset_metadata, jobs=jobs):
+            pass
+
+    def iter_upload_raw_asset(
+        self,
+        filepath: Union[str, Path],
+        asset_metadata: Dict[str, Any],
+        jobs: Optional[int] = None,
+    ) -> Iterator[dict]:
+        """
+        Parameters
+        ----------
+        filepath: str or PathLike
+          the path to the local file to upload
+        asset_metadata: dict
+          Metadata for the uploaded asset file.  Must include a "path" field
+          giving the POSIX path at which the uploaded file will be placed on
+          the server.
+
+        Returns
+        -------
+        a generator of `dict`s containing at least a ``"status"`` key
+        """
+        from .support.digests import get_dandietag
+
+        asset_path = asset_metadata["path"]
+        yield {"status": "calculating etag"}
+        etagger = get_dandietag(filepath)
+        filetag = etagger.as_str()
+        lgr.debug("Calculated dandi-etag of %s for %s", filetag, filepath)
+        digest = asset_metadata.get("digest", {})
+        if "dandi:dandi-etag" in digest:
+            if digest["dandi:dandi-etag"] != filetag:
+                raise RuntimeError(
+                    f"{filepath}: File etag changed; was originally"
+                    f" {digest['dandi:dandi-etag']} but is now {filetag}"
+                )
+        yield {"status": "initiating upload"}
+        lgr.debug("%s: Beginning upload", asset_path)
+        total_size = os.path.getsize(filepath)
+        try:
+            resp = self.client.post(
+                "/uploads/initialize/",
+                json={
+                    "contentSize": total_size,
+                    "digest": {
+                        "algorithm": "dandi:dandi-etag",
+                        "value": filetag,
+                    },
+                },
+            )
+        except requests.HTTPError as e:
+            if e.response.status_code == 409:
+                lgr.debug("%s: Blob already exists on server", asset_path)
+                blob_id = e.response.headers["Location"]
+            else:
+                raise
+        else:
+            upload_id = resp["upload_id"]
+            parts = resp["parts"]
+            if len(parts) != etagger.part_qty:
+                raise RuntimeError(
+                    f"Server and client disagree on number of parts for upload;"
+                    f" server says {len(parts)}, client says {etagger.part_qty}"
+                )
+            parts_out = []
+            bytes_uploaded = 0
+            lgr.debug("Uploading %s in %d parts", filepath, len(parts))
+            with RESTFullAPIClient("http://nil.nil") as storage:
+                with open(filepath, "rb") as fp:
+                    with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
+                        lock = Lock()
+                        futures = [
+                            executor.submit(
+                                upload_part,
+                                storage_session=storage,
+                                fp=fp,
+                                lock=lock,
+                                etagger=etagger,
+                                asset_path=asset_path,
+                                part=part,
+                            )
+                            for part in parts
+                        ]
+                        for fut in as_completed(futures):
+                            out_part = fut.result()
+                            bytes_uploaded += out_part["size"]
+                            yield {
+                                "status": "uploading",
+                                "upload": 100 * bytes_uploaded / total_size,
+                                "current": bytes_uploaded,
+                            }
+                            parts_out.append(out_part)
+                lgr.debug("%s: Completing upload", asset_path)
+                resp = self.client.post(
+                    f"/uploads/{upload_id}/complete/",
+                    json={"parts": parts_out},
+                )
+                lgr.debug(
+                    "%s: Announcing completion to %s",
+                    asset_path,
+                    resp["complete_url"],
+                )
+                r = storage.post(
+                    resp["complete_url"], data=resp["body"], json_resp=False
+                )
+                lgr.debug(
+                    "%s: Upload completed. Response content: %s",
+                    asset_path,
+                    r.content,
+                )
+                rxml = fromstring(r.text)
+                m = re.match(r"\{.+?\}", rxml.tag)
+                ns = m.group(0) if m else ""
+                final_etag = rxml.findtext(f"{ns}ETag")
+                if final_etag is not None:
+                    final_etag = final_etag.strip('"')
+                    if final_etag != filetag:
+                        raise RuntimeError(
+                            "Server and client disagree on final ETag of uploaded file;"
+                            f" server says {final_etag}, client says {filetag}"
+                        )
+                # else: Error? Warning?
+                resp = self.client.post(f"/uploads/{upload_id}/validate/")
+                blob_id = resp["blob_id"]
+        lgr.debug("%s: Assigning asset blob to dandiset & version", asset_path)
+        yield {"status": "producing asset"}
+        try:
+            extant = self.get_asset_by_path(asset_path)
+        except NotFoundError:
+            self.client.post(
+                f"{self.version_api_path}assets/",
+                json={"metadata": asset_metadata, "blob_id": blob_id},
+            )
+        else:
+            lgr.debug("%s: Asset already exists at path; updating", asset_path)
+            self.client.put(
+                extant.api_path, json={"metadata": asset_metadata, "blob_id": blob_id}
+            )
+        lgr.info("%s: Asset successfully uploaded", asset_path)
+        yield {"status": "done"}
 
 
 class RemoteAsset(APIBase):
@@ -129,11 +312,40 @@ class RemoteAsset(APIBase):
     def delete(self) -> None:
         self.client.delete(self.api_path)
 
+    def get_download_file_iter(
+        self, chunk_size: int = MAX_CHUNK_SIZE
+    ) -> Callable[..., Iterator[bytes]]:
+        url = self.client.get_url(f"{self.api_path}download/")
+
+        def downloader(start_at: int = 0) -> Iterator[bytes]:
+            lgr.debug("Starting download from %s", url)
+            headers = None
+            if start_at > 0:
+                headers = {"Range": f"bytes={start_at}-"}
+            result = self.client.session.get(url, stream=True, headers=headers)
+            # TODO: apparently we might need retries here as well etc
+            # if result.status_code not in (200, 201):
+            result.raise_for_status()
+            for chunk in result.iter_content(chunk_size=chunk_size):
+                if chunk:  # could be some "keep alive"?
+                    yield chunk
+            lgr.info("Asset %s successfully downloaded", self.identifier)
+
+        return downloader
+
+    def download(
+        self, filepath: Union[str, Path], chunk_size: int = MAX_CHUNK_SIZE
+    ) -> None:
+        downloader = self.get_download_file_iter(chunk_size=chunk_size)
+        with open(filepath, "wb") as fp:
+            for chunk in downloader():
+                fp.write(chunk)
+
 
 # Following class is loosely based on GirderClient, with authentication etc
 # being stripped.
 # TODO: add copyright/license info
-class RESTFullAPIClient(object):
+class RESTFullAPIClient:
     """A base class for REST clients"""
 
     def __init__(self, api_url, session=None, headers=None):
