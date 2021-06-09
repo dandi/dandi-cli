@@ -91,7 +91,7 @@ def get_metadata(path):
 
 
 def _parse_iso8601(age):
-    """ checking if age is proper iso8601, additional formatting"""
+    """checking if age is proper iso8601, additional formatting"""
     # allowing for comma instead of ., e.g. P1,5D
     age = age.replace(",", ".")
     pattern = (
@@ -115,8 +115,7 @@ def _parse_iso8601(age):
 
 
 def _parse_age_re(age, unit, tp="date"):
-    """ finding parts that have <value> <unit> in various forms"""
-    import re
+    """finding parts that have <value> <unit> in various forms"""
 
     if unit == "Y":
         pat_un = "y(ear)?"
@@ -156,7 +155,7 @@ def _parse_age_re(age, unit, tp="date"):
 
 
 def _parse_hours_format(age):
-    """ parsing format 0:30:10"""
+    """parsing format 0:30:10"""
     pattern = r"\s*(\d\d?):(\d\d):(\d\d)"
     matchstr = re.match(pattern, age, flags=re.I)
     if matchstr:
