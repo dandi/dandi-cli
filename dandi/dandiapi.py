@@ -1,20 +1,133 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 import os.path
 from pathlib import Path
 import re
 from threading import Lock
+from typing import Any, Dict, Iterator, Optional, cast
 from xml.etree.ElementTree import fromstring
 
 import click
+from pydantic import BaseModel, Field
 import requests
 import tenacity
 
 from . import get_logger
 from .consts import MAX_CHUNK_SIZE, known_instances_rev
+from .exceptions import NotFoundError
 from .keyring import keyring_lookup
 from .utils import USER_AGENT, is_interactive, try_multiple
 
 lgr = get_logger()
+
+
+class APIBase(BaseModel):
+    class Config:
+        allow_population_by_field_name = True
+        # To allow `client: Session`:
+        arbitrary_types_allowed = True
+
+
+class Version(APIBase):
+    identifier: str = Field(alias="version")
+    name: str
+    asset_count: int
+    size: int
+    created: datetime
+    modified: datetime
+
+
+class RemoteDandiset(APIBase):
+    client: "DandiAPIClient"
+    identifier: str
+    created: datetime
+    modified: datetime
+    version: Version
+    most_recent_published_version: Optional[Version]
+    draft_version: Optional[Version]
+
+    @property
+    def version_id(self) -> str:
+        return self.version.identifier
+
+    @property
+    def api_path(self) -> str:
+        return f"/dandisets/{self.identifier}/"
+
+    @property
+    def version_api_path(self) -> str:
+        return f"/dandisets/{self.identifier}/versions/{self.version_id}/"
+
+    def get_versions(self) -> Iterator[Version]:
+        for v in self.client.paginate(f"{self.api_path}versions/"):
+            yield Version.parse_obj(v)
+
+    def get_version(self, version_id: str) -> Version:
+        # Raises a 404 if the version does not exist
+        return Version.parse_obj(self.client.get(f"{self.version_api_path}info/"))
+
+    def for_version(self, version_id: str) -> "RemoteDandiset":
+        # Raises a 404 if the version does not exist
+        return self.copy(update={"version": self.get_version(version_id)})
+
+    def delete(self) -> None:
+        self.client.delete(self.api_path)
+
+    def get_raw_metadata(self) -> Dict[str, Any]:
+        return cast(Dict[str, Any], self.client.get(self.version_api_path))
+
+    def publish(self) -> Version:
+        return Version.parse_obj(self.client.post(f"{self.version_api_path}publish/"))
+
+    def get_assets(self, path=None) -> Iterator["RemoteAsset"]:
+        for a in self.client.paginate(f"{self.version_api_path}assets/"):
+            yield RemoteAsset.parse_obj(a)
+
+    def get_assets_under_path(self, path: str) -> Iterator["RemoteAsset"]:
+        for a in self.client.paginate(
+            f"{self.version_api_path}assets/", params={"path": path}
+        ):
+            yield RemoteAsset.parse_obj(a)
+
+    def get_asset_by_path(self, path: str) -> "RemoteAsset":
+        # Raises NotFoundError if the asset does not exist
+        try:
+            # Weed out any assets that happen to have the given path as a
+            # proper prefix:
+            (asset,) = (
+                a for a in self.get_assets_under_path(path) if a["path"] == path
+            )
+        except ValueError:
+            raise NotFoundError(f"No asset at path {path!r}")
+        else:
+            return RemoteAsset.parse_obj(asset)
+
+    def get_asset(self, asset_id: str) -> "RemoteAsset":
+        # Raises a 404 if the asset does not exist
+        return RemoteAsset.parse_obj(
+            self.client.get(f"{self.version_api_path}assets/{asset_id}/")
+        )
+
+
+class RemoteAsset(APIBase):
+    client: "DandiAPIClient"
+    dandiset_id: str
+    version_id: str
+    identifier: str = Field(alias="asset_id")
+    path: str
+    size: int
+    created: datetime
+    modified: datetime
+
+    @property
+    def api_path(self) -> str:
+        return f"/dandisets/{self.dandiset_id}/versions/{self.version_id}/assets/{self.identifier}/"
+
+    def get_raw_metadata(self) -> Dict[str, Any]:
+        return cast(Dict[str, Any], self.client.get(self.api_path))
+
+    def delete(self) -> None:
+        self.client.delete(self.api_path)
 
 
 # Following class is loosely based on GirderClient, with authentication etc
@@ -186,6 +299,20 @@ class RESTFullAPIClient(object):
         method.
         """
         return self.request("PATCH", path, **kwargs)
+
+    def paginate(self, path, page_size=None, params=None, **kwargs):
+        if page_size is not None:
+            if params is None:
+                params = {}
+            params["page_size"] = page_size
+        r = self.get(path, params=params, **kwargs)
+        while True:
+            for item in r["results"]:
+                yield item
+            if r.get("next"):
+                r = self.get(r["next"])
+            else:
+                break
 
 
 class DandiAPIClient(RESTFullAPIClient):
