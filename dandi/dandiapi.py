@@ -362,7 +362,7 @@ class RemoteDandiset(APIBase):
         )
 
     def get_versions(self) -> Iterator[Version]:
-        """Return an iterator of all available `Version`\\s for the Dandiset"""
+        """Returns an iterator of all available `Version`\\s for the Dandiset"""
         for v in self.client.paginate(f"{self.api_path}versions/"):
             yield Version.parse_obj(v)
 
@@ -374,14 +374,16 @@ class RemoteDandiset(APIBase):
         """
         return Version.parse_obj(self.client.get(f"{self.version_api_path}info/"))
 
-    def for_version(self, version_id: str) -> "RemoteDandiset":
+    def for_version(self, version_id: Union[str, Version]) -> "RemoteDandiset":
         """
-        Return a copy of the `RemoteDandiset` with the `version` attribute set
-        to the `Version` object for the given version ID.  If the given version
-        does not exist, a `requests.HTTPError` is raised with a 404 status
-        code.
+        Returns a copy of the `RemoteDandiset` with the `version` attribute set
+        to given `Version` object or the `Version` with the given version ID.
+        If a version ID given and the version does not exist, a
+        `requests.HTTPError` is raised with a 404 status code.
         """
-        return self.copy(update={"version": self.get_version(version_id)})
+        if isinstance(version_id, str):
+            version_id = self.get_version(version_id)
+        return self.copy(update={"version": version_id})
 
     def delete(self) -> None:
         """Delete the Dandiset"""
@@ -418,7 +420,7 @@ class RemoteDandiset(APIBase):
         )
 
     def get_assets(self, path=None) -> Iterator["RemoteAsset"]:
-        """Return an iterator of all assets in this version of the Dandiset"""
+        """Returns an iterator of all assets in this version of the Dandiset"""
         for a in self.client.paginate(f"{self.version_api_path}assets/"):
             yield self._mkasset(a)
 
@@ -434,7 +436,7 @@ class RemoteDandiset(APIBase):
 
     def get_assets_under_path(self, path: str) -> Iterator["RemoteAsset"]:
         """
-        Return an iterator of all assets in this version of the Dandiset whose
+        Returns an iterator of all assets in this version of the Dandiset whose
         `~RemoteAsset.path` attributes start with ``path``
         """
         for a in self.client.paginate(
