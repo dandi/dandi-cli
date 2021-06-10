@@ -4,10 +4,10 @@
 1. All assets must have a non-zero file size.
 
 ## NWB files
-- subject id
-- age in iso8601 interval format or datetime of birth
-- age reference 
-- sex
+- subject id (nwb.subject.subject_id)
+- age in iso8601 interval format or datetime of birth (nwb.subject.age or nwb.subject.date_of_birth)
+- age reference (not yet present in NWB, see issue https://github.com/NeurodataWithoutBorders/nwb-schema/issues/412)
+- sex (nwb.subject.sex)
 
 ### NWB organization disambiguation requirements
 
@@ -20,6 +20,5 @@ At least one of the following should be present. in case of having to disambigua
 
 
 ## BIDS datasets
-
 
 
