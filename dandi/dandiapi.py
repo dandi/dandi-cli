@@ -482,10 +482,11 @@ class RemoteDandiset(APIBase):
         filepath: Union[str, Path],
         asset_metadata: Dict[str, Any],
         jobs: Optional[int] = None,
-    ) -> None:
+    ) -> "RemoteAsset":
         """
         Upload the file at ``filepath`` with metadata ``asset_metadata`` to
-        this version of the Dandiset.  Blocks until the upload is complete.
+        this version of the Dandiset and return the resulting asset.  Blocks
+        until the upload is complete.
 
         Parameters
         ----------
@@ -498,8 +499,10 @@ class RemoteDandiset(APIBase):
         jobs: int
           Number of threads to use for uploading; defaults to 5
         """
-        for _ in self.iter_upload_raw_asset(filepath, asset_metadata, jobs=jobs):
-            pass
+        for status in self.iter_upload_raw_asset(filepath, asset_metadata, jobs=jobs):
+            if status["status"] == "done":
+                return status["asset"]
+        raise RuntimeError("iter_upload_raw_asset() finished without returning 'done'")
 
     def iter_upload_raw_asset(
         self,
@@ -525,7 +528,9 @@ class RemoteDandiset(APIBase):
 
         Returns
         -------
-        a generator of `dict`s containing at least a ``"status"`` key
+        A generator of `dict`\\s containing at least a ``"status"`` key.  Upon
+        successful upload, the last `dict` will have a status of ``"done"`` and
+        an ``"asset"`` key containing the resulting `RemoteAsset`.
         """
         from .support.digests import get_dandietag
 
@@ -634,17 +639,22 @@ class RemoteDandiset(APIBase):
         try:
             extant = self.get_asset_by_path(asset_path)
         except NotFoundError:
-            self.client.post(
-                f"{self.version_api_path}assets/",
-                json={"metadata": asset_metadata, "blob_id": blob_id},
+            a = self._mkasset(
+                self.client.post(
+                    f"{self.version_api_path}assets/",
+                    json={"metadata": asset_metadata, "blob_id": blob_id},
+                )
             )
         else:
             lgr.debug("%s: Asset already exists at path; updating", asset_path)
-            self.client.put(
-                extant.api_path, json={"metadata": asset_metadata, "blob_id": blob_id}
+            a = self._mkasset(
+                self.client.put(
+                    extant.api_path,
+                    json={"metadata": asset_metadata, "blob_id": blob_id},
+                )
             )
         lgr.info("%s: Asset successfully uploaded", asset_path)
-        yield {"status": "done"}
+        yield {"status": "done", "asset": a}
 
 
 class RemoteAsset(APIBase):
@@ -669,7 +679,7 @@ class RemoteAsset(APIBase):
         super().__init__(**data)
         # Pydantic insists on not initializing any attributes that start with
         # underscores, so we have to do it ourselves.
-        self._metadata = data.get("_metadata")
+        self._metadata = data.get("metadata", data.get("_metadata"))
 
     @property
     def api_path(self) -> str:
