@@ -253,6 +253,12 @@ class DandiAPIClient(RESTFullAPIClient):
     def get_dandiset(
         self, dandiset_id: str, version_id: Optional[str] = None
     ) -> "RemoteDandiset":
+        """
+        Fetches the Dandiset with the given ``dandiset_id``.  If ``version_id``
+        is not specified, the `RemoteDandiset`'s version is set to the most
+        recent published version if there is one, otherwise to the draft
+        version.
+        """
         d = RemoteDandiset._make(self, self.get(f"/dandisets/{dandiset_id}/"))
         if version_id is not None and version_id != d.version_id:
             if version_id == "draft":
@@ -262,13 +268,20 @@ class DandiAPIClient(RESTFullAPIClient):
         return d
 
     def create_dandiset(self, name: str, metadata: Dict[str, Any]) -> "RemoteDandiset":
+        """Creates a Dandiset with the given name & metadata"""
         return RemoteDandiset._make(
             self, self.post("/dandisets/", json={"name": name, "metadata": metadata})
         )
 
 
 class APIBase(BaseModel):
+    """Base class for API objects"""
+
     def json_dict(self) -> Dict[str, Any]:
+        """
+        Convert to a JSONable `dict`, omitting the ``client`` attribute and
+        using the same field names as in the API
+        """
         return self.dict(exclude={"client"}, by_alias=True)
 
     class Config:
@@ -278,6 +291,8 @@ class APIBase(BaseModel):
 
 
 class Version(APIBase):
+    """The version information for a Dandiset retrieved from the API"""
+
     identifier: str = Field(alias="version")
     name: str
     asset_count: int
@@ -287,10 +302,16 @@ class Version(APIBase):
 
 
 class RemoteDandiset(APIBase):
+    """
+    Representation of a Dandiset (as of a certain version) retrieved from the
+    API
+    """
+
     client: "DandiAPIClient"
     identifier: str
     created: datetime
     modified: datetime
+    #: The version in question of the Dandiset
     version: Version
     most_recent_published_version: Optional[Version]
     draft_version: Version
@@ -309,6 +330,11 @@ class RemoteDandiset(APIBase):
 
     @classmethod
     def _make(cls, client: "DandiAPIClient", data: Dict[str, Any]) -> "RemoteDandiset":
+        """
+        Construct a `RemoteDandiset` instance from a `dict` returned from the
+        API.  If the ``"most_recent_published_version"`` field is set, use that
+        as the Dandiset's version; otherwise, use ``"draft_version"``.
+        """
         if data.get("most_recent_published_version") is not None:
             version = data["most_recent_published_version"]
         else:
@@ -336,50 +362,92 @@ class RemoteDandiset(APIBase):
         )
 
     def get_versions(self) -> Iterator[Version]:
+        """Return an iterator of all available `Version`\\s for the Dandiset"""
         for v in self.client.paginate(f"{self.api_path}versions/"):
             yield Version.parse_obj(v)
 
     def get_version(self, version_id: str) -> Version:
-        # Raises a 404 if the version does not exist
+        """
+        Get information about a given version of the Dandiset.  If the given
+        version does not exist, a `requests.HTTPError` is raised with a 404
+        status code.
+        """
         return Version.parse_obj(self.client.get(f"{self.version_api_path}info/"))
 
     def for_version(self, version_id: str) -> "RemoteDandiset":
-        # Raises a 404 if the version does not exist
+        """
+        Return a copy of the `RemoteDandiset` with the `version` attribute set
+        to the `Version` object for the given version ID.  If the given version
+        does not exist, a `requests.HTTPError` is raised with a 404 status
+        code.
+        """
         return self.copy(update={"version": self.get_version(version_id)})
 
     def delete(self) -> None:
+        """Delete the Dandiset"""
         self.client.delete(self.api_path)
 
     def get_raw_metadata(self) -> Dict[str, Any]:
+        """
+        Fetch the metadata for this version of the Dandiset as an unprocessed
+        `dict`
+        """
         return cast(Dict[str, Any], self.client.get(self.version_api_path))
 
     def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
+        """
+        Set the metadata for this version of the Dandiset to the given value
+        """
         self.client.put(
             self.version_api_path,
             json={"metadata": metadata, "name": metadata.get("name", "")},
         )
 
-    def publish(self) -> Version:
-        return Version.parse_obj(self.client.post(f"{self.version_api_path}publish/"))
+    def publish(self) -> "RemoteDandiset":
+        """
+        Publish this version of the Dandiset.  Returns a copy of the
+        `RemoteDandiset` with the `version` attribute set to the new published
+        `Version`.
+        """
+        return self.copy(
+            update={
+                "version": Version.parse_obj(
+                    self.client.post(f"{self.version_api_path}publish/")
+                )
+            }
+        )
 
     def get_assets(self, path=None) -> Iterator["RemoteAsset"]:
+        """Return an iterator of all assets in this version of the Dandiset"""
         for a in self.client.paginate(f"{self.version_api_path}assets/"):
             yield self._mkasset(a)
 
     def get_asset(self, asset_id: str) -> "RemoteAsset":
-        # Raises a 404 if the asset does not exist
+        """
+        Fetch the asset in this version of the Dandiset with the given asset
+        ID.  If the given asset does not exist, a `requests.HTTPError` is
+        raised with a 404 status code.
+        """
         return self._mkasset_from_metadata(
             self.client.get(f"{self.version_api_path}assets/{asset_id}/")
         )
 
     def get_assets_under_path(self, path: str) -> Iterator["RemoteAsset"]:
+        """
+        Return an iterator of all assets in this version of the Dandiset whose
+        `~RemoteAsset.path` attributes start with ``path``
+        """
         for a in self.client.paginate(
             f"{self.version_api_path}assets/", params={"path": path}
         ):
             yield self._mkasset(a)
 
     def get_asset_by_path(self, path: str) -> "RemoteAsset":
-        # Raises NotFoundError if the asset does not exist
+        """
+        Fetch the asset in this version of the Dandiset whose
+        `~RemoteAsset.path` equals ``path``.  If the given asset does not
+        exist, a `NotFoundError` is raised.
+        """
         try:
             # Weed out any assets that happen to have the given path as a
             # proper prefix:
@@ -395,6 +463,10 @@ class RemoteDandiset(APIBase):
         dirpath: Union[str, Path],
         chunk_size: int = MAX_CHUNK_SIZE,
     ) -> None:
+        """
+        Download all assets under the virtual directory ``assets_dirpath`` to
+        the directory ``dirpath``.  Downloads are synchronous.
+        """
         if assets_dirpath and not assets_dirpath.endswith("/"):
             assets_dirpath += "/"
         assets = list(self.get_assets_under_path(assets_dirpath))
@@ -410,6 +482,9 @@ class RemoteDandiset(APIBase):
         jobs: Optional[int] = None,
     ) -> None:
         """
+        Upload the file at ``filepath`` with metadata ``asset_metadata`` to
+        this version of the Dandiset.  Blocks until the upload is complete.
+
         Parameters
         ----------
         filepath: str or PathLike
@@ -418,6 +493,8 @@ class RemoteDandiset(APIBase):
           Metadata for the uploaded asset file.  Must include a "path" field
           giving the POSIX path at which the uploaded file will be placed on
           the server.
+        jobs: int
+          Number of threads to use for uploading; defaults to 5
         """
         for _ in self.iter_upload_raw_asset(filepath, asset_metadata, jobs=jobs):
             pass
@@ -429,6 +506,10 @@ class RemoteDandiset(APIBase):
         jobs: Optional[int] = None,
     ) -> Iterator[dict]:
         """
+        Upload the file at ``filepath`` with metadata ``asset_metadata`` to
+        this version of the Dandiset, returning a generator of status
+        `dict`\\s.
+
         Parameters
         ----------
         filepath: str or PathLike
@@ -437,6 +518,8 @@ class RemoteDandiset(APIBase):
           Metadata for the uploaded asset file.  Must include a "path" field
           giving the POSIX path at which the uploaded file will be placed on
           the server.
+        jobs: int
+          Number of threads to use for uploading; defaults to 5
 
         Returns
         -------
@@ -563,13 +646,21 @@ class RemoteDandiset(APIBase):
 
 
 class RemoteAsset(APIBase):
+    """Representation of an asset retrieved from the API"""
+
     client: "DandiAPIClient"
+    #: The identifier for the Dandiset to which the asset belongs
     dandiset_id: str
+    #: The identifier for the version of the Dandiset to which the asset
+    #: belongs
     version_id: str
+    #: The asset identifier
     identifier: str = Field(alias="asset_id")
     path: str
     size: int
     modified: datetime
+    #: Metadata supplied at initialization; returned when metadata is requested
+    #: instead of performing an API call
     _metadata: Optional[Dict[str, Any]] = PrivateAttr(default_factory=None)
 
     def __init__(self, **data: Any) -> None:
@@ -583,17 +674,24 @@ class RemoteAsset(APIBase):
         return f"/dandisets/{self.dandiset_id}/versions/{self.version_id}/assets/{self.identifier}/"
 
     def get_raw_metadata(self) -> Dict[str, Any]:
+        """Fetch the metadata for the asset as an unprocessed `dict`"""
         if self._metadata is not None:
             return self._metadata
         else:
             return cast(Dict[str, Any], self.client.get(self.api_path))
 
     def delete(self) -> None:
+        """Delete the asset"""
         self.client.delete(self.api_path)
 
     def get_download_file_iter(
         self, chunk_size: int = MAX_CHUNK_SIZE
     ) -> Callable[..., Iterator[bytes]]:
+        """
+        Returns a function that when called (optionally with an offset into the
+        asset to start downloading at) returns a generator of chunks of the
+        asset
+        """
         url = self.client.get_url(f"{self.api_path}download/")
 
         def downloader(start_at: int = 0) -> Iterator[bytes]:
@@ -615,6 +713,10 @@ class RemoteAsset(APIBase):
     def download(
         self, filepath: Union[str, Path], chunk_size: int = MAX_CHUNK_SIZE
     ) -> None:
+        """
+        Download the asset to ``filepath``.  Blocks until the download is
+        complete.
+        """
         downloader = self.get_download_file_iter(chunk_size=chunk_size)
         with open(filepath, "wb") as fp:
             for chunk in downloader():

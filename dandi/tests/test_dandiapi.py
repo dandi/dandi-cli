@@ -46,7 +46,7 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
         validation="skip",
     )
 
-    version_id = d.publish().identifier
+    version_id = d.publish().version.identifier
 
     download_dir = tmp_path / "download"
     download_dir.mkdir()
