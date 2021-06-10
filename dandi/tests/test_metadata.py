@@ -77,6 +77,7 @@ def test_get_metadata(simple1_nwb, simple1_nwb_metadata):
         ("P22265,0D", "P22265.0D"),
         ("P2DT10H20M", "P2DT10H20M"),
         ("P2DT10.5H", "P2DT10.5H"),
+        ("P2DT10,5H", "P2DT10.5H"),
         ("349 days, 4 hours", "P349DT4H"),
         ("4 days, 4.5 hours", "P4DT4.5H"),
         ("12 weeks, 13 d; 10 hours, 30 min 1sec", "P12W13DT10H30M1S"),
