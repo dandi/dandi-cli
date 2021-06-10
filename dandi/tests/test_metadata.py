@@ -75,7 +75,10 @@ def test_get_metadata(simple1_nwb, simple1_nwb_metadata):
         ("P136D", "P136D"),
         ("P22265.0D", "P22265.0D"),  # "P22265.D" is not allowed
         ("P22265,0D", "P22265.0D"),
+        ("P2DT10H20M", "P2DT10H20M"),
+        ("P2DT10.5H", "P2DT10.5H"),
         ("349 days, 4 hours", "P349DT4H"),
+        ("4 days, 4.5 hours", "P4DT4.5H"),
         ("12 weeks, 13 d; 10 hours, 30 min 1sec", "P12W13DT10H30M1S"),
         ("342 days, 4:30:02", "P342DT4H30M2S"),
         ("342 days, 00:00:00", "P342DT0H0M0S"),
@@ -98,6 +101,8 @@ def test_parse_age(age, duration):
         (" , ", "age doesn't have any information"),
         ("", "age is empty"),
         (None, "age is empty"),
+        ("P2DT10.5H10M", "decimal fraction allowed in the lowest order"),
+        ("4.5 hours 10 sec", "decimal fraction allowed in the lowest order"),
     ],
 )
 def test_parse_error(age, match_er):

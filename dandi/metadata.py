@@ -159,6 +159,21 @@ def _parse_hours_format(age):
         return age, []
 
 
+def _check_decimal_parts(age_parts):
+    """checking if decimal parts are only in the lowest order component"""
+    # if the last part is the T component I have to separate the parts
+    if "T" in age_parts[-1]:
+        pattern_time = "^T(\\d+(?:\\.\\d+)?H)?(\\d+(?:\\.\\d+)?M)?(\\d+(?:\\.\\d+)?S)?"
+        matchstr = re.match(pattern_time, age_parts[-1], flags=re.I)
+        time_parts = [matchstr.group(i) for i in range(1, 3) if matchstr.group(i)]
+        age_parts = age_parts[:-1] + time_parts
+    decim_part = ["." in el for el in age_parts]
+    if any(decim_part) and any(decim_part[:-1]):
+        return False
+    else:
+        return True
+
+
 def parse_age(age):
     """
     Parsing age field and converting into an ISO 8601 duration
@@ -216,6 +231,13 @@ def parse_age(age):
             raise ValueError(
                 f"not able to parse the age: {age_orig}, no rules to convert: {age}"
             )
+
+    # checking if there are decimal parts in the higher order components
+    if not _check_decimal_parts(age_f):
+        raise ValueError(
+            f"decimal fraction allowed in the lowest order part only,"
+            f" but {age} was received "
+        )
 
     return "".join(age_f)
 
