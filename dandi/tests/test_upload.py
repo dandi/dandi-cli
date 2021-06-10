@@ -4,15 +4,16 @@ from pathlib import Path
 import pytest
 
 from ..consts import dandiset_metadata_file
-from ..dandiapi import DandiAPIClient
+from ..dandiapi import RemoteDandiset
 from ..download import download
+from ..exceptions import NotFoundError
 from ..upload import upload
 from ..utils import find_files
 
 
 def test_new_upload_download(local_dandi_api, monkeypatch, organized_nwb_dir, tmp_path):
-    r = local_dandi_api["client"].create_dandiset("Test Dandiset", {})
-    dandiset_id = r["identifier"]
+    d = local_dandi_api["client"].create_dandiset("Test Dandiset", {})
+    dandiset_id = d.identifier
     (nwb_file,) = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
     (organized_nwb_dir / dandiset_metadata_file).write_text(
         f"identifier: '{dandiset_id}'\n"
@@ -49,26 +50,26 @@ def test_new_upload_download(local_dandi_api, monkeypatch, organized_nwb_dir, tm
         upload_dandiset_metadata=True,
     )
 
-    r = local_dandi_api["client"].get_dandiset(dandiset_id, "draft")
-    assert r["metadata"]["name"] == "shorty"
+    d = local_dandi_api["client"].get_dandiset(dandiset_id, "draft")
+    assert d.version.name == "shorty"
 
 
 def test_new_upload_extant_existing(mocker, text_dandiset):
-    iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
+    iter_upload_spy = mocker.spy(RemoteDandiset, "iter_upload_raw_asset")
     with pytest.raises(FileExistsError):
         text_dandiset["reupload"](existing="error")
     iter_upload_spy.assert_not_called()
 
 
 def test_new_upload_extant_skip(mocker, text_dandiset):
-    iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
+    iter_upload_spy = mocker.spy(RemoteDandiset, "iter_upload_raw_asset")
     text_dandiset["reupload"](existing="skip")
     iter_upload_spy.assert_not_called()
 
 
 @pytest.mark.parametrize("existing", ["overwrite", "refresh"])
 def test_new_upload_extant_eq_overwrite(existing, mocker, text_dandiset):
-    iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
+    iter_upload_spy = mocker.spy(RemoteDandiset, "iter_upload_raw_asset")
     text_dandiset["reupload"](existing=existing)
     iter_upload_spy.assert_not_called()
 
@@ -79,7 +80,7 @@ def test_new_upload_extant_neq_overwrite(
 ):
     dandiset_id = text_dandiset["dandiset_id"]
     (text_dandiset["dspath"] / "file.txt").write_text("This is different text.\n")
-    iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
+    iter_upload_spy = mocker.spy(RemoteDandiset, "iter_upload_raw_asset")
     text_dandiset["reupload"](existing=existing)
     iter_upload_spy.assert_called()
     download(
@@ -94,19 +95,19 @@ def test_new_upload_extant_neq_overwrite(
 def test_new_upload_extant_old_refresh(mocker, text_dandiset):
     (text_dandiset["dspath"] / "file.txt").write_text("This is different text.\n")
     os.utime(text_dandiset["dspath"] / "file.txt", times=(0, 0))
-    iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
+    iter_upload_spy = mocker.spy(RemoteDandiset, "iter_upload_raw_asset")
     text_dandiset["reupload"](existing="refresh")
     iter_upload_spy.assert_not_called()
 
 
 def test_new_upload_extant_force(mocker, text_dandiset):
-    iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
+    iter_upload_spy = mocker.spy(RemoteDandiset, "iter_upload_raw_asset")
     text_dandiset["reupload"](existing="force")
     iter_upload_spy.assert_called()
 
 
 def test_new_upload_extant_bad_existing(mocker, text_dandiset):
-    iter_upload_spy = mocker.spy(DandiAPIClient, "iter_upload")
+    iter_upload_spy = mocker.spy(RemoteDandiset, "iter_upload_raw_asset")
     text_dandiset["reupload"](existing="foobar")
     iter_upload_spy.assert_not_called()
 
@@ -125,7 +126,7 @@ def test_new_upload_extant_bad_existing(mocker, text_dandiset):
 )
 def test_upload_download_small_file(contents, local_dandi_api, monkeypatch, tmp_path):
     client = local_dandi_api["client"]
-    dandiset_id = client.create_dandiset("Small Dandiset", {})["identifier"]
+    dandiset_id = client.create_dandiset("Small Dandiset", {}).identifier
     dspath = tmp_path / "upload"
     dspath.mkdir()
     (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
@@ -159,13 +160,11 @@ def test_upload_sync(confirm, mocker, text_dandiset):
     confirm_mock = mocker.patch("click.confirm", return_value=confirm)
     text_dandiset["reupload"](sync=True)
     confirm_mock.assert_called_with("Delete 1 asset on server?")
-    asset = text_dandiset["client"].get_asset_bypath(
-        text_dandiset["dandiset_id"], "draft", "file.txt"
-    )
     if confirm:
-        assert asset is None
+        with pytest.raises(NotFoundError):
+            text_dandiset["dandiset"].get_asset_by_path("file.txt")
     else:
-        assert asset is not None
+        text_dandiset["dandiset"].get_asset_by_path("file.txt")
 
 
 def test_upload_sync_folder(mocker, text_dandiset):
@@ -174,15 +173,6 @@ def test_upload_sync_folder(mocker, text_dandiset):
     confirm_mock = mocker.patch("click.confirm", return_value=True)
     text_dandiset["reupload"](paths=[text_dandiset["dspath"] / "subdir2"], sync=True)
     confirm_mock.assert_called_with("Delete 1 asset on server?")
-    assert (
-        text_dandiset["client"].get_asset_bypath(
-            text_dandiset["dandiset_id"], "draft", "file.txt"
-        )
-        is not None
-    )
-    assert (
-        text_dandiset["client"].get_asset_bypath(
-            text_dandiset["dandiset_id"], "draft", "subdir2/banana.txt"
-        )
-        is None
-    )
+    text_dandiset["dandiset"].get_asset_by_path("file.txt")
+    with pytest.raises(NotFoundError):
+        text_dandiset["dandiset"].get_asset_by_path("subdir2/banana.txt")

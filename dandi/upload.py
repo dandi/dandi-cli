@@ -8,6 +8,7 @@ import click
 
 from . import lgr
 from .consts import dandiset_identifier_regex, dandiset_metadata_file
+from .exceptions import NotFoundError
 from .utils import ensure_datetime, get_instance, pluralize
 
 
@@ -45,6 +46,7 @@ def upload(
     dandiset = APIDandiset(dandiset.path)  # "cast" to a new API based dandiset
 
     ds_identifier = dandiset.identifier
+    remote_dandiset = client.get_dandiset(ds_identifier, "draft")
 
     if not re.match(dandiset_identifier_regex, str(ds_identifier)):
         raise ValueError(
@@ -160,9 +162,7 @@ def upload(
                 # online.
                 if upload_dandiset_metadata:
                     yield {"status": "updating metadata"}
-                    client.set_dandiset_metadata(
-                        dandiset.identifier, metadata=dandiset.metadata
-                    )
+                    remote_dandiset.set_raw_metadata(dandiset.metadata)
                     yield {"status": "updated metadata"}
                 else:
                     yield skip_file("should be edited online")
@@ -178,11 +178,12 @@ def upload(
                 yield skip_file("failed to compute digest: %s" % str(exc))
                 return
 
-            extant = client.get_asset_bypath(ds_identifier, "draft", str(relpath))
-            if extant is not None:
-                # The endpoint used to search by paths doesn't include asset
-                # metadata, so we need to make another API call:
-                metadata = client.get_asset(ds_identifier, "draft", extant["asset_id"])
+            try:
+                extant = remote_dandiset.get_asset_by_path(str(relpath))
+            except NotFoundError:
+                pass
+            else:
+                metadata = extant.get_raw_metadata()
                 local_mtime = ensure_datetime(path_stat.st_mtime)
                 remote_mtime_str = metadata.get("blobDateModified")
                 d = metadata.get("digest", {})
@@ -263,8 +264,8 @@ def upload(
             #
             yield {"status": "uploading"}
             validating = False
-            for r in client.iter_upload(
-                ds_identifier, "draft", metadata, str(path), jobs=jobs_per_file
+            for r in remote_dandiset.iter_upload_raw_asset(
+                path, metadata, jobs=jobs_per_file
             ):
                 if r["status"] == "uploading":
                     uploaded_paths[str(path)]["size"] = r.pop("current")
@@ -314,7 +315,7 @@ def upload(
     rec_fields = ["path", "size", "errors", "upload", "status", "message"]
     out = pyouts.LogSafeTabular(style=pyout_style, columns=rec_fields, max_workers=jobs)
 
-    with out, client:
+    with out:
         for path in paths:
             while len(process_paths) >= 10:
                 lgr.log(2, "Sleep waiting for some paths to finish processing")
@@ -349,16 +350,14 @@ def upload(
             relpaths.append("" if rp == "." else rp)
         path_prefix = reduce(os.path.commonprefix, relpaths)
         to_delete = []
-        for asset in client.get_dandiset_assets(
-            ds_identifier, "draft", path=path_prefix
-        ):
+        for asset in remote_dandiset.get_assets_under_path(path_prefix):
             if (
-                any(p == "" or path_is_subpath(asset["path"], p) for p in relpaths)
-                and not Path(dandiset.path, asset["path"]).exists()
+                any(p == "" or path_is_subpath(asset.path, p) for p in relpaths)
+                and not Path(dandiset.path, asset.path).exists()
             ):
-                to_delete.append(asset["asset_id"])
+                to_delete.append(asset)
         if to_delete and click.confirm(
             f"Delete {pluralize(len(to_delete), 'asset')} on server?"
         ):
-            for asset_id in to_delete:
-                client.delete_asset(ds_identifier, "draft", asset_id)
+            for asset in to_delete:
+                asset.delete()

@@ -1,23 +1,16 @@
 from dataclasses import dataclass, field
 from operator import attrgetter
 from pathlib import Path, PurePosixPath
-from typing import Iterable, Iterator, NamedTuple, Optional, Set, Tuple
+from typing import Iterable, Iterator, List, Optional, Tuple
 
 import click
 import requests
 
 from .consts import dandiset_metadata_file
-from .dandiapi import DandiAPIClient
+from .dandiapi import DandiAPIClient, RemoteAsset, RemoteDandiset
 from .dandiarchive import DandisetURL, ParsedDandiURL, parse_dandi_url
 from .exceptions import NotFoundError
 from .utils import get_instance, is_url
-
-
-class RemoteAsset(NamedTuple):
-    dandiset_id: str
-    version_id: str
-    asset_id: str
-    path: str
 
 
 @dataclass
@@ -27,11 +20,11 @@ class Deleter:
     """
 
     client: Optional[DandiAPIClient] = None
-    dandiset_id: Optional[str] = None
+    dandiset: Optional[RemoteDandiset] = None
     #: Whether we are deleting an entire Dandiset (true) or just assets (false)
     deleting_dandiset: bool = False
     skip_missing: bool = False
-    remote_assets: Set[RemoteAsset] = field(default_factory=set)
+    remote_assets: List[RemoteAsset] = field(default_factory=list)
 
     def __bool__(self) -> bool:
         return self.deleting_dandiset or bool(self.remote_assets)
@@ -46,9 +39,8 @@ class Deleter:
             # URL in known_instances_rev:
             self.client = DandiAPIClient(api_url.rstrip("/"))
             self.client.dandi_authenticate()
-            self.dandiset_id = dandiset_id
             try:
-                self.client.get_dandiset(dandiset_id, "draft")
+                self.dandiset = self.client.get_dandiset(dandiset_id, "draft")
             except requests.HTTPError as e:
                 if e.response.status_code == 404:
                     if self.skip_missing:
@@ -61,9 +53,15 @@ class Deleter:
                     raise
         elif not is_same_url(self.client.api_url, api_url):
             raise ValueError("Cannot delete assets from multiple API instances at once")
-        elif self.dandiset_id != dandiset_id:
+        elif self.dandiset.identifier != dandiset_id:
             raise ValueError("Cannot delete assets from multiple Dandisets at once")
         return True
+
+    def add_asset(self, asset: RemoteAsset) -> None:
+        # Ensure the list is free of duplicates so that we don't try to delete
+        # the same asset twice
+        if not any(a.identifier == asset.identifier for a in self.remote_assets):
+            self.remote_assets.append(asset)
 
     def register_dandiset(self, api_url: str, dandiset_id: str) -> None:
         if not self.set_dandiset(api_url, dandiset_id):
@@ -75,17 +73,16 @@ class Deleter:
     ) -> None:
         if not self.set_dandiset(api_url, dandiset_id):
             return
-        asset = self.client.get_asset_bypath(dandiset_id, version_id, asset_path)
-        if asset is None:
+        try:
+            asset = self.dandiset.get_asset_by_path(asset_path)
+        except NotFoundError:
             if self.skip_missing:
                 return
             else:
                 raise NotFoundError(
                     f"Asset at path {asset_path!r} not found in Dandiset {dandiset_id}"
                 )
-        self.remote_assets.add(
-            RemoteAsset(dandiset_id, version_id, asset["asset_id"], asset["path"])
-        )
+        self.add_asset(asset)
 
     def register_asset_folder(
         self, api_url: str, dandiset_id: str, version_id: str, folder_path: str
@@ -93,12 +90,8 @@ class Deleter:
         if not self.set_dandiset(api_url, dandiset_id):
             return
         any_assets = False
-        for asset in self.client.get_dandiset_assets(
-            dandiset_id, version_id, path=folder_path
-        ):
-            self.remote_assets.add(
-                RemoteAsset(dandiset_id, version_id, asset["asset_id"], asset["path"])
-            )
+        for asset in self.dandiset.get_assets_under_path(folder_path):
+            self.add_asset(asset)
             any_assets = True
         if not any_assets and not self.skip_missing:
             raise NotFoundError(
@@ -109,15 +102,8 @@ class Deleter:
         if not self.set_dandiset(parsed_url.api_url, parsed_url.dandiset_id):
             return
         any_assets = False
-        for a in parsed_url.get_assets(self.client, include_metadata=False):
-            self.remote_assets.add(
-                RemoteAsset(
-                    parsed_url.dandiset_id,
-                    parsed_url.version_id,
-                    a["asset_id"],
-                    a["path"],
-                )
-            )
+        for a in parsed_url.get_assets(self.client):
+            self.add_asset(a)
             any_assets = True
         if not any_assets and not self.skip_missing:
             raise NotFoundError(f"No assets found for {url}")
@@ -149,17 +135,17 @@ class Deleter:
 
     def confirm(self) -> bool:
         if self.deleting_dandiset:
-            msg = f"Delete Dandiset {self.dandiset_id}?"
+            msg = f"Delete Dandiset {self.dandiset.identifier}?"
         else:
             msg = (
                 f"Delete {len(self.remote_assets)} assets on server from"
-                f" Dandiset {self.dandiset_id}?"
+                f" Dandiset {self.dandiset.identifier}?"
             )
         return click.confirm(msg)
 
     def delete_dandiset(self) -> None:
         if self.deleting_dandiset:
-            self.client.delete_dandiset(self.dandiset_id)
+            self.dandiset.delete()
         else:
             raise RuntimeError(
                 "delete_dandiset() called when Dandiset not registered for deletion"
@@ -168,9 +154,7 @@ class Deleter:
     def _process_asset(self, asset: RemoteAsset) -> Iterator[dict]:
         yield {"status": "Deleting"}
         try:
-            self.client.delete_asset(
-                asset.dandiset_id, asset.version_id, asset.asset_id
-            )
+            asset.delete()
         except Exception as e:
             yield {"status": "Error", "message": f"{type(e).__name__}: {e}"}
         else:
