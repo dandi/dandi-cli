@@ -311,6 +311,7 @@ def get_metadata_ls(path, keys, errors, flatten=False, schema=None):
     from ..dandiset import APIDandiset
     from ..metadata import get_metadata, nwb2asset
     from ..pynwb_utils import get_nwb_version, ignore_benign_pynwb_warnings
+    from ..support.digests import get_digest
 
     ignore_benign_pynwb_warnings()
 
@@ -324,7 +325,13 @@ def get_metadata_ls(path, keys, errors, flatten=False, schema=None):
                         dandiset = APIDandiset(path, schema_version=schema)
                         rec = dandiset.metadata
                     else:
-                        rec = nwb2asset(path, schema_version=schema).json_dict()
+                        digest = get_digest(path, digest="dandi-etag")
+                        rec = nwb2asset(
+                            path,
+                            schema_version=schema,
+                            digest=digest,
+                            digest_type="dandi_etag",
+                        ).json_dict()
                 else:
                     rec = get_metadata(path)
             except Exception as exc:
