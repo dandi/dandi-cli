@@ -60,9 +60,23 @@ List .nwb files and dandisets metadata.
     help="Convert metadata to new schema version",
     metavar="VERSION",
 )
+@click.option(
+    "--use-fake-digest",
+    is_flag=True,
+    help="Use dummy value for digests of local files instead of computing",
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=False, dir_okay=True))
 @map_to_click_exceptions
-def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, jobs=6):
+def ls(
+    paths,
+    schema,
+    use_fake_digest,
+    metadata,
+    fields=None,
+    format="auto",
+    recursive=False,
+    jobs=6,
+):
     """List .nwb files and dandisets metadata."""
 
     # TODO: more logical ordering in case of fields = None
@@ -179,6 +193,7 @@ def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, job
                             errors=errors,
                             flatten=format == "pyout",
                             schema=schema,
+                            use_fake_digest=use_fake_digest,
                         )
                         if format == "pyout":
                             rec[async_keys] = cb
@@ -307,7 +322,9 @@ def flatten_meta_to_pyout(meta):
     return out
 
 
-def get_metadata_ls(path, keys, errors, flatten=False, schema=None):
+def get_metadata_ls(
+    path, keys, errors, flatten=False, schema=None, use_fake_digest=False
+):
     from ..dandiset import APIDandiset
     from ..metadata import get_metadata, nwb2asset
     from ..pynwb_utils import get_nwb_version, ignore_benign_pynwb_warnings
@@ -325,7 +342,10 @@ def get_metadata_ls(path, keys, errors, flatten=False, schema=None):
                         dandiset = APIDandiset(path, schema_version=schema)
                         rec = dandiset.metadata
                     else:
-                        digest = get_digest(path, digest="dandi-etag")
+                        if use_fake_digest:
+                            digest = "0" * 32 + "-1"
+                        else:
+                            digest = get_digest(path, digest="dandi-etag")
                         rec = nwb2asset(
                             path,
                             schema_version=schema,
