@@ -1,4 +1,5 @@
 import json
+from unittest.mock import ANY
 
 from click.testing import CliRunner
 from dandischema.consts import DANDI_SCHEMA_VERSION
@@ -91,7 +92,6 @@ def test_smoke_local_schema(simple1_nwb):
             "json",
             "--schema",
             DANDI_SCHEMA_VERSION,
-            "--use-fake-digest",
             simple1_nwb,
         ],
     )
@@ -99,4 +99,4 @@ def test_smoke_local_schema(simple1_nwb):
     out = r.stdout
     metadata = json.loads(out)
     assert len(metadata) == 1
-    assert metadata[0]["digest"] == {"dandi:dandi-etag": "0" * 32 + "-1"}
+    assert metadata[0]["digest"] == {"dandi:dandi-etag": ANY}

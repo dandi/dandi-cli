@@ -4,7 +4,7 @@ import os.path as op
 
 import click
 
-from .base import lgr, map_to_click_exceptions
+from .base import devel_option, lgr, map_to_click_exceptions
 from ..dandiarchive import DandisetURL, _dandi_url_parser, parse_dandi_url
 from ..utils import is_url
 
@@ -60,7 +60,7 @@ List .nwb files and dandisets metadata.
     help="Convert metadata to new schema version",
     metavar="VERSION",
 )
-@click.option(
+@devel_option(
     "--use-fake-digest",
     is_flag=True,
     help="Use dummy value for digests of local files instead of computing",
@@ -70,8 +70,8 @@ List .nwb files and dandisets metadata.
 def ls(
     paths,
     schema,
-    use_fake_digest,
     metadata,
+    use_fake_digest=False,
     fields=None,
     format="auto",
     recursive=False,
@@ -345,6 +345,7 @@ def get_metadata_ls(
                         if use_fake_digest:
                             digest = "0" * 32 + "-1"
                         else:
+                            lgr.info("Calculating digest for %s", path)
                             digest = get_digest(path, digest="dandi-etag")
                         rec = nwb2asset(
                             path,
