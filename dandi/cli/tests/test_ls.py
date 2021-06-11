@@ -1,6 +1,7 @@
 import json
 
 from click.testing import CliRunner
+from dandischema.consts import DANDI_SCHEMA_VERSION
 import pytest
 
 from ..command import ls
@@ -79,3 +80,23 @@ def test_ls_path_url():
     data = yaml_load(r.stdout, "safe")
     assert len(data) == 1
     assert data[0]["path"] == "sub-RAT123/sub-RAT123.nwb"
+
+
+def test_smoke_local_schema(simple1_nwb):
+    runner = CliRunner()
+    r = runner.invoke(
+        ls,
+        [
+            "-f",
+            "json",
+            "--schema",
+            DANDI_SCHEMA_VERSION,
+            "--use-fake-digest",
+            simple1_nwb,
+        ],
+    )
+    assert r.exit_code == 0, f"Exited abnormally. out={r.stdout}"
+    out = r.stdout
+    metadata = json.loads(out)
+    assert len(metadata) == 1
+    assert metadata[0]["digest"] == {"dandi:dandi-etag": "0" * 32 + "-1"}
