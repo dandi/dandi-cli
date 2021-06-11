@@ -90,9 +90,93 @@ def get_metadata(path):
     return meta
 
 
+def _parse_iso8601(age):
+    """checking if age is proper iso8601, additional formatting"""
+    # allowing for comma instead of ., e.g. P1,5D
+    age = age.replace(",", ".")
+    pattern = (
+        "^P(?!$)(\\d+(?:\\.\\d+)?Y)?(\\d+(?:\\.\\d+)?M)?(\\d+(?:\\.\\d+)?W)?(\\d+(?:\\.\\d+)?D)?"
+        "(T(?=\\d)(\\d+(?:\\.\\d+)?H)?(\\d+(?:\\.\\d+)?M)?(\\d+(?:\\.\\d+)?S)?)?$"
+    )
+
+    matchstr = re.match(pattern, age, flags=re.I)
+    if matchstr:
+        age_frm = [matchstr.group(i) for i in range(1, 6) if matchstr.group(i)]
+        age_frm = ["P"] + age_frm
+        return age_frm
+    else:
+        raise ValueError(f"ISO 8601 expected, but {age} was received")
+
+
+def _parse_age_re(age, unit, tp="date"):
+    """finding parts that have <value> <unit> in various forms"""
+
+    if unit == "Y":
+        pat_un = "y(ear)?"
+    elif unit == "M" and tp == "date":
+        pat_un = "(month|mon|mo|m)"
+    elif unit == "W":
+        pat_un = "w(eek)?"
+    elif unit == "D":
+        pat_un = "d(ay)?"
+    elif unit == "H":
+        pat_un = "h(our)?"
+    elif unit == "M" and tp == "time":
+        pat_un = "(min|m(inute)?)"
+    elif unit == "S":
+        pat_un = "(sec|s(econd)?)"
+
+    pattern = rf"(\d+\.?\d*)\s*({pat_un}s?)"
+    matchstr = re.match(pattern, age, flags=re.I)
+    if matchstr is None:
+        # checking pattern with "unit" word
+        pattern_unit = rf"(\d+\.?\d*)\s*units?:?\s*({pat_un}s?)"
+        matchstr = re.match(pattern_unit, age, flags=re.I)
+        if matchstr is None:
+            return age, None
+
+    if "." in matchstr.group(1):
+        qty = float(matchstr.group(1))
+        if int(qty) == qty:
+            qty = int(qty)
+    else:
+        qty = int(matchstr.group(1))
+    age_rem = age.replace(matchstr.group(0), "")
+    age_rem = age_rem.strip()
+    return age_rem, f"{qty}{unit}"
+
+
+def _parse_hours_format(age):
+    """parsing format 0:30:10"""
+    pattern = r"\s*(\d\d?):(\d\d):(\d\d)"
+    matchstr = re.match(pattern, age, flags=re.I)
+    if matchstr:
+        time_part = f"T{int(matchstr.group(1))}H{int(matchstr.group(2))}M{int(matchstr.group(3))}S"
+        age_rem = age.replace(matchstr.group(0), "")
+        age_rem = age_rem.strip()
+        return age_rem, [time_part]
+    else:
+        return age, []
+
+
+def _check_decimal_parts(age_parts):
+    """checking if decimal parts are only in the lowest order component"""
+    # if the last part is the T component I have to separate the parts
+    if "T" in age_parts[-1]:
+        pattern_time = "^T(\\d+(?:\\.\\d+)?H)?(\\d+(?:\\.\\d+)?M)?(\\d+(?:\\.\\d+)?S)?"
+        matchstr = re.match(pattern_time, age_parts[-1], flags=re.I)
+        time_parts = [matchstr.group(i) for i in range(1, 3) if matchstr.group(i)]
+        age_parts = age_parts[:-1] + time_parts
+    decim_part = ["." in el for el in age_parts]
+    if any(decim_part) and any(decim_part[:-1]):
+        return False
+    else:
+        return True
+
+
 def parse_age(age):
     """
-    Convert a human-friendly duration string into an ISO 8601 duration
+    Parsing age field and converting into an ISO 8601 duration
 
     Parameters
     ----------
@@ -102,13 +186,60 @@ def parse_age(age):
     -------
     str
     """
-    m = re.fullmatch(r"(\d+)\s*(y(ear)?|m(onth)?|w(eek)?|d(ay)?)s?", age, flags=re.I)
-    if m:
-        qty = int(m.group(1))
-        unit = m.group(2)[0].upper()
-        return f"P{qty}{unit}"
-    else:
-        raise ValueError(age)
+
+    if not age:
+        raise ValueError("age is empty")
+
+    age_orig = age
+    age = age.strip()
+
+    if age[0] == "P":
+        age_f = _parse_iso8601(age)
+    else:  # trying to figure out any free form
+        # removing some symbols
+        for symb in [",", ";", "(", ")"]:
+            age = age.replace(symb, " ")
+        age = age.strip()
+        if not age:
+            raise ValueError("age doesn't have any information")
+
+        date_f = []
+        for unit in ["Y", "M", "W", "D"]:
+            if not age:
+                break
+            age, part_f = _parse_age_re(age, unit)
+            if part_f and date_f:
+                date_f.append(part_f)
+            elif part_f:
+                date_f = ["P", part_f]
+
+        time_f = []
+        for un in ["H", "M", "S"]:
+            if not age:
+                break
+            age, part_f = _parse_age_re(age, un, tp="time")
+            if part_f and time_f:
+                time_f.append(part_f)
+            elif part_f:
+                time_f = ["T", part_f]
+        # trying to find formats 00:00:00 for time
+        if not time_f:
+            age, time_f = _parse_hours_format(age)
+
+        age_f = date_f + time_f
+        if set(age) - {" ", ".", ",", ":", ";"}:
+            raise ValueError(
+                f"not able to parse the age: {age_orig}, no rules to convert: {age}"
+            )
+
+    # checking if there are decimal parts in the higher order components
+    if not _check_decimal_parts(age_f):
+        raise ValueError(
+            f"decimal fraction allowed in the lowest order part only,"
+            f" but {age} was received "
+        )
+
+    return "".join(age_f)
 
 
 def extract_age(metadata):

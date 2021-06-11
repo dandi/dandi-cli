@@ -57,6 +57,7 @@ def test_get_metadata(simple1_nwb, simple1_nwb_metadata):
         ("2 m", "P2M"),
         ("2M", "P2M"),
         ("2m", "P2M"),
+        ("2mo", "P2M"),
         ("3 weeks", "P3W"),
         ("3 w", "P3W"),
         ("3 W", "P3W"),
@@ -67,10 +68,47 @@ def test_get_metadata(simple1_nwb, simple1_nwb_metadata):
         ("7 D", "P7D"),
         ("7d", "P7D"),
         ("7D", "P7D"),
+        ("7 day", "P7D"),
+        ("7 Days", "P7D"),
+        ("7.5 Days", "P7.5D"),
+        ("7.0 Days", "P7D"),
+        ("P136D", "P136D"),
+        ("P22265.0D", "P22265.0D"),  # "P22265.D" is not allowed
+        ("P22265,0D", "P22265.0D"),
+        ("P2DT10H20M", "P2DT10H20M"),
+        ("P2DT10.5H", "P2DT10.5H"),
+        ("P2DT10,5H", "P2DT10.5H"),
+        ("349 days, 4 hours", "P349DT4H"),
+        ("4 days, 4.5 hours", "P4DT4.5H"),
+        ("12 weeks, 13 d; 10 hours, 30 min 1sec", "P12W13DT10H30M1S"),
+        ("342 days, 4:30:02", "P342DT4H30M2S"),
+        ("342 days, 00:00:00", "P342DT0H0M0S"),
+        ("14 (Units: days)", "P14D"),
+        ("14 unit day", "P14D"),
     ],
 )
 def test_parse_age(age, duration):
     assert parse_age(age) == duration
+
+
+@pytest.mark.parametrize(
+    "age, match_er",
+    [
+        ("123", "no rules to convert: 123"),
+        ("P12", "ISO 8601 expected, but P12 was received"),
+        ("3-7 months", "no rules to convert: 3-7 months"),
+        ("Gestational Week 19", "no rules to convert: Gestational Week 19"),
+        ("3 months, some extra", "no rules to convert: some extra"),
+        (" , ", "age doesn't have any information"),
+        ("", "age is empty"),
+        (None, "age is empty"),
+        ("P2DT10.5H10M", "decimal fraction allowed in the lowest order"),
+        ("4.5 hours 10 sec", "decimal fraction allowed in the lowest order"),
+    ],
+)
+def test_parse_error(age, match_er):
+    with pytest.raises(ValueError, match=match_er):
+        parse_age(age)
 
 
 @pytest.mark.parametrize(
