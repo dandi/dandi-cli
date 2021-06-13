@@ -1,6 +1,7 @@
 {
   "id": "dandiasset:0b0a1a0b-e3ea-4cf6-be94-e02c830d54be",
-  "schemaVersion": "0.3.2",
+  "schemaKey": "Asset",
+  "schemaVersion": "0.4.1",
   "keywords": [
     "test",
     "sample",
@@ -9,24 +10,25 @@
   ],
   "access": [
     {
-      "status": "dandi:OpenAccess",
-      "schemaKey": "AccessRequirements"
+      "schemaKey": "AccessRequirements",
+      "status": "dandi:OpenAccess"
     }
   ],
   "repository": "https://dandiarchive.org/",
   "wasGeneratedBy": [
     {
+      "schemaKey": "Session",
       "identifier": "XYZ789",
       "name": "XYZ789",
       "description": "Some test data",
+      "startDate": "2020-08-31T15:58:28-04:00",
       "used": [
         {
+          "schemaKey": "Equipment",
           "identifier": "probe:probe04",
-          "name": "Ecephys Probe",
-          "schemaKey": "Equipment"
+          "name": "Ecephys Probe"
         }
-      ],
-      "schemaKey": "Session"
+      ]
     }
   ],
   "contentSize": 69105,
@@ -37,55 +39,54 @@
   "path": "/test/path",
   "wasDerivedFrom": [
     {
+      "schemaKey": "BioSample",
       "identifier": "cell01",
       "sampleType": {
-        "name": "cell",
-        "schemaKey": "SampleType"
+        "schemaKey": "SampleType",
+        "name": "cell"
       },
       "wasDerivedFrom": [
         {
+          "schemaKey": "BioSample",
           "identifier": "slice02",
           "sampleType": {
-            "name": "slice",
-            "schemaKey": "SampleType"
+            "schemaKey": "SampleType",
+            "name": "slice"
           },
           "wasDerivedFrom": [
             {
+              "schemaKey": "BioSample",
               "identifier": "tissue03",
               "sampleType": {
-                "name": "tissuesample",
-                "schemaKey": "SampleType"
-              },
-              "schemaKey": "BioSample"
+                "schemaKey": "SampleType",
+                "name": "tissuesample"
+              }
             }
-          ],
-          "schemaKey": "BioSample"
+          ]
         }
-      ],
-      "schemaKey": "BioSample"
+      ]
     }
   ],
   "wasAttributedTo": [
     {
+      "schemaKey": "Participant",
       "identifier": "a1b2c3",
       "age": {
+        "schemaKey": "PropertyValue",
         "unitText": "Years from birth",
-        "value": "P170DT12212S",
-        "schemaKey": "PropertyValue"
+        "value": "P170DT12212S"
       },
       "sex": {
+        "schemaKey": "SexType",
         "identifier": "http://purl.obolibrary.org/obo/PATO_0000384",
-        "name": "Male",
-        "schemaKey": "SexType"
+        "name": "Male"
       },
       "genotype": "Typical",
       "species": {
+        "schemaKey": "SpeciesType",
         "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_9606",
-        "name": "Human",
-        "schemaKey": "SpeciesType"
-      },
-      "schemaKey": "Participant"
+        "name": "Human"
+      }
     }
-  ],
-  "schemaKey": "Asset"
+  ]
 }
