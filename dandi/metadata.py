@@ -250,6 +250,8 @@ def extract_age(metadata):
         try:
             duration = parse_age(metadata["age"])
         except (KeyError, TypeError, ValueError):
+            if metadata.get("age"):
+                raise
             return ...
     else:
         duration = timedelta2duration(start - dob)
@@ -408,13 +410,16 @@ def extract_session(metadata: dict) -> list:
     for val in probe_ids:
         probes.append(models.Equipment(identifier=f"probe:{val}", name="Ecephys Probe"))
     probes = probes or None
-    if (metadata.get("session_id") or probes) is None:
+    if (
+        metadata.get("session_id") or metadata.get("session_start_time") or probes
+    ) is None:
         return None
     return [
         models.Session(
             identifier=metadata.get("session_id"),
-            name=metadata.get("session_id", "Acquisition session"),
+            name=metadata.get("session_id") or "Acquisition session",
             description=metadata.get("session_description"),
+            startDate=metadata.get("session_start_time"),
             used=probes,
         )
     ]
