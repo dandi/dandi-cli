@@ -250,7 +250,7 @@ def extract_age(metadata):
         try:
             duration = parse_age(metadata["age"])
         except (KeyError, TypeError, ValueError):
-            if metadata.get("age"):
+            if "age" in metadata and metadata["age"] is not None:
                 raise
             return ...
     else:
