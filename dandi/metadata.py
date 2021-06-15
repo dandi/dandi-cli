@@ -410,14 +410,15 @@ def extract_session(metadata: dict) -> list:
     for val in probe_ids:
         probes.append(models.Equipment(identifier=f"probe:{val}", name="Ecephys Probe"))
     probes = probes or None
-    if (
-        metadata.get("session_id") or metadata.get("session_start_time") or probes
-    ) is None:
+    session_id = None
+    if "session_id" in metadata and metadata["session_id"] is not None:
+        session_id = str(metadata["session_id"])
+    if (session_id or metadata.get("session_start_time") or probes) is None:
         return None
     return [
         models.Session(
-            identifier=metadata.get("session_id"),
-            name=metadata.get("session_id") or "Acquisition session",
+            identifier=session_id,
+            name=session_id or "Acquisition session",
             description=metadata.get("session_description"),
             startDate=metadata.get("session_start_time"),
             used=probes,
