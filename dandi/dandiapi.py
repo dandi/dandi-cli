@@ -1,17 +1,20 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from contextlib import contextmanager
+from datetime import datetime
 import os.path
 from pathlib import Path
 import re
 from threading import Lock
+from typing import Any, Callable, Dict, Iterator, Optional, Union, cast
 from xml.etree.ElementTree import fromstring
 
 import click
+from pydantic import BaseModel, Field, PrivateAttr
 import requests
 import tenacity
 
 from . import get_logger
-from .consts import MAX_CHUNK_SIZE, known_instances_rev
+from .consts import MAX_CHUNK_SIZE, known_instances, known_instances_rev
+from .exceptions import NotFoundError
 from .keyring import keyring_lookup
 from .utils import USER_AGENT, is_interactive, try_multiple
 
@@ -21,60 +24,29 @@ lgr = get_logger()
 # Following class is loosely based on GirderClient, with authentication etc
 # being stripped.
 # TODO: add copyright/license info
-class RESTFullAPIClient(object):
+class RESTFullAPIClient:
     """A base class for REST clients"""
 
-    def __init__(self, api_url):
+    def __init__(self, api_url, session=None, headers=None):
         self.api_url = api_url
-        self._session = None
-        self._headers = {"User-Agent": USER_AGENT}
+        if session is None:
+            session = requests.Session()
+        if headers is not None:
+            session.headers.update(headers)
+        session.headers.setdefault("User-Agent", USER_AGENT)
+        self.session = session
 
-    @contextmanager
-    def session(self, session=None):
-        """
-        Use a :class:`requests.Session` object for all outgoing requests.
-        If `session` isn't passed into the context manager
-        then one will be created and yielded. Session objects are useful for enabling
-        persistent HTTP connections as well as partially applying arguments to many
-        requests, such as headers.
+    def __enter__(self):
+        return self
 
-        Note: `session` is closed when the context manager exits, regardless of who
-        created it.
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.session.close()
 
-        .. code-block:: python
-
-            with client.session() as session:
-                session.headers.update({'User-Agent': 'myapp 1.0'})
-
-                for item in items:
-                    client.downloadItem(item, fh)
-
-        In the above example, each request will be executed with the User-Agent header
-        while reusing the same TCP connection.
-
-        :param session: An existing :class:`requests.Session` object, or None.
-        """
-        self._session = session if session else requests.Session()
-
-        try:
-            yield self._session
-        finally:
-            # close only if we started a new one
-            if not session:
-                self._session.close()
-            self._session = None
-
-    def _request_func(self, method):
-        if self._session is not None:
-            return getattr(self._session, method.lower())
-        else:
-            return getattr(requests, method.lower())
-
-    def send_request(
+    def request(
         self,
         method,
         path,
-        parameters=None,
+        params=None,
         data=None,
         files=None,
         json=None,
@@ -98,9 +70,9 @@ class RESTFullAPIClient(object):
         :param path: A string containing the path elements for this request.
             Note that the path string should not begin or end with the path  separator, '/'.
         :type path: str
-        :param parameters: A dictionary mapping strings to strings, to be used
+        :param params: A dictionary mapping strings to strings, to be used
             as the key/value pairs in the request parameters.
-        :type parameters: dict
+        :type params: dict
         :param data: A dictionary, bytes or file-like object to send in the body.
         :param files: A dictionary of 'name' => file-like-objects for multipart encoding upload.
         :type files: dict
@@ -122,21 +94,16 @@ class RESTFullAPIClient(object):
         :param retry: an optional tenacity `retry` argument for retrying the
             request method
         """
-        if not parameters:
-            parameters = {}
 
         # Look up the HTTP method we need
-        f = self._request_func(method)
+        f = getattr(self.session, method.lower())
 
         url = self.get_url(path)
 
-        # Make the request, passing parameters and authentication info
-        _headers = dict(self._headers)
-        if headers:
-            _headers.update(headers)
-
-        if json_resp and "accept" not in _headers:
-            _headers["accept"] = "application/json"
+        if headers is None:
+            headers = {}
+        if json_resp and "accept" not in headers:
+            headers["accept"] = "application/json"
 
         lgr.debug("%s %s", method.upper(), url)
 
@@ -153,11 +120,11 @@ class RESTFullAPIClient(object):
             result = try_multiple(5, doretry, 1.1)(
                 f,
                 url,
-                params=parameters,
+                params=params,
                 data=data,
                 files=files,
                 json=json,
-                headers=_headers,
+                headers=headers,
                 **kwargs,
             )
         except Exception:
@@ -191,70 +158,61 @@ class RESTFullAPIClient(object):
         else:
             return self.api_url.rstrip("/") + "/" + path.lstrip("/")
 
-    def get(self, path, parameters=None, json_resp=True, **kwargs):
+    def get(self, path, **kwargs):
         """
-        Convenience method to call :py:func:`send_request` with the 'GET' HTTP method.
+        Convenience method to call :py:func:`request` with the 'GET' HTTP method.
         """
-        return self.send_request("GET", path, parameters, json_resp=json_resp, **kwargs)
+        return self.request("GET", path, **kwargs)
 
-    def post(
-        self,
-        path,
-        parameters=None,
-        files=None,
-        data=None,
-        json=None,
-        headers=None,
-        json_resp=True,
-    ):
+    def post(self, path, **kwargs):
         """
-        Convenience method to call :py:func:`send_request` with the 'POST' HTTP method.
+        Convenience method to call :py:func:`request` with the 'POST' HTTP method.
         """
-        return self.send_request(
-            "POST",
-            path,
-            parameters,
-            files=files,
-            data=data,
-            json=json,
-            headers=headers,
-            json_resp=json_resp,
-        )
+        return self.request("POST", path, **kwargs)
 
-    def put(
-        self, path, parameters=None, data=None, json=None, json_resp=True, retry=None
-    ):
+    def put(self, path, **kwargs):
         """
-        Convenience method to call :py:func:`send_request` with the 'PUT'
-        HTTP method.
+        Convenience method to call :py:func:`request` with the 'PUT' HTTP
+        method.
         """
-        return self.send_request(
-            "PUT",
-            path,
-            parameters,
-            data=data,
-            json=json,
-            json_resp=json_resp,
-            retry=retry,
-        )
+        return self.request("PUT", path, **kwargs)
 
-    def delete(self, path, parameters=None, json_resp=True):
+    def delete(self, path, **kwargs):
         """
-        Convenience method to call :py:func:`send_request` with the 'DELETE' HTTP method.
+        Convenience method to call :py:func:`request` with the 'DELETE' HTTP
+        method.
         """
-        return self.send_request("DELETE", path, parameters, json_resp=json_resp)
+        return self.request("DELETE", path, **kwargs)
 
-    def patch(self, path, parameters=None, data=None, json=None, json_resp=True):
+    def patch(self, path, **kwargs):
         """
-        Convenience method to call :py:func:`send_request` with the 'PATCH' HTTP method.
+        Convenience method to call :py:func:`request` with the 'PATCH' HTTP
+        method.
         """
-        return self.send_request(
-            "PATCH", path, parameters, data=data, json=json, json_resp=json_resp
-        )
+        return self.request("PATCH", path, **kwargs)
+
+    def paginate(self, path, page_size=None, params=None, **kwargs):
+        if page_size is not None:
+            if params is None:
+                params = {}
+            params["page_size"] = page_size
+        r = self.get(path, params=params, **kwargs)
+        while True:
+            for item in r["results"]:
+                yield item
+            if r.get("next"):
+                r = self.get(r["next"])
+            else:
+                break
 
 
 class DandiAPIClient(RESTFullAPIClient):
-    def __init__(self, api_url, token=None):
+    def __init__(self, api_url=None, token=None):
+        if api_url is None:
+            instance_name = os.environ.get("DANDI_INSTANCE", "dandi")
+            api_url = known_instances[instance_name].api
+            if api_url is None:
+                raise ValueError(f"No API URL for instance {instance_name!r}")
         super().__init__(api_url)
         if token is not None:
             self.authenticate(token)
@@ -262,7 +220,7 @@ class DandiAPIClient(RESTFullAPIClient):
     def authenticate(self, token):
         # Fails if token is invalid:
         self.get("/auth/token", headers={"Authorization": f"token {token}"})
-        self._headers["Authorization"] = f"token {token}"
+        self.session.headers["Authorization"] = f"token {token}"
 
     def dandi_authenticate(self):
         # Shortcut for advanced folks
@@ -297,153 +255,291 @@ class DandiAPIClient(RESTFullAPIClient):
                     lgr.debug("Stored key in keyring")
                 break
 
-    def get_asset(self, dandiset_id, version, asset_id):
+    def get_dandiset(
+        self, dandiset_id: str, version_id: Optional[str] = None
+    ) -> "RemoteDandiset":
         """
-
-        /dandisets/{version__dandiset__pk}/versions/{version__version}/assets/{asset_id}/
-
-        Parameters
-        ----------
-        dandiset_id
-        version
-        asset_id
-
-        Returns
-        -------
-
+        Fetches the Dandiset with the given ``dandiset_id``.  If ``version_id``
+        is not specified, the `RemoteDandiset`'s version is set to the most
+        recent published version if there is one, otherwise to the draft
+        version.
         """
-        return self.get(
-            f"/dandisets/{dandiset_id}/versions/{version}/assets/{asset_id}/"
+        d = RemoteDandiset._make(self, self.get(f"/dandisets/{dandiset_id}/"))
+        if version_id is not None and version_id != d.version_id:
+            if version_id == "draft":
+                d.version = d.draft_version
+            else:
+                return d.for_version(version_id)
+        return d
+
+    def get_dandisets(self) -> Iterator["RemoteDandiset"]:
+        for data in self.paginate("/dandisets/"):
+            yield RemoteDandiset._make(self, data)
+
+    def create_dandiset(self, name: str, metadata: Dict[str, Any]) -> "RemoteDandiset":
+        """Creates a Dandiset with the given name & metadata"""
+        return RemoteDandiset._make(
+            self, self.post("/dandisets/", json={"name": name, "metadata": metadata})
         )
 
-    def get_dandiset(self, dandiset_id, version):
-        return self._migrate_dandiset_metadata(
-            self.get(f"/dandisets/{dandiset_id}/versions/{version}/info/")
+
+class APIBase(BaseModel):
+    """Base class for API objects"""
+
+    def json_dict(self) -> Dict[str, Any]:
+        """
+        Convert to a JSONable `dict`, omitting the ``client`` attribute and
+        using the same field names as in the API
+        """
+        return self.dict(exclude={"client"}, by_alias=True)
+
+    class Config:
+        allow_population_by_field_name = True
+        # To allow `client: Session`:
+        arbitrary_types_allowed = True
+
+
+class Version(APIBase):
+    """The version information for a Dandiset retrieved from the API"""
+
+    identifier: str = Field(alias="version")
+    name: str
+    asset_count: int
+    size: int
+    created: datetime
+    modified: datetime
+
+
+class RemoteDandiset(APIBase):
+    """
+    Representation of a Dandiset (as of a certain version) retrieved from the
+    API
+    """
+
+    client: "DandiAPIClient"
+    identifier: str
+    created: datetime
+    modified: datetime
+    #: The version in question of the Dandiset
+    version: Version
+    most_recent_published_version: Optional[Version]
+    draft_version: Version
+
+    @property
+    def version_id(self) -> str:
+        return self.version.identifier
+
+    @property
+    def api_path(self) -> str:
+        return f"/dandisets/{self.identifier}/"
+
+    @property
+    def version_api_path(self) -> str:
+        return f"/dandisets/{self.identifier}/versions/{self.version_id}/"
+
+    @classmethod
+    def _make(cls, client: "DandiAPIClient", data: Dict[str, Any]) -> "RemoteDandiset":
+        """
+        Construct a `RemoteDandiset` instance from a `dict` returned from the
+        API.  If the ``"most_recent_published_version"`` field is set, use that
+        as the Dandiset's version; otherwise, use ``"draft_version"``.
+        """
+        if data.get("most_recent_published_version") is not None:
+            version = data["most_recent_published_version"]
+        else:
+            version = data["draft_version"]
+        return cls(client=client, version=version, **data)
+
+    def _mkasset(self, data: Dict[str, Any]) -> "RemoteAsset":
+        return RemoteAsset(
+            client=self.client,
+            dandiset_id=self.identifier,
+            version_id=self.version_id,
+            **data,
         )
 
-    def set_dandiset_metadata(self, dandiset_id, *, metadata):
-        # CLI should not update metadata for released dandisets so always "draft"
-        return self.put(
-            f"/dandisets/{dandiset_id}/versions/draft/",
+    def _mkasset_from_metadata(self, metadata: Dict[str, Any]) -> "RemoteAsset":
+        return RemoteAsset(
+            client=self.client,
+            dandiset_id=self.identifier,
+            version_id=self.version_id,
+            identifier=metadata["identifier"],
+            path=metadata["path"],
+            size=metadata["contentSize"],
+            modified=metadata["dateModified"],
+            _metadata=metadata,
+        )
+
+    def get_versions(self) -> Iterator[Version]:
+        """Returns an iterator of all available `Version`\\s for the Dandiset"""
+        for v in self.client.paginate(f"{self.api_path}versions/"):
+            yield Version.parse_obj(v)
+
+    def get_version(self, version_id: str) -> Version:
+        """
+        Get information about a given version of the Dandiset.  If the given
+        version does not exist, a `requests.HTTPError` is raised with a 404
+        status code.
+        """
+        return Version.parse_obj(self.client.get(f"{self.version_api_path}info/"))
+
+    def for_version(self, version_id: Union[str, Version]) -> "RemoteDandiset":
+        """
+        Returns a copy of the `RemoteDandiset` with the `version` attribute set
+        to given `Version` object or the `Version` with the given version ID.
+        If a version ID given and the version does not exist, a
+        `requests.HTTPError` is raised with a 404 status code.
+        """
+        if isinstance(version_id, str):
+            version_id = self.get_version(version_id)
+        return self.copy(update={"version": version_id})
+
+    def delete(self) -> None:
+        """Delete the Dandiset"""
+        self.client.delete(self.api_path)
+
+    def get_raw_metadata(self) -> Dict[str, Any]:
+        """
+        Fetch the metadata for this version of the Dandiset as an unprocessed
+        `dict`
+        """
+        return cast(Dict[str, Any], self.client.get(self.version_api_path))
+
+    def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
+        """
+        Set the metadata for this version of the Dandiset to the given value
+        """
+        self.client.put(
+            self.version_api_path,
             json={"metadata": metadata, "name": metadata.get("name", "")},
         )
 
-    def delete_dandiset(self, dandiset_id):
-        self.delete(f"/dandisets/{dandiset_id}/")
-
-    def get_dandiset_assets(
-        self, dandiset_id, version, page_size=None, path=None, include_metadata=False
-    ):
-        """A generator to provide asset records"""
-        resp = self.get(
-            f"/dandisets/{dandiset_id}/versions/{version}/assets/",
-            parameters={"page_size": page_size, "path": path},
-        )
-        while True:
-            for asset in resp["results"]:
-                if include_metadata:
-                    asset["metadata"] = self.get_asset(
-                        dandiset_id, version, asset["asset_id"]
-                    )
-                yield asset
-            if resp.get("next"):
-                resp = self.get(resp["next"])
-            else:
-                break
-
-    def get_dandiset_and_assets(self, dandiset_id, version, include_metadata=False):
-        """This is pretty much an adapter to provide "harmonized" output in both
-        girder and DANDI api clients.
-
-        Harmonization should happen toward DANDI API BUT AFAIK it is still influx
+    def publish(self) -> "RemoteDandiset":
         """
-        lgr.info(f"Traversing {dandiset_id} (version: {version})")
-        dandiset = self.get_dandiset(dandiset_id, version)
-        assets = self.get_dandiset_assets(
-            dandiset_id, version, include_metadata=include_metadata
-        )
-        return dandiset, assets
-
-    def get_download_file_iter(
-        self, dandiset_id, version, asset_id, chunk_size=MAX_CHUNK_SIZE
-    ):
-        url = self.get_url(
-            f"/dandisets/{dandiset_id}/versions/{version}/assets/{asset_id}/download/"
+        Publish this version of the Dandiset.  Returns a copy of the
+        `RemoteDandiset` with the `version` attribute set to the new published
+        `Version`.
+        """
+        return self.copy(
+            update={
+                "version": Version.parse_obj(
+                    self.client.post(f"{self.version_api_path}publish/")
+                )
+            }
         )
 
-        def downloader(start_at=0):
-            lgr.debug("Starting download from %s", url)
-            headers = None
-            if start_at > 0:
-                headers = {"Range": f"bytes={start_at}-"}
-            result = (self._session if self._session else requests).get(
-                url, stream=True, headers=headers
-            )
-            # TODO: apparently we might need retries here as well etc
-            # if result.status_code not in (200, 201):
-            result.raise_for_status()
+    def get_assets(self, path=None) -> Iterator["RemoteAsset"]:
+        """Returns an iterator of all assets in this version of the Dandiset"""
+        for a in self.client.paginate(f"{self.version_api_path}assets/"):
+            yield self._mkasset(a)
 
-            for chunk in result.iter_content(chunk_size=chunk_size):
-                if chunk:  # could be some "keep alive"?
-                    yield chunk
-            lgr.info("Asset %s successfully downloaded", asset_id)
-
-        return downloader
-
-    # TODO: remove when API stabilizes
-
-    # Should perform changes in-place but also return the original record
-
-    @classmethod
-    def _migrate_dandiset_metadata(cls, dandiset):
-        dandiset_metadata = dandiset.get("metadata", {})
-        if not dandiset_metadata:
-            return dandiset
-        # DANDI API has no versioning yet, and things are in flux.
-        # It used to have metadata within a key... just in case let's also
-        # be able to handle "old" style
-        if "identifier" not in dandiset_metadata and "dandiset" in dandiset_metadata:
-            dandiset["metadata"] = dandiset_metadata.pop("dandiset")
-        return dandiset
-
-    def upload(self, dandiset_id, version_id, asset_metadata, filepath, jobs=None):
+    def get_asset(self, asset_id: str) -> "RemoteAsset":
         """
-        Parameters
-        ----------
-        dandiset_id: str
-          the ID of the Dandiset to which to upload the file
-        version_id: str
-          the ID of the version of the Dandiset to which to upload the file
-        asset_metadata: dict
-          Metadata for the uploaded asset file.  Must include a "path" field
-          giving the POSIX path at which the uploaded file will be placed on
-          the server.
-        filepath: str or PathLike
-          the path to the local file to upload
+        Fetch the asset in this version of the Dandiset with the given asset
+        ID.  If the given asset does not exist, a `requests.HTTPError` is
+        raised with a 404 status code.
         """
-        for _ in self.iter_upload(
-            dandiset_id, version_id, asset_metadata, filepath, jobs=jobs
+        return self._mkasset_from_metadata(
+            self.client.get(f"{self.version_api_path}assets/{asset_id}/")
+        )
+
+    def get_assets_under_path(self, path: str) -> Iterator["RemoteAsset"]:
+        """
+        Returns an iterator of all assets in this version of the Dandiset whose
+        `~RemoteAsset.path` attributes start with ``path``
+        """
+        for a in self.client.paginate(
+            f"{self.version_api_path}assets/", params={"path": path}
         ):
-            pass
+            yield self._mkasset(a)
 
-    def iter_upload(self, dandiset_id, version_id, asset_metadata, filepath, jobs=None):
+    def get_asset_by_path(self, path: str) -> "RemoteAsset":
         """
+        Fetch the asset in this version of the Dandiset whose
+        `~RemoteAsset.path` equals ``path``.  If the given asset does not
+        exist, a `NotFoundError` is raised.
+        """
+        try:
+            # Weed out any assets that happen to have the given path as a
+            # proper prefix:
+            (asset,) = (a for a in self.get_assets_under_path(path) if a.path == path)
+        except ValueError:
+            raise NotFoundError(f"No asset at path {path!r}")
+        else:
+            return asset
+
+    def download_directory(
+        self,
+        assets_dirpath: str,
+        dirpath: Union[str, Path],
+        chunk_size: int = MAX_CHUNK_SIZE,
+    ) -> None:
+        """
+        Download all assets under the virtual directory ``assets_dirpath`` to
+        the directory ``dirpath``.  Downloads are synchronous.
+        """
+        if assets_dirpath and not assets_dirpath.endswith("/"):
+            assets_dirpath += "/"
+        assets = list(self.get_assets_under_path(assets_dirpath))
+        for a in assets:
+            filepath = Path(dirpath, a.path[len(assets_dirpath) :])
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            a.download(filepath, chunk_size=chunk_size)
+
+    def upload_raw_asset(
+        self,
+        filepath: Union[str, Path],
+        asset_metadata: Dict[str, Any],
+        jobs: Optional[int] = None,
+    ) -> "RemoteAsset":
+        """
+        Upload the file at ``filepath`` with metadata ``asset_metadata`` to
+        this version of the Dandiset and return the resulting asset.  Blocks
+        until the upload is complete.
+
         Parameters
         ----------
-        dandiset_id: str
-          the ID of the Dandiset to which to upload the file
-        version_id: str
-          the ID of the version of the Dandiset to which to upload the file
+        filepath: str or PathLike
+          the path to the local file to upload
         asset_metadata: dict
           Metadata for the uploaded asset file.  Must include a "path" field
           giving the POSIX path at which the uploaded file will be placed on
           the server.
+        jobs: int
+          Number of threads to use for uploading; defaults to 5
+        """
+        for status in self.iter_upload_raw_asset(filepath, asset_metadata, jobs=jobs):
+            if status["status"] == "done":
+                return status["asset"]
+        raise RuntimeError("iter_upload_raw_asset() finished without returning 'done'")
+
+    def iter_upload_raw_asset(
+        self,
+        filepath: Union[str, Path],
+        asset_metadata: Dict[str, Any],
+        jobs: Optional[int] = None,
+    ) -> Iterator[dict]:
+        """
+        Upload the file at ``filepath`` with metadata ``asset_metadata`` to
+        this version of the Dandiset, returning a generator of status
+        `dict`\\s.
+
+        Parameters
+        ----------
         filepath: str or PathLike
           the path to the local file to upload
+        asset_metadata: dict
+          Metadata for the uploaded asset file.  Must include a "path" field
+          giving the POSIX path at which the uploaded file will be placed on
+          the server.
+        jobs: int
+          Number of threads to use for uploading; defaults to 5
 
         Returns
         -------
-        a generator of `dict`s containing at least a ``"status"`` key
+        A generator of `dict`\\s containing at least a ``"status"`` key.  Upon
+        successful upload, the last `dict` will have a status of ``"done"`` and
+        an ``"asset"`` key containing the resulting `RemoteAsset`.
         """
         from .support.digests import get_dandietag
 
@@ -463,7 +559,7 @@ class DandiAPIClient(RESTFullAPIClient):
         lgr.debug("%s: Beginning upload", asset_path)
         total_size = os.path.getsize(filepath)
         try:
-            resp = self.post(
+            resp = self.client.post(
                 "/uploads/initialize/",
                 json={
                     "contentSize": total_size,
@@ -489,9 +585,8 @@ class DandiAPIClient(RESTFullAPIClient):
                 )
             parts_out = []
             bytes_uploaded = 0
-            storage = RESTFullAPIClient("http://nil.nil")
             lgr.debug("Uploading %s in %d parts", filepath, len(parts))
-            with storage.session():
+            with RESTFullAPIClient("http://nil.nil") as storage:
                 with open(filepath, "rb") as fp:
                     with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
                         lock = Lock()
@@ -517,7 +612,7 @@ class DandiAPIClient(RESTFullAPIClient):
                             }
                             parts_out.append(out_part)
                 lgr.debug("%s: Completing upload", asset_path)
-                resp = self.post(
+                resp = self.client.post(
                     f"/uploads/{upload_id}/complete/",
                     json={"parts": parts_out},
                 )
@@ -546,99 +641,111 @@ class DandiAPIClient(RESTFullAPIClient):
                             f" server says {final_etag}, client says {filetag}"
                         )
                 # else: Error? Warning?
-                resp = self.post(f"/uploads/{upload_id}/validate/")
+                resp = self.client.post(f"/uploads/{upload_id}/validate/")
                 blob_id = resp["blob_id"]
         lgr.debug("%s: Assigning asset blob to dandiset & version", asset_path)
         yield {"status": "producing asset"}
-        extant = self.get_asset_bypath(dandiset_id, version_id, asset_path)
-        if extant is None:
-            self.post(
-                f"/dandisets/{dandiset_id}/versions/{version_id}/assets/",
-                json={"metadata": asset_metadata, "blob_id": blob_id},
+        try:
+            extant = self.get_asset_by_path(asset_path)
+        except NotFoundError:
+            a = self._mkasset(
+                self.client.post(
+                    f"{self.version_api_path}assets/",
+                    json={"metadata": asset_metadata, "blob_id": blob_id},
+                )
             )
         else:
             lgr.debug("%s: Asset already exists at path; updating", asset_path)
-            self.put(
-                f"/dandisets/{dandiset_id}/versions/{version_id}/assets/{extant['asset_id']}/",
-                json={"metadata": asset_metadata, "blob_id": blob_id},
+            a = self._mkasset(
+                self.client.put(
+                    extant.api_path,
+                    json={"metadata": asset_metadata, "blob_id": blob_id},
+                )
             )
         lgr.info("%s: Asset successfully uploaded", asset_path)
-        yield {"status": "done"}
+        yield {"status": "done", "asset": a}
 
-    def create_dandiset(self, name, metadata):
-        return self.post("/dandisets/", json={"name": name, "metadata": metadata})
 
-    def download_asset(
-        self, dandiset_id, version, asset_id, filepath, chunk_size=MAX_CHUNK_SIZE
-    ):
-        downloader = self.get_download_file_iter(
-            dandiset_id, version, asset_id, chunk_size=chunk_size
-        )
+class RemoteAsset(APIBase):
+    """Representation of an asset retrieved from the API"""
+
+    client: "DandiAPIClient"
+    #: The identifier for the Dandiset to which the asset belongs
+    dandiset_id: str
+    #: The identifier for the version of the Dandiset to which the asset
+    #: belongs
+    version_id: str
+    #: The asset identifier
+    identifier: str = Field(alias="asset_id")
+    path: str
+    size: int
+    modified: datetime
+    #: Metadata supplied at initialization; returned when metadata is requested
+    #: instead of performing an API call
+    _metadata: Optional[Dict[str, Any]] = PrivateAttr(default_factory=None)
+
+    def __init__(self, **data: Any) -> None:
+        super().__init__(**data)
+        # Pydantic insists on not initializing any attributes that start with
+        # underscores, so we have to do it ourselves.
+        self._metadata = data.get("metadata", data.get("_metadata"))
+
+    @property
+    def api_path(self) -> str:
+        return f"/dandisets/{self.dandiset_id}/versions/{self.version_id}/assets/{self.identifier}/"
+
+    @property
+    def download_url(self) -> str:
+        return self.client.get_url(f"{self.api_path}download/")
+
+    def get_raw_metadata(self) -> Dict[str, Any]:
+        """Fetch the metadata for the asset as an unprocessed `dict`"""
+        if self._metadata is not None:
+            return self._metadata
+        else:
+            return cast(Dict[str, Any], self.client.get(self.api_path))
+
+    def delete(self) -> None:
+        """Delete the asset"""
+        self.client.delete(self.api_path)
+
+    def get_download_file_iter(
+        self, chunk_size: int = MAX_CHUNK_SIZE
+    ) -> Callable[..., Iterator[bytes]]:
+        """
+        Returns a function that when called (optionally with an offset into the
+        asset to start downloading at) returns a generator of chunks of the
+        asset
+        """
+        url = self.download_url
+
+        def downloader(start_at: int = 0) -> Iterator[bytes]:
+            lgr.debug("Starting download from %s", url)
+            headers = None
+            if start_at > 0:
+                headers = {"Range": f"bytes={start_at}-"}
+            result = self.client.session.get(url, stream=True, headers=headers)
+            # TODO: apparently we might need retries here as well etc
+            # if result.status_code not in (200, 201):
+            result.raise_for_status()
+            for chunk in result.iter_content(chunk_size=chunk_size):
+                if chunk:  # could be some "keep alive"?
+                    yield chunk
+            lgr.info("Asset %s successfully downloaded", self.identifier)
+
+        return downloader
+
+    def download(
+        self, filepath: Union[str, Path], chunk_size: int = MAX_CHUNK_SIZE
+    ) -> None:
+        """
+        Download the asset to ``filepath``.  Blocks until the download is
+        complete.
+        """
+        downloader = self.get_download_file_iter(chunk_size=chunk_size)
         with open(filepath, "wb") as fp:
             for chunk in downloader():
                 fp.write(chunk)
-
-    def download_asset_bypath(
-        self, dandiset_id, version, asset_path, filepath, chunk_size=MAX_CHUNK_SIZE
-    ):
-        asset = self.get_asset_bypath(dandiset_id, version, asset_path)
-        if asset is None:
-            raise RuntimeError(f"No asset found with path {asset_path!r}")
-        self.download_asset(
-            dandiset_id, version, asset["asset_id"], filepath, chunk_size=chunk_size
-        )
-
-    def download_assets_directory(
-        self, dandiset_id, version, assets_dirpath, dirpath, chunk_size=MAX_CHUNK_SIZE
-    ):
-        if assets_dirpath and not assets_dirpath.endswith("/"):
-            assets_dirpath += "/"
-        assets = list(
-            self.get_dandiset_assets(dandiset_id, version, path=assets_dirpath)
-        )
-        for a in assets:
-            filepath = Path(dirpath, a["path"][len(assets_dirpath) :])
-            filepath.parent.mkdir(parents=True, exist_ok=True)
-            self.download_asset(
-                dandiset_id, version, a["asset_id"], filepath, chunk_size=chunk_size
-            )
-
-    def get_asset_bypath(
-        self, dandiset_id, version, asset_path, include_metadata=False
-    ):
-        try:
-            # Weed out any assets that happen to have the given path as a
-            # proper prefix:
-            (asset,) = (
-                a
-                for a in self.get_dandiset_assets(
-                    dandiset_id,
-                    version,
-                    path=asset_path,
-                    include_metadata=include_metadata,
-                )
-                if a["path"] == asset_path
-            )
-        except ValueError:
-            return None
-        else:
-            return asset
-
-    def publish_version(self, dandiset_id, base_version_id):
-        return self.post(
-            f"/dandisets/{dandiset_id}/versions/{base_version_id}/publish/"
-        )
-
-    def delete_asset(self, dandiset_id, version_id, asset_id):
-        self.delete(
-            f"/dandisets/{dandiset_id}/versions/{version_id}/assets/{asset_id}/"
-        )
-
-    def delete_asset_bypath(self, dandiset_id, version_id, asset_path):
-        asset = self.get_asset_bypath(dandiset_id, version_id, asset_path)
-        if asset is None:
-            raise RuntimeError(f"No asset found with path {asset_path!r}")
-        self.delete_asset(dandiset_id, version_id, asset["asset_id"])
 
 
 def upload_part(storage_session, fp, lock, etagger, asset_path, part):

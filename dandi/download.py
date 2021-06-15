@@ -111,9 +111,8 @@ def download(
         raise ValueError(format)
 
     if sync and not isinstance(parsed_url, SingleAssetURL):
-        client = parsed_url.get_client()
-        with client.session():
-            asset_paths = {asset["path"] for asset in parsed_url.get_assets(client)}
+        with parsed_url.get_client() as client:
+            asset_paths = {asset.path for asset in parsed_url.get_assets(client)}
         if isinstance(parsed_url, DandisetURL):
             prefix = os.curdir
             download_dir = output_path
@@ -196,12 +195,7 @@ def download_generator(
             return
 
         for asset in assets:
-            down_args = (
-                dandiset["dandiset"]["identifier"],
-                dandiset["version"],
-                asset["asset_id"],
-            )
-            metadata = asset["metadata"]
+            metadata = asset.get_raw_metadata()
             d = metadata.get("digest", {})
             if "dandi:dandi-etag" in d:
                 digests = {"dandi-etag": d["dandi:dandi-etag"]}
@@ -214,7 +208,7 @@ def download_generator(
             except KeyError:
                 pass
 
-            path = asset["path"].lstrip("/")  # make into relative path
+            path = asset.path.lstrip("/")  # make into relative path
             path = op.normpath(path)
             if not isinstance(parsed_url, DandisetURL):
                 if isinstance(parsed_url, MultiAssetURL):
@@ -230,10 +224,10 @@ def download_generator(
                     )
             download_path = op.join(output_path, path)
 
-            downloader = client.get_download_file_iter(*down_args)
+            downloader = asset.get_download_file_iter()
 
             try:
-                mtime = asset["metadata"]["blobDateModified"]
+                mtime = metadata["blobDateModified"]
             except KeyError:
                 mtime = None
             if mtime is None:
@@ -241,7 +235,7 @@ def download_generator(
                     "Asset %s is missing blobDateModified metadata field",
                     asset["path"],
                 )
-                mtime = asset.get("modified")
+                mtime = asset.modified
 
             _download_generator = _download_file(
                 downloader,
@@ -249,7 +243,7 @@ def download_generator(
                 toplevel_path=output_path,
                 # size and modified generally should be there but better to redownload
                 # than to crash
-                size=asset.get("size"),
+                size=asset.size,
                 mtime=mtime,
                 existing=existing,
                 digests=digests,
@@ -283,14 +277,7 @@ class ItemsSummary:
         if not self.files:
             self.t0 = time.time()
         self.files += 1
-        size = rec.get("size")
-        if size is not None:
-            self.size += size
-        elif rec.get("path", "") == "dandiset.yaml":
-            # again -- so special. TODO: make it a proper file
-            pass
-        else:
-            self.has_unknown_sizes = True
+        self.size += rec.size
         return self
 
 
@@ -385,8 +372,8 @@ def _skip_file(msg):
     return {"status": "skipped", "message": str(msg)}
 
 
-def _populate_dandiset_yaml(dandiset_path, dandiset_data, existing):
-    metadata = dandiset_data.get("metadata")
+def _populate_dandiset_yaml(dandiset_path, dandiset, existing):
+    metadata = dandiset.get_raw_metadata()
     if not metadata:
         lgr.warning(
             "Got completely empty metadata record for dandiset, not producing dandiset.yaml"
@@ -395,7 +382,7 @@ def _populate_dandiset_yaml(dandiset_path, dandiset_data, existing):
     dandiset_yaml = op.join(dandiset_path, dandiset_metadata_file)
     yield {"message": "updating"}
     lgr.debug("Updating %s from obtained dandiset metadata", dandiset_metadata_file)
-    mtime = ensure_datetime(dandiset_data["modified"])
+    mtime = dandiset.modified
     if op.lexists(dandiset_yaml):
         if existing == "error":
             raise FileExistsError(dandiset_yaml)

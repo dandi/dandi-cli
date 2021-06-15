@@ -1,3 +1,30 @@
+# 0.20.0 (Mon Jun 14 2021)
+
+#### 🚀 Enhancement
+
+- ENH: more metadata to reconstruct filename, upgrade to use dandischema 0.2.3 (schema 0.4.0) [#644](https://github.com/dandi/dandi-cli/pull/644) ([@satra](https://github.com/satra) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🐛 Bug Fix
+
+- ls --schema: Calculate digest for local assets [#666](https://github.com/dandi/dandi-cli/pull/666) ([@jwodder](https://github.com/jwodder))
+- updating parse age to cover more formats [#633](https://github.com/dandi/dandi-cli/pull/633) ([@djarecka](https://github.com/djarecka))
+- fix: add a default name when using an unknown session id [#662](https://github.com/dandi/dandi-cli/pull/662) ([@satra](https://github.com/satra))
+
+#### 🏠 Internal
+
+- Run test workflow on pushes only on master [#667](https://github.com/dandi/dandi-cli/pull/667) ([@yarikoptic](https://github.com/yarikoptic))
+- Address LGTM alerts [#657](https://github.com/dandi/dandi-cli/pull/657) ([@jwodder](https://github.com/jwodder))
+- Update pre-commit repo versions and configure isort to properly handle "from . import" lines [#656](https://github.com/dandi/dandi-cli/pull/656) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 4
+
+- Dorota Jarecka ([@djarecka](https://github.com/djarecka))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.19.0 (Mon Jun 07 2021)
 
 #### 🚀 Enhancement
