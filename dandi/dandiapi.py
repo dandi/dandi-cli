@@ -272,6 +272,10 @@ class DandiAPIClient(RESTFullAPIClient):
                 return d.for_version(version_id)
         return d
 
+    def get_dandisets(self) -> Iterator["RemoteDandiset"]:
+        for data in self.paginate("/dandisets/"):
+            yield RemoteDandiset._make(self, data)
+
     def create_dandiset(self, name: str, metadata: Dict[str, Any]) -> "RemoteDandiset":
         """Creates a Dandiset with the given name & metadata"""
         return RemoteDandiset._make(
