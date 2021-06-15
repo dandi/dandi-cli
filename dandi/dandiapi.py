@@ -13,7 +13,7 @@ import requests
 import tenacity
 
 from . import get_logger
-from .consts import MAX_CHUNK_SIZE, known_instances_rev
+from .consts import MAX_CHUNK_SIZE, known_instances, known_instances_rev
 from .exceptions import NotFoundError
 from .keyring import keyring_lookup
 from .utils import USER_AGENT, is_interactive, try_multiple
@@ -207,7 +207,12 @@ class RESTFullAPIClient:
 
 
 class DandiAPIClient(RESTFullAPIClient):
-    def __init__(self, api_url, token=None):
+    def __init__(self, api_url=None, token=None):
+        if api_url is None:
+            instance_name = os.environ.get("DANDI_INSTANCE", "dandi")
+            api_url = known_instances[instance_name].api
+            if api_url is None:
+                raise ValueError(f"No API URL for instance {instance_name!r}")
         super().__init__(api_url)
         if token is not None:
             self.authenticate(token)
