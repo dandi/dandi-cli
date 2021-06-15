@@ -16,12 +16,12 @@ from ..utils import find_files
 
 def test_upload(local_dandi_api, simple1_nwb, tmp_path):
     client = local_dandi_api["client"]
-    r = client.create_dandiset(name="Upload Test", metadata={})
-    dandiset_id = r["identifier"]
-    client.upload(dandiset_id, "draft", {"path": "testing/simple1.nwb"}, simple1_nwb)
-    (asset,) = client.get_dandiset_assets(dandiset_id, "draft")
-    assert asset["path"] == "testing/simple1.nwb"
-    client.download_assets_directory(dandiset_id, "draft", "", tmp_path)
+    d = client.create_dandiset(name="Upload Test", metadata={})
+    assert d.version_id == "draft"
+    d.upload_raw_asset(simple1_nwb, {"path": "testing/simple1.nwb"})
+    (asset,) = d.get_assets()
+    assert asset.path == "testing/simple1.nwb"
+    d.download_directory("", tmp_path)
     (p,) = [p for p in tmp_path.glob("**/*") if p.is_file()]
     assert p == tmp_path / "testing" / "simple1.nwb"
     assert p.stat().st_size == os.path.getsize(simple1_nwb)
@@ -29,7 +29,8 @@ def test_upload(local_dandi_api, simple1_nwb, tmp_path):
 
 def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
     client = local_dandi_api["client"]
-    dandiset_id = client.create_dandiset("Test Dandiset", {})["identifier"]
+    d = client.create_dandiset("Test Dandiset", {})
+    dandiset_id = d.identifier
     upload_dir = tmp_path / "upload"
     upload_dir.mkdir()
     (upload_dir / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
@@ -45,7 +46,7 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
         validation="skip",
     )
 
-    version_id = client.publish_version(dandiset_id, "draft")["version"]
+    version_id = d.publish().version.identifier
 
     download_dir = tmp_path / "download"
     download_dir.mkdir()
@@ -109,7 +110,7 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
     assert downloaded_files() == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
 
-    client.delete_asset_bypath(dandiset_id, "draft", "subdir/file.txt")
+    d.get_asset_by_path("subdir/file.txt").delete()
 
     rmtree(download_dir / dandiset_id)
     download(
@@ -128,40 +129,14 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
     assert file_in_version.read_text() == "This is test text.\n"
 
 
-def test_get_asset_include_metadata(local_dandi_api, simple1_nwb, tmp_path):
+def test_get_asset_metadata(local_dandi_api, simple1_nwb):
     client = local_dandi_api["client"]
-    r = client.create_dandiset(name="Include Metadata Test", metadata={})
-    dandiset_id = r["identifier"]
-    client.upload(
-        dandiset_id,
-        "draft",
-        {"path": "testing/simple1.nwb", "foo": "bar"},
-        simple1_nwb,
-    )
-
-    (asset,) = client.get_dandiset_assets(dandiset_id, "draft")
-    assert "metadata" not in asset
-    (asset,) = client.get_dandiset_assets(dandiset_id, "draft", include_metadata=True)
-    assert asset["metadata"]["path"] == "testing/simple1.nwb"
-    assert asset["metadata"]["foo"] == "bar"
-
-    _, (asset,) = client.get_dandiset_and_assets(dandiset_id, "draft")
-    assert "metadata" not in asset
-    _, (asset,) = client.get_dandiset_and_assets(
-        dandiset_id, "draft", include_metadata=True
-    )
-    assert asset["metadata"]["path"] == "testing/simple1.nwb"
-    assert asset["metadata"]["foo"] == "bar"
-
-    asset = client.get_asset_bypath(dandiset_id, "draft", "testing/simple1.nwb")
-    assert asset is not None
-    assert "metadata" not in asset
-    asset = client.get_asset_bypath(
-        dandiset_id, "draft", "testing/simple1.nwb", include_metadata=True
-    )
-    assert asset is not None
-    assert asset["metadata"]["path"] == "testing/simple1.nwb"
-    assert asset["metadata"]["foo"] == "bar"
+    d = client.create_dandiset(name="Include Metadata Test", metadata={})
+    d.upload_raw_asset(simple1_nwb, {"path": "testing/simple1.nwb", "foo": "bar"})
+    (asset,) = d.get_assets()
+    metadata = asset.get_raw_metadata()
+    assert metadata["path"] == "testing/simple1.nwb"
+    assert metadata["foo"] == "bar"
 
 
 def test_large_upload(local_dandi_api, tmp_path):
@@ -171,9 +146,8 @@ def test_large_upload(local_dandi_api, tmp_path):
     with asset_file.open("wb") as fp:
         for _ in range(100):
             fp.write(meg)
-    r = client.create_dandiset(name="Large Upload Test", metadata={})
-    dandiset_id = r["identifier"]
-    client.upload(dandiset_id, "draft", {"path": "testing/asset.dat"}, asset_file)
+    d = client.create_dandiset(name="Large Upload Test", metadata={})
+    d.upload_raw_asset(asset_file, {"path": "testing/asset.dat"})
 
 
 def test_authenticate_bad_key_good_key_input(local_dandi_api, mocker, monkeypatch):
@@ -195,9 +169,9 @@ def test_authenticate_bad_key_good_key_input(local_dandi_api, mocker, monkeypatc
     monkeypatch.delenv("DANDI_API_KEY", raising=False)
 
     client = DandiAPIClient(local_dandi_api["instance"].api)
-    assert "Authorization" not in client._headers
+    assert "Authorization" not in client.session.headers
     client.dandi_authenticate()
-    assert client._headers["Authorization"] == f"token {good_key}"
+    assert client.session.headers["Authorization"] == f"token {good_key}"
 
     backend_mock.set_password.assert_called_once_with(app_id, "key", good_key)
     keyring_lookup_mock.assert_called_once_with(app_id, "key")
@@ -224,9 +198,9 @@ def test_authenticate_good_key_keyring(local_dandi_api, mocker, monkeypatch):
     monkeypatch.delenv("DANDI_API_KEY", raising=False)
 
     client = DandiAPIClient(local_dandi_api["instance"].api)
-    assert "Authorization" not in client._headers
+    assert "Authorization" not in client.session.headers
     client.dandi_authenticate()
-    assert client._headers["Authorization"] == f"token {good_key}"
+    assert client.session.headers["Authorization"] == f"token {good_key}"
 
     backend_mock.set_password.assert_not_called()
     keyring_lookup_mock.assert_called_once_with(app_id, "key")
@@ -256,9 +230,9 @@ def test_authenticate_bad_key_keyring_good_key_input(
     monkeypatch.delenv("DANDI_API_KEY", raising=False)
 
     client = DandiAPIClient(local_dandi_api["instance"].api)
-    assert "Authorization" not in client._headers
+    assert "Authorization" not in client.session.headers
     client.dandi_authenticate()
-    assert client._headers["Authorization"] == f"token {good_key}"
+    assert client.session.headers["Authorization"] == f"token {good_key}"
 
     backend_mock.set_password.assert_called_once_with(app_id, "key", good_key)
     keyring_lookup_mock.assert_called_once_with(app_id, "key")

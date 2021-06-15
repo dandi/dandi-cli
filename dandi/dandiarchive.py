@@ -9,7 +9,7 @@ import requests
 
 from . import get_logger
 from .consts import known_instances
-from .dandiapi import DandiAPIClient
+from .dandiapi import DandiAPIClient, RemoteAsset, RemoteDandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
 from .utils import get_instance
 
@@ -44,7 +44,7 @@ class ParsedDandiURL(ABC, BaseModel):
         """Returns an unauthenticated `DandiAPIClient` for `api_url`"""
         return DandiAPIClient(self.api_url)
 
-    def get_dandiset(self, client: DandiAPIClient) -> dict:
+    def get_dandiset(self, client: DandiAPIClient) -> RemoteDandiset:
         """
         Returns information about the specified (or default) version of the
         specified Dandiset
@@ -67,18 +67,13 @@ class ParsedDandiURL(ABC, BaseModel):
             return self.version_id
 
     @abstractmethod
-    def get_assets(
-        self, client: DandiAPIClient, include_metadata: bool = False
-    ) -> Iterator[dict]:
+    def get_assets(self, client: DandiAPIClient) -> Iterator[RemoteAsset]:
         """
         Returns an iterator of asset structures for the assets referred to by
         or associated with the URL.  For a URL pointing to just a Dandiset,
         this is the set of all assets in the given or default version of the
         Dandiset.  For a URL that specifies a specific asset or collection of
         assets in a Dandiset, this is all of those assets.
-
-        Subclasses may ignore `include_metadata` if it is not practical to
-        honor it.
         """
         ...
 
@@ -88,27 +83,22 @@ class ParsedDandiURL(ABC, BaseModel):
         with the URL
         """
         for a in self.get_assets(client):
-            yield a["asset_id"]
+            yield a.identifier
 
     @contextmanager
     def navigate(
-        self, include_metadata: bool = True
-    ) -> Iterator[Tuple[DandiAPIClient, dict, Iterator[dict]]]:
+        self,
+    ) -> Iterator[Tuple[DandiAPIClient, RemoteDandiset, Iterator[RemoteAsset]]]:
         """
         A context manager that returns a triple of a `DandiAPIClient` (with an
         open session that is closed when the context manager closes), the
         return value of `get_dandiset()`, and the return value of
-        `get_assets()` with the given ``include_metadata`` setting.
+        `get_assets()`
         """
         # We could later try to "dandi_authenticate" if run into permission
         # issues.  May be it could be not just boolean but the "id" to be used?
-        client = self.get_client()
-        with client.session():
-            yield (
-                client,
-                self.get_dandiset(client),
-                self.get_assets(client, include_metadata=include_metadata),
-            )
+        with self.get_client() as client:
+            yield (client, self.get_dandiset(client), self.get_assets(client))
 
 
 class DandisetURL(ParsedDandiURL):
@@ -116,15 +106,9 @@ class DandisetURL(ParsedDandiURL):
     Parsed from a URL that only refers to a Dandiset (possibly with a version)
     """
 
-    def get_assets(
-        self, client: DandiAPIClient, include_metadata: bool = False
-    ) -> Iterator[dict]:
+    def get_assets(self, client: DandiAPIClient) -> Iterator[RemoteAsset]:
         """Returns all assets in the Dandiset"""
-        return client.get_dandiset_assets(
-            self.dandiset_id,
-            self.get_version_id(client),
-            include_metadata=include_metadata,
-        )
+        return self.get_dandiset(client).get_assets()
 
 
 class SingleAssetURL(ParsedDandiURL):
@@ -144,32 +128,18 @@ class AssetIDURL(SingleAssetURL):
 
     asset_id: str
 
-    def get_assets(
-        self, client: DandiAPIClient, include_metadata: bool = False
-    ) -> Iterator[dict]:
+    def get_assets(self, client: DandiAPIClient) -> Iterator[RemoteAsset]:
         """
         Yields the asset with the given ID.  Yields nothing if the asset does
         not exist.
-
-        ``include_metadata`` is ignored; metadata is always returned.
         """
         try:
-            metadata = client.get_asset(
-                self.dandiset_id, self.get_version_id(client), self.asset_id
-            )
+            yield self.get_dandiset(client).get_asset(self.asset_id)
         except requests.HttpError as e:
             if e.response.status_code == 404:
                 return
             else:
                 raise
-        yield {
-            "asset_id": metadata["identifier"],
-            "path": metadata["path"],
-            "size": metadata["contentSize"],
-            # "created": # not in metadata
-            "modified": metadata["dateModified"],
-            "metadata": metadata,
-        }
 
     def get_asset_ids(self, client: DandiAPIClient) -> Iterator[str]:
         """Yields the ID of the asset (regardless of whether it exists)"""
@@ -181,16 +151,9 @@ class AssetPathPrefixURL(MultiAssetURL):
     Parsed from a URL that refers to a collection of assets by path prefix
     """
 
-    def get_assets(
-        self, client: DandiAPIClient, include_metadata: bool = False
-    ) -> Iterator[dict]:
+    def get_assets(self, client: DandiAPIClient) -> Iterator[RemoteAsset]:
         """Returns the assets whose paths start with `path`"""
-        return client.get_dandiset_assets(
-            self.dandiset_id,
-            self.get_version_id(client),
-            path=self.path,
-            include_metadata=include_metadata,
-        )
+        return self.get_dandiset(client).get_assets_under_path(self.path)
 
 
 class AssetItemURL(SingleAssetURL):
@@ -198,40 +161,27 @@ class AssetItemURL(SingleAssetURL):
 
     path: str
 
-    def get_assets(
-        self, client: DandiAPIClient, include_metadata: bool = False
-    ) -> Iterator[dict]:
+    def get_assets(self, client: DandiAPIClient) -> Iterator[RemoteAsset]:
         """
         Yields the asset whose path equals `path`.  If there is no such asset,
         this method yields nothing, unless the path happens to be the path to
         an asset directory, in which case an error is raised indicating that
         the user left off a trailing slash.
         """
-        version_id = self.get_version_id(client)
-        asset = client.get_asset_bypath(
-            self.dandiset_id,
-            version_id,
-            self.path,
-            include_metadata=include_metadata,
-        )
-        if asset is not None:
-            yield asset
-        else:
+        d = self.get_dandiset(client)
+        try:
+            asset = d.get_asset_by_path(self.path)
+        except NotFoundError:
             try:
-                next(
-                    client.get_dandiset_assets(
-                        self.dandiset_id,
-                        version_id,
-                        path=self.path + "/",
-                        include_metadata=False,
-                    )
-                )
+                next(d.get_assets_under_path(self.path + "/"))
             except StopIteration:
                 pass
             else:
                 raise ValueError(
                     f"Asset path {self.path!r} points to a directory but lacks trailing /"
                 )
+        else:
+            yield asset
 
 
 class AssetFolderURL(MultiAssetURL):
@@ -241,9 +191,7 @@ class AssetFolderURL(MultiAssetURL):
 
     path: str
 
-    def get_assets(
-        self, client: DandiAPIClient, include_metadata: bool = False
-    ) -> Iterator[dict]:
+    def get_assets(self, client: DandiAPIClient) -> Iterator[RemoteAsset]:
         """
         Returns all assets under the folder at `path`.  Yields nothing if the
         folder does not exist.
@@ -251,16 +199,11 @@ class AssetFolderURL(MultiAssetURL):
         path = self.path
         if not path.endswith("/"):
             path += "/"
-        return client.get_dandiset_assets(
-            self.dandiset_id,
-            self.get_version_id(client),
-            path=path,
-            include_metadata=include_metadata,
-        )
+        return self.get_dandiset(client).get_assets_under_path(path)
 
 
 @contextmanager
-def navigate_url(url, include_metadata=True):
+def navigate_url(url):
     """Context manager to 'navigate' URL pointing to DANDI archive.
 
     Parameters
@@ -274,11 +217,7 @@ def navigate_url(url, include_metadata=True):
       `client` will have established a session for the duration of the context
     """
     parsed_url = parse_dandi_url(url)
-    with parsed_url.navigate(include_metadata=include_metadata) as (
-        client,
-        dandiset,
-        assets,
-    ):
+    with parsed_url.navigate() as (client, dandiset, assets):
         yield (client, dandiset, assets)
 
 

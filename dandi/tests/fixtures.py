@@ -260,8 +260,7 @@ def local_dandi_api(docker_compose_setup):
     instance_id = "dandi-api-local-docker-tests"
     instance = known_instances[instance_id]
     api_key = docker_compose_setup["django_api_key"]
-    client = DandiAPIClient(api_url=instance.api, token=api_key)
-    with client.session():
+    with DandiAPIClient(api_url=instance.api, token=api_key) as client:
         yield {
             "api_key": api_key,
             "client": client,
@@ -272,9 +271,8 @@ def local_dandi_api(docker_compose_setup):
 
 @pytest.fixture()
 def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
-    dandiset_id = local_dandi_api["client"].create_dandiset("Text Dandiset", {})[
-        "identifier"
-    ]
+    d = local_dandi_api["client"].create_dandiset("Text Dandiset", {})
+    dandiset_id = d.identifier
     dspath = tmp_path_factory.mktemp("text_dandiset")
     (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
     (dspath / "file.txt").write_text("This is test text.\n")
@@ -301,6 +299,7 @@ def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
     return {
         "client": local_dandi_api["client"],
         "dspath": dspath,
+        "dandiset": d,
         "dandiset_id": dandiset_id,
         "reupload": upload_dandiset,
     }

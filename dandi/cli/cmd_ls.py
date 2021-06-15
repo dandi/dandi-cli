@@ -130,21 +130,20 @@ def ls(
         for path in paths:
             if is_url(path):
                 parsed_url = parse_dandi_url(path)
-                with parsed_url.navigate(
-                    include_metadata=metadata in ("all", "assets")
-                ) as (client, dandiset, assets):
+                with parsed_url.navigate() as (client, dandiset, assets):
                     if isinstance(parsed_url, DandisetURL):
                         rec = {
-                            "path": dandiset.pop("dandiset", {}).get(
-                                "identifier", "ERR#%s" % id(dandiset)
-                            )
+                            "path": dandiset.identifier,
+                            **dandiset.version.json_dict(),
+                            "metadata": dandiset.get_raw_metadata(),
                         }
-                        # flatten the metadata into record to display
-                        # rec.update(dandiset.get('metadata', {}))
-                        rec.update(dandiset)
                         yield rec
                     if not isinstance(parsed_url, DandisetURL) or recursive:
-                        yield from assets
+                        for a in assets:
+                            rec = a.json_dict()
+                            if metadata in ("all", "assets"):
+                                rec["metadata"] = a.get_raw_metadata()
+                            yield rec
             else:
                 # For now we support only individual files
                 yield path
