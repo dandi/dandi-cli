@@ -685,6 +685,10 @@ class RemoteAsset(APIBase):
     def api_path(self) -> str:
         return f"/dandisets/{self.dandiset_id}/versions/{self.version_id}/assets/{self.identifier}/"
 
+    @property
+    def download_url(self) -> str:
+        return self.client.get_url(f"{self.api_path}download/")
+
     def get_raw_metadata(self) -> Dict[str, Any]:
         """Fetch the metadata for the asset as an unprocessed `dict`"""
         if self._metadata is not None:
@@ -704,7 +708,7 @@ class RemoteAsset(APIBase):
         asset to start downloading at) returns a generator of chunks of the
         asset
         """
-        url = self.client.get_url(f"{self.api_path}download/")
+        url = self.download_url
 
         def downloader(start_at: int = 0) -> Iterator[bytes]:
             lgr.debug("Starting download from %s", url)
