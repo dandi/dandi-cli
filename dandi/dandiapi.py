@@ -705,16 +705,26 @@ class RemoteAsset(APIBase):
         else:
             return cast(Dict[str, Any], self.client.get(self.api_path))
 
-    def get_blob_url(self) -> str:
+    def get_content_url(
+        self, regex: str = r".*", follow_redirects: bool = False
+    ) -> str:
         """
-        Returns a non-redirecting URL for downloading the asset, found by
-        inspecting the metadata.  Raises `NotFoundError` if the metadata does
-        not contain an appropriate URL.
+        Returns a URL for downloading the asset, found by inspecting the
+        metadata; specifically, returns the first ``contentUrl`` that matches
+        ``regex``.  If ``follow_redirects`` is true, a ``HEAD`` request is made
+        to resolve any redirects before returning the URL.  Raises
+        `NotFoundError` if the metadata does not contain a matching URL.
         """
         for url in self.get_raw_metadata().get("contentUrl", []):
-            if not url.startswith(self.client.api_url):
-                return url
-        raise NotFoundError("Blob URL not found in asset's contentUrl metadata field")
+            if re.search(regex, url):
+                if follow_redirects:
+                    r = self.client.request("HEAD", url, json_resp=False)
+                    return r.url
+                else:
+                    return url
+        raise NotFoundError(
+            "No matching URL found in asset's contentUrl metadata field"
+        )
 
     def delete(self) -> None:
         """Delete the asset"""
