@@ -67,7 +67,7 @@ metadata_all_fields = metadata_nwb_fields + metadata_dandiset_fields
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = "^[0-9]{6}$"
 
-dandi_instance = namedtuple("dandi_instance", ("gui", "redirector", "api"))
+DandiInstance = namedtuple("DandiInstance", ("gui", "redirector", "api"))
 
 # So it could be easily mapped to external IP (e.g. from within VM)
 # to test against instance running outside of current environment
@@ -76,22 +76,22 @@ instancehost = os.environ.get("DANDI_INSTANCEHOST", "localhost")
 redirector_base = os.environ.get("DANDI_REDIRECTOR_BASE", "https://dandiarchive.org")
 
 known_instances = {
-    "dandi": dandi_instance(
+    "dandi": DandiInstance(
         "https://gui.dandiarchive.org",
         redirector_base,
         "https://api.dandiarchive.org/api",
     ),
-    "dandi-devel": dandi_instance(
+    "dandi-devel": DandiInstance(
         "https://gui-beta-dandiarchive-org.netlify.app",
         None,
         None,
     ),
-    "dandi-staging": dandi_instance(
+    "dandi-staging": DandiInstance(
         "https://gui-staging.dandiarchive.org",
         None,
         "https://api-staging.dandiarchive.org/api",
     ),
-    "dandi-api-local-docker-tests": dandi_instance(
+    "dandi-api-local-docker-tests": DandiInstance(
         None, None, f"http://{instancehost}:8000/api"
     ),
 }

@@ -32,7 +32,7 @@ import tenacity
 # Additional handlers
 #
 from . import __version__, get_logger
-from .consts import dandi_instance, known_instances, known_instances_rev
+from .consts import DandiInstance, known_instances, known_instances_rev
 from .exceptions import BadCliVersionError, CliVersionTooOldError
 
 lgr = get_logger()
@@ -602,7 +602,7 @@ def get_instance(dandi_instance_id):
         for name, rec in server_info.get("services", {}).items()
     }
     if services.get("api"):
-        return dandi_instance(
+        return DandiInstance(
             gui=services.get("webui"),
             redirector=redirector_url,
             api=services.get("api"),
