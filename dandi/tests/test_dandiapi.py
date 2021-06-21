@@ -5,10 +5,9 @@ import random
 from shutil import rmtree
 
 import click
-import pytest
 
 from .. import dandiapi
-from ..consts import dandiset_metadata_file, known_instances
+from ..consts import dandiset_metadata_file
 from ..dandiapi import DandiAPIClient
 from ..download import download
 from ..upload import upload
@@ -272,12 +271,14 @@ def test_get_content_url_regex(monkeypatch, tmp_path):
                 fp.write(chunk)
 
 
-@pytest.mark.xfail(reason="S3 disallows HEAD requests")
-def test_get_content_url_follow_redirects(monkeypatch):
+def test_get_content_url_follow_one_redirects_strip_query(monkeypatch):
     monkeypatch.setenv("DANDI_INSTANCE", "dandi")
     with DandiAPIClient() as client:
         asset = client.get_dandiset("000027", "draft").get_asset_by_path(
             "sub-RAT123/sub-RAT123.nwb"
         )
-        url = asset.get_content_url(follow_redirects=True)
-        assert not url.startswith(known_instances["dandi"].api)
+        url = asset.get_content_url(follow_redirects=1, strip_query=True)
+        assert url == (
+            "https://dandiarchive.s3.amazonaws.com/blobs/2db/af0/2dbaf0fd-5003"
+            "-4a0a-b4c0-bc8cdbdb3826"
+        )
