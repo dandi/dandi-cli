@@ -259,6 +259,19 @@ def test_get_content_url(monkeypatch, tmp_path):
                 fp.write(chunk)
 
 
+def test_get_content_url_regex(monkeypatch, tmp_path):
+    monkeypatch.setenv("DANDI_INSTANCE", "dandi")
+    with DandiAPIClient() as client:
+        asset = client.get_dandiset("000027", "draft").get_asset_by_path(
+            "sub-RAT123/sub-RAT123.nwb"
+        )
+        url = asset.get_content_url(r"amazonaws.com/.*blobs/")
+        r = client.get(url, stream=True, json_resp=False)
+        with open(tmp_path / "asset.nwb", "wb") as fp:
+            for chunk in r.iter_content(chunk_size=8192):
+                fp.write(chunk)
+
+
 @pytest.mark.xfail(reason="S3 disallows HEAD requests")
 def test_get_content_url_follow_redirects(monkeypatch):
     monkeypatch.setenv("DANDI_INSTANCE", "dandi")
