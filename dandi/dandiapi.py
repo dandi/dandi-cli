@@ -432,7 +432,9 @@ class RemoteDandiset(APIBase):
         version does not exist, a `requests.HTTPError` is raised with a 404
         status code.
         """
-        return Version.parse_obj(self.client.get(f"{self.version_api_path}info/"))
+        return Version.parse_obj(
+            self.client.get(f"/dandisets/{self.identifier}/versions/{version_id}/info")
+        )
 
     def for_version(self, version_id: Union[str, Version]) -> "RemoteDandiset":
         """
