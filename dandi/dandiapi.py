@@ -36,7 +36,13 @@ from .consts import (
 )
 from .exceptions import NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup
-from .utils import USER_AGENT, check_dandi_version, is_interactive, try_multiple
+from .utils import (
+    USER_AGENT,
+    check_dandi_version,
+    ensure_datetime,
+    is_interactive,
+    try_multiple,
+)
 
 lgr = get_logger()
 
@@ -288,21 +294,27 @@ class DandiAPIClient(RESTFullAPIClient):
                 break
 
     def get_dandiset(
-        self, dandiset_id: str, version_id: Optional[str] = None
+        self, dandiset_id: str, version_id: Optional[str] = None, lazy: bool = True
     ) -> "RemoteDandiset":
         """
         Fetches the Dandiset with the given ``dandiset_id``.  If ``version_id``
         is not specified, the `RemoteDandiset`'s version is set to the most
         recent published version if there is one, otherwise to the draft
         version.
+
+        If ``lazy`` is true, no requests are actually made until any data is
+        requested from the `RemoteDandiset`.
         """
-        d = RemoteDandiset._make(self, self.get(f"/dandisets/{dandiset_id}/"))
-        if version_id is not None and version_id != d.version_id:
-            if version_id == DRAFT:
-                d.version = d.draft_version
-            else:
-                return d.for_version(version_id)
-        return d
+        if lazy:
+            return RemoteDandiset(self, dandiset_id, version_id)
+        else:
+            d = RemoteDandiset._make(self, self.get(f"/dandisets/{dandiset_id}/"))
+            if version_id is not None and version_id != d.version_id:
+                if version_id == DRAFT:
+                    d.version = d.draft_version
+                else:
+                    return d.for_version(version_id)
+            return d
 
     def get_dandisets(self) -> Iterator["RemoteDandiset"]:
         for data in self.paginate("/dandisets/"):
@@ -361,24 +373,67 @@ class Version(APIBase):
     modified: datetime
 
 
-class RemoteDandiset(APIBase):
+class RemoteDandiset:
     """
     Representation of a Dandiset (as of a certain version) retrieved from the
     API
     """
 
-    client: "DandiAPIClient"
-    identifier: str
-    created: datetime
-    modified: datetime
-    #: The version in question of the Dandiset
-    version: Version
-    most_recent_published_version: Optional[Version]
-    draft_version: Version
+    def __init__(
+        self,
+        client: DandiAPIClient,
+        identifier: str,
+        version: Union[str, Version],
+        data: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self.client = client
+        self.identifier = identifier
+        self._version: Optional[Version]
+        if isinstance(version, str):
+            self.version_id = version
+            self._version: Optional[Version] = None
+        else:
+            self.version_id = version.identifier
+            self._version = version
+        self._data = data
+
+    def _get_data(self) -> Dict[str, Any]:
+        if self._data is None:
+            self._data = self.client.get(f"/dandisets/{self.identifier}/")
+        return self._data
 
     @property
-    def version_id(self) -> str:
-        return self.version.identifier
+    def version(self) -> Version:
+        """The version in question of the Dandiset"""
+        if self._version is None:
+            if self._data is not None:
+                for vattr in ["most_recent_published_version", "draft_version"]:
+                    vdict = self._data.get(vattr)
+                    if vdict and vdict["version"] == self.version_id:
+                        self._version = Version.parse_obj(vdict)
+                        return self._version
+            self._version = self.get_version(self.version_id)
+        return self._version
+
+    @property
+    def created(self) -> datetime:
+        return ensure_datetime(self._get_data()["created"])
+
+    @property
+    def modified(self) -> datetime:
+        return ensure_datetime(self._get_data()["modified"])
+
+    @property
+    def most_recent_published_version(self) -> Optional[Version]:
+        v = self._get_data().get("most_recent_published_version")
+        if v is None:
+            return None
+        else:
+            return Version.parse_obj(v)
+
+    @property
+    def draft_version(self) -> Version:
+        return Version.parse_obj(self._get_data()["draft_version"])
 
     @property
     def api_path(self) -> str:
@@ -396,10 +451,12 @@ class RemoteDandiset(APIBase):
         as the Dandiset's version; otherwise, use ``"draft_version"``.
         """
         if data.get("most_recent_published_version") is not None:
-            version = data["most_recent_published_version"]
+            version = Version.parse_obj(data["most_recent_published_version"])
         else:
-            version = data["draft_version"]
-        return cls(client=client, version=version, **data)
+            version = Version.parse_obj(data["draft_version"])
+        return cls(
+            client=client, identifier=data["identifier"], version=version, data=data
+        )
 
     def _mkasset(self, data: Dict[str, Any]) -> "RemoteAsset":
         return RemoteAsset(
@@ -420,6 +477,13 @@ class RemoteDandiset(APIBase):
             modified=metadata["dateModified"],
             _metadata=metadata,
         )
+
+    def json_dict(self) -> Dict[str, Any]:
+        """
+        Convert to a JSONable `dict`, omitting the ``client`` attribute and
+        using the same field names as in the API
+        """
+        return {**self._get_data(), "version": self.version.json_dict()}
 
     def get_versions(self) -> Iterator[Version]:
         """Returns an iterator of all available `Version`\\s for the Dandiset"""
@@ -500,12 +564,13 @@ class RemoteDandiset(APIBase):
         `RemoteDandiset` with the `version` attribute set to the new published
         `Version`.
         """
-        return self.copy(
-            update={
-                "version": Version.parse_obj(
-                    self.client.post(f"{self.version_api_path}publish/")
-                )
-            }
+        return type(self)(
+            client=self.client,
+            identifier=self.identifier,
+            version=Version.parse_obj(
+                self.client.post(f"{self.version_api_path}publish/")
+            ),
+            data=self._data,
         )
 
     def get_assets(self, path=None) -> Iterator["RemoteAsset"]:

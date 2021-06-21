@@ -1,4 +1,5 @@
 import builtins
+from datetime import datetime
 import os.path
 from pathlib import Path
 import random
@@ -12,7 +13,7 @@ import responses
 
 from .. import dandiapi
 from ..consts import DRAFT, dandiset_metadata_file
-from ..dandiapi import DandiAPIClient
+from ..dandiapi import DandiAPIClient, Version
 from ..download import download
 from ..exceptions import SchemaVersionError
 from ..upload import upload
@@ -263,9 +264,8 @@ def test_authenticate_bad_key_keyring_good_key_input(
     confirm_mock.assert_called_once_with("API key is invalid; enter another?")
 
 
-def test_get_content_url(monkeypatch, tmp_path):
-    monkeypatch.setenv("DANDI_INSTANCE", "dandi")
-    with DandiAPIClient() as client:
+def test_get_content_url(tmp_path):
+    with DandiAPIClient.for_dandi_instance("dandi") as client:
         asset = client.get_dandiset("000027", "draft").get_asset_by_path(
             "sub-RAT123/sub-RAT123.nwb"
         )
@@ -282,9 +282,8 @@ def test_get_content_url(monkeypatch, tmp_path):
                 fp.write(chunk)
 
 
-def test_get_content_url_regex(monkeypatch, tmp_path):
-    monkeypatch.setenv("DANDI_INSTANCE", "dandi")
-    with DandiAPIClient() as client:
+def test_get_content_url_regex(tmp_path):
+    with DandiAPIClient.for_dandi_instance("dandi") as client:
         asset = client.get_dandiset("000027", "draft").get_asset_by_path(
             "sub-RAT123/sub-RAT123.nwb"
         )
@@ -295,9 +294,8 @@ def test_get_content_url_regex(monkeypatch, tmp_path):
                 fp.write(chunk)
 
 
-def test_get_content_url_follow_one_redirects_strip_query(monkeypatch):
-    monkeypatch.setenv("DANDI_INSTANCE", "dandi")
-    with DandiAPIClient() as client:
+def test_get_content_url_follow_one_redirects_strip_query():
+    with DandiAPIClient.for_dandi_instance("dandi") as client:
         asset = client.get_dandiset("000027", "draft").get_asset_by_path(
             "sub-RAT123/sub-RAT123.nwb"
         )
@@ -340,3 +338,22 @@ def test_check_schema_version_mismatch():
         == "Server requires schema version 4.5.6; client only supports 1.2.3.  "
         "You may need to upgrade dandi and/or dandischema."
     )
+
+
+def test_get_dandiset_lazy(mocker, text_dandiset):
+    client = text_dandiset["client"]
+    get_spy = mocker.spy(client, "get")
+    dandiset = client.get_dandiset(text_dandiset["dandiset_id"], DRAFT, lazy=True)
+    get_spy.assert_not_called()
+    assert dandiset.version_id == DRAFT
+    get_spy.assert_not_called()
+    assert isinstance(dandiset.created, datetime)
+    get_spy.assert_called_once()
+    get_spy.reset_mock()
+    assert isinstance(dandiset.created, datetime)
+    assert isinstance(dandiset.modified, datetime)
+    assert isinstance(dandiset.version, Version)
+    assert dandiset.version.identifier == DRAFT
+    assert dandiset.most_recent_published_version is None
+    assert isinstance(dandiset.draft_version, Version)
+    get_spy.assert_not_called()

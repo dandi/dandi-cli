@@ -40,7 +40,7 @@ class Deleter:
             self.client = DandiAPIClient(api_url.rstrip("/"))
             self.client.dandi_authenticate()
             try:
-                self.dandiset = self.client.get_dandiset(dandiset_id, DRAFT)
+                self.dandiset = self.client.get_dandiset(dandiset_id, DRAFT, lazy=False)
             except requests.HTTPError as e:
                 if e.response.status_code == 404:
                     if self.skip_missing:

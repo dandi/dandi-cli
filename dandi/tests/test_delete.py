@@ -137,7 +137,7 @@ def test_delete_dandiset(local_dandi_api, mocker, monkeypatch, text_dandiset, pa
     )
     delete_spy.assert_called()
     with pytest.raises(requests.HTTPError) as excinfo:
-        local_dandi_api["client"].get_dandiset(dandiset_id, DRAFT)
+        local_dandi_api["client"].get_dandiset(dandiset_id, DRAFT, lazy=False)
     assert excinfo.value.response.status_code == 404
 
 
