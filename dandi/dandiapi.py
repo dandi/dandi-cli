@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 from threading import Lock
 from typing import Any, Callable, Dict, Iterator, Optional, Union, cast
+from urllib.parse import urlparse, urlunparse
 from xml.etree.ElementTree import fromstring
 
 import click
@@ -704,6 +705,50 @@ class RemoteAsset(APIBase):
             return self._metadata
         else:
             return cast(Dict[str, Any], self.client.get(self.api_path))
+
+    def get_content_url(
+        self,
+        regex: str = r".*",
+        follow_redirects: Union[bool, int] = False,
+        strip_query: bool = False,
+    ) -> str:
+        """
+        Returns a URL for downloading the asset, found by inspecting the
+        metadata; specifically, returns the first ``contentUrl`` that matches
+        ``regex``.  Raises `NotFoundError` if the metadata does not contain a
+        matching URL.
+
+        If ``follow_redirects`` is `True`, a ``HEAD`` request is made to
+        resolve any & all redirects before returning the URL.  If
+        ``follow_redirects`` is an integer, at most that many redirects are
+        followed.
+
+        If ``strip_query`` is true, any query parameters are removed from the
+        final URL before returning it.
+        """
+        for url in self.get_raw_metadata().get("contentUrl", []):
+            if re.search(regex, url):
+                break
+        else:
+            raise NotFoundError(
+                "No matching URL found in asset's contentUrl metadata field"
+            )
+        if follow_redirects is True:
+            url = self.client.request(
+                "HEAD", url, json_resp=False, allow_redirects=True
+            ).url
+        elif follow_redirects:
+            for _ in range(follow_redirects):
+                r = self.client.request(
+                    "HEAD", url, json_resp=False, allow_redirects=False
+                )
+                if "Location" in r.headers:
+                    url = r.headers["Location"]
+                else:
+                    break
+        if strip_query:
+            url = urlunparse(urlparse(url)._replace(query=""))
+        return url
 
     def delete(self) -> None:
         """Delete the asset"""

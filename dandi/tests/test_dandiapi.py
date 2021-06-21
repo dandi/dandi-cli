@@ -239,3 +239,46 @@ def test_authenticate_bad_key_keyring_good_key_input(
     input_mock.assert_called_once_with(f"Please provide API Key for {client_name}: ")
     is_interactive_mock.assert_called_once()
     confirm_mock.assert_called_once_with("API key is invalid; enter another?")
+
+
+def test_get_content_url(monkeypatch, tmp_path):
+    monkeypatch.setenv("DANDI_INSTANCE", "dandi")
+    with DandiAPIClient() as client:
+        asset = client.get_dandiset("000027", "draft").get_asset_by_path(
+            "sub-RAT123/sub-RAT123.nwb"
+        )
+        url = asset.get_content_url()
+        assert url == (
+            "https://api.dandiarchive.org/api/dandisets/000027/versions/draft"
+            "/assets/ff453f4c-a435-4a5d-a48b-128abca5ec47/download/"
+        )
+        r = client.get(url, stream=True, json_resp=False)
+        with open(tmp_path / "asset.nwb", "wb") as fp:
+            for chunk in r.iter_content(chunk_size=8192):
+                fp.write(chunk)
+
+
+def test_get_content_url_regex(monkeypatch, tmp_path):
+    monkeypatch.setenv("DANDI_INSTANCE", "dandi")
+    with DandiAPIClient() as client:
+        asset = client.get_dandiset("000027", "draft").get_asset_by_path(
+            "sub-RAT123/sub-RAT123.nwb"
+        )
+        url = asset.get_content_url(r"amazonaws.com/.*blobs/")
+        r = client.get(url, stream=True, json_resp=False)
+        with open(tmp_path / "asset.nwb", "wb") as fp:
+            for chunk in r.iter_content(chunk_size=8192):
+                fp.write(chunk)
+
+
+def test_get_content_url_follow_one_redirects_strip_query(monkeypatch):
+    monkeypatch.setenv("DANDI_INSTANCE", "dandi")
+    with DandiAPIClient() as client:
+        asset = client.get_dandiset("000027", "draft").get_asset_by_path(
+            "sub-RAT123/sub-RAT123.nwb"
+        )
+        url = asset.get_content_url(follow_redirects=1, strip_query=True)
+        assert url == (
+            "https://dandiarchive.s3.amazonaws.com/blobs/2db/af0/2dbaf0fd-5003"
+            "-4a0a-b4c0-bc8cdbdb3826"
+        )
