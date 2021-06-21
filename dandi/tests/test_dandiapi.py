@@ -11,7 +11,7 @@ import pytest
 import responses
 
 from .. import dandiapi
-from ..consts import dandiset_metadata_file
+from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiapi import DandiAPIClient
 from ..download import download
 from ..exceptions import SchemaVersionError
@@ -22,7 +22,7 @@ from ..utils import find_files
 def test_upload(local_dandi_api, simple1_nwb, tmp_path):
     client = local_dandi_api["client"]
     d = client.create_dandiset(name="Upload Test", metadata={})
-    assert d.version_id == "draft"
+    assert d.version_id == DRAFT
     d.upload_raw_asset(simple1_nwb, {"path": "testing/simple1.nwb"})
     (asset,) = d.get_assets()
     assert asset.path == "testing/simple1.nwb"

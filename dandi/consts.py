@@ -115,3 +115,5 @@ file_operation_modes = [
 # TODO: should we make them smaller for download than for upload?
 # ATM used only in download
 MAX_CHUNK_SIZE = int(os.environ.get("DANDI_MAX_CHUNK_SIZE", 1024 * 1024 * 8))  # 64
+
+DRAFT = "draft"

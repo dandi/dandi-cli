@@ -27,7 +27,13 @@ import requests
 import tenacity
 
 from . import get_logger
-from .consts import MAX_CHUNK_SIZE, DandiInstance, known_instances, known_instances_rev
+from .consts import (
+    DRAFT,
+    MAX_CHUNK_SIZE,
+    DandiInstance,
+    known_instances,
+    known_instances_rev,
+)
 from .exceptions import NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup
 from .utils import USER_AGENT, check_dandi_version, is_interactive, try_multiple
@@ -292,7 +298,7 @@ class DandiAPIClient(RESTFullAPIClient):
         """
         d = RemoteDandiset._make(self, self.get(f"/dandisets/{dandiset_id}/"))
         if version_id is not None and version_id != d.version_id:
-            if version_id == "draft":
+            if version_id == DRAFT:
                 d.version = d.draft_version
             else:
                 return d.for_version(version_id)

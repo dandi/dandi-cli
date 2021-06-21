@@ -7,7 +7,7 @@ import time
 import click
 
 from . import lgr
-from .consts import dandiset_identifier_regex, dandiset_metadata_file
+from .consts import DRAFT, dandiset_identifier_regex, dandiset_metadata_file
 from .exceptions import NotFoundError
 from .utils import ensure_datetime, get_instance, pluralize
 
@@ -47,7 +47,7 @@ def upload(
     dandiset = APIDandiset(dandiset.path)  # "cast" to a new API based dandiset
 
     ds_identifier = dandiset.identifier
-    remote_dandiset = client.get_dandiset(ds_identifier, "draft")
+    remote_dandiset = client.get_dandiset(ds_identifier, DRAFT)
 
     if not re.match(dandiset_identifier_regex, str(ds_identifier)):
         raise ValueError(

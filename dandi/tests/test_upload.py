@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from ..consts import dandiset_metadata_file
+from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiapi import RemoteDandiset
 from ..download import download
 from ..exceptions import NotFoundError
@@ -50,7 +50,7 @@ def test_new_upload_download(local_dandi_api, monkeypatch, organized_nwb_dir, tm
         upload_dandiset_metadata=True,
     )
 
-    d = local_dandi_api["client"].get_dandiset(dandiset_id, "draft")
+    d = local_dandi_api["client"].get_dandiset(dandiset_id, DRAFT)
     assert d.version.name == "shorty"
 
 
