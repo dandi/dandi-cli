@@ -21,7 +21,7 @@ from urllib.parse import urlparse, urlunparse
 from xml.etree.ElementTree import fromstring
 
 import click
-from dandischema.models import get_schema_version
+from dandischema import models
 from pydantic import BaseModel, Field, PrivateAttr
 import requests
 import tenacity
@@ -316,7 +316,7 @@ class DandiAPIClient(RESTFullAPIClient):
 
     def check_schema_version(self, schema_version: Optional[str] = None) -> None:
         if schema_version is None:
-            schema_version = get_schema_version()
+            schema_version = models.get_schema_version()
         server_info = self.get("/info/")
         server_schema_version = server_info.get("schema_version")
         if not server_schema_version:
@@ -448,6 +448,13 @@ class RemoteDandiset(APIBase):
     def delete(self) -> None:
         """Delete the Dandiset"""
         self.client.delete(self.api_path)
+
+    def get_metadata(self) -> models.Dandiset:
+        """
+        Fetch the metadata for this version of the Dandiset as a
+        `dandischema.models.Dandiset` instance
+        """
+        return models.Dandiset.parse_obj(self.get_raw_metadata())
 
     def get_raw_metadata(self) -> Dict[str, Any]:
         """
@@ -764,6 +771,13 @@ class RemoteAsset(APIBase):
     @property
     def download_url(self) -> str:
         return self.client.get_url(f"{self.api_path}download/")
+
+    def get_metadata(self) -> models.Asset:
+        """
+        Fetch the metadata for the asset as a `dandischema.models.Asset`
+        instance
+        """
+        return models.Asset.parse_obj(self.get_raw_metadata())
 
     def get_raw_metadata(self) -> Dict[str, Any]:
         """Fetch the metadata for the asset as an unprocessed `dict`"""
