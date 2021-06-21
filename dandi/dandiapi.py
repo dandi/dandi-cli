@@ -718,7 +718,9 @@ class RemoteAsset(APIBase):
         for url in self.get_raw_metadata().get("contentUrl", []):
             if re.search(regex, url):
                 if follow_redirects:
-                    r = self.client.request("HEAD", url, json_resp=False)
+                    r = self.client.request(
+                        "HEAD", url, json_resp=False, allow_redirects=True
+                    )
                     return r.url
                 else:
                     return url
