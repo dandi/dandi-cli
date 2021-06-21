@@ -27,7 +27,7 @@ import requests
 import tenacity
 
 from . import get_logger
-from .consts import MAX_CHUNK_SIZE, known_instances, known_instances_rev
+from .consts import MAX_CHUNK_SIZE, DandiInstance, known_instances, known_instances_rev
 from .exceptions import NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup
 from .utils import USER_AGENT, check_dandi_version, is_interactive, try_multiple
@@ -231,6 +231,17 @@ class DandiAPIClient(RESTFullAPIClient):
         super().__init__(api_url)
         if token is not None:
             self.authenticate(token)
+
+    @classmethod
+    def for_dandi_instance(
+        cls, instance: Union[str, DandiInstance], token=None, authenticate=False
+    ) -> "DandiAPIClient":
+        if isinstance(instance, str):
+            instance = known_instances[instance]
+        client = cls(instance.api, token=token)
+        if token is None and authenticate:
+            client.dandi_authenticate()
+        return client
 
     def authenticate(self, token):
         # Fails if token is invalid:
