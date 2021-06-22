@@ -267,6 +267,7 @@ def upload(
             for r in remote_dandiset.iter_upload_raw_asset(
                 path, metadata, jobs=jobs_per_file
             ):
+                r.pop("asset", None)  # to keep pyout from choking
                 if r["status"] == "uploading":
                     uploaded_paths[str(path)]["size"] = r.pop("current")
                     yield r
