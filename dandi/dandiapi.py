@@ -864,6 +864,15 @@ class RemoteAsset(APIBase):
         else:
             return cast(Dict[str, Any], self.client.get(self.api_path))
 
+    def set_metadata(self, metadata: models.Asset) -> None:
+        self.set_raw_metadata(metadata.json_dict())
+
+    def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
+        self.client.put(
+            self.api_path, json={"metadata": metadata, "blob_id": self.identifier}
+        )
+        self._metadata = None
+
     def get_content_url(
         self,
         regex: str = r".*",
