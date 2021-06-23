@@ -485,6 +485,17 @@ class RemoteDandiset:
         """
         return {**self._get_data(), "version": self.version.json_dict()}
 
+    def refresh(self) -> None:
+        """Refetch the data for this Dandiset & version"""
+        self._data = self.client.get(f"/dandisets/{self.identifier}/")
+        for vattr in ["most_recent_published_version", "draft_version"]:
+            vdict = self._data.get(vattr)
+            if vdict and vdict["version"] == self.version_id:
+                self._version = Version.parse_obj(vdict)
+                break
+        else:
+            self._version = self.get_version(self.version_id)
+
     def get_versions(self) -> Iterator[Version]:
         """Returns an iterator of all available `Version`\\s for the Dandiset"""
         for v in self.client.paginate(f"{self.api_path}versions/"):
