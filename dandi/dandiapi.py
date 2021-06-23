@@ -540,6 +540,12 @@ class RemoteDandiset:
         """
         return cast(Dict[str, Any], self.client.get(self.version_api_path))
 
+    def set_metadata(self, metadata: models.Dandiset) -> None:
+        """
+        Set the metadata for this version of the Dandiset to the given value
+        """
+        self.set_raw_metadata(metadata.json_dict())
+
     def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
         """
         Set the metadata for this version of the Dandiset to the given value
@@ -864,10 +870,26 @@ class RemoteAsset(APIBase):
         else:
             return cast(Dict[str, Any], self.client.get(self.api_path))
 
+    def get_digest(self, digest_type: Union[str, models.DigestType]) -> str:
+        """
+        Retrieves the value of the given type of digest from the asset's
+        metadata.  Raises `NotFoundError` if there is no entry for the given
+        digest type.
+        """
+        if isinstance(digest_type, models.DigestType):
+            digest_type = digest_type.value
+        metadata = self.get_raw_metadata()
+        try:
+            return metadata["digest"][digest_type]
+        except KeyError:
+            raise NotFoundError(f"No {digest_type} digest found in metadata")
+
     def set_metadata(self, metadata: models.Asset) -> None:
+        """Set the metadata for the asset to the given value"""
         self.set_raw_metadata(metadata.json_dict())
 
     def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
+        """Set the metadata for the asset to the given value"""
         self.client.put(
             self.api_path, json={"metadata": metadata, "blob_id": self.identifier}
         )
