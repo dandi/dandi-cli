@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 
@@ -15,4 +16,10 @@ else:
 
 @pytest.mark.skipif(not bash_works, reason="Bash required")
 def test_shell_completion_sourceable():
-    subprocess.run(["bash", "-c", "source <(dandi shell-completion)"], check=True)
+    subprocess.run(
+        ["bash", "-c", "source <(dandi shell-completion)"],
+        check=True,
+        # When testing for conda-forge on Windows, SHELL doesn't seem to be
+        # set, so we need to set it ourselves:
+        env={**os.environ, "SHELL": shutil.which("bash")},
+    )
