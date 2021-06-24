@@ -1,3 +1,24 @@
+# 0.21.0 (Thu Jun 24 2021)
+
+#### 🚀 Enhancement
+
+- Add RemoteAsset.get_content_url() method [#675](https://github.com/dandi/dandi-cli/pull/675) ([@jwodder](https://github.com/jwodder))
+- Python API rewrite, part 1 [#660](https://github.com/dandi/dandi-cli/pull/660) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Don't pass "asset" field from upload iterator to pyout [#679](https://github.com/dandi/dandi-cli/pull/679) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Fix a failing test on Windows on conda-forge [#680](https://github.com/dandi/dandi-cli/pull/680) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.20.0 (Mon Jun 14 2021)
 
 #### 🚀 Enhancement
