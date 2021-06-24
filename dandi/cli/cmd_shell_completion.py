@@ -36,6 +36,8 @@ def shell_completion(shell):
             raise click.UsageError(
                 "Could not determine running shell: SHELL environment variable not set"
             )
+        if shell.lower().endswith(".exe"):
+            shell = shell[:-4]
         if shell not in SHELLS:
             raise click.UsageError(f"Unsupported/unrecognized shell {shell!r}")
     if Version(click.__version__) < Version("8.0.0"):
