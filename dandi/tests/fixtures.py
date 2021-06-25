@@ -271,7 +271,23 @@ def local_dandi_api(docker_compose_setup):
 
 @pytest.fixture()
 def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
-    d = local_dandi_api["client"].create_dandiset("Text Dandiset", {})
+    d = local_dandi_api["client"].create_dandiset(
+        "Text Dandiset",
+        {
+            "schemaKey": "Dandiset",
+            "name": "Text Dandiset",
+            "description": "A test text Dandiset",
+            "contributor": [
+                {
+                    "schemaKey": "Person",
+                    "name": "Wodder, John",
+                    "roleName": ["dcite:Author", "dcite:ContactPerson"],
+                }
+            ],
+            "license": ["spdx:CC0-1.0"],
+            "manifestLocation": ["https://github.com/dandi/dandi-cli"],
+        },
+    )
     dandiset_id = d.identifier
     dspath = tmp_path_factory.mktemp("text_dandiset")
     (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")

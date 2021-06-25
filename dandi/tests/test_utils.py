@@ -18,6 +18,7 @@ from ..utils import (
     flatten,
     flattened,
     get_instance,
+    get_mime_type,
     get_module_version,
     get_utcnow_datetime,
     is_same_time,
@@ -351,3 +352,28 @@ def test_get_module_version():
     assert get_module_version("dandi") == __version__
     assert get_module_version("pynwb") == pynwb.__version__
     assert get_module_version("abracadabra123") is None
+
+
+@pytest.mark.parametrize(
+    "filename,mtype",
+    [
+        ("foo.txt", "text/plain"),
+        ("foo", "application/octet-stream"),
+        ("foo.gz", "application/gzip"),
+        ("foo.tar.gz", "application/gzip"),
+        ("foo.tgz", "application/gzip"),
+        ("foo.taz", "application/gzip"),
+        ("foo.svg.gz", "application/gzip"),
+        ("foo.svgz", "application/gzip"),
+        ("foo.Z", "application/x-compress"),
+        ("foo.tar.Z", "application/x-compress"),
+        ("foo.bz2", "application/x-bzip2"),
+        ("foo.tar.bz2", "application/x-bzip2"),
+        ("foo.tbz2", "application/x-bzip2"),
+        ("foo.xz", "application/x-xz"),
+        ("foo.tar.xz", "application/x-xz"),
+        ("foo.txz", "application/x-xz"),
+    ],
+)
+def test_get_mime_type(filename, mtype):
+    assert get_mime_type(filename) == mtype
