@@ -378,6 +378,6 @@ def test_delete_no_dandiset(mocker, monkeypatch, tmp_path):
         )
     assert str(excinfo.value) == (
         f"Found no {dandiset_metadata_file} anywhere.  "
-        "Use 'dandi register', 'download', or 'organize' first"
+        "Use 'dandi download' or 'organize' first"
     )
     delete_spy.assert_not_called()

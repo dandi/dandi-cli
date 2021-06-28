@@ -96,8 +96,7 @@ def upload(
     """Upload dandiset (files) to DANDI archive.
 
     Target dandiset to upload to must already be registered in the archive and
-    locally "dandiset.yaml" should exist in `--dandiset-path`.  If you have not
-    yet created a dandiset in the archive, use 'dandi register' command first.
+    locally "dandiset.yaml" should exist in `--dandiset-path`.
 
     Local dandiset should pass validation.  For that it should be first organized
     using 'dandiset organize' command.
