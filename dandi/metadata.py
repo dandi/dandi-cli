@@ -253,7 +253,10 @@ def extract_age(metadata):
             return ...
     else:
         duration = timedelta2duration(start - dob)
-    return models.PropertyValue(value=duration, unitText="Years from birth")
+    return models.PropertyValue(
+        value=duration,
+        unitText="ISO-8601 duration",
+    )
 
 
 def timedelta2duration(delta):
@@ -275,7 +278,7 @@ def timedelta2duration(delta):
         sec = delta.seconds
         if delta.microseconds:
             # Don't add when microseconds is 0, so that sec will be an int then
-            sec += delta.microseconds / 1000000
+            sec += delta.microseconds / 1e6
         s += f"T{sec}S"
     if s == "P":
         s += "0D"

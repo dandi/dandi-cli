@@ -69,7 +69,7 @@
     {
       "identifier": "a1b2c3",
       "age": {
-        "unitText": "Years from birth",
+        "unitText": "ISO-8601 duration",
         "value": "P170DT12212S",
         "schemaKey": "PropertyValue"
       },
