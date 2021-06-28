@@ -4,6 +4,7 @@ import os.path
 from pathlib import Path
 import re
 from threading import Lock
+from time import sleep
 from typing import Any, Callable, Dict, Iterator, Optional, Union, cast
 from urllib.parse import urlparse, urlunparse
 from xml.etree.ElementTree import fromstring
@@ -421,6 +422,16 @@ class RemoteDandiset(APIBase):
         `RemoteDandiset` with the `version` attribute set to the new published
         `Version`.
         """
+        lgr.debug("Waiting for Dandiset %s to complete validation ...", self.identifier)
+        while True:
+            r = self.client.get(f"{self.version_api_path}info/")
+            if r["status"] == "Valid":
+                break
+            elif r["status"] == "Invalid":
+                raise ValueError(
+                    f"Dandiset {self.identifier} is invalid: {r['validation_error']}"
+                )
+            sleep(0.5)
         return self.copy(
             update={
                 "version": Version.parse_obj(

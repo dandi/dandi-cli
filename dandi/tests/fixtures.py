@@ -9,6 +9,7 @@ import tempfile
 from time import sleep
 from uuid import uuid4
 
+from dandischema.consts import DANDI_SCHEMA_VERSION
 from dateutil.tz import tzutc
 import pynwb
 import pytest
@@ -181,6 +182,7 @@ def docker_compose_setup():
     env = dict(os.environ)
     env["DJANGO_DANDI_GIRDER_API_URL"] = "http://localhost:8080/api/v1"
     env["DJANGO_DANDI_GIRDER_API_KEY"] = "abc123"
+    env["DJANGO_DANDI_SCHEMA_VERSION"] = DANDI_SCHEMA_VERSION
 
     try:
         if create:
