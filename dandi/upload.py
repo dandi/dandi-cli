@@ -33,7 +33,7 @@ def upload(
     if not dandiset:
         raise RuntimeError(
             f"Found no {dandiset_metadata_file} anywhere.  "
-            "Use 'dandi register', 'download', or 'organize' first"
+            "Use 'dandi download' or 'organize' first"
         )
 
     instance = get_instance(dandi_instance)
@@ -51,8 +51,7 @@ def upload(
     if not re.match(dandiset_identifier_regex, str(ds_identifier)):
         raise ValueError(
             f"Dandiset identifier {ds_identifier} does not follow expected "
-            f"convention {dandiset_identifier_regex!r}.  Use "
-            f"'dandi register' to get a legit identifier"
+            f"convention {dandiset_identifier_regex!r}."
         )
 
     from .metadata import get_default_metadata, nwb2asset
