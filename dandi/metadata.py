@@ -15,7 +15,7 @@ from .pynwb_utils import (
     ignore_benign_pynwb_warnings,
     metadata_cache,
 )
-from .utils import ensure_datetime, get_utcnow_datetime
+from .utils import ensure_datetime, get_mime_type, get_utcnow_datetime
 
 lgr = get_logger()
 
@@ -709,7 +709,7 @@ def get_default_metadata(path, digest=None, digest_type=None) -> models.BareAsse
         dateModified=dateModified,
         blobDateModified=blobDateModified,
         wasGeneratedBy=[get_generator(start_time, end_time)],
-        # encodingFormat # TODO
+        encodingFormat=get_mime_type(path),
     )
 
 

@@ -29,7 +29,23 @@ def test_upload(local_dandi_api, simple1_nwb, tmp_path):
 
 def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
     client = local_dandi_api["client"]
-    d = client.create_dandiset("Test Dandiset", {})
+    d = client.create_dandiset(
+        "Test Dandiset",
+        {
+            "schemaKey": "Dandiset",
+            "name": "Text Dandiset",
+            "description": "A test text Dandiset",
+            "contributor": [
+                {
+                    "schemaKey": "Person",
+                    "name": "Wodder, John",
+                    "roleName": ["dcite:Author", "dcite:ContactPerson"],
+                }
+            ],
+            "license": ["spdx:CC0-1.0"],
+            "manifestLocation": ["https://github.com/dandi/dandi-cli"],
+        },
+    )
     dandiset_id = d.identifier
     upload_dir = tmp_path / "upload"
     upload_dir.mkdir()
