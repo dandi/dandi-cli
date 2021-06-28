@@ -4,11 +4,7 @@ import json
 from pathlib import Path
 
 from dandischema.consts import DANDI_SCHEMA_VERSION
-from dandischema.metadata import (
-    _validate_asset_json,
-    _validate_dandiset_json,
-    publish_model_schemata,
-)
+from dandischema.metadata import validate
 from dandischema.models import BareAsset as BareAssetMeta
 from dandischema.models import Dandiset as DandisetMeta
 from dateutil.tz import tzutc
@@ -18,11 +14,6 @@ from ..metadata import get_metadata, metadata2asset, parse_age, timedelta2durati
 from ..pynwb_utils import metadata_nwb_subject_fields
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
-
-
-@pytest.fixture(scope="module")
-def schema_dir(tmp_path_factory):
-    return publish_model_schemata(tmp_path_factory.mktemp("schema_dir"))
 
 
 def test_get_metadata(simple1_nwb, simple1_nwb_metadata):
@@ -124,7 +115,7 @@ def test_timedelta2duration(td, duration):
     assert timedelta2duration(td) == duration
 
 
-def test_metadata2asset(schema_dir):
+def test_metadata2asset():
     data = metadata2asset(
         {
             "contentSize": 69105,
@@ -171,10 +162,10 @@ def test_metadata2asset(schema_dir):
     bare_dict = deepcopy(data_as_dict)
     assert data.json_dict() == bare_dict
     data_as_dict["identifier"] = "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be"
-    _validate_asset_json(data_as_dict, schema_dir)
+    validate(data_as_dict)
 
 
-def test_metadata2asset_simple1(schema_dir):
+def test_metadata2asset_simple1():
     data = metadata2asset(
         {
             "contentSize": 69105,
@@ -212,12 +203,12 @@ def test_metadata2asset_simple1(schema_dir):
     bare_dict = deepcopy(data_as_dict)
     assert data.json_dict() == bare_dict
     data_as_dict["identifier"] = "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be"
-    _validate_asset_json(data_as_dict, schema_dir)
+    validate(data_as_dict)
 
 
-def test_dandimeta_migration(schema_dir):
+def test_dandimeta_migration():
     with (METADATA_DIR / "dandimeta_migration.new.json").open() as fp:
         data_as_dict = json.load(fp)
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
     DandisetMeta(**data_as_dict)
-    _validate_dandiset_json(data_as_dict, schema_dir)
+    validate(data_as_dict)
