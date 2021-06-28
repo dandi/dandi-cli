@@ -425,6 +425,10 @@ class RemoteDandiset(APIBase):
         lgr.debug("Waiting for Dandiset %s to complete validation ...", self.identifier)
         while True:
             r = self.client.get(f"{self.version_api_path}info/")
+            if "status" not in r:
+                # Running against older version of dandi-api that doesn't
+                # validate
+                break
             if r["status"] == "Valid":
                 break
             elif r["status"] == "Invalid":
