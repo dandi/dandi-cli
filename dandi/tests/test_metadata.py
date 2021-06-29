@@ -5,12 +5,19 @@ from pathlib import Path
 
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dandischema.metadata import validate
+from dandischema.models import AgeReferenceType
 from dandischema.models import BareAsset as BareAssetMeta
 from dandischema.models import Dandiset as DandisetMeta
 from dateutil.tz import tzutc
 import pytest
 
-from ..metadata import get_metadata, metadata2asset, parse_age, timedelta2duration
+from ..metadata import (
+    extract_age,
+    get_metadata,
+    metadata2asset,
+    parse_age,
+    timedelta2duration,
+)
 from ..pynwb_utils import metadata_nwb_subject_fields
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
@@ -212,3 +219,22 @@ def test_dandimeta_migration():
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
     DandisetMeta(**data_as_dict)
     validate(data_as_dict)
+
+
+def test_time_extract():
+    # if metadata contains date_of_birth and session_start_time,
+    # age will be calculated from the values
+    meta_birth = {
+        "session_start_time": "2020-08-31T12:21:28-04:00",
+        "age": "31 days",
+        "date_of_birth": "2020-07-31T12:20:00-04:00",
+    }
+    age_birth = extract_age(meta_birth)
+    assert age_birth.value == "P31DT88S"
+    assert age_birth.valueReference == AgeReferenceType("dandi:BirthReference")
+
+    # if metadata doesn't contain date_of_birth, the age field will be used
+    meta = {"session_start_time": "2020-08-31T12:21:28-04:00", "age": "31 days"}
+    age = extract_age(meta)
+    assert age.value == "P31D"
+    assert age.valueReference == AgeReferenceType("dandi:BirthReference")
