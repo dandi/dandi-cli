@@ -2,9 +2,11 @@ import builtins
 import os.path
 from pathlib import Path
 import random
+import re
 from shutil import rmtree
 
 import click
+from dandischema.models import UUID_PATTERN
 
 from .. import dandiapi
 from ..consts import dandiset_metadata_file
@@ -264,9 +266,11 @@ def test_get_content_url(monkeypatch, tmp_path):
             "sub-RAT123/sub-RAT123.nwb"
         )
         url = asset.get_content_url()
-        assert url == (
-            "https://api.dandiarchive.org/api/dandisets/000027/versions/draft"
-            "/assets/ff453f4c-a435-4a5d-a48b-128abca5ec47/download/"
+        assert re.match(
+            "https://api.dandiarchive.org/api/assets/"
+            # note: Yarik doesn't care if there is a trailing /
+            + UUID_PATTERN.rstrip("$") + "/download/?$",
+            url,
         )
         r = client.get(url, stream=True, json_resp=False)
         with open(tmp_path / "asset.nwb", "wb") as fp:
