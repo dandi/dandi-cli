@@ -660,6 +660,28 @@ def process_ndtypes(asset, nd_types):
     return asset
 
 
+def get_asset_metadata(
+    filepath, relpath, digest=None, digest_type=None, allow_any_path=True
+) -> models.BareAsset:
+    try:
+        metadata = nwb2asset(filepath, digest=digest, digest_type=digest_type)
+    except Exception as e:
+        lgr.info(
+            "Failed to extract NWB metadata from %s: %s: %s",
+            filepath,
+            type(e).__name__,
+            str(e),
+        )
+        if allow_any_path:
+            metadata = get_default_metadata(
+                filepath, digest=digest, digest_type=digest_type
+            )
+        else:
+            raise
+    metadata.path = str(relpath)
+    return metadata
+
+
 def nwb2asset(
     nwb_path, digest=None, digest_type=None, schema_version=None
 ) -> models.BareAsset:
