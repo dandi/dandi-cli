@@ -5,7 +5,7 @@ from pathlib import Path
 
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dandischema.metadata import validate
-from dandischema.models import AgeReferenceType
+from dandischema.models import AgeReferenceType, PropertyValue
 from dandischema.models import BareAsset as BareAssetMeta
 from dandischema.models import Dandiset as DandisetMeta
 from dateutil.tz import tzutc
