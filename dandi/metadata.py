@@ -256,7 +256,7 @@ def extract_age(metadata):
     return models.PropertyValue(
         value=duration,
         unitText="ISO-8601 duration",
-        valueReference="dandi:BirthReference",
+        valueReference=models.PropertyValue(value=models.AgeReferenceType.BirthReference)
     )
 
 

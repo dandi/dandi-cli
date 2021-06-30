@@ -72,7 +72,7 @@
         "unitText": "ISO-8601 duration",
         "value": "P170DT12212S",
         "schemaKey": "PropertyValue",
-        "valueReference": "dandi:BirthReference"
+        "valueReference": {"schemaKey": "PropertyValue", "value": "dandi:BirthReference"}}
       },
       "sex": {
         "identifier": "http://purl.obolibrary.org/obo/PATO_0000384",

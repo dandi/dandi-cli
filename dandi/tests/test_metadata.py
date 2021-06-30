@@ -231,10 +231,10 @@ def test_time_extract():
     }
     age_birth = extract_age(meta_birth)
     assert age_birth.value == "P31DT88S"
-    assert age_birth.valueReference == AgeReferenceType("dandi:BirthReference")
+    assert age_birth.valueReference == PropertyValue(value=AgeReferenceType("dandi:BirthReference"))
 
     # if metadata doesn't contain date_of_birth, the age field will be used
     meta = {"session_start_time": "2020-08-31T12:21:28-04:00", "age": "31 days"}
     age = extract_age(meta)
     assert age.value == "P31D"
-    assert age.valueReference == AgeReferenceType("dandi:BirthReference")
+    assert age.valueReference == PropertyValue(value=AgeReferenceType("dandi:BirthReference"))
