@@ -1,3 +1,32 @@
+# 0.22.0 (Wed Jun 30 2021)
+
+#### 🚀 Enhancement
+
+- Adjust RemoteAsset.json_dict() [#691](https://github.com/dandi/dandi-cli/pull/691) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Create valid Dandiset metadata when testing; create valid asset metadata for non-NWB files; wait for validation before publishing [#683](https://github.com/dandi/dandi-cli/pull/683) ([@jwodder](https://github.com/jwodder))
+- changing unitText [#686](https://github.com/dandi/dandi-cli/pull/686) ([@djarecka](https://github.com/djarecka))
+- Fix a failing test on Windows on conda-forge (again) [#681](https://github.com/dandi/dandi-cli/pull/681) ([@jwodder](https://github.com/jwodder))
+- Remove references to "dandi register" command [#684](https://github.com/dandi/dandi-cli/pull/684) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Use dandischema.metadata.validate() instead of _validate_*_json() [#685](https://github.com/dandi/dandi-cli/pull/685) ([@jwodder](https://github.com/jwodder))
+
+#### 🔩 Dependency Updates
+
+- Increase minimum dandischema version to 0.2.9 [#687](https://github.com/dandi/dandi-cli/pull/687) ([@jwodder](https://github.com/jwodder) [@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 3
+
+- Dorota Jarecka ([@djarecka](https://github.com/djarecka))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.21.0 (Thu Jun 24 2021)
 
 #### 🚀 Enhancement

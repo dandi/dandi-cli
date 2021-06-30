@@ -1,11 +1,22 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+import json
 import os.path
 from pathlib import Path
 import re
 from threading import Lock
 from time import sleep
-from typing import Any, Callable, Dict, Iterator, Optional, Union, cast
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    FrozenSet,
+    Iterator,
+    Optional,
+    Union,
+    cast,
+)
 from urllib.parse import urlparse, urlunparse
 from xml.etree.ElementTree import fromstring
 
@@ -288,12 +299,14 @@ class DandiAPIClient(RESTFullAPIClient):
 class APIBase(BaseModel):
     """Base class for API objects"""
 
+    JSON_EXCLUDE: ClassVar[FrozenSet[str]] = frozenset(["client"])
+
     def json_dict(self) -> Dict[str, Any]:
         """
         Convert to a JSONable `dict`, omitting the ``client`` attribute and
         using the same field names as in the API
         """
-        return self.dict(exclude={"client"}, by_alias=True)
+        return json.loads(self.json(exclude=self.JSON_EXCLUDE, by_alias=True))
 
     class Config:
         allow_population_by_field_name = True
@@ -684,6 +697,8 @@ class RemoteDandiset(APIBase):
 
 class RemoteAsset(APIBase):
     """Representation of an asset retrieved from the API"""
+
+    JSON_EXCLUDE = frozenset(["client", "dandiset_id", "version_id"])
 
     client: "DandiAPIClient"
     #: The identifier for the Dandiset to which the asset belongs
