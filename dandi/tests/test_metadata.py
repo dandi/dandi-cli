@@ -5,9 +5,10 @@ from pathlib import Path
 
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dandischema.metadata import validate
-from dandischema.models import AgeReferenceType, PropertyValue
+from dandischema.models import AgeReferenceType
 from dandischema.models import BareAsset as BareAssetMeta
 from dandischema.models import Dandiset as DandisetMeta
+from dandischema.models import PropertyValue
 from dateutil.tz import tzutc
 import pytest
 
@@ -83,10 +84,15 @@ def test_get_metadata(simple1_nwb, simple1_nwb_metadata):
         ("342 days, 00:00:00", "P342DT0H0M0S"),
         ("14 (Units: days)", "P14D"),
         ("14 unit day", "P14D"),
+        ("Gestational Week 19", ("P19W", "Gestational")),
     ],
 )
 def test_parse_age(age, duration):
-    assert parse_age(age) == duration
+    if isinstance(duration, tuple):
+        duration, ref = duration
+    else:  # birth will be a default ref
+        ref = "Birth"
+    assert parse_age(age) == (duration, ref)
 
 
 @pytest.mark.parametrize(
@@ -95,7 +101,6 @@ def test_parse_age(age, duration):
         ("123", "no rules to convert: 123"),
         ("P12", "ISO 8601 expected, but P12 was received"),
         ("3-7 months", "no rules to convert: 3-7 months"),
-        ("Gestational Week 19", "no rules to convert: Gestational Week 19"),
         ("3 months, some extra", "no rules to convert: some extra"),
         (" , ", "age doesn't have any information"),
         ("", "age is empty"),
@@ -231,10 +236,27 @@ def test_time_extract():
     }
     age_birth = extract_age(meta_birth)
     assert age_birth.value == "P31DT88S"
-    assert age_birth.valueReference == PropertyValue(value=AgeReferenceType("dandi:BirthReference"))
+    assert age_birth.valueReference == PropertyValue(
+        value=AgeReferenceType("dandi:BirthReference")
+    )
 
     # if metadata doesn't contain date_of_birth, the age field will be used
     meta = {"session_start_time": "2020-08-31T12:21:28-04:00", "age": "31 days"}
     age = extract_age(meta)
     assert age.value == "P31D"
-    assert age.valueReference == PropertyValue(value=AgeReferenceType("dandi:BirthReference"))
+    assert age.valueReference == PropertyValue(
+        value=AgeReferenceType("dandi:BirthReference")
+    )
+
+
+def test_time_extract_gest():
+    """extract age with Gestational ref"""
+    meta_birth = {
+        "session_start_time": "2020-08-31T12:21:28-04:00",
+        "age": "Gestational week 3",
+    }
+    age_birth = extract_age(meta_birth)
+    assert age_birth.value == "P3W"
+    assert age_birth.valueReference == PropertyValue(
+        value=AgeReferenceType("dandi:GestationalReference")
+    )
