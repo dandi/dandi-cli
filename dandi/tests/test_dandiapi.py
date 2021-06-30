@@ -298,3 +298,11 @@ def test_get_content_url_follow_one_redirects_strip_query(monkeypatch):
             "https://dandiarchive.s3.amazonaws.com/blobs/2db/af0/2dbaf0fd-5003"
             "-4a0a-b4c0-bc8cdbdb3826"
         )
+
+
+def test_remote_asset_json_dict(text_dandiset):
+    asset = text_dandiset["dandiset"].get_asset_by_path("file.txt")
+    data = asset.json_dict()
+    assert sorted(data.keys()) == ["asset_id", "modified", "path", "size"]
+    for v in data.values():
+        assert isinstance(v, (str, int))
