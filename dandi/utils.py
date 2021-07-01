@@ -10,6 +10,7 @@ import inspect
 import io
 import itertools
 import logging
+from mimetypes import guess_type
 import os
 import os.path as op
 from pathlib import Path
@@ -709,3 +710,22 @@ def abbrev_prompt(msg: str, *options: str) -> str:
         answer = input(msg).lower()
         if answer in options_map:
             return options_map[answer]
+
+
+def get_mime_type(filename: str, strict: bool = False) -> str:
+    """
+    Like `mimetypes.guess_type()`, except that if the file is compressed, the
+    MIME type for the compression is returned.  Also, the default return value
+    is now ``'application/octet-stream'`` instead of `None`.
+    """
+    mtype, encoding = guess_type(filename, strict)
+    if encoding is None:
+        return mtype or "application/octet-stream"
+    elif encoding == "gzip":
+        # application/gzip is defined by RFC 6713
+        return "application/gzip"
+        # There is also a "+gzip" MIME structured syntax suffix defined by RFC
+        # 8460; exactly when can that be used?
+        # return mtype + '+gzip'
+    else:
+        return "application/x-" + encoding

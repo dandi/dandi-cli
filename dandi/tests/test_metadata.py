@@ -4,25 +4,24 @@ import json
 from pathlib import Path
 
 from dandischema.consts import DANDI_SCHEMA_VERSION
-from dandischema.metadata import (
-    _validate_asset_json,
-    _validate_dandiset_json,
-    publish_model_schemata,
-)
+from dandischema.metadata import validate
+from dandischema.models import AgeReferenceType
 from dandischema.models import BareAsset as BareAssetMeta
 from dandischema.models import Dandiset as DandisetMeta
+from dandischema.models import PropertyValue
 from dateutil.tz import tzutc
 import pytest
 
-from ..metadata import get_metadata, metadata2asset, parse_age, timedelta2duration
+from ..metadata import (
+    extract_age,
+    get_metadata,
+    metadata2asset,
+    parse_age,
+    timedelta2duration,
+)
 from ..pynwb_utils import metadata_nwb_subject_fields
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
-
-
-@pytest.fixture(scope="module")
-def schema_dir(tmp_path_factory):
-    return publish_model_schemata(tmp_path_factory.mktemp("schema_dir"))
 
 
 def test_get_metadata(simple1_nwb, simple1_nwb_metadata):
@@ -85,10 +84,15 @@ def test_get_metadata(simple1_nwb, simple1_nwb_metadata):
         ("342 days, 00:00:00", "P342DT0H0M0S"),
         ("14 (Units: days)", "P14D"),
         ("14 unit day", "P14D"),
+        ("Gestational Week 19", ("P19W", "Gestational")),
     ],
 )
 def test_parse_age(age, duration):
-    assert parse_age(age) == duration
+    if isinstance(duration, tuple):
+        duration, ref = duration
+    else:  # birth will be a default ref
+        ref = "Birth"
+    assert parse_age(age) == (duration, ref)
 
 
 @pytest.mark.parametrize(
@@ -97,7 +101,6 @@ def test_parse_age(age, duration):
         ("123", "no rules to convert: 123"),
         ("P12", "ISO 8601 expected, but P12 was received"),
         ("3-7 months", "no rules to convert: 3-7 months"),
-        ("Gestational Week 19", "no rules to convert: Gestational Week 19"),
         ("3 months, some extra", "no rules to convert: some extra"),
         (" , ", "age doesn't have any information"),
         ("", "age is empty"),
@@ -124,7 +127,7 @@ def test_timedelta2duration(td, duration):
     assert timedelta2duration(td) == duration
 
 
-def test_metadata2asset(schema_dir):
+def test_metadata2asset():
     data = metadata2asset(
         {
             "contentSize": 69105,
@@ -171,10 +174,10 @@ def test_metadata2asset(schema_dir):
     bare_dict = deepcopy(data_as_dict)
     assert data.json_dict() == bare_dict
     data_as_dict["identifier"] = "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be"
-    _validate_asset_json(data_as_dict, schema_dir)
+    validate(data_as_dict)
 
 
-def test_metadata2asset_simple1(schema_dir):
+def test_metadata2asset_simple1():
     data = metadata2asset(
         {
             "contentSize": 69105,
@@ -212,12 +215,48 @@ def test_metadata2asset_simple1(schema_dir):
     bare_dict = deepcopy(data_as_dict)
     assert data.json_dict() == bare_dict
     data_as_dict["identifier"] = "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be"
-    _validate_asset_json(data_as_dict, schema_dir)
+    validate(data_as_dict)
 
 
-def test_dandimeta_migration(schema_dir):
+def test_dandimeta_migration():
     with (METADATA_DIR / "dandimeta_migration.new.json").open() as fp:
         data_as_dict = json.load(fp)
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
     DandisetMeta(**data_as_dict)
-    _validate_dandiset_json(data_as_dict, schema_dir)
+    validate(data_as_dict)
+
+
+def test_time_extract():
+    # if metadata contains date_of_birth and session_start_time,
+    # age will be calculated from the values
+    meta_birth = {
+        "session_start_time": "2020-08-31T12:21:28-04:00",
+        "age": "31 days",
+        "date_of_birth": "2020-07-31T12:20:00-04:00",
+    }
+    age_birth = extract_age(meta_birth)
+    assert age_birth.value == "P31DT88S"
+    assert age_birth.valueReference == PropertyValue(
+        value=AgeReferenceType("dandi:BirthReference")
+    )
+
+    # if metadata doesn't contain date_of_birth, the age field will be used
+    meta = {"session_start_time": "2020-08-31T12:21:28-04:00", "age": "31 days"}
+    age = extract_age(meta)
+    assert age.value == "P31D"
+    assert age.valueReference == PropertyValue(
+        value=AgeReferenceType("dandi:BirthReference")
+    )
+
+
+def test_time_extract_gest():
+    """extract age with Gestational ref"""
+    meta_birth = {
+        "session_start_time": "2020-08-31T12:21:28-04:00",
+        "age": "Gestational week 3",
+    }
+    age_birth = extract_age(meta_birth)
+    assert age_birth.value == "P3W"
+    assert age_birth.valueReference == PropertyValue(
+        value=AgeReferenceType("dandi:GestationalReference")
+    )

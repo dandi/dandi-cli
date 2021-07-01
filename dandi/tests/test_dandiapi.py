@@ -2,9 +2,11 @@ import builtins
 import os.path
 from pathlib import Path
 import random
+import re
 from shutil import rmtree
 
 import click
+from dandischema.models import UUID_PATTERN
 
 from .. import dandiapi
 from ..consts import dandiset_metadata_file
@@ -29,7 +31,23 @@ def test_upload(local_dandi_api, simple1_nwb, tmp_path):
 
 def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
     client = local_dandi_api["client"]
-    d = client.create_dandiset("Test Dandiset", {})
+    d = client.create_dandiset(
+        "Test Dandiset",
+        {
+            "schemaKey": "Dandiset",
+            "name": "Text Dandiset",
+            "description": "A test text Dandiset",
+            "contributor": [
+                {
+                    "schemaKey": "Person",
+                    "name": "Wodder, John",
+                    "roleName": ["dcite:Author", "dcite:ContactPerson"],
+                }
+            ],
+            "license": ["spdx:CC0-1.0"],
+            "manifestLocation": ["https://github.com/dandi/dandi-cli"],
+        },
+    )
     dandiset_id = d.identifier
     upload_dir = tmp_path / "upload"
     upload_dir.mkdir()
@@ -239,3 +257,56 @@ def test_authenticate_bad_key_keyring_good_key_input(
     input_mock.assert_called_once_with(f"Please provide API Key for {client_name}: ")
     is_interactive_mock.assert_called_once()
     confirm_mock.assert_called_once_with("API key is invalid; enter another?")
+
+
+def test_get_content_url(monkeypatch, tmp_path):
+    monkeypatch.setenv("DANDI_INSTANCE", "dandi")
+    with DandiAPIClient() as client:
+        asset = client.get_dandiset("000027", "draft").get_asset_by_path(
+            "sub-RAT123/sub-RAT123.nwb"
+        )
+        url = asset.get_content_url()
+        assert re.match(
+            "https://api.dandiarchive.org/api/assets/"
+            # note: Yarik doesn't care if there is a trailing /
+            + UUID_PATTERN.rstrip("$") + "/download/?$",
+            url,
+        )
+        r = client.get(url, stream=True, json_resp=False)
+        with open(tmp_path / "asset.nwb", "wb") as fp:
+            for chunk in r.iter_content(chunk_size=8192):
+                fp.write(chunk)
+
+
+def test_get_content_url_regex(monkeypatch, tmp_path):
+    monkeypatch.setenv("DANDI_INSTANCE", "dandi")
+    with DandiAPIClient() as client:
+        asset = client.get_dandiset("000027", "draft").get_asset_by_path(
+            "sub-RAT123/sub-RAT123.nwb"
+        )
+        url = asset.get_content_url(r"amazonaws.com/.*blobs/")
+        r = client.get(url, stream=True, json_resp=False)
+        with open(tmp_path / "asset.nwb", "wb") as fp:
+            for chunk in r.iter_content(chunk_size=8192):
+                fp.write(chunk)
+
+
+def test_get_content_url_follow_one_redirects_strip_query(monkeypatch):
+    monkeypatch.setenv("DANDI_INSTANCE", "dandi")
+    with DandiAPIClient() as client:
+        asset = client.get_dandiset("000027", "draft").get_asset_by_path(
+            "sub-RAT123/sub-RAT123.nwb"
+        )
+        url = asset.get_content_url(follow_redirects=1, strip_query=True)
+        assert url == (
+            "https://dandiarchive.s3.amazonaws.com/blobs/2db/af0/2dbaf0fd-5003"
+            "-4a0a-b4c0-bc8cdbdb3826"
+        )
+
+
+def test_remote_asset_json_dict(text_dandiset):
+    asset = text_dandiset["dandiset"].get_asset_by_path("file.txt")
+    data = asset.json_dict()
+    assert sorted(data.keys()) == ["asset_id", "modified", "path", "size"]
+    for v in data.values():
+        assert isinstance(v, (str, int))

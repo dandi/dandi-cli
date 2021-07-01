@@ -15,7 +15,7 @@ from .pynwb_utils import (
     ignore_benign_pynwb_warnings,
     metadata_cache,
 )
-from .utils import ensure_datetime, get_utcnow_datetime
+from .utils import ensure_datetime, get_mime_type, get_utcnow_datetime
 
 lgr = get_logger()
 
@@ -128,19 +128,28 @@ def _parse_age_re(age, unit, tp="date"):
 
     pattern = rf"(\d+\.?\d*)\s*({pat_un}s?)"
     matchstr = re.match(pattern, age, flags=re.I)
+    swap_flag = False
     if matchstr is None:
         # checking pattern with "unit" word
         pattern_unit = rf"(\d+\.?\d*)\s*units?:?\s*({pat_un}s?)"
         matchstr = re.match(pattern_unit, age, flags=re.I)
         if matchstr is None:
-            return age, None
-
-    if "." in matchstr.group(1):
-        qty = float(matchstr.group(1))
+            # checking patter with swapped order
+            pattern = rf"({pat_un}s?)\s*(\d+\.?\d*)"
+            matchstr = re.match(pattern, age, flags=re.I)
+            swap_flag = True
+            if matchstr is None:
+                return age, None
+    if swap_flag:
+        qty = matchstr.group(3)
+    else:
+        qty = matchstr.group(1)
+    if "." in qty:
+        qty = float(qty)
         if int(qty) == qty:
             qty = int(qty)
     else:
-        qty = int(matchstr.group(1))
+        qty = int(qty)
     age_rem = age.replace(matchstr.group(0), "")
     age_rem = age_rem.strip()
     return age_rem, f"{qty}{unit}"
@@ -191,6 +200,15 @@ def parse_age(age):
         raise ValueError("age is empty")
 
     age_orig = age
+
+    if "gestation" in age.lower():
+        pattern_time = "^gest[a-z]*"
+        matchstr = re.match(pattern_time, age, flags=re.I)
+        age = age.replace(matchstr.group(0), "")
+        ref = "Gestational"
+    else:
+        ref = "Birth"
+
     age = age.strip()
 
     if age[0] == "P":
@@ -213,20 +231,24 @@ def parse_age(age):
             elif part_f:
                 date_f = ["P", part_f]
 
-        time_f = []
-        for un in ["H", "M", "S"]:
-            if not age:
-                break
-            age, part_f = _parse_age_re(age, un, tp="time")
-            if part_f and time_f:
-                time_f.append(part_f)
-            elif part_f:
-                time_f = ["T", part_f]
-        # trying to find formats 00:00:00 for time
-        if not time_f:
-            age, time_f = _parse_hours_format(age)
+        if ref == "Birth":
+            time_f = []
+            for un in ["H", "M", "S"]:
+                if not age:
+                    break
+                age, part_f = _parse_age_re(age, un, tp="time")
+                if part_f and time_f:
+                    time_f.append(part_f)
+                elif part_f:
+                    time_f = ["T", part_f]
+            # trying to find formats 00:00:00 for time
+            if not time_f:
+                age, time_f = _parse_hours_format(age)
 
-        age_f = date_f + time_f
+            age_f = date_f + time_f
+        elif ref == "Gestational":
+            # ignore time formats for Gestational (unless it is needed in the future)
+            age_f = date_f
         if set(age) - {" ", ".", ",", ":", ";"}:
             raise ValueError(
                 f"not able to parse the age: {age_orig}, no rules to convert: {age}"
@@ -238,8 +260,7 @@ def parse_age(age):
             f"decimal fraction allowed in the lowest order part only,"
             f" but {age} was received "
         )
-
-    return "".join(age_f)
+    return "".join(age_f), ref
 
 
 def extract_age(metadata):
@@ -248,12 +269,18 @@ def extract_age(metadata):
         start = ensure_datetime(metadata["session_start_time"])
     except (KeyError, TypeError, ValueError):
         if metadata.get("age") is not None:
-            duration = parse_age(metadata["age"])
+            duration, ref = parse_age(metadata["age"])
         else:
             return ...
     else:
-        duration = timedelta2duration(start - dob)
-    return models.PropertyValue(value=duration, unitText="Years from birth")
+        duration, ref = timedelta2duration(start - dob), "Birth"
+    return models.PropertyValue(
+        value=duration,
+        unitText="ISO-8601 duration",
+        valueReference=models.PropertyValue(
+            value=getattr(models.AgeReferenceType, f"{ref}Reference")
+        ),
+    )
 
 
 def timedelta2duration(delta):
@@ -275,7 +302,7 @@ def timedelta2duration(delta):
         sec = delta.seconds
         if delta.microseconds:
             # Don't add when microseconds is 0, so that sec will be an int then
-            sec += delta.microseconds / 1000000
+            sec += delta.microseconds / 1e6
         s += f"T{sec}S"
     if s == "P":
         s += "0D"
@@ -710,7 +737,7 @@ def get_default_metadata(path, digest=None, digest_type=None) -> models.BareAsse
         dateModified=dateModified,
         blobDateModified=blobDateModified,
         wasGeneratedBy=[get_generator(start_time, end_time)],
-        # encodingFormat # TODO
+        encodingFormat=get_mime_type(path),
     )
 
 

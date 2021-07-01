@@ -1,10 +1,23 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+import json
 import os.path
 from pathlib import Path
 import re
 from threading import Lock
-from typing import Any, Callable, Dict, Iterator, Optional, Union, cast
+from time import sleep
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    FrozenSet,
+    Iterator,
+    Optional,
+    Union,
+    cast,
+)
+from urllib.parse import urlparse, urlunparse
 from xml.etree.ElementTree import fromstring
 
 import click
@@ -286,12 +299,14 @@ class DandiAPIClient(RESTFullAPIClient):
 class APIBase(BaseModel):
     """Base class for API objects"""
 
+    JSON_EXCLUDE: ClassVar[FrozenSet[str]] = frozenset(["client"])
+
     def json_dict(self) -> Dict[str, Any]:
         """
         Convert to a JSONable `dict`, omitting the ``client`` attribute and
         using the same field names as in the API
         """
-        return self.dict(exclude={"client"}, by_alias=True)
+        return json.loads(self.json(exclude=self.JSON_EXCLUDE, by_alias=True))
 
     class Config:
         allow_population_by_field_name = True
@@ -420,6 +435,20 @@ class RemoteDandiset(APIBase):
         `RemoteDandiset` with the `version` attribute set to the new published
         `Version`.
         """
+        lgr.debug("Waiting for Dandiset %s to complete validation ...", self.identifier)
+        while True:
+            r = self.client.get(f"{self.version_api_path}info/")
+            if "status" not in r:
+                # Running against older version of dandi-api that doesn't
+                # validate
+                break
+            if r["status"] == "Valid":
+                break
+            elif r["status"] == "Invalid":
+                raise ValueError(
+                    f"Dandiset {self.identifier} is invalid: {r['validation_error']}"
+                )
+            sleep(0.5)
         return self.copy(
             update={
                 "version": Version.parse_obj(
@@ -669,6 +698,8 @@ class RemoteDandiset(APIBase):
 class RemoteAsset(APIBase):
     """Representation of an asset retrieved from the API"""
 
+    JSON_EXCLUDE = frozenset(["client", "dandiset_id", "version_id"])
+
     client: "DandiAPIClient"
     #: The identifier for the Dandiset to which the asset belongs
     dandiset_id: str
@@ -704,6 +735,50 @@ class RemoteAsset(APIBase):
             return self._metadata
         else:
             return cast(Dict[str, Any], self.client.get(self.api_path))
+
+    def get_content_url(
+        self,
+        regex: str = r".*",
+        follow_redirects: Union[bool, int] = False,
+        strip_query: bool = False,
+    ) -> str:
+        """
+        Returns a URL for downloading the asset, found by inspecting the
+        metadata; specifically, returns the first ``contentUrl`` that matches
+        ``regex``.  Raises `NotFoundError` if the metadata does not contain a
+        matching URL.
+
+        If ``follow_redirects`` is `True`, a ``HEAD`` request is made to
+        resolve any & all redirects before returning the URL.  If
+        ``follow_redirects`` is an integer, at most that many redirects are
+        followed.
+
+        If ``strip_query`` is true, any query parameters are removed from the
+        final URL before returning it.
+        """
+        for url in self.get_raw_metadata().get("contentUrl", []):
+            if re.search(regex, url):
+                break
+        else:
+            raise NotFoundError(
+                "No matching URL found in asset's contentUrl metadata field"
+            )
+        if follow_redirects is True:
+            url = self.client.request(
+                "HEAD", url, json_resp=False, allow_redirects=True
+            ).url
+        elif follow_redirects:
+            for _ in range(follow_redirects):
+                r = self.client.request(
+                    "HEAD", url, json_resp=False, allow_redirects=False
+                )
+                if "Location" in r.headers:
+                    url = r.headers["Location"]
+                else:
+                    break
+        if strip_query:
+            url = urlunparse(urlparse(url)._replace(query=""))
+        return url
 
     def delete(self) -> None:
         """Delete the asset"""

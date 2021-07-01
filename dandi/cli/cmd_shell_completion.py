@@ -1,5 +1,5 @@
 import os
-from os.path import basename
+from os.path import basename, normcase, splitext
 
 import click
 from packaging.version import Version
@@ -36,6 +36,10 @@ def shell_completion(shell):
             raise click.UsageError(
                 "Could not determine running shell: SHELL environment variable not set"
             )
+        shell = normcase(shell)
+        stem, ext = splitext(shell)
+        if ext in (".com", ".exe", ".bat"):
+            shell = stem
         if shell not in SHELLS:
             raise click.UsageError(f"Unsupported/unrecognized shell {shell!r}")
     if Version(click.__version__) < Version("8.0.0"):

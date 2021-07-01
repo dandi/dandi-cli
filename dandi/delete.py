@@ -219,7 +219,7 @@ def find_local_asset(filepath: str) -> Tuple[str, str]:
     if dandiset is None:
         raise RuntimeError(
             f"Found no {dandiset_metadata_file} anywhere.  "
-            "Use 'dandi register', 'download', or 'organize' first"
+            "Use 'dandi download' or 'organize' first"
         )
     relpath = str(PurePosixPath(path.relative_to(dandiset.path)))
     if path.is_dir():

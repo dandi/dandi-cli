@@ -72,9 +72,10 @@
       "schemaKey": "Participant",
       "identifier": "a1b2c3",
       "age": {
+        "unitText": "ISO-8601 duration",
+        "value": "P170DT12212S",
         "schemaKey": "PropertyValue",
-        "unitText": "Years from birth",
-        "value": "P170DT12212S"
+        "valueReference": {"schemaKey": "PropertyValue", "value": "dandi:BirthReference"}
       },
       "sex": {
         "schemaKey": "SexType",
