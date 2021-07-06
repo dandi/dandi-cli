@@ -369,7 +369,7 @@ def extract_species(metadata):
         else:
             raise ValueError(
                 f"Cannot interpret species field: {value}. Please "
-                "contact help@dandiarchive.org to add your species"
+                "contact help@dandiarchive.org to add your species."
             )
         return models.SpeciesType(identifier=value_id, name=value.capitalize())
     else:
