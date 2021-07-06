@@ -54,7 +54,7 @@ def upload(
             f"convention {dandiset_identifier_regex!r}."
         )
 
-    from .metadata import get_default_metadata, nwb2asset
+    from .metadata import get_asset_metadata
     from .pynwb_utils import ignore_benign_pynwb_warnings
     from .support.pyout import naturalsize
     from .utils import find_dandi_files, find_files, path_is_subpath
@@ -242,21 +242,15 @@ def upload(
             # ad-hoc for dandiset.yaml for now
             yield {"status": "extracting metadata"}
             try:
-                asset_metadata = nwb2asset(
-                    path, digest=file_etag, digest_type="dandi_etag"
-                )
-            except Exception as exc:
-                lgr.exception("Failed to extract metadata from %s", path)
-                if allow_any_path:
-                    yield {"status": "failed to extract metadata"}
-                    asset_metadata = get_default_metadata(
-                        path, digest=file_etag, digest_type="dandi_etag"
-                    )
-                else:
-                    yield skip_file("failed to extract metadata: %s" % str(exc))
-                    return
-            metadata = asset_metadata.json_dict()
-            metadata["path"] = str(relpath)
+                metadata = get_asset_metadata(
+                    path,
+                    relpath,
+                    digest=file_etag,
+                    digest_type="dandi_etag",
+                    allow_any_path=allow_any_path,
+                ).json_dict()
+            except Exception as e:
+                yield skip_file("failed to extract metadata: %s" % str(e))
 
             #
             # Upload file
