@@ -268,9 +268,9 @@ def extract_age(metadata):
         dob = ensure_datetime(metadata["date_of_birth"])
         start = ensure_datetime(metadata["session_start_time"])
     except (KeyError, TypeError, ValueError):
-        try:
+        if metadata.get("age") is not None:
             duration, ref = parse_age(metadata["age"])
-        except (KeyError, TypeError, ValueError):
+        else:
             return ...
     else:
         duration, ref = timedelta2duration(start - dob), "Birth"
@@ -347,7 +347,13 @@ def extract_species(metadata):
             value = "Human"
         elif "norvegicus" in value:
             value_id = "http://purl.obolibrary.org/obo/NCBITaxon_10116"
-            value = "Brown rat"
+            value = "Rat; Norway rat; rats; Brown rat"
+        elif "rattus rattus" in value:
+            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_10117"
+            value = "Black rat; Roof rat; House rat"
+        elif "rat" in value:
+            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_10116"
+            value = "Rat; Norway rat; rats; Brown rat"
         elif "mulatta" in value or "rhesus" in value:
             value_id = "http://purl.obolibrary.org/obo/NCBITaxon_9544"
             value = "Rhesus monkey"
@@ -361,7 +367,10 @@ def extract_species(metadata):
             value_id = value
             value = None
         else:
-            raise ValueError(f"Cannot interpret species field: {value}")
+            raise ValueError(
+                f"Cannot interpret species field: {value}. Please "
+                "contact help@dandiarchive.org to add your species."
+            )
         return models.SpeciesType(identifier=value_id, name=value.capitalize())
     else:
         return ...
@@ -435,13 +444,17 @@ def extract_session(metadata: dict) -> list:
     for val in probe_ids:
         probes.append(models.Equipment(identifier=f"probe:{val}", name="Ecephys Probe"))
     probes = probes or None
-    if (metadata.get("session_id") or probes) is None:
+    session_id = None
+    if metadata.get("session_id") is not None:
+        session_id = str(metadata["session_id"])
+    if (session_id or metadata.get("session_start_time") or probes) is None:
         return None
     return [
         models.Session(
-            identifier=metadata.get("session_id"),
-            name=metadata.get("session_id", "Acquisition session"),
+            identifier=session_id,
+            name=session_id or "Acquisition session",
             description=metadata.get("session_description"),
+            startDate=metadata.get("session_start_time"),
             used=probes,
         )
     ]

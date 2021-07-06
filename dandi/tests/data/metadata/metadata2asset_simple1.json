@@ -1,23 +1,25 @@
 {
   "id": "dandiasset:bfc23fb6192b41c083a7257e09a3702b",
-  "schemaVersion": "0.3.2",
+  "schemaKey": "Asset",
+  "schemaVersion": "0.4.1",
   "keywords": [
     "keyword1",
     "keyword 2"
   ],
   "access": [
     {
-      "status": "dandi:OpenAccess",
-      "schemaKey": "AccessRequirements"
+      "schemaKey": "AccessRequirements",
+      "status": "dandi:OpenAccess"
     }
   ],
   "repository": "https://dandiarchive.org/",
   "wasGeneratedBy": [
     {
+      "schemaKey": "Session",
       "identifier": "session_id1",
       "name": "session_id1",
       "description": "session_description1",
-      "schemaKey": "Session"
+      "startDate": "2017-04-15T12:00:00+00:00"
     }
   ],
   "contentSize": 69105,
@@ -28,19 +30,18 @@
   "path": "/test/path",
   "wasDerivedFrom": [
     {
+      "schemaKey": "BioSample",
       "identifier": "tissue42",
       "sampleType": {
-        "name": "tissuesample",
-        "schemaKey": "SampleType"
-      },
-      "schemaKey": "BioSample"
+        "schemaKey": "SampleType",
+        "name": "tissuesample"
+      }
     }
   ],
   "wasAttributedTo": [
     {
-      "identifier": "sub-01",
-      "schemaKey": "Participant"
+      "schemaKey": "Participant",
+      "identifier": "sub-01"
     }
-  ],
-  "schemaKey": "Asset"
+  ]
 }
