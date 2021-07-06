@@ -1,3 +1,24 @@
+# 0.23.0 (Tue Jul 06 2021)
+
+#### 🚀 Enhancement
+
+- Add get_asset_metadata() function [#693](https://github.com/dandi/dandi-cli/pull/693) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- fix: raise error when unable to parse age and set session name properly [#669](https://github.com/dandi/dandi-cli/pull/669) ([@satra](https://github.com/satra) [@yarikoptic](https://github.com/yarikoptic))
+- fix: set CLI version to align with schema base version [#694](https://github.com/dandi/dandi-cli/pull/694) ([@satra](https://github.com/satra))
+- adding valueReference to extract_age return PropertyValue; adding test [#689](https://github.com/dandi/dandi-cli/pull/689) ([@djarecka](https://github.com/djarecka) [@satra](https://github.com/satra))
+
+#### Authors: 4
+
+- Dorota Jarecka ([@djarecka](https://github.com/djarecka))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.22.0 (Wed Jun 30 2021)
 
 #### 🚀 Enhancement
