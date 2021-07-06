@@ -383,17 +383,21 @@ class RemoteDandiset:
         self,
         client: DandiAPIClient,
         identifier: str,
-        version: Union[str, Version],
+        version: Union[str, Version, None],
         data: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.client = client
         self.identifier = identifier
+        self._version_id: Optional[str]
         self._version: Optional[Version]
-        if isinstance(version, str):
-            self.version_id = version
-            self._version: Optional[Version] = None
+        if version is None:
+            self._version_id = None
+            self._version = None
+        elif isinstance(version, str):
+            self._version_id = version
+            self._version = None
         else:
-            self.version_id = version.identifier
+            self._version_id = version.identifier
             self._version = version
         self._data = data
 
@@ -403,16 +407,27 @@ class RemoteDandiset:
         return self._data
 
     @property
+    def version_id(self) -> str:
+        if self._version_id is None:
+            self._version_id = self.version.identifier
+        return self._version_id
+
+    @property
     def version(self) -> Version:
         """The version in question of the Dandiset"""
         if self._version is None:
+            if self._version_id is None:
+                self._get_data()
             if self._data is not None:
                 for vattr in ["most_recent_published_version", "draft_version"]:
                     vdict = self._data.get(vattr)
-                    if vdict and vdict["version"] == self.version_id:
+                    if vdict and (
+                        self._version_id is None or vdict["version"] == self.version_id
+                    ):
                         self._version = Version.parse_obj(vdict)
                         return self._version
-            self._version = self.get_version(self.version_id)
+            assert self._version_id is not None
+            self._version = self.get_version(self._version_id)
         return self._version
 
     @property

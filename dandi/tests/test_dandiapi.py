@@ -366,3 +366,18 @@ def test_set_asset_metadata(text_dandiset):
     metadata["blobDateModified"] = "2038-01-19T03:14:07-00:00"
     asset2 = asset.set_raw_metadata(metadata)
     assert asset2.get_raw_metadata()["blobDateModified"] == "2038-01-19T03:14:07-00:00"
+
+
+def test_get_dandiset_no_version_id_lazy(text_dandiset):
+    client = text_dandiset["client"]
+    dandiset = client.get_dandiset(text_dandiset["dandiset_id"], lazy=True)
+    assert dandiset.version is not None
+    assert dandiset.version_id == dandiset.version.identifier == "draft"
+
+
+def test_get_published_dandiset_no_version_id_lazy(text_dandiset):
+    client = text_dandiset["client"]
+    version_id = text_dandiset["dandiset"].publish().version.identifier
+    dandiset = client.get_dandiset(text_dandiset["dandiset_id"], lazy=True)
+    assert dandiset.version is not None
+    assert dandiset.version_id == dandiset.version.identifier == version_id
