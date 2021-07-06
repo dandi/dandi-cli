@@ -888,12 +888,28 @@ class RemoteAsset(APIBase):
         """Set the metadata for the asset to the given value"""
         self.set_raw_metadata(metadata.json_dict())
 
-    def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
-        """Set the metadata for the asset to the given value"""
-        self.client.put(
-            self.api_path, json={"metadata": metadata, "blob_id": self.identifier}
+    def set_raw_metadata(self, metadata: Dict[str, Any]) -> "RemoteAsset":
+        """
+        Set the metadata for the asset to the given value.  Returns the updated
+        `RemoteAsset` object.
+        """
+        try:
+            etag = metadata["digest"]["dandi:dandi-etag"]
+        except KeyError:
+            raise ValueError("dandi-etag digest not set in new asset metadata")
+        r = self.client.post(
+            "/blobs/digest/",
+            json={"algorithm": "dandi:dandi-etag", "value": etag},
         )
-        self._metadata = None
+        data = self.client.put(
+            self.api_path, json={"metadata": metadata, "blob_id": r["blob_id"]}
+        )
+        return RemoteAsset(
+            client=self.client,
+            dandiset_id=self.dandiset_id,
+            version_id=self.version_id,
+            **data,
+        )
 
     def get_content_url(
         self,

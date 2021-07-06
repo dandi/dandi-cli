@@ -1,4 +1,5 @@
 import builtins
+from copy import deepcopy
 from datetime import datetime
 import os.path
 from pathlib import Path
@@ -357,3 +358,11 @@ def test_get_dandiset_lazy(mocker, text_dandiset):
     assert dandiset.most_recent_published_version is None
     assert isinstance(dandiset.draft_version, Version)
     get_spy.assert_not_called()
+
+
+def test_set_asset_metadata(text_dandiset):
+    asset = text_dandiset["dandiset"].get_asset_by_path("file.txt")
+    metadata = deepcopy(asset.get_raw_metadata())
+    metadata["blobDateModified"] = "2038-01-19T03:14:07-00:00"
+    asset2 = asset.set_raw_metadata(metadata)
+    assert asset2.get_raw_metadata()["blobDateModified"] == "2038-01-19T03:14:07-00:00"
