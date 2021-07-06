@@ -884,9 +884,12 @@ class RemoteAsset(APIBase):
         except KeyError:
             raise NotFoundError(f"No {digest_type} digest found in metadata")
 
-    def set_metadata(self, metadata: models.Asset) -> None:
-        """Set the metadata for the asset to the given value"""
-        self.set_raw_metadata(metadata.json_dict())
+    def set_metadata(self, metadata: models.Asset) -> "RemoteAsset":
+        """
+        Set the metadata for the asset to the given value.  Returns the updated
+        `RemoteAsset` object.
+        """
+        return self.set_raw_metadata(metadata.json_dict())
 
     def set_raw_metadata(self, metadata: Dict[str, Any]) -> "RemoteAsset":
         """
