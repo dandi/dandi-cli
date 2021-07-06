@@ -590,7 +590,7 @@ class RemoteDandiset:
             data=self._data,
         )
 
-    def get_assets(self, path=None) -> Iterator["RemoteAsset"]:
+    def get_assets(self) -> Iterator["RemoteAsset"]:
         """Returns an iterator of all assets in this version of the Dandiset"""
         for a in self.client.paginate(f"{self.version_api_path}assets/"):
             yield self._mkasset(a)
