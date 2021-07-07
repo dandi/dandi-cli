@@ -1,0 +1,136 @@
+#!/usr/bin/env python
+"""Helper to re-extract metadata and update (mint new) assets with that metadata
+
+Composed by Satra (with only little changes by yoh).
+Initially based on code in dandisets' backups2datalad.py code for updating
+as a part of that script but it was intefering with the updates to datalad thus
+extracted into a separate script.
+"""
+
+from getpass import getpass
+import logging
+import os
+import sys
+
+import click
+from dandischema.consts import DANDI_SCHEMA_VERSION
+import requests
+
+from dandi.dandiapi import DandiAPIClient
+from dandi.metadata import get_default_metadata, nwb2asset
+from dandi.support.digests import get_digest
+
+logging.basicConfig(
+    stream=sys.stdout,
+    level=logging.INFO,
+    format="[%(asctime)s] %(levelname)s - %(message)s",
+)
+
+ul = logging.getLogger("UL")
+
+# location on drogon
+
+blobdir = "/mnt/backup/dandi/dandiarchive-s3-backup/blobs"
+
+
+def get_meta(path, digest=None):
+    try:
+        if digest is None:
+            digest = get_digest(path, digest="dandi-etag")
+        localmeta = nwb2asset(path, digest=digest, digest_type="dandi_etag")
+    except Exception as e:
+        ul.error(f"Error {e} getting {path}")
+        localmeta = get_default_metadata(path, digest=digest, digest_type="dandi_etag")
+    return localmeta.json_dict()
+
+
+@click.command(help=f"""Update assetmetadata""")
+@click.option(
+    "-d",
+    "--dandiset",
+    type=str,
+    help="Dandiset to update",
+)
+@click.option(
+    "-u", "--update", default=False, is_flag=True, help="Whether to actually update"
+)
+@click.option(
+    "-a",
+    "--api_key",
+    type=str,
+    default=os.environ.get("DANDI_API_KEY", ""),
+    help="API key to use",
+)
+def process_dandiset(dandiset, update, api_key):
+    api_key = api_key or getpass("API KEY: ")
+
+    dapi = DandiAPIClient()
+
+    url = "https://api.dandiarchive.org/api/blobs/digest/"
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+
+    ds = dapi.get_dandiset(dandiset, "draft")
+    ul.info(f"processing dandiset: {dandiset}")
+
+    assets = []
+    for ra in ds.get_assets():
+        asset = ra.get_raw_metadata()
+        asset.update(**ra.json_dict())
+        payload = {
+            "algorithm": "dandi:dandi-etag",
+            "value": asset["digest"]["dandi:dandi-etag"],
+        }
+        response = requests.request("POST", url, json=payload, headers=headers)
+        blob_info = response.json()
+        assert asset["contentSize"] == blob_info["size"]
+        asset.update(**blob_info)
+        assets.append(asset)
+    ul.info(f"Total assets: {len(assets)}")
+
+    missing = []
+    couldnotupdate = []
+
+    for asset in assets:
+        blob_id = asset["blob_id"]
+        localpath = f"{blobdir}/{blob_id[:3]}/{blob_id[3:6]}/{blob_id}"
+        if not os.path.exists(localpath):
+            missing.append(asset)
+    if missing:
+        ul.error(f"could not find these blobs locally: {missing}")
+        ul.error(len(missing))
+    else:
+        for asset in assets:
+            blob_id = asset["blob_id"]
+            localpath = f"{blobdir}/{blob_id[:3]}/{blob_id[3:6]}/{blob_id}"
+            if DANDI_SCHEMA_VERSION != asset.get("schemaVersion", ""):
+                ul.info("Getting metadata")
+                localmeta = get_meta(localpath, asset["digest"]["dandi:dandi-etag"])
+                ul.info("Finished getting metadata")
+                localmeta["path"] = asset["path"]
+                localmeta["blobDateModified"] = asset["blobDateModified"]
+                url = f"https://api.dandiarchive.org/api/dandisets/{dandiset}/versions/draft/assets/{asset['asset_id']}/"
+                payload = {"metadata": localmeta, "blob_id": asset["blob_id"]}
+                if update:
+                    ul.info(f"updating: {asset['path']}")
+                    # print(url, payload)
+                    headers["Authorization"] = f"token {api_key}"
+                    response = requests.request(
+                        "PUT", url, json=payload, headers=headers
+                    )
+                    ul.info("Finished updating")
+                    if not response.ok:
+                        ul.error(response.text, url)
+                        couldnotupdate.append(asset)
+        ul.error(f"couldnotupdate: {couldnotupdate}")
+
+    newassets = []
+    for ra in ds.get_assets():
+        asset = ra.get_raw_metadata()
+        asset.update(**ra.json_dict())
+        newassets.append(asset)
+
+    ul.info(f"New assets: {len(newassets)}")
+
+
+if __name__ == "__main__":
+    process_dandiset()
