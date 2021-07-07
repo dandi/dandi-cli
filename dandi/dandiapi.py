@@ -899,17 +899,17 @@ class RemoteAsset(APIBase):
         except KeyError:
             raise NotFoundError(f"No {digest_type} digest found in metadata")
 
-    def set_metadata(self, metadata: models.Asset) -> "RemoteAsset":
+    def set_metadata(self, metadata: models.Asset) -> None:
         """
-        Set the metadata for the asset to the given value.  Returns the updated
-        `RemoteAsset` object.
+        Set the metadata for the asset to the given value and update the
+        `RemoteAsset` in place.
         """
         return self.set_raw_metadata(metadata.json_dict())
 
-    def set_raw_metadata(self, metadata: Dict[str, Any]) -> "RemoteAsset":
+    def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
         """
-        Set the metadata for the asset to the given value.  Returns the updated
-        `RemoteAsset` object.
+        Set the metadata for the asset to the given value and update the
+        `RemoteAsset` in place.
         """
         try:
             etag = metadata["digest"]["dandi:dandi-etag"]
@@ -922,12 +922,11 @@ class RemoteAsset(APIBase):
         data = self.client.put(
             self.api_path, json={"metadata": metadata, "blob_id": r["blob_id"]}
         )
-        return RemoteAsset(
-            client=self.client,
-            dandiset_id=self.dandiset_id,
-            version_id=self.version_id,
-            **data,
-        )
+        self.identifier = data["asset_id"]
+        self.path = data["path"]
+        self.size = int(data["size"])
+        self.modified = ensure_datetime(data["modified"])
+        self._metadata = data["metadata"]
 
     def get_content_url(
         self,

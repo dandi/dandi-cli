@@ -364,8 +364,8 @@ def test_set_asset_metadata(text_dandiset):
     asset = text_dandiset["dandiset"].get_asset_by_path("file.txt")
     metadata = deepcopy(asset.get_raw_metadata())
     metadata["blobDateModified"] = "2038-01-19T03:14:07-00:00"
-    asset2 = asset.set_raw_metadata(metadata)
-    assert asset2.get_raw_metadata()["blobDateModified"] == "2038-01-19T03:14:07-00:00"
+    asset.set_raw_metadata(metadata)
+    assert asset.get_raw_metadata()["blobDateModified"] == "2038-01-19T03:14:07-00:00"
 
 
 def test_get_dandiset_no_version_id_lazy(text_dandiset):
