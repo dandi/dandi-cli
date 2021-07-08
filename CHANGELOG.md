@@ -1,3 +1,17 @@
+# 0.23.1 (Thu Jul 08 2021)
+
+#### 🧪 Tests
+
+- Skip shell completion test entirely on Windows [#702](https://github.com/dandi/dandi-cli/pull/702) ([@jwodder](https://github.com/jwodder))
+- BF+RF(TST): populate contentUrl to satisfy Asset requirement in 0.5.0 [#705](https://github.com/dandi/dandi-cli/pull/705) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.23.0 (Tue Jul 06 2021)
 
 #### 🚀 Enhancement
