@@ -11,6 +11,7 @@ from dandischema.models import Dandiset as DandisetMeta
 from dandischema.models import PropertyValue
 from dateutil.tz import tzutc
 import pytest
+from semantic_version import Version
 
 from ..metadata import (
     extract_age,
@@ -127,94 +128,96 @@ def test_timedelta2duration(td, duration):
     assert timedelta2duration(td) == duration
 
 
-def test_metadata2asset():
-    data = metadata2asset(
-        {
-            "contentSize": 69105,
-            "digest": "e455839e5ab2fa659861f58a423fd17f-1",
-            "digest_type": "dandi_etag",
-            "encodingFormat": "application/x-nwb",
-            "experiment_description": "Experiment Description",
-            "experimenter": "Joe Q. Experimenter",
-            "id": "dandiasset:0b0a1a0b-e3ea-4cf6-be94-e02c830d54be",
-            "institution": "University College",
-            "keywords": ["test", "sample", "example", "test-case"],
-            "lab": "Retriever Laboratory",
-            "related_publications": "A Brief History of Test Cases",
-            "session_description": "Some test data",
-            "session_id": "XYZ789",
-            "session_start_time": "2020-08-31T15:58:28-04:00",
-            "age": "23 days",
-            "date_of_birth": "2020-03-14T12:34:56-04:00",
-            "genotype": "Typical",
-            "sex": "M",
-            "species": "human",
-            "subject_id": "a1b2c3",
-            "cell_id": "cell01",
-            "slice_id": "slice02",
-            "tissue_sample_id": "tissue03",
-            "probe_ids": "probe04",
-            "number_of_electrodes": 42,
-            "number_of_units": 6,
-            "nwb_version": "2.2.5",
-            "nd_types": [
-                "Device (2)",
-                "DynamicTable",
-                "ElectricalSeries",
-                "ElectrodeGroup",
-                "Subject",
-            ],
-            "path": "/test/path",
-        }
-    )
-    with (METADATA_DIR / "metadata2asset.json").open() as fp:
+@pytest.mark.parametrize(
+    "filename, metadata",
+    [
+        (
+            "metadata2asset.json",
+            {
+                "contentSize": 69105,
+                "digest": "e455839e5ab2fa659861f58a423fd17f-1",
+                "digest_type": "dandi_etag",
+                "encodingFormat": "application/x-nwb",
+                "experiment_description": "Experiment Description",
+                "experimenter": "Joe Q. Experimenter",
+                "id": "dandiasset:0b0a1a0b-e3ea-4cf6-be94-e02c830d54be",
+                "institution": "University College",
+                "keywords": ["test", "sample", "example", "test-case"],
+                "lab": "Retriever Laboratory",
+                "related_publications": "A Brief History of Test Cases",
+                "session_description": "Some test data",
+                "session_id": "XYZ789",
+                "session_start_time": "2020-08-31T15:58:28-04:00",
+                "age": "23 days",
+                "date_of_birth": "2020-03-14T12:34:56-04:00",
+                "genotype": "Typical",
+                "sex": "M",
+                "species": "human",
+                "subject_id": "a1b2c3",
+                "cell_id": "cell01",
+                "slice_id": "slice02",
+                "tissue_sample_id": "tissue03",
+                "probe_ids": "probe04",
+                "number_of_electrodes": 42,
+                "number_of_units": 6,
+                "nwb_version": "2.2.5",
+                "nd_types": [
+                    "Device (2)",
+                    "DynamicTable",
+                    "ElectricalSeries",
+                    "ElectrodeGroup",
+                    "Subject",
+                ],
+                "path": "/test/path",
+            },
+        ),
+        (
+            "metadata2asset_simple1.json",
+            {
+                "contentSize": 69105,
+                "digest": "e455839e5ab2fa659861f58a423fd17f-1",
+                "digest_type": "dandi_etag",
+                "encodingFormat": "application/x-nwb",
+                "nwb_version": "2.2.5",
+                "experiment_description": "experiment_description1",
+                "experimenter": ("experimenter1",),
+                "id": "dandiasset:bfc23fb6192b41c083a7257e09a3702b",
+                "institution": "institution1",
+                "keywords": ["keyword1", "keyword 2"],
+                "lab": "lab1",
+                "related_publications": ("related_publications1",),
+                "session_description": "session_description1",
+                "session_id": "session_id1",
+                "session_start_time": datetime(2017, 4, 15, 12, 0, tzinfo=tzutc()),
+                "age": None,
+                "date_of_birth": None,
+                "genotype": None,
+                "sex": None,
+                "species": None,
+                "subject_id": "sub-01",
+                "number_of_electrodes": 0,
+                "number_of_units": 0,
+                "nd_types": [],
+                "tissue_sample_id": "tissue42",
+                "path": "/test/path",
+            },
+        ),
+    ],
+)
+def test_metadata2asset(filename, metadata):
+    data = metadata2asset(metadata)
+    with (METADATA_DIR / filename).open() as fp:
         data_as_dict = json.load(fp)
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
     assert data == BareAssetMeta(**data_as_dict)
     bare_dict = deepcopy(data_as_dict)
     assert data.json_dict() == bare_dict
     data_as_dict["identifier"] = "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be"
-    validate(data_as_dict)
-
-
-def test_metadata2asset_simple1():
-    data = metadata2asset(
-        {
-            "contentSize": 69105,
-            "digest": "e455839e5ab2fa659861f58a423fd17f-1",
-            "digest_type": "dandi_etag",
-            "encodingFormat": "application/x-nwb",
-            "nwb_version": "2.2.5",
-            "experiment_description": "experiment_description1",
-            "experimenter": ("experimenter1",),
-            "id": "dandiasset:bfc23fb6192b41c083a7257e09a3702b",
-            "institution": "institution1",
-            "keywords": ["keyword1", "keyword 2"],
-            "lab": "lab1",
-            "related_publications": ("related_publications1",),
-            "session_description": "session_description1",
-            "session_id": "session_id1",
-            "session_start_time": datetime(2017, 4, 15, 12, 0, tzinfo=tzutc()),
-            "age": None,
-            "date_of_birth": None,
-            "genotype": None,
-            "sex": None,
-            "species": None,
-            "subject_id": "sub-01",
-            "number_of_electrodes": 0,
-            "number_of_units": 0,
-            "nd_types": [],
-            "tissue_sample_id": "tissue42",
-            "path": "/test/path",
-        }
-    )
-    with (METADATA_DIR / "metadata2asset_simple1.json").open() as fp:
-        data_as_dict = json.load(fp)
-    data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
-    assert data == BareAssetMeta(**data_as_dict)
-    bare_dict = deepcopy(data_as_dict)
-    assert data.json_dict() == bare_dict
-    data_as_dict["identifier"] = "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be"
+    # as of schema-0.5.0 (https://github.com/dandi/dandischema/pull/52)
+    # contentUrl is required, and validate below would map into Asset,
+    # due to schemaKey
+    if Version(DANDI_SCHEMA_VERSION) >= Version("0.5.0"):
+        data_as_dict["contentUrl"] = ["http://example.com"]
     validate(data_as_dict)
 
 
