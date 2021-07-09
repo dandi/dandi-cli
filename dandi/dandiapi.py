@@ -5,7 +5,7 @@ import os.path
 from pathlib import Path
 import re
 from threading import Lock
-from time import sleep
+from time import sleep, time
 from typing import (
     Any,
     Callable,
@@ -436,7 +436,9 @@ class RemoteDandiset(APIBase):
         `Version`.
         """
         lgr.debug("Waiting for Dandiset %s to complete validation ...", self.identifier)
-        while True:
+        start = time()
+        # Wait 20s for celery tasks to finish
+        while time() - start < 20:
             r = self.client.get(f"{self.version_api_path}info/")
             if "status" not in r:
                 # Running against older version of dandi-api that doesn't
@@ -444,11 +446,11 @@ class RemoteDandiset(APIBase):
                 break
             if r["status"] == "Valid":
                 break
-            elif r["status"] == "Invalid":
-                raise ValueError(
-                    f"Dandiset {self.identifier} is invalid: {r['validation_error']}"
-                )
             sleep(0.5)
+        else:
+            raise ValueError(
+                f"Dandiset {self.identifier} is {r['status']}: {r['validation_error']}"
+            )
         return self.copy(
             update={
                 "version": Version.parse_obj(
