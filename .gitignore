@@ -10,7 +10,7 @@
 __pycache__/
 build/
 dist/
-docs/source/generated/
+docs/**/generated/
 pip-wheel-metadata/
 sandbox/
 venv/

@@ -32,8 +32,7 @@ Mid-level user interfaces
 Support functionality
 =====================
 
-.. autosummary::
-   :toctree: generated
+.. toctree::
 
    consts
    utils

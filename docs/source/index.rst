@@ -13,8 +13,8 @@ Archive <https://dandiarchive.org>`_.
    :maxdepth: 2
    :caption: Contents:
 
-   cmdline
-   modref
+   cmdline/index
+   modref/index
 
 
 Indices and tables
