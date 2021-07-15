@@ -21,8 +21,10 @@ project = "DANDI Archive CLI and Python API library"
 copyright = "2021, DANDI Team"
 author = "DANDI Team"
 
+import dandi
+
 # The full version, including alpha/beta/rc tags
-release = "TODOdandi.__version__"
+release = dandi.__version__
 
 
 # -- General configuration ---------------------------------------------------

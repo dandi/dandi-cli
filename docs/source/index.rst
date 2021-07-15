@@ -3,13 +3,18 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to DANDI Archive CLI and Python API library's documentation!
-====================================================================
+Welcome to dandi-cli documentation
+==================================
+
+dandi-cli provides both command line interface (CLI) tools and a Python library (AKA Python API) to work with `DANDI
+Archive <https://dandiarchive.org>`_.
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
+   cmdline
+   modref
 
 
 Indices and tables
