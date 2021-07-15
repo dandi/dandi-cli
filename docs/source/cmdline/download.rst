@@ -23,7 +23,7 @@ Options
 
     Choose the format/frontend for output.
 
-.. option:: -J, --jobs INT
+.. option:: -J, --jobs <int>
 
     Number of parallel download jobs.
 
