@@ -1,6 +1,8 @@
 .. -*- mode: rst -*-
 .. vi: set ft=rst sts=4 ts=4 sw=4 et tw=79:
 
+.. currentmodule:: dandi
+
 .. _chap_modref:
 
 **********
@@ -16,25 +18,20 @@ functions it provides.
 High-level user interfaces
 ==========================
 
-.. currentmodule:: dandi
-.. autosummary::
-   :toctree: generated
+.. toctree::
 
    dandiarchive
 
 Mid-level user interfaces
 =========================
 
-.. currentmodule:: dandi
-.. autosummary::
-   :toctree: generated
+.. toctree::
 
    dandiapi
 
 Support functionality
 =====================
 
-.. currentmodule:: dandi
 .. autosummary::
    :toctree: generated
 
@@ -45,7 +42,6 @@ Support functionality
 Test infrastructure
 ===================
 
-.. currentmodule:: dandi
 .. autosummary::
    :toctree: generated
 
@@ -55,6 +51,5 @@ Test infrastructure
 Command line interface infrastructure
 =====================================
 
-.. currentmodule:: dandi
 .. autosummary::
    :toctree: generated
