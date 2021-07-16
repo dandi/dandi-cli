@@ -3,12 +3,14 @@
 .*.swp
 .coverage
 .coverage.*
+.docker/
 .eggs
 .idea
 .tox/
 __pycache__/
 build/
 dist/
+docs/**/generated/
 pip-wheel-metadata/
 sandbox/
 venv/

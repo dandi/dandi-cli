@@ -206,15 +206,11 @@ class AssetFolderURL(MultiAssetURL):
 def navigate_url(url):
     """Context manager to 'navigate' URL pointing to DANDI archive.
 
-    Parameters
-    ----------
-    url: str
-      URL which might point to a dandiset, a folder, or an asset(s)
+    :param str url: URL which might point to a dandiset, a folder, or an
+        asset(s)
 
-    Yields
-    ------
-    client, dandiset, assets (generator)
-      `client` will have established a session for the duration of the context
+    :returns: Generator of one ``(client, dandiset, assets)``; ``client`` will
+        have established a session for the duration of the context
     """
     parsed_url = parse_dandi_url(url)
     with parsed_url.navigate() as (client, dandiset, assets):
@@ -337,14 +333,17 @@ class _dandi_url_parser:
 
     @classmethod
     def parse(cls, url, *, map_instance=True):
-        """Parse url like and return server (address), asset_id and/or directory
+        """
+        Parse url like and return server (address), asset_id and/or directory
 
         Example URLs (as of 20210428):
+
         - Dataset landing page metadata:
           https://gui.dandiarchive.org/#/dandiset/000003
 
         Individual and multiple files:
-          - dandi???
+
+        - dandi???
 
         Multiple selected files + folders -- we do not support ATM, then further
         RFing would be due, probably making this into a generator or returning a
@@ -352,12 +351,10 @@ class _dandi_url_parser:
 
         "Features":
 
-        - uses some of `known_instance`s to map some urls, e.g. from
+        - uses some of `known_instances` to map some urls, e.g. from
           gui.dandiarchive.org ones into girder.
 
-        Returns
-        -------
-        ParsedDandiURL
+        :rtype: ParsedDandiURL
         """
         lgr.debug("Parsing url %s", url)
 
