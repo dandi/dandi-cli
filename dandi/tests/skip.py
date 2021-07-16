@@ -12,13 +12,13 @@
 
 There are two main ways to skip in pytest:
 
-  * decorating a test function, such as
+* decorating a test function, such as::
 
         @pytest.mark.skip(sys.platform.startswith("win"), reason="on windows")
         def test_func():
             [...]
 
-  * skipping inline, such as
+* skipping inline, such as::
 
         def test_func():
             if sys.platform.startswith("win"):
@@ -28,16 +28,16 @@ There are two main ways to skip in pytest:
 This module provides a mechanism to register a reason and condition as both a
 decorator and an inline function:
 
-  * Within this module, create a condition function that returns a tuple of the
-    form (REASON, COND). REASON is a str that will be shown as the reason for
-    the skip, and COND is a boolean indicating if the test should be skipped.
+* Within this module, create a condition function that returns a tuple of the
+  form (REASON, COND). REASON is a str that will be shown as the reason for
+  the skip, and COND is a boolean indicating if the test should be skipped.
 
-    For example
+  For example::
 
     def windows():
         return "on windows", sys.platform.startswith("win")
 
-  * Then add the above function to CONDITION_FNS.
+* Then add the above function to CONDITION_FNS.
 
 Doing that will make the skip condition available in two places:
 `mark.skipif_NAME` and `skipif.NAME`. So, for the above example, there would

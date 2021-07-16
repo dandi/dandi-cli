@@ -526,16 +526,13 @@ class RemoteDandiset(APIBase):
         this version of the Dandiset and return the resulting asset.  Blocks
         until the upload is complete.
 
-        Parameters
-        ----------
-        filepath: str or PathLike
-          the path to the local file to upload
-        asset_metadata: dict
-          Metadata for the uploaded asset file.  Must include a "path" field
-          giving the POSIX path at which the uploaded file will be placed on
-          the server.
-        jobs: int
-          Number of threads to use for uploading; defaults to 5
+        :param filepath: the path to the local file to upload
+        :type filepath: str or PathLike
+        :param dict asset_metadata:
+            Metadata for the uploaded asset file.  Must include a "path" field
+            giving the POSIX path at which the uploaded file will be placed on
+            the server.
+        :param int jobs: Number of threads to use for uploading; defaults to 5
         """
         for status in self.iter_upload_raw_asset(filepath, asset_metadata, jobs=jobs):
             if status["status"] == "done":
@@ -553,22 +550,19 @@ class RemoteDandiset(APIBase):
         this version of the Dandiset, returning a generator of status
         `dict`\\s.
 
-        Parameters
-        ----------
-        filepath: str or PathLike
-          the path to the local file to upload
-        asset_metadata: dict
-          Metadata for the uploaded asset file.  Must include a "path" field
-          giving the POSIX path at which the uploaded file will be placed on
-          the server.
-        jobs: int
-          Number of threads to use for uploading; defaults to 5
-
-        Returns
-        -------
-        A generator of `dict`\\s containing at least a ``"status"`` key.  Upon
-        successful upload, the last `dict` will have a status of ``"done"`` and
-        an ``"asset"`` key containing the resulting `RemoteAsset`.
+        :param filepath: the path to the local file to upload
+        :type filepath: str or PathLike
+        :param dict asset_metadata:
+            Metadata for the uploaded asset file.  Must include a "path" field
+            giving the POSIX path at which the uploaded file will be placed on
+            the server.
+        :param int jobs:
+            Number of threads to use for uploading; defaults to 5
+        :returns:
+            A generator of `dict`\\s containing at least a ``"status"`` key.
+            Upon successful upload, the last `dict` will have a status of
+            ``"done"`` and an ``"asset"`` key containing the resulting
+            `RemoteAsset`.
         """
         from .support.digests import get_dandietag
 
