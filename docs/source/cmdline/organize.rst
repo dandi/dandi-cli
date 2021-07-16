@@ -38,7 +38,7 @@ You can visit https://dandiarchive.org for a growing collection of
 Options
 -------
 
-.. options:: -d, --dandiset-path <dir>
+.. option:: -d, --dandiset-path <dir>
 
     A top directory (local) of the dandiset to organize files under.  If not
     specified, dandiset current directory is under is assumed.  For 'simulate'
