@@ -5,7 +5,7 @@ import os.path
 from pathlib import Path
 import re
 from threading import Lock
-from time import sleep
+from time import sleep, time
 from typing import (
     Any,
     Callable,
@@ -429,26 +429,32 @@ class RemoteDandiset(APIBase):
             json={"metadata": metadata, "name": metadata.get("name", "")},
         )
 
+    def wait_until_valid(self, min_time=20):
+        """
+        Wait for a Dandiset to be valid.  Validation is a background celery
+        task which runs asynchronously, so we need to wait for it to complete.
+        """
+        lgr.debug("Waiting for Dandiset %s to complete validation ...", self.identifier)
+        start = time()
+        while time() - start < min_time:
+            r = self.client.get(f"{self.version_api_path}info/")
+            if "status" not in r:
+                # Running against older version of dandi-api that doesn't
+                # validate
+                return
+            if r["status"] == "Valid":
+                return
+            sleep(0.5)
+        raise ValueError(
+            f"Dandiset {self.identifier} is {r['status']}: {r['validation_error']}"
+        )
+
     def publish(self) -> "RemoteDandiset":
         """
         Publish this version of the Dandiset.  Returns a copy of the
         `RemoteDandiset` with the `version` attribute set to the new published
         `Version`.
         """
-        lgr.debug("Waiting for Dandiset %s to complete validation ...", self.identifier)
-        while True:
-            r = self.client.get(f"{self.version_api_path}info/")
-            if "status" not in r:
-                # Running against older version of dandi-api that doesn't
-                # validate
-                break
-            if r["status"] == "Valid":
-                break
-            elif r["status"] == "Invalid":
-                raise ValueError(
-                    f"Dandiset {self.identifier} is invalid: {r['validation_error']}"
-                )
-            sleep(0.5)
         return self.copy(
             update={
                 "version": Version.parse_obj(
