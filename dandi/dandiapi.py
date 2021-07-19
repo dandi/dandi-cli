@@ -445,10 +445,9 @@ class RemoteDandiset(APIBase):
             if r["status"] == "Valid":
                 return
             sleep(0.5)
-        else:
-            raise ValueError(
-                f"Dandiset {self.identifier} is {r['status']}: {r['validation_error']}"
-            )
+        raise ValueError(
+            f"Dandiset {self.identifier} is {r['status']}: {r['validation_error']}"
+        )
 
     def publish(self) -> "RemoteDandiset":
         """
