@@ -360,6 +360,25 @@ def test_get_dandiset_lazy(mocker, text_dandiset):
     get_spy.assert_not_called()
 
 
+def test_get_dandiset_non_lazy(mocker, text_dandiset):
+    client = text_dandiset["client"]
+    get_spy = mocker.spy(client, "get")
+    dandiset = client.get_dandiset(text_dandiset["dandiset_id"], DRAFT, lazy=False)
+    get_spy.assert_called_once()
+    get_spy.reset_mock()
+    assert dandiset.version_id == DRAFT
+    get_spy.assert_not_called()
+    assert isinstance(dandiset.created, datetime)
+    get_spy.assert_not_called()
+    assert isinstance(dandiset.created, datetime)
+    assert isinstance(dandiset.modified, datetime)
+    assert isinstance(dandiset.version, Version)
+    assert dandiset.version.identifier == DRAFT
+    assert dandiset.most_recent_published_version is None
+    assert isinstance(dandiset.draft_version, Version)
+    get_spy.assert_not_called()
+
+
 def test_set_asset_metadata(text_dandiset):
     asset = text_dandiset["dandiset"].get_asset_by_path("file.txt")
     metadata = deepcopy(asset.get_raw_metadata())
