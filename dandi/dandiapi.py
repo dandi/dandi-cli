@@ -885,7 +885,9 @@ class RemoteAsset(APIBase):
         else:
             return cast(Dict[str, Any], self.client.get(self.api_path))
 
-    def get_digest(self, digest_type: Union[str, models.DigestType]) -> str:
+    def get_digest(
+        self, digest_type: Union[str, models.DigestType] = models.DigestType.dandi_etag
+    ) -> str:
         """
         Retrieves the value of the given type of digest from the asset's
         metadata.  Raises `NotFoundError` if there is no entry for the given
