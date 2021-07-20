@@ -311,7 +311,7 @@ class DandiAPIClient(RESTFullAPIClient):
             d = RemoteDandiset._make(self, self.get(f"/dandisets/{dandiset_id}/"))
             if version_id is not None and version_id != d.version_id:
                 if version_id == DRAFT:
-                    d.version = d.draft_version
+                    return d.for_version(d.draft_version)
                 else:
                     return d.for_version(version_id)
             return d

@@ -379,6 +379,48 @@ def test_get_dandiset_non_lazy(mocker, text_dandiset):
     get_spy.assert_not_called()
 
 
+def test_get_dandiset_non_lazy_published(mocker, text_dandiset):
+    v = text_dandiset["dandiset"].publish().version.identifier
+    client = text_dandiset["client"]
+    get_spy = mocker.spy(client, "get")
+    dandiset = client.get_dandiset(text_dandiset["dandiset_id"], v, lazy=False)
+    get_spy.assert_called_once()
+    get_spy.reset_mock()
+    assert dandiset.version_id == v
+    get_spy.assert_not_called()
+    assert isinstance(dandiset.created, datetime)
+    get_spy.assert_not_called()
+    assert isinstance(dandiset.created, datetime)
+    assert isinstance(dandiset.modified, datetime)
+    assert isinstance(dandiset.version, Version)
+    assert dandiset.version.identifier == v
+    assert isinstance(dandiset.most_recent_published_version, Version)
+    assert dandiset.most_recent_published_version.identifier == v
+    assert isinstance(dandiset.draft_version, Version)
+    get_spy.assert_not_called()
+
+
+def test_get_dandiset_non_lazy_draft_published(mocker, text_dandiset):
+    v = text_dandiset["dandiset"].publish().version.identifier
+    client = text_dandiset["client"]
+    get_spy = mocker.spy(client, "get")
+    dandiset = client.get_dandiset(text_dandiset["dandiset_id"], DRAFT, lazy=False)
+    get_spy.assert_called_once()
+    get_spy.reset_mock()
+    assert dandiset.version_id == DRAFT
+    get_spy.assert_not_called()
+    assert isinstance(dandiset.created, datetime)
+    get_spy.assert_not_called()
+    assert isinstance(dandiset.created, datetime)
+    assert isinstance(dandiset.modified, datetime)
+    assert isinstance(dandiset.version, Version)
+    assert dandiset.version.identifier == DRAFT
+    assert isinstance(dandiset.most_recent_published_version, Version)
+    assert dandiset.most_recent_published_version.identifier == v
+    assert isinstance(dandiset.draft_version, Version)
+    get_spy.assert_not_called()
+
+
 def test_get_dandiset_non_lazy_other_version(mocker, text_dandiset):
     v1 = text_dandiset["dandiset"].publish().version.identifier
     v2 = text_dandiset["dandiset"].publish().version.identifier
@@ -396,6 +438,7 @@ def test_get_dandiset_non_lazy_other_version(mocker, text_dandiset):
     assert isinstance(dandiset.modified, datetime)
     assert isinstance(dandiset.version, Version)
     assert dandiset.version.identifier == v1
+    assert isinstance(dandiset.most_recent_published_version, Version)
     assert dandiset.most_recent_published_version.identifier == v2
     assert isinstance(dandiset.draft_version, Version)
     get_spy.assert_not_called()
