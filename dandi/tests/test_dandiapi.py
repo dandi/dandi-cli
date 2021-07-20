@@ -379,17 +379,29 @@ def test_get_dandiset_non_lazy(mocker, text_dandiset):
     get_spy.assert_not_called()
 
 
-def test_get_dandiset_non_lazy_published(mocker, text_dandiset):
-    v = text_dandiset["dandiset"].publish().version.identifier
-    client = text_dandiset["client"]
-    get_spy = mocker.spy(client, "get")
-    dandiset = client.get_dandiset(text_dandiset["dandiset_id"], v, lazy=False)
-    get_spy.assert_called_once()
-    get_spy.reset_mock()
-    assert dandiset.version_id == v
-    get_spy.assert_not_called()
+@pytest.mark.parametrize("lazy", [True, False])
+def test_get_dandiset_no_version_id(lazy, text_dandiset):
+    dandiset = text_dandiset["client"].get_dandiset(
+        text_dandiset["dandiset_id"], lazy=lazy
+    )
+    assert dandiset.version_id == DRAFT
     assert isinstance(dandiset.created, datetime)
-    get_spy.assert_not_called()
+    assert isinstance(dandiset.created, datetime)
+    assert isinstance(dandiset.modified, datetime)
+    assert isinstance(dandiset.version, Version)
+    assert dandiset.version.identifier == DRAFT
+    assert dandiset.most_recent_published_version is None
+    assert isinstance(dandiset.draft_version, Version)
+
+
+@pytest.mark.parametrize("lazy", [True, False])
+def test_get_dandiset_published(lazy, text_dandiset):
+    d = text_dandiset["dandiset"]
+    d.wait_until_valid()
+    v = d.publish().version.identifier
+    dandiset = text_dandiset["client"].get_dandiset(d.identifier, v, lazy=lazy)
+    assert dandiset.version_id == v
+    assert isinstance(dandiset.created, datetime)
     assert isinstance(dandiset.created, datetime)
     assert isinstance(dandiset.modified, datetime)
     assert isinstance(dandiset.version, Version)
@@ -397,20 +409,33 @@ def test_get_dandiset_non_lazy_published(mocker, text_dandiset):
     assert isinstance(dandiset.most_recent_published_version, Version)
     assert dandiset.most_recent_published_version.identifier == v
     assert isinstance(dandiset.draft_version, Version)
-    get_spy.assert_not_called()
 
 
-def test_get_dandiset_non_lazy_draft_published(mocker, text_dandiset):
-    v = text_dandiset["dandiset"].publish().version.identifier
-    client = text_dandiset["client"]
-    get_spy = mocker.spy(client, "get")
-    dandiset = client.get_dandiset(text_dandiset["dandiset_id"], DRAFT, lazy=False)
-    get_spy.assert_called_once()
-    get_spy.reset_mock()
-    assert dandiset.version_id == DRAFT
-    get_spy.assert_not_called()
+@pytest.mark.parametrize("lazy", [True, False])
+def test_get_dandiset_published_no_version_id(lazy, text_dandiset):
+    d = text_dandiset["dandiset"]
+    d.wait_until_valid()
+    v = d.publish().version.identifier
+    dandiset = text_dandiset["client"].get_dandiset(d.identifier, lazy=lazy)
+    assert dandiset.version_id == v
     assert isinstance(dandiset.created, datetime)
-    get_spy.assert_not_called()
+    assert isinstance(dandiset.created, datetime)
+    assert isinstance(dandiset.modified, datetime)
+    assert isinstance(dandiset.version, Version)
+    assert dandiset.version.identifier == v
+    assert isinstance(dandiset.most_recent_published_version, Version)
+    assert dandiset.most_recent_published_version.identifier == v
+    assert isinstance(dandiset.draft_version, Version)
+
+
+@pytest.mark.parametrize("lazy", [True, False])
+def test_get_dandiset_published_draft(lazy, text_dandiset):
+    d = text_dandiset["dandiset"]
+    d.wait_until_valid()
+    v = d.publish().version.identifier
+    dandiset = text_dandiset["client"].get_dandiset(d.identifier, DRAFT, lazy=lazy)
+    assert dandiset.version_id == DRAFT
+    assert isinstance(dandiset.created, datetime)
     assert isinstance(dandiset.created, datetime)
     assert isinstance(dandiset.modified, datetime)
     assert isinstance(dandiset.version, Version)
@@ -418,22 +443,18 @@ def test_get_dandiset_non_lazy_draft_published(mocker, text_dandiset):
     assert isinstance(dandiset.most_recent_published_version, Version)
     assert dandiset.most_recent_published_version.identifier == v
     assert isinstance(dandiset.draft_version, Version)
-    get_spy.assert_not_called()
 
 
-def test_get_dandiset_non_lazy_other_version(mocker, text_dandiset):
-    v1 = text_dandiset["dandiset"].publish().version.identifier
-    v2 = text_dandiset["dandiset"].publish().version.identifier
+@pytest.mark.parametrize("lazy", [True, False])
+def test_get_dandiset_published_other_version(lazy, text_dandiset):
+    d = text_dandiset["dandiset"]
+    d.wait_until_valid()
+    v1 = d.publish().version.identifier
+    v2 = d.publish().version.identifier
     assert v1 != v2
-    client = text_dandiset["client"]
-    get_spy = mocker.spy(client, "get")
-    dandiset = client.get_dandiset(text_dandiset["dandiset_id"], v1, lazy=False)
-    get_spy.assert_called()
-    get_spy.reset_mock()
+    dandiset = text_dandiset["client"].get_dandiset(d.identifier, v1, lazy=lazy)
     assert dandiset.version_id == v1
-    get_spy.assert_not_called()
     assert isinstance(dandiset.created, datetime)
-    get_spy.assert_not_called()
     assert isinstance(dandiset.created, datetime)
     assert isinstance(dandiset.modified, datetime)
     assert isinstance(dandiset.version, Version)
@@ -441,7 +462,6 @@ def test_get_dandiset_non_lazy_other_version(mocker, text_dandiset):
     assert isinstance(dandiset.most_recent_published_version, Version)
     assert dandiset.most_recent_published_version.identifier == v2
     assert isinstance(dandiset.draft_version, Version)
-    get_spy.assert_not_called()
 
 
 def test_set_asset_metadata(text_dandiset):
@@ -450,18 +470,3 @@ def test_set_asset_metadata(text_dandiset):
     metadata["blobDateModified"] = "2038-01-19T03:14:07-00:00"
     asset.set_raw_metadata(metadata)
     assert asset.get_raw_metadata()["blobDateModified"] == "2038-01-19T03:14:07-00:00"
-
-
-def test_get_dandiset_no_version_id_lazy(text_dandiset):
-    client = text_dandiset["client"]
-    dandiset = client.get_dandiset(text_dandiset["dandiset_id"], lazy=True)
-    assert dandiset.version is not None
-    assert dandiset.version_id == dandiset.version.identifier == "draft"
-
-
-def test_get_published_dandiset_no_version_id_lazy(text_dandiset):
-    client = text_dandiset["client"]
-    version_id = text_dandiset["dandiset"].publish().version.identifier
-    dandiset = client.get_dandiset(text_dandiset["dandiset_id"], lazy=True)
-    assert dandiset.version is not None
-    assert dandiset.version_id == dandiset.version.identifier == version_id
