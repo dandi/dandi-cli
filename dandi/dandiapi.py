@@ -130,7 +130,7 @@ class RESTFullAPIClient:
             doretry |= retry
 
         try:
-            result = try_multiple(5, doretry, 1.1)(
+            result = try_multiple(12, doretry, 1.25)(
                 f,
                 url,
                 params=params,
