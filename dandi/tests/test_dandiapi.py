@@ -450,6 +450,7 @@ def test_get_dandiset_published_other_version(lazy, text_dandiset):
     d = text_dandiset["dandiset"]
     d.wait_until_valid()
     v1 = d.publish().version.identifier
+    d.wait_until_valid()
     v2 = d.publish().version.identifier
     assert v1 != v2
     dandiset = text_dandiset["client"].get_dandiset(d.identifier, v1, lazy=lazy)
