@@ -535,7 +535,12 @@ class RemoteDandiset:
         """
         if isinstance(version_id, str):
             version_id = self.get_version(version_id)
-        return self.copy(update={"version": version_id})
+        return type(self)(
+            client=self.client,
+            identifier=self.identifier,
+            version=version_id,
+            data=self._data,
+        )
 
     def delete(self) -> None:
         """Delete the Dandiset"""
