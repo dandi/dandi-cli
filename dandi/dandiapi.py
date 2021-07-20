@@ -601,13 +601,8 @@ class RemoteDandiset:
         `RemoteDandiset` with the `version` attribute set to the new published
         `Version`.
         """
-        return type(self)(
-            client=self.client,
-            identifier=self.identifier,
-            version=Version.parse_obj(
-                self.client.post(f"{self.version_api_path}publish/")
-            ),
-            data=self._data,
+        return self.for_version(
+            Version.parse_obj(self.client.post(f"{self.version_api_path}publish/"))
         )
 
     def get_assets(self) -> Iterator["RemoteAsset"]:
