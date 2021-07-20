@@ -588,7 +588,7 @@ class RemoteDandiset:
                 # Running against older version of dandi-api that doesn't
                 # validate
                 return
-            if r["status"] == "Valid":
+            if r["status"] in ("Valid", "Published"):
                 return
             sleep(0.5)
         raise ValueError(
