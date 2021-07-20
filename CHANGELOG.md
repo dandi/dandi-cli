@@ -1,3 +1,30 @@
+# 0.23.2 (Tue Jul 20 2021)
+
+#### 🐛 Bug Fix
+
+- Increase retries & wait times for API errors [#716](https://github.com/dandi/dandi-cli/pull/716) ([@jwodder](https://github.com/jwodder))
+- Use timed wait in publish test [#706](https://github.com/dandi/dandi-cli/pull/706) ([@dchiquito](https://github.com/dchiquito))
+
+#### 🏠 Internal
+
+- Add Readthedocs config [#715](https://github.com/dandi/dandi-cli/pull/715) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- ENH: adding sphinx documentation for the dandi-cli [#712](https://github.com/dandi/dandi-cli/pull/712) ([@yarikoptic](https://github.com/yarikoptic) [@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- BF(TST): Allow for IteratorWithAggregation to get nothing if reraise_immediately [#707](https://github.com/dandi/dandi-cli/pull/707) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 3
+
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.23.1 (Thu Jul 08 2021)
 
 #### 🧪 Tests
