@@ -24,6 +24,7 @@ author = "DANDI Team"
 import dandi
 
 # The full version, including alpha/beta/rc tags
+version = dandi.__version__
 release = dandi.__version__
 
 
