@@ -41,6 +41,7 @@ def upload(
     api_url = instance.api
 
     client = DandiAPIClient(api_url)
+    client.match_schema_version()
     client.dandi_authenticate()
 
     dandiset = APIDandiset(dandiset.path)  # "cast" to a new API based dandiset
