@@ -122,32 +122,10 @@ def main(ctx, log_level, pdb=False):
 
     if pdb:
         map_to_click_exceptions._do_map = False
-        from ..utils import setup_exceptionhook
+        from ..utils import check_dandi_version, setup_exceptionhook
 
         setup_exceptionhook()
-    try:
-        import etelemetry
-
-        try:
-            etelemetry.check_available_version(
-                "dandi/dandi-cli", __version__, lgr=lgr, raise_exception=True
-            )
-        except etelemetry.client.BadVersionError:
-            # note: SystemExit is based of BaseException, so is not Exception
-            raise SystemExit(
-                "DANDI CLI has detected that you are using a version that is known to "
-                "contain bugs, is incompatible with our current data archive, or has "
-                "other significant performance limitations. "
-                "To continue using DANDI CLI, please upgrade your dandi client to a newer "
-                "version (e.g., using pip install --upgrade dandi if you installed using pip). "
-                "If you have any issues, please contact the DANDI "
-                "helpdesk at https://github.com/dandi/helpdesk/issues/new/choose ."
-            )
-    except Exception as exc:
-        lgr.warning(
-            "Failed to check for a more recent version available with etelemetry: %s",
-            exc,
-        )
+        check_dandi_version()
 
 
 #
