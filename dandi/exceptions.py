@@ -60,3 +60,7 @@ class BadCliVersionError(CliVersionError):
             f"Client version {self.our_version} is rejected by server!  "
             + self.server_requirements()
         )
+
+
+class SchemaVersionError(Exception):
+    pass

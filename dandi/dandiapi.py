@@ -21,13 +21,14 @@ from urllib.parse import urlparse, urlunparse
 from xml.etree.ElementTree import fromstring
 
 import click
+from dandischema.models import get_schema_version
 from pydantic import BaseModel, Field, PrivateAttr
 import requests
 import tenacity
 
 from . import get_logger
 from .consts import MAX_CHUNK_SIZE, known_instances, known_instances_rev
-from .exceptions import NotFoundError
+from .exceptions import NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup
 from .utils import USER_AGENT, is_interactive, try_multiple
 
@@ -294,6 +295,23 @@ class DandiAPIClient(RESTFullAPIClient):
         return RemoteDandiset._make(
             self, self.post("/dandisets/", json={"name": name, "metadata": metadata})
         )
+
+    def check_schema_version(self, schema_version: Optional[str] = None) -> None:
+        if schema_version is None:
+            schema_version = get_schema_version()
+        server_info = self.get("/info/")
+        server_schema_version = server_info.get("schema_version")
+        if not server_schema_version:
+            raise RuntimeError(
+                "Server did not provide schema_version in /info/;"
+                f" returned {server_info!r}"
+            )
+        if server_schema_version != schema_version:
+            raise SchemaVersionError(
+                f"Server requires schema version {server_schema_version};"
+                f" client only supports {schema_version}.  You may need to"
+                " upgrade dandi and/or dandischema."
+            )
 
 
 class APIBase(BaseModel):

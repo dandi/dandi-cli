@@ -6,12 +6,15 @@ import re
 from shutil import rmtree
 
 import click
-from dandischema.models import UUID_PATTERN
+from dandischema.models import UUID_PATTERN, get_schema_version
+import pytest
+import responses
 
 from .. import dandiapi
 from ..consts import dandiset_metadata_file
 from ..dandiapi import DandiAPIClient
 from ..download import download
+from ..exceptions import SchemaVersionError
 from ..upload import upload
 from ..utils import find_files
 
@@ -311,3 +314,29 @@ def test_remote_asset_json_dict(text_dandiset):
     assert sorted(data.keys()) == ["asset_id", "modified", "path", "size"]
     for v in data.values():
         assert isinstance(v, (str, int))
+
+
+@responses.activate
+def test_check_schema_version_matches_default():
+    responses.add(
+        responses.GET,
+        "https://test.nil/api/info/",
+        json={"schema_version": get_schema_version()},
+    )
+    client = DandiAPIClient("https://test.nil/api")
+    client.check_schema_version()
+
+
+@responses.activate
+def test_check_schema_version_mismatch():
+    responses.add(
+        responses.GET, "https://test.nil/api/info/", json={"schema_version": "4.5.6"}
+    )
+    client = DandiAPIClient("https://test.nil/api")
+    with pytest.raises(SchemaVersionError) as excinfo:
+        client.check_schema_version("1.2.3")
+    assert (
+        str(excinfo.value)
+        == "Server requires schema version 4.5.6; client only supports 1.2.3.  "
+        "You may need to upgrade dandi and/or dandischema."
+    )
