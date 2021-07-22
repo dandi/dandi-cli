@@ -337,5 +337,6 @@ def test_match_schema_version_mismatch():
         client.match_schema_version("1.2.3")
     assert (
         str(excinfo.value)
-        == "Server requires schema version 4.5.6; client only has 1.2.3"
+        == "Server requires schema version 4.5.6; client only supports 1.2.3.  "
+        "You may need to upgrade dandi and/or dandischema."
     )
