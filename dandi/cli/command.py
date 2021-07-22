@@ -128,7 +128,13 @@ def main(ctx, log_level, pdb=False):
     try:
         import etelemetry
 
-        etelemetry.check_available_version("dandi/dandi-cli", __version__, lgr=lgr)
+        try:
+            etelemetry.check_available_version(
+                "dandi/dandi-cli", __version__, lgr=lgr, raise_exception=True
+            )
+        except etelemetry.client.BadVersionError as exc:
+            # note: SystemExit is based of BaseException, so is not Exception
+            raise SystemExit(str(exc))
     except Exception as exc:
         lgr.warning(
             "Failed to check for a more recent version available with etelemetry: %s",
