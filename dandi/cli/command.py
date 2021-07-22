@@ -122,10 +122,13 @@ def main(ctx, log_level, pdb=False):
 
     if pdb:
         map_to_click_exceptions._do_map = False
-        from ..utils import check_dandi_version, setup_exceptionhook
+        from ..utils import setup_exceptionhook
 
         setup_exceptionhook()
-        check_dandi_version()
+
+    from ..utils import check_dandi_version
+
+    check_dandi_version()
 
 
 #
