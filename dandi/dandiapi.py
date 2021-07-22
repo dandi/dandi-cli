@@ -30,7 +30,7 @@ from . import get_logger
 from .consts import MAX_CHUNK_SIZE, known_instances, known_instances_rev
 from .exceptions import NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup
-from .utils import USER_AGENT, is_interactive, try_multiple
+from .utils import USER_AGENT, check_dandi_version, is_interactive, try_multiple
 
 lgr = get_logger()
 
@@ -222,6 +222,7 @@ class RESTFullAPIClient:
 
 class DandiAPIClient(RESTFullAPIClient):
     def __init__(self, api_url=None, token=None):
+        check_dandi_version()
         if api_url is None:
             instance_name = os.environ.get("DANDI_INSTANCE", "dandi")
             api_url = known_instances[instance_name].api
