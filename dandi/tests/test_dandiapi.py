@@ -317,24 +317,24 @@ def test_remote_asset_json_dict(text_dandiset):
 
 
 @responses.activate
-def test_match_schema_version_matches_default():
+def test_check_schema_version_matches_default():
     responses.add(
         responses.GET,
         "https://test.nil/api/info/",
         json={"schema_version": get_schema_version()},
     )
     client = DandiAPIClient("https://test.nil/api")
-    client.match_schema_version()
+    client.check_schema_version()
 
 
 @responses.activate
-def test_match_schema_version_mismatch():
+def test_check_schema_version_mismatch():
     responses.add(
         responses.GET, "https://test.nil/api/info/", json={"schema_version": "4.5.6"}
     )
     client = DandiAPIClient("https://test.nil/api")
     with pytest.raises(SchemaVersionError) as excinfo:
-        client.match_schema_version("1.2.3")
+        client.check_schema_version("1.2.3")
     assert (
         str(excinfo.value)
         == "Server requires schema version 4.5.6; client only supports 1.2.3.  "

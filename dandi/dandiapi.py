@@ -296,7 +296,7 @@ class DandiAPIClient(RESTFullAPIClient):
             self, self.post("/dandisets/", json={"name": name, "metadata": metadata})
         )
 
-    def match_schema_version(self, schema_version: Optional[str] = None) -> None:
+    def check_schema_version(self, schema_version: Optional[str] = None) -> None:
         if schema_version is None:
             schema_version = get_schema_version()
         server_info = self.get("/info/")
