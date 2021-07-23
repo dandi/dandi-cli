@@ -1,3 +1,31 @@
+# 0.24.0 (Fri Jul 23 2021)
+
+#### 🚀 Enhancement
+
+- Python API rewrite, part 2 [#676](https://github.com/dandi/dandi-cli/pull/676) ([@jwodder](https://github.com/jwodder))
+- RF: attempt nwb metadata extraction only on .nwb, if fails -- warning [#733](https://github.com/dandi/dandi-cli/pull/733) ([@yarikoptic](https://github.com/yarikoptic))
+- Invoke etelemetry when constructing a DandiAPIClient; honor DANDI_NO_ET [#728](https://github.com/dandi/dandi-cli/pull/728) ([@jwodder](https://github.com/jwodder))
+- Make upload() fail if client & server schema versions are not in sync [#724](https://github.com/dandi/dandi-cli/pull/724) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Log "error" statuses while uploading as ERROR log messages [#737](https://github.com/dandi/dandi-cli/pull/737) ([@jwodder](https://github.com/jwodder))
+- Retry following redirects that return 404 [#734](https://github.com/dandi/dandi-cli/pull/734) ([@jwodder](https://github.com/jwodder))
+- ENH: exit with non-0 when "bad_version" of dandi-cli is used [#725](https://github.com/dandi/dandi-cli/pull/725) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 📝 Documentation
+
+- Stretch the doc to the screen width [#721](https://github.com/dandi/dandi-cli/pull/721) ([@yarikoptic](https://github.com/yarikoptic))
+- Set "version" in docs/source/conf.py [#720](https://github.com/dandi/dandi-cli/pull/720) ([@jwodder](https://github.com/jwodder))
+- Install "test" extras when building docs [#718](https://github.com/dandi/dandi-cli/pull/718) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.23.2 (Tue Jul 20 2021)
 
 #### 🐛 Bug Fix
