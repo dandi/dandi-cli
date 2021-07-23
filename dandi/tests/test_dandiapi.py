@@ -410,6 +410,9 @@ def test_get_dandiset_no_version_id(lazy, text_dandiset):
     assert dandiset.most_recent_published_version is None
     assert isinstance(dandiset.draft_version, Version)
     assert isinstance(dandiset.contact_person, str)
+    versions = list(dandiset.get_versions())
+    assert len(versions) == 1
+    assert versions[0].identifier == DRAFT
 
 
 @pytest.mark.parametrize("lazy", [True, False])
@@ -428,6 +431,9 @@ def test_get_dandiset_published(lazy, text_dandiset):
     assert dandiset.most_recent_published_version.identifier == v
     assert isinstance(dandiset.draft_version, Version)
     assert isinstance(dandiset.contact_person, str)
+    versions = list(dandiset.get_versions())
+    assert len(versions) == 2
+    assert sorted(vobj.identifier for vobj in versions) == [v, DRAFT]
 
 
 @pytest.mark.parametrize("lazy", [True, False])
@@ -446,6 +452,9 @@ def test_get_dandiset_published_no_version_id(lazy, text_dandiset):
     assert dandiset.most_recent_published_version.identifier == v
     assert isinstance(dandiset.draft_version, Version)
     assert isinstance(dandiset.contact_person, str)
+    versions = list(dandiset.get_versions())
+    assert len(versions) == 2
+    assert sorted(vobj.identifier for vobj in versions) == [v, DRAFT]
 
 
 @pytest.mark.parametrize("lazy", [True, False])
@@ -464,6 +473,9 @@ def test_get_dandiset_published_draft(lazy, text_dandiset):
     assert dandiset.most_recent_published_version.identifier == v
     assert isinstance(dandiset.draft_version, Version)
     assert isinstance(dandiset.contact_person, str)
+    versions = list(dandiset.get_versions())
+    assert len(versions) == 2
+    assert sorted(vobj.identifier for vobj in versions) == [v, DRAFT]
 
 
 @pytest.mark.parametrize("lazy", [True, False])
@@ -489,6 +501,10 @@ def test_get_dandiset_published_other_version(lazy, text_dandiset):
     assert dandiset.most_recent_published_version.identifier == v2
     assert isinstance(dandiset.draft_version, Version)
     assert isinstance(dandiset.contact_person, str)
+
+    versions = list(dandiset.get_versions())
+    assert len(versions) == 3
+    assert sorted(vobj.identifier for vobj in versions) == [v1, v2, DRAFT]
 
 
 def test_set_asset_metadata(text_dandiset):
