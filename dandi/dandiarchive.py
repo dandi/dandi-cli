@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 import re
+from time import sleep
 from typing import Iterator, Optional, Tuple
 from urllib.parse import unquote as urlunquote
 
@@ -474,18 +475,25 @@ class _dandi_url_parser:
 
     @staticmethod
     def follow_redirect(url):
-        r = requests.head(url, allow_redirects=True)
-        if r.status_code == 404:
-            raise NotFoundError(url)
-        elif r.status_code != 200:
-            raise FailedToConnectError(
-                f"Response for getting {url} to redirect returned {r.status_code}."
-                f" Please verify that it is a URL related to dandiarchive and"
-                f" supported by dandi client"
-            )
-        elif r.url != url:
-            return r.url
-        return url
+        i = 0
+        while True:
+            r = requests.head(url, allow_redirects=True)
+            if r.status_code == 404:
+                if i < 3:
+                    sleep(0.1 * 10 ** i)
+                    i += 1
+                    continue
+                else:
+                    raise NotFoundError(url)
+            elif r.status_code != 200:
+                raise FailedToConnectError(
+                    f"Response for getting {url} to redirect returned {r.status_code}."
+                    f" Please verify that it is a URL related to dandiarchive and"
+                    f" supported by dandi client"
+                )
+            elif r.url != url:
+                return r.url
+            return url
 
 
 # convenience binding
