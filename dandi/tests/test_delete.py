@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 import requests
 
-from ..consts import dandiset_metadata_file
+from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiapi import RESTFullAPIClient
 from ..delete import delete
 from ..download import download
@@ -137,7 +137,7 @@ def test_delete_dandiset(local_dandi_api, mocker, monkeypatch, text_dandiset, pa
     )
     delete_spy.assert_called()
     with pytest.raises(requests.HTTPError) as excinfo:
-        local_dandi_api["client"].get_dandiset(dandiset_id, "draft")
+        local_dandi_api["client"].get_dandiset(dandiset_id, DRAFT, lazy=False)
     assert excinfo.value.response.status_code == 404
 
 

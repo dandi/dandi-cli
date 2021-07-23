@@ -6,6 +6,7 @@ from shutil import rmtree
 
 import pytest
 
+from ..consts import DRAFT
 from ..download import download
 from ..utils import find_files
 
@@ -96,7 +97,7 @@ def test_download_000027_assets_only(url, tmpdir):
             "0.200721.2222",
             marks=pytest.mark.xfail(reason="publish.dandiarchive.org is gone"),
         ),
-        "draft",
+        DRAFT,
     ],
 )
 def test_download_000027_resume(tmp_path, resizer, version):

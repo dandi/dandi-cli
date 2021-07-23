@@ -21,16 +21,28 @@ from urllib.parse import urlparse, urlunparse
 from xml.etree.ElementTree import fromstring
 
 import click
-from dandischema.models import get_schema_version
+from dandischema import models
 from pydantic import BaseModel, Field, PrivateAttr
 import requests
 import tenacity
 
 from . import get_logger
-from .consts import MAX_CHUNK_SIZE, known_instances, known_instances_rev
+from .consts import (
+    DRAFT,
+    MAX_CHUNK_SIZE,
+    DandiInstance,
+    known_instances,
+    known_instances_rev,
+)
 from .exceptions import NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup
-from .utils import USER_AGENT, check_dandi_version, is_interactive, try_multiple
+from .utils import (
+    USER_AGENT,
+    check_dandi_version,
+    ensure_datetime,
+    is_interactive,
+    try_multiple,
+)
 
 lgr = get_logger()
 
@@ -232,6 +244,17 @@ class DandiAPIClient(RESTFullAPIClient):
         if token is not None:
             self.authenticate(token)
 
+    @classmethod
+    def for_dandi_instance(
+        cls, instance: Union[str, DandiInstance], token=None, authenticate=False
+    ) -> "DandiAPIClient":
+        if isinstance(instance, str):
+            instance = known_instances[instance]
+        client = cls(instance.api, token=token)
+        if token is None and authenticate:
+            client.dandi_authenticate()
+        return client
+
     def authenticate(self, token):
         # Fails if token is invalid:
         self.get("/auth/token", headers={"Authorization": f"token {token}"})
@@ -271,21 +294,27 @@ class DandiAPIClient(RESTFullAPIClient):
                 break
 
     def get_dandiset(
-        self, dandiset_id: str, version_id: Optional[str] = None
+        self, dandiset_id: str, version_id: Optional[str] = None, lazy: bool = True
     ) -> "RemoteDandiset":
         """
         Fetches the Dandiset with the given ``dandiset_id``.  If ``version_id``
         is not specified, the `RemoteDandiset`'s version is set to the most
         recent published version if there is one, otherwise to the draft
         version.
+
+        If ``lazy`` is true, no requests are actually made until any data is
+        requested from the `RemoteDandiset`.
         """
-        d = RemoteDandiset._make(self, self.get(f"/dandisets/{dandiset_id}/"))
-        if version_id is not None and version_id != d.version_id:
-            if version_id == "draft":
-                d.version = d.draft_version
-            else:
-                return d.for_version(version_id)
-        return d
+        if lazy:
+            return RemoteDandiset(self, dandiset_id, version_id)
+        else:
+            d = RemoteDandiset._make(self, self.get(f"/dandisets/{dandiset_id}/"))
+            if version_id is not None and version_id != d.version_id:
+                if version_id == DRAFT:
+                    return d.for_version(d.draft_version)
+                else:
+                    return d.for_version(version_id)
+            return d
 
     def get_dandisets(self) -> Iterator["RemoteDandiset"]:
         for data in self.paginate("/dandisets/"):
@@ -299,7 +328,7 @@ class DandiAPIClient(RESTFullAPIClient):
 
     def check_schema_version(self, schema_version: Optional[str] = None) -> None:
         if schema_version is None:
-            schema_version = get_schema_version()
+            schema_version = models.get_schema_version()
         server_info = self.get("/info/")
         server_schema_version = server_info.get("schema_version")
         if not server_schema_version:
@@ -344,24 +373,86 @@ class Version(APIBase):
     modified: datetime
 
 
-class RemoteDandiset(APIBase):
+class RemoteDandiset:
     """
     Representation of a Dandiset (as of a certain version) retrieved from the
     API
     """
 
-    client: "DandiAPIClient"
-    identifier: str
-    created: datetime
-    modified: datetime
-    #: The version in question of the Dandiset
-    version: Version
-    most_recent_published_version: Optional[Version]
-    draft_version: Version
+    def __init__(
+        self,
+        client: DandiAPIClient,
+        identifier: str,
+        version: Union[str, Version, None] = None,
+        data: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self.client = client
+        self.identifier = identifier
+        self._version_id: Optional[str]
+        self._version: Optional[Version]
+        if version is None:
+            self._version_id = None
+            self._version = None
+        elif isinstance(version, str):
+            self._version_id = version
+            self._version = None
+        else:
+            self._version_id = version.identifier
+            self._version = version
+        self._data = data
+
+    def _get_data(self) -> Dict[str, Any]:
+        if self._data is None:
+            self._data = self.client.get(f"/dandisets/{self.identifier}/")
+        return self._data
 
     @property
     def version_id(self) -> str:
-        return self.version.identifier
+        if self._version_id is None:
+            self._version_id = self.version.identifier
+        return self._version_id
+
+    @property
+    def version(self) -> Version:
+        """The version in question of the Dandiset"""
+        if self._version is None:
+            if self._version_id is None:
+                self._get_data()
+            if self._data is not None:
+                for vattr in ["most_recent_published_version", "draft_version"]:
+                    vdict = self._data.get(vattr)
+                    if vdict and (
+                        self._version_id is None or vdict["version"] == self.version_id
+                    ):
+                        self._version = Version.parse_obj(vdict)
+                        return self._version
+            assert self._version_id is not None
+            self._version = self.get_version(self._version_id)
+        return self._version
+
+    @property
+    def created(self) -> datetime:
+        return ensure_datetime(self._get_data()["created"])
+
+    @property
+    def modified(self) -> datetime:
+        return ensure_datetime(self._get_data()["modified"])
+
+    @property
+    def contact_person(self) -> str:
+        return self._get_data()["contact_person"]
+
+    @property
+    def most_recent_published_version(self) -> Optional[Version]:
+        v = self._get_data().get("most_recent_published_version")
+        if v is None:
+            return None
+        else:
+            return Version.parse_obj(v)
+
+    @property
+    def draft_version(self) -> Version:
+        return Version.parse_obj(self._get_data()["draft_version"])
 
     @property
     def api_path(self) -> str:
@@ -379,10 +470,12 @@ class RemoteDandiset(APIBase):
         as the Dandiset's version; otherwise, use ``"draft_version"``.
         """
         if data.get("most_recent_published_version") is not None:
-            version = data["most_recent_published_version"]
+            version = Version.parse_obj(data["most_recent_published_version"])
         else:
-            version = data["draft_version"]
-        return cls(client=client, version=version, **data)
+            version = Version.parse_obj(data["draft_version"])
+        return cls(
+            client=client, identifier=data["identifier"], version=version, data=data
+        )
 
     def _mkasset(self, data: Dict[str, Any]) -> "RemoteAsset":
         return RemoteAsset(
@@ -404,6 +497,33 @@ class RemoteDandiset(APIBase):
             _metadata=metadata,
         )
 
+    def json_dict(self) -> Dict[str, Any]:
+        """
+        Convert to a JSONable `dict`, omitting the ``client`` attribute and
+        using the same field names as in the API
+        """
+        data = {
+            **self._get_data(),
+            "version": self.version.json_dict(),
+            "draft_version": self.draft_version.json_dict(),
+        }
+        if self.most_recent_published_version is not None:
+            data[
+                "most_recent_published_version"
+            ] = self.most_recent_published_version.json_dict()
+        return data
+
+    def refresh(self) -> None:
+        """
+        Update the `RemoteDandiset` in-place with the latest data from the
+        server.  The `RemoteDandiset` continues to have the same version as
+        before, but the cached version data is internally cleared and may be
+        different upon subsequent access.
+        """
+        self._data = self.client.get(f"/dandisets/{self.identifier}/")
+        # Clear _version so it will be refetched the next time it is accessed
+        self._version = None
+
     def get_versions(self) -> Iterator[Version]:
         """Returns an iterator of all available `Version`\\s for the Dandiset"""
         for v in self.client.paginate(f"{self.api_path}versions/"):
@@ -415,7 +535,9 @@ class RemoteDandiset(APIBase):
         version does not exist, a `requests.HTTPError` is raised with a 404
         status code.
         """
-        return Version.parse_obj(self.client.get(f"{self.version_api_path}info/"))
+        return Version.parse_obj(
+            self.client.get(f"/dandisets/{self.identifier}/versions/{version_id}/info")
+        )
 
     def for_version(self, version_id: Union[str, Version]) -> "RemoteDandiset":
         """
@@ -426,11 +548,28 @@ class RemoteDandiset(APIBase):
         """
         if isinstance(version_id, str):
             version_id = self.get_version(version_id)
-        return self.copy(update={"version": version_id})
+        return type(self)(
+            client=self.client,
+            identifier=self.identifier,
+            version=version_id,
+            data=self._data,
+        )
 
     def delete(self) -> None:
-        """Delete the Dandiset"""
+        """
+        Delete the Dandiset from the server.  Any further access of the
+        instance's data attributes afterwards will result in a 404.
+        """
         self.client.delete(self.api_path)
+        self._data = None
+        self._version = None
+
+    def get_metadata(self) -> models.Dandiset:
+        """
+        Fetch the metadata for this version of the Dandiset as a
+        `dandischema.models.Dandiset` instance
+        """
+        return models.Dandiset.parse_obj(self.get_raw_metadata())
 
     def get_raw_metadata(self) -> Dict[str, Any]:
         """
@@ -438,6 +577,12 @@ class RemoteDandiset(APIBase):
         `dict`
         """
         return cast(Dict[str, Any], self.client.get(self.version_api_path))
+
+    def set_metadata(self, metadata: models.Dandiset) -> None:
+        """
+        Set the metadata for this version of the Dandiset to the given value
+        """
+        self.set_raw_metadata(metadata.json_dict())
 
     def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
         """
@@ -474,15 +619,11 @@ class RemoteDandiset(APIBase):
         `RemoteDandiset` with the `version` attribute set to the new published
         `Version`.
         """
-        return self.copy(
-            update={
-                "version": Version.parse_obj(
-                    self.client.post(f"{self.version_api_path}publish/")
-                )
-            }
+        return self.for_version(
+            Version.parse_obj(self.client.post(f"{self.version_api_path}publish/"))
         )
 
-    def get_assets(self, path=None) -> Iterator["RemoteAsset"]:
+    def get_assets(self) -> Iterator["RemoteAsset"]:
         """Returns an iterator of all assets in this version of the Dandiset"""
         for a in self.client.paginate(f"{self.version_api_path}assets/"):
             yield self._mkasset(a)
@@ -748,12 +889,64 @@ class RemoteAsset(APIBase):
     def download_url(self) -> str:
         return self.client.get_url(f"{self.api_path}download/")
 
+    def get_metadata(self) -> models.Asset:
+        """
+        Fetch the metadata for the asset as a `dandischema.models.Asset`
+        instance
+        """
+        return models.Asset.parse_obj(self.get_raw_metadata())
+
     def get_raw_metadata(self) -> Dict[str, Any]:
         """Fetch the metadata for the asset as an unprocessed `dict`"""
         if self._metadata is not None:
             return self._metadata
         else:
             return cast(Dict[str, Any], self.client.get(self.api_path))
+
+    def get_digest(
+        self, digest_type: Union[str, models.DigestType] = models.DigestType.dandi_etag
+    ) -> str:
+        """
+        Retrieves the value of the given type of digest from the asset's
+        metadata.  Raises `NotFoundError` if there is no entry for the given
+        digest type.
+        """
+        if isinstance(digest_type, models.DigestType):
+            digest_type = digest_type.value
+        metadata = self.get_raw_metadata()
+        try:
+            return metadata["digest"][digest_type]
+        except KeyError:
+            raise NotFoundError(f"No {digest_type} digest found in metadata")
+
+    def set_metadata(self, metadata: models.Asset) -> None:
+        """
+        Set the metadata for the asset to the given value and update the
+        `RemoteAsset` in place.
+        """
+        return self.set_raw_metadata(metadata.json_dict())
+
+    def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
+        """
+        Set the metadata for the asset to the given value and update the
+        `RemoteAsset` in place.
+        """
+        try:
+            etag = metadata["digest"]["dandi:dandi-etag"]
+        except KeyError:
+            raise ValueError("dandi-etag digest not set in new asset metadata")
+        r = self.client.post(
+            "/blobs/digest/",
+            json={"algorithm": "dandi:dandi-etag", "value": etag},
+        )
+        data = self.client.put(
+            self.api_path, json={"metadata": metadata, "blob_id": r["blob_id"]}
+        )
+        self.identifier = data["asset_id"]
+        self.path = data["path"]
+        self.size = int(data["size"])
+        self.modified = ensure_datetime(data["modified"])
+        self._metadata = data["metadata"]
 
     def get_content_url(
         self,

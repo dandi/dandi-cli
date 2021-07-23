@@ -9,7 +9,7 @@ from pydantic import AnyHttpUrl, BaseModel, parse_obj_as, validator
 import requests
 
 from . import get_logger
-from .consts import known_instances
+from .consts import VERSION_REGEX, known_instances
 from .dandiapi import DandiAPIClient, RemoteAsset, RemoteDandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
 from .utils import get_instance
@@ -257,7 +257,7 @@ class _dandi_url_parser:
         (
             re.compile(
                 rf"{server_grp}(#/)?(?P<asset_type>dandiset)/{dandiset_id_grp}"
-                r"(/(?P<version>[.0-9]{5,}|draft))?"
+                rf"(/(?P<version>{VERSION_REGEX}))?"
                 r"(/(files(\?location=(?P<location>.*)?)?)?)?"
             ),
             {},
@@ -275,7 +275,7 @@ class _dandi_url_parser:
         (
             re.compile(
                 rf"{server_grp}(?P<asset_type>dandiset)s/{dandiset_id_grp}"
-                r"(/(versions(/(?P<version>[.0-9]{5,}|draft))?)?)?"
+                rf"(/(versions(/(?P<version>{VERSION_REGEX}))?)?)?"
             ),
             {},
             "https://<server>[/api]/dandisets/<dandiset id>[/versions[/<version>]]",
@@ -283,7 +283,7 @@ class _dandi_url_parser:
         (
             re.compile(
                 rf"{server_grp}(?P<asset_type>dandiset)s/{dandiset_id_grp}"
-                r"/versions/(?P<version>[.0-9]{5,}|draft)"
+                rf"/versions/(?P<version>{VERSION_REGEX})"
                 r"/assets/(?P<asset_id>[^?/]+)(/(download/?)?)?"
             ),
             {},
@@ -293,7 +293,7 @@ class _dandi_url_parser:
         (
             re.compile(
                 rf"{server_grp}(?P<asset_type>dandiset)s/{dandiset_id_grp}"
-                r"/versions/(?P<version>[.0-9]{5,}|draft)"
+                rf"/versions/(?P<version>{VERSION_REGEX})"
                 r"/assets/\?path=(?P<path>[^&]+)",
             ),
             {},
@@ -309,7 +309,7 @@ class _dandi_url_parser:
             re.compile(
                 rf"dandi://(?P<instance_name>({'|'.join(known_instances)}))"
                 rf"/{dandiset_id_grp}"
-                r"(@(?P<version>[.0-9]{5,}|draft))?"
+                rf"(@(?P<version>{VERSION_REGEX}))?"
                 rf"(/(?P<location>.*)?)?"
             ),
             {},

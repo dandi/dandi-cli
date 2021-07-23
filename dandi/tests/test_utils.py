@@ -9,7 +9,7 @@ import responses
 from semantic_version import Version
 
 from .. import __version__
-from ..consts import dandi_instance, known_instances
+from ..consts import DandiInstance, known_instances
 from ..exceptions import BadCliVersionError, CliVersionTooOldError
 from ..utils import (
     ensure_datetime,
@@ -176,7 +176,7 @@ def test_get_instance_dandi_with_api():
             },
         },
     )
-    assert get_instance("dandi") == dandi_instance(
+    assert get_instance("dandi") == DandiInstance(
         gui="https://gui.dandi",
         redirector=redirector_base,
         api="https://api.dandi",
@@ -199,7 +199,7 @@ def test_get_instance_url():
             },
         },
     )
-    assert get_instance("https://example.dandi/") == dandi_instance(
+    assert get_instance("https://example.dandi/") == DandiInstance(
         gui="https://gui.dandi",
         redirector="https://example.dandi/",
         api="https://api.dandi",

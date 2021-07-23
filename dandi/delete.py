@@ -6,7 +6,7 @@ from typing import Iterable, Iterator, List, Optional, Tuple
 import click
 import requests
 
-from .consts import dandiset_metadata_file
+from .consts import DRAFT, dandiset_metadata_file
 from .dandiapi import DandiAPIClient, RemoteAsset, RemoteDandiset
 from .dandiarchive import DandisetURL, ParsedDandiURL, parse_dandi_url
 from .exceptions import NotFoundError
@@ -40,7 +40,7 @@ class Deleter:
             self.client = DandiAPIClient(api_url.rstrip("/"))
             self.client.dandi_authenticate()
             try:
-                self.dandiset = self.client.get_dandiset(dandiset_id, "draft")
+                self.dandiset = self.client.get_dandiset(dandiset_id, DRAFT, lazy=False)
             except requests.HTTPError as e:
                 if e.response.status_code == 404:
                     if self.skip_missing:
@@ -119,7 +119,7 @@ class Deleter:
             self.register_dandiset(parsed_url.api_url, parsed_url.dandiset_id)
         else:
             if parsed_url.version_id is None:
-                parsed_url.version_id = "draft"
+                parsed_url.version_id = DRAFT
             self.register_assets_url(url, parsed_url)
 
     def register_local_path_equivalent(self, instance_name: str, filepath: str) -> None:
@@ -129,9 +129,9 @@ class Deleter:
         if not self.set_dandiset(api_url, dandiset_id):
             return
         if asset_path.endswith("/"):
-            self.register_asset_folder(api_url, dandiset_id, "draft", asset_path)
+            self.register_asset_folder(api_url, dandiset_id, DRAFT, asset_path)
         else:
-            self.register_asset(api_url, dandiset_id, "draft", asset_path)
+            self.register_asset(api_url, dandiset_id, DRAFT, asset_path)
 
     def confirm(self) -> bool:
         if self.deleting_dandiset:
