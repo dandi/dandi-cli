@@ -514,15 +514,15 @@ class RemoteDandiset:
         return data
 
     def refresh(self) -> None:
-        """Refetch the data for this Dandiset & version"""
+        """
+        Update the `RemoteDandiset` in-place with the latest data from the
+        server.  The `RemoteDandiset` continues to have the same version as
+        before, but the cached version data is internally cleared and may be
+        different upon subsequent access.
+        """
         self._data = self.client.get(f"/dandisets/{self.identifier}/")
-        for vattr in ["most_recent_published_version", "draft_version"]:
-            vdict = self._data.get(vattr)
-            if vdict and vdict["version"] == self.version_id:
-                self._version = Version.parse_obj(vdict)
-                break
-        else:
-            self._version = self.get_version(self.version_id)
+        # Clear _version so it will be refetched the next time it is accessed
+        self._version = None
 
     def get_versions(self) -> Iterator[Version]:
         """Returns an iterator of all available `Version`\\s for the Dandiset"""
