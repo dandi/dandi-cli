@@ -556,8 +556,13 @@ class RemoteDandiset:
         )
 
     def delete(self) -> None:
-        """Delete the Dandiset"""
+        """
+        Delete the Dandiset from the server.  Any further access of the
+        instance's data attributes afterwards will result in a 404.
+        """
         self.client.delete(self.api_path)
+        self._data = None
+        self._version = None
 
     def get_metadata(self) -> models.Dandiset:
         """
