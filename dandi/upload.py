@@ -277,6 +277,7 @@ def upload(
         except Exception as exc:
             if devel_debug:
                 raise
+            lgr.exception("Error uploading %s:", relpath)
             # Custom formatting for some exceptions we know to extract
             # user-meaningful message
             message = str(exc)
