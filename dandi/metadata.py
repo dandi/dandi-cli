@@ -711,8 +711,8 @@ def get_asset_metadata(
                 type(e).__name__,
                 str(e),
             )
-        if not allow_any_path:
-            raise
+            if not allow_any_path:
+                raise
     if metadata is None:
         metadata = get_default_metadata(
             filepath, digest=digest, digest_type=digest_type
