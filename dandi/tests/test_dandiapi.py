@@ -341,6 +341,13 @@ def test_check_schema_version_mismatch():
     )
 
 
+def test_get_dandisets(text_dandiset):
+    dandisets = list(text_dandiset["client"].get_dandisets())
+    assert (
+        sum(1 for d in dandisets if d.identifier == text_dandiset["dandiset_id"]) == 1
+    )
+
+
 def test_get_dandiset_lazy(mocker, text_dandiset):
     client = text_dandiset["client"]
     get_spy = mocker.spy(client, "get")
