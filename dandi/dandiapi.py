@@ -383,7 +383,7 @@ class RemoteDandiset:
         self,
         client: DandiAPIClient,
         identifier: str,
-        version: Union[str, Version, None],
+        version: Union[str, Version, None] = None,
         data: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.client = client
