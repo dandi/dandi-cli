@@ -13,7 +13,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       NO_ET: 1
-      DATACITE_DEV_PASSWORD: ${{ secrets.DATACITE_DEV_PASSWORD }}
+      DANDI_ALLOW_LOCALHOST_URLS: 1
 
     strategy:
       fail-fast: false

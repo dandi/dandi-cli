@@ -1,6 +1,5 @@
 import builtins
-from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 import os.path
 from pathlib import Path
 import random
@@ -509,10 +508,10 @@ def test_get_dandiset_published_other_version(lazy, text_dandiset):
 
 def test_set_asset_metadata(text_dandiset):
     asset = text_dandiset["dandiset"].get_asset_by_path("file.txt")
-    metadata = deepcopy(asset.get_raw_metadata())
-    metadata["blobDateModified"] = "2038-01-19T03:14:07-00:00"
-    asset.set_raw_metadata(metadata)
-    assert asset.get_raw_metadata()["blobDateModified"] == "2038-01-19T03:14:07-00:00"
+    md = asset.get_metadata()
+    md.blobDateModified = datetime(2038, 1, 19, 3, 14, 7, tzinfo=timezone.utc)
+    asset.set_metadata(md)
+    assert asset.get_raw_metadata()["blobDateModified"] == "2038-01-19T03:14:07+00:00"
 
 
 def test_remote_dandiset_json_dict(text_dandiset):
