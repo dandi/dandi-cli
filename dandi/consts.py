@@ -66,6 +66,7 @@ metadata_all_fields = metadata_nwb_fields + metadata_dandiset_fields
 
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = "^[0-9]{6}$"
+VERSION_REGEX = r"(?:[.0-9]{5,}|draft)"
 
 DandiInstance = namedtuple("DandiInstance", ("gui", "redirector", "api"))
 

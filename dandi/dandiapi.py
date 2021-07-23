@@ -439,6 +439,10 @@ class RemoteDandiset:
         return ensure_datetime(self._get_data()["modified"])
 
     @property
+    def contact_person(self) -> str:
+        return self._get_data()["contact_person"]
+
+    @property
     def most_recent_published_version(self) -> Optional[Version]:
         v = self._get_data().get("most_recent_published_version")
         if v is None:
@@ -498,7 +502,16 @@ class RemoteDandiset:
         Convert to a JSONable `dict`, omitting the ``client`` attribute and
         using the same field names as in the API
         """
-        return {**self._get_data(), "version": self.version.json_dict()}
+        data = {
+            **self._get_data(),
+            "version": self.version.json_dict(),
+            "draft_version": self.draft_version.json_dict(),
+        }
+        if self.most_recent_published_version is not None:
+            data[
+                "most_recent_published_version"
+            ] = self.most_recent_published_version.json_dict()
+        return data
 
     def refresh(self) -> None:
         """Refetch the data for this Dandiset & version"""

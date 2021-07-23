@@ -7,13 +7,19 @@ import random
 import re
 from shutil import rmtree
 
+import anys
 import click
 from dandischema.models import UUID_PATTERN, get_schema_version
 import pytest
 import responses
 
 from .. import dandiapi
-from ..consts import DRAFT, dandiset_metadata_file
+from ..consts import (
+    DRAFT,
+    VERSION_REGEX,
+    dandiset_identifier_regex,
+    dandiset_metadata_file,
+)
 from ..dandiapi import DandiAPIClient, Version
 from ..download import download
 from ..exceptions import SchemaVersionError
@@ -309,10 +315,12 @@ def test_get_content_url_follow_one_redirects_strip_query():
 
 def test_remote_asset_json_dict(text_dandiset):
     asset = text_dandiset["dandiset"].get_asset_by_path("file.txt")
-    data = asset.json_dict()
-    assert sorted(data.keys()) == ["asset_id", "modified", "path", "size"]
-    for v in data.values():
-        assert isinstance(v, (str, int))
+    assert asset.json_dict() == {
+        "asset_id": anys.ANY_STR,
+        "modified": anys.ANY_AWARE_DATETIME_STR,
+        "path": anys.ANY_STR,
+        "size": anys.ANY_INT,
+    }
 
 
 @responses.activate
@@ -364,6 +372,7 @@ def test_get_dandiset_lazy(mocker, text_dandiset):
     assert dandiset.version.identifier == DRAFT
     assert dandiset.most_recent_published_version is None
     assert isinstance(dandiset.draft_version, Version)
+    assert isinstance(dandiset.contact_person, str)
     get_spy.assert_not_called()
 
 
@@ -383,6 +392,7 @@ def test_get_dandiset_non_lazy(mocker, text_dandiset):
     assert dandiset.version.identifier == DRAFT
     assert dandiset.most_recent_published_version is None
     assert isinstance(dandiset.draft_version, Version)
+    assert isinstance(dandiset.contact_person, str)
     get_spy.assert_not_called()
 
 
@@ -399,6 +409,7 @@ def test_get_dandiset_no_version_id(lazy, text_dandiset):
     assert dandiset.version.identifier == DRAFT
     assert dandiset.most_recent_published_version is None
     assert isinstance(dandiset.draft_version, Version)
+    assert isinstance(dandiset.contact_person, str)
 
 
 @pytest.mark.parametrize("lazy", [True, False])
@@ -416,6 +427,7 @@ def test_get_dandiset_published(lazy, text_dandiset):
     assert isinstance(dandiset.most_recent_published_version, Version)
     assert dandiset.most_recent_published_version.identifier == v
     assert isinstance(dandiset.draft_version, Version)
+    assert isinstance(dandiset.contact_person, str)
 
 
 @pytest.mark.parametrize("lazy", [True, False])
@@ -433,6 +445,7 @@ def test_get_dandiset_published_no_version_id(lazy, text_dandiset):
     assert isinstance(dandiset.most_recent_published_version, Version)
     assert dandiset.most_recent_published_version.identifier == v
     assert isinstance(dandiset.draft_version, Version)
+    assert isinstance(dandiset.contact_person, str)
 
 
 @pytest.mark.parametrize("lazy", [True, False])
@@ -450,6 +463,7 @@ def test_get_dandiset_published_draft(lazy, text_dandiset):
     assert isinstance(dandiset.most_recent_published_version, Version)
     assert dandiset.most_recent_published_version.identifier == v
     assert isinstance(dandiset.draft_version, Version)
+    assert isinstance(dandiset.contact_person, str)
 
 
 @pytest.mark.parametrize("lazy", [True, False])
@@ -474,6 +488,7 @@ def test_get_dandiset_published_other_version(lazy, text_dandiset):
     assert isinstance(dandiset.most_recent_published_version, Version)
     assert dandiset.most_recent_published_version.identifier == v2
     assert isinstance(dandiset.draft_version, Version)
+    assert isinstance(dandiset.contact_person, str)
 
 
 def test_set_asset_metadata(text_dandiset):
@@ -482,3 +497,24 @@ def test_set_asset_metadata(text_dandiset):
     metadata["blobDateModified"] = "2038-01-19T03:14:07-00:00"
     asset.set_raw_metadata(metadata)
     assert asset.get_raw_metadata()["blobDateModified"] == "2038-01-19T03:14:07-00:00"
+
+
+def test_remote_dandiset_json_dict(text_dandiset):
+    data = text_dandiset["dandiset"].json_dict()
+    assert data == {
+        "identifier": anys.AnyFullmatch(dandiset_identifier_regex),
+        "created": anys.ANY_AWARE_DATETIME_STR,
+        "modified": anys.ANY_AWARE_DATETIME_STR,
+        "contact_person": anys.ANY_STR,
+        "most_recent_published_version": None,
+        "draft_version": {
+            "version": anys.AnyFullmatch(VERSION_REGEX),
+            "name": anys.ANY_STR,
+            "asset_count": anys.ANY_INT,
+            "size": anys.ANY_INT,
+            "created": anys.ANY_AWARE_DATETIME_STR,
+            "modified": anys.ANY_AWARE_DATETIME_STR,
+        },
+        "version": anys.ANY_DICT,
+    }
+    assert data["draft_version"] == data["version"]
