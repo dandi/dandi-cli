@@ -8,7 +8,7 @@ from shutil import rmtree
 
 import anys
 import click
-from dandischema.models import UUID_PATTERN, get_schema_version
+from dandischema.models import UUID_PATTERN, DigestType, get_schema_version
 import pytest
 import responses
 
@@ -21,7 +21,7 @@ from ..consts import (
 )
 from ..dandiapi import DandiAPIClient, Version
 from ..download import download
-from ..exceptions import SchemaVersionError
+from ..exceptions import NotFoundError, SchemaVersionError
 from ..upload import upload
 from ..utils import find_files
 
@@ -544,3 +544,22 @@ def test_set_dandiset_metadata(text_dandiset):
         dandiset.get_raw_metadata()["description"]
         == "A test Dandiset with altered metadata"
     )
+
+
+@pytest.mark.parametrize(
+    "digest_type,digest_regex",
+    [
+        (DigestType.dandi_etag, r"[0-9a-f]{32}-\d{1,5}"),
+        ("dandi:dandi-etag", r"[0-9a-f]{32}-\d{1,5}"),
+    ],
+)
+def test_get_digest(digest_type, digest_regex, text_dandiset):
+    asset = text_dandiset["dandiset"].get_asset_by_path("file.txt")
+    d = asset.get_digest(digest_type)
+    assert re.fullmatch(digest_regex, d)
+
+
+def test_get_digest_nonexistent(text_dandiset):
+    asset = text_dandiset["dandiset"].get_asset_by_path("file.txt")
+    with pytest.raises(NotFoundError):
+        asset.get_digest("md5")
