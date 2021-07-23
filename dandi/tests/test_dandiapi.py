@@ -534,3 +534,14 @@ def test_remote_dandiset_json_dict(text_dandiset):
         "version": anys.ANY_DICT,
     }
     assert data["draft_version"] == data["version"]
+
+
+def test_set_dandiset_metadata(text_dandiset):
+    dandiset = text_dandiset["dandiset"]
+    md = dandiset.get_metadata()
+    md.description = "A test Dandiset with altered metadata"
+    dandiset.set_metadata(md)
+    assert (
+        dandiset.get_raw_metadata()["description"]
+        == "A test Dandiset with altered metadata"
+    )
