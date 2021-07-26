@@ -57,9 +57,9 @@ class RESTFullAPIClient:
         self.api_url = api_url
         if session is None:
             session = requests.Session()
+        session.headers["User-Agent"] = USER_AGENT
         if headers is not None:
             session.headers.update(headers)
-        session.headers.setdefault("User-Agent", USER_AGENT)
         self.session = session
 
     def __enter__(self):
