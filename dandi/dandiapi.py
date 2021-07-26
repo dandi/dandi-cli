@@ -425,6 +425,7 @@ class RemoteDandiset:
                         self._version_id is None or vdict["version"] == self.version_id
                     ):
                         self._version = Version.parse_obj(vdict)
+                        self._version_id = self._version.identifier
                         return self._version
             assert self._version_id is not None
             self._version = self.get_version(self._version_id)

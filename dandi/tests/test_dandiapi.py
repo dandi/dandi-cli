@@ -563,3 +563,19 @@ def test_get_digest_nonexistent(text_dandiset):
     asset = text_dandiset["dandiset"].get_asset_by_path("file.txt")
     with pytest.raises(NotFoundError):
         asset.get_digest("md5")
+
+
+def test_refresh(text_dandiset):
+    dandiset = text_dandiset["dandiset"]
+    mtime = dandiset.version.modified
+    md = dandiset.get_metadata()
+    md.description = "A test Dandiset with altered metadata"
+    dandiset.set_metadata(md)
+    dandiset.wait_until_valid()
+    dandiset.publish()
+    assert dandiset.version.modified == mtime
+    assert dandiset.most_recent_published_version is None
+    dandiset.refresh()
+    assert dandiset.version_id == DRAFT
+    assert dandiset.version.modified > mtime
+    assert dandiset.most_recent_published_version is not None
