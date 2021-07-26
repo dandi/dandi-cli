@@ -154,7 +154,7 @@ class AssetPathPrefixURL(MultiAssetURL):
 
     def get_assets(self, client: DandiAPIClient) -> Iterator[RemoteAsset]:
         """Returns the assets whose paths start with `path`"""
-        return self.get_dandiset(client).get_assets_under_path(self.path)
+        return self.get_dandiset(client).get_assets_with_path_prefix(self.path)
 
 
 class AssetItemURL(SingleAssetURL):
@@ -174,7 +174,7 @@ class AssetItemURL(SingleAssetURL):
             asset = d.get_asset_by_path(self.path)
         except NotFoundError:
             try:
-                next(d.get_assets_under_path(self.path + "/"))
+                next(d.get_assets_with_path_prefix(self.path + "/"))
             except StopIteration:
                 pass
             else:
@@ -200,7 +200,7 @@ class AssetFolderURL(MultiAssetURL):
         path = self.path
         if not path.endswith("/"):
             path += "/"
-        return self.get_dandiset(client).get_assets_under_path(path)
+        return self.get_dandiset(client).get_assets_with_path_prefix(path)
 
 
 @contextmanager
