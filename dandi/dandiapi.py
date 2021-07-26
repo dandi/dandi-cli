@@ -639,7 +639,7 @@ class RemoteDandiset:
             self.client.get(f"{self.version_api_path}assets/{asset_id}/")
         )
 
-    def get_assets_under_path(self, path: str) -> Iterator["RemoteAsset"]:
+    def get_assets_with_path_prefix(self, path: str) -> Iterator["RemoteAsset"]:
         """
         Returns an iterator of all assets in this version of the Dandiset whose
         `~RemoteAsset.path` attributes start with ``path``
@@ -658,7 +658,9 @@ class RemoteDandiset:
         try:
             # Weed out any assets that happen to have the given path as a
             # proper prefix:
-            (asset,) = (a for a in self.get_assets_under_path(path) if a.path == path)
+            (asset,) = (
+                a for a in self.get_assets_with_path_prefix(path) if a.path == path
+            )
         except ValueError:
             raise NotFoundError(f"No asset at path {path!r}")
         else:
@@ -676,7 +678,7 @@ class RemoteDandiset:
         """
         if assets_dirpath and not assets_dirpath.endswith("/"):
             assets_dirpath += "/"
-        assets = list(self.get_assets_under_path(assets_dirpath))
+        assets = list(self.get_assets_with_path_prefix(assets_dirpath))
         for a in assets:
             filepath = Path(dirpath, a.path[len(assets_dirpath) :])
             filepath.parent.mkdir(parents=True, exist_ok=True)

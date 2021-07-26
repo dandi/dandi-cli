@@ -346,7 +346,7 @@ def upload(
             relpaths.append("" if rp == "." else rp)
         path_prefix = reduce(os.path.commonprefix, relpaths)
         to_delete = []
-        for asset in remote_dandiset.get_assets_under_path(path_prefix):
+        for asset in remote_dandiset.get_assets_with_path_prefix(path_prefix):
             if (
                 any(p == "" or path_is_subpath(asset.path, p) for p in relpaths)
                 and not Path(dandiset.path, asset.path).exists()

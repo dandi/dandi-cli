@@ -90,7 +90,7 @@ class Deleter:
         if not self.set_dandiset(api_url, dandiset_id):
             return
         any_assets = False
-        for asset in self.dandiset.get_assets_under_path(folder_path):
+        for asset in self.dandiset.get_assets_with_path_prefix(folder_path):
             self.add_asset(asset)
             any_assets = True
         if not any_assets and not self.skip_missing:
