@@ -181,7 +181,7 @@ def upload(
             try:
                 extant = remote_dandiset.get_asset_by_path(str(relpath))
             except NotFoundError:
-                pass
+                extant = None
             else:
                 metadata = extant.get_raw_metadata()
                 local_mtime = ensure_datetime(path_stat.st_mtime)
@@ -259,7 +259,7 @@ def upload(
             yield {"status": "uploading"}
             validating = False
             for r in remote_dandiset.iter_upload_raw_asset(
-                path, metadata, jobs=jobs_per_file
+                path, metadata, jobs=jobs_per_file, replace_asset=extant
             ):
                 r.pop("asset", None)  # to keep pyout from choking
                 if r["status"] == "uploading":

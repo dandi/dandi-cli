@@ -689,6 +689,7 @@ class RemoteDandiset:
         filepath: Union[str, Path],
         asset_metadata: Dict[str, Any],
         jobs: Optional[int] = None,
+        replace_asset: Optional["RemoteAsset"] = None,
     ) -> "RemoteAsset":
         """
         Upload the file at ``filepath`` with metadata ``asset_metadata`` to
@@ -702,8 +703,12 @@ class RemoteDandiset:
             giving the POSIX path at which the uploaded file will be placed on
             the server.
         :param int jobs: Number of threads to use for uploading; defaults to 5
+        :param RemoteAsset replace_asset: If set, replace the given asset,
+            which must have the same path as the new asset
         """
-        for status in self.iter_upload_raw_asset(filepath, asset_metadata, jobs=jobs):
+        for status in self.iter_upload_raw_asset(
+            filepath, asset_metadata, jobs=jobs, replace_asset=replace_asset
+        ):
             if status["status"] == "done":
                 return status["asset"]
         raise RuntimeError("iter_upload_raw_asset() finished without returning 'done'")
@@ -713,6 +718,7 @@ class RemoteDandiset:
         filepath: Union[str, Path],
         asset_metadata: Dict[str, Any],
         jobs: Optional[int] = None,
+        replace_asset: Optional["RemoteAsset"] = None,
     ) -> Iterator[dict]:
         """
         Upload the file at ``filepath`` with metadata ``asset_metadata`` to
@@ -727,6 +733,8 @@ class RemoteDandiset:
             the server.
         :param int jobs:
             Number of threads to use for uploading; defaults to 5
+        :param RemoteAsset replace_asset: If set, replace the given asset,
+            which must have the same path as the new asset
         :returns:
             A generator of `dict`\\s containing at least a ``"status"`` key.
             Upon successful upload, the last `dict` will have a status of
@@ -837,20 +845,18 @@ class RemoteDandiset:
                 blob_id = resp["blob_id"]
         lgr.debug("%s: Assigning asset blob to dandiset & version", asset_path)
         yield {"status": "producing asset"}
-        try:
-            extant = self.get_asset_by_path(asset_path)
-        except NotFoundError:
+        if replace_asset is not None:
+            lgr.debug("%s: Replacing pre-existing asset")
             a = self._mkasset(
-                self.client.post(
-                    f"{self.version_api_path}assets/",
+                self.client.put(
+                    replace_asset.api_path,
                     json={"metadata": asset_metadata, "blob_id": blob_id},
                 )
             )
         else:
-            lgr.debug("%s: Asset already exists at path; updating", asset_path)
             a = self._mkasset(
-                self.client.put(
-                    extant.api_path,
+                self.client.post(
+                    f"{self.version_api_path}assets/",
                     json={"metadata": asset_metadata, "blob_id": blob_id},
                 )
             )
