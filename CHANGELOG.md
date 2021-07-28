@@ -1,3 +1,26 @@
+# 0.25.0 (Wed Jul 28 2021)
+
+#### 🚀 Enhancement
+
+- Add `replace_asset` parameter to `iter_upload_raw_asset()` [#743](https://github.com/dandi/dandi-cli/pull/743) ([@jwodder](https://github.com/jwodder))
+- Rename get_assets_under_path() to get_assets_with_path_prefix() [#741](https://github.com/dandi/dandi-cli/pull/741) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Correctly set User-Agent for client requests [#742](https://github.com/dandi/dandi-cli/pull/742) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Pin rabbitmq version [#744](https://github.com/dandi/dandi-cli/pull/744) ([@dchiquito](https://github.com/dchiquito))
+- Test RemoteDandiset.refresh() [#740](https://github.com/dandi/dandi-cli/pull/740) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.24.0 (Fri Jul 23 2021)
 
 #### 🚀 Enhancement
