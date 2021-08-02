@@ -7,6 +7,7 @@ from dandi.dandiarchive import (
     AssetIDURL,
     AssetItemURL,
     AssetPathPrefixURL,
+    BaseAssetIDURL,
     DandisetURL,
     follow_redirect,
     parse_dandi_url,
@@ -188,6 +189,14 @@ from dandi.tests.skip import mark
                 api_url="https://api.dandiarchive.org/api",
                 dandiset_id="000003",
                 version_id="draft",
+                asset_id="0a748f90-d497-4a9c-822e-9c63811db412",
+            ),
+        ),
+        (
+            "https://api.dandiarchive.org/api"
+            "/assets/0a748f90-d497-4a9c-822e-9c63811db412/download/",
+            BaseAssetIDURL(
+                api_url="https://api.dandiarchive.org/api",
                 asset_id="0a748f90-d497-4a9c-822e-9c63811db412",
             ),
         ),

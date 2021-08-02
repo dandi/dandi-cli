@@ -180,6 +180,18 @@ def test_download_asset_id(local_dandi_api, text_dandiset, tmp_path):
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
 
 
+def test_download_asset_id_only(local_dandi_api, text_dandiset, tmp_path):
+    asset = text_dandiset["dandiset"].get_asset_by_path("subdir2/coconut.txt")
+    download(
+        f"{local_dandi_api['instance'].api}/assets/{asset.identifier}/download/",
+        tmp_path,
+    )
+    assert list(map(Path, find_files(r".*", paths=[tmp_path], dirs=True))) == [
+        tmp_path / "coconut.txt"
+    ]
+    assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
+
+
 @pytest.mark.parametrize("confirm", [True, False])
 def test_download_sync(confirm, local_dandi_api, mocker, text_dandiset, tmp_path):
     text_dandiset["dandiset"].get_asset_by_path("file.txt").delete()
