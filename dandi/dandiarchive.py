@@ -10,7 +10,7 @@ import requests
 
 from . import get_logger
 from .consts import VERSION_REGEX, known_instances
-from .dandiapi import DandiAPIClient, RemoteAsset, RemoteDandiset
+from .dandiapi import BaseRemoteAsset, DandiAPIClient, RemoteDandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
 from .utils import get_instance
 
@@ -31,7 +31,7 @@ class ParsedDandiURL(ABC, BaseModel):
     #: The base URL of the Dandi API service, without a trailing slash
     api_url: AnyHttpUrl
     #: The ID of the Dandiset given in the URL
-    dandiset_id: str
+    dandiset_id: Optional[str]
     #: The version of the Dandiset, if specified.  If this is not set, methods
     #: that need the Dandiset version will call `get_version_id()` to get an
     #: appropriate default value.
@@ -45,12 +45,15 @@ class ParsedDandiURL(ABC, BaseModel):
         """Returns an unauthenticated `DandiAPIClient` for `api_url`"""
         return DandiAPIClient(self.api_url)
 
-    def get_dandiset(self, client: DandiAPIClient) -> RemoteDandiset:
+    def get_dandiset(self, client: DandiAPIClient) -> Optional[RemoteDandiset]:
         """
         Returns information about the specified (or default) version of the
         specified Dandiset
         """
-        return client.get_dandiset(self.dandiset_id, self.get_version_id(client))
+        if self.dandiset_id is not None:
+            return client.get_dandiset(self.dandiset_id, self.get_version_id(client))
+        else:
+            return None
 
     def get_version_id(self, client: DandiAPIClient) -> str:
         """
@@ -60,7 +63,9 @@ class ParsedDandiURL(ABC, BaseModel):
         most recent published version of the Dandiset is returned, if any,
         otherwise the ID of the draft version is returned.
         """
-        if self.version_id is None:
+        if self.dandiset_id is None:
+            raise ValueError("Cannot get version for Dandiset-less URL")
+        elif self.version_id is None:
             r = client.get(f"/dandisets/{self.dandiset_id}/")
             version = r["most_recent_published_version"] or r["draft_version"]
             return version["version"]
@@ -68,7 +73,7 @@ class ParsedDandiURL(ABC, BaseModel):
             return self.version_id
 
     @abstractmethod
-    def get_assets(self, client: DandiAPIClient) -> Iterator[RemoteAsset]:
+    def get_assets(self, client: DandiAPIClient) -> Iterator[BaseRemoteAsset]:
         """
         Returns an iterator of asset structures for the assets referred to by
         or associated with the URL.  For a URL pointing to just a Dandiset,
@@ -89,7 +94,9 @@ class ParsedDandiURL(ABC, BaseModel):
     @contextmanager
     def navigate(
         self,
-    ) -> Iterator[Tuple[DandiAPIClient, RemoteDandiset, Iterator[RemoteAsset]]]:
+    ) -> Iterator[
+        Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterator[BaseRemoteAsset]]
+    ]:
         """
         A context manager that returns a triple of a `DandiAPIClient` (with an
         open session that is closed when the context manager closes), the
@@ -107,7 +114,7 @@ class DandisetURL(ParsedDandiURL):
     Parsed from a URL that only refers to a Dandiset (possibly with a version)
     """
 
-    def get_assets(self, client: DandiAPIClient) -> Iterator[RemoteAsset]:
+    def get_assets(self, client: DandiAPIClient) -> Iterator[BaseRemoteAsset]:
         """Returns all assets in the Dandiset"""
         return self.get_dandiset(client).get_assets()
 
@@ -124,19 +131,47 @@ class MultiAssetURL(ParsedDandiURL):
     path: str
 
 
-class AssetIDURL(SingleAssetURL):
-    """Parsed from a URL that refers to an asset by ID"""
+class BaseAssetIDURL(SingleAssetURL):
+    """
+    Parsed from a URL that refers to an asset by ID and does not include the
+    Dandiset ID
+    """
 
     asset_id: str
 
-    def get_assets(self, client: DandiAPIClient) -> Iterator[RemoteAsset]:
+    def get_assets(self, client: DandiAPIClient) -> Iterator[BaseRemoteAsset]:
+        """
+        Yields the asset with the given ID.  Yields nothing if the asset does
+        not exist.
+        """
+        try:
+            yield client.get_asset(self.asset_id)
+        except requests.HTTPError as e:
+            if e.response.status_code == 404:
+                return
+            else:
+                raise
+
+    def get_asset_ids(self, client: DandiAPIClient) -> Iterator[str]:
+        """Yields the ID of the asset (regardless of whether it exists)"""
+        yield self.asset_id
+
+
+class AssetIDURL(SingleAssetURL):
+    """
+    Parsed from a URL that refers to an asset by ID and includes the Dandiset ID
+    """
+
+    asset_id: str
+
+    def get_assets(self, client: DandiAPIClient) -> Iterator[BaseRemoteAsset]:
         """
         Yields the asset with the given ID.  Yields nothing if the asset does
         not exist.
         """
         try:
             yield self.get_dandiset(client).get_asset(self.asset_id)
-        except requests.HttpError as e:
+        except requests.HTTPError as e:
             if e.response.status_code == 404:
                 return
             else:
@@ -152,7 +187,7 @@ class AssetPathPrefixURL(MultiAssetURL):
     Parsed from a URL that refers to a collection of assets by path prefix
     """
 
-    def get_assets(self, client: DandiAPIClient) -> Iterator[RemoteAsset]:
+    def get_assets(self, client: DandiAPIClient) -> Iterator[BaseRemoteAsset]:
         """Returns the assets whose paths start with `path`"""
         return self.get_dandiset(client).get_assets_with_path_prefix(self.path)
 
@@ -162,7 +197,7 @@ class AssetItemURL(SingleAssetURL):
 
     path: str
 
-    def get_assets(self, client: DandiAPIClient) -> Iterator[RemoteAsset]:
+    def get_assets(self, client: DandiAPIClient) -> Iterator[BaseRemoteAsset]:
         """
         Yields the asset whose path equals `path`.  If there is no such asset,
         this method yields nothing, unless the path happens to be the path to
@@ -192,7 +227,7 @@ class AssetFolderURL(MultiAssetURL):
 
     path: str
 
-    def get_assets(self, client: DandiAPIClient) -> Iterator[RemoteAsset]:
+    def get_assets(self, client: DandiAPIClient) -> Iterator[BaseRemoteAsset]:
         """
         Returns all assets under the folder at `path`.  Yields nothing if the
         folder does not exist.
@@ -279,6 +314,13 @@ class _dandi_url_parser:
             ),
             {},
             "https://<server>[/api]/dandisets/<dandiset id>[/versions[/<version>]]",
+        ),
+        (
+            re.compile(
+                rf"{server_grp}(?P<asset_type>asset)s/(?P<asset_id>[^?/]+)(/(download/?)?)?"
+            ),
+            {},
+            "https://<server>[/api]/assets/<asset id>[/download]",
         ),
         (
             re.compile(
@@ -420,7 +462,7 @@ class _dandi_url_parser:
 
         url_server = groups["server"].rstrip("/")
         server = cls.map_to.get(url_server, url_server)
-        asset_type = groups.get("asset_type")
+        # asset_type = groups.get("asset_type")
         dandiset_id = groups.get("dandiset_id")
         version_id = groups.get("version")
         location = groups.get("location")
@@ -431,8 +473,6 @@ class _dandi_url_parser:
             # ATM carries leading '/' which IMHO is not needed/misguiding somewhat, so
             # I will just strip it
             location = location.lstrip("/")
-        if not (asset_type == "dandiset" and dandiset_id):
-            raise ValueError(f"{url} does not point to a dandiset")
 
         # if location is not degenerate -- it would be a folder or a file
         if location:
@@ -451,12 +491,15 @@ class _dandi_url_parser:
                     path=location,
                 )
         elif asset_id:
-            parsed_url = AssetIDURL(
-                api_url=server,
-                dandiset_id=dandiset_id,
-                version_id=version_id,
-                asset_id=asset_id,
-            )
+            if dandiset_id is None:
+                parsed_url = BaseAssetIDURL(api_url=server, asset_id=asset_id)
+            else:
+                parsed_url = AssetIDURL(
+                    api_url=server,
+                    dandiset_id=dandiset_id,
+                    version_id=version_id,
+                    asset_id=asset_id,
+                )
         elif path:
             parsed_url = AssetPathPrefixURL(
                 api_url=server,

@@ -343,6 +343,9 @@ class DandiAPIClient(RESTFullAPIClient):
                 " upgrade dandi and/or dandischema."
             )
 
+    def get_asset(self, asset_id: str) -> "BaseRemoteAsset":
+        return BaseRemoteAsset._from_metadata(self, self.get(f"/assets/{asset_id}"))
+
 
 class APIBase(BaseModel):
     """Base class for API objects"""
@@ -864,17 +867,9 @@ class RemoteDandiset:
         yield {"status": "done", "asset": a}
 
 
-class RemoteAsset(APIBase):
-    """Representation of an asset retrieved from the API"""
-
-    JSON_EXCLUDE = frozenset(["client", "dandiset_id", "version_id"])
-
+class BaseRemoteAsset(APIBase):
     client: "DandiAPIClient"
-    #: The identifier for the Dandiset to which the asset belongs
-    dandiset_id: str
-    #: The identifier for the version of the Dandiset to which the asset
-    #: belongs
-    version_id: str
+
     #: The asset identifier
     identifier: str = Field(alias="asset_id")
     path: str
@@ -890,9 +885,22 @@ class RemoteAsset(APIBase):
         # underscores, so we have to do it ourselves.
         self._metadata = data.get("metadata", data.get("_metadata"))
 
+    @classmethod
+    def _from_metadata(
+        self, client: "DandiAPIClient", metadata: Dict[str, Any]
+    ) -> "BaseRemoteAsset":
+        return BaseRemoteAsset(
+            client=client,
+            identifier=metadata["identifier"],
+            path=metadata["path"],
+            size=metadata["contentSize"],
+            modified=metadata["dateModified"],
+            _metadata=metadata,
+        )
+
     @property
     def api_path(self) -> str:
-        return f"/dandisets/{self.dandiset_id}/versions/{self.version_id}/assets/{self.identifier}/"
+        return f"/assets/{self.identifier}/"
 
     @property
     def download_url(self) -> str:
@@ -927,35 +935,6 @@ class RemoteAsset(APIBase):
             return metadata["digest"][digest_type]
         except KeyError:
             raise NotFoundError(f"No {digest_type} digest found in metadata")
-
-    def set_metadata(self, metadata: models.Asset) -> None:
-        """
-        Set the metadata for the asset to the given value and update the
-        `RemoteAsset` in place.
-        """
-        return self.set_raw_metadata(metadata.json_dict())
-
-    def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
-        """
-        Set the metadata for the asset to the given value and update the
-        `RemoteAsset` in place.
-        """
-        try:
-            etag = metadata["digest"]["dandi:dandi-etag"]
-        except KeyError:
-            raise ValueError("dandi-etag digest not set in new asset metadata")
-        r = self.client.post(
-            "/blobs/digest/",
-            json={"algorithm": "dandi:dandi-etag", "value": etag},
-        )
-        data = self.client.put(
-            self.api_path, json={"metadata": metadata, "blob_id": r["blob_id"]}
-        )
-        self.identifier = data["asset_id"]
-        self.path = data["path"]
-        self.size = int(data["size"])
-        self.modified = ensure_datetime(data["modified"])
-        self._metadata = data["metadata"]
 
     def get_content_url(
         self,
@@ -1001,10 +980,6 @@ class RemoteAsset(APIBase):
             url = urlunparse(urlparse(url)._replace(query=""))
         return url
 
-    def delete(self) -> None:
-        """Delete the asset"""
-        self.client.delete(self.api_path)
-
     def get_download_file_iter(
         self, chunk_size: int = MAX_CHUNK_SIZE
     ) -> Callable[..., Iterator[bytes]]:
@@ -1042,6 +1017,58 @@ class RemoteAsset(APIBase):
         with open(filepath, "wb") as fp:
             for chunk in downloader():
                 fp.write(chunk)
+
+
+class RemoteAsset(BaseRemoteAsset):
+    """
+    Representation of an asset retrieved from the API with associated Dandiset
+    information
+    """
+
+    JSON_EXCLUDE = frozenset(["client", "dandiset_id", "version_id"])
+
+    #: The identifier for the Dandiset to which the asset belongs
+    dandiset_id: str
+    #: The identifier for the version of the Dandiset to which the asset
+    #: belongs
+    version_id: str
+
+    @property
+    def api_path(self) -> str:
+        return f"/dandisets/{self.dandiset_id}/versions/{self.version_id}/assets/{self.identifier}/"
+
+    def set_metadata(self, metadata: models.Asset) -> None:
+        """
+        Set the metadata for the asset to the given value and update the
+        `RemoteAsset` in place.
+        """
+        return self.set_raw_metadata(metadata.json_dict())
+
+    def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
+        """
+        Set the metadata for the asset to the given value and update the
+        `RemoteAsset` in place.
+        """
+        try:
+            etag = metadata["digest"]["dandi:dandi-etag"]
+        except KeyError:
+            raise ValueError("dandi-etag digest not set in new asset metadata")
+        r = self.client.post(
+            "/blobs/digest/",
+            json={"algorithm": "dandi:dandi-etag", "value": etag},
+        )
+        data = self.client.put(
+            self.api_path, json={"metadata": metadata, "blob_id": r["blob_id"]}
+        )
+        self.identifier = data["asset_id"]
+        self.path = data["path"]
+        self.size = int(data["size"])
+        self.modified = ensure_datetime(data["modified"])
+        self._metadata = data["metadata"]
+
+    def delete(self) -> None:
+        """Delete the asset"""
+        self.client.delete(self.api_path)
 
 
 def upload_part(storage_session, fp, lock, etagger, asset_path, part):
