@@ -1,3 +1,21 @@
+# 0.26.0 (Wed Aug 04 2021)
+
+#### 🚀 Enhancement
+
+- Support `/asset/<asset id>/download/` URLs [#748](https://github.com/dandi/dandi-cli/pull/748) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Restore the rabbitmq version [#747](https://github.com/dandi/dandi-cli/pull/747) ([@dchiquito](https://github.com/dchiquito))
+- Test against rc/2.0.0 branch of pynwb [#746](https://github.com/dandi/dandi-cli/pull/746) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.25.0 (Wed Jul 28 2021)
 
 #### 🚀 Enhancement
