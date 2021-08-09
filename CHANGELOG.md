@@ -1,3 +1,15 @@
+# 0.26.1 (Mon Aug 09 2021)
+
+#### 🐛 Bug Fix
+
+- Boost dandischema to ~= 0.3.1 as it provides dandischema 0.5.1 required by dandi-api [#749](https://github.com/dandi/dandi-cli/pull/749) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.26.0 (Wed Aug 04 2021)
 
 #### 🚀 Enhancement
