@@ -408,7 +408,7 @@ class RemoteDandiset:
         self._data = data
 
     def __str__(self) -> str:
-        return f"DANDI {self.identifier}/{self.version_id}"
+        return f"DANDI:{self.identifier}/{self.version_id}"
 
     def _get_data(self) -> Dict[str, Any]:
         if self._data is None:

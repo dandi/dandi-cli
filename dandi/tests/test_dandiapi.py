@@ -59,7 +59,7 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
         },
     )
     dandiset_id = d.identifier
-    assert str(d) == f"DANDI {dandiset_id}/draft"
+    assert str(d) == f"DANDI:{dandiset_id}/draft"
     upload_dir = tmp_path / "upload"
     upload_dir.mkdir()
     (upload_dir / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
@@ -79,7 +79,7 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
     v = d.publish().version
     version_id = v.identifier
     assert str(v) == version_id
-    assert str(d.for_version(v)) == f"DANDI {dandiset_id}/{version_id}"
+    assert str(d.for_version(v)) == f"DANDI:{dandiset_id}/{version_id}"
 
     download_dir = tmp_path / "download"
     download_dir.mkdir()
