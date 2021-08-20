@@ -294,15 +294,7 @@ class DandiAPIClient(RESTFullAPIClient):
                 break
 
     @property
-    def instance_name(self) -> str:
-        url = self.api_url.rstrip("/")
-        try:
-            return known_instances_rev[url]
-        except KeyError:
-            return url
-
-    @property
-    def upper_instance_name(self) -> str:
+    def _instance_id(self) -> str:
         url = self.api_url.rstrip("/")
         try:
             return known_instances_rev[url].upper()
@@ -424,7 +416,7 @@ class RemoteDandiset:
         self._data = data
 
     def __str__(self) -> str:
-        return f"{self.client.upper_instance_name}:{self.identifier}/{self.version_id}"
+        return f"{self.client._instance_id}:{self.identifier}/{self.version_id}"
 
     def _get_data(self) -> Dict[str, Any]:
         if self._data is None:
@@ -908,7 +900,7 @@ class BaseRemoteAsset(APIBase):
         self._metadata = data.get("metadata", data.get("_metadata"))
 
     def __str__(self) -> str:
-        return f"{self.client.upper_instance_name}:assets/{self.identifier}"
+        return f"{self.client._instance_id}:assets/{self.identifier}"
 
     @classmethod
     def _from_metadata(
