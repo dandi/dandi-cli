@@ -293,6 +293,14 @@ class DandiAPIClient(RESTFullAPIClient):
                     lgr.debug("Stored key in keyring")
                 break
 
+    @property
+    def _instance_id(self) -> str:
+        url = self.api_url.rstrip("/")
+        try:
+            return known_instances_rev[url].upper()
+        except KeyError:
+            return url
+
     def get_dandiset(
         self, dandiset_id: str, version_id: Optional[str] = None, lazy: bool = True
     ) -> "RemoteDandiset":
@@ -375,6 +383,9 @@ class Version(APIBase):
     created: datetime
     modified: datetime
 
+    def __str__(self) -> str:
+        return self.identifier
+
 
 class RemoteDandiset:
     """
@@ -403,6 +414,9 @@ class RemoteDandiset:
             self._version_id = version.identifier
             self._version = version
         self._data = data
+
+    def __str__(self) -> str:
+        return f"{self.client._instance_id}:{self.identifier}/{self.version_id}"
 
     def _get_data(self) -> Dict[str, Any]:
         if self._data is None:
@@ -884,6 +898,9 @@ class BaseRemoteAsset(APIBase):
         # Pydantic insists on not initializing any attributes that start with
         # underscores, so we have to do it ourselves.
         self._metadata = data.get("metadata", data.get("_metadata"))
+
+    def __str__(self) -> str:
+        return f"{self.client._instance_id}:assets/{self.identifier}"
 
     @classmethod
     def _from_metadata(
