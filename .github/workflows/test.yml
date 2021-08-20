@@ -37,9 +37,6 @@ jobs:
             mode: dev-deps
           - os: ubuntu-18.04
             python: 3.7
-            mode: dev-deps2
-          - os: ubuntu-18.04
-            python: 3.7
             mode: dandi-devel
         exclude:
           # Temporarily disabled due to h5py/hdf5 dependency issue
@@ -78,11 +75,6 @@ jobs:
       if: matrix.mode == 'dev-deps'
       run: |
         pip install git+https://github.com/NeurodataWithoutBorders/pynwb
-
-    - name: Install rc/2.0.0 branch of pynwb
-      if: matrix.mode == 'dev-deps2'
-      run: |
-        pip install git+https://github.com/NeurodataWithoutBorders/pynwb@rc/2.0.0
 
     - name: Set DANDI_DEVEL=1
       if: matrix.mode == 'dandi-devel'
