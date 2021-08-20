@@ -59,7 +59,7 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
         },
     )
     dandiset_id = d.identifier
-    assert str(d) == f"DANDI:{dandiset_id}/draft"
+    assert str(d) == f"DANDI-API-LOCAL-DOCKER-TESTS:{dandiset_id}/draft"
     upload_dir = tmp_path / "upload"
     upload_dir.mkdir()
     (upload_dir / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
@@ -79,7 +79,10 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
     v = d.publish().version
     version_id = v.identifier
     assert str(v) == version_id
-    assert str(d.for_version(v)) == f"DANDI:{dandiset_id}/{version_id}"
+    assert (
+        str(d.for_version(v))
+        == f"DANDI-API-LOCAL-DOCKER-TESTS:{dandiset_id}/{version_id}"
+    )
 
     download_dir = tmp_path / "download"
     download_dir.mkdir()
@@ -167,7 +170,7 @@ def test_get_asset_metadata(local_dandi_api, simple1_nwb):
     d = client.create_dandiset(name="Include Metadata Test", metadata={})
     d.upload_raw_asset(simple1_nwb, {"path": "testing/simple1.nwb", "foo": "bar"})
     (asset,) = d.get_assets()
-    assert str(asset) == asset.identifier
+    assert str(asset) == f"DANDI-API-LOCAL-DOCKER-TESTS:assets/{asset.identifier}"
     metadata = asset.get_raw_metadata()
     assert metadata["path"] == "testing/simple1.nwb"
     assert metadata["foo"] == "bar"

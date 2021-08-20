@@ -293,6 +293,22 @@ class DandiAPIClient(RESTFullAPIClient):
                     lgr.debug("Stored key in keyring")
                 break
 
+    @property
+    def instance_name(self) -> str:
+        url = self.api_url.rstrip("/")
+        try:
+            return known_instances_rev[url]
+        except KeyError:
+            return url
+
+    @property
+    def upper_instance_name(self) -> str:
+        url = self.api_url.rstrip("/")
+        try:
+            return known_instances_rev[url].upper()
+        except KeyError:
+            return url
+
     def get_dandiset(
         self, dandiset_id: str, version_id: Optional[str] = None, lazy: bool = True
     ) -> "RemoteDandiset":
@@ -408,7 +424,7 @@ class RemoteDandiset:
         self._data = data
 
     def __str__(self) -> str:
-        return f"DANDI:{self.identifier}/{self.version_id}"
+        return f"{self.client.upper_instance_name}:{self.identifier}/{self.version_id}"
 
     def _get_data(self) -> Dict[str, Any]:
         if self._data is None:
@@ -892,7 +908,7 @@ class BaseRemoteAsset(APIBase):
         self._metadata = data.get("metadata", data.get("_metadata"))
 
     def __str__(self) -> str:
-        return self.identifier
+        return f"{self.client.upper_instance_name}:assets/{self.identifier}"
 
     @classmethod
     def _from_metadata(
