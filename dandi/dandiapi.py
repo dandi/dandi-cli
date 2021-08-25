@@ -402,7 +402,9 @@ class Version(APIBase):
     """
     The version information for a Dandiset retrieved from the API.
 
-    This class should not be instantiated directly.
+    This class should not be instantiated by end-users directly.  Instead,
+    instances should be retrieved from the appropriate attributes & methods of
+    `RemoteDandiset`.
     """
 
     identifier: str = Field(alias="version")
@@ -421,7 +423,9 @@ class RemoteDandiset:
     Representation of a Dandiset (as of a certain version) retrieved from the
     API.
 
-    This class should not be instantiated directly.
+    This class should not be instantiated by end-users directly.  Instead,
+    instances should be retrieved from the appropriate attributes & methods of
+    `DandiAPIClient` and `RemoteDandiset`.
     """
 
     def __init__(
@@ -917,7 +921,9 @@ class BaseRemoteAsset(APIBase):
     Representation of an asset retrieved from the API without associated
     Dandiset information.
 
-    This class should not be instantiated directly.
+    This class should not be instantiated by end-users directly.  Instead,
+    instances should be retrieved from the appropriate attributes & methods of
+    `DandiAPIClient` and `RemoteDandiset`.
     """
 
     client: "DandiAPIClient"
@@ -1079,7 +1085,9 @@ class RemoteAsset(BaseRemoteAsset):
     Representation of an asset retrieved from the API with associated Dandiset
     information.
 
-    This class should not be instantiated directly.
+    This class should not be instantiated by end-users directly.  Instead,
+    instances should be retrieved from the appropriate attributes & methods of
+    `RemoteDandiset`.
     """
 
     JSON_EXCLUDE = frozenset(["client", "dandiset_id", "version_id"])
