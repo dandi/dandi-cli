@@ -1,3 +1,27 @@
+"""
+Example code for downloading all assets from all published Dandisets that have
+"two-photon" in their ``metadata.measurementTechnique[].name``:
+
+.. code:: python
+
+    from pathlib import Path
+    from dandi.dandiapi import DandiAPIClient
+
+    with DandiAPIClient.for_dandi_instance("dandi") as client:
+        for dandiset in client.get_dandisets():
+            for version in dandiset.get_versions():
+                ds = dandiset.for_version(version)
+                for asset in ds.get_assets():
+                    metadata = asset.get_metadata()
+                    if any(
+                        mtt is not None and "two-photon" in mtt
+                        for mtt in (metadata.measurementTechnique or [])
+                    ):
+                        asset.download(
+                            Path(dandiset.identifier, version.identifier, asset.path)
+                        )
+"""
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 import json
@@ -374,7 +398,11 @@ class APIBase(BaseModel):
 
 
 class Version(APIBase):
-    """The version information for a Dandiset retrieved from the API"""
+    """
+    The version information for a Dandiset retrieved from the API.
+
+    This class should not be instantiated directly.
+    """
 
     identifier: str = Field(alias="version")
     name: str
@@ -390,7 +418,9 @@ class Version(APIBase):
 class RemoteDandiset:
     """
     Representation of a Dandiset (as of a certain version) retrieved from the
-    API
+    API.
+
+    This class should not be instantiated directly.
     """
 
     def __init__(
@@ -809,7 +839,7 @@ class RemoteDandiset:
                         lock = Lock()
                         futures = [
                             executor.submit(
-                                upload_part,
+                                _upload_part,
                                 storage_session=storage,
                                 fp=fp,
                                 lock=lock,
@@ -882,6 +912,13 @@ class RemoteDandiset:
 
 
 class BaseRemoteAsset(APIBase):
+    """
+    Representation of an asset retrieved from the API without associated
+    Dandiset information.
+
+    This class should not be instantiated directly.
+    """
+
     client: "DandiAPIClient"
 
     #: The asset identifier
@@ -1039,7 +1076,9 @@ class BaseRemoteAsset(APIBase):
 class RemoteAsset(BaseRemoteAsset):
     """
     Representation of an asset retrieved from the API with associated Dandiset
-    information
+    information.
+
+    This class should not be instantiated directly.
     """
 
     JSON_EXCLUDE = frozenset(["client", "dandiset_id", "version_id"])
@@ -1088,7 +1127,7 @@ class RemoteAsset(BaseRemoteAsset):
         self.client.delete(self.api_path)
 
 
-def upload_part(storage_session, fp, lock, etagger, asset_path, part):
+def _upload_part(storage_session, fp, lock, etagger, asset_path, part):
     etag_part = etagger.get_part(part["part_number"])
     if part["size"] != etag_part.size:
         raise RuntimeError(
