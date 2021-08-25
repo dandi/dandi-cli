@@ -4,22 +4,26 @@ Example code for downloading all assets from all published Dandisets that have
 
 .. code:: python
 
+    from operator import attrgetter
     from pathlib import Path
     from dandi.dandiapi import DandiAPIClient
 
     with DandiAPIClient.for_dandi_instance("dandi") as client:
         for dandiset in client.get_dandisets():
-            for version in dandiset.get_versions():
-                ds = dandiset.for_version(version)
-                for asset in ds.get_assets():
-                    metadata = asset.get_metadata()
-                    if any(
-                        mtt is not None and "two-photon" in mtt
-                        for mtt in (metadata.measurementTechnique or [])
-                    ):
-                        asset.download(
-                            Path(dandiset.identifier, version.identifier, asset.path)
-                        )
+            published_versions = [
+                v for v in dandiset.get_versions() if v.identifier != "draft"
+            ]
+            if not published_versions:
+                continue
+            latest_version = max(published_versions, key=attrgetter("created"))
+            latest_dandiset = dandiset.for_version(latest_version)
+            for asset in latest_dandiset.get_assets():
+                metadata = asset.get_metadata()
+                if any(
+                    mtt is not None and "two-photon" in mtt
+                    for mtt in (metadata.measurementTechnique or [])
+                ):
+                    asset.download(Path(dandiset.identifier, asset.path))
 """
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
