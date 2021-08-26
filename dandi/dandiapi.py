@@ -920,8 +920,8 @@ class BaseRemoteAsset(APIBase):
         return f"/assets/{self.identifier}/"
 
     @property
-    def download_url(self) -> str:
-        return self.client.get_url(f"{self.api_path}download/")
+    def base_download_url(self) -> str:
+        return self.client.get_url(f"/assets/{self.identifier}/download/")
 
     def get_metadata(self) -> models.Asset:
         """
@@ -1005,7 +1005,7 @@ class BaseRemoteAsset(APIBase):
         asset to start downloading at) returns a generator of chunks of the
         asset
         """
-        url = self.download_url
+        url = self.base_download_url
 
         def downloader(start_at: int = 0) -> Iterator[bytes]:
             lgr.debug("Starting download from %s", url)
@@ -1053,6 +1053,10 @@ class RemoteAsset(BaseRemoteAsset):
     @property
     def api_path(self) -> str:
         return f"/dandisets/{self.dandiset_id}/versions/{self.version_id}/assets/{self.identifier}/"
+
+    @property
+    def download_url(self) -> str:
+        return self.client.get_url(f"{self.api_path}download/")
 
     def set_metadata(self, metadata: models.Asset) -> None:
         """
