@@ -10,10 +10,11 @@ Example code for downloading all assets from all published Dandisets that have
 
     with DandiAPIClient.for_dandi_instance("dandi") as client:
         for dandiset in client.get_dandisets():
-            latest_version = dandiset.most_recent_published_version
-            if latest_version is None:
+            if dandiset.most_recent_published_version is None:
                 continue
-            latest_dandiset = dandiset.for_version(latest_version)
+            latest_dandiset = dandiset.for_version(
+                dandiset.most_recent_published_version
+            )
             for asset in latest_dandiset.get_assets():
                 metadata = asset.get_metadata()
                 if any(
