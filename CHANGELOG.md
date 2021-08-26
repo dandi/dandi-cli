@@ -1,3 +1,24 @@
+# 0.27.0 (Thu Aug 26 2021)
+
+#### 🚀 Enhancement
+
+- Make `download_url` `RemoteAsset`-only; give `BaseRemoteAsset` `base_download_url` [#759](https://github.com/dandi/dandi-cli/pull/759) ([@jwodder](https://github.com/jwodder))
+- Give API resource classes `__str__` methods [#753](https://github.com/dandi/dandi-cli/pull/753) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Map netlify addresses to gui-staging [#758](https://github.com/dandi/dandi-cli/pull/758) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Remove test against rc/2.0.0 branch of pynwb [#754](https://github.com/dandi/dandi-cli/pull/754) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.26.1 (Mon Aug 09 2021)
 
 #### 🐛 Bug Fix
