@@ -461,6 +461,11 @@ class _dandi_url_parser:
             )
 
         url_server = groups["server"].rstrip("/")
+        if re.fullmatch(
+            r"https?://deploy-preview-.*--gui-dandiarchive-org\.netlify\.app",
+            url_server,
+        ):
+            url_server = "https://gui-staging.dandiarchive.org"
         server = cls.map_to.get(url_server, url_server)
         # asset_type = groups.get("asset_type")
         dandiset_id = groups.get("dandiset_id")

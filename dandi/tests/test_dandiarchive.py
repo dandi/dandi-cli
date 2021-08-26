@@ -210,6 +210,23 @@ from dandi.tests.skip import mark
                 path="sub-YutaMouse20",
             ),
         ),
+        (
+            "https://gui-staging.dandiarchive.org/#/dandiset/000018",
+            DandisetURL(
+                api_url=known_instances["dandi-staging"].api,
+                dandiset_id="000018",
+                version_id=None,
+            ),
+        ),
+        (
+            "https://deploy-preview-854--gui-dandiarchive-org.netlify.app"
+            "/#/dandiset/000018",
+            DandisetURL(
+                api_url=known_instances["dandi-staging"].api,
+                dandiset_id="000018",
+                version_id=None,
+            ),
+        ),
     ],
 )
 def test_parse_api_url(url, parsed_url):
