@@ -5,6 +5,7 @@ import os.path as op
 import re
 import warnings
 
+import dandischema
 from fscacher import PersistentCache
 import h5py
 import hdmf
@@ -35,7 +36,9 @@ metadata_cache = PersistentCache(
     name="dandi-metadata", tokens=dandi_cache_tokens, envvar="DANDI_CACHE"
 )
 validate_cache = PersistentCache(
-    name="dandi-validate", tokens=dandi_cache_tokens, envvar="DANDI_CACHE"
+    name="dandi-validate",
+    tokens=dandi_cache_tokens + [get_module_version(dandischema)],
+    envvar="DANDI_CACHE",
 )
 
 
