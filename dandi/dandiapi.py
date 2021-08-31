@@ -4,7 +4,6 @@ Example code for downloading all assets from all published Dandisets that have
 
 .. code:: python
 
-    from operator import attrgetter
     from pathlib import Path
     from dandi.dandiapi import DandiAPIClient
 
