@@ -1,4 +1,13 @@
 """
+This module provides functionality for interacting with a Dandi Archive server
+via the REST API.  Interaction begins with the creation of a `DandiAPIClient`
+instance, which can be used to retrieve `RemoteDandiset` objects (representing
+Dandisets on the server) and `BaseRemoteAsset` objects (representing assets
+without any data associating them with their Dandisets).  `RemoteDandiset`
+objects can, in turn, be used to retrieve `RemoteAsset` objects (representing
+assets associated with Dandisets).  Aside from `DandiAPIClient`, none of these
+classes should be instantiated directly by the user.
+
 Example code for downloading all assets from all published Dandisets that have
 "two-photon" in their ``metadata.measurementTechnique[].name``:
 
