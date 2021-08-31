@@ -8,28 +8,33 @@ objects can, in turn, be used to retrieve `RemoteAsset` objects (representing
 assets associated with Dandisets).  Aside from `DandiAPIClient`, none of these
 classes should be instantiated directly by the user.
 
-Example code for downloading all assets from all published Dandisets that have
-"two-photon" in their ``metadata.measurementTechnique[].name``:
+Example code for printing the metadata of all assets with "two-photon" in their
+``metadata.measurementTechnique[].name`` for the latest published version of
+every Dandiset:
 
-.. code:: python
-
-    from pathlib import Path
-    from dandi.dandiapi import DandiAPIClient
-
-    with DandiAPIClient.for_dandi_instance("dandi") as client:
-        for dandiset in client.get_dandisets():
-            if dandiset.most_recent_published_version is None:
-                continue
-            latest_dandiset = dandiset.for_version(
-                dandiset.most_recent_published_version
-            )
-            for asset in latest_dandiset.get_assets():
-                metadata = asset.get_metadata()
-                if any(
-                    mtt is not None and "two-photon" in mtt
-                    for mtt in (metadata.measurementTechnique or [])
-                ):
-                    asset.download(Path(dandiset.identifier, asset.path))
+>>> import json
+>>> from pathlib import Path
+>>> from dandi.dandiapi import DandiAPIClient
+>>> with DandiAPIClient.for_dandi_instance("dandi") as client:
+...     for dandiset in client.get_dandisets():
+...         if dandiset.most_recent_published_version is None:
+...             continue
+...         latest_dandiset = dandiset.for_version(
+...             dandiset.most_recent_published_version
+...         )
+...         for asset in latest_dandiset.get_assets():
+...             metadata = asset.get_metadata()
+...             if any(
+...                 mtt is not None and "two-photon" in mtt.name
+...                 for mtt in (metadata.measurementTechnique or [])
+...             ):
+...                 print(json.dumps(metadata.json_dict(), indent=4))
+...                 # Uncomment to also download the asset:
+...                 # asset.download(Path(dandiset.identifier, asset.path))
+...
+{
+    ...
+}
 """
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
