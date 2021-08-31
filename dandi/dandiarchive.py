@@ -526,7 +526,7 @@ class _dandi_url_parser:
         i = 0
         while True:
             r = requests.head(url, allow_redirects=True)
-            if r.status_code in (404, 502, 503, 504):
+            if r.status_code in (400, 502, 503, 504):
                 if i < 5:
                     sleep(0.1 * 10 ** i)
                     i += 1
