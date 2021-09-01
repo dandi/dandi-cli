@@ -1,3 +1,42 @@
+"""
+This module provides functionality for interacting with a Dandi Archive server
+via the REST API.  Interaction begins with the creation of a `DandiAPIClient`
+instance, which can be used to retrieve `RemoteDandiset` objects (representing
+Dandisets on the server) and `BaseRemoteAsset` objects (representing assets
+without any data associating them with their Dandisets).  `RemoteDandiset`
+objects can, in turn, be used to retrieve `RemoteAsset` objects (representing
+assets associated with Dandisets).  Aside from `DandiAPIClient`, none of these
+classes should be instantiated directly by the user.
+
+Example code for printing the metadata of all assets with "two-photon" in their
+``metadata.measurementTechnique[].name`` for the latest published version of
+every Dandiset:
+
+>>> import json
+>>> from pathlib import Path
+>>> from dandi.dandiapi import DandiAPIClient
+>>> with DandiAPIClient.for_dandi_instance("dandi") as client:
+...     for dandiset in client.get_dandisets():
+...         if dandiset.most_recent_published_version is None:
+...             continue
+...         latest_dandiset = dandiset.for_version(
+...             dandiset.most_recent_published_version
+...         )
+...         for asset in latest_dandiset.get_assets():
+...             metadata = asset.get_metadata()
+...             if any(
+...                 mtt is not None and "two-photon" in mtt.name
+...                 for mtt in (metadata.measurementTechnique or [])
+...             ):
+...                 print(json.dumps(metadata.json_dict(), indent=4))
+...                 # Uncomment to also download the asset:
+...                 # asset.download(Path(dandiset.identifier, asset.path))
+...
+{
+    ...
+}
+"""
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 import json
@@ -374,7 +413,13 @@ class APIBase(BaseModel):
 
 
 class Version(APIBase):
-    """The version information for a Dandiset retrieved from the API"""
+    """
+    The version information for a Dandiset retrieved from the API.
+
+    This class should not be instantiated by end-users directly.  Instead,
+    instances should be retrieved from the appropriate attributes & methods of
+    `RemoteDandiset`.
+    """
 
     identifier: str = Field(alias="version")
     name: str
@@ -390,7 +435,11 @@ class Version(APIBase):
 class RemoteDandiset:
     """
     Representation of a Dandiset (as of a certain version) retrieved from the
-    API
+    API.
+
+    This class should not be instantiated by end-users directly.  Instead,
+    instances should be retrieved from the appropriate attributes & methods of
+    `DandiAPIClient` and `RemoteDandiset`.
     """
 
     def __init__(
@@ -809,7 +858,7 @@ class RemoteDandiset:
                         lock = Lock()
                         futures = [
                             executor.submit(
-                                upload_part,
+                                _upload_part,
                                 storage_session=storage,
                                 fp=fp,
                                 lock=lock,
@@ -882,6 +931,15 @@ class RemoteDandiset:
 
 
 class BaseRemoteAsset(APIBase):
+    """
+    Representation of an asset retrieved from the API without associated
+    Dandiset information.
+
+    This class should not be instantiated by end-users directly.  Instead,
+    instances should be retrieved from the appropriate attributes & methods of
+    `DandiAPIClient` and `RemoteDandiset`.
+    """
+
     client: "DandiAPIClient"
 
     #: The asset identifier
@@ -1039,7 +1097,11 @@ class BaseRemoteAsset(APIBase):
 class RemoteAsset(BaseRemoteAsset):
     """
     Representation of an asset retrieved from the API with associated Dandiset
-    information
+    information.
+
+    This class should not be instantiated by end-users directly.  Instead,
+    instances should be retrieved from the appropriate attributes & methods of
+    `RemoteDandiset`.
     """
 
     JSON_EXCLUDE = frozenset(["client", "dandiset_id", "version_id"])
@@ -1092,7 +1154,7 @@ class RemoteAsset(BaseRemoteAsset):
         self.client.delete(self.api_path)
 
 
-def upload_part(storage_session, fp, lock, etagger, asset_path, part):
+def _upload_part(storage_session, fp, lock, etagger, asset_path, part):
     etag_part = etagger.get_part(part["part_number"])
     if part["size"] != etag_part.size:
         raise RuntimeError(
