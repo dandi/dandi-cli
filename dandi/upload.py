@@ -252,6 +252,7 @@ def upload(
                 ).json_dict()
             except Exception as e:
                 yield skip_file("failed to extract metadata: %s" % str(e))
+                return
 
             #
             # Upload file
