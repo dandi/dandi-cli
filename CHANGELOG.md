@@ -1,3 +1,26 @@
+# 0.27.1 (Fri Sep 03 2021)
+
+#### 🐛 Bug Fix
+
+- Stop uploading a file if no metadata can be extracted [#767](https://github.com/dandi/dandi-cli/pull/767) ([@jwodder](https://github.com/jwodder))
+- Retry following redirects on 400 (not 404), 502, 503, & 504 up to 5 times [#762](https://github.com/dandi/dandi-cli/pull/762) ([@jwodder](https://github.com/jwodder))
+- Add dandischema into fscacher tokens for validate [#760](https://github.com/dandi/dandi-cli/pull/760) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 📝 Documentation
+
+- Add module docstring to dandiapi.py [#756](https://github.com/dandi/dandi-cli/pull/756) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Use new published version of 000027 in tests [#763](https://github.com/dandi/dandi-cli/pull/763) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.27.0 (Thu Aug 26 2021)
 
 #### 🚀 Enhancement
