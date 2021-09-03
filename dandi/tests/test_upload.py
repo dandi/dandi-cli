@@ -1,12 +1,14 @@
 import os
 from pathlib import Path
 
+import pynwb
 import pytest
 
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiapi import RemoteDandiset
 from ..download import download
 from ..exceptions import NotFoundError
+from ..pynwb_utils import make_nwb_file
 from ..upload import upload
 from ..utils import find_files
 
@@ -176,3 +178,26 @@ def test_upload_sync_folder(mocker, text_dandiset):
     text_dandiset["dandiset"].get_asset_by_path("file.txt")
     with pytest.raises(NotFoundError):
         text_dandiset["dandiset"].get_asset_by_path("subdir2/banana.txt")
+
+
+def test_upload_invalid_metadata(
+    local_dandi_api, monkeypatch, simple1_nwb_metadata, tmp_path
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
+    d = local_dandi_api["client"].create_dandiset("Broken Dandiset", {})
+    nwb_file = "broken.nwb"
+    make_nwb_file(
+        nwb_file,
+        subject=pynwb.file.Subject(
+            subject_id="mouse001",
+            age="XLII anni",
+            sex="yes",
+            species="unicorn",
+        ),
+        **simple1_nwb_metadata,
+    )
+    Path(dandiset_metadata_file).write_text(f"identifier: '{d.identifier}'\n")
+    upload(paths=[], dandi_instance=local_dandi_api["instance_id"], devel_debug=True)
+    with pytest.raises(NotFoundError):
+        d.get_asset_by_path(nwb_file)
