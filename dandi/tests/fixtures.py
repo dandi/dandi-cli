@@ -203,10 +203,8 @@ def docker_compose_setup():
                     "./manage.py",
                     "createsuperuser",
                     "--no-input",
-                    "--username",
-                    "admin2",
                     "--email",
-                    "nil@nil.nil",
+                    "admin@nil.nil",
                 ],
                 cwd=str(LOCAL_DOCKER_DIR),
                 env=env,
@@ -221,13 +219,13 @@ def docker_compose_setup():
                 "django",
                 "./manage.py",
                 "drf_create_token",
-                "admin2",
+                "admin@nil.nil",
             ],
             cwd=str(LOCAL_DOCKER_DIR),
             env=env,
             universal_newlines=True,
         )
-        m = re.search(r"^Generated token (\w+) for user admin2$", r, flags=re.M)
+        m = re.search(r"^Generated token (\w+) for user admin@nil.nil$", r, flags=re.M)
         if not m:
             raise RuntimeError(
                 f"Could not extract Django auth token from drf_create_token output: {r!r}"
