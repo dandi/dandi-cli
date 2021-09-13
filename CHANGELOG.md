@@ -1,3 +1,15 @@
+# 0.27.2 (Mon Sep 13 2021)
+
+#### 🧪 Tests
+
+- Update Docker Compose spin-up code for loss of --username option [#768](https://github.com/dandi/dandi-cli/pull/768) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.27.1 (Fri Sep 03 2021)
 
 #### 🐛 Bug Fix
