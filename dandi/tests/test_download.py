@@ -114,6 +114,7 @@ def test_download_newest_version(local_dandi_api, text_dandiset, tmp_path):
     dandiset_id = text_dandiset["dandiset_id"]
     download(f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}", tmp_path)
     assert (tmp_path / dandiset_id / "file.txt").read_text() == "This is test text.\n"
+    text_dandiset["dandiset"].wait_until_valid()
     text_dandiset["dandiset"].publish()
     (text_dandiset["dspath"] / "file.txt").write_text("This is different text.\n")
     text_dandiset["reupload"]()
