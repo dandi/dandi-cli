@@ -676,8 +676,13 @@ class RemoteDandiset:
             if r["status"] == "Valid":
                 return
             sleep(0.5)
+        # TODO: Improve the presentation of the error messages
+        about = {
+            "asset_validation_errors": r.get("asset_validation_errors"),
+            "version_validation_errors": r.get("version_validation_errors"),
+        }
         raise ValueError(
-            f"Dandiset {self.identifier} is {r['status']}: {r['validation_error']}"
+            f"Dandiset {self.identifier} is {r['status']}: {json.dumps(about, indent=4)}"
         )
 
     def publish(self) -> "RemoteDandiset":
