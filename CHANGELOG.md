@@ -1,3 +1,23 @@
+# 0.27.3 (Tue Sep 28 2021)
+
+#### 🐛 Bug Fix
+
+- Fix display of Dandiset validation errors [#777](https://github.com/dandi/dandi-cli/pull/777) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Fix a test [#776](https://github.com/dandi/dandi-cli/pull/776) ([@jwodder](https://github.com/jwodder))
+
+#### 🔩 Dependency Updates
+
+- Update dandischema version [#775](https://github.com/dandi/dandi-cli/pull/775) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.27.2 (Mon Sep 13 2021)
 
 #### 🧪 Tests
