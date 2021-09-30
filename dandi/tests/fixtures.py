@@ -183,6 +183,7 @@ def docker_compose_setup():
     env["DJANGO_DANDI_GIRDER_API_URL"] = "http://localhost:8080/api/v1"
     env["DJANGO_DANDI_GIRDER_API_KEY"] = "abc123"
     env["DJANGO_DANDI_SCHEMA_VERSION"] = DANDI_SCHEMA_VERSION
+    env["DJANGO_DANDI_VALIDATION_JOB_INTERVAL"] = "5"
 
     try:
         if create:
