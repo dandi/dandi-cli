@@ -54,7 +54,8 @@ services:
       "--app", "dandiapi.celery",
       "worker",
       "--loglevel", "INFO",
-      "--without-heartbeat"
+      "--without-heartbeat",
+      "-B"
     ]
     # Docker Compose does not set the TTY width, which causes Celery errors
     tty: false
