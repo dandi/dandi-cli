@@ -177,13 +177,7 @@ def docker_compose_setup():
         != 0
     )
 
-    # TODO: Delete this after <https://github.com/dandi/dandi-api/pull/251> is
-    # merged:
-    env = dict(os.environ)
-    env["DJANGO_DANDI_GIRDER_API_URL"] = "http://localhost:8080/api/v1"
-    env["DJANGO_DANDI_GIRDER_API_KEY"] = "abc123"
-    env["DJANGO_DANDI_SCHEMA_VERSION"] = DANDI_SCHEMA_VERSION
-
+    env = {**os.environ, "DJANGO_DANDI_SCHEMA_VERSION": DANDI_SCHEMA_VERSION}
     try:
         if create:
             run(
