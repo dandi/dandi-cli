@@ -325,6 +325,7 @@ def test_remote_asset_json_dict(text_dandiset):
     assert asset.json_dict() == {
         "asset_id": anys.ANY_STR,
         "modified": anys.ANY_AWARE_DATETIME_STR,
+        "created": anys.ANY_AWARE_DATETIME_STR,
         "path": anys.ANY_STR,
         "size": anys.ANY_INT,
     }

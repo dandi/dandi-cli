@@ -1116,6 +1116,9 @@ class RemoteAsset(BaseRemoteAsset):
     #: The identifier for the version of the Dandiset to which the asset
     #: belongs
     version_id: str
+    #: The date at which the asset was created.  This is not set if the asset
+    #: was returned by `RemoteDandiset.get_asset()`.
+    created: Optional[datetime] = None
 
     @property
     def api_path(self) -> str:
