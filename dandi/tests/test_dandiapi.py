@@ -588,3 +588,17 @@ def test_refresh(text_dandiset):
     assert dandiset.version_id == DRAFT
     assert dandiset.version.modified > mtime
     assert dandiset.most_recent_published_version is not None
+
+
+def test_get_asset_with_and_without_metadata(mocker, text_dandiset):
+    path_asset = text_dandiset["dandiset"].get_asset_by_path("file.txt")
+    id_asset = text_dandiset["dandiset"].get_asset(path_asset.identifier)
+    assert path_asset == id_asset
+    assert path_asset._metadata is None
+    assert id_asset._metadata is not None
+    get_spy = mocker.spy(text_dandiset["client"], "get")
+    id_metadata = id_asset.get_raw_metadata()
+    get_spy.assert_not_called()
+    path_metadata = path_asset.get_raw_metadata()
+    get_spy.assert_called_once()
+    assert path_metadata == id_metadata
