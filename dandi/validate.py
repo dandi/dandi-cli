@@ -5,7 +5,7 @@ from .consts import dandiset_metadata_file
 from .metadata import get_metadata
 from .pynwb_utils import validate as pynwb_validate
 from .pynwb_utils import validate_cache
-from .utils import find_dandi_files, yaml_load
+from .utils import find_dandi_files, find_files, yaml_load
 
 lgr = get_logger()
 
@@ -15,7 +15,7 @@ _required_nwb_metadata_fields = ["subject_id"]
 
 
 # TODO: provide our own "errors" records, which would also include warnings etc
-def validate(paths, schema_version=None, devel_debug=False):
+def validate(paths, schema_version=None, devel_debug=False, allow_any_path=False):
     """Validate content
 
     Parameters
@@ -28,7 +28,8 @@ def validate(paths, schema_version=None, devel_debug=False):
     path, errors
       errors for a path
     """
-    for path in find_dandi_files(paths):
+    filepaths = find_files(".*", paths) if allow_any_path else find_dandi_files(paths)
+    for path in filepaths:
         errors = validate_file(
             path, schema_version=schema_version, devel_debug=devel_debug
         )
@@ -41,7 +42,7 @@ def validate_file(filepath, schema_version=None, devel_debug=False):
             filepath, schema_version=None, devel_debug=devel_debug
         )
     else:
-        return pynwb_validate(filepath, devel_debug=devel_debug) + validate_dandi_nwb(
+        return pynwb_validate(filepath, devel_debug=devel_debug) + validate_asset_file(
             filepath, schema_version=schema_version, devel_debug=devel_debug
         )
 
@@ -88,13 +89,13 @@ def validate_dandiset_yaml(filepath, schema_version=None, devel_debug=False):
 
 
 @validate_cache.memoize_path
-def validate_dandi_nwb(filepath, schema_version=None, devel_debug=False):
-    """Provide validation of .nwb file regarding requirements we impose"""
+def validate_asset_file(filepath, schema_version=None, devel_debug=False):
+    """Provide validation of asset file regarding requirements we impose"""
     if schema_version is not None:
         from dandischema.models import BareAsset, get_schema_version
         from pydantic import ValidationError
 
-        from .metadata import nwb2asset
+        from .metadata import get_asset_metadata
 
         current_version = get_schema_version()
         if schema_version != current_version:
@@ -102,8 +103,12 @@ def validate_dandi_nwb(filepath, schema_version=None, devel_debug=False):
                 f"Unsupported schema version: {schema_version}; expected {current_version}"
             )
         try:
-            asset = nwb2asset(
-                filepath, digest=32 * "d" + "-1", digest_type="dandi_etag"
+            asset = get_asset_metadata(
+                filepath,
+                relpath="dummy",
+                digest=32 * "d" + "-1",
+                digest_type="dandi_etag",
+                allow_any_path=True,
             )
             BareAsset(**asset.dict())
         except ValidationError as e:
