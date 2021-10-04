@@ -37,7 +37,7 @@ def validate(paths, schema=None, devel_debug=False):
     all_files_errors = {}
     nfiles = 0
     for path, errors in validate_(
-        paths, schema_version=schema, devel_debug=devel_debug
+        paths, schema_version=schema, devel_debug=devel_debug, allow_any_path=True
     ):
         nfiles += 1
         if view == "one-at-a-time":
