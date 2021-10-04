@@ -8,10 +8,16 @@ from .base import devel_debug_option, devel_option, lgr, map_to_click_exceptions
 
 @click.command()
 @devel_option("--schema", help="Validate against new schema version", metavar="VERSION")
+@devel_option(
+    "--allow-any-path",
+    help="For development: allow DANDI 'unsupported' file types/paths",
+    default=False,
+    is_flag=True,
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
 @devel_debug_option()
 @map_to_click_exceptions
-def validate(paths, schema=None, devel_debug=False):
+def validate(paths, schema=None, devel_debug=False, allow_any_path=False):
     """Validate files for NWB (and DANDI) compliance.
 
     Exits with non-0 exit code if any file is not compliant.
@@ -37,7 +43,10 @@ def validate(paths, schema=None, devel_debug=False):
     all_files_errors = {}
     nfiles = 0
     for path, errors in validate_(
-        paths, schema_version=schema, devel_debug=devel_debug, allow_any_path=True
+        paths,
+        schema_version=schema,
+        devel_debug=devel_debug,
+        allow_any_path=allow_any_path,
     ):
         nfiles += 1
         if view == "one-at-a-time":
