@@ -1,3 +1,25 @@
+# 0.28.0 (Mon Oct 04 2021)
+
+#### 🚀 Enhancement
+
+- Give `validate` command an `--allow-any-path` option [#783](https://github.com/dandi/dandi-cli/pull/783) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Fix an AttributeError raised when a URL is used as a species [#782](https://github.com/dandi/dandi-cli/pull/782) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Remove Girder envvars from Docker Compose setup [#779](https://github.com/dandi/dandi-cli/pull/779) ([@jwodder](https://github.com/jwodder))
+- Specify DJANGO_DANDI_VALIDATION_JOB_INTERVAL [#778](https://github.com/dandi/dandi-cli/pull/778) ([@dchiquito](https://github.com/dchiquito))
+
+#### Authors: 2
+
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.27.3 (Tue Sep 28 2021)
 
 #### 🐛 Bug Fix
