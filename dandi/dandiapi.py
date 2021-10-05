@@ -63,7 +63,6 @@ import click
 from dandischema import models
 from pydantic import BaseModel, Field, PrivateAttr
 import requests
-import tenacity
 
 from . import get_logger
 from .consts import (
@@ -79,8 +78,8 @@ from .utils import (
     USER_AGENT,
     check_dandi_version,
     ensure_datetime,
+    exp_wait,
     is_interactive,
-    try_multiple,
 )
 
 lgr = get_logger()
@@ -156,12 +155,9 @@ class RESTFullAPIClient:
                 print(resp.headers)  # Dict of headers
 
         :type json_resp: bool
-        :param retry: an optional tenacity `retry` argument for retrying the
-            request method
+        :param Optional[Callable] retry: if set and an exception occurs that
+            the callable accepts, the request will be retried
         """
-
-        # Look up the HTTP method we need
-        f = getattr(self.session, method.lower())
 
         url = self.get_url(path)
 
@@ -172,29 +168,60 @@ class RESTFullAPIClient:
 
         lgr.debug("%s %s", method.upper(), url)
 
-        # urllib3's ConnectionPool isn't thread-safe, so we sometimes hit
-        # ConnectionErrors on the start of an upload.  Retry when this happens.
-        # Cf. <https://github.com/urllib3/urllib3/issues/951>.
-        doretry = tenacity.retry_if_exception_type(
-            requests.ConnectionError
-        ) | tenacity.retry_if_result(lambda r: r.status_code == 503)
-        if retry is not None:
-            doretry |= retry
-
+        waits = exp_wait(attempts=12)
+        retries = 0
         try:
-            result = try_multiple(12, doretry, 1.25)(
-                f,
-                url,
-                params=params,
-                data=data,
-                files=files,
-                json=json,
-                headers=headers,
-                **kwargs,
-            )
+            while True:
+                try:
+                    result = self.session.request(
+                        method,
+                        url,
+                        params=params,
+                        data=data,
+                        files=files,
+                        json=json,
+                        headers=headers,
+                        **kwargs,
+                    )
+                except Exception as e:
+                    # urllib3's ConnectionPool isn't thread-safe, so we
+                    # sometimes hit ConnectionErrors on the start of an upload.
+                    # Retry when this happens.
+                    # Cf. <https://github.com/urllib3/urllib3/issues/951>.
+                    if (
+                        isinstance(e, requests.ConnectionError)
+                        or (isinstance(e, requests.HTTPError) and e.status_code == 503)
+                        or (retry is not None and retry(e))
+                    ):
+                        try:
+                            delay = next(waits)
+                        except StopIteration:
+                            raise e
+                        lgr.warning(
+                            "Retrying %s request to %s in %f seconds as it raised %s: %s",
+                            method.upper(),
+                            url,
+                            delay,
+                            type(e).__name__,
+                            str(e),
+                        )
+                        retries += 1
+                        sleep(delay)
+                        continue
+                    else:
+                        raise
+                break
         except Exception:
             lgr.exception("HTTP connection failed")
             raise
+
+        if retries > 0:
+            lgr.info(
+                "Request to %s succeeded after %d retr%s",
+                url,
+                retries,
+                "y" if retries == 1 else "ies",
+            )
 
         lgr.debug("Response: %d", result.status_code)
 
@@ -1186,7 +1213,7 @@ def _upload_part(storage_session, fp, lock, etagger, asset_path, part):
         part["upload_url"],
         data=chunk,
         json_resp=False,
-        retry=tenacity.retry_if_result(lambda r: r.status_code == 500),
+        retry=lambda e: getattr(e, "status_code", None) == 500,
     )
     server_etag = r.headers["ETag"].strip('"')
     lgr.debug(
