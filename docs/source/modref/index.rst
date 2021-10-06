@@ -9,12 +9,6 @@
 Python API
 **********
 
-This module reference extends the manual with a comprehensive overview of the
-available functionality built into datalad.  Each module in the package is
-documented by a general summary of its purpose and the list of classes and
-functions it provides.
-
-
 High-level user interfaces
 ==========================
 
