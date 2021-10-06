@@ -111,7 +111,7 @@ class RESTFullAPIClient:
         json=None,
         headers=None,
         json_resp=True,
-        retry=None,
+        retry_statuses=(),
         **kwargs,
     ):
         """
@@ -150,8 +150,8 @@ class RESTFullAPIClient:
                 print(resp.headers)  # Dict of headers
 
         :type json_resp: bool
-        :param retry: an optional tenacity `retry` argument for retrying the
-            request method
+        :param retry_statuses: a sequence of HTTP response status codes to
+            retry; 503 will be added to this set
         """
 
         url = self.get_url(path)
@@ -163,20 +163,17 @@ class RESTFullAPIClient:
 
         lgr.debug("%s %s", method.upper(), url)
 
-        # urllib3's ConnectionPool isn't thread-safe, so we sometimes hit
-        # ConnectionErrors on the start of an upload.  Retry when this happens.
-        # Cf. <https://github.com/urllib3/urllib3/issues/951>.
-        doretry = tenacity.retry_if_exception_type(
-            requests.ConnectionError
-        ) | tenacity.retry_if_result(lambda r: getattr(r, "status_code", None) == 503)
-        if retry is not None:
-            doretry |= retry
-
         try:
             for i, attempt in enumerate(
                 tenacity.Retrying(
                     wait=tenacity.wait_exponential(exp_base=1.25, multiplier=1.25),
-                    retry=doretry,
+                    # urllib3's ConnectionPool isn't thread-safe, so we
+                    # sometimes hit ConnectionErrors on the start of an upload.
+                    # Retry when this happens.
+                    # Cf. <https://github.com/urllib3/urllib3/issues/951>.
+                    retry=tenacity.retry_if_exception_type(
+                        (requests.ConnectionError, requests.HTTPError)
+                    ),
                     stop=tenacity.stop_after_attempt(12),
                     reraise=True,
                 )
@@ -194,6 +191,8 @@ class RESTFullAPIClient:
                         headers=headers,
                         **kwargs,
                     )
+                    if result.status_code in [503, *retry_statuses]:
+                        result.raise_for_status()
         except Exception:
             lgr.exception("HTTP connection failed")
             raise
@@ -1188,9 +1187,7 @@ def _upload_part(storage_session, fp, lock, etagger, asset_path, part):
         part["upload_url"],
         data=chunk,
         json_resp=False,
-        retry=tenacity.retry_if_result(
-            lambda r: getattr(r, "status_code", None) == 500
-        ),
+        retry_statuses=[500],
     )
     server_etag = r.headers["ETag"].strip('"')
     lgr.debug(
