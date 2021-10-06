@@ -75,13 +75,7 @@ from .consts import (
 )
 from .exceptions import NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup
-from .utils import (
-    USER_AGENT,
-    check_dandi_version,
-    ensure_datetime,
-    is_interactive,
-    try_multiple,
-)
+from .utils import USER_AGENT, check_dandi_version, ensure_datetime, is_interactive
 
 lgr = get_logger()
 
@@ -160,9 +154,6 @@ class RESTFullAPIClient:
             request method
         """
 
-        # Look up the HTTP method we need
-        f = getattr(self.session, method.lower())
-
         url = self.get_url(path)
 
         if headers is None:
@@ -177,24 +168,44 @@ class RESTFullAPIClient:
         # Cf. <https://github.com/urllib3/urllib3/issues/951>.
         doretry = tenacity.retry_if_exception_type(
             requests.ConnectionError
-        ) | tenacity.retry_if_result(lambda r: r.status_code == 503)
+        ) | tenacity.retry_if_result(lambda r: getattr(r, "status_code", None) == 503)
         if retry is not None:
             doretry |= retry
 
         try:
-            result = try_multiple(12, doretry, 1.25)(
-                f,
-                url,
-                params=params,
-                data=data,
-                files=files,
-                json=json,
-                headers=headers,
-                **kwargs,
-            )
+            for i, attempt in enumerate(
+                tenacity.Retrying(
+                    wait=tenacity.wait_exponential(exp_base=1.25, multiplier=1.25),
+                    retry=doretry,
+                    stop=tenacity.stop_after_attempt(12),
+                    reraise=True,
+                )
+            ):
+                with attempt:
+                    if attempt.retry_state.attempt_number > 1:
+                        lgr.warning("Retrying %s %s", method.upper(), url)
+                    result = self.session.request(
+                        method,
+                        url,
+                        params=params,
+                        data=data,
+                        files=files,
+                        json=json,
+                        headers=headers,
+                        **kwargs,
+                    )
         except Exception:
             lgr.exception("HTTP connection failed")
             raise
+
+        if i > 0:
+            lgr.info(
+                "%s %s succeeded after %d retr%s",
+                method.upper(),
+                url,
+                i,
+                "y" if i == 1 else "ies",
+            )
 
         lgr.debug("Response: %d", result.status_code)
 
@@ -1177,7 +1188,9 @@ def _upload_part(storage_session, fp, lock, etagger, asset_path, part):
         part["upload_url"],
         data=chunk,
         json_resp=False,
-        retry=tenacity.retry_if_result(lambda r: r.status_code == 500),
+        retry=tenacity.retry_if_result(
+            lambda r: getattr(r, "status_code", None) == 500
+        ),
     )
     server_etag = r.headers["ETag"].strip('"')
     lgr.debug(
