@@ -1,5 +1,5 @@
-Mid-level user interfaces
-=========================
+``dandi.dandiapi``
+==================
 
 .. automodule:: dandi.dandiapi
 
