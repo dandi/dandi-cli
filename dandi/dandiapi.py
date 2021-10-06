@@ -552,18 +552,6 @@ class RemoteDandiset:
             **data,
         )
 
-    def _mkasset_from_metadata(self, metadata: Dict[str, Any]) -> "RemoteAsset":
-        return RemoteAsset(
-            client=self.client,
-            dandiset_id=self.identifier,
-            version_id=self.version_id,
-            identifier=metadata["identifier"],
-            path=metadata["path"],
-            size=metadata["contentSize"],
-            modified=metadata["dateModified"],
-            _metadata=metadata,
-        )
-
     def json_dict(self) -> Dict[str, Any]:
         """
         Convert to a JSONable `dict`, omitting the ``client`` attribute and
@@ -706,9 +694,10 @@ class RemoteDandiset:
         ID.  If the given asset does not exist, a `requests.HTTPError` is
         raised with a 404 status code.
         """
-        return self._mkasset_from_metadata(
-            self.client.get(f"{self.version_api_path}assets/{asset_id}/")
-        )
+        metadata = self.client.get(f"{self.version_api_path}assets/{asset_id}/")
+        asset = self.get_asset_by_path(metadata["path"])
+        asset._metadata = metadata
+        return asset
 
     def get_assets_with_path_prefix(self, path: str) -> Iterator["RemoteAsset"]:
         """
@@ -951,7 +940,6 @@ class BaseRemoteAsset(APIBase):
     identifier: str = Field(alias="asset_id")
     path: str
     size: int
-    modified: datetime
     #: Metadata supplied at initialization; returned when metadata is requested
     #: instead of performing an API call
     _metadata: Optional[Dict[str, Any]] = PrivateAttr(default_factory=None)
@@ -974,7 +962,6 @@ class BaseRemoteAsset(APIBase):
             identifier=metadata["identifier"],
             path=metadata["path"],
             size=metadata["contentSize"],
-            modified=metadata["dateModified"],
             _metadata=metadata,
         )
 
@@ -1116,6 +1103,10 @@ class RemoteAsset(BaseRemoteAsset):
     #: The identifier for the version of the Dandiset to which the asset
     #: belongs
     version_id: str
+    #: The date at which the asset was created
+    created: datetime
+    #: The date at which the asset was last modified
+    modified: datetime
 
     @property
     def api_path(self) -> str:
