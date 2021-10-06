@@ -616,12 +616,20 @@ def get_instance(dandi_instance_id):
 
 def exp_wait(
     base: float = 1.25,
-    multiplier: Optional[float] = None,
+    multiplier: float = 1,
     attempts: Optional[int] = None,
 ) -> Iterator[float]:
-    if multiplier is None:
-        multiplier = base
-    assert multiplier is not None
+    """
+    Returns a generator of values usable as `sleep()` times when retrying
+    something with exponential backoff.
+
+    :param float base:
+    :param float multiplier: value to multiply times by after
+        exponentiation
+    :param Optional[int] attempts: how many values to yield; set to `None` to
+        yield forever
+    :rtype: Iterator[float]
+    """
     n = 0
     while attempts is None or n < attempts:
         yield base ** n * multiplier

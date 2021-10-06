@@ -168,7 +168,7 @@ class RESTFullAPIClient:
 
         lgr.debug("%s %s", method.upper(), url)
 
-        waits = exp_wait(attempts=12)
+        waits = exp_wait(attempts=12, base=1.25, multiplier=1.25)
         retries = 0
         try:
             while True:
