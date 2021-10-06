@@ -100,13 +100,14 @@ jobs:
         python -m pytest -s -v --cov=dandi --cov-report=xml --dandi-api dandi
 
     - name: Dump Docker Compose logs
-      if: failure()
+      if: failure() && startsWith(matrix.os, 'ubuntu')
       run: |
         docker-compose \
           -f dandi/tests/data/dandiarchive-docker/docker-compose.yml \
           logs --timestamps
 
     - name: Shut down Docker Compose
+      if: startsWith(matrix.os, 'ubuntu')
       run: |
         docker-compose \
           -f dandi/tests/data/dandiarchive-docker/docker-compose.yml \
