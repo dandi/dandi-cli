@@ -1,3 +1,19 @@
+# 0.30.0 (Wed Oct 06 2021)
+
+#### 🚀 Enhancement
+
+- Log a message if a request succeeds after one or more failures [take 2] [#792](https://github.com/dandi/dandi-cli/pull/792) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Make CI tests dump Docker Compose logs on failure [#793](https://github.com/dandi/dandi-cli/pull/793) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.29.0 (Wed Oct 06 2021)
 
 #### 🚀 Enhancement
