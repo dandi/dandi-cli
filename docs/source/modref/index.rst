@@ -41,8 +41,9 @@ Test infrastructure
    tests.fixtures
    tests.skip
 
-Command line interface infrastructure
-=====================================
+..
+    Command line interface infrastructure
+    =====================================
 
-.. autosummary::
-   :toctree: generated
+    .. autosummary::
+       :toctree: generated
