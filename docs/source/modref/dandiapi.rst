@@ -1,17 +1,8 @@
-.. currentmodule:: dandi.dandiapi
+``dandi.dandiapi``
+==================
 
-Mid-level user interfaces
-=========================
+.. automodule:: dandi.dandiapi
 
-.. autoclass:: RESTFullAPIClient
-    :members:
-.. autoclass:: DandiAPIClient
-    :members:
-.. autoclass:: APIBase
-    :members:
-.. autoclass:: RemoteDandiset
-    :members:
-.. autoclass:: Version
-    :members:
-.. autoclass:: RemoteAsset
-    :members:
+    .. TODO: Once <https://github.com/sphinx-doc/sphinx/issues/9709> is fixed,
+       set `:members:` to all classes other than APIBase (which is an
+       implementation detail)

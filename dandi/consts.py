@@ -1,9 +1,9 @@
 from collections import namedtuple
 import os
 
-# A list of metadata fields which dandi extracts from .nwb files.
-# Additional fields (such as `number_of_*`) might be added by the
-# get_metadata`
+#: A list of metadata fields which dandi extracts from .nwb files.
+#: Additional fields (such as ``number_of_*``) might be added by
+#: `get_metadata()`
 metadata_nwb_file_fields = (
     "experiment_description",
     "experimenter",
@@ -109,12 +109,13 @@ file_operation_modes = [
     "auto",
 ]
 
-#
+
 # Download (upload?) specific constants
-#
-# Chunk size when iterating a download (and upload) body. Taken from girder-cli
-# TODO: should we make them smaller for download than for upload?
-# ATM used only in download
+
+#: Chunk size when iterating a download (and upload) body. Taken from girder-cli
+#: TODO: should we make them smaller for download than for upload?
+#: ATM used only in download
 MAX_CHUNK_SIZE = int(os.environ.get("DANDI_MAX_CHUNK_SIZE", 1024 * 1024 * 8))  # 64
 
+#: The identifier for draft Dandiset versions
 DRAFT = "draft"

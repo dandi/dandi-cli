@@ -1,7 +1,7 @@
 .. currentmodule:: dandi.dandiarchive
 
-High-level user interfaces
-==========================
+``dandi.dandiarchive``
+======================
 
 .. autofunction:: navigate_url
 .. autofunction:: parse_dandi_url
