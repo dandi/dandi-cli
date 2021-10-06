@@ -1,5 +1,6 @@
 import builtins
 from datetime import datetime, timezone
+import logging
 import os.path
 from pathlib import Path
 import random
@@ -602,3 +603,29 @@ def test_get_asset_with_and_without_metadata(mocker, text_dandiset):
     path_metadata = path_asset.get_raw_metadata()
     get_spy.assert_called_once()
     assert path_metadata == id_metadata
+
+
+@responses.activate
+def test_retry_logging(caplog):
+    responses.add(responses.GET, "https://test.nil/api/info/", status=503)
+    responses.add(responses.GET, "https://test.nil/api/info/", status=503)
+    responses.add(responses.GET, "https://test.nil/api/info/", json={"foo": "bar"})
+    client = DandiAPIClient("https://test.nil/api")
+    assert client.get("/info/") == {"foo": "bar"}
+    responses.assert_call_count("https://test.nil/api/info/", 3)
+    assert (
+        "dandi",
+        logging.DEBUG,
+        "GET https://test.nil/api/info/",
+    ) in caplog.record_tuples
+    assert (
+        "dandi",
+        logging.WARNING,
+        "Retrying GET https://test.nil/api/info/",
+    ) in caplog.record_tuples
+    assert (
+        "dandi",
+        logging.INFO,
+        "GET https://test.nil/api/info/ succeeded after 2 retries",
+    ) in caplog.record_tuples
+    assert ("dandi", logging.DEBUG, "Response: 200") in caplog.record_tuples

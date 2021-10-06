@@ -9,7 +9,6 @@ except ImportError:
 import inspect
 import io
 import itertools
-import logging
 from mimetypes import guess_type
 import os
 import os.path as op
@@ -26,7 +25,6 @@ import dateutil.parser
 import requests
 import ruamel.yaml
 from semantic_version import Version
-import tenacity
 
 #
 # Additional handlers
@@ -614,25 +612,6 @@ def get_instance(dandi_instance_id):
                 k for k, v in server_info.get("services", {}).items() if v is not None
             )
         )
-
-
-def try_multiple(ntrials, retry, base):
-    """
-    ``try_multiple(ntrials, retry, base)(f, *args, **kwargs)`` calls ``f``
-    multiple times until it succeeds, with exponentially increasing delay
-    between calls
-    """
-    # `retry` must be an exception type, a tuple of exception types, or a valid
-    # `retry` argument to tenacity.
-    if isinstance(retry, (type, tuple)):
-        retry = tenacity.retry_if_exception_type(retry)
-    return tenacity.Retrying(
-        wait=tenacity.wait_exponential(exp_base=base, multiplier=base),
-        retry=retry,
-        stop=tenacity.stop_after_attempt(ntrials),
-        before_sleep=tenacity.before_sleep_log(lgr, logging.WARNING),
-        reraise=True,
-    )
 
 
 def is_url(s):
