@@ -8,13 +8,17 @@ on:
   schedule:
     - cron: '0 6 * * *'
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
     env:
       NO_ET: 1
       DANDI_ALLOW_LOCALHOST_URLS: 1
-
+      DANDI_TESTS_PERSIST_DOCKER_COMPOSE: "1"
     strategy:
       fail-fast: false
       matrix:
@@ -94,6 +98,20 @@ jobs:
       if: matrix.mode == 'dandi-api'
       run: |
         python -m pytest -s -v --cov=dandi --cov-report=xml --dandi-api dandi
+
+    - name: Dump Docker Compose logs
+      if: failure() && startsWith(matrix.os, 'ubuntu')
+      run: |
+        docker-compose \
+          -f dandi/tests/data/dandiarchive-docker/docker-compose.yml \
+          logs --timestamps
+
+    - name: Shut down Docker Compose
+      if: startsWith(matrix.os, 'ubuntu')
+      run: |
+        docker-compose \
+          -f dandi/tests/data/dandiarchive-docker/docker-compose.yml \
+          down -v
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
