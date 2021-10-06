@@ -1,3 +1,15 @@
+# 0.29.0 (Wed Oct 06 2021)
+
+#### 🚀 Enhancement
+
+- Give `RemoteAsset` a `created` attribute [#781](https://github.com/dandi/dandi-cli/pull/781) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.28.0 (Mon Oct 04 2021)
 
 #### 🚀 Enhancement
