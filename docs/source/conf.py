@@ -17,7 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = "DANDI Archive CLI and Python API library"
+project = "dandi"
 copyright = "2021, DANDI Team"
 author = "DANDI Team"
 
