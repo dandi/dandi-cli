@@ -1,3 +1,21 @@
+# 0.30.1 (Thu Oct 07 2021)
+
+#### 📝 Documentation
+
+- Change docs to use "furo" theme [#790](https://github.com/dandi/dandi-cli/pull/790) ([@jwodder](https://github.com/jwodder))
+- Show more documentation [#789](https://github.com/dandi/dandi-cli/pull/789) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Register all celery queues with dandiarchive env [#787](https://github.com/dandi/dandi-cli/pull/787) ([@dchiquito](https://github.com/dchiquito))
+
+#### Authors: 2
+
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.30.0 (Wed Oct 06 2021)
 
 #### 🚀 Enhancement
