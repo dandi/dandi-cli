@@ -55,6 +55,7 @@ autodoc_default_options = {
 
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
+default_role = "py:obj"
 
 
 # -- Options for HTML output -------------------------------------------------
