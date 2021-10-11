@@ -658,14 +658,14 @@ class RemoteDandiset:
             json={"metadata": metadata, "name": metadata.get("name", "")},
         )
 
-    def wait_until_valid(self, min_time=20):
+    def wait_until_valid(self, max_time=120):
         """
         Wait for a Dandiset to be valid.  Validation is a background celery
         task which runs asynchronously, so we need to wait for it to complete.
         """
         lgr.debug("Waiting for Dandiset %s to complete validation ...", self.identifier)
         start = time()
-        while time() - start < min_time:
+        while time() - start < max_time:
             r = self.client.get(f"{self.version_api_path}info/")
             if "status" not in r:
                 # Running against older version of dandi-api that doesn't
