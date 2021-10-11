@@ -69,6 +69,7 @@ from . import get_logger
 from .consts import (
     DRAFT,
     MAX_CHUNK_SIZE,
+    RETRY_STATUSES,
     DandiInstance,
     known_instances,
     known_instances_rev,
@@ -151,7 +152,7 @@ class RESTFullAPIClient:
 
         :type json_resp: bool
         :param retry_statuses: a sequence of HTTP response status codes to
-            retry; 503 will be added to this set
+            retry in addition to `dandi.consts.RETRY_STATUSES`
         """
 
         url = self.get_url(path)
@@ -191,7 +192,7 @@ class RESTFullAPIClient:
                         headers=headers,
                         **kwargs,
                     )
-                    if result.status_code in [503, *retry_statuses]:
+                    if result.status_code in [*RETRY_STATUSES, *retry_statuses]:
                         result.raise_for_status()
         except Exception:
             lgr.exception("HTTP connection failed")
@@ -658,14 +659,14 @@ class RemoteDandiset:
             json={"metadata": metadata, "name": metadata.get("name", "")},
         )
 
-    def wait_until_valid(self, min_time=20):
+    def wait_until_valid(self, max_time=120):
         """
         Wait for a Dandiset to be valid.  Validation is a background celery
         task which runs asynchronously, so we need to wait for it to complete.
         """
         lgr.debug("Waiting for Dandiset %s to complete validation ...", self.identifier)
         start = time()
-        while time() - start < min_time:
+        while time() - start < max_time:
             r = self.client.get(f"{self.version_api_path}info/")
             if "status" not in r:
                 # Running against older version of dandi-api that doesn't

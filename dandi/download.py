@@ -12,7 +12,7 @@ import humanize
 import requests
 
 from . import get_logger
-from .consts import dandiset_metadata_file
+from .consts import RETRY_STATUSES, dandiset_metadata_file
 from .dandiarchive import DandisetURL, MultiAssetURL, SingleAssetURL, parse_dandi_url
 from .dandiset import Dandiset
 from .support.digests import get_digest
@@ -566,7 +566,7 @@ def _download_file(
             if attempt >= 2 or exc.response.status_code not in (
                 400,  # Bad Request, but happened with gider:
                 # https://github.com/dandi/dandi-cli/issues/87
-                503,  # Service Unavailable
+                *RETRY_STATUSES,
             ):
                 lgr.debug("Download failed: %s", exc)
                 yield {"status": "error", "message": str(exc)}

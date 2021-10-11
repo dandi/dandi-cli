@@ -119,3 +119,7 @@ MAX_CHUNK_SIZE = int(os.environ.get("DANDI_MAX_CHUNK_SIZE", 1024 * 1024 * 8))  #
 
 #: The identifier for draft Dandiset versions
 DRAFT = "draft"
+
+#: HTTP response status codes that should always be retried (until we run out
+#: of retries)
+RETRY_STATUSES = (500, 502, 503, 504)

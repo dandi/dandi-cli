@@ -9,7 +9,7 @@ from pydantic import AnyHttpUrl, BaseModel, parse_obj_as, validator
 import requests
 
 from . import get_logger
-from .consts import VERSION_REGEX, known_instances
+from .consts import RETRY_STATUSES, VERSION_REGEX, known_instances
 from .dandiapi import BaseRemoteAsset, DandiAPIClient, RemoteDandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
 from .utils import get_instance
@@ -526,7 +526,7 @@ class _dandi_url_parser:
         i = 0
         while True:
             r = requests.head(url, allow_redirects=True)
-            if r.status_code in (400, 502, 503, 504) and i < 5:
+            if r.status_code in (400, *RETRY_STATUSES) and i < 5:
                 sleep(0.1 * 10 ** i)
                 i += 1
                 continue
