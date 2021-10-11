@@ -8,6 +8,13 @@ objects can, in turn, be used to retrieve `RemoteAsset` objects (representing
 assets associated with Dandisets).  Aside from `DandiAPIClient`, none of these
 classes should be instantiated directly by the user.
 
+All operations that merely fetch data from the server can be done without
+authenticating, but any operation that writes, uploads, modifies, or deletes
+data requires the user to authenticate the `DandiAPIClient` instance by
+supplying an API key either when creating the instance or by calling the
+`~DandiAPIClient.authenticate()` or `~DandiAPIClient.dandi_authenticate()`
+method.
+
 Example code for printing the metadata of all assets with "two-photon" in their
 ``metadata.measurementTechnique[].name`` for the latest published version of
 every Dandiset:
@@ -45,14 +52,19 @@ from pathlib import Path
 import re
 from threading import Lock
 from time import sleep, time
+from types import TracebackType
 from typing import (
     Any,
+    BinaryIO,
     Callable,
     ClassVar,
     Dict,
     FrozenSet,
     Iterator,
     Optional,
+    Sequence,
+    Type,
+    TypeVar,
     Union,
     cast,
 )
@@ -74,20 +86,45 @@ from .consts import (
     known_instances,
     known_instances_rev,
 )
+from .core.digests.dandietag import DandiETag
 from .exceptions import NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup
 from .utils import USER_AGENT, check_dandi_version, ensure_datetime, is_interactive
 
 lgr = get_logger()
 
+T = TypeVar("T")
+
 
 # Following class is loosely based on GirderClient, with authentication etc
 # being stripped.
 # TODO: add copyright/license info
 class RESTFullAPIClient:
-    """A base class for REST clients"""
+    """
+    Base class for a JSON-based HTTP(S) client for interacting with a given
+    base API URL.
 
-    def __init__(self, api_url, session=None, headers=None):
+    All request methods can take either an absolute URL or a slash-separated
+    path; in the latter case, the path is appended to the base API URL
+    (separated by a slash) in order to determine the actual URL to make the
+    request of.
+
+    `RESTFullAPIClient` instances are usable as context managers, in which case
+    they will close their associated session on exit.
+    """
+
+    def __init__(
+        self,
+        api_url: str,
+        session: Optional[requests.Session] = None,
+        headers: Optional[dict] = None,
+    ) -> None:
+        """
+        :param str api_url: The base HTTP(S) URL to prepend to request paths
+        :param session: an optional `requests.Session` instance to use; if not
+            specified, a new session is created
+        :param headers: an optional `dict` of headers to send in every request
+        """
         self.api_url = api_url
         if session is None:
             session = requests.Session()
@@ -96,30 +133,35 @@ class RESTFullAPIClient:
             session.headers.update(headers)
         self.session = session
 
-    def __enter__(self):
+    def __enter__(self: T) -> T:
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         self.session.close()
 
     def request(
         self,
-        method,
-        path,
-        params=None,
-        data=None,
-        files=None,
-        json=None,
-        headers=None,
-        json_resp=True,
-        retry_statuses=(),
-        **kwargs,
-    ):
+        method: str,
+        path: str,
+        params: Optional[dict] = None,
+        data: Any = None,
+        files: Optional[dict] = None,
+        json: Any = None,
+        headers: Optional[dict] = None,
+        json_resp: bool = True,
+        retry_statuses: Sequence[int] = (),
+        **kwargs: Any,
+    ) -> Any:
         """
         This method looks up the appropriate method, constructs a request URL
         from the base URL, path, and parameters, and then sends the request. If
         the method is unknown or if the path is not found, an exception is
-        raised, otherwise a JSON object is returned with the response.
+        raised; otherwise, a JSON object is returned with the response.
 
         This is a convenience method to use when making basic requests that do
         not involve multipart file data that might need to be specially encoded
@@ -127,22 +169,25 @@ class RESTFullAPIClient:
 
         :param method: The HTTP method to use in the request (GET, POST, etc.)
         :type method: str
-        :param path: A string containing the path elements for this request.
-            Note that the path string should not begin or end with the path  separator, '/'.
+        :param path: A string containing the path elements for this request
         :type path: str
         :param params: A dictionary mapping strings to strings, to be used
             as the key/value pairs in the request parameters.
         :type params: dict
-        :param data: A dictionary, bytes or file-like object to send in the body.
-        :param files: A dictionary of 'name' => file-like-objects for multipart encoding upload.
+        :param data: A dictionary, bytes or file-like object to send in the
+            body.
+        :param files: A dictionary of 'name' => file-like-objects for multipart
+            encoding upload.
         :type files: dict
         :param json: A JSON object to send in the request body.
         :type json: dict
-        :param headers: If present, a dictionary of headers to encode in the request.
+        :param headers: If present, a dictionary of headers to encode in the
+            request.
         :type headers: dict
-        :param json_resp: Whether the response should be parsed as JSON. If False, the raw
-            response object is returned. To get the raw binary content of the response,
-            use the ``content`` attribute of the return value, e.g.
+        :param json_resp: Whether the response should be parsed as JSON. If
+            False, the raw response object is returned. To get the raw binary
+            content of the response, use the ``content`` attribute of the
+            return value, e.g.
 
             .. code-block:: python
 
@@ -227,47 +272,62 @@ class RESTFullAPIClient:
         else:
             return result
 
-    def get_url(self, path):
+    def get_url(self, path: str) -> str:
+        """
+        Append a slash-separated ``path`` to the instance's base URL.  The two
+        components are separated by a single slash, and any trailing slashes
+        are removed.
+
+        If ``path`` is already an absolute URL, it is returned unchanged.
+        """
         # Construct the url
         if path.lower().startswith(("http://", "https://")):
             return path
         else:
             return self.api_url.rstrip("/") + "/" + path.lstrip("/")
 
-    def get(self, path, **kwargs):
+    def get(self, path: str, **kwargs: Any) -> Any:
         """
-        Convenience method to call :py:func:`request` with the 'GET' HTTP method.
+        Convenience method to call `request()` with the 'GET' HTTP method.
         """
         return self.request("GET", path, **kwargs)
 
-    def post(self, path, **kwargs):
+    def post(self, path: str, **kwargs: Any) -> Any:
         """
-        Convenience method to call :py:func:`request` with the 'POST' HTTP method.
+        Convenience method to call `request()` with the 'POST' HTTP method.
         """
         return self.request("POST", path, **kwargs)
 
-    def put(self, path, **kwargs):
+    def put(self, path: str, **kwargs: Any) -> Any:
         """
-        Convenience method to call :py:func:`request` with the 'PUT' HTTP
-        method.
+        Convenience method to call `request()` with the 'PUT' HTTP method.
         """
         return self.request("PUT", path, **kwargs)
 
-    def delete(self, path, **kwargs):
+    def delete(self, path: str, **kwargs: Any) -> Any:
         """
-        Convenience method to call :py:func:`request` with the 'DELETE' HTTP
-        method.
+        Convenience method to call `request()` with the 'DELETE' HTTP method.
         """
         return self.request("DELETE", path, **kwargs)
 
-    def patch(self, path, **kwargs):
+    def patch(self, path: str, **kwargs: Any) -> Any:
         """
-        Convenience method to call :py:func:`request` with the 'PATCH' HTTP
-        method.
+        Convenience method to call `request()` with the 'PATCH' HTTP method.
         """
         return self.request("PATCH", path, **kwargs)
 
-    def paginate(self, path, page_size=None, params=None, **kwargs):
+    def paginate(
+        self,
+        path: str,
+        page_size: Optional[int] = None,
+        params: Optional[dict] = None,
+        **kwargs: Any,
+    ) -> Iterator:
+        """
+        Paginate through the resources at the given path: GET the path, yield
+        the values in the ``"results"`` key, and repeat with the URL in the
+        ``"next"`` key until it is ``null``.
+        """
         if page_size is not None:
             if params is None:
                 params = {}
@@ -283,7 +343,17 @@ class RESTFullAPIClient:
 
 
 class DandiAPIClient(RESTFullAPIClient):
-    def __init__(self, api_url=None, token=None):
+    """A client for interacting with a Dandi Archive server"""
+
+    def __init__(
+        self, api_url: Optional[str] = None, token: Optional[str] = None
+    ) -> None:
+        """
+        Construct a client instance from a server's base API URL and an
+        optional authentication token/API key.  If no URL is supplied, the URL
+        of the instance named in the :envvar:`DANDI_INSTANCE` environment
+        variable (default value: ``dandi``) is used.
+        """
         check_dandi_version()
         if api_url is None:
             instance_name = os.environ.get("DANDI_INSTANCE", "dandi")
@@ -296,8 +366,18 @@ class DandiAPIClient(RESTFullAPIClient):
 
     @classmethod
     def for_dandi_instance(
-        cls, instance: Union[str, DandiInstance], token=None, authenticate=False
+        cls,
+        instance: Union[str, DandiInstance],
+        token: Optional[str] = None,
+        authenticate: bool = False,
     ) -> "DandiAPIClient":
+        """
+        Construct a client instance for the server identified by ``instance``
+        (either the name of a registered Dandi Archive instance or a
+        `DandiInstance` instance) and an optional authentication token/API key.
+        If no token is supplied and ``authenticate`` is true,
+        `dandi_authenticate()` is called on the instance before returning it.
+        """
         if isinstance(instance, str):
             instance = known_instances[instance]
         client = cls(instance.api, token=token)
@@ -305,12 +385,30 @@ class DandiAPIClient(RESTFullAPIClient):
             client.dandi_authenticate()
         return client
 
-    def authenticate(self, token):
+    def authenticate(self, token: str) -> None:
+        """
+        Set the authentication token/API key used by the `DandiAPIClient`.
+        Before setting the token, a test request to ``/auth/token`` is made to
+        check the token's validity; if it fails, a `requests.HTTPError` is
+        raised.
+        """
         # Fails if token is invalid:
         self.get("/auth/token", headers={"Authorization": f"token {token}"})
         self.session.headers["Authorization"] = f"token {token}"
 
-    def dandi_authenticate(self):
+    def dandi_authenticate(self) -> None:
+        """
+        Acquire and set the authentication token/API key used by the
+        `DandiAPIClient`.  If the :envvar:`DANDI_API_KEY` environment variable
+        is set, its value is used as the token.  Otherwise, the token is looked
+        up in the user's keyring under the service
+        "``dandi-api-INSTANCE_NAME``" [#auth]_ and username "``key``".  If no
+        token is found there, the user is prompted for the token, and, if it
+        proves to be valid, it is stored in the user's keyring.
+
+        .. [#auth] E.g., "``dandi-api-dandi``" for the production server or
+                   "``dandi-api-dandi-staging``" for the staging server
+        """
         # Shortcut for advanced folks
         api_key = os.environ.get("DANDI_API_KEY", None)
         if api_key:
@@ -375,6 +473,11 @@ class DandiAPIClient(RESTFullAPIClient):
             return d
 
     def get_dandisets(self) -> Iterator["RemoteDandiset"]:
+        """
+        Returns a generator of all Dandisets on the server.  For each Dandiset,
+        the `RemoteDandiset`'s version is set to the most recent published
+        version if there is one, otherwise to the draft version.
+        """
         for data in self.paginate("/dandisets/"):
             yield RemoteDandiset._make(self, data)
 
@@ -385,6 +488,14 @@ class DandiAPIClient(RESTFullAPIClient):
         )
 
     def check_schema_version(self, schema_version: Optional[str] = None) -> None:
+        """
+        Confirms that the server is using the same version of the Dandi schema
+        as the client.  If it is not, a `SchemaVersionError` is raised.
+
+        :param schema_version: the schema version to confirm that the server
+            uses; if not set, the schema version for the installed
+            ``dandischema`` library is used
+        """
         if schema_version is None:
             schema_version = models.get_schema_version()
         server_info = self.get("/info/")
@@ -402,11 +513,21 @@ class DandiAPIClient(RESTFullAPIClient):
             )
 
     def get_asset(self, asset_id: str) -> "BaseRemoteAsset":
+        """
+        Fetch the asset with the given asset ID.  The returned object will not
+        have any information about the Dandiset associated with the asset; for
+        that, the `RemoteDandiset.get_asset()` method must be used instead.
+        """
         return BaseRemoteAsset._from_metadata(self, self.get(f"/assets/{asset_id}"))
 
 
 class APIBase(BaseModel):
-    """Base class for API objects"""
+    """
+    Base class for API objects implemented in pydantic.
+
+    This class (aside from the `json_dict()` method) is an implementation
+    detail; do not rely on it.
+    """
 
     JSON_EXCLUDE: ClassVar[FrozenSet[str]] = frozenset(["client"])
 
@@ -427,16 +548,24 @@ class Version(APIBase):
     """
     The version information for a Dandiset retrieved from the API.
 
+    Stringifying a `Version` returns its identifier.
+
     This class should not be instantiated by end-users directly.  Instead,
     instances should be retrieved from the appropriate attributes & methods of
     `RemoteDandiset`.
     """
 
+    #: The version identifier
     identifier: str = Field(alias="version")
+    #: The name of the version
     name: str
+    #: The number of assets in the version
     asset_count: int
+    #: The total size in bytes of all assets in the version
     size: int
+    #: The timestamp at which the version was created
     created: datetime
+    #: The timestamp at which the version was last modified
     modified: datetime
 
     def __str__(self) -> str:
@@ -447,6 +576,9 @@ class RemoteDandiset:
     """
     Representation of a Dandiset (as of a certain version) retrieved from the
     API.
+
+    Stringifying a `RemoteDandiset` returns a string of the form
+    :samp:`"{server_id}:{dandiset_id}/{version_id}"`.
 
     This class should not be instantiated by end-users directly.  Instead,
     instances should be retrieved from the appropriate attributes & methods of
@@ -460,8 +592,11 @@ class RemoteDandiset:
         version: Union[str, Version, None] = None,
         data: Optional[Dict[str, Any]] = None,
     ) -> None:
-        self.client = client
-        self.identifier = identifier
+        #: The `DandiAPIClient` instance that returned this `RemoteDandiset`
+        #: and which the latter will use for API requests
+        self.client: DandiAPIClient = client
+        #: The Dandiset identifier
+        self.identifier: str = identifier
         self._version_id: Optional[str]
         self._version: Optional[Version]
         if version is None:
@@ -485,6 +620,7 @@ class RemoteDandiset:
 
     @property
     def version_id(self) -> str:
+        """The identifier for the Dandiset version"""
         if self._version_id is None:
             self._version_id = self.version.identifier
         return self._version_id
@@ -510,18 +646,25 @@ class RemoteDandiset:
 
     @property
     def created(self) -> datetime:
+        """The timestamp at which the Dandiset was created"""
         return ensure_datetime(self._get_data()["created"])
 
     @property
     def modified(self) -> datetime:
+        """The timestamp at which the Dandiset was last modified"""
         return ensure_datetime(self._get_data()["modified"])
 
     @property
     def contact_person(self) -> str:
+        """The name of the registered contact person for the Dandiset"""
         return self._get_data()["contact_person"]
 
     @property
     def most_recent_published_version(self) -> Optional[Version]:
+        """
+        The most recent published (non-draft) version of the Dandiset, or
+        `None` if no versions have been published
+        """
         v = self._get_data().get("most_recent_published_version")
         if v is None:
             return None
@@ -530,14 +673,24 @@ class RemoteDandiset:
 
     @property
     def draft_version(self) -> Version:
+        """The draft version of the Dandiset"""
         return Version.parse_obj(self._get_data()["draft_version"])
 
     @property
     def api_path(self) -> str:
+        """
+        The API path (relative to the base endpoint for a Dandi Archive API) at
+        which requests for interacting with the Dandiset itself are made
+        """
         return f"/dandisets/{self.identifier}/"
 
     @property
     def version_api_path(self) -> str:
+        """
+        The API path (relative to the base endpoint for a Dandi Archive API) at
+        which requests for interacting with the version in question of the
+        Dandiset are made
+        """
         return f"/dandisets/{self.identifier}/versions/{self.version_id}/"
 
     @classmethod
@@ -659,10 +812,11 @@ class RemoteDandiset:
             json={"metadata": metadata, "name": metadata.get("name", "")},
         )
 
-    def wait_until_valid(self, max_time=120):
+    def wait_until_valid(self, max_time: float = 120) -> None:
         """
-        Wait for a Dandiset to be valid.  Validation is a background celery
-        task which runs asynchronously, so we need to wait for it to complete.
+        Wait at most ``max_time`` seconds for the Dandiset to be valid for
+        publication.  If the Dandiset does not become valid in time, a
+        `ValueError` is raised.
         """
         lgr.debug("Waiting for Dandiset %s to complete validation ...", self.identifier)
         start = time()
@@ -771,8 +925,8 @@ class RemoteDandiset:
         :type filepath: str or PathLike
         :param dict asset_metadata:
             Metadata for the uploaded asset file.  Must include a "path" field
-            giving the POSIX path at which the uploaded file will be placed on
-            the server.
+            giving the forward-slash-separated path at which the uploaded file
+            will be placed on the server.
         :param int jobs: Number of threads to use for uploading; defaults to 5
         :param RemoteAsset replace_asset: If set, replace the given asset,
             which must have the same path as the new asset
@@ -800,8 +954,8 @@ class RemoteDandiset:
         :type filepath: str or PathLike
         :param dict asset_metadata:
             Metadata for the uploaded asset file.  Must include a "path" field
-            giving the POSIX path at which the uploaded file will be placed on
-            the server.
+            giving the forward-slash-separated path at which the uploaded file
+            will be placed on the server.
         :param int jobs:
             Number of threads to use for uploading; defaults to 5
         :param RemoteAsset replace_asset: If set, replace the given asset,
@@ -940,16 +1094,22 @@ class BaseRemoteAsset(APIBase):
     Representation of an asset retrieved from the API without associated
     Dandiset information.
 
+    Stringifying a `BaseRemoteAsset` returns a string of the form
+    :samp:`"{server_id}:asset/{asset_id}"`.
+
     This class should not be instantiated by end-users directly.  Instead,
     instances should be retrieved from the appropriate attributes & methods of
     `DandiAPIClient` and `RemoteDandiset`.
     """
 
+    #: The `DandiAPIClient` instance that returned this `BaseRemoteAsset`
+    #: and which the latter will use for API requests
     client: "DandiAPIClient"
-
     #: The asset identifier
     identifier: str = Field(alias="asset_id")
+    #: The asset's (forward-slash-separated) path
     path: str
+    #: The size of the asset in bytes
     size: int
     #: Metadata supplied at initialization; returned when metadata is requested
     #: instead of performing an API call
@@ -978,10 +1138,18 @@ class BaseRemoteAsset(APIBase):
 
     @property
     def api_path(self) -> str:
+        """
+        The API path (relative to the base endpoint for a Dandi Archive API) at
+        which requests for interacting with the asset itself are made
+        """
         return f"/assets/{self.identifier}/"
 
     @property
     def base_download_url(self) -> str:
+        """
+        The URL from which the asset can be downloaded, sans any Dandiset
+        identifiers (cf. `RemoteAsset.download_url`)
+        """
         return self.client.get_url(f"/assets/{self.identifier}/download/")
 
     def get_metadata(self) -> models.Asset:
@@ -1099,8 +1267,8 @@ class BaseRemoteAsset(APIBase):
 
 class RemoteAsset(BaseRemoteAsset):
     """
-    Representation of an asset retrieved from the API with associated Dandiset
-    information.
+    Subclass of `BaseRemoteAsset` that includes information about the Dandiset
+    to which the asset belongs.
 
     This class should not be instantiated by end-users directly.  Instead,
     instances should be retrieved from the appropriate attributes & methods of
@@ -1121,10 +1289,18 @@ class RemoteAsset(BaseRemoteAsset):
 
     @property
     def api_path(self) -> str:
+        """
+        The API path (relative to the base endpoint for a Dandi Archive API) at
+        which requests for interacting with the asset itself are made
+        """
         return f"/dandisets/{self.dandiset_id}/versions/{self.version_id}/assets/{self.identifier}/"
 
     @property
     def download_url(self) -> str:
+        """
+        The URL from which the asset can be downloaded, including Dandiset
+        identifiers (cf. `BaseRemoteAsset.base_download_url`)
+        """
         return self.client.get_url(f"{self.api_path}download/")
 
     def set_metadata(self, metadata: models.Asset) -> None:
@@ -1161,7 +1337,14 @@ class RemoteAsset(BaseRemoteAsset):
         self.client.delete(self.api_path)
 
 
-def _upload_part(storage_session, fp, lock, etagger, asset_path, part):
+def _upload_part(
+    storage_session: RESTFullAPIClient,
+    fp: BinaryIO,
+    lock: Lock,
+    etagger: DandiETag,
+    asset_path: str,
+    part: dict,
+) -> dict:
     etag_part = etagger.get_part(part["part_number"])
     if part["size"] != etag_part.size:
         raise RuntimeError(
