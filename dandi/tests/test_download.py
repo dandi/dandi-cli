@@ -6,6 +6,7 @@ from shutil import rmtree
 
 import pytest
 
+from .skip import mark
 from ..consts import DRAFT
 from ..download import download
 from ..utils import find_files
@@ -13,6 +14,7 @@ from ..utils import find_files
 
 # both urls point to 000027 (lean test dataset), and both draft and "released"
 # version have only a single file ATM
+@mark.skipif_no_network
 @pytest.mark.parametrize(
     "url",
     [  # Should go through API
@@ -48,6 +50,7 @@ def test_download_000027(url, tmpdir):
     download(url, tmpdir, existing="refresh")  # TODO: check that skipped (the same)
 
 
+@mark.skipif_no_network
 @pytest.mark.parametrize(
     "url",
     [  # Should go through API
@@ -64,6 +67,7 @@ def test_download_000027_metadata_only(url, tmpdir):
     assert sorted(downloads) == ["dandiset.yaml"]
 
 
+@mark.skipif_no_network
 @pytest.mark.parametrize(
     "url",
     [  # Should go through API
@@ -80,6 +84,7 @@ def test_download_000027_assets_only(url, tmpdir):
     assert sorted(downloads) == ["sub-RAT123", op.join("sub-RAT123", "sub-RAT123.nwb")]
 
 
+@mark.skipif_no_network
 @pytest.mark.parametrize("resizer", [lambda sz: 0, lambda sz: sz // 2, lambda sz: sz])
 @pytest.mark.parametrize("version", ["0.210831.2033", DRAFT])
 def test_download_000027_resume(tmp_path, resizer, version):

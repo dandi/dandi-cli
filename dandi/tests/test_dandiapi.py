@@ -13,6 +13,7 @@ from dandischema.models import UUID_PATTERN, DigestType, get_schema_version
 import pytest
 import responses
 
+from .skip import mark
 from .. import dandiapi
 from ..consts import (
     DRAFT,
@@ -279,6 +280,7 @@ def test_authenticate_bad_key_keyring_good_key_input(
     confirm_mock.assert_called_once_with("API key is invalid; enter another?")
 
 
+@mark.skipif_no_network
 def test_get_content_url(tmp_path):
     with DandiAPIClient.for_dandi_instance("dandi") as client:
         asset = client.get_dandiset("000027", "draft").get_asset_by_path(
@@ -297,6 +299,7 @@ def test_get_content_url(tmp_path):
                 fp.write(chunk)
 
 
+@mark.skipif_no_network
 def test_get_content_url_regex(tmp_path):
     with DandiAPIClient.for_dandi_instance("dandi") as client:
         asset = client.get_dandiset("000027", "draft").get_asset_by_path(
@@ -309,6 +312,7 @@ def test_get_content_url_regex(tmp_path):
                 fp.write(chunk)
 
 
+@mark.skipif_no_network
 def test_get_content_url_follow_one_redirects_strip_query():
     with DandiAPIClient.for_dandi_instance("dandi") as client:
         asset = client.get_dandiset("000027", "draft").get_asset_by_path(

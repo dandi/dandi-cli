@@ -121,6 +121,10 @@ def no_docker_engine():
     return "docker engine not running", not is_engine_running()
 
 
+def no_git():
+    return "Git not installed", shutil.which("git") is None
+
+
 # ### END MODIFIED CODE
 
 
@@ -157,6 +161,7 @@ CONDITION_FNS = [
     # no_docker_dependencies,
     no_docker_commands,
     no_docker_engine,
+    no_git,
     no_network,
     # no_singularity,
     no_ssh,

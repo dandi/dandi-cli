@@ -8,6 +8,7 @@ import requests
 import responses
 from semantic_version import Version
 
+from .skip import mark
 from .. import __version__
 from ..consts import DandiInstance, known_instances
 from ..exceptions import BadCliVersionError, CliVersionTooOldError
@@ -325,9 +326,7 @@ def test_get_instance_actual_dandi():
 if "DANDI_REDIRECTOR_BASE" in os.environ:
     using_docker = pytest.mark.usefixtures("local_dandi_api")
 else:
-
-    def using_docker(f):
-        return f
+    using_docker = mark.skipif_no_network
 
 
 @pytest.mark.redirector

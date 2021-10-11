@@ -100,13 +100,14 @@ from dandi.tests.skip import mark
                 version_id="draft",
             ),
         ),
-        (
+        pytest.param(
             "DANDI:000027",
             DandisetURL(
                 api_url=known_instances["dandi"].api,
                 dandiset_id="000027",
                 version_id="draft",  # TODO: why not None?
             ),
+            marks=mark.skipif_no_network,
         ),
         (
             "http://localhost:8000/api/dandisets/000002/versions/draft",

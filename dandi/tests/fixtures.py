@@ -126,9 +126,8 @@ def get_gitrepo_fixture(url, committish=None, scope="session"):
 
     @pytest.fixture(scope=scope)
     def fixture():
-        # TODO: adapt reproman.tests.skip collection of skipif conditions
-        # skipif.no_network()
-        # skipif.no_git()
+        skipif.no_network()
+        skipif.no_git()
 
         path = tempfile.mktemp()  # not using pytest's tmpdir fixture to not
         # collide in different scopes etc. But we

@@ -5,6 +5,8 @@ from click.testing import CliRunner
 from dandischema.consts import DANDI_SCHEMA_VERSION
 import pytest
 
+from dandi.tests.skip import mark
+
 from ..command import ls
 from ...utils import yaml_load
 
@@ -46,6 +48,7 @@ def test_smoke(simple1_nwb_metadata, simple1_nwb, format):
         assert metadata[f] == simple1_nwb_metadata[f]
 
 
+@mark.skipif_no_network
 def test_ls_dandiset_url():
     r = CliRunner().invoke(
         ls, ["-f", "yaml", "https://api.dandiarchive.org/api/dandisets/000027"]
@@ -56,6 +59,7 @@ def test_ls_dandiset_url():
     assert data[0]["path"] == "000027"
 
 
+@mark.skipif_no_network
 def test_ls_dandiset_url_recursive():
     r = CliRunner().invoke(
         ls, ["-f", "yaml", "-r", "https://api.dandiarchive.org/api/dandisets/000027"]
@@ -67,6 +71,7 @@ def test_ls_dandiset_url_recursive():
     assert data[1]["path"] == "sub-RAT123/sub-RAT123.nwb"
 
 
+@mark.skipif_no_network
 def test_ls_path_url():
     r = CliRunner().invoke(
         ls,
