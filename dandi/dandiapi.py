@@ -620,7 +620,7 @@ class RemoteDandiset:
 
     @property
     def version_id(self) -> str:
-        """The identifier for the version in question of the Dandiset"""
+        """The identifier for the Dandiset version"""
         if self._version_id is None:
             self._version_id = self.version.identifier
         return self._version_id
