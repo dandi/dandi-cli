@@ -44,7 +44,7 @@ def get_meta(path, digest=None):
     return localmeta.json_dict()
 
 
-@click.command(help=f"""Update assetmetadata""")
+@click.command(help="""Update assetmetadata""")
 @click.option(
     "-d",
     "--dandiset",
@@ -108,7 +108,10 @@ def process_dandiset(dandiset, update, api_key):
                 ul.info("Finished getting metadata")
                 localmeta["path"] = asset["path"]
                 localmeta["blobDateModified"] = asset["blobDateModified"]
-                url = f"https://api.dandiarchive.org/api/dandisets/{dandiset}/versions/draft/assets/{asset['asset_id']}/"
+                url = (
+                    f"https://api.dandiarchive.org/api/dandisets/{dandiset}/"
+                    f"versions/draft/assets/{asset['asset_id']}/"
+                )
                 payload = {"metadata": localmeta, "blob_id": asset["blob_id"]}
                 if update:
                     ul.info(f"updating: {asset['path']}")
