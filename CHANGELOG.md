@@ -1,3 +1,15 @@
+# 0.30.2 (Mon Oct 11 2021)
+
+#### 🐛 Bug Fix
+
+- Retry more requests; wait longer for Dandiset validity [#798](https://github.com/dandi/dandi-cli/pull/798) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.30.1 (Thu Oct 07 2021)
 
 #### 📝 Documentation
