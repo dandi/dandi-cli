@@ -1,3 +1,24 @@
+# 0.30.3 (Mon Oct 11 2021)
+
+#### 🏠 Internal
+
+- Add flake8 to pre-commit-config.yaml [#800](https://github.com/dandi/dandi-cli/pull/800) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Document & type-annotate all public values in `dandi.dandiapi` [#799](https://github.com/dandi/dandi-cli/pull/799) ([@jwodder](https://github.com/jwodder))
+- Set Sphinx `default_role` to "py:obj" [#795](https://github.com/dandi/dandi-cli/pull/795) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Apply "skipif_no_network" to all relevant tests [#797](https://github.com/dandi/dandi-cli/pull/797) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.30.2 (Mon Oct 11 2021)
 
 #### 🐛 Bug Fix
