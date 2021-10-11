@@ -69,6 +69,7 @@ from . import get_logger
 from .consts import (
     DRAFT,
     MAX_CHUNK_SIZE,
+    RETRY_STATUSES,
     DandiInstance,
     known_instances,
     known_instances_rev,
@@ -151,7 +152,7 @@ class RESTFullAPIClient:
 
         :type json_resp: bool
         :param retry_statuses: a sequence of HTTP response status codes to
-            retry; 503 will be added to this set
+            retry in addition to `dandi.consts.RETRY_STATUSES`
         """
 
         url = self.get_url(path)
@@ -191,7 +192,7 @@ class RESTFullAPIClient:
                         headers=headers,
                         **kwargs,
                     )
-                    if result.status_code in [503, *retry_statuses]:
+                    if result.status_code in [*RETRY_STATUSES, *retry_statuses]:
                         result.raise_for_status()
         except Exception:
             lgr.exception("HTTP connection failed")
