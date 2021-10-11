@@ -17,11 +17,11 @@
 
 # -- Project information -----------------------------------------------------
 
+import dandi
+
 project = "dandi"
 copyright = "2021, DANDI Team"
 author = "DANDI Team"
-
-import dandi
 
 # The full version, including alpha/beta/rc tags
 version = dandi.__version__
