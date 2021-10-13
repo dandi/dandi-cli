@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import pytest
-import requests
 
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiapi import RESTFullAPIClient
@@ -136,9 +135,8 @@ def test_delete_dandiset(local_dandi_api, mocker, monkeypatch, text_dandiset, pa
         force=True,
     )
     delete_spy.assert_called()
-    with pytest.raises(requests.HTTPError) as excinfo:
+    with pytest.raises(NotFoundError):
         local_dandi_api["client"].get_dandiset(dandiset_id, DRAFT, lazy=False)
-    assert excinfo.value.response.status_code == 404
 
 
 @pytest.mark.parametrize("confirm", [True, False])
@@ -222,7 +220,7 @@ def test_delete_nonexistent_dandiset(local_dandi_api, mocker, monkeypatch):
             devel_debug=True,
             force=True,
         )
-    assert str(excinfo.value) == "Dandiset 999999 not found on server"
+    assert str(excinfo.value) == "No such Dandiset: '999999'"
     delete_spy.assert_not_called()
 
 
