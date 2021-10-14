@@ -455,7 +455,7 @@ class _dandi_url_parser:
           the prefix ``path``; converted to an `AssetPathPrefixURL`
 
         - :samp:`dandi://{instance-name}/{dandiset-id}[@{version}][/{path}]`,
-          where ``instance name`` is the name of a registered Dandi Archive
+          where ``instance-name`` is the name of a registered Dandi Archive
           instance.  If ``path`` is not specified, the URL refers to a Dandiset
           and is converted to a `DandisetURL`.  If ``path`` is specified, the
           URL refers to all assets in the given Dandiset whose paths begin with
