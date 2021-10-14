@@ -531,7 +531,7 @@ class DandiAPIClient(RESTFullAPIClient):
             return BaseRemoteAsset._from_metadata(self, self.get(f"/assets/{asset_id}"))
         except requests.HTTPError as e:
             if e.response.status_code == 404:
-                raise NotFoundError(f"No such asset: {asset_id}")
+                raise NotFoundError(f"No such asset: {asset_id!r}")
             else:
                 raise
 
