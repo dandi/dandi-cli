@@ -64,9 +64,16 @@ metadata_dandiset_fields = (
 
 metadata_all_fields = metadata_nwb_fields + metadata_dandiset_fields
 
-dandiset_metadata_file = "dandiset.yaml"
-dandiset_identifier_regex = "^[0-9]{6}$"
+#: Regular expression for a valid Dandiset identifier.  This regex is not
+#: anchored.
+DANDISET_ID_REGEX = r"[0-9]{6}"
+
+#: Regular expression for a valid Dandiset version identifier.  This regex is
+#: not anchored.
 VERSION_REGEX = r"(?:[.0-9]{5,}|draft)"
+
+dandiset_metadata_file = "dandiset.yaml"
+dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
 
 DandiInstance = namedtuple("DandiInstance", ("gui", "redirector", "api"))
 
