@@ -760,13 +760,8 @@ class RemoteDandiset:
         before, but the cached version data is internally cleared and may be
         different upon subsequent access.
         """
-        try:
-            self._data = self.client.get(f"/dandisets/{self.identifier}/")
-        except requests.HTTPError as e:
-            if e.response.status_code == 404:
-                raise NotFoundError(f"No such Dandiset: {self.identifier!r}")
-            else:
-                raise
+        self._data = None
+        self._get_data()
         # Clear _version so it will be refetched the next time it is accessed
         self._version = None
 
