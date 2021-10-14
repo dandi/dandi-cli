@@ -131,7 +131,7 @@ class ParsedDandiURL(ABC, BaseModel):
         A context manager that returns a triple of a
         `~dandi.dandiapi.DandiAPIClient` (with an open session that is closed
         when the context manager closes), the return value of `get_dandiset()`,
-        and the return value of `get_assets()`
+        and the return value of `get_assets()`.
         """
         # We could later try to "dandi_authenticate" if run into permission
         # issues.  May be it could be not just boolean but the "id" to be used?
