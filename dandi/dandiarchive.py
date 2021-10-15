@@ -146,11 +146,8 @@ class BaseAssetIDURL(SingleAssetURL):
         """
         try:
             yield client.get_asset(self.asset_id)
-        except requests.HTTPError as e:
-            if e.response.status_code == 404:
-                return
-            else:
-                raise
+        except NotFoundError:
+            return
 
     def get_asset_ids(self, client: DandiAPIClient) -> Iterator[str]:
         """Yields the ID of the asset (regardless of whether it exists)"""
@@ -171,11 +168,8 @@ class AssetIDURL(SingleAssetURL):
         """
         try:
             yield self.get_dandiset(client).get_asset(self.asset_id)
-        except requests.HTTPError as e:
-            if e.response.status_code == 404:
-                return
-            else:
-                raise
+        except NotFoundError:
+            return
 
     def get_asset_ids(self, client: DandiAPIClient) -> Iterator[str]:
         """Yields the ID of the asset (regardless of whether it exists)"""

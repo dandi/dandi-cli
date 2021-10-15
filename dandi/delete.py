@@ -4,7 +4,6 @@ from pathlib import Path, PurePosixPath
 from typing import Iterable, Iterator, List, Optional, Tuple
 
 import click
-import requests
 
 from .consts import DRAFT, dandiset_metadata_file
 from .dandiapi import DandiAPIClient, RemoteAsset, RemoteDandiset
@@ -41,14 +40,9 @@ class Deleter:
             self.client.dandi_authenticate()
             try:
                 self.dandiset = self.client.get_dandiset(dandiset_id, DRAFT, lazy=False)
-            except requests.HTTPError as e:
-                if e.response.status_code == 404:
-                    if self.skip_missing:
-                        return False
-                    else:
-                        raise NotFoundError(
-                            f"Dandiset {dandiset_id} not found on server"
-                        )
+            except NotFoundError:
+                if self.skip_missing:
+                    return False
                 else:
                     raise
         elif not is_same_url(self.client.api_url, api_url):
