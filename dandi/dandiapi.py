@@ -63,6 +63,7 @@ from typing import (
     Iterator,
     Optional,
     Sequence,
+    Tuple,
     Type,
     TypeVar,
     Union,
@@ -155,6 +156,7 @@ class RESTFullAPIClient:
         headers: Optional[dict] = None,
         json_resp: bool = True,
         retry_statuses: Sequence[int] = (),
+        error_statuses: Dict[Tuple[int, ...] : Exception] = {},
         **kwargs: Any,
     ) -> Any:
         """
@@ -239,6 +241,11 @@ class RESTFullAPIClient:
                     )
                     if result.status_code in [*RETRY_STATUSES, *retry_statuses]:
                         result.raise_for_status()
+        except requests.HTTPError as e:
+            for codes, exc in error_statuses.items():
+                if e.response.status_code in codes:
+                    raise exc
+            raise
         except Exception:
             lgr.exception("HTTP connection failed")
             raise
@@ -464,13 +471,15 @@ class DandiAPIClient(RESTFullAPIClient):
         if lazy:
             return RemoteDandiset(self, dandiset_id, version_id)
         else:
-            try:
-                d = RemoteDandiset._make(self, self.get(f"/dandisets/{dandiset_id}/"))
-            except requests.HTTPError as e:
-                if e.response.status_code == 404:
-                    raise NotFoundError(f"No such Dandiset: {dandiset_id!r}")
-                else:
-                    raise
+            d = RemoteDandiset._make(
+                self,
+                self.get(
+                    f"/dandisets/{dandiset_id}/",
+                    error_statuses={
+                        (404,): NotFoundError(f"No such Dandiset: {dandiset_id!r}")
+                    },
+                ),
+            )
             if version_id is not None and version_id != d.version_id:
                 if version_id == DRAFT:
                     return d.for_version(d.draft_version)
@@ -527,13 +536,13 @@ class DandiAPIClient(RESTFullAPIClient):
         associated with the asset; for that, the `RemoteDandiset.get_asset()`
         method must be used instead.
         """
-        try:
-            return BaseRemoteAsset._from_metadata(self, self.get(f"/assets/{asset_id}"))
-        except requests.HTTPError as e:
-            if e.response.status_code == 404:
-                raise NotFoundError(f"No such asset: {asset_id!r}")
-            else:
-                raise
+        return BaseRemoteAsset._from_metadata(
+            self,
+            self.get(
+                f"/assets/{asset_id}",
+                error_statuses={(404,): NotFoundError(f"No such asset: {asset_id!r}")},
+            ),
+        )
 
 
 class APIBase(BaseModel):
