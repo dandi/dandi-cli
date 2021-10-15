@@ -39,9 +39,6 @@ jobs:
           - os: ubuntu-18.04
             python: 3.7
             mode: dev-deps
-          - os: ubuntu-18.04
-            python: 3.7
-            mode: dandi-devel
         exclude:
           # Temporarily disabled due to h5py/hdf5 dependency issue
           # See <https://github.com/dandi/dandi-cli/pull/315>
@@ -79,10 +76,6 @@ jobs:
       if: matrix.mode == 'dev-deps'
       run: |
         pip install git+https://github.com/NeurodataWithoutBorders/pynwb
-
-    - name: Set DANDI_DEVEL=1
-      if: matrix.mode == 'dandi-devel'
-      run: echo DANDI_DEVEL=1 >> "$GITHUB_ENV"
 
     - name: Run all tests
       if: matrix.mode != 'dandi-api' && github.event_name != 'schedule'

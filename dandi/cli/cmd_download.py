@@ -76,7 +76,7 @@ class ChoiceList(click.ParamType):
 @click.option(
     "--sync", is_flag=True, help="Delete local assets that do not exist on the server"
 )
-@instance_option()
+@instance_option(default=None)
 # Might be a cool feature, not unlike verifying a checksum, we verify that
 # downloaded file passes the validator, and if not -- alert
 # @click.option(
@@ -94,7 +94,7 @@ class ChoiceList(click.ParamType):
 @click.argument("url", nargs=-1)
 @map_to_click_exceptions
 def download(
-    url, output_dir, existing, jobs, format, download_types, sync, dandi_instance=None
+    url, output_dir, existing, jobs, format, download_types, sync, dandi_instance
 ):
     """Download a file or entire folder from DANDI"""
     # We need to import the download module rather than the download function

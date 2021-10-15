@@ -3,7 +3,6 @@ from pathlib import Path
 
 import click
 from click.testing import CliRunner
-import pytest
 
 from ..command import download
 from ...consts import dandiset_metadata_file
@@ -82,9 +81,6 @@ def test_download_bad_type(mocker):
     mock_download.assert_not_called()
 
 
-@pytest.mark.skipif(
-    not os.environ.get("DANDI_DEVEL"), reason="DANDI_DEVEL required to run"
-)
 def test_download_gui_instance_in_dandiset(mocker):
     mock_download = mocker.patch("dandi.download.download")
     runner = CliRunner()
@@ -104,9 +100,6 @@ def test_download_gui_instance_in_dandiset(mocker):
     )
 
 
-@pytest.mark.skipif(
-    not os.environ.get("DANDI_DEVEL"), reason="DANDI_DEVEL required to run"
-)
 def test_download_api_instance_in_dandiset(mocker):
     mock_download = mocker.patch("dandi.download.download")
     runner = CliRunner()
@@ -126,9 +119,6 @@ def test_download_api_instance_in_dandiset(mocker):
     )
 
 
-@pytest.mark.skipif(
-    not os.environ.get("DANDI_DEVEL"), reason="DANDI_DEVEL required to run"
-)
 def test_download_url_instance_match(mocker):
     mock_download = mocker.patch("dandi.download.download")
     r = CliRunner().invoke(
@@ -152,9 +142,6 @@ def test_download_url_instance_match(mocker):
     )
 
 
-@pytest.mark.skipif(
-    not os.environ.get("DANDI_DEVEL"), reason="DANDI_DEVEL required to run"
-)
 def test_download_url_instance_conflict(mocker):
     mock_download = mocker.patch("dandi.download.download")
     r = CliRunner().invoke(
@@ -163,7 +150,7 @@ def test_download_url_instance_conflict(mocker):
         standalone_mode=False,
     )
     assert r.exit_code != 0
-    assert isinstance(r.exception, click.UsageError)
+    assert isinstance(r.exception, click.ClickException)
     assert (
         str(r.exception)
         == "http://localhost:8000/api/dandisets/123456/ does not point to 'dandi' instance"

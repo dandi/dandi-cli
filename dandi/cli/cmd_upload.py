@@ -84,11 +84,11 @@ def upload(
     paths,
     jobs,
     sync,
+    dandi_instance,
     existing="refresh",
     validation="require",
     dandiset_path=None,
     # Development options should come as kwargs
-    dandi_instance="dandi",
     allow_any_path=False,
     upload_dandiset_metadata=False,
     devel_debug=False,

@@ -47,15 +47,15 @@ def dandiset_path_option(**kwargs):
     )
 
 
-def instance_option():
-    return devel_option(
-        "-i",
-        "--dandi-instance",
-        help="For development: DANDI instance to use",
-        type=click.Choice(sorted(known_instances)),
-        default="dandi",
-        show_default=True,
-    )
+def instance_option(**kwargs):
+    params = {
+        "help": "DANDI instance to use",
+        "type": click.Choice(sorted(known_instances)),
+        "default": "dandi",
+        "show_default": True,
+    }
+    params.update(kwargs)
+    return click.option("-i", "--dandi-instance", **params)
 
 
 def devel_debug_option():
