@@ -233,7 +233,7 @@ def download_generator(
             if mtime is None:
                 lgr.warning(
                     "Asset %s is missing blobDateModified metadata field",
-                    asset["path"],
+                    asset.path,
                 )
                 mtime = asset.modified
 
