@@ -899,10 +899,19 @@ class RemoteDandiset:
             Version.parse_obj(self.client.post(f"{self.version_api_path}publish/"))
         )
 
-    def get_assets(self) -> Iterator["RemoteAsset"]:
-        """Returns an iterator of all assets in this version of the Dandiset"""
+    def get_assets(self, order: Optional[str] = None) -> Iterator["RemoteAsset"]:
+        """
+        Returns an iterator of all assets in this version of the Dandiset.
+
+        Assets can be sorted by a given field by passing the name of that field
+        as the ``order`` parameter.  The accepted field names are
+        ``"created"``, ``"modified"``, and ``"path"``.  Prepend a hyphen to the
+        field name to reverse the sort order.
+        """
         try:
-            for a in self.client.paginate(f"{self.version_api_path}assets/"):
+            for a in self.client.paginate(
+                f"{self.version_api_path}assets/", params={"order": order}
+            ):
                 yield RemoteAsset.from_data(self, a)
         except requests.HTTPError as e:
             if e.response.status_code == 404:
@@ -928,14 +937,22 @@ class RemoteDandiset:
         asset._metadata = metadata
         return asset
 
-    def get_assets_with_path_prefix(self, path: str) -> Iterator["RemoteAsset"]:
+    def get_assets_with_path_prefix(
+        self, path: str, order: Optional[str] = None
+    ) -> Iterator["RemoteAsset"]:
         """
         Returns an iterator of all assets in this version of the Dandiset whose
         `~RemoteAsset.path` attributes start with ``path``
+
+        Assets can be sorted by a given field by passing the name of that field
+        as the ``order`` parameter.  The accepted field names are
+        ``"created"``, ``"modified"``, and ``"path"``.  Prepend a hyphen to the
+        field name to reverse the sort order.
         """
         try:
             for a in self.client.paginate(
-                f"{self.version_api_path}assets/", params={"path": path}
+                f"{self.version_api_path}assets/",
+                params={"path": path, "order": order},
             ):
                 yield RemoteAsset.from_data(self, a)
         except requests.HTTPError as e:

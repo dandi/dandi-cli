@@ -103,13 +103,20 @@ class ParsedDandiURL(ABC, BaseModel):
             return self.version_id
 
     @abstractmethod
-    def get_assets(self, client: DandiAPIClient) -> Iterator[BaseRemoteAsset]:
+    def get_assets(
+        self, client: DandiAPIClient, order: Optional[str] = None
+    ) -> Iterator[BaseRemoteAsset]:
         """
         Returns an iterator of asset structures for the assets referred to by
         or associated with the URL.  For a URL pointing to just a Dandiset,
         this is the set of all assets in the given or default version of the
         Dandiset.  For a URL that specifies a specific asset or collection of
         assets in a Dandiset, this is all of those assets.
+
+        When multiple assets are returned, they can be sorted by a given field
+        by passing the name of that field as the ``order`` parameter.  The
+        accepted field names are ``"created"``, ``"modified"``, and ``"path"``.
+        Prepend a hyphen to the field name to reverse the sort order.
         """
         ...
 
@@ -144,9 +151,11 @@ class DandisetURL(ParsedDandiURL):
     Parsed from a URL that only refers to a Dandiset (possibly with a version)
     """
 
-    def get_assets(self, client: DandiAPIClient) -> Iterator[BaseRemoteAsset]:
+    def get_assets(
+        self, client: DandiAPIClient, order: Optional[str] = None
+    ) -> Iterator[BaseRemoteAsset]:
         """Returns all assets in the Dandiset"""
-        return self.get_dandiset(client).get_assets()
+        return self.get_dandiset(client).get_assets(order=order)
 
 
 class SingleAssetURL(ParsedDandiURL):
@@ -169,7 +178,9 @@ class BaseAssetIDURL(SingleAssetURL):
 
     asset_id: str
 
-    def get_assets(self, client: DandiAPIClient) -> Iterator[BaseRemoteAsset]:
+    def get_assets(
+        self, client: DandiAPIClient, order: Optional[str] = None
+    ) -> Iterator[BaseRemoteAsset]:
         """
         Yields the asset with the given ID.  Yields nothing if the asset does
         not exist.
@@ -191,7 +202,9 @@ class AssetIDURL(SingleAssetURL):
 
     asset_id: str
 
-    def get_assets(self, client: DandiAPIClient) -> Iterator[BaseRemoteAsset]:
+    def get_assets(
+        self, client: DandiAPIClient, order: Optional[str] = None
+    ) -> Iterator[BaseRemoteAsset]:
         """
         Yields the asset with the given ID.  Yields nothing if the asset does
         not exist.
@@ -211,9 +224,13 @@ class AssetPathPrefixURL(MultiAssetURL):
     Parsed from a URL that refers to a collection of assets by path prefix
     """
 
-    def get_assets(self, client: DandiAPIClient) -> Iterator[BaseRemoteAsset]:
+    def get_assets(
+        self, client: DandiAPIClient, order: Optional[str] = None
+    ) -> Iterator[BaseRemoteAsset]:
         """Returns the assets whose paths start with `path`"""
-        return self.get_dandiset(client).get_assets_with_path_prefix(self.path)
+        return self.get_dandiset(client).get_assets_with_path_prefix(
+            self.path, order=order
+        )
 
 
 class AssetItemURL(SingleAssetURL):
@@ -251,7 +268,9 @@ class AssetFolderURL(MultiAssetURL):
 
     path: str
 
-    def get_assets(self, client: DandiAPIClient) -> Iterator[BaseRemoteAsset]:
+    def get_assets(
+        self, client: DandiAPIClient, order: Optional[str] = None
+    ) -> Iterator[BaseRemoteAsset]:
         """
         Returns all assets under the folder at `path`.  Yields nothing if the
         folder does not exist.
@@ -259,7 +278,7 @@ class AssetFolderURL(MultiAssetURL):
         path = self.path
         if not path.endswith("/"):
             path += "/"
-        return self.get_dandiset(client).get_assets_with_path_prefix(path)
+        return self.get_dandiset(client).get_assets_with_path_prefix(path, order=order)
 
 
 @contextmanager
