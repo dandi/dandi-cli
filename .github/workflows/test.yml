@@ -53,8 +53,9 @@ jobs:
         # Fetch all commits so that versioneer will return something compatible
         # with semantic-version
         fetch-depth: 0
+
     - name: Set up Python ${{ matrix.python }}
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python }}
 
