@@ -465,7 +465,9 @@ class DandiAPIClient(RESTFullAPIClient):
             return RemoteDandiset(self, dandiset_id, version_id)
         else:
             try:
-                d = RemoteDandiset._make(self, self.get(f"/dandisets/{dandiset_id}/"))
+                d = RemoteDandiset.from_data(
+                    self, self.get(f"/dandisets/{dandiset_id}/")
+                )
             except requests.HTTPError as e:
                 if e.response.status_code == 404:
                     raise NotFoundError(f"No such Dandiset: {dandiset_id!r}")
@@ -485,11 +487,11 @@ class DandiAPIClient(RESTFullAPIClient):
         version if there is one, otherwise to the draft version.
         """
         for data in self.paginate("/dandisets/"):
-            yield RemoteDandiset._make(self, data)
+            yield RemoteDandiset.from_data(self, data)
 
     def create_dandiset(self, name: str, metadata: Dict[str, Any]) -> "RemoteDandiset":
         """Creates a Dandiset with the given name & metadata"""
-        return RemoteDandiset._make(
+        return RemoteDandiset.from_data(
             self, self.post("/dandisets/", json={"name": name, "metadata": metadata})
         )
 
@@ -528,7 +530,7 @@ class DandiAPIClient(RESTFullAPIClient):
         method must be used instead.
         """
         try:
-            return BaseRemoteAsset._from_metadata(self, self.get(f"/assets/{asset_id}"))
+            return BaseRemoteAsset.from_metadata(self, self.get(f"/assets/{asset_id}"))
         except requests.HTTPError as e:
             if e.response.status_code == 404:
                 raise NotFoundError(f"No such asset: {asset_id!r}")
@@ -715,11 +717,17 @@ class RemoteDandiset:
         return f"/dandisets/{self.identifier}/versions/{self.version_id}/"
 
     @classmethod
-    def _make(cls, client: "DandiAPIClient", data: Dict[str, Any]) -> "RemoteDandiset":
+    def from_data(
+        cls, client: "DandiAPIClient", data: Dict[str, Any]
+    ) -> "RemoteDandiset":
         """
-        Construct a `RemoteDandiset` instance from a `dict` returned from the
-        API.  If the ``"most_recent_published_version"`` field is set, use that
-        as the Dandiset's version; otherwise, use ``"draft_version"``.
+        Construct a `RemoteDandiset` instance from a `DandiAPIClient` and a
+        `dict` of raw string fields in the same format as returned by the API.
+        If the ``"most_recent_published_version"`` field is set, that is used
+        as the Dandiset's version; otherwise, ``"draft_version"`` is used.
+
+        This is a low-level method that non-developers would normally only use
+        when acquiring data using means outside of this library.
         """
         if data.get("most_recent_published_version") is not None:
             version = Version.parse_obj(data["most_recent_published_version"])
@@ -727,14 +735,6 @@ class RemoteDandiset:
             version = Version.parse_obj(data["draft_version"])
         return cls(
             client=client, identifier=data["identifier"], version=version, data=data
-        )
-
-    def _mkasset(self, data: Dict[str, Any]) -> "RemoteAsset":
-        return RemoteAsset(
-            client=self.client,
-            dandiset_id=self.identifier,
-            version_id=self.version_id,
-            **data,
         )
 
     def json_dict(self) -> Dict[str, Any]:
@@ -903,7 +903,7 @@ class RemoteDandiset:
         """Returns an iterator of all assets in this version of the Dandiset"""
         try:
             for a in self.client.paginate(f"{self.version_api_path}assets/"):
-                yield self._mkasset(a)
+                yield RemoteAsset.from_data(self, a)
         except requests.HTTPError as e:
             if e.response.status_code == 404:
                 raise NotFoundError(
@@ -937,7 +937,7 @@ class RemoteDandiset:
             for a in self.client.paginate(
                 f"{self.version_api_path}assets/", params={"path": path}
             ):
-                yield self._mkasset(a)
+                yield RemoteAsset.from_data(self, a)
         except requests.HTTPError as e:
             if e.response.status_code == 404:
                 raise NotFoundError(
@@ -1144,18 +1144,20 @@ class RemoteDandiset:
         yield {"status": "producing asset"}
         if replace_asset is not None:
             lgr.debug("%s: Replacing pre-existing asset")
-            a = self._mkasset(
+            a = RemoteAsset.from_data(
+                self,
                 self.client.put(
                     replace_asset.api_path,
                     json={"metadata": asset_metadata, "blob_id": blob_id},
-                )
+                ),
             )
         else:
-            a = self._mkasset(
+            a = RemoteAsset.from_data(
+                self,
                 self.client.post(
                     f"{self.version_api_path}assets/",
                     json={"metadata": asset_metadata, "blob_id": blob_id},
-                )
+                ),
             )
         lgr.info("%s: Asset successfully uploaded", asset_path)
         yield {"status": "done", "asset": a}
@@ -1197,9 +1199,16 @@ class BaseRemoteAsset(APIBase):
         return f"{self.client._instance_id}:assets/{self.identifier}"
 
     @classmethod
-    def _from_metadata(
+    def from_metadata(
         self, client: "DandiAPIClient", metadata: Dict[str, Any]
     ) -> "BaseRemoteAsset":
+        """
+        Construct a `BaseRemoteAsset` instance from a `DandiAPIClient` and a
+        `dict` of raw asset metadata.
+
+        This is a low-level method that non-developers would normally only use
+        when acquiring data using means outside of this library.
+        """
         return BaseRemoteAsset(
             client=client,
             identifier=metadata["identifier"],
@@ -1365,6 +1374,29 @@ class RemoteAsset(BaseRemoteAsset):
     #: The date at which the asset was last modified
     modified: datetime
 
+    @classmethod
+    def from_data(
+        self,
+        dandiset: RemoteDandiset,
+        data: Dict[str, Any],
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> "RemoteAsset":
+        """
+        Construct a `RemoteAsset` instance from a `RemoteDandiset`, a `dict` of
+        raw data in the same format as returned by the API's pagination
+        endpoints, and optional raw asset metadata.
+
+        This is a low-level method that non-developers would normally only use
+        when acquiring data using means outside of this library.
+        """
+        return RemoteAsset(
+            client=dandiset.client,
+            dandiset_id=dandiset.identifier,
+            version_id=dandiset.version_id,
+            **data,
+            _metadata=metadata,
+        )
+
     @property
     def api_path(self) -> str:
         """
@@ -1390,8 +1422,8 @@ class RemoteAsset(BaseRemoteAsset):
 
     def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
         """
-        Set the metadata for the asset to the given value and update the
-        `RemoteAsset` in place.
+        Set the metadata for the asset on the server to the given value and
+        update the `RemoteAsset` in place.
         """
         try:
             etag = metadata["digest"]["dandi:dandi-etag"]
