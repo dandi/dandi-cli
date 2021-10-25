@@ -1,3 +1,29 @@
+"""
+This module provides functionality for parsing URLs for Dandisets & assets on
+Dandi Archive servers and for fetching the objects to which the URLs refer.
+See the docstring for `parse_dandi_url()` for a list of accepted URL formats.
+
+Basic operation begins by calling `parse_dandi_url()` on a URL in order to
+acquire a `ParsedDandiURL` instance, which can then be used to obtain the
+Dandiset and/or assets specified in the URL.  Call an instance's
+`~ParsedDandiURL.get_dandiset()` and/or `~ParsedDandiURL.get_assets()` to get
+the assets, passing in a `~dandi.dandiapi.DandiAPIClient` for the appropriate
+Dandi Archive API instance; an unauthenticated client pointing to the correct
+instance can be acquired via the `~ParsedDandiURL.get_client()` method.  As a
+convenience, one can acquire a client, the Dandiset, and an iterator of all
+assets by using the `~ParsedDandiAPI.navigate()` context manager like so:
+
+.. code:: python
+
+    parsed_url = parse_dandi_url("https://...")
+    with parsed_url.navigate() as (client, dandiset, assets):
+        ...
+    # The client's session is closed when the context manager exits.
+
+As a further convenience, a URL can be parsed and navigated in one fell swoop
+using the `navigate_url()` function.
+"""
+
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 import re
@@ -9,7 +35,7 @@ from pydantic import AnyHttpUrl, BaseModel, parse_obj_as, validator
 import requests
 
 from . import get_logger
-from .consts import RETRY_STATUSES, VERSION_REGEX, known_instances
+from .consts import DANDISET_ID_REGEX, RETRY_STATUSES, VERSION_REGEX, known_instances
 from .dandiapi import BaseRemoteAsset, DandiAPIClient, RemoteDandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
 from .utils import get_instance
@@ -23,10 +49,10 @@ class ParsedDandiURL(ABC, BaseModel):
     (Dandiset or asset(s)).  Subclasses must implement `get_assets()`.
 
     Most methods take a ``client: DandiAPIClient`` argument, which must be a
-    `DandiAPIClient` object for querying `api_url` (This is not checked).  Such
-    a client instance can be obtained by calling `get_client()`, or an
-    appropriate pre-existing client instance can be passed instead.
-    """
+    `~dandi.dandiapi.DandiAPIClient` object for querying `api_url` (This is not
+    checked).  Such a client instance can be obtained by calling
+    `get_client()`, or an appropriate pre-existing client instance can be
+    passed instead."""
 
     #: The base URL of the Dandi API service, without a trailing slash
     api_url: AnyHttpUrl
@@ -42,13 +68,17 @@ class ParsedDandiURL(ABC, BaseModel):
         return parse_obj_as(AnyHttpUrl, v.rstrip("/"))
 
     def get_client(self) -> DandiAPIClient:
-        """Returns an unauthenticated `DandiAPIClient` for `api_url`"""
+        """
+        Returns an unauthenticated `~dandi.dandiapi.DandiAPIClient` for
+        `api_url`
+        """
         return DandiAPIClient(self.api_url)
 
     def get_dandiset(self, client: DandiAPIClient) -> Optional[RemoteDandiset]:
         """
         Returns information about the specified (or default) version of the
-        specified Dandiset
+        specified Dandiset.  Returns `None` if the URL did not contain a
+        Dandiset identifier.
         """
         if self.dandiset_id is not None:
             return client.get_dandiset(self.dandiset_id, self.get_version_id(client))
@@ -98,10 +128,10 @@ class ParsedDandiURL(ABC, BaseModel):
         Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterator[BaseRemoteAsset]]
     ]:
         """
-        A context manager that returns a triple of a `DandiAPIClient` (with an
-        open session that is closed when the context manager closes), the
-        return value of `get_dandiset()`, and the return value of
-        `get_assets()`
+        A context manager that returns a triple of a
+        `~dandi.dandiapi.DandiAPIClient` (with an open session that is closed
+        when the context manager closes), the return value of `get_dandiset()`,
+        and the return value of `get_assets()`.
         """
         # We could later try to "dandi_authenticate" if run into permission
         # issues.  May be it could be not just boolean but the "id" to be used?
@@ -195,8 +225,8 @@ class AssetItemURL(SingleAssetURL):
         """
         Yields the asset whose path equals `path`.  If there is no such asset,
         this method yields nothing, unless the path happens to be the path to
-        an asset directory, in which case an error is raised indicating that
-        the user left off a trailing slash.
+        an asset directory, in which case a `ValueError` is raised indicating
+        that the user left off a trailing slash.
         """
         d = self.get_dandiset(client)
         try:
@@ -233,12 +263,19 @@ class AssetFolderURL(MultiAssetURL):
 
 
 @contextmanager
-def navigate_url(url):
-    """Context manager to 'navigate' URL pointing to DANDI archive.
+def navigate_url(
+    url: str,
+) -> Iterator[
+    Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterator[BaseRemoteAsset]]
+]:
+    """
+    A context manager that takes a URL pointing to a DANDI Archive and
+    returns a triple of a `~dandi.dandiapi.DandiAPIClient` (with an open
+    session that is closed when the context manager closes), the Dandiset
+    identified in the URL (if any), and the assets specified by the URL (or, if
+    no specific assets were specified, all assets in the Dandiset).
 
-    :param str url: URL which might point to a dandiset, a folder, or an
-        asset(s)
-
+    :param str url: URL which might point to a Dandiset, folder, or asset(s)
     :returns: Generator of one ``(client, dandiset, assets)``; ``client`` will
         have established a session for the duration of the context
     """
@@ -251,7 +288,7 @@ class _dandi_url_parser:
     # Defining as a class with all the attributes to not leak all the variables
     # etc into module space, and later we might end up with classes for those
     # anyways
-    dandiset_id_grp = "(?P<dandiset_id>[0-9]{6})"
+    dandiset_id_grp = f"(?P<dandiset_id>{DANDISET_ID_REGEX})"
     # Should absorb port and "api/":
     server_grp = "(?P<server>(?P<protocol>https?)://(?P<hostname>[^/]+)/(api/)?)"
     known_urls = [
@@ -364,35 +401,65 @@ class _dandi_url_parser:
     )
     map_to = {}
     for (gui, redirector, api) in known_instances.values():
-        for h in (gui, redirector):
-            if h and api:
-                map_to[h] = api
+        if api:
+            for h in (gui, redirector):
+                if h:
+                    map_to[h] = api
 
     @classmethod
-    def parse(cls, url, *, map_instance=True):
+    def parse(cls, url: str, *, map_instance: bool = True) -> ParsedDandiURL:
         """
-        Parse url like and return server (address), asset_id and/or directory
+        Parse a Dandi Archive URL and return a `ParsedDandiURL` instance.
 
-        Example URLs (as of 20210428):
+        The accepted URL formats are as follows.  Text in [brackets] is
+        optional.  A ``server`` field is a base API, GUI, or redirector URL for
+        a registered Dandi Archive instance.  If an optional ``version`` field
+        is omitted from a URL, the given Dandiset's most recent published
+        version, if any, or else its draft version will be used.
 
-        - Dataset landing page metadata:
-          https://gui.dandiarchive.org/#/dandiset/000003
+        - :samp:`https://identifiers.org/DANDI:{dandiset-id}` when it redirects
+          to one of the other URL formats
 
-        Individual and multiple files:
+        - :samp:`DANDI:{dandiset-id}` — Abbreviation for the above
 
-        - dandi???
+        - Any ``https://dandiarchive.org/`` or
+          ``https://*dandiarchive-org.netflify.app/`` URL which redirects to
+          one of the other URL formats
 
-        Multiple selected files + folders -- we do not support ATM, then further
-        RFing would be due, probably making this into a generator or returning a
-        list of entries.
+        - :samp:`https://{server}[/api]/[#/]dandiset/{dandiset-id}[/{version}][/files[?location={path}]]`
+          — If ``path`` is not specified, the URL refers to a Dandiset and is
+          converted to a `DandisetURL`.  If ``path`` is specified and it ends
+          with a forward slash, the URL refers to an asset folder and is
+          converted to an `AssetFolderURL` instance; if it does not end with a
+          slash, it refers to a single asset and is converted to an
+          `AssetItemURL` instance.
 
-        "Features":
+        - :samp:`https://{server}[/api]/dandisets/{dandiset-id}[/versions[/{version}]]`
+          — Refers to a Dandiset and is converted to a `DandisetURL`
 
-        - uses some of `known_instances` to map some urls, e.g. from
-          gui.dandiarchive.org ones into girder.
+        - :samp:`https://{server}[/api]/assets/{asset-id}[/download]` — Refers
+          to a single asset by identifier and is converted to a
+          `BaseAssetIDURL`
 
-        :rtype: ParsedDandiURL
+        - :samp:`https://{server}[/api]/dandisets/{dandiset-id}/versions/{version}/assets/{asset-id}[/download]`
+          — Refers to a single asset and is converted to an `AssetIDURL`
+
+        - :samp:`https://{server}[/api]/dandisets/{dandiset-id}/versions/{version}/assets/?path={path}`
+          — Refers to all assets in the given Dandiset whose paths begin with
+          the prefix ``path``; converted to an `AssetPathPrefixURL`
+
+        - :samp:`dandi://{instance-name}/{dandiset-id}[@{version}][/{path}]`,
+          where ``instance-name`` is the name of a registered Dandi Archive
+          instance.  If ``path`` is not specified, the URL refers to a Dandiset
+          and is converted to a `DandisetURL`.  If ``path`` is specified, the
+          URL refers to all assets in the given Dandiset whose paths begin with
+          the prefix ``path``, and it is converted to an `AssetPathPrefixURL`
+
+        - Any other HTTPS URL that redirects to one of the above
+
+        :raises UnknownURLError: if the URL is not one of the above
         """
+
         lgr.debug("Parsing url %s", url)
 
         # Loop through known url regexes and stop as soon as one is matching
@@ -469,10 +536,9 @@ class _dandi_url_parser:
         path = groups.get("path")
         if location:
             location = urlunquote(location)
-            # ATM carries leading '/' which IMHO is not needed/misguiding somewhat, so
-            # I will just strip it
+            # ATM carries leading '/' which IMHO is not needed/misguiding
+            # somewhat, so I will just strip it
             location = location.lstrip("/")
-
         # if location is not degenerate -- it would be a folder or a file
         if location:
             if location.endswith("/"):
@@ -516,7 +582,14 @@ class _dandi_url_parser:
         return parsed_url
 
     @staticmethod
-    def follow_redirect(url):
+    def follow_redirect(url: str) -> str:
+        """
+        Resolve the given URL by following all redirects.
+
+        :raises NotFoundError: if a 404 response is returned
+        :raises FailedToConnectError: if a response other than 200, 400, 404,
+            or one of the statuses in `~dandi.consts.RETRY_STATUSES` is returned
+        """
         i = 0
         while True:
             r = requests.head(url, allow_redirects=True)
@@ -534,6 +607,7 @@ class _dandi_url_parser:
                 )
             elif r.url != url:
                 return r.url
+            assert isinstance(url, str)
             return url
 
 
