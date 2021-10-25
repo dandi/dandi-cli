@@ -9,7 +9,6 @@ from fscacher import PersistentCache
 import h5py
 import hdmf
 import numpy as np
-from packaging.version import Version
 import pynwb
 from pynwb import NWBHDF5IO
 import semantic_version
@@ -73,8 +72,7 @@ def _sanitize_nwb_version(v, filename=None, log=None):
         log(f"{msg} is not text which follows semver specification")
 
     if isinstance(v, str) and not semantic_version.validate(v):
-        msgtype = "error" if Version(v) >= Version("2.1.0") else "warning"
-        log(f"{msgtype}: {msg} is not a proper semantic version. See http://semver.org")
+        log(f"error: {msg} is not a proper semantic version. See http://semver.org")
 
     return v
 
@@ -277,10 +275,10 @@ def validate(path, devel_debug=False):
             # TODO: later cast into proper ERRORs
             version = _sanitize_nwb_version(version, log=errors.append)
             try:
-                v = Version(version)
+                v = semantic_version.Version(version)
             except ValueError:
                 v = None
-            if v is not None and v < Version("2.1.0"):
+            if v is not None and v < semantic_version.Version("2.1.0"):
                 errors_ = errors[:]
                 errors = [e for e in errors if not re_ok_prior_210.search(str(e))]
                 if errors != errors_:
