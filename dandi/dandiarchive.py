@@ -380,7 +380,7 @@ class _dandi_url_parser:
         # use
         (
             re.compile(
-                rf"dandi://(?P<instance_name>({'|'.join(known_instances)}))"
+                rf"dandi://(?P<instance_name>[-\w._]+)"
                 rf"/{dandiset_id_grp}"
                 rf"(@(?P<version>{VERSION_REGEX}))?"
                 rf"(/(?P<location>.*)?)?"
@@ -505,7 +505,13 @@ class _dandi_url_parser:
                     parsed_url.api_url = known_instance.api
                 continue  # in this run we ignore and match further
             elif "instance_name" in groups:
-                known_instance = get_instance(groups["instance_name"])
+                try:
+                    known_instance = get_instance(groups["instance_name"])
+                except KeyError:
+                    raise UnknownURLError(
+                        f"Unknown instance {groups['instance_name']!r}.  Valid instances: "
+                        + ", ".join(sorted(known_instances))
+                    )
                 assert known_instance.api  # must be defined
                 groups["server"] = known_instance.api
                 # could be overloaded later depending if location is provided

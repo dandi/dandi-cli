@@ -12,7 +12,7 @@ from dandi.dandiarchive import (
     follow_redirect,
     parse_dandi_url,
 )
-from dandi.exceptions import NotFoundError
+from dandi.exceptions import NotFoundError, UnknownURLError
 from dandi.tests.skip import mark
 
 
@@ -232,6 +232,15 @@ from dandi.tests.skip import mark
 )
 def test_parse_api_url(url, parsed_url):
     assert parse_dandi_url(url) == parsed_url
+
+
+def test_parse_dandi_url_unknown_instance():
+    with pytest.raises(UnknownURLError) as excinfo:
+        parse_dandi_url("dandi://not-an-instance/000001")
+    assert str(excinfo.value) == (
+        "Unknown instance 'not-an-instance'.  Valid instances: dandi,"
+        " dandi-api-local-docker-tests, dandi-devel, dandi-staging"
+    )
 
 
 @mark.skipif_no_network
