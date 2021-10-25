@@ -23,10 +23,7 @@ def test_new_upload_download(local_dandi_api, monkeypatch, organized_nwb_dir, tm
     monkeypatch.chdir(organized_nwb_dir)
     monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
     upload(paths=[], dandi_instance=local_dandi_api["instance_id"], devel_debug=True)
-    download(
-        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
-        tmp_path,
-    )
+    download(d.version_api_url, tmp_path)
     (nwb_file2,) = tmp_path.glob(f"{dandiset_id}{os.sep}*{os.sep}*.nwb")
     assert nwb_file.name == nwb_file2.name
     assert nwb_file.parent.name == nwb_file2.parent.name
@@ -77,18 +74,13 @@ def test_new_upload_extant_eq_overwrite(existing, mocker, text_dandiset):
 
 
 @pytest.mark.parametrize("existing", ["overwrite", "refresh"])
-def test_new_upload_extant_neq_overwrite(
-    existing, local_dandi_api, mocker, text_dandiset, tmp_path
-):
+def test_new_upload_extant_neq_overwrite(existing, mocker, text_dandiset, tmp_path):
     dandiset_id = text_dandiset["dandiset_id"]
     (text_dandiset["dspath"] / "file.txt").write_text("This is different text.\n")
     iter_upload_spy = mocker.spy(RemoteDandiset, "iter_upload_raw_asset")
     text_dandiset["reupload"](existing=existing)
     iter_upload_spy.assert_called()
-    download(
-        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
-        tmp_path,
-    )
+    download(text_dandiset["dandiset"].version_api_url, tmp_path)
     assert (
         tmp_path / dandiset_id / "file.txt"
     ).read_text() == "This is different text.\n"
@@ -128,7 +120,8 @@ def test_new_upload_extant_bad_existing(mocker, text_dandiset):
 )
 def test_upload_download_small_file(contents, local_dandi_api, monkeypatch, tmp_path):
     client = local_dandi_api["client"]
-    dandiset_id = client.create_dandiset("Small Dandiset", {}).identifier
+    d = client.create_dandiset("Small Dandiset", {})
+    dandiset_id = d.identifier
     dspath = tmp_path / "upload"
     dspath.mkdir()
     (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
@@ -144,10 +137,7 @@ def test_upload_download_small_file(contents, local_dandi_api, monkeypatch, tmp_
     )
     download_dir = tmp_path / "download"
     download_dir.mkdir()
-    download(
-        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
-        download_dir,
-    )
+    download(d.version_api_url, download_dir)
     files = sorted(map(Path, find_files(r".*", paths=[download_dir])))
     assert files == [
         download_dir / dandiset_id / dandiset_metadata_file,

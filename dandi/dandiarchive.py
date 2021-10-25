@@ -360,7 +360,7 @@ class _dandi_url_parser:
         (
             re.compile(
                 rf"{server_grp}(?P<asset_type>dandiset)s/{dandiset_id_grp}"
-                rf"(/(versions(/(?P<version>{VERSION_REGEX}))?)?)?"
+                rf"(/(versions(/(?P<version>{VERSION_REGEX}))?/?)?)?"
             ),
             {},
             "https://<server>[/api]/dandisets/<dandiset id>[/versions[/<version>]]",

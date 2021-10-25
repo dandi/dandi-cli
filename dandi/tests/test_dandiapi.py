@@ -81,10 +81,8 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
     v = d.publish().version
     version_id = v.identifier
     assert str(v) == version_id
-    assert (
-        str(d.for_version(v))
-        == f"DANDI-API-LOCAL-DOCKER-TESTS:{dandiset_id}/{version_id}"
-    )
+    dv = d.for_version(v)
+    assert str(dv) == f"DANDI-API-LOCAL-DOCKER-TESTS:{dandiset_id}/{version_id}"
 
     download_dir = tmp_path / "download"
     download_dir.mkdir()
@@ -95,10 +93,7 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
     dandiset_yaml = download_dir / dandiset_id / dandiset_metadata_file
     file_in_version = download_dir / dandiset_id / "subdir" / "file.txt"
 
-    download(
-        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/{version_id}",
-        download_dir,
-    )
+    download(dv.version_api_url, download_dir)
     assert downloaded_files() == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
 
@@ -111,10 +106,7 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
         validation="skip",
     )
     rmtree(download_dir / dandiset_id)
-    download(
-        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/{version_id}",
-        download_dir,
-    )
+    download(dv.version_api_url, download_dir)
     assert downloaded_files() == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
 
@@ -128,10 +120,7 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
     )
 
     rmtree(download_dir / dandiset_id)
-    download(
-        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
-        download_dir,
-    )
+    download(d.version_api_url, download_dir)
     assert sorted(downloaded_files()) == [
         dandiset_yaml,
         file_in_version,
@@ -141,28 +130,19 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
     assert file_in_version.with_name("file2.txt").read_text() == "This is more text.\n"
 
     rmtree(download_dir / dandiset_id)
-    download(
-        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/{version_id}",
-        download_dir,
-    )
+    download(dv.version_api_url, download_dir)
     assert downloaded_files() == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
 
     d.get_asset_by_path("subdir/file.txt").delete()
 
     rmtree(download_dir / dandiset_id)
-    download(
-        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
-        download_dir,
-    )
+    download(d.version_api_url, download_dir)
     assert downloaded_files() == [dandiset_yaml, file_in_version.with_name("file2.txt")]
     assert file_in_version.with_name("file2.txt").read_text() == "This is more text.\n"
 
     rmtree(download_dir / dandiset_id)
-    download(
-        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/{version_id}",
-        download_dir,
-    )
+    download(dv.version_api_url, download_dir)
     assert downloaded_files() == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
 

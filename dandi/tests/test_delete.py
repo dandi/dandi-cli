@@ -69,10 +69,7 @@ def test_delete_paths(
         force=True,
     )
     delete_spy.assert_called()
-    download(
-        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
-        tmp_path,
-    )
+    download(text_dandiset["dandiset"].version_api_url, tmp_path)
     files = sorted(map(Path, find_files(r".*", paths=[tmp_path])))
     assert files == [tmp_path / dandiset_id / f for f in ["dandiset.yaml"] + remainder]
 
@@ -278,10 +275,7 @@ def test_delete_nonexistent_asset_skip_missing(
         skip_missing=True,
     )
     delete_spy.assert_called()
-    download(
-        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
-        tmp_path,
-    )
+    download(text_dandiset["dandiset"].version_api_url, tmp_path)
     files = sorted(map(Path, find_files(r".*", paths=[tmp_path])))
     assert files == [
         tmp_path / dandiset_id / "dandiset.yaml",
@@ -333,10 +327,7 @@ def test_delete_nonexistent_asset_folder_skip_missing(
         skip_missing=True,
     )
     delete_spy.assert_called()
-    download(
-        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions/draft",
-        tmp_path,
-    )
+    download(text_dandiset["dandiset"].version_api_url, tmp_path)
     files = sorted(map(Path, find_files(r".*", paths=[tmp_path])))
     assert files == [
         tmp_path / dandiset_id / "dandiset.yaml",

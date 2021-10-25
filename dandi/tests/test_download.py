@@ -117,16 +117,17 @@ def test_download_000027_resume(tmp_path, resizer, version):
     assert digester(str(nwb)) == digests
 
 
-def test_download_newest_version(local_dandi_api, text_dandiset, tmp_path):
+def test_download_newest_version(text_dandiset, tmp_path):
+    dandiset = text_dandiset["dandiset"]
     dandiset_id = text_dandiset["dandiset_id"]
-    download(f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}", tmp_path)
+    download(dandiset.api_url, tmp_path)
     assert (tmp_path / dandiset_id / "file.txt").read_text() == "This is test text.\n"
-    text_dandiset["dandiset"].wait_until_valid()
-    text_dandiset["dandiset"].publish()
+    dandiset.wait_until_valid()
+    dandiset.publish()
     (text_dandiset["dspath"] / "file.txt").write_text("This is different text.\n")
     text_dandiset["reupload"]()
     rmtree(tmp_path / dandiset_id)
-    download(f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}", tmp_path)
+    download(dandiset.api_url, tmp_path)
     assert (tmp_path / dandiset_id / "file.txt").read_text() == "This is test text.\n"
 
 
@@ -156,26 +157,18 @@ def test_download_item(local_dandi_api, text_dandiset, tmp_path):
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
 
 
-def test_download_asset_id(local_dandi_api, text_dandiset, tmp_path):
-    dandiset_id = text_dandiset["dandiset_id"]
+def test_download_asset_id(text_dandiset, tmp_path):
     asset = text_dandiset["dandiset"].get_asset_by_path("subdir2/coconut.txt")
-    download(
-        f"{local_dandi_api['instance'].api}/dandisets/{dandiset_id}/versions"
-        f"/draft/assets/{asset.identifier}/download/",
-        tmp_path,
-    )
+    download(asset.download_url, tmp_path)
     assert list(map(Path, find_files(r".*", paths=[tmp_path], dirs=True))) == [
         tmp_path / "coconut.txt"
     ]
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
 
 
-def test_download_asset_id_only(local_dandi_api, text_dandiset, tmp_path):
+def test_download_asset_id_only(text_dandiset, tmp_path):
     asset = text_dandiset["dandiset"].get_asset_by_path("subdir2/coconut.txt")
-    download(
-        f"{local_dandi_api['instance'].api}/assets/{asset.identifier}/download/",
-        tmp_path,
-    )
+    download(asset.base_download_url, tmp_path)
     assert list(map(Path, find_files(r".*", paths=[tmp_path], dirs=True))) == [
         tmp_path / "coconut.txt"
     ]
@@ -238,13 +231,12 @@ def test_download_sync_list(capsys, local_dandi_api, mocker, text_dandiset, tmp_
 
 
 @responses.activate
-def test_download_no_blobDateModified(local_dandi_api, text_dandiset, tmp_path):
+def test_download_no_blobDateModified(text_dandiset, tmp_path):
     # Regression test for #806
     responses.add_passthru(re.compile("^http"))
-    client = text_dandiset["client"]
     dandiset = text_dandiset["dandiset"]
     asset = dandiset.get_asset_by_path("file.txt")
     metadata = asset.get_raw_metadata()
     del metadata["blobDateModified"]
-    responses.add(responses.GET, client.get_url(asset.api_path), json=metadata)
-    download(client.get_url(dandiset.api_path), tmp_path)
+    responses.add(responses.GET, asset.api_url, json=metadata)
+    download(dandiset.api_url, tmp_path)

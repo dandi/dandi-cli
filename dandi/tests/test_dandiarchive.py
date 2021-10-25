@@ -110,7 +110,31 @@ from dandi.tests.skip import mark
             marks=mark.skipif_no_network,
         ),
         (
+            "http://localhost:8000/api/dandisets/000002/",
+            DandisetURL(
+                api_url="http://localhost:8000/api",
+                dandiset_id="000002",
+                version_id=None,
+            ),
+        ),
+        (
+            "http://localhost:8000/api/dandisets/000002",
+            DandisetURL(
+                api_url="http://localhost:8000/api",
+                dandiset_id="000002",
+                version_id=None,
+            ),
+        ),
+        (
             "http://localhost:8000/api/dandisets/000002/versions/draft",
+            DandisetURL(
+                api_url="http://localhost:8000/api",
+                dandiset_id="000002",
+                version_id="draft",
+            ),
+        ),
+        (
+            "http://localhost:8000/api/dandisets/000002/versions/draft/",
             DandisetURL(
                 api_url="http://localhost:8000/api",
                 dandiset_id="000002",
@@ -194,8 +218,26 @@ from dandi.tests.skip import mark
             ),
         ),
         (
+            "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
+            "/assets/0a748f90-d497-4a9c-822e-9c63811db412/download",
+            AssetIDURL(
+                api_url="https://api.dandiarchive.org/api",
+                dandiset_id="000003",
+                version_id="draft",
+                asset_id="0a748f90-d497-4a9c-822e-9c63811db412",
+            ),
+        ),
+        (
             "https://api.dandiarchive.org/api"
             "/assets/0a748f90-d497-4a9c-822e-9c63811db412/download/",
+            BaseAssetIDURL(
+                api_url="https://api.dandiarchive.org/api",
+                asset_id="0a748f90-d497-4a9c-822e-9c63811db412",
+            ),
+        ),
+        (
+            "https://api.dandiarchive.org/api"
+            "/assets/0a748f90-d497-4a9c-822e-9c63811db412/download",
             BaseAssetIDURL(
                 api_url="https://api.dandiarchive.org/api",
                 asset_id="0a748f90-d497-4a9c-822e-9c63811db412",

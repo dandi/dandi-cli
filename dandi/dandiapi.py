@@ -702,19 +702,35 @@ class RemoteDandiset:
     @property
     def api_path(self) -> str:
         """
-        The API path (relative to the base endpoint for a Dandi Archive API) at
-        which requests for interacting with the Dandiset itself are made
+        The path (relative to the base endpoint for a Dandi Archive API) at
+        which API requests for interacting with the Dandiset itself are made
         """
         return f"/dandisets/{self.identifier}/"
 
     @property
+    def api_url(self) -> str:
+        """
+        The URL at which API requests for interacting with the Dandiset itself
+        are made
+        """
+        return self.client.get_url(self.api_path)
+
+    @property
     def version_api_path(self) -> str:
         """
-        The API path (relative to the base endpoint for a Dandi Archive API) at
-        which requests for interacting with the version in question of the
+        The path (relative to the base endpoint for a Dandi Archive API) at
+        which API requests for interacting with the version in question of the
         Dandiset are made
         """
         return f"/dandisets/{self.identifier}/versions/{self.version_id}/"
+
+    @property
+    def version_api_url(self) -> str:
+        """
+        The URL at which API requests for interacting with the version in
+        question of the Dandiset are made
+        """
+        return self.client.get_url(self.version_api_path)
 
     @classmethod
     def from_data(
@@ -1237,10 +1253,18 @@ class BaseRemoteAsset(APIBase):
     @property
     def api_path(self) -> str:
         """
-        The API path (relative to the base endpoint for a Dandi Archive API) at
-        which requests for interacting with the asset itself are made
+        The path (relative to the base endpoint for a Dandi Archive API) at
+        which API requests for interacting with the asset itself are made
         """
         return f"/assets/{self.identifier}/"
+
+    @property
+    def api_url(self) -> str:
+        """
+        The URL at which API requests for interacting with the asset itself are
+        made
+        """
+        return self.client.get_url(self.api_path)
 
     @property
     def base_download_url(self) -> str:
@@ -1417,10 +1441,18 @@ class RemoteAsset(BaseRemoteAsset):
     @property
     def api_path(self) -> str:
         """
-        The API path (relative to the base endpoint for a Dandi Archive API) at
-        which requests for interacting with the asset itself are made
+        The path (relative to the base endpoint for a Dandi Archive API) at
+        which API requests for interacting with the asset itself are made
         """
         return f"/dandisets/{self.dandiset_id}/versions/{self.version_id}/assets/{self.identifier}/"
+
+    @property
+    def api_url(self) -> str:
+        """
+        The URL at which API requests for interacting with the asset itself are
+        made
+        """
+        return self.client.get_url(self.api_path)
 
     @property
     def download_url(self) -> str:
