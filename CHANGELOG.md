@@ -1,3 +1,33 @@
+# 0.31.0 (Mon Oct 25 2021)
+
+#### 🚀 Enhancement
+
+- Support requesting sorted assets [#807](https://github.com/dandi/dandi-cli/pull/807) ([@jwodder](https://github.com/jwodder))
+- Make logfile always contain all DEBUG or higher log messages [#813](https://github.com/dandi/dandi-cli/pull/813) ([@jwodder](https://github.com/jwodder))
+- Publicly expose classmethods for constructing API resource instances [#808](https://github.com/dandi/dandi-cli/pull/808) ([@jwodder](https://github.com/jwodder))
+- Make `--dandi-instance` public and add "instances" command [#804](https://github.com/dandi/dandi-cli/pull/804) ([@jwodder](https://github.com/jwodder))
+- dandi.dandiapi: Convert 404 responses to NotFoundErrors [#801](https://github.com/dandi/dandi-cli/pull/801) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Fix a minor bug in a handler for a rare condition [#806](https://github.com/dandi/dandi-cli/pull/806) ([@jwodder](https://github.com/jwodder))
+- Show valid instance names when given a dandi:// URL with an unknown instance [#815](https://github.com/dandi/dandi-cli/pull/815) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Stop using `setup_requires` [#811](https://github.com/dandi/dandi-cli/pull/811) ([@jwodder](https://github.com/jwodder))
+- Update codecov action to v2 [#802](https://github.com/dandi/dandi-cli/pull/802) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Improve dandiarchive.py docs [#803](https://github.com/dandi/dandi-cli/pull/803) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.30.3 (Mon Oct 11 2021)
 
 #### 🏠 Internal
