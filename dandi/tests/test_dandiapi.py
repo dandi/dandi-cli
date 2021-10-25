@@ -633,3 +633,35 @@ def test_retry_logging(caplog):
         "GET https://test.nil/api/info/ succeeded after 2 retries",
     ) in caplog.record_tuples
     assert ("dandi", logging.DEBUG, "Response: 200") in caplog.record_tuples
+
+
+def test_get_assets_order(text_dandiset):
+    assert [
+        asset.path for asset in text_dandiset["dandiset"].get_assets(order="path")
+    ] == ["file.txt", "subdir1/apple.txt", "subdir2/banana.txt", "subdir2/coconut.txt"]
+    assert [
+        asset.path for asset in text_dandiset["dandiset"].get_assets(order="-path")
+    ] == ["subdir2/coconut.txt", "subdir2/banana.txt", "subdir1/apple.txt", "file.txt"]
+
+
+def test_get_assets_with_path_prefix(text_dandiset):
+    assert sorted(
+        asset.path
+        for asset in text_dandiset["dandiset"].get_assets_with_path_prefix("subdir")
+    ) == ["subdir1/apple.txt", "subdir2/banana.txt", "subdir2/coconut.txt"]
+    assert sorted(
+        asset.path
+        for asset in text_dandiset["dandiset"].get_assets_with_path_prefix("subdir2")
+    ) == ["subdir2/banana.txt", "subdir2/coconut.txt"]
+    assert [
+        asset.path
+        for asset in text_dandiset["dandiset"].get_assets_with_path_prefix(
+            "subdir", order="path"
+        )
+    ] == ["subdir1/apple.txt", "subdir2/banana.txt", "subdir2/coconut.txt"]
+    assert [
+        asset.path
+        for asset in text_dandiset["dandiset"].get_assets_with_path_prefix(
+            "subdir", order="-path"
+        )
+    ] == ["subdir2/coconut.txt", "subdir2/banana.txt", "subdir1/apple.txt"]
