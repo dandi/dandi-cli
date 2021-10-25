@@ -2,9 +2,11 @@ import json
 import os
 import os.path as op
 from pathlib import Path
+import re
 from shutil import rmtree
 
 import pytest
+import responses
 
 from .skip import mark
 from ..consts import DRAFT
@@ -233,3 +235,16 @@ def test_download_sync_list(capsys, local_dandi_api, mocker, text_dandiset, tmp_
         mocker.call("Delete 1 local asset? ([y]es/[n]o/[l]ist): "),
     ]
     assert capsys.readouterr().out.splitlines()[-1] == str(dspath / "file.txt")
+
+
+@responses.activate
+def test_download_no_blobDateModified(local_dandi_api, text_dandiset, tmp_path):
+    # Regression test for #806
+    responses.add_passthru(re.compile("^http"))
+    client = text_dandiset["client"]
+    dandiset = text_dandiset["dandiset"]
+    asset = dandiset.get_asset_by_path("file.txt")
+    metadata = asset.get_raw_metadata()
+    del metadata["blobDateModified"]
+    responses.add(responses.GET, client.get_url(asset.api_path), json=metadata)
+    download(client.get_url(dandiset.api_path), tmp_path)
