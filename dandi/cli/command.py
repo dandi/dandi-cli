@@ -13,7 +13,7 @@ import appdirs
 import click
 from click_didyoumean import DYMGroup
 
-from .base import get_logger, lgr, map_to_click_exceptions
+from .base import lgr, map_to_click_exceptions
 from .. import __version__, set_logger_level
 from ..utils import get_module_version
 
@@ -86,13 +86,23 @@ def main(ctx, log_level, pdb=False):
     e.g. dandi upload --help
     """
     logging.basicConfig(format="%(asctime)-15s [%(levelname)8s] %(message)s")
-    set_logger_level(get_logger(), log_level)
+
+    # The excessive manipulation of logging levels in this function is done so
+    # that (a) the log messages printed to the screen are of the level the user
+    # chose with `--log-level` AND (b) all log messages from all libraries at
+    # level min(DEBUG, --log-level) or higher are recorded in the logfile.
+
+    lgr.setLevel(logging.NOTSET)
+    for h in lgr.handlers:
+        set_logger_level(h, log_level)
 
     # Ensure that certain log messages are only sent to the log file, not the
     # console:
     root = logging.getLogger()
+    root.setLevel(logging.NOTSET)
     for h in root.handlers:
         h.addFilter(lambda r: not getattr(r, "file_only", False))
+        set_logger_level(h, log_level)
 
     logdir = appdirs.user_log_dir("dandi-cli", "dandi")
     logfile = os.path.join(
@@ -100,6 +110,7 @@ def main(ctx, log_level, pdb=False):
     )
     os.makedirs(logdir, exist_ok=True)
     handler = logging.FileHandler(logfile, encoding="utf-8")
+    handler.setLevel(min(log_level, logging.DEBUG))
     fmter = logging.Formatter(
         fmt="%(asctime)s [%(levelname)-8s] %(name)s %(process)d:%(thread)d %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S%z",
