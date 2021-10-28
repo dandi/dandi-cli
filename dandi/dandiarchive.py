@@ -344,7 +344,7 @@ def navigate_url(
     no specific assets were specified, all assets in the Dandiset).
 
     :param str url: URL which might point to a Dandiset, folder, or asset(s)
-    :param bool struct:
+    :param bool strict:
         If true, then `get_dandiset()` is called with ``lazy=False`` and
         `get_assets()` is called with ``strict=True``; if false, the opposite
         occurs.
