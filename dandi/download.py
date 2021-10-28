@@ -385,7 +385,8 @@ def _populate_dandiset_yaml(dandiset_path, dandiset, existing):
     mtime = dandiset.modified
     if op.lexists(dandiset_yaml):
         if existing == "error":
-            raise FileExistsError(dandiset_yaml)
+            yield {"status": "error", "message": "already exists"}
+            return
         elif existing == "refresh" and op.lexists(
             op.join(dandiset_path, ".git", "annex")
         ):
