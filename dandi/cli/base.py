@@ -53,6 +53,8 @@ def instance_option(**kwargs):
         "type": click.Choice(sorted(known_instances)),
         "default": "dandi",
         "show_default": True,
+        "envvar": "DANDI_INSTANCE",
+        "show_envvar": True,
     }
     params.update(kwargs)
     return click.option("-i", "--dandi-instance", **params)
