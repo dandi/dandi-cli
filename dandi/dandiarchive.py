@@ -155,15 +155,10 @@ class DandisetURL(ParsedDandiURL):
         self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """Returns all assets in the Dandiset"""
-        try:
+        with _maybe_strict(strict):
             yield from self.get_dandiset(client, lazy=not strict).get_assets(
                 order=order
             )
-        except NotFoundError:
-            if strict:
-                raise
-            else:
-                return
 
 
 class SingleAssetURL(ParsedDandiURL):
@@ -194,13 +189,8 @@ class BaseAssetIDURL(SingleAssetURL):
         a `NotFoundError` is raised if ``strict`` is true, and nothing is
         yielded if ``strict`` is false.
         """
-        try:
+        with _maybe_strict(strict):
             yield client.get_asset(self.asset_id)
-        except NotFoundError:
-            if strict:
-                raise
-            else:
-                return
 
     def get_asset_ids(self, client: DandiAPIClient) -> Iterator[str]:
         """Yields the ID of the asset (regardless of whether it exists)"""
@@ -222,13 +212,8 @@ class AssetIDURL(SingleAssetURL):
         exist, then a `NotFoundError` is raised if ``strict`` is true, and
         nothing is yielded if ``strict`` is false.
         """
-        try:
+        with _maybe_strict(strict):
             yield self.get_dandiset(client, lazy=not strict).get_asset(self.asset_id)
-        except NotFoundError:
-            if strict:
-                raise
-            else:
-                return
 
     def get_asset_ids(self, client: DandiAPIClient) -> Iterator[str]:
         """Yields the ID of the asset (regardless of whether it exists)"""
@@ -244,15 +229,10 @@ class AssetPathPrefixURL(MultiAssetURL):
         self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """Returns the assets whose paths start with `path`"""
-        try:
+        with _maybe_strict(strict):
             yield from self.get_dandiset(
                 client, lazy=not strict
             ).get_assets_with_path_prefix(self.path, order=order)
-        except NotFoundError:
-            if strict:
-                raise
-            else:
-                return
 
 
 class AssetItemURL(SingleAssetURL):
@@ -319,15 +299,19 @@ class AssetFolderURL(MultiAssetURL):
         path = self.path
         if not path.endswith("/"):
             path += "/"
-        try:
+        with _maybe_strict(strict):
             yield from self.get_dandiset(
                 client, lazy=not strict
             ).get_assets_with_path_prefix(path, order=order)
-        except NotFoundError:
-            if strict:
-                raise
-            else:
-                return
+
+
+@contextmanager
+def _maybe_strict(strict: bool) -> Iterator[None]:
+    try:
+        yield
+    except NotFoundError:
+        if strict:
+            raise
 
 
 @contextmanager
