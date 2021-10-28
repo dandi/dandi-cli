@@ -178,7 +178,7 @@ def download_generator(
 
     """
 
-    with parsed_url.navigate() as (client, dandiset, assets):
+    with parsed_url.navigate(strict=True) as (client, dandiset, assets):
         if assets_it:
             assets_it.gen = assets
             assets = assets_it
