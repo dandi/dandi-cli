@@ -58,9 +58,9 @@ class ParsedDandiURL(ABC, BaseModel):
     api_url: AnyHttpUrl
     #: The ID of the Dandiset given in the URL
     dandiset_id: Optional[str]
-    #: The version of the Dandiset, if specified.  If this is not set, methods
-    #: that need the Dandiset version will call `get_version_id()` to get an
-    #: appropriate default value.
+    #: The version of the Dandiset, if specified.  If this is not set, the
+    #: version will be defaulted using the rules described under
+    #: `DandiAPIClient.get_dandiset()`.
     version_id: Optional[str] = None
 
     @validator("api_url")
@@ -86,28 +86,9 @@ class ParsedDandiURL(ABC, BaseModel):
         with no requests made until any data is actually required.
         """
         if self.dandiset_id is not None:
-            return client.get_dandiset(
-                self.dandiset_id, self.get_version_id(client), lazy=lazy
-            )
+            return client.get_dandiset(self.dandiset_id, self.version_id, lazy=lazy)
         else:
             return None
-
-    def get_version_id(self, client: DandiAPIClient) -> str:
-        """
-        Returns `version_id` or determines a default value if unset.
-
-        If `version_id` is non-`None`, returns it.  Otherwise, the ID of the
-        most recent published version of the Dandiset is returned, if any,
-        otherwise the ID of the draft version is returned.
-        """
-        if self.dandiset_id is None:
-            raise ValueError("Cannot get version for Dandiset-less URL")
-        elif self.version_id is None:
-            r = client.get(f"/dandisets/{self.dandiset_id}/")
-            version = r["most_recent_published_version"] or r["draft_version"]
-            return version["version"]
-        else:
-            return self.version_id
 
     @abstractmethod
     def get_assets(
@@ -174,7 +155,15 @@ class DandisetURL(ParsedDandiURL):
         self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """Returns all assets in the Dandiset"""
-        return self.get_dandiset(client, lazy=not strict).get_assets(order=order)
+        try:
+            yield from self.get_dandiset(client, lazy=not strict).get_assets(
+                order=order
+            )
+        except NotFoundError:
+            if strict:
+                raise
+            else:
+                return
 
 
 class SingleAssetURL(ParsedDandiURL):
@@ -255,9 +244,15 @@ class AssetPathPrefixURL(MultiAssetURL):
         self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """Returns the assets whose paths start with `path`"""
-        return self.get_dandiset(client, lazy=not strict).get_assets_with_path_prefix(
-            self.path, order=order
-        )
+        try:
+            yield from self.get_dandiset(
+                client, lazy=not strict
+            ).get_assets_with_path_prefix(self.path, order=order)
+        except NotFoundError:
+            if strict:
+                raise
+            else:
+                return
 
 
 class AssetItemURL(SingleAssetURL):
@@ -277,14 +272,28 @@ class AssetItemURL(SingleAssetURL):
           left off a trailing slash.
         - Otherwise, nothing is yielded.
         """
-        d = self.get_dandiset(client, lazy=not strict)
         try:
-            yield d.get_asset_by_path(self.path)
+            dandiset = self.get_dandiset(client, lazy=not strict)
+            # Force evaluation of the version here instead of when
+            # get_asset_by_path() is called so we don't get nonexistent
+            # dandisets with unspecified versions mixed up with nonexistent
+            # assets.
+            dandiset.version_id
+        except NotFoundError:
+            if strict:
+                raise
+            else:
+                return
+        try:
+            yield dandiset.get_asset_by_path(self.path)
         except NotFoundError:
             if strict:
                 raise
             try:
-                next(d.get_assets_with_path_prefix(self.path + "/"))
+                next(dandiset.get_assets_with_path_prefix(self.path + "/"))
+            except NotFoundError:
+                # Dandiset has explicit version that doesn't exist.
+                return
             except StopIteration:
                 pass
             else:
@@ -310,9 +319,15 @@ class AssetFolderURL(MultiAssetURL):
         path = self.path
         if not path.endswith("/"):
             path += "/"
-        return self.get_dandiset(client, lazy=not strict).get_assets_with_path_prefix(
-            path, order=order
-        )
+        try:
+            yield from self.get_dandiset(
+                client, lazy=not strict
+            ).get_assets_with_path_prefix(path, order=order)
+        except NotFoundError:
+            if strict:
+                raise
+            else:
+                return
 
 
 @contextmanager
@@ -509,9 +524,11 @@ class _dandi_url_parser:
         - :samp:`dandi://{instance-name}/{dandiset-id}[@{version}][/{path}]`,
           where ``instance-name`` is the name of a registered Dandi Archive
           instance.  If ``path`` is not specified, the URL refers to a Dandiset
-          and is converted to a `DandisetURL`.  If ``path`` is specified, the
-          URL refers to all assets in the given Dandiset whose paths begin with
-          the prefix ``path``, and it is converted to an `AssetPathPrefixURL`
+          and is converted to a `DandisetURL`.  If ``path`` is specified and it
+          ends with a forward slash, the URL refers to an asset folder and is
+          converted to an `AssetFolderURL` instance; if it does not end with a
+          slash, it refers to a single asset and is converted to an
+          `AssetItemURL` instance.
 
         - Any other HTTPS URL that redirects to one of the above
 
