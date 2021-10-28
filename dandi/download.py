@@ -26,6 +26,7 @@ from .utils import (
     on_windows,
     path_is_subpath,
     pluralize,
+    yaml_load,
 )
 
 lgr = get_logger()
@@ -384,6 +385,10 @@ def _populate_dandiset_yaml(dandiset_path, dandiset, existing):
     lgr.debug("Updating %s from obtained dandiset metadata", dandiset_metadata_file)
     mtime = dandiset.modified
     if op.lexists(dandiset_yaml):
+        with open(dandiset_yaml) as fp:
+            if yaml_load(fp, typ="safe") == metadata:
+                yield _skip_file("no change")
+                return
         if existing == "error":
             yield {"status": "error", "message": "already exists"}
             return
