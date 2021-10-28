@@ -397,10 +397,10 @@ def _populate_dandiset_yaml(dandiset_path, dandiset, existing):
         ):
             yield _skip_file("already exists")
             return
-    dandiset = Dandiset(dandiset_path, allow_empty=True)
-    dandiset.path_obj.mkdir(exist_ok=True)  # exist_ok in case of parallel race
-    old_metadata = dandiset.metadata
-    dandiset.update_metadata(metadata)
+    ds = Dandiset(dandiset_path, allow_empty=True)
+    ds.path_obj.mkdir(exist_ok=True)  # exist_ok in case of parallel race
+    old_metadata = ds.metadata
+    ds.update_metadata(metadata)
     os.utime(dandiset_yaml, (time.time(), mtime.timestamp()))
     yield {
         "status": "done",
