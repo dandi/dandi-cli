@@ -74,14 +74,21 @@ class ParsedDandiURL(ABC, BaseModel):
         """
         return DandiAPIClient(self.api_url)
 
-    def get_dandiset(self, client: DandiAPIClient) -> Optional[RemoteDandiset]:
+    def get_dandiset(
+        self, client: DandiAPIClient, lazy: bool = True
+    ) -> Optional[RemoteDandiset]:
         """
         Returns information about the specified (or default) version of the
         specified Dandiset.  Returns `None` if the URL did not contain a
         Dandiset identifier.
+
+        If ``lazy`` is true, a "lazy" `RemoteDandiset` instance is returned,
+        with no requests made until any data is actually required.
         """
         if self.dandiset_id is not None:
-            return client.get_dandiset(self.dandiset_id, self.get_version_id(client))
+            return client.get_dandiset(
+                self.dandiset_id, self.get_version_id(client), lazy=lazy
+            )
         else:
             return None
 
@@ -104,7 +111,7 @@ class ParsedDandiURL(ABC, BaseModel):
 
     @abstractmethod
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None
+        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
         Returns an iterator of asset structures for the assets referred to by
@@ -117,6 +124,10 @@ class ParsedDandiURL(ABC, BaseModel):
         by passing the name of that field as the ``order`` parameter.  The
         accepted field names are ``"created"``, ``"modified"``, and ``"path"``.
         Prepend a hyphen to the field name to reverse the sort order.
+
+        If ``strict`` is true, then fetching assets for a URL that refers to a
+        nonexistent resource will raise a `NotFoundError`; if it is false, the
+        method will instead return an empty iterator.
         """
         ...
 
@@ -130,7 +141,7 @@ class ParsedDandiURL(ABC, BaseModel):
 
     @contextmanager
     def navigate(
-        self,
+        self, strict: bool = False
     ) -> Iterator[
         Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterator[BaseRemoteAsset]]
     ]:
@@ -139,11 +150,19 @@ class ParsedDandiURL(ABC, BaseModel):
         `~dandi.dandiapi.DandiAPIClient` (with an open session that is closed
         when the context manager closes), the return value of `get_dandiset()`,
         and the return value of `get_assets()`.
+
+        If ``strict`` is true, then `get_dandiset()` is called with
+        ``lazy=False`` and `get_assets()` is called with ``strict=True``; if
+        ``strict`` is false, the opposite occurs.
         """
         # We could later try to "dandi_authenticate" if run into permission
         # issues.  May be it could be not just boolean but the "id" to be used?
         with self.get_client() as client:
-            yield (client, self.get_dandiset(client), self.get_assets(client))
+            yield (
+                client,
+                self.get_dandiset(client, lazy=not strict),
+                self.get_assets(client, strict=strict),
+            )
 
 
 class DandisetURL(ParsedDandiURL):
@@ -152,10 +171,10 @@ class DandisetURL(ParsedDandiURL):
     """
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None
+        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """Returns all assets in the Dandiset"""
-        return self.get_dandiset(client).get_assets(order=order)
+        return self.get_dandiset(client, lazy=not strict).get_assets(order=order)
 
 
 class SingleAssetURL(ParsedDandiURL):
@@ -179,16 +198,20 @@ class BaseAssetIDURL(SingleAssetURL):
     asset_id: str
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None
+        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
-        Yields the asset with the given ID.  Yields nothing if the asset does
-        not exist.
+        Yields the asset with the given ID.  If the asset does not exist, then
+        a `NotFoundError` is raised if ``strict`` is true, and nothing is
+        yielded if ``strict`` is false.
         """
         try:
             yield client.get_asset(self.asset_id)
         except NotFoundError:
-            return
+            if strict:
+                raise
+            else:
+                return
 
     def get_asset_ids(self, client: DandiAPIClient) -> Iterator[str]:
         """Yields the ID of the asset (regardless of whether it exists)"""
@@ -203,16 +226,20 @@ class AssetIDURL(SingleAssetURL):
     asset_id: str
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None
+        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
-        Yields the asset with the given ID.  Yields nothing if the asset does
-        not exist.
+        Yields the asset with the given ID.  If the Dandiset or asset does not
+        exist, then a `NotFoundError` is raised if ``strict`` is true, and
+        nothing is yielded if ``strict`` is false.
         """
         try:
-            yield self.get_dandiset(client).get_asset(self.asset_id)
+            yield self.get_dandiset(client, lazy=not strict).get_asset(self.asset_id)
         except NotFoundError:
-            return
+            if strict:
+                raise
+            else:
+                return
 
     def get_asset_ids(self, client: DandiAPIClient) -> Iterator[str]:
         """Yields the ID of the asset (regardless of whether it exists)"""
@@ -225,10 +252,10 @@ class AssetPathPrefixURL(MultiAssetURL):
     """
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None
+        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """Returns the assets whose paths start with `path`"""
-        return self.get_dandiset(client).get_assets_with_path_prefix(
+        return self.get_dandiset(client, lazy=not strict).get_assets_with_path_prefix(
             self.path, order=order
         )
 
@@ -238,17 +265,24 @@ class AssetItemURL(SingleAssetURL):
 
     path: str
 
-    def get_assets(self, client: DandiAPIClient) -> Iterator[BaseRemoteAsset]:
+    def get_assets(
+        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
+    ) -> Iterator[BaseRemoteAsset]:
         """
-        Yields the asset whose path equals `path`.  If there is no such asset,
-        this method yields nothing, unless the path happens to be the path to
-        an asset directory, in which case a `ValueError` is raised indicating
-        that the user left off a trailing slash.
+        Yields the asset whose path equals `path`.  If there is no such asset:
+
+        - If ``strict`` is true, a `NotFoundError` is raised.
+        - If ``strict`` is false and the path happens to be the path to an
+          asset directory, a `ValueError` is raised indicating that the user
+          left off a trailing slash.
+        - Otherwise, nothing is yielded.
         """
-        d = self.get_dandiset(client)
+        d = self.get_dandiset(client, lazy=not strict)
         try:
-            asset = d.get_asset_by_path(self.path)
+            yield d.get_asset_by_path(self.path)
         except NotFoundError:
+            if strict:
+                raise
             try:
                 next(d.get_assets_with_path_prefix(self.path + "/"))
             except StopIteration:
@@ -257,8 +291,6 @@ class AssetItemURL(SingleAssetURL):
                 raise ValueError(
                     f"Asset path {self.path!r} points to a directory but lacks trailing /"
                 )
-        else:
-            yield asset
 
 
 class AssetFolderURL(MultiAssetURL):
@@ -269,7 +301,7 @@ class AssetFolderURL(MultiAssetURL):
     path: str
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None
+        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
         Returns all assets under the folder at `path`.  Yields nothing if the
@@ -278,12 +310,14 @@ class AssetFolderURL(MultiAssetURL):
         path = self.path
         if not path.endswith("/"):
             path += "/"
-        return self.get_dandiset(client).get_assets_with_path_prefix(path, order=order)
+        return self.get_dandiset(client, lazy=not strict).get_assets_with_path_prefix(
+            path, order=order
+        )
 
 
 @contextmanager
 def navigate_url(
-    url: str,
+    url: str, strict: bool = False
 ) -> Iterator[
     Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterator[BaseRemoteAsset]]
 ]:
@@ -295,11 +329,16 @@ def navigate_url(
     no specific assets were specified, all assets in the Dandiset).
 
     :param str url: URL which might point to a Dandiset, folder, or asset(s)
-    :returns: Generator of one ``(client, dandiset, assets)``; ``client`` will
-        have established a session for the duration of the context
+    :param bool struct:
+        If true, then `get_dandiset()` is called with ``lazy=False`` and
+        `get_assets()` is called with ``strict=True``; if false, the opposite
+        occurs.
+    :returns: Context manager that yields a ``(client, dandiset, assets)``
+        tuple; ``client`` will have a session established for the duration of
+        the context
     """
     parsed_url = parse_dandi_url(url)
-    with parsed_url.navigate() as (client, dandiset, assets):
+    with parsed_url.navigate(strict=strict) as (client, dandiset, assets):
         yield (client, dandiset, assets)
 
 
