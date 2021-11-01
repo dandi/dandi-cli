@@ -4,7 +4,7 @@ import click
 
 from .base import instance_option, map_to_click_exceptions
 from ..consts import known_instances, known_instances_rev
-from ..dandiarchive import parse_dandi_url
+from ..dandiarchive import _dandi_url_parser, parse_dandi_url
 
 
 class ChoiceList(click.ParamType):
@@ -30,7 +30,16 @@ class ChoiceList(click.ParamType):
         return "[" + ",".join(self.values) + ",all]"
 
 
-@click.command()
+# The use of f-strings apparently makes this not a proper docstring, and so
+# click doesn't use it unless we explicitly assign it to `help`:
+@click.command(
+    help=f"""\
+Download a file or entire folder from DANDI.
+
+\b
+{_dandi_url_parser.known_patterns}
+    """
+)
 @click.option(
     "-o",
     "--output-dir",
@@ -96,7 +105,6 @@ class ChoiceList(click.ParamType):
 def download(
     url, output_dir, existing, jobs, format, download_types, sync, dandi_instance
 ):
-    """Download a file or entire folder from DANDI"""
     # We need to import the download module rather than the download function
     # so that the tests can properly patch the function with a mock.
     from .. import download
