@@ -17,6 +17,9 @@ from ..utils import is_url
     help=f"""\
 List .nwb files and dandisets metadata.
 
+The arguments may be either resource identifiers or paths to local
+files/directories.
+
 \b
 {_dandi_url_parser.known_patterns}
 """
