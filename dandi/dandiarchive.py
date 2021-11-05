@@ -453,7 +453,7 @@ class _dandi_url_parser:
             "https://<server>/...",
         ),
     ]
-    known_patterns = "Patterns for known setups:" + "\n - ".join(
+    known_patterns = "Accepted resource identifier patterns:" + "\n - ".join(
         [""] + [display for _, _, display in known_urls]
     )
     map_to = {}

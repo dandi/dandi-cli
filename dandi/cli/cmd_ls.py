@@ -17,6 +17,9 @@ from ..utils import is_url
     help=f"""\
 List .nwb files and dandisets metadata.
 
+The arguments may be either resource identifiers or paths to local
+files/directories.
+
 \b
 {_dandi_url_parser.known_patterns}
 """
@@ -65,7 +68,9 @@ List .nwb files and dandisets metadata.
     is_flag=True,
     help="Use dummy value for digests of local files instead of computing",
 )
-@click.argument("paths", nargs=-1, type=click.Path(exists=False, dir_okay=True))
+@click.argument(
+    "paths", nargs=-1, type=click.Path(exists=False, dir_okay=True), metavar="PATH|URL"
+)
 @map_to_click_exceptions
 def ls(
     paths,
