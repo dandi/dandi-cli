@@ -1,5 +1,4 @@
 from collections import Counter
-from distutils.version import LooseVersion
 import os
 import os.path as op
 import re
@@ -73,8 +72,7 @@ def _sanitize_nwb_version(v, filename=None, log=None):
         log(f"{msg} is not text which follows semver specification")
 
     if isinstance(v, str) and not semantic_version.validate(v):
-        msgtype = "error" if LooseVersion(v) >= "2.1.0" else "warning"
-        log(f"{msgtype}: {msg} is not a proper semantic version. See http://semver.org")
+        log(f"error: {msg} is not a proper semantic version. See http://semver.org")
 
     return v
 
@@ -276,8 +274,11 @@ def validate(path, devel_debug=False):
             # Explicitly sanitize so we collect warnings.
             # TODO: later cast into proper ERRORs
             version = _sanitize_nwb_version(version, log=errors.append)
-            loosever = LooseVersion(version)
-            if loosever and loosever < "2.1.0":
+            try:
+                v = semantic_version.Version(version)
+            except ValueError:
+                v = None
+            if v is not None and v < semantic_version.Version("2.1.0"):
                 errors_ = errors[:]
                 errors = [e for e in errors if not re_ok_prior_210.search(str(e))]
                 if errors != errors_:
