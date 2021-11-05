@@ -364,7 +364,7 @@ class _dandi_url_parser:
         #       for not only "dandiarchive.org" URLs
         (
             re.compile(r"DANDI:.*"),
-            {"rewrite": lambda x: "https://identifiers.org/" + x},
+            {"rewrite": lambda x: "https://identifiers.org/" + x.lower()},
             "DANDI:<dandiset id>",
         ),
         (
