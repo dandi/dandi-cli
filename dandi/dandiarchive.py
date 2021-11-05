@@ -658,8 +658,15 @@ class _dandi_url_parser:
         i = 0
         while True:
             r = requests.head(url, allow_redirects=True)
-            if r.status_code in (400, *RETRY_STATUSES) and i < 5:
-                sleep(0.1 * 10 ** i)
+            if r.status_code in RETRY_STATUSES and i < 4:
+                delay = 0.1 * 10 ** i
+                lgr.warning(
+                    "HEAD request to %s returned %d; sleeping for %f seconds and then retrying...",
+                    url,
+                    r.status_code,
+                    delay,
+                )
+                sleep(delay)
                 i += 1
                 continue
             elif r.status_code == 404:
