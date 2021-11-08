@@ -35,7 +35,13 @@ from pydantic import AnyHttpUrl, BaseModel, parse_obj_as, validator
 import requests
 
 from . import get_logger
-from .consts import DANDISET_ID_REGEX, RETRY_STATUSES, VERSION_REGEX, known_instances
+from .consts import (
+    DANDISET_ID_REGEX,
+    PUBLISHED_VERSION_REGEX,
+    RETRY_STATUSES,
+    VERSION_REGEX,
+    known_instances,
+)
 from .dandiapi import BaseRemoteAsset, DandiAPIClient, RemoteDandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
 from .utils import get_instance
@@ -364,7 +370,7 @@ class _dandi_url_parser:
         #       for not only "dandiarchive.org" URLs
         (
             re.compile(
-                fr"DANDI:{DANDISET_ID_REGEX}(?:/[0-9]+\.[0-9]+\.[0-9]+)?",
+                fr"DANDI:{DANDISET_ID_REGEX}(?:/{PUBLISHED_VERSION_REGEX})?",
                 flags=re.I,
             ),
             {"rewrite": lambda x: "https://identifiers.org/" + x.lower()},
@@ -378,7 +384,7 @@ class _dandi_url_parser:
         (
             re.compile(
                 fr"https?://identifiers\.org/DANDI:{DANDISET_ID_REGEX}"
-                fr"(?:/[0-9]+\.[0-9]+\.[0-9]+)?",
+                fr"(?:/{PUBLISHED_VERSION_REGEX})?",
                 flags=re.I,
             ),
             {"handle_redirect": "pass"},
