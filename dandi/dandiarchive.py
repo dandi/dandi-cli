@@ -363,9 +363,12 @@ class _dandi_url_parser:
         # TODO: Later should better conform to our API, so we could allow
         #       for not only "dandiarchive.org" URLs
         (
-            re.compile(r"DANDI:.*"),
+            re.compile(
+                fr"DANDI:{DANDISET_ID_REGEX}(?:/[0-9]+\.[0-9]+\.[0-9]+)?",
+                flags=re.I,
+            ),
             {"rewrite": lambda x: "https://identifiers.org/" + x.lower()},
-            "DANDI:<dandiset id>",
+            "DANDI:<dandiset id>[/<version id>]",
         ),
         (
             re.compile(r"https?://dandiarchive\.org/.*"),
@@ -373,9 +376,13 @@ class _dandi_url_parser:
             "https://dandiarchive.org/...",
         ),
         (
-            re.compile(r"https?://identifiers\.org/DANDI:.*"),
+            re.compile(
+                fr"https?://identifiers\.org/DANDI:{DANDISET_ID_REGEX}"
+                fr"(?:/[0-9]+\.[0-9]+\.[0-9]+)?",
+                flags=re.I,
+            ),
             {"handle_redirect": "pass"},
-            "https://identifiers.org/DANDI:<dandiset id>",
+            "https://identifiers.org/DANDI:<dandiset id>[/<version id>]",
         ),
         (
             re.compile(
@@ -474,10 +481,12 @@ class _dandi_url_parser:
         is omitted from a URL, the given Dandiset's most recent published
         version, if any, or else its draft version will be used.
 
-        - :samp:`https://identifiers.org/DANDI:{dandiset-id}` when it redirects
+        - :samp:`https://identifiers.org/DANDI:{dandiset-id}[/{version}]`
+          (case insensitive; ``version`` cannot be "draft") when it redirects
           to one of the other URL formats
 
-        - :samp:`DANDI:{dandiset-id}` — Abbreviation for the above
+        - :samp:`DANDI:{dandiset-id}[/{version}]` — (case insensitive;
+          ``version`` cannot be "draft") Abbreviation for the above
 
         - Any ``https://dandiarchive.org/`` or
           ``https://*dandiarchive-org.netflify.app/`` URL which redirects to

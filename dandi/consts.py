@@ -70,7 +70,7 @@ DANDISET_ID_REGEX = r"[0-9]{6}"
 
 #: Regular expression for a valid Dandiset version identifier.  This regex is
 #: not anchored.
-VERSION_REGEX = r"(?:[.0-9]{5,}|draft)"
+VERSION_REGEX = r"(?:[0-9]+\.[0-9]+\.[0-9]+|draft)"
 
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
