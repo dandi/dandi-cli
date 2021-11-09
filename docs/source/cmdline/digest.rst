@@ -1,15 +1,2 @@
-:program:`dandi digest`
-=======================
-
-::
-
-    dandi [<global options>] digest [<options>] [<path> ...]
-
-Calculate file digests
-
-Options
--------
-
-.. option:: -d, --digest [dandi-etag|md5|sha1|sha256|sha512]
-
-    Digest algorithm to use  [default: dandi-etag]
+.. click:: dandi.cli.cmd_digest:digest
+    :prog: dandi digest

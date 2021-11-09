@@ -392,7 +392,7 @@ class _dandi_url_parser:
         (
             re.compile(r"https?://[^/]*dandiarchive-org\.netlify\.app/.*"),
             {"map_instance": "dandi"},
-            "https://*dandiarchive-org.netflify.app/...",
+            "https://\\*dandiarchive-org.netflify.app/...",
         ),
         # Direct urls to our new API
         (
