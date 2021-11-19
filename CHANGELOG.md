@@ -1,3 +1,31 @@
+# 0.32.0 (Fri Nov 19 2021)
+
+#### 🚀 Enhancement
+
+- Support setting `--dandi-instance` via a `DANDI_INSTANCE` envvar [#822](https://github.com/dandi/dandi-cli/pull/822) ([@jwodder](https://github.com/jwodder))
+- Give the resource classes `api_url` properties [#816](https://github.com/dandi/dandi-cli/pull/816) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Convert metadata 404's when downloading into an "error" status [#839](https://github.com/dandi/dandi-cli/pull/839) ([@jwodder](https://github.com/jwodder))
+- Don't error when redownloading the same dandiset.yaml file [#824](https://github.com/dandi/dandi-cli/pull/824) ([@jwodder](https://github.com/jwodder))
+- Make download fail immediately on nonexistent resources [#820](https://github.com/dandi/dandi-cli/pull/820) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Stop using distutils [#812](https://github.com/dandi/dandi-cli/pull/812) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Add Read the Docs badge to README [#832](https://github.com/dandi/dandi-cli/pull/832) ([@jwodder](https://github.com/jwodder))
+- Improve `dandi ls --help` and `dandi download --help` output [#827](https://github.com/dandi/dandi-cli/pull/827) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.31.0 (Mon Oct 25 2021)
 
 #### 🚀 Enhancement
