@@ -9,8 +9,9 @@ import pytest
 import responses
 
 from .skip import mark
-from ..consts import DRAFT
-from ..download import download
+from ..consts import DRAFT, dandiset_metadata_file
+from ..dandiarchive import DandisetURL
+from ..download import download, download_generator
 from ..utils import find_files
 
 
@@ -240,3 +241,35 @@ def test_download_no_blobDateModified(text_dandiset, tmp_path):
     del metadata["blobDateModified"]
     responses.add(responses.GET, asset.api_url, json=metadata)
     download(dandiset.api_url, tmp_path)
+
+
+@responses.activate
+def test_download_metadata404(text_dandiset, tmp_path):
+    responses.add_passthru(re.compile("^http"))
+    asset = text_dandiset["dandiset"].get_asset_by_path("subdir1/apple.txt")
+    responses.add(responses.GET, asset.api_url, status=404)
+    statuses = list(
+        download_generator(
+            DandisetURL(
+                api_url=text_dandiset["client"].api_url,
+                dandiset_id=text_dandiset["dandiset"].identifier,
+                version_id=text_dandiset["dandiset"].version_id,
+            ),
+            tmp_path,
+        )
+    )
+    errors = [s for s in statuses if s.get("status") == "error"]
+    assert errors == [
+        {
+            "path": "subdir1/apple.txt",
+            "status": "error",
+            "message": f"No such asset: {asset}",
+        }
+    ]
+    assert sorted(map(Path, find_files(r".*", paths=[tmp_path], dirs=True))) == [
+        tmp_path / dandiset_metadata_file,
+        tmp_path / "file.txt",
+        tmp_path / "subdir2",
+        tmp_path / "subdir2" / "banana.txt",
+        tmp_path / "subdir2" / "coconut.txt",
+    ]
