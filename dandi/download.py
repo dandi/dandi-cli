@@ -15,6 +15,7 @@ from . import get_logger
 from .consts import RETRY_STATUSES, dandiset_metadata_file
 from .dandiarchive import DandisetURL, MultiAssetURL, SingleAssetURL, parse_dandi_url
 from .dandiset import Dandiset
+from .exceptions import NotFoundError
 from .support.digests import get_digest
 from .support.pyout import naturalsize
 from .utils import (
@@ -196,19 +197,6 @@ def download_generator(
             return
 
         for asset in assets:
-            metadata = asset.get_raw_metadata()
-            d = metadata.get("digest", {})
-            if "dandi:dandi-etag" in d:
-                digests = {"dandi-etag": d["dandi:dandi-etag"]}
-            else:
-                raise RuntimeError(
-                    f"dandi-etag not available for asset. Known digests: {d}"
-                )
-            try:
-                digests["sha256"] = d["dandi:sha2-256"]
-            except KeyError:
-                pass
-
             path = asset.path.lstrip("/")  # make into relative path
             path = op.normpath(path)
             if not isinstance(parsed_url, DandisetURL):
@@ -224,6 +212,23 @@ def download_generator(
                         f"Unexpected URL type {type(parsed_url).__name__}"
                     )
             download_path = op.join(output_path, path)
+
+            try:
+                metadata = asset.get_raw_metadata()
+            except NotFoundError as e:
+                yield {"path": path, "status": "error", "message": str(e)}
+                continue
+            d = metadata.get("digest", {})
+            if "dandi:dandi-etag" in d:
+                digests = {"dandi-etag": d["dandi:dandi-etag"]}
+            else:
+                raise RuntimeError(
+                    f"dandi-etag not available for asset. Known digests: {d}"
+                )
+            try:
+                digests["sha256"] = d["dandi:sha2-256"]
+            except KeyError:
+                pass
 
             downloader = asset.get_download_file_iter()
 
