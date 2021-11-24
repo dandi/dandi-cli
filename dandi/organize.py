@@ -172,6 +172,23 @@ def create_unique_filenames_from_metadata(metadata):
     return metadata
 
 
+def create_external_file_names(metadata):
+    metadata = deepcopy(metadata)
+    import uuid
+    for meta in metadata:
+        if "dandi_path" not in meta or "external_file_objects" not in meta:
+            continue
+        dandi_file_path = Path(meta["dandi_path"]).with_suffix("")
+        for ext_file_dict in meta['external_file_objects']:
+            renamed_path_list = []
+            uuid_str = ext_file_dict.get(id, str(uuid.uuid4()))
+            for no, ext_file in enumerate(ext_file_dict['external_files']):
+                renamed = dandi_file_path/f'{uuid_str}_external_file_{no}{ext_file.suffix}'
+                renamed_path_list.append(str(renamed))
+            ext_file_dict['external_files_renamed'] = renamed_path_list
+    return metadata
+
+
 def _assign_obj_id(metadata, non_unique):
     msg = "%d out of %d paths are not unique" % (len(non_unique), len(metadata))
 

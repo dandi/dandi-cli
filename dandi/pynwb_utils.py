@@ -231,7 +231,7 @@ def _get_pynwb_metadata(path):
             out[f] = len(getattr(nwb, key, []) or [])
 
         # get external_file data:
-        out["external_file"] = get_image_series(nwb)
+        out["external_file_objects"] = get_image_series(nwb)
 
     return out
 
@@ -248,6 +248,28 @@ def get_image_series(nwb):
                         out_dict['external_files'].append(Path(ext_file))
                 out.append(out_dict)
     return out
+
+
+def rename_nwb_external_files(meta, dandiset_path):
+    if not np.all(i in meta for i in ["path", "dandi_path", "external_file_objects"]):
+        lgr.warning(f'could not rename external files, update metadata'
+                    f'with "path", "dandi_path", "external_file_objects"')
+        return
+    with NWBHDF5IO(meta["path"], mode='r', load_namespaces=True) as io:
+        nwb = io.read()
+        for ext_file_dict in meta['external_file_objects']:
+            # retrieve nwb neurodata object of the given object id:
+            container_list = [child for child in nwb.children() if ext_file_dict['id'] == child.object_id]
+            if len(container_list) == 0:
+                continue
+            else:
+                container = container_list[0]
+            # rename all external files:
+            for no, (name_old, name_new) in enumerate(zip(ext_file_dict['external_files'],
+                                    ext_file_dict['external_files_renamed'])):
+                new_path = dandiset_path/name_new
+                container.external_file[no] = str(new_path)
+
 
 
 @validate_cache.memoize_path
