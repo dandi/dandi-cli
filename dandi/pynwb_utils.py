@@ -362,3 +362,27 @@ def copy_nwb_file(src, dest):
     ) as iow:
         iow.write(ior.read().copy(), link_data=False)
     return dest
+
+
+@metadata_cache.memoize_path
+def nwb_has_external_links(filepath):
+    with h5py.File(filepath, "r") as fp:
+        visited = set()
+
+        # cannot use `file.visititems` because it skips external links
+        # (https://github.com/h5py/h5py/issues/671)
+        def visit(path="/"):
+            if isinstance(fp[path], h5py.Group):
+                for key in fp[path].keys():
+                    key_path = path + "/" + key
+                    if key_path not in visited:
+                        visited.add(key_path)
+                        if isinstance(
+                            fp.get(key_path, getlink=True), h5py.ExternalLink
+                        ) or visit(key_path):
+                            return True
+            elif isinstance(fp.get(path, getlink=True), h5py.ExternalLink):
+                return True
+            return False
+
+        return visit()
