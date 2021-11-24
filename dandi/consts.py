@@ -130,3 +130,6 @@ DRAFT = "draft"
 #: HTTP response status codes that should always be retried (until we run out
 #: of retries)
 RETRY_STATUSES = (500, 502, 503, 504)
+
+external_file_types = [".mp4"]
+external_file_modules = ["processing", "acquisition"]

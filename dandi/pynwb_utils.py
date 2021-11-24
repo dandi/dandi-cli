@@ -18,7 +18,10 @@ from .consts import (
     metadata_nwb_computed_fields,
     metadata_nwb_file_fields,
     metadata_nwb_subject_fields,
+    external_file_types,
+    external_file_modules
 )
+from pathlib import Path
 from .utils import get_module_version
 
 lgr = get_logger()
@@ -227,6 +230,23 @@ def _get_pynwb_metadata(path):
             key = f[len("number_of_") :]
             out[f] = len(getattr(nwb, key, []) or [])
 
+        # get external_file data:
+        out["external_file"] = get_image_series(nwb)
+
+    return out
+
+
+def get_image_series(nwb):
+    out = []
+    for module_name in external_file_modules:
+        module_cont = getattr(nwb, module_name)
+        for name, ob in module_cont.items():
+            if isinstance(ob, pynwb.image.ImageSeries) and ob.external_file is not None:
+                out_dict = dict(id=ob.object_id, name=ob.name, external_files=[])
+                for ext_file in ob.external_file:
+                    if Path(ext_file).suffix in external_file_types:
+                        out_dict['external_files'].append(Path(ext_file))
+                out.append(out_dict)
     return out
 
 
