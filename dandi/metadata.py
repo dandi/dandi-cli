@@ -14,6 +14,7 @@ from .pynwb_utils import (
     get_nwb_version,
     ignore_benign_pynwb_warnings,
     metadata_cache,
+    nwb_has_external_links,
 )
 from .utils import ensure_datetime, get_mime_type, get_utcnow_datetime
 
@@ -46,6 +47,9 @@ def get_metadata(path):
         except ValueError as exc:
             lgr.debug("Failed to get metadata for %s: %s", path, exc)
             return None
+
+    if nwb_has_external_links(path):
+        raise NotImplementedError("NWB files with external links are not supported")
 
     # First read out possibly available versions of specifications for NWB(:N)
     meta["nwb_version"] = get_nwb_version(path)
