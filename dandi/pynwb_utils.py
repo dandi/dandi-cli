@@ -237,6 +237,19 @@ def _get_pynwb_metadata(path):
 
 
 def get_image_series(nwb):
+    """
+    This method supports _get_pynwb_metadata() in retrieving all ImageSeries related metadata from an open nwb file.
+    Specifically it pulls out the ImageSeries uuid, name and all the externally linked files
+    named under the argument 'external_file'.
+    Parameters
+    ----------
+    nwb: pynwb.NWBFile
+    Returns
+    -------
+    out: list
+        list of dicts : [{id: <ImageSeries uuid>, name: <IMageSeries name>, external_files=[ImageSeries.external_file]}]
+        if no ImageSeries found in the given modules to check, then it returns an empty list.
+    """
     out = []
     for module_name in external_file_modules:
         module_cont = getattr(nwb, module_name)
@@ -246,6 +259,8 @@ def get_image_series(nwb):
                 for ext_file in ob.external_file:
                     if Path(ext_file).suffix in external_file_types:
                         out_dict['external_files'].append(Path(ext_file))
+                    else:
+                        lgr.warning(f'external file {ext_file} should be one of: {external_file_types}')
                 out.append(out_dict)
     return out
 

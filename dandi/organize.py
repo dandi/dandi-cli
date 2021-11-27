@@ -9,6 +9,7 @@ import os
 import os.path as op
 from pathlib import Path
 import re
+import uuid
 
 import numpy as np
 
@@ -174,7 +175,6 @@ def create_unique_filenames_from_metadata(metadata):
 
 def create_external_file_names(metadata):
     metadata = deepcopy(metadata)
-    import uuid
     for meta in metadata:
         if "dandi_path" not in meta or "external_file_objects" not in meta:
             continue
