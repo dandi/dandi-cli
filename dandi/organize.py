@@ -174,6 +174,24 @@ def create_unique_filenames_from_metadata(metadata):
 
 
 def create_external_file_names(metadata):
+    """
+    Renames the external_file attribute in an ImageSeries according to the rule:
+    Example, the Initial name of file:
+        external_file = [name1.mp4]
+    rename to:
+        external_file = [dandiset-path-of-nwbfile/
+                dandi-renamed-nwbfile_name(folder without extention .nwb)/
+                f'{ImageSeries.object_id}_external_file_0.mp4'
+    This is stored in a new field in the metadata['external_file_objects'][0]['external_files_renamed']
+    Parameters
+    ----------
+    metadata: dict
+        the metadata dict created prior, that will have a new key with the external_file argument.
+    Returns
+    -------
+    metadata: dict
+        updated metadata
+    """
     metadata = deepcopy(metadata)
     for meta in metadata:
         if "dandi_path" not in meta or "external_file_objects" not in meta:

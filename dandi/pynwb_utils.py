@@ -266,6 +266,16 @@ def get_image_series(nwb):
 
 
 def rename_nwb_external_files(meta, dandiset_path):
+    """
+    This method, renames the external_file attribute in an ImageSeries datatype in an open nwb file.
+
+    Parameters
+    ----------
+    meta: dict
+        metadata dict contaiing all the retrieved metadata from an nwb file.
+    dandiset_path: pathlib.Path
+        path where the renamed nwb files would go as symlinks (the newly created dandiset location)
+    """
     if not np.all(i in meta for i in ["path", "dandi_path", "external_file_objects"]):
         lgr.warning(f'could not rename external files, update metadata'
                     f'with "path", "dandi_path", "external_file_objects"')
