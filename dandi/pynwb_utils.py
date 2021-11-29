@@ -18,7 +18,7 @@ from .consts import (
     metadata_nwb_computed_fields,
     metadata_nwb_file_fields,
     metadata_nwb_subject_fields,
-    external_file_types,
+    external_file_extensions,
     external_file_modules
 )
 from pathlib import Path
@@ -231,12 +231,12 @@ def _get_pynwb_metadata(path):
             out[f] = len(getattr(nwb, key, []) or [])
 
         # get external_file data:
-        out["external_file_objects"] = get_image_series(nwb)
+        out["external_file_objects"] = _get_image_series(nwb)
 
     return out
 
 
-def get_image_series(nwb):
+def _get_image_series(nwb):
     """
     This method supports _get_pynwb_metadata() in retrieving all ImageSeries related metadata from an open nwb file.
     Specifically it pulls out the ImageSeries uuid, name and all the externally linked files
@@ -257,22 +257,20 @@ def get_image_series(nwb):
             if isinstance(ob, pynwb.image.ImageSeries) and ob.external_file is not None:
                 out_dict = dict(id=ob.object_id, name=ob.name, external_files=[])
                 for ext_file in ob.external_file:
-                    if Path(ext_file).suffix in external_file_types:
+                    if Path(ext_file).suffix in external_file_extensions:
                         out_dict['external_files'].append(Path(ext_file))
                     else:
-                        lgr.warning(f'external file {ext_file} should be one of: {external_file_types}')
+                        lgr.warning(f'external file {ext_file} should be one of: {external_file_extensions}')
                 out.append(out_dict)
     return out
 
 
-def rename_nwb_external_files(meta, dandiset_path):
+def rename_nwb_external_files(meta):
     """
     This method, renames the external_file attribute in an ImageSeries datatype in an open nwb file.
 
     Parameters
     ----------
-    meta: dict
-        metadata dict contaiing all the retrieved metadata from an nwb file.
     dandiset_path: pathlib.Path
         path where the renamed nwb files would go as symlinks (the newly created dandiset location)
     """
@@ -292,9 +290,7 @@ def rename_nwb_external_files(meta, dandiset_path):
             # rename all external files:
             for no, (name_old, name_new) in enumerate(zip(ext_file_dict['external_files'],
                                     ext_file_dict['external_files_renamed'])):
-                new_path = dandiset_path/name_new
-                container.external_file[no] = str(new_path)
-
+                container.external_file[no] = str(name_new)
 
 
 @validate_cache.memoize_path

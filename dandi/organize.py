@@ -16,7 +16,7 @@ import numpy as np
 from . import get_logger
 from .exceptions import OrganizeImpossibleError
 from .pynwb_utils import get_neurodata_types_to_modalities_map, get_object_id
-from .utils import ensure_datetime, flattened, yaml_load
+from .utils import ensure_datetime, flattened, yaml_load, copy_file, move_file
 
 lgr = get_logger()
 
@@ -173,7 +173,7 @@ def create_unique_filenames_from_metadata(metadata):
     return metadata
 
 
-def create_external_file_names(metadata):
+def _create_external_file_names(metadata):
     """
     Renames the external_file attribute in an ImageSeries according to the rule:
     Example, the Initial name of file:
@@ -196,15 +196,37 @@ def create_external_file_names(metadata):
     for meta in metadata:
         if "dandi_path" not in meta or "external_file_objects" not in meta:
             continue
-        dandi_file_path = Path(meta["dandi_path"]).with_suffix("")
+        nwb_folder_name = Path(meta["dandi_path"]).with_suffix("").name
         for ext_file_dict in meta['external_file_objects']:
             renamed_path_list = []
             uuid_str = ext_file_dict.get(id, str(uuid.uuid4()))
             for no, ext_file in enumerate(ext_file_dict['external_files']):
-                renamed = dandi_file_path/f'{uuid_str}_external_file_{no}{ext_file.suffix}'
+                renamed = nwb_folder_name/f'{uuid_str}_external_file_{no}{ext_file.suffix}'
                 renamed_path_list.append(str(renamed))
             ext_file_dict['external_files_renamed'] = renamed_path_list
     return metadata
+
+
+def organize_external_files(metadata, dandiset_path, files_mode):
+    for e in metadata:
+        for ext_file_dict in e['external_file_objects']:
+            for no, (name_old, name_new) in enumerate(zip(ext_file_dict['external_files'],
+                                                      ext_file_dict['external_files_renamed'])):
+                new_path = dandiset_path/e["dandi_path"].parent/name_new
+                name_old_str = str(name_old)
+                if not op.exists(str(new_path.parent)):
+                    os.makedirs(str(new_path.parent))
+                new_path_str = str(new_path)
+                if files_mode == "symlink":
+                    os.symlink(name_old_str, new_path_str)
+                elif files_mode == "hardlink":
+                    os.link(name_old_str, new_path_str)
+                elif files_mode == "copy":
+                    copy_file(name_old_str, new_path_str)
+                elif files_mode == "move":
+                    move_file(name_old_str, new_path_str)
+                else:
+                    raise NotImplementedError(files_mode)
 
 
 def _assign_obj_id(metadata, non_unique):

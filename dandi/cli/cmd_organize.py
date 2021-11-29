@@ -5,7 +5,7 @@ import click
 
 from .base import dandiset_path_option, devel_debug_option, lgr, map_to_click_exceptions
 from ..consts import file_operation_modes
-from ..organize import create_external_file_names
+from ..organize import _create_external_file_names, organize_external_files
 from ..pynwb_utils import rename_nwb_external_files
 
 
@@ -36,6 +36,15 @@ from ..pynwb_utils import rename_nwb_external_files
     default="auto",
     show_default=True,
 )
+@click.option(
+    "-rw",
+    "--rewrite",
+    type=click.Choice(["external-paths"]),
+    default=None,
+    help="if set to re-write attributes in an nwbfile. For example, if the value "
+         "is set to external-paths then the external_path attribute of nwbfiles'"
+         "ImageSeries will be written with renamed video paths according to set rules."
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
 @devel_debug_option()
 @map_to_click_exceptions
@@ -45,6 +54,7 @@ def organize(
     invalid="fail",
     files_mode="auto",
     devel_debug=False,
+    rewrite=None,
 ):
     """(Re)organize files according to the metadata.
 
@@ -215,9 +225,10 @@ def organize(
     metadata = create_unique_filenames_from_metadata(metadata)
 
     # create video file name and re write nwb file external files:
-    metadata = create_external_file_names(metadata)
-    for meta in metadata:
-        rename_nwb_external_files(meta, dandiset_path)
+    if rewrite == "external-paths":
+        metadata = _create_external_file_names(metadata)
+        for meta in metadata:
+            rename_nwb_external_files(meta)
 
     # Verify first that the target paths do not exist yet, and fail if they do
     # Note: in "simulate" mode we do early check as well, so this would be
@@ -310,26 +321,6 @@ def organize(
                 raise NotImplementedError(files_mode)
             acted_upon.append(e)
 
-    for ext_file_dict in e['external_file_objects']:
-        for no, (name_old, name_new) in enumerate(zip(ext_file_dict['external_files'],
-                                                  ext_file_dict['external_files_renamed'])):
-            new_path = dandiset_path/name_new
-            name_old_str = str(name_old)
-            if not op.exists(str(new_path.parent)):
-                os.makedirs(str(new_path.parent))
-            new_path_str = str(new_path)
-            if files_mode == "symlink":
-                os.symlink(name_old_str, new_path_str)
-            elif files_mode == "hardlink":
-                os.link(name_old_str, new_path_str)
-            elif files_mode == "copy":
-                copy_file(name_old_str, new_path_str)
-            elif files_mode == "move":
-                move_file(name_old_str, new_path_str)
-            else:
-                raise NotImplementedError(files_mode)
-
-
     if acted_upon and in_place:
         # We might need to cleanup a bit - e.g. prune empty directories left
         # by the move in in-place mode
@@ -341,6 +332,9 @@ def organize(
                     lgr.info(f"Removed empty directory {d}")
                 except Exception as exc:
                     lgr.debug("Failed to remove directory %s: %s", d, exc)
+
+    if rewrite == "external-paths":
+        organize_external_files(metadata, dandiset_path, files_mode)
 
     def msg_(msg, n, cond=None):
         if hasattr(n, "__len__"):
