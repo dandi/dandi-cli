@@ -224,12 +224,6 @@ def organize(
 
     metadata = create_unique_filenames_from_metadata(metadata)
 
-    # create video file name and re write nwb file external files:
-    if rewrite == "external-paths":
-        metadata = _create_external_file_names(metadata)
-        for meta in metadata:
-            rename_nwb_external_files(meta)
-
     # Verify first that the target paths do not exist yet, and fail if they do
     # Note: in "simulate" mode we do early check as well, so this would be
     # duplicate but shouldn't hurt
@@ -333,7 +327,10 @@ def organize(
                 except Exception as exc:
                     lgr.debug("Failed to remove directory %s: %s", d, exc)
 
+    # create video file name and re write nwb file external files:
     if rewrite == "external-paths":
+        metadata = _create_external_file_names(metadata)
+        rename_nwb_external_files(metadata)
         organize_external_files(metadata, dandiset_path, files_mode)
 
     def msg_(msg, n, cond=None):

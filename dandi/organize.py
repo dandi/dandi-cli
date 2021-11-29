@@ -173,7 +173,7 @@ def create_unique_filenames_from_metadata(metadata):
     return metadata
 
 
-def _create_external_file_names(metadata):
+def _create_external_file_names(metadata: dict):
     """
     Renames the external_file attribute in an ImageSeries according to the rule:
     Example, the Initial name of file:
@@ -185,12 +185,12 @@ def _create_external_file_names(metadata):
     This is stored in a new field in the metadata['external_file_objects'][0]['external_files_renamed']
     Parameters
     ----------
-    metadata: dict
-        the metadata dict created prior, that will have a new key with the external_file argument.
+    metadata: list
+        list of metadata dictionaries created during the call to pynwb_utils._get_pynwb_metadata
     Returns
     -------
-    metadata: dict
-        updated metadata
+    metadata: list
+        updated list of metadata dictionaries
     """
     metadata = deepcopy(metadata)
     for meta in metadata:
@@ -207,7 +207,20 @@ def _create_external_file_names(metadata):
     return metadata
 
 
-def organize_external_files(metadata, dandiset_path, files_mode):
+def organize_external_files(metadata: list, dandiset_path: Path, files_mode: str):
+    """
+    Organizes the external_files into the new Dandiset folder structure.
+
+    Parameters
+    ----------
+    metadata: list
+        list of metadata dictionaries created during the call to pynwb_utils._get_pynwb_metadata
+    dandiset_path: Path
+        full path of the main dandiset folder.
+    files_mode: str
+        one of "symlink", "copy", "move", "hardlink"
+
+    """
     for e in metadata:
         for ext_file_dict in e['external_file_objects']:
             for no, (name_old, name_new) in enumerate(zip(ext_file_dict['external_files'],
