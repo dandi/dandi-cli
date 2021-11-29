@@ -1,3 +1,15 @@
+# 0.32.1 (Mon Nov 29 2021)
+
+#### 🐛 Bug Fix
+
+- Convert DANDI: resource identifiers to lowercase when prepending "https://identifiers.org/" and tighten regex [#829](https://github.com/dandi/dandi-cli/pull/829) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.32.0 (Fri Nov 19 2021)
 
 #### 🚀 Enhancement
