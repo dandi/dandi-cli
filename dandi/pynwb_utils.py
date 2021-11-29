@@ -356,11 +356,10 @@ def copy_nwb_file(src, dest):
         dest = op.join(dest, op.basename(src))
     else:
         os.makedirs(op.dirname(dest), exist_ok=True)
-    # The simplest way yoh could find
-    with pynwb.NWBHDF5IO(src, "r") as ior, pynwb.NWBHDF5IO(
-        dest, "w", manager=ior.manager
-    ) as iow:
-        iow.write(ior.read().copy(), link_data=False)
+    with pynwb.NWBHDF5IO(src, "r") as ior, pynwb.NWBHDF5IO(dest, "w") as iow:
+        data = ior.read()
+        data.generate_new_id()
+        iow.export(ior, nwbfile=data)
     return dest
 
 

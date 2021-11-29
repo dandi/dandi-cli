@@ -49,7 +49,9 @@ def get_metadata(path):
             return None
 
     if nwb_has_external_links(path):
-        raise NotImplementedError("NWB files with external links are not supported")
+        raise NotImplementedError(
+            f"NWB files with external links are not supported: {path}"
+        )
 
     # First read out possibly available versions of specifications for NWB(:N)
     meta["nwb_version"] = get_nwb_version(path)
