@@ -281,7 +281,7 @@ def rename_nwb_external_files(metadata: list):
             lgr.warning(f'could not rename external files, update metadata'
                         f'with "path", "dandi_path", "external_file_objects"')
             return
-        with NWBHDF5IO(meta["path"], mode='r', load_namespaces=True) as io:
+        with NWBHDF5IO(meta["path"], mode='r+', load_namespaces=True) as io:
             nwb = io.read()
             for ext_file_dict in meta['external_file_objects']:
                 # retrieve nwb neurodata object of the given object id:
