@@ -45,6 +45,13 @@ from ..pynwb_utils import rename_nwb_external_files
          "is set to external-paths then the external_path attribute of nwbfiles'"
          "ImageSeries will be written with renamed video paths according to set rules."
 )
+@click.option(
+    "-ef",
+    "--external-files-mode",
+    type=click.Choice(file_operation_modes),
+    default=None,
+    help="check help for --files-mode option"
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
 @devel_debug_option()
 @map_to_click_exceptions
@@ -55,6 +62,7 @@ def organize(
     files_mode="auto",
     devel_debug=False,
     rewrite=None,
+    external_files_mode=None,
 ):
     """(Re)organize files according to the metadata.
 
@@ -113,6 +121,10 @@ def organize(
         def act(func, *args, **kwargs):
             lgr.debug("%s %s %s", func.__name__, args, kwargs)
             return func(*args, **kwargs)
+
+    if rewrite is not None and files_mode not in ["copy", "move"]:
+        raise ValueError("files mode need to be one of 'copy/move', for external-file arg to be "
+                         "changed in the nwbfile")
 
     if dandiset_path is None:
         dandiset = Dandiset.find(os.curdir)
@@ -224,6 +236,11 @@ def organize(
 
     metadata = create_unique_filenames_from_metadata(metadata)
 
+    # update metadata with external_file information:
+    if rewrite == "external-paths":
+        metadata = _create_external_file_names(metadata)
+        rename_nwb_external_files(metadata)
+
     # Verify first that the target paths do not exist yet, and fail if they do
     # Note: in "simulate" mode we do early check as well, so this would be
     # duplicate but shouldn't hurt
@@ -329,9 +346,8 @@ def organize(
 
     # create video file name and re write nwb file external files:
     if rewrite == "external-paths":
-        metadata = _create_external_file_names(metadata)
-        rename_nwb_external_files(metadata)
-        organize_external_files(metadata, dandiset_path, files_mode)
+        files_mode_external = files_mode if external_files_mode is None else external_files_mode
+        organize_external_files(metadata, dandiset_path, files_mode_external)
 
     def msg_(msg, n, cond=None):
         if hasattr(n, "__len__"):
