@@ -30,6 +30,7 @@ jobs:
           - 3.7
           - 3.8
           - 3.9
+          - '3.10'  # Needs quotes so YAML doesn't think it's 3.1
         mode:
           - normal
         include:
@@ -43,7 +44,7 @@ jobs:
           # Temporarily disabled due to h5py/hdf5 dependency issue
           # See <https://github.com/dandi/dandi-cli/pull/315>
           - os: windows-2019
-            python: 3.9
+            python: 3.10
 
     steps:
     - name: Set up environment
@@ -52,17 +53,18 @@ jobs:
         # Fetch all commits so that versioneer will return something compatible
         # with semantic-version
         fetch-depth: 0
+
     - name: Set up Python ${{ matrix.python }}
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python }}
 
     - name: Install hdf5 (Ubuntu)
-      if: matrix.python == '3.9' && startsWith(matrix.os, 'ubuntu')
+      if: matrix.python == '3.10' && startsWith(matrix.os, 'ubuntu')
       run: sudo apt-get update && sudo apt-get install -y libhdf5-dev
 
     - name: Install hdf5 (macOS)
-      if: matrix.python == '3.9' && startsWith(matrix.os, 'macos')
+      if: matrix.python == '3.10' && startsWith(matrix.os, 'macos')
       run: |
         brew install hdf5@1.8
         brew link hdf5@1.8
