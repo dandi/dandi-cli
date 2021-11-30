@@ -196,18 +196,18 @@ def _create_external_file_names(metadata: dict):
     for meta in metadata:
         if "dandi_path" not in meta or "external_file_objects" not in meta:
             continue
-        nwb_folder_name = Path(meta["dandi_path"]).with_suffix("").name
+        nwb_folder_name = os.basename(meta["dandi_path"]).split('.')[0]
         for ext_file_dict in meta['external_file_objects']:
             renamed_path_list = []
             uuid_str = ext_file_dict.get(id, str(uuid.uuid4()))
             for no, ext_file in enumerate(ext_file_dict['external_files']):
-                renamed = nwb_folder_name/f'{uuid_str}_external_file_{no}{ext_file.suffix}'
+                renamed = op.join(nwb_folder_name,f'{uuid_str}_external_file_{no}{ext_file.suffix}')
                 renamed_path_list.append(str(renamed))
             ext_file_dict['external_files_renamed'] = renamed_path_list
     return metadata
 
 
-def organize_external_files(metadata: list, dandiset_path: Path, files_mode: str):
+def organize_external_files(metadata: list, dandiset_path: str, files_mode: str):
     """
     Organizes the external_files into the new Dandiset folder structure.
 
@@ -215,7 +215,7 @@ def organize_external_files(metadata: list, dandiset_path: Path, files_mode: str
     ----------
     metadata: list
         list of metadata dictionaries created during the call to pynwb_utils._get_pynwb_metadata
-    dandiset_path: Path
+    dandiset_path: str
         full path of the main dandiset folder.
     files_mode: str
         one of "symlink", "copy", "move", "hardlink"
@@ -225,19 +225,18 @@ def organize_external_files(metadata: list, dandiset_path: Path, files_mode: str
         for ext_file_dict in e['external_file_objects']:
             for no, (name_old, name_new) in enumerate(zip(ext_file_dict['external_files'],
                                                       ext_file_dict['external_files_renamed'])):
-                new_path = dandiset_path/e["dandi_path"].parent/name_new
+                new_path = op.join(dandiset_path, op.dirname(e["dandi_path"]), name_new)
                 name_old_str = str(name_old)
-                if not op.exists(str(new_path.parent)):
-                    os.makedirs(str(new_path.parent))
-                new_path_str = str(new_path)
+                if not op.exists(op.dirname(new_path)):
+                    os.makedirs(op.dirname(new_path))
                 if files_mode == "symlink":
-                    os.symlink(name_old_str, new_path_str)
+                    os.symlink(name_old_str, new_path)
                 elif files_mode == "hardlink":
-                    os.link(name_old_str, new_path_str)
+                    os.link(name_old_str, new_path)
                 elif files_mode == "copy":
-                    copy_file(name_old_str, new_path_str)
+                    copy_file(name_old_str, new_path)
                 elif files_mode == "move":
-                    move_file(name_old_str, new_path_str)
+                    move_file(name_old_str, new_path)
                 else:
                     raise NotImplementedError(files_mode)
 
