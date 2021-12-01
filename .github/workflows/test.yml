@@ -19,8 +19,6 @@ jobs:
       NO_ET: 1
       DANDI_ALLOW_LOCALHOST_URLS: 1
       DANDI_TESTS_PERSIST_DOCKER_COMPOSE: "1"
-      DJANGO_DANDI_WEB_APP_URL: http://localhost:8085
-      DJANGO_DANDI_API_URL: http://localhost:8000
     strategy:
       fail-fast: false
       matrix:
