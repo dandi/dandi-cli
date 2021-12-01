@@ -41,6 +41,8 @@ services:
       DJANGO_STORAGE_BUCKET_NAME: django-storage
       DJANGO_MINIO_STORAGE_MEDIA_URL: http://localhost:9000/django-storage
       DJANGO_DANDI_SCHEMA_VERSION:
+      DJANGO_DANDI_WEB_APP_URL: http://localhost:8085
+      DJANGO_DANDI_API_URL: http://localhost:8000
       DANDI_ALLOW_LOCALHOST_URLS: "1"
     ports:
       - "8000:8000"
@@ -77,6 +79,8 @@ services:
       DJANGO_MINIO_STORAGE_MEDIA_URL: http://localhost:9000/django-storage
       DJANGO_DANDI_SCHEMA_VERSION:
       DJANGO_DANDI_VALIDATION_JOB_INTERVAL: "5"
+      DJANGO_DANDI_WEB_APP_URL: http://localhost:8085
+      DJANGO_DANDI_API_URL: http://localhost:8000
       DANDI_ALLOW_LOCALHOST_URLS: "1"
 
   minio:
