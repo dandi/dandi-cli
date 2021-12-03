@@ -7,6 +7,10 @@ from .base import dandiset_path_option, devel_debug_option, lgr, map_to_click_ex
 from ..consts import file_operation_modes
 from ..organize import _create_external_file_names, organize_external_files
 from ..pynwb_utils import rename_nwb_external_files
+from .. import get_logger
+
+
+lgr = get_logger()
 
 
 @click.command()
@@ -346,6 +350,8 @@ def organize(
     # create video file name and re write nwb file external files:
     if rewrite == "external-file":
         files_mode_external = files_mode if external_files_mode is None else external_files_mode
+        lgr.warn('external-files-mode option not specified, assuming the same value'
+                      f'set for files-mode : {files_mode}')
         organize_external_files(metadata, dandiset_path, files_mode_external)
 
     def msg_(msg, n, cond=None):
