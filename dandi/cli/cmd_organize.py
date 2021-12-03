@@ -39,7 +39,7 @@ from ..pynwb_utils import rename_nwb_external_files
 @click.option(
     "-rw",
     "--rewrite",
-    type=click.Choice(["external-paths"]),
+    type=click.Choice(["external-file"]),
     default=None,
     help="if set to re-write attributes in an nwbfile. For example, if the value "
          "is set to external-paths then the external_path attribute of nwbfiles'"
@@ -123,8 +123,7 @@ def organize(
             return func(*args, **kwargs)
 
     if rewrite is not None and files_mode not in ["copy", "move"]:
-        raise ValueError("files mode need to be one of 'copy/move', for external-file arg to be "
-                         "changed in the nwbfile")
+        raise ValueError("files_mode needs to be one of 'copy/move' for the rewrite option to work")
 
     if dandiset_path is None:
         dandiset = Dandiset.find(os.curdir)
@@ -237,7 +236,7 @@ def organize(
     metadata = create_unique_filenames_from_metadata(metadata)
 
     # update metadata with external_file information:
-    if rewrite == "external-paths":
+    if rewrite == "external-file":
         metadata = _create_external_file_names(metadata)
         rename_nwb_external_files(metadata)
 
@@ -345,7 +344,7 @@ def organize(
                     lgr.debug("Failed to remove directory %s: %s", d, exc)
 
     # create video file name and re write nwb file external files:
-    if rewrite == "external-paths":
+    if rewrite == "external-file":
         files_mode_external = files_mode if external_files_mode is None else external_files_mode
         organize_external_files(metadata, dandiset_path, files_mode_external)
 
