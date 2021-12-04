@@ -240,7 +240,20 @@ def organize(
     metadata = create_unique_filenames_from_metadata(metadata)
 
     # update metadata with external_file information:
-    if rewrite == "external-file":
+    if len(metadata["external_files"]) == 0 and rewrite == "external_file":
+        lgr.warning("rewrite option specified as 'external_file' but no external_files found"
+                    "linked to the nwbfile")
+    elif len(metadata["external_files"]) > 0 and rewrite != "external_file":
+        raise ValueError("rewrite option not specified but found external video files linked to"
+                         "the nwbfile, change option to 'external_file'")
+
+    if rewrite == "external_file":
+        if external_files_mode is None:
+            external_files_mode = "move"
+            lgr.warning("external_files_mode not specified, setting to recommended mode: 'move' ")
+        elif external_files_mode not in ["move", "copy"]:
+            raise ValueError("external_files mode should be either of 'move/copy' to "
+                             "overwrite the external_file in the nwbfile")
         metadata = _create_external_file_names(metadata)
         rename_nwb_external_files(metadata)
 
@@ -349,10 +362,7 @@ def organize(
 
     # create video file name and re write nwb file external files:
     if rewrite == "external-file":
-        files_mode_external = files_mode if external_files_mode is None else external_files_mode
-        lgr.warn('external-files-mode option not specified, assuming the same value'
-                      f'set for files-mode : {files_mode}')
-        organize_external_files(metadata, dandiset_path, files_mode_external)
+        organize_external_files(metadata, dandiset_path, external_files_mode)
 
     def msg_(msg, n, cond=None):
         if hasattr(n, "__len__"):
