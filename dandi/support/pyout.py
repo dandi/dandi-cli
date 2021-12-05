@@ -57,18 +57,6 @@ def counts(values):
     return ["{:d} {}".format(v, k) for k, v in Counter(values).items()]
 
 
-def minmax(values, fmt="%s"):
-    if not values:
-        return []
-    mi = min(values)
-    ma = max(values)
-
-    if mi != ma:
-        return [(fmt + ">") % min(values), (fmt + "<") % max(values)]
-    else:
-        return fmt % mi
-
-
 class mapped_counts(object):
     def __init__(self, mapping):
         self._mapping = mapping

@@ -24,7 +24,6 @@ from ..utils import (
     get_utcnow_datetime,
     is_same_time,
     on_windows,
-    remap_dict,
 )
 
 
@@ -135,27 +134,6 @@ def test_flatten():
         0,
         1,
     ]
-
-
-@pytest.mark.parametrize(
-    "from_,revmapping,to",
-    [
-        ({"1": 2}, {"1": "1"}, {"1": 2}),
-        ({1: 2}, {(1,): [1]}, {1: 2}),  # if path must not be string, use list or tuple
-        (
-            {1: 2},
-            {"sub.key": (1,)},
-            {"sub": {"key": 2}},
-        ),  # if path must not be string, use list or tuple
-        (
-            {1: 2, "a": {"b": [1]}},
-            {"sub.key": (1,), "sub.key2.blah": "a.b"},
-            {"sub": {"key": 2, "key2": {"blah": [1]}}},
-        ),
-    ],
-)
-def test_remap_dict(from_, revmapping, to):
-    assert remap_dict(from_, revmapping) == to
 
 
 redirector_base = known_instances["dandi"].redirector

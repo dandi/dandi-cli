@@ -54,13 +54,6 @@ def print_version(ctx, param, value):
     ctx.exit()
 
 
-def upper(ctx, param, value):
-    import pdb
-
-    pdb.set_trace()
-    return value.upper()
-
-
 # group to provide commands
 @click.group(cls=DYMGroup)
 @click.option(
