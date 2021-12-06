@@ -246,9 +246,9 @@ def organize(
                     f"linked to any nwbfile found in {paths}")
 
     elif not all(external_files_missing_metadata_bool) and rewrite != "external-file":
-        raise ValueError("rewrite option not specified but found external video files linked to"
+        raise ValueError("rewrite option not specified but found external video files linked to "
                          f"the nwbfiles {[metadata[no]['path'] for no, a in enumerate(external_files_missing_metadata_bool) if not a]}, "
-                         f"change option to 'external_file'")
+                         f"change option: -rewrite 'external_file'")
 
     if rewrite == "external-file":
         if external_files_mode is None:
