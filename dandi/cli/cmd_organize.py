@@ -240,14 +240,17 @@ def organize(
     metadata = create_unique_filenames_from_metadata(metadata)
 
     # update metadata with external_file information:
-    if len(metadata["external_files"]) == 0 and rewrite == "external_file":
+    external_files_missing_metadata_bool = [len(m["external_file_objects"]) == 0 for m in metadata]
+    if all(external_files_missing_metadata_bool) and rewrite == "external-file":
         lgr.warning("rewrite option specified as 'external_file' but no external_files found"
-                    "linked to the nwbfile")
-    elif len(metadata["external_files"]) > 0 and rewrite != "external_file":
-        raise ValueError("rewrite option not specified but found external video files linked to"
-                         "the nwbfile, change option to 'external_file'")
+                    f"linked to any nwbfile found in {paths}")
 
-    if rewrite == "external_file":
+    elif not all(external_files_missing_metadata_bool) and rewrite != "external-file":
+        raise ValueError("rewrite option not specified but found external video files linked to"
+                         f"the nwbfiles {[metadata[no]['path'] for no, a in enumerate(external_files_missing_metadata_bool) if not a]}, "
+                         f"change option to 'external_file'")
+
+    if rewrite == "external-file":
         if external_files_mode is None:
             external_files_mode = "move"
             lgr.warning("external_files_mode not specified, setting to recommended mode: 'move' ")
@@ -255,7 +258,6 @@ def organize(
             raise ValueError("external_files mode should be either of 'move/copy' to "
                              "overwrite the external_file in the nwbfile")
         metadata = _create_external_file_names(metadata)
-        rename_nwb_external_files(metadata)
 
     # Verify first that the target paths do not exist yet, and fail if they do
     # Note: in "simulate" mode we do early check as well, so this would be
@@ -362,6 +364,7 @@ def organize(
 
     # create video file name and re write nwb file external files:
     if rewrite == "external-file":
+        rename_nwb_external_files(metadata, dandiset_path)
         organize_external_files(metadata, dandiset_path, external_files_mode)
 
     def msg_(msg, n, cond=None):

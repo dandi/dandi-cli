@@ -196,7 +196,7 @@ def _create_external_file_names(metadata: dict):
     for meta in metadata:
         if "dandi_path" not in meta or "external_file_objects" not in meta:
             continue
-        nwb_folder_name = os.basename(meta["dandi_path"]).split('.')[0]
+        nwb_folder_name = op.basename(meta["dandi_path"]).split('.')[0]
         for ext_file_dict in meta['external_file_objects']:
             renamed_path_list = []
             uuid_str = ext_file_dict.get(id, str(uuid.uuid4()))

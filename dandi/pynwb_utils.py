@@ -265,7 +265,7 @@ def _get_image_series(nwb: pynwb.NWBFile):
     return out
 
 
-def rename_nwb_external_files(metadata: list):
+def rename_nwb_external_files(metadata: list, dandiset_path: str):
     """
     This method, renames the external_file attribute in an ImageSeries datatype in an open nwb file.
     It pulls information about the ImageSEries objects from metadata: metadata["external_file_objects"]
@@ -281,11 +281,12 @@ def rename_nwb_external_files(metadata: list):
             lgr.warning(f'could not rename external files, update metadata'
                         f'with "path", "dandi_path", "external_file_objects"')
             return
-        with NWBHDF5IO(meta["path"], mode='r+', load_namespaces=True) as io:
+        dandiset_nwbfile_path = op.join(dandiset_path, meta["dandi_path"])
+        with NWBHDF5IO(dandiset_nwbfile_path, mode='r+', load_namespaces=True) as io:
             nwb = io.read()
             for ext_file_dict in meta['external_file_objects']:
                 # retrieve nwb neurodata object of the given object id:
-                container_list = [child for child in nwb.children() if ext_file_dict['id'] == child.object_id]
+                container_list = [child for child in nwb.children if ext_file_dict['id'] == child.object_id]
                 if len(container_list) == 0:
                     continue
                 else:
