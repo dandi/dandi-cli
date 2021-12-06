@@ -15,19 +15,19 @@ from ..consts import metadata_dandiset_fields, metadata_nwb_fields
 lgr = get_logger()
 
 
-def fancy_bool(v):
-    # TODO: move such supports into pyout since we should not
-    # investigate here either terminal/output supports ANSI
-    # should be for pyout to know that bool True should be this or that
-    """
-$> datalad ls -rLa  ~/datalad/openfmri/ds000001
-[ERROR  ] 'ascii' codec can't decode byte 0xe2 in position 0: ordinal not in \
-range(128) [tabular.py:_writerow:333] (UnicodeDecodeError)
-
-But for DANDI we will  be brave
-    """
-    return u"✓" if v else "-"
-    # return 'X' if v else '-'
+# def fancy_bool(v):
+#     # TODO: move such supports into pyout since we should not
+#     # investigate here either terminal/output supports ANSI
+#     # should be for pyout to know that bool True should be this or that
+#     """
+# $> datalad ls -rLa  ~/datalad/openfmri/ds000001
+# [ERROR  ] 'ascii' codec can't decode byte 0xe2 in position 0: ordinal not in \
+# range(128) [tabular.py:_writerow:333] (UnicodeDecodeError)
+#
+# But for DANDI we will  be brave
+#     """
+#     return u"✓" if v else "-"
+#     # return 'X' if v else '-'
 
 
 def naturalsize(v):
@@ -43,8 +43,8 @@ def datefmt(v, fmt=u"%Y-%m-%d/%H:%M:%S"):
         time.strftime(fmt, time.localtime(v))
 
 
-def empty_for_none(v):
-    return "" if v is None else v
+# def empty_for_none(v):
+#     return "" if v is None else v
 
 
 def summary_dates(values):
@@ -57,25 +57,13 @@ def counts(values):
     return ["{:d} {}".format(v, k) for k, v in Counter(values).items()]
 
 
-def minmax(values, fmt="%s"):
-    if not values:
-        return []
-    mi = min(values)
-    ma = max(values)
-
-    if mi != ma:
-        return [(fmt + ">") % min(values), (fmt + "<") % max(values)]
-    else:
-        return fmt % mi
-
-
-class mapped_counts(object):
-    def __init__(self, mapping):
-        self._mapping = mapping
-
-    def __call__(self, values):
-        mapped = [self._mapping.get(v, v) for v in values]
-        return counts(mapped)
+# class mapped_counts(object):
+#     def __init__(self, mapping):
+#         self._mapping = mapping
+#
+#     def __call__(self, values):
+#         mapped = [self._mapping.get(v, v) for v in values]
+#         return counts(mapped)
 
 
 size_style = dict(
