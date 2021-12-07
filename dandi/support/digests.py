@@ -12,9 +12,9 @@
 import hashlib
 import logging
 
+from dandischema.digests.dandietag import DandiETag
 from fscacher import PersistentCache
 
-from ..core.digests.dandietag import DandiETag
 from ..utils import auto_repr
 
 lgr = logging.getLogger("dandi.support.digests")

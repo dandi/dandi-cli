@@ -73,6 +73,7 @@ from xml.etree.ElementTree import fromstring
 
 import click
 from dandischema import models
+from dandischema.digests.dandietag import DandiETag
 from pydantic import BaseModel, Field, PrivateAttr
 import requests
 import tenacity
@@ -86,7 +87,6 @@ from .consts import (
     known_instances,
     known_instances_rev,
 )
-from .core.digests.dandietag import DandiETag
 from .exceptions import NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup
 from .utils import USER_AGENT, check_dandi_version, ensure_datetime, is_interactive

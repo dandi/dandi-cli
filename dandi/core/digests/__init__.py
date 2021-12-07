@@ -1,3 +1,0 @@
-"""
-Digest algorithms interfaces
-"""
