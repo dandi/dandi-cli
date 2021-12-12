@@ -248,3 +248,13 @@ def test_detect_link_type(monkeypatch, tmp_path, sym_success, hard_success, resu
     monkeypatch.setattr(os, "symlink", succeed_link if sym_success else error_link)
     monkeypatch.setattr(os, "link", succeed_link if hard_success else error_link)
     assert detect_link_type(tmp_path) == result
+
+
+@pytest.mark.parametrize("mode", ["copy","move"])
+@pytest.mark.parametrize("video_mode", ["copy","move",None])
+def test_video_organize(video_mode, mode, create_video_nwbfiles, tmp_path, clirunner):
+    pt = tmp_path / "video_nwbfiles"
+    pt.mkdir(parents=True, exist_ok=True)
+    cmd = ["--files-mode", mode, "-rw", "external-file", "-ef", video_mode]
+    r = clirunner.invoke(organize, cmd)
+    assert r.exit_code == 0
