@@ -7,6 +7,8 @@
 
 Download a Dandiset, asset, or folder of assets from DANDI.
 
+See :ref:`resource_ids` for allowed URL formats.
+
 Options
 -------
 

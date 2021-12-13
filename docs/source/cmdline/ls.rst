@@ -7,22 +7,8 @@
 
 List :file:`*.nwb` files' and Dandisets' metadata.
 
-The arguments may be either resource identifiers or paths to local
-files/directories.
-
-Patterns for known setups:
-
-- ``DANDI:<dandiset id>``
-- ``https://dandiarchive.org/...``
-- ``https://identifiers.org/DANDI:<dandiset id>``
-- ``https://<server>[/api]/[#/]dandiset/<dandiset id>[/<version>][/files[?location=<path>]]``
-- ``https://*dandiarchive-org.netflify.app/...``
-- ``https://<server>[/api]/dandisets/<dandiset id>[/versions[/<version>]]``
-- ``https://<server>[/api]/dandisets/<dandiset id>/versions/<version>/assets/<asset id>[/download]``
-- ``https://<server>[/api]/dandisets/<dandiset id>/versions/<version>/assets/?path=<path>``
-- ``dandi://<instance name>/<dandiset id>[@<version>][/<path>]``
-- ``https://<server>/...``
-
+The arguments may be either :ref:`resource identifiers <resource_ids>` or paths
+to local files/directories.
 
 Options
 -------
