@@ -260,7 +260,8 @@ def _get_image_series(nwb: pynwb.NWBFile):
                     if Path(ext_file).suffix in external_file_extensions:
                         out_dict['external_files'].append(Path(ext_file))
                     else:
-                        lgr.warning(f'external file {ext_file} should be one of: {external_file_extensions}')
+                        lgr.warning("external file %s should be one of: %s}",
+                                    ext_file, external_file_extensions)
                 out.append(out_dict)
     return out
 

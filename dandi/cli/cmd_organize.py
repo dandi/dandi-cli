@@ -163,7 +163,7 @@ def organize(
                 "Only 'dry' or 'move' mode could be used to operate in-place "
                 "within a dandiset (no paths were provided)"
             )
-        lgr.info(f"We will organize {dandiset_path} in-place")
+        lgr.info(f"We will organize %s in-place", dandiset_path)
         in_place = True
         paths = dandiset_path
 
@@ -241,7 +241,7 @@ def organize(
     external_files_missing_metadata_bool = [len(m["external_file_objects"]) == 0 for m in metadata]
     if all(external_files_missing_metadata_bool) and rewrite == "external-file":
         lgr.warning("rewrite option specified as 'external_file' but no external_files found"
-                    f"linked to any nwbfile found in {paths}")
+                    f"linked to any nwbfile found in %s", paths)
 
     elif not all(external_files_missing_metadata_bool) and rewrite != "external-file":
         raise ValueError("rewrite option not specified but found external video files linked to "
@@ -356,7 +356,7 @@ def organize(
             if op.exists(d):
                 try:
                     os.rmdir(d)
-                    lgr.info(f"Removed empty directory {d}")
+                    lgr.info("Removed empty directory %s", d)
                 except Exception as exc:
                     lgr.debug("Failed to remove directory %s: %s", d, exc)
 
