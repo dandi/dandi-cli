@@ -257,7 +257,8 @@ def test_detect_link_type(monkeypatch, tmp_path, sym_success, hard_success, resu
 def test_video_organize(video_mode, mode, create_video_nwbfiles, clirunner, tmp_path):
     dandi_organize_path = create_video_nwbfiles.parent/'dandi_organized'
     dandi_organize_path.mkdir(parents=True, exist_ok=True)
-    cmd = ["--files-mode", mode, "-rw", "external-file", "-ef", video_mode,
+    cmd = ["--files-mode", mode, "--rewrite", "external-file",
+           "--external-files-mode", video_mode,
            "-d", str(dandi_organize_path), str(create_video_nwbfiles)]
     video_files_list = [i for i in (create_video_nwbfiles.parent/'video_files').iterdir()]
     video_files_organized = []

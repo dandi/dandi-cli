@@ -41,16 +41,14 @@ lgr = get_logger()
     show_default=True,
 )
 @click.option(
-    "-rw",
     "--rewrite",
     type=click.Choice(["external-file"]),
     default=None,
-    help="if set to re-write attributes in an nwbfile. For example, if the value "
-         "is set to external-paths then the external_path attribute of nwbfiles'"
+    help="Use to re-write attributes in an nwbfile. For example, if the value "
+         "is set to 'external-paths' then the external_path attribute of nwbfiles' "
          "ImageSeries will be written with renamed video paths according to set rules."
 )
 @click.option(
-    "-ef",
     "--external-files-mode",
     type=click.Choice(file_operation_modes),
     default=None,
