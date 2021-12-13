@@ -252,9 +252,10 @@ def test_detect_link_type(monkeypatch, tmp_path, sym_success, hard_success, resu
 
 @pytest.mark.parametrize("mode", ["copy","move"])
 @pytest.mark.parametrize("video_mode", ["copy","move",None])
-def test_video_organize(video_mode, mode, create_video_nwbfiles, tmp_path, clirunner):
-    pt = tmp_path / "video_nwbfiles"
-    pt.mkdir(parents=True, exist_ok=True)
-    cmd = ["--files-mode", mode, "-rw", "external-file", "-ef", video_mode]
+def test_video_organize(video_mode, mode, create_video_nwbfiles, clirunner, tmp_path):
+    dandi_organize_path = str(tmp_path / "organized")
+    cmd = [create_video_nwbfiles,
+           "--files-mode", mode, "-rw", "external-file", "-ef", video_mode,
+           "-d", dandi_organize_path]
     r = clirunner.invoke(organize, cmd)
     assert r.exit_code == 0
