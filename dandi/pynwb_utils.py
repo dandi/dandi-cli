@@ -246,7 +246,7 @@ def _get_image_series(nwb: pynwb.NWBFile):
     nwb: pynwb.NWBFile
     Returns
     -------
-    out: list
+    out: List[dict]
         list of dicts : [{id: <ImageSeries uuid>, name: <IMageSeries name>, external_files=[ImageSeries.external_file]}]
         if no ImageSeries found in the given modules to check, then it returns an empty list.
     """
@@ -266,7 +266,7 @@ def _get_image_series(nwb: pynwb.NWBFile):
     return out
 
 
-def rename_nwb_external_files(metadata: list, dandiset_path: str):
+def rename_nwb_external_files(metadata: list, dandiset_path: str) -> None:
     """
     This method, renames the external_file attribute in an ImageSeries datatype in an open nwb file.
     It pulls information about the ImageSEries objects from metadata: metadata["external_file_objects"]
@@ -274,8 +274,10 @@ def rename_nwb_external_files(metadata: list, dandiset_path: str):
 
     Parameters
     ----------
-    metadata: list
+    metadata: List[dict]
         list of dictionaries containing the metadata gathered from the nwbfile
+    dandiset_path: str
+        base path of dandiset
     """
     for meta in metadata:
         if not np.all(i in meta for i in ["path", "dandi_path", "external_file_objects"]):
