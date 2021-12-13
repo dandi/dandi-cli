@@ -356,9 +356,32 @@ def copy_nwb_file(src, dest):
         dest = op.join(dest, op.basename(src))
     else:
         os.makedirs(op.dirname(dest), exist_ok=True)
-    # The simplest way yoh could find
-    with pynwb.NWBHDF5IO(src, "r") as ior, pynwb.NWBHDF5IO(
-        dest, "w", manager=ior.manager
-    ) as iow:
-        iow.write(ior.read().copy(), link_data=False)
+    with pynwb.NWBHDF5IO(src, "r") as ior, pynwb.NWBHDF5IO(dest, "w") as iow:
+        data = ior.read()
+        data.generate_new_id()
+        iow.export(ior, nwbfile=data)
     return dest
+
+
+@metadata_cache.memoize_path
+def nwb_has_external_links(filepath):
+    with h5py.File(filepath, "r") as fp:
+        visited = set()
+
+        # cannot use `file.visititems` because it skips external links
+        # (https://github.com/h5py/h5py/issues/671)
+        def visit(path="/"):
+            if isinstance(fp[path], h5py.Group):
+                for key in fp[path].keys():
+                    key_path = path + "/" + key
+                    if key_path not in visited:
+                        visited.add(key_path)
+                        if isinstance(
+                            fp.get(key_path, getlink=True), h5py.ExternalLink
+                        ) or visit(key_path):
+                            return True
+            elif isinstance(fp.get(path, getlink=True), h5py.ExternalLink):
+                return True
+            return False
+
+        return visit()
