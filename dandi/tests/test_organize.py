@@ -1,3 +1,4 @@
+import shutil
 from glob import glob
 import os
 import os.path as op
@@ -16,8 +17,9 @@ from ..organize import (
     get_obj_id,
     populate_dataset_yml,
 )
-from ..pynwb_utils import copy_nwb_file, get_object_id
+from ..pynwb_utils import copy_nwb_file, get_object_id, _get_image_series
 from ..utils import find_files, on_windows, yaml_load
+from pynwb import NWBHDF5IO
 
 
 def test_sanitize_value():
@@ -253,9 +255,29 @@ def test_detect_link_type(monkeypatch, tmp_path, sym_success, hard_success, resu
 @pytest.mark.parametrize("mode", ["copy","move"])
 @pytest.mark.parametrize("video_mode", ["copy","move",None])
 def test_video_organize(video_mode, mode, create_video_nwbfiles, clirunner, tmp_path):
-    dandi_organize_path = str(tmp_path / "organized")
-    cmd = [create_video_nwbfiles,
-           "--files-mode", mode, "-rw", "external-file", "-ef", video_mode,
-           "-d", dandi_organize_path]
+    dandi_organize_path = create_video_nwbfiles.parent/'dandi_organized'
+    dandi_organize_path.mkdir(parents=True, exist_ok=True)
+    cmd = ["--files-mode", mode, "-rw", "external-file", "-ef", video_mode,
+           "-d", str(dandi_organize_path), str(create_video_nwbfiles)]
+    video_files_list = [i for i in (create_video_nwbfiles.parent/'video_files').iterdir()]
+    video_files_organized = []
     r = clirunner.invoke(organize, cmd)
     assert r.exit_code == 0
+    for nwbfile_name in dandi_organize_path.glob("**/*.nwb"):
+        vid_folder = nwbfile_name.with_suffix("")
+        assert vid_folder.exists()
+        with NWBHDF5IO(str(nwbfile_name),'r',load_namespaces=True) as io:
+            nwbfile = io.read()
+            # get iamgeseries objects as dict(id=object_id, external_files=[])
+            ext_file_objects = _get_image_series(nwbfile)
+            for ext_file_ob in ext_file_objects:
+                filename = vid_folder.name+f'/{ext_file_ob["id"]}_external_file_'
+                for name in ext_file_ob["external_files"]:
+                    video_files_organized.append(name)
+                    # check if external_file arguments are correctly named according to convention:
+                    assert filename in str(name)
+                    # check if the files exist( both in case of move/copy):
+                    assert (vid_folder.parent/name).exists()
+    #check all video files are organized:
+    assert len(video_files_list)==len(video_files_organized)
+

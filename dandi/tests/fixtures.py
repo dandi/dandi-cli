@@ -323,18 +323,26 @@ def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def create_video_nwbfiles():
-    from datalad.api import install, Dataset
-    base_nwb_path = Path(tempfile.mktemp())/'nwbfiles'
-    base_nwb_path.mkdir(parents=True, exist_ok=True)
-    pt = Path.cwd()/"ophys_testing_data"
-    print(pt)
+def download_video_files():
+    from datalad.api import Dataset, install
+    pt = Path(tempfile.mkdtemp())/"ophys_testing_data"
     if pt.exists():
         dataset = Dataset(pt)
     else:
         dataset = install("https://gin.g-node.org/CatalystNeuro/ophys_testing_data")
     resp = dataset.get("video_files")
-    base_vid_path = Path(resp[0]["path"])
+    return Path(resp[0]["path"])
+
+
+@pytest.fixture()
+def create_video_nwbfiles(download_video_files):
+    basedir = Path(tempfile.mkdtemp())
+    base_nwb_path = basedir/'nwbfiles'
+    base_nwb_path.mkdir(parents=True, exist_ok=True)
+    base_vid_path = basedir/'video_files'
+    base_vid_path.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(download_video_files,str(base_vid_path))
+
     video_files_list = [i for i in base_vid_path.iterdir()]
     for no in range(0,len(video_files_list),2):
         vid_1 = video_files_list[no]
@@ -361,4 +369,4 @@ def create_video_nwbfiles():
         nwbfile_path = base_nwb_path/f'{name}.nwb'
         with NWBHDF5IO(str(nwbfile_path), 'w') as io:
             io.write(nwbfile)
-    return str(base_nwb_path)
+    return base_nwb_path
