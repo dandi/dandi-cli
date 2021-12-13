@@ -323,23 +323,19 @@ def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def download_video_files():
-    from datalad.api import Dataset, install
-    pt = Path(tempfile.mkdtemp())/"ophys_testing_data"
-    if pt.exists():
-        dataset = Dataset(pt)
-    else:
-        dataset = install("https://gin.g-node.org/CatalystNeuro/ophys_testing_data")
+def download_video_files(tmp_path_factory):
+    from datalad.api import install
+    pt = tmp_path_factory.mktemp('ophys_testing_data')
+    dataset = install(path=pt, source="https://gin.g-node.org/CatalystNeuro/ophys_testing_data")
     resp = dataset.get("video_files")
     return Path(resp[0]["path"])
 
 
 @pytest.fixture()
-def create_video_nwbfiles(download_video_files):
-    basedir = Path(tempfile.mkdtemp())
-    base_nwb_path = basedir/'nwbfiles'
+def create_video_nwbfiles(download_video_files, tmp_path):
+    base_nwb_path = tmp_path/'nwbfiles'
     base_nwb_path.mkdir(parents=True, exist_ok=True)
-    base_vid_path = basedir/'video_files'
+    base_vid_path = tmp_path/'video_files'
     base_vid_path.mkdir(parents=True, exist_ok=True)
     shutil.copytree(download_video_files,str(base_vid_path))
 
