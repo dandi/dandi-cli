@@ -93,17 +93,18 @@ def upload(
     upload_dandiset_metadata=False,
     devel_debug=False,
 ):
-    """Upload dandiset (files) to DANDI archive.
+    """
+    Upload Dandiset files to DANDI Archive.
 
-    Target dandiset to upload to must already be registered in the archive and
-    locally "dandiset.yaml" should exist in `--dandiset-path`.
+    The target Dandiset to upload to must already be registered in the archive,
+    and a `dandiset.yaml` file must exist in the local `--dandiset-path`.
 
-    Local dandiset should pass validation.  For that it should be first organized
-    using 'dandiset organize' command.
+    Local Dandiset should pass validation.  For that, the assets should first
+    be organized using the `dandiset organize` command.
 
-    By default all files in the dandiset (not following directories starting with a period)
-    will be considered for the upload.  You can point to specific files you would like to
-    validate and have uploaded.
+    By default all .nwb files in the Dandiset (excluding directories starting
+    with a period) will be considered for the upload.  You can point to
+    specific files you would like to validate and have uploaded.
     """
     from ..upload import upload
 
