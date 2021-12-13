@@ -199,7 +199,7 @@ def _create_external_file_names(metadata: dict):
         nwb_folder_name = op.basename(meta["dandi_path"]).split('.')[0]
         for ext_file_dict in meta['external_file_objects']:
             renamed_path_list = []
-            uuid_str = ext_file_dict.get(id, str(uuid.uuid4()))
+            uuid_str = ext_file_dict.get("id", str(uuid.uuid4()))
             for no, ext_file in enumerate(ext_file_dict['external_files']):
                 renamed = op.join(nwb_folder_name,f'{uuid_str}_external_file_{no}{ext_file.suffix}')
                 renamed_path_list.append(str(renamed))
