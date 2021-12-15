@@ -16,7 +16,7 @@ import numpy as np
 from . import get_logger
 from .exceptions import OrganizeImpossibleError
 from .pynwb_utils import get_neurodata_types_to_modalities_map, get_object_id
-from .utils import ensure_datetime, flattened, yaml_load, copy_file, move_file
+from .utils import copy_file, ensure_datetime, flattened, move_file, yaml_load
 
 lgr = get_logger()
 
@@ -180,9 +180,10 @@ def _create_external_file_names(metadata: dict):
         external_file = [name1.mp4]
     rename to:
         external_file = [dandiset-path-of-nwbfile/
-                dandi-renamed-nwbfile_name(folder without extention .nwb)/
+                dandi-renamed-nwbfile_name(folder without extension .nwb)/
                 f'{ImageSeries.object_id}_external_file_0.mp4'
-    This is stored in a new field in the metadata['external_file_objects'][0]['external_files_renamed']
+    This is stored in a new field in the
+    metadata['external_file_objects'][0]['external_files_renamed']
     Parameters
     ----------
     metadata: list
@@ -196,14 +197,16 @@ def _create_external_file_names(metadata: dict):
     for meta in metadata:
         if "dandi_path" not in meta or "external_file_objects" not in meta:
             continue
-        nwb_folder_name = op.basename(meta["dandi_path"]).split('.')[0]
-        for ext_file_dict in meta['external_file_objects']:
+        nwb_folder_name = op.basename(meta["dandi_path"]).split(".")[0]
+        for ext_file_dict in meta["external_file_objects"]:
             renamed_path_list = []
             uuid_str = ext_file_dict.get("id", str(uuid.uuid4()))
-            for no, ext_file in enumerate(ext_file_dict['external_files']):
-                renamed = op.join(nwb_folder_name,f'{uuid_str}_external_file_{no}{ext_file.suffix}')
+            for no, ext_file in enumerate(ext_file_dict["external_files"]):
+                renamed = op.join(
+                    nwb_folder_name, f"{uuid_str}_external_file_{no}{ext_file.suffix}"
+                )
                 renamed_path_list.append(str(renamed))
-            ext_file_dict['external_files_renamed'] = renamed_path_list
+            ext_file_dict["external_files_renamed"] = renamed_path_list
     return metadata
 
 
@@ -222,9 +225,13 @@ def organize_external_files(metadata: list, dandiset_path: str, files_mode: str)
 
     """
     for e in metadata:
-        for ext_file_dict in e['external_file_objects']:
-            for no, (name_old, name_new) in enumerate(zip(ext_file_dict['external_files'],
-                                                      ext_file_dict['external_files_renamed'])):
+        for ext_file_dict in e["external_file_objects"]:
+            for no, (name_old, name_new) in enumerate(
+                zip(
+                    ext_file_dict["external_files"],
+                    ext_file_dict["external_files_renamed"],
+                )
+            ):
                 new_path = op.join(dandiset_path, op.dirname(e["dandi_path"]), name_new)
                 name_old_str = str(name_old)
                 if not op.exists(op.dirname(new_path)):

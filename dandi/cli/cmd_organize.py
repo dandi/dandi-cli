@@ -7,10 +7,6 @@ from .base import dandiset_path_option, devel_debug_option, lgr, map_to_click_ex
 from ..consts import file_operation_modes
 from ..organize import _create_external_file_names, organize_external_files
 from ..pynwb_utils import rename_nwb_external_files
-from .. import get_logger
-
-
-lgr = get_logger()
 
 
 @click.command()
@@ -45,14 +41,14 @@ lgr = get_logger()
     type=click.Choice(["external-file"]),
     default=None,
     help="Use to re-write attributes in an nwbfile. For example, if the value "
-         "is set to 'external-paths' then the external_path attribute of nwbfiles' "
-         "ImageSeries will be written with renamed video paths according to set rules."
+    "is set to 'external-paths' then the external_path attribute of nwbfiles' "
+    "ImageSeries will be written with renamed video paths according to set rules.",
 )
 @click.option(
     "--external-files-mode",
     type=click.Choice(file_operation_modes),
     default=None,
-    help="check help for --files-mode option"
+    help="check help for --files-mode option",
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
 @devel_debug_option()
@@ -125,7 +121,9 @@ def organize(
             return func(*args, **kwargs)
 
     if rewrite is not None and files_mode not in ["copy", "move"]:
-        raise ValueError("files_mode needs to be one of 'copy/move' for the rewrite option to work")
+        raise ValueError(
+            "files_mode needs to be one of 'copy/move' for the rewrite option to work"
+        )
 
     if dandiset_path is None:
         dandiset = Dandiset.find(os.curdir)
@@ -163,7 +161,7 @@ def organize(
                 "Only 'dry' or 'move' mode could be used to operate in-place "
                 "within a dandiset (no paths were provided)"
             )
-        lgr.info(f"We will organize %s in-place", dandiset_path)
+        lgr.info("We will organize %s in-place", dandiset_path)
         in_place = True
         paths = dandiset_path
 
@@ -238,23 +236,37 @@ def organize(
     metadata = create_unique_filenames_from_metadata(metadata)
 
     # update metadata with external_file information:
-    external_files_missing_metadata_bool = [len(m["external_file_objects"]) == 0 for m in metadata]
+    external_files_missing_metadata_bool = [
+        len(m["external_file_objects"]) == 0 for m in metadata
+    ]
     if all(external_files_missing_metadata_bool) and rewrite == "external-file":
-        lgr.warning("rewrite option specified as 'external_file' but no external_files found"
-                    f"linked to any nwbfile found in %s", paths)
+        lgr.warning(
+            "rewrite option specified as 'external_file' but no external_files found"
+            "linked to any nwbfile found in %s",
+            paths,
+        )
 
     elif not all(external_files_missing_metadata_bool) and rewrite != "external-file":
-        raise ValueError("rewrite option not specified but found external video files linked to "
-                         f"the nwbfiles {[metadata[no]['path'] for no, a in enumerate(external_files_missing_metadata_bool) if not a]}, "
-                         f"change option: -rewrite 'external_file'")
+        raise ValueError(
+            "rewrite option not specified but found external video files linked to "
+            f"the nwbfiles "
+            f"""{[metadata[no]['path']
+                  for no, a in enumerate(external_files_missing_metadata_bool)
+                  if not a]}, """
+            f"change option: -rewrite 'external_file'"
+        )
 
     if rewrite == "external-file":
         if external_files_mode is None:
             external_files_mode = "move"
-            lgr.warning("external_files_mode not specified, setting to recommended mode: 'move' ")
+            lgr.warning(
+                "external_files_mode not specified, setting to recommended mode: 'move' "
+            )
         elif external_files_mode not in ["move", "copy"]:
-            raise ValueError("external_files mode should be either of 'move/copy' to "
-                             "overwrite the external_file in the nwbfile")
+            raise ValueError(
+                "external_files mode should be either of 'move/copy' to "
+                "overwrite the external_file in the nwbfile"
+            )
         metadata = _create_external_file_names(metadata)
 
     # Verify first that the target paths do not exist yet, and fail if they do

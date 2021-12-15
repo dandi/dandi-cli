@@ -9,17 +9,14 @@ import tempfile
 from time import sleep
 from uuid import uuid4
 
-
 from dandischema.consts import DANDI_SCHEMA_VERSION
-from dateutil.tz import tzutc
+from dateutil.tz import tzlocal, tzutc
 import pynwb
-import pynwb.image
 from pynwb import NWBHDF5IO, NWBFile
 from pynwb.device import Device
 from pynwb.file import Subject
+import pynwb.image
 from pynwb.ophys import ImageSeries
-
-from dateutil.tz import tzlocal
 import pytest
 import requests
 
@@ -325,44 +322,58 @@ def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
 @pytest.fixture(scope="session")
 def download_video_files(tmp_path_factory):
     from datalad.api import install
-    pt = tmp_path_factory.mktemp('ophys_testing_data')
-    dataset = install(path=pt, source="https://gin.g-node.org/CatalystNeuro/ophys_testing_data")
+
+    pt = tmp_path_factory.mktemp("ophys_testing_data")
+    dataset = install(
+        path=pt, source="https://gin.g-node.org/CatalystNeuro/ophys_testing_data"
+    )
     resp = dataset.get("video_files")
     return Path(resp[0]["path"])
 
 
 @pytest.fixture()
 def create_video_nwbfiles(download_video_files, tmp_path):
-    base_nwb_path = tmp_path/'nwbfiles'
+    base_nwb_path = tmp_path / "nwbfiles"
     base_nwb_path.mkdir(parents=True, exist_ok=True)
-    base_vid_path = tmp_path/'video_files'
+    base_vid_path = tmp_path / "video_files"
     base_vid_path.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(download_video_files,str(base_vid_path))
+    shutil.copytree(download_video_files, str(base_vid_path))
 
     video_files_list = [i for i in base_vid_path.iterdir()]
-    for no in range(0,len(video_files_list),2):
+    for no in range(0, len(video_files_list), 2):
         vid_1 = video_files_list[no]
-        vid_2 = video_files_list[no+1]
-        subject_id = f'mouse{no}'
-        session_id = f'sessionid{no}'
-        subject = Subject(subject_id=subject_id, species="Mus musculus", sex="M",
-                          description='lab mouse ')
-        device = Device(f'imaging_device_{no}')
-        name = f'{vid_1.stem}_{no}'
-        nwbfile = NWBFile(f'{name}{no}', 'desc: contains movie for dandi .mp4 storage as external',
-                          datetime.now(tzlocal()),
-                          experimenter='Experimenter name',
-                          session_id=session_id,
-                          subject=subject,
-                          devices=[device])
+        vid_2 = video_files_list[no + 1]
+        subject_id = f"mouse{no}"
+        session_id = f"sessionid{no}"
+        subject = Subject(
+            subject_id=subject_id,
+            species="Mus musculus",
+            sex="M",
+            description="lab mouse ",
+        )
+        device = Device(f"imaging_device_{no}")
+        name = f"{vid_1.stem}_{no}"
+        nwbfile = NWBFile(
+            f"{name}{no}",
+            "desc: contains movie for dandi .mp4 storage as external",
+            datetime.now(tzlocal()),
+            experimenter="Experimenter name",
+            session_id=session_id,
+            subject=subject,
+            devices=[device],
+        )
 
-        image_series = ImageSeries(name=f'MouseWhiskers{no}',
-                                   format='external',
-                                   external_file=[str(vid_1), str(vid_2)],
-                                   starting_frame=[0], starting_time=0.0, rate=150.0)
+        image_series = ImageSeries(
+            name=f"MouseWhiskers{no}",
+            format="external",
+            external_file=[str(vid_1), str(vid_2)],
+            starting_frame=[0],
+            starting_time=0.0,
+            rate=150.0,
+        )
         nwbfile.add_acquisition(image_series)
 
-        nwbfile_path = base_nwb_path/f'{name}.nwb'
-        with NWBHDF5IO(str(nwbfile_path), 'w') as io:
+        nwbfile_path = base_nwb_path / f"{name}.nwb"
+        with NWBHDF5IO(str(nwbfile_path), "w") as io:
             io.write(nwbfile)
     return base_nwb_path
