@@ -1,3 +1,38 @@
+# 0.32.2 (Mon Dec 06 2021)
+
+#### 🐛 Bug Fix
+
+- Improve UX of failed redirects while resolving resource identifiers [#830](https://github.com/dandi/dandi-cli/pull/830) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Remove some unused functions [#846](https://github.com/dandi/dandi-cli/pull/846) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Set new environment variables required by API server [#845](https://github.com/dandi/dandi-cli/pull/845) ([@mvandenburgh](https://github.com/mvandenburgh))
+- Test against Python 3.10 [#794](https://github.com/dandi/dandi-cli/pull/794) ([@jwodder](https://github.com/jwodder))
+- Ignore a deprecation warning from humanize [#844](https://github.com/dandi/dandi-cli/pull/844) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Mike VanDenburgh ([@mvandenburgh](https://github.com/mvandenburgh))
+
+---
+
+# 0.32.1 (Mon Nov 29 2021)
+
+#### 🐛 Bug Fix
+
+- Convert DANDI: resource identifiers to lowercase when prepending "https://identifiers.org/" and tighten regex [#829](https://github.com/dandi/dandi-cli/pull/829) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.32.0 (Fri Nov 19 2021)
 
 #### 🚀 Enhancement

@@ -109,6 +109,24 @@ from dandi.tests.skip import mark
             ),
             marks=mark.skipif_no_network,
         ),
+        pytest.param(
+            "DANDI:000027/0.210831.2033",
+            DandisetURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000027",
+                version_id="0.210831.2033",
+            ),
+            marks=mark.skipif_no_network,
+        ),
+        pytest.param(
+            "dandi:000027/0.210831.2033",
+            DandisetURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000027",
+                version_id="0.210831.2033",
+            ),
+            marks=mark.skipif_no_network,
+        ),
         (
             "http://localhost:8000/api/dandisets/000002/",
             DandisetURL(
@@ -274,6 +292,20 @@ from dandi.tests.skip import mark
 )
 def test_parse_api_url(url, parsed_url):
     assert parse_dandi_url(url) == parsed_url
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "DANDI:27",
+        "DANDI:000027/draft",
+        # Currently takes too long to run; cf. #830:
+        # "https://identifiers.org/DANDI:000027/draft",
+    ],
+)
+def test_parse_bad_api_url(url):
+    with pytest.raises(UnknownURLError):
+        parse_dandi_url(url)
 
 
 def test_parse_dandi_url_unknown_instance():

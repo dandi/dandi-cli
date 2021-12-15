@@ -35,7 +35,13 @@ from pydantic import AnyHttpUrl, BaseModel, parse_obj_as, validator
 import requests
 
 from . import get_logger
-from .consts import DANDISET_ID_REGEX, RETRY_STATUSES, VERSION_REGEX, known_instances
+from .consts import (
+    DANDISET_ID_REGEX,
+    PUBLISHED_VERSION_REGEX,
+    RETRY_STATUSES,
+    VERSION_REGEX,
+    known_instances,
+)
 from .dandiapi import BaseRemoteAsset, DandiAPIClient, RemoteDandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
 from .utils import get_instance
@@ -363,9 +369,12 @@ class _dandi_url_parser:
         # TODO: Later should better conform to our API, so we could allow
         #       for not only "dandiarchive.org" URLs
         (
-            re.compile(r"DANDI:.*"),
-            {"rewrite": lambda x: "https://identifiers.org/" + x},
-            "DANDI:<dandiset id>",
+            re.compile(
+                fr"DANDI:{DANDISET_ID_REGEX}(?:/{PUBLISHED_VERSION_REGEX})?",
+                flags=re.I,
+            ),
+            {"rewrite": lambda x: "https://identifiers.org/" + x.lower()},
+            "DANDI:<dandiset id>[/<version id>]",
         ),
         (
             re.compile(r"https?://dandiarchive\.org/.*"),
@@ -373,9 +382,13 @@ class _dandi_url_parser:
             "https://dandiarchive.org/...",
         ),
         (
-            re.compile(r"https?://identifiers\.org/DANDI:.*"),
+            re.compile(
+                fr"https?://identifiers\.org/DANDI:{DANDISET_ID_REGEX}"
+                fr"(?:/{PUBLISHED_VERSION_REGEX})?",
+                flags=re.I,
+            ),
             {"handle_redirect": "pass"},
-            "https://identifiers.org/DANDI:<dandiset id>",
+            "https://identifiers.org/DANDI:<dandiset id>[/<version id>]",
         ),
         (
             re.compile(
@@ -474,10 +487,12 @@ class _dandi_url_parser:
         is omitted from a URL, the given Dandiset's most recent published
         version, if any, or else its draft version will be used.
 
-        - :samp:`https://identifiers.org/DANDI:{dandiset-id}` when it redirects
+        - :samp:`https://identifiers.org/DANDI:{dandiset-id}[/{version}]`
+          (case insensitive; ``version`` cannot be "draft") when it redirects
           to one of the other URL formats
 
-        - :samp:`DANDI:{dandiset-id}` — Abbreviation for the above
+        - :samp:`DANDI:{dandiset-id}[/{version}]` — (case insensitive;
+          ``version`` cannot be "draft") Abbreviation for the above
 
         - Any ``https://dandiarchive.org/`` or
           ``https://*dandiarchive-org.netflify.app/`` URL which redirects to
@@ -658,8 +673,15 @@ class _dandi_url_parser:
         i = 0
         while True:
             r = requests.head(url, allow_redirects=True)
-            if r.status_code in (400, *RETRY_STATUSES) and i < 5:
-                sleep(0.1 * 10 ** i)
+            if r.status_code in RETRY_STATUSES and i < 4:
+                delay = 0.1 * 10 ** i
+                lgr.warning(
+                    "HEAD request to %s returned %d; sleeping for %f seconds and then retrying...",
+                    url,
+                    r.status_code,
+                    delay,
+                )
+                sleep(delay)
                 i += 1
                 continue
             elif r.status_code == 404:

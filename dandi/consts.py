@@ -68,9 +68,13 @@ metadata_all_fields = metadata_nwb_fields + metadata_dandiset_fields
 #: anchored.
 DANDISET_ID_REGEX = r"[0-9]{6}"
 
+#: Regular expression for a valid published (i.e., non-draft) Dandiset version
+#: identifier.  This regex is not anchored.
+PUBLISHED_VERSION_REGEX = r"[0-9]+\.[0-9]+\.[0-9]+"
+
 #: Regular expression for a valid Dandiset version identifier.  This regex is
 #: not anchored.
-VERSION_REGEX = r"(?:[.0-9]{5,}|draft)"
+VERSION_REGEX = fr"(?:{PUBLISHED_VERSION_REGEX}|draft)"
 
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
