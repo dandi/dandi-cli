@@ -142,3 +142,12 @@ DRAFT = "draft"
 #: HTTP response status codes that should always be retried (until we run out
 #: of retries)
 RETRY_STATUSES = (500, 502, 503, 504)
+
+#: File extensions recognized as assets by default
+ASSET_FILE_EXTENSIONS = [".nwb"]
+
+#: Recognized extensions for Zarr directories
+ZARR_DIR_EXTENSIONS = [".ngff", ".zarr"]
+
+#: Maximum allowed depth of a Zarr directory tree
+MAX_ZARR_DEPTH = 5

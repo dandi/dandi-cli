@@ -1,7 +1,11 @@
+import os
 import os.path as op
+from pathlib import Path
+
+import zarr
 
 from . import get_logger
-from .consts import dandiset_metadata_file
+from .consts import MAX_ZARR_DEPTH, dandiset_metadata_file
 from .metadata import get_metadata
 from .pynwb_utils import validate as pynwb_validate
 from .pynwb_utils import validate_cache
@@ -155,3 +159,17 @@ def _check_required_fields(d, required):
         if v in ("REQUIRED", "PLACEHOLDER"):
             errors += [f"Required field {f!r} has value {v!r}"]
     return errors
+
+
+def zarr_validate(path: Path) -> None:
+    data = zarr.open(path)
+    if isinstance(data, zarr.Group) and not data:
+        raise ValueError("Empty Zarr groups not permitted")
+    try:
+        next(path.glob(f"*{os.sep}" + os.sep.join(["*"] * MAX_ZARR_DEPTH)))
+    except StopIteration:
+        pass
+    else:
+        raise ValueError(
+            f"Zarr directory tree more than {MAX_ZARR_DEPTH} directories deep"
+        )
