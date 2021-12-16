@@ -3,8 +3,9 @@ import os
 import os.path as op
 from pathlib import Path
 import re
-import warnings
 from typing import List
+import warnings
+
 import dandischema
 from fscacher import PersistentCache
 import h5py

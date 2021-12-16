@@ -9,8 +9,9 @@ import os
 import os.path as op
 from pathlib import Path
 import re
-import uuid
 from typing import List
+import uuid
+
 import numpy as np
 
 from . import get_logger
@@ -210,7 +211,9 @@ def _create_external_file_names(metadata: list) -> List[dict]:
     return metadata
 
 
-def organize_external_files(metadata: list, dandiset_path: str, files_mode: str) -> None:
+def organize_external_files(
+    metadata: list, dandiset_path: str, files_mode: str
+) -> None:
     """
     Organizes the external_files into the new Dandiset folder structure.
 
