@@ -10,7 +10,7 @@ import os.path as op
 from pathlib import Path
 import re
 import uuid
-
+from typing import List
 import numpy as np
 
 from . import get_logger
@@ -173,7 +173,7 @@ def create_unique_filenames_from_metadata(metadata):
     return metadata
 
 
-def _create_external_file_names(metadata: dict):
+def _create_external_file_names(metadata: list) -> List[dict]:
     """
     Renames the external_file attribute in an ImageSeries according to the rule:
     Example, the Initial name of file:
@@ -210,7 +210,7 @@ def _create_external_file_names(metadata: dict):
     return metadata
 
 
-def organize_external_files(metadata: list, dandiset_path: str, files_mode: str):
+def organize_external_files(metadata: list, dandiset_path: str, files_mode: str) -> None:
     """
     Organizes the external_files into the new Dandiset folder structure.
 

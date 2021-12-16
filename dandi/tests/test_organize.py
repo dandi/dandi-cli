@@ -251,7 +251,6 @@ def test_detect_link_type(monkeypatch, tmp_path, sym_success, hard_success, resu
     assert detect_link_type(tmp_path) == result
 
 
-@pytest.mark.filterwarnings("ignore:the imp module is deprecated:DeprecationWarning")
 @pytest.mark.parametrize("mode", ["copy", "move"])
 @pytest.mark.parametrize("video_mode", ["copy", "move", None])
 def test_video_organize(video_mode, mode, create_video_nwbfiles, clirunner, tmp_path):

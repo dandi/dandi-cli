@@ -336,7 +336,6 @@ def create_video_nwbfiles(download_video_files, tmp_path):
     base_nwb_path = tmp_path / "nwbfiles"
     base_nwb_path.mkdir(parents=True, exist_ok=True)
     base_vid_path = tmp_path / "video_files"
-    base_vid_path.mkdir(parents=True, exist_ok=True)
     shutil.copytree(download_video_files, str(base_vid_path))
 
     video_files_list = [i for i in base_vid_path.iterdir()]

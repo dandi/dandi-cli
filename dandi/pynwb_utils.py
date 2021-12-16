@@ -4,7 +4,7 @@ import os.path as op
 from pathlib import Path
 import re
 import warnings
-
+from typing import List
 import dandischema
 from fscacher import PersistentCache
 import h5py
@@ -236,7 +236,7 @@ def _get_pynwb_metadata(path):
     return out
 
 
-def _get_image_series(nwb: pynwb.NWBFile):
+def _get_image_series(nwb: pynwb.NWBFile) -> List[dict]:
     """
     This method supports _get_pynwb_metadata() in retrieving all ImageSeries
     related metadata from an open nwb file.
@@ -264,7 +264,7 @@ def _get_image_series(nwb: pynwb.NWBFile):
                         out_dict["external_files"].append(Path(ext_file))
                     else:
                         lgr.warning(
-                            "external file %s should be one of: %s}",
+                            "external file %s should be one of: %s",
                             ext_file,
                             external_file_extensions,
                         )

@@ -253,7 +253,7 @@ def organize(
             f"""{[metadata[no]['path']
                   for no, a in enumerate(external_files_missing_metadata_bool)
                   if not a]}, """
-            f"change option: -rewrite 'external_file'"
+            f"change option: --rewrite 'external_file'"
         )
 
     if rewrite == "external-file":
