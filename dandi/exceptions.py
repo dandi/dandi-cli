@@ -64,3 +64,7 @@ class BadCliVersionError(CliVersionError):
 
 class SchemaVersionError(Exception):
     pass
+
+
+class UnknownSuffixError(ValueError):
+    pass

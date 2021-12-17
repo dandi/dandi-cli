@@ -4,8 +4,9 @@ from pathlib import Path
 from ..consts import dandiset_metadata_file
 from ..files import (
     DandisetMetadataFile,
-    LocalFileAsset,
-    LocalZarrAsset,
+    GenericAsset,
+    NWBAsset,
+    ZarrAsset,
     find_dandi_files,
 )
 
@@ -28,12 +29,12 @@ def test_find_dandi_files(tmp_path: Path) -> None:
 
     files = sorted(find_dandi_files(tmp_path), key=attrgetter("filepath"))
     assert files == [
-        LocalZarrAsset(filepath=tmp_path / "sample01.zarr", path="sample01.zarr"),
-        LocalFileAsset(filepath=tmp_path / "sample02.nwb", path="sample02.nwb"),
-        LocalFileAsset(
+        ZarrAsset(filepath=tmp_path / "sample01.zarr", path="sample01.zarr"),
+        NWBAsset(filepath=tmp_path / "sample02.nwb", path="sample02.nwb"),
+        NWBAsset(
             filepath=tmp_path / "subdir" / "sample03.nwb", path="subdir/sample03.nwb"
         ),
-        LocalZarrAsset(
+        ZarrAsset(
             filepath=tmp_path / "subdir" / "sample04.zarr", path="subdir/sample04.zarr"
         ),
     ]
@@ -42,19 +43,19 @@ def test_find_dandi_files(tmp_path: Path) -> None:
         find_dandi_files(tmp_path, allow_all=True), key=attrgetter("filepath")
     )
     assert files == [
-        LocalFileAsset(filepath=tmp_path / "bar.txt", path="bar.txt"),
+        GenericAsset(filepath=tmp_path / "bar.txt", path="bar.txt"),
         DandisetMetadataFile(filepath=tmp_path / dandiset_metadata_file),
-        LocalFileAsset(filepath=tmp_path / "foo", path="foo"),
-        LocalZarrAsset(filepath=tmp_path / "sample01.zarr", path="sample01.zarr"),
-        LocalFileAsset(filepath=tmp_path / "sample02.nwb", path="sample02.nwb"),
-        LocalFileAsset(
+        GenericAsset(filepath=tmp_path / "foo", path="foo"),
+        ZarrAsset(filepath=tmp_path / "sample01.zarr", path="sample01.zarr"),
+        NWBAsset(filepath=tmp_path / "sample02.nwb", path="sample02.nwb"),
+        GenericAsset(
             filepath=tmp_path / "subdir" / "cleesh.txt", path="subdir/cleesh.txt"
         ),
-        LocalFileAsset(filepath=tmp_path / "subdir" / "gnusto", path="subdir/gnusto"),
-        LocalFileAsset(
+        GenericAsset(filepath=tmp_path / "subdir" / "gnusto", path="subdir/gnusto"),
+        NWBAsset(
             filepath=tmp_path / "subdir" / "sample03.nwb", path="subdir/sample03.nwb"
         ),
-        LocalZarrAsset(
+        ZarrAsset(
             filepath=tmp_path / "subdir" / "sample04.zarr", path="subdir/sample04.zarr"
         ),
     ]
@@ -64,12 +65,12 @@ def test_find_dandi_files(tmp_path: Path) -> None:
     )
     assert files == [
         DandisetMetadataFile(filepath=tmp_path / dandiset_metadata_file),
-        LocalZarrAsset(filepath=tmp_path / "sample01.zarr", path="sample01.zarr"),
-        LocalFileAsset(filepath=tmp_path / "sample02.nwb", path="sample02.nwb"),
-        LocalFileAsset(
+        ZarrAsset(filepath=tmp_path / "sample01.zarr", path="sample01.zarr"),
+        NWBAsset(filepath=tmp_path / "sample02.nwb", path="sample02.nwb"),
+        NWBAsset(
             filepath=tmp_path / "subdir" / "sample03.nwb", path="subdir/sample03.nwb"
         ),
-        LocalZarrAsset(
+        ZarrAsset(
             filepath=tmp_path / "subdir" / "sample04.zarr", path="subdir/sample04.zarr"
         ),
     ]

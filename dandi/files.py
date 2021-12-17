@@ -4,7 +4,8 @@ from pathlib import Path
 from typing import Iterator, Optional, Union
 
 from . import get_logger
-from .consts import ASSET_FILE_EXTENSIONS, ZARR_DIR_EXTENSIONS, dandiset_metadata_file
+from .consts import dandiset_metadata_file
+from .exceptions import UnknownSuffixError
 
 lgr = get_logger()
 
@@ -29,8 +30,20 @@ class LocalFileAsset(LocalAsset):
     pass
 
 
-class LocalZarrAsset(LocalAsset):
+class NWBAsset(LocalFileAsset):
+    EXTENSIONS = [".nwb"]
+
+
+class GenericAsset(LocalFileAsset):
+    EXTENSIONS = []
+
+
+class LocalDirectoryAsset(LocalAsset):
     pass
+
+
+class ZarrAsset(LocalDirectoryAsset):
+    EXTENSIONS = [".ngff", ".zarr"]
 
 
 def find_dandi_files(
@@ -52,19 +65,49 @@ def find_dandi_files(
         for p in dirs.popleft().iterdir():
             if p.name.startswith("."):
                 continue
-            path = p.relative_to(dandiset_path).as_posix()
             if p.is_dir():
                 if p.is_symlink():
                     lgr.warning(
                         "%s: Ignoring unsupported symbolic link to directory", p
                     )
                     continue
-                if p.suffix in ZARR_DIR_EXTENSIONS:
-                    yield LocalZarrAsset(filepath=p, path=path)
-                else:
+                try:
+                    df = dandi_file(p, dandiset_path)
+                except UnknownSuffixError:
                     dirs.append(p)
-            elif p == dandiset_path / dandiset_metadata_file:
-                if allow_all or include_metadata:
-                    yield DandisetMetadataFile(filepath=p)
-            elif allow_all or p.suffix in ASSET_FILE_EXTENSIONS:
-                yield LocalFileAsset(filepath=p, path=path)
+                else:
+                    yield df
+            else:
+                df = dandi_file(p, dandiset_path)
+                if isinstance(df, GenericAsset) and not allow_all:
+                    pass
+                elif isinstance(df, DandisetMetadataFile) and not (
+                    allow_all or include_metadata
+                ):
+                    pass
+                else:
+                    yield df
+
+
+def dandi_file(
+    filepath: Union[str, Path], dandiset_path: Optional[Union[str, Path]] = None
+) -> DandiFile:
+    filepath = Path(filepath)
+    if dandiset_path is not None:
+        path = filepath.relative_to(dandiset_path).as_posix()
+    else:
+        path = filepath.name
+    if filepath.is_dir():
+        for dirclass in LocalDirectoryAsset.__subclasses__():
+            if filepath.suffix in dirclass.EXTENSIONS:
+                return dirclass(filepath=filepath, path=path)
+        raise UnknownSuffixError(
+            f"Directory has unrecognized suffix {filepath.suffix!r}"
+        )
+    elif path == dandiset_metadata_file:
+        return DandisetMetadataFile(filepath=filepath)
+    else:
+        for fileclass in LocalFileAsset.__subclasses__():
+            if filepath.suffix in fileclass.EXTENSIONS:
+                return fileclass(filepath=filepath, path=path)
+            return GenericAsset(filepath=filepath, path=path)
