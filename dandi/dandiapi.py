@@ -83,6 +83,7 @@ from .consts import (
     MAX_CHUNK_SIZE,
     RETRY_STATUSES,
     DandiInstance,
+    EmbargoStatus,
     known_instances,
     known_instances_rev,
 )
@@ -681,6 +682,11 @@ class RemoteDandiset:
     def contact_person(self) -> str:
         """The name of the registered contact person for the Dandiset"""
         return self._get_data()["contact_person"]
+
+    @property
+    def embargo_status(self) -> EmbargoStatus:
+        """The current embargo status for the Dandiset"""
+        return EmbargoStatus(self._get_data()["embargo_status"])
 
     @property
     def most_recent_published_version(self) -> Optional[Version]:
