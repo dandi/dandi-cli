@@ -86,7 +86,7 @@
       "species": {
         "schemaKey": "SpeciesType",
         "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_9606",
-        "name": "Human"
+        "name": "Homo sapiens - Human"
       }
     }
   ]

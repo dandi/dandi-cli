@@ -13,11 +13,13 @@ from dateutil.tz import tzutc
 import pytest
 from semantic_version import Version
 
+from .skip import mark
 from ..metadata import (
     extract_age,
     get_metadata,
     metadata2asset,
     parse_age,
+    parse_purlobourl,
     timedelta2duration,
 )
 from ..pynwb_utils import metadata_nwb_subject_fields
@@ -128,6 +130,7 @@ def test_timedelta2duration(td, duration):
     assert timedelta2duration(td) == duration
 
 
+@mark.skipif_no_network
 @pytest.mark.parametrize(
     "filename, metadata",
     [
@@ -224,7 +227,7 @@ def test_timedelta2duration(td, duration):
                 "date_of_birth": "2020-03-14T12:34:56-04:00",
                 "genotype": "Typical",
                 "sex": "M",
-                "species": "https://www.example.com/unicorn",  # Corner case
+                "species": "http://purl.obolibrary.org/obo/NCBITaxon_1234175",  # Corner case
                 "subject_id": "a1b2c3",
                 "cell_id": "cell01",
                 "slice_id": "slice02",
@@ -304,3 +307,24 @@ def test_time_extract_gest():
     assert age_birth.valueReference == PropertyValue(
         value=AgeReferenceType("dandi:GestationalReference")
     )
+
+
+@mark.skipif_no_network
+@pytest.mark.parametrize(
+    "url,value",
+    [
+        (
+            "http://purl.obolibrary.org/obo/NCBITaxon_10090",
+            {"rdfs:label": "Mus musculus", "oboInOwl:hasExactSynonym": "House mouse"},
+        ),
+        (
+            "http://purl.obolibrary.org/obo/NCBITaxon_10116",
+            {
+                "rdfs:label": "Rattus norvegicus",
+                "oboInOwl:hasExactSynonym": "Norway rat",
+            },
+        ),
+    ],
+)
+def test_parseobourl(url, value):
+    assert parse_purlobourl(url) == value
