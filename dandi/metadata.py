@@ -399,8 +399,6 @@ def parse_purlobourl(url, lookup=["rdfs:label", "oboInOwl:hasExactSynonym"]):
     import requests
 
     req = requests.get(url, allow_redirects=True)
-    if not req.ok:
-        req.raise_for_status()
     doc = parseString(req.text)
     elfound = None
     for el in doc.getElementsByTagName("Class"):
