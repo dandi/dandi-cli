@@ -1,5 +1,5 @@
 from datetime import datetime
-from functools import cache
+from functools import lru_cache
 import os
 import os.path as op
 import re
@@ -397,7 +397,7 @@ species_map = [
 ]
 
 
-@cache
+@lru_cache(maxsize=None)
 def parse_purlobourl(url: str, lookup: ty.Tuple[str] = None):
 
     req = requests.get(url, allow_redirects=True)
