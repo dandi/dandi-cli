@@ -1,10 +1,14 @@
 from datetime import datetime
+from functools import cache
 import os
 import os.path as op
 import re
+import typing as ty
 from uuid import uuid4
+from xml.dom.minidom import parseString
 
 from dandischema import models
+import requests
 
 from . import __version__, get_logger
 from .dandiset import Dandiset
@@ -393,10 +397,8 @@ species_map = [
 ]
 
 
-def parse_purlobourl(url, lookup=["rdfs:label", "oboInOwl:hasExactSynonym"]):
-    from xml.dom.minidom import parseString
-
-    import requests
+@cache
+def parse_purlobourl(url: str, lookup: ty.Tuple[str] = None):
 
     req = requests.get(url, allow_redirects=True)
     doc = parseString(req.text)
@@ -411,6 +413,8 @@ def parse_purlobourl(url, lookup=["rdfs:label", "oboInOwl:hasExactSynonym"]):
     if elfound is None:
         return None
     values = {}
+    if lookup is None:
+        lookup = ("rdfs:label", "oboInOwl:hasExactSynonym")
     for key in lookup:
         elchild = elfound.getElementsByTagName(key)
         if elchild:
@@ -432,7 +436,7 @@ def extract_species(metadata):
                     break
             if value_id is None:
                 value_id = value_orig
-                lookup = ["rdfs:label", "oboInOwl:hasExactSynonym"]
+                lookup = ("rdfs:label", "oboInOwl:hasExactSynonym")
                 try:
                     result = parse_purlobourl(value, lookup=lookup)
                 except ConnectionError:
