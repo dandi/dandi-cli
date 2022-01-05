@@ -398,7 +398,13 @@ species_map = [
 
 
 @lru_cache(maxsize=None)
-def parse_purlobourl(url: str, lookup: ty.Tuple[str] = None):
+def parse_purlobourl(url: str, lookup: ty.Optional[ty.Tuple[str]] = None):
+    """Parse an Ontobee URL to return properties of a Class node
+
+    :param url: Ontobee URL
+    :param lookup: list of XML nodes to lookup
+    :return: dictionary containing found nodes
+    """
 
     req = requests.get(url, allow_redirects=True)
     doc = parseString(req.text)
@@ -448,13 +454,12 @@ def extract_species(metadata):
                             [result[key] for key in lookup if key in result]
                         )
         else:
-            for entry in species_map:
-                names = entry[0]
-                if any([key in value for key in names]) or (
-                    entry[1] and value.startswith(entry[1])
+            for common_names, prefix, uri, name in species_map:
+                if any([key in value for key in common_names]) or (
+                    prefix and value.startswith(prefix)
                 ):
-                    value_id = entry[2]
-                    value = entry[3]
+                    value_id = uri
+                    value = name
                     break
         if value_id is None:
             raise ValueError(
