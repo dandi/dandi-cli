@@ -435,10 +435,10 @@ def extract_species(metadata):
     if value_orig is not None and value_orig != "":
         value = value_orig.lower().rstrip("/")
         if value.startswith("http://purl.obolibrary.org/obo/NCBITaxon_".lower()):
-            for entry in species_map:
-                if value.split("//")[1] in entry[2]:
-                    value_id = entry[2]
-                    value = entry[3]
+            for common_names, prefix, uri, name in species_map:
+                if value.split("//")[1] in uri:
+                    value_id = uri
+                    value = name
                     break
             if value_id is None:
                 value_id = value_orig
