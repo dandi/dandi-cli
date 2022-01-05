@@ -459,7 +459,7 @@ def extract_species(metadata):
                         )
         else:
             for common_names, prefix, uri, name in species_map:
-                if any([key in value for key in common_names]) or (
+                if any(key in value for key in common_names) or (
                     prefix and value.startswith(prefix)
                 ):
                     value_id = uri
