@@ -77,10 +77,12 @@ PUBLISHED_VERSION_REGEX = r"[0-9]+\.[0-9]+\.[0-9]+"
 #: not anchored.
 VERSION_REGEX = fr"(?:{PUBLISHED_VERSION_REGEX}|draft)"
 
+
 class EmbargoStatus(Enum):
     OPEN = "OPEN"
     UNEMBARGOING = "UNEMBARGOING"
     EMBARGOED = "EMBARGOED"
+
 
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
