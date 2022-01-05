@@ -436,7 +436,7 @@ def extract_species(metadata):
         value = value_orig.lower().rstrip("/")
         if value.startswith("http://purl.obolibrary.org/obo/NCBITaxon_".lower()):
             for common_names, prefix, uri, name in species_map:
-                if value.split("//")[1] in uri:
+                if value.split("//")[1] == uri.split("//")[1]:
                     value_id = uri
                     value = name
                     break
