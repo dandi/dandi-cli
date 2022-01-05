@@ -89,11 +89,6 @@ Please see [DEVELOPMENT.md](./DEVELOPMENT.md) file.
 
 ## 3rd party components included
 
-### dandi/core/digests/dandietag.py
-
-From <https://github.com/girder/django-s3-file-field> as of v0.1.1-10-g829b9b0
-Copyright (c) 2019-2021 Kitware, Inc., Apache 2.0 license
-
 ### dandi/tests/skip.py
 
 From https://github.com/ReproNim/reproman, as of v0.2.1-40-gf4f026d
