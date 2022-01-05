@@ -408,15 +408,13 @@ def parse_purlobourl(url: str, lookup: ty.Optional[ty.Tuple[str, ...]] = None):
 
     req = requests.get(url, allow_redirects=True)
     doc = parseString(req.text)
-    elfound = None
-    for el in doc.getElementsByTagName("Class"):
+    for elfound in doc.getElementsByTagName("Class"):
         if (
             "rdf:about" in el.attributes.keys()
             and el.attributes.getNamedItem("rdf:about").value == url
         ):
-            elfound = el
             break
-    if elfound is None:
+    else:
         return None
     values = {}
     if lookup is None:
