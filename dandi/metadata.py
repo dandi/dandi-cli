@@ -398,7 +398,7 @@ species_map = [
 
 
 @lru_cache(maxsize=None)
-def parse_purlobourl(url: str, lookup: ty.Optional[ty.Tuple[str]] = None):
+def parse_purlobourl(url: str, lookup: ty.Optional[ty.Tuple[str, ...]] = None):
     """Parse an Ontobee URL to return properties of a Class node
 
     :param url: Ontobee URL
