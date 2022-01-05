@@ -12,4 +12,4 @@ Options
 
 .. option:: -d, --digest [dandi-etag|md5|sha1|sha256|sha512]
 
-    Digest algorithm to use  [default: dandi-etag]
+    Digest algorithm to use  [default: ``dandi-etag``]
