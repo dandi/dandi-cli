@@ -9,6 +9,7 @@ from xml.dom.minidom import parseString
 
 from dandischema import models
 import requests
+import tenacity
 
 from . import __version__, get_logger
 from .dandiset import Dandiset
@@ -398,6 +399,11 @@ species_map = [
 
 
 @lru_cache(maxsize=None)
+@tenacity.retry(
+    reraise=True,
+    stop=tenacity.stop_after_attempt(3),
+    wait=tenacity.wait_exponential(exp_base=1.25, multiplier=1.25),
+)
 def parse_purlobourl(url: str, lookup: ty.Optional[ty.Tuple[str, ...]] = None):
     """Parse an Ontobee URL to return properties of a Class node
 
