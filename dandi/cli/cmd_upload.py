@@ -100,7 +100,7 @@ def upload(
     and a `dandiset.yaml` file must exist in the local `--dandiset-path`.
 
     Local Dandiset should pass validation.  For that, the assets should first
-    be organized using the `dandiset organize` command.
+    be organized using the `dandi organize` command.
 
     By default all .nwb files in the Dandiset (excluding directories starting
     with a period) will be considered for the upload.  You can point to
