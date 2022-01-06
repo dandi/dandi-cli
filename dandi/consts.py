@@ -1,4 +1,5 @@
 from collections import namedtuple
+from enum import Enum
 import os
 
 #: A list of metadata fields which dandi extracts from .nwb files.
@@ -75,6 +76,13 @@ PUBLISHED_VERSION_REGEX = r"[0-9]+\.[0-9]+\.[0-9]+"
 #: Regular expression for a valid Dandiset version identifier.  This regex is
 #: not anchored.
 VERSION_REGEX = fr"(?:{PUBLISHED_VERSION_REGEX}|draft)"
+
+
+class EmbargoStatus(Enum):
+    OPEN = "OPEN"
+    UNEMBARGOING = "UNEMBARGOING"
+    EMBARGOED = "EMBARGOED"
+
 
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"

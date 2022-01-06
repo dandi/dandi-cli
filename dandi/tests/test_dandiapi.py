@@ -515,6 +515,7 @@ def test_remote_dandiset_json_dict(text_dandiset):
         "created": anys.ANY_AWARE_DATETIME_STR,
         "modified": anys.ANY_AWARE_DATETIME_STR,
         "contact_person": anys.ANY_STR,
+        "embargo_status": anys.ANY_STR,
         "most_recent_published_version": None,
         "draft_version": {
             "version": anys.AnyFullmatch(VERSION_REGEX),
