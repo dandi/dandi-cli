@@ -5,9 +5,9 @@ import pynwb
 import pytest
 
 from ..consts import DRAFT, dandiset_metadata_file
-from ..dandiapi import RemoteDandiset
 from ..download import download
 from ..exceptions import NotFoundError
+from ..files import LocalFileAsset
 from ..pynwb_utils import make_nwb_file
 from ..upload import upload
 from ..utils import list_paths
@@ -54,21 +54,21 @@ def test_new_upload_download(local_dandi_api, monkeypatch, organized_nwb_dir, tm
 
 
 def test_new_upload_extant_existing(mocker, text_dandiset):
-    iter_upload_spy = mocker.spy(RemoteDandiset, "iter_upload_raw_asset")
+    iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     with pytest.raises(FileExistsError):
         text_dandiset["reupload"](existing="error")
     iter_upload_spy.assert_not_called()
 
 
 def test_new_upload_extant_skip(mocker, text_dandiset):
-    iter_upload_spy = mocker.spy(RemoteDandiset, "iter_upload_raw_asset")
+    iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     text_dandiset["reupload"](existing="skip")
     iter_upload_spy.assert_not_called()
 
 
 @pytest.mark.parametrize("existing", ["overwrite", "refresh"])
 def test_new_upload_extant_eq_overwrite(existing, mocker, text_dandiset):
-    iter_upload_spy = mocker.spy(RemoteDandiset, "iter_upload_raw_asset")
+    iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     text_dandiset["reupload"](existing=existing)
     iter_upload_spy.assert_not_called()
 
@@ -77,7 +77,7 @@ def test_new_upload_extant_eq_overwrite(existing, mocker, text_dandiset):
 def test_new_upload_extant_neq_overwrite(existing, mocker, text_dandiset, tmp_path):
     dandiset_id = text_dandiset["dandiset_id"]
     (text_dandiset["dspath"] / "file.txt").write_text("This is different text.\n")
-    iter_upload_spy = mocker.spy(RemoteDandiset, "iter_upload_raw_asset")
+    iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     text_dandiset["reupload"](existing=existing)
     iter_upload_spy.assert_called()
     download(text_dandiset["dandiset"].version_api_url, tmp_path)
@@ -89,19 +89,19 @@ def test_new_upload_extant_neq_overwrite(existing, mocker, text_dandiset, tmp_pa
 def test_new_upload_extant_old_refresh(mocker, text_dandiset):
     (text_dandiset["dspath"] / "file.txt").write_text("This is different text.\n")
     os.utime(text_dandiset["dspath"] / "file.txt", times=(0, 0))
-    iter_upload_spy = mocker.spy(RemoteDandiset, "iter_upload_raw_asset")
+    iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     text_dandiset["reupload"](existing="refresh")
     iter_upload_spy.assert_not_called()
 
 
 def test_new_upload_extant_force(mocker, text_dandiset):
-    iter_upload_spy = mocker.spy(RemoteDandiset, "iter_upload_raw_asset")
+    iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     text_dandiset["reupload"](existing="force")
     iter_upload_spy.assert_called()
 
 
 def test_new_upload_extant_bad_existing(mocker, text_dandiset):
-    iter_upload_spy = mocker.spy(RemoteDandiset, "iter_upload_raw_asset")
+    iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     text_dandiset["reupload"](existing="foobar")
     iter_upload_spy.assert_not_called()
 

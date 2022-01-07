@@ -44,18 +44,15 @@ every Dandiset:
 }
 """
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 import json
 import os.path
 from pathlib import Path
 import re
-from threading import Lock
 from time import sleep, time
 from types import TracebackType
 from typing import (
     Any,
-    BinaryIO,
     Callable,
     ClassVar,
     Dict,
@@ -69,11 +66,9 @@ from typing import (
     cast,
 )
 from urllib.parse import urlparse, urlunparse
-from xml.etree.ElementTree import fromstring
 
 import click
 from dandischema import models
-from dandischema.digests.dandietag import DandiETag
 from pydantic import BaseModel, Field, PrivateAttr
 import requests
 import tenacity
@@ -1032,6 +1027,10 @@ class RemoteDandiset:
         this version of the Dandiset and return the resulting asset.  Blocks
         until the upload is complete.
 
+        .. deprecated:: 0.35.0
+            Use the ``upload()`` method of `~dandi.files.LocalAsset` instances
+            instead
+
         :param filepath: the path to the local file to upload
         :type filepath: str or PathLike
         :param dict asset_metadata:
@@ -1042,12 +1041,11 @@ class RemoteDandiset:
         :param RemoteAsset replace_asset: If set, replace the given asset,
             which must have the same path as the new asset
         """
-        for status in self.iter_upload_raw_asset(
-            filepath, asset_metadata, jobs=jobs, replace_asset=replace_asset
-        ):
-            if status["status"] == "done":
-                return status["asset"]
-        raise RuntimeError("iter_upload_raw_asset() finished without returning 'done'")
+        from .files import dandi_file
+
+        return dandi_file(filepath).upload(
+            self, metadata=asset_metadata, jobs=jobs, replacing=replace_asset
+        )
 
     def iter_upload_raw_asset(
         self,
@@ -1060,6 +1058,10 @@ class RemoteDandiset:
         Upload the file at ``filepath`` with metadata ``asset_metadata`` to
         this version of the Dandiset, returning a generator of status
         `dict`\\s.
+
+        .. deprecated:: 0.35.0
+            Use the ``iter_upload()`` method of `~dandi.files.LocalAsset`
+            instances instead
 
         :param filepath: the path to the local file to upload
         :type filepath: str or PathLike
@@ -1077,130 +1079,11 @@ class RemoteDandiset:
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
-        from .support.digests import get_dandietag
+        from .files import dandi_file
 
-        asset_path = asset_metadata["path"]
-        yield {"status": "calculating etag"}
-        etagger = get_dandietag(filepath)
-        filetag = etagger.as_str()
-        lgr.debug("Calculated dandi-etag of %s for %s", filetag, filepath)
-        digest = asset_metadata.get("digest", {})
-        if "dandi:dandi-etag" in digest:
-            if digest["dandi:dandi-etag"] != filetag:
-                raise RuntimeError(
-                    f"{filepath}: File etag changed; was originally"
-                    f" {digest['dandi:dandi-etag']} but is now {filetag}"
-                )
-        yield {"status": "initiating upload"}
-        lgr.debug("%s: Beginning upload", asset_path)
-        total_size = os.path.getsize(filepath)
-        try:
-            resp = self.client.post(
-                "/uploads/initialize/",
-                json={
-                    "contentSize": total_size,
-                    "digest": {
-                        "algorithm": "dandi:dandi-etag",
-                        "value": filetag,
-                    },
-                    "dandiset": self.identifier,
-                },
-            )
-        except requests.HTTPError as e:
-            if e.response.status_code == 409:
-                lgr.debug("%s: Blob already exists on server", asset_path)
-                blob_id = e.response.headers["Location"]
-            else:
-                raise
-        else:
-            upload_id = resp["upload_id"]
-            parts = resp["parts"]
-            if len(parts) != etagger.part_qty:
-                raise RuntimeError(
-                    f"Server and client disagree on number of parts for upload;"
-                    f" server says {len(parts)}, client says {etagger.part_qty}"
-                )
-            parts_out = []
-            bytes_uploaded = 0
-            lgr.debug("Uploading %s in %d parts", filepath, len(parts))
-            with RESTFullAPIClient("http://nil.nil") as storage:
-                with open(filepath, "rb") as fp:
-                    with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
-                        lock = Lock()
-                        futures = [
-                            executor.submit(
-                                _upload_part,
-                                storage_session=storage,
-                                fp=fp,
-                                lock=lock,
-                                etagger=etagger,
-                                asset_path=asset_path,
-                                part=part,
-                            )
-                            for part in parts
-                        ]
-                        for fut in as_completed(futures):
-                            out_part = fut.result()
-                            bytes_uploaded += out_part["size"]
-                            yield {
-                                "status": "uploading",
-                                "upload": 100 * bytes_uploaded / total_size,
-                                "current": bytes_uploaded,
-                            }
-                            parts_out.append(out_part)
-                lgr.debug("%s: Completing upload", asset_path)
-                resp = self.client.post(
-                    f"/uploads/{upload_id}/complete/",
-                    json={"parts": parts_out},
-                )
-                lgr.debug(
-                    "%s: Announcing completion to %s",
-                    asset_path,
-                    resp["complete_url"],
-                )
-                r = storage.post(
-                    resp["complete_url"], data=resp["body"], json_resp=False
-                )
-                lgr.debug(
-                    "%s: Upload completed. Response content: %s",
-                    asset_path,
-                    r.content,
-                )
-                rxml = fromstring(r.text)
-                m = re.match(r"\{.+?\}", rxml.tag)
-                ns = m.group(0) if m else ""
-                final_etag = rxml.findtext(f"{ns}ETag")
-                if final_etag is not None:
-                    final_etag = final_etag.strip('"')
-                    if final_etag != filetag:
-                        raise RuntimeError(
-                            "Server and client disagree on final ETag of uploaded file;"
-                            f" server says {final_etag}, client says {filetag}"
-                        )
-                # else: Error? Warning?
-                resp = self.client.post(f"/uploads/{upload_id}/validate/")
-                blob_id = resp["blob_id"]
-        lgr.debug("%s: Assigning asset blob to dandiset & version", asset_path)
-        yield {"status": "producing asset"}
-        if replace_asset is not None:
-            lgr.debug("%s: Replacing pre-existing asset")
-            a = RemoteAsset.from_data(
-                self,
-                self.client.put(
-                    replace_asset.api_path,
-                    json={"metadata": asset_metadata, "blob_id": blob_id},
-                ),
-            )
-        else:
-            a = RemoteAsset.from_data(
-                self,
-                self.client.post(
-                    f"{self.version_api_path}assets/",
-                    json={"metadata": asset_metadata, "blob_id": blob_id},
-                ),
-            )
-        lgr.info("%s: Asset successfully uploaded", asset_path)
-        yield {"status": "done", "asset": a}
+        return dandi_file(filepath).iter_upload(
+            self, metadata=asset_metadata, jobs=jobs, replacing=replace_asset
+        )
 
 
 class BaseRemoteAsset(APIBase):
@@ -1501,60 +1384,3 @@ class RemoteAsset(BaseRemoteAsset):
     def delete(self) -> None:
         """Delete the asset"""
         self.client.delete(self.api_path)
-
-
-def _upload_part(
-    storage_session: RESTFullAPIClient,
-    fp: BinaryIO,
-    lock: Lock,
-    etagger: DandiETag,
-    asset_path: str,
-    part: dict,
-) -> dict:
-    etag_part = etagger.get_part(part["part_number"])
-    if part["size"] != etag_part.size:
-        raise RuntimeError(
-            f"Server and client disagree on size of upload part"
-            f" {part['part_number']}; server says {part['size']},"
-            f" client says {etag_part.size}"
-        )
-    with lock:
-        fp.seek(etag_part.offset)
-        chunk = fp.read(part["size"])
-    if len(chunk) != part["size"]:
-        raise RuntimeError(
-            f"End of file {fp.name} reached unexpectedly early:"
-            f" read {len(chunk)} bytes of out of an expected {part['size']}"
-        )
-    lgr.debug(
-        "%s: Uploading part %d/%d (%d bytes)",
-        asset_path,
-        part["part_number"],
-        etagger.part_qty,
-        part["size"],
-    )
-    r = storage_session.put(
-        part["upload_url"],
-        data=chunk,
-        json_resp=False,
-        retry_statuses=[500],
-    )
-    server_etag = r.headers["ETag"].strip('"')
-    lgr.debug(
-        "%s: Part upload finished ETag=%s Content-Length=%s",
-        asset_path,
-        server_etag,
-        r.headers.get("Content-Length"),
-    )
-    client_etag = etagger.get_part_etag(etag_part)
-    if server_etag != client_etag:
-        raise RuntimeError(
-            f"Server and client disagree on ETag of upload part"
-            f" {part['part_number']}; server says"
-            f" {server_etag}, client says {client_etag}"
-        )
-    return {
-        "part_number": part["part_number"],
-        "size": part["size"],
-        "etag": server_etag,
-    }

@@ -239,8 +239,8 @@ def upload(
             #
             yield {"status": "uploading"}
             validating = False
-            for r in remote_dandiset.iter_upload_raw_asset(
-                dfile.filepath, metadata, jobs=jobs_per_file, replace_asset=extant
+            for r in dfile.iter_upload(
+                remote_dandiset, metadata, jobs=jobs_per_file, replacing=extant
             ):
                 r.pop("asset", None)  # to keep pyout from choking
                 if r["status"] == "uploading":
