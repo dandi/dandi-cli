@@ -9,6 +9,7 @@ import click
 from . import lgr
 from .consts import DRAFT, dandiset_identifier_regex, dandiset_metadata_file
 from .exceptions import NotFoundError
+from .files import DandisetMetadataFile, LocalAsset, find_dandi_files
 from .misctypes import Digest
 from .utils import ensure_datetime, get_instance, pluralize
 
@@ -56,11 +57,9 @@ def upload(
             f"convention {dandiset_identifier_regex!r}."
         )
 
-    from .metadata import get_asset_metadata
     from .pynwb_utils import ignore_benign_pynwb_warnings
     from .support.pyout import naturalsize
-    from .utils import find_dandi_files, find_files, path_is_subpath
-    from .validate import validate_file
+    from .utils import path_is_subpath
 
     ignore_benign_pynwb_warnings()  # so validate doesn't whine
 
@@ -72,21 +71,16 @@ def upload(
     original_paths = paths
 
     # Expand and validate all paths -- they should reside within dandiset
-    paths = find_files(".*", paths) if allow_any_path else find_dandi_files(paths)
-    paths = list(map(Path, paths))
-    npaths = len(paths)
-    lgr.info(f"Found {npaths} files to consider")
-    for path in paths:
-        if not (
-            allow_any_path
-            or path.name == dandiset_metadata_file
-            or path.name.endswith(".nwb")
-        ):
-            raise NotImplementedError(
-                f"ATM only .nwb and dandiset.yaml should be in the paths to upload. Got {path}"
-            )
-        if not path_is_subpath(str(path.absolute()), dandiset.path):
-            raise ValueError(f"{path} is not under {dandiset.path}")
+    paths = [Path(p).absolute() for p in paths]
+    dandi_files = list(
+        find_dandi_files(
+            *paths,
+            dandiset_path=dandiset.path,
+            allow_all=allow_any_path,
+            include_metadata=True,
+        )
+    )
+    lgr.info(f"Found {len(dandi_files)} files to consider")
 
     # We will keep a shared set of "being processed" paths so
     # we could limit the number of them until
@@ -102,13 +96,12 @@ def upload(
 
     # TODO: we might want to always yield a full record so no field is not
     # provided to pyout to cause it to halt
-    def process_path(path, relpath):
+    def process_path(dfile, relpath):
         """
 
         Parameters
         ----------
-        path: Path
-          Non Pure (OS specific) Path
+        dfile: DandiFile
         relpath:
           For location on server.  Will be cast to PurePosixPath
 
@@ -118,7 +111,7 @@ def upload(
           Records for pyout
         """
         # Ensure consistent types
-        path = Path(path)
+        path = dfile.filepath
         relpath = PurePosixPath(relpath)
         try:
             try:
@@ -136,9 +129,9 @@ def upload(
             # Validate first, so we do not bother server at all if not kosher
             #
             # TODO: enable back validation of dandiset.yaml
-            if path.name != dandiset_metadata_file and validation != "skip":
+            if isinstance(dfile, LocalAsset) and validation != "skip":
                 yield {"status": "pre-validating"}
-                validation_errors = validate_file(path)
+                validation_errors = dfile.get_validation_errors()
                 yield {"errors": len(validation_errors)}
                 # TODO: split for dandi, pynwb errors
                 if validation_errors:
@@ -157,7 +150,7 @@ def upload(
             # Special handling for dandiset.yaml
             # Yarik hates it but that is life for now. TODO
             #
-            if path.name == dandiset_metadata_file:
+            if isinstance(dfile, DandisetMetadataFile):
                 # TODO This is a temporary measure to avoid breaking web UI
                 # dandiset metadata schema assumptions.  All edits should happen
                 # online.
@@ -244,9 +237,7 @@ def upload(
             # ad-hoc for dandiset.yaml for now
             yield {"status": "extracting metadata"}
             try:
-                metadata = get_asset_metadata(
-                    path,
-                    relpath,
+                metadata = dfile.get_metadata(
                     digest=Digest.dandi_etag(file_etag),
                     allow_any_path=allow_any_path,
                 ).json_dict()
@@ -313,24 +304,24 @@ def upload(
     out = pyouts.LogSafeTabular(style=pyout_style, columns=rec_fields, max_workers=jobs)
 
     with out:
-        for path in paths:
+        for dfile in dandi_files:
             while len(process_paths) >= 10:
                 lgr.log(2, "Sleep waiting for some paths to finish processing")
                 time.sleep(0.5)
 
-            rec = {"path": str(path)}
-            process_paths.add(str(path))
+            rec = {"path": str(dfile.filepath)}
+            process_paths.add(str(dfile.filepath))
 
             try:
-                relpath = path.absolute().relative_to(dandiset.path)
+                relpath = dfile.filepath.relative_to(dandiset.path)
 
                 rec["path"] = str(relpath)
                 if devel_debug:
                     # DEBUG: do serially
-                    for v in process_path(path, relpath):
+                    for v in process_path(dfile, relpath):
                         print(str(v), flush=True)
                 else:
-                    rec[tuple(rec_fields[1:])] = process_path(path, relpath)
+                    rec[tuple(rec_fields[1:])] = process_path(dfile, relpath)
             except ValueError as exc:
                 if "does not start with" in str(exc):
                     # if top_path is not the top path for the path
