@@ -18,6 +18,7 @@ from .exceptions import UnknownSuffixError
 from .metadata import get_default_metadata, get_metadata, nwb2asset
 from .misctypes import DUMMY_DIGEST, Digest
 from .pynwb_utils import validate as pynwb_validate
+from .support.digests import get_digest
 from .utils import ensure_datetime, yaml_load
 from .validate import _check_required_fields
 
@@ -116,6 +117,10 @@ class LocalAsset(DandiFile):
     path: str
 
     @abstractmethod
+    def get_etag(self) -> Digest:
+        ...
+
+    @abstractmethod
     def get_metadata(
         self,
         digest: Optional[Digest] = None,
@@ -178,7 +183,9 @@ class LocalAsset(DandiFile):
 
 
 class LocalFileAsset(LocalAsset):
-    pass
+    def get_etag(self) -> Digest:
+        value = get_digest(self.filepath, digest="dandi-etag")
+        return Digest.dandi_etag(value)
 
 
 class NWBAsset(LocalFileAsset):
@@ -247,6 +254,9 @@ class LocalDirectoryAsset(LocalAsset):
 
 class ZarrAsset(LocalDirectoryAsset):
     EXTENSIONS = [".ngff", ".zarr"]
+
+    def get_etag(self) -> Digest:
+        raise NotImplementedError
 
     def get_metadata(
         self,

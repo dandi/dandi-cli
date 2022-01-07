@@ -10,7 +10,6 @@ from . import lgr
 from .consts import DRAFT, dandiset_identifier_regex, dandiset_metadata_file
 from .exceptions import NotFoundError
 from .files import DandisetMetadataFile, LocalAsset, find_dandi_files
-from .misctypes import Digest
 from .utils import ensure_datetime, get_instance, pluralize
 
 
@@ -29,7 +28,6 @@ def upload(
 ):
     from .dandiapi import DandiAPIClient
     from .dandiset import APIDandiset, Dandiset
-    from .support.digests import get_digest
 
     dandiset = Dandiset.find(dandiset_path)
     if not dandiset:
@@ -166,7 +164,7 @@ def upload(
             #
             yield {"status": "digesting"}
             try:
-                file_etag = get_digest(path, digest="dandi-etag")
+                file_etag = dfile.get_etag()
             except Exception as exc:
                 yield skip_file("failed to compute digest: %s" % str(exc))
                 return
@@ -179,17 +177,14 @@ def upload(
                 metadata = extant.get_raw_metadata()
                 local_mtime = dfile.get_mtime()
                 remote_mtime_str = metadata.get("blobDateModified")
-                d = metadata.get("digest", {})
-                if "dandi:dandi-etag" in d:
-                    extant_etag = d["dandi:dandi-etag"]
-                else:
-                    # TODO: Should this error instead?
-                    extant_etag = None
+                # TODO: Should this error if the digest is missing?
+                extant_etag = metadata.get("digest", {}).get(file_etag.algorithm.value)
                 if remote_mtime_str is not None:
                     remote_mtime = ensure_datetime(remote_mtime_str)
                     remote_file_status = (
                         "same"
-                        if extant_etag == file_etag and remote_mtime == local_mtime
+                        if extant_etag == file_etag.value
+                        and remote_mtime == local_mtime
                         else (
                             "newer"
                             if remote_mtime > local_mtime
@@ -210,11 +205,11 @@ def upload(
                     return
                 # Logic below only for overwrite and reupload
                 if existing == "overwrite":
-                    if extant_etag == file_etag:
+                    if extant_etag == file_etag.value:
                         yield skip_file(exists_msg)
                         return
                 elif existing == "refresh":
-                    if extant_etag == file_etag:
+                    if extant_etag == file_etag.value:
                         yield skip_file("file exists")
                         return
                     elif remote_mtime is not None and remote_mtime >= local_mtime:
@@ -237,8 +232,7 @@ def upload(
             yield {"status": "extracting metadata"}
             try:
                 metadata = dfile.get_metadata(
-                    digest=Digest.dandi_etag(file_etag),
-                    ignore_errors=allow_any_path,
+                    digest=file_etag, ignore_errors=allow_any_path
                 ).json_dict()
             except Exception as e:
                 yield skip_file("failed to extract metadata: %s" % str(e))
