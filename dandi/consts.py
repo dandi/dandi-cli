@@ -145,3 +145,6 @@ RETRY_STATUSES = (500, 502, 503, 504)
 
 #: Maximum allowed depth of a Zarr directory tree
 MAX_ZARR_DEPTH = 5
+
+#: MIME type assigned to & used to identify Zarr assets
+ZARR_MIME_TYPE = "application/x-zarr"

@@ -13,7 +13,7 @@ from pydantic import ValidationError
 import zarr
 
 from . import get_logger
-from .consts import MAX_ZARR_DEPTH, dandiset_metadata_file
+from .consts import MAX_ZARR_DEPTH, ZARR_MIME_TYPE, dandiset_metadata_file
 from .exceptions import UnknownSuffixError
 from .metadata import get_default_metadata, get_metadata, nwb2asset
 from .misctypes import DUMMY_DIGEST, Digest
@@ -263,7 +263,10 @@ class ZarrAsset(LocalDirectoryAsset):
         digest: Optional[Digest] = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
-        raise NotImplementedError
+        metadata = get_default_metadata(self.filepath, digest=digest)
+        metadata.encodingFormat = ZARR_MIME_TYPE
+        metadata.path = self.path
+        return metadata
 
     def get_validation_errors(
         self,
