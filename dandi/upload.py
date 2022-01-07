@@ -1,6 +1,6 @@
 from functools import reduce
 import os.path
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import re
 import time
 
@@ -94,23 +94,19 @@ def upload(
 
     # TODO: we might want to always yield a full record so no field is not
     # provided to pyout to cause it to halt
-    def process_path(dfile, relpath):
+    def process_path(dfile):
         """
 
         Parameters
         ----------
         dfile: DandiFile
-        relpath:
-          For location on server.  Will be cast to PurePosixPath
 
         Yields
         ------
         dict
           Records for pyout
         """
-        # Ensure consistent types
-        path = dfile.filepath
-        relpath = PurePosixPath(relpath)
+        strpath = str(dfile.filepath)
         try:
             try:
                 yield {"size": dfile.get_size()}
@@ -170,7 +166,7 @@ def upload(
                 return
 
             try:
-                extant = remote_dandiset.get_asset_by_path(str(relpath))
+                extant = remote_dandiset.get_asset_by_path(dfile.path)
             except NotFoundError:
                 extant = None
             else:
@@ -244,11 +240,11 @@ def upload(
             yield {"status": "uploading"}
             validating = False
             for r in remote_dandiset.iter_upload_raw_asset(
-                path, metadata, jobs=jobs_per_file, replace_asset=extant
+                dfile.filepath, metadata, jobs=jobs_per_file, replace_asset=extant
             ):
                 r.pop("asset", None)  # to keep pyout from choking
                 if r["status"] == "uploading":
-                    uploaded_paths[str(path)]["size"] = r.pop("current")
+                    uploaded_paths[strpath]["size"] = r.pop("current")
                     yield r
                 elif r["status"] == "post-validating":
                     # Only yield the first "post-validating" status
@@ -262,14 +258,14 @@ def upload(
         except Exception as exc:
             if devel_debug:
                 raise
-            lgr.exception("Error uploading %s:", relpath)
+            lgr.exception("Error uploading %s:", strpath)
             # Custom formatting for some exceptions we know to extract
             # user-meaningful message
             message = str(exc)
-            uploaded_paths[str(path)]["errors"].append(message)
+            uploaded_paths[strpath]["errors"].append(message)
             yield {"status": "ERROR", "message": message}
         finally:
-            process_paths.remove(str(path))
+            process_paths.remove(strpath)
 
     # We will again use pyout to provide a neat table summarizing our progress
     # with upload etc
@@ -302,26 +298,23 @@ def upload(
                 lgr.log(2, "Sleep waiting for some paths to finish processing")
                 time.sleep(0.5)
 
-            rec = {"path": str(dfile.filepath)}
             process_paths.add(str(dfile.filepath))
 
-            try:
-                relpath = dfile.filepath.relative_to(dandiset.path)
+            if isinstance(dfile, DandisetMetadataFile):
+                rec = {"path": dandiset_metadata_file}
+            else:
+                assert isinstance(dfile, LocalAsset)
+                rec = {"path": dfile.path}
 
-                rec["path"] = str(relpath)
+            try:
                 if devel_debug:
                     # DEBUG: do serially
-                    for v in process_path(dfile, relpath):
+                    for v in process_path(dfile):
                         print(str(v), flush=True)
                 else:
-                    rec[tuple(rec_fields[1:])] = process_path(dfile, relpath)
+                    rec[tuple(rec_fields[1:])] = process_path(dfile)
             except ValueError as exc:
-                if "does not start with" in str(exc):
-                    # if top_path is not the top path for the path
-                    # Provide more concise specific message without path details
-                    rec.update(skip_file("must be a child of top path"))
-                else:
-                    rec.update(skip_file(exc))
+                rec.update(skip_file(exc))
             out(rec)
 
     if sync:
