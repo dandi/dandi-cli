@@ -15,6 +15,7 @@ from . import get_logger
 from .consts import MAX_ZARR_DEPTH, dandiset_metadata_file
 from .exceptions import UnknownSuffixError
 from .metadata import get_default_metadata, get_metadata, nwb2asset
+from .misctypes import DUMMY_DIGEST, Digest
 from .pynwb_utils import validate as pynwb_validate
 from .utils import yaml_load
 from .validate import _check_required_fields
@@ -34,8 +35,7 @@ class DandiFile(ABC):
     @abstractmethod
     def get_metadata(
         self,
-        digest: Optional[str] = None,
-        digest_type: Optional[str] = None,
+        digest: Optional[Digest] = None,
         allow_any_path: bool = True,
     ) -> CommonModel:
         ...
@@ -52,8 +52,7 @@ class DandiFile(ABC):
 class DandisetMetadataFile(DandiFile):
     def get_metadata(
         self,
-        digest: Optional[str] = None,
-        digest_type: Optional[str] = None,
+        digest: Optional[Digest] = None,
         allow_any_path: bool = True,
     ) -> DandisetMeta:
         with open(self.filepath) as f:
@@ -111,8 +110,7 @@ class LocalAsset(DandiFile):
     @abstractmethod
     def get_metadata(
         self,
-        digest: Optional[str] = None,
-        digest_type: Optional[str] = None,
+        digest: Optional[Digest] = None,
         allow_any_path: bool = True,
     ) -> BareAsset:
         ...
@@ -130,10 +128,7 @@ class LocalAsset(DandiFile):
                     f"Unsupported schema version: {schema_version}; expected {current_version}"
                 )
             try:
-                asset = self.get_metadata(
-                    digest=32 * "d" + "-1",
-                    digest_type="dandi_etag",
-                )
+                asset = self.get_metadata(digest=DUMMY_DIGEST)
                 BareAsset(**asset.dict())
             except ValidationError as e:
                 if devel_debug:
@@ -183,12 +178,11 @@ class NWBAsset(LocalFileAsset):
 
     def get_metadata(
         self,
-        digest: Optional[str] = None,
-        digest_type: Optional[str] = None,
+        digest: Optional[Digest] = None,
         allow_any_path: bool = True,
     ) -> BareAsset:
         try:
-            metadata = nwb2asset(self.filepath, digest=digest, digest_type=digest_type)
+            metadata = nwb2asset(self.filepath, digest=digest)
         except Exception as e:
             lgr.warning(
                 "Failed to extract NWB metadata from %s: %s: %s",
@@ -197,9 +191,7 @@ class NWBAsset(LocalFileAsset):
                 str(e),
             )
             if allow_any_path:
-                metadata = get_default_metadata(
-                    self.filepath, digest=digest, digest_type=digest_type
-                )
+                metadata = get_default_metadata(self.filepath, digest=digest)
             else:
                 raise
         metadata.path = self.path
@@ -223,13 +215,10 @@ class GenericAsset(LocalFileAsset):
 
     def get_metadata(
         self,
-        digest: Optional[str] = None,
-        digest_type: Optional[str] = None,
+        digest: Optional[Digest] = None,
         allow_any_path: bool = True,
     ) -> BareAsset:
-        metadata = get_default_metadata(
-            self.filepath, digest=digest, digest_type=digest_type
-        )
+        metadata = get_default_metadata(self.filepath, digest=digest)
         metadata.path = self.path
         return metadata
 
@@ -243,8 +232,7 @@ class ZarrAsset(LocalDirectoryAsset):
 
     def get_metadata(
         self,
-        digest: Optional[str] = None,
-        digest_type: Optional[str] = None,
+        digest: Optional[Digest] = None,
         allow_any_path: bool = True,
     ) -> BareAsset:
         raise NotImplementedError

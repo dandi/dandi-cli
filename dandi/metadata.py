@@ -3,7 +3,7 @@ from functools import lru_cache
 import os
 import os.path as op
 import re
-import typing as ty
+from typing import Optional, Tuple
 from uuid import uuid4
 from xml.dom.minidom import parseString
 
@@ -13,6 +13,7 @@ import tenacity
 
 from . import __version__, get_logger
 from .dandiset import Dandiset
+from .misctypes import Digest
 from .pynwb_utils import (
     _get_pynwb_metadata,
     get_neurodata_types,
@@ -388,7 +389,7 @@ species_map = [
     stop=tenacity.stop_after_attempt(3),
     wait=tenacity.wait_exponential(exp_base=1.25, multiplier=1.25),
 )
-def parse_purlobourl(url: str, lookup: ty.Optional[ty.Tuple[str, ...]] = None):
+def parse_purlobourl(url: str, lookup: Optional[Tuple[str, ...]] = None):
     """Parse an Ontobee URL to return properties of a Class node
 
     :param url: Ontobee URL
@@ -786,12 +787,12 @@ def process_ndtypes(asset, nd_types):
 
 
 def get_asset_metadata(
-    filepath, relpath, digest=None, digest_type=None, allow_any_path=True
+    filepath, relpath, digest: Optional[Digest] = None, allow_any_path=True
 ) -> models.BareAsset:
     metadata = None
     if op.splitext(filepath)[1] == ".nwb":
         try:
-            metadata = nwb2asset(filepath, digest=digest, digest_type=digest_type)
+            metadata = nwb2asset(filepath, digest=digest)
         except Exception as e:
             lgr.warning(
                 "Failed to extract NWB metadata from %s: %s: %s",
@@ -802,15 +803,13 @@ def get_asset_metadata(
             if not allow_any_path:
                 raise
     if metadata is None:
-        metadata = get_default_metadata(
-            filepath, digest=digest, digest_type=digest_type
-        )
+        metadata = get_default_metadata(filepath, digest=digest)
     metadata.path = str(relpath)
     return metadata
 
 
 def nwb2asset(
-    nwb_path, digest=None, digest_type=None, schema_version=None
+    nwb_path, digest: Optional[Digest] = None, schema_version=None
 ) -> models.BareAsset:
     if schema_version is not None:
         current_version = models.get_schema_version()
@@ -821,8 +820,8 @@ def nwb2asset(
     start_time = datetime.now().astimezone()
     metadata = get_metadata(nwb_path)
     if digest is not None:
-        metadata["digest"] = digest
-        metadata["digest_type"] = digest_type
+        metadata["digest"] = digest.value
+        metadata["digest_type"] = digest.algorithm.name
     metadata["contentSize"] = op.getsize(nwb_path)
     metadata["encodingFormat"] = "application/x-nwb"
     metadata["dateModified"] = get_utcnow_datetime()
@@ -841,12 +840,12 @@ def nwb2asset(
     return asset
 
 
-def get_default_metadata(path, digest=None, digest_type=None) -> models.BareAsset:
+def get_default_metadata(path, digest: Optional[Digest] = None) -> models.BareAsset:
     start_time = datetime.now().astimezone()
     if digest is not None:
-        digest_model = {models.DigestType[digest_type]: digest}
+        digest_model = digest.asdict()
     else:
-        digest_model = []
+        digest_model = {}
     dateModified = get_utcnow_datetime()
     blobDateModified = ensure_datetime(os.stat(path).st_mtime)
     if blobDateModified > dateModified:

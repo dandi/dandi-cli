@@ -9,6 +9,7 @@ import click
 from . import lgr
 from .consts import DRAFT, dandiset_identifier_regex, dandiset_metadata_file
 from .exceptions import NotFoundError
+from .misctypes import Digest
 from .utils import ensure_datetime, get_instance, pluralize
 
 
@@ -246,8 +247,7 @@ def upload(
                 metadata = get_asset_metadata(
                     path,
                     relpath,
-                    digest=file_etag,
-                    digest_type="dandi_etag",
+                    digest=Digest.dandi_etag(file_etag),
                     allow_any_path=allow_any_path,
                 ).json_dict()
             except Exception as e:

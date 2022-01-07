@@ -3,6 +3,7 @@ import os.path as op
 from . import get_logger
 from .consts import dandiset_metadata_file
 from .metadata import get_metadata
+from .misctypes import DUMMY_DIGEST
 from .pynwb_utils import validate as pynwb_validate
 from .pynwb_utils import validate_cache
 from .utils import find_dandi_files, find_files, yaml_load
@@ -106,8 +107,7 @@ def validate_asset_file(filepath, schema_version=None, devel_debug=False):
             asset = get_asset_metadata(
                 filepath,
                 relpath="dummy",
-                digest=32 * "d" + "-1",
-                digest_type="dandi_etag",
+                digest=DUMMY_DIGEST,
                 allow_any_path=True,
             )
             BareAsset(**asset.dict())
