@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass
+from datetime import datetime
 import os
 from pathlib import Path
 from typing import Iterator, List, Optional, Union
@@ -17,7 +18,7 @@ from .exceptions import UnknownSuffixError
 from .metadata import get_default_metadata, get_metadata, nwb2asset
 from .misctypes import DUMMY_DIGEST, Digest
 from .pynwb_utils import validate as pynwb_validate
-from .utils import yaml_load
+from .utils import ensure_datetime, yaml_load
 from .validate import _check_required_fields
 
 lgr = get_logger()
@@ -31,6 +32,13 @@ _required_nwb_metadata_fields = ["subject_id"]
 class DandiFile(ABC):
     #: Path to node on disk
     filepath: Path
+
+    def get_size(self) -> int:
+        return self.filepath.stat().st_size
+
+    def get_mtime(self) -> datetime:
+        # TODO: Should this be overridden for LocalDirectoryAsset?
+        return ensure_datetime(self.filepath.stat().st_mtime)
 
     @abstractmethod
     def get_metadata(
@@ -224,7 +232,17 @@ class GenericAsset(LocalFileAsset):
 
 
 class LocalDirectoryAsset(LocalAsset):
-    pass
+    def iterfiles(self) -> Iterator[Path]:
+        dirs = deque([self.filepath])
+        while dirs:
+            for p in dirs.popleft().iterdir():
+                if p.is_dir():
+                    dirs.append(p)
+                else:
+                    yield p
+
+    def get_size(self) -> int:
+        return sum(p.stat().st_size for p in self.iterfiles())
 
 
 class ZarrAsset(LocalDirectoryAsset):

@@ -115,8 +115,7 @@ def upload(
         relpath = PurePosixPath(relpath)
         try:
             try:
-                path_stat = path.stat()
-                yield {"size": path_stat.st_size}
+                yield {"size": dfile.get_size()}
             except FileNotFoundError:
                 yield skip_file("ERROR: File not found")
                 return
@@ -178,7 +177,7 @@ def upload(
                 extant = None
             else:
                 metadata = extant.get_raw_metadata()
-                local_mtime = ensure_datetime(path_stat.st_mtime)
+                local_mtime = dfile.get_mtime()
                 remote_mtime_str = metadata.get("blobDateModified")
                 d = metadata.get("digest", {})
                 if "dandi:dandi-etag" in d:
