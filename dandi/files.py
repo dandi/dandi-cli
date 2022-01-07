@@ -278,46 +278,52 @@ class ZarrAsset(LocalDirectoryAsset):
 
 
 def find_dandi_files(
-    dirpath: Union[str, Path],
-    *,
+    *paths: Union[str, Path],
     dandiset_path: Optional[Union[str, Path]] = None,
     allow_all: bool = False,
     include_metadata: bool = False,
 ) -> Iterator[DandiFile]:
     if dandiset_path is None:
-        dandiset_path = dirpath
-    else:
+        if len(paths) == 1 and os.path.isdir(paths[0]):
+            dandiset_path = paths[0]
+        else:
+            raise ValueError(
+                "dandiset_path must be set when not traversing a single directory"
+            )
+    path_queue = deque()
+    for p in paths:
+        p = Path(p)
         try:
-            Path(dandiset_path).relative_to(dirpath)
+            p.relative_to(dandiset_path)
         except ValueError:
-            raise ValueError("dirpath must be within dandiset_path")
-    dirs = deque([Path(dirpath)])
-    while dirs:
-        for p in dirs.popleft().iterdir():
-            if p.name.startswith("."):
+            raise ValueError(
+                "Path {str(p)!r} is not inside Dandiset path {str(dandiset_path)!r}"
+            )
+        path_queue.append(p)
+    while path_queue:
+        p = path_queue.popleft()
+        if p.name.startswith("."):
+            continue
+        if p.is_dir():
+            if p.is_symlink():
+                lgr.warning("%s: Ignoring unsupported symbolic link to directory", p)
                 continue
-            if p.is_dir():
-                if p.is_symlink():
-                    lgr.warning(
-                        "%s: Ignoring unsupported symbolic link to directory", p
-                    )
-                    continue
-                try:
-                    df = dandi_file(p, dandiset_path)
-                except UnknownSuffixError:
-                    dirs.append(p)
-                else:
-                    yield df
-            else:
+            try:
                 df = dandi_file(p, dandiset_path)
-                if isinstance(df, GenericAsset) and not allow_all:
-                    pass
-                elif isinstance(df, DandisetMetadataFile) and not (
-                    allow_all or include_metadata
-                ):
-                    pass
-                else:
-                    yield df
+            except UnknownSuffixError:
+                path_queue.extend(p.iterdir())
+            else:
+                yield df
+        else:
+            df = dandi_file(p, dandiset_path)
+            if isinstance(df, GenericAsset) and not allow_all:
+                pass
+            elif isinstance(df, DandisetMetadataFile) and not (
+                allow_all or include_metadata
+            ):
+                pass
+            else:
+                yield df
 
 
 def dandi_file(
