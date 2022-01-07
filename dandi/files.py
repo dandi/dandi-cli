@@ -36,7 +36,7 @@ class DandiFile(ABC):
     def get_metadata(
         self,
         digest: Optional[Digest] = None,
-        allow_any_path: bool = True,
+        ignore_errors: bool = True,
     ) -> CommonModel:
         ...
 
@@ -53,7 +53,7 @@ class DandisetMetadataFile(DandiFile):
     def get_metadata(
         self,
         digest: Optional[Digest] = None,
-        allow_any_path: bool = True,
+        ignore_errors: bool = True,
     ) -> DandisetMeta:
         with open(self.filepath) as f:
             meta = yaml_load(f, typ="safe")
@@ -111,7 +111,7 @@ class LocalAsset(DandiFile):
     def get_metadata(
         self,
         digest: Optional[Digest] = None,
-        allow_any_path: bool = True,
+        ignore_errors: bool = True,
     ) -> BareAsset:
         ...
 
@@ -179,7 +179,7 @@ class NWBAsset(LocalFileAsset):
     def get_metadata(
         self,
         digest: Optional[Digest] = None,
-        allow_any_path: bool = True,
+        ignore_errors: bool = True,
     ) -> BareAsset:
         try:
             metadata = nwb2asset(self.filepath, digest=digest)
@@ -190,7 +190,7 @@ class NWBAsset(LocalFileAsset):
                 type(e).__name__,
                 str(e),
             )
-            if allow_any_path:
+            if ignore_errors:
                 metadata = get_default_metadata(self.filepath, digest=digest)
             else:
                 raise
@@ -216,7 +216,7 @@ class GenericAsset(LocalFileAsset):
     def get_metadata(
         self,
         digest: Optional[Digest] = None,
-        allow_any_path: bool = True,
+        ignore_errors: bool = True,
     ) -> BareAsset:
         metadata = get_default_metadata(self.filepath, digest=digest)
         metadata.path = self.path
@@ -233,7 +233,7 @@ class ZarrAsset(LocalDirectoryAsset):
     def get_metadata(
         self,
         digest: Optional[Digest] = None,
-        allow_any_path: bool = True,
+        ignore_errors: bool = True,
     ) -> BareAsset:
         raise NotImplementedError
 

@@ -239,7 +239,7 @@ def upload(
             try:
                 metadata = dfile.get_metadata(
                     digest=Digest.dandi_etag(file_etag),
-                    allow_any_path=allow_any_path,
+                    ignore_errors=allow_any_path,
                 ).json_dict()
             except Exception as e:
                 yield skip_file("failed to extract metadata: %s" % str(e))
