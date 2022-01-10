@@ -75,7 +75,7 @@ def keyring_lookup(service_name, username):
         if click.confirm(
             "Would you like to establish an encrypted keyring?", default=True
         ):
-            keyring_cfg = Path(keyringrc_file())
+            keyring_cfg = keyringrc_file()
             if keyring_cfg.exists():
                 lgr.info("%s exists; refusing to overwrite", keyring_cfg)
             else:
@@ -95,4 +95,4 @@ def keyring_lookup(service_name, username):
 
 
 def keyringrc_file():
-    return op.join(config_root(), "keyringrc.cfg")
+    return Path(config_root(), "keyringrc.cfg")
