@@ -7,7 +7,7 @@ from ..dandiapi import RESTFullAPIClient
 from ..delete import delete
 from ..download import download
 from ..exceptions import NotFoundError
-from ..utils import find_files
+from ..utils import list_paths
 
 
 @pytest.mark.parametrize(
@@ -70,8 +70,9 @@ def test_delete_paths(
     )
     delete_spy.assert_called()
     download(text_dandiset["dandiset"].version_api_url, tmp_path)
-    files = sorted(map(Path, find_files(r".*", paths=[tmp_path])))
-    assert files == [tmp_path / dandiset_id / f for f in ["dandiset.yaml"] + remainder]
+    assert list_paths(tmp_path) == [
+        tmp_path / dandiset_id / f for f in ["dandiset.yaml"] + remainder
+    ]
 
 
 @pytest.mark.parametrize("confirm", [True, False])
@@ -276,8 +277,7 @@ def test_delete_nonexistent_asset_skip_missing(
     )
     delete_spy.assert_called()
     download(text_dandiset["dandiset"].version_api_url, tmp_path)
-    files = sorted(map(Path, find_files(r".*", paths=[tmp_path])))
-    assert files == [
+    assert list_paths(tmp_path) == [
         tmp_path / dandiset_id / "dandiset.yaml",
         tmp_path / dandiset_id / "subdir1" / "apple.txt",
         tmp_path / dandiset_id / "subdir2" / "banana.txt",
@@ -328,8 +328,7 @@ def test_delete_nonexistent_asset_folder_skip_missing(
     )
     delete_spy.assert_called()
     download(text_dandiset["dandiset"].version_api_url, tmp_path)
-    files = sorted(map(Path, find_files(r".*", paths=[tmp_path])))
-    assert files == [
+    assert list_paths(tmp_path) == [
         tmp_path / dandiset_id / "dandiset.yaml",
         tmp_path / dandiset_id / "file.txt",
         tmp_path / dandiset_id / "subdir2" / "banana.txt",
