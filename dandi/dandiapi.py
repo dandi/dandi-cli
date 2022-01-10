@@ -87,6 +87,7 @@ from .consts import (
 )
 from .exceptions import NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup
+from .misctypes import Digest
 from .utils import USER_AGENT, check_dandi_version, ensure_datetime, is_interactive
 
 lgr = get_logger()
@@ -1201,6 +1202,18 @@ class BaseRemoteAsset(APIBase):
             return metadata["digest"][digest_type]
         except KeyError:
             raise NotFoundError(f"No {digest_type} digest found in metadata")
+
+    def get_etag(self) -> Digest:
+        """
+        Retrieves the DANDI etag digest of the appropriate type for the asset:
+        a dandi-etag digest for blob resources or a dandi-zarr-checksum for
+        Zarr resources
+        """
+        if self.is_zarr():
+            algorithm = models.DigestType.dandi_zarr_checksum
+        else:
+            algorithm = models.DigestType.dandi_etag
+        return Digest(algorithm=algorithm, value=self.get_digest(algorithm))
 
     def get_content_url(
         self,
