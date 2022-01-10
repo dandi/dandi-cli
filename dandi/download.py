@@ -16,12 +16,12 @@ from .consts import RETRY_STATUSES, dandiset_metadata_file
 from .dandiarchive import DandisetURL, MultiAssetURL, SingleAssetURL, parse_dandi_url
 from .dandiset import Dandiset
 from .exceptions import NotFoundError
+from .files import DandisetMetadataFile, find_dandi_files
 from .support.digests import get_digest
 from .support.pyout import naturalsize
 from .utils import (
     abbrev_prompt,
     ensure_datetime,
-    find_files,
     flattened,
     is_same_time,
     on_windows,
@@ -127,14 +127,14 @@ def download(
                 f"Unexpected URL type {type(parsed_url).__name__}"
             )
         to_delete = []
-        for p in find_files(".*", download_dir, exclude_datalad=True):
-            if p == op.join(output_path, dandiset_metadata_file):
+        for df in find_dandi_files(download_dir, allow_all=True):
+            if isinstance(df, DandisetMetadataFile):
                 continue
-            a_path = op.normpath(op.join(prefix, op.relpath(p, download_dir)))
+            a_path = op.normpath(op.join(prefix, df.path))
             if on_windows:
                 a_path = a_path.replace("\\", "/")
             if a_path not in asset_paths:
-                to_delete.append(p)
+                to_delete.append(df.filepath)
         if to_delete:
             while True:
                 opt = abbrev_prompt(
