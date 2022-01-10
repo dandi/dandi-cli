@@ -25,7 +25,7 @@ from .exceptions import UnknownSuffixError
 from .metadata import get_default_metadata, get_metadata, nwb2asset
 from .misctypes import DUMMY_DIGEST, Digest
 from .pynwb_utils import validate as pynwb_validate
-from .support.digests import get_dandietag, get_digest
+from .support.digests import get_dandietag, get_digest, get_zarr_checksum
 from .utils import ensure_datetime, yaml_load
 from .validate import _check_required_fields
 
@@ -449,8 +449,7 @@ class ZarrAsset(LocalDirectoryAsset):
     EXTENSIONS = [".ngff", ".zarr"]
 
     def get_etag(self) -> Digest:
-        raise NotImplementedError
-        # return Digest.dandi_zarr(get_zarr_checksum(self.filepath))
+        return Digest.dandi_zarr(get_zarr_checksum(self.filepath))
 
     def get_metadata(
         self,
