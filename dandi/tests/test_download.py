@@ -1,7 +1,6 @@
 import json
 import os
 import os.path as op
-from pathlib import Path
 import re
 from shutil import rmtree
 
@@ -12,7 +11,7 @@ from .skip import mark
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
 from ..download import download, download_generator
-from ..utils import find_files
+from ..utils import list_paths
 
 
 # both urls point to 000027 (lean test dataset), and both draft and "released"
@@ -137,7 +136,7 @@ def test_download_folder(local_dandi_api, text_dandiset, tmp_path):
     download(
         f"dandi://{local_dandi_api['instance_id']}/{dandiset_id}/subdir2/", tmp_path
     )
-    assert sorted(map(Path, find_files(r".*", paths=[tmp_path], dirs=True))) == [
+    assert list_paths(tmp_path, dirs=True) == [
         tmp_path / "subdir2",
         tmp_path / "subdir2" / "banana.txt",
         tmp_path / "subdir2" / "coconut.txt",
@@ -152,27 +151,21 @@ def test_download_item(local_dandi_api, text_dandiset, tmp_path):
         f"dandi://{local_dandi_api['instance_id']}/{dandiset_id}/subdir2/coconut.txt",
         tmp_path,
     )
-    assert list(map(Path, find_files(r".*", paths=[tmp_path], dirs=True))) == [
-        tmp_path / "coconut.txt"
-    ]
+    assert list_paths(tmp_path, dirs=True) == [tmp_path / "coconut.txt"]
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
 
 
 def test_download_asset_id(text_dandiset, tmp_path):
     asset = text_dandiset["dandiset"].get_asset_by_path("subdir2/coconut.txt")
     download(asset.download_url, tmp_path)
-    assert list(map(Path, find_files(r".*", paths=[tmp_path], dirs=True))) == [
-        tmp_path / "coconut.txt"
-    ]
+    assert list_paths(tmp_path, dirs=True) == [tmp_path / "coconut.txt"]
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
 
 
 def test_download_asset_id_only(text_dandiset, tmp_path):
     asset = text_dandiset["dandiset"].get_asset_by_path("subdir2/coconut.txt")
     download(asset.base_download_url, tmp_path)
-    assert list(map(Path, find_files(r".*", paths=[tmp_path], dirs=True))) == [
-        tmp_path / "coconut.txt"
-    ]
+    assert list_paths(tmp_path, dirs=True) == [tmp_path / "coconut.txt"]
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
 
 
@@ -266,7 +259,7 @@ def test_download_metadata404(text_dandiset, tmp_path):
             "message": f"No such asset: {asset}",
         }
     ]
-    assert sorted(map(Path, find_files(r".*", paths=[tmp_path], dirs=True))) == [
+    assert list_paths(tmp_path, dirs=True) == [
         tmp_path / dandiset_metadata_file,
         tmp_path / "file.txt",
         tmp_path / "subdir2",
