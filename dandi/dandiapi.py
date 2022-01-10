@@ -79,6 +79,7 @@ from .consts import (
     DRAFT,
     MAX_CHUNK_SIZE,
     RETRY_STATUSES,
+    ZARR_MIME_TYPE,
     DandiInstance,
     EmbargoStatus,
     known_instances,
@@ -1283,6 +1284,14 @@ class BaseRemoteAsset(APIBase):
             for chunk in downloader():
                 fp.write(chunk)
 
+    def is_blob(self) -> bool:
+        """Returns true if the asset's actual data is a blob resource"""
+        return self.get_raw_metadata().get("encodingFormat") != ZARR_MIME_TYPE
+
+    def is_zarr(self) -> bool:
+        """Returns true if the asset's actual data is a Zarr resource"""
+        return self.get_raw_metadata().get("encodingFormat") == ZARR_MIME_TYPE
+
 
 class RemoteAsset(ABC, BaseRemoteAsset):
     """
@@ -1389,6 +1398,14 @@ class RemoteBlobAsset(RemoteAsset):
     #: The ID of the underlying blob resource
     blob: str
 
+    def is_blob(self) -> bool:
+        """Returns true if the asset's actual data is a blob resource"""
+        return True
+
+    def is_zarr(self) -> bool:
+        """Returns true if the asset's actual data is a Zarr resource"""
+        return False
+
     def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
         """
         Set the metadata for the asset on the server to the given value and
@@ -1409,6 +1426,14 @@ class RemoteZarrAsset(RemoteAsset):
 
     #: The ID of the underlying Zarr resource
     zarr: str
+
+    def is_blob(self) -> bool:
+        """Returns true if the asset's actual data is a blob resource"""
+        return False
+
+    def is_zarr(self) -> bool:
+        """Returns true if the asset's actual data is a Zarr resource"""
+        return True
 
     def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
         """
