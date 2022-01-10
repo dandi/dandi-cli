@@ -3,6 +3,7 @@ import os
 import os.path as op
 from pathlib import Path
 
+from click.testing import CliRunner
 import pytest
 import ruamel.yaml
 
@@ -102,7 +103,7 @@ if not on_windows:
 
 @pytest.mark.integration
 @pytest.mark.parametrize("mode", no_move_modes)
-def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
+def test_organize_nwb_test_data(nwb_test_data, tmpdir, mode):
     outdir = str(tmpdir / "organized")
 
     relative = False
@@ -145,7 +146,7 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
     input_files = op.join(nwb_test_data, "v2.0.1")
 
     cmd = ["-d", outdir, "--files-mode", mode, input_files]
-    r = clirunner.invoke(organize, cmd)
+    r = CliRunner().invoke(organize, cmd)
 
     # with @map_to_click_exceptions we loose original str of message somehow
     # although it is shown to the user - checked. TODO - figure it out
@@ -153,7 +154,7 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
     assert r.exit_code != 0, "Must have aborted since many files lack subject_id"
     assert not glob(op.join(outdir, "*")), "no files should have been populated"
 
-    r = clirunner.invoke(organize, cmd + ["--invalid", "warn"])
+    r = CliRunner().invoke(organize, cmd + ["--invalid", "warn"])
     assert r.exit_code == 0
     # this beast doesn't capture our logs ATM so cannot check anything there.
     # At the end we endup only with a single file (we no longer produce dandiset.yaml)
@@ -178,11 +179,11 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
         assert not any(op.islink(p) for p in produced_paths)
 
 
-def test_ambiguous(simple2_nwb, tmp_path, clirunner):
+def test_ambiguous(simple2_nwb, tmp_path):
     copy2 = copy_nwb_file(simple2_nwb, tmp_path)
     outdir = str(tmp_path / "organized")
     args = ["--files-mode", "copy", "-d", outdir, simple2_nwb, copy2]
-    r = clirunner.invoke(organize, args)
+    r = CliRunner().invoke(organize, args)
     assert r.exit_code == 0
     produced_paths = sorted(find_files(".*", paths=outdir))
     produced_paths_rel = [op.relpath(p, outdir) for p in produced_paths]
