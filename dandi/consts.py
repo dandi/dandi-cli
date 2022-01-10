@@ -148,3 +148,6 @@ MAX_ZARR_DEPTH = 5
 
 #: MIME type assigned to & used to identify Zarr assets
 ZARR_MIME_TYPE = "application/x-zarr"
+
+#: Maximum number of Zarr directory entries to upload at once
+ZARR_UPLOAD_BATCH_SIZE = 255

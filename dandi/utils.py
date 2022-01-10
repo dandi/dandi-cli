@@ -19,7 +19,7 @@ import shutil
 import subprocess
 import sys
 import types
-from typing import List, Optional, Union
+from typing import Iterable, Iterator, List, Optional, TypeVar, Union
 
 import dateutil.parser
 import requests
@@ -708,3 +708,22 @@ def check_dandi_version():
             exc,
         )
     os.environ["DANDI_NO_ET"] = "1"
+
+
+T = TypeVar("T")
+
+
+def chunked(iterable: Iterable[T], size: int) -> Iterator[List[T]]:
+    # cf. chunked() from more-itertools
+    i = iter(iterable)
+    while True:
+        xs = []
+        for _ in range(size):
+            try:
+                xs.append(next(i))
+            except StopIteration:
+                if xs:
+                    break
+                else:
+                    return
+        yield xs

@@ -19,14 +19,19 @@ import requests
 import zarr
 
 from . import get_logger
-from .consts import MAX_ZARR_DEPTH, ZARR_MIME_TYPE, dandiset_metadata_file
+from .consts import (
+    MAX_ZARR_DEPTH,
+    ZARR_MIME_TYPE,
+    ZARR_UPLOAD_BATCH_SIZE,
+    dandiset_metadata_file,
+)
 from .dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from .exceptions import UnknownSuffixError
 from .metadata import get_default_metadata, get_metadata, nwb2asset
 from .misctypes import DUMMY_DIGEST, Digest
 from .pynwb_utils import validate as pynwb_validate
 from .support.digests import get_dandietag, get_digest, get_zarr_checksum
-from .utils import ensure_datetime, yaml_load
+from .utils import chunked, ensure_datetime, pluralize, yaml_load
 from .validate import _check_required_fields
 
 lgr = get_logger()
@@ -207,8 +212,9 @@ class LocalAsset(DandiFile):
             the value of the instance's ``path`` attribute if no such field is
             already present.
         :param int jobs: Number of threads to use for uploading; defaults to 5
-        :param RemoteAsset replacing: If set, replace the given asset, which
-            must have the same path as the new asset
+        :param RemoteAsset replacing:
+            If set, replace the given asset, which must have the same path as
+            the new asset
         :rtype: RemoteAsset
         """
         for status in self.iter_upload(
@@ -251,10 +257,10 @@ class LocalFileAsset(LocalAsset):
             Metadata for the uploaded asset.  The "path" field will be set to
             the value of the instance's ``path`` attribute if no such field is
             already present.
-        :param int jobs:
-            Number of threads to use for uploading; defaults to 5
-        :param RemoteAsset replacing: If set, replace the given asset, which
-            must have the same path as the new asset
+        :param int jobs: Number of threads to use for uploading; defaults to 5
+        :param RemoteAsset replacing:
+            If set, replace the given asset, which must have the same path as
+            the new asset
         :returns:
             A generator of `dict`\\s containing at least a ``"status"`` key.
             Upon successful upload, the last `dict` will have a status of
@@ -312,7 +318,7 @@ class LocalFileAsset(LocalAsset):
                         lock = Lock()
                         futures = [
                             executor.submit(
-                                _upload_part,
+                                _upload_blob_part,
                                 storage_session=storage,
                                 fp=fp,
                                 lock=lock,
@@ -507,7 +513,110 @@ class ZarrAsset(LocalDirectoryAsset):
         jobs: Optional[int] = None,
         replacing: Optional[RemoteAsset] = None,
     ) -> Iterator[dict]:
-        raise NotImplementedError
+        """
+        Upload the Zarr directory as an asset with the given metadata to the
+        given Dandiset, returning a generator of status `dict`\\s.
+
+        :dandiset RemoteDandiset:
+            the Dandiset to which the Zarr will be uploaded
+        :param dict metadata:
+            Metadata for the uploaded asset.  The "path" field will be set to
+            the value of the instance's ``path`` attribute if no such field is
+            already present.
+        :param int jobs: Number of threads to use for uploading; defaults to 5
+        :param RemoteAsset replacing:
+            If set, replace the given asset, which must have the same path as
+            the new asset
+        :returns:
+            A generator of `dict`\\s containing at least a ``"status"`` key.
+            Upon successful upload, the last `dict` will have a status of
+            ``"done"`` and an ``"asset"`` key containing the resulting
+            `RemoteAsset`.
+        """
+        # TODO: Only iterate over the filetree once and save the results in
+        # memory
+        asset_path = metadata.setdefault("path", self.path)
+        client = dandiset.client
+        yield {"status": "calculating etag"}
+        filetag = self.get_etag().value
+        lgr.debug("Calculated dandi-zarr-checksum of %s for %s", filetag, self.filepath)
+        digest = metadata.get("digest", {})
+        if "dandi:dandi-zarr-checksum" in digest:
+            if digest["dandi:dandi-zarr-checksum"] != filetag:
+                raise RuntimeError(
+                    f"{self.filepath}: Zarr etag changed; was originally"
+                    f" {digest['dandi:dandi-zarr-checksum']} but is now {filetag}"
+                )
+        yield {"status": "initiating upload"}
+        lgr.debug("%s: Beginning upload", asset_path)
+        total_size = self.get_size()
+        bytes_uploaded = 0
+        r = client.post("/zarr/", json={"name": self.filepath.name})
+        zarr_id = r["zarr_id"]
+        with RESTFullAPIClient(
+            "http://nil.nil",
+            headers={"X-Amz-ACL": "bucket-owner-full-control"},
+        ) as storage:
+            for i, filebatch in enumerate(
+                chunked(self.iterfiles(), ZARR_UPLOAD_BATCH_SIZE), start=1
+            ):
+                upload_body = [
+                    {
+                        "path": p.relative_to(self.filepath).as_posix(),
+                        "etag": get_digest(p, "md5"),
+                    }
+                    for p in filebatch
+                ]
+                lgr.debug(
+                    "%s: Uploading Zarr file batch #%d (%s)",
+                    asset_path,
+                    i,
+                    pluralize(len(filebatch), "file"),
+                )
+                r = client.post(f"/zarr/{zarr_id}/upload/", json=upload_body)
+                with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
+                    futures = [
+                        executor.submit(
+                            _upload_zarr_file,
+                            storage_session=storage,
+                            path=self.filepath / upspec["path"],
+                            upload_url=upspec["upload_url"],
+                        )
+                        for upspec in r
+                    ]
+                    for fut in as_completed(futures):
+                        size = fut.result()
+                        bytes_uploaded += size
+                        yield {
+                            "status": "uploading",
+                            "upload": 100 * bytes_uploaded / total_size,
+                            "current": bytes_uploaded,
+                        }
+                lgr.debug("%s: Completing upload of batch #%d", asset_path, i)
+                r = client.post(f"/zarr/{zarr_id}/upload/complete/")
+        lgr.debug("%s: Upload completed", asset_path)
+        r = client.get(f"/zarr/{zarr_id}/")
+        if r["checksum"] != filetag:
+            raise RuntimeError(
+                "Server and client disagree on final ETag of uploaded Zarr;"
+                f" server says {r['checksum']}, client says {filetag}"
+            )
+        lgr.debug("%s: Assigning asset blob to dandiset & version", asset_path)
+        yield {"status": "producing asset"}
+        if replacing is not None:
+            lgr.debug("%s: Replacing pre-existing asset")
+            r = client.put(
+                replacing.api_path,
+                json={"metadata": metadata, "zarr_id": zarr_id},
+            )
+        else:
+            r = client.post(
+                f"{dandiset.version_api_path}assets/",
+                json={"metadata": metadata, "zarr_id": zarr_id},
+            )
+        a = RemoteAsset.from_data(dandiset, r)
+        lgr.info("%s: Asset successfully uploaded", asset_path)
+        yield {"status": "done", "asset": a}
 
 
 def find_dandi_files(
@@ -583,7 +692,7 @@ def dandi_file(
             return GenericAsset(filepath=filepath, path=path)
 
 
-def _upload_part(
+def _upload_blob_part(
     storage_session: RESTFullAPIClient,
     fp: BinaryIO,
     lock: Lock,
@@ -638,3 +747,11 @@ def _upload_part(
         "size": part["size"],
         "etag": server_etag,
     }
+
+
+def _upload_zarr_file(
+    storage_session: RESTFullAPIClient, path: Path, upload_url: str
+) -> int:
+    with path.open("rb") as fp:
+        storage_session.put(upload_url, data=fp, json_resp=False)
+    return path.stat().st_size
