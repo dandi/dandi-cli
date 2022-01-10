@@ -15,6 +15,10 @@ class Digest:
     def dandi_etag(cls, value: str) -> Digest:
         return cls(algorithm=DigestType.dandi_etag, value=value)
 
+    # @classmethod
+    # def dandi_zarr(cls, value: str) -> Digest:
+    #     return cls(algorithm=DigestType.dandi_zarr_checksum, value=value)
+
     def asdict(self) -> Dict[DigestType, str]:
         return {self.algorithm: self.value}
 

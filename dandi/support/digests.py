@@ -10,7 +10,11 @@
 """
 
 import hashlib
+import json
 import logging
+from operator import itemgetter
+from pathlib import Path
+from typing import Optional
 
 from dandischema.digests.dandietag import DandiETag
 from fscacher import PersistentCache
@@ -87,3 +91,32 @@ def get_digest(filepath, digest="sha256") -> str:
 @checksums.memoize_path
 def get_dandietag(filepath) -> DandiETag:
     return DandiETag.from_file(filepath)
+
+
+def get_zarr_checksum(dirpath: Path, basepath: Optional[Path] = None) -> str:
+    if basepath is None:
+        basepath = dirpath
+    dirs = []
+    files = []
+    for p in dirpath.iterdir():
+        if p.is_dir():
+            dirs.append(
+                {
+                    "md5": get_zarr_checksum(p, basepath),
+                    "path": p.relative_to(basepath).as_posix(),
+                }
+            )
+        else:
+            files.append(
+                {
+                    "md5": get_digest(p, "md5"),
+                    "path": p.relative_to(basepath).as_posix(),
+                }
+            )
+    data = {
+        "directories": sorted(dirs, key=itemgetter("path")),
+        "files": sorted(files, key=itemgetter("path")),
+    }
+    return hashlib.md5(
+        json.dumps(data, sort_keys=True, ensure_ascii=True).encode("utf-8")
+    ).hexdigest()

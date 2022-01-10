@@ -450,6 +450,7 @@ class ZarrAsset(LocalDirectoryAsset):
 
     def get_etag(self) -> Digest:
         raise NotImplementedError
+        # return Digest.dandi_zarr(get_zarr_checksum(self.filepath))
 
     def get_metadata(
         self,
