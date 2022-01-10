@@ -44,6 +44,7 @@ every Dandiset:
 }
 """
 
+from abc import ABC, abstractmethod
 from datetime import datetime
 import json
 import os.path
@@ -1283,7 +1284,7 @@ class BaseRemoteAsset(APIBase):
                 fp.write(chunk)
 
 
-class RemoteAsset(BaseRemoteAsset):
+class RemoteAsset(ABC, BaseRemoteAsset):
     """
     Subclass of `BaseRemoteAsset` that includes information about the Dandiset
     to which the asset belongs.
@@ -1307,7 +1308,7 @@ class RemoteAsset(BaseRemoteAsset):
 
     @classmethod
     def from_data(
-        self,
+        cls,
         dandiset: RemoteDandiset,
         data: Dict[str, Any],
         metadata: Optional[Dict[str, Any]] = None,
@@ -1320,7 +1321,17 @@ class RemoteAsset(BaseRemoteAsset):
         This is a low-level method that non-developers would normally only use
         when acquiring data using means outside of this library.
         """
-        return RemoteAsset(
+        if data.get("blob") is not None:
+            klass = RemoteBlobAsset
+            if data.pop("zarr", None) is not None:
+                raise ValueError("Asset data contains both `blob` and `zarr`'")
+        elif data.get("zarr") is not None:
+            klass = RemoteZarrAsset
+            if data.pop("blob", None) is not None:
+                raise ValueError("Asset data contains both `blob` and `zarr`'")
+        else:
+            raise ValueError("Asset data contains neither `blob` nor `zarr`")
+        return klass(
             client=dandiset.client,
             dandiset_id=dandiset.identifier,
             version_id=dandiset.version_id,
@@ -1359,21 +1370,32 @@ class RemoteAsset(BaseRemoteAsset):
         """
         return self.set_raw_metadata(metadata.json_dict())
 
+    @abstractmethod
     def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
         """
         Set the metadata for the asset on the server to the given value and
         update the `RemoteAsset` in place.
         """
-        try:
-            etag = metadata["digest"]["dandi:dandi-etag"]
-        except KeyError:
-            raise ValueError("dandi-etag digest not set in new asset metadata")
-        r = self.client.post(
-            "/blobs/digest/",
-            json={"algorithm": "dandi:dandi-etag", "value": etag},
-        )
+        ...
+
+    def delete(self) -> None:
+        """Delete the asset"""
+        self.client.delete(self.api_path)
+
+
+class RemoteBlobAsset(RemoteAsset):
+    """A `RemoteAsset` whose actual data is a blob resource"""
+
+    #: The ID of the underlying blob resource
+    blob: str
+
+    def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
+        """
+        Set the metadata for the asset on the server to the given value and
+        update the `RemoteBlobAsset` in place.
+        """
         data = self.client.put(
-            self.api_path, json={"metadata": metadata, "blob_id": r["blob_id"]}
+            self.api_path, json={"metadata": metadata, "blob_id": self.blob}
         )
         self.identifier = data["asset_id"]
         self.path = data["path"]
@@ -1381,6 +1403,23 @@ class RemoteAsset(BaseRemoteAsset):
         self.modified = ensure_datetime(data["modified"])
         self._metadata = data["metadata"]
 
-    def delete(self) -> None:
-        """Delete the asset"""
-        self.client.delete(self.api_path)
+
+class RemoteZarrAsset(RemoteAsset):
+    """A `RemoteAsset` whose actual data is a Zarr resource"""
+
+    #: The ID of the underlying Zarr resource
+    zarr: str
+
+    def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
+        """
+        Set the metadata for the asset on the server to the given value and
+        update the `RemoteZarrAsset` in place.
+        """
+        data = self.client.put(
+            self.api_path, json={"metadata": metadata, "zarr_id": self.zarr}
+        )
+        self.identifier = data["asset_id"]
+        self.path = data["path"]
+        self.size = int(data["size"])
+        self.modified = ensure_datetime(data["modified"])
+        self._metadata = data["metadata"]

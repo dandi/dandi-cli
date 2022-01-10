@@ -312,6 +312,7 @@ def test_remote_asset_json_dict(text_dandiset):
         "created": anys.ANY_AWARE_DATETIME_STR,
         "path": anys.ANY_STR,
         "size": anys.ANY_INT,
+        "blob": anys.ANY_STR,
     }
 
 
