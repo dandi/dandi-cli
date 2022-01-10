@@ -101,17 +101,14 @@ def _parse_iso8601(age):
     # allowing for comma instead of ., e.g. P1,5D
     age = age.replace(",", ".")
     pattern = (
-        "^P(?!$)(\\d+(?:\\.\\d+)?Y)?(\\d+(?:\\.\\d+)?M)?(\\d+(?:\\.\\d+)?W)?(\\d+(?:\\.\\d+)?D)?"
-        "(T(?=\\d)(\\d+(?:\\.\\d+)?H)?(\\d+(?:\\.\\d+)?M)?(\\d+(?:\\.\\d+)?S)?)?$"
+        r"^P(?!$)(\d+(?:\.\d+)?Y)?(\d+(?:\.\d+)?M)?(\d+(?:\.\d+)?W)?(\d+(?:\.\d+)?D)?"
+        r"(T(?=\d)(\d+(?:\.\d+)?H)?(\d+(?:\.\d+)?M)?(\d+(?:\.\d+)?S)?)?$"
     )
-
-    matchstr = re.match(pattern, age, flags=re.I)
-    if matchstr:
-        age_frm = [matchstr.group(i) for i in range(1, 6) if matchstr.group(i)]
-        age_frm = ["P"] + age_frm
-        return age_frm
+    m = re.match(pattern, age, flags=re.I)
+    if m:
+        return ["P"] + [m[i] for i in range(1, 6) if m[i]]
     else:
-        raise ValueError(f"ISO 8601 expected, but {age} was received")
+        raise ValueError(f"ISO 8601 expected, but {age!r} was received")
 
 
 def _parse_age_re(age, unit, tp="date"):
@@ -132,44 +129,33 @@ def _parse_age_re(age, unit, tp="date"):
     elif unit == "S":
         pat_un = "(sec|s(econd)?)"
 
-    pattern = rf"(\d+\.?\d*)\s*({pat_un}s?)"
-    matchstr = re.match(pattern, age, flags=re.I)
+    m = re.match(rf"(\d+\.?\d*)\s*({pat_un}s?)", age, flags=re.I)
     swap_flag = False
-    if matchstr is None:
+    if m is None:
         # checking pattern with "unit" word
-        pattern_unit = rf"(\d+\.?\d*)\s*units?:?\s*({pat_un}s?)"
-        matchstr = re.match(pattern_unit, age, flags=re.I)
-        if matchstr is None:
-            # checking patter with swapped order
-            pattern = rf"({pat_un}s?)\s*(\d+\.?\d*)"
-            matchstr = re.match(pattern, age, flags=re.I)
+        m = re.match(rf"(\d+\.?\d*)\s*units?:?\s*({pat_un}s?)", age, flags=re.I)
+        if m is None:
+            # checking pattern with swapped order
+            m = re.match(rf"({pat_un}s?)\s*(\d+\.?\d*)", age, flags=re.I)
             swap_flag = True
-            if matchstr is None:
+            if m is None:
                 return age, None
-    if swap_flag:
-        qty = matchstr.group(3)
-    else:
-        qty = matchstr.group(1)
+    qty = m[3 if swap_flag else 1]
     if "." in qty:
         qty = float(qty)
         if int(qty) == qty:
             qty = int(qty)
     else:
         qty = int(qty)
-    age_rem = age.replace(matchstr.group(0), "")
-    age_rem = age_rem.strip()
-    return age_rem, f"{qty}{unit}"
+    return (age[: m.start()] + age[m.end() :]).strip(), f"{qty}{unit}"
 
 
 def _parse_hours_format(age):
     """parsing format 0:30:10"""
-    pattern = r"\s*(\d\d?):(\d\d):(\d\d)"
-    matchstr = re.match(pattern, age, flags=re.I)
-    if matchstr:
-        time_part = f"T{int(matchstr.group(1))}H{int(matchstr.group(2))}M{int(matchstr.group(3))}S"
-        age_rem = age.replace(matchstr.group(0), "")
-        age_rem = age_rem.strip()
-        return age_rem, [time_part]
+    m = re.match(r"\s*(\d\d?):(\d\d):(\d\d)", age)
+    if m:
+        time_part = f"T{int(m[1])}H{int(m[2])}M{int(m[3])}S"
+        return (age[: m.start()] + age[m.end() :]).strip(), [time_part]
     else:
         return age, []
 
@@ -178,15 +164,14 @@ def _check_decimal_parts(age_parts):
     """checking if decimal parts are only in the lowest order component"""
     # if the last part is the T component I have to separate the parts
     if "T" in age_parts[-1]:
-        pattern_time = "^T(\\d+(?:\\.\\d+)?H)?(\\d+(?:\\.\\d+)?M)?(\\d+(?:\\.\\d+)?S)?"
-        matchstr = re.match(pattern_time, age_parts[-1], flags=re.I)
-        time_parts = [matchstr.group(i) for i in range(1, 3) if matchstr.group(i)]
-        age_parts = age_parts[:-1] + time_parts
+        m = re.match(
+            r"^T(\d+(?:\.\d+)?H)?(\d+(?:\.\d+)?M)?(\d+(?:\.\d+)?S)?",
+            age_parts[-1],
+            flags=re.I,
+        )
+        age_parts = age_parts[:-1] + [m[i] for i in range(1, 3) if m[i]]
     decim_part = ["." in el for el in age_parts]
-    if any(decim_part) and any(decim_part[:-1]):
-        return False
-    else:
-        return True
+    return not (any(decim_part) and any(decim_part[:-1]))
 
 
 def parse_age(age):
@@ -203,21 +188,20 @@ def parse_age(age):
     """
 
     if not age:
-        raise ValueError("age is empty")
+        raise ValueError("Age is empty")
 
     age_orig = age
 
-    if "gestation" in age.lower():
-        pattern_time = "^gest[a-z]*"
-        matchstr = re.match(pattern_time, age, flags=re.I)
-        age = age.replace(matchstr.group(0), "")
+    if age.lower().startswith("gestation"):
+        m = re.match("^gest[a-z]*", age, flags=re.I)
+        age = age[: m.start()] + age[m.end() :]
         ref = "Gestational"
     else:
         ref = "Birth"
 
     age = age.strip()
 
-    if age[0] == "P":
+    if age.startswith("P"):
         age_f = _parse_iso8601(age)
     else:  # trying to figure out any free form
         # removing some symbols
@@ -225,7 +209,7 @@ def parse_age(age):
             age = age.replace(symb, " ")
         age = age.strip()
         if not age:
-            raise ValueError("age doesn't have any information")
+            raise ValueError("Age doesn't have any information")
 
         date_f = []
         for unit in ["Y", "M", "W", "D"]:
@@ -257,14 +241,14 @@ def parse_age(age):
             age_f = date_f
         if set(age) - {" ", ".", ",", ":", ";"}:
             raise ValueError(
-                f"not able to parse the age: {age_orig}, no rules to convert: {age}"
+                f"Cannot parse age {age_orig!r}: no rules to convert {age!r}"
             )
 
     # checking if there are decimal parts in the higher order components
     if not _check_decimal_parts(age_f):
         raise ValueError(
-            f"decimal fraction allowed in the lowest order part only,"
-            f" but {age} was received "
+            f"Decimal fraction allowed in the lowest order part only,"
+            f" but {age!r} was received"
         )
     return "".join(age_f), ref
 

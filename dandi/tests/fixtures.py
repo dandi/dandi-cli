@@ -9,6 +9,7 @@ import tempfile
 from time import sleep
 from uuid import uuid4
 
+from click.testing import CliRunner
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dateutil.tz import tzutc
 import pynwb
@@ -77,10 +78,10 @@ def simple2_nwb(simple1_nwb_metadata, tmpdir_factory):
 
 
 @pytest.fixture(scope="session")
-def organized_nwb_dir(simple2_nwb, tmp_path_factory, clirunner):
+def organized_nwb_dir(simple2_nwb, tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("dandiset")
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
-    r = clirunner.invoke(
+    r = CliRunner().invoke(
         organize, ["-f", "copy", "--dandiset-path", str(tmp_path), str(simple2_nwb)]
     )
     assert r.exit_code == 0, r.stdout
@@ -88,7 +89,7 @@ def organized_nwb_dir(simple2_nwb, tmp_path_factory, clirunner):
 
 
 @pytest.fixture(scope="session")
-def organized_nwb_dir2(simple1_nwb_metadata, simple2_nwb, tmp_path_factory, clirunner):
+def organized_nwb_dir2(simple1_nwb_metadata, simple2_nwb, tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("dandiset")
 
     # need to copy first and then use -f move since we will create one more
@@ -105,18 +106,10 @@ def organized_nwb_dir2(simple1_nwb_metadata, simple2_nwb, tmp_path_factory, clir
         **simple1_nwb_metadata,
     )
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
-    r = clirunner.invoke(organize, ["-f", "move", "--dandiset-path", str(tmp_path)])
+    r = CliRunner().invoke(organize, ["-f", "move", "--dandiset-path", str(tmp_path)])
     assert r.exit_code == 0, r.stdout
     assert sum(p.is_dir() for p in tmp_path.iterdir()) == 2
     return tmp_path
-
-
-@pytest.fixture(scope="session")
-def clirunner():
-    """A shortcut to get a click.runner to run a command"""
-    from click.testing import CliRunner
-
-    yield CliRunner()
 
 
 def get_gitrepo_fixture(url, committish=None, scope="session"):

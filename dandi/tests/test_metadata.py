@@ -97,22 +97,36 @@ def test_parse_age(age, duration):
 
 
 @pytest.mark.parametrize(
-    "age, match_er",
+    "age, errmsg",
     [
-        ("123", "no rules to convert: 123"),
-        ("P12", "ISO 8601 expected, but P12 was received"),
-        ("3-7 months", "no rules to convert: 3-7 months"),
-        ("3 months, some extra", "no rules to convert: some extra"),
-        (" , ", "age doesn't have any information"),
-        ("", "age is empty"),
-        (None, "age is empty"),
-        ("P2DT10.5H10M", "decimal fraction allowed in the lowest order"),
-        ("4.5 hours 10 sec", "decimal fraction allowed in the lowest order"),
+        ("123", "Cannot parse age '123': no rules to convert '123'"),
+        ("P12", "ISO 8601 expected, but 'P12' was received"),
+        (
+            "3-7 months",
+            "Cannot parse age '3-7 months': no rules to convert '3-7 months'",
+        ),
+        (
+            "3 months, some extra",
+            "Cannot parse age '3 months, some extra': no rules to convert 'some extra'",
+        ),
+        (" , ", "Age doesn't have any information"),
+        ("", "Age is empty"),
+        (None, "Age is empty"),
+        (
+            "P2DT10.5H10M",
+            "Decimal fraction allowed in the lowest order part only, but"
+            " 'P2DT10.5H10M' was received",
+        ),
+        (
+            "4.5 hours 10 sec",
+            "Decimal fraction allowed in the lowest order part only, but '' was received",
+        ),
     ],
 )
-def test_parse_error(age, match_er):
-    with pytest.raises(ValueError, match=match_er):
+def test_parse_error(age, errmsg):
+    with pytest.raises(ValueError) as excinfo:
         parse_age(age)
+    assert str(excinfo.value) == errmsg
 
 
 @pytest.mark.parametrize(
