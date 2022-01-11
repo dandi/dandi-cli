@@ -1,10 +1,15 @@
 from datetime import datetime
+from functools import lru_cache
 import os
 import os.path as op
 import re
+import typing as ty
 from uuid import uuid4
+from xml.dom.minidom import parseString
 
 from dandischema import models
+import requests
+import tenacity
 
 from . import __version__, get_logger
 from .dandiset import Dandiset
@@ -325,45 +330,136 @@ def extract_sex(metadata):
         return ...
 
 
+species_map = [
+    (
+        ["mouse"],
+        "mus",
+        "http://purl.obolibrary.org/obo/NCBITaxon_10090",
+        "Mus musculus - House mouse",
+    ),
+    (
+        ["human"],
+        "homo",
+        "http://purl.obolibrary.org/obo/NCBITaxon_9606",
+        "Homo sapiens - Human",
+    ),
+    (
+        ["norvegicus"],
+        None,
+        "http://purl.obolibrary.org/obo/NCBITaxon_10116",
+        "Rattus norvegicus - Norway rat",
+    ),
+    (
+        ["rattus rattus"],
+        None,
+        "http://purl.obolibrary.org/obo/NCBITaxon_10117",
+        "Rattus rattus - Black rat",
+    ),
+    (
+        ["rat"],
+        None,
+        "http://purl.obolibrary.org/obo/NCBITaxon_10116",
+        "Rattus norvegicus - Norway rat",
+    ),
+    (
+        ["mulatta", "rhesus"],
+        None,
+        "http://purl.obolibrary.org/obo/NCBITaxon_9544",
+        "Macaca mulatta - Rhesus monkey",
+    ),
+    (
+        ["jacchus"],
+        None,
+        "http://purl.obolibrary.org/obo/NCBITaxon_9483",
+        "Callithrix jacchus - Common marmoset",
+    ),
+    (
+        ["melanogaster", "fruit fly"],
+        None,
+        "http://purl.obolibrary.org/obo/NCBITaxon_7227",
+        "Drosophila melanogaster - Fruit fly",
+    ),
+]
+
+
+@lru_cache(maxsize=None)
+@tenacity.retry(
+    reraise=True,
+    stop=tenacity.stop_after_attempt(3),
+    wait=tenacity.wait_exponential(exp_base=1.25, multiplier=1.25),
+)
+def parse_purlobourl(url: str, lookup: ty.Optional[ty.Tuple[str, ...]] = None):
+    """Parse an Ontobee URL to return properties of a Class node
+
+    :param url: Ontobee URL
+    :param lookup: list of XML nodes to lookup
+    :return: dictionary containing found nodes
+    """
+
+    req = requests.get(url, allow_redirects=True)
+    doc = parseString(req.text)
+    for elfound in doc.getElementsByTagName("Class"):
+        if (
+            "rdf:about" in elfound.attributes.keys()
+            and elfound.attributes.getNamedItem("rdf:about").value == url
+        ):
+            break
+    else:
+        return None
+    values = {}
+    if lookup is None:
+        lookup = ("rdfs:label", "oboInOwl:hasExactSynonym")
+    for key in lookup:
+        elchild = elfound.getElementsByTagName(key)
+        if elchild:
+            elchild = elchild[0]
+            values[key] = elchild.childNodes[0].nodeValue.capitalize()
+    return values
+
+
 def extract_species(metadata):
-    value = metadata.get("species", None)
-    if value is not None and value != "":
-        value = value.lower()
-        if "mouse" in value or value.startswith("mus"):
-            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_10090"
-            value = "House mouse"
-        elif "human" in value or value.startswith("homo"):
-            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-            value = "Human"
-        elif "norvegicus" in value:
-            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_10116"
-            value = "Rat; Norway rat; rats; Brown rat"
-        elif "rattus rattus" in value:
-            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_10117"
-            value = "Black rat; Roof rat; House rat"
-        elif "rat" in value:
-            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_10116"
-            value = "Rat; Norway rat; rats; Brown rat"
-        elif "mulatta" in value or "rhesus" in value:
-            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_9544"
-            value = "Rhesus monkey"
-        elif "jacchus" in value:
-            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_9483"
-            value = "Common marmoset"
-        elif "melanogaster" in value or "fruit fly" in value:
-            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_7227"
-            value = "Common fruit fly"
-        elif value.startswith("http"):
-            value_id = value
-            value = None
+    value_orig = metadata.get("species", None)
+    value_id = None
+    if value_orig is not None and value_orig != "":
+        value = value_orig.lower().rstrip("/")
+        if value.startswith("http://purl.obolibrary.org/obo/NCBITaxon_".lower()):
+            for common_names, prefix, uri, name in species_map:
+                if value.split("//")[1] == uri.lower().rstrip("/").split("//")[1]:
+                    value_id = uri
+                    value = name
+                    break
+            if value_id is None:
+                value_id = value_orig
+                lookup = ("rdfs:label", "oboInOwl:hasExactSynonym")
+                try:
+                    result = parse_purlobourl(value, lookup=lookup)
+                except ConnectionError:
+                    value = None
+                else:
+                    value = None
+                    if result is not None:
+                        value = " - ".join(
+                            [result[key] for key in lookup if key in result]
+                        )
         else:
+            for common_names, prefix, uri, name in species_map:
+                if any(key in value for key in common_names) or (
+                    prefix and value.startswith(prefix)
+                ):
+                    value_id = uri
+                    value = name
+                    break
+        if value_id is None:
             raise ValueError(
                 f"Cannot interpret species field: {value}. Please "
-                "contact help@dandiarchive.org to add your species."
+                "contact help@dandiarchive.org to add your species. "
+                "You can also put the entire url from NCBITaxon "
+                "(http://www.ontobee.org/ontology/NCBITaxon) into "
+                "your species field in your NWB file. For example: "
+                "http://purl.obolibrary.org/obo/NCBITaxon_9606 is the "
+                "url for the species Homo sapiens."
             )
-        return models.SpeciesType(
-            identifier=value_id, name=value.capitalize() if value is not None else None
-        )
+        return models.SpeciesType(identifier=value_id, name=value)
     else:
         return ...
 
