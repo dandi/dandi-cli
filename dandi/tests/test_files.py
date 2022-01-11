@@ -2,8 +2,11 @@ from operator import attrgetter
 from pathlib import Path
 
 from dandischema.models import get_schema_version
+import numpy as np
+import zarr
 
-from ..consts import dandiset_metadata_file
+from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
+from ..dandiapi import RemoteZarrAsset
 from ..files import (
     DandisetMetadataFile,
     GenericAsset,
@@ -111,3 +114,23 @@ def test_validate_bogus(tmp_path):
     # ATM we would get 2 errors -- since could not be open in two places,
     # but that would be too rigid to test. Let's just see that we have expected errors
     assert any(e.startswith("Failed to read metadata") for e in errors)
+
+
+def test_upload_zarr(local_dandi_api, tmp_path):
+    filepath = tmp_path / "example.zarr"
+    zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
+    zf = dandi_file(filepath)
+    assert isinstance(zf, ZarrAsset)
+    d = local_dandi_api["client"].create_dandiset("Zarr Dandiset", {})
+    asset = zf.upload(d, {"description": "A test Zarr"})
+    assert isinstance(asset, RemoteZarrAsset)
+    assert asset.is_zarr()
+    assert not asset.is_blob()
+    assert asset.path == "example.zarr"
+    md = asset.get_raw_metadata()
+    assert md["encodingFormat"] == ZARR_MIME_TYPE
+    assert md["description"] == "A test Zarr"
+    md["description"] = "A modified Zarr"
+    asset.set_raw_metadata(md)
+    md = asset.get_raw_metadata()
+    assert md["description"] == "A modified Zarr"
