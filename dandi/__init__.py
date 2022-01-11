@@ -6,10 +6,6 @@ from . import _version
 __version__ = _version.get_versions()["version"]
 
 
-#
-# Basic logger configuration
-#
-
 from .due import Doi, due
 
 due.cite(
@@ -20,6 +16,11 @@ due.cite(
     version=__version__,  # since yoh hijacked dandi for module but is not brave enough
     # to claim it to be dandi as the whole
 )
+
+
+#
+# Basic logger configuration
+#
 
 
 def get_logger(name=None):
