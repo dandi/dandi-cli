@@ -1,3 +1,20 @@
+# 0.34.0 (Wed Jan 12 2022)
+
+#### 🚀 Enhancement
+
+- Include "dandiset" field in /uploads/initialize/ requests [#863](https://github.com/dandi/dandi-cli/pull/863) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- ENH: update species interpretation from NWB file [#857](https://github.com/dandi/dandi-cli/pull/857) ([@satra](https://github.com/satra))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+
+---
+
 # 0.33.0 (Tue Jan 11 2022)
 
 #### 🚀 Enhancement
