@@ -1103,6 +1103,7 @@ class RemoteDandiset:
                         "algorithm": "dandi:dandi-etag",
                         "value": filetag,
                     },
+                    "dandiset": self.identifier,
                 },
             )
         except requests.HTTPError as e:
