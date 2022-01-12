@@ -177,21 +177,8 @@ class LocalAsset(DandiFile):
                 return [f"Failed to read metadata: {e}"]
             return []
         else:
-            # TODO: Only do this for NWB files
-            # make sure that we have some basic metadata fields we require
-            try:
-                meta = get_metadata(self.filepath)
-            except Exception as e:
-                if devel_debug:
-                    raise
-                lgr.warning(
-                    "Failed to read metadata in %s: %s",
-                    self.filepath,
-                    e,
-                    extra={"validating": True},
-                )
-                return [f"Failed to read metadata: {e}"]
-            return _check_required_fields(meta, _required_nwb_metadata_fields)
+            # TODO: Do something else?
+            return []
 
     def upload(
         self,
@@ -417,11 +404,32 @@ class NWBAsset(LocalFileAsset):
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
     ) -> List[str]:
-        return pynwb_validate(
-            self.filepath, devel_debug=devel_debug
-        ) + super().get_validation_errors(
-            schema_version=schema_version, devel_debug=devel_debug
-        )
+        errors = pynwb_validate(self.filepath, devel_debug=devel_debug)
+        if schema_version is not None:
+            errors.extend(
+                super().get_validation_errors(
+                    schema_version=schema_version, devel_debug=devel_debug
+                )
+            )
+        else:
+            # make sure that we have some basic metadata fields we require
+            try:
+                meta = get_metadata(self.filepath)
+            except Exception as e:
+                if devel_debug:
+                    raise
+                lgr.warning(
+                    "Failed to read metadata in %s: %s",
+                    self.filepath,
+                    e,
+                    extra={"validating": True},
+                )
+                errors.append(f"Failed to read metadata: {e}")
+            else:
+                errors.extend(
+                    _check_required_fields(meta, _required_nwb_metadata_fields)
+                )
+        return errors
 
 
 class GenericAsset(LocalFileAsset):
