@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from shutil import rmtree
 
 import numpy as np
 import pynwb
@@ -7,7 +8,7 @@ import pytest
 import zarr
 
 from ..consts import DRAFT, dandiset_metadata_file
-from ..dandiapi import RemoteZarrAsset
+from ..dandiapi import RemoteBlobAsset, RemoteZarrAsset
 from ..download import download
 from ..exceptions import NotFoundError
 from ..files import LocalFileAsset
@@ -212,3 +213,19 @@ def test_upload_zarr(local_dandi_api, monkeypatch, tmp_path):
     assert asset.is_zarr()
     assert not asset.is_blob()
     assert asset.path == "sample.zarr"
+
+
+def test_upload_nonzarr_to_zarr_path(tmp_path, zarr_dandiset):
+    rmtree(zarr_dandiset.dspath / "sample.zarr")
+    (zarr_dandiset.dspath / "sample.zarr").write_text("This is not a Zarr.\n")
+    zarr_dandiset.upload(allow_any_path=True)
+    (asset,) = zarr_dandiset.dandiset.get_assets()
+    assert isinstance(asset, RemoteBlobAsset)
+    assert asset.is_blob()
+    assert not asset.is_zarr()
+    assert asset.path == "sample.zarr"
+    assert asset.get_raw_metadata()["encodingFormat"] == "application/octet-stream"
+    download(zarr_dandiset.dandiset.version_api_url, tmp_path)
+    assert (
+        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr"
+    ).read_text() == "This is not a Zarr.\n"
