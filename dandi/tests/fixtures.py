@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 from datetime import datetime
 import logging
 import os
@@ -7,20 +8,23 @@ import shutil
 from subprocess import DEVNULL, check_output, run
 import tempfile
 from time import sleep
+from typing import Any, Dict
 from uuid import uuid4
 
 from click.testing import CliRunner
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dateutil.tz import tzutc
+import numpy as np
 import pynwb
 import pytest
 import requests
+import zarr
 
 from .skip import skipif
 from .. import get_logger
 from ..cli.command import organize
-from ..consts import dandiset_metadata_file, known_instances
-from ..dandiapi import DandiAPIClient
+from ..consts import DandiInstance, dandiset_metadata_file, known_instances
+from ..dandiapi import DandiAPIClient, RemoteDandiset
 from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
 from ..upload import upload
 
@@ -241,23 +245,59 @@ def docker_compose_setup():
             run(["docker-compose", "down", "-v"], cwd=str(LOCAL_DOCKER_DIR), check=True)
 
 
+@dataclass
+class DandiAPI:
+    api_key: str
+    client: DandiAPIClient
+    instance: DandiInstance
+    instance_id: str
+
+    @property
+    def api_url(self) -> str:
+        return self.instance.api
+
+
 @pytest.fixture(scope="session")
 def local_dandi_api(docker_compose_setup):
     instance_id = "dandi-api-local-docker-tests"
     instance = known_instances[instance_id]
     api_key = docker_compose_setup["django_api_key"]
     with DandiAPIClient(api_url=instance.api, token=api_key) as client:
-        yield {
-            "api_key": api_key,
-            "client": client,
-            "instance": instance,
-            "instance_id": instance_id,
-        }
+        yield DandiAPI(
+            api_key=api_key,
+            client=client,
+            instance=instance,
+            instance_id=instance_id,
+        )
+
+
+@dataclass
+class SampleDandiset:
+    api: DandiAPI
+    dspath: Path
+    dandiset: RemoteDandiset
+    dandiset_id: str
+    upload_kwargs: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def client(self) -> DandiAPIClient:
+        return self.api.client
+
+    def upload(self, paths=None, **kwargs) -> None:
+        with pytest.MonkeyPatch().context() as m:
+            m.setenv("DANDI_API_KEY", self.api.api_key)
+            upload(
+                paths=paths or [],
+                dandiset_path=self.dspath,
+                dandi_instance=self.api.instance_id,
+                devel_debug=True,
+                **{**self.upload_kwargs, **kwargs},
+            )
 
 
 @pytest.fixture()
 def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
-    d = local_dandi_api["client"].create_dandiset(
+    d = local_dandi_api.client.create_dandiset(
         "Text Dandiset",
         {
             "schemaKey": "Dandiset",
@@ -283,28 +323,48 @@ def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
     (dspath / "subdir2").mkdir()
     (dspath / "subdir2" / "banana.txt").write_text("Banana\n")
     (dspath / "subdir2" / "coconut.txt").write_text("Coconut\n")
+    td = SampleDandiset(
+        api=local_dandi_api,
+        dspath=dspath,
+        dandiset=d,
+        dandiset_id=dandiset_id,
+        upload_kwargs={"allow_any_path": True, "validation": "skip"},
+    )
+    td.upload()
+    return td
 
-    def upload_dandiset(paths=None, **kwargs):
-        with monkeypatch.context() as m:
-            m.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-            upload(
-                paths=paths or [],
-                dandiset_path=dspath,
-                dandi_instance=local_dandi_api["instance_id"],
-                devel_debug=True,
-                allow_any_path=True,
-                validation="skip",
-                **kwargs,
-            )
 
-    upload_dandiset()
-    return {
-        "client": local_dandi_api["client"],
-        "dspath": dspath,
-        "dandiset": d,
-        "dandiset_id": dandiset_id,
-        "reupload": upload_dandiset,
-    }
+@pytest.fixture()
+def zarr_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
+    d = local_dandi_api.client.create_dandiset(
+        "Zarr Dandiset",
+        {
+            "schemaKey": "Dandiset",
+            "name": "Zarr Dandiset",
+            "description": "A test Zarr Dandiset",
+            "contributor": [
+                {
+                    "schemaKey": "Person",
+                    "name": "Wodder, John",
+                    "roleName": ["dcite:Author", "dcite:ContactPerson"],
+                }
+            ],
+            "license": ["spdx:CC0-1.0"],
+            "manifestLocation": ["https://github.com/dandi/dandi-cli"],
+        },
+    )
+    dandiset_id = d.identifier
+    dspath = tmp_path_factory.mktemp("zarr_dandiset")
+    (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
+    zarr.save(dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
+    td = SampleDandiset(
+        api=local_dandi_api,
+        dspath=dspath,
+        dandiset=d,
+        dandiset_id=dandiset_id,
+    )
+    td.upload()
+    return td
 
 
 @pytest.fixture()

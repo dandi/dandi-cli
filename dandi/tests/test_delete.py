@@ -54,13 +54,11 @@ from ..utils import list_paths
         ),
     ],
 )
-def test_delete_paths(
-    local_dandi_api, mocker, monkeypatch, text_dandiset, tmp_path, paths, remainder
-):
-    monkeypatch.chdir(text_dandiset["dspath"])
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    instance = local_dandi_api["instance_id"]
-    dandiset_id = text_dandiset["dandiset_id"]
+def test_delete_paths(mocker, monkeypatch, text_dandiset, tmp_path, paths, remainder):
+    monkeypatch.chdir(text_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    instance = text_dandiset.api.instance_id
+    dandiset_id = text_dandiset.dandiset_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     delete(
         [p.format(instance=instance, dandiset_id=dandiset_id) for p in paths],
@@ -69,20 +67,18 @@ def test_delete_paths(
         force=True,
     )
     delete_spy.assert_called()
-    download(text_dandiset["dandiset"].version_api_url, tmp_path)
+    download(text_dandiset.dandiset.version_api_url, tmp_path)
     assert list_paths(tmp_path) == [
         tmp_path / dandiset_id / f for f in ["dandiset.yaml"] + remainder
     ]
 
 
 @pytest.mark.parametrize("confirm", [True, False])
-def test_delete_path_confirm(
-    confirm, local_dandi_api, mocker, monkeypatch, text_dandiset
-):
-    monkeypatch.chdir(text_dandiset["dspath"])
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    instance = local_dandi_api["instance_id"]
-    dandiset_id = text_dandiset["dandiset_id"]
+def test_delete_path_confirm(confirm, mocker, monkeypatch, text_dandiset):
+    monkeypatch.chdir(text_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    instance = text_dandiset.api.instance_id
+    dandiset_id = text_dandiset.dandiset_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     confirm_mock = mocker.patch("click.confirm", return_value=confirm)
     delete(["subdir2/coconut.txt"], dandi_instance=instance, devel_debug=True)
@@ -95,10 +91,10 @@ def test_delete_path_confirm(
         delete_spy.assert_not_called()
 
 
-def test_delete_path_pyout(local_dandi_api, mocker, monkeypatch, text_dandiset):
-    monkeypatch.chdir(text_dandiset["dspath"])
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    instance = local_dandi_api["instance_id"]
+def test_delete_path_pyout(mocker, monkeypatch, text_dandiset):
+    monkeypatch.chdir(text_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    instance = text_dandiset.api.instance_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     delete(["subdir2/coconut.txt"], dandi_instance=instance, force=True)
     delete_spy.assert_called()
@@ -120,11 +116,11 @@ def test_delete_path_pyout(local_dandi_api, mocker, monkeypatch, text_dandiset):
         ],
     ],
 )
-def test_delete_dandiset(local_dandi_api, mocker, monkeypatch, text_dandiset, paths):
-    monkeypatch.chdir(text_dandiset["dspath"])
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    instance = local_dandi_api["instance_id"]
-    dandiset_id = text_dandiset["dandiset_id"]
+def test_delete_dandiset(mocker, monkeypatch, text_dandiset, paths):
+    monkeypatch.chdir(text_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    instance = text_dandiset.api.instance_id
+    dandiset_id = text_dandiset.dandiset_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     delete(
         [p.format(instance=instance, dandiset_id=dandiset_id) for p in paths],
@@ -134,17 +130,15 @@ def test_delete_dandiset(local_dandi_api, mocker, monkeypatch, text_dandiset, pa
     )
     delete_spy.assert_called()
     with pytest.raises(NotFoundError):
-        local_dandi_api["client"].get_dandiset(dandiset_id, DRAFT, lazy=False)
+        text_dandiset.client.get_dandiset(dandiset_id, DRAFT, lazy=False)
 
 
 @pytest.mark.parametrize("confirm", [True, False])
-def test_delete_dandiset_confirm(
-    confirm, local_dandi_api, mocker, monkeypatch, text_dandiset
-):
-    monkeypatch.chdir(text_dandiset["dspath"])
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    instance = local_dandi_api["instance_id"]
-    dandiset_id = text_dandiset["dandiset_id"]
+def test_delete_dandiset_confirm(confirm, mocker, monkeypatch, text_dandiset):
+    monkeypatch.chdir(text_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    instance = text_dandiset.api.instance_id
+    dandiset_id = text_dandiset.dandiset_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     confirm_mock = mocker.patch("click.confirm", return_value=confirm)
     delete(
@@ -157,11 +151,11 @@ def test_delete_dandiset_confirm(
         delete_spy.assert_not_called()
 
 
-def test_delete_dandiset_mismatch(local_dandi_api, mocker, monkeypatch, text_dandiset):
-    monkeypatch.chdir(text_dandiset["dspath"])
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    instance = local_dandi_api["instance_id"]
-    dandiset_id = text_dandiset["dandiset_id"]
+def test_delete_dandiset_mismatch(mocker, monkeypatch, text_dandiset):
+    monkeypatch.chdir(text_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    instance = text_dandiset.api.instance_id
+    dandiset_id = text_dandiset.dandiset_id
     not_dandiset = str(int(dandiset_id) - 1).zfill(6)
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     for paths in [
@@ -182,11 +176,11 @@ def test_delete_dandiset_mismatch(local_dandi_api, mocker, monkeypatch, text_dan
         delete_spy.assert_not_called()
 
 
-def test_delete_instance_mismatch(local_dandi_api, mocker, monkeypatch, text_dandiset):
-    monkeypatch.chdir(text_dandiset["dspath"])
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    instance = local_dandi_api["instance_id"]
-    dandiset_id = text_dandiset["dandiset_id"]
+def test_delete_instance_mismatch(mocker, monkeypatch, text_dandiset):
+    monkeypatch.chdir(text_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    instance = text_dandiset.api.instance_id
+    dandiset_id = text_dandiset.dandiset_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     for paths in [
         [
@@ -208,8 +202,8 @@ def test_delete_instance_mismatch(local_dandi_api, mocker, monkeypatch, text_dan
 
 
 def test_delete_nonexistent_dandiset(local_dandi_api, mocker, monkeypatch):
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    instance = local_dandi_api["instance_id"]
+    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
+    instance = local_dandi_api.instance_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     with pytest.raises(NotFoundError) as excinfo:
         delete(
@@ -223,8 +217,8 @@ def test_delete_nonexistent_dandiset(local_dandi_api, mocker, monkeypatch):
 
 
 def test_delete_nonexistent_dandiset_skip_missing(local_dandi_api, mocker, monkeypatch):
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    instance = local_dandi_api["instance_id"]
+    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
+    instance = local_dandi_api.instance_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     delete(
         [f"dandi://{instance}/999999/subdir1/apple.txt"],
@@ -236,10 +230,10 @@ def test_delete_nonexistent_dandiset_skip_missing(local_dandi_api, mocker, monke
     delete_spy.assert_not_called()
 
 
-def test_delete_nonexistent_asset(local_dandi_api, mocker, monkeypatch, text_dandiset):
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    instance = local_dandi_api["instance_id"]
-    dandiset_id = text_dandiset["dandiset_id"]
+def test_delete_nonexistent_asset(mocker, monkeypatch, text_dandiset):
+    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    instance = text_dandiset.api.instance_id
+    dandiset_id = text_dandiset.dandiset_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     with pytest.raises(NotFoundError) as excinfo:
         delete(
@@ -259,11 +253,11 @@ def test_delete_nonexistent_asset(local_dandi_api, mocker, monkeypatch, text_dan
 
 
 def test_delete_nonexistent_asset_skip_missing(
-    local_dandi_api, mocker, monkeypatch, text_dandiset, tmp_path
+    mocker, monkeypatch, text_dandiset, tmp_path
 ):
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    instance = local_dandi_api["instance_id"]
-    dandiset_id = text_dandiset["dandiset_id"]
+    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    instance = text_dandiset.api.instance_id
+    dandiset_id = text_dandiset.dandiset_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     delete(
         [
@@ -276,7 +270,7 @@ def test_delete_nonexistent_asset_skip_missing(
         skip_missing=True,
     )
     delete_spy.assert_called()
-    download(text_dandiset["dandiset"].version_api_url, tmp_path)
+    download(text_dandiset.dandiset.version_api_url, tmp_path)
     assert list_paths(tmp_path) == [
         tmp_path / dandiset_id / "dandiset.yaml",
         tmp_path / dandiset_id / "subdir1" / "apple.txt",
@@ -285,12 +279,10 @@ def test_delete_nonexistent_asset_skip_missing(
     ]
 
 
-def test_delete_nonexistent_asset_folder(
-    local_dandi_api, mocker, monkeypatch, text_dandiset
-):
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    instance = local_dandi_api["instance_id"]
-    dandiset_id = text_dandiset["dandiset_id"]
+def test_delete_nonexistent_asset_folder(mocker, monkeypatch, text_dandiset):
+    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    instance = text_dandiset.api.instance_id
+    dandiset_id = text_dandiset.dandiset_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     with pytest.raises(NotFoundError) as excinfo:
         delete(
@@ -310,11 +302,11 @@ def test_delete_nonexistent_asset_folder(
 
 
 def test_delete_nonexistent_asset_folder_skip_missing(
-    local_dandi_api, mocker, monkeypatch, text_dandiset, tmp_path
+    mocker, monkeypatch, text_dandiset, tmp_path
 ):
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    instance = local_dandi_api["instance_id"]
-    dandiset_id = text_dandiset["dandiset_id"]
+    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    instance = text_dandiset.api.instance_id
+    dandiset_id = text_dandiset.dandiset_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     delete(
         [
@@ -327,7 +319,7 @@ def test_delete_nonexistent_asset_folder_skip_missing(
         skip_missing=True,
     )
     delete_spy.assert_called()
-    download(text_dandiset["dandiset"].version_api_url, tmp_path)
+    download(text_dandiset.dandiset.version_api_url, tmp_path)
     assert list_paths(tmp_path) == [
         tmp_path / dandiset_id / "dandiset.yaml",
         tmp_path / dandiset_id / "file.txt",
@@ -337,8 +329,8 @@ def test_delete_nonexistent_asset_folder_skip_missing(
 
 
 def test_delete_version(local_dandi_api, mocker, monkeypatch):
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-    instance = local_dandi_api["instance_id"]
+    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
+    instance = local_dandi_api.instance_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     with pytest.raises(NotImplementedError) as excinfo:
         delete(

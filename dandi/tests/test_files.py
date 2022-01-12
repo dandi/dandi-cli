@@ -121,7 +121,7 @@ def test_upload_zarr(local_dandi_api, tmp_path):
     zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
     zf = dandi_file(filepath)
     assert isinstance(zf, ZarrAsset)
-    d = local_dandi_api["client"].create_dandiset("Zarr Dandiset", {})
+    d = local_dandi_api.client.create_dandiset("Zarr Dandiset", {})
     asset = zf.upload(d, {"description": "A test Zarr"})
     assert isinstance(asset, RemoteZarrAsset)
     assert asset.is_zarr()
