@@ -23,6 +23,7 @@ from .consts import (
     MAX_ZARR_DEPTH,
     ZARR_MIME_TYPE,
     ZARR_UPLOAD_BATCH_SIZE,
+    EmbargoStatus,
     dandiset_metadata_file,
 )
 from .dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
@@ -541,11 +542,17 @@ class ZarrAsset(LocalDirectoryAsset):
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
-        # TODO: Only iterate over the filetree once and save the results in
-        # memory
+        # So that older clients don't get away with doing the wrong thing once
+        # Zarr upload to embargoed Dandisets is implemented in the API:
+        if dandiset.embargo_status is EmbargoStatus.EMBARGOED:
+            raise NotImplementedError(
+                "Uploading Zarr assets to embargoed Dandisets is currently not implemented"
+            )
         asset_path = metadata.setdefault("path", self.path)
         client = dandiset.client
         yield {"status": "calculating etag"}
+        # TODO: Only iterate over the filetree once and save the results in
+        # memory
         filetag = self.get_etag().value
         lgr.debug("Calculated dandi-zarr-checksum of %s for %s", filetag, self.filepath)
         digest = metadata.get("digest", {})
