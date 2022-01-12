@@ -397,6 +397,7 @@ def parse_purlobourl(url: str, lookup: ty.Optional[ty.Tuple[str, ...]] = None):
     """
 
     req = requests.get(url, allow_redirects=True)
+    req.raise_for_status()
     doc = parseString(req.text)
     for elfound in doc.getElementsByTagName("Class"):
         if (
