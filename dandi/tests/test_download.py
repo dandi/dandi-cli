@@ -4,14 +4,17 @@ import os.path as op
 import re
 from shutil import rmtree
 
+import numpy as np
 import pytest
 import responses
+import zarr
 
 from .skip import mark
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
 from ..download import download, download_generator
-from ..utils import list_paths
+from ..upload import upload
+from ..utils import assert_dirtrees_eq, list_paths
 
 
 # both urls point to 000027 (lean test dataset), and both draft and "released"
@@ -266,3 +269,60 @@ def test_download_metadata404(text_dandiset, tmp_path):
         tmp_path / "subdir2" / "banana.txt",
         tmp_path / "subdir2" / "coconut.txt",
     ]
+
+
+@pytest.mark.xfail(reason="Zarr download not implemented yet", strict=True)
+def test_download_zarr(tmp_path, zarr_dandiset):
+    download(zarr_dandiset.dandiset.version_api_url, tmp_path)
+    assert_dirtrees_eq(
+        zarr_dandiset.dspath / "sample.zarr",
+        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr",
+    )
+
+
+@pytest.mark.xfail(reason="Zarr download not implemented yet", strict=True)
+def test_download_different_zarr(tmp_path, zarr_dandiset):
+    dd = tmp_path / zarr_dandiset.dandiset_id
+    dd.mkdir()
+    zarr.save(dd / "sample.zarr", np.eye(5))
+    download(zarr_dandiset.dandiset.version_api_url, tmp_path)
+    assert_dirtrees_eq(
+        zarr_dandiset.dspath / "sample.zarr",
+        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr",
+    )
+
+
+@pytest.mark.xfail(reason="Zarr download not implemented yet", strict=True)
+def test_download_zarr_to_nonzarr_path(tmp_path, zarr_dandiset):
+    dd = tmp_path / zarr_dandiset.dandiset_id
+    dd.mkdir()
+    (dd / "sample.zarr").write_text("This is not a Zarr.\n")
+    download(zarr_dandiset.dandiset.version_api_url, tmp_path)
+    assert_dirtrees_eq(
+        zarr_dandiset.dspath / "sample.zarr",
+        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr",
+    )
+
+
+@pytest.mark.xfail(reason="Zarr download not implemented yet", strict=True)
+def test_download_nonzarr_to_zarr_path(local_dandi_api, monkeypatch, tmp_path):
+    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
+    d = local_dandi_api.client.create_dandiset("Test Dandiset", {})
+    dandiset_id = d.identifier
+    dspath = tmp_path / "dandiset"
+    dspath.mkdir()
+    (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
+    (dspath / "sample.zarr").write_text("This is not a Zarr.\n")
+    upload(
+        paths=[],
+        dandiset_path=dspath,
+        dandi_instance=local_dandi_api.instance_id,
+        devel_debug=True,
+        allow_any_path=True,
+    )
+    dd = tmp_path / "download" / dandiset_id
+    dd.mkdir(parents=True, exist_ok=True)
+    zarr.save(dd / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
+    download(d.version_api_url, tmp_path / "download")
+    assert (dd / "sample.zarr").is_file()
+    assert (dd / "sample.zarr").read_text() == "This is not a Zarr.\n"

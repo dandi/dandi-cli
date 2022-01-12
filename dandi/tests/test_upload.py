@@ -7,14 +7,14 @@ import pynwb
 import pytest
 import zarr
 
-from ..consts import DRAFT, dandiset_metadata_file
+from ..consts import DRAFT, ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import RemoteBlobAsset, RemoteZarrAsset
 from ..download import download
 from ..exceptions import NotFoundError
 from ..files import LocalFileAsset
 from ..pynwb_utils import make_nwb_file
 from ..upload import upload
-from ..utils import list_paths
+from ..utils import assert_dirtrees_eq, list_paths
 
 
 def test_new_upload_download(local_dandi_api, monkeypatch, organized_nwb_dir, tmp_path):
@@ -215,6 +215,18 @@ def test_upload_zarr(local_dandi_api, monkeypatch, tmp_path):
     assert asset.path == "sample.zarr"
 
 
+@pytest.mark.xfail(reason="Zarr download not implemented yet", strict=True)
+def test_upload_different_zarr(tmp_path, zarr_dandiset):
+    rmtree(zarr_dandiset.dspath / "sample.zarr")
+    zarr.save(tmp_path / "sample.zarr", np.eye(5))
+    zarr_dandiset.upload()
+    download(zarr_dandiset.dandiset.version_api_url, tmp_path)
+    assert_dirtrees_eq(
+        zarr_dandiset.dspath / "sample.zarr",
+        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr",
+    )
+
+
 def test_upload_nonzarr_to_zarr_path(tmp_path, zarr_dandiset):
     rmtree(zarr_dandiset.dspath / "sample.zarr")
     (zarr_dandiset.dspath / "sample.zarr").write_text("This is not a Zarr.\n")
@@ -229,3 +241,52 @@ def test_upload_nonzarr_to_zarr_path(tmp_path, zarr_dandiset):
     assert (
         tmp_path / zarr_dandiset.dandiset_id / "sample.zarr"
     ).read_text() == "This is not a Zarr.\n"
+
+
+@pytest.mark.xfail(reason="Zarr download not implemented yet", strict=True)
+def test_upload_zarr_to_nonzarr_path(local_dandi_api, monkeypatch, tmp_path):
+    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
+    d = local_dandi_api.client.create_dandiset("Test Dandiset", {})
+    dandiset_id = d.identifier
+    dspath = tmp_path / "dandiset"
+    dspath.mkdir()
+    (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
+    (dspath / "sample.zarr").write_text("This is not a Zarr.\n")
+    upload(
+        paths=[],
+        dandiset_path=dspath,
+        dandi_instance=local_dandi_api.instance_id,
+        devel_debug=True,
+        allow_any_path=True,
+    )
+
+    (asset,) = d.get_assets()
+    assert isinstance(asset, RemoteBlobAsset)
+    assert asset.is_blob()
+    assert not asset.is_zarr()
+    assert asset.path == "sample.zarr"
+    assert asset.get_raw_metadata()["encodingFormat"] == "application/octet-stream"
+
+    (dspath / "sample.zarr").unlink()
+    zarr.save(dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
+    upload(
+        paths=[],
+        dandiset_path=dspath,
+        dandi_instance=local_dandi_api.instance_id,
+        devel_debug=True,
+        allow_any_path=True,
+    )
+
+    (asset,) = d.get_assets()
+    assert isinstance(asset, RemoteZarrAsset)
+    assert asset.is_zarr()
+    assert not asset.is_blob()
+    assert asset.path == "sample.zarr"
+    assert asset.get_raw_metadata()["encodingFormat"] == ZARR_MIME_TYPE
+
+    (tmp_path / "download").mkdir()
+    download(d.version_api_url, tmp_path / "download")
+    assert_dirtrees_eq(
+        dspath / "sample.zarr",
+        tmp_path / "download" / dandiset_id / "sample.zarr",
+    )

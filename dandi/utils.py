@@ -10,6 +10,7 @@ import inspect
 import io
 import itertools
 from mimetypes import guess_type
+from operator import attrgetter
 import os
 import os.path as op
 from pathlib import Path
@@ -727,3 +728,22 @@ def chunked(iterable: Iterable[T], size: int) -> Iterator[List[T]]:
                 else:
                     return
         yield xs
+
+
+def assert_dirtrees_eq(tree1: Path, tree2: Path) -> None:
+    """Assert that the file trees at the given paths are equal"""
+    assert sorted(map(attrgetter("name"), tree1.iterdir())) == sorted(
+        map(attrgetter("name"), tree2.iterdir())
+    )
+    for p1 in tree1.iterdir():
+        p2 = tree2 / p1.name
+        assert p1.is_dir() == p2.is_dir()
+        if p1.is_dir():
+            assert_dirtrees_eq(p1, p2)
+        # TODO: Considering using the identify library to test for binary-ness.
+        # (We can't use mimetypes, as .json maps to application/json instead of
+        # text/json.)
+        elif p1.suffix in {".txt", ".py", ".json"}:
+            assert p1.read_text() == p2.read_text()
+        else:
+            assert p1.read_bytes() == p2.read_bytes()
