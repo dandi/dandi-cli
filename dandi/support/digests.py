@@ -118,5 +118,7 @@ def get_zarr_checksum(dirpath: Path, basepath: Optional[Path] = None) -> str:
         "files": sorted(files, key=itemgetter("path")),
     }
     return hashlib.md5(
-        json.dumps(data, sort_keys=True, ensure_ascii=True).encode("utf-8")
+        json.dumps(
+            data, sort_keys=True, ensure_ascii=True, separators=(",", ":")
+        ).encode("utf-8")
     ).hexdigest()
