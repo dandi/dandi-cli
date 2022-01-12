@@ -601,7 +601,7 @@ class ZarrAsset(LocalDirectoryAsset):
                             "current": bytes_uploaded,
                         }
                 lgr.debug("%s: Completing upload of batch #%d", asset_path, i)
-                r = client.post(f"/zarr/{zarr_id}/upload/complete/")
+                client.post(f"/zarr/{zarr_id}/upload/complete/")
         lgr.debug("%s: Upload completed", asset_path)
         r = client.get(f"/zarr/{zarr_id}/")
         if r["checksum"] != filetag:
