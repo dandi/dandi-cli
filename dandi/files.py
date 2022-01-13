@@ -1,3 +1,12 @@
+"""
+This module defines functionality for working with local files & directories
+(as opposed to remote resources on a DANDI Archive server) that are of interest
+to DANDI.  The classes for such files & directories all inherit from
+`DandiFile`, which has two immediate subclasses: `DandisetMetadataFile`, for
+representing :file:`dandiset.yaml` files, and `LocalAsset`, for representing
+files that can be uploaded as assets to DANDI Archive.
+"""
+
 from abc import ABC, abstractmethod
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -44,13 +53,17 @@ _required_nwb_metadata_fields = ["subject_id"]
 
 @dataclass
 class DandiFile(ABC):
-    #: Path to node on disk
+    """Base class for local files & directories of interest to DANDI"""
+
+    #: The path to the actual file or directory on disk
     filepath: Path
 
     def get_size(self) -> int:
+        """Return the size of the file"""
         return os.path.getsize(self.filepath)
 
     def get_mtime(self) -> datetime:
+        """Return the time at which the file was last modified"""
         # TODO: Should this be overridden for LocalDirectoryAsset?
         return ensure_datetime(self.filepath.stat().st_mtime)
 
@@ -72,6 +85,8 @@ class DandiFile(ABC):
 
 
 class DandisetMetadataFile(DandiFile):
+    """Representation of a :file:`dandiset.yaml` file"""
+
     def get_metadata(
         self,
         digest: Optional[Digest] = None,
@@ -126,11 +141,21 @@ class DandisetMetadataFile(DandiFile):
 
 @dataclass
 class LocalAsset(DandiFile):
-    #: Forward-slash-separated path relative to root of Dandiset
+    """
+    Representation of a file or directory that can be uploaded to a DANDI
+    Archive as an asset of a Dandiset
+    """
+
+    #: The foward-slash-separated path to the asset within its local Dandiset
+    #: (i.e., relative to the Dandiset's root)
     path: str
 
     @abstractmethod
     def get_etag(self) -> Digest:
+        """
+        Calculate an etag digest for the asset using the appropriate algorithm
+        for its type
+        """
         ...
 
     @abstractmethod
@@ -193,7 +218,7 @@ class LocalAsset(DandiFile):
         Dandiset and return the resulting asset.  Blocks until the upload is
         complete.
 
-        :dandiset RemoteDandiset:
+        :param RemoteDandiset dandiset:
             the Dandiset to which the file will be uploaded
         :param dict metadata:
             Metadata for the uploaded asset.  The "path" field will be set to
@@ -220,11 +245,37 @@ class LocalAsset(DandiFile):
         jobs: Optional[int] = None,
         replacing: Optional[RemoteAsset] = None,
     ) -> Iterator[dict]:
+        """
+        Upload the asset with the given metadata to the given Dandiset,
+        returning a generator of status `dict`\\s.
+
+        :param RemoteDandiset dandiset:
+            the Dandiset to which the asset will be uploaded
+        :param dict metadata:
+            Metadata for the uploaded asset.  The "path" field will be set to
+            the value of the instance's ``path`` attribute if no such field is
+            already present.
+        :param int jobs: Number of threads to use for uploading; defaults to 5
+        :param RemoteAsset replacing:
+            If set, replace the given asset, which must have the same path as
+            the new asset
+        :returns:
+            A generator of `dict`\\s containing at least a ``"status"`` key.
+            Upon successful upload, the last `dict` will have a status of
+            ``"done"`` and an ``"asset"`` key containing the resulting
+            `RemoteAsset`.
+        """
         ...
 
 
 class LocalFileAsset(LocalAsset):
+    """
+    Representation of a regular file that can be uploaded to a DANDI Archive as
+    an asset of a Dandiset
+    """
+
     def get_etag(self) -> Digest:
+        """Calculate a dandi-etag digest for the asset"""
         value = get_digest(self.filepath, digest="dandi-etag")
         return Digest.dandi_etag(value)
 
@@ -239,7 +290,7 @@ class LocalFileAsset(LocalAsset):
         Upload the file as an asset with the given metadata to the given
         Dandiset, returning a generator of status `dict`\\s.
 
-        :dandiset RemoteDandiset:
+        :param RemoteDandiset dandiset:
             the Dandiset to which the file will be uploaded
         :param dict metadata:
             Metadata for the uploaded asset.  The "path" field will be set to
@@ -376,6 +427,8 @@ class LocalFileAsset(LocalAsset):
 
 
 class NWBAsset(LocalFileAsset):
+    """Representation of a local NWB file"""
+
     EXTENSIONS = [".nwb"]
 
     def get_metadata(
@@ -434,6 +487,10 @@ class NWBAsset(LocalFileAsset):
 
 
 class GenericAsset(LocalFileAsset):
+    """
+    Representation of a generic regular file, one that is not of any known type
+    """
+
     EXTENSIONS = []
 
     def get_metadata(
@@ -447,7 +504,13 @@ class GenericAsset(LocalFileAsset):
 
 
 class LocalDirectoryAsset(LocalAsset):
+    """
+    Representation of a directory that can be uploaded to a DANDI Archive as
+    a single asset of a Dandiset
+    """
+
     def iterfiles(self) -> Iterator[Path]:
+        """Yield all files within the directory"""
         dirs = deque([self.filepath])
         while dirs:
             for p in dirs.popleft().iterdir():
@@ -457,13 +520,17 @@ class LocalDirectoryAsset(LocalAsset):
                     yield p
 
     def get_size(self) -> int:
+        """Return the total size of the files in the directory"""
         return sum(p.stat().st_size for p in self.iterfiles())
 
 
 class ZarrAsset(LocalDirectoryAsset):
+    """Representation of a local Zarr directory"""
+
     EXTENSIONS = [".ngff", ".zarr"]
 
     def get_etag(self) -> Digest:
+        """Calculate a dandi-zarr-checksum digest for the asset"""
         return Digest.dandi_zarr(get_zarr_checksum(self.filepath))
 
     def get_metadata(
@@ -526,7 +593,7 @@ class ZarrAsset(LocalDirectoryAsset):
         Upload the Zarr directory as an asset with the given metadata to the
         given Dandiset, returning a generator of status `dict`\\s.
 
-        :dandiset RemoteDandiset:
+        :param RemoteDandiset dandiset:
             the Dandiset to which the Zarr will be uploaded
         :param dict metadata:
             Metadata for the uploaded asset.  The "path" field will be set to
@@ -640,6 +707,28 @@ def find_dandi_files(
     allow_all: bool = False,
     include_metadata: bool = False,
 ) -> Iterator[DandiFile]:
+    """
+    Yield all DANDI files at or under the paths in ``paths`` (which may be
+    either files or directories).  Files & directories whose names start with a
+    period are ignored.  Directories are only included in the return value if
+    they are of a type represented by a `LocalDirectoryAsset` subclass, in
+    which case they are not recursed into.
+
+    :param dandiset_path:
+        The path to the root of the Dandiset in which the paths are located.
+        All paths in ``paths`` must be equal to or subpaths of
+        ``dandiset_path``.  Can only be omitted when ``paths`` is a single
+        directory, in which case ``dandiset_path`` is set to that directory.
+    :param allow_all:
+        If true, unrecognized assets and the Dandiset's :file:`dandiset.yaml`
+        file are returned as `GenericAsset` and `DandisetMetadataFile`
+        instances, respectively.  If false, they are not returned at all.
+    :param include_metadata:
+        If true, the Dandiset's :file:`dandiset.yaml` file is returned as a
+        `DandisetMetadataFile` instance.  If false, it is not returned at all
+        (unless ``allow_all`` is true).
+    """
+
     if dandiset_path is None:
         if len(paths) == 1 and os.path.isdir(paths[0]):
             dandiset_path = paths[0]
@@ -686,6 +775,22 @@ def find_dandi_files(
 def dandi_file(
     filepath: Union[str, Path], dandiset_path: Optional[Union[str, Path]] = None
 ) -> DandiFile:
+    """
+    Return a `DandiFile` instance of the appropriate type for the file at
+    ``filepath`` inside the Dandiset rooted at ``dandiset_path``.  If
+    ``dandiset_path`` is not set, it will default to ``filepath``'s parent
+    directory.
+
+    If ``filepath`` is a directory, it must be of a type represented by a
+    `LocalDirectoryAsset` subclass; otherwise, an `UnknownSuffixError`
+    exception will be raised.
+
+    A regular file named :file:`dandiset.yaml` will only be represented by a
+    `DandisetMetadataFile` instance if it is at the root of the Dandiset.
+
+    A regular file that is not of a known type will be represented by a
+    `GenericAsset` instance.
+    """
     filepath = Path(filepath)
     if dandiset_path is not None:
         path = filepath.relative_to(dandiset_path).as_posix()
