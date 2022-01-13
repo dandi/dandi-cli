@@ -138,3 +138,33 @@ def test_upload_zarr(local_dandi_api, tmp_path):
     asset.set_raw_metadata(md)
     md = asset.get_raw_metadata()
     assert md["description"] == "A modified Zarr"
+
+    for file_src in [zf, asset]:
+        entries = sorted(file_src.iterfiles(include_dirs=True), key=attrgetter("parts"))
+        assert [str(e) for e in entries] == [
+            ".zgroup",
+            "arr_0",
+            "arr_0/.zarray",
+            "arr_0/0",
+            "arr_1",
+            "arr_1/.zarray",
+            "arr_1/0",
+        ]
+        assert (file_src.filetree / ".zgroup").exists()
+        assert (file_src.filetree / ".zgroup").is_file()
+        assert not (file_src.filetree / ".zgroup").is_dir()
+        assert (file_src.filetree / "arr_0").exists()
+        assert not (file_src.filetree / "arr_0").is_file()
+        assert (file_src.filetree / "arr_0").is_dir()
+        assert not (file_src.filetree / "0").exists()
+        assert not (file_src.filetree / "0").is_file()
+        assert not (file_src.filetree / "0").is_dir()
+        assert not (file_src.filetree / "arr_0" / ".zgroup").exists()
+        assert not (file_src.filetree / "arr_0" / ".zgroup").is_file()
+        assert not (file_src.filetree / "arr_0" / ".zgroup").is_dir()
+        assert not (file_src.filetree / ".zgroup" / "0").exists()
+        assert not (file_src.filetree / ".zgroup" / "0").is_file()
+        assert not (file_src.filetree / ".zgroup" / "0").is_dir()
+        assert not (file_src.filetree / "arr_2" / "0").exists()
+        assert not (file_src.filetree / "arr_2" / "0").is_file()
+        assert not (file_src.filetree / "arr_2" / "0").is_dir()

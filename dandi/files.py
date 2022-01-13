@@ -7,19 +7,22 @@ representing :file:`dandiset.yaml` files, and `LocalAsset`, for representing
 files that can be uploaded as assets to DANDI Archive.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 import os
 from pathlib import Path
 import re
 from threading import Lock
-from typing import Any, BinaryIO, Dict, Iterator, List, Optional, Union
+from typing import Any, BinaryIO, Dict, Generic, Iterator, List, Optional, Union
 from xml.etree.ElementTree import fromstring
 
 from dandischema.digests.dandietag import DandiETag
+from dandischema.digests.zarr import get_checksum
 from dandischema.models import BareAsset, CommonModel
 from dandischema.models import Dandiset as DandisetMeta
 from dandischema.models import get_schema_version
@@ -38,7 +41,7 @@ from .consts import (
 from .dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from .exceptions import UnknownAssetError
 from .metadata import get_default_metadata, get_metadata, nwb2asset
-from .misctypes import DUMMY_DIGEST, Digest
+from .misctypes import DUMMY_DIGEST, BasePath, Digest, P
 from .pynwb_utils import validate as pynwb_validate
 from .support.digests import get_dandietag, get_digest, get_zarr_checksum
 from .utils import chunked, ensure_datetime, pluralize, yaml_load
@@ -505,19 +508,26 @@ class GenericAsset(LocalFileAsset):
         return metadata
 
 
-class LocalDirectoryAsset(LocalAsset):
+class LocalDirectoryAsset(LocalAsset, Generic[P]):
     """
     Representation of a directory that can be uploaded to a DANDI Archive as
     a single asset of a Dandiset
     """
 
-    def iterfiles(self) -> Iterator[Path]:
+    @property
+    @abstractmethod
+    def filetree(self) -> P:
+        ...
+
+    def iterfiles(self, include_dirs: bool = False) -> Iterator[P]:
         """Yield all files within the directory"""
-        dirs = deque([self.filepath])
+        dirs = deque([self.filetree])
         while dirs:
             for p in dirs.popleft().iterdir():
                 if p.is_dir():
                     dirs.append(p)
+                    if include_dirs:
+                        yield p
                 else:
                     yield p
 
@@ -527,10 +537,108 @@ class LocalDirectoryAsset(LocalAsset):
         return sum(p.stat().st_size for p in self.iterfiles())
 
 
-class ZarrAsset(LocalDirectoryAsset):
+@dataclass
+class LocalZarrEntry(BasePath):
+    #: The path to the actual file or directory on disk
+    filepath: Path
+    #: The path to the root of the Zarr file tree
+    zarr_basepath: Path
+
+    def _get_subpath(self, name: str) -> LocalZarrEntry:
+        if not name or "/" in name:
+            raise ValueError(f"Invalid path component: {name!r}")
+        elif name == ".":
+            return self
+        elif name == "..":
+            return self.parent
+        else:
+            return replace(
+                self, filepath=self.filepath / name, parts=self.parts + (name,)
+            )
+
+    @property
+    def parent(self) -> LocalZarrEntry:
+        if self.is_root():
+            return self
+        else:
+            return replace(self, filepath=self.filepath.parent, parts=self.parts[:-1])
+
+    def exists(self) -> bool:
+        return self.filepath.exists()
+
+    def is_file(self) -> bool:
+        return self.filepath.is_file()
+
+    def is_dir(self) -> bool:
+        return self.filepath.is_dir()
+
+    def iterdir(self) -> Iterator[LocalZarrEntry]:
+        for p in self.filepath.iterdir():
+            if p.is_dir() and not any(p.iterdir()):
+                # Ignore empty directories
+                continue
+            yield self._get_subpath(p.name)
+
+    def get_etag(self) -> Digest:
+        if self.is_dir():
+            return get_zarr_checksum(self.filepath, basepath=self.zarr_basepath)
+        else:
+            return get_digest(self.filepath, "md5")
+
+    @property
+    def size(self) -> int:
+        if self.is_dir():
+            return sum(p.size for p in self.iterdir())
+        else:
+            return os.path.getsize(self.filepath)
+
+    @property
+    def modified(self) -> datetime:
+        # TODO: Should this be overridden for directories?
+        return ensure_datetime(self.filepath.stat().st_mtime)
+
+
+@dataclass
+class ZarrStat:
+    size: int
+    digest: Digest
+    files: List[LocalZarrEntry]  # Unspecified order; does not include directories
+
+
+class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
     """Representation of a local Zarr directory"""
 
     EXTENSIONS = [".ngff", ".zarr"]
+
+    @property
+    def filetree(self) -> LocalZarrEntry:
+        return LocalZarrEntry(
+            filepath=self.filepath, zarr_basepath=self.zarr_basepath, parts=()
+        )
+
+    def stat(self) -> ZarrStat:
+        def dirstat(self, dirpath: LocalZarrEntry) -> ZarrStat:
+            size = 0
+            dir_md5s = {}
+            file_md5s = {}
+            files = []
+            for p in dirpath.iterdir():
+                if p.is_dir():
+                    st = dirstat(p)
+                    size += st.size
+                    dir_md5s[str(p)] = st.digest.value
+                    files.extend(st.files)
+                else:
+                    size += p.size
+                    file_md5s[str(p)] = p.get_etag().value
+                    files.append(p)
+                return ZarrStat(
+                    size=size,
+                    digest=Digest.dandi_zarr(get_checksum(file_md5s, dir_md5s)),
+                    files=files,
+                )
+
+        return dirstat(self.filetree)
 
     def get_etag(self) -> Digest:
         """Calculate a dandi-zarr-checksum digest for the asset"""
@@ -621,9 +729,8 @@ class ZarrAsset(LocalDirectoryAsset):
         asset_path = metadata.setdefault("path", self.path)
         client = dandiset.client
         yield {"status": "calculating etag"}
-        # TODO: Only iterate over the filetree once and save the results in
-        # memory
-        filetag = self.get_etag().value
+        stat = self.stat()
+        filetag = stat.digest.value
         lgr.debug("Calculated dandi-zarr-checksum of %s for %s", filetag, self.filepath)
         digest = metadata.get("digest", {})
         if "dandi:dandi-zarr-checksum" in digest:
@@ -634,7 +741,6 @@ class ZarrAsset(LocalDirectoryAsset):
                 )
         yield {"status": "initiating upload"}
         lgr.debug("%s: Beginning upload", asset_path)
-        total_size = self.size
         bytes_uploaded = 0
         r = client.post("/zarr/", json={"name": self.filepath.name})
         zarr_id = r["zarr_id"]
@@ -643,14 +749,10 @@ class ZarrAsset(LocalDirectoryAsset):
             headers={"X-Amz-ACL": "bucket-owner-full-control"},
         ) as storage:
             for i, filebatch in enumerate(
-                chunked(self.iterfiles(), ZARR_UPLOAD_BATCH_SIZE), start=1
+                chunked(stat.files, ZARR_UPLOAD_BATCH_SIZE), start=1
             ):
                 upload_body = [
-                    {
-                        "path": p.relative_to(self.filepath).as_posix(),
-                        "etag": get_digest(p, "md5"),
-                    }
-                    for p in filebatch
+                    {"path": str(p), "etag": p.get_etag().value} for p in filebatch
                 ]
                 lgr.debug(
                     "%s: Uploading Zarr file batch #%d (%s)",
@@ -674,7 +776,7 @@ class ZarrAsset(LocalDirectoryAsset):
                         bytes_uploaded += size
                         yield {
                             "status": "uploading",
-                            "upload": 100 * bytes_uploaded / total_size,
+                            "upload": 100 * bytes_uploaded / stat.size,
                             "current": bytes_uploaded,
                         }
                 lgr.debug("%s: Completing upload of batch #%d", asset_path, i)
