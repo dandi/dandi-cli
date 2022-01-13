@@ -197,6 +197,10 @@ def download_generator(
             return
 
         for asset in assets:
+            if asset.is_zarr():
+                raise NotImplementedError(
+                    "Download of Zarr assets is not yet implemented"
+                )
             path = asset.path.lstrip("/")  # make into relative path
             path = op.normpath(path)
             if not isinstance(parsed_url, DandisetURL):
@@ -681,7 +685,11 @@ class DownloadDirectory:
         self.fp.close()
         try:
             if exc_type is None:
-                self.writefile.replace(self.filepath)
+                try:
+                    self.writefile.replace(self.filepath)
+                except IsADirectoryError:
+                    rmtree(self.filepath)
+                    self.writefile.replace(self.filepath)
         finally:
             self.lock.release()
             if exc_type is None:

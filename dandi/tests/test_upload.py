@@ -215,7 +215,9 @@ def test_upload_zarr(local_dandi_api, monkeypatch, tmp_path):
     assert asset.path == "sample.zarr"
 
 
-@pytest.mark.xfail(reason="Zarr download not implemented yet", strict=True)
+@pytest.mark.xfail(
+    reason="Zarr download not implemented yet", raises=NotImplementedError, strict=True
+)
 def test_upload_different_zarr(tmp_path, zarr_dandiset):
     rmtree(zarr_dandiset.dspath / "sample.zarr")
     zarr.save(tmp_path / "sample.zarr", np.eye(5))
@@ -243,7 +245,9 @@ def test_upload_nonzarr_to_zarr_path(tmp_path, zarr_dandiset):
     ).read_text() == "This is not a Zarr.\n"
 
 
-@pytest.mark.xfail(reason="Zarr download not implemented yet", strict=True)
+@pytest.mark.xfail(
+    reason="Zarr download not implemented yet", raises=NotImplementedError, strict=True
+)
 def test_upload_zarr_to_nonzarr_path(local_dandi_api, monkeypatch, tmp_path):
     monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
     d = local_dandi_api.client.create_dandiset("Test Dandiset", {})
