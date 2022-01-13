@@ -109,7 +109,7 @@ def upload(
         strpath = str(dfile.filepath)
         try:
             try:
-                yield {"size": dfile.get_size()}
+                yield {"size": dfile.size}
             except FileNotFoundError:
                 yield skip_file("ERROR: File not found")
                 return
@@ -171,7 +171,7 @@ def upload(
                 extant = None
             else:
                 metadata = extant.get_raw_metadata()
-                local_mtime = dfile.get_mtime()
+                local_mtime = dfile.modified
                 remote_mtime_str = metadata.get("blobDateModified")
                 # TODO: Should this error if the digest is missing?
                 extant_etag = metadata.get("digest", {}).get(file_etag.algorithm.value)

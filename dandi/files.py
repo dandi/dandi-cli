@@ -58,12 +58,14 @@ class DandiFile(ABC):
     #: The path to the actual file or directory on disk
     filepath: Path
 
-    def get_size(self) -> int:
-        """Return the size of the file"""
+    @property
+    def size(self) -> int:
+        """The size of the file"""
         return os.path.getsize(self.filepath)
 
-    def get_mtime(self) -> datetime:
-        """Return the time at which the file was last modified"""
+    @property
+    def modified(self) -> datetime:
+        """The time at which the file was last modified"""
         # TODO: Should this be overridden for LocalDirectoryAsset?
         return ensure_datetime(self.filepath.stat().st_mtime)
 
@@ -321,7 +323,7 @@ class LocalFileAsset(LocalAsset):
                 )
         yield {"status": "initiating upload"}
         lgr.debug("%s: Beginning upload", asset_path)
-        total_size = self.get_size()
+        total_size = self.size
         try:
             resp = client.post(
                 "/uploads/initialize/",
@@ -519,8 +521,9 @@ class LocalDirectoryAsset(LocalAsset):
                 else:
                     yield p
 
-    def get_size(self) -> int:
-        """Return the total size of the files in the directory"""
+    @property
+    def size(self) -> int:
+        """The total size of the files in the directory"""
         return sum(p.stat().st_size for p in self.iterfiles())
 
 
@@ -631,7 +634,7 @@ class ZarrAsset(LocalDirectoryAsset):
                 )
         yield {"status": "initiating upload"}
         lgr.debug("%s: Beginning upload", asset_path)
-        total_size = self.get_size()
+        total_size = self.size
         bytes_uploaded = 0
         r = client.post("/zarr/", json={"name": self.filepath.name})
         zarr_id = r["zarr_id"]
