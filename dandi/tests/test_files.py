@@ -32,6 +32,10 @@ def test_find_dandi_files(tmp_path: Path) -> None:
     (tmp_path / "subdir" / "sample04.zarr" / "baz").touch()
     (tmp_path / "subdir" / "gnusto").touch()
     (tmp_path / "subdir" / "cleesh.txt").touch()
+    (tmp_path / "empty.zarr").mkdir()
+    (tmp_path / ".ignored").touch()
+    (tmp_path / ".ignored.dir").mkdir()
+    (tmp_path / ".ignored.dir" / "ignored.nwb").touch()
 
     files = sorted(find_dandi_files(tmp_path), key=attrgetter("filepath"))
     assert files == [

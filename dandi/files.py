@@ -36,7 +36,7 @@ from .consts import (
     dandiset_metadata_file,
 )
 from .dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
-from .exceptions import UnknownSuffixError
+from .exceptions import UnknownAssetError
 from .metadata import get_default_metadata, get_metadata, nwb2asset
 from .misctypes import DUMMY_DIGEST, Digest
 from .pynwb_utils import validate as pynwb_validate
@@ -756,13 +756,13 @@ def find_dandi_files(
         if p.is_dir():
             if p.is_symlink():
                 lgr.warning("%s: Ignoring unsupported symbolic link to directory", p)
-                continue
-            try:
-                df = dandi_file(p, dandiset_path)
-            except UnknownSuffixError:
-                path_queue.extend(p.iterdir())
-            else:
-                yield df
+            elif any(p.iterdir()):
+                try:
+                    df = dandi_file(p, dandiset_path)
+                except UnknownAssetError:
+                    path_queue.extend(p.iterdir())
+                else:
+                    yield df
         else:
             df = dandi_file(p, dandiset_path)
             if isinstance(df, GenericAsset) and not allow_all:
@@ -785,8 +785,8 @@ def dandi_file(
     directory.
 
     If ``filepath`` is a directory, it must be of a type represented by a
-    `LocalDirectoryAsset` subclass; otherwise, an `UnknownSuffixError`
-    exception will be raised.
+    `LocalDirectoryAsset` subclass; otherwise, an `UnknownAssetError` exception
+    will be raised.
 
     A regular file named :file:`dandiset.yaml` will only be represented by a
     `DandisetMetadataFile` instance if it is at the root of the Dandiset.
@@ -800,10 +800,12 @@ def dandi_file(
     else:
         path = filepath.name
     if filepath.is_dir():
+        if not any(filepath.iterdir()):
+            raise UnknownAssetError("Empty directories cannot be assets")
         for dirclass in LocalDirectoryAsset.__subclasses__():
             if filepath.suffix in dirclass.EXTENSIONS:
                 return dirclass(filepath=filepath, path=path)
-        raise UnknownSuffixError(
+        raise UnknownAssetError(
             f"Directory has unrecognized suffix {filepath.suffix!r}"
         )
     elif path == dandiset_metadata_file:

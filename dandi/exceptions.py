@@ -66,5 +66,5 @@ class SchemaVersionError(Exception):
     pass
 
 
-class UnknownSuffixError(ValueError):
+class UnknownAssetError(ValueError):
     pass
