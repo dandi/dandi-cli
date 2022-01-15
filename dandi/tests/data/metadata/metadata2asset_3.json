@@ -85,7 +85,7 @@
       "genotype": "Typical",
       "species": {
         "schemaKey": "SpeciesType",
-        "identifier": "https://www.example.com/unicorn"
+        "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_1234175"
       }
     }
   ]

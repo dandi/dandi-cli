@@ -1,7 +1,8 @@
 """
-This module provides functionality for parsing URLs for Dandisets & assets on
-Dandi Archive servers and for fetching the objects to which the URLs refer.
-See the docstring for `parse_dandi_url()` for a list of accepted URL formats.
+This module provides functionality for parsing URLs and other resource
+identifiers for Dandisets & assets on Dandi Archive servers and for fetching
+the objects to which the URLs refer.  See :ref:`resource_ids` for a list of
+accepted URL formats.
 
 Basic operation begins by calling `parse_dandi_url()` on a URL in order to
 acquire a `ParsedDandiURL` instance, which can then be used to obtain the
@@ -479,57 +480,8 @@ class _dandi_url_parser:
     @classmethod
     def parse(cls, url: str, *, map_instance: bool = True) -> ParsedDandiURL:
         """
-        Parse a Dandi Archive URL and return a `ParsedDandiURL` instance.
-
-        The accepted URL formats are as follows.  Text in [brackets] is
-        optional.  A ``server`` field is a base API, GUI, or redirector URL for
-        a registered Dandi Archive instance.  If an optional ``version`` field
-        is omitted from a URL, the given Dandiset's most recent published
-        version, if any, or else its draft version will be used.
-
-        - :samp:`https://identifiers.org/DANDI:{dandiset-id}[/{version}]`
-          (case insensitive; ``version`` cannot be "draft") when it redirects
-          to one of the other URL formats
-
-        - :samp:`DANDI:{dandiset-id}[/{version}]` — (case insensitive;
-          ``version`` cannot be "draft") Abbreviation for the above
-
-        - Any ``https://dandiarchive.org/`` or
-          ``https://*dandiarchive-org.netflify.app/`` URL which redirects to
-          one of the other URL formats
-
-        - :samp:`https://{server}[/api]/[#/]dandiset/{dandiset-id}[/{version}][/files[?location={path}]]`
-          — If ``path`` is not specified, the URL refers to a Dandiset and is
-          converted to a `DandisetURL`.  If ``path`` is specified and it ends
-          with a forward slash, the URL refers to an asset folder and is
-          converted to an `AssetFolderURL` instance; if it does not end with a
-          slash, it refers to a single asset and is converted to an
-          `AssetItemURL` instance.
-
-        - :samp:`https://{server}[/api]/dandisets/{dandiset-id}[/versions[/{version}]]`
-          — Refers to a Dandiset and is converted to a `DandisetURL`
-
-        - :samp:`https://{server}[/api]/assets/{asset-id}[/download]` — Refers
-          to a single asset by identifier and is converted to a
-          `BaseAssetIDURL`
-
-        - :samp:`https://{server}[/api]/dandisets/{dandiset-id}/versions/{version}/assets/{asset-id}[/download]`
-          — Refers to a single asset and is converted to an `AssetIDURL`
-
-        - :samp:`https://{server}[/api]/dandisets/{dandiset-id}/versions/{version}/assets/?path={path}`
-          — Refers to all assets in the given Dandiset whose paths begin with
-          the prefix ``path``; converted to an `AssetPathPrefixURL`
-
-        - :samp:`dandi://{instance-name}/{dandiset-id}[@{version}][/{path}]`,
-          where ``instance-name`` is the name of a registered Dandi Archive
-          instance.  If ``path`` is not specified, the URL refers to a Dandiset
-          and is converted to a `DandisetURL`.  If ``path`` is specified and it
-          ends with a forward slash, the URL refers to an asset folder and is
-          converted to an `AssetFolderURL` instance; if it does not end with a
-          slash, it refers to a single asset and is converted to an
-          `AssetItemURL` instance.
-
-        - Any other HTTPS URL that redirects to one of the above
+        Parse a Dandi Archive URL and return a `ParsedDandiURL` instance.  See
+        :ref:`resource_ids` for the supported URL formats.
 
         :raises UnknownURLError: if the URL is not one of the above
         """

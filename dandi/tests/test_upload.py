@@ -10,7 +10,7 @@ from ..download import download
 from ..exceptions import NotFoundError
 from ..pynwb_utils import make_nwb_file
 from ..upload import upload
-from ..utils import find_files
+from ..utils import list_paths
 
 
 def test_new_upload_download(local_dandi_api, monkeypatch, organized_nwb_dir, tmp_path):
@@ -138,12 +138,11 @@ def test_upload_download_small_file(contents, local_dandi_api, monkeypatch, tmp_
     download_dir = tmp_path / "download"
     download_dir.mkdir()
     download(d.version_api_url, download_dir)
-    files = sorted(map(Path, find_files(r".*", paths=[download_dir])))
-    assert files == [
+    assert list_paths(download_dir) == [
         download_dir / dandiset_id / dandiset_metadata_file,
         download_dir / dandiset_id / "file.txt",
     ]
-    assert files[1].read_bytes() == contents
+    assert (download_dir / dandiset_id / "file.txt").read_bytes() == contents
 
 
 @pytest.mark.parametrize("confirm", [True, False])

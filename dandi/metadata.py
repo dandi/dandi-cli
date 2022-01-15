@@ -1,10 +1,15 @@
 from datetime import datetime
+from functools import lru_cache
 import os
 import os.path as op
 import re
+import typing as ty
 from uuid import uuid4
+from xml.dom.minidom import parseString
 
 from dandischema import models
+import requests
+import tenacity
 
 from . import __version__, get_logger
 from .dandiset import Dandiset
@@ -101,17 +106,14 @@ def _parse_iso8601(age):
     # allowing for comma instead of ., e.g. P1,5D
     age = age.replace(",", ".")
     pattern = (
-        "^P(?!$)(\\d+(?:\\.\\d+)?Y)?(\\d+(?:\\.\\d+)?M)?(\\d+(?:\\.\\d+)?W)?(\\d+(?:\\.\\d+)?D)?"
-        "(T(?=\\d)(\\d+(?:\\.\\d+)?H)?(\\d+(?:\\.\\d+)?M)?(\\d+(?:\\.\\d+)?S)?)?$"
+        r"^P(?!$)(\d+(?:\.\d+)?Y)?(\d+(?:\.\d+)?M)?(\d+(?:\.\d+)?W)?(\d+(?:\.\d+)?D)?"
+        r"(T(?=\d)(\d+(?:\.\d+)?H)?(\d+(?:\.\d+)?M)?(\d+(?:\.\d+)?S)?)?$"
     )
-
-    matchstr = re.match(pattern, age, flags=re.I)
-    if matchstr:
-        age_frm = [matchstr.group(i) for i in range(1, 6) if matchstr.group(i)]
-        age_frm = ["P"] + age_frm
-        return age_frm
+    m = re.match(pattern, age, flags=re.I)
+    if m:
+        return ["P"] + [m[i] for i in range(1, 6) if m[i]]
     else:
-        raise ValueError(f"ISO 8601 expected, but {age} was received")
+        raise ValueError(f"ISO 8601 expected, but {age!r} was received")
 
 
 def _parse_age_re(age, unit, tp="date"):
@@ -132,44 +134,33 @@ def _parse_age_re(age, unit, tp="date"):
     elif unit == "S":
         pat_un = "(sec|s(econd)?)"
 
-    pattern = rf"(\d+\.?\d*)\s*({pat_un}s?)"
-    matchstr = re.match(pattern, age, flags=re.I)
+    m = re.match(rf"(\d+\.?\d*)\s*({pat_un}s?)", age, flags=re.I)
     swap_flag = False
-    if matchstr is None:
+    if m is None:
         # checking pattern with "unit" word
-        pattern_unit = rf"(\d+\.?\d*)\s*units?:?\s*({pat_un}s?)"
-        matchstr = re.match(pattern_unit, age, flags=re.I)
-        if matchstr is None:
-            # checking patter with swapped order
-            pattern = rf"({pat_un}s?)\s*(\d+\.?\d*)"
-            matchstr = re.match(pattern, age, flags=re.I)
+        m = re.match(rf"(\d+\.?\d*)\s*units?:?\s*({pat_un}s?)", age, flags=re.I)
+        if m is None:
+            # checking pattern with swapped order
+            m = re.match(rf"({pat_un}s?)\s*(\d+\.?\d*)", age, flags=re.I)
             swap_flag = True
-            if matchstr is None:
+            if m is None:
                 return age, None
-    if swap_flag:
-        qty = matchstr.group(3)
-    else:
-        qty = matchstr.group(1)
+    qty = m[3 if swap_flag else 1]
     if "." in qty:
         qty = float(qty)
         if int(qty) == qty:
             qty = int(qty)
     else:
         qty = int(qty)
-    age_rem = age.replace(matchstr.group(0), "")
-    age_rem = age_rem.strip()
-    return age_rem, f"{qty}{unit}"
+    return (age[: m.start()] + age[m.end() :]).strip(), f"{qty}{unit}"
 
 
 def _parse_hours_format(age):
     """parsing format 0:30:10"""
-    pattern = r"\s*(\d\d?):(\d\d):(\d\d)"
-    matchstr = re.match(pattern, age, flags=re.I)
-    if matchstr:
-        time_part = f"T{int(matchstr.group(1))}H{int(matchstr.group(2))}M{int(matchstr.group(3))}S"
-        age_rem = age.replace(matchstr.group(0), "")
-        age_rem = age_rem.strip()
-        return age_rem, [time_part]
+    m = re.match(r"\s*(\d\d?):(\d\d):(\d\d)", age)
+    if m:
+        time_part = f"T{int(m[1])}H{int(m[2])}M{int(m[3])}S"
+        return (age[: m.start()] + age[m.end() :]).strip(), [time_part]
     else:
         return age, []
 
@@ -178,15 +169,14 @@ def _check_decimal_parts(age_parts):
     """checking if decimal parts are only in the lowest order component"""
     # if the last part is the T component I have to separate the parts
     if "T" in age_parts[-1]:
-        pattern_time = "^T(\\d+(?:\\.\\d+)?H)?(\\d+(?:\\.\\d+)?M)?(\\d+(?:\\.\\d+)?S)?"
-        matchstr = re.match(pattern_time, age_parts[-1], flags=re.I)
-        time_parts = [matchstr.group(i) for i in range(1, 3) if matchstr.group(i)]
-        age_parts = age_parts[:-1] + time_parts
+        m = re.match(
+            r"^T(\d+(?:\.\d+)?H)?(\d+(?:\.\d+)?M)?(\d+(?:\.\d+)?S)?",
+            age_parts[-1],
+            flags=re.I,
+        )
+        age_parts = age_parts[:-1] + [m[i] for i in range(1, 3) if m[i]]
     decim_part = ["." in el for el in age_parts]
-    if any(decim_part) and any(decim_part[:-1]):
-        return False
-    else:
-        return True
+    return not (any(decim_part) and any(decim_part[:-1]))
 
 
 def parse_age(age):
@@ -203,21 +193,20 @@ def parse_age(age):
     """
 
     if not age:
-        raise ValueError("age is empty")
+        raise ValueError("Age is empty")
 
     age_orig = age
 
-    if "gestation" in age.lower():
-        pattern_time = "^gest[a-z]*"
-        matchstr = re.match(pattern_time, age, flags=re.I)
-        age = age.replace(matchstr.group(0), "")
+    if age.lower().startswith("gestation"):
+        m = re.match("^gest[a-z]*", age, flags=re.I)
+        age = age[: m.start()] + age[m.end() :]
         ref = "Gestational"
     else:
         ref = "Birth"
 
     age = age.strip()
 
-    if age[0] == "P":
+    if age.startswith("P"):
         age_f = _parse_iso8601(age)
     else:  # trying to figure out any free form
         # removing some symbols
@@ -225,7 +214,7 @@ def parse_age(age):
             age = age.replace(symb, " ")
         age = age.strip()
         if not age:
-            raise ValueError("age doesn't have any information")
+            raise ValueError("Age doesn't have any information")
 
         date_f = []
         for unit in ["Y", "M", "W", "D"]:
@@ -257,14 +246,14 @@ def parse_age(age):
             age_f = date_f
         if set(age) - {" ", ".", ",", ":", ";"}:
             raise ValueError(
-                f"not able to parse the age: {age_orig}, no rules to convert: {age}"
+                f"Cannot parse age {age_orig!r}: no rules to convert {age!r}"
             )
 
     # checking if there are decimal parts in the higher order components
     if not _check_decimal_parts(age_f):
         raise ValueError(
-            f"decimal fraction allowed in the lowest order part only,"
-            f" but {age} was received "
+            f"Decimal fraction allowed in the lowest order part only,"
+            f" but {age!r} was received"
         )
     return "".join(age_f), ref
 
@@ -341,45 +330,136 @@ def extract_sex(metadata):
         return ...
 
 
+species_map = [
+    (
+        ["mouse"],
+        "mus",
+        "http://purl.obolibrary.org/obo/NCBITaxon_10090",
+        "Mus musculus - House mouse",
+    ),
+    (
+        ["human"],
+        "homo",
+        "http://purl.obolibrary.org/obo/NCBITaxon_9606",
+        "Homo sapiens - Human",
+    ),
+    (
+        ["norvegicus"],
+        None,
+        "http://purl.obolibrary.org/obo/NCBITaxon_10116",
+        "Rattus norvegicus - Norway rat",
+    ),
+    (
+        ["rattus rattus"],
+        None,
+        "http://purl.obolibrary.org/obo/NCBITaxon_10117",
+        "Rattus rattus - Black rat",
+    ),
+    (
+        ["rat"],
+        None,
+        "http://purl.obolibrary.org/obo/NCBITaxon_10116",
+        "Rattus norvegicus - Norway rat",
+    ),
+    (
+        ["mulatta", "rhesus"],
+        None,
+        "http://purl.obolibrary.org/obo/NCBITaxon_9544",
+        "Macaca mulatta - Rhesus monkey",
+    ),
+    (
+        ["jacchus"],
+        None,
+        "http://purl.obolibrary.org/obo/NCBITaxon_9483",
+        "Callithrix jacchus - Common marmoset",
+    ),
+    (
+        ["melanogaster", "fruit fly"],
+        None,
+        "http://purl.obolibrary.org/obo/NCBITaxon_7227",
+        "Drosophila melanogaster - Fruit fly",
+    ),
+]
+
+
+@lru_cache(maxsize=None)
+@tenacity.retry(
+    reraise=True,
+    stop=tenacity.stop_after_attempt(3),
+    wait=tenacity.wait_exponential(exp_base=1.25, multiplier=1.25),
+)
+def parse_purlobourl(url: str, lookup: ty.Optional[ty.Tuple[str, ...]] = None):
+    """Parse an Ontobee URL to return properties of a Class node
+
+    :param url: Ontobee URL
+    :param lookup: list of XML nodes to lookup
+    :return: dictionary containing found nodes
+    """
+
+    req = requests.get(url, allow_redirects=True)
+    doc = parseString(req.text)
+    for elfound in doc.getElementsByTagName("Class"):
+        if (
+            "rdf:about" in elfound.attributes.keys()
+            and elfound.attributes.getNamedItem("rdf:about").value == url
+        ):
+            break
+    else:
+        return None
+    values = {}
+    if lookup is None:
+        lookup = ("rdfs:label", "oboInOwl:hasExactSynonym")
+    for key in lookup:
+        elchild = elfound.getElementsByTagName(key)
+        if elchild:
+            elchild = elchild[0]
+            values[key] = elchild.childNodes[0].nodeValue.capitalize()
+    return values
+
+
 def extract_species(metadata):
-    value = metadata.get("species", None)
-    if value is not None and value != "":
-        value = value.lower()
-        if "mouse" in value or value.startswith("mus"):
-            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_10090"
-            value = "House mouse"
-        elif "human" in value or value.startswith("homo"):
-            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_9606"
-            value = "Human"
-        elif "norvegicus" in value:
-            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_10116"
-            value = "Rat; Norway rat; rats; Brown rat"
-        elif "rattus rattus" in value:
-            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_10117"
-            value = "Black rat; Roof rat; House rat"
-        elif "rat" in value:
-            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_10116"
-            value = "Rat; Norway rat; rats; Brown rat"
-        elif "mulatta" in value or "rhesus" in value:
-            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_9544"
-            value = "Rhesus monkey"
-        elif "jacchus" in value:
-            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_9483"
-            value = "Common marmoset"
-        elif "melanogaster" in value or "fruit fly" in value:
-            value_id = "http://purl.obolibrary.org/obo/NCBITaxon_7227"
-            value = "Common fruit fly"
-        elif value.startswith("http"):
-            value_id = value
-            value = None
+    value_orig = metadata.get("species", None)
+    value_id = None
+    if value_orig is not None and value_orig != "":
+        value = value_orig.lower().rstrip("/")
+        if value.startswith("http://purl.obolibrary.org/obo/NCBITaxon_".lower()):
+            for common_names, prefix, uri, name in species_map:
+                if value.split("//")[1] == uri.lower().rstrip("/").split("//")[1]:
+                    value_id = uri
+                    value = name
+                    break
+            if value_id is None:
+                value_id = value_orig
+                lookup = ("rdfs:label", "oboInOwl:hasExactSynonym")
+                try:
+                    result = parse_purlobourl(value, lookup=lookup)
+                except ConnectionError:
+                    value = None
+                else:
+                    value = None
+                    if result is not None:
+                        value = " - ".join(
+                            [result[key] for key in lookup if key in result]
+                        )
         else:
+            for common_names, prefix, uri, name in species_map:
+                if any(key in value for key in common_names) or (
+                    prefix and value.startswith(prefix)
+                ):
+                    value_id = uri
+                    value = name
+                    break
+        if value_id is None:
             raise ValueError(
                 f"Cannot interpret species field: {value}. Please "
-                "contact help@dandiarchive.org to add your species."
+                "contact help@dandiarchive.org to add your species. "
+                "You can also put the entire url from NCBITaxon "
+                "(http://www.ontobee.org/ontology/NCBITaxon) into "
+                "your species field in your NWB file. For example: "
+                "http://purl.obolibrary.org/obo/NCBITaxon_9606 is the "
+                "url for the species Homo sapiens."
             )
-        return models.SpeciesType(
-            identifier=value_id, name=value.capitalize() if value is not None else None
-        )
+        return models.SpeciesType(identifier=value_id, name=value)
     else:
         return ...
 

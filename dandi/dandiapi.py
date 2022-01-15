@@ -73,6 +73,7 @@ from xml.etree.ElementTree import fromstring
 
 import click
 from dandischema import models
+from dandischema.digests.dandietag import DandiETag
 from pydantic import BaseModel, Field, PrivateAttr
 import requests
 import tenacity
@@ -83,10 +84,10 @@ from .consts import (
     MAX_CHUNK_SIZE,
     RETRY_STATUSES,
     DandiInstance,
+    EmbargoStatus,
     known_instances,
     known_instances_rev,
 )
-from .core.digests.dandietag import DandiETag
 from .exceptions import NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup
 from .utils import USER_AGENT, check_dandi_version, ensure_datetime, is_interactive
@@ -683,6 +684,11 @@ class RemoteDandiset:
         return self._get_data()["contact_person"]
 
     @property
+    def embargo_status(self) -> EmbargoStatus:
+        """The current embargo status for the Dandiset"""
+        return EmbargoStatus(self._get_data()["embargo_status"])
+
+    @property
     def most_recent_published_version(self) -> Optional[Version]:
         """
         The most recent published (non-draft) version of the Dandiset, or
@@ -1097,6 +1103,7 @@ class RemoteDandiset:
                         "algorithm": "dandi:dandi-etag",
                         "value": filetag,
                     },
+                    "dandiset": self.identifier,
                 },
             )
         except requests.HTTPError as e:

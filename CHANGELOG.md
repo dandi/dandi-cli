@@ -1,3 +1,54 @@
+# 0.34.0 (Wed Jan 12 2022)
+
+#### 🚀 Enhancement
+
+- Include "dandiset" field in /uploads/initialize/ requests [#863](https://github.com/dandi/dandi-cli/pull/863) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- ENH: update species interpretation from NWB file [#857](https://github.com/dandi/dandi-cli/pull/857) ([@satra](https://github.com/satra))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+
+---
+
+# 0.33.0 (Tue Jan 11 2022)
+
+#### 🚀 Enhancement
+
+- Add `embargo_status` to dandiset endpoint [#855](https://github.com/dandi/dandi-cli/pull/855) ([@dchiquito](https://github.com/dchiquito))
+- Remove dandi/core/ in favor of copy in dandischema [#849](https://github.com/dandi/dandi-cli/pull/849) ([@jwodder](https://github.com/jwodder))
+- Error on NWB files with external links [#843](https://github.com/dandi/dandi-cli/pull/843) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Add DJANGO_DANDI_DANDISETS_EMBARGO_BUCKET_NAME setting to test docker-compose.yml [#854](https://github.com/dandi/dandi-cli/pull/854) ([@dchiquito](https://github.com/dchiquito))
+
+#### 🏠 Internal
+
+- Move a comment [#862](https://github.com/dandi/dandi-cli/pull/862) ([@jwodder](https://github.com/jwodder))
+- Add a wrapper function for the calls to `find_files()` in tests [#860](https://github.com/dandi/dandi-cli/pull/860) ([@jwodder](https://github.com/jwodder))
+- Assorted code cleanups [#859](https://github.com/dandi/dandi-cli/pull/859) ([@jwodder](https://github.com/jwodder))
+- Remove generatorify.py [#850](https://github.com/dandi/dandi-cli/pull/850) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Improve CLI documentation [#851](https://github.com/dandi/dandi-cli/pull/851) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Replace the use of pyfakefs with a `tmp_home` fixture [#861](https://github.com/dandi/dandi-cli/pull/861) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.32.2 (Mon Dec 06 2021)
 
 #### 🐛 Bug Fix

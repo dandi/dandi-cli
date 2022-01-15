@@ -13,11 +13,13 @@ from dateutil.tz import tzutc
 import pytest
 from semantic_version import Version
 
+from .skip import mark
 from ..metadata import (
     extract_age,
     get_metadata,
     metadata2asset,
     parse_age,
+    parse_purlobourl,
     timedelta2duration,
 )
 from ..pynwb_utils import metadata_nwb_subject_fields
@@ -98,22 +100,36 @@ def test_parse_age(age, duration):
 
 
 @pytest.mark.parametrize(
-    "age, match_er",
+    "age, errmsg",
     [
-        ("123", "no rules to convert: 123"),
-        ("P12", "ISO 8601 expected, but P12 was received"),
-        ("3-7 months", "no rules to convert: 3-7 months"),
-        ("3 months, some extra", "no rules to convert: some extra"),
-        (" , ", "age doesn't have any information"),
-        ("", "age is empty"),
-        (None, "age is empty"),
-        ("P2DT10.5H10M", "decimal fraction allowed in the lowest order"),
-        ("4.5 hours 10 sec", "decimal fraction allowed in the lowest order"),
+        ("123", "Cannot parse age '123': no rules to convert '123'"),
+        ("P12", "ISO 8601 expected, but 'P12' was received"),
+        (
+            "3-7 months",
+            "Cannot parse age '3-7 months': no rules to convert '3-7 months'",
+        ),
+        (
+            "3 months, some extra",
+            "Cannot parse age '3 months, some extra': no rules to convert 'some extra'",
+        ),
+        (" , ", "Age doesn't have any information"),
+        ("", "Age is empty"),
+        (None, "Age is empty"),
+        (
+            "P2DT10.5H10M",
+            "Decimal fraction allowed in the lowest order part only, but"
+            " 'P2DT10.5H10M' was received",
+        ),
+        (
+            "4.5 hours 10 sec",
+            "Decimal fraction allowed in the lowest order part only, but '' was received",
+        ),
     ],
 )
-def test_parse_error(age, match_er):
-    with pytest.raises(ValueError, match=match_er):
+def test_parse_error(age, errmsg):
+    with pytest.raises(ValueError) as excinfo:
         parse_age(age)
+    assert str(excinfo.value) == errmsg
 
 
 @pytest.mark.parametrize(
@@ -129,6 +145,7 @@ def test_timedelta2duration(td, duration):
     assert timedelta2duration(td) == duration
 
 
+@mark.skipif_no_network
 @pytest.mark.parametrize(
     "filename, metadata",
     [
@@ -225,7 +242,7 @@ def test_timedelta2duration(td, duration):
                 "date_of_birth": "2020-03-14T12:34:56-04:00",
                 "genotype": "Typical",
                 "sex": "M",
-                "species": "https://www.example.com/unicorn",  # Corner case
+                "species": "http://purl.obolibrary.org/obo/NCBITaxon_1234175",  # Corner case
                 "subject_id": "a1b2c3",
                 "cell_id": "cell01",
                 "slice_id": "slice02",
@@ -305,3 +322,24 @@ def test_time_extract_gest():
     assert age_birth.valueReference == PropertyValue(
         value=AgeReferenceType("dandi:GestationalReference")
     )
+
+
+@mark.skipif_no_network
+@pytest.mark.parametrize(
+    "url,value",
+    [
+        (
+            "http://purl.obolibrary.org/obo/NCBITaxon_10090",
+            {"rdfs:label": "Mus musculus", "oboInOwl:hasExactSynonym": "House mouse"},
+        ),
+        (
+            "http://purl.obolibrary.org/obo/NCBITaxon_10116",
+            {
+                "rdfs:label": "Rattus norvegicus",
+                "oboInOwl:hasExactSynonym": "Norway rat",
+            },
+        ),
+    ],
+)
+def test_parseobourl(url, value):
+    assert parse_purlobourl(url) == value

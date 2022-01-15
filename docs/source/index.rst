@@ -11,6 +11,7 @@ Archive <https://dandiarchive.org>`_.
 
    cmdline/index
    modref/index
+   ref/index
 
 
 Indices and tables

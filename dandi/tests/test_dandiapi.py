@@ -2,7 +2,6 @@ import builtins
 from datetime import datetime, timezone
 import logging
 import os.path
-from pathlib import Path
 import random
 import re
 from shutil import rmtree
@@ -25,7 +24,7 @@ from ..dandiapi import DandiAPIClient, Version
 from ..download import download
 from ..exceptions import NotFoundError, SchemaVersionError
 from ..upload import upload
-from ..utils import find_files
+from ..utils import list_paths
 
 
 def test_upload(local_dandi_api, simple1_nwb, tmp_path):
@@ -87,14 +86,11 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
     download_dir = tmp_path / "download"
     download_dir.mkdir()
 
-    def downloaded_files():
-        return list(map(Path, find_files(r".*", paths=[download_dir])))
-
     dandiset_yaml = download_dir / dandiset_id / dandiset_metadata_file
     file_in_version = download_dir / dandiset_id / "subdir" / "file.txt"
 
     download(dv.version_api_url, download_dir)
-    assert downloaded_files() == [dandiset_yaml, file_in_version]
+    assert list_paths(download_dir) == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
 
     (upload_dir / "subdir" / "file.txt").write_text("This is different text.\n")
@@ -107,7 +103,7 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
     )
     rmtree(download_dir / dandiset_id)
     download(dv.version_api_url, download_dir)
-    assert downloaded_files() == [dandiset_yaml, file_in_version]
+    assert list_paths(download_dir) == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
 
     (upload_dir / "subdir" / "file2.txt").write_text("This is more text.\n")
@@ -121,7 +117,7 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
 
     rmtree(download_dir / dandiset_id)
     download(d.version_api_url, download_dir)
-    assert sorted(downloaded_files()) == [
+    assert list_paths(download_dir) == [
         dandiset_yaml,
         file_in_version,
         file_in_version.with_name("file2.txt"),
@@ -131,19 +127,22 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
 
     rmtree(download_dir / dandiset_id)
     download(dv.version_api_url, download_dir)
-    assert downloaded_files() == [dandiset_yaml, file_in_version]
+    assert list_paths(download_dir) == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
 
     d.get_asset_by_path("subdir/file.txt").delete()
 
     rmtree(download_dir / dandiset_id)
     download(d.version_api_url, download_dir)
-    assert downloaded_files() == [dandiset_yaml, file_in_version.with_name("file2.txt")]
+    assert list_paths(download_dir) == [
+        dandiset_yaml,
+        file_in_version.with_name("file2.txt"),
+    ]
     assert file_in_version.with_name("file2.txt").read_text() == "This is more text.\n"
 
     rmtree(download_dir / dandiset_id)
     download(dv.version_api_url, download_dir)
-    assert downloaded_files() == [dandiset_yaml, file_in_version]
+    assert list_paths(download_dir) == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
 
 
@@ -515,6 +514,7 @@ def test_remote_dandiset_json_dict(text_dandiset):
         "created": anys.ANY_AWARE_DATETIME_STR,
         "modified": anys.ANY_AWARE_DATETIME_STR,
         "contact_person": anys.ANY_STR,
+        "embargo_status": anys.ANY_STR,
         "most_recent_published_version": None,
         "draft_version": {
             "version": anys.AnyFullmatch(VERSION_REGEX),

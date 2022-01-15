@@ -523,7 +523,7 @@ def _download_file(
         # TODO: reuse that sorting based on speed
         for algo, digest in digests.items():
             if algo == "dandi-etag":
-                from .core.digests.dandietag import ETagHashlike
+                from dandischema.digests.dandietag import ETagHashlike
 
                 digester = lambda: ETagHashlike(size)  # noqa: E731
             else:

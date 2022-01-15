@@ -19,7 +19,7 @@ import shutil
 import subprocess
 import sys
 import types
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 import dateutil.parser
 import requests
@@ -246,11 +246,11 @@ def find_files(
 
     Parameters
     ----------
-    regex: basestring
+    regex: string
       Regex to search target files. Is not applied to filter out directories
-    paths: basestring or list, optional
+    paths: string or list, optional
       Directories or files to search among (directories are searched recursively)
-    exclude: basestring, optional
+    exclude: string, optional
       Matches to exclude
     exclude_vcs:
       If True, excludes commonly known VCS subdirectories.  If string, used
@@ -322,6 +322,10 @@ def find_files(
                     )
                 else:
                     yield path
+
+
+def list_paths(dirpath: Union[str, Path], dirs: bool = False) -> List[Path]:
+    return sorted(map(Path, find_files(r".*", [dirpath], dirs=dirs)))
 
 
 _cp_supports_reflink = None

@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from operator import attrgetter
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Iterable, Iterator, List, Optional, Tuple
 
 import click
@@ -215,7 +215,7 @@ def find_local_asset(filepath: str) -> Tuple[str, str]:
             f"Found no {dandiset_metadata_file} anywhere.  "
             "Use 'dandi download' or 'organize' first"
         )
-    relpath = str(PurePosixPath(path.relative_to(dandiset.path)))
+    relpath = path.relative_to(dandiset.path).as_posix()
     if path.is_dir():
         relpath += "/"
     return (dandiset.identifier, relpath)
