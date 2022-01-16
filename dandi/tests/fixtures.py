@@ -370,6 +370,7 @@ def create_video_nwbfiles(download_video_files, tmp_path):
             io.write(nwbfile)
     return base_nwb_path
 
+
 @pytest.fixture()
 def tmp_home(
     monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory

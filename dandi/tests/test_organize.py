@@ -3,8 +3,8 @@ import os
 import os.path as op
 from pathlib import Path
 
-from pynwb import NWBHDF5IO
 from click.testing import CliRunner
+from pynwb import NWBHDF5IO
 import pytest
 import ruamel.yaml
 
