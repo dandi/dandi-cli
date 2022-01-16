@@ -108,6 +108,22 @@ jobs:
           -f dandi/tests/data/dandiarchive-docker/docker-compose.yml \
           down -v
 
+    - name: Install git-annex (ubuntu)
+      if: startsWith(matrix.os, 'ubuntu')
+      run: |
+        apt-get install git-annex
+
+    - name: Install git-annex (macOS)
+      if: startsWith(matrix.os, 'macos')
+      run: |
+        brew install git-annex
+
+    - name: Install git-annex (windows)
+      if: startsWith(matrix.os, 'windows')
+      run: |
+        pip install datalad-installer
+        datalad-installer git-annex -m datalad/packages
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
       with:
