@@ -1489,6 +1489,8 @@ class ZarrListing(BaseModel):
 
     directories: List[AnyHttpUrl]
     files: List[AnyHttpUrl]
+    checksums: Dict[str, str]
+    checksum: str
 
     @property
     def dirnames(self) -> List[str]:
@@ -1497,6 +1499,12 @@ class ZarrListing(BaseModel):
     @property
     def filenames(self) -> List[str]:
         return [PurePosixPath(unquote(url.path)).name for url in self.files]
+
+
+@dataclass
+class ZarrEntryStat:
+    size: int
+    modified: datetime
 
 
 @dataclass
@@ -1541,17 +1549,7 @@ class RemoteZarrEntry(BasePath):
                     raise
             return True
         else:
-            ppath = "".join(p + "/" for p in self.parts[:-1])
-            try:
-                r = self.client.get(f"/zarr/{self.zarr_id}.zarr/{ppath}")
-            except requests.HTTPError as e:
-                if e.response.status_code == 404:
-                    raise NotFoundError(
-                        f"No such entry {str(self)!r} in Zarr {self.zarr_id!r}"
-                    )
-                else:
-                    raise
-            listing = ZarrListing.parse_obj(r)
+            listing = self.parent.get_listing()
             if self.name in listing.dirnames:
                 return True
             elif self.name in listing.filenames:
@@ -1582,6 +1580,56 @@ class RemoteZarrEntry(BasePath):
             return False
 
     def iterdir(self) -> Iterator["RemoteZarrEntry"]:
+        listing = self.get_listing()
+        for name in listing.dirnames:
+            if name == "." or name == "..":
+                continue
+            yield self._get_subpath(name, isdir=True)
+        for name in listing.filenames:
+            yield self._get_subpath(name, isdir=False)
+
+    def get_etag(self) -> Digest:
+        if self.is_root():
+            algorithm = models.DigestType.dandi_zarr_checksum
+            value = self.get_listing().checksum
+        else:
+            listing = self.parent.get_listing()
+            if self.name in listing.dirnames:
+                algorithm = models.DigestType.dandi_zarr_checksum
+            elif self.name in listing.filenames:
+                algorithm = models.DigestType.md5
+            else:
+                raise NotFoundError(
+                    f"No such entry {str(self)!r} in Zarr {self.zarr_id!r}"
+                )
+            value = listing.checksums[self.name]
+        return Digest(algorithm=algorithm, value=value)
+
+    @property
+    def size(self) -> int:
+        return self.stat().size
+
+    @property
+    def modified(self) -> datetime:
+        return self.stat().modified
+
+    def stat(self) -> ZarrEntryStat:
+        if not self.is_file():
+            # TODO: Should we forego this check and let queries on directories
+            # fail with KeyError?
+            raise RuntimeError("Directories in Zarrs do not have 'modified' timestamps")
+        r = self.client.request(
+            "HEAD",
+            f"/zarr/{self.zarr_id}.zarr/{'/'.join(self.parts)}",
+            json_resp=False,
+            allow_redirects=True,
+        )
+        return ZarrEntryStat(
+            size=int(r.headers["Content-Length"]),
+            modified=dateutil.parser.parse(r.headers["Last-Modified"]),
+        )
+
+    def get_listing(self) -> ZarrListing:
         path = "".join(p + "/" for p in self.parts)
         try:
             r = self.client.get(f"/zarr/{self.zarr_id}.zarr/{path}")
@@ -1593,32 +1641,4 @@ class RemoteZarrEntry(BasePath):
                 )
             else:
                 raise
-        listing = ZarrListing.parse_obj(r)
-        for name in listing.dirnames:
-            if name == "." or name == "..":
-                continue
-            yield self._get_subpath(name, isdir=True)
-        for name in listing.filenames:
-            yield self._get_subpath(name, isdir=False)
-
-    def get_etag(self) -> Digest:
-        # TODO
-        raise NotImplementedError
-
-    @property
-    def size(self) -> int:
-        # TODO
-        raise NotImplementedError
-
-    @property
-    def modified(self) -> datetime:
-        if not self.is_file():
-            # TODO: Should we forego this check and let queries on directories
-            # fail with KeyError?
-            raise RuntimeError("Directories in Zarrs do not have 'modified' timestamps")
-        r = self.client.get(
-            f"/zarr/{self.zarr_id}.zarr/{'/'.join(self.parts)}",
-            headers={"Range": "bytes=0-0"},
-            json_resp=False,
-        )
-        return dateutil.parser.parse(r.headers["Last-Modified"])
+        return ZarrListing.parse_obj(r)
