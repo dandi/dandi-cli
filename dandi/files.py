@@ -25,7 +25,7 @@ from dandischema.digests.dandietag import DandiETag
 from dandischema.digests.zarr import get_checksum
 from dandischema.models import BareAsset, CommonModel
 from dandischema.models import Dandiset as DandisetMeta
-from dandischema.models import get_schema_version
+from dandischema.models import DigestType, get_schema_version
 from pydantic import ValidationError
 import requests
 import zarr
@@ -534,7 +534,7 @@ class LocalDirectoryAsset(LocalAsset, Generic[P]):
     @property
     def size(self) -> int:
         """The total size of the files in the directory"""
-        return sum(p.stat().st_size for p in self.iterfiles())
+        return sum(p.size for p in self.iterfiles())
 
 
 @dataclass
@@ -581,9 +581,13 @@ class LocalZarrEntry(BasePath):
 
     def get_etag(self) -> Digest:
         if self.is_dir():
-            return get_zarr_checksum(self.filepath, basepath=self.zarr_basepath)
+            return Digest.dandi_zarr(
+                get_zarr_checksum(self.filepath, basepath=self.zarr_basepath)
+            )
         else:
-            return get_digest(self.filepath, "md5")
+            return Digest(
+                algorithm=DigestType.md5, value=get_digest(self.filepath, "md5")
+            )
 
     @property
     def size(self) -> int:
@@ -613,11 +617,11 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
     @property
     def filetree(self) -> LocalZarrEntry:
         return LocalZarrEntry(
-            filepath=self.filepath, zarr_basepath=self.zarr_basepath, parts=()
+            filepath=self.filepath, zarr_basepath=self.filepath, parts=()
         )
 
     def stat(self) -> ZarrStat:
-        def dirstat(self, dirpath: LocalZarrEntry) -> ZarrStat:
+        def dirstat(dirpath: LocalZarrEntry) -> ZarrStat:
             size = 0
             dir_md5s = {}
             file_md5s = {}
@@ -632,11 +636,11 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     size += p.size
                     file_md5s[str(p)] = p.get_etag().value
                     files.append(p)
-                return ZarrStat(
-                    size=size,
-                    digest=Digest.dandi_zarr(get_checksum(file_md5s, dir_md5s)),
-                    files=files,
-                )
+            return ZarrStat(
+                size=size,
+                digest=Digest.dandi_zarr(get_checksum(file_md5s, dir_md5s)),
+                files=files,
+            )
 
         return dirstat(self.filetree)
 

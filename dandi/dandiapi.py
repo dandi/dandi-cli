@@ -1606,6 +1606,11 @@ class RemoteZarrEntry(BasePath):
         raise NotImplementedError
 
     @property
+    def size(self) -> int:
+        # TODO
+        raise NotImplementedError
+
+    @property
     def modified(self) -> datetime:
         if not self.is_file():
             # TODO: Should we forego this check and let queries on directories

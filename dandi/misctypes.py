@@ -176,3 +176,8 @@ class BasePath(ABC):
     @abstractmethod
     def iterdir(self: P) -> Iterator[P]:
         ...
+
+    @property
+    @abstractmethod
+    def size(self) -> int:
+        ...

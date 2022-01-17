@@ -5,6 +5,7 @@ from dandischema.models import get_schema_version
 import numpy as np
 import zarr
 
+from .. import get_logger
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import RemoteZarrAsset
 from ..files import (
@@ -15,6 +16,8 @@ from ..files import (
     dandi_file,
     find_dandi_files,
 )
+
+lgr = get_logger()
 
 
 def test_find_dandi_files(tmp_path: Path) -> None:
@@ -140,6 +143,7 @@ def test_upload_zarr(local_dandi_api, tmp_path):
     assert md["description"] == "A modified Zarr"
 
     for file_src in [zf, asset]:
+        lgr.debug("Traversing %s", type(file_src).__name__)
         entries = sorted(file_src.iterfiles(include_dirs=True), key=attrgetter("parts"))
         assert [str(e) for e in entries] == [
             ".zgroup",
