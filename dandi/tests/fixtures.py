@@ -328,7 +328,7 @@ def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
         dspath=dspath,
         dandiset=d,
         dandiset_id=dandiset_id,
-        upload_kwargs={"allow_any_path": True, "validation": "skip"},
+        upload_kwargs={"allow_any_path": True},
     )
     td.upload()
     return td

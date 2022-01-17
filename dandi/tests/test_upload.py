@@ -137,7 +137,6 @@ def test_upload_download_small_file(contents, local_dandi_api, monkeypatch, tmp_
         dandi_instance=local_dandi_api.instance_id,
         devel_debug=True,
         allow_any_path=True,
-        validation="skip",
     )
     download_dir = tmp_path / "download"
     download_dir.mkdir()

@@ -73,7 +73,6 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
         dandi_instance=local_dandi_api.instance_id,
         devel_debug=True,
         allow_any_path=True,
-        validation="skip",
     )
 
     d.wait_until_valid()
@@ -99,7 +98,6 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
         dandi_instance=local_dandi_api.instance_id,
         devel_debug=True,
         allow_any_path=True,
-        validation="skip",
     )
     rmtree(download_dir / dandiset_id)
     download(dv.version_api_url, download_dir)
@@ -112,7 +110,6 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
         dandi_instance=local_dandi_api.instance_id,
         devel_debug=True,
         allow_any_path=True,
-        validation="skip",
     )
 
     rmtree(download_dir / dandiset_id)
