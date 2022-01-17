@@ -1,3 +1,15 @@
+# 0.34.1 (Mon Jan 17 2022)
+
+#### 🔩 Dependency Updates
+
+- upgrade dandischema requirement from 0.4.1 to 0.5.1 (~=) [#868](https://github.com/dandi/dandi-cli/pull/868) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.34.0 (Wed Jan 12 2022)
 
 #### 🚀 Enhancement
