@@ -143,5 +143,5 @@ DRAFT = "draft"
 #: of retries)
 RETRY_STATUSES = (500, 502, 503, 504)
 
-external_file_extensions = [".mp4", ".avi", ".wmv", ".mov", ".flv"]
-external_file_modules = ["processing", "acquisition"]
+EXTERNAL_FILE_EXTENSIONS = [".mp4", ".avi", ".wmv", ".mov", ".flv"]
+EXTERNAL_FILE_MODULES = ["processing", "acquisition"]
