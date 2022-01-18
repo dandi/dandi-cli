@@ -16,6 +16,7 @@ from semantic_version import Version
 from .skip import mark
 from ..metadata import (
     extract_age,
+    extract_species,
     get_metadata,
     metadata2asset,
     parse_age,
@@ -338,7 +339,22 @@ def test_time_extract_gest():
                 "oboInOwl:hasExactSynonym": "Norway rat",
             },
         ),
+        (
+            "http://purl.obolibrary.org/obo/NCBITaxon_28584",
+            {
+                "rdfs:label": "Drosophila suzukii",
+            },
+        ),
     ],
 )
 def test_parseobourl(url, value):
     assert parse_purlobourl(url) == value
+
+
+def test_species():
+    m = {"species": "http://purl.obolibrary.org/obo/NCBITaxon_28584"}
+    assert extract_species(m).json_dict() == {
+        "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_28584",
+        "schemaKey": "SpeciesType",
+        "name": "Drosophila suzukii",
+    }
