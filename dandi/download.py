@@ -552,8 +552,14 @@ def _download_file(
     if size is not None:
         yield {"size": size}
 
-    destdir = op.dirname(path)
-    os.makedirs(destdir, exist_ok=True)
+    destdir = Path(op.dirname(path))
+    for p in (destdir, *destdir.parents):
+        if p.is_file():
+            p.unlink()
+            break
+        elif p.is_dir():
+            break
+    destdir.mkdir(parents=True, exist_ok=True)
 
     yield {"status": "downloading"}
 
@@ -751,7 +757,7 @@ def _download_zarr(
         etag = entry.get_etag()
         assert etag.algorithm is DigestType.md5
         stat = entry.stat()
-        download_gens[entry.path] = _download_file(
+        download_gens[str(entry)] = _download_file(
             entry.get_download_file_iter(),
             op.join(download_path, op.normpath(str(entry))),
             toplevel_path=toplevel_path,

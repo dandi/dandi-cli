@@ -272,9 +272,6 @@ def test_download_metadata404(text_dandiset, tmp_path):
     ]
 
 
-@pytest.mark.xfail(
-    reason="Zarr download not implemented yet", raises=NotImplementedError, strict=True
-)
 def test_download_zarr(tmp_path, zarr_dandiset):
     download(zarr_dandiset.dandiset.version_api_url, tmp_path)
     assert_dirtrees_eq(
@@ -283,9 +280,7 @@ def test_download_zarr(tmp_path, zarr_dandiset):
     )
 
 
-@pytest.mark.xfail(
-    reason="Zarr download not implemented yet", raises=NotImplementedError, strict=True
-)
+@pytest.mark.xfail(reason="Not implemented yet", strict=True)
 def test_download_different_zarr(tmp_path, zarr_dandiset):
     dd = tmp_path / zarr_dandiset.dandiset_id
     dd.mkdir()
@@ -299,9 +294,6 @@ def test_download_different_zarr(tmp_path, zarr_dandiset):
     )
 
 
-@pytest.mark.xfail(
-    reason="Zarr download not implemented yet", raises=NotImplementedError, strict=True
-)
 def test_download_zarr_to_nonzarr_path(tmp_path, zarr_dandiset):
     dd = tmp_path / zarr_dandiset.dandiset_id
     dd.mkdir()
