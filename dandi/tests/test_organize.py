@@ -268,9 +268,7 @@ def test_video_organize(video_mode, mode, create_video_nwbfiles, clirunner, tmp_
         str(dandi_organize_path),
         str(create_video_nwbfiles),
     ]
-    video_files_list = [
-        i for i in (create_video_nwbfiles.parent / "video_files").iterdir()
-    ]
+    video_files_list = list((create_video_nwbfiles.parent / "video_files").iterdir())
     video_files_organized = []
     r = clirunner.invoke(organize, cmd)
     assert r.exit_code == 0
