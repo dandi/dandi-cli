@@ -243,7 +243,7 @@ def organize(
     ]
     if all(external_files_missing_metadata_bool) and rewrite == "external-file":
         lgr.warning(
-            "rewrite option specified as 'external_file' but no external_files found"
+            "rewrite option specified as 'external_file' but no external_files found "
             "linked to any nwbfile found in %s",
             paths,
         )
