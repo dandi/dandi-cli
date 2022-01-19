@@ -286,7 +286,7 @@ def test_video_organize(video_mode, mode, create_video_nwbfiles):
                     filename = (
                         f"{vid_folder.name}/{ext_file_ob['id']}_external_file_{no}"
                     )
-                    assert filename == Path(name).name
+                    assert filename == str(Path(name).with_suffix(""))
                     # check if the files exist( both in case of move/copy):
                     assert (vid_folder.parent / name).exists()
     # check all video files are organized:
