@@ -768,7 +768,7 @@ def _download_zarr(
     ) as it:
         for path, status in it:
             for out in pc.feed(path, status):
-                if out == {"status": "done"}:
+                if out.get("status") == "done":
                     break
                 else:
                     yield out
@@ -886,16 +886,18 @@ class ProgressCombiner:
         elif status.get("status") == "error":
             if "checksum" in status:
                 self.files[path].state = DLState.CHECKSUM_ERROR
-                out = {}
+                out = {"message": self.message}
+                self.set_status(out)
+                yield out
             else:
                 self.files[path].state = DLState.ERROR
+                out = {"message": self.message}
+                self.set_status(out)
+                yield out
                 sz = self.files[path].size
                 if sz is not None:
                     self.maxsize -= sz
-                    out = self.get_done()
-            out["message"] = self.message
-            self.set_status(out)
-            yield out
+                    yield self.get_done()
         elif keys == ["checksum"]:
             pass
         elif status == {"status": "setting mtime"}:
