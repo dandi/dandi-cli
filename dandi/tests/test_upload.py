@@ -172,6 +172,17 @@ def test_upload_sync_folder(mocker, text_dandiset):
         text_dandiset.dandiset.get_asset_by_path("subdir2/banana.txt")
 
 
+def test_upload_sync_zarr(mocker, zarr_dandiset):
+    rmtree(zarr_dandiset.dspath / "sample.zarr")
+    zarr.save(zarr_dandiset.dspath / "identity.zarr", np.eye(5))
+    confirm_mock = mocker.patch("click.confirm", return_value=True)
+    zarr_dandiset.upload(sync=True)
+    confirm_mock.assert_called_with("Delete 1 asset on server?")
+    zarr_dandiset.dandiset.get_asset_by_path("identity.zarr")
+    with pytest.raises(NotFoundError):
+        zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+
+
 def test_upload_invalid_metadata(
     local_dandi_api, monkeypatch, simple1_nwb_metadata, tmp_path
 ):
