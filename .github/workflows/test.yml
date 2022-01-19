@@ -112,17 +112,20 @@ jobs:
       if: startsWith(matrix.os, 'ubuntu')
       run: |
         apt-get install git-annex
+        datalad wtf
 
     - name: Install git-annex (macOS)
       if: startsWith(matrix.os, 'macos')
       run: |
         brew install git-annex
+        datalad wtf
 
     - name: Install git-annex (windows)
       if: startsWith(matrix.os, 'windows')
       run: |
         pip install datalad-installer
         datalad-installer git-annex -m datalad/packages
+        datalad wtf
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
