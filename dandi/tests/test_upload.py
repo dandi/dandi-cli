@@ -293,3 +293,24 @@ def test_upload_zarr_to_nonzarr_path(local_dandi_api, monkeypatch, tmp_path):
         dspath / "sample.zarr",
         tmp_path / "download" / dandiset_id / "sample.zarr",
     )
+
+
+def test_upload_zarr_with_empty_dir(local_dandi_api, monkeypatch, tmp_path):
+    d = local_dandi_api.client.create_dandiset("Test Dandiset", {})
+    dandiset_id = d.identifier
+    (tmp_path / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
+    zarr.save(tmp_path / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
+    (tmp_path / "sample.zarr" / "empty").mkdir()
+    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
+    upload(
+        paths=[],
+        dandiset_path=tmp_path,
+        dandi_instance=local_dandi_api.instance_id,
+        devel_debug=True,
+    )
+    (asset,) = d.get_assets()
+    assert isinstance(asset, RemoteZarrAsset)
+    assert asset.is_zarr()
+    assert not asset.is_blob()
+    assert asset.path == "sample.zarr"
+    assert not (asset.filetree / "empty").exists()
