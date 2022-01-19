@@ -3,6 +3,7 @@ import os
 import os.path as op
 import re
 from shutil import rmtree
+from typing import List, Tuple
 
 import numpy as np
 import pytest
@@ -12,7 +13,7 @@ import zarr
 from .skip import mark
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
-from ..download import download, download_generator
+from ..download import ProgressCombiner, download, download_generator
 from ..upload import upload
 from ..utils import assert_dirtrees_eq, list_paths
 
@@ -335,3 +336,80 @@ def test_download_nonzarr_to_zarr_path(local_dandi_api, monkeypatch, tmp_path):
     download(d.version_api_url, tmp_path / "download", existing="overwrite-different")
     assert (dd / "sample.zarr").is_file()
     assert (dd / "sample.zarr").read_text() == "This is not a Zarr.\n"
+
+
+@pytest.mark.parametrize(
+    "file_qty,inputs,expected",
+    [
+        (
+            1,
+            [
+                ("lonely.txt", {"size": 42}),
+                ("lonely.txt", {"status": "downloading"}),
+                ("lonely.txt", {"done": 0, "done%": 0.0}),
+                ("lonely.txt", {"done": 20, "done%": 20 / 42 * 100}),
+                ("lonely.txt", {"done": 40, "done%": 40 / 42 * 100}),
+                ("lonely.txt", {"done": 42, "done%": 100.0}),
+                ("lonely.txt", {"checksum": "ok"}),
+                ("lonely.txt", {"status": "setting mtime"}),
+                ("lonely.txt", {"status": "done"}),
+            ],
+            [
+                {"size": 69105},
+                {"status": "downloading"},
+                {"done": 0, "done%": 0.0},
+                {"done": 20, "done%": 20 / 42 * 100},
+                {"done": 40, "done%": 40 / 42 * 100},
+                {"done": 42, "done%": 100.0},
+                {"status": "done", "message": "1 done"},
+            ],
+        ),
+        (
+            2,
+            [
+                ("apple.txt", {"size": 42}),
+                ("banana.txt", {"size": 127}),
+                ("apple.txt", {"status": "downloading"}),
+                ("banana.txt", {"status": "downloading"}),
+                ("apple.txt", {"done": 0, "done%": 0.0}),
+                ("banana.txt", {"done": 0, "done%": 0.0}),
+                ("apple.txt", {"done": 20, "done%": 20 / 42 * 100}),
+                ("banana.txt", {"done": 40, "done%": 40 / 127 * 100}),
+                ("apple.txt", {"done": 40, "done%": 40 / 42 * 100}),
+                ("banana.txt", {"done": 80, "done%": 80 / 127 * 100}),
+                ("apple.txt", {"done": 42, "done%": 100.0}),
+                ("banana.txt", {"done": 120, "done%": 120 / 127 * 100}),
+                ("apple.txt", {"checksum": "ok"}),
+                ("banana.txt", {"done": 127, "done%": 100.0}),
+                ("apple.txt", {"status": "setting mtime"}),
+                ("banana.txt", {"checksum": "ok"}),
+                ("apple.txt", {"status": "done"}),
+                ("banana.txt", {"status": "setting mtime"}),
+                ("banana.txt", {"status": "done"}),
+            ],
+            [
+                {"size": 69105},
+                {"status": "downloading"},
+                {"done": 0, "done%": 0.0},
+                {"done": 0, "done%": 0.0},
+                {"done": 20, "done%": 20 / 169 * 100},
+                {"done": 60, "done%": 60 / 169 * 100},
+                {"done": 80, "done%": 80 / 169 * 100},
+                {"done": 120, "done%": 120 / 169 * 100},
+                {"done": 122, "done%": 122 / 169 * 100},
+                {"done": 162, "done%": 162 / 169 * 100},
+                {"done": 169, "done%": 100.0},
+                {"message": "1 done"},
+                {"status": "done", "message": "2 done"},
+            ],
+        ),
+    ],
+)
+def test_progress_combiner(
+    file_qty: int, inputs: List[Tuple[str, dict]], expected: List[dict]
+) -> None:
+    pc = ProgressCombiner(zarr_size=69105, file_qty=file_qty)
+    outputs = []
+    for path, status in inputs:
+        outputs.extend(pc.feed(path, status))
+    assert outputs == expected

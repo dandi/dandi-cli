@@ -1707,3 +1707,34 @@ class RemoteZarrEntry(BasePath):
             else:
                 raise
         return ZarrListing.parse_obj(r)
+
+    def get_download_file_iter(
+        self, chunk_size: int = MAX_CHUNK_SIZE
+    ) -> Callable[..., Iterator[bytes]]:
+        """
+        Returns a function that when called (optionally with an offset into the
+        file to start downloading at) returns a generator of chunks of the file
+        """
+        if not self.is_file():
+            raise RuntimeError(
+                f"{str(self)!r} in Zarr {self.zarr_id!r} does not exist or"
+                " is not a file"
+            )
+
+        url = self.client.get_url(f"/zarr/{self.zarr_id}.zarr/{'/'.join(self.parts)}")
+
+        def downloader(start_at: int = 0) -> Iterator[bytes]:
+            lgr.debug("Starting download from %s", url)
+            headers = None
+            if start_at > 0:
+                headers = {"Range": f"bytes={start_at}-"}
+            result = self.client.session.get(url, stream=True, headers=headers)
+            # TODO: apparently we might need retries here as well etc
+            # if result.status_code not in (200, 201):
+            result.raise_for_status()
+            for chunk in result.iter_content(chunk_size=chunk_size):
+                if chunk:  # could be some "keep alive"?
+                    yield chunk
+            lgr.info("File %s in Zarr %s successfully downloaded", self, self.zarr_id)
+
+        return downloader
