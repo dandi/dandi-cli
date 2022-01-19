@@ -1,3 +1,5 @@
+"""Miscellaneous public classes"""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -42,6 +44,8 @@ class Digest:
         return {self.algorithm: self.value}
 
 
+#: Placeholder digest used in some situations where a digest is required but
+#: not actually relevant and would be too expensive to calculate
 DUMMY_DIGEST = Digest(algorithm=DigestType.dandi_etag, value=32 * "d" + "-1")
 
 P = TypeVar("P", bound="BasePath")
@@ -49,6 +53,15 @@ P = TypeVar("P", bound="BasePath")
 
 @dataclass
 class BasePath(ABC):
+    """
+    An abstract base class for path-like objects that can be traversed with the
+    ``/`` operator *à la* `pathlib.Path` (though, unlike `pathlib.Path`
+    instances, "dividing" by another non-string path is not allowed).  All
+    paths are treated as forward-slash-separated relative paths under an
+    empty-name "root" path.
+    """
+
+    #: The path components of the object
     parts: Tuple[str, ...]
 
     def __str__(self) -> str:
@@ -56,6 +69,10 @@ class BasePath(ABC):
 
     @property
     def name(self) -> str:
+        """
+        The basename of the path object.  When the object represents the root
+        of a path hierarchy, this is the empty string.
+        """
         if self.is_root():
             return ""
         else:
@@ -64,6 +81,12 @@ class BasePath(ABC):
 
     @abstractmethod
     def _get_subpath(self: P, name: str) -> P:
+        """
+        Return the path immediately under the instance with the given name.  A
+        name of ``"."`` should cause ``self`` to be returned, and a name of
+        ``".."`` should cause ``self.parent`` to be returned.  An empty name or
+        a name containing a forward slash should result in a `ValueError`.
+        """
         ...
 
     def __truediv__(self: P, path: str) -> P:
@@ -73,6 +96,10 @@ class BasePath(ABC):
         return p
 
     def joinpath(self: P, *paths: str) -> P:
+        """
+        Combine the path with each name or relative path in ``paths`` using the
+        ``/`` operator
+        """
         p = self
         for q in paths:
             p /= q
@@ -80,15 +107,20 @@ class BasePath(ABC):
 
     @staticmethod
     def _split_path(path: str) -> Tuple[str, ...]:
+        """Split a path into its path components"""
         if path.startswith("/"):
             raise ValueError(f"Absolute paths not allowed: {path!r}")
         return tuple(q for q in path.split("/") if q)
 
     def is_root(self) -> bool:
+        """
+        Returns true if this path object represents the root of its hierarchy
+        """
         return self.parts == ()
 
     @property
     def root_path(self: P) -> P:
+        """The root of the path object's hierarchy"""
         p = self
         while not p.is_root():
             p = p.parent
@@ -97,11 +129,18 @@ class BasePath(ABC):
     @property
     @abstractmethod
     def parent(self: P) -> P:
-        # The parent of the root of a filetree is itself
+        """
+        The parent path of the object.  The parent of the root of a path
+        hierarchy is itself.
+        """
         ...
 
     @property
     def parents(self: P) -> Tuple[P, ...]:
+        """
+        A tuple of the path's ancestors, starting at the parent and going up to
+        (but not including) the root of the hierarchy
+        """
         ps: List[P] = []
         p = self
         while not p.is_root():
@@ -111,10 +150,12 @@ class BasePath(ABC):
         return tuple(ps)
 
     def with_name(self: P, name: str) -> P:
+        """Equivalent to ``p.parent / name``"""
         return self.parent / name
 
     @property
     def suffix(self) -> str:
+        """The final file extension of the basename, if any"""
         i = self.name.rfind(".")
         if 0 < i < len(self.name) - 1:
             return self.name[i:]
@@ -123,6 +164,7 @@ class BasePath(ABC):
 
     @property
     def suffixes(self) -> List[str]:
+        """A list of the basename's file extensions"""
         if self.name.endswith("."):
             return []
         name = self.name.lstrip(".")
@@ -130,6 +172,7 @@ class BasePath(ABC):
 
     @property
     def stem(self) -> str:
+        """The basename without its final file extension, if any"""
         i = self.name.rfind(".")
         if 0 < i < len(self.name) - 1:
             return self.name[:i]
@@ -137,9 +180,11 @@ class BasePath(ABC):
             return self.name
 
     def with_stem(self: P, stem: str) -> P:
+        """Returns a new path with the stem changed"""
         return self.with_name(stem + self.suffix)
 
     def with_suffix(self: P, suffix: str) -> P:
+        """Returns a new path with the final file extension changed"""
         if "/" in suffix or (suffix and not suffix.startswith(".")) or suffix == ".":
             raise ValueError(f"Invalid suffix: {suffix!r}")
         if not self.name:
@@ -151,6 +196,7 @@ class BasePath(ABC):
         return self.with_name(name)
 
     def match(self, pattern: str) -> bool:
+        """Tests whether the path matches the given glob pattern"""
         patparts = self._split_path(pattern)
         if not patparts:
             raise ValueError("Empty pattern")
@@ -163,21 +209,29 @@ class BasePath(ABC):
 
     @abstractmethod
     def exists(self) -> bool:
+        """True iff the resource at the given path exists"""
         ...
 
     @abstractmethod
     def is_file(self) -> bool:
+        """True if the resource at the given path exists and is a file"""
         ...
 
     @abstractmethod
     def is_dir(self) -> bool:
+        """True if the resource at the given path exists and is a directory"""
         ...
 
     @abstractmethod
     def iterdir(self: P) -> Iterator[P]:
+        """
+        Returns a generator of the paths under the instance, which must be a
+        directory
+        """
         ...
 
     @property
     @abstractmethod
     def size(self) -> int:
+        """The size of the resource at the path"""
         ...

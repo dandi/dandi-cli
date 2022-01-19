@@ -56,7 +56,7 @@ _required_nwb_metadata_fields = ["subject_id"]
 
 @dataclass
 class DandiFile(ABC):
-    """Base class for local files & directories of interest to DANDI"""
+    """Abstract base class for local files & directories of interest to DANDI"""
 
     #: The path to the actual file or directory on disk
     filepath: Path
@@ -78,6 +78,7 @@ class DandiFile(ABC):
         digest: Optional[Digest] = None,
         ignore_errors: bool = True,
     ) -> CommonModel:
+        """Return the Dandi metadata for the file"""
         ...
 
     @abstractmethod
@@ -86,6 +87,9 @@ class DandiFile(ABC):
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
     ) -> List[str]:
+        """
+        Attempt to validate the file and return a list of errors encountered
+        """
         ...
 
 
@@ -97,6 +101,7 @@ class DandisetMetadataFile(DandiFile):
         digest: Optional[Digest] = None,
         ignore_errors: bool = True,
     ) -> DandisetMeta:
+        """Return the Dandiset metadata inside the file"""
         with open(self.filepath) as f:
             meta = yaml_load(f, typ="safe")
         return DandisetMeta.unvalidated(**meta)
@@ -169,6 +174,7 @@ class LocalAsset(DandiFile):
         digest: Optional[Digest] = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
+        """Return the Dandi metadata for the asset"""
         ...
 
     # TODO: @validate_cache.memoize_path
@@ -511,12 +517,17 @@ class GenericAsset(LocalFileAsset):
 class LocalDirectoryAsset(LocalAsset, Generic[P]):
     """
     Representation of a directory that can be uploaded to a DANDI Archive as
-    a single asset of a Dandiset
+    a single asset of a Dandiset.  It is generic in ``P``, bound to
+    `dandi.misctypes.BasePath`.
     """
 
     @property
     @abstractmethod
     def filetree(self) -> P:
+        """
+        The path object for the root of the hierarchy of files within the
+        directory
+        """
         ...
 
     def iterfiles(self, include_dirs: bool = False) -> Iterator[P]:
@@ -539,6 +550,8 @@ class LocalDirectoryAsset(LocalAsset, Generic[P]):
 
 @dataclass
 class LocalZarrEntry(BasePath):
+    """A file or directory within a `ZarrAsset`"""
+
     #: The path to the actual file or directory on disk
     filepath: Path
     #: The path to the root of the Zarr file tree
@@ -580,6 +593,11 @@ class LocalZarrEntry(BasePath):
             yield self._get_subpath(p.name)
 
     def get_etag(self) -> Digest:
+        """
+        Calculate the etag digest for the entry.  If the entry is a directory,
+        the algorithm will be the Dandi Zarr checksum algorithm; if it is a
+        file, it will be MD5.
+        """
         if self.is_dir():
             return Digest.dandi_zarr(
                 get_zarr_checksum(self.filepath, basepath=self.zarr_basepath)
@@ -591,6 +609,10 @@ class LocalZarrEntry(BasePath):
 
     @property
     def size(self) -> int:
+        """
+        The size of the entry.  For a directory, this is the total size of all
+        entries within it.
+        """
         if self.is_dir():
             return sum(p.size for p in self.iterdir())
         else:
@@ -598,15 +620,21 @@ class LocalZarrEntry(BasePath):
 
     @property
     def modified(self) -> datetime:
+        """The time at which the entry was last modified"""
         # TODO: Should this be overridden for directories?
         return ensure_datetime(self.filepath.stat().st_mtime)
 
 
 @dataclass
 class ZarrStat:
+    """Details about a Zarr asset"""
+
+    #: The total size of the asset
     size: int
+    #: The Dandi Zarr checksum of the asset
     digest: Digest
-    files: List[LocalZarrEntry]  # Unspecified order; does not include directories
+    #: A list of all files in the asset in unspecified order
+    files: List[LocalZarrEntry]
 
 
 class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
@@ -616,11 +644,17 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 
     @property
     def filetree(self) -> LocalZarrEntry:
+        """
+        The `LocalZarrEntry` for the root of the hierarchy of files within the
+        Zarr asset
+        """
         return LocalZarrEntry(
             filepath=self.filepath, zarr_basepath=self.filepath, parts=()
         )
 
     def stat(self) -> ZarrStat:
+        """Return various details about the Zarr asset"""
+
         def dirstat(dirpath: LocalZarrEntry) -> ZarrStat:
             size = 0
             dir_md5s = {}

@@ -2,3 +2,4 @@
 ===============
 
 .. automodule:: dandi.files
+    :show-inheritance:

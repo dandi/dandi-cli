@@ -1468,11 +1468,20 @@ class RemoteZarrAsset(RemoteAsset):
 
     @property
     def filetree(self) -> "RemoteZarrEntry":
+        """
+        The `RemoteZarrEntry` for the root of the hierarchy of files within the
+        Zarr
+        """
         return RemoteZarrEntry(
             client=self.client, zarr_id=self.zarr, parts=(), _known_dir=True
         )
 
     def iterfiles(self, include_dirs: bool = False) -> Iterator["RemoteZarrEntry"]:
+        """
+        Returns a generator of all `RemoteZarrEntry`\\s within the Zarr.  By
+        default, only instances for files are produced, unless ``include_dirs``
+        is true.
+        """
         dirs = deque([self.filetree])
         while dirs:
             for p in dirs.popleft().iterdir():
@@ -1485,31 +1494,51 @@ class RemoteZarrAsset(RemoteAsset):
 
 
 class ZarrListing(BaseModel):
-    # Not for public use
+    """Information about a directory within a `RemoteZarrAsset`"""
 
+    #: API URLs for the listings of the directory's subdirectories
     directories: List[AnyHttpUrl]
+    #: API URLs for downloading the files in the directory
     files: List[AnyHttpUrl]
+    #: The checksums (MD5 or Dandi Zarr checksum, as appropriate) for the
+    #: directory's entries, as a mapping from basenames to checksums
     checksums: Dict[str, str]
+    #: The Dandi Zarr checksum for the directory
     checksum: str
 
     @property
     def dirnames(self) -> List[str]:
+        """The basenames of the directory URLs in `directories`"""
         return [PurePosixPath(unquote(url.path)).name for url in self.directories]
 
     @property
     def filenames(self) -> List[str]:
+        """The basenames of the file URLs in `files`"""
         return [PurePosixPath(unquote(url.path)).name for url in self.files]
 
 
 @dataclass
 class ZarrEntryStat:
+    """
+    Combined size & timestamp information for a file in a `RemoteZarrAsset`
+    """
+
+    #: The size of the file
     size: int
+    #: The time at which the file was last modified
     modified: datetime
 
 
 @dataclass
 class RemoteZarrEntry(BasePath):
+    """
+    A file or directory within a `RemoteZarrAsset`.  Implements
+    `~dandi.misctypes.BasePath`.
+    """
+
+    #: The `DandiAPIClient` instance used for API requests
     client: DandiAPIClient
+    #: The ID of the Zarr backing the asset
     zarr_id: str
     _known_dir: Optional[bool] = field(default=None, compare=False, repr=False)
 
@@ -1589,6 +1618,13 @@ class RemoteZarrEntry(BasePath):
             yield self._get_subpath(name, isdir=False)
 
     def get_etag(self) -> Digest:
+        """
+        Retrieve the etag digest for the entry.  If the entry is a directory,
+        the algorithm will be the Dandi Zarr checksum algorithm; if it is a
+        file, it will be MD5.
+
+        :raises NotFoundError: if the path does not exist in the Zarr asset
+        """
         if self.is_root():
             algorithm = models.DigestType.dandi_zarr_checksum
             value = self.get_listing().checksum
@@ -1607,37 +1643,66 @@ class RemoteZarrEntry(BasePath):
 
     @property
     def size(self) -> int:
+        """
+        The size of the entry, which must be a file
+
+        :raises NotFoundError: if the path does not exist in the Zarr asset
+        :raises ValueError: if the path is a directory
+        """
         return self.stat().size
 
     @property
     def modified(self) -> datetime:
+        """
+        The time at which the entry (which must be a file) was last modified
+
+        :raises NotFoundError: if the path does not exist in the Zarr asset
+        :raises ValueError: if the path is a directory
+        """
         return self.stat().modified
 
     def stat(self) -> ZarrEntryStat:
+        """
+        Return combined size & timestamp information for the entry, which must
+        be a file
+
+        :raises NotFoundError: if the path does not exist in the Zarr asset
+        :raises ValueError: if the path is a directory
+        """
         if not self.is_file():
-            # TODO: Should we forego this check and let queries on directories
-            # fail with KeyError?
-            raise RuntimeError("Directories in Zarrs do not have 'modified' timestamps")
-        r = self.client.request(
-            "HEAD",
-            f"/zarr/{self.zarr_id}.zarr/{'/'.join(self.parts)}",
-            json_resp=False,
-            allow_redirects=True,
-        )
+            raise ValueError("Cannot stat directories in Zarrs")
+        try:
+            r = self.client.request(
+                "HEAD",
+                f"/zarr/{self.zarr_id}.zarr/{'/'.join(self.parts)}",
+                json_resp=False,
+                allow_redirects=True,
+            )
+        except requests.HTTPError as e:
+            if e.response.status_code == 404:
+                raise NotFoundError(
+                    f"{str(self)!r} in Zarr {self.zarr_id!r} does not exist"
+                )
+            else:
+                raise
         return ZarrEntryStat(
             size=int(r.headers["Content-Length"]),
             modified=dateutil.parser.parse(r.headers["Last-Modified"]),
         )
 
     def get_listing(self) -> ZarrListing:
+        """
+        Return the `ZarrListing` for the entry, which must be a directory
+
+        :raises NotFoundError: if the path does not exist in the Zarr asset
+        """
         path = "".join(p + "/" for p in self.parts)
         try:
             r = self.client.get(f"/zarr/{self.zarr_id}.zarr/{path}")
         except requests.HTTPError as e:
             if e.response.status_code == 404:
                 raise NotFoundError(
-                    f"{str(self)!r} in Zarr {self.zarr_id!r} does not exist or"
-                    " is not a directory"
+                    f"{str(self)!r} in Zarr {self.zarr_id!r} does not exist"
                 )
             else:
                 raise
