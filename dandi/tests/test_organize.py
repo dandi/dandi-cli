@@ -280,11 +280,13 @@ def test_video_organize(video_mode, mode, create_video_nwbfiles, clirunner, tmp_
             # get iamgeseries objects as dict(id=object_id, external_files=[])
             ext_file_objects = _get_image_series(nwbfile)
             for ext_file_ob in ext_file_objects:
-                filename = vid_folder.name + f'/{ext_file_ob["id"]}_external_file_'
-                for name in ext_file_ob["external_files"]:
+                for no, name in enumerate(ext_file_ob["external_files"]):
                     video_files_organized.append(name)
                     # check if external_file arguments are correctly named according to convention:
-                    assert filename in str(name)
+                    filename = (
+                        f"{vid_folder.name}/{ext_file_ob['id']}_external_file_{no}"
+                    )
+                    assert filename == Path(name).name
                     # check if the files exist( both in case of move/copy):
                     assert (vid_folder.parent / name).exists()
     # check all video files are organized:
