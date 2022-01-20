@@ -11,11 +11,12 @@ import responses
 import zarr
 
 from .skip import mark
+from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
 from ..download import ProgressCombiner, download, download_generator
 from ..upload import upload
-from ..utils import assert_dirtrees_eq, list_paths
+from ..utils import list_paths
 
 
 # both urls point to 000027 (lean test dataset), and both draft and "released"
@@ -280,7 +281,6 @@ def test_download_zarr(tmp_path, zarr_dandiset):
     )
 
 
-@pytest.mark.xfail(reason="Not implemented yet", strict=True)
 def test_download_different_zarr(tmp_path, zarr_dandiset):
     dd = tmp_path / zarr_dandiset.dandiset_id
     dd.mkdir()
@@ -292,6 +292,29 @@ def test_download_different_zarr(tmp_path, zarr_dandiset):
         zarr_dandiset.dspath / "sample.zarr",
         tmp_path / zarr_dandiset.dandiset_id / "sample.zarr",
     )
+
+
+def test_download_different_zarr_delete_dir(local_dandi_api, monkeypatch, tmp_path):
+    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
+    d = local_dandi_api.client.create_dandiset("Test Dandiset", {})
+    dandiset_id = d.identifier
+    dspath = tmp_path / "dandiset"
+    dspath.mkdir()
+    (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
+    zarr.save(dspath / "sample.zarr", np.eye(5))
+    assert not any(p.is_dir() for p in (dspath / "sample.zarr").iterdir())
+    upload(
+        paths=[],
+        dandiset_path=dspath,
+        dandi_instance=local_dandi_api.instance_id,
+        devel_debug=True,
+    )
+    dd = tmp_path / "download" / dandiset_id
+    dd.mkdir(parents=True, exist_ok=True)
+    zarr.save(dd / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
+    assert any(p.is_dir() for p in (dd / "sample.zarr").iterdir())
+    download(d.version_api_url, tmp_path / "download", existing="overwrite-different")
+    assert_dirtrees_eq(dspath / "sample.zarr", dd / "sample.zarr")
 
 
 def test_download_zarr_to_nonzarr_path(tmp_path, zarr_dandiset):

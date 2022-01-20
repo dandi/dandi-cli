@@ -896,6 +896,8 @@ def find_dandi_files(
         if p.is_dir():
             if p.is_symlink():
                 lgr.warning("%s: Ignoring unsupported symbolic link to directory", p)
+            elif p == Path(dandiset_path):
+                path_queue.extend(p.iterdir())
             elif any(p.iterdir()):
                 try:
                     df = dandi_file(p, dandiset_path)

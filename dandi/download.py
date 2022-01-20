@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter, deque
 from dataclasses import dataclass, field
 from enum import Enum
 import hashlib
@@ -9,6 +9,7 @@ from pathlib import Path
 import random
 from shutil import rmtree
 import sys
+from threading import Lock
 import time
 from typing import Dict, Iterator, Optional, Tuple
 
@@ -206,6 +207,7 @@ def download_generator(
         if not get_assets:
             return
 
+        lock = Lock()
         for asset in assets:
             path = asset.path.lstrip("/")  # make into relative path
             path = op.normpath(path)
@@ -261,6 +263,7 @@ def download_generator(
                     mtime=mtime,
                     existing=existing,
                     digests=digests,
+                    lock=lock,
                 )
 
             else:
@@ -276,6 +279,7 @@ def download_generator(
                     toplevel_path=output_path,
                     existing=existing,
                     jobs=jobs_per_zarr,
+                    lock=lock,
                 )
 
             if yield_generator_for_fields:
@@ -445,6 +449,7 @@ def _download_file(
     downloader,
     path,
     toplevel_path,
+    lock,
     size=None,
     mtime=None,
     existing="error",
@@ -553,13 +558,14 @@ def _download_file(
         yield {"size": size}
 
     destdir = Path(op.dirname(path))
-    for p in (destdir, *destdir.parents):
-        if p.is_file():
-            p.unlink()
-            break
-        elif p.is_dir():
-            break
-    destdir.mkdir(parents=True, exist_ok=True)
+    with lock:
+        for p in (destdir, *destdir.parents):
+            if p.is_file():
+                p.unlink()
+                break
+            elif p.is_dir():
+                break
+        destdir.mkdir(parents=True, exist_ok=True)
 
     yield {"status": "downloading"}
 
@@ -750,10 +756,12 @@ def _download_zarr(
     download_path: str,
     toplevel_path: str,
     existing: str,
+    lock: Lock,
     jobs: Optional[int] = None,
 ) -> Iterator[dict]:
     download_gens = {}
-    for entry in asset.iterfiles():
+    entries = list(asset.iterfiles())
+    for entry in entries:
         etag = entry.get_etag()
         assert etag.algorithm is DigestType.md5
         stat = entry.stat()
@@ -765,8 +773,11 @@ def _download_zarr(
             mtime=stat.modified,
             existing=existing,
             digests={"md5": etag.value},
+            lock=lock,
         )
+
     pc = ProgressCombiner(zarr_size=asset.size, file_qty=len(download_gens))
+    final_out: Optional[dict] = None
     with interleave(
         [pairing(p, gen) for p, gen in download_gens.items()],
         onerror=FINISH_CURRENT,
@@ -775,12 +786,47 @@ def _download_zarr(
         for path, status in it:
             for out in pc.feed(path, status):
                 if out.get("status") == "done":
-                    break
+                    final_out = out
                 else:
                     yield out
+            if final_out is not None:
+                break
         else:
             return
-    # TODO: Delete local files not in remote Zarr
+
+    yield {"status": "deleting extra files"}
+    remote_paths = set(map(str, entries))
+    zarr_basepath = Path(download_path)
+    dirs = deque([zarr_basepath])
+    empty_dirs = deque()
+    while dirs:
+        d = dirs.popleft()
+        is_empty = True
+        for p in list(d.iterdir()):
+            if (
+                p.is_file()
+                and p.relative_to(zarr_basepath).as_posix() not in remote_paths
+            ):
+                try:
+                    p.unlink()
+                except OSError:
+                    is_empty = False
+            elif p.is_dir():
+                dirs.append(p)
+            else:
+                is_empty = False
+        if is_empty and d != zarr_basepath:
+            empty_dirs.append(d)
+    while empty_dirs:
+        d = empty_dirs.popleft()
+        try:
+            d.rmdir()
+        except OSError:
+            pass
+        else:
+            if d.parent != zarr_basepath and not any(d.parent.iterdir()):
+                empty_dirs.append(d.parent)
+
     yield {"status": "done"}
 
 

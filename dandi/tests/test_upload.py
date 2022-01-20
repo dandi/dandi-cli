@@ -7,6 +7,7 @@ import pynwb
 import pytest
 import zarr
 
+from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import RemoteBlobAsset, RemoteZarrAsset
 from ..download import download
@@ -14,7 +15,7 @@ from ..exceptions import NotFoundError
 from ..files import LocalFileAsset
 from ..pynwb_utils import make_nwb_file
 from ..upload import upload
-from ..utils import assert_dirtrees_eq, list_paths
+from ..utils import list_paths
 
 
 def test_new_upload_download(local_dandi_api, monkeypatch, organized_nwb_dir, tmp_path):
