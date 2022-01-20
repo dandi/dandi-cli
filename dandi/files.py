@@ -937,6 +937,8 @@ def dandi_file(
     filepath = Path(filepath)
     if dandiset_path is not None:
         path = filepath.relative_to(dandiset_path).as_posix()
+        if path == ".":
+            raise ValueError("Dandi file path cannot equal Dandiset path")
     else:
         path = filepath.name
     if filepath.is_dir():
