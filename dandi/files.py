@@ -47,7 +47,6 @@ from .misctypes import DUMMY_DIGEST, BasePath, Digest, P
 from .pynwb_utils import validate as pynwb_validate
 from .support.digests import get_dandietag, get_digest, get_zarr_checksum
 from .utils import chunked, ensure_datetime, pluralize, yaml_load
-from .validate import _check_required_fields
 
 lgr = get_logger()
 
@@ -862,8 +861,8 @@ def find_dandi_files(
     :param dandiset_path:
         The path to the root of the Dandiset in which the paths are located.
         All paths in ``paths`` must be equal to or subpaths of
-        ``dandiset_path``.  Can only be omitted when ``paths`` is a single
-        directory, in which case ``dandiset_path`` is set to that directory.
+        ``dandiset_path``.  If `None`, then the Dandiset path for each asset
+        found is implicitly set to the parent directory.
     :param allow_all:
         If true, unrecognized assets and the Dandiset's :file:`dandiset.yaml`
         file are returned as `GenericAsset` and `DandisetMetadataFile`
@@ -874,22 +873,16 @@ def find_dandi_files(
         (unless ``allow_all`` is true).
     """
 
-    if dandiset_path is None:
-        if len(paths) == 1 and os.path.isdir(paths[0]):
-            dandiset_path = paths[0]
-        else:
-            raise ValueError(
-                "dandiset_path must be set when not traversing a single directory"
-            )
     path_queue = deque()
     for p in paths:
         p = Path(p)
-        try:
-            p.relative_to(dandiset_path)
-        except ValueError:
-            raise ValueError(
-                "Path {str(p)!r} is not inside Dandiset path {str(dandiset_path)!r}"
-            )
+        if dandiset_path is not None:
+            try:
+                p.relative_to(dandiset_path)
+            except ValueError:
+                raise ValueError(
+                    "Path {str(p)!r} is not inside Dandiset path {str(dandiset_path)!r}"
+                )
         path_queue.append(p)
     while path_queue:
         p = path_queue.popleft()
@@ -898,7 +891,7 @@ def find_dandi_files(
         if p.is_dir():
             if p.is_symlink():
                 lgr.warning("%s: Ignoring unsupported symbolic link to directory", p)
-            elif p == Path(dandiset_path):
+            elif dandiset_path is not None and p == Path(dandiset_path):
                 path_queue.extend(p.iterdir())
             elif any(p.iterdir()):
                 try:
@@ -1026,3 +1019,14 @@ def _upload_zarr_file(
     with path.open("rb") as fp:
         storage_session.put(upload_url, data=fp, json_resp=False)
     return path.stat().st_size
+
+
+def _check_required_fields(d, required):
+    errors = []
+    for f in required:
+        v = d.get(f, None)
+        if not v or (isinstance(v, str) and not (v.strip())):
+            errors += [f"Required field {f!r} has no value"]
+        if v in ("REQUIRED", "PLACEHOLDER"):
+            errors += [f"Required field {f!r} has value {v!r}"]
+    return errors

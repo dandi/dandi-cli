@@ -40,7 +40,9 @@ def test_find_dandi_files(tmp_path: Path) -> None:
     (tmp_path / ".ignored.dir").mkdir()
     (tmp_path / ".ignored.dir" / "ignored.nwb").touch()
 
-    files = sorted(find_dandi_files(tmp_path), key=attrgetter("filepath"))
+    files = sorted(
+        find_dandi_files(tmp_path, dandiset_path=tmp_path), key=attrgetter("filepath")
+    )
     assert files == [
         ZarrAsset(filepath=tmp_path / "sample01.zarr", path="sample01.zarr"),
         NWBAsset(filepath=tmp_path / "sample02.nwb", path="sample02.nwb"),
@@ -53,7 +55,8 @@ def test_find_dandi_files(tmp_path: Path) -> None:
     ]
 
     files = sorted(
-        find_dandi_files(tmp_path, allow_all=True), key=attrgetter("filepath")
+        find_dandi_files(tmp_path, dandiset_path=tmp_path, allow_all=True),
+        key=attrgetter("filepath"),
     )
     assert files == [
         GenericAsset(filepath=tmp_path / "bar.txt", path="bar.txt"),
@@ -74,7 +77,8 @@ def test_find_dandi_files(tmp_path: Path) -> None:
     ]
 
     files = sorted(
-        find_dandi_files(tmp_path, include_metadata=True), key=attrgetter("filepath")
+        find_dandi_files(tmp_path, dandiset_path=tmp_path, include_metadata=True),
+        key=attrgetter("filepath"),
     )
     assert files == [
         DandisetMetadataFile(filepath=tmp_path / dandiset_metadata_file),

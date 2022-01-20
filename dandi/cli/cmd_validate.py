@@ -43,7 +43,7 @@ def validate(paths, schema=None, devel_debug=False, allow_any_path=False):
     all_files_errors = {}
     nfiles = 0
     for path, errors in validate_(
-        paths,
+        *paths,
         schema_version=schema,
         devel_debug=devel_debug,
         allow_any_path=allow_any_path,

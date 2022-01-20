@@ -138,7 +138,9 @@ def download(
                 f"Unexpected URL type {type(parsed_url).__name__}"
             )
         to_delete = []
-        for df in find_dandi_files(download_dir, allow_all=True):
+        for df in find_dandi_files(
+            download_dir, dandiset_path=download_dir, allow_all=True
+        ):
             if isinstance(df, DandisetMetadataFile):
                 continue
             a_path = op.normpath(op.join(prefix, df.path))
