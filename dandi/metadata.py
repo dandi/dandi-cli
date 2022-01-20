@@ -433,7 +433,7 @@ def extract_species(metadata):
                 value_id = value_orig
                 lookup = ("rdfs:label", "oboInOwl:hasExactSynonym")
                 try:
-                    result = parse_purlobourl(value, lookup=lookup)
+                    result = parse_purlobourl(value_orig, lookup=lookup)
                 except ConnectionError:
                     value = None
                 else:
@@ -458,7 +458,8 @@ def extract_species(metadata):
                 "(http://www.ontobee.org/ontology/NCBITaxon) into "
                 "your species field in your NWB file. For example: "
                 "http://purl.obolibrary.org/obo/NCBITaxon_9606 is the "
-                "url for the species Homo sapiens."
+                "url for the species Homo sapiens. Please note that "
+                "this url is case sensitive."
             )
         return models.SpeciesType(identifier=value_id, name=value)
     else:

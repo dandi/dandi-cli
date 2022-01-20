@@ -85,7 +85,8 @@
       "genotype": "Typical",
       "species": {
         "schemaKey": "SpeciesType",
-        "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_1234175"
+        "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_1234175",
+        "name": "Cyperus bulbosus"
       }
     }
   ]
