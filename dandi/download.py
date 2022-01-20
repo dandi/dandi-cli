@@ -161,7 +161,10 @@ def download(
                         print(p)
                 elif opt == "yes":
                     for p in to_delete:
-                        os.unlink(p)
+                        if p.is_dir():
+                            rmtree(p)
+                        else:
+                            p.unlink()
                     break
                 else:
                     break

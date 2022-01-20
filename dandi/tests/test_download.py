@@ -229,6 +229,21 @@ def test_download_sync_list(capsys, mocker, text_dandiset, tmp_path):
     assert capsys.readouterr().out.splitlines()[-1] == str(dspath / "file.txt")
 
 
+def test_download_sync_zarr(mocker, zarr_dandiset, tmp_path):
+    zarr_dandiset.dandiset.get_asset_by_path("sample.zarr").delete()
+    dspath = tmp_path / zarr_dandiset.dandiset_id
+    os.rename(zarr_dandiset.dspath, dspath)
+    confirm_mock = mocker.patch("dandi.download.abbrev_prompt", return_value="yes")
+    download(
+        zarr_dandiset.dandiset.version_api_url,
+        tmp_path,
+        existing="overwrite",
+        sync=True,
+    )
+    confirm_mock.assert_called_with("Delete 1 local asset?", "yes", "no", "list")
+    assert not (dspath / "sample.zarr").exists()
+
+
 @responses.activate
 def test_download_no_blobDateModified(text_dandiset, tmp_path):
     # Regression test for #806
