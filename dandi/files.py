@@ -1,4 +1,6 @@
 """
+.. versionadded:: 0.35.0
+
 This module defines functionality for working with local files & directories
 (as opposed to remote resources on a DANDI Archive server) that are of interest
 to DANDI.  The classes for such files & directories all inherit from

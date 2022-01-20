@@ -1209,6 +1209,8 @@ class BaseRemoteAsset(APIBase):
 
     def get_etag(self) -> Digest:
         """
+        .. versionadded:: 0.35.0
+
         Retrieves the DANDI etag digest of the appropriate type for the asset:
         a dandi-etag digest for blob resources or a dandi-zarr-checksum for
         Zarr resources
@@ -1309,11 +1311,19 @@ class BaseRemoteAsset(APIBase):
                 fp.write(chunk)
 
     def is_blob(self) -> bool:
-        """Returns true if the asset's actual data is a blob resource"""
+        """
+        .. versionadded:: 0.35.0
+
+        Returns true if the asset's actual data is a blob resource
+        """
         return self.get_raw_metadata().get("encodingFormat") != ZARR_MIME_TYPE
 
     def is_zarr(self) -> bool:
-        """Returns true if the asset's actual data is a Zarr resource"""
+        """
+        .. versionadded:: 0.35.0
+
+        Returns true if the asset's actual data is a Zarr resource
+        """
         return self.get_raw_metadata().get("encodingFormat") == ZARR_MIME_TYPE
 
 
@@ -1417,7 +1427,11 @@ class RemoteAsset(ABC, BaseRemoteAsset):
 
 
 class RemoteBlobAsset(RemoteAsset):
-    """A `RemoteAsset` whose actual data is a blob resource"""
+    """
+    .. versionadded:: 0.35.0
+
+    A `RemoteAsset` whose actual data is a blob resource
+    """
 
     #: The ID of the underlying blob resource
     blob: str
@@ -1446,7 +1460,11 @@ class RemoteBlobAsset(RemoteAsset):
 
 
 class RemoteZarrAsset(RemoteAsset):
-    """A `RemoteAsset` whose actual data is a Zarr resource"""
+    """
+    .. versionadded:: 0.35.0
+
+    A `RemoteAsset` whose actual data is a Zarr resource
+    """
 
     #: The ID of the underlying Zarr resource
     zarr: str
@@ -1501,7 +1519,11 @@ class RemoteZarrAsset(RemoteAsset):
 
 
 class ZarrListing(BaseModel):
-    """Information about a directory within a `RemoteZarrAsset`"""
+    """
+    .. versionadded:: 0.35.0
+
+    Information about a directory within a `RemoteZarrAsset`
+    """
 
     #: API URLs for the listings of the directory's subdirectories
     directories: List[AnyHttpUrl]
@@ -1527,6 +1549,8 @@ class ZarrListing(BaseModel):
 @dataclass
 class ZarrEntryStat:
     """
+    .. versionadded:: 0.35.0
+
     Combined size & timestamp information for a file in a `RemoteZarrAsset`
     """
 
@@ -1539,6 +1563,8 @@ class ZarrEntryStat:
 @dataclass
 class RemoteZarrEntry(BasePath):
     """
+    .. versionadded:: 0.35.0
+
     A file or directory within a `RemoteZarrAsset`.  Implements
     `~dandi.misctypes.BasePath`.
     """

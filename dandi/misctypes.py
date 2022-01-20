@@ -1,4 +1,8 @@
-"""Miscellaneous public classes"""
+"""
+.. versionadded:: 0.35.0
+
+Miscellaneous public classes
+"""
 
 from __future__ import annotations
 
