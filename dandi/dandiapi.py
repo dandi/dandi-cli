@@ -1269,8 +1269,13 @@ class BaseRemoteAsset(APIBase):
         """
         Returns a function that when called (optionally with an offset into the
         asset to start downloading at) returns a generator of chunks of the
-        asset
+        asset.
+
+        :raises ValueError: if the asset is not backed by a blob
         """
+        if not self.is_blob():
+            raise ValueError("Only blob assets can be downloaded directly")
+
         url = self.base_download_url
 
         def downloader(start_at: int = 0) -> Iterator[bytes]:
@@ -1295,6 +1300,8 @@ class BaseRemoteAsset(APIBase):
         """
         Download the asset to ``filepath``.  Blocks until the download is
         complete.
+
+        :raises ValueError: if the asset is not backed by a blob
         """
         downloader = self.get_download_file_iter(chunk_size=chunk_size)
         with open(filepath, "wb") as fp:
