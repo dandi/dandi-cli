@@ -12,7 +12,7 @@
 import hashlib
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 from dandischema.digests.dandietag import DandiETag
 from dandischema.digests.zarr import get_checksum
@@ -92,15 +92,27 @@ def get_dandietag(filepath) -> DandiETag:
     return DandiETag.from_file(filepath)
 
 
-def get_zarr_checksum(dirpath: Path, basepath: Optional[Path] = None) -> str:
+def get_zarr_checksum(
+    dirpath: Path,
+    basepath: Optional[Path] = None,
+    known: Optional[Dict[str, str]] = None,
+) -> str:
     if basepath is None:
         basepath = dirpath
     dirs = {}
     files = {}
+    if known is None:
+        known = {}
     for p in dirpath.iterdir():
         path = p.relative_to(basepath).as_posix()
         if not p.is_dir():
-            files[path] = get_digest(p, "md5")
+            try:
+                files[path] = known[path]
+            except KeyError:
+                files[path] = get_digest(p, "md5")
         elif any(p.iterdir()):
-            dirs[path] = get_zarr_checksum(p, basepath)
+            try:
+                dirs[path] = known[path]
+            except KeyError:
+                dirs[path] = get_zarr_checksum(p, basepath)
     return get_checksum(files, dirs)

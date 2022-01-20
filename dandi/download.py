@@ -1,6 +1,7 @@
 from collections import Counter, deque
 from dataclasses import dataclass, field
 from enum import Enum
+from functools import partial
 import hashlib
 import json
 import os
@@ -11,7 +12,7 @@ from shutil import rmtree
 import sys
 from threading import Lock
 import time
-from typing import Dict, Iterator, Optional, Tuple
+from typing import Any, Callable, Dict, Iterator, Optional, Tuple
 
 from dandischema.models import DigestType
 import humanize
@@ -25,7 +26,7 @@ from .dandiarchive import DandisetURL, MultiAssetURL, SingleAssetURL, parse_dand
 from .dandiset import Dandiset
 from .exceptions import NotFoundError
 from .files import DandisetMetadataFile, find_dandi_files
-from .support.digests import get_digest
+from .support.digests import get_digest, get_zarr_checksum
 from .support.pyout import naturalsize
 from .utils import (
     abbrev_prompt,
@@ -454,6 +455,7 @@ def _download_file(
     mtime=None,
     existing="error",
     digests=None,
+    digest_callback: Optional[Callable[[str, str], Any]] = None,
 ):
     """
     Common logic for downloading a single file.
@@ -646,6 +648,8 @@ def _download_file(
 
     if downloaded_digest and not resuming:
         downloaded_digest = downloaded_digest.hexdigest()  # we care only about hex
+        if digest_callback is not None:
+            digest_callback(algo, downloaded_digest)
         if digest != downloaded_digest:
             msg = f"{algo}: downloaded {downloaded_digest} != {digest}"
             yield {"checksum": "differs", "status": "error", "message": msg}
@@ -761,6 +765,12 @@ def _download_zarr(
 ) -> Iterator[dict]:
     download_gens = {}
     entries = list(asset.iterfiles())
+    digests = {}
+
+    def digest_callback(path: str, algoname: str, d: str) -> None:
+        if algoname == "md5":
+            digests[path] = d
+
     for entry in entries:
         etag = entry.get_etag()
         assert etag.algorithm is DigestType.md5
@@ -774,6 +784,7 @@ def _download_zarr(
             existing=existing,
             digests={"md5": etag.value},
             lock=lock,
+            digest_callback=partial(digest_callback, str(entry)),
         )
 
     pc = ProgressCombiner(zarr_size=asset.size, file_qty=len(download_gens))
@@ -826,6 +837,22 @@ def _download_zarr(
         else:
             if d.parent != zarr_basepath and not any(d.parent.iterdir()):
                 empty_dirs.append(d.parent)
+
+    if "skipped" not in final_out["message"]:
+        zarr_checksum = asset.get_etag().value
+        local_checksum = get_zarr_checksum(zarr_basepath, known=digests)
+        if zarr_checksum != local_checksum:
+            msg = f"Zarr checksum: downloaded {local_checksum} != {zarr_checksum}"
+            yield {"checksum": "differs", "status": "error", "message": msg}
+            lgr.debug("%s is different: %s.", zarr_basepath, msg)
+            return
+        else:
+            yield {"checksum": "ok"}
+            lgr.debug(
+                "Verified that %s has correct Zarr checksum %s",
+                zarr_basepath,
+                zarr_checksum,
+            )
 
     yield {"status": "done"}
 
