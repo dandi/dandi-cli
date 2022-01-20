@@ -84,9 +84,9 @@ def upload(
     Local Dandiset should pass validation.  For that, the assets should first
     be organized using the `dandi organize` command.
 
-    By default all .nwb files in the Dandiset (excluding directories starting
-    with a period) will be considered for the upload.  You can point to
-    specific files you would like to validate and have uploaded.
+    By default all .nwb, .zarr, and .ngff assets in the Dandiset (ignoring
+    directories starting with a period) will be considered for the upload.  You
+    can point to specific files you would like to validate and have uploaded.
     """
     from ..upload import upload
 
