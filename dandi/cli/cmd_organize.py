@@ -48,7 +48,7 @@ from ..pynwb_utils import rename_nwb_external_files
     "--external-files-mode",
     type=click.Choice(file_operation_modes),
     default=None,
-    help="check help for --files-mode option",
+    help="Like --files-mode option, supply one of 'copy' or 'move'",
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
 @devel_debug_option()
