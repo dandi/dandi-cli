@@ -777,7 +777,7 @@ def _download_zarr(
             digests[path] = d
 
     for entry in entries:
-        etag = entry.get_etag()
+        etag = entry.get_digest()
         assert etag.algorithm is DigestType.md5
         stat = entry.stat()
         download_gens[str(entry)] = _download_file(
@@ -844,7 +844,7 @@ def _download_zarr(
                 empty_dirs.append(d.parent)
 
     if "skipped" not in final_out["message"]:
-        zarr_checksum = asset.get_etag().value
+        zarr_checksum = asset.get_digest().value
         local_checksum = get_zarr_checksum(zarr_basepath, known=digests)
         if zarr_checksum != local_checksum:
             msg = f"Zarr checksum: downloaded {local_checksum} != {zarr_checksum}"

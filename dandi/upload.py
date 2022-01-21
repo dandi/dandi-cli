@@ -160,7 +160,7 @@ def upload(
             #
             yield {"status": "digesting"}
             try:
-                file_etag = dfile.get_etag()
+                file_etag = dfile.get_digest()
             except Exception as exc:
                 yield skip_file("failed to compute digest: %s" % str(exc))
                 return

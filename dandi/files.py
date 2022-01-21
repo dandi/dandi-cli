@@ -162,10 +162,10 @@ class LocalAsset(DandiFile):
     path: str
 
     @abstractmethod
-    def get_etag(self) -> Digest:
+    def get_digest(self) -> Digest:
         """
-        Calculate an etag digest for the asset using the appropriate algorithm
-        for its type
+        Calculate a DANDI etag digest for the asset using the appropriate
+        algorithm for its type
         """
         ...
 
@@ -286,7 +286,7 @@ class LocalFileAsset(LocalAsset):
     an asset of a Dandiset
     """
 
-    def get_etag(self) -> Digest:
+    def get_digest(self) -> Digest:
         """Calculate a dandi-etag digest for the asset"""
         value = get_digest(self.filepath, digest="dandi-etag")
         return Digest.dandi_etag(value)
@@ -593,11 +593,11 @@ class LocalZarrEntry(BasePath):
                 continue
             yield self._get_subpath(p.name)
 
-    def get_etag(self) -> Digest:
+    def get_digest(self) -> Digest:
         """
-        Calculate the etag digest for the entry.  If the entry is a directory,
-        the algorithm will be the Dandi Zarr checksum algorithm; if it is a
-        file, it will be MD5.
+        Calculate the DANDI etag digest for the entry.  If the entry is a
+        directory, the algorithm will be the Dandi Zarr checksum algorithm; if
+        it is a file, it will be MD5.
         """
         if self.is_dir():
             return Digest.dandi_zarr(
@@ -669,7 +669,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     files.extend(st.files)
                 else:
                     size += p.size
-                    file_md5s[str(p)] = p.get_etag().value
+                    file_md5s[str(p)] = p.get_digest().value
                     files.append(p)
             return ZarrStat(
                 size=size,
@@ -679,7 +679,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 
         return dirstat(self.filetree)
 
-    def get_etag(self) -> Digest:
+    def get_digest(self) -> Digest:
         """Calculate a dandi-zarr-checksum digest for the asset"""
         return Digest.dandi_zarr(get_zarr_checksum(self.filepath))
 
@@ -791,7 +791,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 chunked(stat.files, ZARR_UPLOAD_BATCH_SIZE), start=1
             ):
                 upload_body = [
-                    {"path": str(p), "etag": p.get_etag().value} for p in filebatch
+                    {"path": str(p), "etag": p.get_digest().value} for p in filebatch
                 ]
                 lgr.debug(
                     "%s: Uploading Zarr file batch #%d (%s)",

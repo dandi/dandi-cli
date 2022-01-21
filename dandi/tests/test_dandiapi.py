@@ -539,18 +539,19 @@ def test_set_dandiset_metadata(text_dandiset):
     [
         (DigestType.dandi_etag, r"[0-9a-f]{32}-\d{1,5}"),
         ("dandi:dandi-etag", r"[0-9a-f]{32}-\d{1,5}"),
+        (None, r"[0-9a-f]{32}-\d{1,5}"),
     ],
 )
-def test_get_digest(digest_type, digest_regex, text_dandiset):
+def test_get_raw_digest(digest_type, digest_regex, text_dandiset):
     asset = text_dandiset.dandiset.get_asset_by_path("file.txt")
-    d = asset.get_digest(digest_type)
+    d = asset.get_raw_digest(digest_type)
     assert re.fullmatch(digest_regex, d)
 
 
-def test_get_digest_nonexistent(text_dandiset):
+def test_get_raw_digest_nonexistent(text_dandiset):
     asset = text_dandiset.dandiset.get_asset_by_path("file.txt")
     with pytest.raises(NotFoundError):
-        asset.get_digest("md5")
+        asset.get_raw_digest("md5")
 
 
 def test_refresh(text_dandiset):

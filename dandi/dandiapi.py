@@ -1191,15 +1191,27 @@ class BaseRemoteAsset(APIBase):
                 else:
                     raise
 
-    def get_digest(
-        self, digest_type: Union[str, models.DigestType] = models.DigestType.dandi_etag
+    def get_raw_digest(
+        self,
+        digest_type: Union[str, models.DigestType, None] = models.DigestType.dandi_etag,
     ) -> str:
         """
         Retrieves the value of the given type of digest from the asset's
         metadata.  Raises `NotFoundError` if there is no entry for the given
         digest type.
+
+        If no digest type is specified, the same type as used by `get_digest()`
+        is returned.
+
+        .. versionchanged:: 0.35.0
+            Renamed from ``get_digest()`` to ``get_raw_digest()``
         """
-        if isinstance(digest_type, models.DigestType):
+        if digest_type is None:
+            if self.is_zarr():
+                digest_type = models.DigestType.dandi_zarr_checksum.value
+            else:
+                digest_type = models.DigestType.dandi_etag.value
+        elif isinstance(digest_type, models.DigestType):
             digest_type = digest_type.value
         metadata = self.get_raw_metadata()
         try:
@@ -1207,9 +1219,11 @@ class BaseRemoteAsset(APIBase):
         except KeyError:
             raise NotFoundError(f"No {digest_type} digest found in metadata")
 
-    def get_etag(self) -> Digest:
+    def get_digest(self) -> Digest:
         """
         .. versionadded:: 0.35.0
+            Replaces the previous version of ``get_digest()``, now renamed to
+            `get_raw_digest()`
 
         Retrieves the DANDI etag digest of the appropriate type for the asset:
         a dandi-etag digest for blob resources or a dandi-zarr-checksum for
@@ -1219,7 +1233,7 @@ class BaseRemoteAsset(APIBase):
             algorithm = models.DigestType.dandi_zarr_checksum
         else:
             algorithm = models.DigestType.dandi_etag
-        return Digest(algorithm=algorithm, value=self.get_digest(algorithm))
+        return Digest(algorithm=algorithm, value=self.get_raw_digest(algorithm))
 
     def get_content_url(
         self,
@@ -1650,11 +1664,11 @@ class RemoteZarrEntry(BasePath):
         for name in listing.filenames:
             yield self._get_subpath(name, isdir=False)
 
-    def get_etag(self) -> Digest:
+    def get_digest(self) -> Digest:
         """
-        Retrieve the etag digest for the entry.  If the entry is a directory,
-        the algorithm will be the Dandi Zarr checksum algorithm; if it is a
-        file, it will be MD5.
+        Retrieve the DANDI etag digest for the entry.  If the entry is a
+        directory, the algorithm will be the Dandi Zarr checksum algorithm; if
+        it is a file, it will be MD5.
 
         :raises NotFoundError: if the path does not exist in the Zarr asset
         """
