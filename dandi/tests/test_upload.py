@@ -9,7 +9,7 @@ import zarr
 
 from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, ZARR_MIME_TYPE, dandiset_metadata_file
-from ..dandiapi import RemoteBlobAsset, RemoteZarrAsset
+from ..dandiapi import AssetType, RemoteBlobAsset, RemoteZarrAsset
 from ..download import download
 from ..exceptions import NotFoundError
 from ..files import LocalFileAsset
@@ -221,8 +221,7 @@ def test_upload_zarr(local_dandi_api, monkeypatch, tmp_path):
     )
     (asset,) = d.get_assets()
     assert isinstance(asset, RemoteZarrAsset)
-    assert asset.is_zarr()
-    assert not asset.is_blob()
+    assert asset.asset_type is AssetType.ZARR
     assert asset.path == "sample.zarr"
 
 
@@ -243,8 +242,7 @@ def test_upload_nonzarr_to_zarr_path(tmp_path, zarr_dandiset):
     zarr_dandiset.upload(allow_any_path=True)
     (asset,) = zarr_dandiset.dandiset.get_assets()
     assert isinstance(asset, RemoteBlobAsset)
-    assert asset.is_blob()
-    assert not asset.is_zarr()
+    assert asset.asset_type is AssetType.BLOB
     assert asset.path == "sample.zarr"
     assert asset.get_raw_metadata()["encodingFormat"] == "application/octet-stream"
     download(zarr_dandiset.dandiset.version_api_url, tmp_path)
@@ -271,8 +269,7 @@ def test_upload_zarr_to_nonzarr_path(local_dandi_api, monkeypatch, tmp_path):
 
     (asset,) = d.get_assets()
     assert isinstance(asset, RemoteBlobAsset)
-    assert asset.is_blob()
-    assert not asset.is_zarr()
+    assert asset.asset_type is AssetType.BLOB
     assert asset.path == "sample.zarr"
     assert asset.get_raw_metadata()["encodingFormat"] == "application/octet-stream"
 
@@ -288,8 +285,7 @@ def test_upload_zarr_to_nonzarr_path(local_dandi_api, monkeypatch, tmp_path):
 
     (asset,) = d.get_assets()
     assert isinstance(asset, RemoteZarrAsset)
-    assert asset.is_zarr()
-    assert not asset.is_blob()
+    assert asset.asset_type is AssetType.ZARR
     assert asset.path == "sample.zarr"
     assert asset.get_raw_metadata()["encodingFormat"] == ZARR_MIME_TYPE
 
@@ -316,7 +312,6 @@ def test_upload_zarr_with_empty_dir(local_dandi_api, monkeypatch, tmp_path):
     )
     (asset,) = d.get_assets()
     assert isinstance(asset, RemoteZarrAsset)
-    assert asset.is_zarr()
-    assert not asset.is_blob()
+    assert asset.asset_type is AssetType.ZARR
     assert asset.path == "sample.zarr"
     assert not (asset.filetree / "empty").exists()

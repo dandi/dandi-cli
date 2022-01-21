@@ -7,7 +7,7 @@ import zarr
 
 from .. import get_logger
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
-from ..dandiapi import RemoteZarrAsset
+from ..dandiapi import AssetType, RemoteZarrAsset
 from ..files import (
     DandisetMetadataFile,
     GenericAsset,
@@ -135,8 +135,7 @@ def test_upload_zarr(local_dandi_api, tmp_path):
     d = local_dandi_api.client.create_dandiset("Zarr Dandiset", {})
     asset = zf.upload(d, {"description": "A test Zarr"})
     assert isinstance(asset, RemoteZarrAsset)
-    assert asset.is_zarr()
-    assert not asset.is_blob()
+    assert asset.asset_type is AssetType.ZARR
     assert asset.path == "example.zarr"
     md = asset.get_raw_metadata()
     assert md["encodingFormat"] == ZARR_MIME_TYPE

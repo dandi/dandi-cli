@@ -21,7 +21,7 @@ import requests
 
 from . import get_logger
 from .consts import RETRY_STATUSES, dandiset_metadata_file
-from .dandiapi import RemoteZarrAsset
+from .dandiapi import AssetType, RemoteZarrAsset
 from .dandiarchive import DandisetURL, MultiAssetURL, SingleAssetURL, parse_dandi_url
 from .dandiset import Dandiset
 from .exceptions import NotFoundError
@@ -238,7 +238,7 @@ def download_generator(
                 continue
             d = metadata.get("digest", {})
 
-            if asset.is_blob():
+            if asset.asset_type is AssetType.BLOB:
                 if "dandi:dandi-etag" in d:
                     digests = {"dandi-etag": d["dandi:dandi-etag"]}
                 else:
@@ -273,7 +273,9 @@ def download_generator(
                 )
 
             else:
-                assert asset.is_zarr(), f"Asset {asset.path} is neither blob nor Zarr"
+                assert (
+                    asset.asset_type is AssetType.ZARR
+                ), f"Asset {asset.path} is neither blob nor Zarr"
                 if not isinstance(asset, RemoteZarrAsset):
                     raise NotImplementedError(
                         "Downloading a Zarr asset identified by a URL without"

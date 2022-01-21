@@ -48,6 +48,7 @@ from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass, field, replace
 from datetime import datetime
+from enum import Enum
 import json
 import os.path
 from pathlib import Path, PurePosixPath
@@ -97,6 +98,18 @@ from .utils import USER_AGENT, check_dandi_version, ensure_datetime, is_interact
 lgr = get_logger()
 
 T = TypeVar("T")
+
+
+class AssetType(Enum):
+    """
+    .. versionadded:: 0.35.0
+
+    An enum for the different kinds of resources that an asset's actual data
+    can be
+    """
+
+    BLOB = 1
+    ZARR = 2
 
 
 # Following class is loosely based on GirderClient, with authentication etc
@@ -1207,7 +1220,7 @@ class BaseRemoteAsset(APIBase):
             Renamed from ``get_digest()`` to ``get_raw_digest()``
         """
         if digest_type is None:
-            if self.is_zarr():
+            if self.asset_type is AssetType.ZARR:
                 digest_type = models.DigestType.dandi_zarr_checksum.value
             else:
                 digest_type = models.DigestType.dandi_etag.value
@@ -1229,7 +1242,7 @@ class BaseRemoteAsset(APIBase):
         a dandi-etag digest for blob resources or a dandi-zarr-checksum for
         Zarr resources
         """
-        if self.is_zarr():
+        if self.asset_type is AssetType.ZARR:
             algorithm = models.DigestType.dandi_zarr_checksum
         else:
             algorithm = models.DigestType.dandi_etag
@@ -1289,7 +1302,7 @@ class BaseRemoteAsset(APIBase):
 
         :raises ValueError: if the asset is not backed by a blob
         """
-        if not self.is_blob():
+        if self.asset_type is not AssetType.BLOB:
             raise ValueError("Only blob assets can be downloaded directly")
 
         url = self.base_download_url
@@ -1324,21 +1337,17 @@ class BaseRemoteAsset(APIBase):
             for chunk in downloader():
                 fp.write(chunk)
 
-    def is_blob(self) -> bool:
+    @property
+    def asset_type(self) -> AssetType:
         """
         .. versionadded:: 0.35.0
 
-        Returns true if the asset's actual data is a blob resource
+        The type of the asset's underlying data
         """
-        return self.get_raw_metadata().get("encodingFormat") != ZARR_MIME_TYPE
-
-    def is_zarr(self) -> bool:
-        """
-        .. versionadded:: 0.35.0
-
-        Returns true if the asset's actual data is a Zarr resource
-        """
-        return self.get_raw_metadata().get("encodingFormat") == ZARR_MIME_TYPE
+        if self.get_raw_metadata().get("encodingFormat") == ZARR_MIME_TYPE:
+            return AssetType.ZARR
+        else:
+            return AssetType.BLOB
 
 
 class RemoteAsset(ABC, BaseRemoteAsset):
@@ -1450,13 +1459,14 @@ class RemoteBlobAsset(RemoteAsset):
     #: The ID of the underlying blob resource
     blob: str
 
-    def is_blob(self) -> bool:
-        """Returns true if the asset's actual data is a blob resource"""
-        return True
+    @property
+    def asset_type(self) -> AssetType:
+        """
+        .. versionadded:: 0.35.0
 
-    def is_zarr(self) -> bool:
-        """Returns true if the asset's actual data is a Zarr resource"""
-        return False
+        The type of the asset's underlying data
+        """
+        return AssetType.BLOB
 
     def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
         """
@@ -1483,13 +1493,14 @@ class RemoteZarrAsset(RemoteAsset):
     #: The ID of the underlying Zarr resource
     zarr: str
 
-    def is_blob(self) -> bool:
-        """Returns true if the asset's actual data is a blob resource"""
-        return False
+    @property
+    def asset_type(self) -> AssetType:
+        """
+        .. versionadded:: 0.35.0
 
-    def is_zarr(self) -> bool:
-        """Returns true if the asset's actual data is a Zarr resource"""
-        return True
+        The type of the asset's underlying data
+        """
+        return AssetType.ZARR
 
     def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
         """
