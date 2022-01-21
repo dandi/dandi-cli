@@ -82,7 +82,8 @@ jobs:
     - name: Install git-annex (ubuntu)
       if: startsWith(matrix.os, 'ubuntu')
       run: |
-        sudo apt-get install git-annex
+        pip install datalad-installer
+        datalad-installer --sudo ok neurodebian git-annex -m neurodebian
 
     - name: Install git-annex (macOS)
       if: startsWith(matrix.os, 'macos')
@@ -94,7 +95,7 @@ jobs:
       run: |
         pip install datalad-installer
         datalad-installer git-annex -m datalad/packages
-        
+
     - name: Run all tests
       if: matrix.mode != 'dandi-api' && github.event_name != 'schedule'
       run: |
