@@ -258,10 +258,10 @@ def local_dandi_api(docker_compose_setup):
 @pytest.fixture()
 def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
     d = local_dandi_api["client"].create_dandiset(
-        "Text Dandiset",
+        "Local test Dandiset",
         {
             "schemaKey": "Dandiset",
-            "name": "Text Dandiset",
+            "name": "Local test Dandiset",
             "description": "A test text Dandiset",
             "contributor": [
                 {

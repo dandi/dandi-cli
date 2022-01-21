@@ -46,7 +46,7 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
         "Test Dandiset",
         {
             "schemaKey": "Dandiset",
-            "name": "Text Dandiset",
+            "name": "Local test Dandiset",
             "description": "A test text Dandiset",
             "contributor": [
                 {
