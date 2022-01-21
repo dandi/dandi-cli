@@ -1,6 +1,5 @@
 import os
-from pathlib import Path
-from shutil import rmtree
+from shutil import copyfile, rmtree
 
 import numpy as np
 import pynwb
@@ -8,90 +7,84 @@ import pytest
 import zarr
 
 from .test_helpers import assert_dirtrees_eq
-from ..consts import DRAFT, ZARR_MIME_TYPE, dandiset_metadata_file
+from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteBlobAsset, RemoteZarrAsset
+from ..dandiset import APIDandiset
 from ..download import download
 from ..exceptions import NotFoundError
 from ..files import LocalFileAsset
 from ..pynwb_utils import make_nwb_file
-from ..upload import upload
-from ..utils import list_paths
+from ..utils import list_paths, yaml_dump
 
 
-def test_new_upload_download(local_dandi_api, monkeypatch, organized_nwb_dir, tmp_path):
-    d = local_dandi_api.client.create_dandiset("Test Dandiset", {})
-    dandiset_id = d.identifier
-    (nwb_file,) = organized_nwb_dir.glob(f"*{os.sep}*.nwb")
-    (organized_nwb_dir / dandiset_metadata_file).write_text(
-        f"identifier: '{dandiset_id}'\n"
-    )
-    monkeypatch.chdir(organized_nwb_dir)
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
-    upload(paths=[], dandi_instance=local_dandi_api.instance_id, devel_debug=True)
+def test_upload_download(new_dandiset, organized_nwb_dir, tmp_path):
+    d = new_dandiset.dandiset
+    dspath = new_dandiset.dspath
+    (nwb_file,) = [
+        p for p in list_paths(organized_nwb_dir) if p.name != dandiset_metadata_file
+    ]
+    assert nwb_file.suffix == ".nwb"
+    parent, name = nwb_file.relative_to(organized_nwb_dir).parts
+    (dspath / parent).mkdir()
+    copyfile(nwb_file, dspath / parent / name)
+    new_dandiset.upload()
     download(d.version_api_url, tmp_path)
-    (nwb_file2,) = tmp_path.glob(f"{dandiset_id}{os.sep}*{os.sep}*.nwb")
-    assert nwb_file.name == nwb_file2.name
-    assert nwb_file.parent.name == nwb_file2.parent.name
+    assert list_paths(tmp_path) == [
+        tmp_path / d.identifier / dandiset_metadata_file,
+        tmp_path / d.identifier / parent / name,
+    ]
 
-    #
-    # test updating dandiset metadata record while at it
+
+def test_upload_dandiset_metadata(new_dandiset):
     # For now let's "manually" populate dandiset.yaml in that downloaded location
     # which is missing due to https://github.com/dandi/dandi-api/issues/63
-    from ..dandiset import APIDandiset
-    from ..utils import yaml_dump
-
-    ds_orig = APIDandiset(organized_nwb_dir)
+    d = new_dandiset.dandiset
+    dspath = new_dandiset.dspath
+    ds_orig = APIDandiset(dspath)
     ds_metadata = ds_orig.metadata
     ds_metadata["description"] = "very long"
     ds_metadata["name"] = "shorty"
-
-    monkeypatch.chdir(tmp_path / dandiset_id)
-    Path(dandiset_metadata_file).write_text(yaml_dump(ds_metadata))
-    upload(
-        paths=[dandiset_metadata_file],
-        dandi_instance=local_dandi_api.instance_id,
-        devel_debug=True,
-        upload_dandiset_metadata=True,
+    (dspath / dandiset_metadata_file).write_text(yaml_dump(ds_metadata))
+    new_dandiset.upload(
+        paths=[dspath / dandiset_metadata_file], upload_dandiset_metadata=True
     )
-
-    d = local_dandi_api.client.get_dandiset(dandiset_id, DRAFT)
+    d.refresh()
     assert d.version.name == "shorty"
 
 
-def test_new_upload_extant_existing(mocker, text_dandiset):
+def test_upload_extant_existing(mocker, text_dandiset):
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     with pytest.raises(FileExistsError):
         text_dandiset.upload(existing="error")
     iter_upload_spy.assert_not_called()
 
 
-def test_new_upload_extant_skip(mocker, text_dandiset):
+def test_upload_extant_skip(mocker, text_dandiset):
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     text_dandiset.upload(existing="skip")
     iter_upload_spy.assert_not_called()
 
 
 @pytest.mark.parametrize("existing", ["overwrite", "refresh"])
-def test_new_upload_extant_eq_overwrite(existing, mocker, text_dandiset):
+def test_upload_extant_eq_overwrite(existing, mocker, text_dandiset):
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     text_dandiset.upload(existing=existing)
     iter_upload_spy.assert_not_called()
 
 
 @pytest.mark.parametrize("existing", ["overwrite", "refresh"])
-def test_new_upload_extant_neq_overwrite(existing, mocker, text_dandiset, tmp_path):
-    dandiset_id = text_dandiset.dandiset_id
+def test_upload_extant_neq_overwrite(existing, mocker, text_dandiset, tmp_path):
     (text_dandiset.dspath / "file.txt").write_text("This is different text.\n")
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     text_dandiset.upload(existing=existing)
     iter_upload_spy.assert_called()
     download(text_dandiset.dandiset.version_api_url, tmp_path)
     assert (
-        tmp_path / dandiset_id / "file.txt"
+        tmp_path / text_dandiset.dandiset_id / "file.txt"
     ).read_text() == "This is different text.\n"
 
 
-def test_new_upload_extant_old_refresh(mocker, text_dandiset):
+def test_upload_extant_old_refresh(mocker, text_dandiset):
     (text_dandiset.dspath / "file.txt").write_text("This is different text.\n")
     os.utime(text_dandiset.dspath / "file.txt", times=(0, 0))
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
@@ -99,13 +92,13 @@ def test_new_upload_extant_old_refresh(mocker, text_dandiset):
     iter_upload_spy.assert_not_called()
 
 
-def test_new_upload_extant_force(mocker, text_dandiset):
+def test_upload_extant_force(mocker, text_dandiset):
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     text_dandiset.upload(existing="force")
     iter_upload_spy.assert_called()
 
 
-def test_new_upload_extant_bad_existing(mocker, text_dandiset):
+def test_upload_extant_bad_existing(mocker, text_dandiset):
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     text_dandiset.upload(existing="foobar")
     iter_upload_spy.assert_not_called()
@@ -123,30 +116,18 @@ def test_new_upload_extant_bad_existing(mocker, text_dandiset):
         b"x",
     ],
 )
-def test_upload_download_small_file(contents, local_dandi_api, monkeypatch, tmp_path):
-    client = local_dandi_api.client
-    d = client.create_dandiset("Small Dandiset", {})
+def test_upload_download_small_file(contents, new_dandiset, tmp_path):
+    d = new_dandiset.dandiset
     dandiset_id = d.identifier
-    dspath = tmp_path / "upload"
-    dspath.mkdir()
-    (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
+    dspath = new_dandiset.dspath
     (dspath / "file.txt").write_bytes(contents)
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
-    upload(
-        paths=[],
-        dandiset_path=dspath,
-        dandi_instance=local_dandi_api.instance_id,
-        devel_debug=True,
-        allow_any_path=True,
-    )
-    download_dir = tmp_path / "download"
-    download_dir.mkdir()
-    download(d.version_api_url, download_dir)
-    assert list_paths(download_dir) == [
-        download_dir / dandiset_id / dandiset_metadata_file,
-        download_dir / dandiset_id / "file.txt",
+    new_dandiset.upload(allow_any_path=True)
+    download(d.version_api_url, tmp_path)
+    assert list_paths(tmp_path) == [
+        tmp_path / dandiset_id / dandiset_metadata_file,
+        tmp_path / dandiset_id / "file.txt",
     ]
-    assert (download_dir / dandiset_id / "file.txt").read_bytes() == contents
+    assert (tmp_path / dandiset_id / "file.txt").read_bytes() == contents
 
 
 @pytest.mark.parametrize("confirm", [True, False])
@@ -184,15 +165,9 @@ def test_upload_sync_zarr(mocker, zarr_dandiset):
         zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
 
 
-def test_upload_invalid_metadata(
-    local_dandi_api, monkeypatch, simple1_nwb_metadata, tmp_path
-):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
-    d = local_dandi_api.client.create_dandiset("Broken Dandiset", {})
-    nwb_file = "broken.nwb"
+def test_upload_invalid_metadata(new_dandiset, simple1_nwb_metadata):
     make_nwb_file(
-        nwb_file,
+        new_dandiset.dspath / "broken.nwb",
         subject=pynwb.file.Subject(
             subject_id="mouse001",
             age="XLII anni",
@@ -201,25 +176,17 @@ def test_upload_invalid_metadata(
         ),
         **simple1_nwb_metadata,
     )
-    Path(dandiset_metadata_file).write_text(f"identifier: '{d.identifier}'\n")
-    upload(paths=[], dandi_instance=local_dandi_api.instance_id, devel_debug=True)
+    new_dandiset.upload()
     with pytest.raises(NotFoundError):
-        d.get_asset_by_path(nwb_file)
+        new_dandiset.dandiset.get_asset_by_path("broken.nwb")
 
 
-def test_upload_zarr(local_dandi_api, monkeypatch, tmp_path):
-    d = local_dandi_api.client.create_dandiset("Test Dandiset", {})
-    dandiset_id = d.identifier
-    (tmp_path / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
-    zarr.save(tmp_path / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
-    upload(
-        paths=[],
-        dandiset_path=tmp_path,
-        dandi_instance=local_dandi_api.instance_id,
-        devel_debug=True,
+def test_upload_zarr(new_dandiset):
+    zarr.save(
+        new_dandiset.dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1)
     )
-    (asset,) = d.get_assets()
+    new_dandiset.upload()
+    (asset,) = new_dandiset.dandiset.get_assets()
     assert isinstance(asset, RemoteZarrAsset)
     assert asset.asset_type is AssetType.ZARR
     assert asset.path == "sample.zarr"
@@ -251,21 +218,11 @@ def test_upload_nonzarr_to_zarr_path(tmp_path, zarr_dandiset):
     ).read_text() == "This is not a Zarr.\n"
 
 
-def test_upload_zarr_to_nonzarr_path(local_dandi_api, monkeypatch, tmp_path):
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
-    d = local_dandi_api.client.create_dandiset("Test Dandiset", {})
-    dandiset_id = d.identifier
-    dspath = tmp_path / "dandiset"
-    dspath.mkdir()
-    (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
+def test_upload_zarr_to_nonzarr_path(new_dandiset, tmp_path):
+    d = new_dandiset.dandiset
+    dspath = new_dandiset.dspath
     (dspath / "sample.zarr").write_text("This is not a Zarr.\n")
-    upload(
-        paths=[],
-        dandiset_path=dspath,
-        dandi_instance=local_dandi_api.instance_id,
-        devel_debug=True,
-        allow_any_path=True,
-    )
+    new_dandiset.upload(allow_any_path=True)
 
     (asset,) = d.get_assets()
     assert isinstance(asset, RemoteBlobAsset)
@@ -275,13 +232,7 @@ def test_upload_zarr_to_nonzarr_path(local_dandi_api, monkeypatch, tmp_path):
 
     (dspath / "sample.zarr").unlink()
     zarr.save(dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
-    upload(
-        paths=[],
-        dandiset_path=dspath,
-        dandi_instance=local_dandi_api.instance_id,
-        devel_debug=True,
-        allow_any_path=True,
-    )
+    new_dandiset.upload(allow_any_path=True)
 
     (asset,) = d.get_assets()
     assert isinstance(asset, RemoteZarrAsset)
@@ -289,28 +240,17 @@ def test_upload_zarr_to_nonzarr_path(local_dandi_api, monkeypatch, tmp_path):
     assert asset.path == "sample.zarr"
     assert asset.get_raw_metadata()["encodingFormat"] == ZARR_MIME_TYPE
 
-    (tmp_path / "download").mkdir()
-    download(d.version_api_url, tmp_path / "download")
-    assert_dirtrees_eq(
-        dspath / "sample.zarr",
-        tmp_path / "download" / dandiset_id / "sample.zarr",
-    )
+    download(d.version_api_url, tmp_path)
+    assert_dirtrees_eq(dspath / "sample.zarr", tmp_path / d.identifier / "sample.zarr")
 
 
-def test_upload_zarr_with_empty_dir(local_dandi_api, monkeypatch, tmp_path):
-    d = local_dandi_api.client.create_dandiset("Test Dandiset", {})
-    dandiset_id = d.identifier
-    (tmp_path / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
-    zarr.save(tmp_path / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
-    (tmp_path / "sample.zarr" / "empty").mkdir()
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
-    upload(
-        paths=[],
-        dandiset_path=tmp_path,
-        dandi_instance=local_dandi_api.instance_id,
-        devel_debug=True,
+def test_upload_zarr_with_empty_dir(new_dandiset):
+    zarr.save(
+        new_dandiset.dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1)
     )
-    (asset,) = d.get_assets()
+    (new_dandiset.dspath / "sample.zarr" / "empty").mkdir()
+    new_dandiset.upload()
+    (asset,) = new_dandiset.dandiset.get_assets()
     assert isinstance(asset, RemoteZarrAsset)
     assert asset.asset_type is AssetType.ZARR
     assert asset.path == "sample.zarr"

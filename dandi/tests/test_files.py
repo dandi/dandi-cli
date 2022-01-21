@@ -127,13 +127,12 @@ def test_validate_bogus(tmp_path):
     assert any(e.startswith("Failed to read metadata") for e in errors)
 
 
-def test_upload_zarr(local_dandi_api, tmp_path):
+def test_upload_zarr(new_dandiset, tmp_path):
     filepath = tmp_path / "example.zarr"
     zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
     zf = dandi_file(filepath)
     assert isinstance(zf, ZarrAsset)
-    d = local_dandi_api.client.create_dandiset("Zarr Dandiset", {})
-    asset = zf.upload(d, {"description": "A test Zarr"})
+    asset = zf.upload(new_dandiset.dandiset, {"description": "A test Zarr"})
     assert isinstance(asset, RemoteZarrAsset)
     assert asset.asset_type is AssetType.ZARR
     assert asset.path == "example.zarr"

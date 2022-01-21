@@ -62,7 +62,8 @@ def simple1_nwb_metadata(tmpdir_factory):
 @pytest.fixture(scope="session")
 def simple1_nwb(simple1_nwb_metadata, tmpdir_factory):
     return make_nwb_file(
-        str(tmpdir_factory.mktemp("data").join("simple1.nwb")), **simple1_nwb_metadata
+        str(tmpdir_factory.mktemp("simple1").join("simple1.nwb")),
+        **simple1_nwb_metadata,
     )
 
 
@@ -70,7 +71,7 @@ def simple1_nwb(simple1_nwb_metadata, tmpdir_factory):
 def simple2_nwb(simple1_nwb_metadata, tmpdir_factory):
     """With a subject"""
     return make_nwb_file(
-        str(tmpdir_factory.mktemp("data").join("simple2.nwb")),
+        str(tmpdir_factory.mktemp("simple2").join("simple2.nwb")),
         subject=pynwb.file.Subject(
             subject_id="mouse001",
             date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
@@ -83,7 +84,7 @@ def simple2_nwb(simple1_nwb_metadata, tmpdir_factory):
 
 @pytest.fixture(scope="session")
 def organized_nwb_dir(simple2_nwb, tmp_path_factory):
-    tmp_path = tmp_path_factory.mktemp("dandiset")
+    tmp_path = tmp_path_factory.mktemp("organized_nwb_dir")
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
     r = CliRunner().invoke(
         organize, ["-f", "copy", "--dandiset-path", str(tmp_path), str(simple2_nwb)]
@@ -94,7 +95,7 @@ def organized_nwb_dir(simple2_nwb, tmp_path_factory):
 
 @pytest.fixture(scope="session")
 def organized_nwb_dir2(simple1_nwb_metadata, simple2_nwb, tmp_path_factory):
-    tmp_path = tmp_path_factory.mktemp("dandiset")
+    tmp_path = tmp_path_factory.mktemp("organized_nwb_dir2")
 
     # need to copy first and then use -f move since we will create one more
     # file to be "organized"
@@ -296,13 +297,17 @@ class SampleDandiset:
 
 
 @pytest.fixture()
-def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
+def new_dandiset(local_dandi_api, request, tmp_path_factory):
     d = local_dandi_api.client.create_dandiset(
-        "Text Dandiset",
+        f"Sample Dandiset for {request.node.name}",
+        # Minimal metadata needed to create a publishable Dandiset:
         {
-            "schemaKey": "Dandiset",
-            "name": "Text Dandiset",
-            "description": "A test text Dandiset",
+            "description": "A test Dandiset",
+            "license": ["spdx:CC0-1.0"],
+            # The contributor needs to be given explicitly here or else it'll
+            # be set based on the user account.  For the Docker Compose setup,
+            # that would mean basing it on the admin user, whose name doesn't
+            # validate under dandischema.
             "contributor": [
                 {
                     "schemaKey": "Person",
@@ -310,61 +315,38 @@ def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
                     "roleName": ["dcite:Author", "dcite:ContactPerson"],
                 }
             ],
-            "license": ["spdx:CC0-1.0"],
-            "manifestLocation": ["https://github.com/dandi/dandi-cli"],
         },
     )
-    dandiset_id = d.identifier
-    dspath = tmp_path_factory.mktemp("text_dandiset")
-    (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
-    (dspath / "file.txt").write_text("This is test text.\n")
-    (dspath / "subdir1").mkdir()
-    (dspath / "subdir1" / "apple.txt").write_text("Apple\n")
-    (dspath / "subdir2").mkdir()
-    (dspath / "subdir2" / "banana.txt").write_text("Banana\n")
-    (dspath / "subdir2" / "coconut.txt").write_text("Coconut\n")
-    td = SampleDandiset(
+    dspath = tmp_path_factory.mktemp("dandiset")
+    (dspath / dandiset_metadata_file).write_text(f"identifier: '{d.identifier}'\n")
+    return SampleDandiset(
         api=local_dandi_api,
         dspath=dspath,
         dandiset=d,
-        dandiset_id=dandiset_id,
-        upload_kwargs={"allow_any_path": True},
+        dandiset_id=d.identifier,
     )
-    td.upload()
-    return td
 
 
 @pytest.fixture()
-def zarr_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
-    d = local_dandi_api.client.create_dandiset(
-        "Zarr Dandiset",
-        {
-            "schemaKey": "Dandiset",
-            "name": "Zarr Dandiset",
-            "description": "A test Zarr Dandiset",
-            "contributor": [
-                {
-                    "schemaKey": "Person",
-                    "name": "Wodder, John",
-                    "roleName": ["dcite:Author", "dcite:ContactPerson"],
-                }
-            ],
-            "license": ["spdx:CC0-1.0"],
-            "manifestLocation": ["https://github.com/dandi/dandi-cli"],
-        },
+def text_dandiset(new_dandiset):
+    (new_dandiset.dspath / "file.txt").write_text("This is test text.\n")
+    (new_dandiset.dspath / "subdir1").mkdir()
+    (new_dandiset.dspath / "subdir1" / "apple.txt").write_text("Apple\n")
+    (new_dandiset.dspath / "subdir2").mkdir()
+    (new_dandiset.dspath / "subdir2" / "banana.txt").write_text("Banana\n")
+    (new_dandiset.dspath / "subdir2" / "coconut.txt").write_text("Coconut\n")
+    new_dandiset.upload_kwargs["allow_any_path"] = True
+    new_dandiset.upload()
+    return new_dandiset
+
+
+@pytest.fixture()
+def zarr_dandiset(new_dandiset):
+    zarr.save(
+        new_dandiset.dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1)
     )
-    dandiset_id = d.identifier
-    dspath = tmp_path_factory.mktemp("zarr_dandiset")
-    (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
-    zarr.save(dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
-    td = SampleDandiset(
-        api=local_dandi_api,
-        dspath=dspath,
-        dandiset=d,
-        dandiset_id=dandiset_id,
-    )
-    td.upload()
-    return td
+    new_dandiset.upload()
+    return new_dandiset
 
 
 @pytest.fixture()
