@@ -146,8 +146,8 @@ class ParsedDandiURL(ABC, BaseModel):
         If ``authenticate`` is true, then
         `~dandi.dandiapi.DandiAPIClient.dandi_authenticate()` will be called on
         the client before returning it.  If it is `None` (the default), the
-        method will only be called if the resource(s) the URL refers to are
-        embargoed.
+        method will only be called if the request to URL requires authentication
+        (e.g., if the resource(s) are embargoed).
         """
         with self.get_client() as client:
             if authenticate:
