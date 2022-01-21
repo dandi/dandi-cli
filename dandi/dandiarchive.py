@@ -129,7 +129,7 @@ class ParsedDandiURL(ABC, BaseModel):
 
     @contextmanager
     def navigate(
-        self, strict: bool = False, authenticate: Optional[bool] = None
+        self, *, strict: bool = False, authenticate: Optional[bool] = None
     ) -> Iterator[
         Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterable[BaseRemoteAsset]]
     ]:
@@ -146,8 +146,11 @@ class ParsedDandiURL(ABC, BaseModel):
         If ``authenticate`` is true, then
         `~dandi.dandiapi.DandiAPIClient.dandi_authenticate()` will be called on
         the client before returning it.  If it is `None` (the default), the
-        method will only be called if the request to URL requires authentication
-        (e.g., if the resource(s) are embargoed).
+        method will only be called if the URL requires authentication (e.g., if
+        the resource(s) are embargoed).
+
+        .. versionchanged:: 0.35.0
+            ``authenticate`` added
         """
         with self.get_client() as client:
             if authenticate:
@@ -156,7 +159,7 @@ class ParsedDandiURL(ABC, BaseModel):
                 dandiset = self.get_dandiset(client, lazy=not strict)
             except requests.HTTPError as e:
                 if e.response.status_code == 401 and authenticate is not False:
-                    lgr.info("Resource is embargoed; authenticating ...")
+                    lgr.info("Resource requires authentication; authenticating ...")
                     client.dandi_authenticate()
                     dandiset = self.get_dandiset(client, lazy=not strict)
                 else:
@@ -217,7 +220,7 @@ class BaseAssetIDURL(SingleAssetURL):
 
     @contextmanager
     def navigate(
-        self, strict: bool = False, authenticate: Optional[bool] = None
+        self, *, strict: bool = False, authenticate: Optional[bool] = None
     ) -> Iterator[
         Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterable[BaseRemoteAsset]]
     ]:
@@ -229,7 +232,7 @@ class BaseAssetIDURL(SingleAssetURL):
                 assets = list(self.get_assets(client, strict=strict))
             except requests.HTTPError as e:
                 if e.response.status_code == 401 and authenticate is not False:
-                    lgr.info("Resource is embargoed; authenticating ...")
+                    lgr.info("Resource requires authentication; authenticating ...")
                     client.dandi_authenticate()
                     assets = list(self.get_assets(client, strict=strict))
                 else:
@@ -356,7 +359,7 @@ def _maybe_strict(strict: bool) -> Iterator[None]:
 
 @contextmanager
 def navigate_url(
-    url: str, strict: bool = False, authenticate: Optional[bool] = None
+    url: str, *, strict: bool = False, authenticate: Optional[bool] = None
 ) -> Iterator[
     Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterable[BaseRemoteAsset]]
 ]:
@@ -367,6 +370,9 @@ def navigate_url(
     identified in the URL (if any), and the assets specified by the URL (or, if
     no specific assets were specified, all assets in the Dandiset).
 
+    .. versionchanged:: 0.35.0
+        ``authenticate`` added
+
     :param str url: URL which might point to a Dandiset, folder, or asset(s)
     :param bool strict:
         If true, then `get_dandiset()` is called with ``lazy=False`` and
@@ -375,8 +381,8 @@ def navigate_url(
     :param Optional[bool] authenticate:
         If true, then `~dandi.dandiapi.DandiAPIClient.dandi_authenticate()`
         will be called on the client before returning it.  If `None` (the
-        default), the method will only be called if the resource(s) the URL
-        refers to are embargoed.
+        default), the method will only be called if the URL requires
+        authentication (e.g., if the resource(s) are embargoed).
     :returns: Context manager that yields a ``(client, dandiset, assets)``
         tuple; ``client`` will have a session established for the duration of
         the context
