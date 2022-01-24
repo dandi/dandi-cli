@@ -43,11 +43,46 @@ def validate_file(filepath, schema_version=None, devel_debug=False):
             filepath, schema_version=None, devel_debug=devel_debug
         )
     elif os.path.splitext(filepath)[-1] in VIDEO_FILE_EXTENSIONS:
-        return []
+        return validate_movie_file(filepath, devel_debug=devel_debug)
     else:
         return pynwb_validate(filepath, devel_debug=devel_debug) + validate_asset_file(
             filepath, schema_version=schema_version, devel_debug=devel_debug
         )
+
+
+def validate_movie_file(filepath, devel_debug=False):
+    try:
+        import cv2
+    except ImportError:
+        lgr.error("could not validate video file as opencv is not installed")
+        raise Exception(
+            "do 'pip install opencv-python' to validate assisting video files"
+        )
+
+    if os.path.splitext(filepath)[-1] not in VIDEO_FILE_EXTENSIONS:
+        msg = f"file ext must be one of supported types: {filepath}"
+        if devel_debug:
+            raise Exception(msg)
+        lgr.warning(msg)
+
+    try:
+        cap = cv2.VideoCapture(filepath)
+        if not cap.isOpened():
+            msg = f"could not open video file {filepath} to validate"
+            if devel_debug:
+                raise Exception(msg)
+            lgr.warning(msg)
+            return [msg]
+    except Exception as e:
+        if devel_debug:
+            raise
+        lgr.warning("validation error %s for %s", e, filepath)
+        return [str(e)]
+    success, frame = cap.read()
+    if success:
+        return []
+    else:
+        return [f"no frames in video file {filepath}"]
 
 
 @validate_cache.memoize_path
