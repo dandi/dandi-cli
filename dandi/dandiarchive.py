@@ -29,7 +29,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 import re
 from time import sleep
-from typing import Iterator, Optional, Tuple
+from typing import Iterable, Iterator, Optional, Tuple
 from urllib.parse import unquote as urlunquote
 
 from pydantic import AnyHttpUrl, BaseModel, parse_obj_as, validator
@@ -129,9 +129,9 @@ class ParsedDandiURL(ABC, BaseModel):
 
     @contextmanager
     def navigate(
-        self, strict: bool = False
+        self, *, strict: bool = False, authenticate: Optional[bool] = None
     ) -> Iterator[
-        Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterator[BaseRemoteAsset]]
+        Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterable[BaseRemoteAsset]]
     ]:
         """
         A context manager that returns a triple of a
@@ -142,15 +142,30 @@ class ParsedDandiURL(ABC, BaseModel):
         If ``strict`` is true, then `get_dandiset()` is called with
         ``lazy=False`` and `get_assets()` is called with ``strict=True``; if
         ``strict`` is false, the opposite occurs.
+
+        If ``authenticate`` is true, then
+        `~dandi.dandiapi.DandiAPIClient.dandi_authenticate()` will be called on
+        the client before returning it.  If it is `None` (the default), the
+        method will only be called if the URL requires authentication (e.g., if
+        the resource(s) are embargoed).
+
+        .. versionchanged:: 0.35.0
+            ``authenticate`` added
         """
-        # We could later try to "dandi_authenticate" if run into permission
-        # issues.  May be it could be not just boolean but the "id" to be used?
         with self.get_client() as client:
-            yield (
-                client,
-                self.get_dandiset(client, lazy=not strict),
-                self.get_assets(client, strict=strict),
-            )
+            if authenticate:
+                client.dandi_authenticate()
+            try:
+                dandiset = self.get_dandiset(client, lazy=not strict)
+            except requests.HTTPError as e:
+                if e.response.status_code == 401 and authenticate is not False:
+                    lgr.info("Resource requires authentication; authenticating ...")
+                    client.dandi_authenticate()
+                    dandiset = self.get_dandiset(client, lazy=not strict)
+                else:
+                    raise
+            assets = self.get_assets(client, strict=strict)
+            yield (client, dandiset, assets)
 
 
 class DandisetURL(ParsedDandiURL):
@@ -202,6 +217,27 @@ class BaseAssetIDURL(SingleAssetURL):
     def get_asset_ids(self, client: DandiAPIClient) -> Iterator[str]:
         """Yields the ID of the asset (regardless of whether it exists)"""
         yield self.asset_id
+
+    @contextmanager
+    def navigate(
+        self, *, strict: bool = False, authenticate: Optional[bool] = None
+    ) -> Iterator[
+        Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterable[BaseRemoteAsset]]
+    ]:
+        with self.get_client() as client:
+            if authenticate:
+                client.dandi_authenticate()
+            dandiset = self.get_dandiset(client, lazy=not strict)
+            try:
+                assets = list(self.get_assets(client, strict=strict))
+            except requests.HTTPError as e:
+                if e.response.status_code == 401 and authenticate is not False:
+                    lgr.info("Resource requires authentication; authenticating ...")
+                    client.dandi_authenticate()
+                    assets = list(self.get_assets(client, strict=strict))
+                else:
+                    raise
+            yield (client, dandiset, assets)
 
 
 class AssetIDURL(SingleAssetURL):
@@ -323,9 +359,9 @@ def _maybe_strict(strict: bool) -> Iterator[None]:
 
 @contextmanager
 def navigate_url(
-    url: str, strict: bool = False
+    url: str, *, strict: bool = False, authenticate: Optional[bool] = None
 ) -> Iterator[
-    Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterator[BaseRemoteAsset]]
+    Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterable[BaseRemoteAsset]]
 ]:
     """
     A context manager that takes a URL pointing to a DANDI Archive and
@@ -334,17 +370,29 @@ def navigate_url(
     identified in the URL (if any), and the assets specified by the URL (or, if
     no specific assets were specified, all assets in the Dandiset).
 
+    .. versionchanged:: 0.35.0
+        ``authenticate`` added
+
     :param str url: URL which might point to a Dandiset, folder, or asset(s)
     :param bool strict:
         If true, then `get_dandiset()` is called with ``lazy=False`` and
         `get_assets()` is called with ``strict=True``; if false, the opposite
         occurs.
+    :param Optional[bool] authenticate:
+        If true, then `~dandi.dandiapi.DandiAPIClient.dandi_authenticate()`
+        will be called on the client before returning it.  If `None` (the
+        default), the method will only be called if the URL requires
+        authentication (e.g., if the resource(s) are embargoed).
     :returns: Context manager that yields a ``(client, dandiset, assets)``
         tuple; ``client`` will have a session established for the duration of
         the context
     """
     parsed_url = parse_dandi_url(url)
-    with parsed_url.navigate(strict=strict) as (client, dandiset, assets):
+    with parsed_url.navigate(strict=strict, authenticate=authenticate) as (
+        client,
+        dandiset,
+        assets,
+    ):
         yield (client, dandiset, assets)
 
 
