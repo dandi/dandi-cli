@@ -260,14 +260,12 @@ def test_video_organize(video_mode, mode, create_video_nwbfiles):
     cmd = [
         "--files-mode",
         mode,
-        "--rewrite",
-        "external-file",
         "-d",
         str(dandi_organize_path),
         str(create_video_nwbfiles),
     ]
     if video_mode is not None:
-        cmd.extend(["--external-files-mode", video_mode])
+        cmd.extend(["--rewrite-external-files", video_mode])
     video_files_list = list((create_video_nwbfiles.parent / "video_files").iterdir())
     video_files_organized = []
     r = CliRunner().invoke(organize, cmd)
