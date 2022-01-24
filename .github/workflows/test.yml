@@ -79,23 +79,6 @@ jobs:
       run: |
         pip install git+https://github.com/NeurodataWithoutBorders/pynwb
 
-    - name: Install git-annex (ubuntu)
-      if: startsWith(matrix.os, 'ubuntu')
-      run: |
-        pip install datalad-installer
-        datalad-installer --sudo ok neurodebian git-annex -m neurodebian
-
-    - name: Install git-annex (macOS)
-      if: startsWith(matrix.os, 'macos')
-      run: |
-        brew install git-annex
-
-    - name: Install git-annex (windows)
-      if: startsWith(matrix.os, 'windows')
-      run: |
-        pip install datalad-installer
-        datalad-installer git-annex -m datalad/packages
-
     - name: Run all tests
       if: matrix.mode != 'dandi-api' && github.event_name != 'schedule'
       run: |

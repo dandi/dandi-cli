@@ -265,7 +265,7 @@ def test_video_organize(video_mode, mode, create_video_nwbfiles):
         str(create_video_nwbfiles),
     ]
     if video_mode is not None:
-        cmd.extend(["--rewrite-external-files", video_mode])
+        cmd = ["--rewrite-external-files", video_mode] + cmd
     video_files_list = list((create_video_nwbfiles.parent / "video_files").iterdir())
     video_files_organized = []
     r = CliRunner().invoke(organize, cmd)

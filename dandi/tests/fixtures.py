@@ -12,6 +12,7 @@ from uuid import uuid4
 from click.testing import CliRunner
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dateutil.tz import tzlocal, tzutc
+import numpy as np
 import pynwb
 from pynwb import NWBHDF5IO, NWBFile
 from pynwb.device import Device
@@ -312,29 +313,51 @@ def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
     }
 
 
-@pytest.fixture(scope="session")
-def download_video_files(tmp_path_factory):
-    from datalad.api import install
+@pytest.fixture()
+def create_video_files(tmp_path):
+    video_paths = []
+    import cv2
 
-    pt = tmp_path_factory.mktemp("ophys_testing_data")
-    dataset = install(
-        path=pt, source="https://gin.g-node.org/CatalystNeuro/ophys_testing_data"
-    )
-    resp = dataset.get("video_files")
-    return Path(resp[0]["path"])
+    video_path = tmp_path / "video_files"
+    video_path.mkdir()
+    for no, ext in enumerate([".avi", ".avi"]):
+        movie_file1 = video_path / f"test1_{no}{ext}"
+        movie_file2 = video_path / f"test2_{no}{ext}"
+        (nf, nx, ny) = (5, 10, 20)
+        writer1 = cv2.VideoWriter(
+            filename=str(movie_file1),
+            apiPreference=None,
+            fourcc=cv2.VideoWriter_fourcc(*"DIVX"),
+            fps=25,
+            frameSize=(ny, nx),
+            params=None,
+        )
+        writer2 = cv2.VideoWriter(
+            filename=str(movie_file2),
+            apiPreference=None,
+            fourcc=cv2.VideoWriter_fourcc(*"DIVX"),
+            fps=25,
+            frameSize=(ny, nx),
+            params=None,
+        )
+        for k in range(nf):
+            writer1.write(np.random.randint(0, 255, (nx, ny, 3)).astype("uint8"))
+            writer2.write(np.random.randint(0, 255, (nx, ny, 3)).astype("uint8"))
+        writer1.release()
+        writer2.release()
+        video_paths.append((movie_file1, movie_file1))
+    return video_paths
 
 
 @pytest.fixture()
-def create_video_nwbfiles(download_video_files, tmp_path):
-    base_nwb_path = tmp_path / "nwbfiles"
+def create_video_nwbfiles(create_video_files):
+    parent_folder = create_video_files[0][0].parent.parent
+    base_nwb_path = parent_folder / "nwbfiles"
     base_nwb_path.mkdir(parents=True, exist_ok=True)
-    base_vid_path = tmp_path / "video_files"
-    shutil.copytree(download_video_files, str(base_vid_path))
 
-    video_files_list = [i for i in base_vid_path.iterdir()]
-    for no in range(0, len(video_files_list), 2):
-        vid_1 = video_files_list[no]
-        vid_2 = video_files_list[no + 1]
+    for no, vid_loc in enumerate(create_video_files):
+        vid_1 = vid_loc[0]
+        vid_2 = vid_loc[1]
         subject_id = f"mouse{no}"
         session_id = f"sessionid{no}"
         subject = Subject(
