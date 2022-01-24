@@ -1,5 +1,5 @@
 """
-.. versionadded:: 0.35.0
+.. versionadded:: 0.36.0
 
 Miscellaneous public classes
 """

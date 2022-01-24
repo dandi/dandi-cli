@@ -102,7 +102,7 @@ T = TypeVar("T")
 
 class AssetType(Enum):
     """
-    .. versionadded:: 0.35.0
+    .. versionadded:: 0.36.0
 
     An enum for the different kinds of resources that an asset's actual data
     can be
@@ -1047,7 +1047,7 @@ class RemoteDandiset:
         this version of the Dandiset and return the resulting asset.  Blocks
         until the upload is complete.
 
-        .. deprecated:: 0.35.0
+        .. deprecated:: 0.36.0
             Use the ``upload()`` method of `~dandi.files.LocalAsset` instances
             instead
 
@@ -1079,7 +1079,7 @@ class RemoteDandiset:
         this version of the Dandiset, returning a generator of status
         `dict`\\s.
 
-        .. deprecated:: 0.35.0
+        .. deprecated:: 0.36.0
             Use the ``iter_upload()`` method of `~dandi.files.LocalAsset`
             instances instead
 
@@ -1216,7 +1216,7 @@ class BaseRemoteAsset(APIBase):
         If no digest type is specified, the same type as used by `get_digest()`
         is returned.
 
-        .. versionchanged:: 0.35.0
+        .. versionchanged:: 0.36.0
             Renamed from ``get_digest()`` to ``get_raw_digest()``
         """
         if digest_type is None:
@@ -1234,7 +1234,7 @@ class BaseRemoteAsset(APIBase):
 
     def get_digest(self) -> Digest:
         """
-        .. versionadded:: 0.35.0
+        .. versionadded:: 0.36.0
             Replaces the previous version of ``get_digest()``, now renamed to
             `get_raw_digest()`
 
@@ -1340,7 +1340,7 @@ class BaseRemoteAsset(APIBase):
     @property
     def asset_type(self) -> AssetType:
         """
-        .. versionadded:: 0.35.0
+        .. versionadded:: 0.36.0
 
         The type of the asset's underlying data
         """
@@ -1451,7 +1451,7 @@ class RemoteAsset(ABC, BaseRemoteAsset):
 
 class RemoteBlobAsset(RemoteAsset):
     """
-    .. versionadded:: 0.35.0
+    .. versionadded:: 0.36.0
 
     A `RemoteAsset` whose actual data is a blob resource
     """
@@ -1462,7 +1462,7 @@ class RemoteBlobAsset(RemoteAsset):
     @property
     def asset_type(self) -> AssetType:
         """
-        .. versionadded:: 0.35.0
+        .. versionadded:: 0.36.0
 
         The type of the asset's underlying data
         """
@@ -1485,7 +1485,7 @@ class RemoteBlobAsset(RemoteAsset):
 
 class RemoteZarrAsset(RemoteAsset):
     """
-    .. versionadded:: 0.35.0
+    .. versionadded:: 0.36.0
 
     A `RemoteAsset` whose actual data is a Zarr resource
     """
@@ -1496,7 +1496,7 @@ class RemoteZarrAsset(RemoteAsset):
     @property
     def asset_type(self) -> AssetType:
         """
-        .. versionadded:: 0.35.0
+        .. versionadded:: 0.36.0
 
         The type of the asset's underlying data
         """
@@ -1545,7 +1545,7 @@ class RemoteZarrAsset(RemoteAsset):
 
 class ZarrListing(BaseModel):
     """
-    .. versionadded:: 0.35.0
+    .. versionadded:: 0.36.0
 
     Information about a directory within a `RemoteZarrAsset`
     """
@@ -1574,7 +1574,7 @@ class ZarrListing(BaseModel):
 @dataclass
 class ZarrEntryStat:
     """
-    .. versionadded:: 0.35.0
+    .. versionadded:: 0.36.0
 
     Combined size & timestamp information for a file in a `RemoteZarrAsset`
     """
@@ -1588,7 +1588,7 @@ class ZarrEntryStat:
 @dataclass
 class RemoteZarrEntry(BasePath):
     """
-    .. versionadded:: 0.35.0
+    .. versionadded:: 0.36.0
 
     A file or directory within a `RemoteZarrAsset`.  Implements
     `~dandi.misctypes.BasePath`.
