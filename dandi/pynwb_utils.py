@@ -17,8 +17,8 @@ import semantic_version
 
 from . import __version__, get_logger
 from .consts import (
-    EXTERNAL_FILE_EXTENSIONS,
-    EXTERNAL_FILE_MODULES,
+    VIDEO_FILE_EXTENSIONS,
+    VIDEO_FILE_MODULES,
     metadata_nwb_computed_fields,
     metadata_nwb_file_fields,
     metadata_nwb_subject_fields,
@@ -255,19 +255,19 @@ def _get_image_series(nwb: pynwb.NWBFile) -> List[dict]:
         if no ImageSeries found in the given modules to check, then it returns an empty list.
     """
     out = []
-    for module_name in EXTERNAL_FILE_MODULES:
+    for module_name in VIDEO_FILE_MODULES:
         module_cont = getattr(nwb, module_name)
         for name, ob in module_cont.items():
             if isinstance(ob, pynwb.image.ImageSeries) and ob.external_file is not None:
                 out_dict = dict(id=ob.object_id, name=ob.name, external_files=[])
                 for ext_file in ob.external_file:
-                    if Path(ext_file).suffix in EXTERNAL_FILE_EXTENSIONS:
+                    if Path(ext_file).suffix in VIDEO_FILE_EXTENSIONS:
                         out_dict["external_files"].append(Path(ext_file))
                     else:
                         lgr.warning(
                             "external file %s should be one of: %s",
                             ext_file,
-                            EXTERNAL_FILE_EXTENSIONS,
+                            VIDEO_FILE_EXTENSIONS,
                         )
                 out.append(out_dict)
     return out

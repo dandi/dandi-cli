@@ -2,7 +2,7 @@ import os.path
 import os.path as op
 
 from . import get_logger
-from .consts import EXTERNAL_FILE_EXTENSIONS, dandiset_metadata_file
+from .consts import VIDEO_FILE_EXTENSIONS, dandiset_metadata_file
 from .metadata import get_metadata
 from .pynwb_utils import validate as pynwb_validate
 from .pynwb_utils import validate_cache
@@ -42,7 +42,7 @@ def validate_file(filepath, schema_version=None, devel_debug=False):
         return validate_dandiset_yaml(
             filepath, schema_version=None, devel_debug=devel_debug
         )
-    elif os.path.splitext(filepath)[-1] in EXTERNAL_FILE_EXTENSIONS:
+    elif os.path.splitext(filepath)[-1] in VIDEO_FILE_EXTENSIONS:
         return []
     else:
         return pynwb_validate(filepath, devel_debug=devel_debug) + validate_asset_file(
