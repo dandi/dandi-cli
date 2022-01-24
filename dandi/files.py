@@ -1021,11 +1021,11 @@ def _upload_zarr_file(
     return path.stat().st_size
 
 
-def _check_required_fields(d, required):
-    errors = []
+def _check_required_fields(d: dict, required: List[str]) -> List[str]:
+    errors: List[str] = []
     for f in required:
         v = d.get(f, None)
-        if not v or (isinstance(v, str) and not (v.strip())):
+        if not v or (isinstance(v, str) and not v.strip()):
             errors += [f"Required field {f!r} has no value"]
         if v in ("REQUIRED", "PLACEHOLDER"):
             errors += [f"Required field {f!r} has value {v!r}"]
