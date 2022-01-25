@@ -1176,12 +1176,12 @@ class BaseRemoteAsset(APIBase):
         This is a low-level method that non-developers would normally only use
         when acquiring data using means outside of this library.
         """
-        return BaseRemoteAsset(
+        return BaseRemoteAsset(  # type: ignore[call-arg]
             client=client,
             identifier=metadata["identifier"],
             path=metadata["path"],
             size=metadata["contentSize"],
-            _metadata=metadata,  # type: ignore[call-arg]
+            _metadata=metadata,
         )
 
     @property
@@ -1434,12 +1434,12 @@ class RemoteAsset(ABC, BaseRemoteAsset):
                 raise ValueError("Asset data contains both `blob` and `zarr`'")
         else:
             raise ValueError("Asset data contains neither `blob` nor `zarr`")
-        return klass(
+        return klass(  # type: ignore[call-arg]
             client=dandiset.client,
             dandiset_id=dandiset.identifier,
             version_id=dandiset.version_id,
             **data,
-            _metadata=metadata,  # type: ignore[call-arg]
+            _metadata=metadata,
         )
 
     @property
