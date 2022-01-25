@@ -357,12 +357,6 @@ def move_file(src, dst):
     return shutil.move(src, dst)
 
 
-def find_dandi_files(paths):
-    """Adapter to find_files to find files of interest to dandi project"""
-    sep = re.escape(os.sep)
-    yield from find_files(rf"((^|{sep})dandiset\.yaml|\.nwb)\Z", paths)
-
-
 def find_parent_directory_containing(filename, path=None):
     """Find a directory, on the path to 'path' containing filename
 
