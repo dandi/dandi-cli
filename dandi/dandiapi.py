@@ -1297,7 +1297,10 @@ class BaseRemoteAsset(APIBase):
         :raises ValueError: if the asset is not backed by a blob
         """
         if self.asset_type is not AssetType.BLOB:
-            raise ValueError("Only blob assets can be downloaded directly")
+            raise ValueError(
+                f"Cannot download asset {self} directly: asset is of type"
+                f" {self.asset_type.name}, not BLOB"
+            )
 
         url = self.base_download_url
 
