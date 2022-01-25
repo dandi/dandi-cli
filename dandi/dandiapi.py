@@ -1220,10 +1220,7 @@ class BaseRemoteAsset(APIBase):
             Renamed from ``get_digest()`` to ``get_raw_digest()``
         """
         if digest_type is None:
-            if self.asset_type is AssetType.ZARR:
-                digest_type = models.DigestType.dandi_zarr_checksum.value
-            else:
-                digest_type = models.DigestType.dandi_etag.value
+            digest_type = self.digest_type.value
         elif isinstance(digest_type, models.DigestType):
             digest_type = digest_type.value
         metadata = self.get_raw_metadata()
@@ -1242,10 +1239,7 @@ class BaseRemoteAsset(APIBase):
         a dandi-etag digest for blob resources or a dandi-zarr-checksum for
         Zarr resources
         """
-        if self.asset_type is AssetType.ZARR:
-            algorithm = models.DigestType.dandi_zarr_checksum
-        else:
-            algorithm = models.DigestType.dandi_etag
+        algorithm = self.digest_type
         return Digest(algorithm=algorithm, value=self.get_raw_digest(algorithm))
 
     def get_content_url(
@@ -1348,6 +1342,20 @@ class BaseRemoteAsset(APIBase):
             return AssetType.ZARR
         else:
             return AssetType.BLOB
+
+    @property
+    def digest_type(self) -> models.DigestType:
+        """
+        .. versionadded:: 0.36.0
+
+        The primary digest algorithm used by Dandi Archive for the asset,
+        determined based on its underlying data: dandi-etag for blob resources,
+        dandi-zarr-checksum for Zarr resources
+        """
+        if self.asset_type is AssetType.ZARR:
+            return models.DigestType.dandi_zarr_checksum
+        else:
+            return models.DigestType.dandi_etag
 
 
 class RemoteAsset(ABC, BaseRemoteAsset):
