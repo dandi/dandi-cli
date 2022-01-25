@@ -66,7 +66,7 @@ def validate_movie_file(filepath, devel_debug=False):
         lgr.warning(msg)
 
     try:
-        cap = cv2.VideoCapture(filepath)
+        cap = cv2.VideoCapture(str(filepath))
         if not cap.isOpened():
             msg = f"could not open video file {filepath} to validate"
             if devel_debug:
