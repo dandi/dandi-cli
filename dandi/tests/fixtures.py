@@ -345,7 +345,7 @@ def create_video_files(tmp_path):
             writer2.write(np.random.randint(0, 255, (nx, ny, 3)).astype("uint8"))
         writer1.release()
         writer2.release()
-        video_paths.append((movie_file1, movie_file1))
+        video_paths.append((movie_file1, movie_file2))
     return video_paths
 
 
