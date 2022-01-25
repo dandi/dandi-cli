@@ -5,7 +5,7 @@
 
     dandi [<global options>] validate [<path> ...]
 
-Validate files for NWB (and DANDI) compliance.
+Validate files for NWB and DANDI compliance.
 
 Exits with non-zero exit code if any file is not compliant.
 
@@ -19,7 +19,7 @@ set to a nonempty value.
 
 .. option:: --allow-any-path
 
-    Validate all file types, not just :file:`*.nwb`'s
+    Validate all file types, not just NWBs and Zarrs
 
 .. option:: --devel-debug
 

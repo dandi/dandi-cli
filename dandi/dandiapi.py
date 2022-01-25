@@ -44,23 +44,25 @@ every Dandiset:
 }
 """
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from abc import ABC, abstractmethod
+from collections import deque
+from dataclasses import dataclass, field, replace
 from datetime import datetime
+from enum import Enum
 import json
 import os.path
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
-from threading import Lock
 from time import sleep, time
 from types import TracebackType
 from typing import (
     Any,
-    BinaryIO,
     Callable,
     ClassVar,
     Dict,
     FrozenSet,
     Iterator,
+    List,
     Optional,
     Sequence,
     Type,
@@ -68,13 +70,12 @@ from typing import (
     Union,
     cast,
 )
-from urllib.parse import urlparse, urlunparse
-from xml.etree.ElementTree import fromstring
+from urllib.parse import unquote, urlparse, urlunparse
 
 import click
 from dandischema import models
-from dandischema.digests.dandietag import DandiETag
-from pydantic import BaseModel, Field, PrivateAttr
+import dateutil.parser
+from pydantic import AnyHttpUrl, BaseModel, Field, PrivateAttr
 import requests
 import tenacity
 
@@ -83,6 +84,7 @@ from .consts import (
     DRAFT,
     MAX_CHUNK_SIZE,
     RETRY_STATUSES,
+    ZARR_MIME_TYPE,
     DandiInstance,
     EmbargoStatus,
     known_instances,
@@ -90,11 +92,24 @@ from .consts import (
 )
 from .exceptions import NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup
+from .misctypes import BasePath, Digest
 from .utils import USER_AGENT, check_dandi_version, ensure_datetime, is_interactive
 
 lgr = get_logger()
 
 T = TypeVar("T")
+
+
+class AssetType(Enum):
+    """
+    .. versionadded:: 0.36.0
+
+    An enum for the different kinds of resources that an asset's actual data
+    can be
+    """
+
+    BLOB = 1
+    ZARR = 2
 
 
 # Following class is loosely based on GirderClient, with authentication etc
@@ -1047,6 +1062,10 @@ class RemoteDandiset:
         this version of the Dandiset and return the resulting asset.  Blocks
         until the upload is complete.
 
+        .. deprecated:: 0.36.0
+            Use the ``upload()`` method of `~dandi.files.LocalAsset` instances
+            instead
+
         :param filepath: the path to the local file to upload
         :type filepath: str or PathLike
         :param dict asset_metadata:
@@ -1057,12 +1076,11 @@ class RemoteDandiset:
         :param RemoteAsset replace_asset: If set, replace the given asset,
             which must have the same path as the new asset
         """
-        for status in self.iter_upload_raw_asset(
-            filepath, asset_metadata, jobs=jobs, replace_asset=replace_asset
-        ):
-            if status["status"] == "done":
-                return status["asset"]
-        raise RuntimeError("iter_upload_raw_asset() finished without returning 'done'")
+        from .files import dandi_file
+
+        return dandi_file(filepath).upload(
+            self, metadata=asset_metadata, jobs=jobs, replacing=replace_asset
+        )
 
     def iter_upload_raw_asset(
         self,
@@ -1075,6 +1093,10 @@ class RemoteDandiset:
         Upload the file at ``filepath`` with metadata ``asset_metadata`` to
         this version of the Dandiset, returning a generator of status
         `dict`\\s.
+
+        .. deprecated:: 0.36.0
+            Use the ``iter_upload()`` method of `~dandi.files.LocalAsset`
+            instances instead
 
         :param filepath: the path to the local file to upload
         :type filepath: str or PathLike
@@ -1092,130 +1114,11 @@ class RemoteDandiset:
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
-        from .support.digests import get_dandietag
+        from .files import dandi_file
 
-        asset_path = asset_metadata["path"]
-        yield {"status": "calculating etag"}
-        etagger = get_dandietag(filepath)
-        filetag = etagger.as_str()
-        lgr.debug("Calculated dandi-etag of %s for %s", filetag, filepath)
-        digest = asset_metadata.get("digest", {})
-        if "dandi:dandi-etag" in digest:
-            if digest["dandi:dandi-etag"] != filetag:
-                raise RuntimeError(
-                    f"{filepath}: File etag changed; was originally"
-                    f" {digest['dandi:dandi-etag']} but is now {filetag}"
-                )
-        yield {"status": "initiating upload"}
-        lgr.debug("%s: Beginning upload", asset_path)
-        total_size = os.path.getsize(filepath)
-        try:
-            resp = self.client.post(
-                "/uploads/initialize/",
-                json={
-                    "contentSize": total_size,
-                    "digest": {
-                        "algorithm": "dandi:dandi-etag",
-                        "value": filetag,
-                    },
-                    "dandiset": self.identifier,
-                },
-            )
-        except requests.HTTPError as e:
-            if e.response.status_code == 409:
-                lgr.debug("%s: Blob already exists on server", asset_path)
-                blob_id = e.response.headers["Location"]
-            else:
-                raise
-        else:
-            upload_id = resp["upload_id"]
-            parts = resp["parts"]
-            if len(parts) != etagger.part_qty:
-                raise RuntimeError(
-                    f"Server and client disagree on number of parts for upload;"
-                    f" server says {len(parts)}, client says {etagger.part_qty}"
-                )
-            parts_out = []
-            bytes_uploaded = 0
-            lgr.debug("Uploading %s in %d parts", filepath, len(parts))
-            with RESTFullAPIClient("http://nil.nil") as storage:
-                with open(filepath, "rb") as fp:
-                    with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
-                        lock = Lock()
-                        futures = [
-                            executor.submit(
-                                _upload_part,
-                                storage_session=storage,
-                                fp=fp,
-                                lock=lock,
-                                etagger=etagger,
-                                asset_path=asset_path,
-                                part=part,
-                            )
-                            for part in parts
-                        ]
-                        for fut in as_completed(futures):
-                            out_part = fut.result()
-                            bytes_uploaded += out_part["size"]
-                            yield {
-                                "status": "uploading",
-                                "upload": 100 * bytes_uploaded / total_size,
-                                "current": bytes_uploaded,
-                            }
-                            parts_out.append(out_part)
-                lgr.debug("%s: Completing upload", asset_path)
-                resp = self.client.post(
-                    f"/uploads/{upload_id}/complete/",
-                    json={"parts": parts_out},
-                )
-                lgr.debug(
-                    "%s: Announcing completion to %s",
-                    asset_path,
-                    resp["complete_url"],
-                )
-                r = storage.post(
-                    resp["complete_url"], data=resp["body"], json_resp=False
-                )
-                lgr.debug(
-                    "%s: Upload completed. Response content: %s",
-                    asset_path,
-                    r.content,
-                )
-                rxml = fromstring(r.text)
-                m = re.match(r"\{.+?\}", rxml.tag)
-                ns = m.group(0) if m else ""
-                final_etag = rxml.findtext(f"{ns}ETag")
-                if final_etag is not None:
-                    final_etag = final_etag.strip('"')
-                    if final_etag != filetag:
-                        raise RuntimeError(
-                            "Server and client disagree on final ETag of uploaded file;"
-                            f" server says {final_etag}, client says {filetag}"
-                        )
-                # else: Error? Warning?
-                resp = self.client.post(f"/uploads/{upload_id}/validate/")
-                blob_id = resp["blob_id"]
-        lgr.debug("%s: Assigning asset blob to dandiset & version", asset_path)
-        yield {"status": "producing asset"}
-        if replace_asset is not None:
-            lgr.debug("%s: Replacing pre-existing asset")
-            a = RemoteAsset.from_data(
-                self,
-                self.client.put(
-                    replace_asset.api_path,
-                    json={"metadata": asset_metadata, "blob_id": blob_id},
-                ),
-            )
-        else:
-            a = RemoteAsset.from_data(
-                self,
-                self.client.post(
-                    f"{self.version_api_path}assets/",
-                    json={"metadata": asset_metadata, "blob_id": blob_id},
-                ),
-            )
-        lgr.info("%s: Asset successfully uploaded", asset_path)
-        yield {"status": "done", "asset": a}
+        return dandi_file(filepath).iter_upload(
+            self, metadata=asset_metadata, jobs=jobs, replacing=replace_asset
+        )
 
 
 class BaseRemoteAsset(APIBase):
@@ -1316,21 +1219,43 @@ class BaseRemoteAsset(APIBase):
                 else:
                     raise
 
-    def get_digest(
-        self, digest_type: Union[str, models.DigestType] = models.DigestType.dandi_etag
+    def get_raw_digest(
+        self,
+        digest_type: Union[str, models.DigestType, None] = models.DigestType.dandi_etag,
     ) -> str:
         """
         Retrieves the value of the given type of digest from the asset's
         metadata.  Raises `NotFoundError` if there is no entry for the given
         digest type.
+
+        If no digest type is specified, the same type as used by `get_digest()`
+        is returned.
+
+        .. versionchanged:: 0.36.0
+            Renamed from ``get_digest()`` to ``get_raw_digest()``
         """
-        if isinstance(digest_type, models.DigestType):
+        if digest_type is None:
+            digest_type = self.digest_type.value
+        elif isinstance(digest_type, models.DigestType):
             digest_type = digest_type.value
         metadata = self.get_raw_metadata()
         try:
             return metadata["digest"][digest_type]
         except KeyError:
             raise NotFoundError(f"No {digest_type} digest found in metadata")
+
+    def get_digest(self) -> Digest:
+        """
+        .. versionadded:: 0.36.0
+            Replaces the previous version of ``get_digest()``, now renamed to
+            `get_raw_digest()`
+
+        Retrieves the DANDI etag digest of the appropriate type for the asset:
+        a dandi-etag digest for blob resources or a dandi-zarr-checksum for
+        Zarr resources
+        """
+        algorithm = self.digest_type
+        return Digest(algorithm=algorithm, value=self.get_raw_digest(algorithm))
 
     def get_content_url(
         self,
@@ -1382,8 +1307,16 @@ class BaseRemoteAsset(APIBase):
         """
         Returns a function that when called (optionally with an offset into the
         asset to start downloading at) returns a generator of chunks of the
-        asset
+        asset.
+
+        :raises ValueError: if the asset is not backed by a blob
         """
+        if self.asset_type is not AssetType.BLOB:
+            raise ValueError(
+                f"Cannot download asset {self} directly: asset is of type"
+                f" {self.asset_type.name}, not BLOB"
+            )
+
         url = self.base_download_url
 
         def downloader(start_at: int = 0) -> Iterator[bytes]:
@@ -1408,14 +1341,42 @@ class BaseRemoteAsset(APIBase):
         """
         Download the asset to ``filepath``.  Blocks until the download is
         complete.
+
+        :raises ValueError: if the asset is not backed by a blob
         """
         downloader = self.get_download_file_iter(chunk_size=chunk_size)
         with open(filepath, "wb") as fp:
             for chunk in downloader():
                 fp.write(chunk)
 
+    @property
+    def asset_type(self) -> AssetType:
+        """
+        .. versionadded:: 0.36.0
 
-class RemoteAsset(BaseRemoteAsset):
+        The type of the asset's underlying data
+        """
+        if self.get_raw_metadata().get("encodingFormat") == ZARR_MIME_TYPE:
+            return AssetType.ZARR
+        else:
+            return AssetType.BLOB
+
+    @property
+    def digest_type(self) -> models.DigestType:
+        """
+        .. versionadded:: 0.36.0
+
+        The primary digest algorithm used by Dandi Archive for the asset,
+        determined based on its underlying data: dandi-etag for blob resources,
+        dandi-zarr-checksum for Zarr resources
+        """
+        if self.asset_type is AssetType.ZARR:
+            return models.DigestType.dandi_zarr_checksum
+        else:
+            return models.DigestType.dandi_etag
+
+
+class RemoteAsset(ABC, BaseRemoteAsset):
     """
     Subclass of `BaseRemoteAsset` that includes information about the Dandiset
     to which the asset belongs.
@@ -1439,7 +1400,7 @@ class RemoteAsset(BaseRemoteAsset):
 
     @classmethod
     def from_data(
-        self,
+        cls,
         dandiset: RemoteDandiset,
         data: Dict[str, Any],
         metadata: Optional[Dict[str, Any]] = None,
@@ -1452,7 +1413,17 @@ class RemoteAsset(BaseRemoteAsset):
         This is a low-level method that non-developers would normally only use
         when acquiring data using means outside of this library.
         """
-        return RemoteAsset(
+        if data.get("blob") is not None:
+            klass = RemoteBlobAsset
+            if data.pop("zarr", None) is not None:
+                raise ValueError("Asset data contains both `blob` and `zarr`'")
+        elif data.get("zarr") is not None:
+            klass = RemoteZarrAsset
+            if data.pop("blob", None) is not None:
+                raise ValueError("Asset data contains both `blob` and `zarr`'")
+        else:
+            raise ValueError("Asset data contains neither `blob` nor `zarr`")
+        return klass(
             client=dandiset.client,
             dandiset_id=dandiset.identifier,
             version_id=dandiset.version_id,
@@ -1491,21 +1462,45 @@ class RemoteAsset(BaseRemoteAsset):
         """
         return self.set_raw_metadata(metadata.json_dict())
 
+    @abstractmethod
     def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
         """
         Set the metadata for the asset on the server to the given value and
         update the `RemoteAsset` in place.
         """
-        try:
-            etag = metadata["digest"]["dandi:dandi-etag"]
-        except KeyError:
-            raise ValueError("dandi-etag digest not set in new asset metadata")
-        r = self.client.post(
-            "/blobs/digest/",
-            json={"algorithm": "dandi:dandi-etag", "value": etag},
-        )
+        ...
+
+    def delete(self) -> None:
+        """Delete the asset"""
+        self.client.delete(self.api_path)
+
+
+class RemoteBlobAsset(RemoteAsset):
+    """
+    .. versionadded:: 0.36.0
+
+    A `RemoteAsset` whose actual data is a blob resource
+    """
+
+    #: The ID of the underlying blob resource
+    blob: str
+
+    @property
+    def asset_type(self) -> AssetType:
+        """
+        .. versionadded:: 0.36.0
+
+        The type of the asset's underlying data
+        """
+        return AssetType.BLOB
+
+    def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
+        """
+        Set the metadata for the asset on the server to the given value and
+        update the `RemoteBlobAsset` in place.
+        """
         data = self.client.put(
-            self.api_path, json={"metadata": metadata, "blob_id": r["blob_id"]}
+            self.api_path, json={"metadata": metadata, "blob_id": self.blob}
         )
         self.identifier = data["asset_id"]
         self.path = data["path"]
@@ -1513,63 +1508,317 @@ class RemoteAsset(BaseRemoteAsset):
         self.modified = ensure_datetime(data["modified"])
         self._metadata = data["metadata"]
 
-    def delete(self) -> None:
-        """Delete the asset"""
-        self.client.delete(self.api_path)
+
+class RemoteZarrAsset(RemoteAsset):
+    """
+    .. versionadded:: 0.36.0
+
+    A `RemoteAsset` whose actual data is a Zarr resource
+    """
+
+    #: The ID of the underlying Zarr resource
+    zarr: str
+
+    @property
+    def asset_type(self) -> AssetType:
+        """
+        .. versionadded:: 0.36.0
+
+        The type of the asset's underlying data
+        """
+        return AssetType.ZARR
+
+    def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
+        """
+        Set the metadata for the asset on the server to the given value and
+        update the `RemoteZarrAsset` in place.
+        """
+        data = self.client.put(
+            self.api_path, json={"metadata": metadata, "zarr_id": self.zarr}
+        )
+        self.identifier = data["asset_id"]
+        self.path = data["path"]
+        self.size = int(data["size"])
+        self.modified = ensure_datetime(data["modified"])
+        self._metadata = data["metadata"]
+
+    @property
+    def filetree(self) -> "RemoteZarrEntry":
+        """
+        The `RemoteZarrEntry` for the root of the hierarchy of files within the
+        Zarr
+        """
+        return RemoteZarrEntry(
+            client=self.client, zarr_id=self.zarr, parts=(), _known_dir=True
+        )
+
+    def iterfiles(self, include_dirs: bool = False) -> Iterator["RemoteZarrEntry"]:
+        """
+        Returns a generator of all `RemoteZarrEntry`\\s within the Zarr.  By
+        default, only instances for files are produced, unless ``include_dirs``
+        is true.
+        """
+        dirs = deque([self.filetree])
+        while dirs:
+            for p in dirs.popleft().iterdir():
+                if p.is_dir():
+                    dirs.append(p)
+                    if include_dirs:
+                        yield p
+                else:
+                    yield p
 
 
-def _upload_part(
-    storage_session: RESTFullAPIClient,
-    fp: BinaryIO,
-    lock: Lock,
-    etagger: DandiETag,
-    asset_path: str,
-    part: dict,
-) -> dict:
-    etag_part = etagger.get_part(part["part_number"])
-    if part["size"] != etag_part.size:
-        raise RuntimeError(
-            f"Server and client disagree on size of upload part"
-            f" {part['part_number']}; server says {part['size']},"
-            f" client says {etag_part.size}"
+class ZarrListing(BaseModel):
+    """
+    .. versionadded:: 0.36.0
+
+    Information about a directory within a `RemoteZarrAsset`
+    """
+
+    #: API URLs for the listings of the directory's subdirectories
+    directories: List[AnyHttpUrl]
+    #: API URLs for downloading the files in the directory
+    files: List[AnyHttpUrl]
+    #: The checksums (MD5 or Dandi Zarr checksum, as appropriate) for the
+    #: directory's entries, as a mapping from basenames to checksums
+    checksums: Dict[str, str]
+    #: The Dandi Zarr checksum for the directory
+    checksum: str
+
+    @property
+    def dirnames(self) -> List[str]:
+        """The basenames of the directory URLs in `directories`"""
+        return [PurePosixPath(unquote(url.path)).name for url in self.directories]
+
+    @property
+    def filenames(self) -> List[str]:
+        """The basenames of the file URLs in `files`"""
+        return [PurePosixPath(unquote(url.path)).name for url in self.files]
+
+
+@dataclass
+class ZarrEntryStat:
+    """
+    .. versionadded:: 0.36.0
+
+    Combined size & timestamp information for a file in a `RemoteZarrAsset`
+    """
+
+    #: The size of the file
+    size: int
+    #: The time at which the file was last modified
+    modified: datetime
+
+
+@dataclass
+class RemoteZarrEntry(BasePath):
+    """
+    .. versionadded:: 0.36.0
+
+    A file or directory within a `RemoteZarrAsset`.  Implements
+    `~dandi.misctypes.BasePath`.
+    """
+
+    #: The `DandiAPIClient` instance used for API requests
+    client: DandiAPIClient
+    #: The ID of the Zarr backing the asset
+    zarr_id: str
+    _known_dir: Optional[bool] = field(default=None, compare=False, repr=False)
+
+    def _get_subpath(
+        self, name: str, isdir: Optional[bool] = None
+    ) -> "RemoteZarrEntry":
+        if not name or "/" in name:
+            raise ValueError(f"Invalid path component: {name!r}")
+        elif name == ".":
+            return self
+        elif name == "..":
+            return self.parent
+        else:
+            return replace(self, parts=self.parts + (name,), _known_dir=isdir)
+
+    @property
+    def parent(self) -> "RemoteZarrEntry":
+        if self.is_root():
+            return self
+        else:
+            return replace(
+                self,
+                parts=self.parts[:-1],
+                _known_dir=True if self._known_dir is not None else None,
+            )
+
+    def _isdir(self) -> bool:
+        if self._known_dir is not None:
+            return self._known_dir
+        elif self.is_root():
+            try:
+                self.client.get(f"/zarr/{self.zarr_id}/")
+            except requests.HTTPError as e:
+                if e.response.status_code == 404:
+                    raise NotFoundError(f"No such Zarr: {self.zarr_id!r}")
+                else:
+                    raise
+            return True
+        else:
+            listing = self.parent.get_listing()
+            if self.name in listing.dirnames:
+                return True
+            elif self.name in listing.filenames:
+                return False
+            else:
+                raise NotFoundError(
+                    f"No such entry {str(self)!r} in Zarr {self.zarr_id!r}"
+                )
+
+    def exists(self) -> bool:
+        try:
+            self._isdir()
+        except NotFoundError:
+            return False
+        else:
+            return True
+
+    def is_file(self) -> bool:
+        try:
+            return not self._isdir()
+        except NotFoundError:
+            return False
+
+    def is_dir(self) -> bool:
+        try:
+            return self._isdir()
+        except NotFoundError:
+            return False
+
+    def iterdir(self) -> Iterator["RemoteZarrEntry"]:
+        listing = self.get_listing()
+        for name in listing.dirnames:
+            if name == "." or name == "..":
+                continue
+            yield self._get_subpath(name, isdir=True)
+        for name in listing.filenames:
+            yield self._get_subpath(name, isdir=False)
+
+    def get_digest(self) -> Digest:
+        """
+        Retrieve the DANDI etag digest for the entry.  If the entry is a
+        directory, the algorithm will be the Dandi Zarr checksum algorithm; if
+        it is a file, it will be MD5.
+
+        :raises NotFoundError: if the path does not exist in the Zarr asset
+        """
+        if self.is_root():
+            algorithm = models.DigestType.dandi_zarr_checksum
+            value = self.get_listing().checksum
+        else:
+            listing = self.parent.get_listing()
+            if self.name in listing.dirnames:
+                algorithm = models.DigestType.dandi_zarr_checksum
+            elif self.name in listing.filenames:
+                algorithm = models.DigestType.md5
+            else:
+                raise NotFoundError(
+                    f"No such entry {str(self)!r} in Zarr {self.zarr_id!r}"
+                )
+            value = listing.checksums[self.name]
+        return Digest(algorithm=algorithm, value=value)
+
+    @property
+    def size(self) -> int:
+        """
+        The size of the entry, which must be a file
+
+        :raises NotFoundError: if the path does not exist in the Zarr asset
+        :raises ValueError: if the path is a directory
+        """
+        return self.stat().size
+
+    @property
+    def modified(self) -> datetime:
+        """
+        The time at which the entry (which must be a file) was last modified
+
+        :raises NotFoundError: if the path does not exist in the Zarr asset
+        :raises ValueError: if the path is a directory
+        """
+        return self.stat().modified
+
+    def stat(self) -> ZarrEntryStat:
+        """
+        Return combined size & timestamp information for the entry, which must
+        be a file
+
+        :raises NotFoundError: if the path does not exist in the Zarr asset
+        :raises ValueError: if the path is a directory
+        """
+        if not self.is_file():
+            raise ValueError("Cannot stat directories in Zarrs")
+        try:
+            r = self.client.request(
+                "HEAD",
+                f"/zarr/{self.zarr_id}.zarr/{'/'.join(self.parts)}",
+                json_resp=False,
+                allow_redirects=True,
+            )
+        except requests.HTTPError as e:
+            if e.response.status_code == 404:
+                raise NotFoundError(
+                    f"{str(self)!r} in Zarr {self.zarr_id!r} does not exist"
+                )
+            else:
+                raise
+        return ZarrEntryStat(
+            size=int(r.headers["Content-Length"]),
+            modified=dateutil.parser.parse(r.headers["Last-Modified"]),
         )
-    with lock:
-        fp.seek(etag_part.offset)
-        chunk = fp.read(part["size"])
-    if len(chunk) != part["size"]:
-        raise RuntimeError(
-            f"End of file {fp.name} reached unexpectedly early:"
-            f" read {len(chunk)} bytes of out of an expected {part['size']}"
-        )
-    lgr.debug(
-        "%s: Uploading part %d/%d (%d bytes)",
-        asset_path,
-        part["part_number"],
-        etagger.part_qty,
-        part["size"],
-    )
-    r = storage_session.put(
-        part["upload_url"],
-        data=chunk,
-        json_resp=False,
-        retry_statuses=[500],
-    )
-    server_etag = r.headers["ETag"].strip('"')
-    lgr.debug(
-        "%s: Part upload finished ETag=%s Content-Length=%s",
-        asset_path,
-        server_etag,
-        r.headers.get("Content-Length"),
-    )
-    client_etag = etagger.get_part_etag(etag_part)
-    if server_etag != client_etag:
-        raise RuntimeError(
-            f"Server and client disagree on ETag of upload part"
-            f" {part['part_number']}; server says"
-            f" {server_etag}, client says {client_etag}"
-        )
-    return {
-        "part_number": part["part_number"],
-        "size": part["size"],
-        "etag": server_etag,
-    }
+
+    def get_listing(self) -> ZarrListing:
+        """
+        Return the `ZarrListing` for the entry, which must be a directory
+
+        :raises NotFoundError: if the path does not exist in the Zarr asset
+        """
+        path = "".join(p + "/" for p in self.parts)
+        try:
+            r = self.client.get(f"/zarr/{self.zarr_id}.zarr/{path}")
+        except requests.HTTPError as e:
+            if e.response.status_code == 404:
+                raise NotFoundError(
+                    f"{str(self)!r} in Zarr {self.zarr_id!r} does not exist"
+                )
+            else:
+                raise
+        return ZarrListing.parse_obj(r)
+
+    def get_download_file_iter(
+        self, chunk_size: int = MAX_CHUNK_SIZE
+    ) -> Callable[..., Iterator[bytes]]:
+        """
+        Returns a function that when called (optionally with an offset into the
+        file to start downloading at) returns a generator of chunks of the file
+        """
+        if not self.is_file():
+            raise RuntimeError(
+                f"{str(self)!r} in Zarr {self.zarr_id!r} does not exist or"
+                " is not a file"
+            )
+
+        url = self.client.get_url(f"/zarr/{self.zarr_id}.zarr/{'/'.join(self.parts)}")
+
+        def downloader(start_at: int = 0) -> Iterator[bytes]:
+            lgr.debug("Starting download from %s", url)
+            headers = None
+            if start_at > 0:
+                headers = {"Range": f"bytes={start_at}-"}
+            result = self.client.session.get(url, stream=True, headers=headers)
+            # TODO: apparently we might need retries here as well etc
+            # if result.status_code not in (200, 201):
+            result.raise_for_status()
+            for chunk in result.iter_content(chunk_size=chunk_size):
+                if chunk:  # could be some "keep alive"?
+                    yield chunk
+            lgr.info("File %s in Zarr %s successfully downloaded", self, self.zarr_id)
+
+        return downloader

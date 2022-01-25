@@ -360,9 +360,9 @@ def test_parse_gui_new_redirect():
 
 @pytest.mark.parametrize("version_suffix", ["", "@draft", "@0.999999.9999"])
 def test_get_nonexistent_dandiset(local_dandi_api, version_suffix):
-    url = f"dandi://{local_dandi_api['instance_id']}/999999{version_suffix}"
+    url = f"dandi://{local_dandi_api.instance_id}/999999{version_suffix}"
     parsed_url = parse_dandi_url(url)
-    client = local_dandi_api["client"]
+    client = local_dandi_api.client
     parsed_url.get_dandiset(client)  # No error
     with pytest.raises(NotFoundError) as excinfo:
         parsed_url.get_dandiset(client, lazy=False)
@@ -376,41 +376,38 @@ def test_get_nonexistent_dandiset(local_dandi_api, version_suffix):
 @pytest.mark.parametrize("version", ["draft", "0.999999.9999"])
 def test_get_nonexistent_dandiset_asset_id(local_dandi_api, version):
     url = (
-        f"{local_dandi_api['instance'].api}/dandisets/999999/versions/{version}"
+        f"{local_dandi_api.api_url}/dandisets/999999/versions/{version}"
         "/assets/00000000-0000-0000-0000-000000000000/"
     )
     parsed_url = parse_dandi_url(url)
-    client = local_dandi_api["client"]
+    client = local_dandi_api.client
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
     assert str(excinfo.value) == "No such Dandiset: '999999'"
 
 
-def test_get_dandiset_nonexistent_asset_id(local_dandi_api, text_dandiset):
+def test_get_dandiset_nonexistent_asset_id(text_dandiset):
     url = (
-        f"{local_dandi_api['instance'].api}/dandisets/"
-        f"{text_dandiset['dandiset_id']}/versions/draft/assets/"
+        f"{text_dandiset.api.api_url}/dandisets/"
+        f"{text_dandiset.dandiset_id}/versions/draft/assets/"
         "00000000-0000-0000-0000-000000000000/"
     )
     parsed_url = parse_dandi_url(url)
-    client = local_dandi_api["client"]
+    client = text_dandiset.client
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
     assert str(excinfo.value) == (
         "No such asset: '00000000-0000-0000-0000-000000000000' for"
-        f" DANDI-API-LOCAL-DOCKER-TESTS:{text_dandiset['dandiset_id']}/draft"
+        f" DANDI-API-LOCAL-DOCKER-TESTS:{text_dandiset.dandiset_id}/draft"
     )
 
 
 def test_get_nonexistent_asset_id(local_dandi_api):
-    url = (
-        f"{local_dandi_api['instance'].api}/assets/"
-        "00000000-0000-0000-0000-000000000000/"
-    )
+    url = f"{local_dandi_api.api_url}/assets/00000000-0000-0000-0000-000000000000/"
     parsed_url = parse_dandi_url(url)
-    client = local_dandi_api["client"]
+    client = local_dandi_api.client
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
@@ -419,22 +416,22 @@ def test_get_nonexistent_asset_id(local_dandi_api):
 
 @pytest.mark.parametrize("version_suffix", ["", "@draft", "@0.999999.9999"])
 def test_get_nonexistent_dandiset_asset_path(local_dandi_api, version_suffix):
-    url = f"dandi://{local_dandi_api['instance_id']}/999999{version_suffix}/does/not/exist"
+    url = f"dandi://{local_dandi_api.instance_id}/999999{version_suffix}/does/not/exist"
     parsed_url = parse_dandi_url(url)
-    client = local_dandi_api["client"]
+    client = local_dandi_api.client
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
     assert str(excinfo.value) == "No such Dandiset: '999999'"
 
 
-def test_get_nonexistent_asset_path(local_dandi_api, text_dandiset):
+def test_get_nonexistent_asset_path(text_dandiset):
     url = (
-        f"dandi://{local_dandi_api['instance_id']}/"
-        f"{text_dandiset['dandiset_id']}/does/not/exist"
+        f"dandi://{text_dandiset.api.instance_id}/"
+        f"{text_dandiset.dandiset_id}/does/not/exist"
     )
     parsed_url = parse_dandi_url(url)
-    client = local_dandi_api["client"]
+    client = text_dandiset.client
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
@@ -444,24 +441,24 @@ def test_get_nonexistent_asset_path(local_dandi_api, text_dandiset):
 @pytest.mark.parametrize("version_suffix", ["", "@draft", "@0.999999.9999"])
 def test_get_nonexistent_dandiset_asset_folder(local_dandi_api, version_suffix):
     url = (
-        f"dandi://{local_dandi_api['instance_id']}/999999{version_suffix}"
+        f"dandi://{local_dandi_api.instance_id}/999999{version_suffix}"
         "/does/not/exist/"
     )
     parsed_url = parse_dandi_url(url)
-    client = local_dandi_api["client"]
+    client = local_dandi_api.client
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
     assert str(excinfo.value) == "No such Dandiset: '999999'"
 
 
-def test_get_nonexistent_asset_folder(local_dandi_api, text_dandiset):
+def test_get_nonexistent_asset_folder(text_dandiset):
     url = (
-        f"dandi://{local_dandi_api['instance_id']}/"
-        f"{text_dandiset['dandiset_id']}/does/not/exist/"
+        f"dandi://{text_dandiset.api.instance_id}/"
+        f"{text_dandiset.dandiset_id}/does/not/exist/"
     )
     parsed_url = parse_dandi_url(url)
-    client = local_dandi_api["client"]
+    client = text_dandiset.client
     assert list(parsed_url.get_assets(client)) == []
     assert list(parsed_url.get_assets(client, strict=True)) == []
 
@@ -469,23 +466,23 @@ def test_get_nonexistent_asset_folder(local_dandi_api, text_dandiset):
 @pytest.mark.parametrize("version", ["draft", "0.999999.9999"])
 def test_get_nonexistent_dandiset_asset_prefix(local_dandi_api, version):
     url = (
-        f"{local_dandi_api['instance'].api}/dandisets/999999/versions/{version}"
+        f"{local_dandi_api.api_url}/dandisets/999999/versions/{version}"
         "/assets/?path=does/not/exist"
     )
     parsed_url = parse_dandi_url(url)
-    client = local_dandi_api["client"]
+    client = local_dandi_api.client
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
     assert str(excinfo.value) == "No such Dandiset: '999999'"
 
 
-def test_get_nonexistent_asset_prefix(local_dandi_api, text_dandiset):
+def test_get_nonexistent_asset_prefix(text_dandiset):
     url = (
-        f"{local_dandi_api['instance'].api}/dandisets/"
-        f"{text_dandiset['dandiset_id']}/versions/draft/assets/?path=does/not/exist"
+        f"{text_dandiset.api.api_url}/dandisets/"
+        f"{text_dandiset.dandiset_id}/versions/draft/assets/?path=does/not/exist"
     )
     parsed_url = parse_dandi_url(url)
-    client = local_dandi_api["client"]
+    client = text_dandiset.client
     assert list(parsed_url.get_assets(client)) == []
     assert list(parsed_url.get_assets(client, strict=True)) == []

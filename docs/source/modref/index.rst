@@ -22,6 +22,8 @@ Mid-level user interfaces
 .. toctree::
 
    dandiapi
+   files
+   misctypes
 
 Support functionality
 =====================

@@ -1,6 +1,6 @@
 from functools import reduce
 import os.path
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import re
 import time
 
@@ -9,6 +9,7 @@ import click
 from . import lgr
 from .consts import DRAFT, dandiset_identifier_regex, dandiset_metadata_file
 from .exceptions import NotFoundError
+from .files import DandisetMetadataFile, LocalAsset, find_dandi_files
 from .utils import ensure_datetime, get_instance, pluralize
 
 
@@ -27,7 +28,6 @@ def upload(
 ):
     from .dandiapi import DandiAPIClient
     from .dandiset import APIDandiset, Dandiset
-    from .support.digests import get_digest
 
     dandiset = Dandiset.find(dandiset_path)
     if not dandiset:
@@ -55,11 +55,9 @@ def upload(
             f"convention {dandiset_identifier_regex!r}."
         )
 
-    from .metadata import get_asset_metadata
     from .pynwb_utils import ignore_benign_pynwb_warnings
     from .support.pyout import naturalsize
-    from .utils import find_dandi_files, find_files, path_is_subpath
-    from .validate import validate_file
+    from .utils import path_is_subpath
 
     ignore_benign_pynwb_warnings()  # so validate doesn't whine
 
@@ -71,21 +69,16 @@ def upload(
     original_paths = paths
 
     # Expand and validate all paths -- they should reside within dandiset
-    paths = find_files(".*", paths) if allow_any_path else find_dandi_files(paths)
-    paths = list(map(Path, paths))
-    npaths = len(paths)
-    lgr.info(f"Found {npaths} files to consider")
-    for path in paths:
-        if not (
-            allow_any_path
-            or path.name == dandiset_metadata_file
-            or path.name.endswith(".nwb")
-        ):
-            raise NotImplementedError(
-                f"ATM only .nwb and dandiset.yaml should be in the paths to upload. Got {path}"
-            )
-        if not path_is_subpath(str(path.absolute()), dandiset.path):
-            raise ValueError(f"{path} is not under {dandiset.path}")
+    paths = [Path(p).absolute() for p in paths]
+    dandi_files = list(
+        find_dandi_files(
+            *paths,
+            dandiset_path=dandiset.path,
+            allow_all=allow_any_path,
+            include_metadata=True,
+        )
+    )
+    lgr.info(f"Found {len(dandi_files)} files to consider")
 
     # We will keep a shared set of "being processed" paths so
     # we could limit the number of them until
@@ -101,28 +94,22 @@ def upload(
 
     # TODO: we might want to always yield a full record so no field is not
     # provided to pyout to cause it to halt
-    def process_path(path, relpath):
+    def process_path(dfile):
         """
 
         Parameters
         ----------
-        path: Path
-          Non Pure (OS specific) Path
-        relpath:
-          For location on server.  Will be cast to PurePosixPath
+        dfile: DandiFile
 
         Yields
         ------
         dict
           Records for pyout
         """
-        # Ensure consistent types
-        path = Path(path)
-        relpath = PurePosixPath(relpath)
+        strpath = str(dfile.filepath)
         try:
             try:
-                path_stat = path.stat()
-                yield {"size": path_stat.st_size}
+                yield {"size": dfile.size}
             except FileNotFoundError:
                 yield skip_file("ERROR: File not found")
                 return
@@ -135,9 +122,9 @@ def upload(
             # Validate first, so we do not bother server at all if not kosher
             #
             # TODO: enable back validation of dandiset.yaml
-            if path.name != dandiset_metadata_file and validation != "skip":
+            if isinstance(dfile, LocalAsset) and validation != "skip":
                 yield {"status": "pre-validating"}
-                validation_errors = validate_file(path)
+                validation_errors = dfile.get_validation_errors()
                 yield {"errors": len(validation_errors)}
                 # TODO: split for dandi, pynwb errors
                 if validation_errors:
@@ -156,7 +143,7 @@ def upload(
             # Special handling for dandiset.yaml
             # Yarik hates it but that is life for now. TODO
             #
-            if path.name == dandiset_metadata_file:
+            if isinstance(dfile, DandisetMetadataFile):
                 # TODO This is a temporary measure to avoid breaking web UI
                 # dandiset metadata schema assumptions.  All edits should happen
                 # online.
@@ -173,30 +160,27 @@ def upload(
             #
             yield {"status": "digesting"}
             try:
-                file_etag = get_digest(path, digest="dandi-etag")
+                file_etag = dfile.get_digest()
             except Exception as exc:
                 yield skip_file("failed to compute digest: %s" % str(exc))
                 return
 
             try:
-                extant = remote_dandiset.get_asset_by_path(str(relpath))
+                extant = remote_dandiset.get_asset_by_path(dfile.path)
             except NotFoundError:
                 extant = None
             else:
                 metadata = extant.get_raw_metadata()
-                local_mtime = ensure_datetime(path_stat.st_mtime)
+                local_mtime = dfile.modified
                 remote_mtime_str = metadata.get("blobDateModified")
-                d = metadata.get("digest", {})
-                if "dandi:dandi-etag" in d:
-                    extant_etag = d["dandi:dandi-etag"]
-                else:
-                    # TODO: Should this error instead?
-                    extant_etag = None
+                # TODO: Should this error if the digest is missing?
+                extant_etag = metadata.get("digest", {}).get(file_etag.algorithm.value)
                 if remote_mtime_str is not None:
                     remote_mtime = ensure_datetime(remote_mtime_str)
                     remote_file_status = (
                         "same"
-                        if extant_etag == file_etag and remote_mtime == local_mtime
+                        if extant_etag == file_etag.value
+                        and remote_mtime == local_mtime
                         else (
                             "newer"
                             if remote_mtime > local_mtime
@@ -217,11 +201,11 @@ def upload(
                     return
                 # Logic below only for overwrite and reupload
                 if existing == "overwrite":
-                    if extant_etag == file_etag:
+                    if extant_etag == file_etag.value:
                         yield skip_file(exists_msg)
                         return
                 elif existing == "refresh":
-                    if extant_etag == file_etag:
+                    if extant_etag == file_etag.value:
                         yield skip_file("file exists")
                         return
                     elif remote_mtime is not None and remote_mtime >= local_mtime:
@@ -243,12 +227,8 @@ def upload(
             # ad-hoc for dandiset.yaml for now
             yield {"status": "extracting metadata"}
             try:
-                metadata = get_asset_metadata(
-                    path,
-                    relpath,
-                    digest=file_etag,
-                    digest_type="dandi_etag",
-                    allow_any_path=allow_any_path,
+                metadata = dfile.get_metadata(
+                    digest=file_etag, ignore_errors=allow_any_path
                 ).json_dict()
             except Exception as e:
                 yield skip_file("failed to extract metadata: %s" % str(e))
@@ -259,12 +239,12 @@ def upload(
             #
             yield {"status": "uploading"}
             validating = False
-            for r in remote_dandiset.iter_upload_raw_asset(
-                path, metadata, jobs=jobs_per_file, replace_asset=extant
+            for r in dfile.iter_upload(
+                remote_dandiset, metadata, jobs=jobs_per_file, replacing=extant
             ):
                 r.pop("asset", None)  # to keep pyout from choking
                 if r["status"] == "uploading":
-                    uploaded_paths[str(path)]["size"] = r.pop("current")
+                    uploaded_paths[strpath]["size"] = r.pop("current")
                     yield r
                 elif r["status"] == "post-validating":
                     # Only yield the first "post-validating" status
@@ -278,14 +258,14 @@ def upload(
         except Exception as exc:
             if devel_debug:
                 raise
-            lgr.exception("Error uploading %s:", relpath)
+            lgr.exception("Error uploading %s:", strpath)
             # Custom formatting for some exceptions we know to extract
             # user-meaningful message
             message = str(exc)
-            uploaded_paths[str(path)]["errors"].append(message)
+            uploaded_paths[strpath]["errors"].append(message)
             yield {"status": "ERROR", "message": message}
         finally:
-            process_paths.remove(str(path))
+            process_paths.remove(strpath)
 
     # We will again use pyout to provide a neat table summarizing our progress
     # with upload etc
@@ -313,31 +293,28 @@ def upload(
     out = pyouts.LogSafeTabular(style=pyout_style, columns=rec_fields, max_workers=jobs)
 
     with out:
-        for path in paths:
+        for dfile in dandi_files:
             while len(process_paths) >= 10:
                 lgr.log(2, "Sleep waiting for some paths to finish processing")
                 time.sleep(0.5)
 
-            rec = {"path": str(path)}
-            process_paths.add(str(path))
+            process_paths.add(str(dfile.filepath))
+
+            if isinstance(dfile, DandisetMetadataFile):
+                rec = {"path": dandiset_metadata_file}
+            else:
+                assert isinstance(dfile, LocalAsset)
+                rec = {"path": dfile.path}
 
             try:
-                relpath = path.absolute().relative_to(dandiset.path)
-
-                rec["path"] = str(relpath)
                 if devel_debug:
                     # DEBUG: do serially
-                    for v in process_path(path, relpath):
+                    for v in process_path(dfile):
                         print(str(v), flush=True)
                 else:
-                    rec[tuple(rec_fields[1:])] = process_path(path, relpath)
+                    rec[tuple(rec_fields[1:])] = process_path(dfile)
             except ValueError as exc:
-                if "does not start with" in str(exc):
-                    # if top_path is not the top path for the path
-                    # Provide more concise specific message without path details
-                    rec.update(skip_file("must be a child of top path"))
-                else:
-                    rec.update(skip_file(exc))
+                rec.update(skip_file(exc))
             out(rec)
 
     if sync:

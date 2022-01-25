@@ -142,3 +142,12 @@ DRAFT = "draft"
 #: HTTP response status codes that should always be retried (until we run out
 #: of retries)
 RETRY_STATUSES = (500, 502, 503, 504)
+
+#: Maximum allowed depth of a Zarr directory tree
+MAX_ZARR_DEPTH = 5
+
+#: MIME type assigned to & used to identify Zarr assets
+ZARR_MIME_TYPE = "application/x-zarr"
+
+#: Maximum number of Zarr directory entries to upload at once
+ZARR_UPLOAD_BATCH_SIZE = 255

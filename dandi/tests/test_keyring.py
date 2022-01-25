@@ -25,11 +25,11 @@ def test_dandi_authenticate_no_env_var(local_dandi_api, monkeypatch, mocker):
     monkeypatch.delenv("DANDI_API_KEY", raising=False)
     monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyring.backends.null.Keyring")
     inputmock = mocker.patch(
-        "dandi.dandiapi.input", return_value=local_dandi_api["api_key"]
+        "dandi.dandiapi.input", return_value=local_dandi_api.api_key
     )
-    DandiAPIClient(local_dandi_api["instance"].api).dandi_authenticate()
+    DandiAPIClient(local_dandi_api.api_url).dandi_authenticate()
     inputmock.assert_called_once_with(
-        "Please provide API Key for {}: ".format(local_dandi_api["instance_id"])
+        "Please provide API Key for {}: ".format(local_dandi_api.instance_id)
     )
 
 

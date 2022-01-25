@@ -1,30 +1,12 @@
 import click
 
 from .base import (
+    IntColonInt,
     devel_debug_option,
     devel_option,
     instance_option,
     map_to_click_exceptions,
 )
-
-
-class IntColonInt(click.ParamType):
-    name = "int:int"
-
-    def convert(self, value, param, ctx):
-        if isinstance(value, str):
-            v1, colon, v2 = value.partition(":")
-            try:
-                v1 = int(v1)
-                v2 = int(v2) if colon else None
-            except ValueError:
-                self.fail("Value must be of the form `N[:M]`", param, ctx)
-            return (v1, v2)
-        else:
-            return value
-
-    def get_metavar(self, param):
-        return "N[:M]"
 
 
 @click.command()
@@ -102,9 +84,9 @@ def upload(
     Local Dandiset should pass validation.  For that, the assets should first
     be organized using the `dandi organize` command.
 
-    By default all .nwb files in the Dandiset (excluding directories starting
-    with a period) will be considered for the upload.  You can point to
-    specific files you would like to validate and have uploaded.
+    By default all .nwb, .zarr, and .ngff assets in the Dandiset (ignoring
+    directories starting with a period) will be considered for the upload.  You
+    can point to specific files you would like to validate and have uploaded.
     """
     from ..upload import upload
 

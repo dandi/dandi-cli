@@ -31,9 +31,10 @@ Options
 
     DANDI instance to download from  [default: ``dandi``]
 
-.. option:: -J, --jobs <int>
+.. option:: -J, --jobs N[:M]
 
-    Number of parallel download jobs  [default: 6]
+    Number of parallel download jobs and, optionally, number of upload subjobs
+    per Zarr asset job  [default: 6:4]
 
 .. option:: -o, --output-dir <dir>
 

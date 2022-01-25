@@ -1,3 +1,7 @@
+from collections import Counter, deque
+from dataclasses import dataclass, field
+from enum import Enum
+from functools import partial
 import hashlib
 import json
 import os
@@ -6,22 +10,27 @@ from pathlib import Path
 import random
 from shutil import rmtree
 import sys
+from threading import Lock
 import time
+from typing import Any, Callable, Dict, Iterator, Optional, Tuple
 
+from dandischema.models import DigestType
 import humanize
+from interleave import FINISH_CURRENT, interleave
 import requests
 
 from . import get_logger
 from .consts import RETRY_STATUSES, dandiset_metadata_file
+from .dandiapi import AssetType, RemoteZarrAsset
 from .dandiarchive import DandisetURL, MultiAssetURL, SingleAssetURL, parse_dandi_url
 from .dandiset import Dandiset
 from .exceptions import NotFoundError
-from .support.digests import get_digest
+from .files import DandisetMetadataFile, find_dandi_files
+from .support.digests import get_digest, get_zarr_checksum
 from .support.pyout import naturalsize
 from .utils import (
     abbrev_prompt,
     ensure_datetime,
-    find_files,
     flattened,
     is_same_time,
     on_windows,
@@ -40,6 +49,7 @@ def download(
     format="pyout",
     existing="error",
     jobs=1,
+    jobs_per_zarr=None,
     get_metadata=True,
     get_assets=True,
     sync=False,
@@ -92,6 +102,7 @@ def download(
         existing=existing,
         get_metadata=get_metadata,
         get_assets=get_assets,
+        jobs_per_zarr=jobs_per_zarr,
         **kw,
     )
 
@@ -127,14 +138,16 @@ def download(
                 f"Unexpected URL type {type(parsed_url).__name__}"
             )
         to_delete = []
-        for p in find_files(".*", download_dir, exclude_datalad=True):
-            if p == op.join(output_path, dandiset_metadata_file):
+        for df in find_dandi_files(
+            download_dir, dandiset_path=download_dir, allow_all=True
+        ):
+            if isinstance(df, DandisetMetadataFile):
                 continue
-            a_path = op.normpath(op.join(prefix, op.relpath(p, download_dir)))
+            a_path = op.normpath(op.join(prefix, df.path))
             if on_windows:
                 a_path = a_path.replace("\\", "/")
             if a_path not in asset_paths:
-                to_delete.append(p)
+                to_delete.append(df.filepath)
         if to_delete:
             while True:
                 opt = abbrev_prompt(
@@ -148,7 +161,10 @@ def download(
                         print(p)
                 elif opt == "yes":
                     for p in to_delete:
-                        os.unlink(p)
+                        if p.is_dir():
+                            rmtree(p)
+                        else:
+                            p.unlink()
                     break
                 else:
                     break
@@ -163,6 +179,7 @@ def download_generator(
     existing="error",
     get_metadata=True,
     get_assets=True,
+    jobs_per_zarr=None,
 ):
     """A generator for downloads of files, folders, or entire dandiset from DANDI
     (as identified by URL)
@@ -196,6 +213,7 @@ def download_generator(
         if not get_assets:
             return
 
+        lock = Lock()
         for asset in assets:
             path = asset.path.lstrip("/")  # make into relative path
             path = op.normpath(path)
@@ -219,41 +237,58 @@ def download_generator(
                 yield {"path": path, "status": "error", "message": str(e)}
                 continue
             d = metadata.get("digest", {})
-            if "dandi:dandi-etag" in d:
-                digests = {"dandi-etag": d["dandi:dandi-etag"]}
+
+            if asset.asset_type is AssetType.BLOB:
+                if "dandi:dandi-etag" in d:
+                    digests = {"dandi-etag": d["dandi:dandi-etag"]}
+                else:
+                    raise RuntimeError(
+                        f"dandi-etag not available for asset. Known digests: {d}"
+                    )
+                try:
+                    digests["sha256"] = d["dandi:sha2-256"]
+                except KeyError:
+                    pass
+                try:
+                    mtime = ensure_datetime(metadata["blobDateModified"])
+                except KeyError:
+                    mtime = None
+                if mtime is None:
+                    lgr.warning(
+                        "Asset %s is missing blobDateModified metadata field",
+                        asset.path,
+                    )
+                    mtime = asset.modified
+                _download_generator = _download_file(
+                    asset.get_download_file_iter(),
+                    download_path,
+                    toplevel_path=output_path,
+                    # size and modified generally should be there but better to
+                    # redownload than to crash
+                    size=asset.size,
+                    mtime=mtime,
+                    existing=existing,
+                    digests=digests,
+                    lock=lock,
+                )
+
             else:
-                raise RuntimeError(
-                    f"dandi-etag not available for asset. Known digests: {d}"
+                assert (
+                    asset.asset_type is AssetType.ZARR
+                ), f"Asset {asset.path} is neither blob nor Zarr"
+                if not isinstance(asset, RemoteZarrAsset):
+                    raise NotImplementedError(
+                        "Downloading a Zarr asset identified by a URL without"
+                        " Dandiset details is not yet implemented"
+                    )
+                _download_generator = _download_zarr(
+                    asset,
+                    download_path,
+                    toplevel_path=output_path,
+                    existing=existing,
+                    jobs=jobs_per_zarr,
+                    lock=lock,
                 )
-            try:
-                digests["sha256"] = d["dandi:sha2-256"]
-            except KeyError:
-                pass
-
-            downloader = asset.get_download_file_iter()
-
-            try:
-                mtime = metadata["blobDateModified"]
-            except KeyError:
-                mtime = None
-            if mtime is None:
-                lgr.warning(
-                    "Asset %s is missing blobDateModified metadata field",
-                    asset.path,
-                )
-                mtime = asset.modified
-
-            _download_generator = _download_file(
-                downloader,
-                download_path,
-                toplevel_path=output_path,
-                # size and modified generally should be there but better to redownload
-                # than to crash
-                size=asset.size,
-                mtime=mtime,
-                existing=existing,
-                digests=digests,
-            )
 
             if yield_generator_for_fields:
                 yield {"path": path, yield_generator_for_fields: _download_generator}
@@ -422,19 +457,28 @@ def _download_file(
     downloader,
     path,
     toplevel_path,
+    lock,
     size=None,
     mtime=None,
     existing="error",
     digests=None,
+    digest_callback: Optional[Callable[[str, str], Any]] = None,
 ):
-    """Common logic for downloading a single file
+    """
+    Common logic for downloading a single file.
 
-    Generator downloader:
+    Yields progress records that take the following forms::
 
-    TODO: describe expected records it should yield
-    - progress
-    - error
-    - completion
+        {"status": "skipped", "message": "<MESSAGE>"}
+        {"size": <int>}
+        {"status": "downloading"}
+        {"done": <bytes downloaded>[, "done%": <percentage done, from 0 to 100>]}
+        {"status": "error", "message": "<MESSAGE>"}
+        {"checksum": "differs", "status": "error", "message": "<MESSAGE>"}
+        {"checksum": "ok"}
+        {"checksum": "-"}  #  No digests were provided
+        {"status": "setting mtime"}
+        {"status": "done"}
 
     Parameters
     ----------
@@ -480,7 +524,17 @@ def _download_file(
                         "%s is in git-annex, and hash does not match hash on server; redownloading",
                         path,
                     )
-            elif get_digest(path, "dandi-etag") == digests["dandi-etag"]:
+            elif (
+                "dandi-etag" in digests
+                and get_digest(path, "dandi-etag") == digests["dandi-etag"]
+            ):
+                yield _skip_file("already exists")
+                return
+            elif (
+                "dandi-etag" not in digests
+                and "md5" in digests
+                and get_digest(path, "md5") == digests["md5"]
+            ):
                 yield _skip_file("already exists")
                 return
             else:
@@ -512,8 +566,15 @@ def _download_file(
     if size is not None:
         yield {"size": size}
 
-    destdir = op.dirname(path)
-    os.makedirs(destdir, exist_ok=True)
+    destdir = Path(op.dirname(path))
+    with lock:
+        for p in (destdir, *destdir.parents):
+            if p.is_file():
+                p.unlink()
+                break
+            elif p.is_dir():
+                break
+        destdir.mkdir(parents=True, exist_ok=True)
 
     yield {"status": "downloading"}
 
@@ -594,6 +655,8 @@ def _download_file(
 
     if downloaded_digest and not resuming:
         downloaded_digest = downloaded_digest.hexdigest()  # we care only about hex
+        if digest_callback is not None:
+            digest_callback(algo, downloaded_digest)
         if digest != downloaded_digest:
             msg = f"{algo}: downloaded {downloaded_digest} != {digest}"
             yield {"checksum": "differs", "status": "error", "message": msg}
@@ -681,7 +744,11 @@ class DownloadDirectory:
         self.fp.close()
         try:
             if exc_type is None:
-                self.writefile.replace(self.filepath)
+                try:
+                    self.writefile.replace(self.filepath)
+                except IsADirectoryError:
+                    rmtree(self.filepath)
+                    self.writefile.replace(self.filepath)
         finally:
             self.lock.release()
             if exc_type is None:
@@ -693,3 +760,240 @@ class DownloadDirectory:
 
     def append(self, blob):
         self.fp.write(blob)
+
+
+def _download_zarr(
+    asset: RemoteZarrAsset,
+    download_path: str,
+    toplevel_path: str,
+    existing: str,
+    lock: Lock,
+    jobs: Optional[int] = None,
+) -> Iterator[dict]:
+    download_gens = {}
+    entries = list(asset.iterfiles())
+    digests = {}
+
+    def digest_callback(path: str, algoname: str, d: str) -> None:
+        if algoname == "md5":
+            digests[path] = d
+
+    for entry in entries:
+        etag = entry.get_digest()
+        assert etag.algorithm is DigestType.md5
+        stat = entry.stat()
+        download_gens[str(entry)] = _download_file(
+            entry.get_download_file_iter(),
+            op.join(download_path, op.normpath(str(entry))),
+            toplevel_path=toplevel_path,
+            size=stat.size,
+            mtime=stat.modified,
+            existing=existing,
+            digests={"md5": etag.value},
+            lock=lock,
+            digest_callback=partial(digest_callback, str(entry)),
+        )
+
+    pc = ProgressCombiner(zarr_size=asset.size, file_qty=len(download_gens))
+    final_out: Optional[dict] = None
+    with interleave(
+        [pairing(p, gen) for p, gen in download_gens.items()],
+        onerror=FINISH_CURRENT,
+        max_workers=jobs or 4,
+    ) as it:
+        for path, status in it:
+            for out in pc.feed(path, status):
+                if out.get("status") == "done":
+                    final_out = out
+                else:
+                    yield out
+            if final_out is not None:
+                break
+        else:
+            return
+
+    yield {"status": "deleting extra files"}
+    remote_paths = set(map(str, entries))
+    zarr_basepath = Path(download_path)
+    dirs = deque([zarr_basepath])
+    empty_dirs = deque()
+    while dirs:
+        d = dirs.popleft()
+        is_empty = True
+        for p in list(d.iterdir()):
+            if (
+                p.is_file()
+                and p.relative_to(zarr_basepath).as_posix() not in remote_paths
+            ):
+                try:
+                    p.unlink()
+                except OSError:
+                    is_empty = False
+            elif p.is_dir():
+                dirs.append(p)
+            else:
+                is_empty = False
+        if is_empty and d != zarr_basepath:
+            empty_dirs.append(d)
+    while empty_dirs:
+        d = empty_dirs.popleft()
+        try:
+            d.rmdir()
+        except OSError:
+            pass
+        else:
+            if d.parent != zarr_basepath and not any(d.parent.iterdir()):
+                empty_dirs.append(d.parent)
+
+    if "skipped" not in final_out["message"]:
+        zarr_checksum = asset.get_digest().value
+        local_checksum = get_zarr_checksum(zarr_basepath, known=digests)
+        if zarr_checksum != local_checksum:
+            msg = f"Zarr checksum: downloaded {local_checksum} != {zarr_checksum}"
+            yield {"checksum": "differs", "status": "error", "message": msg}
+            lgr.debug("%s is different: %s.", zarr_basepath, msg)
+            return
+        else:
+            yield {"checksum": "ok"}
+            lgr.debug(
+                "Verified that %s has correct Zarr checksum %s",
+                zarr_basepath,
+                zarr_checksum,
+            )
+
+    yield {"status": "done"}
+
+
+def pairing(p: str, gen: Iterator[dict]) -> Iterator[Tuple[str, dict]]:
+    for d in gen:
+        yield (p, d)
+
+
+DLState = Enum("DLState", "STARTING DOWNLOADING SKIPPED ERROR CHECKSUM_ERROR DONE")
+
+
+@dataclass
+class DownloadProgress:
+    state: DLState = DLState.STARTING
+    downloaded: int = 0
+    size: Optional[int] = None
+
+
+@dataclass
+class ProgressCombiner:
+    zarr_size: int
+    file_qty: int
+    files: Dict[str, DownloadProgress] = field(default_factory=dict)
+    #: Total size of all files that were not skipped and did not error out
+    #: during download
+    maxsize: int = 0
+    prev_status: str = ""
+    yielded_size: bool = False
+
+    @property
+    def message(self) -> str:
+        done = 0
+        errored = 0
+        skipped = 0
+        for s in self.files.values():
+            if s.state is DLState.DONE:
+                done += 1
+            elif s.state in (DLState.ERROR, DLState.CHECKSUM_ERROR):
+                errored += 1
+            elif s.state is DLState.SKIPPED:
+                skipped += 1
+        parts = []
+        if done:
+            parts.append(f"{done} done")
+        if errored:
+            parts.append(f"{errored} errored")
+        if skipped:
+            parts.append(f"{skipped} skipped")
+        return ", ".join(parts)
+
+    def get_done(self) -> dict:
+        total_downloaded = sum(
+            s.downloaded
+            for s in self.files.values()
+            if s.state in (DLState.DOWNLOADING, DLState.CHECKSUM_ERROR, DLState.DONE)
+        )
+        return {
+            "done": total_downloaded,
+            "done%": total_downloaded / self.maxsize * 100,
+        }
+
+    def set_status(self, statusdict: dict) -> None:
+        state_qtys = Counter(s.state for s in self.files.values())
+        total = len(self.files)
+        if (
+            total == self.file_qty
+            and state_qtys[DLState.STARTING] == state_qtys[DLState.DOWNLOADING] == 0
+        ):
+            # All files have finished
+            if state_qtys[DLState.ERROR] or state_qtys[DLState.CHECKSUM_ERROR]:
+                new_status = "error"
+            elif state_qtys[DLState.DONE]:
+                new_status = "done"
+            else:
+                new_status = "skipped"
+        elif total - state_qtys[DLState.STARTING] - state_qtys[DLState.SKIPPED] > 0:
+            new_status = "downloading"
+        else:
+            new_status = ""
+        if new_status != self.prev_status:
+            statusdict["status"] = new_status
+            self.prev_status = new_status
+
+    def feed(self, path: str, status: dict) -> Iterator[dict]:
+        keys = list(status.keys())
+        self.files.setdefault(path, DownloadProgress())
+        if status.get("status") == "skipped":
+            self.files[path].state = DLState.SKIPPED
+            out = {"message": self.message}
+            self.set_status(out)
+            yield out
+        elif keys == ["size"]:
+            if not self.yielded_size:
+                yield {"size": self.zarr_size}
+                self.yielded_size = True
+            self.files[path].size = status["size"]
+            self.maxsize += status["size"]
+            if any(s.state is DLState.DOWNLOADING for s in self.files.values()):
+                yield self.get_done()
+        elif status == {"status": "downloading"}:
+            self.files[path].state = DLState.DOWNLOADING
+            out = {}
+            self.set_status(out)
+            if out:
+                yield out
+        elif "done" in status:
+            self.files[path].downloaded = status["done"]
+            yield self.get_done()
+        elif status.get("status") == "error":
+            if "checksum" in status:
+                self.files[path].state = DLState.CHECKSUM_ERROR
+                out = {"message": self.message}
+                self.set_status(out)
+                yield out
+            else:
+                self.files[path].state = DLState.ERROR
+                out = {"message": self.message}
+                self.set_status(out)
+                yield out
+                sz = self.files[path].size
+                if sz is not None:
+                    self.maxsize -= sz
+                    yield self.get_done()
+        elif keys == ["checksum"]:
+            pass
+        elif status == {"status": "setting mtime"}:
+            pass
+        elif status == {"status": "done"}:
+            self.files[path].state = DLState.DONE
+            out = {"message": self.message}
+            self.set_status(out)
+            yield out
+        else:
+            lgr.warning(
+                "Unexpected download status dict for %r received: %r", path, status
+            )
