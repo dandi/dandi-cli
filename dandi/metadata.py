@@ -2,8 +2,9 @@ from datetime import datetime
 from functools import lru_cache
 import os
 import os.path as op
+from pathlib import Path
 import re
-from typing import Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 from uuid import uuid4
 from xml.dom.minidom import parseString
 
@@ -389,7 +390,9 @@ species_map = [
     stop=tenacity.stop_after_attempt(3),
     wait=tenacity.wait_exponential(exp_base=1.25, multiplier=1.25),
 )
-def parse_purlobourl(url: str, lookup: Optional[Tuple[str, ...]] = None):
+def parse_purlobourl(
+    url: str, lookup: Optional[Tuple[str, ...]] = None
+) -> Optional[Dict[str, str]]:
     """Parse an Ontobee URL to return properties of a Class node
 
     :param url: Ontobee URL
@@ -527,14 +530,14 @@ extract_wasAttributedTo = extract_model_list(
 )
 
 
-def extract_session(metadata: dict) -> list:
+def extract_session(metadata: dict) -> Optional[List[models.Session]]:
     probe_ids = metadata.get("probe_ids", [])
     if isinstance(probe_ids, str):
         probe_ids = [probe_ids]
-    probes = []
-    for val in probe_ids:
-        probes.append(models.Equipment(identifier=f"probe:{val}", name="Ecephys Probe"))
-    probes = probes or None
+    probes = [
+        models.Equipment(identifier=f"probe:{val}", name="Ecephys Probe")
+        for val in probe_ids
+    ] or None
     session_id = None
     if metadata.get("session_id") is not None:
         session_id = str(metadata["session_id"])
@@ -789,7 +792,9 @@ def process_ndtypes(asset, nd_types):
 
 
 def nwb2asset(
-    nwb_path, digest: Optional[Digest] = None, schema_version=None
+    nwb_path: Union[str, Path],
+    digest: Optional[Digest] = None,
+    schema_version: Optional[str] = None,
 ) -> models.BareAsset:
     if schema_version is not None:
         current_version = models.get_schema_version()
@@ -806,7 +811,7 @@ def nwb2asset(
     metadata["encodingFormat"] = "application/x-nwb"
     metadata["dateModified"] = get_utcnow_datetime()
     metadata["blobDateModified"] = ensure_datetime(os.stat(nwb_path).st_mtime)
-    metadata["path"] = nwb_path
+    metadata["path"] = str(nwb_path)
     if metadata["blobDateModified"] > metadata["dateModified"]:
         lgr.warning(
             "mtime %s of %s is in the future", metadata["blobDateModified"], nwb_path
@@ -820,7 +825,9 @@ def nwb2asset(
     return asset
 
 
-def get_default_metadata(path, digest: Optional[Digest] = None) -> models.BareAsset:
+def get_default_metadata(
+    path: Union[str, Path], digest: Optional[Digest] = None
+) -> models.BareAsset:
     start_time = datetime.now().astimezone()
     if digest is not None:
         digest_model = digest.asdict()
@@ -837,7 +844,7 @@ def get_default_metadata(path, digest: Optional[Digest] = None) -> models.BareAs
         dateModified=dateModified,
         blobDateModified=blobDateModified,
         wasGeneratedBy=[get_generator(start_time, end_time)],
-        encodingFormat=get_mime_type(path),
+        encodingFormat=get_mime_type(str(path)),
     )
 
 

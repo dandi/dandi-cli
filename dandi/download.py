@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from collections import Counter, deque
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 from functools import partial
 import hashlib
@@ -454,16 +457,16 @@ def _populate_dandiset_yaml(dandiset_path, dandiset, existing):
 
 
 def _download_file(
-    downloader,
-    path,
-    toplevel_path,
-    lock,
-    size=None,
-    mtime=None,
-    existing="error",
-    digests=None,
+    downloader: Callable[[int], Iterator[bytes]],
+    path: str,
+    toplevel_path: str,
+    lock: Lock,
+    size: Optional[int] = None,
+    mtime: Optional[datetime] = None,
+    existing: str = "error",
+    digests: Optional[Dict[str, str]] = None,
     digest_callback: Optional[Callable[[str, str], Any]] = None,
-):
+) -> Iterator[dict]:
     """
     Common logic for downloading a single file.
 
@@ -492,10 +495,9 @@ def _download_file(
       will be used to verify download
     """
     if op.lexists(path):
-        block = f"File {path!r} already exists"
         annex_path = op.join(toplevel_path, ".git", "annex")
         if existing == "error":
-            raise FileExistsError(block)
+            raise FileExistsError(f"File {path!r} already exists")
         elif existing == "skip":
             yield _skip_file("already exists")
             return
@@ -525,13 +527,15 @@ def _download_file(
                         path,
                     )
             elif (
-                "dandi-etag" in digests
+                digests is not None
+                and "dandi-etag" in digests
                 and get_digest(path, "dandi-etag") == digests["dandi-etag"]
             ):
                 yield _skip_file("already exists")
                 return
             elif (
-                "dandi-etag" not in digests
+                digests is not None
+                and "dandi-etag" not in digests
                 and "md5" in digests
                 and get_digest(path, "md5") == digests["md5"]
             ):
@@ -612,12 +616,13 @@ def _download_file(
                     # Problems will result if `size` is None but we've already
                     # downloaded everything.
                     break
-                for block in downloader(start_at=dldir.offset):
+                for block in downloader(dldir.offset):
                     if digester:
+                        assert downloaded_digest is not None
                         downloaded_digest.update(block)
                     downloaded += len(block)
                     # TODO: yield progress etc
-                    msg = {"done": downloaded}
+                    out = {"done": downloaded}
                     if size:
                         if downloaded > size and not warned:
                             warned = True
@@ -627,9 +632,9 @@ def _download_file(
                                 downloaded,
                                 size,
                             )
-                        msg["done%"] = 100 * downloaded / size if size else "100"
+                        out["done%"] = 100 * downloaded / size if size else "100"
                         # TODO: ETA etc
-                    yield msg
+                    yield out
                     dldir.append(block)
             break
         except requests.exceptions.HTTPError as exc:
@@ -654,8 +659,10 @@ def _download_file(
             time.sleep(random.random() * 5)
 
     if downloaded_digest and not resuming:
+        assert downloaded_digest is not None
         downloaded_digest = downloaded_digest.hexdigest()  # we care only about hex
         if digest_callback is not None:
+            assert isinstance(algo, str)
             digest_callback(algo, downloaded_digest)
         if digest != downloaded_digest:
             msg = f"{algo}: downloaded {downloaded_digest} != {digest}"
@@ -816,7 +823,7 @@ def _download_zarr(
     remote_paths = set(map(str, entries))
     zarr_basepath = Path(download_path)
     dirs = deque([zarr_basepath])
-    empty_dirs = deque()
+    empty_dirs: deque[Path] = deque()
     while dirs:
         d = dirs.popleft()
         is_empty = True

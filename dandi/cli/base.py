@@ -120,4 +120,6 @@ def map_to_click_exceptions(f):
     return wrapper
 
 
-map_to_click_exceptions._do_map = not bool(os.environ.get("DANDI_DEVEL", None))
+map_to_click_exceptions._do_map = not bool(  # type: ignore[attr-defined]
+    os.environ.get("DANDI_DEVEL", None)
+)
