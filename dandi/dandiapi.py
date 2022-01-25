@@ -590,6 +590,23 @@ class Version(APIBase):
         return self.identifier
 
 
+class RemoteDandisetData(APIBase):
+    """
+    Class for storing the data for a Dandiset retrieved from the API.
+
+    This class is an implementation detail and should not be used by third
+    parties.
+    """
+
+    identifier: str
+    created: datetime
+    modified: datetime
+    contact_person: str
+    embargo_status: EmbargoStatus
+    most_recent_published_version: Optional[Version]
+    draft_version: Version
+
+
 class RemoteDandiset:
     """
     Representation of a Dandiset (as of a certain version) retrieved from the
@@ -626,15 +643,21 @@ class RemoteDandiset:
         else:
             self._version_id = version.identifier
             self._version = version
-        self._data = data
+        self._data: Optional[RemoteDandisetData]
+        if data is not None:
+            self._data = RemoteDandisetData.parse_obj(data)
+        else:
+            self._data = None
 
     def __str__(self) -> str:
         return f"{self.client._instance_id}:{self.identifier}/{self.version_id}"
 
-    def _get_data(self) -> Dict[str, Any]:
+    def _get_data(self) -> RemoteDandisetData:
         if self._data is None:
             try:
-                self._data = self.client.get(f"/dandisets/{self.identifier}/")
+                self._data = RemoteDandisetData.parse_obj(
+                    self.client.get(f"/dandisets/{self.identifier}/")
+                )
             except requests.HTTPError as e:
                 if e.response.status_code == 404:
                     raise NotFoundError(f"No such Dandiset: {self.identifier}")
@@ -656,14 +679,16 @@ class RemoteDandiset:
             if self._version_id is None:
                 self._get_data()
             if self._data is not None:
-                for vattr in ["most_recent_published_version", "draft_version"]:
-                    vdict = self._data.get(vattr)
-                    if vdict and (
-                        self._version_id is None or vdict["version"] == self.version_id
+                for v in [
+                    self._data.most_recent_published_version,
+                    self._data.draft_version,
+                ]:
+                    if v is not None and (
+                        self._version_id is None or v.identifier == self.version_id
                     ):
-                        self._version = Version.parse_obj(vdict)
-                        self._version_id = self._version.identifier
-                        return self._version
+                        self._version = v
+                        self._version_id = v.identifier
+                        return v
             assert self._version_id is not None
             self._version = self.get_version(self._version_id)
         return self._version
@@ -671,22 +696,22 @@ class RemoteDandiset:
     @property
     def created(self) -> datetime:
         """The timestamp at which the Dandiset was created"""
-        return ensure_datetime(self._get_data()["created"])
+        return self._get_data().created
 
     @property
     def modified(self) -> datetime:
         """The timestamp at which the Dandiset was last modified"""
-        return ensure_datetime(self._get_data()["modified"])
+        return self._get_data().modified
 
     @property
     def contact_person(self) -> str:
         """The name of the registered contact person for the Dandiset"""
-        return self._get_data()["contact_person"]
+        return self._get_data().contact_person
 
     @property
     def embargo_status(self) -> EmbargoStatus:
         """The current embargo status for the Dandiset"""
-        return EmbargoStatus(self._get_data()["embargo_status"])
+        return self._get_data().embargo_status
 
     @property
     def most_recent_published_version(self) -> Optional[Version]:
@@ -694,16 +719,12 @@ class RemoteDandiset:
         The most recent published (non-draft) version of the Dandiset, or
         `None` if no versions have been published
         """
-        v = self._get_data().get("most_recent_published_version")
-        if v is None:
-            return None
-        else:
-            return Version.parse_obj(v)
+        return self._get_data().most_recent_published_version
 
     @property
     def draft_version(self) -> Version:
         """The draft version of the Dandiset"""
-        return Version.parse_obj(self._get_data()["draft_version"])
+        return self._get_data().draft_version
 
     @property
     def api_path(self) -> str:
@@ -764,16 +785,10 @@ class RemoteDandiset:
         Convert to a JSONable `dict`, omitting the ``client`` attribute and
         using the same field names as in the API
         """
-        data = {
-            **self._get_data(),
+        return {
+            **self._get_data().json_dict(),
             "version": self.version.json_dict(),
-            "draft_version": self.draft_version.json_dict(),
         }
-        if self.most_recent_published_version is not None:
-            data[
-                "most_recent_published_version"
-            ] = self.most_recent_published_version.json_dict()
-        return data
 
     def refresh(self) -> None:
         """
