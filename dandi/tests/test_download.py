@@ -15,7 +15,6 @@ from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
 from ..download import ProgressCombiner, download, download_generator
-from ..upload import upload
 from ..utils import list_paths
 
 
@@ -309,26 +308,17 @@ def test_download_different_zarr(tmp_path, zarr_dandiset):
     )
 
 
-def test_download_different_zarr_delete_dir(local_dandi_api, monkeypatch, tmp_path):
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
-    d = local_dandi_api.client.create_dandiset("Test Dandiset", {})
-    dandiset_id = d.identifier
-    dspath = tmp_path / "dandiset"
-    dspath.mkdir()
-    (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
+def test_download_different_zarr_delete_dir(new_dandiset, tmp_path):
+    d = new_dandiset.dandiset
+    dspath = new_dandiset.dspath
     zarr.save(dspath / "sample.zarr", np.eye(5))
     assert not any(p.is_dir() for p in (dspath / "sample.zarr").iterdir())
-    upload(
-        paths=[],
-        dandiset_path=dspath,
-        dandi_instance=local_dandi_api.instance_id,
-        devel_debug=True,
-    )
-    dd = tmp_path / "download" / dandiset_id
+    new_dandiset.upload()
+    dd = tmp_path / d.identifier
     dd.mkdir(parents=True, exist_ok=True)
     zarr.save(dd / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
     assert any(p.is_dir() for p in (dd / "sample.zarr").iterdir())
-    download(d.version_api_url, tmp_path / "download", existing="overwrite-different")
+    download(d.version_api_url, tmp_path, existing="overwrite-different")
     assert_dirtrees_eq(dspath / "sample.zarr", dd / "sample.zarr")
 
 
@@ -345,25 +335,14 @@ def test_download_zarr_to_nonzarr_path(tmp_path, zarr_dandiset):
     )
 
 
-def test_download_nonzarr_to_zarr_path(local_dandi_api, monkeypatch, tmp_path):
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
-    d = local_dandi_api.client.create_dandiset("Test Dandiset", {})
-    dandiset_id = d.identifier
-    dspath = tmp_path / "dandiset"
-    dspath.mkdir()
-    (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
-    (dspath / "sample.zarr").write_text("This is not a Zarr.\n")
-    upload(
-        paths=[],
-        dandiset_path=dspath,
-        dandi_instance=local_dandi_api.instance_id,
-        devel_debug=True,
-        allow_any_path=True,
-    )
-    dd = tmp_path / "download" / dandiset_id
+def test_download_nonzarr_to_zarr_path(new_dandiset, tmp_path):
+    d = new_dandiset.dandiset
+    (new_dandiset.dspath / "sample.zarr").write_text("This is not a Zarr.\n")
+    new_dandiset.upload(allow_any_path=True)
+    dd = tmp_path / d.identifier
     dd.mkdir(parents=True, exist_ok=True)
     zarr.save(dd / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
-    download(d.version_api_url, tmp_path / "download", existing="overwrite-different")
+    download(d.version_api_url, tmp_path, existing="overwrite-different")
     assert (dd / "sample.zarr").is_file()
     assert (dd / "sample.zarr").read_text() == "This is not a Zarr.\n"
 

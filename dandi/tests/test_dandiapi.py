@@ -23,57 +23,29 @@ from ..consts import (
 from ..dandiapi import DandiAPIClient, Version
 from ..download import download
 from ..exceptions import NotFoundError, SchemaVersionError
-from ..upload import upload
 from ..utils import list_paths
 
 
-def test_upload(local_dandi_api, simple1_nwb, tmp_path):
-    client = local_dandi_api.client
-    d = client.create_dandiset(name="Upload Test", metadata={})
+def test_upload(new_dandiset, simple1_nwb, tmp_path):
+    d = new_dandiset.dandiset
     assert d.version_id == DRAFT
     d.upload_raw_asset(simple1_nwb, {"path": "testing/simple1.nwb"})
     (asset,) = d.get_assets()
     assert asset.path == "testing/simple1.nwb"
     d.download_directory("", tmp_path)
-    (p,) = [p for p in tmp_path.glob("**/*") if p.is_file()]
-    assert p == tmp_path / "testing" / "simple1.nwb"
-    assert p.stat().st_size == os.path.getsize(simple1_nwb)
+    paths = list_paths(tmp_path)
+    assert paths == [tmp_path / "testing" / "simple1.nwb"]
+    assert paths[0].stat().st_size == os.path.getsize(simple1_nwb)
 
 
-def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
-    client = local_dandi_api.client
-    d = client.create_dandiset(
-        "Test Dandiset",
-        {
-            "schemaKey": "Dandiset",
-            "name": "Text Dandiset",
-            "description": "A test text Dandiset",
-            "contributor": [
-                {
-                    "schemaKey": "Person",
-                    "name": "Wodder, John",
-                    "roleName": ["dcite:Author", "dcite:ContactPerson"],
-                }
-            ],
-            "license": ["spdx:CC0-1.0"],
-            "manifestLocation": ["https://github.com/dandi/dandi-cli"],
-        },
-    )
+def test_publish_and_manipulate(new_dandiset, tmp_path):
+    d = new_dandiset.dandiset
     dandiset_id = d.identifier
+    dspath = new_dandiset.dspath
     assert str(d) == f"DANDI-API-LOCAL-DOCKER-TESTS:{dandiset_id}/draft"
-    upload_dir = tmp_path / "upload"
-    upload_dir.mkdir()
-    (upload_dir / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
-    (upload_dir / "subdir").mkdir()
-    (upload_dir / "subdir" / "file.txt").write_text("This is test text.\n")
-    monkeypatch.chdir(upload_dir)
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
-    upload(
-        paths=[],
-        dandi_instance=local_dandi_api.instance_id,
-        devel_debug=True,
-        allow_any_path=True,
-    )
+    (dspath / "subdir").mkdir()
+    (dspath / "subdir" / "file.txt").write_text("This is test text.\n")
+    new_dandiset.upload(allow_any_path=True)
 
     d.wait_until_valid()
     v = d.publish().version
@@ -82,39 +54,26 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
     dv = d.for_version(v)
     assert str(dv) == f"DANDI-API-LOCAL-DOCKER-TESTS:{dandiset_id}/{version_id}"
 
-    download_dir = tmp_path / "download"
-    download_dir.mkdir()
+    dandiset_yaml = tmp_path / dandiset_id / dandiset_metadata_file
+    file_in_version = tmp_path / dandiset_id / "subdir" / "file.txt"
 
-    dandiset_yaml = download_dir / dandiset_id / dandiset_metadata_file
-    file_in_version = download_dir / dandiset_id / "subdir" / "file.txt"
-
-    download(dv.version_api_url, download_dir)
-    assert list_paths(download_dir) == [dandiset_yaml, file_in_version]
+    download(dv.version_api_url, tmp_path)
+    assert list_paths(tmp_path) == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
 
-    (upload_dir / "subdir" / "file.txt").write_text("This is different text.\n")
-    upload(
-        paths=[],
-        dandi_instance=local_dandi_api.instance_id,
-        devel_debug=True,
-        allow_any_path=True,
-    )
-    rmtree(download_dir / dandiset_id)
-    download(dv.version_api_url, download_dir)
-    assert list_paths(download_dir) == [dandiset_yaml, file_in_version]
+    (dspath / "subdir" / "file.txt").write_text("This is different text.\n")
+    new_dandiset.upload(allow_any_path=True)
+    rmtree(tmp_path / dandiset_id)
+    download(dv.version_api_url, tmp_path)
+    assert list_paths(tmp_path) == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
 
-    (upload_dir / "subdir" / "file2.txt").write_text("This is more text.\n")
-    upload(
-        paths=[],
-        dandi_instance=local_dandi_api.instance_id,
-        devel_debug=True,
-        allow_any_path=True,
-    )
+    (dspath / "subdir" / "file2.txt").write_text("This is more text.\n")
+    new_dandiset.upload(allow_any_path=True)
 
-    rmtree(download_dir / dandiset_id)
-    download(d.version_api_url, download_dir)
-    assert list_paths(download_dir) == [
+    rmtree(tmp_path / dandiset_id)
+    download(d.version_api_url, tmp_path)
+    assert list_paths(tmp_path) == [
         dandiset_yaml,
         file_in_version,
         file_in_version.with_name("file2.txt"),
@@ -122,30 +81,29 @@ def test_publish_and_manipulate(local_dandi_api, monkeypatch, tmp_path):
     assert file_in_version.read_text() == "This is different text.\n"
     assert file_in_version.with_name("file2.txt").read_text() == "This is more text.\n"
 
-    rmtree(download_dir / dandiset_id)
-    download(dv.version_api_url, download_dir)
-    assert list_paths(download_dir) == [dandiset_yaml, file_in_version]
+    rmtree(tmp_path / dandiset_id)
+    download(dv.version_api_url, tmp_path)
+    assert list_paths(tmp_path) == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
 
     d.get_asset_by_path("subdir/file.txt").delete()
 
-    rmtree(download_dir / dandiset_id)
-    download(d.version_api_url, download_dir)
-    assert list_paths(download_dir) == [
+    rmtree(tmp_path / dandiset_id)
+    download(d.version_api_url, tmp_path)
+    assert list_paths(tmp_path) == [
         dandiset_yaml,
         file_in_version.with_name("file2.txt"),
     ]
     assert file_in_version.with_name("file2.txt").read_text() == "This is more text.\n"
 
-    rmtree(download_dir / dandiset_id)
-    download(dv.version_api_url, download_dir)
-    assert list_paths(download_dir) == [dandiset_yaml, file_in_version]
+    rmtree(tmp_path / dandiset_id)
+    download(dv.version_api_url, tmp_path)
+    assert list_paths(tmp_path) == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
 
 
-def test_get_asset_metadata(local_dandi_api, simple1_nwb):
-    client = local_dandi_api.client
-    d = client.create_dandiset(name="Include Metadata Test", metadata={})
+def test_get_asset_metadata(new_dandiset, simple1_nwb):
+    d = new_dandiset.dandiset
     d.upload_raw_asset(simple1_nwb, {"path": "testing/simple1.nwb", "foo": "bar"})
     (asset,) = d.get_assets()
     assert str(asset) == f"DANDI-API-LOCAL-DOCKER-TESTS:assets/{asset.identifier}"
@@ -154,15 +112,13 @@ def test_get_asset_metadata(local_dandi_api, simple1_nwb):
     assert metadata["foo"] == "bar"
 
 
-def test_large_upload(local_dandi_api, tmp_path):
-    client = local_dandi_api.client
+def test_large_upload(new_dandiset, tmp_path):
     asset_file = tmp_path / "asset.dat"
     meg = bytes(random.choices(range(256), k=1 << 20))
     with asset_file.open("wb") as fp:
         for _ in range(100):
             fp.write(meg)
-    d = client.create_dandiset(name="Large Upload Test", metadata={})
-    d.upload_raw_asset(asset_file, {"path": "testing/asset.dat"})
+    new_dandiset.dandiset.upload_raw_asset(asset_file, {"path": "testing/asset.dat"})
 
 
 def test_authenticate_bad_key_good_key_input(local_dandi_api, mocker, monkeypatch):
