@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 from functools import lru_cache
 import os
 import os.path as op
 from pathlib import Path
 import re
+import sys
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
@@ -13,7 +17,6 @@ from typing import (
     Optional,
     Tuple,
     Type,
-    TypedDict,
     TypeVar,
     Union,
     cast,
@@ -604,11 +607,17 @@ def extract_field(field: str, metadata: dict) -> Any:
         return metadata.get(field)
 
 
-class Neurodatum(TypedDict):
-    module: str
-    neurodata_type: str
-    technique: Optional[str]
-    approach: Optional[str]
+if TYPE_CHECKING:
+    if sys.version_info[:2] >= (3, 8):
+        from typing import TypedDict
+    else:
+        from typing_extensions import TypedDict
+
+    class Neurodatum(TypedDict):
+        module: str
+        neurodata_type: str
+        technique: Optional[str]
+        approach: Optional[str]
 
 
 neurodata_typemap: Dict[str, Neurodatum] = {

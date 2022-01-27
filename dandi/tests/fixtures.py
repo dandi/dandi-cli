@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
 import logging
@@ -6,9 +8,10 @@ from pathlib import Path
 import re
 import shutil
 from subprocess import DEVNULL, check_output, run
+import sys
 import tempfile
 from time import sleep
-from typing import Any, Callable, Dict, Iterator, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union
 from uuid import uuid4
 
 from _pytest.fixtures import FixtureRequest
@@ -128,16 +131,25 @@ def organized_nwb_dir2(
     return tmp_path
 
 
-def get_gitrepo_fixture(
-    url: str,
-    committish: Optional[str] = None,
-    scope: Union[
+if TYPE_CHECKING:
+    if sys.version_info[:2] >= (3, 8):
+        from typing import Literal
+    else:
+        from typing_extensions import Literal
+
+    Scope = Union[
         Literal["session"],
         Literal["package"],
         Literal["module"],
         Literal["class"],
         Literal["function"],
-    ] = "session",
+    ]
+
+
+def get_gitrepo_fixture(
+    url: str,
+    committish: Optional[str] = None,
+    scope: Scope = "session",
 ) -> Callable[[], Iterator[str]]:
 
     if committish:

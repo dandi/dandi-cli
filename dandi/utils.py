@@ -378,7 +378,7 @@ def copy_file(src: Union[str, Path], dst: Union[str, Path]) -> None:
 
 def move_file(src: Union[str, Path], dst: Union[str, Path]) -> Any:
     """Move file from src to dst"""
-    return shutil.move(src, dst)
+    return shutil.move(str(src), str(dst))
 
 
 def find_parent_directory_containing(
