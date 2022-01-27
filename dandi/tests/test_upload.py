@@ -1,11 +1,15 @@
 import os
+from pathlib import Path
 from shutil import copyfile, rmtree
+from typing import Any, Dict
 
 import numpy as np
 import pynwb
 import pytest
+from pytest_mock import MockerFixture
 import zarr
 
+from .fixtures import SampleDandiset
 from .test_helpers import assert_dirtrees_eq
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteBlobAsset, RemoteZarrAsset
@@ -17,7 +21,9 @@ from ..pynwb_utils import make_nwb_file
 from ..utils import list_paths, yaml_dump
 
 
-def test_upload_download(new_dandiset, organized_nwb_dir, tmp_path):
+def test_upload_download(
+    new_dandiset: SampleDandiset, organized_nwb_dir: str, tmp_path: Path
+) -> None:
     d = new_dandiset.dandiset
     dspath = new_dandiset.dspath
     (nwb_file,) = [
@@ -35,7 +41,7 @@ def test_upload_download(new_dandiset, organized_nwb_dir, tmp_path):
     ]
 
 
-def test_upload_dandiset_metadata(new_dandiset):
+def test_upload_dandiset_metadata(new_dandiset: SampleDandiset) -> None:
     # For now let's "manually" populate dandiset.yaml in that downloaded location
     # which is missing due to https://github.com/dandi/dandi-api/issues/63
     d = new_dandiset.dandiset
@@ -52,28 +58,36 @@ def test_upload_dandiset_metadata(new_dandiset):
     assert d.version.name == "shorty"
 
 
-def test_upload_extant_existing(mocker, text_dandiset):
+def test_upload_extant_existing(
+    mocker: MockerFixture, text_dandiset: SampleDandiset
+) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     with pytest.raises(FileExistsError):
         text_dandiset.upload(existing="error")
     iter_upload_spy.assert_not_called()
 
 
-def test_upload_extant_skip(mocker, text_dandiset):
+def test_upload_extant_skip(
+    mocker: MockerFixture, text_dandiset: SampleDandiset
+) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     text_dandiset.upload(existing="skip")
     iter_upload_spy.assert_not_called()
 
 
 @pytest.mark.parametrize("existing", ["overwrite", "refresh"])
-def test_upload_extant_eq_overwrite(existing, mocker, text_dandiset):
+def test_upload_extant_eq_overwrite(
+    existing: str, mocker: MockerFixture, text_dandiset: SampleDandiset
+) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     text_dandiset.upload(existing=existing)
     iter_upload_spy.assert_not_called()
 
 
 @pytest.mark.parametrize("existing", ["overwrite", "refresh"])
-def test_upload_extant_neq_overwrite(existing, mocker, text_dandiset, tmp_path):
+def test_upload_extant_neq_overwrite(
+    existing: str, mocker: MockerFixture, text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
     (text_dandiset.dspath / "file.txt").write_text("This is different text.\n")
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     text_dandiset.upload(existing=existing)
@@ -84,7 +98,9 @@ def test_upload_extant_neq_overwrite(existing, mocker, text_dandiset, tmp_path):
     ).read_text() == "This is different text.\n"
 
 
-def test_upload_extant_old_refresh(mocker, text_dandiset):
+def test_upload_extant_old_refresh(
+    mocker: MockerFixture, text_dandiset: SampleDandiset
+) -> None:
     (text_dandiset.dspath / "file.txt").write_text("This is different text.\n")
     os.utime(text_dandiset.dspath / "file.txt", times=(0, 0))
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
@@ -92,13 +108,17 @@ def test_upload_extant_old_refresh(mocker, text_dandiset):
     iter_upload_spy.assert_not_called()
 
 
-def test_upload_extant_force(mocker, text_dandiset):
+def test_upload_extant_force(
+    mocker: MockerFixture, text_dandiset: SampleDandiset
+) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     text_dandiset.upload(existing="force")
     iter_upload_spy.assert_called()
 
 
-def test_upload_extant_bad_existing(mocker, text_dandiset):
+def test_upload_extant_bad_existing(
+    mocker: MockerFixture, text_dandiset: SampleDandiset
+) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     text_dandiset.upload(existing="foobar")
     iter_upload_spy.assert_not_called()
@@ -116,7 +136,9 @@ def test_upload_extant_bad_existing(mocker, text_dandiset):
         b"x",
     ],
 )
-def test_upload_download_small_file(contents, new_dandiset, tmp_path):
+def test_upload_download_small_file(
+    contents: bytes, new_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
     d = new_dandiset.dandiset
     dandiset_id = d.identifier
     dspath = new_dandiset.dspath
@@ -131,7 +153,9 @@ def test_upload_download_small_file(contents, new_dandiset, tmp_path):
 
 
 @pytest.mark.parametrize("confirm", [True, False])
-def test_upload_sync(confirm, mocker, text_dandiset):
+def test_upload_sync(
+    confirm: bool, mocker: MockerFixture, text_dandiset: SampleDandiset
+) -> None:
     (text_dandiset.dspath / "file.txt").unlink()
     confirm_mock = mocker.patch("click.confirm", return_value=confirm)
     text_dandiset.upload(sync=True)
@@ -143,7 +167,9 @@ def test_upload_sync(confirm, mocker, text_dandiset):
         text_dandiset.dandiset.get_asset_by_path("file.txt")
 
 
-def test_upload_sync_folder(mocker, text_dandiset):
+def test_upload_sync_folder(
+    mocker: MockerFixture, text_dandiset: SampleDandiset
+) -> None:
     (text_dandiset.dspath / "file.txt").unlink()
     (text_dandiset.dspath / "subdir2" / "banana.txt").unlink()
     confirm_mock = mocker.patch("click.confirm", return_value=True)
@@ -165,7 +191,9 @@ def test_upload_sync_zarr(mocker, zarr_dandiset):
         zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
 
 
-def test_upload_invalid_metadata(new_dandiset, simple1_nwb_metadata):
+def test_upload_invalid_metadata(
+    new_dandiset: SampleDandiset, simple1_nwb_metadata: Dict[str, Any]
+) -> None:
     make_nwb_file(
         new_dandiset.dspath / "broken.nwb",
         subject=pynwb.file.Subject(
@@ -181,7 +209,7 @@ def test_upload_invalid_metadata(new_dandiset, simple1_nwb_metadata):
         new_dandiset.dandiset.get_asset_by_path("broken.nwb")
 
 
-def test_upload_zarr(new_dandiset):
+def test_upload_zarr(new_dandiset: SampleDandiset) -> None:
     zarr.save(
         new_dandiset.dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1)
     )
@@ -192,7 +220,7 @@ def test_upload_zarr(new_dandiset):
     assert asset.path == "sample.zarr"
 
 
-def test_upload_different_zarr(tmp_path, zarr_dandiset):
+def test_upload_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
     rmtree(zarr_dandiset.dspath / "sample.zarr")
     zarr.save(zarr_dandiset.dspath / "sample.zarr", np.eye(5))
     zarr_dandiset.upload()
@@ -203,7 +231,9 @@ def test_upload_different_zarr(tmp_path, zarr_dandiset):
     )
 
 
-def test_upload_nonzarr_to_zarr_path(tmp_path, zarr_dandiset):
+def test_upload_nonzarr_to_zarr_path(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
     rmtree(zarr_dandiset.dspath / "sample.zarr")
     (zarr_dandiset.dspath / "sample.zarr").write_text("This is not a Zarr.\n")
     zarr_dandiset.upload(allow_any_path=True)
@@ -218,7 +248,9 @@ def test_upload_nonzarr_to_zarr_path(tmp_path, zarr_dandiset):
     ).read_text() == "This is not a Zarr.\n"
 
 
-def test_upload_zarr_to_nonzarr_path(new_dandiset, tmp_path):
+def test_upload_zarr_to_nonzarr_path(
+    new_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
     d = new_dandiset.dandiset
     dspath = new_dandiset.dspath
     (dspath / "sample.zarr").write_text("This is not a Zarr.\n")
@@ -244,7 +276,7 @@ def test_upload_zarr_to_nonzarr_path(new_dandiset, tmp_path):
     assert_dirtrees_eq(dspath / "sample.zarr", tmp_path / d.identifier / "sample.zarr")
 
 
-def test_upload_zarr_with_empty_dir(new_dandiset):
+def test_upload_zarr_with_empty_dir(new_dandiset: SampleDandiset) -> None:
     zarr.save(
         new_dandiset.dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1)
     )

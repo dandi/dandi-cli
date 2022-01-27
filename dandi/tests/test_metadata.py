@@ -2,6 +2,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 import json
 from pathlib import Path
+from typing import Any, Dict, Optional, Tuple, Union
 
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dandischema.metadata import validate
@@ -28,7 +29,7 @@ from ..pynwb_utils import metadata_nwb_subject_fields
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
 
 
-def test_get_metadata(simple1_nwb, simple1_nwb_metadata):
+def test_get_metadata(simple1_nwb: str, simple1_nwb_metadata: Dict[str, Any]) -> None:
     target_metadata = simple1_nwb_metadata.copy()
     # we will also get some counts
     target_metadata["number_of_electrodes"] = 0
@@ -91,7 +92,7 @@ def test_get_metadata(simple1_nwb, simple1_nwb_metadata):
         ("Gestational Week 19", ("P19W", "Gestational")),
     ],
 )
-def test_parse_age(age, duration):
+def test_parse_age(age: str, duration: Union[str, Tuple[str, str]]) -> None:
     if isinstance(duration, tuple):
         duration, ref = duration
     else:  # birth will be a default ref
@@ -126,7 +127,7 @@ def test_parse_age(age, duration):
         ),
     ],
 )
-def test_parse_error(age, errmsg):
+def test_parse_error(age: Optional[str], errmsg: str) -> None:
     with pytest.raises(ValueError) as excinfo:
         parse_age(age)
     assert str(excinfo.value) == errmsg
@@ -141,7 +142,7 @@ def test_parse_error(age, errmsg):
         (timedelta(days=5, seconds=23, microseconds=2000), "P5DT23.002S"),
     ],
 )
-def test_timedelta2duration(td, duration):
+def test_timedelta2duration(td: timedelta, duration: str) -> None:
     assert timedelta2duration(td) == duration
 
 
@@ -263,7 +264,7 @@ def test_timedelta2duration(td, duration):
         ),
     ],
 )
-def test_metadata2asset(filename, metadata):
+def test_metadata2asset(filename: str, metadata: Dict[str, Any]) -> None:
     data = metadata2asset(metadata)
     with (METADATA_DIR / filename).open() as fp:
         data_as_dict = json.load(fp)
@@ -280,7 +281,7 @@ def test_metadata2asset(filename, metadata):
     validate(data_as_dict)
 
 
-def test_dandimeta_migration():
+def test_dandimeta_migration() -> None:
     with (METADATA_DIR / "dandimeta_migration.new.json").open() as fp:
         data_as_dict = json.load(fp)
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
@@ -288,7 +289,7 @@ def test_dandimeta_migration():
     validate(data_as_dict)
 
 
-def test_time_extract():
+def test_time_extract() -> None:
     # if metadata contains date_of_birth and session_start_time,
     # age will be calculated from the values
     meta_birth = {
@@ -297,6 +298,7 @@ def test_time_extract():
         "date_of_birth": "2020-07-31T12:20:00-04:00",
     }
     age_birth = extract_age(meta_birth)
+    assert age_birth is not None
     assert age_birth.value == "P31DT88S"
     assert age_birth.valueReference == PropertyValue(
         value=AgeReferenceType("dandi:BirthReference")
@@ -305,19 +307,21 @@ def test_time_extract():
     # if metadata doesn't contain date_of_birth, the age field will be used
     meta = {"session_start_time": "2020-08-31T12:21:28-04:00", "age": "31 days"}
     age = extract_age(meta)
+    assert age is not None
     assert age.value == "P31D"
     assert age.valueReference == PropertyValue(
         value=AgeReferenceType("dandi:BirthReference")
     )
 
 
-def test_time_extract_gest():
+def test_time_extract_gest() -> None:
     """extract age with Gestational ref"""
     meta_birth = {
         "session_start_time": "2020-08-31T12:21:28-04:00",
         "age": "Gestational week 3",
     }
     age_birth = extract_age(meta_birth)
+    assert age_birth is not None
     assert age_birth.value == "P3W"
     assert age_birth.valueReference == PropertyValue(
         value=AgeReferenceType("dandi:GestationalReference")

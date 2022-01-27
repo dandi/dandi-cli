@@ -198,7 +198,7 @@ def _check_decimal_parts(age_parts: List[str]) -> bool:
     return not (any(decim_part) and any(decim_part[:-1]))
 
 
-def parse_age(age: str) -> Tuple[str, str]:
+def parse_age(age: Optional[str]) -> Tuple[str, str]:
     """
     Parsing age field and converting into an ISO 8601 duration
 

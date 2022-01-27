@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import re
+from typing import Any, Callable, NoReturn
 
 import numpy as np
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
@@ -7,7 +8,7 @@ from pynwb import NWBHDF5IO, NWBFile, TimeSeries
 from ..pynwb_utils import _sanitize_nwb_version, nwb_has_external_links
 
 
-def test_pynwb_io(simple1_nwb):
+def test_pynwb_io(simple1_nwb: str) -> None:
     # To verify that our dependencies spec is sufficient to avoid
     # stepping into known pynwb/hdmf issues
     with NWBHDF5IO(str(simple1_nwb), "r", load_namespaces=True) as reader:
@@ -16,12 +17,12 @@ def test_pynwb_io(simple1_nwb):
     assert str(nwbfile)
 
 
-def test_sanitize_nwb_version():
-    def _nocall(*args):
+def test_sanitize_nwb_version() -> None:
+    def _nocall(*args: Any) -> NoReturn:
         raise AssertionError(f"Should have not been called. Was called with {args}")
 
-    def assert_regex(regex):
-        def search(v):
+    def assert_regex(regex: str) -> Callable[[str], None]:
+        def search(v: str) -> None:
             assert re.search(regex, v)
 
         return search

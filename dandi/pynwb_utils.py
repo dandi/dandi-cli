@@ -1,7 +1,9 @@
 from collections import Counter
 import os
 import os.path as op
+from pathlib import Path
 import re
+from typing import Any, TypeVar
 import warnings
 
 import dandischema
@@ -321,7 +323,12 @@ def get_object_id(path):
         return f.attrs["object_id"]
 
 
-def make_nwb_file(filename, *args, cache_spec=False, **kwargs):
+StrPath = TypeVar("StrPath", str, Path)
+
+
+def make_nwb_file(
+    filename: StrPath, *args: Any, cache_spec: bool = False, **kwargs: Any
+) -> StrPath:
     """A little helper to produce an .nwb file in the path using NWBFile
 
     Note: it doesn't cache_spec by default

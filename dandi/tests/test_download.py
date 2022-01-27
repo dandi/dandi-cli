@@ -1,15 +1,18 @@
 import json
 import os
 import os.path as op
+from pathlib import Path
 import re
 from shutil import rmtree
-from typing import List, Tuple
+from typing import Callable, List, Tuple
 
 import numpy as np
 import pytest
+from pytest_mock import MockerFixture
 import responses
 import zarr
 
+from .fixtures import SampleDandiset
 from .skip import mark
 from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
@@ -29,15 +32,14 @@ from ..utils import list_paths
         "https://dandiarchive.org/dandiset/000027/draft",
     ],
 )
-def test_download_000027(url, tmpdir):
-    ret = download(url, tmpdir)
+def test_download_000027(url: str, tmp_path: Path) -> None:
+    ret = download(url, tmp_path)
     assert not ret  # we return nothing ATM, might want to "generate"
-    dsdir = tmpdir / "000027"
-    downloads = (x.relto(dsdir) for x in dsdir.visit())
-    assert sorted(downloads) == [
-        "dandiset.yaml",
-        "sub-RAT123",
-        op.join("sub-RAT123", "sub-RAT123.nwb"),
+    dsdir = tmp_path / "000027"
+    assert list_paths(dsdir, dirs=True) == [
+        dsdir / "dandiset.yaml",
+        dsdir / "sub-RAT123",
+        dsdir / "sub-RAT123" / "sub-RAT123.nwb",
     ]
     # and checksum should be correct as well
     from ..support.digests import Digester
@@ -48,12 +50,12 @@ def test_download_000027(url, tmpdir):
     )
     # redownload - since already exist there should be an exception
     with pytest.raises(FileExistsError):
-        download(url, tmpdir)
+        download(url, tmp_path)
 
     # TODO: somehow get that status report about what was downloaded and what not
-    download(url, tmpdir, existing="skip")  # TODO: check that skipped
-    download(url, tmpdir, existing="overwrite")  # TODO: check that redownloaded
-    download(url, tmpdir, existing="refresh")  # TODO: check that skipped (the same)
+    download(url, tmp_path, existing="skip")  # TODO: check that skipped
+    download(url, tmp_path, existing="overwrite")  # TODO: check that redownloaded
+    download(url, tmp_path, existing="refresh")  # TODO: check that skipped (the same)
 
 
 @mark.skipif_no_network
@@ -65,12 +67,11 @@ def test_download_000027(url, tmpdir):
         "https://dandiarchive.org/dandiset/000027/draft",
     ],
 )
-def test_download_000027_metadata_only(url, tmpdir):
-    ret = download(url, tmpdir, get_assets=False)
+def test_download_000027_metadata_only(url: str, tmp_path: Path) -> None:
+    ret = download(url, tmp_path, get_assets=False)
     assert not ret  # we return nothing ATM, might want to "generate"
-    dsdir = tmpdir / "000027"
-    downloads = (x.relto(dsdir) for x in dsdir.visit())
-    assert sorted(downloads) == ["dandiset.yaml"]
+    dsdir = tmp_path / "000027"
+    assert list_paths(dsdir, dirs=True) == [dsdir / "dandiset.yaml"]
 
 
 @mark.skipif_no_network
@@ -82,18 +83,22 @@ def test_download_000027_metadata_only(url, tmpdir):
         "https://dandiarchive.org/dandiset/000027/draft",
     ],
 )
-def test_download_000027_assets_only(url, tmpdir):
-    ret = download(url, tmpdir, get_metadata=False)
+def test_download_000027_assets_only(url: str, tmp_path: Path) -> None:
+    ret = download(url, tmp_path, get_metadata=False)
     assert not ret  # we return nothing ATM, might want to "generate"
-    dsdir = tmpdir / "000027"
-    downloads = (x.relto(dsdir) for x in dsdir.visit())
-    assert sorted(downloads) == ["sub-RAT123", op.join("sub-RAT123", "sub-RAT123.nwb")]
+    dsdir = tmp_path / "000027"
+    assert list_paths(dsdir, dirs=True) == [
+        dsdir / "sub-RAT123",
+        dsdir / "sub-RAT123" / "sub-RAT123.nwb",
+    ]
 
 
 @mark.skipif_no_network
 @pytest.mark.parametrize("resizer", [lambda sz: 0, lambda sz: sz // 2, lambda sz: sz])
 @pytest.mark.parametrize("version", ["0.210831.2033", DRAFT])
-def test_download_000027_resume(tmp_path, resizer, version):
+def test_download_000027_resume(
+    tmp_path: Path, resizer: Callable[[int], int], version: str
+) -> None:
     from ..support.digests import Digester
 
     url = f"https://dandiarchive.org/dandiset/000027/{version}"
@@ -121,7 +126,7 @@ def test_download_000027_resume(tmp_path, resizer, version):
     assert digester(str(nwb)) == digests
 
 
-def test_download_newest_version(text_dandiset, tmp_path):
+def test_download_newest_version(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     dandiset = text_dandiset.dandiset
     dandiset_id = text_dandiset.dandiset_id
     download(dandiset.api_url, tmp_path)
@@ -135,7 +140,7 @@ def test_download_newest_version(text_dandiset, tmp_path):
     assert (tmp_path / dandiset_id / "file.txt").read_text() == "This is test text.\n"
 
 
-def test_download_folder(text_dandiset, tmp_path):
+def test_download_folder(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     dandiset_id = text_dandiset.dandiset_id
     download(
         f"dandi://{text_dandiset.api.instance_id}/{dandiset_id}/subdir2/", tmp_path
@@ -149,7 +154,7 @@ def test_download_folder(text_dandiset, tmp_path):
     assert (tmp_path / "subdir2" / "coconut.txt").read_text() == "Coconut\n"
 
 
-def test_download_item(text_dandiset, tmp_path):
+def test_download_item(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     dandiset_id = text_dandiset.dandiset_id
     download(
         f"dandi://{text_dandiset.api.instance_id}/{dandiset_id}/subdir2/coconut.txt",
@@ -159,14 +164,14 @@ def test_download_item(text_dandiset, tmp_path):
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
 
 
-def test_download_asset_id(text_dandiset, tmp_path):
+def test_download_asset_id(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     asset = text_dandiset.dandiset.get_asset_by_path("subdir2/coconut.txt")
     download(asset.download_url, tmp_path)
     assert list_paths(tmp_path, dirs=True) == [tmp_path / "coconut.txt"]
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
 
 
-def test_download_asset_id_only(text_dandiset, tmp_path):
+def test_download_asset_id_only(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     asset = text_dandiset.dandiset.get_asset_by_path("subdir2/coconut.txt")
     download(asset.base_download_url, tmp_path)
     assert list_paths(tmp_path, dirs=True) == [tmp_path / "coconut.txt"]
@@ -174,7 +179,9 @@ def test_download_asset_id_only(text_dandiset, tmp_path):
 
 
 @pytest.mark.parametrize("confirm", [True, False])
-def test_download_sync(confirm, mocker, text_dandiset, tmp_path):
+def test_download_sync(
+    confirm: bool, mocker: MockerFixture, text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
     text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
     dspath = tmp_path / text_dandiset.dandiset_id
     os.rename(text_dandiset.dspath, dspath)
@@ -194,7 +201,9 @@ def test_download_sync(confirm, mocker, text_dandiset, tmp_path):
         assert (dspath / "file.txt").exists()
 
 
-def test_download_sync_folder(mocker, text_dandiset):
+def test_download_sync_folder(
+    mocker: MockerFixture, text_dandiset: SampleDandiset
+) -> None:
     text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
     text_dandiset.dandiset.get_asset_by_path("subdir2/banana.txt").delete()
     confirm_mock = mocker.patch("dandi.download.abbrev_prompt", return_value="yes")
@@ -209,7 +218,12 @@ def test_download_sync_folder(mocker, text_dandiset):
     assert not (text_dandiset.dspath / "subdir2" / "banana.txt").exists()
 
 
-def test_download_sync_list(capsys, mocker, text_dandiset, tmp_path):
+def test_download_sync_list(
+    capsys: pytest.CaptureFixture[str],
+    mocker: MockerFixture,
+    text_dandiset: SampleDandiset,
+    tmp_path: Path,
+) -> None:
     text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
     dspath = tmp_path / text_dandiset.dandiset_id
     os.rename(text_dandiset.dspath, dspath)
@@ -228,7 +242,9 @@ def test_download_sync_list(capsys, mocker, text_dandiset, tmp_path):
     assert capsys.readouterr().out.splitlines()[-1] == str(dspath / "file.txt")
 
 
-def test_download_sync_zarr(mocker, zarr_dandiset, tmp_path):
+def test_download_sync_zarr(
+    mocker: MockerFixture, zarr_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
     zarr_dandiset.dandiset.get_asset_by_path("sample.zarr").delete()
     dspath = tmp_path / zarr_dandiset.dandiset_id
     os.rename(zarr_dandiset.dspath, dspath)
@@ -244,7 +260,9 @@ def test_download_sync_zarr(mocker, zarr_dandiset, tmp_path):
 
 
 @responses.activate
-def test_download_no_blobDateModified(text_dandiset, tmp_path):
+def test_download_no_blobDateModified(
+    text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
     # Regression test for #806
     responses.add_passthru(re.compile("^http"))
     dandiset = text_dandiset.dandiset
@@ -256,7 +274,7 @@ def test_download_no_blobDateModified(text_dandiset, tmp_path):
 
 
 @responses.activate
-def test_download_metadata404(text_dandiset, tmp_path):
+def test_download_metadata404(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     responses.add_passthru(re.compile("^http"))
     asset = text_dandiset.dandiset.get_asset_by_path("subdir1/apple.txt")
     responses.add(responses.GET, asset.api_url, status=404)
@@ -287,7 +305,7 @@ def test_download_metadata404(text_dandiset, tmp_path):
     ]
 
 
-def test_download_zarr(tmp_path, zarr_dandiset):
+def test_download_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
     download(zarr_dandiset.dandiset.version_api_url, tmp_path)
     assert_dirtrees_eq(
         zarr_dandiset.dspath / "sample.zarr",
@@ -295,7 +313,7 @@ def test_download_zarr(tmp_path, zarr_dandiset):
     )
 
 
-def test_download_different_zarr(tmp_path, zarr_dandiset):
+def test_download_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
     dd = tmp_path / zarr_dandiset.dandiset_id
     dd.mkdir()
     zarr.save(dd / "sample.zarr", np.eye(5))
@@ -308,7 +326,9 @@ def test_download_different_zarr(tmp_path, zarr_dandiset):
     )
 
 
-def test_download_different_zarr_delete_dir(new_dandiset, tmp_path):
+def test_download_different_zarr_delete_dir(
+    new_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
     d = new_dandiset.dandiset
     dspath = new_dandiset.dspath
     zarr.save(dspath / "sample.zarr", np.eye(5))
@@ -322,7 +342,9 @@ def test_download_different_zarr_delete_dir(new_dandiset, tmp_path):
     assert_dirtrees_eq(dspath / "sample.zarr", dd / "sample.zarr")
 
 
-def test_download_zarr_to_nonzarr_path(tmp_path, zarr_dandiset):
+def test_download_zarr_to_nonzarr_path(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
     dd = tmp_path / zarr_dandiset.dandiset_id
     dd.mkdir()
     (dd / "sample.zarr").write_text("This is not a Zarr.\n")
@@ -335,7 +357,9 @@ def test_download_zarr_to_nonzarr_path(tmp_path, zarr_dandiset):
     )
 
 
-def test_download_nonzarr_to_zarr_path(new_dandiset, tmp_path):
+def test_download_nonzarr_to_zarr_path(
+    new_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
     d = new_dandiset.dandiset
     (new_dandiset.dspath / "sample.zarr").write_text("This is not a Zarr.\n")
     new_dandiset.upload(allow_any_path=True)

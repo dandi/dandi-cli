@@ -253,9 +253,12 @@ _VCS_REGEX = r"%s\.(?:git|gitattributes|svn|bzr|hg)(?:%s|$)" % (
 _DATALAD_REGEX = r"%s\.(?:datalad)(?:%s|$)" % (_encoded_dirsep, _encoded_dirsep)
 
 
+AnyPath = Union[str, Path]
+
+
 def find_files(
     regex: str,
-    paths: Union[List[str], Tuple[str, ...], Set[str], str] = os.curdir,
+    paths: Union[List[AnyPath], Tuple[AnyPath, ...], Set[AnyPath], AnyPath] = os.curdir,
     exclude: Optional[str] = None,
     exclude_dotfiles: bool = True,
     exclude_dotdirs: bool = True,
@@ -311,15 +314,15 @@ def find_files(
                     exclude_datalad=exclude_datalad,
                     dirs=dirs,
                 )
-            elif good_file(path):
-                yield path
+            elif good_file(str(path)):
+                yield str(path)
             else:
                 # Provided path didn't match regex, thus excluded
                 pass
         return
     elif op.isfile(paths):
-        if good_file(paths):
-            yield paths
+        if good_file(str(paths)):
+            yield str(paths)
         return
 
     for dirpath, dirnames, filenames in os.walk(paths):
@@ -334,19 +337,19 @@ def find_files(
             for i in range(len(dirnames))[::-1]:
                 if dirnames[i].startswith("."):
                     del dirnames[i]
-        paths = [op.join(dirpath, name) for name in names]
-        for path in filter(re.compile(regex).search, paths):
-            if not exclude_path(path):
-                if op.islink(path) and op.isdir(path):
+        strpaths = [op.join(dirpath, name) for name in names]
+        for p in filter(re.compile(regex).search, strpaths):
+            if not exclude_path(p):
+                if op.islink(p) and op.isdir(p):
                     lgr.warning(
                         "%s: Ignoring unsupported symbolic link to directory", path
                     )
                 else:
-                    yield path
+                    yield p
 
 
 def list_paths(dirpath: Union[str, Path], dirs: bool = False) -> List[Path]:
-    return sorted(map(Path, find_files(r".*", [str(dirpath)], dirs=dirs)))
+    return sorted(map(Path, find_files(r".*", [dirpath], dirs=dirs)))
 
 
 _cp_supports_reflink: Optional[bool] = None
