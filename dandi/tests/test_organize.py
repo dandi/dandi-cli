@@ -253,13 +253,14 @@ def test_detect_link_type(monkeypatch, tmp_path, sym_success, hard_success, resu
 
 
 @pytest.mark.parametrize("mode", ["copy", "move"])
-@pytest.mark.parametrize("video_mode", ["copy", "move"])
+@pytest.mark.parametrize("video_mode", ["copy", "move", "symlink", "hardlink"])
 def test_video_organize(video_mode, mode, create_video_nwbfiles):
     dandi_organize_path = create_video_nwbfiles.parent / "dandi_organized"
     cmd = [
         "--files-mode",
         mode,
-        "--rewrite-external-files",
+        "--modify-external-file-fields",
+        "--media-files-mode",
         video_mode,
         "-d",
         str(dandi_organize_path),

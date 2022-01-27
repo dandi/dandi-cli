@@ -37,16 +37,20 @@ from ..pynwb_utils import rename_nwb_external_files
     show_default=True,
 )
 @click.option(
-    "--rewrite-external-files",
-    type=click.Choice(["copy", "move"]),
-    default=None,
+    "--modify-external-file-fields",
+    is_flag=True,
+    default=False,
     help="using this options will rewrite the 'external_file' argument of the "
     "ImageSeries in the nwb file. The value written will correspond to the"
     " new location of the video files after being organized. This option will "
     "work only if --files-mode is copy/move since the original nwb file is "
-    "modified Supply one of 'copy' or 'move' as the value. Copy will copy the "
-    "video file in the organized dandiset "
-    "(Copy option is not recommended for large video files)",
+    "modified",
+)
+@click.option(
+    "--media-files-mode",
+    type=click.Choice(["copy", "move", "symlink", "hardlink"]),
+    default=None,
+    help="Supply one of copy/move/symlink/hardlink as the value",
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
 @devel_debug_option()
@@ -57,7 +61,8 @@ def organize(
     invalid="fail",
     files_mode="auto",
     devel_debug=False,
-    rewrite_external_files=None,
+    modify_external_file_fields=False,
+    media_files_mode=None,
 ):
     """(Re)organize files according to the metadata.
 
@@ -119,7 +124,7 @@ def organize(
             lgr.debug("%s %s %s", func.__name__, args, kwargs)
             return func(*args, **kwargs)
 
-    if rewrite_external_files is not None and files_mode not in ["copy", "move"]:
+    if modify_external_file_fields and files_mode not in ["copy", "move"]:
         raise ValueError(
             "files_mode needs to be one of 'copy/move' for the rewrite option to work"
         )
@@ -235,35 +240,33 @@ def organize(
     metadata = create_unique_filenames_from_metadata(metadata)
 
     # update metadata with external_file information:
-    external_files_missing_metadata_bool = [
+    external_files_missing_in_nwbfiles = [
         len(m["external_file_objects"]) == 0 for m in metadata
     ]
 
-    if all(external_files_missing_metadata_bool) and rewrite_external_files is not None:
+    if all(external_files_missing_in_nwbfiles) and modify_external_file_fields:
         lgr.warning(
-            "rewrite_external_files specified but no external_files found "
+            "modify_external_file_fields specified but no external_files found "
             "linked to any nwbfile found in %s",
             paths,
         )
     elif (
-        not all(external_files_missing_metadata_bool) and rewrite_external_files is None
+        not all(external_files_missing_in_nwbfiles) and not modify_external_file_fields
     ):
         raise ValueError(
-            "rewrite_external_files option not specified but found external video files linked to "
-            f"the nwbfiles "
+            "modify_external_file_fields option not specified but found "
+            "external video files linked to the nwbfiles "
             f"""{[metadata[no]['path']
-                  for no, a in enumerate(external_files_missing_metadata_bool)
+                  for no, a in enumerate(external_files_missing_in_nwbfiles)
                   if not a]}"""
         )
 
-    if rewrite_external_files is not None and rewrite_external_files not in [
-        "move",
-        "copy",
-    ]:
-        raise ValueError(
-            "external_files mode should be either of 'move/copy' to "
-            "overwrite the external_file attribute of ImageSeries in the nwb file"
+    if modify_external_file_fields and media_files_mode is None:
+        media_files_mode = "symlink"
+        lgr.warning(
+            "media_files_mode not specified, setting to recommended mode: 'symlink' "
         )
+
     metadata = _create_external_file_names(metadata)
 
     # Verify first that the target paths do not exist yet, and fail if they do
@@ -370,9 +373,9 @@ def organize(
                     lgr.debug("Failed to remove directory %s: %s", d, exc)
 
     # create video file name and re write nwb file external files:
-    if rewrite_external_files is not None:
+    if modify_external_file_fields:
         rename_nwb_external_files(metadata, dandiset_path)
-        organize_external_files(metadata, dandiset_path, rewrite_external_files)
+        organize_external_files(metadata, dandiset_path, media_files_mode)
 
     def msg_(msg, n, cond=None):
         if hasattr(n, "__len__"):
