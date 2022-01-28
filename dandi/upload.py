@@ -1,31 +1,44 @@
+from collections import defaultdict
 from functools import reduce
 import os.path
 from pathlib import Path
 import re
+import sys
 import time
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Union
 
 import click
 
 from . import lgr
 from .consts import DRAFT, dandiset_identifier_regex, dandiset_metadata_file
 from .exceptions import NotFoundError
-from .files import DandisetMetadataFile, LocalAsset, find_dandi_files
+from .files import DandiFile, DandisetMetadataFile, LocalAsset, find_dandi_files
 from .utils import ensure_datetime, get_instance, pluralize
+
+if TYPE_CHECKING:
+    if sys.version_info[:2] >= (3, 8):
+        from typing import TypedDict
+    else:
+        from typing_extensions import TypedDict
+
+    class Uploaded(TypedDict):
+        size: int
+        errors: List[str]
 
 
 def upload(
-    paths,
-    existing="refresh",
-    validation="require",
-    dandiset_path=None,
-    dandi_instance="dandi",
-    allow_any_path=False,
-    upload_dandiset_metadata=False,
-    devel_debug=False,
-    jobs=None,
-    jobs_per_file=None,
-    sync=False,
-):
+    paths: List[Union[str, Path]],
+    existing: str = "refresh",
+    validation: str = "require",
+    dandiset_path: Union[str, Path, None] = None,
+    dandi_instance: str = "dandi",
+    allow_any_path: bool = False,
+    upload_dandiset_metadata: bool = False,
+    devel_debug: bool = False,
+    jobs: Optional[int] = None,
+    jobs_per_file: Optional[int] = None,
+    sync: bool = False,
+) -> None:
     from .dandiapi import DandiAPIClient
     from .dandiset import APIDandiset, Dandiset
 
@@ -84,17 +97,16 @@ def upload(
     # we could limit the number of them until
     #   https://github.com/pyout/pyout/issues/87
     # properly addressed
-    process_paths = set()
-    from collections import defaultdict
+    process_paths: Set[str] = set()
 
-    uploaded_paths = defaultdict(lambda: {"size": 0, "errors": []})
+    uploaded_paths: Dict[str, Uploaded] = defaultdict(lambda: {"size": 0, "errors": []})
 
-    def skip_file(msg):
+    def skip_file(msg: Any) -> dict:
         return {"status": "skipped", "message": str(msg)}
 
     # TODO: we might want to always yield a full record so no field is not
     # provided to pyout to cause it to halt
-    def process_path(dfile):
+    def process_path(dfile: DandiFile) -> Iterator[dict]:
         """
 
         Parameters
@@ -154,6 +166,7 @@ def upload(
                 else:
                     yield skip_file("should be edited online")
                 return
+            assert isinstance(dfile, LocalAsset)
 
             #
             # Compute checksums
@@ -170,6 +183,7 @@ def upload(
             except NotFoundError:
                 extant = None
             else:
+                assert extant is not None
                 metadata = extant.get_raw_metadata()
                 local_mtime = dfile.modified
                 remote_mtime_str = metadata.get("blobDateModified")
@@ -274,7 +288,7 @@ def upload(
     # for the upload speeds we need to provide a custom  aggregate
     t0 = time.time()
 
-    def upload_agg(*ignored):
+    def upload_agg(*ignored: Any) -> str:
         dt = time.time() - t0
         # to help avoiding dict length changes during upload
         # might be not a proper solution
@@ -300,6 +314,7 @@ def upload(
 
             process_paths.add(str(dfile.filepath))
 
+            rec: Dict[Any, Any]
             if isinstance(dfile, DandisetMetadataFile):
                 rec = {"path": dandiset_metadata_file}
             else:
@@ -318,11 +333,11 @@ def upload(
             out(rec)
 
     if sync:
-        relpaths = []
+        relpaths: List[str] = []
         for p in original_paths:
             rp = os.path.relpath(p, dandiset.path)
             relpaths.append("" if rp == "." else rp)
-        path_prefix = reduce(os.path.commonprefix, relpaths)
+        path_prefix = reduce(os.path.commonprefix, relpaths)  # type: ignore[arg-type]
         to_delete = []
         for asset in remote_dandiset.get_assets_with_path_prefix(path_prefix):
             if (
