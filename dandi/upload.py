@@ -42,8 +42,8 @@ def upload(
     from .dandiapi import DandiAPIClient
     from .dandiset import APIDandiset, Dandiset
 
-    dandiset = Dandiset.find(dandiset_path)
-    if not dandiset:
+    dandiset_ = Dandiset.find(dandiset_path)
+    if not dandiset_:
         raise RuntimeError(
             f"Found no {dandiset_metadata_file} anywhere.  "
             "Use 'dandi download' or 'organize' first"
@@ -57,7 +57,7 @@ def upload(
     client.check_schema_version()
     client.dandi_authenticate()
 
-    dandiset = APIDandiset(dandiset.path)  # "cast" to a new API based dandiset
+    dandiset = APIDandiset(dandiset_.path)  # "cast" to a new API based dandiset
 
     ds_identifier = dandiset.identifier
     remote_dandiset = client.get_dandiset(ds_identifier, DRAFT)
@@ -161,6 +161,7 @@ def upload(
                 # online.
                 if upload_dandiset_metadata:
                     yield {"status": "updating metadata"}
+                    assert dandiset.metadata is not None
                     remote_dandiset.set_raw_metadata(dandiset.metadata)
                     yield {"status": "updated metadata"}
                 else:

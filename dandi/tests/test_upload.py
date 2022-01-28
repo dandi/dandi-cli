@@ -48,6 +48,7 @@ def test_upload_dandiset_metadata(new_dandiset: SampleDandiset) -> None:
     dspath = new_dandiset.dspath
     ds_orig = APIDandiset(dspath)
     ds_metadata = ds_orig.metadata
+    assert ds_metadata is not None
     ds_metadata["description"] = "very long"
     ds_metadata["name"] = "shorty"
     (dspath / dandiset_metadata_file).write_text(yaml_dump(ds_metadata))
