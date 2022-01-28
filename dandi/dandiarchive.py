@@ -25,11 +25,13 @@ As a further convenience, a URL can be parsed and navigated in one fell swoop
 using the `navigate_url()` function.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 import re
 from time import sleep
-from typing import Iterable, Iterator, Optional, Tuple
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, cast
 from urllib.parse import unquote as urlunquote
 
 from pydantic import AnyHttpUrl, BaseModel, parse_obj_as, validator
@@ -72,7 +74,7 @@ class ParsedDandiURL(ABC, BaseModel):
 
     @validator("api_url")
     def _validate_api_url(cls, v: AnyHttpUrl) -> AnyHttpUrl:
-        return parse_obj_as(AnyHttpUrl, v.rstrip("/"))
+        return cast(AnyHttpUrl, parse_obj_as(AnyHttpUrl, v.rstrip("/")))
 
     def get_client(self) -> DandiAPIClient:
         """
@@ -178,9 +180,9 @@ class DandisetURL(ParsedDandiURL):
     ) -> Iterator[BaseRemoteAsset]:
         """Returns all assets in the Dandiset"""
         with _maybe_strict(strict):
-            yield from self.get_dandiset(client, lazy=not strict).get_assets(
-                order=order
-            )
+            d = self.get_dandiset(client, lazy=not strict)
+            assert d is not None
+            yield from d.get_assets(order=order)
 
 
 class SingleAssetURL(ParsedDandiURL):
@@ -256,7 +258,9 @@ class AssetIDURL(SingleAssetURL):
         nothing is yielded if ``strict`` is false.
         """
         with _maybe_strict(strict):
-            yield self.get_dandiset(client, lazy=not strict).get_asset(self.asset_id)
+            d = self.get_dandiset(client, lazy=not strict)
+            assert d is not None
+            yield d.get_asset(self.asset_id)
 
     def get_asset_ids(self, client: DandiAPIClient) -> Iterator[str]:
         """Yields the ID of the asset (regardless of whether it exists)"""
@@ -273,9 +277,9 @@ class AssetPathPrefixURL(MultiAssetURL):
     ) -> Iterator[BaseRemoteAsset]:
         """Returns the assets whose paths start with `path`"""
         with _maybe_strict(strict):
-            yield from self.get_dandiset(
-                client, lazy=not strict
-            ).get_assets_with_path_prefix(self.path, order=order)
+            d = self.get_dandiset(client, lazy=not strict)
+            assert d is not None
+            yield from d.get_assets_with_path_prefix(self.path, order=order)
 
 
 class AssetItemURL(SingleAssetURL):
@@ -297,6 +301,7 @@ class AssetItemURL(SingleAssetURL):
         """
         try:
             dandiset = self.get_dandiset(client, lazy=not strict)
+            assert dandiset is not None
             # Force evaluation of the version here instead of when
             # get_asset_by_path() is called so we don't get nonexistent
             # dandisets with unspecified versions mixed up with nonexistent
@@ -343,9 +348,9 @@ class AssetFolderURL(MultiAssetURL):
         if not path.endswith("/"):
             path += "/"
         with _maybe_strict(strict):
-            yield from self.get_dandiset(
-                client, lazy=not strict
-            ).get_assets_with_path_prefix(path, order=order)
+            d = self.get_dandiset(client, lazy=not strict)
+            assert d is not None
+            yield from d.get_assets_with_path_prefix(path, order=order)
 
 
 @contextmanager
@@ -403,7 +408,7 @@ class _dandi_url_parser:
     dandiset_id_grp = f"(?P<dandiset_id>{DANDISET_ID_REGEX})"
     # Should absorb port and "api/":
     server_grp = "(?P<server>(?P<protocol>https?)://(?P<hostname>[^/]+)/(api/)?)"
-    known_urls = [
+    known_urls: List[Tuple[re.Pattern[str], Dict[str, Any], str]] = [
         # List of (regex, settings, display string) triples
         #
         # Settings:

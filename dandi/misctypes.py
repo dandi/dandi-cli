@@ -55,7 +55,7 @@ DUMMY_DIGEST = Digest(algorithm=DigestType.dandi_etag, value=32 * "d" + "-1")
 P = TypeVar("P", bound="BasePath")
 
 
-@dataclass
+@dataclass  # type: ignore[misc]  # <https://github.com/python/mypy/issues/5374>
 class BasePath(ABC):
     """
     An abstract base class for path-like objects that can be traversed with the

@@ -328,7 +328,7 @@ def list_paths(dirpath: Union[str, Path], dirs: bool = False) -> List[Path]:
     return sorted(map(Path, find_files(r".*", [dirpath], dirs=dirs)))
 
 
-_cp_supports_reflink = None
+_cp_supports_reflink: Optional[bool] = None
 
 
 def copy_file(src, dst):
@@ -598,14 +598,16 @@ def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
     -------
     object
     """
+    modobj: Optional[types.ModuleType]
     if isinstance(module, str):
+        modobj = sys.modules.get(module)
         mod_name = module
-        module = sys.modules.get(module)
     else:
+        modobj = module
         mod_name = module.__name__.split(".", 1)[0]
 
-    if module is not None:
-        version = getattr(module, "__version__", None)
+    if modobj is not None:
+        version = getattr(modobj, "__version__", None)
     else:
         version = None
     if version is None:

@@ -8,7 +8,7 @@ import shutil
 from subprocess import DEVNULL, check_output, run
 import tempfile
 from time import sleep
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from click.testing import CliRunner
@@ -255,7 +255,9 @@ class DandiAPI:
 
     @property
     def api_url(self) -> str:
-        return self.instance.api
+        url = self.instance.api
+        assert isinstance(url, str)
+        return url
 
 
 @pytest.fixture(scope="session")
@@ -284,7 +286,7 @@ class SampleDandiset:
     def client(self) -> DandiAPIClient:
         return self.api.client
 
-    def upload(self, paths=None, **kwargs) -> None:
+    def upload(self, paths: Optional[List[str]] = None, **kwargs: Any) -> None:
         with pytest.MonkeyPatch().context() as m:
             m.setenv("DANDI_API_KEY", self.api.api_key)
             upload(
@@ -364,3 +366,4 @@ def tmp_home(
     monkeypatch.delenv("XDG_STATE_HOME", raising=False)
     monkeypatch.setenv("USERPROFILE", str(home))
     monkeypatch.setenv("LOCALAPPDATA", str(home))
+    return home

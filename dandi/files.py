@@ -20,7 +20,17 @@ import os
 from pathlib import Path
 import re
 from threading import Lock
-from typing import Any, BinaryIO, Dict, Generic, Iterator, List, Optional, Union
+from typing import (
+    Any,
+    BinaryIO,
+    ClassVar,
+    Dict,
+    Generic,
+    Iterator,
+    List,
+    Optional,
+    Union,
+)
 from xml.etree.ElementTree import fromstring
 
 from dandischema.digests.dandietag import DandiETag
@@ -46,7 +56,7 @@ from .metadata import get_default_metadata, get_metadata, nwb2asset
 from .misctypes import DUMMY_DIGEST, BasePath, Digest, P
 from .pynwb_utils import validate as pynwb_validate
 from .support.digests import get_dandietag, get_digest, get_zarr_checksum
-from .utils import chunked, ensure_datetime, pluralize, yaml_load
+from .utils import chunked, pluralize, yaml_load
 
 lgr = get_logger()
 
@@ -55,7 +65,7 @@ _required_dandiset_metadata_fields = ["identifier", "name", "description"]
 _required_nwb_metadata_fields = ["subject_id"]
 
 
-@dataclass
+@dataclass  # type: ignore[misc]  # <https://github.com/python/mypy/issues/5374>
 class DandiFile(ABC):
     """Abstract base class for local files & directories of interest to DANDI"""
 
@@ -71,7 +81,7 @@ class DandiFile(ABC):
     def modified(self) -> datetime:
         """The time at which the file was last modified"""
         # TODO: Should this be overridden for LocalDirectoryAsset?
-        return ensure_datetime(self.filepath.stat().st_mtime)
+        return datetime.fromtimestamp(self.filepath.stat().st_mtime).astimezone()
 
     @abstractmethod
     def get_metadata(
@@ -150,7 +160,7 @@ class DandisetMetadataFile(DandiFile):
             return []
 
 
-@dataclass
+@dataclass  # type: ignore[misc]  # <https://github.com/python/mypy/issues/5374>
 class LocalAsset(DandiFile):
     """
     Representation of a file or directory that can be uploaded to a DANDI
@@ -246,7 +256,9 @@ class LocalAsset(DandiFile):
             dandiset, metadata, jobs=jobs, replacing=replacing
         ):
             if status["status"] == "done":
-                return status["asset"]
+                a = status["asset"]
+                assert isinstance(a, RemoteAsset)
+                return a
         raise AssertionError("iter_upload() finished without returning 'done'")
 
     @abstractmethod
@@ -285,6 +297,8 @@ class LocalFileAsset(LocalAsset):
     Representation of a regular file that can be uploaded to a DANDI Archive as
     an asset of a Dandiset
     """
+
+    EXTENSIONS: ClassVar[List[str]] = []
 
     def get_digest(self) -> Digest:
         """Calculate a dandi-etag digest for the asset"""
@@ -441,7 +455,7 @@ class LocalFileAsset(LocalAsset):
 class NWBAsset(LocalFileAsset):
     """Representation of a local NWB file"""
 
-    EXTENSIONS = [".nwb"]
+    EXTENSIONS: ClassVar[List[str]] = [".nwb"]
 
     def get_metadata(
         self,
@@ -470,7 +484,7 @@ class NWBAsset(LocalFileAsset):
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
     ) -> List[str]:
-        errors = pynwb_validate(self.filepath, devel_debug=devel_debug)
+        errors: List[str] = pynwb_validate(self.filepath, devel_debug=devel_debug)
         if schema_version is not None:
             errors.extend(
                 super().get_validation_errors(
@@ -503,7 +517,7 @@ class GenericAsset(LocalFileAsset):
     Representation of a generic regular file, one that is not of any known type
     """
 
-    EXTENSIONS = []
+    EXTENSIONS: ClassVar[List[str]] = []
 
     def get_metadata(
         self,
@@ -521,6 +535,8 @@ class LocalDirectoryAsset(LocalAsset, Generic[P]):
     a single asset of a Dandiset.  It is generic in ``P``, bound to
     `dandi.misctypes.BasePath`.
     """
+
+    EXTENSIONS: ClassVar[List[str]] = []
 
     @property
     @abstractmethod
@@ -623,7 +639,7 @@ class LocalZarrEntry(BasePath):
     def modified(self) -> datetime:
         """The time at which the entry was last modified"""
         # TODO: Should this be overridden for directories?
-        return ensure_datetime(self.filepath.stat().st_mtime)
+        return datetime.fromtimestamp(self.filepath.stat().st_mtime).astimezone()
 
 
 @dataclass
@@ -641,7 +657,7 @@ class ZarrStat:
 class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
     """Representation of a local Zarr directory"""
 
-    EXTENSIONS = [".ngff", ".zarr"]
+    EXTENSIONS: ClassVar[List[str]] = [".ngff", ".zarr"]
 
     @property
     def filetree(self) -> LocalZarrEntry:
@@ -873,9 +889,8 @@ def find_dandi_files(
         (unless ``allow_all`` is true).
     """
 
-    path_queue = deque()
-    for p in paths:
-        p = Path(p)
+    path_queue: deque[Path] = deque()
+    for p in map(Path, paths):
         if dandiset_path is not None:
             try:
                 p.relative_to(dandiset_path)
@@ -943,7 +958,7 @@ def dandi_file(
             raise UnknownAssetError("Empty directories cannot be assets")
         for dirclass in LocalDirectoryAsset.__subclasses__():
             if filepath.suffix in dirclass.EXTENSIONS:
-                return dirclass(filepath=filepath, path=path)
+                return dirclass(filepath=filepath, path=path)  # type: ignore[abstract]
         raise UnknownAssetError(
             f"Directory has unrecognized suffix {filepath.suffix!r}"
         )
@@ -952,8 +967,8 @@ def dandi_file(
     else:
         for fileclass in LocalFileAsset.__subclasses__():
             if filepath.suffix in fileclass.EXTENSIONS:
-                return fileclass(filepath=filepath, path=path)
-            return GenericAsset(filepath=filepath, path=path)
+                return fileclass(filepath=filepath, path=path)  # type: ignore[abstract]
+        return GenericAsset(filepath=filepath, path=path)
 
 
 def _upload_blob_part(

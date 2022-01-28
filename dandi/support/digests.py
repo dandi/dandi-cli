@@ -12,7 +12,7 @@
 import hashlib
 import logging
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Union, cast
 
 from dandischema.digests.dandietag import DandiETag
 from dandischema.digests.zarr import get_checksum
@@ -24,7 +24,7 @@ lgr = logging.getLogger("dandi.support.digests")
 
 
 @auto_repr
-class Digester(object):
+class Digester:
     """Helper to compute multiple digests in one pass for a file"""
 
     # Loosely based on snippet by PM 2Ring 2014.10.23
@@ -35,7 +35,9 @@ class Digester(object):
 
     DEFAULT_DIGESTS = ["md5", "sha1", "sha256", "sha512"]
 
-    def __init__(self, digests=None, blocksize=1 << 16):
+    def __init__(
+        self, digests: Optional[List[str]] = None, blocksize: int = 1 << 16
+    ) -> None:
         """
         Parameters
         ----------
@@ -51,10 +53,10 @@ class Digester(object):
         self.blocksize = blocksize
 
     @property
-    def digests(self):
+    def digests(self) -> List[str]:
         return self._digests
 
-    def __call__(self, fpath):
+    def __call__(self, fpath: Union[str, Path]) -> Dict[str, str]:
         """
         fpath : str
           File path for which a checksum shall be computed.
@@ -80,15 +82,15 @@ checksums = PersistentCache(name="dandi-checksums", envvar="DANDI_CACHE")
 
 
 @checksums.memoize_path
-def get_digest(filepath, digest="sha256") -> str:
+def get_digest(filepath: Union[str, Path], digest: str = "sha256") -> str:
     if digest == "dandi-etag":
-        return get_dandietag(filepath).as_str()
+        return cast(str, get_dandietag(filepath).as_str())
     else:
         return Digester([digest])(filepath)[digest]
 
 
 @checksums.memoize_path
-def get_dandietag(filepath) -> DandiETag:
+def get_dandietag(filepath: Union[str, Path]) -> DandiETag:
     return DandiETag.from_file(filepath)
 
 
@@ -115,4 +117,4 @@ def get_zarr_checksum(
                 dirs[path] = known[path]
             except KeyError:
                 dirs[path] = get_zarr_checksum(p, basepath)
-    return get_checksum(files, dirs)
+    return cast(str, get_checksum(files, dirs))

@@ -649,7 +649,7 @@ def test_progress_combiner(
     file_qty: int, inputs: List[Tuple[str, dict]], expected: List[dict]
 ) -> None:
     pc = ProgressCombiner(zarr_size=69105, file_qty=file_qty)
-    outputs = []
+    outputs: List[dict] = []
     for path, status in inputs:
         outputs.extend(pc.feed(path, status))
     assert outputs == expected

@@ -569,7 +569,10 @@ class APIBase(BaseModel):
         Convert to a JSONable `dict`, omitting the ``client`` attribute and
         using the same field names as in the API
         """
-        return json.loads(self.json(exclude=self.JSON_EXCLUDE, by_alias=True))
+        return cast(
+            Dict[str, Any],
+            json.loads(self.json(exclude=self.JSON_EXCLUDE, by_alias=True)),
+        )
 
     class Config:
         allow_population_by_field_name = True
@@ -640,7 +643,7 @@ class RemoteDandiset:
         client: DandiAPIClient,
         identifier: str,
         version: Union[str, Version, None] = None,
-        data: Optional[Dict[str, Any]] = None,
+        data: Union[Dict[str, Any], RemoteDandisetData, None] = None,
     ) -> None:
         #: The `DandiAPIClient` instance that returned this `RemoteDandiset`
         #: and which the latter will use for API requests
@@ -1076,9 +1079,12 @@ class RemoteDandiset:
         :param RemoteAsset replace_asset: If set, replace the given asset,
             which must have the same path as the new asset
         """
-        from .files import dandi_file
+        from .files import LocalAsset, dandi_file
 
-        return dandi_file(filepath).upload(
+        df = dandi_file(filepath)
+        if not isinstance(df, LocalAsset):
+            raise ValueError(f"{filepath}: not an asset file")
+        return df.upload(
             self, metadata=asset_metadata, jobs=jobs, replacing=replace_asset
         )
 
@@ -1114,9 +1120,12 @@ class RemoteDandiset:
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
-        from .files import dandi_file
+        from .files import LocalAsset, dandi_file
 
-        return dandi_file(filepath).iter_upload(
+        df = dandi_file(filepath)
+        if not isinstance(df, LocalAsset):
+            raise ValueError(f"{filepath}: not an asset file")
+        return df.iter_upload(
             self, metadata=asset_metadata, jobs=jobs, replacing=replace_asset
         )
 
@@ -1147,7 +1156,7 @@ class BaseRemoteAsset(APIBase):
     #: instead of performing an API call
     _metadata: Optional[Dict[str, Any]] = PrivateAttr(default_factory=None)
 
-    def __init__(self, **data: Any) -> None:
+    def __init__(self, **data: Any) -> None:  # type: ignore[no-redef]
         super().__init__(**data)
         # Pydantic insists on not initializing any attributes that start with
         # underscores, so we have to do it ourselves.
@@ -1167,7 +1176,7 @@ class BaseRemoteAsset(APIBase):
         This is a low-level method that non-developers would normally only use
         when acquiring data using means outside of this library.
         """
-        return BaseRemoteAsset(
+        return BaseRemoteAsset(  # type: ignore[call-arg]
             client=client,
             identifier=metadata["identifier"],
             path=metadata["path"],
@@ -1240,7 +1249,7 @@ class BaseRemoteAsset(APIBase):
             digest_type = digest_type.value
         metadata = self.get_raw_metadata()
         try:
-            return metadata["digest"][digest_type]
+            return cast(str, metadata["digest"][digest_type])
         except KeyError:
             raise NotFoundError(f"No {digest_type} digest found in metadata")
 
@@ -1277,6 +1286,7 @@ class BaseRemoteAsset(APIBase):
         If ``strip_query`` is true, any query parameters are removed from the
         final URL before returning it.
         """
+        url: str
         for url in self.get_raw_metadata().get("contentUrl", []):
             if re.search(regex, url):
                 break
@@ -1303,7 +1313,7 @@ class BaseRemoteAsset(APIBase):
 
     def get_download_file_iter(
         self, chunk_size: int = MAX_CHUNK_SIZE
-    ) -> Callable[..., Iterator[bytes]]:
+    ) -> Callable[[int], Iterator[bytes]]:
         """
         Returns a function that when called (optionally with an offset into the
         asset to start downloading at) returns a generator of chunks of the
@@ -1346,7 +1356,7 @@ class BaseRemoteAsset(APIBase):
         """
         downloader = self.get_download_file_iter(chunk_size=chunk_size)
         with open(filepath, "wb") as fp:
-            for chunk in downloader():
+            for chunk in downloader(0):
                 fp.write(chunk)
 
     @property
@@ -1413,6 +1423,7 @@ class RemoteAsset(ABC, BaseRemoteAsset):
         This is a low-level method that non-developers would normally only use
         when acquiring data using means outside of this library.
         """
+        klass: Type[RemoteAsset]
         if data.get("blob") is not None:
             klass = RemoteBlobAsset
             if data.pop("zarr", None) is not None:
@@ -1423,7 +1434,7 @@ class RemoteAsset(ABC, BaseRemoteAsset):
                 raise ValueError("Asset data contains both `blob` and `zarr`'")
         else:
             raise ValueError("Asset data contains neither `blob` nor `zarr`")
-        return klass(
+        return klass(  # type: ignore[call-arg]
             client=dandiset.client,
             dandiset_id=dandiset.identifier,
             version_id=dandiset.version_id,
@@ -1589,12 +1600,12 @@ class ZarrListing(BaseModel):
     @property
     def dirnames(self) -> List[str]:
         """The basenames of the directory URLs in `directories`"""
-        return [PurePosixPath(unquote(url.path)).name for url in self.directories]
+        return [PurePosixPath(unquote(url.path or "")).name for url in self.directories]
 
     @property
     def filenames(self) -> List[str]:
         """The basenames of the file URLs in `files`"""
-        return [PurePosixPath(unquote(url.path)).name for url in self.files]
+        return [PurePosixPath(unquote(url.path or "")).name for url in self.files]
 
 
 @dataclass
@@ -1794,7 +1805,7 @@ class RemoteZarrEntry(BasePath):
 
     def get_download_file_iter(
         self, chunk_size: int = MAX_CHUNK_SIZE
-    ) -> Callable[..., Iterator[bytes]]:
+    ) -> Callable[[int], Iterator[bytes]]:
         """
         Returns a function that when called (optionally with an offset into the
         file to start downloading at) returns a generator of chunks of the file

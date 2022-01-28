@@ -1,6 +1,6 @@
-from collections import namedtuple
 from enum import Enum
 import os
+from typing import NamedTuple, Optional
 
 #: A list of metadata fields which dandi extracts from .nwb files.
 #: Additional fields (such as ``number_of_*``) might be added by
@@ -87,7 +87,12 @@ class EmbargoStatus(Enum):
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
 
-DandiInstance = namedtuple("DandiInstance", ("gui", "redirector", "api"))
+
+class DandiInstance(NamedTuple):
+    gui: Optional[str]
+    redirector: Optional[str]
+    api: Optional[str]
+
 
 # So it could be easily mapped to external IP (e.g. from within VM)
 # to test against instance running outside of current environment
