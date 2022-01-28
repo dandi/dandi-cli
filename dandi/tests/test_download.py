@@ -33,7 +33,7 @@ from ..utils import list_paths
     ],
 )
 def test_download_000027(url: str, tmp_path: Path) -> None:
-    ret = download(url, tmp_path)
+    ret = download(url, tmp_path)  # type: ignore[func-returns-value]
     assert not ret  # we return nothing ATM, might want to "generate"
     dsdir = tmp_path / "000027"
     assert list_paths(dsdir, dirs=True) == [
@@ -68,7 +68,7 @@ def test_download_000027(url: str, tmp_path: Path) -> None:
     ],
 )
 def test_download_000027_metadata_only(url: str, tmp_path: Path) -> None:
-    ret = download(url, tmp_path, get_assets=False)
+    ret = download(url, tmp_path, get_assets=False)  # type: ignore[func-returns-value]
     assert not ret  # we return nothing ATM, might want to "generate"
     dsdir = tmp_path / "000027"
     assert list_paths(dsdir, dirs=True) == [dsdir / "dandiset.yaml"]
@@ -84,7 +84,7 @@ def test_download_000027_metadata_only(url: str, tmp_path: Path) -> None:
     ],
 )
 def test_download_000027_assets_only(url: str, tmp_path: Path) -> None:
-    ret = download(url, tmp_path, get_metadata=False)
+    ret = download(url, tmp_path, get_metadata=False)  # type: ignore[func-returns-value]
     assert not ret  # we return nothing ATM, might want to "generate"
     dsdir = tmp_path / "000027"
     assert list_paths(dsdir, dirs=True) == [

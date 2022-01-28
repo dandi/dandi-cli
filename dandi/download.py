@@ -15,21 +15,43 @@ from shutil import rmtree
 import sys
 from threading import Lock
 import time
-from typing import Any, Callable, Dict, Iterator, Optional, Tuple
+from types import TracebackType
+from typing import (
+    IO,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+)
 
 from dandischema.models import DigestType
+from fasteners import InterProcessLock
 import humanize
 from interleave import FINISH_CURRENT, interleave
 import requests
 
 from . import get_logger
 from .consts import RETRY_STATUSES, dandiset_metadata_file
-from .dandiapi import AssetType, RemoteZarrAsset
-from .dandiarchive import DandisetURL, MultiAssetURL, SingleAssetURL, parse_dandi_url
+from .dandiapi import AssetType, RemoteAsset, RemoteDandiset, RemoteZarrAsset
+from .dandiarchive import (
+    DandisetURL,
+    MultiAssetURL,
+    ParsedDandiURL,
+    SingleAssetURL,
+    parse_dandi_url,
+)
 from .dandiset import Dandiset
 from .exceptions import NotFoundError
-from .files import DandisetMetadataFile, find_dandi_files
+from .files import LocalAsset, find_dandi_files
 from .support.digests import get_digest, get_zarr_checksum
+from .support.iterators import IteratorWithAggregation
 from .support.pyout import naturalsize
 from .utils import (
     abbrev_prompt,
@@ -46,17 +68,17 @@ lgr = get_logger()
 
 
 def download(
-    urls,
-    output_dir,
+    urls: Union[str, Sequence[str]],
+    output_dir: Union[str, Path],
     *,
-    format="pyout",
-    existing="error",
-    jobs=1,
-    jobs_per_zarr=None,
-    get_metadata=True,
-    get_assets=True,
-    sync=False,
-):
+    format: str = "pyout",
+    existing: str = "error",
+    jobs: int = 1,
+    jobs_per_zarr: Optional[int] = None,
+    get_metadata: bool = True,
+    get_assets: bool = True,
+    sync: bool = False,
+) -> None:
     # TODO: unduplicate with upload. For now stole from that one
     # We will again use pyout to provide a neat table summarizing our progress
     # with upload etc
@@ -75,7 +97,9 @@ def download(
 
     # TODO: if we are ALREADY in a dandiset - we can validate that it is the
     # same dandiset and use that dandiset path as the one to download under
+    output_path: Union[str, Path]
     if isinstance(parsed_url, DandisetURL):
+        assert parsed_url.dandiset_id is not None
         output_path = op.join(output_dir, parsed_url.dandiset_id)
     else:
         output_path = output_dir
@@ -144,7 +168,7 @@ def download(
         for df in find_dandi_files(
             download_dir, dandiset_path=download_dir, allow_all=True
         ):
-            if isinstance(df, DandisetMetadataFile):
+            if not isinstance(df, LocalAsset):
                 continue
             a_path = op.normpath(op.join(prefix, df.path))
             if on_windows:
@@ -174,16 +198,16 @@ def download(
 
 
 def download_generator(
-    parsed_url,
-    output_path,
+    parsed_url: ParsedDandiURL,
+    output_path: Union[str, Path],
     *,
-    assets_it=None,
-    yield_generator_for_fields=None,
-    existing="error",
-    get_metadata=True,
-    get_assets=True,
-    jobs_per_zarr=None,
-):
+    assets_it: Optional[IteratorWithAggregation] = None,
+    yield_generator_for_fields: Optional[Tuple[str, ...]] = None,
+    existing: str = "error",
+    get_metadata: bool = True,
+    get_assets: bool = True,
+    jobs_per_zarr: Optional[int] = None,
+) -> Iterator[dict]:
     """A generator for downloads of files, folders, or entire dandiset from DANDI
     (as identified by URL)
 
@@ -206,6 +230,7 @@ def download_generator(
             assets = assets_it
 
         if isinstance(parsed_url, DandisetURL) and get_metadata:
+            assert dandiset is not None
             for resp in _populate_dandiset_yaml(output_path, dandiset, existing):
                 yield dict(path=dandiset_metadata_file, **resp)
 
@@ -261,7 +286,10 @@ def download_generator(
                         "Asset %s is missing blobDateModified metadata field",
                         asset.path,
                     )
-                    mtime = asset.modified
+                    if isinstance(asset, RemoteAsset):
+                        # TODO: Remove ^^ guard ^^ once dandi-archive#681 is
+                        # supported
+                        mtime = asset.modified
                 _download_generator = _download_file(
                     asset.get_download_file_iter(),
                     download_path,
@@ -306,17 +334,22 @@ class ItemsSummary:
     To be used as a callback to IteratorWithAggregation
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.files = 0
         # TODO: get rid of needing it
-        self.t0 = None  # when first record is seen
+        self.t0: Optional[float] = None  # when first record is seen
         self.size = 0
         self.has_unknown_sizes = False
 
-    def as_dict(self):
-        return {a: getattr(self, a) for a in ("files", "size", "has_unknown_sizes")}
+    def as_dict(self) -> dict:
+        return {
+            "files": self.files,
+            "size": self.size,
+            "has_unknown_sizes": self.has_unknown_sizes,
+        }
 
-    def __call__(self, rec, prior=None):
+    # TODO: Determine the proper annotation for `rec`
+    def __call__(self, rec: Any, prior: Optional[ItemsSummary] = None) -> ItemsSummary:
         assert prior in (None, self)
         if not self.files:
             self.t0 = time.time()
@@ -335,8 +368,6 @@ class PYOUTHelper:
     def __init__(self):
         # Establish "fancy" download while still possibly traversing the dandiset
         # functionality.
-        from .support.iterators import IteratorWithAggregation
-
         self.items_summary = ItemsSummary()
         self.it = IteratorWithAggregation(
             # unfortunately Yarik missed the point that we need to wrap
@@ -347,13 +378,13 @@ class PYOUTHelper:
             self.items_summary,
         )
 
-    def agg_files(self, *ignored):
+    def agg_files(self, *ignored: Any) -> str:
         ret = str(self.items_summary.files)
         if not self.it.finished:
             ret += "+"
         return ret
 
-    def agg_size(self, sizes):
+    def agg_size(self, sizes: Iterable[int]) -> Union[str, List[str]]:
         """Formatter for "size" column where it would show
 
         how much is "active" (or done)
@@ -378,7 +409,7 @@ class PYOUTHelper:
                 v.append(extra_str)
         return v
 
-    def agg_done(self, done_sizes):
+    def agg_done(self, done_sizes: Iterator[int]) -> List[str]:
         """Formatter for "DONE" column"""
         done = sum(done_sizes)
         if self.it.finished and done == 0 and self.items_summary.size == 0:
@@ -412,11 +443,13 @@ class PYOUTHelper:
         return v
 
 
-def _skip_file(msg):
+def _skip_file(msg: Any) -> dict:
     return {"status": "skipped", "message": str(msg)}
 
 
-def _populate_dandiset_yaml(dandiset_path, dandiset, existing):
+def _populate_dandiset_yaml(
+    dandiset_path: Union[str, Path], dandiset: RemoteDandiset, existing: str
+) -> Iterator[dict]:
     metadata = dandiset.get_raw_metadata()
     if not metadata:
         lgr.warning(
@@ -459,7 +492,7 @@ def _populate_dandiset_yaml(dandiset_path, dandiset, existing):
 def _download_file(
     downloader: Callable[[int], Iterator[bytes]],
     path: str,
-    toplevel_path: str,
+    toplevel_path: Union[str, Path],
     lock: Lock,
     size: Optional[int] = None,
     mtime: Optional[datetime] = None,
@@ -607,7 +640,8 @@ def _download_file(
                 downloaded_digest = digester()  # start empty
             warned = False
             # I wonder if we could make writing async with downloader
-            with DownloadDirectory(path, digests) as dldir:
+            with DownloadDirectory(path, digests or {}) as dldir:
+                assert dldir.offset is not None
                 downloaded = dldir.offset
                 resuming = downloaded > 0
                 if size is not None and downloaded == size:
@@ -622,7 +656,7 @@ def _download_file(
                         downloaded_digest.update(block)
                     downloaded += len(block)
                     # TODO: yield progress etc
-                    out = {"done": downloaded}
+                    out: Dict[str, Any] = {"done": downloaded}
                     if size:
                         if downloaded > size and not warned:
                             warned = True
@@ -632,7 +666,7 @@ def _download_file(
                                 downloaded,
                                 size,
                             )
-                        out["done%"] = 100 * downloaded / size if size else "100"
+                        out["done%"] = 100 * downloaded / size
                         # TODO: ETA etc
                     yield out
                     dldir.append(block)
@@ -688,7 +722,7 @@ def _download_file(
 
 
 class DownloadDirectory:
-    def __init__(self, filepath, digests):
+    def __init__(self, filepath: Union[str, Path], digests: Dict[str, str]) -> None:
         #: The path to which to save the file after downloading
         self.filepath = Path(filepath)
         #: Expected hashes of the downloaded data, as a mapping from algorithm
@@ -701,15 +735,13 @@ class DownloadDirectory:
         #: received
         self.writefile = self.dirpath / "file"
         #: A `fasteners.InterProcessLock` on `dirpath`
-        self.lock = None
+        self.lock: Optional[InterProcessLock] = None
         #: An open filehandle to `writefile`
-        self.fp = None
+        self.fp: Optional[IO[bytes]] = None
         #: How much of the data has been downloaded so far
-        self.offset = None
+        self.offset: Optional[int] = None
 
-    def __enter__(self):
-        from fasteners import InterProcessLock
-
+    def __enter__(self) -> DownloadDirectory:
         self.dirpath.mkdir(parents=True, exist_ok=True)
         self.lock = InterProcessLock(str(self.dirpath / "lock"))
         if not self.lock.acquire(blocking=False):
@@ -747,7 +779,13 @@ class DownloadDirectory:
         self.offset = self.fp.tell()
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        assert self.fp is not None
         self.fp.close()
         try:
             if exc_type is None:
@@ -757,22 +795,24 @@ class DownloadDirectory:
                     rmtree(self.filepath)
                     self.writefile.replace(self.filepath)
         finally:
+            assert self.lock is not None
             self.lock.release()
             if exc_type is None:
                 rmtree(self.dirpath, ignore_errors=True)
             self.lock = None
             self.fp = None
             self.offset = None
-        return False
 
-    def append(self, blob):
+    def append(self, blob: bytes) -> None:
+        if self.fp is None:
+            raise ValueError("DownloadDirectory.append() called outside of context")
         self.fp.write(blob)
 
 
 def _download_zarr(
     asset: RemoteZarrAsset,
     download_path: str,
-    toplevel_path: str,
+    toplevel_path: Union[str, Path],
     existing: str,
     lock: Lock,
     jobs: Optional[int] = None,
