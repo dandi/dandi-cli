@@ -776,6 +776,7 @@ def process_ndtypes(asset, nd_types):
     technique = set()
     variables = set()
     for val in nd_types:
+        val = val.split()[0]
         if val not in neurodata_typemap:
             continue
         if neurodata_typemap[val]["approach"]:
