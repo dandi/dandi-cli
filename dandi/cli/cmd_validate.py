@@ -18,7 +18,7 @@ from .base import devel_debug_option, devel_option, lgr, map_to_click_exceptions
 @devel_debug_option()
 @map_to_click_exceptions
 def validate(paths, schema=None, devel_debug=False, allow_any_path=False):
-    """Validate files for NWB (and DANDI) compliance.
+    """Validate files for NWB and DANDI compliance.
 
     Exits with non-0 exit code if any file is not compliant.
     """
@@ -43,7 +43,7 @@ def validate(paths, schema=None, devel_debug=False, allow_any_path=False):
     all_files_errors = {}
     nfiles = 0
     for path, errors in validate_(
-        paths,
+        *paths,
         schema_version=schema,
         devel_debug=devel_debug,
         allow_any_path=allow_any_path,

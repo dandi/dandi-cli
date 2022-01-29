@@ -6,6 +6,7 @@ import click
 
 from .base import devel_option, lgr, map_to_click_exceptions
 from ..dandiarchive import DandisetURL, _dandi_url_parser, parse_dandi_url
+from ..misctypes import Digest
 from ..utils import is_url
 
 # TODO: all the recursion options etc
@@ -354,8 +355,7 @@ def get_metadata_ls(
                         rec = nwb2asset(
                             path,
                             schema_version=schema,
-                            digest=digest,
-                            digest_type="dandi_etag",
+                            digest=Digest.dandi_etag(digest),
                         ).json_dict()
                 else:
                     rec = get_metadata(path)

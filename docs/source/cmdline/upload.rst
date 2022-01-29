@@ -13,9 +13,10 @@ a :file:`dandiset.yaml` file must exist in the local :option:`--dandiset-path`.
 Local Dandisets should pass validation.  For that, the assets should first be
 organized using the :ref:`dandi_organize` command.
 
-By default, all :file:`*.nwb` files in the Dandiset (excluding directories
-starting with a period) will be considered for the upload.  You can point to
-specific files you would like to validate and have uploaded.
+By default, all :file:`*.nwb`, :file:`*.zarr`, and :file:`*.ngff` assets in the
+Dandiset (ignoring directories starting with a period) will be considered for
+the upload.  You can point to specific files you would like to validate and
+have uploaded.
 
 Options
 -------
@@ -66,7 +67,7 @@ set to a nonempty value.
 
 .. option:: --allow-any-path
 
-    Upload all file types, not just :file:`*.nwb`'s
+    Upload all file types, not just NWBs and Zarrs
 
 .. option:: --devel-debug
 

@@ -1,3 +1,24 @@
+# 0.35.0 (Mon Jan 24 2022)
+
+#### 🚀 Enhancement
+
+- Make navigate() and navigate_url() auto-authenticate for embargoed Dandisets [#870](https://github.com/dandi/dandi-cli/pull/870) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- species url is case sensitive [#865](https://github.com/dandi/dandi-cli/pull/865) ([@jwodder](https://github.com/jwodder) [@satra](https://github.com/satra))
+
+#### 🏠 Internal
+
+- Update bad versions list in `.et` [#866](https://github.com/dandi/dandi-cli/pull/866) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+
+---
+
 # 0.34.1 (Mon Jan 17 2022)
 
 #### 🔩 Dependency Updates

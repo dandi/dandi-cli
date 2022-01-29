@@ -351,6 +351,7 @@ def test_parseobourl(url, value):
     assert parse_purlobourl(url) == value
 
 
+@mark.skipif_no_network
 def test_species():
     m = {"species": "http://purl.obolibrary.org/obo/NCBITaxon_28584"}
     assert extract_species(m).json_dict() == {

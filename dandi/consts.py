@@ -1,6 +1,6 @@
-from collections import namedtuple
 from enum import Enum
 import os
+from typing import NamedTuple, Optional
 
 #: A list of metadata fields which dandi extracts from .nwb files.
 #: Additional fields (such as ``number_of_*``) might be added by
@@ -87,7 +87,12 @@ class EmbargoStatus(Enum):
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
 
-DandiInstance = namedtuple("DandiInstance", ("gui", "redirector", "api"))
+
+class DandiInstance(NamedTuple):
+    gui: Optional[str]
+    redirector: Optional[str]
+    api: Optional[str]
+
 
 # So it could be easily mapped to external IP (e.g. from within VM)
 # to test against instance running outside of current environment
@@ -142,3 +147,12 @@ DRAFT = "draft"
 #: HTTP response status codes that should always be retried (until we run out
 #: of retries)
 RETRY_STATUSES = (500, 502, 503, 504)
+
+#: Maximum allowed depth of a Zarr directory tree
+MAX_ZARR_DEPTH = 5
+
+#: MIME type assigned to & used to identify Zarr assets
+ZARR_MIME_TYPE = "application/x-zarr"
+
+#: Maximum number of Zarr directory entries to upload at once
+ZARR_UPLOAD_BATCH_SIZE = 255

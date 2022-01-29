@@ -19,7 +19,7 @@ import shutil
 import subprocess
 import sys
 import types
-from typing import List, Optional, Union
+from typing import Iterable, Iterator, List, Optional, TypeVar, Union
 
 import dateutil.parser
 import requests
@@ -328,7 +328,7 @@ def list_paths(dirpath: Union[str, Path], dirs: bool = False) -> List[Path]:
     return sorted(map(Path, find_files(r".*", [dirpath], dirs=dirs)))
 
 
-_cp_supports_reflink = None
+_cp_supports_reflink: Optional[bool] = None
 
 
 def copy_file(src, dst):
@@ -355,12 +355,6 @@ def copy_file(src, dst):
 def move_file(src, dst):
     """Move file from src to dst"""
     return shutil.move(src, dst)
-
-
-def find_dandi_files(paths):
-    """Adapter to find_files to find files of interest to dandi project"""
-    sep = re.escape(os.sep)
-    yield from find_files(rf"((^|{sep})dandiset\.yaml|\.nwb)\Z", paths)
 
 
 def find_parent_directory_containing(filename, path=None):
@@ -604,14 +598,16 @@ def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
     -------
     object
     """
+    modobj: Optional[types.ModuleType]
     if isinstance(module, str):
+        modobj = sys.modules.get(module)
         mod_name = module
-        module = sys.modules.get(module)
     else:
+        modobj = module
         mod_name = module.__name__.split(".", 1)[0]
 
-    if module is not None:
-        version = getattr(module, "__version__", None)
+    if modobj is not None:
+        version = getattr(modobj, "__version__", None)
     else:
         version = None
     if version is None:
@@ -708,3 +704,22 @@ def check_dandi_version():
             exc,
         )
     os.environ["DANDI_NO_ET"] = "1"
+
+
+T = TypeVar("T")
+
+
+def chunked(iterable: Iterable[T], size: int) -> Iterator[List[T]]:
+    # cf. chunked() from more-itertools
+    i = iter(iterable)
+    while True:
+        xs = []
+        for _ in range(size):
+            try:
+                xs.append(next(i))
+            except StopIteration:
+                if xs:
+                    break
+                else:
+                    return
+        yield xs
