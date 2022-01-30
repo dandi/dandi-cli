@@ -637,6 +637,6 @@ def test_ndtypes(ndtypes, asset_dict):
         if asset_dict.get(key) is None:
             assert getattr(asset, key) == []
         else:
-            assert getattr(getattr(asset, key)[0], "name") == asset_dict.get(key)[0]
+            assert getattr(asset, key)[0].name == asset_dict.get(key)[0]
     key = "variableMeasured"
-    assert getattr(getattr(asset, key)[0], "value") == asset_dict.get(key)[0]
+    assert getattr(asset, key)[0].value == asset_dict.get(key)[0]
