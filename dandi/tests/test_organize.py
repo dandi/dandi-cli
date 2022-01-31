@@ -2,6 +2,7 @@ from glob import glob
 import os
 import os.path as op
 from pathlib import Path
+from typing import Any, NoReturn
 
 from click.testing import CliRunner
 from pynwb import NWBHDF5IO
@@ -22,27 +23,27 @@ from ..pynwb_utils import _get_image_series, copy_nwb_file, get_object_id
 from ..utils import find_files, on_windows, yaml_load
 
 
-def test_sanitize_value():
+def test_sanitize_value() -> None:
     # . is not sanitized in extension but elsewhere
     assert _sanitize_value("_.ext", "extension") == "-.ext"
     assert _sanitize_value("_.ext", "unrelated") == "--ext"
 
 
-def test_populate_dataset_yml(tmpdir):
+def test_populate_dataset_yml(tmp_path: Path) -> None:
     # should work even on an empty file
-    path = tmpdir / "blah.yaml"
+    path = tmp_path / "blah.yaml"
 
-    def c():  # shortcut
+    def c() -> Any:  # shortcut
         with open(path) as f:
             return yaml_load(f, typ="safe")
 
-    path.write("")
+    path.write_text("")
     populate_dataset_yml(str(path), [])  # doesn't crash
 
-    path.write("id: test1  # comment")  # no ID assumptions, or querying
+    path.write_text("id: test1  # comment")  # no ID assumptions, or querying
     populate_dataset_yml(str(path), [])  # doesn't crash
     # even comments should be preserved and no changes if no relevant metadata
-    assert path.read().strip() == "id: test1  # comment"
+    assert path.read_text().strip() == "id: test1  # comment"
 
     metadata = [
         # context for all the ids are dataset level ATM, so even when no
@@ -63,7 +64,7 @@ def test_populate_dataset_yml(tmpdir):
     }
 
     # and if we set units and redo -- years should stay unchanged, while other fields change
-    m = yaml_load(path.read())
+    m = yaml_load(path.read_text())
     m["age"]["units"] = "years"
     with open(path, "w") as fp:
         ruamel.yaml.YAML().dump(m, fp)
@@ -104,8 +105,8 @@ if not on_windows:
 
 @pytest.mark.integration
 @pytest.mark.parametrize("mode", no_move_modes)
-def test_organize_nwb_test_data(nwb_test_data, tmpdir, mode):
-    outdir = str(tmpdir / "organized")
+def test_organize_nwb_test_data(nwb_test_data: str, tmp_path: Path, mode: str) -> None:
+    outdir = str(tmp_path / "organized")
 
     relative = False
     if mode == "symlink-relative":
@@ -119,9 +120,9 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, mode):
         nwb_test_data = op.relpath(nwb_test_data, cwd)
         outdir = op.relpath(outdir, cwd)
 
-    src = Path(tmpdir, "src")
+    src = tmp_path / "src"
     src.touch()
-    dest = Path(tmpdir, "dest")
+    dest = tmp_path / "dest"
     try:
         dest.symlink_to(src)
     except OSError:
@@ -180,7 +181,7 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, mode):
         assert not any(op.islink(p) for p in produced_paths)
 
 
-def test_ambiguous(simple2_nwb, tmp_path):
+def test_ambiguous(simple2_nwb: str, tmp_path: Path) -> None:
     copy2 = copy_nwb_file(simple2_nwb, tmp_path)
     outdir = str(tmp_path / "organized")
     args = ["--files-mode", "copy", "-d", outdir, simple2_nwb, copy2]
@@ -196,7 +197,7 @@ def test_ambiguous(simple2_nwb, tmp_path):
     )
 
 
-def test_ambiguous_probe1():
+def test_ambiguous_probe1() -> None:
     base = dict(subject_id="1", session="2", extension="nwb")
     # fake filenames should be ok since we never should get to reading them for object_id
     metadata = [
@@ -240,11 +241,17 @@ def test_ambiguous_probe1():
         (False, False, "copy"),
     ],
 )
-def test_detect_link_type(monkeypatch, tmp_path, sym_success, hard_success, result):
-    def succeed_link(src, dest):
+def test_detect_link_type(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sym_success: bool,
+    hard_success: bool,
+    result: str,
+) -> None:
+    def succeed_link(src: Any, dest: Any) -> None:
         pass
 
-    def error_link(src, dest):
+    def error_link(src: Any, dest: Any) -> NoReturn:
         raise OSError("Operation failed")
 
     monkeypatch.setattr(os, "symlink", succeed_link if sym_success else error_link)

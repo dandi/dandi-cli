@@ -581,7 +581,10 @@ class _dandi_url_parser:
                             )
                         )
                     known_instance = get_instance(settings["map_instance"])
-                    parsed_url.api_url = known_instance.api
+                    assert known_instance.api is not None
+                    parsed_url.api_url = cast(
+                        AnyHttpUrl, parse_obj_as(AnyHttpUrl, known_instance.api)
+                    )
                 continue  # in this run we ignore and match further
             elif "instance_name" in groups:
                 try:

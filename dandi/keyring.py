@@ -1,8 +1,9 @@
 import os.path as op
 from pathlib import Path
+from typing import Optional, Tuple
 
 import click
-from keyring.backend import get_all_keyring
+from keyring.backend import KeyringBackend, get_all_keyring
 from keyring.core import get_keyring, load_config, load_env
 from keyring.errors import KeyringError
 from keyring.util.platform_ import config_root
@@ -13,7 +14,9 @@ from . import get_logger
 lgr = get_logger()
 
 
-def keyring_lookup(service_name, username):
+def keyring_lookup(
+    service_name: str, username: str
+) -> Tuple[KeyringBackend, Optional[str]]:
     """
     Determine a keyring backend to use for storing & retrieving credentials as
     follows:
@@ -94,5 +97,5 @@ def keyring_lookup(service_name, username):
         return (kb, password)
 
 
-def keyringrc_file():
+def keyringrc_file() -> Path:
     return Path(config_root(), "keyringrc.cfg")

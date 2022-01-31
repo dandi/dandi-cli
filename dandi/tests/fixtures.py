@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
 import logging
@@ -6,11 +8,13 @@ from pathlib import Path
 import re
 import shutil
 from subprocess import DEVNULL, check_output, run
+import sys
 import tempfile
 from time import sleep
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union
 from uuid import uuid4
 
+from _pytest.fixtures import FixtureRequest
 from click.testing import CliRunner
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dateutil.tz import tzlocal, tzutc
@@ -37,16 +41,16 @@ lgr = get_logger()
 
 
 @pytest.fixture(autouse=True)
-def capture_all_logs(caplog):
+def capture_all_logs(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG, logger="dandi")
 
 
 # TODO: move into some common fixtures.  We might produce a number of files
 #       and also carry some small ones directly in git for regression testing
 @pytest.fixture(scope="session")
-def simple1_nwb_metadata(tmpdir_factory):
+def simple1_nwb_metadata() -> Dict[str, Any]:
     # very simple assignment with the same values as the key with 1 as suffix
-    metadata = {f: "{}1".format(f) for f in metadata_nwb_file_fields}
+    metadata: Dict[str, Any] = {f: f"{f}1" for f in metadata_nwb_file_fields}
     metadata["identifier"] = uuid4().hex
     # subject_fields
 
@@ -65,7 +69,9 @@ def simple1_nwb_metadata(tmpdir_factory):
 
 
 @pytest.fixture(scope="session")
-def simple1_nwb(simple1_nwb_metadata, tmpdir_factory):
+def simple1_nwb(
+    simple1_nwb_metadata: Dict[str, Any], tmpdir_factory: pytest.TempdirFactory
+) -> str:
     return make_nwb_file(
         str(tmpdir_factory.mktemp("simple1").join("simple1.nwb")),
         **simple1_nwb_metadata,
@@ -73,7 +79,9 @@ def simple1_nwb(simple1_nwb_metadata, tmpdir_factory):
 
 
 @pytest.fixture(scope="session")
-def simple2_nwb(simple1_nwb_metadata, tmpdir_factory):
+def simple2_nwb(
+    simple1_nwb_metadata: Dict[str, Any], tmpdir_factory: pytest.TempdirFactory
+) -> str:
     """With a subject"""
     return make_nwb_file(
         str(tmpdir_factory.mktemp("simple2").join("simple2.nwb")),
@@ -88,7 +96,9 @@ def simple2_nwb(simple1_nwb_metadata, tmpdir_factory):
 
 
 @pytest.fixture(scope="session")
-def organized_nwb_dir(simple2_nwb, tmp_path_factory):
+def organized_nwb_dir(
+    simple2_nwb: str, tmp_path_factory: pytest.TempPathFactory
+) -> Path:
     tmp_path = tmp_path_factory.mktemp("organized_nwb_dir")
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
     r = CliRunner().invoke(
@@ -99,12 +109,16 @@ def organized_nwb_dir(simple2_nwb, tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def organized_nwb_dir2(simple1_nwb_metadata, simple2_nwb, tmp_path_factory):
+def organized_nwb_dir2(
+    simple1_nwb_metadata: Dict[str, Any],
+    simple2_nwb: str,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Path:
     tmp_path = tmp_path_factory.mktemp("organized_nwb_dir2")
 
     # need to copy first and then use -f move since we will create one more
     # file to be "organized"
-    shutil.copy(str(simple2_nwb), str(tmp_path))
+    shutil.copy(simple2_nwb, tmp_path)
     make_nwb_file(
         str(tmp_path / "simple3.nwb"),
         subject=pynwb.file.Subject(
@@ -122,13 +136,32 @@ def organized_nwb_dir2(simple1_nwb_metadata, simple2_nwb, tmp_path_factory):
     return tmp_path
 
 
-def get_gitrepo_fixture(url, committish=None, scope="session"):
+if TYPE_CHECKING:
+    if sys.version_info >= (3, 8):
+        from typing import Literal
+    else:
+        from typing_extensions import Literal
+
+    Scope = Union[
+        Literal["session"],
+        Literal["package"],
+        Literal["module"],
+        Literal["class"],
+        Literal["function"],
+    ]
+
+
+def get_gitrepo_fixture(
+    url: str,
+    committish: Optional[str] = None,
+    scope: Scope = "session",
+) -> Callable[[], Iterator[str]]:
 
     if committish:
         raise NotImplementedError()
 
     @pytest.fixture(scope=scope)
-    def fixture():
+    def fixture() -> Iterator[str]:
         skipif.no_network()
         skipif.no_git()
 
@@ -158,7 +191,7 @@ LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name
 
 
 @pytest.fixture(scope="session")
-def docker_compose_setup():
+def docker_compose_setup() -> Iterator[Dict[str, str]]:
     skipif.no_network()
     skipif.no_docker_engine()
 
@@ -266,7 +299,7 @@ class DandiAPI:
 
 
 @pytest.fixture(scope="session")
-def local_dandi_api(docker_compose_setup):
+def local_dandi_api(docker_compose_setup: Dict[str, str]) -> Iterator[DandiAPI]:
     instance_id = "dandi-api-local-docker-tests"
     instance = known_instances[instance_id]
     api_key = docker_compose_setup["django_api_key"]
@@ -291,7 +324,9 @@ class SampleDandiset:
     def client(self) -> DandiAPIClient:
         return self.api.client
 
-    def upload(self, paths: Optional[List[str]] = None, **kwargs: Any) -> None:
+    def upload(
+        self, paths: Optional[List[Union[str, Path]]] = None, **kwargs: Any
+    ) -> None:
         with pytest.MonkeyPatch().context() as m:
             m.setenv("DANDI_API_KEY", self.api.api_key)
             upload(
@@ -304,7 +339,11 @@ class SampleDandiset:
 
 
 @pytest.fixture()
-def new_dandiset(local_dandi_api, request, tmp_path_factory):
+def new_dandiset(
+    local_dandi_api: DandiAPI,
+    request: FixtureRequest,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> SampleDandiset:
     d = local_dandi_api.client.create_dandiset(
         f"Sample Dandiset for {request.node.name}",
         # Minimal metadata needed to create a publishable Dandiset:
@@ -335,7 +374,7 @@ def new_dandiset(local_dandi_api, request, tmp_path_factory):
 
 
 @pytest.fixture()
-def text_dandiset(new_dandiset):
+def text_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
     (new_dandiset.dspath / "file.txt").write_text("This is test text.\n")
     (new_dandiset.dspath / "subdir1").mkdir()
     (new_dandiset.dspath / "subdir1" / "apple.txt").write_text("Apple\n")
@@ -348,7 +387,7 @@ def text_dandiset(new_dandiset):
 
 
 @pytest.fixture()
-def zarr_dandiset(new_dandiset):
+def zarr_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
     zarr.save(
         new_dandiset.dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1)
     )

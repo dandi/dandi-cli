@@ -1,8 +1,15 @@
+from typing import Iterator, List, Optional, Tuple
+
 from .files import find_dandi_files
 
 
 # TODO: provide our own "errors" records, which would also include warnings etc
-def validate(*paths, schema_version=None, devel_debug=False, allow_any_path=False):
+def validate(
+    *paths: str,
+    schema_version: Optional[str] = None,
+    devel_debug: bool = False,
+    allow_any_path: bool = False,
+) -> Iterator[Tuple[str, List[str]]]:
     """Validate content
 
     Parameters
@@ -17,7 +24,7 @@ def validate(*paths, schema_version=None, devel_debug=False, allow_any_path=Fals
     """
     for df in find_dandi_files(*paths, dandiset_path=None, allow_all=allow_any_path):
         yield (
-            df.filepath,
+            str(df.filepath),
             df.get_validation_errors(
                 schema_version=schema_version, devel_debug=devel_debug
             ),
