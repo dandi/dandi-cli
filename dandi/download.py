@@ -805,7 +805,7 @@ class DownloadDirectory:
 
     def append(self, blob: bytes) -> None:
         if self.fp is None:
-            raise ValueError("DownloadDirectory.append() called outside of context")
+            raise ValueError("DownloadDirectory.append() called outside of context manager")
         self.fp.write(blob)
 
 
