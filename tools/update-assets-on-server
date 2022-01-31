@@ -18,6 +18,7 @@ import requests
 
 from dandi.dandiapi import DandiAPIClient
 from dandi.metadata import get_default_metadata, nwb2asset
+from dandi.misctypes import Digest
 from dandi.support.digests import get_digest
 
 logging.basicConfig(
@@ -37,10 +38,10 @@ def get_meta(path, digest=None):
     try:
         if digest is None:
             digest = get_digest(path, digest="dandi-etag")
-        localmeta = nwb2asset(path, digest=digest, digest_type="dandi_etag")
+        localmeta = nwb2asset(path, digest=Digest.dandi_etag(digest))
     except Exception as e:
         ul.error(f"Error {e} getting {path}")
-        localmeta = get_default_metadata(path, digest=digest, digest_type="dandi_etag")
+        localmeta = get_default_metadata(path, digest=Digest.dandi_etag(digest))
     return localmeta.json_dict()
 
 

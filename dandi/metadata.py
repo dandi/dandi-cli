@@ -2,8 +2,9 @@ from datetime import datetime
 from functools import lru_cache
 import os
 import os.path as op
+from pathlib import Path
 import re
-import typing as ty
+from typing import Dict, List, Optional, Tuple, Union
 from uuid import uuid4
 from xml.dom.minidom import parseString
 
@@ -13,6 +14,7 @@ import tenacity
 
 from . import __version__, get_logger
 from .dandiset import Dandiset
+from .misctypes import Digest
 from .pynwb_utils import (
     _get_pynwb_metadata,
     get_neurodata_types,
@@ -388,7 +390,9 @@ species_map = [
     stop=tenacity.stop_after_attempt(3),
     wait=tenacity.wait_exponential(exp_base=1.25, multiplier=1.25),
 )
-def parse_purlobourl(url: str, lookup: ty.Optional[ty.Tuple[str, ...]] = None):
+def parse_purlobourl(
+    url: str, lookup: Optional[Tuple[str, ...]] = None
+) -> Optional[Dict[str, str]]:
     """Parse an Ontobee URL to return properties of a Class node
 
     :param url: Ontobee URL
@@ -397,6 +401,7 @@ def parse_purlobourl(url: str, lookup: ty.Optional[ty.Tuple[str, ...]] = None):
     """
 
     req = requests.get(url, allow_redirects=True)
+    req.raise_for_status()
     doc = parseString(req.text)
     for elfound in doc.getElementsByTagName("Class"):
         if (
@@ -432,7 +437,7 @@ def extract_species(metadata):
                 value_id = value_orig
                 lookup = ("rdfs:label", "oboInOwl:hasExactSynonym")
                 try:
-                    result = parse_purlobourl(value, lookup=lookup)
+                    result = parse_purlobourl(value_orig, lookup=lookup)
                 except ConnectionError:
                     value = None
                 else:
@@ -457,7 +462,8 @@ def extract_species(metadata):
                 "(http://www.ontobee.org/ontology/NCBITaxon) into "
                 "your species field in your NWB file. For example: "
                 "http://purl.obolibrary.org/obo/NCBITaxon_9606 is the "
-                "url for the species Homo sapiens."
+                "url for the species Homo sapiens. Please note that "
+                "this url is case sensitive."
             )
         return models.SpeciesType(identifier=value_id, name=value)
     else:
@@ -524,14 +530,14 @@ extract_wasAttributedTo = extract_model_list(
 )
 
 
-def extract_session(metadata: dict) -> list:
+def extract_session(metadata: dict) -> Optional[List[models.Session]]:
     probe_ids = metadata.get("probe_ids", [])
     if isinstance(probe_ids, str):
         probe_ids = [probe_ids]
-    probes = []
-    for val in probe_ids:
-        probes.append(models.Equipment(identifier=f"probe:{val}", name="Ecephys Probe"))
-    probes = probes or None
+    probes = [
+        models.Equipment(identifier=f"probe:{val}", name="Ecephys Probe")
+        for val in probe_ids
+    ] or None
     session_id = None
     if metadata.get("session_id") is not None:
         session_id = str(metadata["session_id"])
@@ -785,32 +791,10 @@ def process_ndtypes(asset, nd_types):
     return asset
 
 
-def get_asset_metadata(
-    filepath, relpath, digest=None, digest_type=None, allow_any_path=True
-) -> models.BareAsset:
-    metadata = None
-    if op.splitext(filepath)[1] == ".nwb":
-        try:
-            metadata = nwb2asset(filepath, digest=digest, digest_type=digest_type)
-        except Exception as e:
-            lgr.warning(
-                "Failed to extract NWB metadata from %s: %s: %s",
-                filepath,
-                type(e).__name__,
-                str(e),
-            )
-            if not allow_any_path:
-                raise
-    if metadata is None:
-        metadata = get_default_metadata(
-            filepath, digest=digest, digest_type=digest_type
-        )
-    metadata.path = str(relpath)
-    return metadata
-
-
 def nwb2asset(
-    nwb_path, digest=None, digest_type=None, schema_version=None
+    nwb_path: Union[str, Path],
+    digest: Optional[Digest] = None,
+    schema_version: Optional[str] = None,
 ) -> models.BareAsset:
     if schema_version is not None:
         current_version = models.get_schema_version()
@@ -821,13 +805,13 @@ def nwb2asset(
     start_time = datetime.now().astimezone()
     metadata = get_metadata(nwb_path)
     if digest is not None:
-        metadata["digest"] = digest
-        metadata["digest_type"] = digest_type
+        metadata["digest"] = digest.value
+        metadata["digest_type"] = digest.algorithm.name
     metadata["contentSize"] = op.getsize(nwb_path)
     metadata["encodingFormat"] = "application/x-nwb"
     metadata["dateModified"] = get_utcnow_datetime()
     metadata["blobDateModified"] = ensure_datetime(os.stat(nwb_path).st_mtime)
-    metadata["path"] = nwb_path
+    metadata["path"] = str(nwb_path)
     if metadata["blobDateModified"] > metadata["dateModified"]:
         lgr.warning(
             "mtime %s of %s is in the future", metadata["blobDateModified"], nwb_path
@@ -841,12 +825,14 @@ def nwb2asset(
     return asset
 
 
-def get_default_metadata(path, digest=None, digest_type=None) -> models.BareAsset:
+def get_default_metadata(
+    path: Union[str, Path], digest: Optional[Digest] = None
+) -> models.BareAsset:
     start_time = datetime.now().astimezone()
     if digest is not None:
-        digest_model = {models.DigestType[digest_type]: digest}
+        digest_model = digest.asdict()
     else:
-        digest_model = []
+        digest_model = {}
     dateModified = get_utcnow_datetime()
     blobDateModified = ensure_datetime(os.stat(path).st_mtime)
     if blobDateModified > dateModified:
@@ -858,7 +844,7 @@ def get_default_metadata(path, digest=None, digest_type=None) -> models.BareAsse
         dateModified=dateModified,
         blobDateModified=blobDateModified,
         wasGeneratedBy=[get_generator(start_time, end_time)],
-        encodingFormat=get_mime_type(path),
+        encodingFormat=get_mime_type(str(path)),
     )
 
 

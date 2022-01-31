@@ -2,7 +2,7 @@ import os
 
 import click
 
-from .base import instance_option, map_to_click_exceptions
+from .base import IntColonInt, instance_option, map_to_click_exceptions
 from ..consts import known_instances, known_instances_rev
 from ..dandiarchive import _dandi_url_parser, parse_dandi_url
 
@@ -70,8 +70,9 @@ Download a file or entire folder from DANDI.
 @click.option(
     "-J",
     "--jobs",
-    help="Number of parallel download jobs.",
-    default=6,  # TODO: come up with smart auto-scaling etc
+    type=IntColonInt(),
+    help="Number of parallel download jobs and, optionally number of subjobs per Zarr asset",
+    default="6",  # TODO: come up with smart auto-scaling etc
     show_default=True,
 )
 @click.option(
@@ -141,7 +142,8 @@ def download(
         output_dir,
         existing=existing,
         format=format,
-        jobs=jobs,
+        jobs=jobs[0],
+        jobs_per_zarr=jobs[1],
         get_metadata="dandiset.yaml" in download_types,
         get_assets="assets" in download_types,
         sync=sync,
