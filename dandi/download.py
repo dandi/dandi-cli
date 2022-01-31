@@ -39,7 +39,7 @@ import requests
 
 from . import get_logger
 from .consts import RETRY_STATUSES, dandiset_metadata_file
-from .dandiapi import AssetType, RemoteAsset, RemoteDandiset, RemoteZarrAsset
+from .dandiapi import AssetType, BaseRemoteZarrAsset, RemoteDandiset
 from .dandiarchive import (
     DandisetURL,
     MultiAssetURL,
@@ -286,10 +286,7 @@ def download_generator(
                         "Asset %s is missing blobDateModified metadata field",
                         asset.path,
                     )
-                    if isinstance(asset, RemoteAsset):
-                        # TODO: Remove ^^ guard ^^ once dandi-archive#681 is
-                        # supported
-                        mtime = asset.modified
+                    mtime = asset.modified
                 _download_generator = _download_file(
                     asset.get_download_file_iter(),
                     download_path,
@@ -304,14 +301,9 @@ def download_generator(
                 )
 
             else:
-                assert (
-                    asset.asset_type is AssetType.ZARR
+                assert isinstance(
+                    asset, BaseRemoteZarrAsset
                 ), f"Asset {asset.path} is neither blob nor Zarr"
-                if not isinstance(asset, RemoteZarrAsset):
-                    raise NotImplementedError(
-                        "Downloading a Zarr asset identified by a URL without"
-                        " Dandiset details is not yet implemented"
-                    )
                 _download_generator = _download_zarr(
                     asset,
                     download_path,
@@ -805,12 +797,14 @@ class DownloadDirectory:
 
     def append(self, blob: bytes) -> None:
         if self.fp is None:
-            raise ValueError("DownloadDirectory.append() called outside of context manager")
+            raise ValueError(
+                "DownloadDirectory.append() called outside of context manager"
+            )
         self.fp.write(blob)
 
 
 def _download_zarr(
-    asset: RemoteZarrAsset,
+    asset: BaseRemoteZarrAsset,
     download_path: str,
     toplevel_path: Union[str, Path],
     existing: str,
