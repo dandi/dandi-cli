@@ -1183,8 +1183,7 @@ class BaseRemoteAsset(APIBase):
                     raise
 
     def get_raw_digest(
-        self,
-        digest_type: Union[str, models.DigestType, None] = models.DigestType.dandi_etag,
+        self, digest_type: Union[str, models.DigestType, None] = None
     ) -> str:
         """
         Retrieves the value of the given type of digest from the asset's
