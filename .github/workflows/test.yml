@@ -80,14 +80,18 @@ jobs:
         pip install git+https://github.com/NeurodataWithoutBorders/pynwb
 
     - name: Run all tests
-      if: matrix.mode != 'dandi-api' && github.event_name != 'schedule'
+      if: matrix.mode != 'dandi-api'
       run: |
         python -m pytest -s -v --cov=dandi --cov-report=xml dandi
 
-    - name: Run all tests (including doctests)
+    - name: Smoke test example code in docs
       if: matrix.mode != 'dandi-api' && github.event_name == 'schedule'
       run: |
-        python -m pytest -s -v --cov=dandi --cov-report=xml --doctest-modules dandi
+        set -ex
+        cd docs/source/examples
+        for f in *.py
+        do python "$f"
+        done
 
     - name: Run Dandi API tests only
       if: matrix.mode == 'dandi-api'
