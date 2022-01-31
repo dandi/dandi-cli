@@ -1,5 +1,6 @@
 """Classes/utilities for support of a dandiset"""
 from pathlib import Path
+from typing import Optional, Type, TypeVar, Union
 
 from dandischema.models import get_schema_version
 
@@ -9,32 +10,34 @@ from .utils import find_parent_directory_containing, yaml_dump, yaml_load
 
 lgr = get_logger()
 
+D = TypeVar("D", bound="Dandiset")
 
-class Dandiset(object):
+
+class Dandiset:
     """A prototype class for all things dandiset"""
 
     __slots__ = ["metadata", "path", "path_obj", "_metadata_file_obj"]
 
-    def __init__(self, path, allow_empty=False):
+    def __init__(self, path: Union[str, Path], allow_empty: bool = False) -> None:
         self.path = str(path)
         self.path_obj = Path(path)
         if not allow_empty and not (self.path_obj / dandiset_metadata_file).exists():
             raise ValueError(f"No dandiset at {path}")
 
-        self.metadata = None
+        self.metadata: Optional[dict] = None
         self._metadata_file_obj = self.path_obj / dandiset_metadata_file
         self._load_metadata()
 
     @classmethod
-    def find(cls, path):
+    def find(cls: Type[D], path: Union[str, Path, None]) -> Optional[D]:
         """Find a dandiset possibly pointing to a directory within it"""
         dandiset_path = find_parent_directory_containing(dandiset_metadata_file, path)
         # TODO?: identify "class" for the dandiset to use (this one or APIDandiset)
-        if dandiset_path:
+        if dandiset_path is not None:
             return cls(dandiset_path)
         return None
 
-    def _load_metadata(self):
+    def _load_metadata(self) -> None:
         if self._metadata_file_obj.exists():
             with open(self._metadata_file_obj) as f:
                 # TODO it would cast 000001 if not explicitly string into
@@ -44,7 +47,7 @@ class Dandiset(object):
             self.metadata = None
 
     @classmethod
-    def get_dandiset_record(cls, meta):
+    def get_dandiset_record(cls, meta: dict) -> str:
         dandiset_identifier = cls._get_identifier(meta)
         if not dandiset_identifier:
             lgr.warning("No identifier for a dandiset was provided in %s", str(meta))
@@ -61,7 +64,7 @@ class Dandiset(object):
         yaml_rec = yaml_dump(meta)
         return header + yaml_rec
 
-    def update_metadata(self, meta):
+    def update_metadata(self, meta: dict) -> None:
         """Update existing metadata record in dandiset.yaml"""
         if not meta:
             lgr.debug("No updates to metadata, returning")
@@ -84,7 +87,7 @@ class Dandiset(object):
         self._load_metadata()
 
     @classmethod
-    def _get_identifier(cls, metadata):
+    def _get_identifier(cls, metadata: dict) -> Optional[str]:
         """Given a metadata record, determine identifier"""
         # ATM since we have dichotomy in dandiset metadata schema from drafts
         # and from published versions, we will just test both locations
@@ -108,14 +111,19 @@ class Dandiset(object):
                     f"with 'propertyID: DANDI': {id_}"
                 )
             id_ = str(id_.get("value", ""))
-        elif id_.startswith("DANDI:"):
-            # result of https://github.com/dandi/dandi-cli/pull/348 which
-            id_ = id_[len("DANDI:") :]
+        elif id_ is not None:
+            assert isinstance(id_, str)
+            if id_.startswith("DANDI:"):
+                # result of https://github.com/dandi/dandi-cli/pull/348 which
+                id_ = id_[len("DANDI:") :]
 
+        assert id_ is None or isinstance(id_, str)
         return id_
 
     @property
-    def identifier(self):
+    def identifier(self) -> str:
+        if self.metadata is None:
+            raise ValueError("No metadata record found in Dandiset")
         id_ = self._get_identifier(self.metadata)
         if not id_:
             raise ValueError(
@@ -127,7 +135,12 @@ class Dandiset(object):
 class APIDandiset(Dandiset):
     """A dandiset to replace "classical" Dandiset whenever we migrate to new API based server"""
 
-    def __init__(self, path, allow_empty=False, schema_version=None):
+    def __init__(
+        self,
+        path: Union[str, Path],
+        allow_empty: bool = False,
+        schema_version: Optional[str] = None,
+    ) -> None:
         if schema_version is not None:
             current_version = get_schema_version()
             if schema_version != current_version:

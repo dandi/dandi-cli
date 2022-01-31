@@ -1,7 +1,9 @@
 from collections import Counter
 import os
 import os.path as op
+from pathlib import Path
 import re
+from typing import Any, Dict, List, Tuple, TypeVar, Union
 import warnings
 
 import dandischema
@@ -52,7 +54,7 @@ def _sanitize_nwb_version(v, filename=None, log=None):
         log = lgr.warning
     elif not log:
 
-        def log(v):  # does nothing
+        def log(v: str) -> str:  # does nothing
             return v
 
     if isinstance(v, str):
@@ -104,10 +106,11 @@ def get_nwb_version(filepath, sanitize=False):
         try:
             return _sanitize(h5file["nwb_version"][...].tostring().decode())
         except Exception:
-            lgr.debug("%s has no nwb_version" % filepath)
+            lgr.debug("%s has no nwb_version", filepath)
+    return None
 
 
-def get_neurodata_types_to_modalities_map():
+def get_neurodata_types_to_modalities_map() -> Dict[str, str]:
     """Return a dict to map neurodata types known to pynwb to "modalities"
 
     It is an ugly hack, largely to check feasibility.
@@ -116,7 +119,7 @@ def get_neurodata_types_to_modalities_map():
     """
     import inspect
 
-    ndtypes = {}
+    ndtypes: Dict[str, str] = {}
 
     # TODO: if there are extensions, they might have types subclassed from the base
     # types.  There might be a map within pynwb (pynwb.get_type_map?) to return
@@ -151,7 +154,7 @@ def get_neurodata_types_to_modalities_map():
 
 
 @metadata_cache.memoize_path
-def get_neurodata_types(filepath):
+def get_neurodata_types(filepath: Union[str, Path]) -> List[str]:
     with h5py.File(filepath, "r") as h5file:
         all_pairs = _scan_neurodata_types(h5file)
 
@@ -169,7 +172,7 @@ def get_neurodata_types(filepath):
     return out
 
 
-def _scan_neurodata_types(grp):
+def _scan_neurodata_types(grp: h5py.File) -> List[Tuple[Any, Any]]:
     out = []
     if "neurodata_type" in grp.attrs:
         out.append((grp.attrs["neurodata_type"], grp.attrs.get("description", None)))
@@ -179,7 +182,7 @@ def _scan_neurodata_types(grp):
     return out
 
 
-def _get_pynwb_metadata(path):
+def _get_pynwb_metadata(path: Union[str, Path]) -> Dict[str, Any]:
     out = {}
     with NWBHDF5IO(path, "r", load_namespaces=True) as io:
         nwb = io.read()
@@ -231,7 +234,7 @@ def _get_pynwb_metadata(path):
 
 
 @validate_cache.memoize_path
-def validate(path, devel_debug=False):
+def validate(path: Union[str, Path], devel_debug: bool = False) -> List[str]:
     """Run validation on a file and return errors
 
     In case of an exception being thrown, an error message added to the
@@ -242,6 +245,7 @@ def validate(path, devel_debug=False):
     path: str or Path
     """
     path = str(path)  # Might come in as pathlib's PATH
+    errors: List[str]
     try:
         with pynwb.NWBHDF5IO(path, "r", load_namespaces=True) as reader:
             errors = pynwb.validate(reader)
@@ -299,7 +303,7 @@ def validate(path, devel_debug=False):
 _ignored_benign_pynwb_warnings = False
 
 
-def ignore_benign_pynwb_warnings():
+def ignore_benign_pynwb_warnings() -> None:
     global _ignored_benign_pynwb_warnings
     if _ignored_benign_pynwb_warnings:
         return
@@ -312,7 +316,7 @@ def ignore_benign_pynwb_warnings():
     _ignored_benign_pynwb_warnings = True
 
 
-def get_object_id(path):
+def get_object_id(path: Union[str, Path]) -> Any:
     """Read, if present an object_id
 
     if not available -- would simply raise a corresponding exception
@@ -321,7 +325,12 @@ def get_object_id(path):
         return f.attrs["object_id"]
 
 
-def make_nwb_file(filename, *args, cache_spec=False, **kwargs):
+StrPath = TypeVar("StrPath", str, Path)
+
+
+def make_nwb_file(
+    filename: StrPath, *args: Any, cache_spec: bool = False, **kwargs: Any
+) -> StrPath:
     """A little helper to produce an .nwb file in the path using NWBFile
 
     Note: it doesn't cache_spec by default
@@ -332,7 +341,7 @@ def make_nwb_file(filename, *args, cache_spec=False, **kwargs):
     return filename
 
 
-def copy_nwb_file(src, dest):
+def copy_nwb_file(src: Union[str, Path], dest: Union[str, Path]) -> str:
     """ "Copy" .nwb file by opening and saving into a new path.
 
     New file (`dest`) then should have new `object_id` attribute, and thus be
@@ -360,17 +369,17 @@ def copy_nwb_file(src, dest):
         data = ior.read()
         data.generate_new_id()
         iow.export(ior, nwbfile=data)
-    return dest
+    return str(dest)
 
 
 @metadata_cache.memoize_path
-def nwb_has_external_links(filepath):
+def nwb_has_external_links(filepath: Union[str, Path]) -> bool:
     with h5py.File(filepath, "r") as fp:
         visited = set()
 
         # cannot use `file.visititems` because it skips external links
         # (https://github.com/h5py/h5py/issues/671)
-        def visit(path="/"):
+        def visit(path: str = "/") -> bool:
             if isinstance(fp[path], h5py.Group):
                 for key in fp[path].keys():
                     key_path = path + "/" + key

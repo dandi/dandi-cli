@@ -2,16 +2,20 @@ import builtins
 from datetime import datetime, timezone
 import logging
 import os.path
+from pathlib import Path
 import random
 import re
 from shutil import rmtree
+from typing import Union
 
 import anys
 import click
 from dandischema.models import UUID_PATTERN, DigestType, get_schema_version
 import pytest
+from pytest_mock import MockerFixture
 import responses
 
+from .fixtures import DandiAPI, SampleDandiset
 from .skip import mark
 from .. import dandiapi
 from ..consts import (
@@ -26,7 +30,7 @@ from ..exceptions import NotFoundError, SchemaVersionError
 from ..utils import list_paths
 
 
-def test_upload(new_dandiset, simple1_nwb, tmp_path):
+def test_upload(new_dandiset: SampleDandiset, simple1_nwb: str, tmp_path: Path) -> None:
     d = new_dandiset.dandiset
     assert d.version_id == DRAFT
     d.upload_raw_asset(simple1_nwb, {"path": "testing/simple1.nwb"})
@@ -38,7 +42,7 @@ def test_upload(new_dandiset, simple1_nwb, tmp_path):
     assert paths[0].stat().st_size == os.path.getsize(simple1_nwb)
 
 
-def test_publish_and_manipulate(new_dandiset, tmp_path):
+def test_publish_and_manipulate(new_dandiset: SampleDandiset, tmp_path: Path) -> None:
     d = new_dandiset.dandiset
     dandiset_id = d.identifier
     dspath = new_dandiset.dspath
@@ -102,7 +106,7 @@ def test_publish_and_manipulate(new_dandiset, tmp_path):
     assert file_in_version.read_text() == "This is test text.\n"
 
 
-def test_get_asset_metadata(new_dandiset, simple1_nwb):
+def test_get_asset_metadata(new_dandiset: SampleDandiset, simple1_nwb: str) -> None:
     d = new_dandiset.dandiset
     d.upload_raw_asset(simple1_nwb, {"path": "testing/simple1.nwb", "foo": "bar"})
     (asset,) = d.get_assets()
@@ -112,7 +116,7 @@ def test_get_asset_metadata(new_dandiset, simple1_nwb):
     assert metadata["foo"] == "bar"
 
 
-def test_large_upload(new_dandiset, tmp_path):
+def test_large_upload(new_dandiset: SampleDandiset, tmp_path: Path) -> None:
     asset_file = tmp_path / "asset.dat"
     meg = bytes(random.choices(range(256), k=1 << 20))
     with asset_file.open("wb") as fp:
@@ -121,7 +125,9 @@ def test_large_upload(new_dandiset, tmp_path):
     new_dandiset.dandiset.upload_raw_asset(asset_file, {"path": "testing/asset.dat"})
 
 
-def test_authenticate_bad_key_good_key_input(local_dandi_api, mocker, monkeypatch):
+def test_authenticate_bad_key_good_key_input(
+    local_dandi_api: DandiAPI, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     good_key = local_dandi_api.api_key
     bad_key = "1234567890"
     client_name = local_dandi_api.instance_id
@@ -153,7 +159,9 @@ def test_authenticate_bad_key_good_key_input(local_dandi_api, mocker, monkeypatc
     confirm_mock.assert_called_once_with("API key is invalid; enter another?")
 
 
-def test_authenticate_good_key_keyring(local_dandi_api, mocker, monkeypatch):
+def test_authenticate_good_key_keyring(
+    local_dandi_api: DandiAPI, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     good_key = local_dandi_api.api_key
     client_name = local_dandi_api.instance_id
     app_id = f"dandi-api-{client_name}"
@@ -181,8 +189,8 @@ def test_authenticate_good_key_keyring(local_dandi_api, mocker, monkeypatch):
 
 
 def test_authenticate_bad_key_keyring_good_key_input(
-    local_dandi_api, mocker, monkeypatch
-):
+    local_dandi_api: DandiAPI, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     good_key = local_dandi_api.api_key
     bad_key = "1234567890"
     client_name = local_dandi_api.instance_id
@@ -213,7 +221,7 @@ def test_authenticate_bad_key_keyring_good_key_input(
 
 
 @mark.skipif_no_network
-def test_get_content_url(tmp_path):
+def test_get_content_url(tmp_path: Path) -> None:
     with DandiAPIClient.for_dandi_instance("dandi") as client:
         asset = client.get_dandiset("000027", "draft").get_asset_by_path(
             "sub-RAT123/sub-RAT123.nwb"
@@ -232,7 +240,7 @@ def test_get_content_url(tmp_path):
 
 
 @mark.skipif_no_network
-def test_get_content_url_regex(tmp_path):
+def test_get_content_url_regex(tmp_path: Path) -> None:
     with DandiAPIClient.for_dandi_instance("dandi") as client:
         asset = client.get_dandiset("000027", "draft").get_asset_by_path(
             "sub-RAT123/sub-RAT123.nwb"
@@ -245,7 +253,7 @@ def test_get_content_url_regex(tmp_path):
 
 
 @mark.skipif_no_network
-def test_get_content_url_follow_one_redirects_strip_query():
+def test_get_content_url_follow_one_redirects_strip_query() -> None:
     with DandiAPIClient.for_dandi_instance("dandi") as client:
         asset = client.get_dandiset("000027", "draft").get_asset_by_path(
             "sub-RAT123/sub-RAT123.nwb"
@@ -257,7 +265,7 @@ def test_get_content_url_follow_one_redirects_strip_query():
         )
 
 
-def test_remote_asset_json_dict(text_dandiset):
+def test_remote_asset_json_dict(text_dandiset: SampleDandiset) -> None:
     asset = text_dandiset.dandiset.get_asset_by_path("file.txt")
     assert asset.json_dict() == {
         "asset_id": anys.ANY_STR,
@@ -270,7 +278,7 @@ def test_remote_asset_json_dict(text_dandiset):
 
 
 @responses.activate
-def test_check_schema_version_matches_default():
+def test_check_schema_version_matches_default() -> None:
     responses.add(
         responses.GET,
         "https://test.nil/api/info/",
@@ -281,7 +289,7 @@ def test_check_schema_version_matches_default():
 
 
 @responses.activate
-def test_check_schema_version_mismatch():
+def test_check_schema_version_mismatch() -> None:
     responses.add(
         responses.GET, "https://test.nil/api/info/", json={"schema_version": "4.5.6"}
     )
@@ -295,12 +303,14 @@ def test_check_schema_version_mismatch():
     )
 
 
-def test_get_dandisets(text_dandiset):
+def test_get_dandisets(text_dandiset: SampleDandiset) -> None:
     dandisets = list(text_dandiset.client.get_dandisets())
     assert sum(1 for d in dandisets if d.identifier == text_dandiset.dandiset_id) == 1
 
 
-def test_get_dandiset_lazy(mocker, text_dandiset):
+def test_get_dandiset_lazy(
+    mocker: MockerFixture, text_dandiset: SampleDandiset
+) -> None:
     client = text_dandiset.client
     get_spy = mocker.spy(client, "get")
     dandiset = client.get_dandiset(text_dandiset.dandiset_id, DRAFT, lazy=True)
@@ -320,7 +330,9 @@ def test_get_dandiset_lazy(mocker, text_dandiset):
     get_spy.assert_not_called()
 
 
-def test_get_dandiset_non_lazy(mocker, text_dandiset):
+def test_get_dandiset_non_lazy(
+    mocker: MockerFixture, text_dandiset: SampleDandiset
+) -> None:
     client = text_dandiset.client
     get_spy = mocker.spy(client, "get")
     dandiset = client.get_dandiset(text_dandiset.dandiset_id, DRAFT, lazy=False)
@@ -341,7 +353,7 @@ def test_get_dandiset_non_lazy(mocker, text_dandiset):
 
 
 @pytest.mark.parametrize("lazy", [True, False])
-def test_get_dandiset_no_version_id(lazy, text_dandiset):
+def test_get_dandiset_no_version_id(lazy: bool, text_dandiset: SampleDandiset) -> None:
     dandiset = text_dandiset.client.get_dandiset(text_dandiset.dandiset_id, lazy=lazy)
     assert dandiset.version_id == DRAFT
     assert isinstance(dandiset.created, datetime)
@@ -358,7 +370,7 @@ def test_get_dandiset_no_version_id(lazy, text_dandiset):
 
 
 @pytest.mark.parametrize("lazy", [True, False])
-def test_get_dandiset_published(lazy, text_dandiset):
+def test_get_dandiset_published(lazy: bool, text_dandiset: SampleDandiset) -> None:
     d = text_dandiset.dandiset
     d.wait_until_valid()
     v = d.publish().version.identifier
@@ -379,7 +391,9 @@ def test_get_dandiset_published(lazy, text_dandiset):
 
 
 @pytest.mark.parametrize("lazy", [True, False])
-def test_get_dandiset_published_no_version_id(lazy, text_dandiset):
+def test_get_dandiset_published_no_version_id(
+    lazy: bool, text_dandiset: SampleDandiset
+) -> None:
     d = text_dandiset.dandiset
     d.wait_until_valid()
     v = d.publish().version.identifier
@@ -400,7 +414,9 @@ def test_get_dandiset_published_no_version_id(lazy, text_dandiset):
 
 
 @pytest.mark.parametrize("lazy", [True, False])
-def test_get_dandiset_published_draft(lazy, text_dandiset):
+def test_get_dandiset_published_draft(
+    lazy: bool, text_dandiset: SampleDandiset
+) -> None:
     d = text_dandiset.dandiset
     d.wait_until_valid()
     v = d.publish().version.identifier
@@ -421,7 +437,9 @@ def test_get_dandiset_published_draft(lazy, text_dandiset):
 
 
 @pytest.mark.parametrize("lazy", [True, False])
-def test_get_dandiset_published_other_version(lazy, text_dandiset):
+def test_get_dandiset_published_other_version(
+    lazy: bool, text_dandiset: SampleDandiset
+) -> None:
     d = text_dandiset.dandiset
     d.wait_until_valid()
     v1 = d.publish().version.identifier
@@ -449,7 +467,7 @@ def test_get_dandiset_published_other_version(lazy, text_dandiset):
     assert sorted(vobj.identifier for vobj in versions) == [v1, v2, DRAFT]
 
 
-def test_set_asset_metadata(text_dandiset):
+def test_set_asset_metadata(text_dandiset: SampleDandiset) -> None:
     asset = text_dandiset.dandiset.get_asset_by_path("file.txt")
     md = asset.get_metadata()
     md.blobDateModified = datetime(2038, 1, 19, 3, 14, 7, tzinfo=timezone.utc)
@@ -457,7 +475,7 @@ def test_set_asset_metadata(text_dandiset):
     assert asset.get_raw_metadata()["blobDateModified"] == "2038-01-19T03:14:07+00:00"
 
 
-def test_remote_dandiset_json_dict(text_dandiset):
+def test_remote_dandiset_json_dict(text_dandiset: SampleDandiset) -> None:
     data = text_dandiset.dandiset.json_dict()
     assert data == {
         "identifier": anys.AnyFullmatch(dandiset_identifier_regex),
@@ -479,7 +497,7 @@ def test_remote_dandiset_json_dict(text_dandiset):
     assert data["draft_version"] == data["version"]
 
 
-def test_set_dandiset_metadata(text_dandiset):
+def test_set_dandiset_metadata(text_dandiset: SampleDandiset) -> None:
     dandiset = text_dandiset.dandiset
     md = dandiset.get_metadata()
     md.description = "A test Dandiset with altered metadata"
@@ -498,19 +516,23 @@ def test_set_dandiset_metadata(text_dandiset):
         (None, r"[0-9a-f]{32}-\d{1,5}"),
     ],
 )
-def test_get_raw_digest(digest_type, digest_regex, text_dandiset):
+def test_get_raw_digest(
+    digest_type: Union[str, DigestType, None],
+    digest_regex: str,
+    text_dandiset: SampleDandiset,
+) -> None:
     asset = text_dandiset.dandiset.get_asset_by_path("file.txt")
     d = asset.get_raw_digest(digest_type)
     assert re.fullmatch(digest_regex, d)
 
 
-def test_get_raw_digest_nonexistent(text_dandiset):
+def test_get_raw_digest_nonexistent(text_dandiset: SampleDandiset) -> None:
     asset = text_dandiset.dandiset.get_asset_by_path("file.txt")
     with pytest.raises(NotFoundError):
         asset.get_raw_digest("md5")
 
 
-def test_refresh(text_dandiset):
+def test_refresh(text_dandiset: SampleDandiset) -> None:
     dandiset = text_dandiset.dandiset
     mtime = dandiset.version.modified
     md = dandiset.get_metadata()
@@ -526,7 +548,9 @@ def test_refresh(text_dandiset):
     assert dandiset.most_recent_published_version is not None
 
 
-def test_get_asset_with_and_without_metadata(mocker, text_dandiset):
+def test_get_asset_with_and_without_metadata(
+    mocker: MockerFixture, text_dandiset: SampleDandiset
+) -> None:
     path_asset = text_dandiset.dandiset.get_asset_by_path("file.txt")
     id_asset = text_dandiset.dandiset.get_asset(path_asset.identifier)
     assert path_asset == id_asset
@@ -541,7 +565,7 @@ def test_get_asset_with_and_without_metadata(mocker, text_dandiset):
 
 
 @responses.activate
-def test_retry_logging(caplog):
+def test_retry_logging(caplog: pytest.LogCaptureFixture) -> None:
     responses.add(responses.GET, "https://test.nil/api/info/", status=503)
     responses.add(responses.GET, "https://test.nil/api/info/", status=503)
     responses.add(responses.GET, "https://test.nil/api/info/", json={"foo": "bar"})
@@ -566,7 +590,7 @@ def test_retry_logging(caplog):
     assert ("dandi", logging.DEBUG, "Response: 200") in caplog.record_tuples
 
 
-def test_get_assets_order(text_dandiset):
+def test_get_assets_order(text_dandiset: SampleDandiset) -> None:
     assert [
         asset.path for asset in text_dandiset.dandiset.get_assets(order="path")
     ] == ["file.txt", "subdir1/apple.txt", "subdir2/banana.txt", "subdir2/coconut.txt"]
@@ -575,7 +599,7 @@ def test_get_assets_order(text_dandiset):
     ] == ["subdir2/coconut.txt", "subdir2/banana.txt", "subdir1/apple.txt", "file.txt"]
 
 
-def test_get_assets_with_path_prefix(text_dandiset):
+def test_get_assets_with_path_prefix(text_dandiset: SampleDandiset) -> None:
     assert sorted(
         asset.path
         for asset in text_dandiset.dandiset.get_assets_with_path_prefix("subdir")

@@ -1,10 +1,26 @@
-from datetime import datetime
+from __future__ import annotations
+
+from datetime import datetime, timedelta
 from functools import lru_cache
 import os
 import os.path as op
 from pathlib import Path
 import re
-from typing import Dict, List, Optional, Tuple, Union
+import sys
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
 from uuid import uuid4
 from xml.dom.minidom import parseString
 
@@ -29,7 +45,7 @@ lgr = get_logger()
 
 
 @metadata_cache.memoize_path
-def get_metadata(path):
+def get_metadata(path: Union[str, Path]) -> Optional[dict]:
     """Get selected metadata from a .nwb file or a dandiset directory
 
     If a directory given and it is not a Dandiset, None is returned
@@ -50,7 +66,7 @@ def get_metadata(path):
     if op.isdir(path):
         try:
             dandiset = Dandiset(path)
-            return dandiset.metadata
+            return cast(dict, dandiset.metadata)
         except ValueError as exc:
             lgr.debug("Failed to get metadata for %s: %s", path, exc)
             return None
@@ -103,7 +119,7 @@ def get_metadata(path):
     return meta
 
 
-def _parse_iso8601(age):
+def _parse_iso8601(age: str) -> List[str]:
     """checking if age is proper iso8601, additional formatting"""
     # allowing for comma instead of ., e.g. P1,5D
     age = age.replace(",", ".")
@@ -118,7 +134,7 @@ def _parse_iso8601(age):
         raise ValueError(f"ISO 8601 expected, but {age!r} was received")
 
 
-def _parse_age_re(age, unit, tp="date"):
+def _parse_age_re(age: str, unit: str, tp: str = "date") -> Tuple[str, Optional[str]]:
     """finding parts that have <value> <unit> in various forms"""
 
     if unit == "Y":
@@ -135,6 +151,8 @@ def _parse_age_re(age, unit, tp="date"):
         pat_un = "(min|m(inute)?)"
     elif unit == "S":
         pat_un = "(sec|s(econd)?)"
+    else:
+        raise AssertionError(f"Unexpected unit: {unit!r}")
 
     m = re.match(rf"(\d+\.?\d*)\s*({pat_un}s?)", age, flags=re.I)
     swap_flag = False
@@ -157,7 +175,7 @@ def _parse_age_re(age, unit, tp="date"):
     return (age[: m.start()] + age[m.end() :]).strip(), f"{qty}{unit}"
 
 
-def _parse_hours_format(age):
+def _parse_hours_format(age: str) -> Tuple[str, List[str]]:
     """parsing format 0:30:10"""
     m = re.match(r"\s*(\d\d?):(\d\d):(\d\d)", age)
     if m:
@@ -167,7 +185,7 @@ def _parse_hours_format(age):
         return age, []
 
 
-def _check_decimal_parts(age_parts):
+def _check_decimal_parts(age_parts: List[str]) -> bool:
     """checking if decimal parts are only in the lowest order component"""
     # if the last part is the T component I have to separate the parts
     if "T" in age_parts[-1]:
@@ -176,12 +194,14 @@ def _check_decimal_parts(age_parts):
             age_parts[-1],
             flags=re.I,
         )
+        if m is None:
+            raise ValueError(f"Failed to parse the trailing part of age {age_parts[-1]!r}")
         age_parts = age_parts[:-1] + [m[i] for i in range(1, 3) if m[i]]
     decim_part = ["." in el for el in age_parts]
     return not (any(decim_part) and any(decim_part[:-1]))
 
 
-def parse_age(age):
+def parse_age(age: Optional[str]) -> Tuple[str, str]:
     """
     Parsing age field and converting into an ISO 8601 duration
 
@@ -191,7 +211,7 @@ def parse_age(age):
 
     Returns
     -------
-    str
+    Tuple[str, str]
     """
 
     if not age:
@@ -200,8 +220,7 @@ def parse_age(age):
     age_orig = age
 
     if age.lower().startswith("gestation"):
-        m = re.match("^gest[a-z]*", age, flags=re.I)
-        age = age[: m.start()] + age[m.end() :]
+        age = re.sub("^gest[a-z]*", "", age, flags=re.I)
         ref = "Gestational"
     else:
         ref = "Birth"
@@ -218,7 +237,7 @@ def parse_age(age):
         if not age:
             raise ValueError("Age doesn't have any information")
 
-        date_f = []
+        date_f: List[str] = []
         for unit in ["Y", "M", "W", "D"]:
             if not age:
                 break
@@ -229,7 +248,7 @@ def parse_age(age):
                 date_f = ["P", part_f]
 
         if ref == "Birth":
-            time_f = []
+            time_f: List[str] = []
             for un in ["H", "M", "S"]:
                 if not age:
                     break
@@ -260,7 +279,7 @@ def parse_age(age):
     return "".join(age_f), ref
 
 
-def extract_age(metadata):
+def extract_age(metadata: dict) -> Optional[models.PropertyValue]:
     try:
         dob = ensure_datetime(metadata["date_of_birth"])
         start = ensure_datetime(metadata["session_start_time"])
@@ -268,7 +287,7 @@ def extract_age(metadata):
         if metadata.get("age") is not None:
             duration, ref = parse_age(metadata["age"])
         else:
-            return ...
+            return None
     else:
         duration, ref = timedelta2duration(start - dob), "Birth"
     return models.PropertyValue(
@@ -280,7 +299,7 @@ def extract_age(metadata):
     )
 
 
-def timedelta2duration(delta):
+def timedelta2duration(delta: timedelta) -> str:
     """
     Convert a datetime.timedelta to ISO 8601 duration format
 
@@ -296,7 +315,7 @@ def timedelta2duration(delta):
     if delta.days:
         s += f"{delta.days}D"
     if delta.seconds or delta.microseconds:
-        sec = delta.seconds
+        sec: Union[int, float] = delta.seconds
         if delta.microseconds:
             # Don't add when microseconds is 0, so that sec will be an int then
             sec += delta.microseconds / 1e6
@@ -306,7 +325,7 @@ def timedelta2duration(delta):
     return s
 
 
-def extract_sex(metadata):
+def extract_sex(metadata: dict) -> Optional[models.SexType]:
     value = metadata.get("sex", None)
     if value is not None and value != "":
         value = value.lower()
@@ -329,7 +348,7 @@ def extract_sex(metadata):
             raise ValueError(f"Cannot interpret sex field: {value}")
         return models.SexType(identifier=value_id, name=value)
     else:
-        return ...
+        return None
 
 
 species_map = [
@@ -422,7 +441,7 @@ def parse_purlobourl(
     return values
 
 
-def extract_species(metadata):
+def extract_species(metadata: dict) -> Optional[models.SpeciesType]:
     value_orig = metadata.get("species", None)
     value_id = None
     if value_orig is not None and value_orig != "":
@@ -467,35 +486,40 @@ def extract_species(metadata):
             )
         return models.SpeciesType(identifier=value_id, name=value)
     else:
-        return ...
+        return None
 
 
-def extract_assay_type(metadata):
+def extract_assay_type(metadata: dict) -> Optional[List[models.AssayType]]:
     if "assayType" in metadata:
         return [models.AssayType(identifier="assayType", name=metadata["assayType"])]
     else:
-        return ...
+        return None
 
 
-def extract_anatomy(metadata):
+def extract_anatomy(metadata: dict) -> Optional[List[models.Anatomy]]:
     if "anatomy" in metadata:
         return [models.Anatomy(identifier="anatomy", name=metadata["anatomy"])]
     else:
-        return ...
+        return None
 
 
-def extract_model(modelcls, metadata, **kwargs):
-    m = modelcls.unvalidated()
+M = TypeVar("M", bound=models.DandiBaseModel)
+
+
+def extract_model(modelcls: Type[M], metadata: dict, **kwargs: Any) -> M:
+    m = cast(M, modelcls.unvalidated())
     for field in m.__fields__.keys():
         value = kwargs.get(field, extract_field(field, metadata))
-        if value is not Ellipsis:
+        if value is not None:
             setattr(m, field, value)
     # return modelcls(**m.dict())
     return m
 
 
-def extract_model_list(modelcls, id_field, id_source, **kwargs):
-    def func(metadata):
+def extract_model_list(
+    modelcls: Type[M], id_field: str, id_source: str, **kwargs: Any
+) -> Callable[[dict], List[M]]:
+    def func(metadata: dict) -> List[M]:
         m = extract_model(
             modelcls, metadata, **{id_field: metadata.get(id_source)}, **kwargs
         )
@@ -507,8 +531,8 @@ def extract_model_list(modelcls, id_field, id_source, **kwargs):
     return func
 
 
-def extract_wasDerivedFrom(metadata):
-    derived_from = None
+def extract_wasDerivedFrom(metadata: dict) -> Optional[List[models.BioSample]]:
+    derived_from: Optional[List[models.BioSample]] = None
     for field, sample_name in [
         ("tissue_sample_id", "tissuesample"),
         ("slice_id", "slice"),
@@ -526,7 +550,7 @@ def extract_wasDerivedFrom(metadata):
 
 
 extract_wasAttributedTo = extract_model_list(
-    models.Participant, "identifier", "subject_id", id=...
+    models.Participant, "identifier", "subject_id", id=None
 )
 
 
@@ -554,14 +578,16 @@ def extract_session(metadata: dict) -> Optional[List[models.Session]]:
     ]
 
 
-def extract_digest(metadata):
+def extract_digest(
+    metadata: dict,
+) -> Optional[Dict[models.DigestType, str]]:
     if "digest" in metadata:
         return {models.DigestType[metadata["digest_type"]]: metadata["digest"]}
     else:
-        return ...
+        return None
 
 
-FIELD_EXTRACTORS = {
+FIELD_EXTRACTORS: Dict[str, Callable[[dict], Any]] = {
     "wasDerivedFrom": extract_wasDerivedFrom,
     "wasAttributedTo": extract_wasAttributedTo,
     "wasGeneratedBy": extract_session,
@@ -574,14 +600,27 @@ FIELD_EXTRACTORS = {
 }
 
 
-def extract_field(field, metadata):
+def extract_field(field: str, metadata: dict) -> Any:
     if field in FIELD_EXTRACTORS:
         return FIELD_EXTRACTORS[field](metadata)
     else:
-        return metadata.get(field, ...)
+        return metadata.get(field)
 
 
-neurodata_typemap = {
+if TYPE_CHECKING:
+    if sys.version_info >= (3, 8):
+        from typing import TypedDict
+    else:
+        from typing_extensions import TypedDict
+
+    class Neurodatum(TypedDict):
+        module: str
+        neurodata_type: str
+        technique: Optional[str]
+        approach: Optional[str]
+
+
+neurodata_typemap: Dict[str, Neurodatum] = {
     "ElectricalSeries": {
         "module": "ecephys",
         "neurodata_type": "ElectricalSeries",
@@ -771,7 +810,9 @@ neurodata_typemap = {
 }
 
 
-def process_ndtypes(asset, nd_types):
+def process_ndtypes(
+    asset: models.BareAsset, nd_types: Iterable[str]
+) -> models.BareAsset:
     approach = set()
     technique = set()
     variables = set()
@@ -868,6 +909,6 @@ def get_generator(start_time: datetime, end_time: datetime) -> models.Activity:
     )
 
 
-def metadata2asset(metadata):
+def metadata2asset(metadata: dict) -> models.BareAsset:
     bare_dict = extract_model(models.BareAsset, metadata).json_dict()
     return models.BareAsset(**bare_dict)

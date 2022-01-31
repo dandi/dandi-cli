@@ -129,6 +129,7 @@ class Deleter:
     def register_local_path_equivalent(self, instance_name: str, filepath: str) -> None:
         instance = get_instance(instance_name)
         api_url = instance.api
+        assert api_url is not None
         dandiset_id, asset_path = find_local_asset(filepath)
         if not self.set_dandiset(api_url, dandiset_id):
             return

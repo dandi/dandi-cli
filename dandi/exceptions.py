@@ -1,3 +1,8 @@
+from typing import List
+
+from semantic_version import Version
+
+
 class OrganizeImpossibleError(ValueError):
     """Exception to be raised if given current list of files it is impossible
 
@@ -34,12 +39,14 @@ class LockingError(RuntimeError):
 class CliVersionError(RuntimeError):
     """Base class for `CliVersionTooOldError` and `BadCliVersionError`"""
 
-    def __init__(self, our_version, minversion, bad_versions):
+    def __init__(
+        self, our_version: Version, minversion: Version, bad_versions: List[Version]
+    ) -> None:
         self.our_version = our_version
         self.minversion = minversion
         self.bad_versions = bad_versions
 
-    def server_requirements(self):
+    def server_requirements(self) -> str:
         s = f"Server requires at least version {self.minversion}"
         if self.bad_versions:
             s += f" (but not {', '.join(map(str, self.bad_versions))})"
@@ -47,7 +54,7 @@ class CliVersionError(RuntimeError):
 
 
 class CliVersionTooOldError(CliVersionError):
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             f"Client version {self.our_version} is too old!  "
             + self.server_requirements()
@@ -55,7 +62,7 @@ class CliVersionTooOldError(CliVersionError):
 
 
 class BadCliVersionError(CliVersionError):
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             f"Client version {self.our_version} is rejected by server!  "
             + self.server_requirements()
