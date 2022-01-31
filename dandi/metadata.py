@@ -195,7 +195,7 @@ def _check_decimal_parts(age_parts: List[str]) -> bool:
             flags=re.I,
         )
         if m is None:
-            raise ValueError(age_parts)
+            raise ValueError(f"Failed to parse the trailing part of age {age_parts[-1]!r}")
         age_parts = age_parts[:-1] + [m[i] for i in range(1, 3) if m[i]]
     decim_part = ["." in el for el in age_parts]
     return not (any(decim_part) and any(decim_part[:-1]))
