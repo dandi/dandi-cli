@@ -608,7 +608,7 @@ def extract_field(field: str, metadata: dict) -> Any:
 
 
 if TYPE_CHECKING:
-    if sys.version_info[:2] >= (3, 8):
+    if sys.version_info >= (3, 8):
         from typing import TypedDict
     else:
         from typing_extensions import TypedDict

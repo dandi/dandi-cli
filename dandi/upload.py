@@ -16,7 +16,7 @@ from .files import DandiFile, DandisetMetadataFile, LocalAsset, find_dandi_files
 from .utils import ensure_datetime, get_instance, pluralize
 
 if TYPE_CHECKING:
-    if sys.version_info[:2] >= (3, 8):
+    if sys.version_info >= (3, 8):
         from typing import TypedDict
     else:
         from typing_extensions import TypedDict
