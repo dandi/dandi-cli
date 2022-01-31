@@ -616,6 +616,8 @@ def test_species():
             },
         ),
         (
+            # the tricky case of having number of instances of the data type
+            # https://github.com/dandi/dandi-cli/issues/890
             ["CurrentClampSeries (94)"],
             {
                 "approach": ["electrophysiological approach"],
