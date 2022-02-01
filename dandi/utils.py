@@ -1,11 +1,4 @@
 import datetime
-
-try:
-    from importlib.metadata import version as importlib_version
-except ImportError:
-    # TODO - remove whenever python >= 3.8
-    from importlib_metadata import version as importlib_version
-
 import inspect
 import io
 import itertools
@@ -19,19 +12,33 @@ import shutil
 import subprocess
 import sys
 import types
-from typing import Iterable, Iterator, List, Optional, TypeVar, Union
+from typing import (
+    Any,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    TextIO,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
 import dateutil.parser
 import requests
 import ruamel.yaml
 from semantic_version import Version
 
-#
-# Additional handlers
-#
 from . import __version__, get_logger
 from .consts import DandiInstance, known_instances, known_instances_rev
 from .exceptions import BadCliVersionError, CliVersionTooOldError
+
+if sys.version_info >= (3, 8):
+    from importlib.metadata import version as importlib_version
+else:
+    from importlib_metadata import version as importlib_version
 
 lgr = get_logger()
 
@@ -58,21 +65,25 @@ USER_AGENT = "dandi/{} requests/{} {}/{}".format(
 )
 
 
-def is_interactive():
+def is_interactive() -> bool:
     """Return True if all in/outs are tty"""
     # TODO: check on windows if hasattr check would work correctly and add value:
     #
     return sys.stdin.isatty() and sys.stdout.isatty() and sys.stderr.isatty()
 
 
-def setup_exceptionhook(ipython=False):
+def setup_exceptionhook(ipython: bool = False) -> None:
     """Overloads default sys.excepthook with our exceptionhook handler.
 
     If interactive, our exceptionhook handler will invoke
     pdb.post_mortem; if not interactive, then invokes default handler.
     """
 
-    def _pdb_excepthook(type, value, tb):
+    def _pdb_excepthook(
+        type: Type[BaseException],
+        value: BaseException,
+        tb: Optional[types.TracebackType],
+    ) -> None:
         import traceback
 
         traceback.print_exception(type, value, tb)
@@ -94,7 +105,7 @@ def setup_exceptionhook(ipython=False):
         sys.excepthook = _pdb_excepthook
 
 
-def get_utcnow_datetime(microseconds=True):
+def get_utcnow_datetime(microseconds: bool = True) -> datetime.datetime:
     """Return current time as datetime with time zone information.
 
     Microseconds are stripped away.
@@ -108,7 +119,11 @@ def get_utcnow_datetime(microseconds=True):
         return ret.replace(microsecond=0)
 
 
-def is_same_time(*times, tolerance=1e-6, strip_tzinfo=False):
+def is_same_time(
+    *times: Union[datetime.datetime, int, float, str],
+    tolerance: float = 1e-6,
+    strip_tzinfo: bool = False,
+) -> bool:
     """Helper to do comparison between time points
 
     Time zone information gets stripped
@@ -137,7 +152,9 @@ def is_same_time(*times, tolerance=1e-6, strip_tzinfo=False):
     )
 
 
-def ensure_strtime(t, isoformat=True):
+def ensure_strtime(
+    t: Union[str, int, float, datetime.datetime], isoformat: bool = True
+) -> str:
     """Ensures that time is a string in iso format
 
     Note: if `t` is already a string, no conversion of any kind is done.
@@ -160,7 +177,7 @@ def ensure_strtime(t, isoformat=True):
     raise TypeError(f"Do not know how to convert {t_orig!r} to string datetime")
 
 
-def fromisoformat(t):
+def fromisoformat(t: str) -> datetime.datetime:
     # datetime.fromisoformat "does not support parsing arbitrary ISO 8601
     # strings" <https://docs.python.org/3/library/datetime.html>.  In
     # particular, it does not parse the time zone suffixes recently
@@ -169,7 +186,11 @@ def fromisoformat(t):
     return dateutil.parser.isoparse(t)
 
 
-def ensure_datetime(t, strip_tzinfo=False, tz=None):
+def ensure_datetime(
+    t: Union[datetime.datetime, int, float, str],
+    strip_tzinfo: bool = False,
+    tz: Optional[datetime.tzinfo] = None,
+) -> datetime.datetime:
     """Ensures that time is a datetime
 
     strip_tzinfo applies only to str records passed in
@@ -197,7 +218,7 @@ def ensure_datetime(t, strip_tzinfo=False, tz=None):
 #
 # Generic
 #
-def flatten(it):
+def flatten(it: Iterable) -> Iterator:
     """Yield items flattened if list, tuple or a generator"""
     for i in it:
         if isinstance(i, (list, tuple)) or inspect.isgenerator(i):
@@ -206,7 +227,7 @@ def flatten(it):
             yield i
 
 
-def flattened(it):
+def flattened(it: Iterable) -> list:
     """Return list with items flattened if list, tuple or a generator"""
     return list(flatten(it))
 
@@ -216,7 +237,7 @@ def flattened(it):
 #
 
 
-def load_jsonl(filename):
+def load_jsonl(filename: Union[str, Path]) -> list:
     """Load json lines formatted file"""
     import json
 
@@ -232,16 +253,19 @@ _VCS_REGEX = r"%s\.(?:git|gitattributes|svn|bzr|hg)(?:%s|$)" % (
 _DATALAD_REGEX = r"%s\.(?:datalad)(?:%s|$)" % (_encoded_dirsep, _encoded_dirsep)
 
 
+AnyPath = Union[str, Path]
+
+
 def find_files(
-    regex,
-    paths=os.curdir,
-    exclude=None,
-    exclude_dotfiles=True,
-    exclude_dotdirs=True,
-    exclude_vcs=True,
-    exclude_datalad=False,
-    dirs=False,
-):
+    regex: str,
+    paths: Union[List[AnyPath], Tuple[AnyPath, ...], Set[AnyPath], AnyPath] = os.curdir,
+    exclude: Optional[str] = None,
+    exclude_dotfiles: bool = True,
+    exclude_dotdirs: bool = True,
+    exclude_vcs: bool = True,
+    exclude_datalad: bool = False,
+    dirs: bool = False,
+) -> Iterator[str]:
     """Generator to find files matching regex
 
     Parameters
@@ -264,7 +288,7 @@ def find_files(
       Whether to match directories as well as files
     """
 
-    def exclude_path(path):
+    def exclude_path(path: str) -> bool:
         path = path.rstrip(op.sep)
         if exclude and re.search(exclude, path):
             return True
@@ -274,8 +298,8 @@ def find_files(
             return True
         return False
 
-    def good_file(path):
-        return re.search(regex, path) and not exclude_path(path)
+    def good_file(path: str) -> bool:
+        return bool(re.search(regex, path)) and not exclude_path(path)
 
     if isinstance(paths, (list, tuple, set)):
         for path in paths:
@@ -290,22 +314,22 @@ def find_files(
                     exclude_datalad=exclude_datalad,
                     dirs=dirs,
                 )
-            elif good_file(path):
-                yield path
+            elif good_file(str(path)):
+                yield str(path)
             else:
                 # Provided path didn't match regex, thus excluded
                 pass
         return
     elif op.isfile(paths):
-        if good_file(paths):
-            yield paths
+        if good_file(str(paths)):
+            yield str(paths)
         return
 
     for dirpath, dirnames, filenames in os.walk(paths):
         names = (dirnames + filenames) if dirs else filenames
         # TODO: might want to uniformize on windows to use '/'
         if exclude_dotfiles:
-            names = (n for n in names if not n.startswith("."))
+            names = [n for n in names if not n.startswith(".")]
         if exclude_dotdirs:
             # and we should filter out directories from dirnames
             # Since we need to del which would change index, let's
@@ -313,15 +337,15 @@ def find_files(
             for i in range(len(dirnames))[::-1]:
                 if dirnames[i].startswith("."):
                     del dirnames[i]
-        paths = (op.join(dirpath, name) for name in names)
-        for path in filter(re.compile(regex).search, paths):
-            if not exclude_path(path):
-                if op.islink(path) and op.isdir(path):
+        strpaths = [op.join(dirpath, name) for name in names]
+        for p in filter(re.compile(regex).search, strpaths):
+            if not exclude_path(p):
+                if op.islink(p) and op.isdir(p):
                     lgr.warning(
                         "%s: Ignoring unsupported symbolic link to directory", path
                     )
                 else:
-                    yield path
+                    yield p
 
 
 def list_paths(dirpath: Union[str, Path], dirs: bool = False) -> List[Path]:
@@ -331,7 +355,7 @@ def list_paths(dirpath: Union[str, Path], dirs: bool = False) -> List[Path]:
 _cp_supports_reflink: Optional[bool] = None
 
 
-def copy_file(src, dst):
+def copy_file(src: Union[str, Path], dst: Union[str, Path]) -> None:
     """Copy file from src to dst"""
     global _cp_supports_reflink
     if _cp_supports_reflink is None:
@@ -349,15 +373,17 @@ def copy_file(src, dst):
             ["cp", "-f", "--reflink=auto", "--", str(src), str(dst)], check=True
         )
     else:
-        return shutil.copy2(src, dst)
+        shutil.copy2(src, dst)
 
 
-def move_file(src, dst):
+def move_file(src: Union[str, Path], dst: Union[str, Path]) -> Any:
     """Move file from src to dst"""
-    return shutil.move(src, dst)
+    return shutil.move(str(src), str(dst))
 
 
-def find_parent_directory_containing(filename, path=None):
+def find_parent_directory_containing(
+    filename: Union[str, Path], path: Union[str, Path, None] = None
+) -> Optional[Path]:
     """Find a directory, on the path to 'path' containing filename
 
     if no 'path' - path from cwd
@@ -376,7 +402,7 @@ def find_parent_directory_containing(filename, path=None):
         path = path.parent  # go up
 
 
-def yaml_dump(rec):
+def yaml_dump(rec: Any) -> str:
     """Consistent dump into yaml
 
     Of primary importance is default_flow_style=False
@@ -390,7 +416,7 @@ def yaml_dump(rec):
     return out.getvalue()
 
 
-def yaml_load(f, typ=None):
+def yaml_load(f: Union[str, TextIO], typ: Optional[str] = None) -> Any:
     """
     Load YAML source from a file or string.
 
@@ -415,12 +441,12 @@ def yaml_load(f, typ=None):
 #
 
 
-def with_pathsep(path):
+def with_pathsep(path: str) -> str:
     """Little helper to guarantee that path ends with /"""
     return path + op.sep if not path.endswith(op.sep) else path
 
 
-def _get_normalized_paths(path, prefix):
+def _get_normalized_paths(path: str, prefix: str) -> Tuple[str, str]:
     if op.isabs(path) != op.isabs(prefix):
         raise ValueError(
             "Both paths must either be absolute or relative. "
@@ -431,7 +457,7 @@ def _get_normalized_paths(path, prefix):
     return path, prefix
 
 
-def path_is_subpath(path, prefix):
+def path_is_subpath(path: str, prefix: str) -> bool:
     """Return True if path is a subpath of prefix
 
     It will return False if path == prefix.
@@ -445,7 +471,7 @@ def path_is_subpath(path, prefix):
     return (len(prefix) < len(path)) and path.startswith(prefix)
 
 
-def shortened_repr(value, length=30):
+def shortened_repr(value: Any, length: int = 30) -> str:
     try:
         if hasattr(value, "__repr__") and (value.__repr__ is not object.__repr__):
             value_repr = repr(value)
@@ -468,8 +494,8 @@ def shortened_repr(value, length=30):
     return value_repr
 
 
-def __auto_repr__(obj):
-    attr_names = tuple()
+def __auto_repr__(obj: Any) -> str:
+    attr_names: Tuple[str, ...] = ()
     if hasattr(obj, "__dict__"):
         attr_names += tuple(obj.__dict__.keys())
     if hasattr(obj, "__slots__"):
@@ -489,7 +515,10 @@ def __auto_repr__(obj):
     return "%s(%s)" % (obj.__class__.__name__, ", ".join(items))
 
 
-def auto_repr(cls):
+TT = TypeVar("TT", bound=type)
+
+
+def auto_repr(cls: TT) -> TT:
     """Decorator for a class to assign it an automagic quick and dirty __repr__
 
     It uses public class attributes to prepare repr of a class
@@ -497,11 +526,11 @@ def auto_repr(cls):
     Original idea: http://stackoverflow.com/a/27799004/1265472
     """
 
-    cls.__repr__ = __auto_repr__
+    cls.__repr__ = __auto_repr__  # type: ignore[assignment]
     return cls
 
 
-def Parallel(**kwargs):  # TODO: disable lint complaint
+def Parallel(**kwargs: Any) -> Any:  # TODO: disable lint complaint
     """Adapter for joblib.Parallel so we could if desired, centralize control"""
     # ATM just a straight invocation
     import joblib
@@ -517,7 +546,7 @@ def delayed(*args, **kwargs):
     return joblib.delayed(*args, **kwargs)
 
 
-def get_instance(dandi_instance_id):
+def get_instance(dandi_instance_id: str) -> DandiInstance:
     if dandi_instance_id.lower().startswith(("http://", "https://")):
         redirector_url = dandi_instance_id
         dandi_id = known_instances_rev.get(redirector_url)
@@ -527,9 +556,10 @@ def get_instance(dandi_instance_id):
             instance = None
     else:
         instance = known_instances[dandi_instance_id]
-        redirector_url = instance.redirector
-        if redirector_url is None:
+        if instance.redirector is None:
             return instance
+        else:
+            redirector_url = instance.redirector
     try:
         r = requests.get(redirector_url.rstrip("/") + "/server-info")
         r.raise_for_status()
@@ -579,7 +609,7 @@ def get_instance(dandi_instance_id):
         )
 
 
-def is_url(s):
+def is_url(s: str) -> bool:
     """Very primitive url detection for now
 
     TODO: redo
@@ -677,7 +707,7 @@ def get_mime_type(filename: str, strict: bool = False) -> str:
         return "application/x-" + encoding
 
 
-def check_dandi_version():
+def check_dandi_version() -> None:
     if os.environ.get("DANDI_NO_ET"):
         return
     try:

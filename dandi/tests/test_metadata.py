@@ -2,6 +2,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 import json
 from pathlib import Path
+from typing import Any, Dict, Optional, Tuple, Union
 
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dandischema.metadata import validate
@@ -21,6 +22,7 @@ from ..metadata import (
     metadata2asset,
     parse_age,
     parse_purlobourl,
+    process_ndtypes,
     timedelta2duration,
 )
 from ..pynwb_utils import metadata_nwb_subject_fields
@@ -28,7 +30,7 @@ from ..pynwb_utils import metadata_nwb_subject_fields
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
 
 
-def test_get_metadata(simple1_nwb, simple1_nwb_metadata):
+def test_get_metadata(simple1_nwb: str, simple1_nwb_metadata: Dict[str, Any]) -> None:
     target_metadata = simple1_nwb_metadata.copy()
     # we will also get some counts
     target_metadata["number_of_electrodes"] = 0
@@ -92,7 +94,7 @@ def test_get_metadata(simple1_nwb, simple1_nwb_metadata):
         ("Gestational Week 19", ("P19W", "Gestational")),
     ],
 )
-def test_parse_age(age, duration):
+def test_parse_age(age: str, duration: Union[str, Tuple[str, str]]) -> None:
     if isinstance(duration, tuple):
         duration, ref = duration
     else:  # birth will be a default ref
@@ -127,7 +129,7 @@ def test_parse_age(age, duration):
         ),
     ],
 )
-def test_parse_error(age, errmsg):
+def test_parse_error(age: Optional[str], errmsg: str) -> None:
     with pytest.raises(ValueError) as excinfo:
         parse_age(age)
     assert str(excinfo.value) == errmsg
@@ -142,7 +144,7 @@ def test_parse_error(age, errmsg):
         (timedelta(days=5, seconds=23, microseconds=2000), "P5DT23.002S"),
     ],
 )
-def test_timedelta2duration(td, duration):
+def test_timedelta2duration(td: timedelta, duration: str) -> None:
     assert timedelta2duration(td) == duration
 
 
@@ -264,7 +266,7 @@ def test_timedelta2duration(td, duration):
         ),
     ],
 )
-def test_metadata2asset(filename, metadata):
+def test_metadata2asset(filename: str, metadata: Dict[str, Any]) -> None:
     data = metadata2asset(metadata)
     with (METADATA_DIR / filename).open() as fp:
         data_as_dict = json.load(fp)
@@ -281,7 +283,7 @@ def test_metadata2asset(filename, metadata):
     validate(data_as_dict)
 
 
-def test_dandimeta_migration():
+def test_dandimeta_migration() -> None:
     with (METADATA_DIR / "dandimeta_migration.new.json").open() as fp:
         data_as_dict = json.load(fp)
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
@@ -289,7 +291,7 @@ def test_dandimeta_migration():
     validate(data_as_dict)
 
 
-def test_time_extract():
+def test_time_extract() -> None:
     # if metadata contains date_of_birth and session_start_time,
     # age will be calculated from the values
     meta_birth = {
@@ -298,6 +300,7 @@ def test_time_extract():
         "date_of_birth": "2020-07-31T12:20:00-04:00",
     }
     age_birth = extract_age(meta_birth)
+    assert age_birth is not None
     assert age_birth.value == "P31DT88S"
     assert age_birth.valueReference == PropertyValue(
         value=AgeReferenceType("dandi:BirthReference")
@@ -306,19 +309,21 @@ def test_time_extract():
     # if metadata doesn't contain date_of_birth, the age field will be used
     meta = {"session_start_time": "2020-08-31T12:21:28-04:00", "age": "31 days"}
     age = extract_age(meta)
+    assert age is not None
     assert age.value == "P31D"
     assert age.valueReference == PropertyValue(
         value=AgeReferenceType("dandi:BirthReference")
     )
 
 
-def test_time_extract_gest():
+def test_time_extract_gest() -> None:
     """extract age with Gestational ref"""
     meta_birth = {
         "session_start_time": "2020-08-31T12:21:28-04:00",
         "age": "Gestational week 3",
     }
     age_birth = extract_age(meta_birth)
+    assert age_birth is not None
     assert age_birth.value == "P3W"
     assert age_birth.valueReference == PropertyValue(
         value=AgeReferenceType("dandi:GestationalReference")
@@ -360,3 +365,285 @@ def test_species():
         "schemaKey": "SpeciesType",
         "name": "Drosophila suzukii",
     }
+
+
+@pytest.mark.parametrize(
+    "ndtypes,asset_dict",
+    [
+        (
+            ["ElectricalSeries"],
+            {
+                "approach": ["electrophysiological approach"],
+                "measurementTechnique": [
+                    "multi electrode extracellular electrophysiology recording technique"
+                ],
+                "variableMeasured": ["ElectricalSeries"],
+            },
+        ),
+        (
+            ["SpikeEventSeries"],
+            {
+                "approach": ["electrophysiological approach"],
+                "measurementTechnique": ["spike sorting technique"],
+                "variableMeasured": ["SpikeEventSeries"],
+            },
+        ),
+        (
+            ["FeatureExtraction"],
+            {
+                "approach": ["electrophysiological approach"],
+                "measurementTechnique": ["spike sorting technique"],
+                "variableMeasured": ["FeatureExtraction"],
+            },
+        ),
+        (
+            ["LFP"],
+            {
+                "approach": ["electrophysiological approach"],
+                "measurementTechnique": ["signal filtering technique"],
+                "variableMeasured": ["LFP"],
+            },
+        ),
+        (
+            ["EventWaveform"],
+            {
+                "approach": ["electrophysiological approach"],
+                "measurementTechnique": ["spike sorting technique"],
+                "variableMeasured": ["EventWaveform"],
+            },
+        ),
+        (
+            ["EventDetection"],
+            {
+                "approach": ["electrophysiological approach"],
+                "measurementTechnique": ["spike sorting technique"],
+                "variableMeasured": ["EventDetection"],
+            },
+        ),
+        (
+            ["ElectrodeGroup"],
+            {
+                "approach": ["electrophysiological approach"],
+                "measurementTechnique": ["surgical technique"],
+                "variableMeasured": ["ElectrodeGroup"],
+            },
+        ),
+        (
+            ["PatchClampSeries"],
+            {
+                "approach": ["electrophysiological approach"],
+                "measurementTechnique": ["patch clamp technique"],
+                "variableMeasured": ["PatchClampSeries"],
+            },
+        ),
+        (
+            ["CurrentClampSeries"],
+            {
+                "approach": ["electrophysiological approach"],
+                "measurementTechnique": ["current clamp technique"],
+                "variableMeasured": ["CurrentClampSeries"],
+            },
+        ),
+        (
+            ["CurrentClampStimulusSeries"],
+            {
+                "approach": ["electrophysiological approach"],
+                "measurementTechnique": ["current clamp technique"],
+                "variableMeasured": ["CurrentClampStimulusSeries"],
+            },
+        ),
+        (
+            ["VoltageClampSeries"],
+            {
+                "approach": ["electrophysiological approach"],
+                "measurementTechnique": ["voltage clamp technique"],
+                "variableMeasured": ["VoltageClampSeries"],
+            },
+        ),
+        (
+            ["VoltageClampStimulusSeries"],
+            {
+                "approach": ["electrophysiological approach"],
+                "measurementTechnique": ["voltage clamp technique"],
+                "variableMeasured": ["VoltageClampStimulusSeries"],
+            },
+        ),
+        (
+            ["TwoPhotonSeries"],
+            {
+                "approach": ["microscopy approach; cell population imaging"],
+                "measurementTechnique": ["two-photon microscopy technique"],
+                "variableMeasured": ["TwoPhotonSeries"],
+            },
+        ),
+        (
+            ["OpticalChannel"],
+            {
+                "approach": ["microscopy approach; cell population imaging"],
+                "measurementTechnique": ["surgical technique"],
+                "variableMeasured": ["OpticalChannel"],
+            },
+        ),
+        (
+            ["ImagingPlane"],
+            {
+                "approach": ["microscopy approach; cell population imaging"],
+                "measurementTechnique": None,
+                "variableMeasured": ["ImagingPlane"],
+            },
+        ),
+        (
+            ["PlaneSegmentation"],
+            {
+                "approach": ["microscopy approach; cell population imaging"],
+                "measurementTechnique": None,
+                "variableMeasured": ["PlaneSegmentation"],
+            },
+        ),
+        (
+            ["Position"],
+            {
+                "approach": ["behavioral approach"],
+                "measurementTechnique": ["behavioral technique"],
+                "variableMeasured": ["Position"],
+            },
+        ),
+        (
+            ["SpatialSeries"],
+            {
+                "approach": ["behavioral approach"],
+                "measurementTechnique": ["behavioral technique"],
+                "variableMeasured": ["SpatialSeries"],
+            },
+        ),
+        (
+            ["BehavioralEpochs"],
+            {
+                "approach": ["behavioral approach"],
+                "measurementTechnique": ["behavioral technique"],
+                "variableMeasured": ["BehavioralEpochs"],
+            },
+        ),
+        (
+            ["BehavioralEvents"],
+            {
+                "approach": ["behavioral approach"],
+                "measurementTechnique": ["behavioral technique"],
+                "variableMeasured": ["BehavioralEvents"],
+            },
+        ),
+        (
+            ["BehavioralTimeSeries"],
+            {
+                "approach": ["behavioral approach"],
+                "measurementTechnique": ["behavioral technique"],
+                "variableMeasured": ["BehavioralTimeSeries"],
+            },
+        ),
+        (
+            ["PupilTracking"],
+            {
+                "approach": ["behavioral approach"],
+                "measurementTechnique": ["behavioral technique"],
+                "variableMeasured": ["PupilTracking"],
+            },
+        ),
+        (
+            ["EyeTracking"],
+            {
+                "approach": ["behavioral approach"],
+                "measurementTechnique": ["behavioral technique"],
+                "variableMeasured": ["EyeTracking"],
+            },
+        ),
+        (
+            ["CompassDirection"],
+            {
+                "approach": ["behavioral approach"],
+                "measurementTechnique": ["behavioral technique"],
+                "variableMeasured": ["CompassDirection"],
+            },
+        ),
+        (
+            ["ProcessingModule"],
+            {
+                "approach": None,
+                "measurementTechnique": ["analytical technique"],
+                "variableMeasured": ["ProcessingModule"],
+            },
+        ),
+        (
+            ["RGBImage"],
+            {
+                "approach": None,
+                "measurementTechnique": ["photographic technique"],
+                "variableMeasured": ["RGBImage"],
+            },
+        ),
+        (
+            ["DecompositionSeries"],
+            {
+                "approach": None,
+                "measurementTechnique": ["fourier analysis technique"],
+                "variableMeasured": ["DecompositionSeries"],
+            },
+        ),
+        (
+            ["Units"],
+            {
+                "approach": ["electrophysiological approach"],
+                "measurementTechnique": ["spike sorting technique"],
+                "variableMeasured": ["Units"],
+            },
+        ),
+        (
+            ["Spectrum"],
+            {
+                "approach": None,
+                "measurementTechnique": ["fourier analysis technique"],
+                "variableMeasured": ["Spectrum"],
+            },
+        ),
+        (
+            ["OptogeneticStimulusSIte"],
+            {
+                "approach": ["optogenetic approach"],
+                "measurementTechnique": None,
+                "variableMeasured": ["OptogeneticStimulusSIte"],
+            },
+        ),
+        (
+            ["OptogeneticSeries"],
+            {
+                "approach": ["optogenetic approach"],
+                "measurementTechnique": None,
+                "variableMeasured": ["OptogeneticSeries"],
+            },
+        ),
+        (
+            # the tricky case of having number of instances of the data type
+            # https://github.com/dandi/dandi-cli/issues/890
+            ["CurrentClampSeries (94)"],
+            {
+                "approach": ["electrophysiological approach"],
+                "measurementTechnique": ["current clamp technique"],
+                "variableMeasured": ["CurrentClampSeries"],
+            },
+        ),
+    ],
+)
+def test_ndtypes(ndtypes, asset_dict):
+    asset = BareAssetMeta(
+        contentSize=1,
+        encodingFormat="application/x-nwb",
+        digest={"dandi:dandi-etag": "0" * 32 + "-1"},
+        path="test.nwb",
+    )
+    asset = process_ndtypes(asset, ndtypes)
+    for key in ["approach", "measurementTechnique"]:
+        if asset_dict.get(key) is None:
+            assert getattr(asset, key) == []
+        else:
+            assert getattr(asset, key)[0].name == asset_dict.get(key)[0]
+    key = "variableMeasured"
+    assert getattr(asset, key)[0].value == asset_dict.get(key)[0]

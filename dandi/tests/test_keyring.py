@@ -1,17 +1,20 @@
 from pathlib import Path
+from typing import Callable, Optional
 
 from keyring.backend import get_all_keyring
 from keyring.backends import fail, null
 from keyring.errors import KeyringError
 from keyrings.alt import file as keyfile
 import pytest
+from pytest_mock import MockerFixture
 
+from .fixtures import DandiAPI
 from ..dandiapi import DandiAPIClient
 from ..keyring import keyring_lookup, keyringrc_file
 
 
 @pytest.fixture(scope="module", autouse=True)
-def ensure_keyring_backends():
+def ensure_keyring_backends() -> None:
     # Ensure that keyring backends are initialized before running any tests
     get_all_keyring()
     # This function caches its results, so it's safe to call if the backends
@@ -21,7 +24,9 @@ def ensure_keyring_backends():
     # happens to have.
 
 
-def test_dandi_authenticate_no_env_var(local_dandi_api, monkeypatch, mocker):
+def test_dandi_authenticate_no_env_var(
+    local_dandi_api: DandiAPI, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
     monkeypatch.delenv("DANDI_API_KEY", raising=False)
     monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyring.backends.null.Keyring")
     inputmock = mocker.patch(
@@ -33,7 +38,7 @@ def test_dandi_authenticate_no_env_var(local_dandi_api, monkeypatch, mocker):
     )
 
 
-def setup_keyringrc_no_password():
+def setup_keyringrc_no_password() -> None:
     rc = keyringrc_file()
     rc.parent.mkdir(parents=True, exist_ok=True)
     rc.write_text("[backend]\ndefault-keyring = keyring.backends.null.Keyring\n")
@@ -48,7 +53,7 @@ def setup_keyringrc_password():
     )
 
 
-def setup_keyringrc_fail():
+def setup_keyringrc_fail() -> None:
     rc = keyringrc_file()
     rc.parent.mkdir(parents=True, exist_ok=True)
     rc.write_text("[backend]\ndefault-keyring = keyring.backends.fail.Keyring\n")
@@ -59,7 +64,10 @@ def setup_keyringrc_fail():
     [None, setup_keyringrc_no_password, setup_keyringrc_password, setup_keyringrc_fail],
 )
 @pytest.mark.usefixtures("tmp_home")
-def test_keyring_lookup_envvar_no_password(monkeypatch, rcconfig):
+def test_keyring_lookup_envvar_no_password(
+    monkeypatch: pytest.MonkeyPatch,
+    rcconfig: Optional[Callable[[], None]],
+) -> None:
     monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyring.backends.null.Keyring")
     if rcconfig is not None:
         rcconfig()
@@ -72,7 +80,10 @@ def test_keyring_lookup_envvar_no_password(monkeypatch, rcconfig):
     "rcconfig", [None, setup_keyringrc_no_password, setup_keyringrc_fail]
 )
 @pytest.mark.usefixtures("tmp_home")
-def test_keyring_lookup_envvar_password(monkeypatch, rcconfig):
+def test_keyring_lookup_envvar_password(
+    monkeypatch: pytest.MonkeyPatch,
+    rcconfig: Optional[Callable[[], None]],
+) -> None:
     monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyrings.alt.file.PlaintextKeyring")
     keyfile.PlaintextKeyring().set_password(
         "testservice", "testusername", "testpassword"
@@ -89,7 +100,10 @@ def test_keyring_lookup_envvar_password(monkeypatch, rcconfig):
     [None, setup_keyringrc_no_password, setup_keyringrc_password, setup_keyringrc_fail],
 )
 @pytest.mark.usefixtures("tmp_home")
-def test_keyring_lookup_envvar_fail(monkeypatch, rcconfig):
+def test_keyring_lookup_envvar_fail(
+    monkeypatch: pytest.MonkeyPatch,
+    rcconfig: Optional[Callable[[], None]],
+) -> None:
     monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyring.backends.fail.Keyring")
     if rcconfig is not None:
         rcconfig()
@@ -98,7 +112,7 @@ def test_keyring_lookup_envvar_fail(monkeypatch, rcconfig):
 
 
 @pytest.mark.usefixtures("tmp_home")
-def test_keyring_lookup_rccfg_no_password(monkeypatch):
+def test_keyring_lookup_rccfg_no_password(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     setup_keyringrc_no_password()
     kb, password = keyring_lookup("testservice", "testusername")
@@ -107,7 +121,7 @@ def test_keyring_lookup_rccfg_no_password(monkeypatch):
 
 
 @pytest.mark.usefixtures("tmp_home")
-def test_keyring_lookup_rccfg_password(monkeypatch):
+def test_keyring_lookup_rccfg_password(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     setup_keyringrc_password()
     kb, password = keyring_lookup("testservice", "testusername")
@@ -116,7 +130,7 @@ def test_keyring_lookup_rccfg_password(monkeypatch):
 
 
 @pytest.mark.usefixtures("tmp_home")
-def test_keyring_lookup_rccfg_fail(monkeypatch):
+def test_keyring_lookup_rccfg_fail(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     setup_keyringrc_fail()
     with pytest.raises(KeyringError):
@@ -124,7 +138,9 @@ def test_keyring_lookup_rccfg_fail(monkeypatch):
 
 
 @pytest.mark.usefixtures("tmp_home")
-def test_keyring_lookup_default_no_password(mocker, monkeypatch):
+def test_keyring_lookup_default_no_password(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     kb0 = null.Keyring()
     get_keyring = mocker.patch("dandi.keyring.get_keyring", return_value=kb0)
@@ -135,7 +151,9 @@ def test_keyring_lookup_default_no_password(mocker, monkeypatch):
 
 
 @pytest.mark.usefixtures("tmp_home")
-def test_keyring_lookup_default_password(mocker, monkeypatch):
+def test_keyring_lookup_default_password(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     kb0 = keyfile.PlaintextKeyring()
     kb0.set_password("testservice", "testusername", "testpassword")
@@ -151,7 +169,9 @@ class EncryptedFailure(fail.Keyring, keyfile.EncryptedKeyring):
 
 
 @pytest.mark.usefixtures("tmp_home")
-def test_keyring_lookup_fail_default_encrypted(mocker, monkeypatch):
+def test_keyring_lookup_fail_default_encrypted(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     get_keyring = mocker.patch(
         "dandi.keyring.get_keyring", return_value=EncryptedFailure()
@@ -162,7 +182,9 @@ def test_keyring_lookup_fail_default_encrypted(mocker, monkeypatch):
 
 
 @pytest.mark.usefixtures("tmp_home")
-def test_keyring_lookup_encrypted_fallback_exists_no_password(mocker, monkeypatch):
+def test_keyring_lookup_encrypted_fallback_exists_no_password(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     get_keyring = mocker.patch("dandi.keyring.get_keyring", return_value=fail.Keyring())
     kf = Path(keyfile.EncryptedKeyring().file_path)
@@ -175,7 +197,9 @@ def test_keyring_lookup_encrypted_fallback_exists_no_password(mocker, monkeypatc
 
 
 @pytest.mark.usefixtures("tmp_home")
-def test_keyring_lookup_encrypted_fallback_exists_password(mocker, monkeypatch):
+def test_keyring_lookup_encrypted_fallback_exists_password(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     get_keyring = mocker.patch("dandi.keyring.get_keyring", return_value=fail.Keyring())
     kb0 = keyfile.EncryptedKeyring()
@@ -191,7 +215,9 @@ def test_keyring_lookup_encrypted_fallback_exists_password(mocker, monkeypatch):
 
 
 @pytest.mark.usefixtures("tmp_home")
-def test_keyring_lookup_encrypted_fallback_not_exists_no_create(mocker, monkeypatch):
+def test_keyring_lookup_encrypted_fallback_not_exists_no_create(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     get_keyring = mocker.patch("dandi.keyring.get_keyring", return_value=fail.Keyring())
     confirm = mocker.patch("click.confirm", return_value=False)
@@ -205,8 +231,8 @@ def test_keyring_lookup_encrypted_fallback_not_exists_no_create(mocker, monkeypa
 
 @pytest.mark.usefixtures("tmp_home")
 def test_keyring_lookup_encrypted_fallback_not_exists_create_rcconf(
-    mocker, monkeypatch
-):
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     get_keyring = mocker.patch("dandi.keyring.get_keyring", return_value=fail.Keyring())
     confirm = mocker.patch("click.confirm", return_value=True)
@@ -225,8 +251,8 @@ def test_keyring_lookup_encrypted_fallback_not_exists_create_rcconf(
 
 @pytest.mark.usefixtures("tmp_home")
 def test_keyring_lookup_encrypted_fallback_not_exists_create_rcconf_exists(
-    mocker, monkeypatch
-):
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     get_keyring = mocker.patch("dandi.keyring.get_keyring", return_value=fail.Keyring())
     confirm = mocker.patch("click.confirm", return_value=True)

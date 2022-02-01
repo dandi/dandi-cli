@@ -1,49 +1,3 @@
-"""
-This module provides functionality for interacting with a Dandi Archive server
-via the REST API.  Interaction begins with the creation of a `DandiAPIClient`
-instance, which can be used to retrieve `RemoteDandiset` objects (representing
-Dandisets on the server) and `BaseRemoteAsset` objects (representing assets
-without any data associating them with their Dandisets).  `RemoteDandiset`
-objects can, in turn, be used to retrieve `RemoteAsset` objects (representing
-assets associated with Dandisets).  Aside from `DandiAPIClient`, none of these
-classes should be instantiated directly by the user.
-
-All operations that merely fetch data from the server can be done without
-authenticating, but any operation that writes, uploads, modifies, or deletes
-data requires the user to authenticate the `DandiAPIClient` instance by
-supplying an API key either when creating the instance or by calling the
-`~DandiAPIClient.authenticate()` or `~DandiAPIClient.dandi_authenticate()`
-method.
-
-Example code for printing the metadata of all assets with "two-photon" in their
-``metadata.measurementTechnique[].name`` for the latest published version of
-every Dandiset:
-
->>> import json
->>> from pathlib import Path
->>> from dandi.dandiapi import DandiAPIClient
->>> with DandiAPIClient.for_dandi_instance("dandi") as client:
-...     for dandiset in client.get_dandisets():
-...         if dandiset.most_recent_published_version is None:
-...             continue
-...         latest_dandiset = dandiset.for_version(
-...             dandiset.most_recent_published_version
-...         )
-...         for asset in latest_dandiset.get_assets():
-...             metadata = asset.get_metadata()
-...             if any(
-...                 mtt is not None and "two-photon" in mtt.name
-...                 for mtt in (metadata.measurementTechnique or [])
-...             ):
-...                 print(json.dumps(metadata.json_dict(), indent=4))
-...                 # Uncomment to also download the asset:
-...                 # asset.download(Path(dandiset.identifier, asset.path))
-...
-{
-    ...
-}
-"""
-
 from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass, field, replace
@@ -418,9 +372,9 @@ class DandiAPIClient(RESTFullAPIClient):
         `DandiAPIClient`.  If the :envvar:`DANDI_API_KEY` environment variable
         is set, its value is used as the token.  Otherwise, the token is looked
         up in the user's keyring under the service
-        "``dandi-api-INSTANCE_NAME``" [#auth]_ and username "``key``".  If no
-        token is found there, the user is prompted for the token, and, if it
-        proves to be valid, it is stored in the user's keyring.
+        ":samp:`dandi-api-{INSTANCE_NAME}`" [#auth]_ and username "``key``".
+        If no token is found there, the user is prompted for the token, and, if
+        it proves to be valid, it is stored in the user's keyring.
 
         .. [#auth] E.g., "``dandi-api-dandi``" for the production server or
                    "``dandi-api-dandi-staging``" for the staging server
@@ -853,9 +807,9 @@ class RemoteDandiset:
     def for_version(self, version_id: Union[str, Version]) -> "RemoteDandiset":
         """
         Returns a copy of the `RemoteDandiset` with the `version` attribute set
-        to given `Version` object or the `Version` with the given version ID.
-        If a version ID given and the version does not exist, a `NotFoundError`
-        is raised.
+        to the given `Version` object or the `Version` with the given version
+        ID.  If a version ID given and the version does not exist, a
+        `NotFoundError` is raised.
         """
         if isinstance(version_id, str):
             version_id = self.get_version(version_id)
