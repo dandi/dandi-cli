@@ -827,13 +827,25 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         for upspec in r
                     ]
                     for fut in as_completed(futures):
-                        size = fut.result()
-                        bytes_uploaded += size
-                        yield {
-                            "status": "uploading",
-                            "upload": 100 * bytes_uploaded / stat.size,
-                            "current": bytes_uploaded,
-                        }
+                        try:
+                            size = fut.result()
+                        except Exception as e:
+                            lgr.debug(
+                                "Error uploading zarr: %s: %s", type(e).__name__, e
+                            )
+                            lgr.debug("Cancelling upload")
+                            for f in futures:
+                                f.cancel()
+                            executor.shutdown()
+                            client.delete(f"/zarr/{zarr_id}/upload/")
+                            raise
+                        else:
+                            bytes_uploaded += size
+                            yield {
+                                "status": "uploading",
+                                "upload": 100 * bytes_uploaded / stat.size,
+                                "current": bytes_uploaded,
+                            }
                 lgr.debug("%s: Completing upload of batch #%d", asset_path, i)
                 client.post(f"/zarr/{zarr_id}/upload/complete/")
         lgr.debug("%s: Upload completed", asset_path)
