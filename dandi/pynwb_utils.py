@@ -290,7 +290,7 @@ def rename_nwb_external_files(metadata: list, dandiset_path: str) -> None:
     """
     for meta in metadata:
         if not np.all(
-            i in meta for i in ["path", "dandi_path", "external_file_objects"]
+            [i in meta for i in ["path", "dandi_path", "external_file_objects"]]
         ):
             lgr.warning(
                 "could not rename external files, update metadata"
