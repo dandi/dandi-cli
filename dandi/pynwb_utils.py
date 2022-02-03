@@ -289,7 +289,7 @@ def rename_nwb_external_files(metadata: list, dandiset_path: str) -> None:
         base path of dandiset
     """
     for meta in metadata:
-        if not np.all(
+        if not all(
             [i in meta for i in ["path", "dandi_path", "external_file_objects"]]
         ):
             lgr.warning(
