@@ -50,6 +50,9 @@ Assets
     :inherited-members: BaseModel
     :exclude-members: Config, JSON_EXCLUDE
 
+.. autoclass:: BaseRemoteBlobAsset()
+    :show-inheritance:
+
 .. autoclass:: AssetType
 
 .. autoclass:: RemoteAsset()
@@ -61,6 +64,9 @@ Assets
 
 Zarr Assets
 ^^^^^^^^^^^
+
+.. autoclass:: BaseRemoteZarrAsset()
+    :show-inheritance:
 
 .. autoclass:: RemoteZarrAsset()
     :show-inheritance:
