@@ -45,7 +45,10 @@ def test_digest_zarr():
     # This test assumes that the Zarr serialization format never changes
     runner = CliRunner()
     with runner.isolated_filesystem():
-        zarr.save("sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
+        dt = np.dtype("<i8")
+        zarr.save(
+            "sample.zarr", np.arange(1000, dtype=dt), np.arange(1000, 0, -1, dtype=dt)
+        )
         r = runner.invoke(digest, ["--digest", "zarr-checksum", "sample.zarr"])
         assert r.exit_code == 0
         assert r.output == "sample.zarr: ebe3432f7ff77791877fa9eac0452831\n"
