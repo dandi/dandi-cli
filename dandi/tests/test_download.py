@@ -371,6 +371,15 @@ def test_download_nonzarr_to_zarr_path(
     assert (dd / "sample.zarr").read_text() == "This is not a Zarr.\n"
 
 
+def test_download_zarr_asset_id_only(
+    zarr_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    download(asset.base_download_url, tmp_path)
+    assert list(tmp_path.iterdir()) == [tmp_path / "sample.zarr"]
+    assert_dirtrees_eq(zarr_dandiset.dspath / "sample.zarr", tmp_path / "sample.zarr")
+
+
 @pytest.mark.parametrize(
     "file_qty,inputs,expected",
     [

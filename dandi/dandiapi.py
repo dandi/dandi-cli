@@ -38,7 +38,6 @@ from .consts import (
     DRAFT,
     MAX_CHUNK_SIZE,
     RETRY_STATUSES,
-    ZARR_MIME_TYPE,
     DandiInstance,
     EmbargoStatus,
     known_instances,
@@ -500,7 +499,9 @@ class DandiAPIClient(RESTFullAPIClient):
         method must be used instead.
         """
         try:
-            return BaseRemoteAsset.from_metadata(self, self.get(f"/assets/{asset_id}"))
+            return BaseRemoteAsset.from_base_data(
+                self, self.get(f"/assets/{asset_id}/info/")
+            )
         except requests.HTTPError as e:
             if e.response.status_code == 404:
                 raise NotFoundError(f"No such asset: {asset_id!r}")
@@ -1084,17 +1085,21 @@ class RemoteDandiset:
         )
 
 
-class BaseRemoteAsset(APIBase):
+class BaseRemoteAsset(ABC, APIBase):
     """
     Representation of an asset retrieved from the API without associated
     Dandiset information.
+
+    This is an abstract class; its concrete subclasses are
+    `BaseRemoteBlobAsset` (for assets backed by blobs) and
+    `BaseRemoteZarrAsset` (for assets backed by Zarrs).
 
     Stringifying a `BaseRemoteAsset` returns a string of the form
     :samp:`"{server_id}:asset/{asset_id}"`.
 
     This class should not be instantiated by end-users directly.  Instead,
-    instances should be retrieved from the appropriate attributes & methods of
-    `DandiAPIClient` and `RemoteDandiset`.
+    instances should be retrieved from the appropriate methods of
+    `DandiAPIClient`.
     """
 
     #: The `DandiAPIClient` instance that returned this `BaseRemoteAsset`
@@ -1106,6 +1111,10 @@ class BaseRemoteAsset(APIBase):
     path: str
     #: The size of the asset in bytes
     size: int
+    #: The date at which the asset was created
+    created: datetime
+    #: The date at which the asset was last modified
+    modified: datetime
     #: Metadata supplied at initialization; returned when metadata is requested
     #: instead of performing an API call
     _metadata: Optional[Dict[str, Any]] = PrivateAttr(default_factory=None)
@@ -1120,23 +1129,32 @@ class BaseRemoteAsset(APIBase):
         return f"{self.client._instance_id}:assets/{self.identifier}"
 
     @classmethod
-    def from_metadata(
-        self, client: "DandiAPIClient", metadata: Dict[str, Any]
+    def from_base_data(
+        self,
+        client: "DandiAPIClient",
+        data: Dict[str, Any],
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> "BaseRemoteAsset":
         """
-        Construct a `BaseRemoteAsset` instance from a `DandiAPIClient` and a
-        `dict` of raw asset metadata.
+        Construct a `BaseRemoteAsset` instance from a `DandiAPIClient`, a
+        `dict` of raw data in the same format as returned by the API's
+        pagination endpoints, and optional raw asset metadata.
 
         This is a low-level method that non-developers would normally only use
         when acquiring data using means outside of this library.
         """
-        return BaseRemoteAsset(  # type: ignore[call-arg]
-            client=client,
-            identifier=metadata["identifier"],
-            path=metadata["path"],
-            size=metadata["contentSize"],
-            _metadata=metadata,
-        )
+        klass: Type[BaseRemoteAsset]
+        if data.get("blob") is not None:
+            klass = BaseRemoteBlobAsset
+            if data.pop("zarr", None) is not None:
+                raise ValueError("Asset data contains both `blob` and `zarr`'")
+        elif data.get("zarr") is not None:
+            klass = BaseRemoteZarrAsset
+            if data.pop("blob", None) is not None:
+                raise ValueError("Asset data contains both `blob` and `zarr`'")
+        else:
+            raise ValueError("Asset data contains neither `blob` nor `zarr`")
+        return klass(client=client, **data, _metadata=metadata)  # type: ignore[call-arg]
 
     @property
     def api_path(self) -> str:
@@ -1183,8 +1201,7 @@ class BaseRemoteAsset(APIBase):
                     raise
 
     def get_raw_digest(
-        self,
-        digest_type: Union[str, models.DigestType, None] = models.DigestType.dandi_etag,
+        self, digest_type: Union[str, models.DigestType, None] = None
     ) -> str:
         """
         Retrieves the value of the given type of digest from the asset's
@@ -1314,16 +1331,14 @@ class BaseRemoteAsset(APIBase):
                 fp.write(chunk)
 
     @property
+    @abstractmethod
     def asset_type(self) -> AssetType:
         """
         .. versionadded:: 0.36.0
 
         The type of the asset's underlying data
         """
-        if self.get_raw_metadata().get("encodingFormat") == ZARR_MIME_TYPE:
-            return AssetType.ZARR
-        else:
-            return AssetType.BLOB
+        ...
 
     @property
     def digest_type(self) -> models.DigestType:
@@ -1340,10 +1355,80 @@ class BaseRemoteAsset(APIBase):
             return models.DigestType.dandi_etag
 
 
-class RemoteAsset(ABC, BaseRemoteAsset):
+class BaseRemoteBlobAsset(BaseRemoteAsset):
+    """
+    .. versionadded:: 0.36.0
+
+    A `BaseRemoteAsset` whose actual data is a blob resource
+    """
+
+    #: The ID of the underlying blob resource
+    blob: str
+
+    @property
+    def asset_type(self) -> AssetType:
+        """
+        .. versionadded:: 0.36.0
+
+        The type of the asset's underlying data
+        """
+        return AssetType.BLOB
+
+
+class BaseRemoteZarrAsset(BaseRemoteAsset):
+    """
+    .. versionadded:: 0.36.0
+
+    A `BaseRemoteAsset` whose actual data is a Zarr resource
+    """
+
+    #: The ID of the underlying Zarr resource
+    zarr: str
+
+    @property
+    def asset_type(self) -> AssetType:
+        """
+        .. versionadded:: 0.36.0
+
+        The type of the asset's underlying data
+        """
+        return AssetType.ZARR
+
+    @property
+    def filetree(self) -> "RemoteZarrEntry":
+        """
+        The `RemoteZarrEntry` for the root of the hierarchy of files within the
+        Zarr
+        """
+        return RemoteZarrEntry(
+            client=self.client, zarr_id=self.zarr, parts=(), _known_dir=True
+        )
+
+    def iterfiles(self, include_dirs: bool = False) -> Iterator["RemoteZarrEntry"]:
+        """
+        Returns a generator of all `RemoteZarrEntry`\\s within the Zarr.  By
+        default, only instances for files are produced, unless ``include_dirs``
+        is true.
+        """
+        dirs = deque([self.filetree])
+        while dirs:
+            for p in dirs.popleft().iterdir():
+                if p.is_dir():
+                    dirs.append(p)
+                    if include_dirs:
+                        yield p
+                else:
+                    yield p
+
+
+class RemoteAsset(BaseRemoteAsset):
     """
     Subclass of `BaseRemoteAsset` that includes information about the Dandiset
     to which the asset belongs.
+
+    This is an abstract class; its concrete subclasses are `RemoteBlobAsset`
+    (for assets backed by blobs) and `RemoteZarrAsset` (for assets backed by
+    Zarrs).
 
     This class should not be instantiated by end-users directly.  Instead,
     instances should be retrieved from the appropriate attributes & methods of
@@ -1357,10 +1442,6 @@ class RemoteAsset(ABC, BaseRemoteAsset):
     #: The identifier for the version of the Dandiset to which the asset
     #: belongs
     version_id: str
-    #: The date at which the asset was created
-    created: datetime
-    #: The date at which the asset was last modified
-    modified: datetime
 
     @classmethod
     def from_data(
@@ -1440,24 +1521,12 @@ class RemoteAsset(ABC, BaseRemoteAsset):
         self.client.delete(self.api_path)
 
 
-class RemoteBlobAsset(RemoteAsset):
+class RemoteBlobAsset(RemoteAsset, BaseRemoteBlobAsset):
     """
     .. versionadded:: 0.36.0
 
     A `RemoteAsset` whose actual data is a blob resource
     """
-
-    #: The ID of the underlying blob resource
-    blob: str
-
-    @property
-    def asset_type(self) -> AssetType:
-        """
-        .. versionadded:: 0.36.0
-
-        The type of the asset's underlying data
-        """
-        return AssetType.BLOB
 
     def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
         """
@@ -1470,28 +1539,17 @@ class RemoteBlobAsset(RemoteAsset):
         self.identifier = data["asset_id"]
         self.path = data["path"]
         self.size = int(data["size"])
+        self.created = ensure_datetime(data["created"])
         self.modified = ensure_datetime(data["modified"])
         self._metadata = data["metadata"]
 
 
-class RemoteZarrAsset(RemoteAsset):
+class RemoteZarrAsset(RemoteAsset, BaseRemoteZarrAsset):
     """
     .. versionadded:: 0.36.0
 
     A `RemoteAsset` whose actual data is a Zarr resource
     """
-
-    #: The ID of the underlying Zarr resource
-    zarr: str
-
-    @property
-    def asset_type(self) -> AssetType:
-        """
-        .. versionadded:: 0.36.0
-
-        The type of the asset's underlying data
-        """
-        return AssetType.ZARR
 
     def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
         """
@@ -1504,34 +1562,9 @@ class RemoteZarrAsset(RemoteAsset):
         self.identifier = data["asset_id"]
         self.path = data["path"]
         self.size = int(data["size"])
+        self.created = ensure_datetime(data["created"])
         self.modified = ensure_datetime(data["modified"])
         self._metadata = data["metadata"]
-
-    @property
-    def filetree(self) -> "RemoteZarrEntry":
-        """
-        The `RemoteZarrEntry` for the root of the hierarchy of files within the
-        Zarr
-        """
-        return RemoteZarrEntry(
-            client=self.client, zarr_id=self.zarr, parts=(), _known_dir=True
-        )
-
-    def iterfiles(self, include_dirs: bool = False) -> Iterator["RemoteZarrEntry"]:
-        """
-        Returns a generator of all `RemoteZarrEntry`\\s within the Zarr.  By
-        default, only instances for files are produced, unless ``include_dirs``
-        is true.
-        """
-        dirs = deque([self.filetree])
-        while dirs:
-            for p in dirs.popleft().iterdir():
-                if p.is_dir():
-                    dirs.append(p)
-                    if include_dirs:
-                        yield p
-                else:
-                    yield p
 
 
 class ZarrListing(BaseModel):
