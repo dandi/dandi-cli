@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 
 def upload(
-    paths: List[Union[str, Path]],
+    paths: Optional[List[Union[str, Path]]] = None,
     existing: str = "refresh",
     validation: str = "require",
     dandiset_path: Union[str, Path, None] = None,

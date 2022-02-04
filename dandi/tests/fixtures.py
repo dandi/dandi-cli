@@ -325,7 +325,7 @@ class SampleDandiset:
         with pytest.MonkeyPatch().context() as m:
             m.setenv("DANDI_API_KEY", self.api.api_key)
             upload(
-                paths=paths or [],
+                paths=paths,
                 dandiset_path=self.dspath,
                 dandi_instance=self.api.instance_id,
                 devel_debug=True,
