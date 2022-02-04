@@ -85,8 +85,13 @@ checksums = PersistentCache(name="dandi-checksums", envvar="DANDI_CACHE")
 def get_digest(filepath: Union[str, Path], digest: str = "sha256") -> str:
     if digest == "dandi-etag":
         return cast(str, get_dandietag(filepath).as_str())
-    else:
-        return Digester([digest])(filepath)[digest]
+    elif digest == "zarr-checksum":
+        path = Path(filepath)
+        if path.is_dir():
+            return get_zarr_checksum(path)
+        else:
+            digest = "md5"
+    return Digester([digest])(filepath)[digest]
 
 
 @checksums.memoize_path

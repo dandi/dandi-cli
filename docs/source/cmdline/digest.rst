@@ -10,6 +10,6 @@ Calculate file digests
 Options
 -------
 
-.. option:: -d, --digest [dandi-etag|md5|sha1|sha256|sha512]
+.. option:: -d, --digest [dandi-etag|md5|sha1|sha256|sha512|zarr-checksum]
 
     Digest algorithm to use  [default: ``dandi-etag``]
