@@ -105,7 +105,8 @@
     acquisition: optional
     ceagent: optional
     reconstruction: optional
-    flip: required
+    echo: optional
+    flip: optional
     part: optional
 
 # Multi-inv

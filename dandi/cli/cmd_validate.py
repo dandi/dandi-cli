@@ -7,6 +7,29 @@ from .base import devel_debug_option, devel_option, lgr, map_to_click_exceptions
 
 
 @click.command()
+@devel_option("--schema", help="Validate against new BIDS schema version", metavar="VERSION")
+#@click.argument("--schema", nargs=1, type=str)
+@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
+@devel_debug_option()
+@map_to_click_exceptions
+def validate_bids(paths, schema=None, devel_debug=False):
+    """Validate BIDS paths.
+
+    Notes
+    -----
+    * Schema version passing requires the following, might be better to make schema a normal option.
+        DANDI_DEVEL=1 dandi validate-bids --schema="1.6.0+dandi001" ../rawdata/
+    """
+    from ..validate import validate_bids as validate_bids_
+
+    validate_bids_(
+        *paths,
+        schema_version=schema,
+        devel_debug=devel_debug,
+    )
+
+
+@click.command()
 @devel_option("--schema", help="Validate against new schema version", metavar="VERSION")
 @devel_option(
     "--allow-any-path",
