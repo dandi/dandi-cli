@@ -261,8 +261,8 @@ def test_detect_link_type(
 
 @pytest.mark.parametrize("mode", ["copy", "move"])
 @pytest.mark.parametrize("video_mode", ["copy", "move", "symlink", "hardlink"])
-def test_video_organize(video_mode, mode, create_video_nwbfiles):
-    dandi_organize_path = create_video_nwbfiles.parent / "dandi_organized"
+def test_video_organize(video_mode, mode, video_nwbfiles):
+    dandi_organize_path = video_nwbfiles.parent / "dandi_organized"
     cmd = [
         "--files-mode",
         mode,
@@ -271,9 +271,9 @@ def test_video_organize(video_mode, mode, create_video_nwbfiles):
         video_mode,
         "-d",
         str(dandi_organize_path),
-        str(create_video_nwbfiles),
+        str(video_nwbfiles),
     ]
-    video_files_list = list((create_video_nwbfiles.parent / "video_files").iterdir())
+    video_files_list = list((video_nwbfiles.parent / "video_files").iterdir())
     video_files_organized = []
     r = CliRunner().invoke(organize, cmd)
     assert r.exit_code == 0

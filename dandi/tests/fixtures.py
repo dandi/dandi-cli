@@ -396,15 +396,15 @@ def zarr_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
 
 
 @pytest.fixture()
-def create_video_files(tmp_path):
+def video_nwbfiles(tmp_path):
     video_paths = []
     import cv2
 
     video_path = tmp_path / "video_files"
     video_path.mkdir()
-    for no, ext in enumerate([".avi", ".avi"]):
-        movie_file1 = video_path / f"test1_{no}{ext}"
-        movie_file2 = video_path / f"test2_{no}{ext}"
+    for no in range(2):
+        movie_file1 = video_path / f"test1_{no}.avi"
+        movie_file2 = video_path / f"test2_{no}.avi"
         (nf, nx, ny) = (5, 10, 20)
         writer1 = cv2.VideoWriter(
             filename=str(movie_file1),
@@ -428,16 +428,11 @@ def create_video_files(tmp_path):
         writer1.release()
         writer2.release()
         video_paths.append((movie_file1, movie_file2))
-    return video_paths
-
-
-@pytest.fixture()
-def create_video_nwbfiles(create_video_files):
-    parent_folder = create_video_files[0][0].parent.parent
+    parent_folder = video_paths[0][0].parent.parent
     base_nwb_path = parent_folder / "nwbfiles"
     base_nwb_path.mkdir(parents=True, exist_ok=True)
 
-    for no, vid_loc in enumerate(create_video_files):
+    for no, vid_loc in enumerate(video_paths):
         vid_1 = vid_loc[0]
         vid_2 = vid_loc[1]
         subject_id = f"mouse{no}"
