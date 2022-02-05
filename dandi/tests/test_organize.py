@@ -266,7 +266,7 @@ def test_video_organize(video_mode, mode, create_video_nwbfiles):
     cmd = [
         "--files-mode",
         mode,
-        "--modify-external-file-fields",
+        "--update-external-file-paths",
         "--media-files-mode",
         video_mode,
         "-d",

@@ -35,20 +35,20 @@ from ..consts import file_operation_modes
     show_default=True,
 )
 @click.option(
-    "--modify-external-file-fields",
+    "--update-external-file-paths",
     is_flag=True,
     default=False,
-    help="using this options will rewrite the 'external_file' argument of the "
-    "ImageSeries in the nwb file. The value written will correspond to the"
-    " new location of the video files after being organized. This option will "
-    "work only if --files-mode is copy/move since the original nwb file is "
-    "modified",
+    help="Rewrite the 'external_file' arguments of ImageSeries in NWB files. "
+    "The new values will correspond to the new locations of the video files "
+    "after being organized. "
+    "This option requires --files-mode to be 'copy' or 'move'",
 )
 @click.option(
     "--media-files-mode",
     type=click.Choice(["copy", "move", "symlink", "hardlink"]),
     default=None,
-    help="Supply one of copy/move/symlink/hardlink as the value",
+    help="This option works on the video files on disc while being organized "
+    "along side nwb files.",
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
 @devel_debug_option()
@@ -59,7 +59,7 @@ def organize(
     invalid="fail",
     files_mode="auto",
     devel_debug=False,
-    modify_external_file_fields=False,
+    update_external_file_paths=False,
     media_files_mode=None,
 ):
     """(Re)organize files according to the metadata.
@@ -124,9 +124,9 @@ def organize(
             lgr.debug("%s %s %s", func.__name__, args, kwargs)
             return func(*args, **kwargs)
 
-    if modify_external_file_fields and files_mode not in ["copy", "move"]:
+    if update_external_file_paths and files_mode not in ["copy", "move"]:
         raise ValueError(
-            "files_mode needs to be one of 'copy/move' for the rewrite option to work"
+            "--files-mode needs to be one of 'copy/move' for the rewrite option to work"
         )
 
     if dandiset_path is None:
@@ -244,27 +244,25 @@ def organize(
         len(m["external_file_objects"]) == 0 for m in metadata
     ]
 
-    if all(external_files_missing_in_nwbfiles) and modify_external_file_fields:
+    if all(external_files_missing_in_nwbfiles) and update_external_file_paths:
         lgr.warning(
-            "modify_external_file_fields specified but no external_files found "
+            "--update-external-file-paths specified but no external_files found "
             "linked to any nwbfile found in %s",
             paths,
         )
-    elif (
-        not all(external_files_missing_in_nwbfiles) and not modify_external_file_fields
-    ):
+    elif not all(external_files_missing_in_nwbfiles) and not update_external_file_paths:
         raise ValueError(
-            "modify_external_file_fields option not specified but found "
+            "--update-external-file-paths option not specified but found "
             "external video files linked to the nwbfiles "
             f"""{[metadata[no]['path']
                   for no, a in enumerate(external_files_missing_in_nwbfiles)
                   if not a]}"""
         )
 
-    if modify_external_file_fields and media_files_mode is None:
+    if update_external_file_paths and media_files_mode is None:
         media_files_mode = "symlink"
         lgr.warning(
-            "media_files_mode not specified, setting to recommended mode: 'symlink' "
+            "--media-files-mode not specified, setting to recommended mode: 'symlink' "
         )
 
     metadata = _create_external_file_names(metadata)
@@ -373,7 +371,7 @@ def organize(
                     lgr.debug("Failed to remove directory %s: %s", d, exc)
 
     # create video file name and re write nwb file external files:
-    if modify_external_file_fields:
+    if update_external_file_paths:
         rename_nwb_external_files(metadata, dandiset_path)
         organize_external_files(metadata, dandiset_path, media_files_mode)
 
