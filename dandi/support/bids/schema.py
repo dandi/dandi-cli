@@ -7,7 +7,7 @@ import os
 from copy import deepcopy
 from pathlib import Path
 
-import yaml
+from ruamel import yaml
 
 from . import utils
 
