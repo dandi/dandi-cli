@@ -274,7 +274,7 @@ def _get_image_series(nwb: pynwb.NWBFile) -> List[dict]:
     return out
 
 
-def rename_nwb_external_files(metadata: list, dandiset_path: str) -> None:
+def rename_nwb_external_files(metadata: List[dict], dandiset_path: str) -> None:
     """
     This method, renames the external_file attribute in an ImageSeries datatype in an open nwb file.
     It pulls information about the ImageSEries objects

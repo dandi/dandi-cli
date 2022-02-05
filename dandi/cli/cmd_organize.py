@@ -125,7 +125,7 @@ def organize(
             return func(*args, **kwargs)
 
     if update_external_file_paths and files_mode not in ["copy", "move"]:
-        raise ValueError(
+        raise click.UsageError(
             "--files-mode needs to be one of 'copy/move' for the rewrite option to work"
         )
 
@@ -251,7 +251,7 @@ def organize(
             paths,
         )
     elif not all(external_files_missing_in_nwbfiles) and not update_external_file_paths:
-        raise ValueError(
+        raise click.UsageError(
             "--update-external-file-paths option not specified but found "
             "external video files linked to the nwbfiles "
             f"""{[metadata[no]['path']
