@@ -428,8 +428,7 @@ def video_nwbfiles(tmp_path):
         writer1.release()
         writer2.release()
         video_paths.append((movie_file1, movie_file2))
-    parent_folder = video_paths[0][0].parent.parent
-    base_nwb_path = parent_folder / "nwbfiles"
+    base_nwb_path = tmp_path / "nwbfiles"
     base_nwb_path.mkdir(parents=True, exist_ok=True)
 
     for no, vid_loc in enumerate(video_paths):
