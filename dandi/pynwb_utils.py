@@ -268,7 +268,7 @@ def _get_image_series(nwb: pynwb.NWBFile) -> List[dict]:
                         lgr.warning(
                             "external file %s should be one of: %s",
                             ext_file,
-                            VIDEO_FILE_EXTENSIONS,
+                            ",".join(VIDEO_FILE_EXTENSIONS),
                         )
                 out.append(out_dict)
     return out

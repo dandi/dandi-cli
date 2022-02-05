@@ -177,6 +177,7 @@ def create_unique_filenames_from_metadata(metadata):
 def _create_external_file_names(metadata: list) -> List[dict]:
     """
     Renames the external_file attribute in an ImageSeries according to the rule:
+    <nwbfile name>/<ImageSeries uuid>_external_file_<no><.ext>
     Example, the Initial name of file:
         external_file = [name1.mp4]
     rename to:
@@ -206,7 +207,7 @@ def _create_external_file_names(metadata: list) -> List[dict]:
                 renamed = op.join(
                     nwb_folder_name, f"{uuid_str}_external_file_{no}{ext_file.suffix}"
                 )
-                renamed_path_list.append(str(renamed))
+                renamed_path_list.append(renamed)
             ext_file_dict["external_files_renamed"] = renamed_path_list
     return metadata
 
@@ -237,8 +238,7 @@ def organize_external_files(
             ):
                 new_path = op.join(dandiset_path, op.dirname(e["dandi_path"]), name_new)
                 name_old_str = str(name_old)
-                if not op.exists(op.dirname(new_path)):
-                    os.makedirs(op.dirname(new_path))
+                os.makedirs(op.dirname(new_path), exist_ok=True)
                 if files_mode == "symlink":
                     os.symlink(name_old_str, new_path)
                 elif files_mode == "hardlink":
