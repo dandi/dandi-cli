@@ -65,6 +65,16 @@ Options
     What to do if files without sufficient metadata are encountered  [default:
     ``fail``]
 
+.. option:: --update-external-file-paths
+
+    Rewrite the ``external_file`` arguments of ImageSeries in NWB files.  The
+    new values will correspond to the new locations of the video files after
+    being organized.  This option requires :option:`--files-mode` to be
+    "``copy``" or "``move``".
+
+.. option:: --media-files-mode [copy|move|symlink|hardlink]
+
+    How to relocate video files referenced by NWB files [default: ``symlink``]
 
 Development Options
 -------------------

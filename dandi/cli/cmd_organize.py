@@ -47,8 +47,7 @@ from ..consts import file_operation_modes
     "--media-files-mode",
     type=click.Choice(["copy", "move", "symlink", "hardlink"]),
     default=None,
-    help="This option works on the video files on disc while being organized "
-    "along side nwb files.",
+    help="How to relocate video files referenced by NWB files",
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
 @devel_debug_option()
