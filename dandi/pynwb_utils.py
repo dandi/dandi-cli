@@ -239,13 +239,11 @@ def _get_pynwb_metadata(path: Union[str, Path]) -> Dict[str, Any]:
 
 
 def _get_image_series(nwb: pynwb.NWBFile) -> List[dict]:
-    """
-    This method supports _get_pynwb_metadata() in retrieving all ImageSeries
-    related metadata from an open nwb file.
+    """Retrieves all ImageSeries related metadata from an open nwb file.
+
     Specifically it pulls out the ImageSeries uuid, name and all the
-    externally linked files
-    named under the argument 'external_file'.
-    
+    externally linked files named under the argument 'external_file'.
+
     Parameters
     ----------
     nwb: pynwb.NWBFile
@@ -277,11 +275,10 @@ def _get_image_series(nwb: pynwb.NWBFile) -> List[dict]:
 
 
 def rename_nwb_external_files(metadata: List[dict], dandiset_path: str) -> None:
-    """
-    This method, renames the external_file attribute in an ImageSeries datatype in an open nwb file.
-    It pulls information about the ImageSEries objects
-    from metadata: metadata["external_file_objects"]
-    populated during _get_pynwb_metadata() call.
+    """Renames the external_file attribute in an ImageSeries datatype in an open nwb file.
+
+    It pulls information about the ImageSeries objects from metadata:
+    metadata["external_file_objects"] populated during _get_pynwb_metadata() call.
 
     Parameters
     ----------
@@ -293,7 +290,7 @@ def rename_nwb_external_files(metadata: List[dict], dandiset_path: str) -> None:
     for meta in metadata:
         if not all(i in meta for i in ["path", "dandi_path", "external_file_objects"]):
             lgr.warning(
-                'could not rename external files, update metadata '
+                "could not rename external files, update metadata "
                 'with "path", "dandi_path", "external_file_objects"'
             )
             return

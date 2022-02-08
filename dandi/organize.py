@@ -175,7 +175,8 @@ def create_unique_filenames_from_metadata(metadata):
 
 
 def _create_external_file_names(metadata: List[dict]) -> List[dict]:
-    """
+    """Updates the metadata dict with renamed external files.
+
     Renames the external_file attribute in an ImageSeries according to the rule:
     <nwbfile name>/<ImageSeries uuid>_external_file_<no><.ext>
     Example, the Initial name of file:
@@ -184,8 +185,9 @@ def _create_external_file_names(metadata: List[dict]) -> List[dict]:
         external_file = [dandiset-path-of-nwbfile/
                 dandi-renamed-nwbfile_name(folder without extension .nwb)/
                 f'{ImageSeries.object_id}_external_file_0.mp4'
-    This is stored in a new field in the
-    metadata['external_file_objects'][0]['external_files_renamed']
+    This is stored in a new field in the metadata:
+    metadata['external_file_objects'][0]['external_files_renamed'] = <renamed_string>
+
     Parameters
     ----------
     metadata: list
@@ -215,8 +217,7 @@ def _create_external_file_names(metadata: List[dict]) -> List[dict]:
 def organize_external_files(
     metadata: List[dict], dandiset_path: str, files_mode: str
 ) -> None:
-    """
-    Organizes the external_files into the new Dandiset folder structure.
+    """Organizes the external_files into the new Dandiset folder structure.
 
     Parameters
     ----------
