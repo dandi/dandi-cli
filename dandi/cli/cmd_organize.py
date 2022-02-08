@@ -251,12 +251,15 @@ def organize(
             paths,
         )
     elif not all(external_files_missing_in_nwbfiles) and not update_external_file_paths:
+        files_list = [
+            metadata[no]["path"]
+            for no, a in enumerate(external_files_missing_in_nwbfiles)
+            if not a
+        ]
         raise click.UsageError(
             "--update-external-file-paths option not specified but found "
             "external video files linked to the nwbfiles "
-            f"""{[metadata[no]['path']
-                  for no, a in enumerate(external_files_missing_in_nwbfiles)
-                  if not a]}"""
+            f"{', '.join(files_list)}"
         )
 
     if update_external_file_paths and media_files_mode is None:
