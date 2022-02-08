@@ -17,6 +17,8 @@ import semantic_version
 
 from . import __version__, get_logger
 from .consts import (
+    VIDEO_FILE_EXTENSIONS,
+    VIDEO_FILE_MODULES,
     metadata_nwb_computed_fields,
     metadata_nwb_file_fields,
     metadata_nwb_subject_fields,
@@ -230,7 +232,90 @@ def _get_pynwb_metadata(path: Union[str, Path]) -> Dict[str, Any]:
             key = f[len("number_of_") :]
             out[f] = len(getattr(nwb, key, []) or [])
 
+        # get external_file data:
+        out["external_file_objects"] = _get_image_series(nwb)
+
     return out
+
+
+def _get_image_series(nwb: pynwb.NWBFile) -> List[dict]:
+    """Retrieves all ImageSeries related metadata from an open nwb file.
+
+    Specifically it pulls out the ImageSeries uuid, name and all the
+    externally linked files named under the argument 'external_file'.
+
+    Parameters
+    ----------
+    nwb: pynwb.NWBFile
+
+    Returns
+    -------
+    out: List[dict]
+        list of dicts : [{id: <ImageSeries uuid>, name: <IMageSeries name>,
+        external_files=[ImageSeries.external_file]}]
+        if no ImageSeries found in the given modules to check, then it returns an empty list.
+    """
+    out = []
+    for module_name in VIDEO_FILE_MODULES:
+        module_cont = getattr(nwb, module_name)
+        for name, ob in module_cont.items():
+            if isinstance(ob, pynwb.image.ImageSeries) and ob.external_file is not None:
+                out_dict = dict(id=ob.object_id, name=ob.name, external_files=[])
+                for ext_file in ob.external_file:
+                    if Path(ext_file).suffix in VIDEO_FILE_EXTENSIONS:
+                        out_dict["external_files"].append(Path(ext_file))
+                    else:
+                        lgr.warning(
+                            "external file %s should be one of: %s",
+                            ext_file,
+                            ", ".join(VIDEO_FILE_EXTENSIONS),
+                        )
+                out.append(out_dict)
+    return out
+
+
+def rename_nwb_external_files(metadata: List[dict], dandiset_path: str) -> None:
+    """Renames the external_file attribute in an ImageSeries datatype in an open nwb file.
+
+    It pulls information about the ImageSeries objects from metadata:
+    metadata["external_file_objects"] populated during _get_pynwb_metadata() call.
+
+    Parameters
+    ----------
+    metadata: List[dict]
+        list of dictionaries containing the metadata gathered from the nwbfile
+    dandiset_path: str
+        base path of dandiset
+    """
+    for meta in metadata:
+        if not all(i in meta for i in ["path", "dandi_path", "external_file_objects"]):
+            lgr.warning(
+                "could not rename external files, update metadata "
+                'with "path", "dandi_path", "external_file_objects"'
+            )
+            return
+        dandiset_nwbfile_path = op.join(dandiset_path, meta["dandi_path"])
+        with NWBHDF5IO(dandiset_nwbfile_path, mode="r+", load_namespaces=True) as io:
+            nwb = io.read()
+            for ext_file_dict in meta["external_file_objects"]:
+                # retrieve nwb neurodata object of the given object id:
+                container_list = [
+                    child
+                    for child in nwb.children
+                    if ext_file_dict["id"] == child.object_id
+                ]
+                if len(container_list) == 0:
+                    continue
+                else:
+                    container = container_list[0]
+                # rename all external files:
+                for no, (name_old, name_new) in enumerate(
+                    zip(
+                        ext_file_dict["external_files"],
+                        ext_file_dict["external_files_renamed"],
+                    )
+                ):
+                    container.external_file[no] = str(name_new)
 
 
 @validate_cache.memoize_path

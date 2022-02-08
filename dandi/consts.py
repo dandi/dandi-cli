@@ -148,6 +148,9 @@ DRAFT = "draft"
 #: of retries)
 RETRY_STATUSES = (500, 502, 503, 504)
 
+VIDEO_FILE_EXTENSIONS = [".mp4", ".avi", ".wmv", ".mov", ".flv"]
+VIDEO_FILE_MODULES = ["processing", "acquisition"]
+
 #: Maximum allowed depth of a Zarr directory tree
 MAX_ZARR_DEPTH = 5
 

@@ -17,9 +17,14 @@ from uuid import uuid4
 from _pytest.fixtures import FixtureRequest
 from click.testing import CliRunner
 from dandischema.consts import DANDI_SCHEMA_VERSION
-from dateutil.tz import tzutc
+from dateutil.tz import tzlocal, tzutc
 import numpy as np
 import pynwb
+from pynwb import NWBHDF5IO, NWBFile
+from pynwb.device import Device
+from pynwb.file import Subject
+import pynwb.image
+from pynwb.ophys import ImageSeries
 import pytest
 import requests
 import zarr
@@ -388,6 +393,81 @@ def zarr_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
     )
     new_dandiset.upload()
     return new_dandiset
+
+
+@pytest.fixture()
+def video_nwbfiles(tmp_path):
+    video_paths = []
+    import cv2
+
+    video_path = tmp_path / "video_files"
+    video_path.mkdir()
+    for no in range(2):
+        movie_file1 = video_path / f"test1_{no}.avi"
+        movie_file2 = video_path / f"test2_{no}.avi"
+        (nf, nx, ny) = (5, 10, 20)
+        writer1 = cv2.VideoWriter(
+            filename=str(movie_file1),
+            apiPreference=None,
+            fourcc=cv2.VideoWriter_fourcc(*"DIVX"),
+            fps=25,
+            frameSize=(ny, nx),
+            params=None,
+        )
+        writer2 = cv2.VideoWriter(
+            filename=str(movie_file2),
+            apiPreference=None,
+            fourcc=cv2.VideoWriter_fourcc(*"DIVX"),
+            fps=25,
+            frameSize=(ny, nx),
+            params=None,
+        )
+        for k in range(nf):
+            writer1.write(np.random.randint(0, 255, (nx, ny, 3)).astype("uint8"))
+            writer2.write(np.random.randint(0, 255, (nx, ny, 3)).astype("uint8"))
+        writer1.release()
+        writer2.release()
+        video_paths.append((movie_file1, movie_file2))
+    base_nwb_path = tmp_path / "nwbfiles"
+    base_nwb_path.mkdir(parents=True, exist_ok=True)
+
+    for no, vid_loc in enumerate(video_paths):
+        vid_1 = vid_loc[0]
+        vid_2 = vid_loc[1]
+        subject_id = f"mouse{no}"
+        session_id = f"sessionid{no}"
+        subject = Subject(
+            subject_id=subject_id,
+            species="Mus musculus",
+            sex="M",
+            description="lab mouse ",
+        )
+        device = Device(f"imaging_device_{no}")
+        name = f"{vid_1.stem}_{no}"
+        nwbfile = NWBFile(
+            f"{name}{no}",
+            "desc: contains movie for dandi .mp4 storage as external",
+            datetime.now(tzlocal()),
+            experimenter="Experimenter name",
+            session_id=session_id,
+            subject=subject,
+            devices=[device],
+        )
+
+        image_series = ImageSeries(
+            name=f"MouseWhiskers{no}",
+            format="external",
+            external_file=[str(vid_1), str(vid_2)],
+            starting_frame=[0],
+            starting_time=0.0,
+            rate=150.0,
+        )
+        nwbfile.add_acquisition(image_series)
+
+        nwbfile_path = base_nwb_path / f"{name}.nwb"
+        with NWBHDF5IO(str(nwbfile_path), "w") as io:
+            io.write(nwbfile)
+    return base_nwb_path
 
 
 @pytest.fixture()

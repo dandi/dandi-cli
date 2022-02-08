@@ -9,13 +9,15 @@ import os
 import os.path as op
 from pathlib import Path
 import re
+from typing import List
+import uuid
 
 import numpy as np
 
 from . import get_logger
 from .exceptions import OrganizeImpossibleError
 from .pynwb_utils import get_neurodata_types_to_modalities_map, get_object_id
-from .utils import ensure_datetime, flattened, yaml_load
+from .utils import copy_file, ensure_datetime, flattened, move_file, yaml_load
 
 lgr = get_logger()
 
@@ -170,6 +172,84 @@ def create_unique_filenames_from_metadata(metadata):
             % (", ".join(additional_nonunique),)
         )
     return metadata
+
+
+def _create_external_file_names(metadata: List[dict]) -> List[dict]:
+    """Updates the metadata dict with renamed external files.
+
+    Renames the external_file attribute in an ImageSeries according to the rule:
+    <nwbfile name>/<ImageSeries uuid>_external_file_<no><.ext>
+    Example, the Initial name of file:
+        external_file = [name1.mp4]
+    rename to:
+        external_file = [dandiset-path-of-nwbfile/
+                dandi-renamed-nwbfile_name(folder without extension .nwb)/
+                f'{ImageSeries.object_id}_external_file_0.mp4'
+    This is stored in a new field in the metadata:
+    metadata['external_file_objects'][0]['external_files_renamed'] = <renamed_string>
+
+    Parameters
+    ----------
+    metadata: list
+        list of metadata dictionaries created during the call to pynwb_utils._get_pynwb_metadata
+    Returns
+    -------
+    metadata: list
+        updated list of metadata dictionaries
+    """
+    metadata = deepcopy(metadata)
+    for meta in metadata:
+        if "dandi_path" not in meta or "external_file_objects" not in meta:
+            continue
+        nwb_folder_name = op.splitext(op.basename(meta["dandi_path"]))[0]
+        for ext_file_dict in meta["external_file_objects"]:
+            renamed_path_list = []
+            uuid_str = ext_file_dict.get("id", str(uuid.uuid4()))
+            for no, ext_file in enumerate(ext_file_dict["external_files"]):
+                renamed = op.join(
+                    nwb_folder_name, f"{uuid_str}_external_file_{no}{ext_file.suffix}"
+                )
+                renamed_path_list.append(renamed)
+            ext_file_dict["external_files_renamed"] = renamed_path_list
+    return metadata
+
+
+def organize_external_files(
+    metadata: List[dict], dandiset_path: str, files_mode: str
+) -> None:
+    """Organizes the external_files into the new Dandiset folder structure.
+
+    Parameters
+    ----------
+    metadata: list
+        list of metadata dictionaries created during the call to pynwb_utils._get_pynwb_metadata
+    dandiset_path: str
+        full path of the main dandiset folder.
+    files_mode: str
+        one of "symlink", "copy", "move", "hardlink"
+
+    """
+    for e in metadata:
+        for ext_file_dict in e["external_file_objects"]:
+            for no, (name_old, name_new) in enumerate(
+                zip(
+                    ext_file_dict["external_files"],
+                    ext_file_dict["external_files_renamed"],
+                )
+            ):
+                new_path = op.join(dandiset_path, op.dirname(e["dandi_path"]), name_new)
+                name_old_str = str(name_old)
+                os.makedirs(op.dirname(new_path), exist_ok=True)
+                if files_mode == "symlink":
+                    os.symlink(name_old_str, new_path)
+                elif files_mode == "hardlink":
+                    os.link(name_old_str, new_path)
+                elif files_mode == "copy":
+                    copy_file(name_old_str, new_path)
+                elif files_mode == "move":
+                    move_file(name_old_str, new_path)
+                else:
+                    raise NotImplementedError(files_mode)
 
 
 def _assign_obj_id(metadata, non_unique):

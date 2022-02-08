@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, NoReturn
 
 from click.testing import CliRunner
+from pynwb import NWBHDF5IO
 import pytest
 import ruamel.yaml
 
@@ -18,7 +19,7 @@ from ..organize import (
     get_obj_id,
     populate_dataset_yml,
 )
-from ..pynwb_utils import copy_nwb_file, get_object_id
+from ..pynwb_utils import _get_image_series, copy_nwb_file, get_object_id
 from ..utils import find_files, on_windows, yaml_load
 
 
@@ -256,3 +257,42 @@ def test_detect_link_type(
     monkeypatch.setattr(os, "symlink", succeed_link if sym_success else error_link)
     monkeypatch.setattr(os, "link", succeed_link if hard_success else error_link)
     assert detect_link_type(tmp_path) == result
+
+
+@pytest.mark.parametrize("mode", ["copy", "move"])
+@pytest.mark.parametrize("video_mode", ["copy", "move", "symlink", "hardlink"])
+def test_video_organize(video_mode, mode, video_nwbfiles):
+    dandi_organize_path = video_nwbfiles.parent / "dandi_organized"
+    cmd = [
+        "--files-mode",
+        mode,
+        "--update-external-file-paths",
+        "--media-files-mode",
+        video_mode,
+        "-d",
+        str(dandi_organize_path),
+        str(video_nwbfiles),
+    ]
+    video_files_list = list((video_nwbfiles.parent / "video_files").iterdir())
+    video_files_organized = []
+    r = CliRunner().invoke(organize, cmd)
+    assert r.exit_code == 0
+    for nwbfile_name in dandi_organize_path.glob("**/*.nwb"):
+        vid_folder = nwbfile_name.with_suffix("")
+        assert vid_folder.exists()
+        with NWBHDF5IO(str(nwbfile_name), "r", load_namespaces=True) as io:
+            nwbfile = io.read()
+            # get iamgeseries objects as dict(id=object_id, external_files=[])
+            ext_file_objects = _get_image_series(nwbfile)
+            for ext_file_ob in ext_file_objects:
+                for no, name in enumerate(ext_file_ob["external_files"]):
+                    video_files_organized.append(name)
+                    # check if external_file arguments are correctly named according to convention:
+                    filename = Path(
+                        f"{vid_folder.name}/{ext_file_ob['id']}_external_file_{no}"
+                    )
+                    assert str(filename) == str(Path(name).with_suffix(""))
+                    # check if the files exist( both in case of move/copy):
+                    assert (vid_folder.parent / name).exists()
+    # check all video files are organized:
+    assert len(video_files_list) == len(video_files_organized)
