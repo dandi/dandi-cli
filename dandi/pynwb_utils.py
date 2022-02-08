@@ -245,9 +245,11 @@ def _get_image_series(nwb: pynwb.NWBFile) -> List[dict]:
     Specifically it pulls out the ImageSeries uuid, name and all the
     externally linked files
     named under the argument 'external_file'.
+    
     Parameters
     ----------
     nwb: pynwb.NWBFile
+
     Returns
     -------
     out: List[dict]
@@ -268,7 +270,7 @@ def _get_image_series(nwb: pynwb.NWBFile) -> List[dict]:
                         lgr.warning(
                             "external file %s should be one of: %s",
                             ext_file,
-                            ",".join(VIDEO_FILE_EXTENSIONS),
+                            ", ".join(VIDEO_FILE_EXTENSIONS),
                         )
                 out.append(out_dict)
     return out
@@ -291,7 +293,7 @@ def rename_nwb_external_files(metadata: List[dict], dandiset_path: str) -> None:
     for meta in metadata:
         if not all(i in meta for i in ["path", "dandi_path", "external_file_objects"]):
             lgr.warning(
-                "could not rename external files, update metadata"
+                'could not rename external files, update metadata '
                 'with "path", "dandi_path", "external_file_objects"'
             )
             return
