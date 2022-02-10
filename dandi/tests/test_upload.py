@@ -222,9 +222,15 @@ def test_upload_zarr(new_dandiset: SampleDandiset) -> None:
 
 
 def test_upload_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    zarr_id = asset.zarr
     rmtree(zarr_dandiset.dspath / "sample.zarr")
     zarr.save(zarr_dandiset.dspath / "sample.zarr", np.eye(5))
     zarr_dandiset.upload()
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    assert asset.zarr == zarr_id
     download(zarr_dandiset.dandiset.version_api_url, tmp_path)
     assert_dirtrees_eq(
         zarr_dandiset.dspath / "sample.zarr",

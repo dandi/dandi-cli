@@ -1386,15 +1386,7 @@ class BaseRemoteZarrAsset(BaseRemoteAsset):
         default, only instances for files are produced, unless ``include_dirs``
         is true.
         """
-        dirs = deque([self.filetree])
-        while dirs:
-            for p in dirs.popleft().iterdir():
-                if p.is_dir():
-                    dirs.append(p)
-                    if include_dirs:
-                        yield p
-                else:
-                    yield p
+        return self.filetree.iterfiles(include_dirs=include_dirs)
 
 
 class RemoteAsset(BaseRemoteAsset):
@@ -1789,3 +1781,19 @@ class RemoteZarrEntry(BasePath):
             lgr.info("File %s in Zarr %s successfully downloaded", self, self.zarr_id)
 
         return downloader
+
+    def iterfiles(self, include_dirs: bool = False) -> Iterator["RemoteZarrEntry"]:
+        """
+        Returns a generator of all `RemoteZarrEntry`\\s under the directory.
+        By default, only instances for files are produced, unless
+        ``include_dirs`` is true.
+        """
+        dirs = deque([self])
+        while dirs:
+            for p in dirs.popleft().iterdir():
+                if p.is_dir():
+                    dirs.append(p)
+                    if include_dirs:
+                        yield p
+                else:
+                    yield p

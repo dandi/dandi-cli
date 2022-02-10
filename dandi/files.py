@@ -50,7 +50,13 @@ from .consts import (
     EmbargoStatus,
     dandiset_metadata_file,
 )
-from .dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
+from .dandiapi import (
+    RemoteAsset,
+    RemoteDandiset,
+    RemoteZarrAsset,
+    RemoteZarrEntry,
+    RESTFullAPIClient,
+)
 from .exceptions import UnknownAssetError
 from .metadata import get_default_metadata, get_metadata, nwb2asset
 from .misctypes import DUMMY_DIGEST, BasePath, Digest, P
@@ -768,7 +774,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         :param int jobs: Number of threads to use for uploading; defaults to 5
         :param RemoteAsset replacing:
             If set, replace the given asset, which must have the same path as
-            the new asset
+            the new asset; if the old asset is a Zarr, the Zarr will be updated
+            & reused for the new asset
         :returns:
             A generator of `dict`\\s containing at least a ``"status"`` key.
             Upon successful upload, the last `dict` will have a status of
@@ -794,28 +801,81 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     f"{self.filepath}: Zarr etag changed; was originally"
                     f" {digest['dandi:dandi-zarr-checksum']} but is now {filetag}"
                 )
+        lgr.debug("%s: Producing asset", asset_path)
+        yield {"status": "producing asset"}
+        old_zarr_entries: Dict[str, RemoteZarrEntry] = {}
+        if replacing is not None:
+            lgr.debug("%s: Replacing pre-existing asset")
+            if isinstance(replacing, RemoteZarrAsset):
+                lgr.debug("%s: Pre-existing asset is a Zarr; reusing & updating")
+                zarr_id = replacing.zarr
+                old_zarr_entries = {str(e): e for e in replacing.iterfiles()}
+            else:
+                lgr.debug("%s: Pre-existing asset is not a Zarr; minting new Zarr")
+                r = client.post(
+                    "/zarr/", json={"name": asset_path, "dandiset": dandiset.identifier}
+                )
+                zarr_id = r["zarr_id"]
+            r = client.put(
+                replacing.api_path,
+                json={"metadata": metadata, "zarr_id": zarr_id},
+            )
+        else:
+            lgr.debug("%s: Minting new Zarr")
+            r = client.post(
+                "/zarr/", json={"name": asset_path, "dandiset": dandiset.identifier}
+            )
+            zarr_id = r["zarr_id"]
+            r = client.post(
+                f"{dandiset.version_api_path}assets/",
+                json={"metadata": metadata, "zarr_id": zarr_id},
+            )
+        a = RemoteAsset.from_data(dandiset, r)
+        to_upload: List[dict] = []
+        for p in stat.files:
+            pdigest = p.get_digest().value
+            item = {"path": str(p), "etag": pdigest}
+            try:
+                e = old_zarr_entries.pop(str(p))
+            except KeyError:
+                to_upload.append(item)
+            else:
+                if e.is_dir():
+                    lgr.debug(
+                        "%s: Path %s in Zarr is a directory; deleting & re-uploading",
+                        asset_path,
+                        p,
+                    )
+                    to_del: List[dict] = []
+                    for ee in e.iterfiles():
+                        old_zarr_entries.pop(str(ee), None)
+                        to_del.append({"path": str(ee)})
+                    client.delete(f"/zarr/{zarr_id}/files/", json=to_del)
+                    to_upload.append(item)
+                elif pdigest != e.get_digest().value:
+                    lgr.debug(
+                        "%s: Path %s in Zarr differs from local file; re-uploading",
+                        asset_path,
+                        p,
+                    )
+                    to_upload.append(item)
+                else:
+                    lgr.debug("%s: File %s already on server; skipping", asset_path, p)
         yield {"status": "initiating upload"}
         lgr.debug("%s: Beginning upload", asset_path)
         bytes_uploaded = 0
-        r = client.post(
-            "/zarr/", json={"name": asset_path, "dandiset": dandiset.identifier}
-        )
-        zarr_id = r["zarr_id"]
         with RESTFullAPIClient(
             "http://nil.nil",
             headers={"X-Amz-ACL": "bucket-owner-full-control"},
         ) as storage:
-            for i, filebatch in enumerate(
-                chunked(stat.files, ZARR_UPLOAD_BATCH_SIZE), start=1
+            for i, upload_body in enumerate(
+                chunked(to_upload, ZARR_UPLOAD_BATCH_SIZE), start=1
             ):
-                upload_body = [
-                    {"path": str(p), "etag": p.get_digest().value} for p in filebatch
-                ]
                 lgr.debug(
                     "%s: Uploading Zarr file batch #%d (%s)",
                     asset_path,
                     i,
-                    pluralize(len(filebatch), "file"),
+                    pluralize(len(upload_body), "file"),
                 )
                 r = client.post(f"/zarr/{zarr_id}/upload/", json=upload_body)
                 with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
@@ -851,26 +911,22 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 lgr.debug("%s: Completing upload of batch #%d", asset_path, i)
                 client.post(f"/zarr/{zarr_id}/upload/complete/")
         lgr.debug("%s: Upload completed", asset_path)
+        if old_zarr_entries:
+            lgr.debug(
+                "%s: Deleting %s in remote Zarr not present locally",
+                asset_path,
+                pluralize(len(old_zarr_entries), "file"),
+            )
+            client.delete(
+                f"/zarr/{zarr_id}/files/",
+                json=[{"path": k} for k in old_zarr_entries.keys()],
+            )
         r = client.get(f"/zarr/{zarr_id}/")
         if r["checksum"] != filetag:
             raise RuntimeError(
                 "Server and client disagree on final ETag of uploaded Zarr;"
                 f" server says {r['checksum']}, client says {filetag}"
             )
-        lgr.debug("%s: Assigning asset blob to dandiset & version", asset_path)
-        yield {"status": "producing asset"}
-        if replacing is not None:
-            lgr.debug("%s: Replacing pre-existing asset")
-            r = client.put(
-                replacing.api_path,
-                json={"metadata": metadata, "zarr_id": zarr_id},
-            )
-        else:
-            r = client.post(
-                f"{dandiset.version_api_path}assets/",
-                json={"metadata": metadata, "zarr_id": zarr_id},
-            )
-        a = RemoteAsset.from_data(dandiset, r)
         lgr.info("%s: Asset successfully uploaded", asset_path)
         yield {"status": "done", "asset": a}
 
