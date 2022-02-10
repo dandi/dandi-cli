@@ -85,6 +85,8 @@ checksums = PersistentCache(name="dandi-checksums", envvar="DANDI_CACHE")
 def get_digest(filepath: Union[str, Path], digest: str = "sha256") -> str:
     if digest == "dandi-etag":
         return cast(str, get_dandietag(filepath).as_str())
+    elif digest == "zarr-checksum":
+        return get_zarr_checksum(Path(filepath))
     else:
         return Digester([digest])(filepath)[digest]
 
@@ -95,26 +97,28 @@ def get_dandietag(filepath: Union[str, Path]) -> DandiETag:
 
 
 def get_zarr_checksum(
-    dirpath: Path,
+    path: Path,
     basepath: Optional[Path] = None,
     known: Optional[Dict[str, str]] = None,
 ) -> str:
+    if path.is_file():
+        return cast(str, get_digest(path, "md5"))
     if basepath is None:
-        basepath = dirpath
+        basepath = path
     dirs = {}
     files = {}
     if known is None:
         known = {}
-    for p in dirpath.iterdir():
-        path = p.relative_to(basepath).as_posix()
+    for p in path.iterdir():
+        pstr = p.relative_to(basepath).as_posix()
         if not p.is_dir():
             try:
-                files[path] = known[path]
+                files[pstr] = known[pstr]
             except KeyError:
-                files[path] = get_digest(p, "md5")
+                files[pstr] = get_digest(p, "md5")
         elif any(p.iterdir()):
             try:
-                dirs[path] = known[path]
+                dirs[pstr] = known[pstr]
             except KeyError:
-                dirs[path] = get_zarr_checksum(p, basepath)
+                dirs[pstr] = get_zarr_checksum(p, basepath)
     return cast(str, get_checksum(files, dirs))
