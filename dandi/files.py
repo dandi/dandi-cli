@@ -443,7 +443,7 @@ class LocalFileAsset(LocalAsset):
         lgr.debug("%s: Assigning asset blob to dandiset & version", asset_path)
         yield {"status": "producing asset"}
         if replacing is not None:
-            lgr.debug("%s: Replacing pre-existing asset")
+            lgr.debug("%s: Replacing pre-existing asset", asset_path)
             r = client.put(
                 replacing.api_path,
                 json={"metadata": metadata, "blob_id": blob_id},
@@ -805,13 +805,19 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         yield {"status": "producing asset"}
         old_zarr_entries: Dict[str, RemoteZarrEntry] = {}
         if replacing is not None:
-            lgr.debug("%s: Replacing pre-existing asset")
+            lgr.debug("%s: Replacing pre-existing asset", asset_path)
             if isinstance(replacing, RemoteZarrAsset):
-                lgr.debug("%s: Pre-existing asset is a Zarr; reusing & updating")
+                lgr.debug(
+                    "%s: Pre-existing asset is a Zarr; reusing & updating", asset_path
+                )
                 zarr_id = replacing.zarr
-                old_zarr_entries = {str(e): e for e in replacing.iterfiles()}
+                old_zarr_entries = {
+                    str(e): e for e in replacing.iterfiles(include_dirs=True)
+                }
             else:
-                lgr.debug("%s: Pre-existing asset is not a Zarr; minting new Zarr")
+                lgr.debug(
+                    "%s: Pre-existing asset is not a Zarr; minting new Zarr", asset_path
+                )
                 r = client.post(
                     "/zarr/", json={"name": asset_path, "dandiset": dandiset.identifier}
                 )
@@ -821,7 +827,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 json={"metadata": metadata, "zarr_id": zarr_id},
             )
         else:
-            lgr.debug("%s: Minting new Zarr")
+            lgr.debug("%s: Minting new Zarr", asset_path)
             r = client.post(
                 "/zarr/", json={"name": asset_path, "dandiset": dandiset.identifier}
             )
@@ -848,8 +854,12 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     )
                     to_del: List[dict] = []
                     for ee in e.iterfiles():
-                        old_zarr_entries.pop(str(ee), None)
-                        to_del.append({"path": str(ee)})
+                        try:
+                            old_zarr_entries.pop(str(ee))
+                        except KeyError:
+                            pass
+                        else:
+                            to_del.append({"path": str(ee)})
                     client.delete(f"/zarr/{zarr_id}/files/", json=to_del)
                     to_upload.append(item)
                 elif pdigest != e.get_digest().value:
@@ -911,15 +921,16 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 lgr.debug("%s: Completing upload of batch #%d", asset_path, i)
                 client.post(f"/zarr/{zarr_id}/upload/complete/")
         lgr.debug("%s: Upload completed", asset_path)
-        if old_zarr_entries:
+        old_zarr_files = [k for k, e in old_zarr_entries.items() if e.is_file()]
+        if old_zarr_files:
             lgr.debug(
                 "%s: Deleting %s in remote Zarr not present locally",
                 asset_path,
-                pluralize(len(old_zarr_entries), "file"),
+                pluralize(len(old_zarr_files), "file"),
             )
             client.delete(
                 f"/zarr/{zarr_id}/files/",
-                json=[{"path": k} for k in old_zarr_entries.keys()],
+                json=[{"path": k} for k in old_zarr_files],
             )
         r = client.get(f"/zarr/{zarr_id}/")
         if r["checksum"] != filetag:

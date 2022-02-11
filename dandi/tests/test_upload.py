@@ -238,6 +238,26 @@ def test_upload_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) ->
     )
 
 
+def test_upload_different_zarr_entry_conflicts(
+    tmp_path: Path, new_dandiset: SampleDandiset
+) -> None:
+    zf = new_dandiset.dspath / "sample.zarr"
+    zf.mkdir()
+    (zf / "unchanged.txt").write_text("This is will not change.\n")
+    (zf / "changed-contents.txt").write_text("This is text version #1.\n")
+    (zf / "changed-type").mkdir()
+    (zf / "changed-type" / "file.txt").write_text("This is test text.\n")
+    new_dandiset.upload(validation="skip")
+    rmtree(zf)
+    zf.mkdir()
+    (zf / "unchanged.txt").write_text("This is will not change.\n")
+    (zf / "changed-contents.txt").write_text("This is text version #2.\n")
+    (zf / "changed-type").write_text("This is now a file.\n")
+    new_dandiset.upload(validation="skip")
+    download(new_dandiset.dandiset.version_api_url, tmp_path)
+    assert_dirtrees_eq(zf, tmp_path / new_dandiset.dandiset_id / "sample.zarr")
+
+
 def test_upload_nonzarr_to_zarr_path(
     tmp_path: Path, zarr_dandiset: SampleDandiset
 ) -> None:
