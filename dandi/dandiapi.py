@@ -320,7 +320,7 @@ class DandiAPIClient(RESTFullAPIClient):
         """
         Construct a client instance.
 
-        :param str api_url: API URL.
+        :param str api_url: Base API URL of the server to interact with.
         - For DANDI production, use  ``"https://api.dandiarchive.org/api"``
         - For DANDI staging, use ``"https://api-staging.dandiarchive.org/api"``
         - If no URL is supplied, the value of the  :envvar:`DANDI_INSTANCE` environment
