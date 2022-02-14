@@ -258,6 +258,22 @@ def test_upload_different_zarr_entry_conflicts(
     assert_dirtrees_eq(zf, tmp_path / new_dandiset.dandiset_id / "sample.zarr")
 
 
+def test_upload_different_zarr_file_to_parent_dir(
+    tmp_path: Path, new_dandiset: SampleDandiset
+) -> None:
+    zf = new_dandiset.dspath / "sample.zarr"
+    zf.mkdir()
+    (zf / "foo").write_text("This is a file.\n")
+    new_dandiset.upload(validation="skip")
+    rmtree(zf)
+    zf.mkdir()
+    (zf / "foo").mkdir()
+    (zf / "foo" / "bar").write_text("This is under what used to be a file.\n")
+    new_dandiset.upload(validation="skip")
+    download(new_dandiset.dandiset.version_api_url, tmp_path)
+    assert_dirtrees_eq(zf, tmp_path / new_dandiset.dandiset_id / "sample.zarr")
+
+
 def test_upload_nonzarr_to_zarr_path(
     tmp_path: Path, zarr_dandiset: SampleDandiset
 ) -> None:

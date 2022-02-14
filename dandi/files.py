@@ -838,12 +838,26 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             )
         a = RemoteAsset.from_data(dandiset, r)
         to_upload: List[dict] = []
+        to_delete: List[dict] = []
         for p in stat.files:
             pdigest = p.get_digest().value
             item = {"path": str(p), "etag": pdigest}
             try:
                 e = old_zarr_entries.pop(str(p))
             except KeyError:
+                for pp in p.parents:
+                    pps = str(pp)
+                    if pps in old_zarr_entries:
+                        if old_zarr_entries[pps].is_file():
+                            lgr.debug(
+                                "%s: Parent path %s of file %s is a file; deleting",
+                                asset_path,
+                                pp,
+                                p,
+                            )
+                            old_zarr_entries.pop(pps)
+                            to_delete.append({"path": pps})
+                        break
                 to_upload.append(item)
             else:
                 if e.is_dir():
@@ -852,15 +866,13 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         asset_path,
                         p,
                     )
-                    to_del: List[dict] = []
                     for ee in e.iterfiles():
                         try:
                             old_zarr_entries.pop(str(ee))
                         except KeyError:
                             pass
                         else:
-                            to_del.append({"path": str(ee)})
-                    client.delete(f"/zarr/{zarr_id}/files/", json=to_del)
+                            to_delete.append({"path": str(ee)})
                     to_upload.append(item)
                 elif pdigest != e.get_digest().value:
                     lgr.debug(
@@ -871,6 +883,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     to_upload.append(item)
                 else:
                     lgr.debug("%s: File %s already on server; skipping", asset_path, p)
+        if to_delete:
+            client.delete(f"/zarr/{zarr_id}/files/", json=to_delete)
         yield {"status": "initiating upload"}
         lgr.debug("%s: Beginning upload", asset_path)
         bytes_uploaded = 0
