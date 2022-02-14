@@ -318,10 +318,16 @@ class DandiAPIClient(RESTFullAPIClient):
         self, api_url: Optional[str] = None, token: Optional[str] = None
     ) -> None:
         """
-        Construct a client instance from a server's base API URL and an
-        optional authentication token/API key.  If no URL is supplied, the URL
-        of the instance named in the :envvar:`DANDI_INSTANCE` environment
-        variable (default value: ``dandi``) is used.
+        Construct a client instance.
+
+        :param api_url: API URL. For DANDI production, use ``"dandi"``. For DANDI staging,
+        use ``"https://api-staging.dandiarchive.org/api"``. If no URL is supplied, the
+        value of the  :envvar:`DANDI_INSTANCE` environment variable is used. If that
+        variable is not defined, ``"dandi"`` is used by default.
+        :type method: str
+        :param token: User API Key. By default, uses :envvar:`DANDI_API_KEY`.
+        Note that different API instances have different keys.
+        :type method: str
         """
         check_dandi_version()
         if api_url is None:
