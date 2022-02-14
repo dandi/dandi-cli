@@ -1,5 +1,6 @@
 from typing import List
 
+import requests
 from semantic_version import Version
 
 
@@ -74,4 +75,8 @@ class SchemaVersionError(Exception):
 
 
 class UnknownAssetError(ValueError):
+    pass
+
+
+class HTTP404Error(requests.HTTPError):
     pass

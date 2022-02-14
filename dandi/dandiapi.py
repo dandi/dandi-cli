@@ -43,7 +43,7 @@ from .consts import (
     known_instances,
     known_instances_rev,
 )
-from .exceptions import NotFoundError, SchemaVersionError
+from .exceptions import HTTP404Error, NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup
 from .misctypes import BasePath, Digest
 from .utils import USER_AGENT, check_dandi_version, ensure_datetime, is_interactive
@@ -231,7 +231,10 @@ class RESTFullAPIClient:
                 lgr.debug("%s: %s", msg, result.text)
             else:
                 lgr.error("%s: %s", msg, result.text)
-            raise requests.HTTPError(msg, response=result)
+            if result.status_code == 404:
+                raise HTTP404Error(msg, response=result)
+            else:
+                raise requests.HTTPError(msg, response=result)
 
         if json_resp:
             if result.text.strip():
@@ -437,11 +440,8 @@ class DandiAPIClient(RESTFullAPIClient):
                 d = RemoteDandiset.from_data(
                     self, self.get(f"/dandisets/{dandiset_id}/")
                 )
-            except requests.HTTPError as e:
-                if e.response.status_code == 404:
-                    raise NotFoundError(f"No such Dandiset: {dandiset_id!r}")
-                else:
-                    raise
+            except HTTP404Error:
+                raise NotFoundError(f"No such Dandiset: {dandiset_id!r}")
             if version_id is not None and version_id != d.version_id:
                 if version_id == DRAFT:
                     return d.for_version(d.draft_version)
@@ -502,11 +502,8 @@ class DandiAPIClient(RESTFullAPIClient):
             return BaseRemoteAsset.from_base_data(
                 self, self.get(f"/assets/{asset_id}/info/")
             )
-        except requests.HTTPError as e:
-            if e.response.status_code == 404:
-                raise NotFoundError(f"No such asset: {asset_id!r}")
-            else:
-                raise
+        except HTTP404Error:
+            raise NotFoundError(f"No such asset: {asset_id!r}")
 
 
 class APIBase(BaseModel):
@@ -631,11 +628,8 @@ class RemoteDandiset:
                 self._data = RemoteDandisetData.parse_obj(
                     self.client.get(f"/dandisets/{self.identifier}/")
                 )
-            except requests.HTTPError as e:
-                if e.response.status_code == 404:
-                    raise NotFoundError(f"No such Dandiset: {self.identifier}")
-                else:
-                    raise
+            except HTTP404Error:
+                raise NotFoundError(f"No such Dandiset: {self.identifier}")
         return self._data
 
     @property
@@ -780,11 +774,8 @@ class RemoteDandiset:
         try:
             for v in self.client.paginate(f"{self.api_path}versions/"):
                 yield Version.parse_obj(v)
-        except requests.HTTPError as e:
-            if e.response.status_code == 404:
-                raise NotFoundError(f"No such Dandiset: {self.identifier!r}")
-            else:
-                raise
+        except HTTP404Error:
+            raise NotFoundError(f"No such Dandiset: {self.identifier!r}")
 
     def get_version(self, version_id: str) -> Version:
         """
@@ -797,13 +788,10 @@ class RemoteDandiset:
                     f"/dandisets/{self.identifier}/versions/{version_id}/info"
                 )
             )
-        except requests.HTTPError as e:
-            if e.response.status_code == 404:
-                raise NotFoundError(
-                    f"No such version: {version_id!r} of Dandiset {self.identifier}"
-                )
-            else:
-                raise
+        except HTTP404Error:
+            raise NotFoundError(
+                f"No such version: {version_id!r} of Dandiset {self.identifier}"
+            )
 
     def for_version(self, version_id: Union[str, Version]) -> "RemoteDandiset":
         """
@@ -844,11 +832,8 @@ class RemoteDandiset:
         """
         try:
             return cast(Dict[str, Any], self.client.get(self.version_api_path))
-        except requests.HTTPError as e:
-            if e.response.status_code == 404:
-                raise NotFoundError(f"No such asset: {self}")
-            else:
-                raise
+        except HTTP404Error:
+            raise NotFoundError(f"No such asset: {self}")
 
     def set_metadata(self, metadata: models.Dandiset) -> None:
         """
@@ -876,13 +861,10 @@ class RemoteDandiset:
         while time() - start < max_time:
             try:
                 r = self.client.get(f"{self.version_api_path}info/")
-            except requests.HTTPError as e:
-                if e.response.status_code == 404:
-                    raise NotFoundError(
-                        f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
-                    )
-                else:
-                    raise
+            except HTTP404Error:
+                raise NotFoundError(
+                    f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
+                )
             if "status" not in r:
                 # Running against older version of dandi-api that doesn't
                 # validate
@@ -923,13 +905,10 @@ class RemoteDandiset:
                 f"{self.version_api_path}assets/", params={"order": order}
             ):
                 yield RemoteAsset.from_data(self, a)
-        except requests.HTTPError as e:
-            if e.response.status_code == 404:
-                raise NotFoundError(
-                    f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
-                )
-            else:
-                raise
+        except HTTP404Error:
+            raise NotFoundError(
+                f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
+            )
 
     def get_asset(self, asset_id: str) -> "RemoteAsset":
         """
@@ -938,11 +917,8 @@ class RemoteDandiset:
         """
         try:
             metadata = self.client.get(f"{self.version_api_path}assets/{asset_id}/")
-        except requests.HTTPError as e:
-            if e.response.status_code == 404:
-                raise NotFoundError(f"No such asset: {asset_id!r} for {self}")
-            else:
-                raise
+        except HTTP404Error:
+            raise NotFoundError(f"No such asset: {asset_id!r} for {self}")
         asset = self.get_asset_by_path(metadata["path"])
         asset._metadata = metadata
         return asset
@@ -965,13 +941,10 @@ class RemoteDandiset:
                 params={"path": path, "order": order},
             ):
                 yield RemoteAsset.from_data(self, a)
-        except requests.HTTPError as e:
-            if e.response.status_code == 404:
-                raise NotFoundError(
-                    f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
-                )
-            else:
-                raise
+        except HTTP404Error:
+            raise NotFoundError(
+                f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
+            )
 
     def get_asset_by_path(self, path: str) -> "RemoteAsset":
         """
@@ -1194,11 +1167,8 @@ class BaseRemoteAsset(ABC, APIBase):
         else:
             try:
                 return cast(Dict[str, Any], self.client.get(self.api_path))
-            except requests.HTTPError as e:
-                if e.response.status_code == 404:
-                    raise NotFoundError(f"No such asset: {self}")
-                else:
-                    raise
+            except HTTP404Error:
+                raise NotFoundError(f"No such asset: {self}")
 
     def get_raw_digest(
         self, digest_type: Union[str, models.DigestType, None] = None
@@ -1653,11 +1623,8 @@ class RemoteZarrEntry(BasePath):
         elif self.is_root():
             try:
                 self.client.get(f"/zarr/{self.zarr_id}/")
-            except requests.HTTPError as e:
-                if e.response.status_code == 404:
-                    raise NotFoundError(f"No such Zarr: {self.zarr_id!r}")
-                else:
-                    raise
+            except HTTP404Error:
+                raise NotFoundError(f"No such Zarr: {self.zarr_id!r}")
             return True
         else:
             listing = self.parent.get_listing()
@@ -1760,13 +1727,10 @@ class RemoteZarrEntry(BasePath):
                 json_resp=False,
                 allow_redirects=True,
             )
-        except requests.HTTPError as e:
-            if e.response.status_code == 404:
-                raise NotFoundError(
-                    f"{str(self)!r} in Zarr {self.zarr_id!r} does not exist"
-                )
-            else:
-                raise
+        except HTTP404Error:
+            raise NotFoundError(
+                f"{str(self)!r} in Zarr {self.zarr_id!r} does not exist"
+            )
         return ZarrEntryStat(
             size=int(r.headers["Content-Length"]),
             modified=dateutil.parser.parse(r.headers["Last-Modified"]),
@@ -1776,18 +1740,17 @@ class RemoteZarrEntry(BasePath):
         """
         Return the `ZarrListing` for the entry, which must be a directory
 
-        :raises NotFoundError: if the path does not exist in the Zarr asset
+        :raises NotFoundError:
+            if the path does not exist in the Zarr asset or is not a directory
         """
         path = "".join(p + "/" for p in self.parts)
         try:
             r = self.client.get(f"/zarr/{self.zarr_id}.zarr/{path}")
-        except requests.HTTPError as e:
-            if e.response.status_code == 404:
-                raise NotFoundError(
-                    f"{str(self)!r} in Zarr {self.zarr_id!r} does not exist"
-                )
-            else:
-                raise
+        except HTTP404Error:
+            raise NotFoundError(
+                f"{str(self)!r} in Zarr {self.zarr_id!r} does not exist or is"
+                " not a directory"
+            )
         return ZarrListing.parse_obj(r)
 
     def get_download_file_iter(
