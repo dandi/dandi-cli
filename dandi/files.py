@@ -797,7 +797,9 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         yield {"status": "initiating upload"}
         lgr.debug("%s: Beginning upload", asset_path)
         bytes_uploaded = 0
-        r = client.post("/zarr/", json={"name": self.filepath.name})
+        r = client.post(
+            "/zarr/", json={"name": self.filepath.name, "dandiset": dandiset.identifier}
+        )
         zarr_id = r["zarr_id"]
         with RESTFullAPIClient(
             "http://nil.nil",
