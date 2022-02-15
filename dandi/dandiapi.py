@@ -1685,6 +1685,9 @@ class RemoteZarrEntry(BasePath):
         :raises NotFoundError: if the path does not exist in the Zarr asset
         """
         if self._digest is not None:
+            # `self` was returned by `parent.iterdir()`, which iterated over a
+            # ZarrListing and thus had access to the checksum, which it stored
+            # on `self`; use that value.
             return self._digest
         if self.is_root():
             algorithm = models.DigestType.dandi_zarr_checksum
