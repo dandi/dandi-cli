@@ -837,8 +837,9 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 json={"metadata": metadata, "zarr_id": zarr_id},
             )
         a = RemoteAsset.from_data(dandiset, r)
+        assert isinstance(a, RemoteZarrAsset)
         to_upload: List[dict] = []
-        to_delete: List[dict] = []
+        to_delete: List[RemoteZarrEntry] = []
         for p in stat.files:
             pdigest = p.get_digest().value
             item = {"path": str(p), "etag": pdigest}
@@ -855,8 +856,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                 pp,
                                 p,
                             )
-                            old_zarr_entries.pop(pps)
-                            to_delete.append({"path": pps})
+                            to_delete.append(old_zarr_entries.pop(pps))
                         break
                 to_upload.append(item)
             else:
@@ -868,11 +868,9 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     )
                     for ee in e.iterfiles():
                         try:
-                            old_zarr_entries.pop(str(ee))
+                            to_delete.append(old_zarr_entries.pop(str(ee)))
                         except KeyError:
                             pass
-                        else:
-                            to_delete.append({"path": str(ee)})
                     to_upload.append(item)
                 elif pdigest != e.get_digest().value:
                     lgr.debug(
@@ -884,7 +882,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 else:
                     lgr.debug("%s: File %s already on server; skipping", asset_path, p)
         if to_delete:
-            client.delete(f"/zarr/{zarr_id}/files/", json=to_delete)
+            a.rmfiles(to_delete)
         yield {"status": "initiating upload"}
         lgr.debug("%s: Beginning upload", asset_path)
         bytes_uploaded = 0
@@ -935,17 +933,14 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 lgr.debug("%s: Completing upload of batch #%d", asset_path, i)
                 client.post(f"/zarr/{zarr_id}/upload/complete/")
         lgr.debug("%s: Upload completed", asset_path)
-        old_zarr_files = [k for k, e in old_zarr_entries.items() if e.is_file()]
+        old_zarr_files = [e for e in old_zarr_entries.values() if e.is_file()]
         if old_zarr_files:
             lgr.debug(
                 "%s: Deleting %s in remote Zarr not present locally",
                 asset_path,
                 pluralize(len(old_zarr_files), "file"),
             )
-            client.delete(
-                f"/zarr/{zarr_id}/files/",
-                json=[{"path": k} for k in old_zarr_files],
-            )
+            a.rmfiles(old_zarr_files)
         r = client.get(f"/zarr/{zarr_id}/")
         if r["checksum"] != filetag:
             raise RuntimeError(

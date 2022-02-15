@@ -15,6 +15,7 @@ from typing import (
     ClassVar,
     Dict,
     FrozenSet,
+    Iterable,
     Iterator,
     List,
     Optional,
@@ -38,6 +39,7 @@ from .consts import (
     DRAFT,
     MAX_CHUNK_SIZE,
     RETRY_STATUSES,
+    ZARR_DELETE_BATCH_SIZE,
     DandiInstance,
     EmbargoStatus,
     known_instances,
@@ -46,7 +48,13 @@ from .consts import (
 from .exceptions import HTTP404Error, NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup
 from .misctypes import BasePath, Digest
-from .utils import USER_AGENT, check_dandi_version, ensure_datetime, is_interactive
+from .utils import (
+    USER_AGENT,
+    check_dandi_version,
+    chunked,
+    ensure_datetime,
+    is_interactive,
+)
 
 lgr = get_logger()
 
@@ -1387,6 +1395,17 @@ class BaseRemoteZarrAsset(BaseRemoteAsset):
         is true.
         """
         return self.filetree.iterfiles(include_dirs=include_dirs)
+
+    def rmfiles(self, files: Iterable["RemoteZarrEntry"]) -> None:
+        """Delete one or more files from the Zarr"""
+        # Don't bother checking that the entries are actually files or even
+        # belong to this Zarr, as if they're not, the server will return an
+        # error anyway.
+        for entries in chunked(files, ZARR_DELETE_BATCH_SIZE):
+            self.client.delete(
+                f"/zarr/{self.zarr}/files/",
+                json=[{"path": str(e)} for e in entries],
+            )
 
 
 class RemoteAsset(BaseRemoteAsset):

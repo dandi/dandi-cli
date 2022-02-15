@@ -159,3 +159,6 @@ ZARR_MIME_TYPE = "application/x-zarr"
 
 #: Maximum number of Zarr directory entries to upload at once
 ZARR_UPLOAD_BATCH_SIZE = 255
+
+#: Maximum number of Zarr directory entries to delete at once
+ZARR_DELETE_BATCH_SIZE = 100
