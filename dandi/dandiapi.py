@@ -15,6 +15,7 @@ from typing import (
     ClassVar,
     Dict,
     FrozenSet,
+    Iterable,
     Iterator,
     List,
     Optional,
@@ -38,6 +39,7 @@ from .consts import (
     DRAFT,
     MAX_CHUNK_SIZE,
     RETRY_STATUSES,
+    ZARR_DELETE_BATCH_SIZE,
     DandiInstance,
     EmbargoStatus,
     known_instances,
@@ -46,7 +48,13 @@ from .consts import (
 from .exceptions import HTTP404Error, NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup
 from .misctypes import BasePath, Digest
-from .utils import USER_AGENT, check_dandi_version, ensure_datetime, is_interactive
+from .utils import (
+    USER_AGENT,
+    check_dandi_version,
+    chunked,
+    ensure_datetime,
+    is_interactive,
+)
 
 lgr = get_logger()
 
@@ -1386,15 +1394,18 @@ class BaseRemoteZarrAsset(BaseRemoteAsset):
         default, only instances for files are produced, unless ``include_dirs``
         is true.
         """
-        dirs = deque([self.filetree])
-        while dirs:
-            for p in dirs.popleft().iterdir():
-                if p.is_dir():
-                    dirs.append(p)
-                    if include_dirs:
-                        yield p
-                else:
-                    yield p
+        return self.filetree.iterfiles(include_dirs=include_dirs)
+
+    def rmfiles(self, files: Iterable["RemoteZarrEntry"]) -> None:
+        """Delete one or more files from the Zarr"""
+        # Don't bother checking that the entries are actually files or even
+        # belong to this Zarr, as if they're not, the server will return an
+        # error anyway.
+        for entries in chunked(files, ZARR_DELETE_BATCH_SIZE):
+            self.client.delete(
+                f"/zarr/{self.zarr}/files/",
+                json=[{"path": str(e)} for e in entries],
+            )
 
 
 class RemoteAsset(BaseRemoteAsset):
@@ -1599,9 +1610,10 @@ class RemoteZarrEntry(BasePath):
     #: The ID of the Zarr backing the asset
     zarr_id: str
     _known_dir: Optional[bool] = field(default=None, compare=False, repr=False)
+    _digest: Optional[Digest] = field(default=None, compare=False, repr=False)
 
     def _get_subpath(
-        self, name: str, isdir: Optional[bool] = None
+        self, name: str, isdir: Optional[bool] = None, checksum: Optional[str] = None
     ) -> "RemoteZarrEntry":
         if not name or "/" in name:
             raise ValueError(f"Invalid path component: {name!r}")
@@ -1610,7 +1622,17 @@ class RemoteZarrEntry(BasePath):
         elif name == "..":
             return self.parent
         else:
-            return replace(self, parts=self.parts + (name,), _known_dir=isdir)
+            if checksum is not None and isdir is not None:
+                if isdir:
+                    algorithm = models.DigestType.dandi_zarr_checksum
+                else:
+                    algorithm = models.DigestType.md5
+                digest = Digest(algorithm=algorithm, value=checksum)
+            else:
+                digest = None
+            return replace(
+                self, parts=self.parts + (name,), _known_dir=isdir, _digest=digest
+            )
 
     @property
     def parent(self) -> "RemoteZarrEntry":
@@ -1621,6 +1643,7 @@ class RemoteZarrEntry(BasePath):
                 self,
                 parts=self.parts[:-1],
                 _known_dir=True if self._known_dir is not None else None,
+                _digest=None,
             )
 
     def _isdir(self) -> bool:
@@ -1668,9 +1691,9 @@ class RemoteZarrEntry(BasePath):
         for name in listing.dirnames:
             if name == "." or name == "..":
                 continue
-            yield self._get_subpath(name, isdir=True)
+            yield self._get_subpath(name, isdir=True, checksum=listing.checksums[name])
         for name in listing.filenames:
-            yield self._get_subpath(name, isdir=False)
+            yield self._get_subpath(name, isdir=False, checksum=listing.checksums[name])
 
     def get_digest(self) -> Digest:
         """
@@ -1680,6 +1703,11 @@ class RemoteZarrEntry(BasePath):
 
         :raises NotFoundError: if the path does not exist in the Zarr asset
         """
+        if self._digest is not None:
+            # `self` was returned by `parent.iterdir()`, which iterated over a
+            # ZarrListing and thus had access to the checksum, which it stored
+            # on `self`; use that value.
+            return self._digest
         if self.is_root():
             algorithm = models.DigestType.dandi_zarr_checksum
             value = self.get_listing().checksum
@@ -1789,3 +1817,24 @@ class RemoteZarrEntry(BasePath):
             lgr.info("File %s in Zarr %s successfully downloaded", self, self.zarr_id)
 
         return downloader
+
+    def iterfiles(self, include_dirs: bool = False) -> Iterator["RemoteZarrEntry"]:
+        """
+        Returns a generator of all `RemoteZarrEntry`\\s under the directory.
+        By default, only instances for files are produced, unless
+        ``include_dirs`` is true.
+        """
+        dirs = deque([self])
+        while dirs:
+            for p in dirs.popleft().iterdir():
+                if p.is_dir():
+                    dirs.append(p)
+                    if include_dirs:
+                        yield p
+                else:
+                    yield p
+
+    def clear_cache(self) -> None:
+        """Delete any locally-cached data about the entry"""
+        self._known_dir = None
+        self._digest = None

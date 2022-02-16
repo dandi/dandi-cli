@@ -222,14 +222,56 @@ def test_upload_zarr(new_dandiset: SampleDandiset) -> None:
 
 
 def test_upload_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    zarr_id = asset.zarr
     rmtree(zarr_dandiset.dspath / "sample.zarr")
     zarr.save(zarr_dandiset.dspath / "sample.zarr", np.eye(5))
     zarr_dandiset.upload()
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    assert asset.zarr == zarr_id
     download(zarr_dandiset.dandiset.version_api_url, tmp_path)
     assert_dirtrees_eq(
         zarr_dandiset.dspath / "sample.zarr",
         tmp_path / zarr_dandiset.dandiset_id / "sample.zarr",
     )
+
+
+def test_upload_different_zarr_entry_conflicts(
+    tmp_path: Path, new_dandiset: SampleDandiset
+) -> None:
+    zf = new_dandiset.dspath / "sample.zarr"
+    zf.mkdir()
+    (zf / "unchanged.txt").write_text("This is will not change.\n")
+    (zf / "changed-contents.txt").write_text("This is text version #1.\n")
+    (zf / "changed-type").mkdir()
+    (zf / "changed-type" / "file.txt").write_text("This is test text.\n")
+    new_dandiset.upload(validation="skip")
+    rmtree(zf)
+    zf.mkdir()
+    (zf / "unchanged.txt").write_text("This is will not change.\n")
+    (zf / "changed-contents.txt").write_text("This is text version #2.\n")
+    (zf / "changed-type").write_text("This is now a file.\n")
+    new_dandiset.upload(validation="skip")
+    download(new_dandiset.dandiset.version_api_url, tmp_path)
+    assert_dirtrees_eq(zf, tmp_path / new_dandiset.dandiset_id / "sample.zarr")
+
+
+def test_upload_different_zarr_file_to_parent_dir(
+    tmp_path: Path, new_dandiset: SampleDandiset
+) -> None:
+    zf = new_dandiset.dspath / "sample.zarr"
+    zf.mkdir()
+    (zf / "foo").write_text("This is a file.\n")
+    new_dandiset.upload(validation="skip")
+    rmtree(zf)
+    zf.mkdir()
+    (zf / "foo").mkdir()
+    (zf / "foo" / "bar").write_text("This is under what used to be a file.\n")
+    new_dandiset.upload(validation="skip")
+    download(new_dandiset.dandiset.version_api_url, tmp_path)
+    assert_dirtrees_eq(zf, tmp_path / new_dandiset.dandiset_id / "sample.zarr")
 
 
 def test_upload_nonzarr_to_zarr_path(
