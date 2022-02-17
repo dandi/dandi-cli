@@ -10,11 +10,6 @@ from .base import (
 
 
 @click.command()
-# @dandiset_path_option(
-#     help="Top directory (local) of the dandiset.  Files will be uploaded with "
-#     "paths relative to that directory. If not specified, current or a parent "
-#     "directory containing dandiset.yaml file will be assumed "
-# )
 @click.option(
     "-e",
     "--existing",
@@ -69,7 +64,6 @@ def upload(
     dandi_instance,
     existing="refresh",
     validation="require",
-    dandiset_path=None,
     # Development options should come as kwargs
     allow_any_path=False,
     upload_dandiset_metadata=False,
@@ -79,7 +73,9 @@ def upload(
     Upload Dandiset files to DANDI Archive.
 
     The target Dandiset to upload to must already be registered in the archive,
-    and a `dandiset.yaml` file must exist in the local `--dandiset-path`.
+    and a `dandiset.yaml` file must exist in the common ancestor of the given
+    paths (or the current directory, if no paths are specified) or a parent
+    directory thereof.
 
     Local Dandiset should pass validation.  For that, the assets should first
     be organized using the `dandi organize` command.
@@ -100,7 +96,6 @@ def upload(
         paths,
         existing=existing,
         validation=validation,
-        dandiset_path=dandiset_path,
         dandi_instance=dandi_instance,
         allow_any_path=allow_any_path,
         upload_dandiset_metadata=upload_dandiset_metadata,
