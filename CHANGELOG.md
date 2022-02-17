@@ -1,3 +1,60 @@
+# 0.36.0 (Thu Feb 17 2022)
+
+#### 🚀 Enhancement
+
+- Add zarr-checksum method to `dandi digest` [#900](https://github.com/dandi/dandi-cli/pull/900) ([@jwodder](https://github.com/jwodder))
+- Move `dandi organize` code to an `organize()` function [#902](https://github.com/dandi/dandi-cli/pull/902) ([@jwodder](https://github.com/jwodder))
+- Video files organize [#841](https://github.com/dandi/dandi-cli/pull/841) ([@Saksham20](https://github.com/Saksham20))
+- Make use of `/assets/{asset_id}/info/` endpoint [#895](https://github.com/dandi/dandi-cli/pull/895) ([@jwodder](https://github.com/jwodder))
+- Support Zarr directories [#853](https://github.com/dandi/dandi-cli/pull/853) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Make `dandi upload` look for dandiset.yaml in parents of common path [#916](https://github.com/dandi/dandi-cli/pull/916) ([@jwodder](https://github.com/jwodder))
+- Mint Zarr assets at start of upload and sync Zarr contents [#907](https://github.com/dandi/dandi-cli/pull/907) ([@jwodder](https://github.com/jwodder))
+- Use full asset path as name of Zarr object [#912](https://github.com/dandi/dandi-cli/pull/912) ([@jwodder](https://github.com/jwodder))
+- Specify Dandiset ID when creating a Zarr [#911](https://github.com/dandi/dandi-cli/pull/911) ([@jwodder](https://github.com/jwodder))
+- Cancel a Zarr upload if an error occurs partway through [#893](https://github.com/dandi/dandi-cli/pull/893) ([@jwodder](https://github.com/jwodder))
+- Make `get_raw_digest()` actually default to the proper digest type for Zarrs [#894](https://github.com/dandi/dandi-cli/pull/894) ([@jwodder](https://github.com/jwodder))
+- Fix neural data type to metadata extractor [#891](https://github.com/dandi/dandi-cli/pull/891) ([@satra](https://github.com/satra) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Add dedicated HTTP404Error exception class [#908](https://github.com/dandi/dandi-cli/pull/908) ([@jwodder](https://github.com/jwodder))
+- Make `paths` argument to `upload()` optional [#899](https://github.com/dandi/dandi-cli/pull/899) ([@jwodder](https://github.com/jwodder))
+- Add type-annotations to various files [#887](https://github.com/dandi/dandi-cli/pull/887) ([@jwodder](https://github.com/jwodder))
+- Delete functions (get_asset_metadata, find_dandi_files) obsoleted by PR #853 [#885](https://github.com/dandi/dandi-cli/pull/885) ([@jwodder](https://github.com/jwodder))
+- Use a pydantic model to store a RemoteDandiset's cached data [#876](https://github.com/dandi/dandi-cli/pull/876) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- improve DandiApiClient.__init__ docstring [#909](https://github.com/dandi/dandi-cli/pull/909) ([@bendichter](https://github.com/bendichter))
+- Document new `dandi organize` options in Read the Docs site [#901](https://github.com/dandi/dandi-cli/pull/901) ([@jwodder](https://github.com/jwodder))
+- Organize & fine-tune dandi.dandiapi Sphinx docs [#888](https://github.com/dandi/dandi-cli/pull/888) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Pin minio image version [#898](https://github.com/dandi/dandi-cli/pull/898) ([@AlmightyYakob](https://github.com/AlmightyYakob))
+- Enable type-checking [#877](https://github.com/dandi/dandi-cli/pull/877) ([@jwodder](https://github.com/jwodder))
+- Add `new_dandiset` fixture [#874](https://github.com/dandi/dandi-cli/pull/874) ([@jwodder](https://github.com/jwodder))
+- Mark a test with missing `skipif_no_network` marker [#886](https://github.com/dandi/dandi-cli/pull/886) ([@jwodder](https://github.com/jwodder))
+
+#### 🔩 Dependency Updates
+
+- Remove unused tqdm dependency [#910](https://github.com/dandi/dandi-cli/pull/910) ([@jwodder](https://github.com/jwodder))
+- Update minimum pydantic version to 1.9.0 [#905](https://github.com/dandi/dandi-cli/pull/905) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 6
+
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Jacob Nesbitt ([@AlmightyYakob](https://github.com/AlmightyYakob))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Saksham Sharda ([@Saksham20](https://github.com/Saksham20))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.35.0 (Mon Jan 24 2022)
 
 #### 🚀 Enhancement
