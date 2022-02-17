@@ -30,7 +30,6 @@ def upload(
     paths: Optional[List[Union[str, Path]]] = None,
     existing: str = "refresh",
     validation: str = "require",
-    dandiset_path: Union[str, Path, None] = None,
     dandi_instance: str = "dandi",
     allow_any_path: bool = False,
     upload_dandiset_metadata: bool = False,
@@ -42,11 +41,15 @@ def upload(
     from .dandiapi import DandiAPIClient
     from .dandiset import APIDandiset, Dandiset
 
-    dandiset_ = Dandiset.find(dandiset_path)
+    if paths:
+        paths = [Path(p).absolute() for p in paths]
+        dandiset_ = Dandiset.find(os.path.commonpath(paths))
+    else:
+        dandiset_ = Dandiset.find(None)
     if not dandiset_:
         raise RuntimeError(
-            f"Found no {dandiset_metadata_file} anywhere.  "
-            "Use 'dandi download' or 'organize' first"
+            f"Found no {dandiset_metadata_file} anywhere in common ancestor of"
+            " paths.  Use 'dandi download' or 'organize' first."
         )
 
     instance = get_instance(dandi_instance)
@@ -74,15 +77,9 @@ def upload(
 
     ignore_benign_pynwb_warnings()  # so validate doesn't whine
 
-    #
-    # Treat paths
-    #
     if not paths:
         paths = [dandiset.path]
-    original_paths = paths
 
-    # Expand and validate all paths -- they should reside within dandiset
-    paths = [Path(p).absolute() for p in paths]
     dandi_files = list(
         find_dandi_files(
             *paths,
@@ -335,7 +332,7 @@ def upload(
 
     if sync:
         relpaths: List[str] = []
-        for p in original_paths:
+        for p in paths:
             rp = os.path.relpath(p, dandiset.path)
             relpaths.append("" if rp == "." else rp)
         path_prefix = reduce(os.path.commonprefix, relpaths)  # type: ignore[arg-type]

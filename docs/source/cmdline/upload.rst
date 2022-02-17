@@ -8,7 +8,9 @@
 Upload Dandiset files to DANDI Archive.
 
 The target Dandiset to upload to must already be registered in the archive, and
-a :file:`dandiset.yaml` file must exist in the local :option:`--dandiset-path`.
+a :file:`dandiset.yaml` file must exist in the common ancestor of the given
+paths (or the current directory, if no paths are specified) or a parent
+directory thereof.
 
 Local Dandisets should pass validation.  For that, the assets should first be
 organized using the :ref:`dandi_organize` command.
