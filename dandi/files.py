@@ -866,11 +866,15 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         asset_path,
                         p,
                     )
-                    for ee in e.iterfiles():
-                        try:
-                            to_delete.append(old_zarr_entries.pop(str(ee)))
-                        except KeyError:
-                            pass
+                    eprefix = str(e) + "/"
+                    sub_e = [
+                        (k, v)
+                        for k, v in old_zarr_entries.items()
+                        if k.startswith(eprefix)
+                    ]
+                    for k, v in sub_e:
+                        old_zarr_entries.pop(k)
+                        to_delete.append(v)
                     to_upload.append(item)
                 elif pdigest != e.get_digest().value:
                     lgr.debug(
