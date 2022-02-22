@@ -61,7 +61,12 @@ from .exceptions import UnknownAssetError
 from .metadata import get_default_metadata, get_metadata, nwb2asset
 from .misctypes import DUMMY_DIGEST, BasePath, Digest, P
 from .pynwb_utils import validate as pynwb_validate
-from .support.digests import get_dandietag, get_digest, get_zarr_checksum
+from .support.digests import (
+    get_dandietag,
+    get_digest,
+    get_zarr_checksum,
+    md5file_nocache,
+)
 from .utils import chunked, pluralize, yaml_load
 
 lgr = get_logger()
@@ -691,7 +696,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     files.extend(st.files)
                 else:
                     size += p.size
-                    file_md5s[str(p)] = p.get_digest().value
+                    file_md5s[str(p)] = md5file_nocache(p.filepath)
                     files.append(p)
             return ZarrStat(
                 size=size,
@@ -832,7 +837,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         to_delete: List[RemoteZarrEntry] = []
         upload_size = 0
         for p in self.iterfiles():
-            pdigest = p.get_digest().value
+            pdigest = md5file_nocache(p.filepath)
             item = {"path": str(p), "etag": pdigest}
             try:
                 e = old_zarr_entries.pop(str(p))

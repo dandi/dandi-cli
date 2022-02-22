@@ -115,10 +115,19 @@ def get_zarr_checksum(
             try:
                 files[pstr] = known[pstr]
             except KeyError:
-                files[pstr] = get_digest(p, "md5")
+                files[pstr] = md5file_nocache(p)
         elif any(p.iterdir()):
             try:
                 dirs[pstr] = known[pstr]
             except KeyError:
                 dirs[pstr] = get_zarr_checksum(p, basepath)
     return cast(str, get_checksum(files, dirs))
+
+
+def md5file_nocache(filepath: Union[str, Path]) -> str:
+    """
+    Compute the MD5 digest of a file without caching with fscacher, which has
+    been shown to slow things down for the large numbers of files typically
+    present in Zarrs
+    """
+    return Digester(["md5"])(filepath)["md5"]
