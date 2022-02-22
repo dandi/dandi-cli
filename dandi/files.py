@@ -45,6 +45,7 @@ import zarr
 from . import get_logger
 from .consts import (
     MAX_ZARR_DEPTH,
+    VIDEO_FILE_EXTENSIONS,
     ZARR_MIME_TYPE,
     ZARR_UPLOAD_BATCH_SIZE,
     EmbargoStatus,
@@ -516,6 +517,19 @@ class NWBAsset(LocalFileAsset):
                     _check_required_fields(meta, _required_nwb_metadata_fields)
                 )
         return errors
+
+
+class VideoAsset(LocalFileAsset):
+    EXTENSIONS: ClassVar[List[str]] = VIDEO_FILE_EXTENSIONS
+
+    def get_metadata(
+        self,
+        digest: Optional[Digest] = None,
+        ignore_errors: bool = True,
+    ) -> BareAsset:
+        metadata = get_default_metadata(self.filepath, digest=digest)
+        metadata.path = self.path
+        return metadata
 
 
 class GenericAsset(LocalFileAsset):
