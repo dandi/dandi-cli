@@ -242,6 +242,8 @@ def load_entities(
 
     label = '([a-z,A-Z,0-9]*?)'
 
+    # Parsing tabular_metadata as a datatype, might be done automatically if the YAML is moved to the same subdirectory
+    my_schema['rules']['datatypes']['tabular_metadata'] = my_schema['rules']['tabular_metadata']
     datatypes = my_schema['rules']['datatypes']
     entity_order = my_schema["rules"]["entities"]
     entity_definitions = my_schema["objects"]["entities"]
