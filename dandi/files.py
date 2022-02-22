@@ -791,9 +791,6 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         asset_path = metadata.setdefault("path", self.path)
         client = dandiset.client
         yield {"status": "calculating etag"}
-        stat = self.stat()
-        filetag = stat.digest.value
-        lgr.debug("Calculated dandi-zarr-checksum of %s for %s", filetag, self.filepath)
         lgr.debug("%s: Producing asset", asset_path)
         yield {"status": "producing asset"}
         old_zarr_entries: Dict[str, RemoteZarrEntry] = {}
@@ -833,7 +830,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         assert isinstance(a, RemoteZarrAsset)
         to_upload: List[dict] = []
         to_delete: List[RemoteZarrEntry] = []
-        for p in stat.files:
+        upload_size = 0
+        for p in self.iterfiles():
             pdigest = p.get_digest().value
             item = {"path": str(p), "etag": pdigest}
             try:
@@ -852,6 +850,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                             to_delete.append(old_zarr_entries.pop(pps))
                         break
                 to_upload.append(item)
+                upload_size += p.size
             else:
                 if e.is_dir():
                     lgr.debug(
@@ -869,6 +868,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         old_zarr_entries.pop(k)
                         to_delete.append(v)
                     to_upload.append(item)
+                    upload_size += p.size
                 elif pdigest != e.get_digest().value:
                     lgr.debug(
                         "%s: Path %s in Zarr differs from local file; re-uploading",
@@ -876,6 +876,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         p,
                     )
                     to_upload.append(item)
+                    upload_size += p.size
                 else:
                     lgr.debug("%s: File %s already on server; skipping", asset_path, p)
         if to_delete:
@@ -924,7 +925,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                             bytes_uploaded += size
                             yield {
                                 "status": "uploading",
-                                "upload": 100 * bytes_uploaded / stat.size,
+                                "upload": 100 * bytes_uploaded / upload_size,
                                 "current": bytes_uploaded,
                             }
                 lgr.debug("%s: Completing upload of batch #%d", asset_path, i)
@@ -938,12 +939,6 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 pluralize(len(old_zarr_files), "file"),
             )
             a.rmfiles(old_zarr_files)
-        r = client.get(f"/zarr/{zarr_id}/")
-        if r["checksum"] != filetag:
-            raise RuntimeError(
-                "Server and client disagree on final ETag of uploaded Zarr;"
-                f" server says {r['checksum']}, client says {filetag}"
-            )
         lgr.info("%s: Asset successfully uploaded", asset_path)
         yield {"status": "done", "asset": a}
 
