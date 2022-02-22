@@ -9,15 +9,19 @@
 """Provides helper to compute digests (md5 etc) on files
 """
 
+from __future__ import annotations
+
+from dataclasses import dataclass, field
 import hashlib
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Union, cast
+from typing import Dict, List, Optional, Tuple, Union, cast
 
 from dandischema.digests.dandietag import DandiETag
 from dandischema.digests.zarr import get_checksum
 from fscacher import PersistentCache
 
+from .threaded_walk import threaded_walk
 from ..utils import auto_repr
 
 lgr = logging.getLogger("dandi.support.digests")
@@ -103,25 +107,74 @@ def get_zarr_checksum(
 ) -> str:
     if path.is_file():
         return cast(str, get_digest(path, "md5"))
+    root: Tuple[str, ...]
     if basepath is None:
         basepath = path
-    dirs = {}
-    files = {}
-    if known is None:
-        known = {}
-    for p in path.iterdir():
-        pstr = p.relative_to(basepath).as_posix()
-        if not p.is_dir():
-            try:
-                files[pstr] = known[pstr]
-            except KeyError:
-                files[pstr] = md5file_nocache(p)
-        elif any(p.iterdir()):
-            try:
-                dirs[pstr] = known[pstr]
-            except KeyError:
-                dirs[pstr] = get_zarr_checksum(p, basepath)
-    return cast(str, get_checksum(files, dirs))
+        root = ()
+    else:
+        root = path.relative_to(basepath).parts
+    zcc = ZCDirectory(path="")
+    for p, digest in threaded_walk(path, lambda f: (f, md5file_nocache(f))):
+        zcc.add(p.relative_to(basepath), digest)
+    for d in root:
+        try:
+            sub = zcc.children[d]
+        except KeyError:
+            raise ValueError("Cannot compute a Zarr checksum for an empty directory")
+        else:
+            assert isinstance(sub, ZCDirectory)
+            zcc = sub
+    return zcc.get_digest()
+
+
+@dataclass
+class ZCFile:
+    """
+    File node used for building an in-memory tree of Zarr entries and their
+    digests when calculating a complete Zarr checksum
+
+    :meta private:
+    """
+
+    path: str
+    digest: str
+
+
+@dataclass
+class ZCDirectory:
+    """
+    Directory node used for building an in-memory tree of Zarr entries and
+    their digests when calculating a complete Zarr checksum
+
+    :meta private:
+    """
+
+    path: str
+    children: Dict[str, Union[ZCDirectory, ZCFile]] = field(default_factory=dict)
+
+    def get_digest(self) -> str:
+        files = {}
+        dirs = {}
+        for n in self.children.values():
+            if isinstance(n, ZCDirectory):
+                dirs[n.path] = n.get_digest()
+            else:
+                files[n.path] = n.digest
+        return cast(str, get_checksum(files, dirs))
+
+    def add(self, path: Path, digest: str) -> None:
+        *dirs, name = path.parts
+        parts = []
+        d = self
+        for dirname in dirs:
+            parts.append(dirname)
+            e = d.children.setdefault(dirname, ZCDirectory(path="/".join(parts)))
+            assert isinstance(e, ZCDirectory), f"Path type conflict for {d.path}"
+            d = e
+        parts.append(name)
+        pstr = "/".join(parts)
+        assert name not in d.children, f"File {pstr} encountered twice"
+        d.children[name] = ZCFile(path=pstr, digest=digest)
 
 
 def md5file_nocache(filepath: Union[str, Path]) -> str:
