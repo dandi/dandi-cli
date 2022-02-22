@@ -14,7 +14,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, replace
+from contextlib import closing
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 import os
 from pathlib import Path
@@ -25,10 +26,12 @@ from typing import (
     BinaryIO,
     ClassVar,
     Dict,
+    Generator,
     Generic,
     Iterator,
     List,
     Optional,
+    Tuple,
     Union,
 )
 from xml.etree.ElementTree import fromstring
@@ -833,16 +836,13 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             )
         a = RemoteAsset.from_data(dandiset, r)
         assert isinstance(a, RemoteZarrAsset)
-        to_upload: List[dict] = []
+        to_upload = EntryUploadTracker()
         to_delete: List[RemoteZarrEntry] = []
-        upload_size = 0
-        for p in self.iterfiles():
-            pdigest = md5file_nocache(p.filepath)
-            item = {"path": str(p), "etag": pdigest}
+        for local_entry in self.iterfiles():
             try:
-                e = old_zarr_entries.pop(str(p))
+                remote_entry = old_zarr_entries.pop(str(local_entry))
             except KeyError:
-                for pp in p.parents:
+                for pp in local_entry.parents:
                     pps = str(pp)
                     if pps in old_zarr_entries:
                         if old_zarr_entries[pps].is_file():
@@ -850,20 +850,19 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                 "%s: Parent path %s of file %s is a file; deleting",
                                 asset_path,
                                 pp,
-                                p,
+                                local_entry,
                             )
                             to_delete.append(old_zarr_entries.pop(pps))
                         break
-                to_upload.append(item)
-                upload_size += p.size
+                to_upload.register(local_entry)
             else:
-                if e.is_dir():
+                if remote_entry.is_dir():
                     lgr.debug(
                         "%s: Path %s in Zarr is a directory; deleting & re-uploading",
                         asset_path,
-                        p,
+                        local_entry,
                     )
-                    eprefix = str(e) + "/"
+                    eprefix = str(remote_entry) + "/"
                     sub_e = [
                         (k, v)
                         for k, v in old_zarr_entries.items()
@@ -872,18 +871,29 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     for k, v in sub_e:
                         old_zarr_entries.pop(k)
                         to_delete.append(v)
-                    to_upload.append(item)
-                    upload_size += p.size
-                elif pdigest != e.get_digest().value:
+                    to_upload.register(local_entry)
+                elif local_entry.size != remote_entry.size:
                     lgr.debug(
-                        "%s: Path %s in Zarr differs from local file; re-uploading",
+                        "%s: Path %s in Zarr has different size from local file; re-uploading",
                         asset_path,
-                        p,
+                        local_entry,
                     )
-                    to_upload.append(item)
-                    upload_size += p.size
+                    to_upload.register(local_entry)
                 else:
-                    lgr.debug("%s: File %s already on server; skipping", asset_path, p)
+                    local_digest = md5file_nocache(local_entry.filepath)
+                    if local_digest != remote_entry.get_digest().value:
+                        lgr.debug(
+                            "%s: Path %s in Zarr differs from local file; re-uploading",
+                            asset_path,
+                            local_entry,
+                        )
+                        to_upload.register(local_entry, local_digest)
+                    else:
+                        lgr.debug(
+                            "%s: File %s already on server; skipping",
+                            asset_path,
+                            local_entry,
+                        )
         if to_delete:
             a.rmfiles(to_delete)
         yield {"status": "initiating upload"}
@@ -892,9 +902,9 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         with RESTFullAPIClient(
             "http://nil.nil",
             headers={"X-Amz-ACL": "bucket-owner-full-control"},
-        ) as storage:
+        ) as storage, closing(to_upload.get_items()) as upload_items:
             for i, upload_body in enumerate(
-                chunked(to_upload, ZARR_UPLOAD_BATCH_SIZE), start=1
+                chunked(upload_items, ZARR_UPLOAD_BATCH_SIZE), start=1
             ):
                 lgr.debug(
                     "%s: Uploading Zarr file batch #%d (%s)",
@@ -930,7 +940,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                             bytes_uploaded += size
                             yield {
                                 "status": "uploading",
-                                "upload": 100 * bytes_uploaded / upload_size,
+                                "upload": 100 * bytes_uploaded / to_upload.total_size,
                                 "current": bytes_uploaded,
                             }
                 lgr.debug("%s: Completing upload of batch #%d", asset_path, i)
@@ -1132,3 +1142,51 @@ def _check_required_fields(d: dict, required: List[str]) -> List[str]:
         if v in ("REQUIRED", "PLACEHOLDER"):
             errors += [f"Required field {f!r} has value {v!r}"]
     return errors
+
+
+@dataclass
+class EntryUploadTracker:
+    """
+    Class for keeping track of `LocalZarrEntry` instances to upload
+
+    :meta private:
+    """
+
+    total_size: int = 0
+    digested_entries: List[Tuple[LocalZarrEntry, str]] = field(default_factory=list)
+    fresh_entries: List[LocalZarrEntry] = field(default_factory=list)
+
+    def register(self, e: LocalZarrEntry, digest: Optional[str] = None) -> None:
+        if digest is not None:
+            self.digested_entries.append((e, digest))
+        else:
+            self.fresh_entries.append(e)
+        self.total_size += e.size
+
+    @staticmethod
+    def _mkitem(e: LocalZarrEntry) -> dict:
+        digest = md5file_nocache(e.filepath)
+        return {"path": str(e), "etag": digest}
+
+    def get_items(self, jobs: int = 5) -> Generator[dict, None, None]:
+        # Note: In order for the ThreadPoolExecutor to be closed if an error
+        # occurs during upload, the method must be used like this:
+        #
+        #     with contextlib.closing(to_upload.get_items()) as upload_items:
+        #         for item in upload_items:
+        #             ...
+        for e, digest in self.digested_entries:
+            yield {"path": str(e), "etag": digest}
+        if not self.fresh_entries:
+            return
+        with ThreadPoolExecutor(max_workers=jobs) as executor:
+            futures = [executor.submit(self._mkitem, e) for e in self.fresh_entries]
+            for fut in as_completed(futures):
+                try:
+                    yield fut.result()
+                # Use BaseException to also catch GeneratorExit thrown by
+                # closing()
+                except BaseException:
+                    for f in futures:
+                        f.cancel()
+                    raise
