@@ -794,13 +794,6 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         stat = self.stat()
         filetag = stat.digest.value
         lgr.debug("Calculated dandi-zarr-checksum of %s for %s", filetag, self.filepath)
-        digest = metadata.get("digest", {})
-        if "dandi:dandi-zarr-checksum" in digest:
-            if digest["dandi:dandi-zarr-checksum"] != filetag:
-                raise RuntimeError(
-                    f"{self.filepath}: Zarr etag changed; was originally"
-                    f" {digest['dandi:dandi-zarr-checksum']} but is now {filetag}"
-                )
         lgr.debug("%s: Producing asset", asset_path)
         yield {"status": "producing asset"}
         old_zarr_entries: Dict[str, RemoteZarrEntry] = {}

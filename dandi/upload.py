@@ -5,14 +5,22 @@ from pathlib import Path
 import re
 import sys
 import time
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Tuple, Union
 
 import click
 
 from . import lgr
 from .consts import DRAFT, dandiset_identifier_regex, dandiset_metadata_file
+from .dandiapi import RemoteAsset
 from .exceptions import NotFoundError
-from .files import DandiFile, DandisetMetadataFile, LocalAsset, find_dandi_files
+from .files import (
+    DandiFile,
+    DandisetMetadataFile,
+    LocalAsset,
+    ZarrAsset,
+    find_dandi_files,
+)
+from .misctypes import Digest
 from .utils import ensure_datetime, get_instance, pluralize
 
 if TYPE_CHECKING:
@@ -98,9 +106,6 @@ def upload(
 
     uploaded_paths: Dict[str, Uploaded] = defaultdict(lambda: {"size": 0, "errors": []})
 
-    def skip_file(msg: Any) -> dict:
-        return {"status": "skipped", "message": str(msg)}
-
     # TODO: we might want to always yield a full record so no field is not
     # provided to pyout to cause it to halt
     def process_path(dfile: DandiFile) -> Iterator[dict]:
@@ -169,12 +174,16 @@ def upload(
             #
             # Compute checksums
             #
-            yield {"status": "digesting"}
-            try:
-                file_etag = dfile.get_digest()
-            except Exception as exc:
-                yield skip_file("failed to compute digest: %s" % str(exc))
-                return
+            file_etag: Optional[Digest]
+            if isinstance(dfile, ZarrAsset):
+                file_etag = None
+            else:
+                yield {"status": "digesting"}
+                try:
+                    file_etag = dfile.get_digest()
+                except Exception as exc:
+                    yield skip_file("failed to compute digest: %s" % str(exc))
+                    return
 
             try:
                 extant = remote_dandiset.get_asset_by_path(dfile.path)
@@ -182,53 +191,15 @@ def upload(
                 extant = None
             else:
                 assert extant is not None
-                metadata = extant.get_raw_metadata()
-                local_mtime = dfile.modified
-                remote_mtime_str = metadata.get("blobDateModified")
-                # TODO: Should this error if the digest is missing?
-                extant_etag = metadata.get("digest", {}).get(file_etag.algorithm.value)
-                if remote_mtime_str is not None:
-                    remote_mtime = ensure_datetime(remote_mtime_str)
-                    remote_file_status = (
-                        "same"
-                        if extant_etag == file_etag.value
-                        and remote_mtime == local_mtime
-                        else (
-                            "newer"
-                            if remote_mtime > local_mtime
-                            else ("older" if remote_mtime < local_mtime else "diff")
-                        )
-                    )
-                else:
-                    remote_mtime = None
-                    remote_file_status = "no mtime"
-
-                exists_msg = f"exists ({remote_file_status})"
-
-                if existing == "error":
-                    # as promised -- not gentle at all!
-                    raise FileExistsError(exists_msg)
-                if existing == "skip":
-                    yield skip_file(exists_msg)
+                replace, out = check_replace_asset(
+                    local_asset=dfile,
+                    remote_asset=extant,
+                    existing=existing,
+                    local_etag=file_etag,
+                )
+                yield out
+                if not replace:
                     return
-                # Logic below only for overwrite and reupload
-                if existing == "overwrite":
-                    if extant_etag == file_etag.value:
-                        yield skip_file(exists_msg)
-                        return
-                elif existing == "refresh":
-                    if extant_etag == file_etag.value:
-                        yield skip_file("file exists")
-                        return
-                    elif remote_mtime is not None and remote_mtime >= local_mtime:
-                        yield skip_file(exists_msg)
-                        return
-                elif existing == "force":
-                    pass
-                else:
-                    raise ValueError(f"invalid value for 'existing': {existing!r}")
-
-                yield {"message": f"{exists_msg} - reuploading"}
 
             #
             # Extract metadata - delayed since takes time, but is done before
@@ -348,3 +319,58 @@ def upload(
         ):
             for asset in to_delete:
                 asset.delete()
+
+
+def check_replace_asset(
+    local_asset: LocalAsset,
+    remote_asset: RemoteAsset,
+    existing: str,
+    local_etag: Optional[Digest],
+) -> Tuple[bool, Dict[str, str]]:
+    # Returns a (replace asset, message to yield) tuple
+    if isinstance(local_asset, ZarrAsset):
+        return (True, {"message": "exists - reuploading"})
+    assert local_etag is not None
+    metadata = remote_asset.get_raw_metadata()
+    local_mtime = local_asset.modified
+    remote_mtime_str = metadata.get("blobDateModified")
+    # TODO: Should this error if the digest is missing?
+    remote_etag = metadata.get("digest", {}).get(local_etag.algorithm.value)
+    if remote_mtime_str is not None:
+        remote_mtime = ensure_datetime(remote_mtime_str)
+        remote_file_status = (
+            "same"
+            if remote_etag == local_etag.value and remote_mtime == local_mtime
+            else (
+                "newer"
+                if remote_mtime > local_mtime
+                else ("older" if remote_mtime < local_mtime else "diff")
+            )
+        )
+    else:
+        remote_mtime = None
+        remote_file_status = "no mtime"
+    exists_msg = f"exists ({remote_file_status})"
+    if existing == "error":
+        # as promised -- not gentle at all!
+        raise FileExistsError(exists_msg)
+    if existing == "skip":
+        return (False, skip_file(exists_msg))
+    # Logic below only for overwrite and reupload
+    if existing == "overwrite":
+        if remote_etag == local_etag.value:
+            return (False, skip_file(exists_msg))
+    elif existing == "refresh":
+        if remote_etag == local_etag.value:
+            return (False, skip_file("file exists"))
+        elif remote_mtime is not None and remote_mtime >= local_mtime:
+            return (False, skip_file(exists_msg))
+    elif existing == "force":
+        pass
+    else:
+        raise ValueError(f"invalid value for 'existing': {existing!r}")
+    return (True, {"message": f"{exists_msg} - reuploading"})
+
+
+def skip_file(msg: Any) -> Dict[str, str]:
+    return {"status": "skipped", "message": str(msg)}
