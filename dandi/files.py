@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import deque
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import closing
 from dataclasses import dataclass, field, replace
 from datetime import datetime
@@ -836,66 +836,89 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             )
         a = RemoteAsset.from_data(dandiset, r)
         assert isinstance(a, RemoteZarrAsset)
+
         to_upload = EntryUploadTracker()
-        to_delete: List[RemoteZarrEntry] = []
-        for local_entry in self.iterfiles():
-            try:
-                remote_entry = old_zarr_entries.pop(str(local_entry))
-            except KeyError:
-                for pp in local_entry.parents:
-                    pps = str(pp)
-                    if pps in old_zarr_entries:
-                        if old_zarr_entries[pps].is_file():
+        if old_zarr_entries:
+            to_delete: List[RemoteZarrEntry] = []
+            digesting: List[Future[Optional[Tuple[LocalZarrEntry, str]]]] = []
+            yield {"status": "comparing against remote Zarr"}
+            with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
+                for local_entry in self.iterfiles():
+                    try:
+                        remote_entry = old_zarr_entries.pop(str(local_entry))
+                    except KeyError:
+                        for pp in local_entry.parents:
+                            pps = str(pp)
+                            if pps in old_zarr_entries:
+                                if old_zarr_entries[pps].is_file():
+                                    lgr.debug(
+                                        "%s: Parent path %s of file %s"
+                                        " corresponds to a remote file;"
+                                        " deleting remote",
+                                        asset_path,
+                                        pps,
+                                        local_entry,
+                                    )
+                                    to_delete.append(old_zarr_entries.pop(pps))
+                                break
+                        lgr.debug(
+                            "%s: Path %s not present in remote Zarr; uploading",
+                            asset_path,
+                            local_entry,
+                        )
+                        to_upload.register(local_entry)
+                    else:
+                        if remote_entry.is_dir():
                             lgr.debug(
-                                "%s: Parent path %s of file %s is a file; deleting",
+                                "%s: Path %s of local file is a directory in"
+                                " remote Zarr; deleting remote & re-uploading",
                                 asset_path,
-                                pp,
                                 local_entry,
                             )
-                            to_delete.append(old_zarr_entries.pop(pps))
-                        break
-                to_upload.register(local_entry)
-            else:
-                if remote_entry.is_dir():
-                    lgr.debug(
-                        "%s: Path %s in Zarr is a directory; deleting & re-uploading",
-                        asset_path,
-                        local_entry,
-                    )
-                    eprefix = str(remote_entry) + "/"
-                    sub_e = [
-                        (k, v)
-                        for k, v in old_zarr_entries.items()
-                        if k.startswith(eprefix)
-                    ]
-                    for k, v in sub_e:
-                        old_zarr_entries.pop(k)
-                        to_delete.append(v)
-                    to_upload.register(local_entry)
-                elif local_entry.size != remote_entry.size:
-                    lgr.debug(
-                        "%s: Path %s in Zarr has different size from local file; re-uploading",
-                        asset_path,
-                        local_entry,
-                    )
-                    to_upload.register(local_entry)
-                else:
-                    local_digest = md5file_nocache(local_entry.filepath)
-                    if local_digest != remote_entry.get_digest().value:
-                        lgr.debug(
-                            "%s: Path %s in Zarr differs from local file; re-uploading",
-                            asset_path,
-                            local_entry,
-                        )
-                        to_upload.register(local_entry, local_digest)
+                            eprefix = str(remote_entry) + "/"
+                            sub_e = [
+                                (k, v)
+                                for k, v in old_zarr_entries.items()
+                                if k.startswith(eprefix)
+                            ]
+                            for k, v in sub_e:
+                                old_zarr_entries.pop(k)
+                                to_delete.append(v)
+                            to_upload.register(local_entry)
+                        elif local_entry.size != remote_entry.size:
+                            lgr.debug(
+                                "%s: Path %s in Zarr has different size from"
+                                " local file; re-uploading",
+                                asset_path,
+                                local_entry,
+                            )
+                            to_upload.register(local_entry)
+                        else:
+                            digesting.append(
+                                executor.submit(
+                                    _cmp_digests,
+                                    asset_path,
+                                    local_entry,
+                                    remote_entry.get_digest().value,
+                                )
+                            )
+                for dgstfut in as_completed(digesting):
+                    try:
+                        item = dgstfut.result()
+                    except Exception:
+                        for d in digesting:
+                            d.cancel()
+                        raise
                     else:
-                        lgr.debug(
-                            "%s: File %s already on server; skipping",
-                            asset_path,
-                            local_entry,
-                        )
-        if to_delete:
-            a.rmfiles(to_delete)
+                        if item is not None:
+                            local_entry, local_digest = item
+                            to_upload.register(local_entry, local_digest)
+            if to_delete:
+                a.rmfiles(to_delete)
+        else:
+            for local_entry in self.iterfiles():
+                to_upload.register(local_entry)
+
         yield {"status": "initiating upload"}
         lgr.debug("%s: Beginning upload", asset_path)
         bytes_uploaded = 0
@@ -1190,3 +1213,19 @@ class EntryUploadTracker:
                     for f in futures:
                         f.cancel()
                     raise
+
+
+def _cmp_digests(
+    asset_path: str, local_entry: LocalZarrEntry, remote_digest: str
+) -> Optional[Tuple[LocalZarrEntry, str]]:
+    local_digest = md5file_nocache(local_entry.filepath)
+    if local_digest != remote_digest:
+        lgr.debug(
+            "%s: Path %s in Zarr differs from local file; re-uploading",
+            asset_path,
+            local_entry,
+        )
+        return (local_entry, local_digest)
+    else:
+        lgr.debug("%s: File %s already on server; skipping", asset_path, local_entry)
+        return None
