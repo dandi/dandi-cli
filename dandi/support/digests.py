@@ -113,8 +113,21 @@ def get_zarr_checksum(
         root = ()
     else:
         root = path.relative_to(basepath).parts
+    if known is None:
+        known = {}
+
+    def digest_file(f: Path) -> Tuple[Path, str]:
+        assert basepath is not None
+        assert known is not None
+        relpath = f.relative_to(basepath).as_posix()
+        try:
+            dgst = known[relpath]
+        except KeyError:
+            dgst = md5file_nocache(f)
+        return (f, dgst)
+
     zcc = ZCDirectory(path="")
-    for p, digest in threaded_walk(path, lambda f: (f, md5file_nocache(f))):
+    for p, digest in threaded_walk(path, digest_file):
         zcc.add(p.relative_to(basepath), digest)
     for d in root:
         try:
