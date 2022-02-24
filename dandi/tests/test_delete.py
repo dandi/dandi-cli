@@ -420,3 +420,21 @@ def test_delete_no_dandiset(
         "Use 'dandi download' or 'organize' first"
     )
     delete_spy.assert_not_called()
+
+
+def test_delete_zarr_path(
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    zarr_dandiset: SampleDandiset,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.chdir(zarr_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", zarr_dandiset.api.api_key)
+    instance = zarr_dandiset.api.instance_id
+    delete_spy = mocker.spy(RESTFullAPIClient, "delete")
+    delete(["sample.zarr"], dandi_instance=instance, devel_debug=True, force=True)
+    delete_spy.assert_called()
+    download(zarr_dandiset.dandiset.version_api_url, tmp_path)
+    assert list_paths(tmp_path) == [
+        tmp_path / zarr_dandiset.dandiset_id / "dandiset.yaml"
+    ]
