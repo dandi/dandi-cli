@@ -54,21 +54,22 @@ def test_digester(tmp_path):
 
 
 def test_get_zarr_checksum(mocker: MockerFixture, tmp_path: Path) -> None:
-
-    (tmp_path / "file1.txt").write_text("This is the first file.\n")
-    (tmp_path / "file2.txt").write_text("This is the second file.\n")
+    # Use write_bytes() so that the line endings are the same on POSIX and
+    # Windows.
+    (tmp_path / "file1.txt").write_bytes(b"This is the first file.\n")
+    (tmp_path / "file2.txt").write_bytes(b"This is the second file.\n")
     sub1 = tmp_path / "sub1"
     sub1.mkdir()
-    (sub1 / "file3.txt").write_text("This is the third file.\n")
-    (sub1 / "file4.txt").write_text("This is the fourth file.\n")
-    (sub1 / "file5.txt").write_text("This is the fifth file.\n")
+    (sub1 / "file3.txt").write_bytes(b"This is the third file.\n")
+    (sub1 / "file4.txt").write_bytes(b"This is the fourth file.\n")
+    (sub1 / "file5.txt").write_bytes(b"This is the fifth file.\n")
     subsub = sub1 / "subsub"
     subsub.mkdir()
-    (subsub / "file6.txt").write_text("This is the sixth file.\n")
+    (subsub / "file6.txt").write_bytes(b"This is the sixth file.\n")
     sub2 = tmp_path / "sub2"
     sub2.mkdir()
-    (sub2 / "file7.txt").write_text("This is the seventh file.\n")
-    (sub2 / "file8.txt").write_text("This is the eighth file.\n")
+    (sub2 / "file7.txt").write_bytes(b"This is the seventh file.\n")
+    (sub2 / "file8.txt").write_bytes(b"This is the eighth file.\n")
     empty = tmp_path / "empty"
     empty.mkdir()
 
