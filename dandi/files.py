@@ -798,7 +798,6 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             )
         asset_path = metadata.setdefault("path", self.path)
         client = dandiset.client
-        yield {"status": "calculating etag"}
         lgr.debug("%s: Producing asset", asset_path)
         yield {"status": "producing asset"}
         old_zarr_entries: Dict[str, RemoteZarrEntry] = {}
@@ -916,6 +915,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             if to_delete:
                 a.rmfiles(to_delete)
         else:
+            yield {"status": "traversing local Zarr"}
             for local_entry in self.iterfiles():
                 to_upload.register(local_entry)
 
@@ -971,6 +971,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         lgr.debug("%s: Upload completed", asset_path)
         old_zarr_files = [e for e in old_zarr_entries.values() if e.is_file()]
         if old_zarr_files:
+            yield {"status": "deleting extra remote files"}
             lgr.debug(
                 "%s: Deleting %s in remote Zarr not present locally",
                 asset_path,
