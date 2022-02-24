@@ -9,6 +9,7 @@ from .consts import DRAFT, dandiset_metadata_file
 from .dandiapi import DandiAPIClient, RemoteAsset, RemoteDandiset
 from .dandiarchive import BaseAssetIDURL, DandisetURL, ParsedDandiURL, parse_dandi_url
 from .exceptions import NotFoundError
+from .files import ZarrAsset
 from .utils import get_instance, is_url
 
 
@@ -230,7 +231,7 @@ def find_local_asset(filepath: str) -> Tuple[str, str]:
             "Use 'dandi download' or 'organize' first"
         )
     relpath = path.relative_to(dandiset.path).as_posix()
-    if path.is_dir():
+    if path.is_dir() and path.suffix not in ZarrAsset.EXTENSIONS:
         relpath += "/"
     return (dandiset.identifier, relpath)
 
