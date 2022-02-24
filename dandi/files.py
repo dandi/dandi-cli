@@ -836,6 +836,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         a = RemoteAsset.from_data(dandiset, r)
         assert isinstance(a, RemoteZarrAsset)
 
+        total_size = 0
         to_upload = EntryUploadTracker()
         if old_zarr_entries:
             to_delete: List[RemoteZarrEntry] = []
@@ -843,6 +844,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             yield {"status": "comparing against remote Zarr"}
             with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
                 for local_entry in self.iterfiles():
+                    total_size += local_entry.size
                     try:
                         remote_entry = old_zarr_entries.pop(str(local_entry))
                     except KeyError:
@@ -917,9 +919,10 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         else:
             yield {"status": "traversing local Zarr"}
             for local_entry in self.iterfiles():
+                total_size += local_entry.size
                 to_upload.register(local_entry)
 
-        yield {"status": "initiating upload"}
+        yield {"status": "initiating upload", "size": total_size}
         lgr.debug("%s: Beginning upload", asset_path)
         bytes_uploaded = 0
         with RESTFullAPIClient(

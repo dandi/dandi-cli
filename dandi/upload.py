@@ -17,6 +17,7 @@ from .files import (
     DandiFile,
     DandisetMetadataFile,
     LocalAsset,
+    LocalDirectoryAsset,
     ZarrAsset,
     find_dandi_files,
 )
@@ -127,15 +128,16 @@ def upload(
             """
             strpath = str(dfile.filepath)
             try:
-                try:
-                    yield {"size": dfile.size}
-                except FileNotFoundError:
-                    yield skip_file("ERROR: File not found")
-                    return
-                except Exception as exc:
-                    # without limiting [:50] it might cause some pyout indigestion
-                    yield skip_file("ERROR: %s" % str(exc)[:50])
-                    return
+                if not isinstance(dfile, LocalDirectoryAsset):
+                    try:
+                        yield {"size": dfile.size}
+                    except FileNotFoundError:
+                        yield skip_file("ERROR: File not found")
+                        return
+                    except Exception as exc:
+                        # without limiting [:50] it might cause some pyout indigestion
+                        yield skip_file("ERROR: %s" % str(exc)[:50])
+                        return
 
                 #
                 # Validate first, so we do not bother server at all if not kosher
