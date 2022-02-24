@@ -105,6 +105,16 @@ def get_zarr_checksum(
     basepath: Optional[Path] = None,
     known: Optional[Dict[str, str]] = None,
 ) -> str:
+    """
+    Compute the Zarr checksum for a file or directory tree.  The checksum for a
+    subdirectory of a Zarr can be computed by setting ``path`` to the path to
+    the subdirectory and setting ``basepath`` to the path to the root of the
+    Zarr.
+
+    If the digests for any files in the Zarr are already known, they can be
+    passed in the ``known`` argument, which must be a `dict` mapping
+    slash-separated paths relative to the root of the Zarr to hex digests.
+    """
     if path.is_file():
         return cast(str, get_digest(path, "md5"))
     root: Tuple[str, ...]

@@ -7,7 +7,13 @@
 #
 # ## ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ##
 
-from ..digests import Digester
+from pathlib import Path
+
+import pytest
+from pytest_mock import MockerFixture
+
+from .. import digests
+from ..digests import Digester, get_zarr_checksum
 
 
 def test_digester(tmp_path):
@@ -45,3 +51,57 @@ def test_digester(tmp_path):
         "35e1d405ff1dc2763e433d69b8f299b3f4da500663b813ce176a43e29ffc"
         "c31b0159",
     }
+
+
+def test_get_zarr_checksum(mocker: MockerFixture, tmp_path: Path) -> None:
+
+    (tmp_path / "file1.txt").write_text("This is the first file.\n")
+    (tmp_path / "file2.txt").write_text("This is the second file.\n")
+    sub1 = tmp_path / "sub1"
+    sub1.mkdir()
+    (sub1 / "file3.txt").write_text("This is the third file.\n")
+    (sub1 / "file4.txt").write_text("This is the fourth file.\n")
+    (sub1 / "file5.txt").write_text("This is the fifth file.\n")
+    subsub = sub1 / "subsub"
+    subsub.mkdir()
+    (subsub / "file6.txt").write_text("This is the sixth file.\n")
+    sub2 = tmp_path / "sub2"
+    sub2.mkdir()
+    (sub2 / "file7.txt").write_text("This is the seventh file.\n")
+    (sub2 / "file8.txt").write_text("This is the eighth file.\n")
+    empty = tmp_path / "empty"
+    empty.mkdir()
+
+    assert (
+        get_zarr_checksum(tmp_path / "file1.txt") == "d0aa42f003e36c1ecaf9aa8f20b6f1ad"
+    )
+    assert get_zarr_checksum(tmp_path) == "e432031edb56d48fa9d9b205689db55e"
+    assert (
+        get_zarr_checksum(sub1, basepath=tmp_path) == "4cc960e6c5a46e4dae426124ec2f65c6"
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        get_zarr_checksum(empty, basepath=tmp_path)
+    assert str(excinfo.value) == "Cannot compute a Zarr checksum for an empty directory"
+
+    spy = mocker.spy(digests, "md5file_nocache")
+    assert (
+        get_zarr_checksum(
+            tmp_path,
+            known={
+                "file1.txt": "9ee7a152c5adb60803c928733acc1533",
+                # ^^ This one is different!
+                "file2.txt": "340c108ee69bf4626e7995a7048f52b8",
+                "sub1/file3.txt": "7351dc767bfad322ddce50401badc359",
+                "sub1/file4.txt": "bbede70f39fa8fc34f2dc4eda8b6bdea",
+                "sub1/file5.txt": "c4e828c509f90b84e5b72d9d5612d676",
+                "sub1/subsub/file6.txt": "6a7fe3b9e2c69a54216b7d5dcb4fe61d",
+                # "sub2/file7.txt": Absent!
+                "sub2/file8.txt": "7aadbff2b21f438baccded18b2e81ae3",
+                "nonexistent-file.txt": "123456789012345678901234567890ab",
+                # ^^ Not used in calculation!
+            },
+        )
+        == "f67518b9092633027105f9aa9de9259f"
+    )
+    spy.assert_called_once_with(sub2 / "file7.txt")
