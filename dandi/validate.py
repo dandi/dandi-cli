@@ -22,21 +22,13 @@ def validate_bids(
     debug : bool, optional
         Whether to trigger debugging in the BIDS validator.
     """
-    from .bids_validator_xs import load_all, validate_all, write_report, get_bids_schema_path
+    from .bids_validator_xs import validate_bids
+    #load_all, validate_all, write_report, get_bids_schema_path
 
-    module_path = os.path.abspath(os.path.dirname(__file__))
-    bids_schema_path = os.path.join(
-        module_path, "support/bids/schemadata/", schema_version
-    )
-    regex_schema = load_all(bids_schema_path)
-    validation_result = validate_all(
-        *paths,
-        regex_schema,
+    validate_bids(paths,
+        schema_version=schema_version,
         debug=devel_debug,
-    )
-    write_report(validation_result)
-    print("klajfkjsf")
-
+        )
 
 def validate(
     *paths: str,
