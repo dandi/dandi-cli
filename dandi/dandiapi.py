@@ -1826,7 +1826,17 @@ class RemoteZarrEntry(BasePath):
         """
         dirs = deque([self])
         while dirs:
-            for p in dirs.popleft().iterdir():
+            d = dirs.popleft()
+            try:
+                subpaths = list(d.iterdir())
+            except NotFoundError:
+                if d.is_root():
+                    # Empty zarr; can happen if an upload is interrupted during
+                    # the initial batch
+                    return
+                else:
+                    raise
+            for p in subpaths:
                 if p.is_dir():
                     dirs.append(p)
                     if include_dirs:

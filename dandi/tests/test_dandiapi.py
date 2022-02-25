@@ -24,7 +24,7 @@ from ..consts import (
     dandiset_identifier_regex,
     dandiset_metadata_file,
 )
-from ..dandiapi import DandiAPIClient, Version
+from ..dandiapi import DandiAPIClient, RemoteAsset, RemoteZarrAsset, Version
 from ..download import download
 from ..exceptions import NotFoundError, SchemaVersionError
 from ..utils import list_paths
@@ -620,3 +620,18 @@ def test_get_assets_with_path_prefix(text_dandiset: SampleDandiset) -> None:
             "subdir", order="-path"
         )
     ] == ["subdir2/coconut.txt", "subdir2/banana.txt", "subdir1/apple.txt"]
+
+
+def test_empty_zarr_iterfiles(new_dandiset: SampleDandiset) -> None:
+    client = new_dandiset.client
+    r = client.post(
+        "/zarr/", json={"name": "empty.zarr", "dandiset": new_dandiset.dandiset_id}
+    )
+    zarr_id = r["zarr_id"]
+    r = client.post(
+        f"{new_dandiset.dandiset.version_api_path}assets/",
+        json={"metadata": {"path": "empty.zarr"}, "zarr_id": zarr_id},
+    )
+    a = RemoteAsset.from_data(new_dandiset.dandiset, r)
+    assert isinstance(a, RemoteZarrAsset)
+    assert list(a.iterfiles()) == []

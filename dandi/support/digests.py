@@ -9,15 +9,19 @@
 """Provides helper to compute digests (md5 etc) on files
 """
 
+from __future__ import annotations
+
+from dataclasses import dataclass, field
 import hashlib
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Union, cast
+from typing import Dict, List, Optional, Tuple, Union, cast
 
 from dandischema.digests.dandietag import DandiETag
 from dandischema.digests.zarr import get_checksum
 from fscacher import PersistentCache
 
+from .threaded_walk import threaded_walk
 from ..utils import auto_repr
 
 lgr = logging.getLogger("dandi.support.digests")
@@ -101,24 +105,105 @@ def get_zarr_checksum(
     basepath: Optional[Path] = None,
     known: Optional[Dict[str, str]] = None,
 ) -> str:
+    """
+    Compute the Zarr checksum for a file or directory tree.  The checksum for a
+    subdirectory of a Zarr can be computed by setting ``path`` to the path to
+    the subdirectory and setting ``basepath`` to the path to the root of the
+    Zarr.
+
+    If the digests for any files in the Zarr are already known, they can be
+    passed in the ``known`` argument, which must be a `dict` mapping
+    slash-separated paths relative to the root of the Zarr to hex digests.
+    """
     if path.is_file():
         return cast(str, get_digest(path, "md5"))
+    root: Tuple[str, ...]
     if basepath is None:
         basepath = path
-    dirs = {}
-    files = {}
+        root = ()
+    else:
+        root = path.relative_to(basepath).parts
     if known is None:
         known = {}
-    for p in path.iterdir():
-        pstr = p.relative_to(basepath).as_posix()
-        if not p.is_dir():
-            try:
-                files[pstr] = known[pstr]
-            except KeyError:
-                files[pstr] = get_digest(p, "md5")
-        elif any(p.iterdir()):
-            try:
-                dirs[pstr] = known[pstr]
-            except KeyError:
-                dirs[pstr] = get_zarr_checksum(p, basepath)
-    return cast(str, get_checksum(files, dirs))
+
+    def digest_file(f: Path) -> Tuple[Path, str]:
+        assert basepath is not None
+        assert known is not None
+        relpath = f.relative_to(basepath).as_posix()
+        try:
+            dgst = known[relpath]
+        except KeyError:
+            dgst = md5file_nocache(f)
+        return (f, dgst)
+
+    zcc = ZCDirectory(path="")
+    for p, digest in threaded_walk(path, digest_file):
+        zcc.add(p.relative_to(basepath), digest)
+    for d in root:
+        try:
+            sub = zcc.children[d]
+        except KeyError:
+            raise ValueError("Cannot compute a Zarr checksum for an empty directory")
+        else:
+            assert isinstance(sub, ZCDirectory)
+            zcc = sub
+    return zcc.get_digest()
+
+
+@dataclass
+class ZCFile:
+    """
+    File node used for building an in-memory tree of Zarr entries and their
+    digests when calculating a complete Zarr checksum
+
+    :meta private:
+    """
+
+    path: str
+    digest: str
+
+
+@dataclass
+class ZCDirectory:
+    """
+    Directory node used for building an in-memory tree of Zarr entries and
+    their digests when calculating a complete Zarr checksum
+
+    :meta private:
+    """
+
+    path: str
+    children: Dict[str, Union[ZCDirectory, ZCFile]] = field(default_factory=dict)
+
+    def get_digest(self) -> str:
+        files = {}
+        dirs = {}
+        for n in self.children.values():
+            if isinstance(n, ZCDirectory):
+                dirs[n.path] = n.get_digest()
+            else:
+                files[n.path] = n.digest
+        return cast(str, get_checksum(files, dirs))
+
+    def add(self, path: Path, digest: str) -> None:
+        *dirs, name = path.parts
+        parts = []
+        d = self
+        for dirname in dirs:
+            parts.append(dirname)
+            e = d.children.setdefault(dirname, ZCDirectory(path="/".join(parts)))
+            assert isinstance(e, ZCDirectory), f"Path type conflict for {d.path}"
+            d = e
+        parts.append(name)
+        pstr = "/".join(parts)
+        assert name not in d.children, f"File {pstr} encountered twice"
+        d.children[name] = ZCFile(path=pstr, digest=digest)
+
+
+def md5file_nocache(filepath: Union[str, Path]) -> str:
+    """
+    Compute the MD5 digest of a file without caching with fscacher, which has
+    been shown to slow things down for the large numbers of files typically
+    present in Zarrs
+    """
+    return Digester(["md5"])(filepath)["md5"]
