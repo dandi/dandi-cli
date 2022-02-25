@@ -22,7 +22,7 @@ def validate_bids(
     debug : bool, optional
         Whether to trigger debugging in the BIDS validator.
     """
-    from .bids_validator_xs import load_all, validate_all, write_report
+    from .bids_validator_xs import load_all, validate_all, write_report, get_bids_schema_path
 
     module_path = os.path.abspath(os.path.dirname(__file__))
     bids_schema_path = os.path.join(
