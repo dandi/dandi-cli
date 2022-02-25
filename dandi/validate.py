@@ -1,4 +1,3 @@
-import os
 from typing import Iterator, List, Optional, Tuple
 
 from .files import find_dandi_files
