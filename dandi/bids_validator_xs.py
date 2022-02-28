@@ -266,8 +266,8 @@ def load_entities(
         Apparently there is a `label` (alphanumeric) versus `index` (integer) specification:
         https://github.com/bids-standard/bids-specification/issues/956#issuecomment-992967479
         but this is not yet used in the YAML.
-    * Suggest to BIDS-specification to remove the periods from the extensions, the leading period is
-        not part of the extension, but a delimiter defining the fact that it's an extension.
+    * Suggest to BIDS-specification to remove the periods from the extensions, the leading period
+        is not part of the extension, but a delimiter defining the fact that it's an extension.
         Code sections marked as `Making it period-safe` should be edited when this fix is in,
         though they will work in any case.
         https://github.com/bids-standard/bids-specification/issues/990
@@ -402,7 +402,7 @@ def validate_all(
     debug=False,
 ):
     """
-    Validate all paths in `bids_paths` based on a `regex_schema` dictionary list, including regexes.
+    Validate `bids_paths` based on a `regex_schema` dictionary list, including regexes.
 
     Parameters
     ----------
@@ -495,8 +495,8 @@ def write_report(
         The "itemwise" value, if present, should be a list of dictionaries, with keys including
         "path", "regex", and "match".
     report_path : str, optional
-        A path under which the report is to be saved, the `{}` string, if included, will be expanded
-        to current datetime, as per the `datetime_format` parameter.
+        A path under which the report is to be saved, the `{}` string, if included, will be
+        expanded to current datetime, as per the `datetime_format` parameter.
     datetime_format : str, optional
         A datetime format, optionally used for the report path.
 
