@@ -712,13 +712,6 @@ def detect_link_type(workdir):
             pass
 
 
-def _find_all_videos(metadata_list):
-    videos = []
-    for metadata in metadata_list:
-        videos.extend(metadata["external_file_objects"].get("external_files", []))
-    return videos
-
-
 def organize(
     paths,
     dandiset_path=None,
