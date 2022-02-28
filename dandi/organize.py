@@ -712,6 +712,13 @@ def detect_link_type(workdir):
             pass
 
 
+def _find_all_videos(metadata_list):
+    videos = []
+    for metadata in metadata_list:
+        videos.extend(metadata["external_file_objects"].get("external_files", []))
+    return videos
+
+
 def organize(
     paths,
     dandiset_path=None,
@@ -881,6 +888,17 @@ def organize(
         lgr.warning(
             "--media-files-mode not specified, setting to recommended mode: 'symlink' "
         )
+
+    # look for multiple nwbfiles linking to one video:
+    if media_files_mode == "move":
+        videos_list = []
+        for meta in metadata:
+            videos_list.extend(meta["external_file_objects"].get("external_files", []))
+        if len(set(videos_list)) < len(videos_list):
+            raise ValueError(
+                "multiple nwbfiles linked to one video file, "
+                "provide 'media_files_mode' as copy/symlink/hardlink"
+            )
 
     metadata = _create_external_file_names(metadata)
 
