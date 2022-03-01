@@ -427,7 +427,7 @@ def video_files(tmp_path):
         writer1.release()
         writer2.release()
         video_paths.append((movie_file1, movie_file2))
-        return video_paths
+    return video_paths
 
 
 def _create_nwb_files(video_list):

@@ -886,7 +886,8 @@ def organize(
     if media_files_mode == "move":
         videos_list = []
         for meta in metadata:
-            videos_list.extend(meta["external_file_objects"].get("external_files", []))
+            for ext_ob in meta["external_file_objects"]:
+                videos_list.extend(ext_ob.get("external_files", []))
         if len(set(videos_list)) < len(videos_list):
             raise ValueError(
                 "multiple nwbfiles linked to one video file, "
