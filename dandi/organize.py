@@ -256,6 +256,10 @@ def organize_external_files(
             ):
                 new_path = op.join(dandiset_path, op.dirname(e["dandi_path"]), name_new)
                 name_old_str = str(name_old)
+                if not op.isabs(name_old_str):
+                    name_old_str = op.join(op.dirname(e["path"]), name_old_str)
+                if not op.exists(name_old_str):
+                    lgr.error("%s does not exist", name_old_str)
                 os.makedirs(op.dirname(new_path), exist_ok=True)
                 if files_mode == "symlink":
                     os.symlink(name_old_str, new_path)
