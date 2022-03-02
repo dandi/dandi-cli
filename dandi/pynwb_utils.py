@@ -315,7 +315,8 @@ def rename_nwb_external_files(metadata: List[dict], dandiset_path: str) -> None:
                         ext_file_dict["external_files_renamed"],
                     )
                 ):
-                    container.external_file[no] = str(name_new)
+                    if not any([str(name_old).startswith(i) for i in ["http", "ftp"]]):
+                        container.external_file[no] = str(name_new)
 
 
 @validate_cache.memoize_path

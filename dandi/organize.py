@@ -254,6 +254,8 @@ def organize_external_files(
                     ext_file_dict["external_files_renamed"],
                 )
             ):
+                if any([str(name_old).startswith(i) for i in ["http", "ftp"]]):
+                    continue
                 new_path = op.join(dandiset_path, op.dirname(e["dandi_path"]), name_new)
                 name_old_str = str(name_old)
                 os.makedirs(op.dirname(new_path), exist_ok=True)
