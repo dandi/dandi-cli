@@ -635,9 +635,7 @@ class LocalZarrEntry(BasePath):
         it is a file, it will be MD5.
         """
         if self.is_dir():
-            return Digest.dandi_zarr(
-                get_zarr_checksum(self.filepath, basepath=self.zarr_basepath)
-            )
+            return Digest.dandi_zarr(get_zarr_checksum(self.filepath))
         else:
             return Digest(
                 algorithm=DigestType.md5, value=get_digest(self.filepath, "md5")
@@ -700,11 +698,11 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 if p.is_dir():
                     st = dirstat(p)
                     size += st.size
-                    dir_md5s[str(p)] = st.digest.value
+                    dir_md5s[str(p)] = (st.digest.value, st.size)
                     files.extend(st.files)
                 else:
                     size += p.size
-                    file_md5s[str(p)] = md5file_nocache(p.filepath)
+                    file_md5s[str(p)] = (md5file_nocache(p.filepath), p.size)
                     files.append(p)
             return ZarrStat(
                 size=size,
