@@ -255,7 +255,7 @@ def organize_external_files(
                     ext_file_dict["external_files_renamed"],
                 )
             ):
-                if is_url(name_old):
+                if is_url(str(name_old)):
                     continue
                 new_path = op.join(dandiset_path, op.dirname(e["dandi_path"]), name_new)
                 name_old_str = str(name_old)
