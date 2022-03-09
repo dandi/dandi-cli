@@ -307,6 +307,15 @@ class LocalFileAsset(LocalAsset):
 
     EXTENSIONS: ClassVar[List[str]] = []
 
+    def get_metadata(
+        self,
+        digest: Optional[Digest] = None,
+        ignore_errors: bool = True,
+    ) -> BareAsset:
+        metadata = get_default_metadata(self.filepath, digest=digest)
+        metadata.path = self.path
+        return metadata
+
     def get_digest(self) -> Digest:
         """Calculate a dandi-etag digest for the asset"""
         value = get_digest(self.filepath, digest="dandi-etag")
@@ -522,15 +531,6 @@ class NWBAsset(LocalFileAsset):
 class VideoAsset(LocalFileAsset):
     EXTENSIONS: ClassVar[List[str]] = VIDEO_FILE_EXTENSIONS
 
-    def get_metadata(
-        self,
-        digest: Optional[Digest] = None,
-        ignore_errors: bool = True,
-    ) -> BareAsset:
-        metadata = get_default_metadata(self.filepath, digest=digest)
-        metadata.path = self.path
-        return metadata
-
 
 class GenericAsset(LocalFileAsset):
     """
@@ -538,15 +538,6 @@ class GenericAsset(LocalFileAsset):
     """
 
     EXTENSIONS: ClassVar[List[str]] = []
-
-    def get_metadata(
-        self,
-        digest: Optional[Digest] = None,
-        ignore_errors: bool = True,
-    ) -> BareAsset:
-        metadata = get_default_metadata(self.filepath, digest=digest)
-        metadata.path = self.path
-        return metadata
 
 
 class LocalDirectoryAsset(LocalAsset, Generic[P]):
