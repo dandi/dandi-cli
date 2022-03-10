@@ -28,7 +28,7 @@ def validate_bids(
     """
     from .bids_validator_xs import validate_bids
 
-    validate_bids(
+    return validate_bids(
         paths,
         schema_version=schema_version,
         debug=devel_debug,
