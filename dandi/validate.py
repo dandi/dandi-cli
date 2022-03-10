@@ -18,7 +18,7 @@ def validate_bids(
         Paths to validate.
     schema_version : str, optional
         BIDS schema version to use, this setting will override the version specified in the dataset.
-    debug : bool, optional
+    devel_debug : bool, optional
         Whether to trigger debugging in the BIDS validator.
 
     Notes
@@ -27,12 +27,13 @@ def validate_bids(
         DANDI_DEVEL=1 dandi validate-bids --schema="1.7.0+012+dandi001" /data/paths
     """
     from .bids_validator_xs import validate_bids
-    #load_all, validate_all, write_report, get_bids_schema_path
 
-    validate_bids(paths,
+    validate_bids(
+        paths,
         schema_version=schema_version,
         debug=devel_debug,
-        )
+    )
+
 
 def validate(
     *paths: str,
