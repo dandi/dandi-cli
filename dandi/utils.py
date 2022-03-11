@@ -614,7 +614,7 @@ def is_url(s: str) -> bool:
 
     TODO: redo
     """
-    return s.lower().startswith(("http://", "https://", "dandi:"))
+    return s.lower().startswith(("http://", "https://", "dandi:", "ftp://"))
     # Slashes are not required after "dandi:" so as to support "DANDI:<id>"
 
 

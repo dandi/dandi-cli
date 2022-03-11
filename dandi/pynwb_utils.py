@@ -23,7 +23,7 @@ from .consts import (
     metadata_nwb_file_fields,
     metadata_nwb_subject_fields,
 )
-from .utils import get_module_version
+from .utils import get_module_version, is_url
 
 lgr = get_logger()
 
@@ -315,7 +315,8 @@ def rename_nwb_external_files(metadata: List[dict], dandiset_path: str) -> None:
                         ext_file_dict["external_files_renamed"],
                     )
                 ):
-                    container.external_file[no] = str(name_new)
+                    if not is_url(str(name_old)):
+                        container.external_file[no] = str(name_new)
 
 
 @validate_cache.memoize_path
