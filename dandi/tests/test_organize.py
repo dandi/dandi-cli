@@ -261,8 +261,8 @@ def test_detect_link_type(
 
 @pytest.mark.parametrize("mode", ["copy", "move"])
 @pytest.mark.parametrize("video_mode", ["copy", "move", "symlink", "hardlink"])
-def test_video_organize(video_mode, mode, video_nwbfiles):
-    dandi_organize_path = video_nwbfiles.parent / "dandi_organized"
+def test_video_organize(video_mode, mode, nwbfiles_video_unique):
+    dandi_organize_path = nwbfiles_video_unique.parent / "dandi_organized"
     cmd = [
         "--files-mode",
         mode,
@@ -271,9 +271,9 @@ def test_video_organize(video_mode, mode, video_nwbfiles):
         video_mode,
         "-d",
         str(dandi_organize_path),
-        str(video_nwbfiles),
+        str(nwbfiles_video_unique),
     ]
-    video_files_list = list((video_nwbfiles.parent / "video_files").iterdir())
+    video_files_list = list((nwbfiles_video_unique.parent / "video_files").iterdir())
     video_files_organized = []
     r = CliRunner().invoke(organize, cmd)
     assert r.exit_code == 0
@@ -296,3 +296,25 @@ def test_video_organize(video_mode, mode, video_nwbfiles):
                     assert (vid_folder.parent / name).exists()
     # check all video files are organized:
     assert len(video_files_list) == len(video_files_organized)
+
+
+@pytest.mark.parametrize("video_mode", ["copy", "move"])
+def test_video_organize_common(video_mode, nwbfiles_video_common):
+    dandi_organize_path = nwbfiles_video_common.parent / "dandi_organized"
+    cmd = [
+        "--files-mode",
+        "move",
+        "--update-external-file-paths",
+        "--media-files-mode",
+        video_mode,
+        "-d",
+        str(dandi_organize_path),
+        str(nwbfiles_video_common),
+    ]
+    r = CliRunner().invoke(organize, cmd)
+    if video_mode == "move":
+        assert r.exit_code == 1
+        print(r.exception)
+    else:
+        assert r.exit_code == 0
+        print(r.stdout)

@@ -885,6 +885,18 @@ def organize(
             "--media-files-mode not specified, setting to recommended mode: 'symlink' "
         )
 
+    # look for multiple nwbfiles linking to one video:
+    if media_files_mode == "move":
+        videos_list = []
+        for meta in metadata:
+            for ext_ob in meta["external_file_objects"]:
+                videos_list.extend(ext_ob.get("external_files", []))
+        if len(set(videos_list)) < len(videos_list):
+            raise ValueError(
+                "multiple nwbfiles linked to one video file, "
+                "provide 'media_files_mode' as copy/symlink/hardlink"
+            )
+
     metadata = _create_external_file_names(metadata)
 
     # Verify first that the target paths do not exist yet, and fail if they do

@@ -395,7 +395,7 @@ def zarr_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
 
 
 @pytest.fixture()
-def video_nwbfiles(tmp_path):
+def video_files(tmp_path):
     video_paths = []
     import cv2
 
@@ -427,10 +427,14 @@ def video_nwbfiles(tmp_path):
         writer1.release()
         writer2.release()
         video_paths.append((movie_file1, movie_file2))
-    base_nwb_path = tmp_path / "nwbfiles"
-    base_nwb_path.mkdir(parents=True, exist_ok=True)
+    return video_paths
 
-    for no, vid_loc in enumerate(video_paths):
+
+def _create_nwb_files(video_list):
+    base_path = video_list[0][0].parent.parent
+    base_nwb_path = base_path / "nwbfiles"
+    base_nwb_path.mkdir(parents=True, exist_ok=True)
+    for no, vid_loc in enumerate(video_list):
         vid_1 = vid_loc[0]
         vid_2 = vid_loc[1]
         subject_id = f"mouse{no}"
@@ -467,6 +471,19 @@ def video_nwbfiles(tmp_path):
         with NWBHDF5IO(str(nwbfile_path), "w") as io:
             io.write(nwbfile)
     return base_nwb_path
+
+
+@pytest.fixture()
+def nwbfiles_video_unique(video_files):
+    """Create nwbfiles linked with unique set of videos."""
+    return _create_nwb_files(video_files)
+
+
+@pytest.fixture()
+def nwbfiles_video_common(video_files):
+    """Create nwbfiles sharing video files."""
+    video_list = [video_files[0], video_files[0]]
+    return _create_nwb_files(video_list)
 
 
 @pytest.fixture()
