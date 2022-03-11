@@ -12,6 +12,7 @@ from ..files import (
     DandisetMetadataFile,
     GenericAsset,
     NWBAsset,
+    VideoAsset,
     ZarrAsset,
     dandi_file,
     find_dandi_files,
@@ -36,6 +37,7 @@ def test_find_dandi_files(tmp_path: Path) -> None:
     (tmp_path / "subdir" / "gnusto").touch()
     (tmp_path / "subdir" / "cleesh.txt").touch()
     (tmp_path / "empty.zarr").mkdir()
+    (tmp_path / "glarch.mp4").touch()
     (tmp_path / ".ignored").touch()
     (tmp_path / ".ignored.dir").mkdir()
     (tmp_path / ".ignored.dir" / "ignored.nwb").touch()
@@ -44,6 +46,7 @@ def test_find_dandi_files(tmp_path: Path) -> None:
         find_dandi_files(tmp_path, dandiset_path=tmp_path), key=attrgetter("filepath")
     )
     assert files == [
+        VideoAsset(filepath=tmp_path / "glarch.mp4", path="glarch.mp4"),
         ZarrAsset(filepath=tmp_path / "sample01.zarr", path="sample01.zarr"),
         NWBAsset(filepath=tmp_path / "sample02.nwb", path="sample02.nwb"),
         NWBAsset(
@@ -62,6 +65,7 @@ def test_find_dandi_files(tmp_path: Path) -> None:
         GenericAsset(filepath=tmp_path / "bar.txt", path="bar.txt"),
         DandisetMetadataFile(filepath=tmp_path / dandiset_metadata_file),
         GenericAsset(filepath=tmp_path / "foo", path="foo"),
+        VideoAsset(filepath=tmp_path / "glarch.mp4", path="glarch.mp4"),
         ZarrAsset(filepath=tmp_path / "sample01.zarr", path="sample01.zarr"),
         NWBAsset(filepath=tmp_path / "sample02.nwb", path="sample02.nwb"),
         GenericAsset(
@@ -82,6 +86,7 @@ def test_find_dandi_files(tmp_path: Path) -> None:
     )
     assert files == [
         DandisetMetadataFile(filepath=tmp_path / dandiset_metadata_file),
+        VideoAsset(filepath=tmp_path / "glarch.mp4", path="glarch.mp4"),
         ZarrAsset(filepath=tmp_path / "sample01.zarr", path="sample01.zarr"),
         NWBAsset(filepath=tmp_path / "sample02.nwb", path="sample02.nwb"),
         NWBAsset(

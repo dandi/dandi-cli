@@ -48,6 +48,7 @@ import zarr
 from . import get_logger
 from .consts import (
     MAX_ZARR_DEPTH,
+    VIDEO_FILE_EXTENSIONS,
     ZARR_MIME_TYPE,
     ZARR_UPLOAD_BATCH_SIZE,
     EmbargoStatus,
@@ -314,6 +315,15 @@ class LocalFileAsset(LocalAsset):
 
     EXTENSIONS: ClassVar[List[str]] = []
 
+    def get_metadata(
+        self,
+        digest: Optional[Digest] = None,
+        ignore_errors: bool = True,
+    ) -> BareAsset:
+        metadata = get_default_metadata(self.filepath, digest=digest)
+        metadata.path = self.path
+        return metadata
+
     def get_digest(self) -> Digest:
         """Calculate a dandi-etag digest for the asset"""
         value = get_digest(self.filepath, digest="dandi-etag")
@@ -526,21 +536,16 @@ class NWBAsset(LocalFileAsset):
         return errors
 
 
+class VideoAsset(LocalFileAsset):
+    EXTENSIONS: ClassVar[List[str]] = VIDEO_FILE_EXTENSIONS
+
+
 class GenericAsset(LocalFileAsset):
     """
     Representation of a generic regular file, one that is not of any known type
     """
 
     EXTENSIONS: ClassVar[List[str]] = []
-
-    def get_metadata(
-        self,
-        digest: Optional[Digest] = None,
-        ignore_errors: bool = True,
-    ) -> BareAsset:
-        metadata = get_default_metadata(self.filepath, digest=digest)
-        metadata.path = self.path
-        return metadata
 
 
 class LocalDirectoryAsset(LocalAsset, Generic[P]):
