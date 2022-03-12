@@ -26,9 +26,9 @@ def validate_bids(
     Can be used from bash, as:
         DANDI_DEVEL=1 dandi validate-bids --schema="1.7.0+012+dandi001" /data/paths
     """
-    from .bids_validator_xs import validate_bids
+    from .bids_validator_xs import validate_bids as validate_bids_
 
-    return validate_bids(
+    return validate_bids_(
         paths,
         schema_version=schema_version,
         debug=devel_debug,
