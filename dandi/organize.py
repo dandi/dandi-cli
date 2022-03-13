@@ -260,6 +260,7 @@ def organize_external_files(
                     name_old_str = op.join(op.dirname(e["path"]), name_old_str)
                 if not op.exists(name_old_str):
                     lgr.error("%s does not exist", name_old_str)
+                    raise FileNotFoundError(f"{name_old_str} does not exist")
                 os.makedirs(op.dirname(new_path), exist_ok=True)
                 if files_mode == "symlink":
                     os.symlink(name_old_str, new_path)
