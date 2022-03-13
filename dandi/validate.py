@@ -1,4 +1,4 @@
-from typing import Iterator, List, Optional, Tuple
+from typing import Any, Iterator, List, Optional, Tuple
 
 from .files import find_dandi_files
 
@@ -9,7 +9,7 @@ def validate_bids(
     *paths: str,
     schema_version: Optional[str] = None,
     devel_debug: bool = False,
-) -> Iterator[Tuple[str, List[str]]]:
+) -> Any:
     """Validate BIDS paths.
 
     Parameters
