@@ -102,3 +102,56 @@ def test__add_extensions():
         "_sample-(?P<sample>([a-z,A-Z,0-9]*?))"
         "(|_acq-(?P<acquisition>([a-z,A-Z,0-9]*?)))_photo\\.(jpg|png|tif)"
     )
+
+
+def test__add_subdirs():
+    from dandi.bids_validator_xs import _add_subdirs
+
+    regex_string = "sub-(?P=subject)_sessions\\.(tsv|json)"
+    variant = {
+        "suffixes": ["sessions"],
+        "extensions": [".tsv", ".json"],
+        "entities": {"subject": "required"},
+    }
+    datatype = "tabular_metadata"
+    entity_definitions = {
+        "acquisition": {
+            "name": "Acquisition",
+            "entity": "acq",
+            "type": "string",
+            "format": "label",
+        },
+        "session": {
+            "name": "Session",
+            "entity": "ses",
+            "type": "string",
+            "format": "label",
+        },
+        "subject": {
+            "name": "Subject",
+            "entity": "sub",
+            "type": "string",
+            "format": "label",
+        },
+    }
+    modality_datatypes = [
+        "anat",
+        "dwi",
+        "fmap",
+        "func",
+        "perf",
+        "eeg",
+        "ieeg",
+        "meg",
+        "beh",
+        "pet",
+        "micr",
+    ]
+    _regex_string = _add_subdirs(
+        regex_string, variant, datatype, entity_definitions, modality_datatypes
+    )
+
+    assert (
+        _regex_string == "/sub-(?P<subject>([a-z,A-Z,0-9]*?))/sub-(?P=subject)"
+        "_sessions\\.(tsv|json)"
+    )
