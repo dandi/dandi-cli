@@ -281,7 +281,7 @@ def upload(
 
         rec_fields = ["path", "size", "errors", "upload", "status", "message"]
         out = pyouts.LogSafeTabular(
-            style=pyout_style, columns=rec_fields, max_workers=jobs
+            style=pyout_style, columns=rec_fields, max_workers=jobs or 5
         )
 
         with out:
