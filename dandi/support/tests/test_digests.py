@@ -76,8 +76,8 @@ def test_get_zarr_checksum(mocker: MockerFixture, tmp_path: Path) -> None:
     assert (
         get_zarr_checksum(tmp_path / "file1.txt") == "d0aa42f003e36c1ecaf9aa8f20b6f1ad"
     )
-    assert get_zarr_checksum(tmp_path) == "e432031edb56d48fa9d9b205689db55e"
-    assert get_zarr_checksum(sub1) == "4cc960e6c5a46e4dae426124ec2f65c6"
+    assert get_zarr_checksum(tmp_path) == "25627e0fc7c609d10100d020f7782a25-8--197"
+    assert get_zarr_checksum(sub1) == "64af93ad7f8d471c00044d1ddbd4c0ba-4--97"
 
     with pytest.raises(ValueError) as excinfo:
         get_zarr_checksum(empty)
@@ -101,6 +101,6 @@ def test_get_zarr_checksum(mocker: MockerFixture, tmp_path: Path) -> None:
                 # ^^ Not used in calculation!
             },
         )
-        == "f67518b9092633027105f9aa9de9259f"
+        == "f77f4c5b277575f781c19ba91422f0c5-8--197"
     )
     spy.assert_called_once_with(sub2 / "file7.txt")
