@@ -993,7 +993,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         while True:
             sleep(2)
             r = client.get(f"/zarr/{zarr_id}/")
-            if r["status"] == "Valid":
+            if r["status"] == "Complete":
                 break
         lgr.info("%s: Asset successfully uploaded", asset_path)
         yield {"status": "done", "asset": a}

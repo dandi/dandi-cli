@@ -1419,7 +1419,7 @@ class BaseRemoteZarrAsset(BaseRemoteAsset):
             while True:
                 sleep(2)
                 r = self.client.get(f"/zarr/{self.zarr}/")
-                if r["status"] == "Valid":
+                if r["status"] == "Complete":
                     break
 
 
