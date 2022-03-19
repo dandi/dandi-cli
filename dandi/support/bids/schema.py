@@ -2,9 +2,9 @@
 THIS MODULE IS BUNDLED FROM THE bids-specification PACKAGE.
 Schema loading- and processing-related functions.
 """
+from copy import deepcopy
 import logging
 import os
-from copy import deepcopy
 from pathlib import Path
 
 from ruamel import yaml
@@ -65,6 +65,8 @@ def load_schema(schema_path):
     dict
         Schema in dictionary form.
     """
+    _yaml = yaml.YAML(typ="safe", pure=True)
+
     schema_path = Path(schema_path)
     objects_dir = schema_path / "objects/"
     rules_dir = schema_path / "rules/"
@@ -81,20 +83,20 @@ def load_schema(schema_path):
     # Load object definitions. All are present in single files.
     for object_group_file in sorted(objects_dir.glob("*.yaml")):
         lgr.debug(f"Loading {object_group_file.stem} objects.")
-        dict_ = yaml.safe_load(object_group_file.read_text())
+        dict_ = _yaml.load(object_group_file.read_text())
         schema["objects"][object_group_file.stem] = dereference_yaml(dict_, dict_)
 
     # Grab single-file rule groups
     for rule_group_file in sorted(rules_dir.glob("*.yaml")):
         lgr.debug(f"Loading {rule_group_file.stem} rules.")
-        dict_ = yaml.safe_load(rule_group_file.read_text())
+        dict_ = _yaml.load(rule_group_file.read_text())
         schema["rules"][rule_group_file.stem] = dereference_yaml(dict_, dict_)
 
     # Load folders of rule subgroups.
     for rule_group_file in sorted(rules_dir.glob("*/*.yaml")):
         rule = schema["rules"].setdefault(rule_group_file.parent.name, {})
         lgr.debug(f"Loading {rule_group_file.stem} rules.")
-        dict_ = yaml.safe_load(rule_group_file.read_text())
+        dict_ = _yaml.load(rule_group_file.read_text())
         rule[rule_group_file.stem] = dereference_yaml(dict_, dict_)
 
     return schema
@@ -134,7 +136,9 @@ def filter_schema(schema, **kwargs):
             if k in new_schema.keys():
                 filtered_item = deepcopy(new_schema[k])
                 if isinstance(filtered_item, dict):
-                    filtered_item = {k1: v1 for k1, v1 in filtered_item.items() if k1 in v}
+                    filtered_item = {
+                        k1: v1 for k1, v1 in filtered_item.items() if k1 in v
+                    }
                 else:
                     filtered_item = [i for i in filtered_item if i in v]
                 new_schema[k] = filtered_item
