@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
@@ -215,3 +216,18 @@ def test__add_suffixes():
     _regex_string = _add_suffixes(regex_entities, variant)
 
     assert _regex_string == regex_string
+
+
+def test_load_all():
+    from dandi.bids_validator_xs import load_all
+
+    schema_path = os.path.join(
+        os.path.abspath(os.path.dirname(__file__)),
+        "../support/bids/schemadata/1.7.0+012+dandi001",
+    )
+    schema_all = load_all(schema_path)
+
+    # Check if expected keys are present in all entries
+    for entry in schema_all:
+        assert "regex" in list(entry.keys())
+        assert "mandatory" in list(entry.keys())
