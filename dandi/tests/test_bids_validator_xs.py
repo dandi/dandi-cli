@@ -155,3 +155,63 @@ def test__add_subdirs():
         _regex_string == "/sub-(?P<subject>([a-z,A-Z,0-9]*?))/sub-(?P=subject)"
         "_sessions\\.(tsv|json)"
     )
+
+
+def test__add_suffixes():
+    from dandi.bids_validator_xs import _add_suffixes
+
+    # Test single expansion
+    regex_entities = "sub-(?P=subject)"
+    variant = {
+        "suffixes": ["sessions"],
+        "extensions": [
+            ".tsv",
+            ".json",
+        ],
+        "entities": {"subject": "required"},
+    }
+    regex_string = "sub-(?P=subject)_sessions"
+
+    _regex_string = _add_suffixes(regex_entities, variant)
+
+    assert _regex_string == regex_string
+
+    # Test multiple expansions
+    regex_entities = (
+        "sub-(?P=subject)(|_ses-(?P=session))"
+        "(|_acq-(?P<acquisition>([a-z,A-Z,0-9]*?)))"
+        "(|_rec-(?P<reconstruction>([a-z,A-Z,0-9]*?)))"
+        "(|_dir-(?P<direction>([a-z,A-Z,0-9]*?)))(|_run-(?P<run>([a-z,A-Z,0-9]*?)))"
+        "(|_recording-(?P<recording>([a-z,A-Z,0-9]*?)))"
+    )
+    variant = {
+        "suffixes": [
+            "physio",
+            "stim",
+        ],
+        "extensions": [
+            ".tsv.gz",
+            ".json",
+        ],
+        "entities": {
+            "subject": "required",
+            "session": "optional",
+            "acquisition": "optional",
+            "reconstruction": "optional",
+            "direction": "optional",
+            "run": "optional",
+            "recording": "optional",
+        },
+    }
+    regex_string = (
+        "sub-(?P=subject)(|_ses-(?P=session))"
+        "(|_acq-(?P<acquisition>([a-z,A-Z,0-9]*?)))"
+        "(|_rec-(?P<reconstruction>([a-z,A-Z,0-9]*?)))"
+        "(|_dir-(?P<direction>([a-z,A-Z,0-9]*?)))(|_run-(?P<run>([a-z,A-Z,0-9]*?)))"
+        "(|_recording-(?P<recording>([a-z,A-Z,0-9]*?)))"
+        "_(physio|stim)"
+    )
+
+    _regex_string = _add_suffixes(regex_entities, variant)
+
+    assert _regex_string == regex_string
