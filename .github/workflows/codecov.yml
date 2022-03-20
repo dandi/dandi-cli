@@ -1,0 +1,3 @@
+ignore:
+  - "dandi/support/bids/schema.py"  # ignore BIDS bundled file
+  - "dandi/support/bids/utils.py"  # ignore BIDS bundled file
