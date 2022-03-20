@@ -42,9 +42,9 @@ from dandischema.models import BareAsset, CommonModel
 from dandischema.models import Dandiset as DandisetMeta
 from dandischema.models import DigestType, get_schema_version
 from pydantic import ValidationError
+from nwbinspector import inspect_nwb, check_subject_exists, check_subject_id_exists
 import requests
 import zarr
-import nwbinspector
 
 from . import get_logger
 from .consts import (
@@ -77,10 +77,7 @@ lgr = get_logger()
 
 # TODO -- should come from schema.  This is just a simplistic example for now
 _required_dandiset_metadata_fields = ["identifier", "name", "description"]
-_required_nwb_metadata_fields = [
-    nwbinspector.check_subject_exists,
-    nwbinspector.check_subject_id_exists,
-]
+_required_nwb_checks = [check_subject_exists, check_subject_id_exists]
 
 
 @dataclass  # type: ignore[misc]  # <https://github.com/python/mypy/issues/5374>
@@ -524,9 +521,9 @@ class NWBAsset(LocalFileAsset):
                 errors.extend(
                     [
                         error.message
-                        for error in nwbinspector.inspect_nwb(
+                        for error in inspect_nwb(
                             nwbfile_path=self.filepath,
-                            checks=_required_nwb_metadata_fields,
+                            checks=_required_nwb_checks,
                         )
                     ]
                 )
