@@ -231,3 +231,57 @@ def test_load_all():
     for entry in schema_all:
         assert "regex" in list(entry.keys())
         assert "mandatory" in list(entry.keys())
+
+
+def test_write_report():
+    from dandi.bids_validator_xs import write_report
+
+    validation_result = {}
+
+    validation_result["schema_tracking"] = [
+        {
+            "regex": ".*?/sub-(?P<subject>([a-z,A-Z,0-9]*?))/"
+            "(|ses-(?P<session>([a-z,A-Z,0-9]*?))/)anat/sub-(?P=subject)"
+            "(|_ses-(?P=session))(|_acq-(?P<acquisition>([a-z,A-Z,0-9]*?)))"
+            "(|_ce-(?P<ceagent>([a-z,A-Z,0-9]*?)))"
+            "(|_rec-(?P<reconstruction>([a-z,A-Z,0-9]*?)))"
+            "(|_run-(?P<run>([a-z,A-Z,0-9]*?)))"
+            "(|_part-(?P<part>(mag|phase|real|imag)))"
+            "_(T1w|T2w|PDw|T2starw|FLAIR|inplaneT1|inplaneT2|PDT2|angio|T2star)"
+            "\\.(nii.gz|nii|json)$",
+            "mandatory": False,
+        }
+    ]
+    validation_result["schema_listing"] = [
+        {
+            "regex": ".*?/sub-(?P<subject>([a-z,A-Z,0-9]*?))/"
+            "(|ses-(?P<session>([a-z,A-Z,0-9]*?))/)anat/sub-(?P=subject)"
+            "(|_ses-(?P=session))(|_acq-(?P<acquisition>([a-z,A-Z,0-9]*?)))"
+            "(|_ce-(?P<ceagent>([a-z,A-Z,0-9]*?)))"
+            "(|_rec-(?P<reconstruction>([a-z,A-Z,0-9]*?)))"
+            "(|_run-(?P<run>([a-z,A-Z,0-9]*?)))"
+            "(|_part-(?P<part>(mag|phase|real|imag)))"
+            "_(T1w|T2w|PDw|T2starw|FLAIR|inplaneT1|inplaneT2|PDT2|angio|T2star)"
+            "\\.(nii.gz|nii|json)$",
+            "mandatory": False,
+        }
+    ]
+    validation_result["path_tracking"] = [
+        "/home/chymera/.data2/datalad/000026/"
+        "rawdata/sub-EXC022/anat/sub-EXC022_ses-MRI_flip-1_VFA.nii.gz"
+    ]
+    validation_result["path_listing"] = [
+        "/home/chymera/.data2/datalad/000026/"
+        "rawdata/sub-EXC022/anat/sub-EXC022_ses-MRI_flip-1_VFA.nii.gz"
+    ]
+
+    report_path = "/tmp/test_bids_validator_xs.log"
+    expected_report_path = os.path.join(
+        os.path.abspath(os.path.dirname(__file__)), "expected_bids_validator_xs.log"
+    )
+    write_report(validation_result, report_path=report_path)
+    with open(report_path, "r") as f:
+        report_text = f.read()
+    with open(expected_report_path, "r") as f:
+        expected_report_text = f.read()
+    assert report_text == expected_report_text
