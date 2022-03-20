@@ -157,6 +157,7 @@ if TYPE_CHECKING:
         from typing import Literal
     else:
         from typing_extensions import Literal
+
     Scope = Union[
         Literal["session"],
         Literal["package"],
@@ -214,6 +215,7 @@ def docker_compose_setup() -> Iterator[Dict[str, str]]:
     # Docker images don't work on Windows.
     if os.name != "posix":
         pytest.skip("Docker images require Unix host")
+
     persist = os.environ.get("DANDI_TESTS_PERSIST_DOCKER_COMPOSE")
 
     create = (
@@ -253,6 +255,7 @@ def docker_compose_setup() -> Iterator[Dict[str, str]]:
                 env=env,
                 check=True,
             )
+
         r = check_output(
             [
                 "docker-compose",
