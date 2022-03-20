@@ -275,9 +275,12 @@ def test_write_report():
         "rawdata/sub-EXC022/anat/sub-EXC022_ses-MRI_flip-1_VFA.nii.gz"
     ]
 
-    report_path = "/tmp/test_bids_validator_xs.log"
+    report_path = os.path.join(
+        os.path.abspath(os.path.dirname(__file__)), "output_bids_validator_xs_write.log"
+    )
     expected_report_path = os.path.join(
-        os.path.abspath(os.path.dirname(__file__)), "expected_bids_validator_xs.log"
+        os.path.abspath(os.path.dirname(__file__)),
+        "expected_bids_validator_xs_write.log",
     )
     write_report(validation_result, report_path=report_path)
     with open(report_path, "r") as f:
