@@ -63,7 +63,7 @@ from .dandiapi import (
     RESTFullAPIClient,
 )
 from .exceptions import UnknownAssetError
-from .metadata import get_default_metadata, get_metadata, nwb2asset
+from .metadata import get_default_metadata, nwb2asset
 from .misctypes import DUMMY_DIGEST, BasePath, Digest, P
 from .support.digests import (
     get_dandietag,
