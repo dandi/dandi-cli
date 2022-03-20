@@ -930,6 +930,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             for local_entry in self.iterfiles():
                 total_size += local_entry.size
                 to_upload.register(local_entry)
+
         yield {"status": "initiating upload", "size": total_size}
         lgr.debug("%s: Beginning upload", asset_path)
         bytes_uploaded = 0

@@ -143,18 +143,6 @@ def test_validate_bogus(tmp_path):
     assert any(e.startswith("Failed to inspect NWBFile") for e in errors)
 
 
-# def test_validate_missing_subject(tmp_path):
-#     path = tmp_path / "missing_subject.nwb"
-#     make_minimal_nwbfile
-#     # intended to produce use-case for https://github.com/dandi/dandi-cli/issues/93
-#     # but it would be tricky, so it is more of a smoke test that
-#     # we do not crash
-#     errors = list(dandi_file(path).get_validation_errors())
-#     # ATM we would get 2 errors -- since could not be open in two places,
-#     # but that would be too rigid to test. Let's just see that we have expected errors
-#     assert any(e.startswith("Failed to read metadata") for e in errors)
-
-
 def test_upload_zarr(new_dandiset, tmp_path):
     filepath = tmp_path / "example.zarr"
     zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
