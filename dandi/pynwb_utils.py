@@ -47,7 +47,6 @@ validate_cache = PersistentCache(
 
 def _sanitize_nwb_version(v, filename=None, log=None):
     """Helper to sanitize the value of nwb_version where possible
-
     Would log a warning if something detected to be fishy"""
     msg = f"File {filename}: " if filename else ""
     msg += f"nwb_version {v!r}"
@@ -74,20 +73,20 @@ def _sanitize_nwb_version(v, filename=None, log=None):
         v = str(v)
     elif v:
         log(f"{msg} is not text which follows semver specification")
+
     if isinstance(v, str) and not semantic_version.validate(v):
         log(f"error: {msg} is not a proper semantic version. See http://semver.org")
+
     return v
 
 
 def get_nwb_version(filepath, sanitize=False):
     """Return a version of the NWB standard used by a file
-
     Parameters
     ----------
     sanitize: bool, optional
       Either to sanitize version and return it non-raw where we detect version
       which does not follow semantic but we possibly can handle
-
     Returns
     -------
     str or None
@@ -101,6 +100,7 @@ def get_nwb_version(filepath, sanitize=False):
             return _sanitize(h5file.attrs["nwb_version"])
         except KeyError:
             pass
+
         # 1.x stored it as a dataset
         try:
             return _sanitize(h5file["nwb_version"][...].tostring().decode())
@@ -111,7 +111,6 @@ def get_nwb_version(filepath, sanitize=False):
 
 def get_neurodata_types_to_modalities_map() -> Dict[str, str]:
     """Return a dict to map neurodata types known to pynwb to "modalities"
-
     It is an ugly hack, largely to check feasibility.
     It would base modality on the filename within pynwb providing that neural
     data type
@@ -148,6 +147,7 @@ def get_neurodata_types_to_modalities_map() -> Dict[str, str]:
                         % (ndtype, ndtypes[ndtype], modality)
                     )
                 ndtypes[ndtype] = modality
+
     return ndtypes
 
 
@@ -155,6 +155,7 @@ def get_neurodata_types_to_modalities_map() -> Dict[str, str]:
 def get_neurodata_types(filepath: Union[str, Path]) -> List[str]:
     with h5py.File(filepath, "r") as h5file:
         all_pairs = _scan_neurodata_types(h5file)
+
     # so far descriptions are useless so let's just output actual names only
     # with a count if there is multiple
     # return [': '.join(filter(bool, p)) for p in all_pairs]
@@ -194,6 +195,7 @@ def _get_pynwb_metadata(path: Union[str, Path]) -> Dict[str, Any]:
             ):
                 value = type(value)(v.decode("utf-8") for v in value)
             out[key] = value
+
         # .subject can be None as the test shows
         for subject_feature in metadata_nwb_subject_fields:
             out[subject_feature] = getattr(nwb.subject, subject_feature, None)
@@ -214,6 +216,7 @@ def _get_pynwb_metadata(path: Union[str, Path]) -> Dict[str, Any]:
         ]
         if probe_ids:
             out["probe_ids"] = probe_ids
+
         # Counts
         for f in metadata_nwb_computed_fields:
             if f in ("nwb_version", "nd_types"):
@@ -224,21 +227,20 @@ def _get_pynwb_metadata(path: Union[str, Path]) -> Dict[str, Any]:
                 )
             key = f[len("number_of_") :]
             out[f] = len(getattr(nwb, key, []) or [])
+
         # get external_file data:
         out["external_file_objects"] = _get_image_series(nwb)
+
     return out
 
 
 def _get_image_series(nwb: pynwb.NWBFile) -> List[dict]:
     """Retrieves all ImageSeries related metadata from an open nwb file.
-
     Specifically it pulls out the ImageSeries uuid, name and all the
     externally linked files named under the argument 'external_file'.
-
     Parameters
     ----------
     nwb: pynwb.NWBFile
-
     Returns
     -------
     out: List[dict]
@@ -267,10 +269,8 @@ def _get_image_series(nwb: pynwb.NWBFile) -> List[dict]:
 
 def rename_nwb_external_files(metadata: List[dict], dandiset_path: str) -> None:
     """Renames the external_file attribute in an ImageSeries datatype in an open nwb file.
-
     It pulls information about the ImageSeries objects from metadata:
     metadata["external_file_objects"] populated during _get_pynwb_metadata() call.
-
     Parameters
     ----------
     metadata: List[dict]
@@ -310,6 +310,65 @@ def rename_nwb_external_files(metadata: List[dict], dandiset_path: str) -> None:
                         container.external_file[no] = str(name_new)
 
 
+@validate_cache.memoize_path
+def validate(path: Union[str, Path], devel_debug: bool = False) -> List[str]:
+    """Run validation on a file and return errors
+    In case of an exception being thrown, an error message added to the
+    returned list of validation errors
+    Parameters
+    ----------
+    path: str or Path
+    """
+    path = str(path)  # Might come in as pathlib's PATH
+    errors: List[str]
+    try:
+        with pynwb.NWBHDF5IO(path, "r", load_namespaces=True) as reader:
+            errors = pynwb.validate(reader)
+        lgr.warning(
+            "pynwb validation errors for %s: %s",
+            path,
+            errors,
+            extra={"validating": True},
+        )
+    except Exception as exc:
+        if devel_debug:
+            raise
+        lgr.warning("Failed to validate %s: %s", path, exc, extra={"validating": True})
+        errors = [f"Failed to validate {path}: {exc}"]
+
+    # To overcome
+    #   https://github.com/NeurodataWithoutBorders/pynwb/issues/1090
+    #   https://github.com/NeurodataWithoutBorders/pynwb/issues/1091
+    re_ok_prior_210 = re.compile(
+        r"general/(experimenter|related_publications)\): "
+        r"incorrect shape - expected an array of shape .\[None\]."
+    )
+    try:
+        version = get_nwb_version(path, sanitize=False)
+    except Exception:
+        # we just will not remove any errors, it is required so should be some
+        pass
+    else:
+        if version is not None:
+            # Explicitly sanitize so we collect warnings.
+            # TODO: later cast into proper ERRORs
+            version = _sanitize_nwb_version(version, log=errors.append)
+            try:
+                v = semantic_version.Version(version)
+            except ValueError:
+                v = None
+            if v is not None and v < semantic_version.Version("2.1.0"):
+                errors_ = errors[:]
+                errors = [e for e in errors if not re_ok_prior_210.search(str(e))]
+                if errors != errors_:
+                    lgr.debug(
+                        "Filtered out %d validation errors on %s",
+                        len(errors_) - len(errors),
+                        path,
+                    )
+    return errors
+
+
 # Many commands might be using load_namespaces but it causes HDMF to whine if there
 # is no cached name spaces in the file.  It is benign but not really useful
 # at this point, so we ignore it although ideally there should be a formal
@@ -334,7 +393,6 @@ def ignore_benign_pynwb_warnings() -> None:
 
 def get_object_id(path: Union[str, Path]) -> Any:
     """Read, if present an object_id
-
     if not available -- would simply raise a corresponding exception
     """
     with h5py.File(path, "r") as f:
@@ -348,7 +406,6 @@ def make_nwb_file(
     filename: StrPath, *args: Any, cache_spec: bool = False, **kwargs: Any
 ) -> StrPath:
     """A little helper to produce an .nwb file in the path using NWBFile
-
     Note: it doesn't cache_spec by default
     """
     nwbfile = pynwb.NWBFile(*args, **kwargs)
@@ -359,10 +416,8 @@ def make_nwb_file(
 
 def copy_nwb_file(src: Union[str, Path], dest: Union[str, Path]) -> str:
     """ "Copy" .nwb file by opening and saving into a new path.
-
     New file (`dest`) then should have new `object_id` attribute, and thus be
     considered "different" although containing the same data
-
     Parameters
     ----------
     src: str
@@ -371,11 +426,9 @@ def copy_nwb_file(src: Union[str, Path], dest: Union[str, Path]) -> str:
       Destination file or directory. If points to an existing directory, file with
       the same name is created (exception if already exists).  If not an
       existing directory - target directory is created.
-
     Returns
     -------
     dest
-
     """
     if op.isdir(dest):
         dest = op.join(dest, op.basename(src))

@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import deque
-from collections.abc import Iterable
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import closing
 from dataclasses import dataclass, field, replace
@@ -511,8 +510,8 @@ class NWBAsset(LocalFileAsset):
         self,
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
-    ) -> Iterable:
-        errors = []
+    ) -> List[str]:
+        errors: List[str] = []
         if schema_version is not None:
             errors.extend(
                 super().get_validation_errors(
@@ -540,7 +539,7 @@ class NWBAsset(LocalFileAsset):
                     e,
                     extra={"validating": True},
                 )
-                errors.append(f"Failed to inspect NWBFile: {e}!")
+                errors.append(f"Failed to inspect NWBFile: {e}")
         return errors
 
 
