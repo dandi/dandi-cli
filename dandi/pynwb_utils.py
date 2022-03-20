@@ -47,6 +47,7 @@ validate_cache = PersistentCache(
 
 def _sanitize_nwb_version(v, filename=None, log=None):
     """Helper to sanitize the value of nwb_version where possible
+
     Would log a warning if something detected to be fishy"""
     msg = f"File {filename}: " if filename else ""
     msg += f"nwb_version {v!r}"
@@ -82,11 +83,13 @@ def _sanitize_nwb_version(v, filename=None, log=None):
 
 def get_nwb_version(filepath, sanitize=False):
     """Return a version of the NWB standard used by a file
+
     Parameters
     ----------
     sanitize: bool, optional
       Either to sanitize version and return it non-raw where we detect version
       which does not follow semantic but we possibly can handle
+
     Returns
     -------
     str or None
@@ -111,6 +114,7 @@ def get_nwb_version(filepath, sanitize=False):
 
 def get_neurodata_types_to_modalities_map() -> Dict[str, str]:
     """Return a dict to map neurodata types known to pynwb to "modalities"
+
     It is an ugly hack, largely to check feasibility.
     It would base modality on the filename within pynwb providing that neural
     data type
@@ -236,11 +240,14 @@ def _get_pynwb_metadata(path: Union[str, Path]) -> Dict[str, Any]:
 
 def _get_image_series(nwb: pynwb.NWBFile) -> List[dict]:
     """Retrieves all ImageSeries related metadata from an open nwb file.
+
     Specifically it pulls out the ImageSeries uuid, name and all the
     externally linked files named under the argument 'external_file'.
+
     Parameters
     ----------
     nwb: pynwb.NWBFile
+
     Returns
     -------
     out: List[dict]
@@ -269,8 +276,10 @@ def _get_image_series(nwb: pynwb.NWBFile) -> List[dict]:
 
 def rename_nwb_external_files(metadata: List[dict], dandiset_path: str) -> None:
     """Renames the external_file attribute in an ImageSeries datatype in an open nwb file.
+
     It pulls information about the ImageSeries objects from metadata:
     metadata["external_file_objects"] populated during _get_pynwb_metadata() call.
+
     Parameters
     ----------
     metadata: List[dict]
@@ -313,8 +322,10 @@ def rename_nwb_external_files(metadata: List[dict], dandiset_path: str) -> None:
 @validate_cache.memoize_path
 def validate(path: Union[str, Path], devel_debug: bool = False) -> List[str]:
     """Run validation on a file and return errors
+
     In case of an exception being thrown, an error message added to the
     returned list of validation errors
+
     Parameters
     ----------
     path: str or Path
@@ -393,6 +404,7 @@ def ignore_benign_pynwb_warnings() -> None:
 
 def get_object_id(path: Union[str, Path]) -> Any:
     """Read, if present an object_id
+
     if not available -- would simply raise a corresponding exception
     """
     with h5py.File(path, "r") as f:
@@ -406,6 +418,7 @@ def make_nwb_file(
     filename: StrPath, *args: Any, cache_spec: bool = False, **kwargs: Any
 ) -> StrPath:
     """A little helper to produce an .nwb file in the path using NWBFile
+
     Note: it doesn't cache_spec by default
     """
     nwbfile = pynwb.NWBFile(*args, **kwargs)
@@ -416,8 +429,10 @@ def make_nwb_file(
 
 def copy_nwb_file(src: Union[str, Path], dest: Union[str, Path]) -> str:
     """ "Copy" .nwb file by opening and saving into a new path.
+
     New file (`dest`) then should have new `object_id` attribute, and thus be
     considered "different" although containing the same data
+
     Parameters
     ----------
     src: str
@@ -426,9 +441,11 @@ def copy_nwb_file(src: Union[str, Path], dest: Union[str, Path]) -> str:
       Destination file or directory. If points to an existing directory, file with
       the same name is created (exception if already exists).  If not an
       existing directory - target directory is created.
+
     Returns
     -------
     dest
+
     """
     if op.isdir(dest):
         dest = op.join(dest, op.basename(src))
