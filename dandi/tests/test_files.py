@@ -2,7 +2,6 @@ from operator import attrgetter
 from pathlib import Path
 
 from dandischema.models import get_schema_version
-from nwbinspector.tools import make_minimal_nwbfile
 import numpy as np
 import zarr
 
