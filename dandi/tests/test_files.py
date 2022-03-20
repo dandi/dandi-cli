@@ -2,6 +2,7 @@ from operator import attrgetter
 from pathlib import Path
 
 from dandischema.models import get_schema_version
+from nwbinspector.tools import make_minimal_nwbfile
 import numpy as np
 import zarr
 
@@ -99,15 +100,20 @@ def test_find_dandi_files(tmp_path: Path) -> None:
 
 
 def test_validate_simple1(simple1_nwb):
-    # this file should be ok
+    # this file should be ok as long as schema_version is specified
     errors = dandi_file(simple1_nwb).get_validation_errors(
         schema_version=get_schema_version()
     )
     assert not errors
 
 
+def test_validate_simple1_no_subject(simple1_nwb):
+    errors = dandi_file(simple1_nwb).get_validation_errors()
+    assert errors == ["Subject is missing."]
+
+
 def test_validate_simple2(simple2_nwb):
-    # this file should be ok
+    # this file should be ok since a Subject is included
     errors = dandi_file(simple2_nwb).get_validation_errors()
     assert not errors
 
@@ -120,6 +126,11 @@ def test_validate_simple2_new(simple2_nwb):
     assert not errors
 
 
+def test_validate_simple3_no_subject_id(simple3_nwb):
+    errors = dandi_file(simple3_nwb).get_validation_errors()
+    assert errors == ["subject_id is missing."]
+
+
 def test_validate_bogus(tmp_path):
     path = tmp_path / "wannabe.nwb"
     path.write_text("not really nwb")
@@ -129,7 +140,19 @@ def test_validate_bogus(tmp_path):
     errors = dandi_file(path).get_validation_errors()
     # ATM we would get 2 errors -- since could not be open in two places,
     # but that would be too rigid to test. Let's just see that we have expected errors
-    assert any(e.startswith("Failed to read metadata") for e in errors)
+    assert any(e.startswith("Failed to inspect NWBFile") for e in errors)
+
+
+# def test_validate_missing_subject(tmp_path):
+#     path = tmp_path / "missing_subject.nwb"
+#     make_minimal_nwbfile
+#     # intended to produce use-case for https://github.com/dandi/dandi-cli/issues/93
+#     # but it would be tricky, so it is more of a smoke test that
+#     # we do not crash
+#     errors = list(dandi_file(path).get_validation_errors())
+#     # ATM we would get 2 errors -- since could not be open in two places,
+#     # but that would be too rigid to test. Let's just see that we have expected errors
+#     assert any(e.startswith("Failed to read metadata") for e in errors)
 
 
 def test_upload_zarr(new_dandiset, tmp_path):

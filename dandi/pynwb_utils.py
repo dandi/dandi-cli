@@ -74,10 +74,8 @@ def _sanitize_nwb_version(v, filename=None, log=None):
         v = str(v)
     elif v:
         log(f"{msg} is not text which follows semver specification")
-
     if isinstance(v, str) and not semantic_version.validate(v):
         log(f"error: {msg} is not a proper semantic version. See http://semver.org")
-
     return v
 
 
@@ -103,7 +101,6 @@ def get_nwb_version(filepath, sanitize=False):
             return _sanitize(h5file.attrs["nwb_version"])
         except KeyError:
             pass
-
         # 1.x stored it as a dataset
         try:
             return _sanitize(h5file["nwb_version"][...].tostring().decode())
@@ -151,7 +148,6 @@ def get_neurodata_types_to_modalities_map() -> Dict[str, str]:
                         % (ndtype, ndtypes[ndtype], modality)
                     )
                 ndtypes[ndtype] = modality
-
     return ndtypes
 
 
@@ -159,7 +155,6 @@ def get_neurodata_types_to_modalities_map() -> Dict[str, str]:
 def get_neurodata_types(filepath: Union[str, Path]) -> List[str]:
     with h5py.File(filepath, "r") as h5file:
         all_pairs = _scan_neurodata_types(h5file)
-
     # so far descriptions are useless so let's just output actual names only
     # with a count if there is multiple
     # return [': '.join(filter(bool, p)) for p in all_pairs]
@@ -199,7 +194,6 @@ def _get_pynwb_metadata(path: Union[str, Path]) -> Dict[str, Any]:
             ):
                 value = type(value)(v.decode("utf-8") for v in value)
             out[key] = value
-
         # .subject can be None as the test shows
         for subject_feature in metadata_nwb_subject_fields:
             out[subject_feature] = getattr(nwb.subject, subject_feature, None)
@@ -220,7 +214,6 @@ def _get_pynwb_metadata(path: Union[str, Path]) -> Dict[str, Any]:
         ]
         if probe_ids:
             out["probe_ids"] = probe_ids
-
         # Counts
         for f in metadata_nwb_computed_fields:
             if f in ("nwb_version", "nd_types"):
@@ -231,10 +224,8 @@ def _get_pynwb_metadata(path: Union[str, Path]) -> Dict[str, Any]:
                 )
             key = f[len("number_of_") :]
             out[f] = len(getattr(nwb, key, []) or [])
-
         # get external_file data:
         out["external_file_objects"] = _get_image_series(nwb)
-
     return out
 
 
@@ -317,67 +308,6 @@ def rename_nwb_external_files(metadata: List[dict], dandiset_path: str) -> None:
                 ):
                     if not is_url(str(name_old)):
                         container.external_file[no] = str(name_new)
-
-
-@validate_cache.memoize_path
-def validate(path: Union[str, Path], devel_debug: bool = False) -> List[str]:
-    """Run validation on a file and return errors
-
-    In case of an exception being thrown, an error message added to the
-    returned list of validation errors
-
-    Parameters
-    ----------
-    path: str or Path
-    """
-    path = str(path)  # Might come in as pathlib's PATH
-    errors: List[str]
-    try:
-        with pynwb.NWBHDF5IO(path, "r", load_namespaces=True) as reader:
-            errors = pynwb.validate(reader)
-        lgr.warning(
-            "pynwb validation errors for %s: %s",
-            path,
-            errors,
-            extra={"validating": True},
-        )
-    except Exception as exc:
-        if devel_debug:
-            raise
-        lgr.warning("Failed to validate %s: %s", path, exc, extra={"validating": True})
-        errors = [f"Failed to validate {path}: {exc}"]
-
-    # To overcome
-    #   https://github.com/NeurodataWithoutBorders/pynwb/issues/1090
-    #   https://github.com/NeurodataWithoutBorders/pynwb/issues/1091
-    re_ok_prior_210 = re.compile(
-        r"general/(experimenter|related_publications)\): "
-        r"incorrect shape - expected an array of shape .\[None\]."
-    )
-    try:
-        version = get_nwb_version(path, sanitize=False)
-    except Exception:
-        # we just will not remove any errors, it is required so should be some
-        pass
-    else:
-        if version is not None:
-            # Explicitly sanitize so we collect warnings.
-            # TODO: later cast into proper ERRORs
-            version = _sanitize_nwb_version(version, log=errors.append)
-            try:
-                v = semantic_version.Version(version)
-            except ValueError:
-                v = None
-            if v is not None and v < semantic_version.Version("2.1.0"):
-                errors_ = errors[:]
-                errors = [e for e in errors if not re_ok_prior_210.search(str(e))]
-                if errors != errors_:
-                    lgr.debug(
-                        "Filtered out %d validation errors on %s",
-                        len(errors_) - len(errors),
-                        path,
-                    )
-    return errors
 
 
 # Many commands might be using load_namespaces but it causes HDMF to whine if there

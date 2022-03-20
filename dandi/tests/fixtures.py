@@ -96,6 +96,22 @@ def simple2_nwb(
 
 
 @pytest.fixture(scope="session")
+def simple3_nwb(
+    simple1_nwb_metadata: Dict[str, Any], tmpdir_factory: pytest.TempdirFactory
+) -> str:
+    """With a subject, but no subject_id."""
+    return make_nwb_file(
+        str(tmpdir_factory.mktemp("simple2").join("simple2.nwb")),
+        subject=pynwb.file.Subject(
+            date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
+            sex="M",
+            species="mouse",
+        ),
+        **simple1_nwb_metadata,
+    )
+
+
+@pytest.fixture(scope="session")
 def organized_nwb_dir(
     simple2_nwb: str, tmp_path_factory: pytest.TempPathFactory
 ) -> Path:
@@ -141,7 +157,6 @@ if TYPE_CHECKING:
         from typing import Literal
     else:
         from typing_extensions import Literal
-
     Scope = Union[
         Literal["session"],
         Literal["package"],
@@ -199,7 +214,6 @@ def docker_compose_setup() -> Iterator[Dict[str, str]]:
     # Docker images don't work on Windows.
     if os.name != "posix":
         pytest.skip("Docker images require Unix host")
-
     persist = os.environ.get("DANDI_TESTS_PERSIST_DOCKER_COMPOSE")
 
     create = (
@@ -239,7 +253,6 @@ def docker_compose_setup() -> Iterator[Dict[str, str]]:
                 env=env,
                 check=True,
             )
-
         r = check_output(
             [
                 "docker-compose",
