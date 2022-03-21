@@ -21,6 +21,7 @@ import os
 from pathlib import Path
 import re
 from threading import Lock
+from time import sleep
 from typing import (
     Any,
     BinaryIO,
@@ -920,7 +921,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                             local_entry, local_digest = item
                             to_upload.register(local_entry, local_digest)
             if to_delete:
-                a.rmfiles(to_delete)
+                a.rmfiles(to_delete, reingest=False)
         else:
             yield {"status": "traversing local Zarr"}
             for local_entry in self.iterfiles():
@@ -976,7 +977,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                             }
                 lgr.debug("%s: Completing upload of batch #%d", asset_path, i)
                 client.post(f"/zarr/{zarr_id}/upload/complete/")
-        lgr.debug("%s: Upload completed", asset_path)
+        lgr.debug("%s: All files uploaded", asset_path)
         old_zarr_files = [e for e in old_zarr_entries.values() if e.is_file()]
         if old_zarr_files:
             yield {"status": "deleting extra remote files"}
@@ -985,7 +986,15 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 asset_path,
                 pluralize(len(old_zarr_files), "file"),
             )
-            a.rmfiles(old_zarr_files)
+            a.rmfiles(old_zarr_files, reingest=False)
+        lgr.debug("%s: Waiting for server to calculate Zarr checksum", asset_path)
+        yield {"status": "server calculating checksum"}
+        client.post(f"/zarr/{zarr_id}/ingest/")
+        while True:
+            sleep(2)
+            r = client.get(f"/zarr/{zarr_id}/")
+            if r["status"] == "Complete":
+                break
         lgr.info("%s: Asset successfully uploaded", asset_path)
         yield {"status": "done", "asset": a}
 
