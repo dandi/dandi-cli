@@ -290,7 +290,7 @@ def test_write_report():
     assert report_text == expected_report_text
 
 
-def test_bids_datasets(bids_examples: str):
+def test_bids_datasets(bids_examples):
     from dandi.bids_validator_xs import validate_bids
 
     whitelist = [
