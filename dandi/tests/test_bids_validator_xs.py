@@ -301,7 +301,6 @@ def test_bids_datasets(bids_examples):
         "asl002",
         "pet004",
         "eeg_cbm",
-        "asl001",
         "pet005",
         "hcp_example_bids",
         "asl004",
