@@ -25,7 +25,10 @@ from .base import (
     "-J",
     "--jobs",
     type=IntColonInt(),
-    help="Number of files to upload in parallel and, optionally, number of upload threads per file",
+    help=(
+        "Number of assets to upload in parallel and, optionally, number of"
+        " upload threads per asset  [default: 5:5]"
+    ),
 )
 @click.option(
     "--sync", is_flag=True, help="Delete assets on the server that do not exist locally"
