@@ -65,6 +65,7 @@ from .dandiapi import (
 from .exceptions import UnknownAssetError
 from .metadata import get_default_metadata, nwb2asset
 from .misctypes import DUMMY_DIGEST, BasePath, Digest, P
+from .pynwb_utils import validate as pynwb_validate
 from .support.digests import (
     get_dandietag,
     get_digest,
@@ -508,7 +509,7 @@ class NWBAsset(LocalFileAsset):
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
     ) -> List[str]:
-        errors: List[str] = []
+        errors: List[str] = pynwb_validate(self.filepath, devel_debug=devel_debug)
         if schema_version is not None:
             errors.extend(
                 super().get_validation_errors(
