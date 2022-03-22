@@ -42,7 +42,7 @@ from dandischema.models import BareAsset, CommonModel
 from dandischema.models import Dandiset as DandisetMeta
 from dandischema.models import DigestType, get_schema_version
 from pydantic import ValidationError
-from nwbinspector import inspect_nwb, check_subject_exists, check_subject_id_exists
+from nwbinspector import inspect_nwb, load_config, Importance
 import requests
 import zarr
 
@@ -78,7 +78,6 @@ lgr = get_logger()
 
 # TODO -- should come from schema.  This is just a simplistic example for now
 _required_dandiset_metadata_fields = ["identifier", "name", "description"]
-_required_nwb_checks = [check_subject_exists, check_subject_id_exists]
 
 
 @dataclass  # type: ignore[misc]  # <https://github.com/python/mypy/issues/5374>
@@ -524,8 +523,9 @@ class NWBAsset(LocalFileAsset):
                         error.message
                         for error in inspect_nwb(
                             nwbfile_path=self.filepath,
-                            checks=_required_nwb_checks,
                             skip_validate=True,
+                            config=load_config(filepath_or_keyword="dandi"),
+                            importance_threshold=Importance.CRITICAL,
                         )
                     ]
                 )
@@ -932,7 +932,6 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             for local_entry in self.iterfiles():
                 total_size += local_entry.size
                 to_upload.register(local_entry)
-
         yield {"status": "initiating upload", "size": total_size}
         lgr.debug("%s: Beginning upload", asset_path)
         bytes_uploaded = 0
