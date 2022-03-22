@@ -312,10 +312,37 @@ def test_bids_datasets(bids_examples):
     ]
     schema_path = "{module_path}/support/bids/schemadata/1.7.0+012+dandi001"
 
+    # Validate per dataset:
     for i in os.listdir(bids_examples):
         if i in whitelist:
-            j = validate_bids(
+            result = validate_bids(
                 os.path.join(bids_examples, i), schema_version=schema_path
             )
             # Have all files been validated?
-            assert len(j["path_tracking"]) == 0
+            assert len(result["path_tracking"]) == 0
+
+    # Create input for file list based validation
+    selected_dir = os.path.join(bids_examples, whitelist[0])
+    selected_paths = []
+    for root, dirs, files in os.walk(selected_dir, topdown=False):
+        for f in files:
+            selected_path = os.path.join(root, f)
+            selected_paths.append(selected_path)
+    # Add DANDI-specific files
+    custom_dir = os.path.join(
+        selected_dir,
+        "sub-01",
+        "micr",
+    )
+    if not os.path.exists(custom_dir):
+        os.makedirs(custom_dir)
+    custom_files = [
+        "sub-01_sample-01_SPIM.h5",
+        "sub-01_sample-01_SPIM.ngff",
+    ]
+    for custom_file in custom_files:
+        with open(os.path.join(custom_dir, custom_file), "w") as f:
+            f.close()
+    result = validate_bids(selected_paths, schema_version=schema_path)
+    # Have all files been validated?
+    assert len(result["path_tracking"]) == 0
