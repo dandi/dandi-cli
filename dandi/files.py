@@ -525,6 +525,7 @@ class NWBAsset(LocalFileAsset):
                         for error in inspect_nwb(
                             nwbfile_path=self.filepath,
                             checks=_required_nwb_checks,
+                            skip_validate=True,
                         )
                     ]
                 )
