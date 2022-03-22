@@ -51,4 +51,4 @@ def test_digest_zarr():
         )
         r = runner.invoke(digest, ["--digest", "zarr-checksum", "sample.zarr"])
         assert r.exit_code == 0
-        assert r.output == "sample.zarr: ebe3432f7ff77791877fa9eac0452831\n"
+        assert r.output == "sample.zarr: 4313ab36412db2981c3ed391b38604d6-5--1516\n"
