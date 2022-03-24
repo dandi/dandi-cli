@@ -313,7 +313,7 @@ def test_bids_datasets(bids_examples):
     ]
     schema_path = "{module_path}/support/bids/schemadata/1.7.0+012+dandi001"
 
-    # Validate per dataset:
+    # Validate per dataset, with debugging:
     for i in os.listdir(bids_examples):
         if i in whitelist:
             result = validate_bids(
@@ -329,6 +329,6 @@ def test_bids_datasets(bids_examples):
         for f in files:
             selected_path = os.path.join(root, f)
             selected_paths.append(selected_path)
-    result = validate_bids(selected_paths, schema_version=schema_path)
+    result = validate_bids(selected_paths, schema_version=schema_path, debug=True)
     # Have all files been validated?
     assert len(result["path_tracking"]) == 0
