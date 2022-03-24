@@ -309,6 +309,7 @@ def test_bids_datasets(bids_examples):
         "pet001",
         "pet003",
         "micr_SEM",
+        "micr_SEM-dandi",
     ]
     schema_path = "{module_path}/support/bids/schemadata/1.7.0+012+dandi001"
 
@@ -328,21 +329,6 @@ def test_bids_datasets(bids_examples):
         for f in files:
             selected_path = os.path.join(root, f)
             selected_paths.append(selected_path)
-    # Add DANDI-specific files
-    custom_dir = os.path.join(
-        selected_dir,
-        "sub-01",
-        "micr",
-    )
-    if not os.path.exists(custom_dir):
-        os.makedirs(custom_dir)
-    custom_files = [
-        "sub-01_sample-01_SPIM.h5",
-        "sub-01_sample-01_SPIM.ngff",
-    ]
-    for custom_file in custom_files:
-        with open(os.path.join(custom_dir, custom_file), "w") as f:
-            f.close()
     result = validate_bids(selected_paths, schema_version=schema_path)
     # Have all files been validated?
     assert len(result["path_tracking"]) == 0
