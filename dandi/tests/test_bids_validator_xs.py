@@ -1,7 +1,4 @@
 import os
-from pathlib import Path
-
-METADATA_DIR = Path(__file__).with_name("data") / "metadata"
 
 
 def test__add_entity():
