@@ -273,11 +273,12 @@ def test_write_report():
     ]
 
     report_path = os.path.join(
-        os.path.abspath(os.path.dirname(__file__)), "output_bids_validator_xs_write.log"
+        os.path.abspath(os.path.dirname(__file__)),
+        "data/output_bids_validator_xs_write.log",
     )
     expected_report_path = os.path.join(
         os.path.abspath(os.path.dirname(__file__)),
-        "expected_bids_validator_xs_write.log",
+        "data/expected_bids_validator_xs_write.log",
     )
     write_report(validation_result, report_path=report_path)
     with open(report_path, "r") as f:
