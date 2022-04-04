@@ -146,7 +146,7 @@ from .cmd_ls import ls  # noqa: E402
 from .cmd_organize import organize  # noqa: E402
 from .cmd_shell_completion import shell_completion  # noqa: E402
 from .cmd_upload import upload  # noqa: E402
-from .cmd_validate import validate  # noqa: E402
+from .cmd_validate import validate, validate_bids  # noqa: E402
 
 __all_commands__ = (
     delete,
@@ -158,6 +158,7 @@ __all_commands__ = (
     shell_completion,
     upload,
     validate,
+    validate_bids,
 )
 
 for cmd in __all_commands__:

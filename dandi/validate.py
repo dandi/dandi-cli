@@ -1,9 +1,40 @@
-from typing import Iterator, List, Optional, Tuple
+from typing import Any, Iterator, List, Optional, Tuple
 
 from .files import find_dandi_files
 
-
 # TODO: provide our own "errors" records, which would also include warnings etc
+
+
+def validate_bids(
+    *paths: str,
+    schema_version: Optional[str] = None,
+    devel_debug: bool = False,
+) -> Any:
+    """Validate BIDS paths.
+
+    Parameters
+    ----------
+    paths : *str
+        Paths to validate.
+    schema_version : str, optional
+        BIDS schema version to use, this setting will override the version specified in the dataset.
+    devel_debug : bool, optional
+        Whether to trigger debugging in the BIDS validator.
+
+    Notes
+    -----
+    Can be used from bash, as:
+        DANDI_DEVEL=1 dandi validate-bids --schema="1.7.0+012+dandi001" /data/paths
+    """
+    from .bids_validator_xs import validate_bids as validate_bids_
+
+    return validate_bids_(
+        paths,
+        schema_version=schema_version,
+        debug=devel_debug,
+    )
+
+
 def validate(
     *paths: str,
     schema_version: Optional[str] = None,
