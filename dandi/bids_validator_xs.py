@@ -170,7 +170,6 @@ def _add_suffixes(regex_string, variant):
 
 def load_top_level(
     schema_dir,
-    debug=True,
 ):
     """
     Create full path regexes for top level files, as documented by a target BIDS YAML schema
@@ -180,9 +179,6 @@ def load_top_level(
     ----------
     schema_dir : str
         A string pointing to a BIDS directory for which paths should be validated.
-    debug : tuple, optional
-        Whether to print itemwise notices for checks on the console, and include them in the
-        validation result.
 
     Returns
     -------
@@ -196,14 +192,6 @@ def load_top_level(
     regex_schema = []
     for top_level_filename in top_level_files.keys():
         top_level_file = top_level_files[top_level_filename]
-        if debug:
-            print(
-                json.dumps(
-                    top_level_file,
-                    sort_keys=True,
-                    indent=4,
-                ),
-            )
         # None value gets passed as list of strings...
         extensions = top_level_file["extensions"]
         if extensions != ["None"]:
@@ -228,7 +216,6 @@ def load_top_level(
 
 def load_entities(
     schema_dir,
-    debug=False,
 ):
     """Create full path regexes for entities, as documented by a target BIDS YAML schema version.
 
@@ -236,9 +223,6 @@ def load_entities(
     ----------
     schema_dir : str
         A string pointing to a BIDS directory for which paths should be validated.
-    debug : tuple, optional
-        Whether to print itemwise notices for checks on the console, and include them in the
-        validation result.
 
     Notes
     -----
@@ -290,14 +274,6 @@ def load_entities(
     regex_schema = []
     for datatype in datatypes:
         for variant in datatypes[datatype]:
-            if debug:
-                print(
-                    json.dumps(
-                        variant,
-                        sort_keys=True,
-                        indent=4,
-                    ),
-                )
             regex_entities = ""
             for entity in entity_order:
                 # Slightly awkward construction to account for new-style file specification.
@@ -305,14 +281,6 @@ def load_entities(
                 # https://github.com/bids-standard/bids-specification/pull/987
                 try:
                     if entity in variant["entities"]:
-                        if debug:
-                            print(
-                                json.dumps(
-                                    entity_definitions[entity],
-                                    sort_keys=True,
-                                    indent=4,
-                                ),
-                            )
                         entity_shorthand = entity_definitions[entity]["entity"]
                         if "enum" in entity_definitions[entity].keys():
                             # Entity key-value pattern with specific allowed values
@@ -350,7 +318,6 @@ def load_entities(
 
 def load_all(
     schema_dir,
-    debug=False,
 ):
     """
     Create full path regexes for all BIDS specification files.
@@ -359,9 +326,6 @@ def load_all(
     ----------
     schema_dir : str, optional
         A string pointing to a BIDS directory for which paths should be validated.
-    debug : tuple, optional
-        Whether to print itemwise notices for checks on the console, and include them in the
-        validation result.
 
     Returns
     -------
@@ -371,11 +335,9 @@ def load_all(
 
     all_regex = load_entities(
         schema_dir=schema_dir,
-        debug=debug,
     )
     top_level_regex = load_top_level(
         schema_dir=schema_dir,
-        debug=debug,
     )
     all_regex.extend(top_level_regex)
 
