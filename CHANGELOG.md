@@ -1,3 +1,20 @@
+# 0.38.0 (Mon Apr 04 2022)
+
+#### 🚀 Enhancement
+
+- Adding BIDS support [#896](https://github.com/dandi/dandi-cli/pull/896) ([@yarikoptic](https://github.com/yarikoptic) [@TheChymera](https://github.com/TheChymera))
+
+#### 🏠 Internal
+
+- Black update [#945](https://github.com/dandi/dandi-cli/pull/945) ([@TheChymera](https://github.com/TheChymera))
+
+#### Authors: 2
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.37.0 (Tue Mar 22 2022)
 
 #### 🚀 Enhancement
