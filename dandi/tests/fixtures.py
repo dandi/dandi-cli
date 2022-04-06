@@ -405,7 +405,7 @@ def video_files(tmp_path):
     for no in range(2):
         movie_file1 = video_path / f"test1_{no}.avi"
         movie_file2 = video_path / f"test2_{no}.avi"
-        (nf, nx, ny) = (5, 10, 20)
+        (nf, nx, ny) = (2, 2, 2)
         writer1 = cv2.VideoWriter(
             filename=str(movie_file1),
             apiPreference=None,
