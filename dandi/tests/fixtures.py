@@ -245,6 +245,7 @@ def docker_compose_setup() -> Iterator[Dict[str, str]]:
                 "docker-compose",
                 "run",
                 "--rm",
+                "-T",
                 "django",
                 "./manage.py",
                 "drf_create_token",
