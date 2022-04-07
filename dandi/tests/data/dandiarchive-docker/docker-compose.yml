@@ -56,7 +56,7 @@ services:
       "worker",
       "--loglevel", "INFO",
       "--without-heartbeat",
-      "-Q","celery,calculate_sha256",
+      "-Q","celery,calculate_sha256,ingest_zarr_archive,manifest-worker",
       "-B"
     ]
     # Docker Compose does not set the TTY width, which causes Celery errors
