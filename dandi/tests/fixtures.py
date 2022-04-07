@@ -186,7 +186,7 @@ def get_gitrepo_fixture(
         # would need to remove it ourselves
         lgr.debug("Cloning %r into %r", url, path)
         try:
-            runout = run(["git", "clone", url, path])
+            runout = run(["git", "clone", "--depth=1", url, path])
             if runout.returncode:
                 raise RuntimeError(f"Failed to clone {url} into {path}")
             yield path
@@ -200,7 +200,7 @@ def get_gitrepo_fixture(
 
 
 nwb_test_data = get_gitrepo_fixture("http://github.com/dandi-datasets/nwb_test_data")
-
+bids_examples = get_gitrepo_fixture("https://github.com/dandi/bids-examples")
 
 LOCAL_DOCKER_DIR = Path(__file__).with_name("data") / "dandiarchive-docker"
 LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name
@@ -261,6 +261,7 @@ def docker_compose_setup() -> Iterator[Dict[str, str]]:
                 "docker-compose",
                 "run",
                 "--rm",
+                "-T",
                 "django",
                 "./manage.py",
                 "drf_create_token",

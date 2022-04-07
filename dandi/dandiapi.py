@@ -1396,8 +1396,16 @@ class BaseRemoteZarrAsset(BaseRemoteAsset):
         """
         return self.filetree.iterfiles(include_dirs=include_dirs)
 
-    def rmfiles(self, files: Iterable["RemoteZarrEntry"]) -> None:
-        """Delete one or more files from the Zarr"""
+    def rmfiles(
+        self, files: Iterable["RemoteZarrEntry"], reingest: bool = True
+    ) -> None:
+        """
+        Delete one or more files from the Zarr.
+
+        If ``reingest`` is true, after performing the deletion, the client
+        triggers a recalculation of the Zarr's checksum and waits for it to
+        complete.
+        """
         # Don't bother checking that the entries are actually files or even
         # belong to this Zarr, as if they're not, the server will return an
         # error anyway.
@@ -1406,6 +1414,13 @@ class BaseRemoteZarrAsset(BaseRemoteAsset):
                 f"/zarr/{self.zarr}/files/",
                 json=[{"path": str(e)} for e in entries],
             )
+        if reingest:
+            self.client.post(f"/zarr/{self.zarr}/ingest/")
+            while True:
+                sleep(2)
+                r = self.client.get(f"/zarr/{self.zarr}/")
+                if r["status"] == "Complete":
+                    break
 
 
 class RemoteAsset(BaseRemoteAsset):

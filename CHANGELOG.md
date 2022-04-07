@@ -1,3 +1,52 @@
+# 0.38.0 (Mon Apr 04 2022)
+
+#### 🚀 Enhancement
+
+- Adding BIDS support [#896](https://github.com/dandi/dandi-cli/pull/896) ([@yarikoptic](https://github.com/yarikoptic) [@TheChymera](https://github.com/TheChymera))
+
+#### 🏠 Internal
+
+- Black update [#945](https://github.com/dandi/dandi-cli/pull/945) ([@TheChymera](https://github.com/TheChymera))
+
+#### Authors: 2
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.37.0 (Tue Mar 22 2022)
+
+#### 🚀 Enhancement
+
+- Recognize video files as non-generic assets [#922](https://github.com/dandi/dandi-cli/pull/922) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Update for change in Zarr checksum format [#933](https://github.com/dandi/dandi-cli/pull/933) ([@jwodder](https://github.com/jwodder))
+- Trigger Zarr ingestion after performing an upload [#938](https://github.com/dandi/dandi-cli/pull/938) ([@jwodder](https://github.com/jwodder))
+- check for existence of video path else assume relative path [#931](https://github.com/dandi/dandi-cli/pull/931) ([@Saksham20](https://github.com/Saksham20))
+- dandi upload: Make `--jobs` default to `5:5` and document it [#940](https://github.com/dandi/dandi-cli/pull/940) ([@jwodder](https://github.com/jwodder))
+- checking for duplicate video files in external_files [#928](https://github.com/dandi/dandi-cli/pull/928) ([@Saksham20](https://github.com/Saksham20))
+- skip handling URLs in external files references as we do for local paths [#932](https://github.com/dandi/dandi-cli/pull/932) ([@Saksham20](https://github.com/Saksham20))
+- Let `dandi delete` take paths to local Zarrs [#925](https://github.com/dandi/dandi-cli/pull/925) ([@jwodder](https://github.com/jwodder))
+
+#### 🏎 Performance
+
+- Minimize/optimize Zarr digestion when uploading [#923](https://github.com/dandi/dandi-cli/pull/923) ([@jwodder](https://github.com/jwodder))
+- Don't repeat API requests when finding subdir files to delete before Zarr upload [#919](https://github.com/dandi/dandi-cli/pull/919) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Correct the docstring for `BasePath.parents` [#936](https://github.com/dandi/dandi-cli/pull/936) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Saksham Sharda ([@Saksham20](https://github.com/Saksham20))
+
+---
+
 # 0.36.0 (Thu Feb 17 2022)
 
 #### 🚀 Enhancement

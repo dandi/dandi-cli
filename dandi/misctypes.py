@@ -143,7 +143,7 @@ class BasePath(ABC):
     def parents(self: P) -> Tuple[P, ...]:
         """
         A tuple of the path's ancestors, starting at the parent and going up to
-        (but not including) the root of the hierarchy
+        (and including) the root of the hierarchy
         """
         ps: List[P] = []
         p = self

@@ -40,8 +40,8 @@ Options
 
 .. option:: -J, --jobs N[:M]
 
-    Number of files to upload in parallel and, optionally, number of upload
-    threads per file
+    Number of assets to upload in parallel and, optionally, number of upload
+    threads per asset  [default: ``5:5``]
 
 .. option:: --sync
 
