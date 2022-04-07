@@ -230,7 +230,7 @@ def test_load_all():
         assert "mandatory" in list(entry.keys())
 
 
-def test_write_report():
+def test_write_report(tmp_path):
     from dandi.bids_validator_xs import write_report
 
     validation_result = {}
@@ -273,8 +273,8 @@ def test_write_report():
     ]
 
     report_path = os.path.join(
-        os.path.abspath(os.path.dirname(__file__)),
-        "data/output_bids_validator_xs_write.log",
+        tmp_path,
+        "output_bids_validator_xs_write.log",
     )
     expected_report_path = os.path.join(
         os.path.abspath(os.path.dirname(__file__)),
