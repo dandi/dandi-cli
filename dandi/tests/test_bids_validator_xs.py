@@ -288,7 +288,7 @@ def test_write_report(tmp_path):
     assert report_text == expected_report_text
 
 
-def test_bids_datasets(bids_examples):
+def test_bids_datasets(bids_examples, tmp_path):
     from dandi.bids_validator_xs import validate_bids
 
     whitelist = [
@@ -328,5 +328,12 @@ def test_bids_datasets(bids_examples):
             selected_path = os.path.join(root, f)
             selected_paths.append(selected_path)
     result = validate_bids(selected_paths, schema_version=schema_path, debug=True)
+    # Does custom log path specification work?
+    result = validate_bids(
+        selected_paths,
+        schema_version=schema_path,
+        debug=True,
+        report_path=os.path.join(tmp_path, "test_bids.log"),
+    )
     # Have all files been validated?
     assert len(result["path_tracking"]) == 0
