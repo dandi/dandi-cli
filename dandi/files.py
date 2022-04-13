@@ -43,6 +43,7 @@ from dandischema.models import BareAsset, CommonModel
 from dandischema.models import Dandiset as DandisetMeta
 from dandischema.models import DigestType, get_schema_version
 from pydantic import ValidationError
+from nwbinspector import inspect_nwb, load_config, Importance
 import requests
 import zarr
 
@@ -63,7 +64,7 @@ from .dandiapi import (
     RESTFullAPIClient,
 )
 from .exceptions import UnknownAssetError
-from .metadata import get_default_metadata, get_metadata, nwb2asset
+from .metadata import get_default_metadata, nwb2asset
 from .misctypes import DUMMY_DIGEST, BasePath, Digest, P
 from .pynwb_utils import validate as pynwb_validate
 from .support.digests import (
@@ -78,7 +79,6 @@ lgr = get_logger()
 
 # TODO -- should come from schema.  This is just a simplistic example for now
 _required_dandiset_metadata_fields = ["identifier", "name", "description"]
-_required_nwb_metadata_fields = ["subject_id"]
 
 
 @dataclass  # type: ignore[misc]  # <https://github.com/python/mypy/issues/5374>
@@ -519,21 +519,27 @@ class NWBAsset(LocalFileAsset):
         else:
             # make sure that we have some basic metadata fields we require
             try:
-                meta = get_metadata(self.filepath)
+                errors.extend(
+                    [
+                        error.message
+                        for error in inspect_nwb(
+                            nwbfile_path=self.filepath,
+                            skip_validate=True,
+                            config=load_config(filepath_or_keyword="dandi"),
+                            importance_threshold=Importance.CRITICAL,
+                        )
+                    ]
+                )
             except Exception as e:
                 if devel_debug:
                     raise
                 lgr.warning(
-                    "Failed to read metadata in %s: %s",
+                    "Failed to inspect NWBFile in %s: %s",
                     self.filepath,
                     e,
                     extra={"validating": True},
                 )
-                errors.append(f"Failed to read metadata: {e}")
-            else:
-                errors.extend(
-                    _check_required_fields(meta, _required_nwb_metadata_fields)
-                )
+                errors.append(f"Failed to inspect NWBFile: {e}")
         return errors
 
 
@@ -925,7 +931,6 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             for local_entry in self.iterfiles():
                 total_size += local_entry.size
                 to_upload.register(local_entry)
-
         yield {"status": "initiating upload", "size": total_size}
         lgr.debug("%s: Beginning upload", asset_path)
         bytes_uploaded = 0

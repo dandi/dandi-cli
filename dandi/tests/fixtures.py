@@ -96,6 +96,22 @@ def simple2_nwb(
 
 
 @pytest.fixture(scope="session")
+def simple3_nwb(
+    simple1_nwb_metadata: Dict[str, Any], tmpdir_factory: pytest.TempdirFactory
+) -> str:
+    """With a subject, but no subject_id."""
+    return make_nwb_file(
+        str(tmpdir_factory.mktemp("simple2").join("simple2.nwb")),
+        subject=pynwb.file.Subject(
+            date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
+            sex="M",
+            species="mouse",
+        ),
+        **simple1_nwb_metadata,
+    )
+
+
+@pytest.fixture(scope="session")
 def organized_nwb_dir(
     simple2_nwb: str, tmp_path_factory: pytest.TempPathFactory
 ) -> Path:
