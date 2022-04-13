@@ -1073,7 +1073,7 @@ class RemoteDandiset:
 
     def is_nwb(self) -> bool:
         """
-        Returns True if the dandiset contains NWB file assets.
+        Returns True if the Dandiset contains one or more NWB file assets.
 
         This is determined by checking for "RRID:SCR_015242" in the "dataStandard" field
         of the assetsSummary of the dandiset.
