@@ -1071,7 +1071,7 @@ class RemoteDandiset:
             self, metadata=asset_metadata, jobs=jobs, replacing=replace_asset
         )
 
-    def is_nwb(self):
+    def is_nwb(self) -> bool:
         """
         Returns True if the dandiset contains NWB file assets.
 
