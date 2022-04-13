@@ -1071,6 +1071,17 @@ class RemoteDandiset:
             self, metadata=asset_metadata, jobs=jobs, replacing=replace_asset
         )
 
+    def is_nwb(self):
+        assetsSummary = self.get_raw_metadata()["assetsSummary"]
+        if "dataStandard" not in assetsSummary:
+            return False
+        return any(
+            [
+                x["identifier"] == "RRID:SCR_015242"
+                for x in assetsSummary["dataStandard"]
+            ]
+        )
+
 
 class BaseRemoteAsset(ABC, APIBase):
     """
