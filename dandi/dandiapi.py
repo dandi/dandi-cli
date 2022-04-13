@@ -1072,14 +1072,17 @@ class RemoteDandiset:
         )
 
     def is_nwb(self):
+        """
+        Returns True if the dandiset contains NWB file assets.
+
+        This is determined by checking for "RRID:SCR_015242" in the "dataStandard" field
+        of the assetsSummary of the dandiset.
+        """
         assetsSummary = self.get_raw_metadata()["assetsSummary"]
         if "dataStandard" not in assetsSummary:
             return False
         return any(
-            [
-                x["identifier"] == "RRID:SCR_015242"
-                for x in assetsSummary["dataStandard"]
-            ]
+            x["identifier"] == "RRID:SCR_015242" for x in assetsSummary["dataStandard"]
         )
 
 
