@@ -1,3 +1,41 @@
+# 0.39.0 (Thu Apr 14 2022)
+
+#### 🚀 Enhancement
+
+- Add DANDI_JUPYTERHUB_URL to test docker-compose [#959](https://github.com/dandi/dandi-cli/pull/959) ([@AlmightyYakob](https://github.com/AlmightyYakob))
+- Integrate NWBInspector with DANDI validation [#941](https://github.com/dandi/dandi-cli/pull/941) ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🐛 Bug Fix
+
+- Integration test config [#957](https://github.com/dandi/dandi-cli/pull/957) ([@dchiquito](https://github.com/dchiquito))
+- Smaller video files [#947](https://github.com/dandi/dandi-cli/pull/947) ([@TheChymera](https://github.com/TheChymera))
+
+#### ⚠️ Pushed to `master`
+
+- add .mkv as a valid video extension ([@bendichter](https://github.com/bendichter))
+
+#### 🏠 Internal
+
+- DX: enable "released" plugin for auto [#951](https://github.com/dandi/dandi-cli/pull/951) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Fixed test_write_report() log path issue [#954](https://github.com/dandi/dandi-cli/pull/954) ([@TheChymera](https://github.com/TheChymera))
+- Specify all queues in test celery worker [#953](https://github.com/dandi/dandi-cli/pull/953) ([@dchiquito](https://github.com/dchiquito))
+- Work around a bug in docker-compose [#949](https://github.com/dandi/dandi-cli/pull/949) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 7
+
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- Jacob Nesbitt ([@AlmightyYakob](https://github.com/AlmightyYakob))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.38.0 (Mon Apr 04 2022)
 
 #### 🚀 Enhancement
