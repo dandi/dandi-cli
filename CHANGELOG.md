@@ -1,3 +1,15 @@
+# 0.39.1 (Thu Apr 14 2022)
+
+#### 🐛 Bug Fix
+
+- Fix type in test docker-compose env var [#960](https://github.com/dandi/dandi-cli/pull/960) ([@AlmightyYakob](https://github.com/AlmightyYakob))
+
+#### Authors: 1
+
+- Jacob Nesbitt ([@AlmightyYakob](https://github.com/AlmightyYakob))
+
+---
+
 # 0.39.0 (Thu Apr 14 2022)
 
 #### 🚀 Enhancement
