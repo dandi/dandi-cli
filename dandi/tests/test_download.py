@@ -380,6 +380,23 @@ def test_download_zarr_asset_id_only(
     assert_dirtrees_eq(zarr_dandiset.dspath / "sample.zarr", tmp_path / "sample.zarr")
 
 
+def test_download_zarr_subdir_has_only_subdirs(
+    tmp_path: Path, new_dandiset: SampleDandiset
+) -> None:
+    zf = new_dandiset.dspath / "sample.zarr"
+    zf.mkdir()
+    (zf / "dirs").mkdir()
+    (zf / "dirs" / "apple").mkdir()
+    (zf / "dirs" / "apple" / "file.txt").write_text("Apple\n")
+    (zf / "dirs" / "banana").mkdir()
+    (zf / "dirs" / "banana" / "file.txt").write_text("Banana\n")
+    (zf / "dirs" / "coconut").mkdir()
+    (zf / "dirs" / "coconut" / "file.txt").write_text("Coconut\n")
+    new_dandiset.upload(validation="skip")
+    download(new_dandiset.dandiset.version_api_url, tmp_path)
+    assert_dirtrees_eq(zf, tmp_path / new_dandiset.dandiset_id / "sample.zarr")
+
+
 @pytest.mark.parametrize(
     "file_qty,inputs,expected",
     [

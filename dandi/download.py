@@ -872,19 +872,16 @@ def _download_zarr(
                     is_empty = False
             elif p.is_dir():
                 dirs.append(p)
+                is_empty = False
             else:
                 is_empty = False
         if is_empty and d != zarr_basepath:
             empty_dirs.append(d)
     while empty_dirs:
         d = empty_dirs.popleft()
-        try:
-            d.rmdir()
-        except OSError:
-            pass
-        else:
-            if d.parent != zarr_basepath and not any(d.parent.iterdir()):
-                empty_dirs.append(d.parent)
+        d.rmdir()
+        if d.parent != zarr_basepath and not any(d.parent.iterdir()):
+            empty_dirs.append(d.parent)
 
     if "skipped" not in final_out["message"]:
         zarr_checksum = asset.get_digest().value
