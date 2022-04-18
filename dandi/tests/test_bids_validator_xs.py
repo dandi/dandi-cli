@@ -313,7 +313,6 @@ def test_bids_datasets(bids_examples, tmp_path):
 
     # Validate per dataset, with automatic schema selection:
     for i in os.listdir(bids_examples):
-        print(i)
         if i in whitelist:
             result = validate_bids(
                 os.path.join(bids_examples, i),
