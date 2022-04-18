@@ -293,7 +293,6 @@ def test_bids_datasets(bids_examples, tmp_path):
     from dandi.bids_validator_xs import validate_bids
 
     whitelist = [
-        "qmri_megre",
         "asl003",
         "pet002",
         "asl005",
@@ -312,11 +311,12 @@ def test_bids_datasets(bids_examples, tmp_path):
     ]
     schema_path = "{module_path}/support/bids/schemadata/1.7.0+012+dandi001"
 
-    # Validate per dataset, with debugging:
+    # Validate per dataset, with automatic schema selection:
     for i in os.listdir(bids_examples):
+        print(i)
         if i in whitelist:
             result = validate_bids(
-                os.path.join(bids_examples, i), schema_version=schema_path
+                os.path.join(bids_examples, i),
             )
             # Have all files been validated?
             assert len(result["path_tracking"]) == 0
@@ -328,10 +328,11 @@ def test_bids_datasets(bids_examples, tmp_path):
         for f in files:
             selected_path = os.path.join(root, f)
             selected_paths.append(selected_path)
-    # Does terminal debug output work?
+    # Does terminal debug output work and explicit schema specification work?
     result = validate_bids(selected_paths, schema_version=schema_path, debug=True)
     # Does default log path specification work?
     result = validate_bids(selected_paths, schema_version=schema_path, report_path=True)
+
     # Does custom log path specification work?
     result = validate_bids(
         selected_paths,
