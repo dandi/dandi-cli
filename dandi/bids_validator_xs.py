@@ -130,7 +130,7 @@ def _extension_safety(extension):
     """
     if extension == "None":
         return ""
-    if "*" in extension:
+    if "." in extension:
         extension = extension.replace(".", "\\.")
     if "*" in extension:
         extension = extension.replace("*", ".*?")

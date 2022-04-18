@@ -98,7 +98,8 @@ def test__add_extensions():
     assert (
         _regex_string == "sub-(?P=subject)(|_ses-(?P=session))"
         "_sample-(?P<sample>([a-z,A-Z,0-9]*?))"
-        "(|_acq-(?P<acquisition>([a-z,A-Z,0-9]*?)))_photo\\.(jpg|png|tif)"
+        "(|_acq-(?P<acquisition>([a-z,A-Z,0-9]*?)))"
+        "_photo(\\.jpg|\\.png|\\.tif)"
     )
 
 
