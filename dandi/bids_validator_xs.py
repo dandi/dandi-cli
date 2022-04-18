@@ -221,7 +221,7 @@ def load_top_level(
             for extension in extensions:
                 extension = _extension_safety(extension)
                 safe_extensions.append(extension)
-                extensions_regex = "|".join(safe_extensions)
+            extensions_regex = "|".join(safe_extensions)
             regex = f".*?/{top_level_filename}({extensions_regex})$"
         else:
             regex = f".*?/{top_level_filename}$"
