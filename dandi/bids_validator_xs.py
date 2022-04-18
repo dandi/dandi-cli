@@ -32,12 +32,9 @@ def _get_paths(bids_paths):
         input.
     """
     exclude_subdirs = [
-        "/.dandi",
-        "/.datalad",
-        "/.git",
-        "\\.dandi",
-        "\\.datalad",
-        "\\.git",
+        rf"{os.sep}.dandi",
+        rf"{os.sep}.datalad",
+        rf"{os.sep}.git",
     ]
     # `.bidsignore` is not, in fact, a BIDS file, as per:
     # https://github.com/bids-standard/bids-specification/issues/980
@@ -217,11 +214,7 @@ def load_top_level(
         # None value gets passed as list of strings...
         extensions = top_level_file["extensions"]
         if extensions != ["None"]:
-            safe_extensions = []
-            for extension in extensions:
-                extension = _extension_safety(extension)
-                safe_extensions.append(extension)
-            extensions_regex = "|".join(safe_extensions)
+            extensions_regex = "|".join(map(_extension_safety, extensions))
             regex = f".*?/{top_level_filename}({extensions_regex})$"
         else:
             regex = f".*?/{top_level_filename}$"
