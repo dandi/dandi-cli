@@ -4,7 +4,10 @@ import json
 import os
 import re
 
+from . import utils
 from .support.bids import schema
+
+lgr = utils.get_logger()
 
 # The list of which entities create directories could be dynamically specified by the YAML, but for
 # now, it is not.
@@ -600,9 +603,21 @@ def select_schema_dir(
                     try:
                         schema_version = dataset_info["BIDSVersion"]
                     except KeyError:
+                        lgr.warning(
+                            "BIDSVersion is not specified in "
+                            "`dataset_description.json`. "
+                            f"Falling back to {schema_min_version}."
+                        )
                         schema_version = schema_min_version
         if schema_min_version:
             if schema_version < schema_min_version:
+                lgr.warning(
+                    f"BIDSVersion {schema_version} is less than the minimal working "
+                    "{schema_min_version}. "
+                    "Falling back to {schema_min_version}. "
+                    "To force the usage of earlier versions specify them explicitly "
+                    "when calling the validator."
+                )
                 schema_version = schema_min_version
     schema_dir = os.path.join(schema_reference_root, schema_version)
     if os.path.isdir(schema_dir):
