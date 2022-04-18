@@ -128,8 +128,10 @@ def _extension_safety(extension):
     * Period safety: https://github.com/bids-standard/bids-specification/issues/1055
     * Hopefully this function will be deprecated soon, but it will not break safe entries.
     """
-    if extension[0] == ".":
-        extension = extension[1:]
+    if extension == "None":
+        return ""
+    if "*" in extension:
+        extension = extension.replace(".", "\\.")
     if "*" in extension:
         extension = extension.replace("*", ".*?")
 
@@ -146,7 +148,7 @@ def _add_extensions(regex_string, variant):
         regex_extensions = "({})".format("|".join(fixed_variant_extensions))
     else:
         regex_extensions = fixed_variant_extensions[0]
-    regex_string = f"{regex_string}\\.{regex_extensions}"
+    regex_string = f"{regex_string}{regex_extensions}"
 
     return regex_string
 
@@ -217,7 +219,7 @@ def load_top_level(
                 extension = _extension_safety(extension)
                 safe_extensions.append(extension)
                 extensions_regex = "|".join(safe_extensions)
-            regex = f".*?/{top_level_filename}\\.({extensions_regex})$"
+            regex = f".*?/{top_level_filename}({extensions_regex})$"
         else:
             regex = f".*?/{top_level_filename}$"
         regex_entry = {
