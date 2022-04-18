@@ -30,6 +30,7 @@ metadata_nwb_subject_fields = (
 metadata_nwb_dandi_fields = ("cell_id", "slice_id", "tissue_sample_id", "probe_ids")
 
 metadata_nwb_computed_fields = (
+    "bids_version",
     "number_of_electrodes",
     "number_of_units",
     "nwb_version",
@@ -75,7 +76,7 @@ PUBLISHED_VERSION_REGEX = r"[0-9]+\.[0-9]+\.[0-9]+"
 
 #: Regular expression for a valid Dandiset version identifier.  This regex is
 #: not anchored.
-VERSION_REGEX = fr"(?:{PUBLISHED_VERSION_REGEX}|draft)"
+VERSION_REGEX = rf"(?:{PUBLISHED_VERSION_REGEX}|draft)"
 
 
 class EmbargoStatus(Enum):
