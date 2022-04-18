@@ -25,6 +25,7 @@ from uuid import uuid4
 from xml.dom.minidom import parseString
 
 from dandischema import models
+import h5py
 import requests
 import tenacity
 
@@ -43,7 +44,27 @@ from .utils import ensure_datetime, get_mime_type, get_utcnow_datetime
 
 lgr = get_logger()
 
+# Remove hard-coding when current version fallback is merged.
+BIDS_VERSION = "1.7.0+012+dandi001"
 
+BIDS_TO_DANDI = {
+    "subject": "subject_id",
+    "session": "session_id",
+}
+
+
+def _rename_bids_keys(bids_metadata, conversion=BIDS_TO_DANDI):
+    """Standardize BIDS metadata field naming to match DANDI."""
+    converted_bids_metadata = {}
+    for key in bids_metadata.keys():
+        if key in conversion:
+            converted_bids_metadata[conversion[key]] = bids_metadata[key]
+        else:
+            converted_bids_metadata[key] = bids_metadata[key]
+    return converted_bids_metadata
+
+
+# Disable this for clean hacking
 @metadata_cache.memoize_path
 def get_metadata(path: Union[str, Path]) -> Optional[dict]:
     """Get selected metadata from a .nwb file or a dandiset directory
@@ -70,6 +91,19 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
         except ValueError as exc:
             lgr.debug("Failed to get metadata for %s: %s", path, exc)
             return None
+
+    # Pretty fragile way to determine that it's not nwb.
+    # Ideally can find something better.
+    try:
+        h5py.File(path)
+    except OSError:
+        from .bids_validator_xs import validate_bids
+
+        meta = validate_bids(path, schema_version=BIDS_VERSION)
+        meta = meta["match_listing"][0]
+        meta["bids_version"] = BIDS_VERSION
+        meta = _rename_bids_keys(meta)
+        return meta
 
     if nwb_has_external_links(path):
         raise NotImplementedError(
@@ -195,7 +229,9 @@ def _check_decimal_parts(age_parts: List[str]) -> bool:
             flags=re.I,
         )
         if m is None:
-            raise ValueError(f"Failed to parse the trailing part of age {age_parts[-1]!r}")
+            raise ValueError(
+                f"Failed to parse the trailing part of age {age_parts[-1]!r}"
+            )
         age_parts = age_parts[:-1] + [m[i] for i in range(1, 3) if m[i]]
     decim_part = ["." in el for el in age_parts]
     return not (any(decim_part) and any(decim_part[:-1]))
