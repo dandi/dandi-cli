@@ -294,20 +294,15 @@ def test_bids_datasets(bids_examples, tmp_path):
 
     whitelist = [
         "asl003",
-        "pet002",
-        "asl005",
-        "asl002",
-        "pet004",
         "eeg_cbm",
-        "pet005",
         "hcp_example_bids",
-        "asl004",
-        "qmri_tb1tfl",
+        "micr_SEM",
+        "micr_SEM-dandi",
         "micr_SPIM",
         "pet001",
         "pet003",
-        "micr_SEM",
-        "micr_SEM-dandi",
+        "qmri_tb1tfl",
+        "qmri_vfa",
     ]
     schema_path = "{module_path}/support/bids/schemadata/1.7.0+012+dandi001"
 
