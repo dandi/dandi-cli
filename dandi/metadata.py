@@ -93,7 +93,7 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
             return None
 
     # Pretty fragile way to determine that it's not nwb.
-    # Ideally can find something better.
+    # Ideally can find something better, like `is_nwb` or `is_bids`.
     try:
         h5py.File(path)
     except OSError:
