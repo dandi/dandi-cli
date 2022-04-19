@@ -49,6 +49,7 @@ def test_publish_and_manipulate(new_dandiset: SampleDandiset, tmp_path: Path) ->
     assert str(d) == f"DANDI-API-LOCAL-DOCKER-TESTS:{dandiset_id}/draft"
     (dspath / "subdir").mkdir()
     (dspath / "subdir" / "file.txt").write_text("This is test text.\n")
+    (dspath / "subdir" / "doomed.txt").write_text("This will be deleted.\n")
     new_dandiset.upload(allow_any_path=True)
 
     d.wait_until_valid()
@@ -61,21 +62,11 @@ def test_publish_and_manipulate(new_dandiset: SampleDandiset, tmp_path: Path) ->
     dandiset_yaml = tmp_path / dandiset_id / dandiset_metadata_file
     file_in_version = tmp_path / dandiset_id / "subdir" / "file.txt"
 
-    download(dv.version_api_url, tmp_path)
-    assert list_paths(tmp_path) == [dandiset_yaml, file_in_version]
-    assert file_in_version.read_text() == "This is test text.\n"
-
     (dspath / "subdir" / "file.txt").write_text("This is different text.\n")
-    new_dandiset.upload(allow_any_path=True)
-    rmtree(tmp_path / dandiset_id)
-    download(dv.version_api_url, tmp_path)
-    assert list_paths(tmp_path) == [dandiset_yaml, file_in_version]
-    assert file_in_version.read_text() == "This is test text.\n"
-
     (dspath / "subdir" / "file2.txt").write_text("This is more text.\n")
     new_dandiset.upload(allow_any_path=True)
+    d.get_asset_by_path("subdir/doomed.txt").delete()
 
-    rmtree(tmp_path / dandiset_id)
     download(d.version_api_url, tmp_path)
     assert list_paths(tmp_path) == [
         dandiset_yaml,
@@ -87,23 +78,15 @@ def test_publish_and_manipulate(new_dandiset: SampleDandiset, tmp_path: Path) ->
 
     rmtree(tmp_path / dandiset_id)
     download(dv.version_api_url, tmp_path)
-    assert list_paths(tmp_path) == [dandiset_yaml, file_in_version]
-    assert file_in_version.read_text() == "This is test text.\n"
-
-    d.get_asset_by_path("subdir/file.txt").delete()
-
-    rmtree(tmp_path / dandiset_id)
-    download(d.version_api_url, tmp_path)
     assert list_paths(tmp_path) == [
         dandiset_yaml,
-        file_in_version.with_name("file2.txt"),
+        file_in_version.with_name("doomed.txt"),
+        file_in_version,
     ]
-    assert file_in_version.with_name("file2.txt").read_text() == "This is more text.\n"
-
-    rmtree(tmp_path / dandiset_id)
-    download(dv.version_api_url, tmp_path)
-    assert list_paths(tmp_path) == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
+    assert (
+        file_in_version.with_name("doomed.txt").read_text() == "This will be deleted.\n"
+    )
 
 
 def test_get_asset_metadata(new_dandiset: SampleDandiset, simple1_nwb: str) -> None:
