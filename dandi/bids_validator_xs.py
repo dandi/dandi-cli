@@ -4,7 +4,10 @@ import json
 import os
 import re
 
-from .support.bids import schema, utils
+from . import utils
+from .support.bids import schema
+
+lgr = utils.get_logger()
 
 # The list of which entities create directories could be dynamically specified by the YAML, but for
 # now, it is not.
@@ -32,9 +35,9 @@ def _get_paths(bids_paths):
         input.
     """
     exclude_subdirs = [
-        "/.dandi",
-        "/.datalad",
-        "/.git",
+        rf"{os.sep}.dandi",
+        rf"{os.sep}.datalad",
+        rf"{os.sep}.git",
     ]
     # `.bidsignore` is not, in fact, a BIDS file, as per:
     # https://github.com/bids-standard/bids-specification/issues/980
@@ -107,29 +110,48 @@ def _add_entity(
     return regex_entities
 
 
+def _extension_safety(extension):
+    """
+    Making extensions formatting-safe.
+    Issues covered by this function are listed under “Notes”
+
+    Parameters
+    ----------
+    extension : str
+        Extension string, as present in the BIDS YAML schema.
+
+    Returns
+    -------
+    str
+        Extension string, safe for use in validator Regex formatting.
+
+    Notes
+    -----
+    * Bash-wildcard safety: https://github.com/bids-standard/bids-specification/issues/990
+    * Period safety: https://github.com/bids-standard/bids-specification/issues/1055
+    * Hopefully this function will be deprecated soon, but it will not break safe entries.
+    """
+    if extension == "None":
+        return ""
+    if "." in extension:
+        extension = extension.replace(".", "\\.")
+    if "*" in extension:
+        extension = extension.replace("*", ".*?")
+
+    return extension
+
+
 def _add_extensions(regex_string, variant):
     """Add extensions to a regex string."""
-    if len(variant["extensions"]) == 1:
-        # This only happens in `rules/datatypes/meg.yaml` once:
-        if variant["extensions"][0] == "*":
-            regex_extensions = ".*?"
-        else:
-            # Making it period-safe:
-            if variant["extensions"][0][0] == ".":
-                regex_extensions = variant["extensions"][0][1:]
-            else:
-                regex_extensions = variant["extensions"][0]
-    else:
-        # Making it period-safe:
-        fixed_variant_extensions = []
-        for variant_extension in variant["extensions"]:
-            if variant_extension[0] == ".":
-                fixed_variant_extensions.append(variant_extension[1:])
-            else:
-                fixed_variant_extensions.append(variant_extension)
-
+    fixed_variant_extensions = []
+    for variant_extension in variant["extensions"]:
+        variant_extension = _extension_safety(variant_extension)
+        fixed_variant_extensions.append(variant_extension)
+    if len(fixed_variant_extensions) > 1:
         regex_extensions = "({})".format("|".join(fixed_variant_extensions))
-    regex_string = f"{regex_string}\\.{regex_extensions}"
+    else:
+        regex_extensions = fixed_variant_extensions[0]
+    regex_string = f"{regex_string}{regex_extensions}"
 
     return regex_string
 
@@ -195,14 +217,8 @@ def load_top_level(
         # None value gets passed as list of strings...
         extensions = top_level_file["extensions"]
         if extensions != ["None"]:
-            periodsafe_extensions = []
-            for extension in extensions:
-                if extension[0] == ".":
-                    periodsafe_extensions.append(extension[1:])
-                else:
-                    periodsafe_extensions.append(extension)
-                extensions_regex = "|".join(periodsafe_extensions)
-                regex = f".*?/{top_level_filename}\\.({extensions_regex})$"
+            extensions_regex = "|".join(map(_extension_safety, extensions))
+            regex = f".*?/{top_level_filename}({extensions_regex})$"
         else:
             regex = f".*?/{top_level_filename}$"
         regex_entry = {
@@ -520,15 +536,16 @@ def select_schema_dir(
     bids_paths,
     schema_reference_root,
     schema_version,
-    force_select=False,
+    schema_min_version="1.7.0+012+dandi001",
 ):
     """
     Select schema directory, according to a fallback logic whereby the schema path is
     either (1) `schema_version` if the value is a path, (2) a concatenation of
     `schema_reference_root` and `schema_version`, (3) a concatenation of the detected
     version specification from a `dataset_description.json` file if one is found in
-    parents of the input path, (4) the newest schema from the code distribution only
-    if `force_select` is enabled.
+    parents of the input path, (4) `schema_min_version` if no other version can be found
+    or if the detected version from `dataset_description.json` is smaller than
+    `schema_min_version`.
 
     Parameters
     ----------
@@ -548,8 +565,10 @@ def select_schema_dir(
         If the path starts with the string "{module_path}" it will be expanded relative to the
         module path.
         If None, the `dataset_description.json` fie will be queried for the dataset schema version.
-    force_select : bool, optional
-        Whether to fall back to newest version of schema if no version is given or found.
+    schema_min_version : str, optional
+        Minimal version to use UNLESS the schema version is manually specified.
+        If the version is auto-detected and the version is smaller than schema_min_version,
+        schema_min_version will be selected instead.
 
     Returns
     -------
@@ -581,23 +600,33 @@ def select_schema_dir(
             else:
                 with open(dataset_description) as f:
                     dataset_info = json.load(f)
-                    if force_select:
-                        try:
-                            schema_version = dataset_info["BIDSVersion"]
-                        except KeyError:
-                            return utils.get_schema_path()
-                    else:
+                    try:
                         schema_version = dataset_info["BIDSVersion"]
+                    except KeyError:
+                        lgr.warning(
+                            "BIDSVersion is not specified in "
+                            "`dataset_description.json`. "
+                            f"Falling back to {schema_min_version}."
+                        )
+                        schema_version = schema_min_version
+        if schema_min_version:
+            if schema_version < schema_min_version:
+                lgr.warning(
+                    f"BIDSVersion {schema_version} is less than the minimal working "
+                    "{schema_min_version}. "
+                    "Falling back to {schema_min_version}. "
+                    "To force the usage of earlier versions specify them explicitly "
+                    "when calling the validator."
+                )
+                schema_version = schema_min_version
     schema_dir = os.path.join(schema_reference_root, schema_version)
     if os.path.isdir(schema_dir):
         return schema_dir
-    elif force_select:
-        return utils.get_schema_path()
     else:
         raise ValueError(
             f"The expected schema directory {schema_dir} does not exist on the system."
-            "Please ensure the file exists or use the `force_select` option, in order"
-            "to auto-select the most recent schema as a fallback."
+            "Please ensure the file exists or manually specify a schema version for "
+            "which the schemacode files are available on your system."
         )
 
 
@@ -605,7 +634,6 @@ def validate_bids(
     bids_paths,
     schema_reference_root="{module_path}/support/bids/schemadata/",
     schema_version=None,
-    force_select=False,
     debug=False,
     report_path=False,
 ):
@@ -628,12 +656,18 @@ def validate_bids(
         If the path starts with the string "{module_path}" it will be expanded relative to the
         module path.
         If None, the `dataset_description.json` fie will be queried for the dataset schema version.
-    force_select : bool, optional
-        Whether to fall back to newest version of schema if no version is given or found.
     report_path : bool or str, optional
         If `True` a log will be written using the standard output path of `.write_report()`.
         If string, the string will be used as the output path.
         If the variable evaluates as False, no log will be written.
+
+    Returns
+    -------
+    results : dict
+        A dictionary reporting the target files for validation, the unmatched files and unmatched
+        regexes, and optionally the itemwise comparison results.
+        Keys include "schema_tracking", "path_tracking", "path_listing", "match_listing", and
+        optionally "itemwise"
 
     Examples
     --------

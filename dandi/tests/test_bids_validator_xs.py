@@ -98,7 +98,8 @@ def test__add_extensions():
     assert (
         _regex_string == "sub-(?P=subject)(|_ses-(?P=session))"
         "_sample-(?P<sample>([a-z,A-Z,0-9]*?))"
-        "(|_acq-(?P<acquisition>([a-z,A-Z,0-9]*?)))_photo\\.(jpg|png|tif)"
+        "(|_acq-(?P<acquisition>([a-z,A-Z,0-9]*?)))"
+        "_photo(\\.jpg|\\.png|\\.tif)"
     )
 
 
@@ -292,30 +293,24 @@ def test_bids_datasets(bids_examples, tmp_path):
     from dandi.bids_validator_xs import validate_bids
 
     whitelist = [
-        "qmri_megre",
         "asl003",
-        "pet002",
-        "asl005",
-        "asl002",
-        "pet004",
         "eeg_cbm",
-        "pet005",
         "hcp_example_bids",
-        "asl004",
-        "qmri_tb1tfl",
+        "micr_SEM",
+        "micr_SEM-dandi",
         "micr_SPIM",
         "pet001",
         "pet003",
-        "micr_SEM",
-        "micr_SEM-dandi",
+        "qmri_tb1tfl",
+        "qmri_vfa",
     ]
     schema_path = "{module_path}/support/bids/schemadata/1.7.0+012+dandi001"
 
-    # Validate per dataset, with debugging:
+    # Validate per dataset, with automatic schema selection:
     for i in os.listdir(bids_examples):
         if i in whitelist:
             result = validate_bids(
-                os.path.join(bids_examples, i), schema_version=schema_path
+                os.path.join(bids_examples, i),
             )
             # Have all files been validated?
             assert len(result["path_tracking"]) == 0
@@ -327,10 +322,11 @@ def test_bids_datasets(bids_examples, tmp_path):
         for f in files:
             selected_path = os.path.join(root, f)
             selected_paths.append(selected_path)
-    # Does terminal debug output work?
+    # Does terminal debug output work and explicit schema specification work?
     result = validate_bids(selected_paths, schema_version=schema_path, debug=True)
     # Does default log path specification work?
     result = validate_bids(selected_paths, schema_version=schema_path, report_path=True)
+
     # Does custom log path specification work?
     result = validate_bids(
         selected_paths,
