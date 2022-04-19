@@ -1,3 +1,17 @@
+# 0.39.2 (Tue Apr 19 2022)
+
+#### 🐛 Bug Fix
+
+- Validator fixes: fallback to our version, skip dotdirs on windows, etc [#955](https://github.com/dandi/dandi-cli/pull/955) ([@TheChymera](https://github.com/TheChymera))
+- Better detection of empty directories when download-syncing Zarrs [#961](https://github.com/dandi/dandi-cli/pull/961) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.39.1 (Thu Apr 14 2022)
 
 #### 🐛 Bug Fix
