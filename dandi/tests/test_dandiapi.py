@@ -14,6 +14,7 @@ from dandischema.models import UUID_PATTERN, DigestType, get_schema_version
 import pytest
 from pytest_mock import MockerFixture
 import responses
+import semantic_version as semver
 
 from .fixtures import DandiAPI, SampleDandiset
 from .skip import mark
@@ -618,3 +619,16 @@ def test_empty_zarr_iterfiles(new_dandiset: SampleDandiset) -> None:
     a = RemoteAsset.from_data(new_dandiset.dandiset, r)
     assert isinstance(a, RemoteZarrAsset)
     assert list(a.iterfiles()) == []
+
+
+def test_info(local_dandi_api: DandiAPI) -> None:
+    client = DandiAPIClient(local_dandi_api.api_url)
+    data = client.get("/info")
+
+    # Assert fields
+    assert "cli-minimal-version" in data
+    assert "cli-bad-versions" in data
+    assert "services" in data
+
+    # Implicitly assert `version` fields exists and is valid
+    semver.Version(data["version"])
