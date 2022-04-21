@@ -323,6 +323,7 @@ def test_parse_dandi_url_unknown_instance() -> None:
 
 
 @mark.skipif_no_network
+@pytest.mark.xfail(reason="https://github.com/dandi/dandi-archive/issues/1020")
 def test_parse_dandi_url_not_found() -> None:
     # Unlikely this one would ever come to existence
     with pytest.raises(NotFoundError):
