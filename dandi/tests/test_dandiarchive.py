@@ -110,7 +110,7 @@ from .fixtures import DandiAPI, SampleDandiset
             DandisetURL(
                 api_url=known_instances["dandi"].api,
                 dandiset_id="000027",
-                version_id="draft",  # TODO: why not None?
+                version_id=None,
             ),
             marks=mark.skipif_no_network,
         ),
