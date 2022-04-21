@@ -311,6 +311,7 @@ else:
     using_docker = mark.skipif_no_network
 
 
+@pytest.mark.xfail(reason="https://github.com/dandi/dandi-archive/issues/1045")
 @pytest.mark.redirector
 @using_docker
 def test_server_info() -> None:
