@@ -36,7 +36,7 @@ metadata_nwb_computed_fields = (
     "nd_types",
 )
 
-metadata_bids_fields = ("bids_version",)
+metadata_bids_fields = ("bids_schema_version",)
 
 metadata_nwb_fields = (
     metadata_nwb_file_fields

@@ -368,7 +368,7 @@ def get_metadata_ls(
         if (
             not op.isdir(path)
             and "nwb_version" not in rec
-            and "bids_version" not in rec
+            and "bids_schema_version" not in rec
             and (keys and "nwb_version" in keys)
         ):
             # Let's at least get that one

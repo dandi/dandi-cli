@@ -45,7 +45,6 @@ from .utils import ensure_datetime, get_mime_type, get_utcnow_datetime
 lgr = get_logger()
 
 # Remove hard-coding when current version fallback is merged.
-BIDS_VERSION = "1.7.0+012+dandi001"
 
 BIDS_TO_DANDI = {
     "subject": "subject_id",
@@ -99,9 +98,9 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
     except OSError:
         from .bids_validator_xs import validate_bids
 
-        meta = validate_bids(path, schema_version=BIDS_VERSION)
-        meta = meta["match_listing"][0]
-        meta["bids_version"] = BIDS_VERSION
+        _meta = validate_bids(path)
+        meta = _meta["match_listing"][0]
+        meta["bids_schema_version"] = _meta["bids_schema_version"]
         meta = _rename_bids_keys(meta)
         return meta
 
