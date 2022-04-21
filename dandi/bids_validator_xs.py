@@ -4,6 +4,8 @@ import json
 import os
 import re
 
+import appdirs
+
 from . import utils
 from .support.bids import schema
 
@@ -450,7 +452,7 @@ def validate_all(
 
 def write_report(
     validation_result,
-    report_path="/var/tmp/bids-validator-report_{}.log",
+    report_path="{logdir}/bids-validator-report_{date}.log",
     datetime_format="%Y%m%d-%H%M%S",
 ):
     """Write a human-readable report based on the validation result.
@@ -463,8 +465,10 @@ def write_report(
         The "itemwise" value, if present, should be a list of dictionaries, with keys including
         "path", "regex", and "match".
     report_path : str, optional
-        A path under which the report is to be saved, the `{}` string, if included, will be
-        expanded to current datetime, as per the `datetime_format` parameter.
+        A path under which the report is to be saved, `logdir` and `date` are available
+        as variables for string formatting, and will be expanded to the application log
+        directory and current datetime (as per the `datetime_format` parameter),
+        respectively.
     datetime_format : str, optional
         A datetime format, optionally used for the report path.
 
@@ -473,7 +477,12 @@ def write_report(
     * Not using f-strings in order to prevent arbitrary code execution.
     """
 
-    report_path = report_path.format(datetime.datetime.now().strftime(datetime_format))
+    logdir = appdirs.user_log_dir("dandi-cli", "dandi")
+
+    report_path = report_path.format(
+        logdir=logdir,
+        date=datetime.datetime.now().strftime(datetime_format),
+    )
     report_path = os.path.abspath(os.path.expanduser(report_path))
     try:
         os.makedirs(os.path.dirname(report_path))
@@ -519,6 +528,7 @@ def write_report(
         else:
             f.write("All mandatory BIDS files were found.\n")
         f.close()
+    lgr.info(f"BIDS validation log written to {report_path}")
 
 
 def _find_dataset_description(my_path):
