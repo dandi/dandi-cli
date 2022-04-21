@@ -1,3 +1,5 @@
+import re
+
 import pytest
 import responses
 
@@ -329,10 +331,8 @@ def test_parse_dandi_url_not_found() -> None:
 
 @mark.skipif_no_network
 def test_follow_redirect() -> None:
-    assert (
-        follow_redirect("https://bit.ly/dandi12")
-        == "https://gui.dandiarchive.org/#/file-browser/folder/5e72b6ac3da50caa9adb0498"
-    )
+    url = follow_redirect("https://bit.ly/dandi12")
+    assert re.match(r"https://(.*\.)?dandiarchive.org", url)
 
 
 @responses.activate
