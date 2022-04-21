@@ -594,6 +594,9 @@ def get_instance(dandi_instance_id: str) -> DandiInstance:
         )  # note: somehow was ending up with {"girder": None}
         for name, rec in server_info.get("services", {}).items()
     }
+    for k, v in list(services.items()):
+        if v is not None:
+            services[k] = v.rstrip("/")
     if services.get("api"):
         return DandiInstance(
             gui=services.get("webui"),
