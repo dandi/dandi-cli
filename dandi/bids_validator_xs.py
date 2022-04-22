@@ -452,8 +452,8 @@ def validate_all(
 
 def write_report(
     validation_result,
-    report_path="{logdir}/bids-validator-report_{date}.log",
-    datetime_format="%Y%m%d-%H%M%S",
+    report_path="{logdir}/bids-validator-report_{datetime}-{pid}.log",
+    datetime_format="%Y%m%d%H%M%SZ",
 ):
     """Write a human-readable report based on the validation result.
 
@@ -465,10 +465,10 @@ def write_report(
         The "itemwise" value, if present, should be a list of dictionaries, with keys including
         "path", "regex", and "match".
     report_path : str, optional
-        A path under which the report is to be saved, `logdir` and `date` are available
-        as variables for string formatting, and will be expanded to the application log
-        directory and current datetime (as per the `datetime_format` parameter),
-        respectively.
+        A path under which the report is to be saved, `datetime`, `logdir`, and `pid`
+        are available as variables for string formatting, and will be expanded to the
+        current datetime (as per the `datetime_format` parameter), application log
+        directory, and process ID, respectively.
     datetime_format : str, optional
         A datetime format, optionally used for the report path.
 
@@ -481,7 +481,8 @@ def write_report(
 
     report_path = report_path.format(
         logdir=logdir,
-        date=datetime.datetime.now().strftime(datetime_format),
+        datetime=datetime.datetime.utcnow().strftime(datetime_format),
+        pid=os.getpid(),
     )
     report_path = os.path.abspath(os.path.expanduser(report_path))
     try:
