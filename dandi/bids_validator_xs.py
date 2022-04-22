@@ -529,7 +529,7 @@ def write_report(
         else:
             f.write("All mandatory BIDS files were found.\n")
         f.close()
-    lgr.info(f"BIDS validation log written to {report_path}")
+    lgr.info("BIDS validation log written to %s", report_path)
 
 
 def _find_dataset_description(my_path):
@@ -617,17 +617,21 @@ def select_schema_dir(
                         lgr.warning(
                             "BIDSVersion is not specified in "
                             "`dataset_description.json`. "
-                            f"Falling back to {schema_min_version}."
+                            "Falling back to %s.",
+                            schema_min_version,
                         )
                         schema_version = schema_min_version
         if schema_min_version:
             if schema_version < schema_min_version:
                 lgr.warning(
-                    f"BIDSVersion {schema_version} is less than the minimal working "
-                    "{schema_min_version}. "
-                    "Falling back to {schema_min_version}. "
+                    "BIDSVersion %s is less than the minimal working "
+                    "%s. "
+                    "Falling back to %s. "
                     "To force the usage of earlier versions specify them explicitly "
-                    "when calling the validator."
+                    "when calling the validator.",
+                    schema_version,
+                    schema_min_version,
+                    schema_min_version,
                 )
                 schema_version = schema_min_version
     schema_dir = os.path.join(schema_reference_root, schema_version)
