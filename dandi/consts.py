@@ -75,7 +75,7 @@ PUBLISHED_VERSION_REGEX = r"[0-9]+\.[0-9]+\.[0-9]+"
 
 #: Regular expression for a valid Dandiset version identifier.  This regex is
 #: not anchored.
-VERSION_REGEX = fr"(?:{PUBLISHED_VERSION_REGEX}|draft)"
+VERSION_REGEX = rf"(?:{PUBLISHED_VERSION_REGEX}|draft)"
 
 
 class EmbargoStatus(Enum):
@@ -152,7 +152,7 @@ VIDEO_FILE_EXTENSIONS = [".mp4", ".avi", ".wmv", ".mov", ".flv", ".mkv"]
 VIDEO_FILE_MODULES = ["processing", "acquisition"]
 
 #: Maximum allowed depth of a Zarr directory tree
-MAX_ZARR_DEPTH = 5
+MAX_ZARR_DEPTH = 7
 
 #: MIME type assigned to & used to identify Zarr assets
 ZARR_MIME_TYPE = "application/x-zarr"
