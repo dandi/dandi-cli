@@ -331,13 +331,15 @@ def test_bids_datasets_selected_paths(bids_examples, tmp_path):
     result = validate_bids(selected_paths, schema_version=TEST_SCHEMA_PATH)
 
     # Does terminal debug output work?
-    result = validate_bids(selected_paths, schema_version=TEST_SCHEMA_PATH, debug=True)
+    result = validate_bids(selected_paths, debug=True)
 
-    # Does custom log path specification work?
+    # Does the default report path work?
+    result = validate_bids(selected_paths, report_path=True)
+
+    # Does custom report path specification work?
     result = validate_bids(
         selected_paths,
         schema_version=TEST_SCHEMA_PATH,
-        debug=True,
         report_path=os.path.join(tmp_path, "test_bids.log"),
     )
     # Have all files been validated?
