@@ -1,5 +1,6 @@
 from copy import deepcopy
 import datetime
+from functools import lru_cache
 import json
 import os
 import re
@@ -330,6 +331,7 @@ def load_entities(
     return regex_schema
 
 
+@lru_cache()
 def load_all(
     schema_dir,
 ):
