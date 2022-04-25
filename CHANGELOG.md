@@ -1,3 +1,32 @@
+# 0.39.3 (Mon Apr 25 2022)
+
+#### 🐛 Bug Fix
+
+- Increase Zarr depth limit to 7 directories [#984](https://github.com/dandi/dandi-cli/pull/984) ([@jwodder](https://github.com/jwodder))
+- keeping logs cleaner in dedicated directory [#971](https://github.com/dandi/dandi-cli/pull/971) ([@TheChymera](https://github.com/TheChymera))
+- performance: do not duplicate schema loading [#982](https://github.com/dandi/dandi-cli/pull/982) ([@TheChymera](https://github.com/TheChymera))
+- Strip trailing slash from URLs in `/server-info` [#972](https://github.com/dandi/dandi-cli/pull/972) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Add new API design doc [#447](https://github.com/dandi/dandi-cli/pull/447) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Removed duplicate, and simplified bids validator tests [#965](https://github.com/dandi/dandi-cli/pull/965) ([@TheChymera](https://github.com/TheChymera))
+- Mark `test_server_info` as xfailing [#978](https://github.com/dandi/dandi-cli/pull/978) ([@jwodder](https://github.com/jwodder))
+- Mark `test_parse_dandi_url_not_found` as xfailing [#973](https://github.com/dandi/dandi-cli/pull/973) ([@jwodder](https://github.com/jwodder))
+- Update `test_parse_api_url[DANDI:000027]` [#974](https://github.com/dandi/dandi-cli/pull/974) ([@jwodder](https://github.com/jwodder))
+- Update `test_follow_redirect` [#975](https://github.com/dandi/dandi-cli/pull/975) ([@jwodder](https://github.com/jwodder))
+- Combine subtests of `test_publish_and_manipulate` [#964](https://github.com/dandi/dandi-cli/pull/964) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.39.2 (Tue Apr 19 2022)
 
 #### 🐛 Bug Fix
