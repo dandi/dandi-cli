@@ -1,5 +1,6 @@
 from copy import deepcopy
 import datetime
+from functools import lru_cache
 import json
 import os
 import re
@@ -191,16 +192,17 @@ def _add_suffixes(regex_string, variant):
 
 
 def load_top_level(
-    schema_dir,
+    my_schema,
 ):
     """
     Create full path regexes for top level files, as documented by a target BIDS YAML schema
     version.
 
+
     Parameters
     ----------
-    schema_dir : str
-        A string pointing to a BIDS directory for which paths should be validated.
+    my_schema : dict
+        A nested dictionary, as returned by `dandi.support.bids.schema.load_schema()`.
 
     Returns
     -------
@@ -208,7 +210,6 @@ def load_top_level(
         A list of dictionaries, with keys including 'regex' and 'mandatory'.
     """
 
-    my_schema = schema.load_schema(schema_dir)
     top_level_files = my_schema["rules"]["top_level_files"]
 
     regex_schema = []
@@ -231,14 +232,14 @@ def load_top_level(
 
 
 def load_entities(
-    schema_dir,
+    my_schema,
 ):
     """Create full path regexes for entities, as documented by a target BIDS YAML schema version.
 
     Parameters
     ----------
-    schema_dir : str
-        A string pointing to a BIDS directory for which paths should be validated.
+    my_schema : dict
+        A nested dictionary, as returned by `dandi.support.bids.schema.load_schema()`.
 
     Notes
     -----
@@ -262,8 +263,6 @@ def load_entities(
     regex_schema : list of dict
         A list of dictionaries, with keys including 'regex' and 'mandatory'.
     """
-
-    my_schema = schema.load_schema(schema_dir)
 
     label = "([a-z,A-Z,0-9]*?)"
 
@@ -332,6 +331,7 @@ def load_entities(
     return regex_schema
 
 
+@lru_cache()
 def load_all(
     schema_dir,
 ):
@@ -349,11 +349,12 @@ def load_all(
         A list of dictionaries, with keys including 'regex' and 'mandatory'.
     """
 
+    my_schema = schema.load_schema(schema_dir)
     all_regex = load_entities(
-        schema_dir=schema_dir,
+        my_schema=my_schema,
     )
     top_level_regex = load_top_level(
-        schema_dir=schema_dir,
+        my_schema=my_schema,
     )
     all_regex.extend(top_level_regex)
 
