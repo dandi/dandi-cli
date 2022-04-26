@@ -1,3 +1,15 @@
+# 0.39.4 (Tue Apr 26 2022)
+
+#### 🏎 Performance
+
+- Remove size comparison check when uploading Zarr entries [#986](https://github.com/dandi/dandi-cli/pull/986) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.39.3 (Mon Apr 25 2022)
 
 #### 🐛 Bug Fix
