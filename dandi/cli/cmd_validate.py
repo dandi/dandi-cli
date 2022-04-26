@@ -15,8 +15,8 @@ from .base import devel_debug_option, devel_option, lgr, map_to_click_exceptions
     "--report-flag",
     "-r",
     is_flag=True,
-    help="Whether to write a report under a"
-    "unique path in the current directory. Only usable if `--report` is not already used.",
+    help="Whether to write a report under a unique path in the current directory. "
+    "Only usable if `--report` is not already used.",
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
 @devel_debug_option()
