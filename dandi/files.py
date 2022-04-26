@@ -42,8 +42,8 @@ from dandischema.digests.zarr import get_checksum
 from dandischema.models import BareAsset, CommonModel
 from dandischema.models import Dandiset as DandisetMeta
 from dandischema.models import DigestType, get_schema_version
+from nwbinspector import Importance, inspect_nwb, load_config
 from pydantic import ValidationError
-from nwbinspector import inspect_nwb, load_config, Importance
 import requests
 import zarr
 
@@ -895,14 +895,6 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                             for k, v in sub_e:
                                 old_zarr_entries.pop(k)
                                 to_delete.append(v)
-                            to_upload.register(local_entry)
-                        elif local_entry.size != remote_entry.size:
-                            lgr.debug(
-                                "%s: Path %s in Zarr has different size from"
-                                " local file; re-uploading",
-                                asset_path,
-                                local_entry,
-                            )
                             to_upload.register(local_entry)
                         else:
                             digesting.append(
