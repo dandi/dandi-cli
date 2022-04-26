@@ -606,7 +606,7 @@ def select_schema_dir(
         if dataset_description:
             if dataset_description in dataset_descriptions:
                 raise ValueError(
-                    "You have selected files belonging to 2 different datasets."
+                    "You have selected files belonging to 2 different datasets. "
                     "Please run the validator once per dataset."
                 )
             else:
@@ -640,7 +640,7 @@ def select_schema_dir(
         return schema_dir
     else:
         raise ValueError(
-            f"The expected schema directory {schema_dir} does not exist on the system."
+            f"The expected schema directory {schema_dir} does not exist on the system. "
             "Please ensure the file exists or manually specify a schema version for "
             "which the schemacode files are available on your system."
         )
