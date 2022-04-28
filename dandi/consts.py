@@ -1,9 +1,10 @@
-from collections import namedtuple
+from enum import Enum
 import os
+from typing import NamedTuple, Optional
 
-# A list of metadata fields which dandi extracts from .nwb files.
-# Additional fields (such as `number_of_*`) might be added by the
-# get_metadata`
+#: A list of metadata fields which dandi extracts from .nwb files.
+#: Additional fields (such as ``number_of_*``) might be added by
+#: `get_metadata()`
 metadata_nwb_file_fields = (
     "experiment_description",
     "experimenter",
@@ -64,10 +65,34 @@ metadata_dandiset_fields = (
 
 metadata_all_fields = metadata_nwb_fields + metadata_dandiset_fields
 
-dandiset_metadata_file = "dandiset.yaml"
-dandiset_identifier_regex = "^[0-9]{6}$"
+#: Regular expression for a valid Dandiset identifier.  This regex is not
+#: anchored.
+DANDISET_ID_REGEX = r"[0-9]{6}"
 
-dandi_instance = namedtuple("dandi_instance", ("gui", "redirector", "api"))
+#: Regular expression for a valid published (i.e., non-draft) Dandiset version
+#: identifier.  This regex is not anchored.
+PUBLISHED_VERSION_REGEX = r"[0-9]+\.[0-9]+\.[0-9]+"
+
+#: Regular expression for a valid Dandiset version identifier.  This regex is
+#: not anchored.
+VERSION_REGEX = rf"(?:{PUBLISHED_VERSION_REGEX}|draft)"
+
+
+class EmbargoStatus(Enum):
+    OPEN = "OPEN"
+    UNEMBARGOING = "UNEMBARGOING"
+    EMBARGOED = "EMBARGOED"
+
+
+dandiset_metadata_file = "dandiset.yaml"
+dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
+
+
+class DandiInstance(NamedTuple):
+    gui: Optional[str]
+    redirector: Optional[str]
+    api: Optional[str]
+
 
 # So it could be easily mapped to external IP (e.g. from within VM)
 # to test against instance running outside of current environment
@@ -76,22 +101,22 @@ instancehost = os.environ.get("DANDI_INSTANCEHOST", "localhost")
 redirector_base = os.environ.get("DANDI_REDIRECTOR_BASE", "https://dandiarchive.org")
 
 known_instances = {
-    "dandi": dandi_instance(
+    "dandi": DandiInstance(
         "https://gui.dandiarchive.org",
         redirector_base,
         "https://api.dandiarchive.org/api",
     ),
-    "dandi-devel": dandi_instance(
+    "dandi-devel": DandiInstance(
         "https://gui-beta-dandiarchive-org.netlify.app",
         None,
         None,
     ),
-    "dandi-staging": dandi_instance(
+    "dandi-staging": DandiInstance(
         "https://gui-staging.dandiarchive.org",
         None,
         "https://api-staging.dandiarchive.org/api",
     ),
-    "dandi-api-local-docker-tests": dandi_instance(
+    "dandi-api-local-docker-tests": DandiInstance(
         None, None, f"http://{instancehost}:8000/api"
     ),
 }
@@ -108,10 +133,32 @@ file_operation_modes = [
     "auto",
 ]
 
-#
+
 # Download (upload?) specific constants
-#
-# Chunk size when iterating a download (and upload) body. Taken from girder-cli
-# TODO: should we make them smaller for download than for upload?
-# ATM used only in download
+
+#: Chunk size when iterating a download (and upload) body. Taken from girder-cli
+#: TODO: should we make them smaller for download than for upload?
+#: ATM used only in download
 MAX_CHUNK_SIZE = int(os.environ.get("DANDI_MAX_CHUNK_SIZE", 1024 * 1024 * 8))  # 64
+
+#: The identifier for draft Dandiset versions
+DRAFT = "draft"
+
+#: HTTP response status codes that should always be retried (until we run out
+#: of retries)
+RETRY_STATUSES = (500, 502, 503, 504)
+
+VIDEO_FILE_EXTENSIONS = [".mp4", ".avi", ".wmv", ".mov", ".flv", ".mkv"]
+VIDEO_FILE_MODULES = ["processing", "acquisition"]
+
+#: Maximum allowed depth of a Zarr directory tree
+MAX_ZARR_DEPTH = 7
+
+#: MIME type assigned to & used to identify Zarr assets
+ZARR_MIME_TYPE = "application/x-zarr"
+
+#: Maximum number of Zarr directory entries to upload at once
+ZARR_UPLOAD_BATCH_SIZE = 255
+
+#: Maximum number of Zarr directory entries to delete at once
+ZARR_DELETE_BATCH_SIZE = 100

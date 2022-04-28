@@ -59,7 +59,7 @@ def test_IteratorWithAggregation():
     assert got == [0, 1, 2]
     assert it.finished
 
-    # If there is an exception thrown, it would be raised only by the end
+    # If there is an exception thrown, it would be raised immediately
     it = IteratorWithAggregation(
         sleeping_range(5, 0.0001, thr=2), agg=sumup, reraise_immediately=True
     )
@@ -69,5 +69,5 @@ def test_IteratorWithAggregation():
             got.append(i)
             # sleep long enough to trigger exception before next iteration
             sleep(0.02 if not slow_machine else 0.1)
-    assert got == [0]
+    assert got in ([], [0])
     assert it.finished

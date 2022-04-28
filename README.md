@@ -4,6 +4,7 @@
 [![codecov.io](https://codecov.io/github/dandi/dandi-cli/coverage.svg?branch=master)](https://codecov.io/github/dandi/dandi-cli?branch=master)
 [![GitHub release](https://img.shields.io/github/release/dandi/dandi-cli.svg)](https://GitHub.com/dandi/dandi-cli/releases/)
 [![PyPI version fury.io](https://badge.fury.io/py/dandi.svg)](https://pypi.python.org/pypi/dandi/)
+[![Documentation Status](https://readthedocs.org/projects/dandi/badge/?version=latest)](https://dandi.readthedocs.io/en/latest/?badge=latest)
 
 This project is under heavy development.  Beware of [hidden](I-wish-we-knew) and
 [disclosed](https://github.com/dandi/dandi-cli/issues) issues, or
@@ -87,16 +88,6 @@ for examples on how to use this client in various use cases.
 Please see [DEVELOPMENT.md](./DEVELOPMENT.md) file.
 
 ## 3rd party components included
-
-### dandi/core/digests/dandietag.py
-
-From <https://github.com/girder/django-s3-file-field> as of v0.1.1-10-g829b9b0
-Copyright (c) 2019-2021 Kitware, Inc., Apache 2.0 license
-
-### dandi/support/generatorify.py
-
-From https://github.com/eric-wieser/generatorify, as of 7bd759ecf88f836ece6cdbcf7ce1074260c0c5ef
-Copyright (c) 2019 Eric Wieser, MIT/Expat licensed.
 
 ### dandi/tests/skip.py
 

@@ -2,9 +2,9 @@ import os
 
 import click
 
-from .base import instance_option, map_to_click_exceptions
+from .base import IntColonInt, instance_option, map_to_click_exceptions
 from ..consts import known_instances, known_instances_rev
-from ..dandiarchive import parse_dandi_url
+from ..dandiarchive import _dandi_url_parser, parse_dandi_url
 
 
 class ChoiceList(click.ParamType):
@@ -30,7 +30,16 @@ class ChoiceList(click.ParamType):
         return "[" + ",".join(self.values) + ",all]"
 
 
-@click.command()
+# The use of f-strings apparently makes this not a proper docstring, and so
+# click doesn't use it unless we explicitly assign it to `help`:
+@click.command(
+    help=f"""\
+Download a file or entire folder from DANDI.
+
+\b
+{_dandi_url_parser.known_patterns}
+    """
+)
 @click.option(
     "-o",
     "--output-dir",
@@ -61,8 +70,9 @@ class ChoiceList(click.ParamType):
 @click.option(
     "-J",
     "--jobs",
-    help="Number of parallel download jobs.",
-    default=6,  # TODO: come up with smart auto-scaling etc
+    type=IntColonInt(),
+    help="Number of parallel download jobs and, optionally number of subjobs per Zarr asset",
+    default="6",  # TODO: come up with smart auto-scaling etc
     show_default=True,
 )
 @click.option(
@@ -76,7 +86,7 @@ class ChoiceList(click.ParamType):
 @click.option(
     "--sync", is_flag=True, help="Delete local assets that do not exist on the server"
 )
-@instance_option()
+@instance_option(default=None)
 # Might be a cool feature, not unlike verifying a checksum, we verify that
 # downloaded file passes the validator, and if not -- alert
 # @click.option(
@@ -94,9 +104,8 @@ class ChoiceList(click.ParamType):
 @click.argument("url", nargs=-1)
 @map_to_click_exceptions
 def download(
-    url, output_dir, existing, jobs, format, download_types, sync, dandi_instance=None
+    url, output_dir, existing, jobs, format, download_types, sync, dandi_instance
 ):
-    """Download a file or entire folder from DANDI"""
     # We need to import the download module rather than the download function
     # so that the tests can properly patch the function with a mock.
     from .. import download
@@ -133,7 +142,8 @@ def download(
         output_dir,
         existing=existing,
         format=format,
-        jobs=jobs,
+        jobs=jobs[0],
+        jobs_per_zarr=jobs[1],
         get_metadata="dandiset.yaml" in download_types,
         get_assets="assets" in download_types,
         sync=sync,

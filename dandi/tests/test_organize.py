@@ -2,7 +2,10 @@ from glob import glob
 import os
 import os.path as op
 from pathlib import Path
+from typing import Any, NoReturn
 
+from click.testing import CliRunner
+from pynwb import NWBHDF5IO
 import pytest
 import ruamel.yaml
 
@@ -16,31 +19,31 @@ from ..organize import (
     get_obj_id,
     populate_dataset_yml,
 )
-from ..pynwb_utils import copy_nwb_file, get_object_id
+from ..pynwb_utils import _get_image_series, copy_nwb_file, get_object_id
 from ..utils import find_files, on_windows, yaml_load
 
 
-def test_sanitize_value():
+def test_sanitize_value() -> None:
     # . is not sanitized in extension but elsewhere
     assert _sanitize_value("_.ext", "extension") == "-.ext"
     assert _sanitize_value("_.ext", "unrelated") == "--ext"
 
 
-def test_populate_dataset_yml(tmpdir):
+def test_populate_dataset_yml(tmp_path: Path) -> None:
     # should work even on an empty file
-    path = tmpdir / "blah.yaml"
+    path = tmp_path / "blah.yaml"
 
-    def c():  # shortcut
+    def c() -> Any:  # shortcut
         with open(path) as f:
             return yaml_load(f, typ="safe")
 
-    path.write("")
+    path.write_text("")
     populate_dataset_yml(str(path), [])  # doesn't crash
 
-    path.write("id: test1  # comment")  # no ID assumptions, or querying
+    path.write_text("id: test1  # comment")  # no ID assumptions, or querying
     populate_dataset_yml(str(path), [])  # doesn't crash
     # even comments should be preserved and no changes if no relevant metadata
-    assert path.read().strip() == "id: test1  # comment"
+    assert path.read_text().strip() == "id: test1  # comment"
 
     metadata = [
         # context for all the ids are dataset level ATM, so even when no
@@ -61,7 +64,7 @@ def test_populate_dataset_yml(tmpdir):
     }
 
     # and if we set units and redo -- years should stay unchanged, while other fields change
-    m = yaml_load(path.read())
+    m = yaml_load(path.read_text())
     m["age"]["units"] = "years"
     with open(path, "w") as fp:
         ruamel.yaml.YAML().dump(m, fp)
@@ -102,8 +105,8 @@ if not on_windows:
 
 @pytest.mark.integration
 @pytest.mark.parametrize("mode", no_move_modes)
-def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
-    outdir = str(tmpdir / "organized")
+def test_organize_nwb_test_data(nwb_test_data: str, tmp_path: Path, mode: str) -> None:
+    outdir = str(tmp_path / "organized")
 
     relative = False
     if mode == "symlink-relative":
@@ -117,9 +120,9 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
         nwb_test_data = op.relpath(nwb_test_data, cwd)
         outdir = op.relpath(outdir, cwd)
 
-    src = Path(tmpdir, "src")
+    src = tmp_path / "src"
     src.touch()
-    dest = Path(tmpdir, "dest")
+    dest = tmp_path / "dest"
     try:
         dest.symlink_to(src)
     except OSError:
@@ -145,7 +148,7 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
     input_files = op.join(nwb_test_data, "v2.0.1")
 
     cmd = ["-d", outdir, "--files-mode", mode, input_files]
-    r = clirunner.invoke(organize, cmd)
+    r = CliRunner().invoke(organize, cmd)
 
     # with @map_to_click_exceptions we loose original str of message somehow
     # although it is shown to the user - checked. TODO - figure it out
@@ -153,7 +156,7 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
     assert r.exit_code != 0, "Must have aborted since many files lack subject_id"
     assert not glob(op.join(outdir, "*")), "no files should have been populated"
 
-    r = clirunner.invoke(organize, cmd + ["--invalid", "warn"])
+    r = CliRunner().invoke(organize, cmd + ["--invalid", "warn"])
     assert r.exit_code == 0
     # this beast doesn't capture our logs ATM so cannot check anything there.
     # At the end we endup only with a single file (we no longer produce dandiset.yaml)
@@ -178,11 +181,11 @@ def test_organize_nwb_test_data(nwb_test_data, tmpdir, clirunner, mode):
         assert not any(op.islink(p) for p in produced_paths)
 
 
-def test_ambiguous(simple2_nwb, tmp_path, clirunner):
+def test_ambiguous(simple2_nwb: str, tmp_path: Path) -> None:
     copy2 = copy_nwb_file(simple2_nwb, tmp_path)
     outdir = str(tmp_path / "organized")
     args = ["--files-mode", "copy", "-d", outdir, simple2_nwb, copy2]
-    r = clirunner.invoke(organize, args)
+    r = CliRunner().invoke(organize, args)
     assert r.exit_code == 0
     produced_paths = sorted(find_files(".*", paths=outdir))
     produced_paths_rel = [op.relpath(p, outdir) for p in produced_paths]
@@ -194,7 +197,7 @@ def test_ambiguous(simple2_nwb, tmp_path, clirunner):
     )
 
 
-def test_ambiguous_probe1():
+def test_ambiguous_probe1() -> None:
     base = dict(subject_id="1", session="2", extension="nwb")
     # fake filenames should be ok since we never should get to reading them for object_id
     metadata = [
@@ -238,13 +241,80 @@ def test_ambiguous_probe1():
         (False, False, "copy"),
     ],
 )
-def test_detect_link_type(monkeypatch, tmp_path, sym_success, hard_success, result):
-    def succeed_link(src, dest):
+def test_detect_link_type(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sym_success: bool,
+    hard_success: bool,
+    result: str,
+) -> None:
+    def succeed_link(src: Any, dest: Any) -> None:
         pass
 
-    def error_link(src, dest):
+    def error_link(src: Any, dest: Any) -> NoReturn:
         raise OSError("Operation failed")
 
     monkeypatch.setattr(os, "symlink", succeed_link if sym_success else error_link)
     monkeypatch.setattr(os, "link", succeed_link if hard_success else error_link)
     assert detect_link_type(tmp_path) == result
+
+
+@pytest.mark.parametrize("mode", ["copy", "move"])
+@pytest.mark.parametrize("video_mode", ["copy", "move", "symlink", "hardlink"])
+def test_video_organize(video_mode, mode, nwbfiles_video_unique):
+    dandi_organize_path = nwbfiles_video_unique.parent / "dandi_organized"
+    cmd = [
+        "--files-mode",
+        mode,
+        "--update-external-file-paths",
+        "--media-files-mode",
+        video_mode,
+        "-d",
+        str(dandi_organize_path),
+        str(nwbfiles_video_unique),
+    ]
+    video_files_list = list((nwbfiles_video_unique.parent / "video_files").iterdir())
+    video_files_organized = []
+    r = CliRunner().invoke(organize, cmd)
+    assert r.exit_code == 0
+    for nwbfile_name in dandi_organize_path.glob("**/*.nwb"):
+        vid_folder = nwbfile_name.with_suffix("")
+        assert vid_folder.exists()
+        with NWBHDF5IO(str(nwbfile_name), "r", load_namespaces=True) as io:
+            nwbfile = io.read()
+            # get iamgeseries objects as dict(id=object_id, external_files=[])
+            ext_file_objects = _get_image_series(nwbfile)
+            for ext_file_ob in ext_file_objects:
+                for no, name in enumerate(ext_file_ob["external_files"]):
+                    video_files_organized.append(name)
+                    # check if external_file arguments are correctly named according to convention:
+                    filename = Path(
+                        f"{vid_folder.name}/{ext_file_ob['id']}_external_file_{no}"
+                    )
+                    assert str(filename) == str(Path(name).with_suffix(""))
+                    # check if the files exist( both in case of move/copy):
+                    assert (vid_folder.parent / name).exists()
+    # check all video files are organized:
+    assert len(video_files_list) == len(video_files_organized)
+
+
+@pytest.mark.parametrize("video_mode", ["copy", "move"])
+def test_video_organize_common(video_mode, nwbfiles_video_common):
+    dandi_organize_path = nwbfiles_video_common.parent / "dandi_organized"
+    cmd = [
+        "--files-mode",
+        "move",
+        "--update-external-file-paths",
+        "--media-files-mode",
+        video_mode,
+        "-d",
+        str(dandi_organize_path),
+        str(nwbfiles_video_common),
+    ]
+    r = CliRunner().invoke(organize, cmd)
+    if video_mode == "move":
+        assert r.exit_code == 1
+        print(r.exception)
+    else:
+        assert r.exit_code == 0
+        print(r.stdout)

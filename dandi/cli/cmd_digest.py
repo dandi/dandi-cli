@@ -9,13 +9,14 @@ from .base import map_to_click_exceptions
     "--digest",
     "digest_alg",
     type=click.Choice(
-        ["dandi-etag", "md5", "sha1", "sha256", "sha512"], case_sensitive=False
+        ["dandi-etag", "md5", "sha1", "sha256", "sha512", "zarr-checksum"],
+        case_sensitive=False,
     ),
     default="dandi-etag",
     help="Digest algorithm to use",
     show_default=True,
 )
-@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=False))
+@click.argument("paths", nargs=-1, type=click.Path(exists=True))
 @map_to_click_exceptions
 def digest(paths, digest_alg):
     """Calculate file digests"""

@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
 from datetime import datetime
 import logging
 import os
@@ -5,20 +8,32 @@ from pathlib import Path
 import re
 import shutil
 from subprocess import DEVNULL, check_output, run
+import sys
 import tempfile
 from time import sleep
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union
 from uuid import uuid4
 
-from dateutil.tz import tzutc
+from _pytest.fixtures import FixtureRequest
+from click.testing import CliRunner
+from dandischema.consts import DANDI_SCHEMA_VERSION
+from dateutil.tz import tzlocal, tzutc
+import numpy as np
 import pynwb
+from pynwb import NWBHDF5IO, NWBFile
+from pynwb.device import Device
+from pynwb.file import Subject
+import pynwb.image
+from pynwb.ophys import ImageSeries
 import pytest
 import requests
+import zarr
 
 from .skip import skipif
 from .. import get_logger
 from ..cli.command import organize
-from ..consts import dandiset_metadata_file, known_instances
-from ..dandiapi import DandiAPIClient
+from ..consts import DandiInstance, dandiset_metadata_file, known_instances
+from ..dandiapi import DandiAPIClient, RemoteDandiset
 from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
 from ..upload import upload
 
@@ -26,16 +41,16 @@ lgr = get_logger()
 
 
 @pytest.fixture(autouse=True)
-def capture_all_logs(caplog):
+def capture_all_logs(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG, logger="dandi")
 
 
 # TODO: move into some common fixtures.  We might produce a number of files
 #       and also carry some small ones directly in git for regression testing
 @pytest.fixture(scope="session")
-def simple1_nwb_metadata(tmpdir_factory):
+def simple1_nwb_metadata() -> Dict[str, Any]:
     # very simple assignment with the same values as the key with 1 as suffix
-    metadata = {f: "{}1".format(f) for f in metadata_nwb_file_fields}
+    metadata: Dict[str, Any] = {f: f"{f}1" for f in metadata_nwb_file_fields}
     metadata["identifier"] = uuid4().hex
     # subject_fields
 
@@ -54,17 +69,22 @@ def simple1_nwb_metadata(tmpdir_factory):
 
 
 @pytest.fixture(scope="session")
-def simple1_nwb(simple1_nwb_metadata, tmpdir_factory):
+def simple1_nwb(
+    simple1_nwb_metadata: Dict[str, Any], tmpdir_factory: pytest.TempdirFactory
+) -> str:
     return make_nwb_file(
-        str(tmpdir_factory.mktemp("data").join("simple1.nwb")), **simple1_nwb_metadata
+        str(tmpdir_factory.mktemp("simple1").join("simple1.nwb")),
+        **simple1_nwb_metadata,
     )
 
 
 @pytest.fixture(scope="session")
-def simple2_nwb(simple1_nwb_metadata, tmpdir_factory):
+def simple2_nwb(
+    simple1_nwb_metadata: Dict[str, Any], tmpdir_factory: pytest.TempdirFactory
+) -> str:
     """With a subject"""
     return make_nwb_file(
-        str(tmpdir_factory.mktemp("data").join("simple2.nwb")),
+        str(tmpdir_factory.mktemp("simple2").join("simple2.nwb")),
         subject=pynwb.file.Subject(
             subject_id="mouse001",
             date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
@@ -76,10 +96,28 @@ def simple2_nwb(simple1_nwb_metadata, tmpdir_factory):
 
 
 @pytest.fixture(scope="session")
-def organized_nwb_dir(simple2_nwb, tmp_path_factory, clirunner):
-    tmp_path = tmp_path_factory.mktemp("dandiset")
+def simple3_nwb(
+    simple1_nwb_metadata: Dict[str, Any], tmpdir_factory: pytest.TempdirFactory
+) -> str:
+    """With a subject, but no subject_id."""
+    return make_nwb_file(
+        str(tmpdir_factory.mktemp("simple2").join("simple2.nwb")),
+        subject=pynwb.file.Subject(
+            date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
+            sex="M",
+            species="mouse",
+        ),
+        **simple1_nwb_metadata,
+    )
+
+
+@pytest.fixture(scope="session")
+def organized_nwb_dir(
+    simple2_nwb: str, tmp_path_factory: pytest.TempPathFactory
+) -> Path:
+    tmp_path = tmp_path_factory.mktemp("organized_nwb_dir")
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
-    r = clirunner.invoke(
+    r = CliRunner().invoke(
         organize, ["-f", "copy", "--dandiset-path", str(tmp_path), str(simple2_nwb)]
     )
     assert r.exit_code == 0, r.stdout
@@ -87,12 +125,16 @@ def organized_nwb_dir(simple2_nwb, tmp_path_factory, clirunner):
 
 
 @pytest.fixture(scope="session")
-def organized_nwb_dir2(simple1_nwb_metadata, simple2_nwb, tmp_path_factory, clirunner):
-    tmp_path = tmp_path_factory.mktemp("dandiset")
+def organized_nwb_dir2(
+    simple1_nwb_metadata: Dict[str, Any],
+    simple2_nwb: str,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Path:
+    tmp_path = tmp_path_factory.mktemp("organized_nwb_dir2")
 
     # need to copy first and then use -f move since we will create one more
     # file to be "organized"
-    shutil.copy(str(simple2_nwb), str(tmp_path))
+    shutil.copy(simple2_nwb, tmp_path)
     make_nwb_file(
         str(tmp_path / "simple3.nwb"),
         subject=pynwb.file.Subject(
@@ -104,37 +146,47 @@ def organized_nwb_dir2(simple1_nwb_metadata, simple2_nwb, tmp_path_factory, clir
         **simple1_nwb_metadata,
     )
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
-    r = clirunner.invoke(organize, ["-f", "move", "--dandiset-path", str(tmp_path)])
+    r = CliRunner().invoke(organize, ["-f", "move", "--dandiset-path", str(tmp_path)])
     assert r.exit_code == 0, r.stdout
     assert sum(p.is_dir() for p in tmp_path.iterdir()) == 2
     return tmp_path
 
 
-@pytest.fixture(scope="session")
-def clirunner():
-    """A shortcut to get a click.runner to run a command"""
-    from click.testing import CliRunner
+if TYPE_CHECKING:
+    if sys.version_info >= (3, 8):
+        from typing import Literal
+    else:
+        from typing_extensions import Literal
 
-    yield CliRunner()
+    Scope = Union[
+        Literal["session"],
+        Literal["package"],
+        Literal["module"],
+        Literal["class"],
+        Literal["function"],
+    ]
 
 
-def get_gitrepo_fixture(url, committish=None, scope="session"):
+def get_gitrepo_fixture(
+    url: str,
+    committish: Optional[str] = None,
+    scope: Scope = "session",
+) -> Callable[[], Iterator[str]]:
 
     if committish:
         raise NotImplementedError()
 
     @pytest.fixture(scope=scope)
-    def fixture():
-        # TODO: adapt reproman.tests.skip collection of skipif conditions
-        # skipif.no_network()
-        # skipif.no_git()
+    def fixture() -> Iterator[str]:
+        skipif.no_network()
+        skipif.no_git()
 
         path = tempfile.mktemp()  # not using pytest's tmpdir fixture to not
         # collide in different scopes etc. But we
         # would need to remove it ourselves
         lgr.debug("Cloning %r into %r", url, path)
         try:
-            runout = run(["git", "clone", url, path])
+            runout = run(["git", "clone", "--depth=1", url, path])
             if runout.returncode:
                 raise RuntimeError(f"Failed to clone {url} into {path}")
             yield path
@@ -148,14 +200,14 @@ def get_gitrepo_fixture(url, committish=None, scope="session"):
 
 
 nwb_test_data = get_gitrepo_fixture("http://github.com/dandi-datasets/nwb_test_data")
-
+bids_examples = get_gitrepo_fixture("https://github.com/dandi/bids-examples")
 
 LOCAL_DOCKER_DIR = Path(__file__).with_name("data") / "dandiarchive-docker"
 LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name
 
 
 @pytest.fixture(scope="session")
-def docker_compose_setup():
+def docker_compose_setup() -> Iterator[Dict[str, str]]:
     skipif.no_network()
     skipif.no_docker_engine()
 
@@ -176,12 +228,7 @@ def docker_compose_setup():
         != 0
     )
 
-    # TODO: Delete this after <https://github.com/dandi/dandi-api/pull/251> is
-    # merged:
-    env = dict(os.environ)
-    env["DJANGO_DANDI_GIRDER_API_URL"] = "http://localhost:8080/api/v1"
-    env["DJANGO_DANDI_GIRDER_API_KEY"] = "abc123"
-
+    env = {**os.environ, "DJANGO_DANDI_SCHEMA_VERSION": DANDI_SCHEMA_VERSION}
     try:
         if create:
             run(
@@ -201,10 +248,8 @@ def docker_compose_setup():
                     "./manage.py",
                     "createsuperuser",
                     "--no-input",
-                    "--username",
-                    "admin",
                     "--email",
-                    "nil@nil.nil",
+                    "admin@nil.nil",
                 ],
                 cwd=str(LOCAL_DOCKER_DIR),
                 env=env,
@@ -216,16 +261,17 @@ def docker_compose_setup():
                 "docker-compose",
                 "run",
                 "--rm",
+                "-T",
                 "django",
                 "./manage.py",
                 "drf_create_token",
-                "admin",
+                "admin@nil.nil",
             ],
             cwd=str(LOCAL_DOCKER_DIR),
             env=env,
             universal_newlines=True,
         )
-        m = re.search(r"^Generated token (\w+) for user admin$", r, flags=re.M)
+        m = re.search(r"^Generated token (\w+) for user admin@nil.nil$", r, flags=re.M)
         if not m:
             raise RuntimeError(
                 f"Could not extract Django auth token from drf_create_token output: {r!r}"
@@ -255,52 +301,221 @@ def docker_compose_setup():
             run(["docker-compose", "down", "-v"], cwd=str(LOCAL_DOCKER_DIR), check=True)
 
 
+@dataclass
+class DandiAPI:
+    api_key: str
+    client: DandiAPIClient
+    instance: DandiInstance
+    instance_id: str
+
+    @property
+    def api_url(self) -> str:
+        url = self.instance.api
+        assert isinstance(url, str)
+        return url
+
+
 @pytest.fixture(scope="session")
-def local_dandi_api(docker_compose_setup):
+def local_dandi_api(docker_compose_setup: Dict[str, str]) -> Iterator[DandiAPI]:
     instance_id = "dandi-api-local-docker-tests"
     instance = known_instances[instance_id]
     api_key = docker_compose_setup["django_api_key"]
-    client = DandiAPIClient(api_url=instance.api, token=api_key)
-    with client.session():
-        yield {
-            "api_key": api_key,
-            "client": client,
-            "instance": instance,
-            "instance_id": instance_id,
-        }
+    with DandiAPIClient(api_url=instance.api, token=api_key) as client:
+        yield DandiAPI(
+            api_key=api_key,
+            client=client,
+            instance=instance,
+            instance_id=instance_id,
+        )
+
+
+@dataclass
+class SampleDandiset:
+    api: DandiAPI
+    dspath: Path
+    dandiset: RemoteDandiset
+    dandiset_id: str
+    upload_kwargs: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def client(self) -> DandiAPIClient:
+        return self.api.client
+
+    def upload(
+        self, paths: Optional[List[Union[str, Path]]] = None, **kwargs: Any
+    ) -> None:
+        with pytest.MonkeyPatch().context() as m:
+            m.setenv("DANDI_API_KEY", self.api.api_key)
+            upload(
+                paths=paths or [self.dspath],
+                dandi_instance=self.api.instance_id,
+                devel_debug=True,
+                **{**self.upload_kwargs, **kwargs},
+            )
 
 
 @pytest.fixture()
-def text_dandiset(local_dandi_api, monkeypatch, tmp_path_factory):
-    dandiset_id = local_dandi_api["client"].create_dandiset("Text Dandiset", {})[
-        "identifier"
-    ]
-    dspath = tmp_path_factory.mktemp("text_dandiset")
-    (dspath / dandiset_metadata_file).write_text(f"identifier: '{dandiset_id}'\n")
-    (dspath / "file.txt").write_text("This is test text.\n")
-    (dspath / "subdir1").mkdir()
-    (dspath / "subdir1" / "apple.txt").write_text("Apple\n")
-    (dspath / "subdir2").mkdir()
-    (dspath / "subdir2" / "banana.txt").write_text("Banana\n")
-    (dspath / "subdir2" / "coconut.txt").write_text("Coconut\n")
+def new_dandiset(
+    local_dandi_api: DandiAPI,
+    request: FixtureRequest,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> SampleDandiset:
+    d = local_dandi_api.client.create_dandiset(
+        f"Sample Dandiset for {request.node.name}",
+        # Minimal metadata needed to create a publishable Dandiset:
+        {
+            "description": "A test Dandiset",
+            "license": ["spdx:CC0-1.0"],
+            # The contributor needs to be given explicitly here or else it'll
+            # be set based on the user account.  For the Docker Compose setup,
+            # that would mean basing it on the admin user, whose name doesn't
+            # validate under dandischema.
+            "contributor": [
+                {
+                    "schemaKey": "Person",
+                    "name": "Wodder, John",
+                    "roleName": ["dcite:Author", "dcite:ContactPerson"],
+                }
+            ],
+        },
+    )
+    dspath = tmp_path_factory.mktemp("dandiset")
+    (dspath / dandiset_metadata_file).write_text(f"identifier: '{d.identifier}'\n")
+    return SampleDandiset(
+        api=local_dandi_api,
+        dspath=dspath,
+        dandiset=d,
+        dandiset_id=d.identifier,
+    )
 
-    def upload_dandiset(paths=None, **kwargs):
-        with monkeypatch.context() as m:
-            m.setenv("DANDI_API_KEY", local_dandi_api["api_key"])
-            upload(
-                paths=paths or [],
-                dandiset_path=dspath,
-                dandi_instance=local_dandi_api["instance_id"],
-                devel_debug=True,
-                allow_any_path=True,
-                validation="skip",
-                **kwargs,
-            )
 
-    upload_dandiset()
-    return {
-        "client": local_dandi_api["client"],
-        "dspath": dspath,
-        "dandiset_id": dandiset_id,
-        "reupload": upload_dandiset,
-    }
+@pytest.fixture()
+def text_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
+    (new_dandiset.dspath / "file.txt").write_text("This is test text.\n")
+    (new_dandiset.dspath / "subdir1").mkdir()
+    (new_dandiset.dspath / "subdir1" / "apple.txt").write_text("Apple\n")
+    (new_dandiset.dspath / "subdir2").mkdir()
+    (new_dandiset.dspath / "subdir2" / "banana.txt").write_text("Banana\n")
+    (new_dandiset.dspath / "subdir2" / "coconut.txt").write_text("Coconut\n")
+    new_dandiset.upload_kwargs["allow_any_path"] = True
+    new_dandiset.upload()
+    return new_dandiset
+
+
+@pytest.fixture()
+def zarr_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
+    zarr.save(
+        new_dandiset.dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1)
+    )
+    new_dandiset.upload()
+    return new_dandiset
+
+
+@pytest.fixture()
+def video_files(tmp_path):
+    video_paths = []
+    import cv2
+
+    video_path = tmp_path / "video_files"
+    video_path.mkdir()
+    for no in range(2):
+        movie_file1 = video_path / f"test1_{no}.avi"
+        movie_file2 = video_path / f"test2_{no}.avi"
+        (nf, nx, ny) = (2, 2, 2)
+        writer1 = cv2.VideoWriter(
+            filename=str(movie_file1),
+            apiPreference=None,
+            fourcc=cv2.VideoWriter_fourcc(*"DIVX"),
+            fps=25,
+            frameSize=(ny, nx),
+            params=None,
+        )
+        writer2 = cv2.VideoWriter(
+            filename=str(movie_file2),
+            apiPreference=None,
+            fourcc=cv2.VideoWriter_fourcc(*"DIVX"),
+            fps=25,
+            frameSize=(ny, nx),
+            params=None,
+        )
+        for k in range(nf):
+            writer1.write(np.random.randint(0, 255, (nx, ny, 3)).astype("uint8"))
+            writer2.write(np.random.randint(0, 255, (nx, ny, 3)).astype("uint8"))
+        writer1.release()
+        writer2.release()
+        video_paths.append((movie_file1, movie_file2))
+    return video_paths
+
+
+def _create_nwb_files(video_list):
+    base_path = video_list[0][0].parent.parent
+    base_nwb_path = base_path / "nwbfiles"
+    base_nwb_path.mkdir(parents=True, exist_ok=True)
+    for no, vid_loc in enumerate(video_list):
+        vid_1 = vid_loc[0]
+        vid_2 = vid_loc[1]
+        subject_id = f"mouse{no}"
+        session_id = f"sessionid{no}"
+        subject = Subject(
+            subject_id=subject_id,
+            species="Mus musculus",
+            sex="M",
+            description="lab mouse ",
+        )
+        device = Device(f"imaging_device_{no}")
+        name = f"{vid_1.stem}_{no}"
+        nwbfile = NWBFile(
+            f"{name}{no}",
+            "desc: contains movie for dandi .mp4 storage as external",
+            datetime.now(tzlocal()),
+            experimenter="Experimenter name",
+            session_id=session_id,
+            subject=subject,
+            devices=[device],
+        )
+
+        image_series = ImageSeries(
+            name=f"MouseWhiskers{no}",
+            format="external",
+            external_file=[str(vid_1), str(vid_2)],
+            starting_frame=[0],
+            starting_time=0.0,
+            rate=150.0,
+        )
+        nwbfile.add_acquisition(image_series)
+
+        nwbfile_path = base_nwb_path / f"{name}.nwb"
+        with NWBHDF5IO(str(nwbfile_path), "w") as io:
+            io.write(nwbfile)
+    return base_nwb_path
+
+
+@pytest.fixture()
+def nwbfiles_video_unique(video_files):
+    """Create nwbfiles linked with unique set of videos."""
+    return _create_nwb_files(video_files)
+
+
+@pytest.fixture()
+def nwbfiles_video_common(video_files):
+    """Create nwbfiles sharing video files."""
+    video_list = [video_files[0], video_files[0]]
+    return _create_nwb_files(video_list)
+
+
+@pytest.fixture()
+def tmp_home(
+    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
+) -> Path:
+    home = tmp_path_factory.mktemp("tmp_home")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+    monkeypatch.delenv("XDG_CONFIG_DIRS", raising=False)
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.delenv("XDG_DATA_DIRS", raising=False)
+    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+    monkeypatch.delenv("XDG_RUNTIME_DIR", raising=False)
+    monkeypatch.delenv("XDG_STATE_HOME", raising=False)
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.setenv("LOCALAPPDATA", str(home))
+    return home

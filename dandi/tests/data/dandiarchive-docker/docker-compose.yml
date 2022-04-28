@@ -34,15 +34,18 @@ services:
       DJANGO_CELERY_BROKER_URL: amqp://rabbitmq:5672/
       DJANGO_CONFIGURATION: DevelopmentConfiguration
       DJANGO_DANDI_DANDISETS_BUCKET_NAME: dandi-dandisets
-      DJANGO_DANDI_GIRDER_API_URL:
-      DJANGO_DANDI_GIRDER_API_KEY:
+      DJANGO_DANDI_DANDISETS_EMBARGO_BUCKET_NAME: dandi-embargoed-dandisets
       DJANGO_DATABASE_URL: postgres://postgres:postgres@postgres:5432/django
       DJANGO_MINIO_STORAGE_ACCESS_KEY: minioAccessKey
       DJANGO_MINIO_STORAGE_ENDPOINT: minio:9000
       DJANGO_MINIO_STORAGE_SECRET_KEY: minioSecretKey
       DJANGO_STORAGE_BUCKET_NAME: django-storage
       DJANGO_MINIO_STORAGE_MEDIA_URL: http://localhost:9000/django-storage
-      DJANGO_DANDI_SCHEMA_VERSION: 1.0.0-rc1
+      DJANGO_DANDI_SCHEMA_VERSION:
+      DJANGO_DANDI_WEB_APP_URL: http://localhost:8085
+      DJANGO_DANDI_API_URL: http://localhost:8000
+      DJANGO_DANDI_JUPYTERHUB_URL: https://hub.dandiarchive.org
+      DANDI_ALLOW_LOCALHOST_URLS: "1"
     ports:
       - "8000:8000"
 
@@ -53,7 +56,10 @@ services:
       "--app", "dandiapi.celery",
       "worker",
       "--loglevel", "INFO",
-      "--without-heartbeat"
+      "--without-heartbeat",
+      "-Q","celery,calculate_sha256,ingest_zarr_archive,manifest-worker",
+      "-c","1",
+      "-B"
     ]
     # Docker Compose does not set the TTY width, which causes Celery errors
     tty: false
@@ -68,18 +74,22 @@ services:
       DJANGO_CELERY_BROKER_URL: amqp://rabbitmq:5672/
       DJANGO_CONFIGURATION: DevelopmentConfiguration
       DJANGO_DANDI_DANDISETS_BUCKET_NAME: dandi-dandisets
-      DJANGO_DANDI_GIRDER_API_URL:
-      DJANGO_DANDI_GIRDER_API_KEY:
+      DJANGO_DANDI_DANDISETS_EMBARGO_BUCKET_NAME: dandi-embargoed-dandisets
       DJANGO_DATABASE_URL: postgres://postgres:postgres@postgres:5432/django
       DJANGO_MINIO_STORAGE_ACCESS_KEY: minioAccessKey
       DJANGO_MINIO_STORAGE_ENDPOINT: minio:9000
       DJANGO_MINIO_STORAGE_SECRET_KEY: minioSecretKey
       DJANGO_STORAGE_BUCKET_NAME: django-storage
       DJANGO_MINIO_STORAGE_MEDIA_URL: http://localhost:9000/django-storage
-      DJANGO_DANDI_SCHEMA_VERSION: 1.0.0-rc1
+      DJANGO_DANDI_SCHEMA_VERSION:
+      DJANGO_DANDI_VALIDATION_JOB_INTERVAL: "5"
+      DJANGO_DANDI_WEB_APP_URL: http://localhost:8085
+      DJANGO_DANDI_API_URL: http://localhost:8000
+      DJANGO_DANDI_JUPYTERHUB_URL: https://hub.dandiarchive.org
+      DANDI_ALLOW_LOCALHOST_URLS: "1"
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2022-04-12T06-55-35Z
     # When run with a TTY, minio prints credentials on startup
     tty: true
     command: ["server", "/data"]

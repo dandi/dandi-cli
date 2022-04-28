@@ -3,7 +3,6 @@ from pathlib import Path
 
 import click
 from click.testing import CliRunner
-import pytest
 
 from ..command import download
 from ...consts import dandiset_metadata_file
@@ -19,6 +18,7 @@ def test_download_defaults(mocker):
         existing="error",
         format="pyout",
         jobs=6,
+        jobs_per_zarr=None,
         get_metadata=True,
         get_assets=True,
         sync=False,
@@ -35,6 +35,7 @@ def test_download_all_types(mocker):
         existing="error",
         format="pyout",
         jobs=6,
+        jobs_per_zarr=None,
         get_metadata=True,
         get_assets=True,
         sync=False,
@@ -51,6 +52,7 @@ def test_download_metadata_only(mocker):
         existing="error",
         format="pyout",
         jobs=6,
+        jobs_per_zarr=None,
         get_metadata=True,
         get_assets=False,
         sync=False,
@@ -67,6 +69,7 @@ def test_download_assets_only(mocker):
         existing="error",
         format="pyout",
         jobs=6,
+        jobs_per_zarr=None,
         get_metadata=False,
         get_assets=True,
         sync=False,
@@ -82,9 +85,6 @@ def test_download_bad_type(mocker):
     mock_download.assert_not_called()
 
 
-@pytest.mark.skipif(
-    not os.environ.get("DANDI_DEVEL"), reason="DANDI_DEVEL required to run"
-)
 def test_download_gui_instance_in_dandiset(mocker):
     mock_download = mocker.patch("dandi.download.download")
     runner = CliRunner()
@@ -98,15 +98,13 @@ def test_download_gui_instance_in_dandiset(mocker):
         existing="error",
         format="pyout",
         jobs=6,
+        jobs_per_zarr=None,
         get_metadata=True,
         get_assets=True,
         sync=False,
     )
 
 
-@pytest.mark.skipif(
-    not os.environ.get("DANDI_DEVEL"), reason="DANDI_DEVEL required to run"
-)
 def test_download_api_instance_in_dandiset(mocker):
     mock_download = mocker.patch("dandi.download.download")
     runner = CliRunner()
@@ -120,15 +118,13 @@ def test_download_api_instance_in_dandiset(mocker):
         existing="error",
         format="pyout",
         jobs=6,
+        jobs_per_zarr=None,
         get_metadata=True,
         get_assets=True,
         sync=False,
     )
 
 
-@pytest.mark.skipif(
-    not os.environ.get("DANDI_DEVEL"), reason="DANDI_DEVEL required to run"
-)
 def test_download_url_instance_match(mocker):
     mock_download = mocker.patch("dandi.download.download")
     r = CliRunner().invoke(
@@ -146,15 +142,13 @@ def test_download_url_instance_match(mocker):
         existing="error",
         format="pyout",
         jobs=6,
+        jobs_per_zarr=None,
         get_metadata=True,
         get_assets=True,
         sync=False,
     )
 
 
-@pytest.mark.skipif(
-    not os.environ.get("DANDI_DEVEL"), reason="DANDI_DEVEL required to run"
-)
 def test_download_url_instance_conflict(mocker):
     mock_download = mocker.patch("dandi.download.download")
     r = CliRunner().invoke(
@@ -163,7 +157,7 @@ def test_download_url_instance_conflict(mocker):
         standalone_mode=False,
     )
     assert r.exit_code != 0
-    assert isinstance(r.exception, click.UsageError)
+    assert isinstance(r.exception, click.ClickException)
     assert (
         str(r.exception)
         == "http://localhost:8000/api/dandisets/123456/ does not point to 'dandi' instance"

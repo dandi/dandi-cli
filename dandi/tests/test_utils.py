@@ -1,15 +1,18 @@
 import inspect
 import os
 import os.path as op
+from pathlib import Path
 import time
+from typing import Iterable, List
 
 import pytest
 import requests
 import responses
 from semantic_version import Version
 
+from .skip import mark
 from .. import __version__
-from ..consts import dandi_instance, known_instances
+from ..consts import DandiInstance, known_instances
 from ..exceptions import BadCliVersionError, CliVersionTooOldError
 from ..utils import (
     ensure_datetime,
@@ -18,15 +21,15 @@ from ..utils import (
     flatten,
     flattened,
     get_instance,
+    get_mime_type,
     get_module_version,
     get_utcnow_datetime,
     is_same_time,
     on_windows,
-    remap_dict,
 )
 
 
-def test_find_files():
+def test_find_files() -> None:
     tests_dir = op.dirname(__file__)
     proj_dir = op.normpath(op.join(op.dirname(__file__), op.pardir))
 
@@ -56,36 +59,37 @@ def test_find_files():
     # TODO: more tests
 
 
-def test_find_files_dotfiles(tmpdir):
-    tmpsubdir = tmpdir.mkdir("subdir")
+def test_find_files_dotfiles(tmp_path: Path) -> None:
+    tmpsubdir = tmp_path / "subdir"
+    tmpsubdir.mkdir()
     for p in (".dot.nwb", "regular", ".git"):
-        for f in (tmpdir / p, tmpsubdir / p):
-            f.write_text("", "utf-8")
+        for f in (tmp_path / p, tmpsubdir / p):
+            f.touch()
 
-    def relpaths(paths):
-        return sorted(op.relpath(p, tmpdir) for p in paths)
+    def relpaths(paths: Iterable[str]) -> List[str]:
+        return sorted(op.relpath(p, tmp_path) for p in paths)
 
     regular = ["regular", op.join("subdir", "regular")]
     dotfiles = [".dot.nwb", op.join("subdir", ".dot.nwb")]
     vcs = [".git", op.join("subdir", ".git")]
 
-    ff = find_files(".*", tmpdir)
+    ff = find_files(".*", tmp_path)
     assert relpaths(ff) == regular
 
-    ff = find_files(".*", tmpdir, exclude_dotfiles=False)
+    ff = find_files(".*", tmp_path, exclude_dotfiles=False)
     # we still exclude VCS
     assert relpaths(ff) == sorted(regular + dotfiles)
 
     # current VCS are also dot files
-    ff = find_files(".*", tmpdir, exclude_vcs=False)
+    ff = find_files(".*", tmp_path, exclude_vcs=False)
     assert relpaths(ff) == regular
 
     # current VCS are also dot files
-    ff = find_files(".*", tmpdir, exclude_vcs=False, exclude_dotfiles=False)
+    ff = find_files(".*", tmp_path, exclude_vcs=False, exclude_dotfiles=False)
     assert relpaths(ff) == sorted(regular + dotfiles + vcs)
 
 
-def test_times_manipulations():
+def test_times_manipulations() -> None:
     t0 = get_utcnow_datetime()
     t0_isoformat = ensure_strtime(t0)
     t0_str = ensure_strtime(t0, isoformat=False)
@@ -115,13 +119,13 @@ def test_times_manipulations():
 @pytest.mark.parametrize(
     "t", ["2018-09-26 17:29:17.000000-07:00", "2018-09-26 17:29:17-07:00"]
 )
-def test_time_samples(t):
+def test_time_samples(t: str) -> None:
     assert is_same_time(
         ensure_datetime(t), "2018-09-27 00:29:17-00:00", tolerance=0
     )  # exactly the same
 
 
-def test_flatten():
+def test_flatten() -> None:
     assert inspect.isgenerator(flatten([1]))
     # flattened is just a list() around flatten
     assert flattened([1, [2, 3, [4]], 5, (i for i in range(2))]) == [
@@ -135,32 +139,11 @@ def test_flatten():
     ]
 
 
-@pytest.mark.parametrize(
-    "from_,revmapping,to",
-    [
-        ({"1": 2}, {"1": "1"}, {"1": 2}),
-        ({1: 2}, {(1,): [1]}, {1: 2}),  # if path must not be string, use list or tuple
-        (
-            {1: 2},
-            {"sub.key": (1,)},
-            {"sub": {"key": 2}},
-        ),  # if path must not be string, use list or tuple
-        (
-            {1: 2, "a": {"b": [1]}},
-            {"sub.key": (1,), "sub.key2.blah": "a.b"},
-            {"sub": {"key": 2, "key2": {"blah": [1]}}},
-        ),
-    ],
-)
-def test_remap_dict(from_, revmapping, to):
-    assert remap_dict(from_, revmapping) == to
-
-
 redirector_base = known_instances["dandi"].redirector
 
 
 @responses.activate
-def test_get_instance_dandi_with_api():
+def test_get_instance_dandi_with_api() -> None:
     responses.add(
         responses.GET,
         f"{redirector_base}/server-info",
@@ -175,7 +158,7 @@ def test_get_instance_dandi_with_api():
             },
         },
     )
-    assert get_instance("dandi") == dandi_instance(
+    assert get_instance("dandi") == DandiInstance(
         gui="https://gui.dandi",
         redirector=redirector_base,
         api="https://api.dandi",
@@ -183,7 +166,7 @@ def test_get_instance_dandi_with_api():
 
 
 @responses.activate
-def test_get_instance_url():
+def test_get_instance_url() -> None:
     responses.add(
         responses.GET,
         "https://example.dandi/server-info",
@@ -198,7 +181,7 @@ def test_get_instance_url():
             },
         },
     )
-    assert get_instance("https://example.dandi/") == dandi_instance(
+    assert get_instance("https://example.dandi/") == DandiInstance(
         gui="https://gui.dandi",
         redirector="https://example.dandi/",
         api="https://api.dandi",
@@ -206,7 +189,7 @@ def test_get_instance_url():
 
 
 @responses.activate
-def test_get_instance_cli_version_too_old():
+def test_get_instance_cli_version_too_old() -> None:
     responses.add(
         responses.GET,
         "https://example.dandi/server-info",
@@ -230,7 +213,7 @@ def test_get_instance_cli_version_too_old():
 
 
 @responses.activate
-def test_get_instance_bad_cli_version():
+def test_get_instance_bad_cli_version() -> None:
     responses.add(
         responses.GET,
         "https://example.dandi/server-info",
@@ -254,7 +237,7 @@ def test_get_instance_bad_cli_version():
 
 
 @responses.activate
-def test_get_instance_id_bad_response():
+def test_get_instance_id_bad_response() -> None:
     responses.add(
         responses.GET,
         f"{redirector_base}/server-info",
@@ -265,7 +248,8 @@ def test_get_instance_id_bad_response():
 
 
 @responses.activate
-def test_get_instance_known_url_bad_response():
+def test_get_instance_known_url_bad_response() -> None:
+    assert redirector_base is not None
     responses.add(
         responses.GET,
         f"{redirector_base}/server-info",
@@ -276,7 +260,7 @@ def test_get_instance_known_url_bad_response():
 
 
 @responses.activate
-def test_get_instance_unknown_url_bad_response():
+def test_get_instance_unknown_url_bad_response() -> None:
     responses.add(
         responses.GET,
         "https://dandi.nil/server-info",
@@ -292,7 +276,7 @@ def test_get_instance_unknown_url_bad_response():
 
 
 @responses.activate
-def test_get_instance_bad_version_from_server():
+def test_get_instance_bad_version_from_server() -> None:
     responses.add(
         responses.GET,
         "https://example.dandi/server-info",
@@ -316,7 +300,7 @@ def test_get_instance_bad_version_from_server():
     assert "foobar" in str(excinfo.value)
 
 
-def test_get_instance_actual_dandi():
+def test_get_instance_actual_dandi() -> None:
     inst = get_instance("dandi")
     assert inst.api is not None
 
@@ -324,14 +308,13 @@ def test_get_instance_actual_dandi():
 if "DANDI_REDIRECTOR_BASE" in os.environ:
     using_docker = pytest.mark.usefixtures("local_dandi_api")
 else:
-
-    def using_docker(f):
-        return f
+    using_docker = mark.skipif_no_network
 
 
+@pytest.mark.xfail(reason="https://github.com/dandi/dandi-archive/issues/1045")
 @pytest.mark.redirector
 @using_docker
-def test_server_info():
+def test_server_info() -> None:
     r = requests.get(f"{redirector_base}/server-info")
     r.raise_for_status()
     data = r.json()
@@ -342,7 +325,7 @@ def test_server_info():
     assert "services" in data
 
 
-def test_get_module_version():
+def test_get_module_version() -> None:
     import pynwb
 
     import dandi
@@ -351,3 +334,28 @@ def test_get_module_version():
     assert get_module_version("dandi") == __version__
     assert get_module_version("pynwb") == pynwb.__version__
     assert get_module_version("abracadabra123") is None
+
+
+@pytest.mark.parametrize(
+    "filename,mtype",
+    [
+        ("foo.txt", "text/plain"),
+        ("foo", "application/octet-stream"),
+        ("foo.gz", "application/gzip"),
+        ("foo.tar.gz", "application/gzip"),
+        ("foo.tgz", "application/gzip"),
+        ("foo.taz", "application/gzip"),
+        ("foo.svg.gz", "application/gzip"),
+        ("foo.svgz", "application/gzip"),
+        ("foo.Z", "application/x-compress"),
+        ("foo.tar.Z", "application/x-compress"),
+        ("foo.bz2", "application/x-bzip2"),
+        ("foo.tar.bz2", "application/x-bzip2"),
+        ("foo.tbz2", "application/x-bzip2"),
+        ("foo.xz", "application/x-xz"),
+        ("foo.tar.xz", "application/x-xz"),
+        ("foo.txz", "application/x-xz"),
+    ],
+)
+def test_get_mime_type(filename: str, mtype: str) -> None:
+    assert get_mime_type(filename) == mtype

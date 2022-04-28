@@ -1,3 +1,788 @@
+# 0.39.4 (Tue Apr 26 2022)
+
+#### 🏎 Performance
+
+- Remove size comparison check when uploading Zarr entries [#986](https://github.com/dandi/dandi-cli/pull/986) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.39.3 (Mon Apr 25 2022)
+
+#### 🐛 Bug Fix
+
+- Increase Zarr depth limit to 7 directories [#984](https://github.com/dandi/dandi-cli/pull/984) ([@jwodder](https://github.com/jwodder))
+- keeping logs cleaner in dedicated directory [#971](https://github.com/dandi/dandi-cli/pull/971) ([@TheChymera](https://github.com/TheChymera))
+- performance: do not duplicate schema loading [#982](https://github.com/dandi/dandi-cli/pull/982) ([@TheChymera](https://github.com/TheChymera))
+- Strip trailing slash from URLs in `/server-info` [#972](https://github.com/dandi/dandi-cli/pull/972) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Add new API design doc [#447](https://github.com/dandi/dandi-cli/pull/447) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Removed duplicate, and simplified bids validator tests [#965](https://github.com/dandi/dandi-cli/pull/965) ([@TheChymera](https://github.com/TheChymera))
+- Mark `test_server_info` as xfailing [#978](https://github.com/dandi/dandi-cli/pull/978) ([@jwodder](https://github.com/jwodder))
+- Mark `test_parse_dandi_url_not_found` as xfailing [#973](https://github.com/dandi/dandi-cli/pull/973) ([@jwodder](https://github.com/jwodder))
+- Update `test_parse_api_url[DANDI:000027]` [#974](https://github.com/dandi/dandi-cli/pull/974) ([@jwodder](https://github.com/jwodder))
+- Update `test_follow_redirect` [#975](https://github.com/dandi/dandi-cli/pull/975) ([@jwodder](https://github.com/jwodder))
+- Combine subtests of `test_publish_and_manipulate` [#964](https://github.com/dandi/dandi-cli/pull/964) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.39.2 (Tue Apr 19 2022)
+
+#### 🐛 Bug Fix
+
+- Validator fixes: fallback to our version, skip dotdirs on windows, etc [#955](https://github.com/dandi/dandi-cli/pull/955) ([@TheChymera](https://github.com/TheChymera))
+- Better detection of empty directories when download-syncing Zarrs [#961](https://github.com/dandi/dandi-cli/pull/961) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.39.1 (Thu Apr 14 2022)
+
+#### 🐛 Bug Fix
+
+- Fix type in test docker-compose env var [#960](https://github.com/dandi/dandi-cli/pull/960) ([@AlmightyYakob](https://github.com/AlmightyYakob))
+
+#### Authors: 1
+
+- Jacob Nesbitt ([@AlmightyYakob](https://github.com/AlmightyYakob))
+
+---
+
+# 0.39.0 (Thu Apr 14 2022)
+
+#### 🚀 Enhancement
+
+- Add DANDI_JUPYTERHUB_URL to test docker-compose [#959](https://github.com/dandi/dandi-cli/pull/959) ([@AlmightyYakob](https://github.com/AlmightyYakob))
+- Integrate NWBInspector with DANDI validation [#941](https://github.com/dandi/dandi-cli/pull/941) ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🐛 Bug Fix
+
+- Integration test config [#957](https://github.com/dandi/dandi-cli/pull/957) ([@dchiquito](https://github.com/dchiquito))
+- Smaller video files [#947](https://github.com/dandi/dandi-cli/pull/947) ([@TheChymera](https://github.com/TheChymera))
+
+#### ⚠️ Pushed to `master`
+
+- add .mkv as a valid video extension ([@bendichter](https://github.com/bendichter))
+
+#### 🏠 Internal
+
+- DX: enable "released" plugin for auto [#951](https://github.com/dandi/dandi-cli/pull/951) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Fixed test_write_report() log path issue [#954](https://github.com/dandi/dandi-cli/pull/954) ([@TheChymera](https://github.com/TheChymera))
+- Specify all queues in test celery worker [#953](https://github.com/dandi/dandi-cli/pull/953) ([@dchiquito](https://github.com/dchiquito))
+- Work around a bug in docker-compose [#949](https://github.com/dandi/dandi-cli/pull/949) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 7
+
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- Jacob Nesbitt ([@AlmightyYakob](https://github.com/AlmightyYakob))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.38.0 (Mon Apr 04 2022)
+
+#### 🚀 Enhancement
+
+- Adding BIDS support [#896](https://github.com/dandi/dandi-cli/pull/896) ([@yarikoptic](https://github.com/yarikoptic) [@TheChymera](https://github.com/TheChymera))
+
+#### 🏠 Internal
+
+- Black update [#945](https://github.com/dandi/dandi-cli/pull/945) ([@TheChymera](https://github.com/TheChymera))
+
+#### Authors: 2
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.37.0 (Tue Mar 22 2022)
+
+#### 🚀 Enhancement
+
+- Recognize video files as non-generic assets [#922](https://github.com/dandi/dandi-cli/pull/922) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Update for change in Zarr checksum format [#933](https://github.com/dandi/dandi-cli/pull/933) ([@jwodder](https://github.com/jwodder))
+- Trigger Zarr ingestion after performing an upload [#938](https://github.com/dandi/dandi-cli/pull/938) ([@jwodder](https://github.com/jwodder))
+- check for existence of video path else assume relative path [#931](https://github.com/dandi/dandi-cli/pull/931) ([@Saksham20](https://github.com/Saksham20))
+- dandi upload: Make `--jobs` default to `5:5` and document it [#940](https://github.com/dandi/dandi-cli/pull/940) ([@jwodder](https://github.com/jwodder))
+- checking for duplicate video files in external_files [#928](https://github.com/dandi/dandi-cli/pull/928) ([@Saksham20](https://github.com/Saksham20))
+- skip handling URLs in external files references as we do for local paths [#932](https://github.com/dandi/dandi-cli/pull/932) ([@Saksham20](https://github.com/Saksham20))
+- Let `dandi delete` take paths to local Zarrs [#925](https://github.com/dandi/dandi-cli/pull/925) ([@jwodder](https://github.com/jwodder))
+
+#### 🏎 Performance
+
+- Minimize/optimize Zarr digestion when uploading [#923](https://github.com/dandi/dandi-cli/pull/923) ([@jwodder](https://github.com/jwodder))
+- Don't repeat API requests when finding subdir files to delete before Zarr upload [#919](https://github.com/dandi/dandi-cli/pull/919) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Correct the docstring for `BasePath.parents` [#936](https://github.com/dandi/dandi-cli/pull/936) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Saksham Sharda ([@Saksham20](https://github.com/Saksham20))
+
+---
+
+# 0.36.0 (Thu Feb 17 2022)
+
+#### 🚀 Enhancement
+
+- Add zarr-checksum method to `dandi digest` [#900](https://github.com/dandi/dandi-cli/pull/900) ([@jwodder](https://github.com/jwodder))
+- Move `dandi organize` code to an `organize()` function [#902](https://github.com/dandi/dandi-cli/pull/902) ([@jwodder](https://github.com/jwodder))
+- Video files organize [#841](https://github.com/dandi/dandi-cli/pull/841) ([@Saksham20](https://github.com/Saksham20))
+- Make use of `/assets/{asset_id}/info/` endpoint [#895](https://github.com/dandi/dandi-cli/pull/895) ([@jwodder](https://github.com/jwodder))
+- Support Zarr directories [#853](https://github.com/dandi/dandi-cli/pull/853) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Make `dandi upload` look for dandiset.yaml in parents of common path [#916](https://github.com/dandi/dandi-cli/pull/916) ([@jwodder](https://github.com/jwodder))
+- Mint Zarr assets at start of upload and sync Zarr contents [#907](https://github.com/dandi/dandi-cli/pull/907) ([@jwodder](https://github.com/jwodder))
+- Use full asset path as name of Zarr object [#912](https://github.com/dandi/dandi-cli/pull/912) ([@jwodder](https://github.com/jwodder))
+- Specify Dandiset ID when creating a Zarr [#911](https://github.com/dandi/dandi-cli/pull/911) ([@jwodder](https://github.com/jwodder))
+- Cancel a Zarr upload if an error occurs partway through [#893](https://github.com/dandi/dandi-cli/pull/893) ([@jwodder](https://github.com/jwodder))
+- Make `get_raw_digest()` actually default to the proper digest type for Zarrs [#894](https://github.com/dandi/dandi-cli/pull/894) ([@jwodder](https://github.com/jwodder))
+- Fix neural data type to metadata extractor [#891](https://github.com/dandi/dandi-cli/pull/891) ([@satra](https://github.com/satra) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Add dedicated HTTP404Error exception class [#908](https://github.com/dandi/dandi-cli/pull/908) ([@jwodder](https://github.com/jwodder))
+- Make `paths` argument to `upload()` optional [#899](https://github.com/dandi/dandi-cli/pull/899) ([@jwodder](https://github.com/jwodder))
+- Add type-annotations to various files [#887](https://github.com/dandi/dandi-cli/pull/887) ([@jwodder](https://github.com/jwodder))
+- Delete functions (get_asset_metadata, find_dandi_files) obsoleted by PR #853 [#885](https://github.com/dandi/dandi-cli/pull/885) ([@jwodder](https://github.com/jwodder))
+- Use a pydantic model to store a RemoteDandiset's cached data [#876](https://github.com/dandi/dandi-cli/pull/876) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- improve DandiApiClient.__init__ docstring [#909](https://github.com/dandi/dandi-cli/pull/909) ([@bendichter](https://github.com/bendichter))
+- Document new `dandi organize` options in Read the Docs site [#901](https://github.com/dandi/dandi-cli/pull/901) ([@jwodder](https://github.com/jwodder))
+- Organize & fine-tune dandi.dandiapi Sphinx docs [#888](https://github.com/dandi/dandi-cli/pull/888) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Pin minio image version [#898](https://github.com/dandi/dandi-cli/pull/898) ([@AlmightyYakob](https://github.com/AlmightyYakob))
+- Enable type-checking [#877](https://github.com/dandi/dandi-cli/pull/877) ([@jwodder](https://github.com/jwodder))
+- Add `new_dandiset` fixture [#874](https://github.com/dandi/dandi-cli/pull/874) ([@jwodder](https://github.com/jwodder))
+- Mark a test with missing `skipif_no_network` marker [#886](https://github.com/dandi/dandi-cli/pull/886) ([@jwodder](https://github.com/jwodder))
+
+#### 🔩 Dependency Updates
+
+- Remove unused tqdm dependency [#910](https://github.com/dandi/dandi-cli/pull/910) ([@jwodder](https://github.com/jwodder))
+- Update minimum pydantic version to 1.9.0 [#905](https://github.com/dandi/dandi-cli/pull/905) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 6
+
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Jacob Nesbitt ([@AlmightyYakob](https://github.com/AlmightyYakob))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Saksham Sharda ([@Saksham20](https://github.com/Saksham20))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.35.0 (Mon Jan 24 2022)
+
+#### 🚀 Enhancement
+
+- Make navigate() and navigate_url() auto-authenticate for embargoed Dandisets [#870](https://github.com/dandi/dandi-cli/pull/870) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- species url is case sensitive [#865](https://github.com/dandi/dandi-cli/pull/865) ([@jwodder](https://github.com/jwodder) [@satra](https://github.com/satra))
+
+#### 🏠 Internal
+
+- Update bad versions list in `.et` [#866](https://github.com/dandi/dandi-cli/pull/866) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+
+---
+
+# 0.34.1 (Mon Jan 17 2022)
+
+#### 🔩 Dependency Updates
+
+- upgrade dandischema requirement from 0.4.1 to 0.5.1 (~=) [#868](https://github.com/dandi/dandi-cli/pull/868) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.34.0 (Wed Jan 12 2022)
+
+#### 🚀 Enhancement
+
+- Include "dandiset" field in /uploads/initialize/ requests [#863](https://github.com/dandi/dandi-cli/pull/863) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- ENH: update species interpretation from NWB file [#857](https://github.com/dandi/dandi-cli/pull/857) ([@satra](https://github.com/satra))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+
+---
+
+# 0.33.0 (Tue Jan 11 2022)
+
+#### 🚀 Enhancement
+
+- Add `embargo_status` to dandiset endpoint [#855](https://github.com/dandi/dandi-cli/pull/855) ([@dchiquito](https://github.com/dchiquito))
+- Remove dandi/core/ in favor of copy in dandischema [#849](https://github.com/dandi/dandi-cli/pull/849) ([@jwodder](https://github.com/jwodder))
+- Error on NWB files with external links [#843](https://github.com/dandi/dandi-cli/pull/843) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Add DJANGO_DANDI_DANDISETS_EMBARGO_BUCKET_NAME setting to test docker-compose.yml [#854](https://github.com/dandi/dandi-cli/pull/854) ([@dchiquito](https://github.com/dchiquito))
+
+#### 🏠 Internal
+
+- Move a comment [#862](https://github.com/dandi/dandi-cli/pull/862) ([@jwodder](https://github.com/jwodder))
+- Add a wrapper function for the calls to `find_files()` in tests [#860](https://github.com/dandi/dandi-cli/pull/860) ([@jwodder](https://github.com/jwodder))
+- Assorted code cleanups [#859](https://github.com/dandi/dandi-cli/pull/859) ([@jwodder](https://github.com/jwodder))
+- Remove generatorify.py [#850](https://github.com/dandi/dandi-cli/pull/850) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Improve CLI documentation [#851](https://github.com/dandi/dandi-cli/pull/851) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Replace the use of pyfakefs with a `tmp_home` fixture [#861](https://github.com/dandi/dandi-cli/pull/861) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.32.2 (Mon Dec 06 2021)
+
+#### 🐛 Bug Fix
+
+- Improve UX of failed redirects while resolving resource identifiers [#830](https://github.com/dandi/dandi-cli/pull/830) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Remove some unused functions [#846](https://github.com/dandi/dandi-cli/pull/846) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Set new environment variables required by API server [#845](https://github.com/dandi/dandi-cli/pull/845) ([@mvandenburgh](https://github.com/mvandenburgh))
+- Test against Python 3.10 [#794](https://github.com/dandi/dandi-cli/pull/794) ([@jwodder](https://github.com/jwodder))
+- Ignore a deprecation warning from humanize [#844](https://github.com/dandi/dandi-cli/pull/844) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Mike VanDenburgh ([@mvandenburgh](https://github.com/mvandenburgh))
+
+---
+
+# 0.32.1 (Mon Nov 29 2021)
+
+#### 🐛 Bug Fix
+
+- Convert DANDI: resource identifiers to lowercase when prepending "https://identifiers.org/" and tighten regex [#829](https://github.com/dandi/dandi-cli/pull/829) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.32.0 (Fri Nov 19 2021)
+
+#### 🚀 Enhancement
+
+- Support setting `--dandi-instance` via a `DANDI_INSTANCE` envvar [#822](https://github.com/dandi/dandi-cli/pull/822) ([@jwodder](https://github.com/jwodder))
+- Give the resource classes `api_url` properties [#816](https://github.com/dandi/dandi-cli/pull/816) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Convert metadata 404's when downloading into an "error" status [#839](https://github.com/dandi/dandi-cli/pull/839) ([@jwodder](https://github.com/jwodder))
+- Don't error when redownloading the same dandiset.yaml file [#824](https://github.com/dandi/dandi-cli/pull/824) ([@jwodder](https://github.com/jwodder))
+- Make download fail immediately on nonexistent resources [#820](https://github.com/dandi/dandi-cli/pull/820) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Stop using distutils [#812](https://github.com/dandi/dandi-cli/pull/812) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Add Read the Docs badge to README [#832](https://github.com/dandi/dandi-cli/pull/832) ([@jwodder](https://github.com/jwodder))
+- Improve `dandi ls --help` and `dandi download --help` output [#827](https://github.com/dandi/dandi-cli/pull/827) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.31.0 (Mon Oct 25 2021)
+
+#### 🚀 Enhancement
+
+- Support requesting sorted assets [#807](https://github.com/dandi/dandi-cli/pull/807) ([@jwodder](https://github.com/jwodder))
+- Make logfile always contain all DEBUG or higher log messages [#813](https://github.com/dandi/dandi-cli/pull/813) ([@jwodder](https://github.com/jwodder))
+- Publicly expose classmethods for constructing API resource instances [#808](https://github.com/dandi/dandi-cli/pull/808) ([@jwodder](https://github.com/jwodder))
+- Make `--dandi-instance` public and add "instances" command [#804](https://github.com/dandi/dandi-cli/pull/804) ([@jwodder](https://github.com/jwodder))
+- dandi.dandiapi: Convert 404 responses to NotFoundErrors [#801](https://github.com/dandi/dandi-cli/pull/801) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Fix a minor bug in a handler for a rare condition [#806](https://github.com/dandi/dandi-cli/pull/806) ([@jwodder](https://github.com/jwodder))
+- Show valid instance names when given a dandi:// URL with an unknown instance [#815](https://github.com/dandi/dandi-cli/pull/815) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Stop using `setup_requires` [#811](https://github.com/dandi/dandi-cli/pull/811) ([@jwodder](https://github.com/jwodder))
+- Update codecov action to v2 [#802](https://github.com/dandi/dandi-cli/pull/802) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Improve dandiarchive.py docs [#803](https://github.com/dandi/dandi-cli/pull/803) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.30.3 (Mon Oct 11 2021)
+
+#### 🏠 Internal
+
+- Add flake8 to pre-commit-config.yaml [#800](https://github.com/dandi/dandi-cli/pull/800) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Document & type-annotate all public values in `dandi.dandiapi` [#799](https://github.com/dandi/dandi-cli/pull/799) ([@jwodder](https://github.com/jwodder))
+- Set Sphinx `default_role` to "py:obj" [#795](https://github.com/dandi/dandi-cli/pull/795) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Apply "skipif_no_network" to all relevant tests [#797](https://github.com/dandi/dandi-cli/pull/797) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.30.2 (Mon Oct 11 2021)
+
+#### 🐛 Bug Fix
+
+- Retry more requests; wait longer for Dandiset validity [#798](https://github.com/dandi/dandi-cli/pull/798) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.30.1 (Thu Oct 07 2021)
+
+#### 📝 Documentation
+
+- Change docs to use "furo" theme [#790](https://github.com/dandi/dandi-cli/pull/790) ([@jwodder](https://github.com/jwodder))
+- Show more documentation [#789](https://github.com/dandi/dandi-cli/pull/789) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Register all celery queues with dandiarchive env [#787](https://github.com/dandi/dandi-cli/pull/787) ([@dchiquito](https://github.com/dchiquito))
+
+#### Authors: 2
+
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.30.0 (Wed Oct 06 2021)
+
+#### 🚀 Enhancement
+
+- Log a message if a request succeeds after one or more failures [take 2] [#792](https://github.com/dandi/dandi-cli/pull/792) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Make CI tests dump Docker Compose logs on failure [#793](https://github.com/dandi/dandi-cli/pull/793) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.29.0 (Wed Oct 06 2021)
+
+#### 🚀 Enhancement
+
+- Give `RemoteAsset` a `created` attribute [#781](https://github.com/dandi/dandi-cli/pull/781) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.28.0 (Mon Oct 04 2021)
+
+#### 🚀 Enhancement
+
+- Give `validate` command an `--allow-any-path` option [#783](https://github.com/dandi/dandi-cli/pull/783) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Fix an AttributeError raised when a URL is used as a species [#782](https://github.com/dandi/dandi-cli/pull/782) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Remove Girder envvars from Docker Compose setup [#779](https://github.com/dandi/dandi-cli/pull/779) ([@jwodder](https://github.com/jwodder))
+- Specify DJANGO_DANDI_VALIDATION_JOB_INTERVAL [#778](https://github.com/dandi/dandi-cli/pull/778) ([@dchiquito](https://github.com/dchiquito))
+
+#### Authors: 2
+
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.27.3 (Tue Sep 28 2021)
+
+#### 🐛 Bug Fix
+
+- Fix display of Dandiset validation errors [#777](https://github.com/dandi/dandi-cli/pull/777) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Fix a test [#776](https://github.com/dandi/dandi-cli/pull/776) ([@jwodder](https://github.com/jwodder))
+
+#### 🔩 Dependency Updates
+
+- Update dandischema version [#775](https://github.com/dandi/dandi-cli/pull/775) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.27.2 (Mon Sep 13 2021)
+
+#### 🧪 Tests
+
+- Update Docker Compose spin-up code for loss of --username option [#768](https://github.com/dandi/dandi-cli/pull/768) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.27.1 (Fri Sep 03 2021)
+
+#### 🐛 Bug Fix
+
+- Stop uploading a file if no metadata can be extracted [#767](https://github.com/dandi/dandi-cli/pull/767) ([@jwodder](https://github.com/jwodder))
+- Retry following redirects on 400 (not 404), 502, 503, & 504 up to 5 times [#762](https://github.com/dandi/dandi-cli/pull/762) ([@jwodder](https://github.com/jwodder))
+- Add dandischema into fscacher tokens for validate [#760](https://github.com/dandi/dandi-cli/pull/760) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 📝 Documentation
+
+- Add module docstring to dandiapi.py [#756](https://github.com/dandi/dandi-cli/pull/756) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Use new published version of 000027 in tests [#763](https://github.com/dandi/dandi-cli/pull/763) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.27.0 (Thu Aug 26 2021)
+
+#### 🚀 Enhancement
+
+- Make `download_url` `RemoteAsset`-only; give `BaseRemoteAsset` `base_download_url` [#759](https://github.com/dandi/dandi-cli/pull/759) ([@jwodder](https://github.com/jwodder))
+- Give API resource classes `__str__` methods [#753](https://github.com/dandi/dandi-cli/pull/753) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Map netlify addresses to gui-staging [#758](https://github.com/dandi/dandi-cli/pull/758) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Remove test against rc/2.0.0 branch of pynwb [#754](https://github.com/dandi/dandi-cli/pull/754) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.26.1 (Mon Aug 09 2021)
+
+#### 🐛 Bug Fix
+
+- Boost dandischema to ~= 0.3.1 as it provides dandischema 0.5.1 required by dandi-api [#749](https://github.com/dandi/dandi-cli/pull/749) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.26.0 (Wed Aug 04 2021)
+
+#### 🚀 Enhancement
+
+- Support `/asset/<asset id>/download/` URLs [#748](https://github.com/dandi/dandi-cli/pull/748) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Restore the rabbitmq version [#747](https://github.com/dandi/dandi-cli/pull/747) ([@dchiquito](https://github.com/dchiquito))
+- Test against rc/2.0.0 branch of pynwb [#746](https://github.com/dandi/dandi-cli/pull/746) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.25.0 (Wed Jul 28 2021)
+
+#### 🚀 Enhancement
+
+- Add `replace_asset` parameter to `iter_upload_raw_asset()` [#743](https://github.com/dandi/dandi-cli/pull/743) ([@jwodder](https://github.com/jwodder))
+- Rename get_assets_under_path() to get_assets_with_path_prefix() [#741](https://github.com/dandi/dandi-cli/pull/741) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Correctly set User-Agent for client requests [#742](https://github.com/dandi/dandi-cli/pull/742) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Pin rabbitmq version [#744](https://github.com/dandi/dandi-cli/pull/744) ([@dchiquito](https://github.com/dchiquito))
+- Test RemoteDandiset.refresh() [#740](https://github.com/dandi/dandi-cli/pull/740) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.24.0 (Fri Jul 23 2021)
+
+#### 🚀 Enhancement
+
+- Python API rewrite, part 2 [#676](https://github.com/dandi/dandi-cli/pull/676) ([@jwodder](https://github.com/jwodder))
+- RF: attempt nwb metadata extraction only on .nwb, if fails -- warning [#733](https://github.com/dandi/dandi-cli/pull/733) ([@yarikoptic](https://github.com/yarikoptic))
+- Invoke etelemetry when constructing a DandiAPIClient; honor DANDI_NO_ET [#728](https://github.com/dandi/dandi-cli/pull/728) ([@jwodder](https://github.com/jwodder))
+- Make upload() fail if client & server schema versions are not in sync [#724](https://github.com/dandi/dandi-cli/pull/724) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Log "error" statuses while uploading as ERROR log messages [#737](https://github.com/dandi/dandi-cli/pull/737) ([@jwodder](https://github.com/jwodder))
+- Retry following redirects that return 404 [#734](https://github.com/dandi/dandi-cli/pull/734) ([@jwodder](https://github.com/jwodder))
+- ENH: exit with non-0 when "bad_version" of dandi-cli is used [#725](https://github.com/dandi/dandi-cli/pull/725) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 📝 Documentation
+
+- Stretch the doc to the screen width [#721](https://github.com/dandi/dandi-cli/pull/721) ([@yarikoptic](https://github.com/yarikoptic))
+- Set "version" in docs/source/conf.py [#720](https://github.com/dandi/dandi-cli/pull/720) ([@jwodder](https://github.com/jwodder))
+- Install "test" extras when building docs [#718](https://github.com/dandi/dandi-cli/pull/718) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.23.2 (Tue Jul 20 2021)
+
+#### 🐛 Bug Fix
+
+- Increase retries & wait times for API errors [#716](https://github.com/dandi/dandi-cli/pull/716) ([@jwodder](https://github.com/jwodder))
+- Use timed wait in publish test [#706](https://github.com/dandi/dandi-cli/pull/706) ([@dchiquito](https://github.com/dchiquito))
+
+#### 🏠 Internal
+
+- Add Readthedocs config [#715](https://github.com/dandi/dandi-cli/pull/715) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- ENH: adding sphinx documentation for the dandi-cli [#712](https://github.com/dandi/dandi-cli/pull/712) ([@yarikoptic](https://github.com/yarikoptic) [@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- BF(TST): Allow for IteratorWithAggregation to get nothing if reraise_immediately [#707](https://github.com/dandi/dandi-cli/pull/707) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 3
+
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.23.1 (Thu Jul 08 2021)
+
+#### 🧪 Tests
+
+- Skip shell completion test entirely on Windows [#702](https://github.com/dandi/dandi-cli/pull/702) ([@jwodder](https://github.com/jwodder))
+- BF+RF(TST): populate contentUrl to satisfy Asset requirement in 0.5.0 [#705](https://github.com/dandi/dandi-cli/pull/705) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.23.0 (Tue Jul 06 2021)
+
+#### 🚀 Enhancement
+
+- Add get_asset_metadata() function [#693](https://github.com/dandi/dandi-cli/pull/693) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- fix: raise error when unable to parse age and set session name properly [#669](https://github.com/dandi/dandi-cli/pull/669) ([@satra](https://github.com/satra) [@yarikoptic](https://github.com/yarikoptic))
+- fix: set CLI version to align with schema base version [#694](https://github.com/dandi/dandi-cli/pull/694) ([@satra](https://github.com/satra))
+- adding valueReference to extract_age return PropertyValue; adding test [#689](https://github.com/dandi/dandi-cli/pull/689) ([@djarecka](https://github.com/djarecka) [@satra](https://github.com/satra))
+
+#### Authors: 4
+
+- Dorota Jarecka ([@djarecka](https://github.com/djarecka))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.22.0 (Wed Jun 30 2021)
+
+#### 🚀 Enhancement
+
+- Adjust RemoteAsset.json_dict() [#691](https://github.com/dandi/dandi-cli/pull/691) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Create valid Dandiset metadata when testing; create valid asset metadata for non-NWB files; wait for validation before publishing [#683](https://github.com/dandi/dandi-cli/pull/683) ([@jwodder](https://github.com/jwodder))
+- changing unitText [#686](https://github.com/dandi/dandi-cli/pull/686) ([@djarecka](https://github.com/djarecka))
+- Fix a failing test on Windows on conda-forge (again) [#681](https://github.com/dandi/dandi-cli/pull/681) ([@jwodder](https://github.com/jwodder))
+- Remove references to "dandi register" command [#684](https://github.com/dandi/dandi-cli/pull/684) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Use dandischema.metadata.validate() instead of _validate_*_json() [#685](https://github.com/dandi/dandi-cli/pull/685) ([@jwodder](https://github.com/jwodder))
+
+#### 🔩 Dependency Updates
+
+- Increase minimum dandischema version to 0.2.9 [#687](https://github.com/dandi/dandi-cli/pull/687) ([@jwodder](https://github.com/jwodder) [@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 3
+
+- Dorota Jarecka ([@djarecka](https://github.com/djarecka))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.21.0 (Thu Jun 24 2021)
+
+#### 🚀 Enhancement
+
+- Add RemoteAsset.get_content_url() method [#675](https://github.com/dandi/dandi-cli/pull/675) ([@jwodder](https://github.com/jwodder))
+- Python API rewrite, part 1 [#660](https://github.com/dandi/dandi-cli/pull/660) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Don't pass "asset" field from upload iterator to pyout [#679](https://github.com/dandi/dandi-cli/pull/679) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Fix a failing test on Windows on conda-forge [#680](https://github.com/dandi/dandi-cli/pull/680) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.20.0 (Mon Jun 14 2021)
+
+#### 🚀 Enhancement
+
+- ENH: more metadata to reconstruct filename, upgrade to use dandischema 0.2.3 (schema 0.4.0) [#644](https://github.com/dandi/dandi-cli/pull/644) ([@satra](https://github.com/satra) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🐛 Bug Fix
+
+- ls --schema: Calculate digest for local assets [#666](https://github.com/dandi/dandi-cli/pull/666) ([@jwodder](https://github.com/jwodder))
+- updating parse age to cover more formats [#633](https://github.com/dandi/dandi-cli/pull/633) ([@djarecka](https://github.com/djarecka))
+- fix: add a default name when using an unknown session id [#662](https://github.com/dandi/dandi-cli/pull/662) ([@satra](https://github.com/satra))
+
+#### 🏠 Internal
+
+- Run test workflow on pushes only on master [#667](https://github.com/dandi/dandi-cli/pull/667) ([@yarikoptic](https://github.com/yarikoptic))
+- Address LGTM alerts [#657](https://github.com/dandi/dandi-cli/pull/657) ([@jwodder](https://github.com/jwodder))
+- Update pre-commit repo versions and configure isort to properly handle "from . import" lines [#656](https://github.com/dandi/dandi-cli/pull/656) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 4
+
+- Dorota Jarecka ([@djarecka](https://github.com/djarecka))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.19.0 (Mon Jun 07 2021)
 
 #### 🚀 Enhancement

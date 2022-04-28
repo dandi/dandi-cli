@@ -2,17 +2,23 @@ name: Tests
 
 on:
   push:
+    branches:
+      - master
   pull_request:
   schedule:
     - cron: '0 6 * * *'
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   test:
     runs-on: ${{ matrix.os }}
     env:
       NO_ET: 1
-      DATACITE_DEV_PASSWORD: ${{ secrets.DATACITE_DEV_PASSWORD }}
-
+      DANDI_ALLOW_LOCALHOST_URLS: 1
+      DANDI_TESTS_PERSIST_DOCKER_COMPOSE: "1"
     strategy:
       fail-fast: false
       matrix:
@@ -24,6 +30,7 @@ jobs:
           - 3.7
           - 3.8
           - 3.9
+          - '3.10'  # Needs quotes so YAML doesn't think it's 3.1
         mode:
           - normal
         include:
@@ -33,14 +40,11 @@ jobs:
           - os: ubuntu-18.04
             python: 3.7
             mode: dev-deps
-          - os: ubuntu-18.04
-            python: 3.7
-            mode: dandi-devel
         exclude:
           # Temporarily disabled due to h5py/hdf5 dependency issue
           # See <https://github.com/dandi/dandi-cli/pull/315>
           - os: windows-2019
-            python: 3.9
+            python: 3.10
 
     steps:
     - name: Set up environment
@@ -49,17 +53,18 @@ jobs:
         # Fetch all commits so that versioneer will return something compatible
         # with semantic-version
         fetch-depth: 0
+
     - name: Set up Python ${{ matrix.python }}
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python }}
 
     - name: Install hdf5 (Ubuntu)
-      if: matrix.python == '3.9' && startsWith(matrix.os, 'ubuntu')
+      if: matrix.python == '3.10' && startsWith(matrix.os, 'ubuntu')
       run: sudo apt-get update && sudo apt-get install -y libhdf5-dev
 
     - name: Install hdf5 (macOS)
-      if: matrix.python == '3.9' && startsWith(matrix.os, 'macos')
+      if: matrix.python == '3.10' && startsWith(matrix.os, 'macos')
       run: |
         brew install hdf5@1.8
         brew link hdf5@1.8
@@ -74,22 +79,41 @@ jobs:
       run: |
         pip install git+https://github.com/NeurodataWithoutBorders/pynwb
 
-    - name: Set DANDI_DEVEL=1
-      if: matrix.mode == 'dandi-devel'
-      run: echo DANDI_DEVEL=1 >> "$GITHUB_ENV"
-
     - name: Run all tests
       if: matrix.mode != 'dandi-api'
       run: |
         python -m pytest -s -v --cov=dandi --cov-report=xml dandi
+
+    - name: Smoke test example code in docs
+      if: matrix.mode != 'dandi-api' && github.event_name == 'schedule'
+      run: |
+        set -ex
+        cd docs/source/examples
+        for f in *.py
+        do python "$f"
+        done
 
     - name: Run Dandi API tests only
       if: matrix.mode == 'dandi-api'
       run: |
         python -m pytest -s -v --cov=dandi --cov-report=xml --dandi-api dandi
 
+    - name: Dump Docker Compose logs
+      if: failure() && startsWith(matrix.os, 'ubuntu')
+      run: |
+        docker-compose \
+          -f dandi/tests/data/dandiarchive-docker/docker-compose.yml \
+          logs --timestamps
+
+    - name: Shut down Docker Compose
+      if: startsWith(matrix.os, 'ubuntu')
+      run: |
+        docker-compose \
+          -f dandi/tests/data/dandiarchive-docker/docker-compose.yml \
+          down -v
+
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v1
+      uses: codecov/codecov-action@v2
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         file: ./coverage.xml

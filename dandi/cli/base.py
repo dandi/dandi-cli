@@ -11,6 +11,25 @@ lgr = get_logger()
 # Aux common functionality
 
 
+class IntColonInt(click.ParamType):
+    name = "int:int"
+
+    def convert(self, value, param, ctx):
+        if isinstance(value, str):
+            v1, colon, v2 = value.partition(":")
+            try:
+                v1 = int(v1)
+                v2 = int(v2) if colon else None
+            except ValueError:
+                self.fail("Value must be of the form `N[:M]`", param, ctx)
+            return (v1, v2)
+        else:
+            return value
+
+    def get_metavar(self, param):
+        return "N[:M]"
+
+
 # ???: could make them always available but hidden
 #  via  hidden=True.
 def devel_option(*args, **kwargs):
@@ -47,15 +66,17 @@ def dandiset_path_option(**kwargs):
     )
 
 
-def instance_option():
-    return devel_option(
-        "-i",
-        "--dandi-instance",
-        help="For development: DANDI instance to use",
-        type=click.Choice(sorted(known_instances)),
-        default="dandi",
-        show_default=True,
-    )
+def instance_option(**kwargs):
+    params = {
+        "help": "DANDI instance to use",
+        "type": click.Choice(sorted(known_instances)),
+        "default": "dandi",
+        "show_default": True,
+        "envvar": "DANDI_INSTANCE",
+        "show_envvar": True,
+    }
+    params.update(kwargs)
+    return click.option("-i", "--dandi-instance", **params)
 
 
 def devel_debug_option():
@@ -99,4 +120,6 @@ def map_to_click_exceptions(f):
     return wrapper
 
 
-map_to_click_exceptions._do_map = not bool(os.environ.get("DANDI_DEVEL", None))
+map_to_click_exceptions._do_map = not bool(  # type: ignore[attr-defined]
+    os.environ.get("DANDI_DEVEL", None)
+)

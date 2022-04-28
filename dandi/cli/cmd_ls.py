@@ -4,8 +4,9 @@ import os.path as op
 
 import click
 
-from .base import lgr, map_to_click_exceptions
+from .base import devel_option, lgr, map_to_click_exceptions
 from ..dandiarchive import DandisetURL, _dandi_url_parser, parse_dandi_url
+from ..misctypes import Digest
 from ..utils import is_url
 
 # TODO: all the recursion options etc
@@ -16,6 +17,9 @@ from ..utils import is_url
 @click.command(
     help=f"""\
 List .nwb files and dandisets metadata.
+
+The arguments may be either resource identifiers or paths to local
+files/directories.
 
 \b
 {_dandi_url_parser.known_patterns}
@@ -60,9 +64,25 @@ List .nwb files and dandisets metadata.
     help="Convert metadata to new schema version",
     metavar="VERSION",
 )
-@click.argument("paths", nargs=-1, type=click.Path(exists=False, dir_okay=True))
+@devel_option(
+    "--use-fake-digest",
+    is_flag=True,
+    help="Use dummy value for digests of local files instead of computing",
+)
+@click.argument(
+    "paths", nargs=-1, type=click.Path(exists=False, dir_okay=True), metavar="PATH|URL"
+)
 @map_to_click_exceptions
-def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, jobs=6):
+def ls(
+    paths,
+    schema,
+    metadata,
+    use_fake_digest=False,
+    fields=None,
+    format="auto",
+    recursive=False,
+    jobs=6,
+):
     """List .nwb files and dandisets metadata."""
 
     # TODO: more logical ordering in case of fields = None
@@ -116,21 +136,20 @@ def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, job
         for path in paths:
             if is_url(path):
                 parsed_url = parse_dandi_url(path)
-                with parsed_url.navigate(
-                    include_metadata=metadata in ("all", "assets")
-                ) as (client, dandiset, assets):
+                with parsed_url.navigate() as (client, dandiset, assets):
                     if isinstance(parsed_url, DandisetURL):
                         rec = {
-                            "path": dandiset.pop("dandiset", {}).get(
-                                "identifier", "ERR#%s" % id(dandiset)
-                            )
+                            "path": dandiset.identifier,
+                            **dandiset.version.json_dict(),
+                            "metadata": dandiset.get_raw_metadata(),
                         }
-                        # flatten the metadata into record to display
-                        # rec.update(dandiset.get('metadata', {}))
-                        rec.update(dandiset)
                         yield rec
                     if not isinstance(parsed_url, DandisetURL) or recursive:
-                        yield from assets
+                        for a in assets:
+                            rec = a.json_dict()
+                            if metadata in ("all", "assets"):
+                                rec["metadata"] = a.get_raw_metadata()
+                            yield rec
             else:
                 # For now we support only individual files
                 yield path
@@ -179,6 +198,7 @@ def ls(paths, schema, metadata, fields=None, format="auto", recursive=False, job
                             errors=errors,
                             flatten=format == "pyout",
                             schema=schema,
+                            use_fake_digest=use_fake_digest,
                         )
                         if format == "pyout":
                             rec[async_keys] = cb
@@ -307,10 +327,13 @@ def flatten_meta_to_pyout(meta):
     return out
 
 
-def get_metadata_ls(path, keys, errors, flatten=False, schema=None):
+def get_metadata_ls(
+    path, keys, errors, flatten=False, schema=None, use_fake_digest=False
+):
     from ..dandiset import APIDandiset
     from ..metadata import get_metadata, nwb2asset
     from ..pynwb_utils import get_nwb_version, ignore_benign_pynwb_warnings
+    from ..support.digests import get_digest
 
     ignore_benign_pynwb_warnings()
 
@@ -324,7 +347,16 @@ def get_metadata_ls(path, keys, errors, flatten=False, schema=None):
                         dandiset = APIDandiset(path, schema_version=schema)
                         rec = dandiset.metadata
                     else:
-                        rec = nwb2asset(path, schema_version=schema).json_dict()
+                        if use_fake_digest:
+                            digest = "0" * 32 + "-1"
+                        else:
+                            lgr.info("Calculating digest for %s", path)
+                            digest = get_digest(path, digest="dandi-etag")
+                        rec = nwb2asset(
+                            path,
+                            schema_version=schema,
+                            digest=Digest.dandi_etag(digest),
+                        ).json_dict()
                 else:
                     rec = get_metadata(path)
             except Exception as exc:

@@ -7,12 +7,50 @@ from .base import devel_debug_option, devel_option, lgr, map_to_click_exceptions
 
 
 @click.command()
-@devel_option("--schema", help="Validate against new schema version", metavar="VERSION")
+@devel_option(
+    "--schema", help="Validate against new BIDS schema version", metavar="VERSION"
+)
+@click.option("--report", help="Specify path to write a report under.")
+@click.option(
+    "--report-flag",
+    "-r",
+    is_flag=True,
+    help="Whether to write a report under a unique path in the current directory. "
+    "Only usable if `--report` is not already used.",
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
 @devel_debug_option()
 @map_to_click_exceptions
-def validate(paths, schema=None, devel_debug=False):
-    """Validate files for NWB (and DANDI) compliance.
+def validate_bids(
+    paths, schema=None, devel_debug=False, report=False, report_flag=False
+):
+    """Validate BIDS paths."""
+    from ..validate import validate_bids as validate_bids_
+
+    if report_flag and not report:
+        report = report_flag
+
+    validate_bids_(
+        *paths,
+        report=report,
+        schema_version=schema,
+        devel_debug=devel_debug,
+    )
+
+
+@click.command()
+@devel_option("--schema", help="Validate against new schema version", metavar="VERSION")
+@devel_option(
+    "--allow-any-path",
+    help="For development: allow DANDI 'unsupported' file types/paths",
+    default=False,
+    is_flag=True,
+)
+@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
+@devel_debug_option()
+@map_to_click_exceptions
+def validate(paths, schema=None, devel_debug=False, allow_any_path=False):
+    """Validate files for NWB and DANDI compliance.
 
     Exits with non-0 exit code if any file is not compliant.
     """
@@ -37,7 +75,10 @@ def validate(paths, schema=None, devel_debug=False):
     all_files_errors = {}
     nfiles = 0
     for path, errors in validate_(
-        paths, schema_version=schema, devel_debug=devel_debug
+        *paths,
+        schema_version=schema,
+        devel_debug=devel_debug,
+        allow_any_path=allow_any_path,
     ):
         nfiles += 1
         if view == "one-at-a-time":

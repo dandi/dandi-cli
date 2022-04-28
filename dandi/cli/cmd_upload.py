@@ -1,6 +1,7 @@
 import click
 
 from .base import (
+    IntColonInt,
     devel_debug_option,
     devel_option,
     instance_option,
@@ -8,31 +9,7 @@ from .base import (
 )
 
 
-class IntColonInt(click.ParamType):
-    name = "int:int"
-
-    def convert(self, value, param, ctx):
-        if isinstance(value, str):
-            v1, colon, v2 = value.partition(":")
-            try:
-                v1 = int(v1)
-                v2 = int(v2) if colon else None
-            except ValueError:
-                self.fail("Value must be of the form `N[:M]`", param, ctx)
-            return (v1, v2)
-        else:
-            return value
-
-    def get_metavar(self, param):
-        return "N[:M]"
-
-
 @click.command()
-# @dandiset_path_option(
-#     help="Top directory (local) of the dandiset.  Files will be uploaded with "
-#     "paths relative to that directory. If not specified, current or a parent "
-#     "directory containing dandiset.yaml file will be assumed "
-# )
 @click.option(
     "-e",
     "--existing",
@@ -48,7 +25,10 @@ class IntColonInt(click.ParamType):
     "-J",
     "--jobs",
     type=IntColonInt(),
-    help="Number of files to upload in parallel and, optionally, number of upload threads per file",
+    help=(
+        "Number of assets to upload in parallel and, optionally, number of"
+        " upload threads per asset  [default: 5:5]"
+    ),
 )
 @click.option(
     "--sync", is_flag=True, help="Delete assets on the server that do not exist locally"
@@ -84,27 +64,28 @@ def upload(
     paths,
     jobs,
     sync,
+    dandi_instance,
     existing="refresh",
     validation="require",
-    dandiset_path=None,
     # Development options should come as kwargs
-    dandi_instance="dandi",
     allow_any_path=False,
     upload_dandiset_metadata=False,
     devel_debug=False,
 ):
-    """Upload dandiset (files) to DANDI archive.
+    """
+    Upload Dandiset files to DANDI Archive.
 
-    Target dandiset to upload to must already be registered in the archive and
-    locally "dandiset.yaml" should exist in `--dandiset-path`.  If you have not
-    yet created a dandiset in the archive, use 'dandi register' command first.
+    The target Dandiset to upload to must already be registered in the archive,
+    and a `dandiset.yaml` file must exist in the common ancestor of the given
+    paths (or the current directory, if no paths are specified) or a parent
+    directory thereof.
 
-    Local dandiset should pass validation.  For that it should be first organized
-    using 'dandiset organize' command.
+    Local Dandiset should pass validation.  For that, the assets should first
+    be organized using the `dandi organize` command.
 
-    By default all files in the dandiset (not following directories starting with a period)
-    will be considered for the upload.  You can point to specific files you would like to
-    validate and have uploaded.
+    By default all .nwb, .zarr, and .ngff assets in the Dandiset (ignoring
+    directories starting with a period) will be considered for the upload.  You
+    can point to specific files you would like to validate and have uploaded.
     """
     from ..upload import upload
 
@@ -118,7 +99,6 @@ def upload(
         paths,
         existing=existing,
         validation=validation,
-        dandiset_path=dandiset_path,
         dandi_instance=dandi_instance,
         allow_any_path=allow_any_path,
         upload_dandiset_metadata=upload_dandiset_metadata,
