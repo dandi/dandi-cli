@@ -183,7 +183,7 @@ class LocalAsset(DandiFile):
     Archive as an asset of a Dandiset
     """
 
-    #: The foward-slash-separated path to the asset within its local Dandiset
+    #: The forward-slash-separated path to the asset within its local Dandiset
     #: (i.e., relative to the Dandiset's root)
     path: str
 
