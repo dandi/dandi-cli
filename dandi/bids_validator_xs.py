@@ -622,7 +622,13 @@ def select_schema_dir(
                             schema_min_version,
                         )
                         schema_version = schema_min_version
-        if schema_min_version:
+        if not schema_version:
+            lgr.warning(
+                "No BIDSVersion could be found for the dataset. Falling back to %s.",
+                schema_min_version,
+            )
+            schema_version = schema_min_version
+        elif schema_min_version:
             if schema_version < schema_min_version:
                 lgr.warning(
                     "BIDSVersion %s is less than the minimal working "
