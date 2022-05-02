@@ -37,23 +37,30 @@ def validate_bids(
         devel_debug=devel_debug,
     )
     missing_files = []
+    error_encountered = False
     for pattern in validation_result["schema_tracking"]:
         if pattern["mandatory"]:
             missing_files.append(pattern["regex"])
+    error_string = "Summary: "
     if len(missing_files) > 0:
-        click.secho(
-            "Summary: {} BIDS required filename patterns could not be found.".format(
-                len(missing_files)
-            ),
-            bold=True,
-            fg="red",
+        error_string += "{} BIDS required filename patterns could not be found".format(
+            len(missing_files)
         )
-        raise SystemExit(1)
+        error_encountered = True
     if len(validation_result["path_tracking"]) > 0:
+        error_substring = "{} filenames did not match any pattern known to BIDS".format(
+            len(validation_result["path_tracking"])
+        )
+        if error_encountered:
+            error_string += " and {}.".format(error_substring)
+        else:
+            error_string += "{}.".format(error_substring)
+        error_encountered = True
+    else:
+        error_string += "."
+    if error_encountered:
         click.secho(
-            "Summary: {} filenames did not match any pattern known to BIDS.".format(
-                len(validation_result["path_tracking"])
-            ),
+            error_string,
             bold=True,
             fg="red",
         )
