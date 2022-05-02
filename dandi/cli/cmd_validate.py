@@ -30,12 +30,34 @@ def validate_bids(
     if report_flag and not report:
         report = report_flag
 
-    validate_bids_(
+    validation_result = validate_bids_(
         *paths,
         report=report,
         schema_version=schema,
         devel_debug=devel_debug,
     )
+    missing_files = []
+    for pattern in validation_result["schema_tracking"]:
+        if pattern["mandatory"]:
+            missing_files.append(pattern["regex"])
+    if len(missing_files) > 0:
+        click.secho(
+            "Summary: {} BIDS required filename patterns could not be found.".format(
+                len(missing_files)
+            ),
+            bold=True,
+            fg="red",
+        )
+        raise SystemExit(1)
+    if len(validation_result["path_tracking"]) > 0:
+        click.secho(
+            "Summary: {} filenames did not match any pattern known to BIDS.".format(
+                len(validation_result["path_tracking"])
+            ),
+            bold=True,
+            fg="red",
+        )
+        raise SystemExit(1)
 
 
 @click.command()
