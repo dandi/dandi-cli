@@ -43,13 +43,25 @@ def validate_bids(
             missing_files.append(pattern["regex"])
     error_string = "Summary: "
     if len(missing_files) > 0:
-        error_string += "{} BIDS required filename patterns could not be found".format(
-            len(missing_files)
+        if len(missing_files) == 1:
+            plural = ""
+        else:
+            plural = "s"
+        error_string += "{} BIDS required filename pattern{} could not be found".format(
+            len(missing_files),
+            plural,
         )
         error_encountered = True
     if len(validation_result["path_tracking"]) > 0:
-        error_substring = "{} filenames did not match any pattern known to BIDS".format(
-            len(validation_result["path_tracking"])
+        if len(validation_result["path_tracking"]) == 1:
+            plural = ""
+        else:
+            plural = "s"
+        error_substring = (
+            "{} filename{} did not match any pattern known to BIDS".format(
+                len(validation_result["path_tracking"]),
+                plural,
+            )
         )
         if error_encountered:
             error_string += " and {}.".format(error_substring)
