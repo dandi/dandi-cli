@@ -1,3 +1,25 @@
+# 0.39.5 (Thu May 05 2022)
+
+#### 🐛 Bug Fix
+
+- Setting version to min version if not available [#994](https://github.com/dandi/dandi-cli/pull/994) ([@TheChymera](https://github.com/TheChymera))
+- Whitespace for string returns [#985](https://github.com/dandi/dandi-cli/pull/985) ([@TheChymera](https://github.com/TheChymera))
+
+#### 🏠 Internal
+
+- Upgrade dandischema to 0.7.x series [#987](https://github.com/dandi/dandi-cli/pull/987) ([@yarikoptic](https://github.com/yarikoptic) [@jwodder](https://github.com/jwodder))
+- Prepend to sys.path to fix versioneer in PEP517 mode [#998](https://github.com/dandi/dandi-cli/pull/998) ([@mgorny](https://github.com/mgorny))
+- minor spelling typo fix [#998](https://github.com/dandi/dandi-cli/pull/998) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 4
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Michał Górny ([@mgorny](https://github.com/mgorny))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.39.4 (Tue Apr 26 2022)
 
 #### 🏎 Performance
