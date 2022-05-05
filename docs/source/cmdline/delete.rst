@@ -15,6 +15,10 @@ remote asset, directory, or entire Dandiset.
 Options
 -------
 
+.. option:: --force
+
+    Force deletion without requesting interactive confirmation
+
 .. option:: -i, --instance <instance-name>
 
     DANDI instance to delete assets & Dandisets from  [default: ``dandi``]
