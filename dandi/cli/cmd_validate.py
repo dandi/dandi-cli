@@ -4,6 +4,7 @@ import os
 import click
 
 from .base import devel_debug_option, devel_option, lgr, map_to_click_exceptions
+from ..utils import pluralize
 
 
 @click.command()
@@ -37,40 +38,25 @@ def validate_bids(
         devel_debug=devel_debug,
     )
     missing_files = []
-    error_encountered = False
     for pattern in validation_result["schema_tracking"]:
         if pattern["mandatory"]:
             missing_files.append(pattern["regex"])
-    error_string = "Summary: "
-    if len(missing_files) > 0:
-        if len(missing_files) == 1:
-            plural = ""
-        else:
-            plural = "s"
-        error_string += "{} BIDS required filename pattern{} could not be found".format(
-            len(missing_files),
-            plural,
-        )
-        error_encountered = True
-    if len(validation_result["path_tracking"]) > 0:
-        if len(validation_result["path_tracking"]) == 1:
-            plural = ""
-        else:
-            plural = "s"
+    error_list = []
+    if missing_files:
         error_substring = (
-            "{} filename{} did not match any pattern known to BIDS".format(
-                len(validation_result["path_tracking"]),
-                plural,
-            )
+            f"{pluralize(len(missing_files), 'filename pattern')} required "
+            "by BIDS could not be found"
         )
-        if error_encountered:
-            error_string += " and {}.".format(error_substring)
-        else:
-            error_string += "{}.".format(error_substring)
-        error_encountered = True
-    else:
-        error_string += "."
-    if error_encountered:
+        error_list.append(error_substring)
+    if validation_result["path_tracking"]:
+        error_substring = (
+            f"{pluralize(len(validation_result['path_tracking']), 'filename')} "
+            "did not match any pattern known to BIDS"
+        )
+        error_list.append(error_substring)
+    if error_list:
+        error_string = " and ".join(error_list)
+        error_string = f"Summary: {error_string}."
         click.secho(
             error_string,
             bold=True,
