@@ -171,6 +171,14 @@ from .fixtures import DandiAPI, SampleDandiset
             ),
         ),
         (
+            "http://localhost:8085/dandiset/000002",
+            DandisetURL(
+                api_url="http://localhost:8000/api",
+                dandiset_id="000002",
+                version_id=None,
+            ),
+        ),
+        (
             "https://gui.dandiarchive.org/#/dandiset/000001/files"
             "?location=%2Fsub-anm369962",
             AssetItemURL(
