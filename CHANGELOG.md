@@ -1,3 +1,17 @@
+# 0.39.6 (Mon May 09 2022)
+
+#### 🐛 Bug Fix
+
+- Logging validation warnings and errors [#992](https://github.com/dandi/dandi-cli/pull/992) ([@TheChymera](https://github.com/TheChymera))
+- ENH: delete - allow to specify --force in CLI [#1001](https://github.com/dandi/dandi-cli/pull/1001) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 2
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.39.5 (Thu May 05 2022)
 
 #### 🐛 Bug Fix
