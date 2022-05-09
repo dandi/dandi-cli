@@ -513,7 +513,7 @@ def write_report(
         for regex_entry in validation_result["schema_listing"]:
             f.write(f'\n\t- `{regex_entry["regex"]}`')
         f.write("\n")
-        if len(validation_result["path_tracking"]) > 0:
+        if validation_result["path_tracking"]:
             f.write("The following files were not matched by any regex schema entry:")
             f.write("\n\t* `")
             f.write("`\n\t* `".join(validation_result["path_tracking"]))
@@ -652,6 +652,32 @@ def select_schema_dir(
         )
 
 
+def log_errors(validation_result):
+    """
+    Raise errors for validation result.
+
+    Parameters
+    ----------
+    validation_result : dict
+        A dictionary as returned by `validate_all()` with keys including "schema_tracking",
+        "path_tracking", "path_listing", and, optionally "itemwise".
+        The "itemwise" value, if present, should be a list of dictionaries, with keys including
+        "path", "regex", and "match".
+    """
+    total_file_count = len(validation_result["path_listing"])
+    validated_files_count = total_file_count - len(validation_result["path_tracking"])
+    if validated_files_count == 0:
+        lgr.error("No valid BIDS files were found.")
+    for entry in validation_result["schema_tracking"]:
+        if entry["mandatory"]:
+            lgr.error(
+                "The `%s` regex pattern file required by BIDS was not found.",
+                entry["regex"],
+            )
+    for i in validation_result["path_tracking"]:
+        lgr.warning("The `%s` file was not matched by any regex schema entry.", i)
+
+
 def validate_bids(
     bids_paths,
     schema_reference_root="{module_path}/support/bids/schemadata/",
@@ -717,5 +743,7 @@ def validate_bids(
             write_report(validation_result, report_path=report_path)
         else:
             write_report(validation_result)
+
+    log_errors(validation_result)
 
     return validation_result
