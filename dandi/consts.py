@@ -121,9 +121,6 @@ known_instances = {
         "https://api-staging.dandiarchive.org/api",
     ),
     "dandi-api-local-docker-tests": DandiInstance(
-        None, None, f"http://{instancehost}:8000/api"
-    ),
-    "dandi-archive-local-docker": DandiInstance(
         f"http://{instancehost}:8085", None, f"http://{instancehost}:8000/api"
     ),
 }
