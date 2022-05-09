@@ -37,10 +37,11 @@ def validate_bids(
         schema_version=schema,
         devel_debug=devel_debug,
     )
-    missing_files = []
-    for pattern in validation_result["schema_tracking"]:
-        if pattern["mandatory"]:
-            missing_files.append(pattern["regex"])
+    missing_files = [
+        pattern["regex"]
+        for pattern in validation_result["schema_tracking"]
+        if pattern["mandatory"]
+    ]
     error_list = []
     if missing_files:
         error_substring = (
