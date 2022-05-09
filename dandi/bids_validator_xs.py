@@ -715,7 +715,8 @@ def validate_bids(
     # Not sure whether to incorporate in validation_result.
     if bids_schema_dir == os.path.join(
         os.path.abspath(os.path.dirname(__file__)),
-        "data/schema",
+        "data",
+        "schema",
     ):
         schema_version = 9999
     else:

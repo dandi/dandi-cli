@@ -63,6 +63,43 @@ def _rename_bids_keys(bids_metadata, conversion=BIDS_TO_DANDI):
     return converted_bids_metadata
 
 
+def _path_in_bids(
+    path, root_marker="dataset_description.json", end_marker="dandiset.yaml"
+):
+    """Determine whether a path is a member of a BIDS dataset.
+
+    Parameters
+    ----------
+    path: str or Path
+    root_marker: str, optional
+        String giving a filename, the existence of which in a directory will mark it as a
+        BIDS dataset root directory.
+    end_marker: str, optional
+        String giving a filename, the existence of which in a directory will end the
+        search.
+
+    Returns
+    -------
+    bool
+    """
+    from .utils import find_files
+
+    path = Path(path)
+    if [i for i in find_files(root_marker, path)]:
+        return True
+    search_path = path
+    while True:
+        search_path = search_path.parent
+        bids_marker_candidate = search_path / root_marker
+        end_marker_candidate = search_path / end_marker
+        if bids_marker_candidate.is_file():
+            return True
+        if end_marker_candidate.is_file():
+            return False
+        if search_path == Path("/"):
+            return False
+
+
 # Disable this for clean hacking
 @metadata_cache.memoize_path
 def get_metadata(path: Union[str, Path]) -> Optional[dict]:
@@ -91,11 +128,10 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
             lgr.debug("Failed to get metadata for %s: %s", path, exc)
             return None
 
-    # Pretty fragile way to determine that it's not nwb.
-    # Ideally can find something better, like `is_nwb` or `is_bids`.
-    try:
-        h5py.File(path)
-    except OSError:
+    # Somewhat less fragile search than previous proposals,
+    # could still be augmented with `_is_nwb` to disambiguate both cases
+    # at the detection level.
+    if _path_in_bids(path):
         from .bids_validator_xs import validate_bids
 
         _meta = validate_bids(path)
@@ -103,6 +139,8 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
         meta["bids_schema_version"] = _meta["bids_schema_version"]
         meta = _rename_bids_keys(meta)
         return meta
+    else:
+        h5py.File(path)
 
     if nwb_has_external_links(path):
         raise NotImplementedError(
