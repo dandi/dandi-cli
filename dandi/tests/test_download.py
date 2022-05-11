@@ -32,7 +32,9 @@ from ..utils import list_paths
         "https://dandiarchive.org/dandiset/000027/draft",
     ],
 )
-def test_download_000027(url: str, tmp_path: Path) -> None:
+def test_download_000027(
+    url: str, tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
     ret = download(url, tmp_path)  # type: ignore[func-returns-value]
     assert not ret  # we return nothing ATM, might want to "generate"
     dsdir = tmp_path / "000027"
@@ -48,9 +50,14 @@ def test_download_000027(url: str, tmp_path: Path) -> None:
         Digester(["md5"])(dsdir / "sub-RAT123" / "sub-RAT123.nwb")["md5"]
         == "33318fd510094e4304868b4a481d4a5a"
     )
-    # redownload - since already exist there should be an exception
+    # redownload - since already exist there should be an exception if we are
+    # not using pyout
     with pytest.raises(FileExistsError):
-        download(url, tmp_path)
+        download(url, tmp_path, format="debug")
+    assert "FileExistsError" not in capsys.readouterr().out
+    # but  no exception is raised, and rather it gets output to pyout otherwise
+    download(url, tmp_path)
+    assert "FileExistsError" in capsys.readouterr().out
 
     # TODO: somehow get that status report about what was downloaded and what not
     download(url, tmp_path, existing="skip")  # TODO: check that skipped
