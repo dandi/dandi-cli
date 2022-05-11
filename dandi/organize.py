@@ -400,7 +400,7 @@ def _sanitize_value(value, field):
     Of particular importance is _ which we use, as in BIDS, to separate
     _key-value entries
     """
-    value = re.sub("[_*:%@]", "-", value)
+    value = re.sub("[_*:%@;]", "-", value)
     if field != "extension":
         value = value.replace(".", "-")
     return value
