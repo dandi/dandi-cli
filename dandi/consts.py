@@ -36,6 +36,8 @@ metadata_nwb_computed_fields = (
     "nd_types",
 )
 
+metadata_bids_fields = ("bids_schema_version",)
+
 metadata_nwb_fields = (
     metadata_nwb_file_fields
     + metadata_nwb_subject_fields
@@ -63,7 +65,9 @@ metadata_dandiset_fields = (
     "number_of_tissue_samples",
 )
 
-metadata_all_fields = metadata_nwb_fields + metadata_dandiset_fields
+metadata_all_fields = (
+    metadata_bids_fields + metadata_nwb_fields + metadata_dandiset_fields
+)
 
 #: Regular expression for a valid Dandiset identifier.  This regex is not
 #: anchored.

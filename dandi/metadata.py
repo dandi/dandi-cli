@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from functools import lru_cache
+import itertools
 import os
 import os.path as op
 from pathlib import Path
@@ -25,6 +26,7 @@ from uuid import uuid4
 from xml.dom.minidom import parseString
 
 from dandischema import models
+import h5py
 import requests
 import tenacity
 
@@ -43,7 +45,50 @@ from .utils import ensure_datetime, get_mime_type, get_utcnow_datetime
 
 lgr = get_logger()
 
+# Remove hard-coding when current version fallback is merged.
 
+BIDS_TO_DANDI = {
+    "subject": "subject_id",
+    "session": "session_id",
+}
+
+
+def _rename_bids_keys(bids_metadata, mapping=BIDS_TO_DANDI):
+    """Standardize BIDS metadata field naming to match DANDI."""
+    return {mapping.get(k, k): v for k, v in bids_metadata.items()}
+
+
+def _path_in_bids(
+    check_path, bids_marker="dataset_description.json", end_marker="dandiset.yaml"
+):
+    """Determine whether a path is a member of a BIDS dataset.
+
+    Parameters
+    ----------
+    check_path: str or Path
+    bids_marker: str, optional
+        String giving a filename, the existence of which in a directory will mark it as a
+        BIDS dataset root directory.
+    end_marker: str, optional
+        String giving a filename, the existence of which in a directory will end the
+        search.
+
+    Returns
+    -------
+    bool
+    """
+    check_path = Path(check_path)
+    for dir_level in itertools.chain([check_path], check_path.parents):
+        bids_marker_candidate = dir_level / bids_marker
+        end_marker_candidate = dir_level / end_marker
+        if bids_marker_candidate.is_file() or bids_marker_candidate.is_symlink():
+            return True
+        if end_marker_candidate.is_file() or end_marker_candidate.is_symlink():
+            return False
+    return False
+
+
+# Disable this for clean hacking
 @metadata_cache.memoize_path
 def get_metadata(path: Union[str, Path]) -> Optional[dict]:
     """Get selected metadata from a .nwb file or a dandiset directory
@@ -70,6 +115,19 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
         except ValueError as exc:
             lgr.debug("Failed to get metadata for %s: %s", path, exc)
             return None
+
+    # Somewhat less fragile search than previous proposals,
+    # could still be augmented with `_is_nwb` to disambiguate both cases
+    # at the detection level.
+    if _path_in_bids(path):
+        from .bids_validator_xs import validate_bids
+
+        _meta = validate_bids(path)
+        meta = _meta["match_listing"][0]
+        meta["bids_schema_version"] = _meta["bids_schema_version"]
+        meta = _rename_bids_keys(meta)
+        return meta
+    h5py.File(path)
 
     if nwb_has_external_links(path):
         raise NotImplementedError(
@@ -195,7 +253,9 @@ def _check_decimal_parts(age_parts: List[str]) -> bool:
             flags=re.I,
         )
         if m is None:
-            raise ValueError(f"Failed to parse the trailing part of age {age_parts[-1]!r}")
+            raise ValueError(
+                f"Failed to parse the trailing part of age {age_parts[-1]!r}"
+            )
         age_parts = age_parts[:-1] + [m[i] for i in range(1, 3) if m[i]]
     decim_part = ["." in el for el in age_parts]
     return not (any(decim_part) and any(decim_part[:-1]))
