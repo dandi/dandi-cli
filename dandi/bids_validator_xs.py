@@ -718,7 +718,9 @@ def validate_bids(
         "data",
         "schema",
     ):
-        schema_version = 9999
+        # Declare we are using live version,
+        # string will evaluate as larger than numbered versions.
+        schema_version = "live"
     else:
         _, schema_version = os.path.split(bids_schema_dir)
     validation_result["bids_schema_version"] = schema_version

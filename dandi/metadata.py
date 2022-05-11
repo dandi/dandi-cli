@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from functools import lru_cache
+import itertools
 import os
 import os.path as op
 from pathlib import Path
@@ -52,26 +53,20 @@ BIDS_TO_DANDI = {
 }
 
 
-def _rename_bids_keys(bids_metadata, conversion=BIDS_TO_DANDI):
+def _rename_bids_keys(bids_metadata, mapping=BIDS_TO_DANDI):
     """Standardize BIDS metadata field naming to match DANDI."""
-    converted_bids_metadata = {}
-    for key in bids_metadata.keys():
-        if key in conversion:
-            converted_bids_metadata[conversion[key]] = bids_metadata[key]
-        else:
-            converted_bids_metadata[key] = bids_metadata[key]
-    return converted_bids_metadata
+    return {mapping.get(k, k): v for k, v in bids_metadata.items()}
 
 
 def _path_in_bids(
-    path, root_marker="dataset_description.json", end_marker="dandiset.yaml"
+    check_path, bids_marker="dataset_description.json", end_marker="dandiset.yaml"
 ):
     """Determine whether a path is a member of a BIDS dataset.
 
     Parameters
     ----------
-    path: str or Path
-    root_marker: str, optional
+    check_path: str or Path
+    bids_marker: str, optional
         String giving a filename, the existence of which in a directory will mark it as a
         BIDS dataset root directory.
     end_marker: str, optional
@@ -82,22 +77,15 @@ def _path_in_bids(
     -------
     bool
     """
-    from .utils import find_files
-
-    path = Path(path)
-    if [i for i in find_files(root_marker, path)]:
-        return True
-    search_path = path
-    while True:
-        search_path = search_path.parent
-        bids_marker_candidate = search_path / root_marker
-        end_marker_candidate = search_path / end_marker
-        if bids_marker_candidate.is_file():
+    check_path = Path(check_path)
+    for dir_level in itertools.chain([check_path], check_path.parents):
+        bids_marker_candidate = dir_level / bids_marker
+        end_marker_candidate = dir_level / end_marker
+        if bids_marker_candidate.is_file() or bids_marker_candidate.is_symlink():
             return True
-        if end_marker_candidate.is_file():
+        if end_marker_candidate.is_file() or end_marker_candidate.is_symlink():
             return False
-        if search_path == Path("/"):
-            return False
+    return False
 
 
 # Disable this for clean hacking
@@ -139,8 +127,7 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
         meta["bids_schema_version"] = _meta["bids_schema_version"]
         meta = _rename_bids_keys(meta)
         return meta
-    else:
-        h5py.File(path)
+    h5py.File(path)
 
     if nwb_has_external_links(path):
         raise NotImplementedError(
