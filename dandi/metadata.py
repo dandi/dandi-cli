@@ -26,7 +26,6 @@ from uuid import uuid4
 from xml.dom.minidom import parseString
 
 from dandischema import models
-import h5py
 import requests
 import tenacity
 
@@ -127,7 +126,6 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
         meta["bids_schema_version"] = _meta["bids_schema_version"]
         meta = _rename_bids_keys(meta)
         return meta
-    h5py.File(path)
 
     if nwb_has_external_links(path):
         raise NotImplementedError(
