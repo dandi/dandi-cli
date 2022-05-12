@@ -4,7 +4,6 @@ import os
 import click
 
 from .base import devel_debug_option, devel_option, lgr, map_to_click_exceptions
-from ..utils import pluralize
 
 
 @click.command()
@@ -31,39 +30,12 @@ def validate_bids(
     if report_flag and not report:
         report = report_flag
 
-    validation_result = validate_bids_(
+    _ = validate_bids_(
         *paths,
         report=report,
         schema_version=schema,
         devel_debug=devel_debug,
     )
-    missing_files = [
-        pattern["regex"]
-        for pattern in validation_result["schema_tracking"]
-        if pattern["mandatory"]
-    ]
-    error_list = []
-    if missing_files:
-        error_substring = (
-            f"{pluralize(len(missing_files), 'filename pattern')} required "
-            "by BIDS could not be found"
-        )
-        error_list.append(error_substring)
-    if validation_result["path_tracking"]:
-        error_substring = (
-            f"{pluralize(len(validation_result['path_tracking']), 'filename')} "
-            "did not match any pattern known to BIDS"
-        )
-        error_list.append(error_substring)
-    if error_list:
-        error_string = " and ".join(error_list)
-        error_string = f"Summary: {error_string}."
-        click.secho(
-            error_string,
-            bold=True,
-            fg="red",
-        )
-        raise SystemExit(1)
 
 
 @click.command()
