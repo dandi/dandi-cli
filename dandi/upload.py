@@ -60,6 +60,11 @@ def upload(
         dandiset_ = Dandiset.find(os.path.commonpath(paths))
     else:
         dandiset_ = Dandiset.find(None)
+    if not dandiset_:
+        raise RuntimeError(
+            f"Found no {dandiset_metadata_file} anywhere in common ancestor of"
+            " paths.  Use 'dandi download' or 'organize' first."
+        )
 
     # pre-validate BIDS datasets before going for individual
     # files etc
@@ -74,12 +79,6 @@ def upload(
                 ", ".join(bids_datasets),
             )
             allow_any_path = True
-
-    if not dandiset_:
-        raise RuntimeError(
-            f"Found no {dandiset_metadata_file} anywhere in common ancestor of"
-            " paths.  Use 'dandi download' or 'organize' first."
-        )
 
     instance = get_instance(dandi_instance)
     assert instance.api is not None
