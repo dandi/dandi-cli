@@ -737,7 +737,7 @@ class DownloadDirectory:
         self.dirpath.mkdir(parents=True, exist_ok=True)
         self.lock = InterProcessLock(str(self.dirpath / "lock"))
         if not self.lock.acquire(blocking=False):
-            raise RuntimeError("Could not acquire download lock for {self.filepath}")
+            raise RuntimeError(f"Could not acquire download lock for {self.filepath}")
         chkpath = self.dirpath / "checksum"
         try:
             with chkpath.open() as fp:
