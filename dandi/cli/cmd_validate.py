@@ -30,7 +30,7 @@ def validate_bids(
     if report_flag and not report:
         report = report_flag
 
-    _ = validate_bids_(
+    validate_bids_(
         *paths,
         report=report,
         schema_version=schema,
