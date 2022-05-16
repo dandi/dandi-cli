@@ -28,6 +28,8 @@ def test_sanitize_value() -> None:
     assert _sanitize_value("_.ext", "extension") == "-.ext"
     assert _sanitize_value("_.ext", "unrelated") == "--ext"
     assert _sanitize_value("A;B", "unrelated") == "A-B"
+    assert _sanitize_value("A\\/B", "unrelated") == "A--B"
+    assert _sanitize_value("A\"'B", "unrelated") == "A--B"
 
 
 def test_populate_dataset_yml(tmp_path: Path) -> None:
