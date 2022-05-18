@@ -26,7 +26,7 @@ def test__add_entity():
     regex_entities = ""
     entity = "subject"
     entity_shorthand = "sub"
-    variable_field = "([a-z,A-Z,0-9]*?)"
+    variable_field = "([a-zA-Z0-9]*?)"
     requirement_level = "required"
 
     _regex_entities = _add_entity(
@@ -42,13 +42,13 @@ def test__add_entity():
     # Test append input and optional entity
     regex_entities = (
         "sub-(?P=subject)(|_ses-(?P=session))"
-        "(|_task-(?P<task>([a-z,A-Z,0-9]*?)))(|_trc-(?P<tracer>([a-z,A-Z,0-9]*?)))"
-        "(|_rec-(?P<reconstruction>([a-z,A-Z,0-9]*?)))"
-        "(|_run-(?P<run>([a-z,A-Z,0-9]*?)))"
+        "(|_task-(?P<task>([a-zA-Z0-9]*?)))(|_trc-(?P<tracer>([a-zA-Z0-9]*?)))"
+        "(|_rec-(?P<reconstruction>([a-zA-Z0-9]*?)))"
+        "(|_run-(?P<run>([a-zA-Z0-9]*?)))"
     )
     entity = "recording"
     entity_shorthand = "recording"
-    variable_field = "([a-z,A-Z,0-9]*?)"
+    variable_field = "([a-zA-Z0-9]*?)"
     requirement_level = "optional"
 
     _regex_entities = _add_entity(
@@ -61,10 +61,10 @@ def test__add_entity():
 
     assert (
         _regex_entities == "sub-(?P=subject)(|_ses-(?P=session))"
-        "(|_task-(?P<task>([a-z,A-Z,0-9]*?)))(|_trc-(?P<tracer>([a-z,A-Z,0-9]*?)))"
-        "(|_rec-(?P<reconstruction>([a-z,A-Z,0-9]*?)))"
-        "(|_run-(?P<run>([a-z,A-Z,0-9]*?)))"
-        "(|_recording-(?P<recording>([a-z,A-Z,0-9]*?)))"
+        "(|_task-(?P<task>([a-zA-Z0-9]*?)))(|_trc-(?P<tracer>([a-zA-Z0-9]*?)))"
+        "(|_rec-(?P<reconstruction>([a-zA-Z0-9]*?)))"
+        "(|_run-(?P<run>([a-zA-Z0-9]*?)))"
+        "(|_recording-(?P<recording>([a-zA-Z0-9]*?)))"
     )
 
 
@@ -74,8 +74,8 @@ def test__add_extensions():
     # Test single extension
     regex_string = (
         "sub-(?P=subject)(|_ses-(?P=session))"
-        "_sample-(?P<sample>([a-z,A-Z,0-9]*?))"
-        "(|_acq-(?P<acquisition>([a-z,A-Z,0-9]*?)))_photo"
+        "_sample-(?P<sample>([a-zA-Z0-9]*?))"
+        "(|_acq-(?P<acquisition>([a-zA-Z0-9]*?)))_photo"
     )
     variant = {
         "suffixes": ["photo"],
@@ -91,15 +91,15 @@ def test__add_extensions():
 
     assert (
         _regex_string == "sub-(?P=subject)(|_ses-(?P=session))"
-        "_sample-(?P<sample>([a-z,A-Z,0-9]*?))"
-        "(|_acq-(?P<acquisition>([a-z,A-Z,0-9]*?)))_photo\\.jpg"
+        "_sample-(?P<sample>([a-zA-Z0-9]*?))"
+        "(|_acq-(?P<acquisition>([a-zA-Z0-9]*?)))_photo\\.jpg"
     )
 
     # Test multiple extensions
     regex_string = (
         "sub-(?P=subject)(|_ses-(?P=session))"
-        "_sample-(?P<sample>([a-z,A-Z,0-9]*?))"
-        "(|_acq-(?P<acquisition>([a-z,A-Z,0-9]*?)))_photo"
+        "_sample-(?P<sample>([a-zA-Z0-9]*?))"
+        "(|_acq-(?P<acquisition>([a-zA-Z0-9]*?)))_photo"
     )
     variant = {
         "suffixes": ["photo"],
@@ -115,8 +115,8 @@ def test__add_extensions():
 
     assert (
         _regex_string == "sub-(?P=subject)(|_ses-(?P=session))"
-        "_sample-(?P<sample>([a-z,A-Z,0-9]*?))"
-        "(|_acq-(?P<acquisition>([a-z,A-Z,0-9]*?)))"
+        "_sample-(?P<sample>([a-zA-Z0-9]*?))"
+        "(|_acq-(?P<acquisition>([a-zA-Z0-9]*?)))"
         "_photo(\\.jpg|\\.png|\\.tif)"
     )
 
@@ -169,7 +169,7 @@ def test__add_subdirs():
     )
 
     assert (
-        _regex_string == "/sub-(?P<subject>([a-z,A-Z,0-9]*?))/sub-(?P=subject)"
+        _regex_string == "/sub-(?P<subject>([a-zA-Z0-9]*?))/sub-(?P=subject)"
         "_sessions\\.(tsv|json)"
     )
 
@@ -196,10 +196,10 @@ def test__add_suffixes():
     # Test multiple expansions
     regex_entities = (
         "sub-(?P=subject)(|_ses-(?P=session))"
-        "(|_acq-(?P<acquisition>([a-z,A-Z,0-9]*?)))"
-        "(|_rec-(?P<reconstruction>([a-z,A-Z,0-9]*?)))"
-        "(|_dir-(?P<direction>([a-z,A-Z,0-9]*?)))(|_run-(?P<run>([a-z,A-Z,0-9]*?)))"
-        "(|_recording-(?P<recording>([a-z,A-Z,0-9]*?)))"
+        "(|_acq-(?P<acquisition>([a-zA-Z0-9]*?)))"
+        "(|_rec-(?P<reconstruction>([a-zA-Z0-9]*?)))"
+        "(|_dir-(?P<direction>([a-zA-Z0-9]*?)))(|_run-(?P<run>([a-zA-Z0-9]*?)))"
+        "(|_recording-(?P<recording>([a-zA-Z0-9]*?)))"
     )
     variant = {
         "suffixes": [
@@ -222,10 +222,10 @@ def test__add_suffixes():
     }
     regex_string = (
         "sub-(?P=subject)(|_ses-(?P=session))"
-        "(|_acq-(?P<acquisition>([a-z,A-Z,0-9]*?)))"
-        "(|_rec-(?P<reconstruction>([a-z,A-Z,0-9]*?)))"
-        "(|_dir-(?P<direction>([a-z,A-Z,0-9]*?)))(|_run-(?P<run>([a-z,A-Z,0-9]*?)))"
-        "(|_recording-(?P<recording>([a-z,A-Z,0-9]*?)))"
+        "(|_acq-(?P<acquisition>([a-zA-Z0-9]*?)))"
+        "(|_rec-(?P<reconstruction>([a-zA-Z0-9]*?)))"
+        "(|_dir-(?P<direction>([a-zA-Z0-9]*?)))(|_run-(?P<run>([a-zA-Z0-9]*?)))"
+        "(|_recording-(?P<recording>([a-zA-Z0-9]*?)))"
         "_(physio|stim)"
     )
 
@@ -256,12 +256,12 @@ def test_write_report(tmp_path):
 
     validation_result["schema_tracking"] = [
         {
-            "regex": ".*?/sub-(?P<subject>([a-z,A-Z,0-9]*?))/"
-            "(|ses-(?P<session>([a-z,A-Z,0-9]*?))/)anat/sub-(?P=subject)"
-            "(|_ses-(?P=session))(|_acq-(?P<acquisition>([a-z,A-Z,0-9]*?)))"
-            "(|_ce-(?P<ceagent>([a-z,A-Z,0-9]*?)))"
-            "(|_rec-(?P<reconstruction>([a-z,A-Z,0-9]*?)))"
-            "(|_run-(?P<run>([a-z,A-Z,0-9]*?)))"
+            "regex": ".*?/sub-(?P<subject>([a-zA-Z0-9]*?))/"
+            "(|ses-(?P<session>([a-zA-Z0-9]*?))/)anat/sub-(?P=subject)"
+            "(|_ses-(?P=session))(|_acq-(?P<acquisition>([a-zA-Z0-9]*?)))"
+            "(|_ce-(?P<ceagent>([a-zA-Z0-9]*?)))"
+            "(|_rec-(?P<reconstruction>([a-zA-Z0-9]*?)))"
+            "(|_run-(?P<run>([a-zA-Z0-9]*?)))"
             "(|_part-(?P<part>(mag|phase|real|imag)))"
             "_(T1w|T2w|PDw|T2starw|FLAIR|inplaneT1|inplaneT2|PDT2|angio|T2star)"
             "\\.(nii.gz|nii|json)$",
@@ -270,12 +270,12 @@ def test_write_report(tmp_path):
     ]
     validation_result["schema_listing"] = [
         {
-            "regex": ".*?/sub-(?P<subject>([a-z,A-Z,0-9]*?))/"
-            "(|ses-(?P<session>([a-z,A-Z,0-9]*?))/)anat/sub-(?P=subject)"
-            "(|_ses-(?P=session))(|_acq-(?P<acquisition>([a-z,A-Z,0-9]*?)))"
-            "(|_ce-(?P<ceagent>([a-z,A-Z,0-9]*?)))"
-            "(|_rec-(?P<reconstruction>([a-z,A-Z,0-9]*?)))"
-            "(|_run-(?P<run>([a-z,A-Z,0-9]*?)))"
+            "regex": ".*?/sub-(?P<subject>([a-zA-Z0-9]*?))/"
+            "(|ses-(?P<session>([a-zA-Z0-9]*?))/)anat/sub-(?P=subject)"
+            "(|_ses-(?P=session))(|_acq-(?P<acquisition>([a-zA-Z0-9]*?)))"
+            "(|_ce-(?P<ceagent>([a-zA-Z0-9]*?)))"
+            "(|_rec-(?P<reconstruction>([a-zA-Z0-9]*?)))"
+            "(|_run-(?P<run>([a-zA-Z0-9]*?)))"
             "(|_part-(?P<part>(mag|phase|real|imag)))"
             "_(T1w|T2w|PDw|T2starw|FLAIR|inplaneT1|inplaneT2|PDT2|angio|T2star)"
             "\\.(nii.gz|nii|json)$",
