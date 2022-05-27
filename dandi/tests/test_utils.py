@@ -24,6 +24,7 @@ from ..utils import (
     get_mime_type,
     get_module_version,
     get_utcnow_datetime,
+    is_page2_url,
     is_same_time,
     on_windows,
 )
@@ -359,3 +360,102 @@ def test_get_module_version() -> None:
 )
 def test_get_mime_type(filename: str, mtype: str) -> None:
     assert get_mime_type(filename) == mtype
+
+
+@pytest.mark.parametrize(
+    "page1,page2,r",
+    [
+        (
+            "https://example.com/api/fruits",
+            "https://example.com/api/fruits?page=2",
+            True,
+        ),
+        (
+            "https://example.com/api/fruits",
+            "https://example.com/api/fruits",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits",
+            "http://example.com/api/fruits?page=2",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits",
+            "https://example.com/api/fruits/?page=2",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits",
+            "https://api.example.com/api/fruits?page=2",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits",
+            "/api/fruits?page=2",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits?page=1",
+            "https://example.com/api/fruits?page=2",
+            True,
+        ),
+        (
+            "https://example.com/api/fruits?per_page=100",
+            "https://example.com/api/fruits?per_page=100&page=2",
+            True,
+        ),
+        (
+            "https://example.com/api/fruits?per_page=100",
+            "https://example.com/api/fruits?page=2&per_page=100",
+            True,
+        ),
+        (
+            "https://example.com/api/fruits?per_page=100",
+            "https://example.com/api/fruits?page=2",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits?per_page=100&order=path",
+            "https://example.com/api/fruits?page=2&per_page=100&order=path",
+            True,
+        ),
+        (
+            "https://example.com/api/fruits?per_page=100&order=path",
+            "https://example.com/api/fruits?order=path&page=2&per_page=100",
+            True,
+        ),
+        (
+            "https://example.com/api/fruits?per_page=100&order=path",
+            "https://example.com/api/fruits?page=2&per_page=100",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits#here",
+            "https://example.com/api/fruits?page=2#here",
+            True,
+        ),
+        (
+            "https://example.com/api/fruits",
+            "https://example.com/api/fruits?page=2#here",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits#here",
+            "https://example.com/api/fruits?page=2",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits#here",
+            "https://example.com/api/fruits?page=2#there",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits?path=åßç",
+            "https://example.com/api/fruits?page=2&path=%C3%A5%C3%9F%C3%A7",
+            True,
+        ),
+    ],
+)
+def test_is_page2_url(page1: str, page2: str, r: bool) -> None:
+    assert is_page2_url(page1, page2) is r

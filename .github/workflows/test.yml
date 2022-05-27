@@ -17,7 +17,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       NO_ET: 1
-      DANDI_ALLOW_LOCALHOST_URLS: 1
+      DANDI_ALLOW_LOCALHOST_URLS: "1"
+      DANDI_PAGINATION_DISABLE_FALLBACK: "1"
       DANDI_TESTS_PERSIST_DOCKER_COMPOSE: "1"
     strategy:
       fail-fast: false

@@ -6,7 +6,7 @@ from pathlib import Path
 import random
 import re
 from shutil import rmtree
-from typing import Union
+from typing import List, Union
 
 import anys
 import click
@@ -27,6 +27,7 @@ from ..consts import (
 from ..dandiapi import DandiAPIClient, RemoteAsset, RemoteZarrAsset, Version
 from ..download import download
 from ..exceptions import NotFoundError, SchemaVersionError
+from ..files import GenericAsset, dandi_file
 from ..utils import list_paths
 
 
@@ -618,3 +619,18 @@ def test_empty_zarr_iterfiles(new_dandiset: SampleDandiset) -> None:
     a = RemoteAsset.from_data(new_dandiset.dandiset, r)
     assert isinstance(a, RemoteZarrAsset)
     assert list(a.iterfiles()) == []
+
+
+def test_get_many_pages_of_assets(new_dandiset: SampleDandiset) -> None:
+    QTY = 617
+    paths: List[str] = []
+    for i in range(1, QTY + 1):
+        p = new_dandiset.dspath / f"{i:04}.txt"
+        paths.append(p.name)
+        p.write_text(f"File #{i}\n")
+        df = dandi_file(p, new_dandiset.dspath)
+        assert isinstance(df, GenericAsset)
+        df.upload(new_dandiset.dandiset, {"description": f"File #{i}"})
+    assert [
+        asset.path for asset in new_dandiset.dandiset.get_assets(order="path")
+    ] == paths
