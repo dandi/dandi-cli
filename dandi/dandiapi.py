@@ -381,12 +381,16 @@ class RESTFullAPIClient:
                     return
                 futures.append(pool.submit(get_page, i))
 
-            for _ in range(self.page_lookahead):
-                submit_job()
-            while futures:
-                res = futures.popleft().result()
-                submit_job()
-                yield from res
+            try:
+                for _ in range(self.page_lookahead):
+                    submit_job()
+                while futures:
+                    res = futures.popleft().result()
+                    submit_job()
+                    yield from res
+            finally:
+                for f in futures:
+                    f.cancel()
 
 
 class DandiAPIClient(RESTFullAPIClient):
