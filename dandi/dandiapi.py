@@ -113,6 +113,11 @@ class RESTFullAPIClient:
         if headers is not None:
             session.headers.update(headers)
         self.session = session
+        #: Default number of items to request per page when paginating (`None`
+        #: means to use the server's default)
+        self.page_size: Optional[int] = None
+        #: How many pages to fetch at once when parallelizing pagination
+        self.page_lookahead: int = 5
 
     def __enter__(self: T) -> T:
         return self
@@ -305,7 +310,6 @@ class RESTFullAPIClient:
         path: str,
         page_size: Optional[int] = None,
         params: Optional[dict] = None,
-        lookahead: int = 5,
     ) -> Iterator:
         """
         Paginate through the resources at the given path: GET the path, yield
@@ -314,10 +318,16 @@ class RESTFullAPIClient:
 
         If the first ``"next"`` key is the same as the initially-requested URL
         but with the ``page`` query parameter set to ``2``, then the remaining
-        pages are fetched concurrently in separate threads, ``lookahead``
+        pages are fetched concurrently in separate threads, `page_lookahead`
         (default 5) at a time.  This behavior requires the initial response to
         contain a ``"count"`` key giving the number of items across all pages.
+
+        :param Optional[int] page_size:
+            If non-`None`, overrides the client's `page_size` attribute for
+            this sequence of pages
         """
+        if page_size is None:
+            page_size = self.page_size
         if page_size is not None:
             if params is None:
                 params = {}
@@ -354,7 +364,7 @@ class RESTFullAPIClient:
         pages = (r["count"] + page_size - 1) // page_size
         pageno_iter = iter(range(2, pages + 1))
 
-        with ThreadPoolExecutor(max_workers=lookahead) as pool:
+        with ThreadPoolExecutor(max_workers=self.page_lookahead) as pool:
             futures: deque[Future[list]] = deque()
 
             def get_page(pageno: int) -> list:
@@ -371,7 +381,7 @@ class RESTFullAPIClient:
                     return
                 futures.append(pool.submit(get_page, i))
 
-            for _ in range(lookahead):
+            for _ in range(self.page_lookahead):
                 submit_job()
             while futures:
                 res = futures.popleft().result()
