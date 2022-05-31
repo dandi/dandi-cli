@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import Enum
@@ -54,6 +57,7 @@ from .utils import (
     chunked,
     ensure_datetime,
     is_interactive,
+    is_page2_url,
 )
 
 lgr = get_logger()
@@ -109,6 +113,11 @@ class RESTFullAPIClient:
         if headers is not None:
             session.headers.update(headers)
         self.session = session
+        #: Default number of items to request per page when paginating (`None`
+        #: means to use the server's default)
+        self.page_size: Optional[int] = None
+        #: How many pages to fetch at once when parallelizing pagination
+        self.page_workers: int = 5
 
     def __enter__(self: T) -> T:
         return self
@@ -301,25 +310,74 @@ class RESTFullAPIClient:
         path: str,
         page_size: Optional[int] = None,
         params: Optional[dict] = None,
-        **kwargs: Any,
     ) -> Iterator:
         """
         Paginate through the resources at the given path: GET the path, yield
         the values in the ``"results"`` key, and repeat with the URL in the
         ``"next"`` key until it is ``null``.
+
+        If the first ``"next"`` key is the same as the initially-requested URL
+        but with the ``page`` query parameter set to ``2``, then the remaining
+        pages are fetched concurrently in separate threads, `page_workers`
+        (default 5) at a time.  This behavior requires the initial response to
+        contain a ``"count"`` key giving the number of items across all pages.
+
+        :param Optional[int] page_size:
+            If non-`None`, overrides the client's `page_size` attribute for
+            this sequence of pages
         """
+        if page_size is None:
+            page_size = self.page_size
         if page_size is not None:
             if params is None:
                 params = {}
             params["page_size"] = page_size
-        r = self.get(path, params=params, **kwargs)
-        while True:
-            for item in r["results"]:
-                yield item
-            if r.get("next"):
-                r = self.get(r["next"])
-            else:
-                break
+
+        resp = self.get(path, params=params, json_resp=False)
+        r = resp.json()
+        if r["next"] is not None:
+            page1 = resp.history[0].url if resp.history else resp.url
+            if not is_page2_url(page1, r["next"]):
+                lgr.warning(
+                    "Pagination request to %s returned unexpected 'next' URL: %s",
+                    page1,
+                    r["next"],
+                )
+                if os.environ.get("DANDI_PAGINATION_DISABLE_FALLBACK"):
+                    raise RuntimeError(
+                        f"API server changed pagination strategy: {page1} URL"
+                        f" is now followed by {r['next']}"
+                    )
+                else:
+                    while True:
+                        yield from r["results"]
+                        if r.get("next"):
+                            r = self.get(r["next"])
+                        else:
+                            return
+        yield from r["results"]
+        if r["next"] is None:
+            return
+
+        if page_size is None:
+            page_size = len(r["results"])
+        pages = (r["count"] + page_size - 1) // page_size
+
+        def get_page(pageno: int) -> list:
+            params2 = params.copy() if params is not None else {}
+            params2["page"] = pageno
+            results = self.get(path, params=params2)["results"]
+            assert isinstance(results, list)
+            return results
+
+        with ThreadPoolExecutor(max_workers=self.page_workers) as pool:
+            futures = [pool.submit(get_page, i) for i in range(2, pages + 1)]
+            try:
+                for f in futures:
+                    yield from f.result()
+            finally:
+                for f in futures:
+                    f.cancel()
 
 
 class DandiAPIClient(RESTFullAPIClient):

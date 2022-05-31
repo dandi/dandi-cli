@@ -25,6 +25,7 @@ from typing import (
     TypeVar,
     Union,
 )
+from urllib.parse import parse_qs, urlparse
 
 import dateutil.parser
 import requests
@@ -756,3 +757,16 @@ def chunked(iterable: Iterable[T], size: int) -> Iterator[List[T]]:
                 else:
                     return
         yield xs
+
+
+def is_page2_url(page1: str, page2: str) -> bool:
+    """
+    Tests whether the URL ``page2`` is the same as ``page1`` but with the
+    ``page`` query parameter set to ``2``
+    """
+    bits1 = urlparse(page1)
+    params1 = parse_qs(bits1.query)
+    params1["page"] = ["2"]
+    bits2 = urlparse(page2)
+    params2 = parse_qs(bits2.query)
+    return (bits1[:3], params1, bits1.fragment) == (bits2[:3], params2, bits2.fragment)
