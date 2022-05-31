@@ -1,3 +1,28 @@
+# 0.40.0 (Tue May 31 2022)
+
+#### 🚀 Enhancement
+
+- BIDS metadata read-in pilot. [#962](https://github.com/dandi/dandi-cli/pull/962) ([@TheChymera](https://github.com/TheChymera) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🐛 Bug Fix
+
+- Corrected regex label string [#1015](https://github.com/dandi/dandi-cli/pull/1015) ([@TheChymera](https://github.com/TheChymera))
+- Fix error message formatting [#1013](https://github.com/dandi/dandi-cli/pull/1013) ([@JuliaSprenger](https://github.com/JuliaSprenger))
+- Removing trace from previous commit [#1010](https://github.com/dandi/dandi-cli/pull/1010) ([@TheChymera](https://github.com/TheChymera))
+
+#### 🏎 Performance
+
+- Fetch paginated results concurrently [#1021](https://github.com/dandi/dandi-cli/pull/1021) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 4
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Julia Sprenger ([@JuliaSprenger](https://github.com/JuliaSprenger))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.39.6 (Mon May 09 2022)
 
 #### 🐛 Bug Fix
