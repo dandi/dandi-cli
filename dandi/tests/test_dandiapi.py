@@ -13,6 +13,7 @@ import click
 from dandischema.models import UUID_PATTERN, DigestType, get_schema_version
 import pytest
 from pytest_mock import MockerFixture
+import requests
 import responses
 
 from .fixtures import DandiAPI, SampleDandiset
@@ -646,3 +647,41 @@ def test_get_many_pages_of_assets(
         get_spy.assert_any_call(
             pth, params={"order": "path", "page_size": 4, "page": n}
         )
+
+
+def test_rename(text_dandiset: SampleDandiset) -> None:
+    asset = text_dandiset.dandiset.get_asset_by_path("file.txt")
+    asset.rename("foo/bar.txt")
+    assert asset.path == "foo/bar.txt"
+    assert asset.get_raw_metadata()["path"] == "foo/bar.txt"
+    asset2 = text_dandiset.dandiset.get_asset_by_path("foo/bar.txt")
+    assert asset.identifier == asset2.identifier
+
+
+def test_rename_collision(text_dandiset: SampleDandiset) -> None:
+    asset1 = text_dandiset.dandiset.get_asset_by_path("file.txt")
+    asset2 = text_dandiset.dandiset.get_asset_by_path("subdir1/apple.txt")
+    with pytest.raises(requests.HTTPError):
+        asset1.rename("subdir1/apple.txt")
+    assert asset1.path == "file.txt"
+    assert asset1.get_raw_metadata()["path"] == "file.txt"
+    asset1a = text_dandiset.dandiset.get_asset_by_path("file.txt")
+    assert asset1a.path == "file.txt"
+    assert asset1a.get_raw_metadata()["path"] == "file.txt"
+    asset2a = text_dandiset.dandiset.get_asset_by_path("subdir1/apple.txt")
+    assert asset2.identifier == asset2a.identifier
+
+
+@pytest.mark.xfail(reason="https://github.com/dandi/dandi-archive/issues/1109")
+@pytest.mark.parametrize("dest", ["subdir1", "subdir1/apple.txt/core.dat"])
+def test_rename_type_mismatch(text_dandiset: SampleDandiset, dest: str) -> None:
+    asset1 = text_dandiset.dandiset.get_asset_by_path("file.txt")
+    with pytest.raises(requests.HTTPError):
+        asset1.rename(dest)
+    assert asset1.path == "file.txt"
+    assert asset1.get_raw_metadata()["path"] == "file.txt"
+    asset1a = text_dandiset.dandiset.get_asset_by_path("file.txt")
+    assert asset1a.path == "file.txt"
+    assert asset1a.get_raw_metadata()["path"] == "file.txt"
+    with pytest.raises(NotFoundError):
+        text_dandiset.dandiset.get_asset_by_path(dest)
