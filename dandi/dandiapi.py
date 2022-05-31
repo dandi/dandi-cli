@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import deque
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import Enum
@@ -117,7 +117,7 @@ class RESTFullAPIClient:
         #: means to use the server's default)
         self.page_size: Optional[int] = None
         #: How many pages to fetch at once when parallelizing pagination
-        self.page_lookahead: int = 5
+        self.page_workers: int = 5
 
     def __enter__(self: T) -> T:
         return self
@@ -318,7 +318,7 @@ class RESTFullAPIClient:
 
         If the first ``"next"`` key is the same as the initially-requested URL
         but with the ``page`` query parameter set to ``2``, then the remaining
-        pages are fetched concurrently in separate threads, `page_lookahead`
+        pages are fetched concurrently in separate threads, `page_workers`
         (default 5) at a time.  This behavior requires the initial response to
         contain a ``"count"`` key giving the number of items across all pages.
 
@@ -362,32 +362,19 @@ class RESTFullAPIClient:
         if page_size is None:
             page_size = len(r["results"])
         pages = (r["count"] + page_size - 1) // page_size
-        pageno_iter = iter(range(2, pages + 1))
 
-        with ThreadPoolExecutor(max_workers=self.page_lookahead) as pool:
-            futures: deque[Future[list]] = deque()
+        def get_page(pageno: int) -> list:
+            params2 = params.copy() if params is not None else {}
+            params2["page"] = pageno
+            results = self.get(path, params=params2)["results"]
+            assert isinstance(results, list)
+            return results
 
-            def get_page(pageno: int) -> list:
-                params2 = params.copy() if params is not None else {}
-                params2["page"] = pageno
-                results = self.get(path, params=params2)["results"]
-                assert isinstance(results, list)
-                return results
-
-            def submit_job() -> None:
-                try:
-                    i = next(pageno_iter)
-                except StopIteration:
-                    return
-                futures.append(pool.submit(get_page, i))
-
+        with ThreadPoolExecutor(max_workers=self.page_workers) as pool:
+            futures = [pool.submit(get_page, i) for i in range(2, pages + 1)]
             try:
-                for _ in range(self.page_lookahead):
-                    submit_job()
-                while futures:
-                    res = futures.popleft().result()
-                    submit_job()
-                    yield from res
+                for f in futures:
+                    yield from f.result()
             finally:
                 for f in futures:
                     f.cancel()
