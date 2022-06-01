@@ -1,0 +1,553 @@
+import os
+from pathlib import Path
+from typing import Dict, List, Optional, cast
+
+import pytest
+
+from .fixtures import SampleDandiset
+from ..dandiapi import RemoteAsset
+from ..exceptions import NotFoundError
+from ..move import move
+
+
+@pytest.fixture()
+def moving_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
+    for path in [
+        "file.txt",
+        "subdir1/apple.txt",
+        "subdir2/banana.txt",
+        "subdir2/coconut.txt",
+        "subdir3/red.dat",
+        "subdir3/green.dat",
+        "subdir3/blue.dat",
+        "subdir4/foo.json",
+        "subdir5/foo.json",
+    ]:
+        (new_dandiset.dspath / path).write_text(f"{path}\n")
+    new_dandiset.upload_kwargs["allow_any_path"] = True
+    new_dandiset.upload()
+    return new_dandiset
+
+
+def check_assets(
+    sample_dandiset: SampleDandiset,
+    starting_assets: List[RemoteAsset],
+    work_on: str,
+    remapping: Dict[str, Optional[str]],
+) -> None:
+    for asset in starting_assets:
+        if asset.path in remapping and remapping[asset.path] is None:
+            # Asset was overwritten
+            continue
+        if work_on in ("local", "both") and asset.path in remapping:
+            assert not (sample_dandiset.dspath / asset.path).exists()
+            assert (
+                sample_dandiset.dspath / cast(str, remapping[asset.path])
+            ).read_text() == f"{asset.path}\n"
+        else:
+            assert (
+                sample_dandiset.dspath / asset.path
+            ).read_text() == f"{asset.path}\n"
+        if work_on in ("remote", "both") and asset.path in remapping:
+            with pytest.raises(NotFoundError):
+                sample_dandiset.dandiset.get_asset_by_path(asset.path)
+            assert (
+                sample_dandiset.dandiset.get_asset_by_path(
+                    cast(str, remapping[asset.path])
+                ).identifier
+                == asset.identifier
+            )
+        else:
+            assert (
+                sample_dandiset.dandiset.get_asset_by_path(asset.path).identifier
+                == asset.identifier
+            )
+
+
+@pytest.mark.parametrize(
+    "srcs,dest,regex,remapping",
+    [
+        (
+            ["file.txt"],
+            "blob.dat",
+            False,
+            {"file.txt": "blob.dat"},
+        ),
+        (
+            ["file.txt"],
+            "blob.dat/",
+            False,
+            {"file.txt": "blob.dat/file.txt"},
+        ),
+        (
+            ["file.txt"],
+            "subdir1",
+            False,
+            {"file.txt": "subdir1/file.txt"},
+        ),
+        (
+            ["file.txt"],
+            "subdir1/",
+            False,
+            {"file.txt": "subdir1/file.txt"},
+        ),
+        (
+            ["subdir1/apple.txt"],
+            "subdir2",
+            False,
+            {"subdir1/apple.txt": "subdir2/apple.txt"},
+        ),
+        (
+            ["subdir2"],
+            "subdir1",
+            False,
+            {
+                "subdir2/banana.txt": "subdir1/subdir2/banana.txt",
+                "subdir2/coconut.txt": "subdir1/subdir2/coconut.txt",
+            },
+        ),
+        (
+            ["file.txt", "subdir2/banana.txt"],
+            "subdir1",
+            False,
+            {
+                "file.txt": "subdir1/file.txt",
+                "subdir2/banana.txt": "subdir1/banana.txt",
+            },
+        ),
+        (
+            ["file.txt", "subdir2/banana.txt"],
+            "newdir",
+            False,
+            {
+                "file.txt": "newdir/file.txt",
+                "subdir2/banana.txt": "newdir/banana.txt",
+            },
+        ),
+        (
+            [r"\.dat$"],
+            ".color",
+            True,
+            {
+                "subdir3/red.dat": "subdir3/red.color",
+                "subdir3/green.dat": "subdir3/green.color",
+                "subdir3/blue.dat": "subdir3/blue.color",
+            },
+        ),
+        (
+            [r"^\w+?(\d+)/(.*)\.txt$"],
+            r"text\1/\2.txt",
+            True,
+            {
+                "subdir1/apple.txt": "text1/apple.txt",
+                "subdir2/banana.txt": "text2/banana.txt",
+                "subdir2/coconut.txt": "text2/coconut.txt",
+            },
+        ),
+    ],
+)
+@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+def test_move(
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    srcs: List[str],
+    dest: str,
+    regex: bool,
+    remapping: Dict[str, Optional[str]],
+    work_on: str,
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    move(
+        *srcs,
+        dest=dest,
+        regex=regex,
+        work_on=work_on,
+        dandi_instance=moving_dandiset.api.instance_id,
+    )
+    check_assets(moving_dandiset, starting_assets, work_on, remapping)
+
+
+@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+def test_move_skip(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    move(
+        "file.txt",
+        "subdir4/foo.json",
+        dest="subdir5",
+        work_on=work_on,
+        existing="skip",
+        dandi_instance=moving_dandiset.api.instance_id,
+    )
+    check_assets(
+        moving_dandiset, starting_assets, work_on, {"file.txt": "subdir5/file.txt"}
+    )
+
+
+@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize("kwargs", [{"existing": "error"}, {}])
+def test_move_error(
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    work_on: str,
+    kwargs: Dict[str, str],
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    with pytest.raises(ValueError) as excinfo:
+        move(
+            "file.txt",
+            "subdir4/foo.json",
+            dest="subdir5",
+            work_on=work_on,
+            dandi_instance=moving_dandiset.api.instance_id,
+            **kwargs,  # type: ignore[arg-type]
+        )
+    assert (
+        str(excinfo.value)
+        == "Cannot move 'subdir4/foo.json' to 'subdir5/foo.json', as destination already exists"
+    )
+    check_assets(moving_dandiset, starting_assets, work_on, {})
+
+
+@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+def test_move_overwrite(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    move(
+        "file.txt",
+        "subdir4/foo.json",
+        dest="subdir5",
+        work_on=work_on,
+        existing="overwrite",
+        dandi_instance=moving_dandiset.api.instance_id,
+    )
+    check_assets(
+        moving_dandiset,
+        starting_assets,
+        work_on,
+        {
+            "file.txt": "subdir5/file.txt",
+            "subdir4/foo.json": "subdir5/foo.json",
+            "subdir5/foo.json": None,
+        },
+    )
+
+
+def test_move_no_srcs(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    with pytest.raises(ValueError) as excinfo:
+        move(
+            dest="nowhere",
+            work_on="both",
+            dandi_instance=moving_dandiset.api.instance_id,
+        )
+    assert str(excinfo.value) == "No source paths given"
+    check_assets(moving_dandiset, starting_assets, "both", {})
+
+
+def test_move_regex_multisrcs(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    with pytest.raises(ValueError) as excinfo:
+        move(
+            r"\.txt",
+            r"\.dat",
+            dest=".blob",
+            regex=True,
+            work_on="both",
+            dandi_instance=moving_dandiset.api.instance_id,
+        )
+    assert (
+        str(excinfo.value) == "Cannot take multiple source paths when `regex` is True"
+    )
+    check_assets(moving_dandiset, starting_assets, "both", {})
+
+
+def test_move_multisrcs_file_dest(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    with pytest.raises(ValueError) as excinfo:
+        move(
+            "file.txt",
+            "subdir1/apple.txt",
+            dest="subdir2/banana.txt",
+            work_on="both",
+            dandi_instance=moving_dandiset.api.instance_id,
+        )
+    assert (
+        str(excinfo.value)
+        == "Cannot take multiple source paths when destination is a file"
+    )
+    check_assets(moving_dandiset, starting_assets, "both", {})
+
+
+def test_move_nonexistent_src(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    with pytest.raises(NotFoundError) as excinfo:
+        move(
+            "file.txt",
+            "subdir1/avocado.txt",
+            dest="subdir2/",
+            work_on="both",
+            dandi_instance=moving_dandiset.api.instance_id,
+        )
+    assert str(excinfo.value) == "No asset at path 'subdir1/avocado.txt'"
+    check_assets(moving_dandiset, starting_assets, "both", {})
+
+
+def test_move_file_slash_src(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    with pytest.raises(ValueError) as excinfo:
+        move(
+            "file.txt",
+            "subdir1/apple.txt/",
+            dest="subdir2/",
+            work_on="both",
+            dandi_instance=moving_dandiset.api.instance_id,
+        )
+    assert str(excinfo.value) == "'subdir1/apple.txt/' is a file"
+    check_assets(moving_dandiset, starting_assets, "both", {})
+
+
+def test_move_file_slash_dest(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    with pytest.raises(ValueError) as excinfo:
+        move(
+            "file.txt",
+            dest="subdir1/apple.txt/",
+            work_on="both",
+            dandi_instance=moving_dandiset.api.instance_id,
+        )
+    assert str(excinfo.value) == "'subdir1/apple.txt/' is a file"
+    check_assets(moving_dandiset, starting_assets, "both", {})
+
+
+def test_move_regex_no_match(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    with pytest.raises(ValueError) as excinfo:
+        move(
+            "no-match",
+            dest="nowhere",
+            regex=True,
+            work_on="both",
+            dandi_instance=moving_dandiset.api.instance_id,
+        )
+    assert str(excinfo.value) == "Regular expression 'no-match' did not match any paths"
+    check_assets(moving_dandiset, starting_assets, "both", {})
+
+
+def test_move_regex_collision(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    with pytest.raises(ValueError) as excinfo:
+        move(
+            r"^\w+/foo\.json$",
+            dest="data/data.json",
+            regex=True,
+            work_on="both",
+            dandi_instance=moving_dandiset.api.instance_id,
+        )
+    assert (
+        str(excinfo.value)
+        == "Assets 'subdir4/foo.json' and 'subdir5/foo.json' would both be"
+        " moved to 'data/data.json'"
+    )
+    check_assets(moving_dandiset, starting_assets, "both", {})
+
+
+@pytest.mark.parametrize("work_on", ["local", "both"])
+def test_move_local_from_subdir(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
+    move(
+        "../file.txt",
+        "apple.txt",
+        dest="../subdir2",
+        work_on=work_on,
+        dandi_instance=moving_dandiset.api.instance_id,
+    )
+    check_assets(
+        moving_dandiset,
+        starting_assets,
+        work_on,
+        {
+            "file.txt": "subdir2/file.txt",
+            "subdir1/apple.txt": "subdir2/apple.txt",
+        },
+    )
+
+
+@pytest.mark.parametrize("work_on", ["local", "both"])
+def test_move_local_from_subdir_abspaths(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
+    with pytest.raises(NotFoundError) as excinfo:
+        move(
+            "file.txt",
+            "subdir1/apple.txt",
+            dest="subdir2",
+            work_on=work_on,
+            dandi_instance=moving_dandiset.api.instance_id,
+        )
+    assert str(excinfo.value) == "No asset at path 'subdir1/file.txt'"
+    check_assets(moving_dandiset, starting_assets, work_on, {})
+
+
+def test_move_remote_from_subdir(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
+    move(
+        "file.txt",
+        "subdir1/apple.txt",
+        dest="subdir2",
+        work_on="remote",
+        dandi_instance=moving_dandiset.api.instance_id,
+    )
+    check_assets(
+        moving_dandiset,
+        starting_assets,
+        "remote",
+        {
+            "file.txt": "subdir2/file.txt",
+            "subdir1/apple.txt": "subdir2/apple.txt",
+        },
+    )
+
+
+def test_move_remote_from_subdir_relpaths(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
+    with pytest.raises(NotFoundError) as excinfo:
+        move(
+            "../file.txt",
+            "apple.txt",
+            dest="../subdir2",
+            work_on="remote",
+            dandi_instance=moving_dandiset.api.instance_id,
+        )
+    assert str(excinfo.value) == "No asset at path '../file.txt'"
+    check_assets(moving_dandiset, starting_assets, "remote", {})
+
+
+def test_move_dandiset_path(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(tmp_path)
+    move(
+        "file.txt",
+        "subdir2/banana.txt",
+        dest="subdir1",
+        work_on="both",
+        dandiset=moving_dandiset.dspath,
+        dandi_instance=moving_dandiset.api.instance_id,
+    )
+    check_assets(
+        moving_dandiset,
+        starting_assets,
+        "both",
+        {
+            "file.txt": "subdir1/file.txt",
+            "subdir2/banana.txt": "subdir1/banana.txt",
+        },
+    )
+
+
+@pytest.mark.parametrize("work_on", ["both", "remote"])
+def test_move_dandiset_url(
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    tmp_path: Path,
+    work_on: str,
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(tmp_path)
+    move(
+        "file.txt",
+        "subdir2/banana.txt",
+        dest="subdir1",
+        work_on=work_on,
+        dandiset=moving_dandiset.dandiset.api_url,
+    )
+    check_assets(
+        moving_dandiset,
+        starting_assets,
+        "remote",
+        {
+            "file.txt": "subdir1/file.txt",
+            "subdir2/banana.txt": "subdir1/banana.txt",
+        },
+    )
+
+
+def test_move_work_on_auto(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    move(
+        "file.txt",
+        "subdir2/banana.txt",
+        dest="subdir1",
+        work_on="auto",
+        dandi_instance=moving_dandiset.api.instance_id,
+    )
+    check_assets(
+        moving_dandiset,
+        starting_assets,
+        "both",
+        {
+            "file.txt": "subdir1/file.txt",
+            "subdir2/banana.txt": "subdir1/banana.txt",
+        },
+    )
+
+
+@pytest.mark.parametrize("work_on", ["auto", "both", "local", "remote"])
+def test_move_not_dandiset(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, work_on: str
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ValueError) as excinfo:
+        move("file.txt", "subdir2/banana.txt", dest="subdir1", work_on=work_on)
+    assert str(excinfo.value) == f"{os.curdir}: not a Dandiset"
+
+
+# TO TEST:
+# - work_on=both + local & remote hierarchies differ = error
+# - work_on=remote/local + local & remote hierarchies differ = no error
