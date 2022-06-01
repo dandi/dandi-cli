@@ -17,7 +17,7 @@ from .skip import mark
 from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
-from ..download import ProgressCombiner, download, download_generator
+from ..download import ProgressCombiner, download, download_generator, multiasset_target
 from ..utils import list_paths
 
 
@@ -703,3 +703,20 @@ def test_progress_combiner(
     for path, status in inputs:
         outputs.extend(pc.feed(path, status))
     assert outputs == expected
+
+
+@pytest.mark.parametrize(
+    "url_path,asset_path,target",
+    [
+        ("", "foo/bar", "foo/bar"),
+        ("fo", "foo/bar", "foo/bar"),
+        ("foo", "foo/bar", "foo/bar"),
+        ("foo/", "foo/bar", "foo/bar"),
+        ("foo/bar", "foo/bar/baz/quux", "bar/baz/quux"),
+        ("foo/bar/", "foo/bar/baz/quux", "bar/baz/quux"),
+        ("foo/ba", "foo/bar/baz/quux", "bar/baz/quux"),
+        ("foo/bar", "foo/bar", "bar"),
+    ],
+)
+def test_multiasset_target(url_path: str, asset_path: str, target: str) -> None:
+    assert multiasset_target(url_path, asset_path) == target
