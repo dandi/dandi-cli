@@ -1042,6 +1042,6 @@ def multiasset_target(url_path: str, asset_path: str) -> str:
     """
     prefix = op.dirname(url_path.rstrip("/"))
     if prefix:
-        prefix += os.sep
-    assert(asset_path.startswith(prefix))
+        prefix += "/"
+    assert asset_path.startswith(prefix)
     return asset_path[len(prefix) :]
