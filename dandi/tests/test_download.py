@@ -178,6 +178,17 @@ def test_download_asset_id_only(text_dandiset: SampleDandiset, tmp_path: Path) -
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
 
 
+def test_download_asset_by_equal_prefix(
+    text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    download(
+        f"{text_dandiset.dandiset.version_api_url}assets/?path=subdir1/apple.txt",
+        tmp_path,
+    )
+    assert list_paths(tmp_path, dirs=True) == [tmp_path / "apple.txt"]
+    assert (tmp_path / "apple.txt").read_text() == "Apple\n"
+
+
 @pytest.mark.parametrize("confirm", [True, False])
 def test_download_sync(
     confirm: bool, mocker: MockerFixture, text_dandiset: SampleDandiset, tmp_path: Path
@@ -714,6 +725,7 @@ def test_progress_combiner(
         ("foo/", "foo/bar", "foo/bar"),
         ("foo/bar", "foo/bar/baz/quux", "bar/baz/quux"),
         ("foo/bar/", "foo/bar/baz/quux", "bar/baz/quux"),
+        ("/foo/bar", "foo/bar/baz/quux", "bar/baz/quux"),
         ("foo/ba", "foo/bar/baz/quux", "bar/baz/quux"),
         ("foo/bar", "foo/bar", "bar"),
     ],
