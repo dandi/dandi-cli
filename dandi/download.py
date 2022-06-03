@@ -244,20 +244,16 @@ def download_generator(
         lock = Lock()
         for asset in assets:
             path = asset.path.lstrip("/")  # make into relative path
-            path = op.normpath(path)
             if not isinstance(parsed_url, DandisetURL):
                 if isinstance(parsed_url, MultiAssetURL):
-                    folder_path = op.normpath(parsed_url.path)
-                    path = op.join(
-                        op.basename(folder_path), op.relpath(path, folder_path)
-                    )
+                    path = multiasset_target(parsed_url.path, path)
                 elif isinstance(parsed_url, SingleAssetURL):
                     path = op.basename(path)
                 else:
                     raise NotImplementedError(
                         f"Unexpected URL type {type(parsed_url).__name__}"
                     )
-            download_path = op.join(output_path, path)
+            download_path = op.join(output_path, op.normpath(path))
 
             try:
                 metadata = asset.get_raw_metadata()
@@ -1035,3 +1031,16 @@ class ProgressCombiner:
             lgr.warning(
                 "Unexpected download status dict for %r received: %r", path, status
             )
+
+
+def multiasset_target(url_path: str, asset_path: str) -> str:
+    """
+    When downloading assets for a `MultiAssetURL` with `~MultiAssetURL.path`
+    equal to ``url_path``, calculate the path (relative to the output path) at
+    which to save the asset with path ``asset_path``.
+    """
+    prefix = op.dirname(url_path.strip("/"))
+    if prefix:
+        prefix += "/"
+    assert asset_path.startswith(prefix)
+    return asset_path[len(prefix) :]

@@ -17,7 +17,7 @@ from .skip import mark
 from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
-from ..download import ProgressCombiner, download, download_generator
+from ..download import ProgressCombiner, download, download_generator, multiasset_target
 from ..utils import list_paths
 
 
@@ -176,6 +176,17 @@ def test_download_asset_id_only(text_dandiset: SampleDandiset, tmp_path: Path) -
     download(asset.base_download_url, tmp_path)
     assert list_paths(tmp_path, dirs=True) == [tmp_path / "coconut.txt"]
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
+
+
+def test_download_asset_by_equal_prefix(
+    text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    download(
+        f"{text_dandiset.dandiset.version_api_url}assets/?path=subdir1/apple.txt",
+        tmp_path,
+    )
+    assert list_paths(tmp_path, dirs=True) == [tmp_path / "apple.txt"]
+    assert (tmp_path / "apple.txt").read_text() == "Apple\n"
 
 
 @pytest.mark.parametrize("confirm", [True, False])
@@ -703,3 +714,21 @@ def test_progress_combiner(
     for path, status in inputs:
         outputs.extend(pc.feed(path, status))
     assert outputs == expected
+
+
+@pytest.mark.parametrize(
+    "url_path,asset_path,target",
+    [
+        ("", "foo/bar", "foo/bar"),
+        ("fo", "foo/bar", "foo/bar"),
+        ("foo", "foo/bar", "foo/bar"),
+        ("foo/", "foo/bar", "foo/bar"),
+        ("foo/bar", "foo/bar/baz/quux", "bar/baz/quux"),
+        ("foo/bar/", "foo/bar/baz/quux", "bar/baz/quux"),
+        ("/foo/bar", "foo/bar/baz/quux", "bar/baz/quux"),
+        ("foo/ba", "foo/bar/baz/quux", "bar/baz/quux"),
+        ("foo/bar", "foo/bar", "bar"),
+    ],
+)
+def test_multiasset_target(url_path: str, asset_path: str, target: str) -> None:
+    assert multiasset_target(url_path, asset_path) == target
