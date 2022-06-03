@@ -1,3 +1,17 @@
+# 0.40.1 (Fri Jun 03 2022)
+
+#### 🐛 Bug Fix
+
+- Fix calculation of download paths for asset path prefix URLs [#1026](https://github.com/dandi/dandi-cli/pull/1026) ([@jwodder](https://github.com/jwodder))
+- organize - sanitize ; as well within the entity value [#1009](https://github.com/dandi/dandi-cli/pull/1009) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.40.0 (Tue May 31 2022)
 
 #### 🚀 Enhancement
