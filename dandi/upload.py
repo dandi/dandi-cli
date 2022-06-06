@@ -35,11 +35,6 @@ if TYPE_CHECKING:
         errors: List[str]
 
 
-class BIDSValidationError(Exception):
-    pass
-    # raise Exception("BIDS Dataset is not valid.")
-
-
 def upload(
     paths: Optional[List[Union[str, Path]]] = None,
     existing: str = "refresh",
@@ -74,7 +69,8 @@ def upload(
         bids_datasets = [str(i) for i in bids_datasets]
         if not allow_any_path:
             lgr.info(
-                "Setting allow_any_path to True since we detected %s under: %s",
+                "Setting allow_any_path to True since we detected %s under the "
+                "following paths: %s",
                 pluralize(len(bids_datasets), "BIDS dataset"),
                 ", ".join(bids_datasets),
             )
@@ -404,7 +400,11 @@ def skip_file(msg: Any) -> Dict[str, str]:
     return {"status": "skipped", "message": str(msg)}
 
 
-def _bids_discover_and_validate(dandiset_path, paths, validation):
+def _bids_discover_and_validate(
+    dandiset_path: str,
+    paths: Optional[List[Union[str, Path]]] = None,
+    validation: str = "require",
+):
     """Temporary implementation for discovery and validation of BIDS datasets
 
     References:
@@ -415,33 +415,37 @@ def _bids_discover_and_validate(dandiset_path, paths, validation):
     from .validate import validate_bids
 
     if paths:
-        bids_lookup_paths = set(p for p in paths)
+        bids_lookup_paths = set(paths)
     else:
         bids_lookup_paths = None
-    bids_descriptions = map(Path, find_files("dataset_description.json", dandiset_path))
+    bids_descriptions = map(
+        Path, find_files(r"dataset_description\.json$", dandiset_path)
+    )
     bids_datasets = [p.parent for p in bids_descriptions]
     if bids_datasets:
         lgr.debug(
-            "Detected %d BIDS datasets at following paths: %s",
-            len(bids_datasets),
-            ", ".join([str(i) for i in bids_datasets]),
+            "Detected %s under following paths: %s",
+            pluralize(len(bids_datasets), "BIDS dataset"),
+            ", ".join(str(i) for i in bids_datasets),
         )
 
     if validation != "skip":
         if bids_lookup_paths:
-            bids_datasets_to_validate = set()
+            bids_datasets_to_validate = list()
             for p in bids_lookup_paths:
                 for bd in bids_datasets:
-                    if p.is_relative_to(bd):
-                        bids_datasets_to_validate.add(bd)
+                    try:
+                        p.relative_to(bd)
+                    except ValueError:
+                        pass
+                    else:
+                        bids_datasets_to_validate.append(bd)
                         break
         else:
             bids_datasets_to_validate = bids_datasets
         bids_datasets_to_validate = sorted(bids_datasets_to_validate)
-        for bd in sorted(bids_datasets_to_validate):
-            _ = validate_bids(
-                bd, allow_errors=True if validation == "ignore" else False
-            )
+        for bd in bids_datasets_to_validate:
+            _ = validate_bids(bd, allow_errors=validation == "ignore")
         return bids_datasets_to_validate
     else:
         return bids_datasets
