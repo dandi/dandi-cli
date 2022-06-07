@@ -404,7 +404,7 @@ def _bids_discover_and_validate(
     dandiset_path: str,
     paths: Optional[List[Union[str, Path]]] = None,
     validation: str = "require",
-) -> List[str]:
+) -> List[Path]:
     """Temporary implementation for discovery and validation of BIDS datasets
 
     References:
