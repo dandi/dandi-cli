@@ -404,7 +404,7 @@ def _bids_discover_and_validate(
     dandiset_path: str,
     paths: Optional[List[Union[str, Path]]] = None,
     validation: str = "require",
-):
+) -> List[str]:
     """Temporary implementation for discovery and validation of BIDS datasets
 
     References:
@@ -419,7 +419,7 @@ def _bids_discover_and_validate(
     else:
         bids_lookup_paths = None
     bids_descriptions = map(
-        Path, find_files(r"dataset_description\.json$", dandiset_path)
+        Path, find_files(r"(^|[/\x5C])dataset_description\.json$", dandiset_path)
     )
     bids_datasets = [p.parent for p in bids_descriptions]
     if bids_datasets:
@@ -443,9 +443,12 @@ def _bids_discover_and_validate(
                         break
         else:
             bids_datasets_to_validate = bids_datasets
-        bids_datasets_to_validate = sorted(bids_datasets_to_validate)
+        bids_datasets_to_validate.sort()
+        validated_datasets = []
         for bd in bids_datasets_to_validate:
-            _ = validate_bids(bd, allow_errors=validation == "ignore")
-        return bids_datasets_to_validate
+            validated = validate_bids(bd, allow_errors=validation == "ignore")
+            if validated:
+                validated_datasets.append(bd)
+        return validated_datasets
     else:
         return bids_datasets

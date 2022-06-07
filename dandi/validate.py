@@ -69,7 +69,8 @@ def validate_bids(
             fg="red",
         )
         if not allow_errors:
-            raise SystemExit(1)
+            return False
+    return True
 
 
 def validate(

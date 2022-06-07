@@ -30,12 +30,14 @@ def validate_bids(
     if report_flag and not report:
         report = report_flag
 
-    validate_bids_(
+    validated = validate_bids_(
         *paths,
         report=report,
         schema_version=schema,
         devel_debug=devel_debug,
     )
+    if not validated:
+        raise SystemExit(1)
 
 
 @click.command()
