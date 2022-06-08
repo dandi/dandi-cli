@@ -66,13 +66,13 @@ def upload(
     bids_datasets = _bids_discover_and_validate(dandiset_.path, paths, validation)
 
     if bids_datasets:
-        bids_datasets = [str(i) for i in bids_datasets]
+        _bids_datasets = [str(i) for i in bids_datasets]
         if not allow_any_path:
             lgr.info(
                 "Setting allow_any_path to True since we detected %s under the "
                 "following paths: %s",
-                pluralize(len(bids_datasets), "BIDS dataset"),
-                ", ".join(bids_datasets),
+                pluralize(len(_bids_datasets), "BIDS dataset"),
+                ", ".join(_bids_datasets),
             )
             allow_any_path = True
 
@@ -403,7 +403,7 @@ def skip_file(msg: Any) -> Dict[str, str]:
 def _bids_discover_and_validate(
     dandiset_path: str,
     paths: Optional[List[Union[str, Path]]] = None,
-    validation: str = "require",
+    validation: Optional[str] = "require",
 ) -> List[Path]:
     """Temporary implementation for discovery and validation of BIDS datasets
 
@@ -433,6 +433,8 @@ def _bids_discover_and_validate(
         if bids_lookup_paths:
             bids_datasets_to_validate = list()
             for p in bids_lookup_paths:
+                if isinstance(p, str):
+                    p = Path(p)
                 for bd in bids_datasets:
                     try:
                         p.relative_to(bd)

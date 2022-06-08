@@ -1,4 +1,5 @@
-from typing import Any, Iterator, List, Optional, Tuple
+from pathlib import Path
+from typing import Any, Iterator, List, Optional, Tuple, Union
 
 import click
 
@@ -9,7 +10,7 @@ from .utils import pluralize
 
 
 def validate_bids(
-    *paths: str,
+    *paths: Union[str, Path],
     schema_version: Optional[str] = None,
     devel_debug: bool = False,
     report: Optional[str] = None,
