@@ -69,8 +69,8 @@ def upload(
         _bids_datasets = [str(i) for i in bids_datasets]
         if not allow_any_path:
             lgr.info(
-                "Setting allow_any_path to True since we detected %s under the "
-                "following paths: %s",
+                "Enabling --allow-any-path since we detected %s under the following "
+                "paths: %s",
                 pluralize(len(_bids_datasets), "BIDS dataset"),
                 ", ".join(_bids_datasets),
             )
