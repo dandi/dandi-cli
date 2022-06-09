@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Iterator, List, Optional, Tuple, Union
+from typing import Iterator, List, Optional, Tuple, Union
 
 import click
 
@@ -15,7 +15,7 @@ def validate_bids(
     devel_debug: bool = False,
     report: Optional[str] = None,
     allow_errors: Optional[bool] = False,
-) -> Any:
+) -> bool:
     """Validate BIDS paths.
 
     Parameters
@@ -32,6 +32,11 @@ def validate_bids(
         If the variable evaluates as False, no log will be written.
     allow_errors : bool, optional
         Whether to raise errors on invalid dataset.
+
+    Returns
+    -------
+    bool
+        Whether or not there were zero validation errors.
 
     Notes
     -----
