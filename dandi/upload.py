@@ -421,7 +421,7 @@ def _bids_discover_and_validate(
     bids_descriptions = map(
         Path, find_files(r"(^|[/\x5C])dataset_description\.json$", dandiset_path)
     )
-    bids_datasets = [p.parent for p in bids_descriptions]
+    bids_datasets = [bd.parent for bd in bids_descriptions]
     if bids_datasets:
         lgr.debug(
             "Detected %s under following paths: %s",
@@ -439,10 +439,14 @@ def _bids_discover_and_validate(
                     try:
                         p.relative_to(bd)
                     except ValueError:
-                        pass
+                        try:
+                            bd.relative_to(p)
+                        except ValueError:
+                            pass
+                        else:
+                            bids_datasets_to_validate.append(bd)
                     else:
                         bids_datasets_to_validate.append(bd)
-                        break
         else:
             bids_datasets_to_validate = bids_datasets
         bids_datasets_to_validate.sort()
