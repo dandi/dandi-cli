@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from typing import Dict, List, Optional, cast
 
@@ -23,7 +22,9 @@ def moving_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
         "subdir4/foo.json",
         "subdir5/foo.json",
     ]:
-        (new_dandiset.dspath / path).write_text(f"{path}\n")
+        p = new_dandiset.dspath / path
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(f"{path}\n")
     new_dandiset.upload_kwargs["allow_any_path"] = True
     new_dandiset.upload()
     return new_dandiset
@@ -158,12 +159,14 @@ def test_move(
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     move(
         *srcs,
         dest=dest,
         regex=regex,
         work_on=work_on,
         dandi_instance=moving_dandiset.api.instance_id,
+        devel_debug=True,
     )
     check_assets(moving_dandiset, starting_assets, work_on, remapping)
 
@@ -174,6 +177,7 @@ def test_move_skip(
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     move(
         "file.txt",
         "subdir4/foo.json",
@@ -181,6 +185,7 @@ def test_move_skip(
         work_on=work_on,
         existing="skip",
         dandi_instance=moving_dandiset.api.instance_id,
+        devel_debug=True,
     )
     check_assets(
         moving_dandiset, starting_assets, work_on, {"file.txt": "subdir5/file.txt"}
@@ -197,6 +202,7 @@ def test_move_error(
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     with pytest.raises(ValueError) as excinfo:
         move(
             "file.txt",
@@ -219,12 +225,14 @@ def test_move_overwrite(
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     move(
         "file.txt",
         "subdir4/foo.json",
         dest="subdir5",
         work_on=work_on,
         existing="overwrite",
+        devel_debug=True,
         dandi_instance=moving_dandiset.api.instance_id,
     )
     check_assets(
@@ -244,6 +252,7 @@ def test_move_no_srcs(
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     with pytest.raises(ValueError) as excinfo:
         move(
             dest="nowhere",
@@ -259,6 +268,7 @@ def test_move_regex_multisrcs(
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     with pytest.raises(ValueError) as excinfo:
         move(
             r"\.txt",
@@ -279,6 +289,7 @@ def test_move_multisrcs_file_dest(
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     with pytest.raises(ValueError) as excinfo:
         move(
             "file.txt",
@@ -294,11 +305,29 @@ def test_move_multisrcs_file_dest(
     check_assets(moving_dandiset, starting_assets, "both", {})
 
 
+def test_move_folder_src_file_dest(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
+    with pytest.raises(ValueError) as excinfo:
+        move(
+            "subdir1",
+            dest="subdir2/banana.txt",
+            work_on="both",
+            dandi_instance=moving_dandiset.api.instance_id,
+        )
+    assert str(excinfo.value) == "Cannot move a folder to a file path"
+    check_assets(moving_dandiset, starting_assets, "both", {})
+
+
 def test_move_nonexistent_src(
     monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     with pytest.raises(NotFoundError) as excinfo:
         move(
             "file.txt",
@@ -316,6 +345,7 @@ def test_move_file_slash_src(
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     with pytest.raises(ValueError) as excinfo:
         move(
             "file.txt",
@@ -333,6 +363,7 @@ def test_move_file_slash_dest(
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     with pytest.raises(ValueError) as excinfo:
         move(
             "file.txt",
@@ -349,6 +380,7 @@ def test_move_regex_no_match(
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     with pytest.raises(ValueError) as excinfo:
         move(
             "no-match",
@@ -366,6 +398,7 @@ def test_move_regex_collision(
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     with pytest.raises(ValueError) as excinfo:
         move(
             r"^\w+/foo\.json$",
@@ -388,12 +421,14 @@ def test_move_local_from_subdir(
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     move(
         "../file.txt",
         "apple.txt",
         dest="../subdir2",
         work_on=work_on,
         dandi_instance=moving_dandiset.api.instance_id,
+        devel_debug=True,
     )
     check_assets(
         moving_dandiset,
@@ -412,6 +447,7 @@ def test_move_local_from_subdir_abspaths(
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     with pytest.raises(NotFoundError) as excinfo:
         move(
             "file.txt",
@@ -429,12 +465,14 @@ def test_move_remote_from_subdir(
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     move(
         "file.txt",
         "subdir1/apple.txt",
         dest="subdir2",
         work_on="remote",
         dandi_instance=moving_dandiset.api.instance_id,
+        devel_debug=True,
     )
     check_assets(
         moving_dandiset,
@@ -452,6 +490,7 @@ def test_move_remote_from_subdir_relpaths(
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     with pytest.raises(NotFoundError) as excinfo:
         move(
             "../file.txt",
@@ -469,6 +508,7 @@ def test_move_dandiset_path(
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     move(
         "file.txt",
         "subdir2/banana.txt",
@@ -476,6 +516,7 @@ def test_move_dandiset_path(
         work_on="both",
         dandiset=moving_dandiset.dspath,
         dandi_instance=moving_dandiset.api.instance_id,
+        devel_debug=True,
     )
     check_assets(
         moving_dandiset,
@@ -497,12 +538,14 @@ def test_move_dandiset_url(
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     move(
         "file.txt",
         "subdir2/banana.txt",
         dest="subdir1",
         work_on=work_on,
         dandiset=moving_dandiset.dandiset.api_url,
+        devel_debug=True,
     )
     check_assets(
         moving_dandiset,
@@ -520,12 +563,14 @@ def test_move_work_on_auto(
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
     move(
         "file.txt",
         "subdir2/banana.txt",
         dest="subdir1",
         work_on="auto",
         dandi_instance=moving_dandiset.api.instance_id,
+        devel_debug=True,
     )
     check_assets(
         moving_dandiset,
@@ -545,9 +590,14 @@ def test_move_not_dandiset(
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ValueError) as excinfo:
         move("file.txt", "subdir2/banana.txt", dest="subdir1", work_on=work_on)
-    assert str(excinfo.value) == f"{os.curdir}: not a Dandiset"
+    assert str(excinfo.value) == f"{tmp_path.absolute()}: not a Dandiset"
 
 
 # TO TEST:
 # - work_on=both + local & remote hierarchies differ = error
 # - work_on=remote/local + local & remote hierarchies differ = no error
+# - test_move_local_from_subdir + regex
+# - dry_run
+# - pyout
+# - moving a file or directory to itself = error (or warning?)
+# - local: either delete emptied directories or move them as a single unit
