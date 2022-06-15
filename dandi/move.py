@@ -16,7 +16,7 @@ from .dandiapi import DandiAPIClient, RemoteAsset, RemoteDandiset
 from .dandiarchive import DandisetURL, parse_dandi_url
 from .dandiset import Dandiset
 from .exceptions import NotFoundError
-from .files import LocalAsset, find_dandi_files
+from .files import DandisetMetadataFile, LocalAsset, find_dandi_files
 
 lgr = get_logger()
 
@@ -165,7 +165,7 @@ class LocalizedMover(Mover):
                 destobj = None
             else:
                 destobj = File(AssetPath(dest))
-        if isinstance(dest, File) and len(srcs) > 1:
+        if isinstance(destobj, File) and len(srcs) > 1:
             raise ValueError(
                 "Cannot take multiple source paths when destination is a file"
             )
@@ -210,10 +210,12 @@ class LocalizedMover(Mover):
                 lgr.debug("Calculated move: %r -> %r", asset_path, dest)
                 if dest in rev:
                     raise ValueError(
-                        f"Both {rev[dest]!r} and {asset_path!r} would be moved to {dest!r}"
+                        f"Assets {rev[dest]!r} and {asset_path!r} would both be moved to {dest!r}"
                     )
                 moves[asset_path] = dest
                 rev[dest] = asset_path
+        if not moves:
+            raise ValueError(f"Regular expression {find!r} did not match any paths")
         return self.compile_moves(moves, existing)
 
     def compile_moves(
@@ -308,14 +310,16 @@ class LocalMover(LocalizedMover):
             allow_all=True,
             include_metadata=False,
         ):
+            if isinstance(df, DandisetMetadataFile):
+                continue
             assert isinstance(df, LocalAsset)
             relpath = posixpath.relpath(df.path, self.subpath.as_posix())
             yield (AssetPath(df.path), relpath)
 
     def get_path(self, path: str, contents: bool = True) -> File | Folder:
         # TODO: Potential problem: Empty `src` dirs in local Dandisets
-        path, _ = self.resolve(path)
-        p = self.dandiset_path / path
+        rpath, needs_dir = self.resolve(path)
+        p = self.dandiset_path / rpath
         if not p.exists():
             raise NotFoundError(f"No asset at path {path!r}")
         if p.is_dir():
@@ -328,12 +332,15 @@ class LocalMover(LocalizedMover):
                         allow_all=True,
                         include_metadata=False,
                     )
+                    if isinstance(df, LocalAsset)
                 ]
             else:
                 files = []
-            return Folder(path, files)
+            return Folder(rpath, files)
+        elif needs_dir:
+            raise ValueError(f"{path!r} is a file")
         else:
-            return File(path)
+            return File(rpath)
 
     def is_dir(self, path: AssetPath) -> bool:
         return (self.dandiset_path / path).is_dir()
@@ -344,8 +351,10 @@ class LocalMover(LocalizedMover):
 
     def move(self, src: AssetPath, dest: AssetPath) -> None:
         lgr.debug("Moving local file %r to %r", src, dest)
+        target = self.dandiset_path / dest
         try:
-            (self.dandiset_path / src).rename(self.dandiset_path / dest)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            (self.dandiset_path / src).rename(target)
         except Exception as e:
             lgr.error(
                 "Failed to move local file %r to %r: %s: %s",
@@ -377,7 +386,7 @@ class RemoteMover(LocalizedMover):
         lgr.info("Fetching list of assets for Dandiset %s", self.dandiset.identifier)
         self.assets = {}
         for asset in self.dandiset.get_assets():
-            self.assets[AssetPath(asset.path)] = asset
+            self.assets[AssetPath(asset.path.strip("/"))] = asset
 
     @property
     def status_field(self) -> str:
@@ -389,17 +398,23 @@ class RemoteMover(LocalizedMover):
             yield (path, relpath)
 
     def get_path(self, path: str, contents: bool = True) -> File | Folder:
-        path, needs_dir = self.resolve(path)
+        rpath, needs_dir = self.resolve(path)
         relcontents: list[str] = []
+        file_found = False
         for p in self.assets.keys():
-            if p == path:
-                if not needs_dir:
-                    return File(path)
-            elif p.startswith(f"{path}/"):
-                relcontents.append(posixpath.relpath(p, path))
+            if p == rpath:
+                if needs_dir:
+                    file_found = True
+                else:
+                    return File(rpath)
+            elif p.startswith(f"{rpath}/"):
+                relcontents.append(posixpath.relpath(p, rpath))
         if relcontents:
-            return Folder(path, relcontents)
-        raise NotFoundError(f"No asset at path {path!r}")
+            return Folder(rpath, relcontents)
+        if needs_dir and file_found:
+            raise ValueError(f"{path!r} is a file")
+        else:
+            raise NotFoundError(f"No asset at path {path!r}")
 
     def is_dir(self, path: AssetPath) -> bool:
         return any(p.startswith(f"{path}/") for p in self.assets.keys())
