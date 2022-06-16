@@ -19,7 +19,7 @@ Options
 
     Force deletion without requesting interactive confirmation
 
-.. option:: -i, --instance <instance-name>
+.. option:: -i, --dandi-instance <instance-name>
 
     DANDI instance to delete assets & Dandisets from  [default: ``dandi``]
 
