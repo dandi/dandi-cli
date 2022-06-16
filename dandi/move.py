@@ -41,45 +41,69 @@ class Folder:
 
 @dataclass
 class Movement:
+    """A movement/renaming of an asset"""
+
+    #: The asset's original path
     src: AssetPath
+    #: The asset's destination path
     dest: AssetPath
+    #: Whether to skip this operation because an asset already exists at the
+    #: destination
     skip: bool = False
+    #: Whether to delete the asset at the destination before moving
     delete: bool = False
 
     @property
     def dest_exists(self) -> bool:
+        """True iff an asset already exists at the destination"""
         return self.skip or self.delete
 
 
 class Mover(ABC):
-    # Only good for one set of moves
+    """
+    An abstract base class for calculating and performing asset moves/renames
+    """
 
     @property
     def columns(self) -> tuple[str, ...]:
+        """Names of the columns in the pyout display"""
         return ("source", "target") + self.updating_fields
 
     @property
     def updating_fields(self) -> tuple[str, ...]:
+        """Names of the pyout fields that are updated as things progress"""
         return (self.status_field, "message")
 
     @property
     @abstractmethod
     def status_field(self) -> str:
+        """
+        Name of the pyout status column (either ``"local"`` or ``"remote"``)
+        """
         ...
 
     @abstractmethod
     def calculate_moves(self, *srcs: str, dest: str, existing: str) -> list[Movement]:
+        """
+        Given a sequence of input source paths and a destination path, return a
+        sorted list of all assets that will be moved/renamed
+        """
         ...
 
     @abstractmethod
     def calculate_moves_by_regex(
         self, find: str, replace: str, existing: str
     ) -> list[Movement]:
+        """
+        Given a regular expression and a replacement string, return a sorted
+        list of all assets that will be moved/renamed
+        """
         ...
 
     def process_moves_pyout(
         self, plan: list[Movement], dry_run: bool = False
     ) -> Iterator[dict]:
+        """Yield a `dict` to pass to pyout for each `Movement` in ``plan``"""
         for m in plan:
             yield {
                 "source": m.src,
@@ -90,6 +114,10 @@ class Mover(ABC):
     def process_moves_debug(
         self, plan: list[Movement], dry_run: bool = False
     ) -> Iterator[Iterator[dict]]:
+        """
+        For each `Movement` in ``plan``, yield an iterator of `dict`\\s to
+        print for each step of the movement operation.
+        """
         for m in plan:
             yield (
                 {"source": m.src, "target": m.dest, **d}
@@ -100,12 +128,15 @@ class Mover(ABC):
     def process_movement(
         self, m: Movement, dry_run: bool = False
     ) -> Iterator[dict[str, str]]:
+        """Perform the `Movement` and yield a `dict` for each step"""
         ...
 
 
 class LocalizedMover(Mover):
-    # A mover for moving only the files in one location (i.e., either local or
-    # remote)
+    """
+    A `Mover` for moving only the assets in one location (i.e., either local or
+    remote)
+    """
 
     #: A relative path denoting the subdirectory of the Dandiset in which we
     #: are operating
@@ -114,44 +145,64 @@ class LocalizedMover(Mover):
     @property
     @abstractmethod
     def placename(self) -> str:
+        """
+        A description of the mover to show in messages (either ``"local"`` or
+        ``"remote"``)
+        """
         ...
 
     @abstractmethod
     def get_assets(self, subpath_only: bool = False) -> Iterator[tuple[AssetPath, str]]:
-        # Yields all assets as (asset_path, relpath) pairs where asset_path is
-        # a /-separated path relative to the root of the Dandiset and relpath
-        # is a /-separated path relative to `subpath` (for assets outside of
-        # `subpath`, relpath starts with ``../``)
+        """
+        Yield all available assets as ``(asset_path, relpath)`` pairs, where
+        ``asset_path`` is a ``/``-separated path relative to the root of the
+        Dandiset and ``relpath`` is a ``/``-separated path to that asset,
+        relative to `subpath` (For assets outside of `subpath`, ``relpath``
+        starts with ``"../"``).  If ``subpath_only`` is true, only assets
+        underneath `subpath` are returned.
+        """
         ...
 
     @abstractmethod
     def get_path(self, path: str, is_src: bool = True) -> File | Folder:
-        # Raises NotFoundError if the path does not exist
-        # If `is_src`, include the contents of folders
+        """
+        Return the asset or folder of assets at ``path`` (relative to
+        `subpath`) as a `File` or `Folder` instance.  If there is nothing at
+        the given path, raises `NotFoundError`.
+
+        If the path points to a folder, its `~Folder.relcontents` attribute
+        will be populated iff ``is_src`` is given.
+        """
         ...
 
     @abstractmethod
     def is_dir(self, path: AssetPath) -> bool:
+        """Returns true if the given path points to a directory"""
         ...
 
     @abstractmethod
     def is_file(self, path: AssetPath) -> bool:
+        """Returns true if the given path points to an asset"""
         ...
 
     @abstractmethod
     def move(self, src: AssetPath, dest: AssetPath) -> None:
-        # `dest` can be assumed to not exist
+        """
+        Move the asset at path ``src`` to path ``dest`` (which can be assumed
+        to not exist)
+        """
         ...
 
     @abstractmethod
     def delete(self, path: AssetPath) -> None:
+        """Delete the asset at ``path``"""
         ...
 
     def resolve(self, path: str) -> tuple[AssetPath, bool]:
         """
         Convert an input path (relative to `subpath`, possibly starting with
         ``../``) to a /-separated path relative to the root of the Dandiset,
-        plus a boolean that is true iff the input path ended with a slash
+        plus a boolean that is true iff ``path`` ended with a slash
         """
         p = PurePosixPath(
             posixpath.normpath(posixpath.join(self.subpath.as_posix(), path))
@@ -161,6 +212,10 @@ class LocalizedMover(Mover):
         return (AssetPath(str(p)), path.endswith("/"))
 
     def calculate_moves(self, *srcs: str, dest: str, existing: str) -> list[Movement]:
+        """
+        Given a sequence of input source paths and a destination path, return a
+        sorted list of all assets that will be moved/renamed
+        """
         destobj: File | Folder | None
         try:
             destobj = self.get_path(dest, is_src=False)
@@ -230,6 +285,10 @@ class LocalizedMover(Mover):
     def calculate_moves_by_regex(
         self, find: str, replace: str, existing: str
     ) -> list[Movement]:
+        """
+        Given a regular expression and a replacement string, return a sorted
+        list of all assets that will be moved/renamed
+        """
         rgx = re.compile(find)
         moves: dict[AssetPath, AssetPath] = {}
         rev: dict[AssetPath, AssetPath] = {}
@@ -268,6 +327,10 @@ class LocalizedMover(Mover):
     def compile_moves(
         self, moves: dict[AssetPath, AssetPath], existing: str
     ) -> list[Movement]:
+        """
+        Given a `dict` mapping source paths to destination paths, produce a
+        sorted list of `Movement` instances.
+        """
         motions: list[Movement] = []
         for src, dest in sorted(moves.items()):
             if self.is_dir(dest):
@@ -289,28 +352,10 @@ class LocalizedMover(Mover):
                 motions.append(Movement(src, dest))
         return motions
 
-    def process_moves_pyout(
-        self, plan: list[Movement], dry_run: bool = False
-    ) -> Iterator[dict]:
-        for m in plan:
-            yield {
-                "source": m.src,
-                "target": m.dest,
-                self.updating_fields: self.process_movement(m, dry_run),
-            }
-
-    def process_moves_debug(
-        self, plan: list[Movement], dry_run: bool = False
-    ) -> Iterator[Iterator[dict]]:
-        for m in plan:
-            yield (
-                {"source": m.src, "target": m.dest, **d}
-                for d in self.process_movement(m, dry_run)
-            )
-
     def process_movement(
         self, m: Movement, dry_run: bool = False
     ) -> Iterator[dict[str, str]]:
+        """Perform the `Movement` and yield a `dict` for each step"""
         if m.skip:
             lgr.debug(
                 "Would move %r to %r, but destination exists; skipping", m.src, m.dest
@@ -345,18 +390,34 @@ class LocalizedMover(Mover):
 
 @dataclass
 class LocalMover(LocalizedMover):
+    """A `Mover` for moving only the assets in a local Dandiset"""
+
+    #: The path to the root of the Dandiset
     dandiset_path: Path
-    subpath: Path  # relative path
+
+    #: A relative path denoting the subdirectory of the Dandiset in which we
+    #: are operating
+    subpath: Path
 
     @property
     def status_field(self) -> str:
+        """Name of the pyout status column"""
         return "local"
 
     @property
     def placename(self) -> str:
+        """A description of the mover to show in messages"""
         return "local"
 
     def get_assets(self, subpath_only: bool = False) -> Iterator[tuple[AssetPath, str]]:
+        """
+        Yield all available assets as ``(asset_path, relpath)`` pairs, where
+        ``asset_path`` is a ``/``-separated path relative to the root of the
+        Dandiset and ``relpath`` is a ``/``-separated path to that asset,
+        relative to `subpath` (For assets outside of `subpath`, ``relpath``
+        starts with ``"../"``).  If ``subpath_only`` is true, only assets
+        underneath `subpath` are returned.
+        """
         root = self.dandiset_path
         if subpath_only:
             root /= self.subpath
@@ -372,7 +433,14 @@ class LocalMover(LocalizedMover):
             yield (AssetPath(df.path), relpath)
 
     def get_path(self, path: str, is_src: bool = True) -> File | Folder:
-        # TODO: Potential problem: Empty `src` dirs in local Dandisets
+        """
+        Return the asset or folder of assets at ``path`` (relative to
+        `subpath`) as a `File` or `Folder` instance.  If there is nothing at
+        the given path, raises `NotFoundError`.
+
+        If the path points to a folder, its `~Folder.relcontents` attribute
+        will be populated iff ``is_src`` is given.
+        """
         rpath, needs_dir = self.resolve(path)
         p = self.dandiset_path / rpath
         if not p.exists():
@@ -397,13 +465,24 @@ class LocalMover(LocalizedMover):
             return File(rpath)
 
     def is_dir(self, path: AssetPath) -> bool:
-        return (self.dandiset_path / path).is_dir()
+        """Returns true if the given path points to a directory"""
+        p = self.dandiset_path / path
+        return p.is_dir() and p.suffix not in (".ngff", ".zarr")
 
     def is_file(self, path: AssetPath) -> bool:
+        """Returns true if the given path points to an asset"""
         p = self.dandiset_path / path
-        return p.is_file() or p.is_symlink()
+        return (
+            p.is_file()
+            or p.is_symlink()
+            or (p.is_dir() and p.suffix in (".ngff", ".zarr"))
+        )
 
     def move(self, src: AssetPath, dest: AssetPath) -> None:
+        """
+        Move the asset at path ``src`` to path ``dest`` (which can be assumed
+        to not exist)
+        """
         lgr.debug("Moving local file %r to %r", src, dest)
         target = self.dandiset_path / dest
         try:
@@ -428,6 +507,7 @@ class LocalMover(LocalizedMover):
             d = d.parent
 
     def delete(self, path: AssetPath) -> None:
+        """Delete the asset at ``path``"""
         lgr.debug("Deleting local file %r", path)
         try:
             (self.dandiset_path / path).unlink()
@@ -440,10 +520,23 @@ class LocalMover(LocalizedMover):
 
 @dataclass
 class RemoteMover(LocalizedMover):
+    """
+    A `Mover` for moving only the assets in a remote Dandiset.  It cannot be
+    reused after performing a set of moves.
+    """
+
+    #: The client object for the remote Dandiset being operated on
     dandiset: RemoteDandiset
-    subpath: Path  # relative path
-    # dandiset_path of corresponding LocalMover when inside a LocalRemoteMover
+
+    #: A relative path denoting the subdirectory of the Dandiset in which we
+    #: are operating
+    subpath: Path
+
+    #: The `~LocalMover.dandiset_path` of the corresponding `LocalMover` when
+    #: inside a `LocalRemoteMover`
     local_dandiset_path: Optional[Path] = None
+
+    #: A collection of all assets in the Dandiset, keyed by their paths
     assets: dict[AssetPath, RemoteAsset] = field(init=False)
 
     def __post_init__(self) -> None:
@@ -454,13 +547,23 @@ class RemoteMover(LocalizedMover):
 
     @property
     def status_field(self) -> str:
+        """Name of the pyout status column"""
         return "remote"
 
     @property
     def placename(self) -> str:
+        """A description of the mover to show in messages"""
         return "remote"
 
     def get_assets(self, subpath_only: bool = False) -> Iterator[tuple[AssetPath, str]]:
+        """
+        Yield all available assets as ``(asset_path, relpath)`` pairs, where
+        ``asset_path`` is a ``/``-separated path relative to the root of the
+        Dandiset and ``relpath`` is a ``/``-separated path to that asset,
+        relative to `subpath` (For assets outside of `subpath`, ``relpath``
+        starts with ``"../"``).  If ``subpath_only`` is true, only assets
+        underneath `subpath` are returned.
+        """
         for path in self.assets.keys():
             relpath = posixpath.relpath(path, self.subpath.as_posix())
             if subpath_only and relpath.startswith("../"):
@@ -468,8 +571,15 @@ class RemoteMover(LocalizedMover):
             yield (path, relpath)
 
     def get_path(self, path: str, is_src: bool = True) -> File | Folder:
-        rpath, needs_dir = self.resolve(path)
+        """
+        Return the asset or folder of assets at ``path`` (relative to
+        `subpath`) as a `File` or `Folder` instance.  If there is nothing at
+        the given path, raises `NotFoundError`.
 
+        If the path points to a folder, its `~Folder.relcontents` attribute
+        will be populated iff ``is_src`` is given.
+        """
+        rpath, needs_dir = self.resolve(path)
         relcontents: list[str] = []
         file_found = False
         if rpath == self.subpath.as_posix():
@@ -506,12 +616,18 @@ class RemoteMover(LocalizedMover):
             raise NotFoundError(f"No asset at remote path {path!r}")
 
     def is_dir(self, path: AssetPath) -> bool:
+        """Returns true if the given path points to a directory"""
         return any(p.startswith(f"{path}/") for p in self.assets.keys())
 
     def is_file(self, path: AssetPath) -> bool:
+        """Returns true if the given path points to an asset"""
         return path in self.assets
 
     def move(self, src: AssetPath, dest: AssetPath) -> None:
+        """
+        Move the asset at path ``src`` to path ``dest`` (which can be assumed
+        to not exist)
+        """
         lgr.debug("Moving remote asset %r to %r", src, dest)
         assert src in self.assets
         try:
@@ -527,6 +643,7 @@ class RemoteMover(LocalizedMover):
             raise
 
     def delete(self, path: AssetPath) -> None:
+        """Delete the asset at ``path``"""
         lgr.debug("Deleting remote asset %r", path)
         assert path in self.assets
         try:
@@ -540,22 +657,37 @@ class RemoteMover(LocalizedMover):
 
 @dataclass  # type: ignore[misc]
 class LocalRemoteMover(Mover):
+    """
+    A `Mover` for moving the assets in a local Dandiset and the corresponding
+    remote Dandiset simultaneously.  It cannot be reused after performing a set
+    of moves.
+    """
+
+    #: The local `Mover`
     local: LocalMover
+
+    #: The remote `Mover`
     remote: RemoteMover
 
     @property
-    def subpath(self) -> Path:
-        return self.local.subpath
-
-    @property
     def updating_fields(self) -> tuple[str, ...]:
+        """Names of the pyout fields that are updated as things progress"""
         return (self.local.status_field, self.remote.status_field, "message")
 
     @property
     def status_field(self) -> str:
-        return "both"  # Should not be used
+        """
+        Name of the pyout status column.
+
+        This specific property should never be used.
+        """
+        return "both"
 
     def calculate_moves(self, *srcs: str, dest: str, existing: str) -> list[Movement]:
+        """
+        Given a sequence of input source paths and a destination path, return a
+        sorted list of all assets that will be moved/renamed
+        """
         local_moves = self.local.calculate_moves(*srcs, dest=dest, existing=existing)
         remote_moves = self.remote.calculate_moves(*srcs, dest=dest, existing=existing)
         self.compare_moves(local_moves, remote_moves)
@@ -564,6 +696,10 @@ class LocalRemoteMover(Mover):
     def calculate_moves_by_regex(
         self, find: str, replace: str, existing: str
     ) -> list[Movement]:
+        """
+        Given a regular expression and a replacement string, return a sorted
+        list of all assets that will be moved/renamed
+        """
         local_moves = self.local.calculate_moves_by_regex(find, replace, existing)
         remote_moves = self.remote.calculate_moves_by_regex(find, replace, existing)
         self.compare_moves(local_moves, remote_moves)
@@ -572,6 +708,11 @@ class LocalRemoteMover(Mover):
     def compare_moves(
         self, local_moves: list[Movement], remote_moves: list[Movement]
     ) -> None:
+        """
+        Given a list of `Movement` instances calculated by the local and remote
+        `Mover`\\s, compare them and raise `AssetMismatchError` if there are
+        any differences.
+        """
         # Recall that the Movements are sorted by src path
         for lm, rm in zip_longest(local_moves, remote_moves):
             if rm is None:
@@ -601,6 +742,7 @@ class LocalRemoteMover(Mover):
     def process_movement(
         self, m: Movement, dry_run: bool = False
     ) -> Iterator[dict[str, str]]:
+        """Perform the `Movement` and yield a `dict` for each step"""
         for state in self.local.process_movement(m, dry_run):
             yield state
             if state[self.local.status_field].lower() == "error":
@@ -708,6 +850,10 @@ def move(
 
 
 def find_dandiset_and_subpath(path: Path) -> tuple[Dandiset, Path]:
+    """
+    Find the Dandiset rooted at ``path`` or one of its parents, and return the
+    Dandiset along with ``path`` made relative to the Dandiset root
+    """
     path = path.absolute()
     ds = Dandiset.find(path)
     if ds is None:
