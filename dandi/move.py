@@ -111,6 +111,11 @@ class LocalizedMover(Mover):
     #: are operating
     subpath: Path
 
+    @property
+    @abstractmethod
+    def placename(self) -> str:
+        ...
+
     @abstractmethod
     def get_assets(self) -> Iterator[tuple[AssetPath, str]]:
         # Yields all assets as (asset_path, relpath) pairs where asset_path is
@@ -120,8 +125,9 @@ class LocalizedMover(Mover):
         ...
 
     @abstractmethod
-    def get_path(self, path: str, contents: bool = True) -> File | Folder:
+    def get_path(self, path: str, is_src: bool = True) -> File | Folder:
         # Raises NotFoundError if the path does not exist
+        # If `is_src`, include the contents of folders
         ...
 
     @abstractmethod
@@ -150,14 +156,14 @@ class LocalizedMover(Mover):
         p = PurePosixPath(
             posixpath.normpath(posixpath.join(self.subpath.as_posix(), path))
         )
-        if p.parts[0] == os.pardir:
+        if p.parts and p.parts[0] == os.pardir:
             raise ValueError(f"{path!r} is outside of Dandiset")
         return (AssetPath(str(p)), path.endswith("/"))
 
     def calculate_moves(self, *srcs: str, dest: str, existing: str) -> list[Movement]:
         destobj: File | Folder | None
         try:
-            destobj = self.get_path(dest, contents=False)
+            destobj = self.get_path(dest, is_src=False)
         except NotFoundError:
             if dest.endswith("/") or len(srcs) > 1:
                 destobj = Folder(dest, [])
@@ -181,16 +187,20 @@ class LocalizedMover(Mover):
                     moves[s.path] = AssetPath(destobj.path)
                 else:
                     moves[s.path] = AssetPath(
-                        posixpath.join(destobj.path, posixpath.basename(s.path))
+                        posixpath.normpath(
+                            posixpath.join(destobj.path, posixpath.basename(s.path))
+                        )
                     )
                 lgr.debug("Calculated move: %r -> %r", s.path, moves[s.path])
             else:
                 if isinstance(destobj, File):
-                    raise ValueError("Cannot move a folder to a file path")
+                    raise ValueError(f"Cannot move folder {s.path!r} to a file path")
                 else:
                     for p in s.relcontents:
-                        p1 = posixpath.join(s.path, p)
-                        p2 = posixpath.join(destobj.path, posixpath.basename(s.path), p)
+                        p1 = posixpath.normpath(posixpath.join(s.path, p))
+                        p2 = posixpath.normpath(
+                            posixpath.join(destobj.path, posixpath.basename(s.path), p)
+                        )
                         moves[AssetPath(p1)] = AssetPath(p2)
                         lgr.debug("Calculated move: %r -> %r", p1, p2)
         return self.compile_moves(moves, existing)
@@ -210,12 +220,15 @@ class LocalizedMover(Mover):
                 lgr.debug("Calculated move: %r -> %r", asset_path, dest)
                 if dest in rev:
                     raise ValueError(
-                        f"Assets {rev[dest]!r} and {asset_path!r} would both be moved to {dest!r}"
+                        f"{self.placename.title()} assets {rev[dest]!r} and"
+                        f" {asset_path!r} would both be moved to {dest!r}"
                     )
                 moves[asset_path] = dest
                 rev[dest] = asset_path
         if not moves:
-            raise ValueError(f"Regular expression {find!r} did not match any paths")
+            raise ValueError(
+                f"Regular expression {find!r} did not match any {self.placename} paths"
+            )
         return self.compile_moves(moves, existing)
 
     def compile_moves(
@@ -225,7 +238,8 @@ class LocalizedMover(Mover):
         for src, dest in sorted(moves.items()):
             if self.is_dir(dest):
                 raise ValueError(
-                    f"Cannot move {src!r} to {dest!r}, as destination is a directory"
+                    f"Cannot move {src!r} to {dest!r}, as {self.placename}"
+                    " destination is a directory"
                 )
             elif self.is_file(dest):
                 if existing == "overwrite":
@@ -234,7 +248,8 @@ class LocalizedMover(Mover):
                     motions.append(Movement(src, dest, skip=True))
                 else:
                     raise ValueError(
-                        f"Cannot move {src!r} to {dest!r}, as destination already exists"
+                        f"Cannot move {src!r} to {dest!r}, as {self.placename}"
+                        " destination already exists"
                     )
             else:
                 motions.append(Movement(src, dest))
@@ -303,6 +318,10 @@ class LocalMover(LocalizedMover):
     def status_field(self) -> str:
         return "local"
 
+    @property
+    def placename(self) -> str:
+        return "local"
+
     def get_assets(self) -> Iterator[tuple[AssetPath, str]]:
         for df in find_dandi_files(
             self.dandiset_path,
@@ -316,14 +335,16 @@ class LocalMover(LocalizedMover):
             relpath = posixpath.relpath(df.path, self.subpath.as_posix())
             yield (AssetPath(df.path), relpath)
 
-    def get_path(self, path: str, contents: bool = True) -> File | Folder:
+    def get_path(self, path: str, is_src: bool = True) -> File | Folder:
         # TODO: Potential problem: Empty `src` dirs in local Dandisets
         rpath, needs_dir = self.resolve(path)
         p = self.dandiset_path / rpath
         if not p.exists():
-            raise NotFoundError(f"No asset at path {path!r}")
+            raise NotFoundError(f"No asset at local path {path!r}")
         if p.is_dir():
-            if contents:
+            if is_src:
+                if p == self.dandiset_path / self.subpath:
+                    raise ValueError("Cannot move current working directory")
                 files = [
                     df.filepath.relative_to(p).as_posix()
                     for df in find_dandi_files(
@@ -338,7 +359,7 @@ class LocalMover(LocalizedMover):
                 files = []
             return Folder(rpath, files)
         elif needs_dir:
-            raise ValueError(f"{path!r} is a file")
+            raise ValueError(f"Local path {path!r} is a file")
         else:
             return File(rpath)
 
@@ -364,6 +385,14 @@ class LocalMover(LocalizedMover):
                 e,
             )
             raise
+        # Remove residual empty directories up to subpath
+        d = (self.dandiset_path / src).parent
+        while d != (self.dandiset_path / self.subpath) and not any(d.iterdir()):
+            try:
+                d.rmdir()
+            except OSError:
+                break
+            d = d.parent
 
     def delete(self, path: AssetPath) -> None:
         lgr.debug("Deleting local file %r", path)
@@ -392,15 +421,24 @@ class RemoteMover(LocalizedMover):
     def status_field(self) -> str:
         return "remote"
 
+    @property
+    def placename(self) -> str:
+        return "remote"
+
     def get_assets(self) -> Iterator[tuple[AssetPath, str]]:
         for path in self.assets.keys():
             relpath = posixpath.relpath(path, self.subpath.as_posix())
             yield (path, relpath)
 
-    def get_path(self, path: str, contents: bool = True) -> File | Folder:
+    def get_path(self, path: str, is_src: bool = True) -> File | Folder:
         rpath, needs_dir = self.resolve(path)
         relcontents: list[str] = []
         file_found = False
+        if rpath == self.subpath.as_posix():
+            if is_src:
+                raise ValueError("Cannot move current working directory")
+            else:
+                return Folder(rpath, [])
         for p in self.assets.keys():
             if p == rpath:
                 if needs_dir:
@@ -408,13 +446,16 @@ class RemoteMover(LocalizedMover):
                 else:
                     return File(rpath)
             elif p.startswith(f"{rpath}/"):
-                relcontents.append(posixpath.relpath(p, rpath))
+                if is_src:
+                    relcontents.append(posixpath.relpath(p, rpath))
+                else:
+                    return Folder(rpath, [])
         if relcontents:
             return Folder(rpath, relcontents)
         if needs_dir and file_found:
-            raise ValueError(f"{path!r} is a file")
+            raise ValueError(f"Remote path {path!r} is a file")
         else:
-            raise NotFoundError(f"No asset at path {path!r}")
+            raise NotFoundError(f"No asset at remote path {path!r}")
 
     def is_dir(self, path: AssetPath) -> bool:
         return any(p.startswith(f"{path}/") for p in self.assets.keys())
@@ -627,4 +668,4 @@ class AssetMismatchError(ValueError):
         self.msg = msg
 
     def __str__(self) -> str:
-        return "Mismatch between local and remote servers: {self.msg}"
+        return f"Mismatch between local and remote servers: {self.msg}"

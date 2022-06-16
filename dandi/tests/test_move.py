@@ -6,7 +6,7 @@ import pytest
 from .fixtures import SampleDandiset
 from ..dandiapi import RemoteAsset
 from ..exceptions import NotFoundError
-from ..move import move
+from ..move import AssetMismatchError, move
 
 
 @pytest.fixture()
@@ -145,6 +145,12 @@ def check_assets(
                 "subdir2/coconut.txt": "text2/coconut.txt",
             },
         ),
+        (
+            ["subdir1/apple.txt"],
+            ".",
+            False,
+            {"subdir1/apple.txt": "apple.txt"},
+        ),
     ],
 )
 @pytest.mark.parametrize("work_on", ["local", "remote", "both"])
@@ -213,8 +219,8 @@ def test_move_error(
             **kwargs,  # type: ignore[arg-type]
         )
     assert (
-        str(excinfo.value)
-        == "Cannot move 'subdir4/foo.json' to 'subdir5/foo.json', as destination already exists"
+        str(excinfo.value) == "Cannot move 'subdir4/foo.json' to 'subdir5/foo.json', as"
+        f" {'remote' if work_on == 'remote' else 'local'} destination already exists"
     )
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
@@ -320,7 +326,7 @@ def test_move_folder_src_file_dest(
             work_on=work_on,
             dandi_instance=moving_dandiset.api.instance_id,
         )
-    assert str(excinfo.value) == "Cannot move a folder to a file path"
+    assert str(excinfo.value) == "Cannot move folder 'subdir1' to a file path"
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
 
@@ -339,7 +345,10 @@ def test_move_nonexistent_src(
             work_on=work_on,
             dandi_instance=moving_dandiset.api.instance_id,
         )
-    assert str(excinfo.value) == "No asset at path 'subdir1/avocado.txt'"
+    assert (
+        str(excinfo.value)
+        == f"No asset at {'remote' if work_on == 'remote' else 'local'} path 'subdir1/avocado.txt'"
+    )
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
 
@@ -358,7 +367,10 @@ def test_move_file_slash_src(
             work_on=work_on,
             dandi_instance=moving_dandiset.api.instance_id,
         )
-    assert str(excinfo.value) == "'subdir1/apple.txt/' is a file"
+    assert (
+        str(excinfo.value)
+        == f"{'Remote' if work_on == 'remote' else 'Local'} path 'subdir1/apple.txt/' is a file"
+    )
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
 
@@ -376,7 +388,10 @@ def test_move_file_slash_dest(
             work_on=work_on,
             dandi_instance=moving_dandiset.api.instance_id,
         )
-    assert str(excinfo.value) == "'subdir1/apple.txt/' is a file"
+    assert (
+        str(excinfo.value)
+        == f"{'Remote' if work_on == 'remote' else 'Local'} path 'subdir1/apple.txt/' is a file"
+    )
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
 
@@ -394,7 +409,10 @@ def test_move_regex_no_match(
             work_on="both",
             dandi_instance=moving_dandiset.api.instance_id,
         )
-    assert str(excinfo.value) == "Regular expression 'no-match' did not match any paths"
+    assert (
+        str(excinfo.value)
+        == "Regular expression 'no-match' did not match any local paths"
+    )
     check_assets(moving_dandiset, starting_assets, "both", {})
 
 
@@ -414,8 +432,8 @@ def test_move_regex_collision(
         )
     assert (
         str(excinfo.value)
-        == "Assets 'subdir4/foo.json' and 'subdir5/foo.json' would both be"
-        " moved to 'data/data.json'"
+        == "Local assets 'subdir4/foo.json' and 'subdir5/foo.json' would both"
+        " be moved to 'data/data.json'"
     )
     check_assets(moving_dandiset, starting_assets, "both", {})
 
@@ -461,7 +479,29 @@ def test_move_from_subdir_abspaths(
             work_on=work_on,
             dandi_instance=moving_dandiset.api.instance_id,
         )
-    assert str(excinfo.value) == "No asset at path 'file.txt'"
+    assert (
+        str(excinfo.value)
+        == f"No asset at {'remote' if work_on == 'remote' else 'local'} path 'file.txt'"
+    )
+    check_assets(moving_dandiset, starting_assets, work_on, {})
+
+
+@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+def test_move_from_subdir_as_dot(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
+    with pytest.raises(ValueError) as excinfo:
+        move(
+            ".",
+            dest="../subdir2",
+            work_on=work_on,
+            dandi_instance=moving_dandiset.api.instance_id,
+            devel_debug=True,
+        )
+    assert str(excinfo.value) == "Cannot move current working directory"
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
 
@@ -559,11 +599,160 @@ def test_move_not_dandiset(
     assert str(excinfo.value) == f"{tmp_path.absolute()}: not a Dandiset"
 
 
+def test_move_local_delete_empty_dirs(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath / "subdir4")
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
+    move(
+        "../subdir1/apple.txt",
+        "../subdir2/banana.txt",
+        "foo.json",
+        dest="../subdir3",
+        work_on="local",
+        devel_debug=True,
+    )
+    check_assets(
+        moving_dandiset,
+        starting_assets,
+        "local",
+        {
+            "subdir1/apple.txt": "subdir3/apple.txt",
+            "subdir2/banana.txt": "subdir3/banana.txt",
+            "subdir4/foo.json": "subdir3/foo.json",
+        },
+    )
+    assert not (moving_dandiset.dspath / "subdir1").exists()
+    assert (moving_dandiset.dspath / "subdir2").exists()
+    assert (moving_dandiset.dspath / "subdir4").exists()
+
+
+def test_move_both_src_path_not_in_local(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset
+) -> None:
+    (moving_dandiset.dspath / "subdir2" / "banana.txt").unlink()
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
+    with pytest.raises(AssetMismatchError) as excinfo:
+        move(
+            "subdir2",
+            dest="subdir3",
+            work_on="both",
+            dandi_instance=moving_dandiset.api.instance_id,
+            devel_debug=True,
+        )
+    assert (
+        str(excinfo.value) == "Mismatch between local and remote servers: asset"
+        " 'subdir2/banana.txt' only exists remotely"
+    )
+    check_assets(moving_dandiset, starting_assets, "both", {"subdir2/banana.txt": None})
+
+
+def test_move_both_src_path_not_in_remote(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset
+) -> None:
+    (moving_dandiset.dspath / "subdir2" / "mango.txt").write_text("Mango\n")
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
+    with pytest.raises(AssetMismatchError) as excinfo:
+        move(
+            "subdir2",
+            dest="subdir3",
+            work_on="both",
+            dandi_instance=moving_dandiset.api.instance_id,
+            devel_debug=True,
+        )
+    assert (
+        str(excinfo.value) == "Mismatch between local and remote servers: asset"
+        " 'subdir2/mango.txt' only exists locally"
+    )
+    check_assets(moving_dandiset, starting_assets, "both", {})
+
+
+@pytest.mark.parametrize("existing", ["skip", "overwrite"])
+def test_move_both_dest_path_not_in_remote(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, existing: str
+) -> None:
+    (moving_dandiset.dspath / "subdir2" / "file.txt").write_text("This is a file.\n")
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
+    with pytest.raises(AssetMismatchError) as excinfo:
+        move(
+            "file.txt",
+            dest="subdir2",
+            work_on="both",
+            existing=existing,
+            dandi_instance=moving_dandiset.api.instance_id,
+            devel_debug=True,
+        )
+    assert (
+        str(excinfo.value)
+        == "Mismatch between local and remote servers: asset 'file.txt' would"
+        " be moved to 'subdir2/file.txt', which exists locally but not remotely"
+    )
+    check_assets(moving_dandiset, starting_assets, "both", {})
+
+
+@pytest.mark.parametrize("existing", ["skip", "overwrite"])
+def test_move_both_dest_path_not_in_local(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, existing: str
+) -> None:
+    (moving_dandiset.dspath / "subdir2" / "banana.txt").unlink()
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
+    with pytest.raises(AssetMismatchError) as excinfo:
+        move(
+            "file.txt",
+            dest="subdir2/banana.txt",
+            work_on="both",
+            existing=existing,
+            dandi_instance=moving_dandiset.api.instance_id,
+            devel_debug=True,
+        )
+    assert (
+        str(excinfo.value)
+        == "Mismatch between local and remote servers: asset 'file.txt' would"
+        " be moved to 'subdir2/banana.txt', which exists remotely but not locally"
+    )
+    check_assets(moving_dandiset, starting_assets, "both", {"subdir2/banana.txt": None})
+
+
+def test_move_both_dest_mismatch(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset
+) -> None:
+    (moving_dandiset.dspath / "subdir1" / "apple.txt").unlink()
+    (moving_dandiset.dspath / "subdir1" / "apple.txt").mkdir()
+    (moving_dandiset.dspath / "subdir1" / "apple.txt" / "seeds").write_text("12345\n")
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
+    with pytest.raises(AssetMismatchError) as excinfo:
+        move(
+            "file.txt",
+            dest="subdir1/apple.txt",
+            work_on="both",
+            existing="overwrite",
+            dandi_instance=moving_dandiset.api.instance_id,
+            devel_debug=True,
+        )
+    assert (
+        str(excinfo.value) == "Mismatch between local and remote servers: asset"
+        " 'file.txt' would be moved to 'subdir1/apple.txt/file.txt' locally"
+        " but to 'subdir1/apple.txt' remotely"
+    )
+    check_assets(moving_dandiset, starting_assets, "both", {"subdir1/apple.txt": None})
+
+
 # TO TEST:
-# - work_on=both + local & remote hierarchies differ = error
-# - work_on=remote/local + local & remote hierarchies differ = no error
-# - test_move_local_from_subdir + regex
+# - test_move_from_subdir + regex
 # - dry_run
 # - pyout
 # - moving a file or directory to itself = error (or warning?)
-# - local: either delete emptied directories or move them as a single unit
+# - moving a file or directory to itself via regex = discard movement
+# - move both, dest is a local directory that does not exist remotely (and does
+#   not end in a slash)
