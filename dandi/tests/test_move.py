@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, cast
 
@@ -440,7 +441,10 @@ def test_move_regex_collision(
 
 @pytest.mark.parametrize("work_on", ["local", "remote", "both"])
 def test_move_regex_some_to_self(
-    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    work_on: str,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
@@ -453,6 +457,13 @@ def test_move_regex_some_to_self(
         dandi_instance=moving_dandiset.api.instance_id,
         devel_debug=True,
     )
+    for path in ["subdir3/red.dat", "subdir3/green.dat", "subdir3/blue.dat"]:
+        for where in ["local", "remote"] if work_on == "both" else [work_on]:
+            assert (
+                "dandi",
+                logging.DEBUG,
+                f"Would move {where} asset {path!r} to itself; ignoring",
+            ) in caplog.record_tuples
     check_assets(
         moving_dandiset,
         starting_assets,
@@ -553,6 +564,28 @@ def test_move_from_subdir_regex(
         work_on,
         {"subdir1/apple.txt": "subdir1/apple.dat"},
     )
+
+
+@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+def test_move_from_subdir_regex_no_changes(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    work_on: str,
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
+    move(
+        r"\.txt",
+        dest=".txt",
+        regex=True,
+        work_on=work_on,
+        dandi_instance=moving_dandiset.api.instance_id,
+        devel_debug=True,
+    )
+    assert ("dandi", logging.INFO, "Nothing to move") in caplog.record_tuples
+    check_assets(moving_dandiset, starting_assets, work_on, {})
 
 
 @pytest.mark.parametrize("work_on", ["local", "remote", "both"])
@@ -846,7 +879,65 @@ def test_move_pyout_dry_run(
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
 
-# TO TEST:
-# - moving a file or directory to itself = error (or warning?)
-# - move both, dest is a local directory that does not exist remotely (and does
-#   not end in a slash)
+@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+def test_move_path_to_self(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    work_on: str,
+) -> None:
+    (moving_dandiset.dspath / "newdir").mkdir()
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
+    move(
+        "apple.txt",
+        dest="../subdir1",
+        work_on=work_on,
+        devel_debug=True,
+        dandi_instance=moving_dandiset.api.instance_id,
+    )
+    for where in ["local", "remote"] if work_on == "both" else [work_on]:
+        assert (
+            "dandi",
+            logging.DEBUG,
+            f"Would move {where} asset 'subdir1/apple.txt' to itself; ignoring",
+        ) in caplog.record_tuples
+    assert ("dandi", logging.INFO, "Nothing to move") in caplog.record_tuples
+    check_assets(moving_dandiset, starting_assets, work_on, {})
+
+
+def test_move_remote_dest_is_local_dir_sans_slash(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset
+) -> None:
+    (moving_dandiset.dspath / "newdir").mkdir()
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
+    move(
+        "file.txt",
+        dest="newdir",
+        work_on="remote",
+        devel_debug=True,
+        dandi_instance=moving_dandiset.api.instance_id,
+    )
+    check_assets(moving_dandiset, starting_assets, "remote", {"file.txt": "newdir"})
+
+
+def test_move_both_dest_is_local_dir_sans_slash(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset
+) -> None:
+    (moving_dandiset.dspath / "newdir").mkdir()
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
+    move(
+        "file.txt",
+        dest="newdir",
+        work_on="both",
+        devel_debug=True,
+        dandi_instance=moving_dandiset.api.instance_id,
+    )
+    check_assets(
+        moving_dandiset, starting_assets, "both", {"file.txt": "newdir/file.txt"}
+    )

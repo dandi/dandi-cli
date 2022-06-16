@@ -184,19 +184,27 @@ class LocalizedMover(Mover):
                     destobj = Folder(dest, [])
             if isinstance(s, File):
                 if isinstance(destobj, File):
-                    moves[s.path] = AssetPath(destobj.path)
+                    pdest = AssetPath(destobj.path)
                 else:
-                    moves[s.path] = AssetPath(
+                    pdest = AssetPath(
                         posixpath.normpath(
                             posixpath.join(destobj.path, posixpath.basename(s.path))
                         )
                     )
-                lgr.debug(
-                    "Calculated %s move: %r -> %r",
-                    self.placename,
-                    s.path,
-                    moves[s.path],
-                )
+                if s.path == pdest:
+                    lgr.debug(
+                        "Would move %s asset %r to itself; ignoring",
+                        self.placename,
+                        s.path,
+                    )
+                else:
+                    moves[s.path] = pdest
+                    lgr.debug(
+                        "Calculated %s move: %r -> %r",
+                        self.placename,
+                        s.path,
+                        pdest,
+                    )
             else:
                 if isinstance(destobj, File):
                     raise ValueError(f"Cannot move folder {s.path!r} to a file path")
@@ -206,6 +214,13 @@ class LocalizedMover(Mover):
                         p2 = posixpath.normpath(
                             posixpath.join(destobj.path, posixpath.basename(s.path), p)
                         )
+                        if p1 == p2:
+                            lgr.debug(
+                                "Would move %s asset %r to itself; ignoring",
+                                self.placename,
+                                p1,
+                            )
+                            continue
                         moves[AssetPath(p1)] = AssetPath(p2)
                         lgr.debug(
                             "Calculated %s move: %r -> %r", self.placename, p1, p2
@@ -218,15 +233,19 @@ class LocalizedMover(Mover):
         rgx = re.compile(find)
         moves: dict[AssetPath, AssetPath] = {}
         rev: dict[AssetPath, AssetPath] = {}
+        any_matched = False
         for asset_path, relpath in self.get_assets(subpath_only=True):
             m = rgx.search(relpath)
             if m:
+                any_matched = True
                 dest, _ = self.resolve(
                     relpath[: m.start()] + m.expand(replace) + relpath[m.end() :]
                 )
                 if asset_path == dest:
                     lgr.debug(
-                        "Would move local asset %r to itself; ignoring", asset_path
+                        "Would move %s asset %r to itself; ignoring",
+                        self.placename,
+                        asset_path,
                     )
                     continue
                 lgr.debug(
@@ -240,7 +259,7 @@ class LocalizedMover(Mover):
                     )
                 moves[asset_path] = dest
                 rev[dest] = asset_path
-        if not moves:
+        if not any_matched:
             raise ValueError(
                 f"Regular expression {find!r} did not match any {self.placename} paths"
             )
@@ -423,6 +442,8 @@ class LocalMover(LocalizedMover):
 class RemoteMover(LocalizedMover):
     dandiset: RemoteDandiset
     subpath: Path  # relative path
+    # dandiset_path of corresponding LocalMover when inside a LocalRemoteMover
+    local_dandiset_path: Optional[Path] = None
     assets: dict[AssetPath, RemoteAsset] = field(init=False)
 
     def __post_init__(self) -> None:
@@ -448,6 +469,7 @@ class RemoteMover(LocalizedMover):
 
     def get_path(self, path: str, is_src: bool = True) -> File | Folder:
         rpath, needs_dir = self.resolve(path)
+
         relcontents: list[str] = []
         file_found = False
         if rpath == self.subpath.as_posix():
@@ -470,6 +492,16 @@ class RemoteMover(LocalizedMover):
             return Folder(rpath, relcontents)
         if needs_dir and file_found:
             raise ValueError(f"Remote path {path!r} is a file")
+        elif (
+            not needs_dir
+            and not is_src
+            and self.local_dandiset_path is not None
+            and (self.local_dandiset_path / rpath).is_dir()
+        ):
+            # If the user does `move --work-on=both somepath somedir`, where
+            # `somedir` exists locally but not remotely, treat `somedir` as a
+            # remote directory.
+            return Folder(rpath, [])
         else:
             raise NotFoundError(f"No asset at remote path {path!r}")
 
@@ -612,7 +644,11 @@ def move(
                     dandiset_path=Path(local_ds.path),
                     subpath=subpath,
                 ),
-                remote=RemoteMover(dandiset=remote_ds, subpath=subpath),
+                remote=RemoteMover(
+                    dandiset=remote_ds,
+                    subpath=subpath,
+                    local_dandiset_path=Path(local_ds.path),
+                ),
             )
         elif work_on == "remote":
             if isinstance(dandiset, str):
