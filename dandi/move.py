@@ -117,7 +117,7 @@ class LocalizedMover(Mover):
         ...
 
     @abstractmethod
-    def get_assets(self) -> Iterator[tuple[AssetPath, str]]:
+    def get_assets(self, subpath_only: bool = False) -> Iterator[tuple[AssetPath, str]]:
         # Yields all assets as (asset_path, relpath) pairs where asset_path is
         # a /-separated path relative to the root of the Dandiset and relpath
         # is a /-separated path relative to `subpath` (for assets outside of
@@ -191,7 +191,12 @@ class LocalizedMover(Mover):
                             posixpath.join(destobj.path, posixpath.basename(s.path))
                         )
                     )
-                lgr.debug("Calculated move: %r -> %r", s.path, moves[s.path])
+                lgr.debug(
+                    "Calculated %s move: %r -> %r",
+                    self.placename,
+                    s.path,
+                    moves[s.path],
+                )
             else:
                 if isinstance(destobj, File):
                     raise ValueError(f"Cannot move folder {s.path!r} to a file path")
@@ -202,7 +207,9 @@ class LocalizedMover(Mover):
                             posixpath.join(destobj.path, posixpath.basename(s.path), p)
                         )
                         moves[AssetPath(p1)] = AssetPath(p2)
-                        lgr.debug("Calculated move: %r -> %r", p1, p2)
+                        lgr.debug(
+                            "Calculated %s move: %r -> %r", self.placename, p1, p2
+                        )
         return self.compile_moves(moves, existing)
 
     def calculate_moves_by_regex(
@@ -211,13 +218,20 @@ class LocalizedMover(Mover):
         rgx = re.compile(find)
         moves: dict[AssetPath, AssetPath] = {}
         rev: dict[AssetPath, AssetPath] = {}
-        for asset_path, relpath in self.get_assets():
+        for asset_path, relpath in self.get_assets(subpath_only=True):
             m = rgx.search(relpath)
             if m:
                 dest, _ = self.resolve(
                     relpath[: m.start()] + m.expand(replace) + relpath[m.end() :]
                 )
-                lgr.debug("Calculated move: %r -> %r", asset_path, dest)
+                if asset_path == dest:
+                    lgr.debug(
+                        "Would move local asset %r to itself; ignoring", asset_path
+                    )
+                    continue
+                lgr.debug(
+                    "Calculated %s move: %r -> %r", self.placename, asset_path, dest
+                )
                 if dest in rev:
                     p1, p2 = sorted([rev[dest], asset_path])
                     raise ValueError(
@@ -323,12 +337,14 @@ class LocalMover(LocalizedMover):
     def placename(self) -> str:
         return "local"
 
-    def get_assets(self) -> Iterator[tuple[AssetPath, str]]:
+    def get_assets(self, subpath_only: bool = False) -> Iterator[tuple[AssetPath, str]]:
+        root = self.dandiset_path
+        if subpath_only:
+            root /= self.subpath
         for df in find_dandi_files(
-            self.dandiset_path,
+            root,
             dandiset_path=self.dandiset_path,
             allow_all=True,
-            include_metadata=False,
         ):
             if isinstance(df, DandisetMetadataFile):
                 continue
@@ -349,10 +365,7 @@ class LocalMover(LocalizedMover):
                 files = [
                     df.filepath.relative_to(p).as_posix()
                     for df in find_dandi_files(
-                        p,
-                        dandiset_path=self.dandiset_path,
-                        allow_all=True,
-                        include_metadata=False,
+                        p, dandiset_path=self.dandiset_path, allow_all=True
                     )
                     if isinstance(df, LocalAsset)
                 ]
@@ -426,9 +439,11 @@ class RemoteMover(LocalizedMover):
     def placename(self) -> str:
         return "remote"
 
-    def get_assets(self) -> Iterator[tuple[AssetPath, str]]:
+    def get_assets(self, subpath_only: bool = False) -> Iterator[tuple[AssetPath, str]]:
         for path in self.assets.keys():
             relpath = posixpath.relpath(path, self.subpath.as_posix())
+            if subpath_only and relpath.startswith("../"):
+                continue
             yield (path, relpath)
 
     def get_path(self, path: str, is_src: bool = True) -> File | Folder:
@@ -556,7 +571,7 @@ class LocalRemoteMover(Mover):
     ) -> Iterator[dict[str, str]]:
         for state in self.local.process_movement(m, dry_run):
             yield state
-            if state[self.local.status_field] == "Error":
+            if state[self.local.status_field].lower() == "error":
                 yield {self.remote.status_field: "skipped"}
                 return
         yield from self.remote.process_movement(m, dry_run)

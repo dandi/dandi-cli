@@ -439,6 +439,33 @@ def test_move_regex_collision(
 
 
 @pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+def test_move_regex_some_to_self(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
+    move(
+        r"(.+[123])/([^.]+)\.(.+)",
+        dest=r"\1/\2.dat",
+        regex=True,
+        work_on=work_on,
+        dandi_instance=moving_dandiset.api.instance_id,
+        devel_debug=True,
+    )
+    check_assets(
+        moving_dandiset,
+        starting_assets,
+        work_on,
+        {
+            "subdir1/apple.txt": "subdir1/apple.dat",
+            "subdir2/banana.txt": "subdir2/banana.dat",
+            "subdir2/coconut.txt": "subdir2/coconut.dat",
+        },
+    )
+
+
+@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
 def test_move_from_subdir(
     monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
 ) -> None:
@@ -503,6 +530,29 @@ def test_move_from_subdir_as_dot(
         )
     assert str(excinfo.value) == "Cannot move current working directory"
     check_assets(moving_dandiset, starting_assets, work_on, {})
+
+
+@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+def test_move_from_subdir_regex(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
+    move(
+        r"\.txt",
+        dest=".dat",
+        regex=True,
+        work_on=work_on,
+        dandi_instance=moving_dandiset.api.instance_id,
+        devel_debug=True,
+    )
+    check_assets(
+        moving_dandiset,
+        starting_assets,
+        work_on,
+        {"subdir1/apple.txt": "subdir1/apple.dat"},
+    )
 
 
 @pytest.mark.parametrize("work_on", ["local", "remote", "both"])
@@ -748,11 +798,55 @@ def test_move_both_dest_mismatch(
     check_assets(moving_dandiset, starting_assets, "both", {"subdir1/apple.txt": None})
 
 
+@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+def test_move_pyout(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
+    move(
+        "file.txt",
+        "subdir4/foo.json",
+        dest="subdir5",
+        work_on=work_on,
+        existing="overwrite",
+        devel_debug=False,
+        dandi_instance=moving_dandiset.api.instance_id,
+    )
+    check_assets(
+        moving_dandiset,
+        starting_assets,
+        work_on,
+        {
+            "file.txt": "subdir5/file.txt",
+            "subdir4/foo.json": "subdir5/foo.json",
+            "subdir5/foo.json": None,
+        },
+    )
+
+
+@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+def test_move_pyout_dry_run(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath)
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
+    move(
+        "file.txt",
+        "subdir4/foo.json",
+        dest="subdir5",
+        work_on=work_on,
+        existing="overwrite",
+        devel_debug=False,
+        dry_run=True,
+        dandi_instance=moving_dandiset.api.instance_id,
+    )
+    check_assets(moving_dandiset, starting_assets, work_on, {})
+
+
 # TO TEST:
-# - test_move_from_subdir + regex
-# - dry_run
-# - pyout
 # - moving a file or directory to itself = error (or warning?)
-# - moving a file or directory to itself via regex = discard movement
 # - move both, dest is a local directory that does not exist remotely (and does
 #   not end in a slash)
