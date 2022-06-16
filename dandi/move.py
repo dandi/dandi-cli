@@ -219,9 +219,10 @@ class LocalizedMover(Mover):
                 )
                 lgr.debug("Calculated move: %r -> %r", asset_path, dest)
                 if dest in rev:
+                    p1, p2 = sorted([rev[dest], asset_path])
                     raise ValueError(
-                        f"{self.placename.title()} assets {rev[dest]!r} and"
-                        f" {asset_path!r} would both be moved to {dest!r}"
+                        f"{self.placename.title()} assets {p1!r} and {p2!r}"
+                        f" would both be moved to {dest!r}"
                     )
                 moves[asset_path] = dest
                 rev[dest] = asset_path
