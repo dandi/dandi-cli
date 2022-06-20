@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Tupl
 import click
 
 from . import lgr
+from .bids_utils import evaluate_validation
 from .consts import DRAFT, dandiset_identifier_regex, dandiset_metadata_file
 from .dandiapi import RemoteAsset
 from .exceptions import NotFoundError
@@ -452,8 +453,13 @@ def _bids_discover_and_validate(
         bids_datasets_to_validate.sort()
         validated_datasets = []
         for bd in bids_datasets_to_validate:
-            validated = validate_bids(bd, allow_errors=validation == "ignore")
-            if validated:
+            validator_result = validate_bids(bd)
+            valid = evaluate_validation(
+                validator_result,
+                allow_errors=validation == "ignore",
+                cli_output=False,
+            )
+            if valid:
                 validated_datasets.append(bd)
         return validated_datasets
     else:

@@ -1,10 +1,7 @@
 from pathlib import Path
 from typing import Iterator, List, Optional, Tuple, Union
 
-import click
-
 from .files import find_dandi_files
-from .utils import pluralize
 
 # TODO: provide our own "errors" records, which would also include warnings etc
 
@@ -14,8 +11,7 @@ def validate_bids(
     schema_version: Optional[str] = None,
     devel_debug: bool = False,
     report: Optional[str] = None,
-    allow_errors: Optional[bool] = False,
-) -> bool:
+) -> dict:
     """Validate BIDS paths.
 
     Parameters
@@ -30,8 +26,6 @@ def validate_bids(
         If `True` a log will be written using the standard output path of `.write_report()`.
         If string, the string will be used as the output path.
         If the variable evaluates as False, no log will be written.
-    allow_errors : bool, optional
-        Whether to raise errors on invalid dataset.
 
     Returns
     -------
@@ -48,35 +42,7 @@ def validate_bids(
     validation_result = validate_bids_(
         paths, schema_version=schema_version, debug=devel_debug, report_path=report
     )
-    missing_files = [
-        pattern["regex"]
-        for pattern in validation_result["schema_tracking"]
-        if pattern["mandatory"]
-    ]
-    error_list = []
-    if missing_files:
-        error_substring = (
-            f"{pluralize(len(missing_files), 'filename pattern')} required "
-            "by BIDS could not be found"
-        )
-        error_list.append(error_substring)
-    if validation_result["path_tracking"]:
-        error_substring = (
-            f"{pluralize(len(validation_result['path_tracking']), 'filename')} "
-            "did not match any pattern known to BIDS"
-        )
-        error_list.append(error_substring)
-    if error_list:
-        error_string = " and ".join(error_list)
-        error_string = f"Summary: {error_string}."
-        click.secho(
-            error_string,
-            bold=True,
-            fg="red",
-        )
-        if not allow_errors:
-            return False
-    return True
+    return validation_result
 
 
 def validate(
