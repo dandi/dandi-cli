@@ -14,7 +14,8 @@ even on Windows.  In addition, when running the command inside a subdirectory
 of a Dandiset, all paths must be relative to the subdirectory, even if only
 operating on the remote Dandiset.  (The exception is when the ``--dandiset``
 option is given in order to operate on an arbitrary remote Dandiset, in which
-case any local Dandiset is ignored.)
+case any local Dandiset is ignored and paths are interpreted relative to the
+root of the remote Dandiset.)
 
 If there is more than one source path, or if the destination path either names
 an existing directory or ends in a trailing forward slash (``/``), then the
@@ -24,7 +25,7 @@ single source path is renamed to the given destination path.
 Alternatively, if the ``--regex`` option is given, then there must be exactly
 two arguments on the command line: a `Python regular expression`_ and a
 replacement string, possibly containing regex backreferences.  :program:`dandi
-move`: will then apply the regular expression to the path of every asset in the
+move` will then apply the regular expression to the path of every asset in the
 current directory recursively (using paths relative to the current directory,
 if in a subdirectory of a Dandiset); if a path matches, the matching portion is
 replaced with the replacement string, after expanding any backreferences.
