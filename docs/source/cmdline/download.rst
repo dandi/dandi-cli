@@ -27,7 +27,7 @@ Options
 
     Choose the format/frontend for output  [default: ``pyout``]
 
-.. option:: -i, --instance <instance-name>
+.. option:: -i, --dandi-instance <instance-name>
 
     DANDI instance to download from  [default: ``dandi``]
 

@@ -34,7 +34,7 @@ Options
     - ``refresh`` [default] — upload only if local modification time is ahead
       of the remote
 
-.. option:: -i, --instance <instance-name>
+.. option:: -i, --dandi-instance <instance-name>
 
     DANDI instance to upload to  [default: ``dandi``]
 

@@ -143,6 +143,7 @@ from .cmd_digest import digest  # noqa: E402
 from .cmd_download import download  # noqa: E402
 from .cmd_instances import instances  # noqa: E402
 from .cmd_ls import ls  # noqa: E402
+from .cmd_move import move  # noqa: E402
 from .cmd_organize import organize  # noqa: E402
 from .cmd_shell_completion import shell_completion  # noqa: E402
 from .cmd_upload import upload  # noqa: E402
@@ -154,6 +155,7 @@ __all_commands__ = (
     download,
     instances,
     ls,
+    move,
     organize,
     shell_completion,
     upload,

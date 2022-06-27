@@ -1576,6 +1576,18 @@ class RemoteAsset(BaseRemoteAsset):
         """
         ...
 
+    def rename(self, dest: str) -> None:
+        """
+        .. versionadded:: 0.41.0
+
+        Change the path of the asset on the server to the given value and
+        update the `RemoteAsset` in place.  If another asset already exists at
+        the given path, a `requests.HTTPError` is raised.
+        """
+        md = self.get_raw_metadata().copy()
+        md["path"] = dest
+        self.set_raw_metadata(md)
+
     def delete(self) -> None:
         """Delete the asset"""
         self.client.delete(self.api_path)
