@@ -1,3 +1,15 @@
+# 0.41.0 (Mon Jun 27 2022)
+
+#### 🚀 Enhancement
+
+- Add `dandi move` command [#1024](https://github.com/dandi/dandi-cli/pull/1024) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.40.1 (Fri Jun 03 2022)
 
 #### 🐛 Bug Fix
