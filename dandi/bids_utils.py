@@ -1,15 +1,13 @@
-from typing import Optional
-
-import click
-
 from .utils import pluralize
 
 
 def evaluate_validation(
     validation_result: dict,
-    allow_errors: Optional[bool] = False,
-    cli_output: Optional[bool] = False,
+    allow_errors: bool = False,
+    cli_output: bool = False,
 ) -> bool:
+    if allow_errors:
+        return True
     missing_files = [
         pattern["regex"]
         for pattern in validation_result["schema_tracking"]
@@ -29,6 +27,8 @@ def evaluate_validation(
         )
         error_list.append(error_substring)
     if error_list:
+        import click
+
         if cli_output:
             error_string = " and ".join(error_list)
             error_string = f"Summary: {error_string}."
@@ -37,6 +37,5 @@ def evaluate_validation(
                 bold=True,
                 fg="red",
             )
-        if not allow_errors:
-            return False
+        return False
     return True
