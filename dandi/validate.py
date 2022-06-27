@@ -42,7 +42,7 @@ def validate_bids(
     validation_result = validate_bids_(
         paths, schema_version=schema_version, debug=devel_debug, report_path=report
     )
-    return validation_result
+    return dict(validation_result)
 
 
 def validate(
