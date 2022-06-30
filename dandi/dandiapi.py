@@ -248,6 +248,10 @@ class RESTFullAPIClient:
                 lgr.debug("%s: %s", msg, result.text)
             else:
                 lgr.error("%s: %s", msg, result.text)
+            if len(result.text) <= 1024:
+                msg += f": {result.text}"
+            else:
+                msg += f": {result.text[:1024]}... [{len(result.text)}-char response truncated]"
             if result.status_code == 404:
                 raise HTTP404Error(msg, response=result)
             else:
