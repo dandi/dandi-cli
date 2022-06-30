@@ -374,7 +374,7 @@ def get_cached_namespaces_to_validate(path):
     return namespaces, manager, ns_deps
 
 
-def validate_namespaces(path: Union[str, Path]):
+def validate_namespaces(path: Union[str, Path]) -> List[str]:
     """pynwb.validate which validates each validatable namespace separately
 
     Proposed by @orugbel in https://github.com/dandi/dandi-cli/issues/917#issuecomment-1045154252
