@@ -361,9 +361,8 @@ def get_cached_namespaces_to_validate(path):
         s -= ns_deps[k].keys()
     # TODO remove this workaround for issue
     # https://github.com/NeurodataWithoutBorders/pynwb/issues/1357
-    if "hdmf-experimental" in s:
-        s.remove("hdmf-experimental")  # remove validation of hdmf-experimental for now
-    namespaces = list(sorted(s))
+    s.discard("hdmf-experimental")  # remove validation of hdmf-experimental for now
+    namespaces = sorted(s)
 
     if len(namespaces) > 0:
         tm = TypeMap(catalog)
@@ -385,7 +384,7 @@ def validate_namespaces(path: Union[str, Path]) -> List[str]:
     with NWBHDF5IO(path, "r", manager=manager) as reader:
         errors = []
         for ns in namespaces_validate:
-            errors += validate(io=reader, namespace=ns)
+            errors += pynwb.validate(io=reader, namespace=ns)
     return errors
 
 
