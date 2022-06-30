@@ -25,7 +25,7 @@ def validate_bids(
     paths, schema=None, devel_debug=False, report=False, report_flag=False
 ):
     """Validate BIDS paths."""
-    from ..bids_utils import evaluate_validation, report_errors
+    from ..bids_utils import is_valid, report_errors
     from ..validate import validate_bids as validate_bids_
 
     if report_flag and not report:
@@ -37,7 +37,7 @@ def validate_bids(
         schema_version=schema,
         devel_debug=devel_debug,
     )
-    valid = evaluate_validation(validator_result)
+    valid = is_valid(validator_result)
     report_errors(validator_result)
 
     if not valid:

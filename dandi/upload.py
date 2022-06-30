@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Tupl
 import click
 
 from . import lgr
-from .bids_utils import evaluate_validation
+from .bids_utils import is_valid
 from .consts import DRAFT, dandiset_identifier_regex, dandiset_metadata_file
 from .dandiapi import RemoteAsset
 from .exceptions import NotFoundError
@@ -454,7 +454,7 @@ def _bids_discover_and_validate(
         validated_datasets = []
         for bd in bids_datasets_to_validate:
             validator_result = validate_bids(bd)
-            valid = evaluate_validation(
+            valid = is_valid(
                 validator_result,
                 allow_missing_files=validation == "ignore",
                 allow_invalid_filenames=validation == "ignore",

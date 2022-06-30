@@ -1,7 +1,7 @@
 from .utils import pluralize
 
 
-def evaluate_validation(
+def is_valid(
     validation_result: dict,
     allow_invalid_filenames: bool = False,
     allow_missing_files: bool = False,
