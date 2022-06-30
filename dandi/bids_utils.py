@@ -40,7 +40,7 @@ def evaluate_validation(
 
 def report_errors(
     validation_result: dict,
-):
+) -> None:
     import click
 
     missing_files = [
