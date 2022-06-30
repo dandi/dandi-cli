@@ -456,8 +456,8 @@ def _bids_discover_and_validate(
             validator_result = validate_bids(bd)
             valid = evaluate_validation(
                 validator_result,
-                allow_errors=validation == "ignore",
-                cli_output=False,
+                allow_missing_files=validation == "ignore",
+                allow_invalid_filenames=validation == "ignore",
             )
             if valid:
                 validated_datasets.append(bd)

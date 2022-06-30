@@ -3,11 +3,46 @@ from .utils import pluralize
 
 def evaluate_validation(
     validation_result: dict,
-    allow_errors: bool = False,
-    cli_output: bool = False,
+    allow_invalid_filenames: bool = False,
+    allow_missing_files: bool = False,
 ) -> bool:
-    if allow_errors:
+    """Determine whether a dataset validation result marks it as valid.
+
+    Parameters
+    ----------
+    validation_result: dict
+        Dictionary as returned by `dandi.bids_validator_xs.validate_bids()`.
+    allow_missing_files: bool, optional
+        Whether to consider the dataset invalid if any mandatory files are not present.
+    allow_invalid_filenames: bool, optional
+        Whether to consider the dataset invalid if any filenames inside are invalid.
+
+    Returns
+    -------
+    bool: whether the dataset validation result marks it as valid.
+
+    """
+
+    if allow_invalid_filenames and allow_missing_files:
         return True
+    missing_files = [
+        i["regex"] for i in validation_result["schema_tracking"] if i["mandatory"]
+    ]
+    invalid_filenames = validation_result["path_tracking"]
+
+    if missing_files and not allow_missing_files:
+        return False
+    if invalid_filenames and not allow_invalid_filenames:
+        return False
+    else:
+        return True
+
+
+def report_errors(
+    validation_result: dict,
+):
+    import click
+
     missing_files = [
         pattern["regex"]
         for pattern in validation_result["schema_tracking"]
@@ -27,15 +62,16 @@ def evaluate_validation(
         )
         error_list.append(error_substring)
     if error_list:
-        import click
-
-        if cli_output:
-            error_string = " and ".join(error_list)
-            error_string = f"Summary: {error_string}."
-            click.secho(
-                error_string,
-                bold=True,
-                fg="red",
-            )
-        return False
-    return True
+        error_string = " and ".join(error_list)
+        error_string = f"Summary: {error_string}."
+        click.secho(
+            error_string,
+            bold=True,
+            fg="red",
+        )
+    else:
+        click.secho(
+            "All filenames are BIDS-valid and no mandatory files are missing.",
+            bold=True,
+            fg="green",
+        )
