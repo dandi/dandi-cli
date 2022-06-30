@@ -29,8 +29,9 @@ def validate_bids(
 
     Returns
     -------
-    bool
-        Whether or not there were zero validation errors.
+    dict
+        Dictionary reporting required patterns not found and existing filenames not matching any
+        patterns.
 
     Notes
     -----
