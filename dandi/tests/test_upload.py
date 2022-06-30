@@ -238,6 +238,24 @@ def test_upload_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) ->
     )
 
 
+def test_upload_loose_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    zarr_id = asset.zarr
+    asset.delete()
+    rmtree(zarr_dandiset.dspath / "sample.zarr")
+    zarr.save(zarr_dandiset.dspath / "sample.zarr", np.eye(5))
+    zarr_dandiset.upload()
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    assert asset.zarr == zarr_id
+    download(zarr_dandiset.dandiset.version_api_url, tmp_path)
+    assert_dirtrees_eq(
+        zarr_dandiset.dspath / "sample.zarr",
+        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr",
+    )
+
+
 def test_upload_different_zarr_entry_conflicts(
     tmp_path: Path, new_dandiset: SampleDandiset
 ) -> None:

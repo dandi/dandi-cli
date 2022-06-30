@@ -811,6 +811,45 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         lgr.debug("%s: Producing asset", asset_path)
         yield {"status": "producing asset"}
         old_zarr_entries: Dict[str, RemoteZarrEntry] = {}
+
+        def mkzarr() -> str:
+            nonlocal old_zarr_entries
+            try:
+                r = client.post(
+                    "/zarr/",
+                    json={"name": asset_path, "dandiset": dandiset.identifier},
+                )
+            except requests.HTTPError as e:
+                if "Zarr already exists" in e.response.text:
+                    lgr.warning(
+                        "%s: Found pre-existing Zarr at same path not"
+                        " associated with any asset; reusing",
+                        asset_path,
+                    )
+                    (old_zarr,) = client.paginate(
+                        "/zarr/",
+                        params={
+                            "dandiset": dandiset.identifier,
+                            "name": asset_path,
+                        },
+                    )
+                    zarr_id = old_zarr["zarr_id"]
+                    filetree = RemoteZarrEntry(
+                        client=client,
+                        zarr_id=zarr_id,
+                        parts=(),
+                        _known_dir=True,
+                    )
+                    old_zarr_entries = {
+                        str(e): e for e in filetree.iterfiles(include_dirs=True)
+                    }
+                else:
+                    raise
+            else:
+                zarr_id = r["zarr_id"]
+            assert isinstance(zarr_id, str)
+            return zarr_id
+
         if replacing is not None:
             lgr.debug("%s: Replacing pre-existing asset", asset_path)
             if isinstance(replacing, RemoteZarrAsset):
@@ -825,49 +864,14 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 lgr.debug(
                     "%s: Pre-existing asset is not a Zarr; minting new Zarr", asset_path
                 )
-                try:
-                    r = client.post(
-                        "/zarr/",
-                        json={"name": asset_path, "dandiset": dandiset.identifier},
-                    )
-                except requests.HTTPError as e:
-                    if "Zarr already exists" in e.response.text:
-                        lgr.warning(
-                            "%s: Found pre-existing Zarr at same path not"
-                            " associated with any asset; reusing",
-                            asset_path,
-                        )
-                        (old_zarr,) = client.paginate(
-                            "/zarr/",
-                            params={
-                                "dandiset": dandiset.identifier,
-                                "name": asset_path,
-                            },
-                        )
-                        zarr_id = old_zarr["zarr_id"]
-                        filetree = RemoteZarrEntry(
-                            client=client,
-                            zarr_id=zarr_id,
-                            parts=(),
-                            _known_dir=True,
-                        )
-                        old_zarr_entries = {
-                            str(e): e for e in filetree.iterfiles(include_dirs=True)
-                        }
-                    else:
-                        raise
-                else:
-                    zarr_id = r["zarr_id"]
+                zarr_id = mkzarr()
             r = client.put(
                 replacing.api_path,
                 json={"metadata": metadata, "zarr_id": zarr_id},
             )
         else:
             lgr.debug("%s: Minting new Zarr", asset_path)
-            r = client.post(
-                "/zarr/", json={"name": asset_path, "dandiset": dandiset.identifier}
-            )
-            zarr_id = r["zarr_id"]
+            zarr_id = mkzarr()
             r = client.post(
                 f"{dandiset.version_api_path}assets/",
                 json={"metadata": metadata, "zarr_id": zarr_id},
