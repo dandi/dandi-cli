@@ -1,3 +1,27 @@
+# 0.42.0 (Fri Jul 01 2022)
+
+#### 🚀 Enhancement
+
+- Reuse "loose" Zarrs that conflict with uploaded path [#1035](https://github.com/dandi/dandi-cli/pull/1035) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Include leading text of response bodies in HTTP error messages [#1023](https://github.com/dandi/dandi-cli/pull/1023) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Properly include "data packages" in project [#1029](https://github.com/dandi/dandi-cli/pull/1029) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Make `test_move_command_too_few_paths` support `DANDI_DEVEL=1` [#1040](https://github.com/dandi/dandi-cli/pull/1040) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.41.0 (Mon Jun 27 2022)
 
 #### 🚀 Enhancement
