@@ -86,6 +86,8 @@ def test_move_command_too_few_paths(mocker: MockerFixture) -> None:
     mock_move = mocker.patch("dandi.move.move")
     r = CliRunner().invoke(move, ["foo"], standalone_mode=False)
     assert r.exit_code != 0
-    assert isinstance(r.exception, click.ClickException)
+    # This is a ClickException when map_to_click_exceptions is in effect and a
+    # ValueError when it's not (which happens when DANDI_DEVEL is set).
+    assert isinstance(r.exception, (click.ClickException, ValueError))
     assert str(r.exception) == "At least two paths are required"
     mock_move.assert_not_called()
