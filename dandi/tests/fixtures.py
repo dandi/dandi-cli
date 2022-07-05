@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from distutils.dir_util import copy_tree
 import logging
 import os
 from pathlib import Path
@@ -417,7 +416,7 @@ def bids_dandiset(
     new_dandiset: SampleDandiset, bids_examples: str
 ) -> SampleDandiset:
 
-    copy_tree(os.path.join(bids_examples, "asl003"), str(new_dandiset.dspath))
+    shutil.copytree(os.path.join(bids_examples, "asl003"), str(new_dandiset.dspath))
     return new_dandiset
 
 
