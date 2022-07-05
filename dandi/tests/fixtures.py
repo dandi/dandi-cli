@@ -413,11 +413,11 @@ def zarr_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
 
 
 @pytest.fixture()
-def bids_example_dandiset(
-    new_dandiset: SampleDandiset, bids_examples: Callable[[], Iterator[str]]
+def bids_dandiset(
+    new_dandiset: SampleDandiset, bids_examples: str
 ) -> SampleDandiset:
 
-    copy_tree(os.path.join(bids_examples, "asl003"), new_dandiset.dspath)
+    copy_tree(os.path.join(bids_examples, "asl003"), str(new_dandiset.dspath))
     return new_dandiset
 
 
