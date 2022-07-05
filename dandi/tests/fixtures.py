@@ -416,7 +416,7 @@ def bids_dandiset(new_dandiset: SampleDandiset, bids_examples: str) -> SampleDan
     shutil.copytree(
         os.path.join(bids_examples, "asl003"),
         str(new_dandiset.dspath) + "/",
-        copy_function=shutil.copy,
+        dirs_exist_ok=True,
     )
     (new_dandiset.dspath / "CHANGES").write_text("0.1.0 2014-11-03\n")
     return new_dandiset
