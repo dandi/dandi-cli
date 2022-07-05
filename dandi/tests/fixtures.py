@@ -415,9 +415,10 @@ def zarr_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
 def bids_dandiset(new_dandiset: SampleDandiset, bids_examples: str) -> SampleDandiset:
     shutil.copytree(
         os.path.join(bids_examples, "asl003"),
-        os.path.join(str(new_dandiset.dspath), "asl003"),
+        str(new_dandiset.dspath) + "/",
         copy_function=shutil.copy,
     )
+    (new_dandiset.dspath / "CHANGES").write_text("0.1.0 2014-11-03\n")
     return new_dandiset
 
 
