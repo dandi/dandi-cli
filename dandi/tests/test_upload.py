@@ -181,10 +181,10 @@ def test_upload_sync_folder(
         text_dandiset.dandiset.get_asset_by_path("subdir2/banana.txt")
 
 
-def test_upload_sync_bids(mocker, bids_dandiset):
-    confirm_mock = mocker.patch("click.confirm", return_value=True)
-    bids_dandiset.upload()
-    confirm_mock.assert_called_with("Delete 1 asset on server?")
+def test_upload_bids(mocker: MockerFixture, bids_dandiset: SampleDandiset) -> None:
+    iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
+    bids_dandiset.upload(existing="forced")
+    iter_upload_spy.assert_called()
 
 
 def test_upload_sync_zarr(mocker, zarr_dandiset):
