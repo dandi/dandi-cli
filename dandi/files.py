@@ -12,6 +12,7 @@ files that can be uploaded as assets to DANDI Archive.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+import atexit
 from collections import deque
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import closing
@@ -34,6 +35,7 @@ from typing import (
     Optional,
     Tuple,
     Union,
+    cast,
 )
 from xml.etree.ElementTree import fromstring
 
@@ -959,6 +961,11 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         yield {"status": "initiating upload", "size": total_size}
         lgr.debug("%s: Beginning upload", asset_path)
         bytes_uploaded = 0
+        upload_data = (
+            zarr_id,
+            client.get_url(f"/zarr/{zarr_id}/upload"),
+            cast(Optional[str], client.session.headers.get("Authorization")),
+        )
         with RESTFullAPIClient(
             "http://nil.nil",
             headers={"X-Amz-ACL": "bucket-owner-full-control"},
@@ -973,6 +980,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     pluralize(len(upload_body), "file"),
                 )
                 r = client.post(f"/zarr/{zarr_id}/upload/", json=upload_body)
+                ZARR_UPLOADS_IN_PROGRESS.add(upload_data)
                 with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
                     futures = [
                         executor.submit(
@@ -1005,6 +1013,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                             }
                 lgr.debug("%s: Completing upload of batch #%d", asset_path, i)
                 client.post(f"/zarr/{zarr_id}/upload/complete/")
+                ZARR_UPLOADS_IN_PROGRESS.discard(upload_data)
         lgr.debug("%s: All files uploaded", asset_path)
         old_zarr_files = [e for e in old_zarr_entries.values() if e.is_file()]
         if old_zarr_files:
@@ -1275,3 +1284,22 @@ def _cmp_digests(
     else:
         lgr.debug("%s: File %s already on server; skipping", asset_path, local_entry)
         return None
+
+
+# Collection of (zarr ID, upload endpoint URL, auth header value) tuples
+ZARR_UPLOADS_IN_PROGRESS: set[tuple[str, str, Optional[str]]] = set()
+
+
+@atexit.register
+def cancel_zarr_uploads() -> None:
+    for zarr_id, url, auth in ZARR_UPLOADS_IN_PROGRESS:
+        lgr.debug("Cancelling upload for Zarr %s", zarr_id)
+        headers = {"Authorization": auth} if auth is not None else {}
+        r = requests.delete(url, headers=headers)
+        if not r.ok:
+            lgr.warning(
+                "Upload cancellation failed with %d: %s: %s",
+                r.status_code,
+                r.reason,
+                r.text,
+            )
