@@ -1,3 +1,15 @@
+# 0.43.0 (Tue Jul 05 2022)
+
+#### 🚀 Enhancement
+
+- Better cancellation of Zarr uploads [#1041](https://github.com/dandi/dandi-cli/pull/1041) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.42.0 (Fri Jul 01 2022)
 
 #### 🚀 Enhancement
