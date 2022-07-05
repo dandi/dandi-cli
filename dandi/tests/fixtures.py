@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from distutils.dir_util import copy_tree
 import logging
 import os
 from pathlib import Path
@@ -408,6 +409,15 @@ def zarr_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
         new_dandiset.dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1)
     )
     new_dandiset.upload()
+    return new_dandiset
+
+
+@pytest.fixture()
+def bids_example_dandiset(
+    new_dandiset: SampleDandiset, bids_examples: Callable[[], Iterator[str]]
+) -> SampleDandiset:
+
+    copy_tree(os.path.join(bids_examples, "asl003"), new_dandiset.dspath)
     return new_dandiset
 
 
