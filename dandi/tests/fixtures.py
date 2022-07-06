@@ -47,8 +47,8 @@ def copytree(src, dst, symlinks=False, ignore=None):
     Notes
     -----
     * This function can be removed and replaced by a call to `shutil.copytree()`
-    setting the `dirs_exist_ok` keyword argument to true, whenever Python 3.7
-    is no longer supported.
+        setting the `dirs_exist_ok` keyword argument to true, whenever Python 3.7
+        is no longer supported.
 
     References
     ----------
