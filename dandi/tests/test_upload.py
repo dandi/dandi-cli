@@ -219,6 +219,8 @@ def test_upload_zarr(new_dandiset: SampleDandiset) -> None:
     assert isinstance(asset, RemoteZarrAsset)
     assert asset.asset_type is AssetType.ZARR
     assert asset.path == "sample.zarr"
+    # Test that uploading again without any changes works:
+    new_dandiset.upload()
 
 
 def test_upload_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
