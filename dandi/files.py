@@ -1036,7 +1036,9 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 r = client.get(f"/zarr/{zarr_id}/")
                 if r["status"] == "Complete":
                     break
-        lgr.info("%s: Asset successfully uploaded", asset_path)
+            lgr.info("%s: Asset successfully uploaded", asset_path)
+        else:
+            lgr.info("%s: No changes made to Zarr", asset_path)
         yield {"status": "done", "asset": a}
 
 
