@@ -62,9 +62,8 @@ def upload(
             " paths.  Use 'dandi download' or 'organize' first."
         )
 
-    # pre-validate BIDS datasets before going for individual
-    # files etc
-    bids_datasets = _bids_discover_and_validate(dandiset_.path, paths, validation)
+    # Pre-validate BIDS datasets before going for individual files.
+    bids_datasets = _bids_discover_and_validate(dandiset_.path, validation)
 
     if bids_datasets:
         _bids_datasets = [str(i) for i in bids_datasets]
@@ -403,7 +402,6 @@ def skip_file(msg: Any) -> Dict[str, str]:
 
 def _bids_discover_and_validate(
     dandiset_path: str,
-    paths: Optional[List[Union[str, Path]]] = None,
     validation: Optional[str] = "require",
 ) -> List[Path]:
     """Temporary implementation for discovery and validation of BIDS datasets
@@ -415,10 +413,6 @@ def _bids_discover_and_validate(
     from .utils import find_files
     from .validate import validate_bids
 
-    if paths:
-        bids_lookup_paths = set(paths)
-    else:
-        bids_lookup_paths = None
     bids_descriptions = map(
         Path, find_files(r"(^|[/\x5C])dataset_description\.json$", dandiset_path)
     )
@@ -431,11 +425,9 @@ def _bids_discover_and_validate(
         )
 
     if validation != "skip":
-        if bids_lookup_paths:
+        if bids_datasets:
             bids_datasets_to_validate = list()
-            for p in bids_lookup_paths:
-                if isinstance(p, str):
-                    p = Path(p)
+            for p in bids_datasets:
                 for bd in bids_datasets:
                     try:
                         p.relative_to(bd)
