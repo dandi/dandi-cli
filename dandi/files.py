@@ -961,6 +961,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         yield {"status": "initiating upload", "size": total_size}
         lgr.debug("%s: Beginning upload", asset_path)
         bytes_uploaded = 0
+        need_ingest = False
         upload_data = (
             zarr_id,
             client.get_url(f"/zarr/{zarr_id}/upload"),
@@ -991,6 +992,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         )
                         for upspec in r
                     ]
+                    need_ingest = True
                     for fut in as_completed(futures):
                         try:
                             size = fut.result()
@@ -1024,14 +1026,16 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 pluralize(len(old_zarr_files), "file"),
             )
             a.rmfiles(old_zarr_files, reingest=False)
-        lgr.debug("%s: Waiting for server to calculate Zarr checksum", asset_path)
-        yield {"status": "server calculating checksum"}
-        client.post(f"/zarr/{zarr_id}/ingest/")
-        while True:
-            sleep(2)
-            r = client.get(f"/zarr/{zarr_id}/")
-            if r["status"] == "Complete":
-                break
+            need_ingest = True
+        if need_ingest:
+            lgr.debug("%s: Waiting for server to calculate Zarr checksum", asset_path)
+            yield {"status": "server calculating checksum"}
+            client.post(f"/zarr/{zarr_id}/ingest/")
+            while True:
+                sleep(2)
+                r = client.get(f"/zarr/{zarr_id}/")
+                if r["status"] == "Complete":
+                    break
         lgr.info("%s: Asset successfully uploaded", asset_path)
         yield {"status": "done", "asset": a}
 
