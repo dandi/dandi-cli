@@ -1213,8 +1213,21 @@ def _upload_zarr_file(
     storage_session: RESTFullAPIClient, path: Path, upload_url: str
 ) -> int:
     with path.open("rb") as fp:
-        storage_session.put(upload_url, data=fp, json_resp=False)
+        storage_session.put(
+            upload_url, data=fp, json_resp=False, retry_if=_retry_zarr_file
+        )
     return path.stat().st_size
+
+
+def _retry_zarr_file(r: requests.Response) -> bool:
+    # Some sort of filesystem hiccup can cause requests to be unable to get the
+    # filesize, leading to it falling back to "chunked" transfer encoding,
+    # which S3 doesn't support.
+    return (
+        r.status_code == 501
+        and "header you provided implies functionality that is not implemented"
+        in r.text
+    )
 
 
 def _check_required_fields(d: dict, required: List[str]) -> List[str]:
