@@ -1,11 +1,13 @@
+"""
+THIS FILE IS BUNDLED FROM THE bids-specification PACKAGE.
+Schema loading- and processing-related functions.
+"""
 from copy import deepcopy
 import datetime
 from functools import lru_cache
 import json
 import os
 import re
-
-import appdirs
 
 from . import utils
 from .support.bids import schema
@@ -19,7 +21,10 @@ lgr = utils.get_logger()
 DIR_ENTITIES = ["subject", "session"]
 
 
-def _get_paths(bids_paths):
+def _get_paths(
+    bids_paths,
+    pseudofile_suffixes=[],
+):
     """
     Get all paths from a list of directories, excluding hidden subdirectories from distribution.
 
@@ -28,6 +33,9 @@ def _get_paths(bids_paths):
     bids_paths : list or str
         Directories from which to get paths, may also contain file paths, which will remain
         unchanged.
+    pseudofile_suffixes : list of str
+        Directory suffixes prompting the validation of the directory name and limiting further
+        directory walk.
 
     Notes
     -----
@@ -50,9 +58,6 @@ def _get_paths(bids_paths):
         ".bidsignore",
         "dandiset.yaml",
     ]
-    # Inelegant hard-coded solution.
-    # Could be replaced by a maximum depth limit if BIDS root auto-detection is implemented.
-    treat_as_file_suffix = [".ngff"]
 
     path_list = []
     for bids_path in bids_paths:
@@ -60,13 +65,12 @@ def _get_paths(bids_paths):
         if os.path.isfile(bids_path):
             path_list.append(bids_path)
             continue
-        for root, dirs, file_names in os.walk(bids_path, topdown=False):
-            if any(root.endswith(i) for i in treat_as_file_suffix):
-                continue
-            if any(f"{i}/" in root for i in treat_as_file_suffix):
-                continue
-            if any(f"{i}\\" in root for i in treat_as_file_suffix):
-                continue
+        for root, dirs, file_names in os.walk(bids_path, topdown=True):
+            if any(root.endswith(i) for i in pseudofile_suffixes):
+                # Add the directory name to the validation paths list.
+                path_list.append(f"{root}/")
+                # Do not index the contents of the directory.
+                dirs[:] = []
             # will break if BIDS ever puts meaningful data under `/.{dandi,datalad,git}*/`
             if any(exclude_subdir in root for exclude_subdir in exclude_subdirs):
                 continue
@@ -160,20 +164,20 @@ def _add_extensions(regex_string, variant):
 
 
 def _add_subdirs(
-    regex_string, variant, datatype, entity_definitions, modality_datatypes
+    regex_string, variant, datatype, entity_definitions, formats, modality_datatypes
 ):
     """Add appropriate subdirectories as required by entities present."""
-
-    label = "([a-zA-Z0-9]*?)"
 
     regex_dirs = "/"
     for dir_entity in DIR_ENTITIES:
         if dir_entity in variant["entities"].keys():
-            shorthand = entity_definitions[dir_entity]["entity"]
+            format_selection = formats[entity_definitions[dir_entity]["format"]]
+            variable_field = f"({format_selection['pattern']})"
+            shorthand = entity_definitions[dir_entity]["name"]
             if variant["entities"][dir_entity] == "required":
-                regex_subdir = f"{shorthand}-(?P<{dir_entity}>{label})/"
+                regex_subdir = f"{shorthand}-(?P<{dir_entity}>{variable_field})/"
             else:
-                regex_subdir = f"(|{shorthand}-(?P<{dir_entity}>{label})/)"
+                regex_subdir = f"(|{shorthand}-(?P<{dir_entity}>{variable_field})/)"
             regex_dirs = f"{regex_dirs}{regex_subdir}"
     if datatype in modality_datatypes:
         regex_dirs = f"{regex_dirs}{datatype}/"
@@ -204,7 +208,7 @@ def load_top_level(
     Parameters
     ----------
     my_schema : dict
-        A nested dictionary, as returned by `dandi.support.bids.schema.load_schema()`.
+        A nested dictionary, as returned by `schemacode.schema.load_schema()`.
 
     Returns
     -------
@@ -241,17 +245,11 @@ def load_entities(
     Parameters
     ----------
     my_schema : dict
-        A nested dictionary, as returned by `dandi.support.bids.schema.load_schema()`.
+        A nested dictionary, as returned by `schemacode.schema.load_schema()`.
 
     Notes
     -----
 
-    * Couldn't find where the `label` type is defined as alphanumeric, hard-coding
-        `entity_definitions["subject"]["format"]`-type entries as`[a-zA-Z0-9]*?` for the time
-        being.
-        Apparently there is a `label` (alphanumeric) versus `index` (integer) specification:
-        https://github.com/bids-standard/bids-specification/issues/956#issuecomment-992967479
-        but this is not yet used in the YAML.
     * Suggest to BIDS-specification to remove the periods from the extensions, the leading period
         is not part of the extension, but a delimiter defining the fact that it's an extension.
         Code sections marked as `Making it period-safe` should be edited when this fix is in,
@@ -266,8 +264,6 @@ def load_entities(
         A list of dictionaries, with keys including 'regex' and 'mandatory'.
     """
 
-    label = "([a-zA-Z0-9]*?)"
-
     # Parsing tabular_metadata as a datatype, might be done automatically if the YAML is moved
     # to the same subdirectory
     my_schema["rules"]["datatypes"]["tabular_metadata"] = my_schema["rules"][
@@ -276,6 +272,8 @@ def load_entities(
     datatypes = my_schema["rules"]["datatypes"]
     entity_order = my_schema["rules"]["entities"]
     entity_definitions = my_schema["objects"]["entities"]
+    formats = my_schema["objects"]["formats"]
+
     # Descriptions are not needed and very large.
     for i in entity_definitions.values():
         i.pop("description", None)
@@ -290,7 +288,7 @@ def load_entities(
 
     regex_schema = []
     for datatype in datatypes:
-        for variant in datatypes[datatype]:
+        for variant in datatypes[datatype].values():
             regex_entities = ""
             for entity in entity_order:
                 # Slightly awkward construction to account for new-style file specification.
@@ -298,7 +296,7 @@ def load_entities(
                 # https://github.com/bids-standard/bids-specification/pull/987
                 try:
                     if entity in variant["entities"]:
-                        entity_shorthand = entity_definitions[entity]["entity"]
+                        entity_shorthand = entity_definitions[entity]["name"]
                         if "enum" in entity_definitions[entity].keys():
                             # Entity key-value pattern with specific allowed values
                             # tested, works!
@@ -306,7 +304,10 @@ def load_entities(
                                 "|".join(entity_definitions[entity]["enum"]),
                             )
                         else:
-                            variable_field = label
+                            format_selection = formats[
+                                entity_definitions[entity]["format"]
+                            ]
+                            variable_field = f"({format_selection['pattern']})"
                         regex_entities = _add_entity(
                             regex_entities,
                             entity,
@@ -320,7 +321,12 @@ def load_entities(
             regex_string = _add_suffixes(regex_entities, variant)
             regex_string = _add_extensions(regex_string, variant)
             regex_string = _add_subdirs(
-                regex_string, variant, datatype, entity_definitions, modality_datatypes
+                regex_string,
+                variant,
+                datatype,
+                entity_definitions,
+                formats,
+                modality_datatypes,
             )
 
             regex_string = f".*?{regex_string}$"
@@ -349,6 +355,8 @@ def load_all(
     -------
     all_regex : list of dict
         A list of dictionaries, with keys including 'regex' and 'mandatory'.
+    my_schema : list of dict
+        Nested dictionaries representing the full schema.
     """
 
     my_schema = schema.load_schema(schema_dir)
@@ -360,13 +368,14 @@ def load_all(
     )
     all_regex.extend(top_level_regex)
 
-    return all_regex
+    return all_regex, my_schema
 
 
 def validate_all(
     bids_paths,
     regex_schema,
     debug=False,
+    pseudofile_suffixes=[],
 ):
     """
     Validate `bids_paths` based on a `regex_schema` dictionary list, including regexes.
@@ -380,6 +389,11 @@ def validate_all(
     debug : tuple, optional
         Whether to print itemwise notices for checks on the console, and include them in the
         validation result.
+    pseudofile_suffixes : list of str, optional
+        Any suffixes which identify BIDS-valid directory data.
+        These pseudo-file suffixes will be validated based on the directory name, with the
+        directory contents not being indexed for validation.
+        By default, no pseudo-file suffixes are checked.
 
     Returns
     -------
@@ -398,7 +412,7 @@ def validate_all(
     """
 
     tracking_schema = deepcopy(regex_schema)
-    paths_list = _get_paths(bids_paths)
+    paths_list = _get_paths(bids_paths, pseudofile_suffixes=pseudofile_suffixes)
     tracking_paths = deepcopy(paths_list)
     if debug:
         itemwise_results = []
@@ -453,7 +467,7 @@ def validate_all(
 
 def write_report(
     validation_result,
-    report_path="{logdir}/bids-validator-report_{datetime}-{pid}.log",
+    report_path="/var/tmp/bids-validator/report_{datetime}-{pid}.log",
     datetime_format="%Y%m%d%H%M%SZ",
 ):
     """Write a human-readable report based on the validation result.
@@ -466,10 +480,10 @@ def write_report(
         The "itemwise" value, if present, should be a list of dictionaries, with keys including
         "path", "regex", and "match".
     report_path : str, optional
-        A path under which the report is to be saved, `datetime`, `logdir`, and `pid`
+        A path under which the report is to be saved, `datetime`, and `pid`
         are available as variables for string formatting, and will be expanded to the
-        current datetime (as per the `datetime_format` parameter), application log
-        directory, and process ID, respectively.
+        current datetime (as per the `datetime_format` parameter)
+        and process ID, respectively.
     datetime_format : str, optional
         A datetime format, optionally used for the report path.
 
@@ -478,10 +492,7 @@ def write_report(
     * Not using f-strings in order to prevent arbitrary code execution.
     """
 
-    logdir = appdirs.user_log_dir("dandi-cli", "dandi")
-
     report_path = report_path.format(
-        logdir=logdir,
         datetime=datetime.datetime.utcnow().strftime(datetime_format),
         pid=os.getpid(),
     )
@@ -501,8 +512,8 @@ def write_report(
                 else:
                     comparison_result = "no match"
                 f.write(
-                    f'- Comparing the `{comparison["path"]}` path to the `{comparison["regex"]}` "\
-                    resulted in {comparison_result}.\n'
+                    f'- Comparing the `{comparison["path"]}` path to the `{comparison["regex"]}` '
+                    f"pattern resulted in {comparison_result}.\n"
                 )
         except KeyError:
             pass
@@ -513,7 +524,7 @@ def write_report(
         for regex_entry in validation_result["schema_listing"]:
             f.write(f'\n\t- `{regex_entry["regex"]}`')
         f.write("\n")
-        if validation_result["path_tracking"]:
+        if len(validation_result["path_tracking"]) > 0:
             f.write("The following files were not matched by any regex schema entry:")
             f.write("\n\t* `")
             f.write("`\n\t* `".join(validation_result["path_tracking"]))
@@ -548,7 +559,7 @@ def select_schema_dir(
     bids_paths,
     schema_reference_root,
     schema_version,
-    schema_min_version="1.7.0+012+dandi001",
+    schema_min_version="1.7.0+369",
 ):
     """
     Select schema directory, according to a fallback logic whereby the schema path is
@@ -593,6 +604,7 @@ def select_schema_dir(
     schema_reference_root = os.path.abspath(os.path.expanduser(schema_reference_root))
     if schema_version:
         if "/" in schema_version:
+            schema_dir = schema_version
             if schema_version.startswith("{module_path}"):
                 schema_dir = schema_version.format(module_path=module_path)
             schema_dir = os.path.abspath(os.path.expanduser(schema_dir))
@@ -689,12 +701,42 @@ def log_errors(validation_result):
         lgr.warning("The `%s` file was not matched by any regex schema entry.", i)
 
 
+def _get_directory_suffixes(my_schema):
+    """Query schema for suffixes which identify directory entities.
+
+    Parameters
+    ----------
+    my_schema : dict
+        Nested directory as produced by `schemacode.schema.load_schema()`.
+
+    Returns
+    -------
+    list of str
+        Directory pseudofile suffixes excluding trailing slashes.
+
+    Notes
+    -----
+    * Yes this seems super-awkward to do explicitly, after all, the trailing slash is
+        already in so it should automagically work, but no:
+        - Subdirectory names need to be dynamically excluded from validation input.
+        - Backslash directory delimiters are still in use, which is regrettable.
+    """
+    pseudofile_suffixes = []
+    for i in my_schema["objects"]["extensions"].values():
+        i_value = i["value"]
+        if i_value.endswith("/"):
+            if i_value != "/":
+                pseudofile_suffixes.append(i_value[:-1])
+    return pseudofile_suffixes
+
+
 def validate_bids(
     bids_paths,
     schema_reference_root="{module_path}/support/bids/schemadata/",
     schema_version=None,
     debug=False,
     report_path=False,
+    suppress_errors=False,
 ):
     """
     Validate paths according to BIDS schema.
@@ -734,6 +776,12 @@ def validate_bids(
     >>> bids_paths = '~/.data2/datalad/000026/rawdata'
     >>> schema_version='{module_path}/data/schema/'
     >>> validator.validate_bids(bids_paths, schema_version=schema_version, debug=False)"
+
+    Notes
+    -----
+    * Needs to account for inheritance principle, probably somewhere deeper in the logic, might be
+        as simple as pattern parsing and multiplying patterns to which inheritance applies.
+        https://github.com/bids-standard/bids-specification/pull/969#issuecomment-1132119492
     """
 
     if isinstance(bids_paths, str):
@@ -742,32 +790,21 @@ def validate_bids(
     bids_schema_dir = select_schema_dir(
         bids_paths, schema_reference_root, schema_version
     )
-    regex_schema = load_all(bids_schema_dir)
+    regex_schema, my_schema = load_all(bids_schema_dir)
+    pseudofile_suffixes = _get_directory_suffixes(my_schema)
     validation_result = validate_all(
         bids_paths,
         regex_schema,
         debug=debug,
+        pseudofile_suffixes=pseudofile_suffixes,
     )
-    # Record schema version.
-    # Not sure whether to incorporate in validation_result.
-    if bids_schema_dir == os.path.join(
-        os.path.abspath(os.path.dirname(__file__)),
-        "data",
-        "schema",
-    ):
-        # Declare we are using live version,
-        # string will evaluate as larger than numbered versions.
-        schema_version = "99999.0.0"
-    else:
-        _, schema_version = os.path.split(bids_schema_dir)
-    validation_result["bids_schema_version"] = schema_version
+
+    log_errors(validation_result)
 
     if report_path:
         if isinstance(report_path, str):
             write_report(validation_result, report_path=report_path)
         else:
             write_report(validation_result)
-
-    log_errors(validation_result)
 
     return validation_result

@@ -1,22 +1,19 @@
 import os
 
-BIDS_EXAMPLES_BLACKLIST = [
-    "invalid_pet001",
-]
 BIDS_EXAMPLES_WHITELIST = [
     "asl003",
     "eeg_cbm",
     "hcp_example_bids",
     "micr_SEM",
-    "micr_SEM-dandi",
+    "micr_SEMzarr",
     "micr_SPIM",
     "pet001",
     "pet003",
-    "qmri_megre",
     "qmri_tb1tfl",
-    "qmri_vfa",
+    "qmri_vfa/derivatives/qMRLab",
 ]
-TEST_SCHEMA_PATH = "{module_path}/support/bids/schemadata/1.7.0+012+dandi001"
+
+TEST_SCHEMA_PATH = "{module_path}/support/bids/schemadata/1.7.0+369"
 
 
 def test__add_entity():
@@ -133,23 +130,28 @@ def test__add_subdirs():
     datatype = "tabular_metadata"
     entity_definitions = {
         "acquisition": {
-            "name": "Acquisition",
-            "entity": "acq",
+            "display_name": "Acquisition",
+            "name": "acq",
             "type": "string",
             "format": "label",
         },
         "session": {
-            "name": "Session",
-            "entity": "ses",
+            "display_name": "Session",
+            "name": "ses",
             "type": "string",
             "format": "label",
         },
         "subject": {
-            "name": "Subject",
-            "entity": "sub",
+            "display_name": "Subject",
+            "name": "sub",
             "type": "string",
             "format": "label",
         },
+    }
+    formats = {
+        "label": {
+            "pattern": "[0-9a-zA-Z]+",
+        }
     }
     modality_datatypes = [
         "anat",
@@ -165,11 +167,11 @@ def test__add_subdirs():
         "micr",
     ]
     _regex_string = _add_subdirs(
-        regex_string, variant, datatype, entity_definitions, modality_datatypes
+        regex_string, variant, datatype, entity_definitions, formats, modality_datatypes
     )
 
     assert (
-        _regex_string == "/sub-(?P<subject>([a-zA-Z0-9]*?))/sub-(?P=subject)"
+        _regex_string == "/sub-(?P<subject>([0-9a-zA-Z]+))/sub-(?P=subject)"
         "_sessions\\.(tsv|json)"
     )
 
@@ -239,9 +241,10 @@ def test_load_all():
 
     schema_path = os.path.join(
         os.path.abspath(os.path.dirname(__file__)),
-        "../support/bids/schemadata/1.7.0+012+dandi001",
+        "../support/bids/schemadata/1.7.0+369",
     )
-    schema_all = load_all(schema_path)
+
+    schema_all, _ = load_all(schema_path)
 
     # Check if expected keys are present in all entries
     for entry in schema_all:
@@ -307,34 +310,20 @@ def test_write_report(tmp_path):
     assert report_text == expected_report_text
 
 
-def test_bids_datasets(bids_examples):
+def test_bids_datasets(bids_examples, tmp_path):
     from dandi.bids_validator_xs import validate_bids
 
-    # Validate per dataset, with automatic schema selection:
+    # Validate per dataset with explicit schema specification:
     for i in os.listdir(bids_examples):
         if i in BIDS_EXAMPLES_WHITELIST:
             result = validate_bids(
                 os.path.join(bids_examples, i),
+                schema_version=TEST_SCHEMA_PATH,
+                report_path=True,
+                debug=True,
             )
             # Have all files been validated?
             assert len(result["path_tracking"]) == 0
-
-
-def test_error_datasets(bids_examples):
-    from dandi.bids_validator_xs import validate_bids
-
-    # Validate per dataset, with automatic schema selection:
-    for i in os.listdir(bids_examples):
-        if i in BIDS_EXAMPLES_BLACKLIST:
-            result = validate_bids(
-                os.path.join(bids_examples, i),
-            )
-            # Are there non-validated files?
-            assert len(result["path_tracking"]) != 0
-
-
-def test_bids_datasets_selected_paths(bids_examples, tmp_path):
-    from dandi.bids_validator_xs import validate_bids
 
     # Create input for file list based validation
     selected_dir = os.path.join(bids_examples, BIDS_EXAMPLES_WHITELIST[0])
@@ -343,19 +332,18 @@ def test_bids_datasets_selected_paths(bids_examples, tmp_path):
         for f in files:
             selected_path = os.path.join(root, f)
             selected_paths.append(selected_path)
-    # Does explicit schema specification work?
-    result = validate_bids(selected_paths, schema_version=TEST_SCHEMA_PATH)
-
-    # Does terminal debug output work?
+    # Does terminal debug output and schema auto-fallback work?
     result = validate_bids(selected_paths, debug=True)
+    # Does default log path specification work?
+    result = validate_bids(
+        selected_paths, schema_version=TEST_SCHEMA_PATH, report_path=True
+    )
 
-    # Does the default report path work?
-    result = validate_bids(selected_paths, report_path=True)
-
-    # Does custom report path specification work?
+    # Does custom log path specification work?
     result = validate_bids(
         selected_paths,
         schema_version=TEST_SCHEMA_PATH,
+        debug=True,
         report_path=os.path.join(tmp_path, "test_bids.log"),
     )
     # Have all files been validated?
