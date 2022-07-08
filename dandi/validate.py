@@ -36,7 +36,7 @@ def validate_bids(
     Notes
     -----
     Can be used from bash, as:
-        DANDI_DEVEL=1 dandi validate-bids --schema="1.7.0+012+dandi001" --report="my.log" /my/path
+        DANDI_DEVEL=1 dandi validate-bids --report="my.log" /my/path
     """
     from .bids_validator_xs import validate_bids as validate_bids_
 
