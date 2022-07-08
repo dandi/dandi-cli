@@ -40,6 +40,32 @@ from ..upload import upload
 lgr = get_logger()
 
 
+def copytree(src, dst, symlinks=False, ignore=None):
+    """Function mimicking `shutil.copytree()` behaviour but supporting existing target
+    directories.
+
+    Notes
+    -----
+    * This function can be removed and replaced by a call to `shutil.copytree()`
+        setting the `dirs_exist_ok` keyword argument to true, whenever Python 3.7
+        is no longer supported.
+
+    References
+    ----------
+    https://docs.python.org/3/whatsnew/3.8.html#shutil
+    """
+    if not os.path.exists(dst):
+        os.makedirs(dst)
+    for item in os.listdir(src):
+        s = os.path.join(src, item)
+        d = os.path.join(dst, item)
+        if os.path.isdir(s):
+            copytree(s, d, symlinks, ignore)
+        else:
+            if not os.path.exists(d) or os.stat(s).st_mtime - os.stat(d).st_mtime > 1:
+                shutil.copy2(s, d)
+
+
 @pytest.fixture(autouse=True)
 def capture_all_logs(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG, logger="dandi")
@@ -408,6 +434,16 @@ def zarr_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
         new_dandiset.dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1)
     )
     new_dandiset.upload()
+    return new_dandiset
+
+
+@pytest.fixture()
+def bids_dandiset(new_dandiset: SampleDandiset, bids_examples: str) -> SampleDandiset:
+    copytree(
+        os.path.join(bids_examples, "asl003"),
+        str(new_dandiset.dspath) + "/",
+    )
+    (new_dandiset.dspath / "CHANGES").write_text("0.1.0 2014-11-03\n")
     return new_dandiset
 
 

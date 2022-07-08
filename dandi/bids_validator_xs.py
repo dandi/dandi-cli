@@ -611,17 +611,28 @@ def select_schema_dir(
                 )
             else:
                 with open(dataset_description) as f:
-                    dataset_info = json.load(f)
                     try:
-                        schema_version = dataset_info["BIDSVersion"]
-                    except KeyError:
-                        lgr.warning(
-                            "BIDSVersion is not specified in "
-                            "`dataset_description.json`. "
-                            "Falling back to %s.",
+                        dataset_info = json.load(f)
+                    except json.decoder.JSONDecodeError:
+                        lgr.error(
+                            "The `%s` file could not be loaded. "
+                            "Please check whether the file is valid JSON. "
+                            "Falling back to the %s BIDS version.",
+                            dataset_description,
                             schema_min_version,
                         )
                         schema_version = schema_min_version
+                    else:
+                        try:
+                            schema_version = dataset_info["BIDSVersion"]
+                        except KeyError:
+                            lgr.warning(
+                                "BIDSVersion is not specified in "
+                                "`dataset_description.json`. "
+                                "Falling back to %s.",
+                                schema_min_version,
+                            )
+                            schema_version = schema_min_version
         if not schema_version:
             lgr.warning(
                 "No BIDSVersion could be found for the dataset. Falling back to %s.",

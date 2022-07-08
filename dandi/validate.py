@@ -1,4 +1,5 @@
-from typing import Any, Iterator, List, Optional, Tuple
+from pathlib import Path
+from typing import Iterator, List, Optional, Tuple, Union
 
 from .files import find_dandi_files
 
@@ -6,11 +7,11 @@ from .files import find_dandi_files
 
 
 def validate_bids(
-    *paths: str,
+    *paths: Union[str, Path],
     schema_version: Optional[str] = None,
     devel_debug: bool = False,
     report: Optional[str] = None,
-) -> Any:
+) -> dict:
     """Validate BIDS paths.
 
     Parameters
@@ -26,6 +27,12 @@ def validate_bids(
         If string, the string will be used as the output path.
         If the variable evaluates as False, no log will be written.
 
+    Returns
+    -------
+    dict
+        Dictionary reporting required patterns not found and existing filenames not matching any
+        patterns.
+
     Notes
     -----
     Can be used from bash, as:
@@ -33,9 +40,10 @@ def validate_bids(
     """
     from .bids_validator_xs import validate_bids as validate_bids_
 
-    return validate_bids_(
+    validation_result = validate_bids_(
         paths, schema_version=schema_version, debug=devel_debug, report_path=report
     )
+    return dict(validation_result)
 
 
 def validate(
