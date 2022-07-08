@@ -141,6 +141,7 @@ class RESTFullAPIClient:
         headers: Optional[dict] = None,
         json_resp: bool = True,
         retry_statuses: Sequence[int] = (),
+        retry_if: Optional[Callable[[requests.Response], Any]] = None,
         **kwargs: Any,
     ) -> Any:
         """
@@ -184,6 +185,8 @@ class RESTFullAPIClient:
         :type json_resp: bool
         :param retry_statuses: a sequence of HTTP response status codes to
             retry in addition to `dandi.consts.RETRY_STATUSES`
+        :param retry_if: an optional predicate applied to a failed HTTP
+            response to test whether to retry
         """
 
         url = self.get_url(path)
@@ -223,7 +226,9 @@ class RESTFullAPIClient:
                         headers=headers,
                         **kwargs,
                     )
-                    if result.status_code in [*RETRY_STATUSES, *retry_statuses]:
+                    if result.status_code in [*RETRY_STATUSES, *retry_statuses] or (
+                        retry_if is not None and retry_if(result)
+                    ):
                         result.raise_for_status()
         except Exception:
             lgr.exception("HTTP connection failed")
