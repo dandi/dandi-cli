@@ -88,9 +88,12 @@ Download a file or entire folder from DANDI.
 )
 @instance_option(
     default=None,
-    help="Instance of DANDI archive to use. If URLs provided, we would ensure that "
-    "they point to the same instance as specified. If no URLs provided, that "
-    "instance will be used for identifier found in local dandiset.yaml.",
+    help=(
+        "DANDI Archive instance to download from. If any URLs are provided,"
+        " they must point to the given instance. If no URL is provided, and"
+        " there is a local dandiset.yaml file, the Dandiset with the identifier"
+        " given in the file will be downloaded from the given instance."
+    ),
 )
 # Might be a cool feature, not unlike verifying a checksum, we verify that
 # downloaded file passes the validator, and if not -- alert
