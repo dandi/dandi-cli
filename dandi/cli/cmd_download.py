@@ -86,7 +86,12 @@ Download a file or entire folder from DANDI.
 @click.option(
     "--sync", is_flag=True, help="Delete local assets that do not exist on the server"
 )
-@instance_option(default=None)
+@instance_option(
+    default=None,
+    help="Instance of DANDI archive to use. If URLs provided, we would ensure that "
+    "they point to the same instance as specified. If no URLs provided, that "
+    "instance will be used for identifier found in local dandiset.yaml.",
+)
 # Might be a cool feature, not unlike verifying a checksum, we verify that
 # downloaded file passes the validator, and if not -- alert
 # @click.option(
