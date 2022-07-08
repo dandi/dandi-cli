@@ -226,7 +226,7 @@ def get_gitrepo_fixture(
 
 
 nwb_test_data = get_gitrepo_fixture("http://github.com/dandi-datasets/nwb_test_data")
-bids_examples = get_gitrepo_fixture("https://github.com/bids-standard/bids-examples")
+bids_examples = get_gitrepo_fixture("https://github.com/dandi/bids-examples")
 
 LOCAL_DOCKER_DIR = Path(__file__).with_name("data") / "dandiarchive-docker"
 LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name

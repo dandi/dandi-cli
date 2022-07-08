@@ -12,6 +12,9 @@ BIDS_EXAMPLES_WHITELIST = [
     "qmri_tb1tfl",
     "qmri_vfa/derivatives/qMRLab",
 ]
+BIDS_EXAMPLES_BLACKLIST = [
+    "invalid_pet001",
+]
 
 TEST_SCHEMA_PATH = "{module_path}/support/bids/schemadata/1.7.0+369"
 
@@ -348,3 +351,16 @@ def test_bids_datasets(bids_examples, tmp_path):
     )
     # Have all files been validated?
     assert len(result["path_tracking"]) == 0
+
+
+def test_error_datasets(bids_examples):
+    from dandi.bids_validator_xs import validate_bids
+
+    # Validate per dataset, with automatic schema selection:
+    for i in os.listdir(bids_examples):
+        if i in BIDS_EXAMPLES_BLACKLIST:
+            result = validate_bids(
+                os.path.join(bids_examples, i),
+            )
+            # Are there non-validated files?
+            assert len(result["path_tracking"]) != 0
