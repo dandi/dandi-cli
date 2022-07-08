@@ -1022,6 +1022,31 @@ class RemoteDandiset:
                 f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
             )
 
+    def get_assets_by_glob(
+        self, pattern: str, order: Optional[str] = None
+    ) -> Iterator["RemoteAsset"]:
+        """
+        .. versionadded:: 0.44.0
+
+        Returns an iterator of all assets in this version of the Dandiset whose
+        `~RemoteAsset.path` attributes match the glob pattern ``pattern``
+
+        Assets can be sorted by a given field by passing the name of that field
+        as the ``order`` parameter.  The accepted field names are
+        ``"created"``, ``"modified"``, and ``"path"``.  Prepend a hyphen to the
+        field name to reverse the sort order.
+        """
+        try:
+            for a in self.client.paginate(
+                f"{self.version_api_path}assets/",
+                params={"glob": pattern, "order": order},
+            ):
+                yield RemoteAsset.from_data(self, a)
+        except HTTP404Error:
+            raise NotFoundError(
+                f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
+            )
+
     def get_asset_by_path(self, path: str) -> "RemoteAsset":
         """
         Fetch the asset in this version of the Dandiset whose
