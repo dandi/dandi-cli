@@ -1,3 +1,15 @@
+# 0.44.1 (Fri Jul 08 2022)
+
+#### 🐛 Bug Fix
+
+- Retry Zarr entry uploads that fail with "header ... implies functionality ... not implemented" [#1048](https://github.com/dandi/dandi-cli/pull/1048) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.44.0 (Fri Jul 08 2022)
 
 #### 🚀 Enhancement
