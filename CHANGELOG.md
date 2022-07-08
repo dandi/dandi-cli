@@ -1,3 +1,19 @@
+# 0.44.0 (Fri Jul 08 2022)
+
+#### 🚀 Enhancement
+
+- Add `get_assets_by_glob()` [#981](https://github.com/dandi/dandi-cli/pull/981) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Don't ingest a Zarr if nothing changed while uploading [#1047](https://github.com/dandi/dandi-cli/pull/1047) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.43.0 (Tue Jul 05 2022)
 
 #### 🚀 Enhancement
