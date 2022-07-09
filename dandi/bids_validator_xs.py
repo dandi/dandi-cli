@@ -467,7 +467,7 @@ def validate_all(
 
 def write_report(
     validation_result,
-    report_path="/var/tmp/bids-validator/report_{datetime}-{pid}.log",
+    report_path="/var/tmp/bids-validator-report_{datetime}-{pid}.log",
     datetime_format="%Y%m%d%H%M%SZ",
 ):
     """Write a human-readable report based on the validation result.
@@ -482,8 +482,7 @@ def write_report(
     report_path : str, optional
         A path under which the report is to be saved, `datetime`, and `pid`
         are available as variables for string formatting, and will be expanded to the
-        current datetime (as per the `datetime_format` parameter)
-        and process ID, respectively.
+        current datetime (as per the `datetime_format` parameter) and process ID, respectively.
     datetime_format : str, optional
         A datetime format, optionally used for the report path.
 

@@ -10,13 +10,11 @@ from .base import devel_debug_option, devel_option, lgr, map_to_click_exceptions
 @devel_option(
     "--schema", help="Validate against new BIDS schema version", metavar="VERSION"
 )
-@click.option("--report", help="Specify path to write a report under.")
 @click.option(
-    "--report-flag",
+    "--report",
     "-r",
     is_flag=True,
-    help="Whether to write a report under a unique path in the current directory. "
-    "Only usable if `--report` is not already used.",
+    help="Whether to write a report under a unique path in the current directory. ",
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
 @devel_debug_option()
@@ -27,9 +25,6 @@ def validate_bids(
     """Validate BIDS paths."""
     from ..bids_utils import is_valid, report_errors
     from ..validate import validate_bids as validate_bids_
-
-    if report_flag and not report:
-        report = report_flag
 
     validator_result = validate_bids_(
         *paths,

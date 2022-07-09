@@ -119,7 +119,7 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
     # could still be augmented with `_is_nwb` to disambiguate both cases
     # at the detection level.
     if _path_in_bids(path):
-        from .bids_validator_xs import validate_bids
+        from .validate import validate_bids
 
         _meta = validate_bids(path)
         meta = _meta["match_listing"][0]

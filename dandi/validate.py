@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import Iterator, List, Optional, Tuple, Union
 
+import appdirs
+
 from .files import find_dandi_files
 
 # TODO: provide our own "errors" records, which would also include warnings etc
@@ -10,7 +12,7 @@ def validate_bids(
     *paths: Union[str, Path],
     schema_version: Optional[str] = None,
     devel_debug: bool = False,
-    report: Optional[str] = None,
+    report: bool = False,
 ) -> dict:
     """Validate BIDS paths.
 
@@ -22,7 +24,7 @@ def validate_bids(
         BIDS schema version to use, this setting will override the version specified in the dataset.
     devel_debug : bool, optional
         Whether to trigger debugging in the BIDS validator.
-    report_path : bool or str, optional
+    report : bool or str, optional
         If `True` a log will be written using the standard output path of `.write_report()`.
         If string, the string will be used as the output path.
         If the variable evaluates as False, no log will be written.
@@ -40,8 +42,19 @@ def validate_bids(
     """
     from .bids_validator_xs import validate_bids as validate_bids_
 
+    if report:
+        log_dir = appdirs.user_log_dir("dandi-cli", "dandi")
+        report_path = "{log_dir}/bids-validator-report_{{datetime}}-{{pid}}.log"
+        report_path = report_path.format(
+            log_dir=log_dir,
+        )
+    else:
+        report_path = ""
     validation_result = validate_bids_(
-        paths, schema_version=schema_version, debug=devel_debug, report_path=report
+        paths,
+        schema_version=schema_version,
+        debug=devel_debug,
+        report_path=report_path,
     )
     return dict(validation_result)
 
