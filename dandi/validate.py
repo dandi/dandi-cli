@@ -40,7 +40,7 @@ def validate_bids(
     Can be used from bash, as:
         DANDI_DEVEL=1 dandi validate-bids --report="my.log" /my/path
     """
-    from .bids_validator_xs import validate_bids as validate_bids_
+    from .support.bids.validator import validate_bids as validate_bids_
 
     if report:
         log_dir = appdirs.user_log_dir("dandi-cli", "dandi")
@@ -53,6 +53,7 @@ def validate_bids(
     validation_result = validate_bids_(
         paths,
         schema_version=schema_version,
+        schema_reference_root="{module_path}/schemadata",
         debug=devel_debug,
         report_path=report_path,
     )

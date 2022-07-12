@@ -9,8 +9,7 @@ import json
 import os
 import re
 
-from . import utils
-from .support.bids import schema
+from . import schema, utils
 
 lgr = utils.get_logger()
 
@@ -731,7 +730,7 @@ def _get_directory_suffixes(my_schema):
 
 def validate_bids(
     bids_paths,
-    schema_reference_root="{module_path}/support/bids/schemadata/",
+    schema_reference_root="/usr/share/bids-schema/",
     schema_version=None,
     debug=False,
     report_path=False,

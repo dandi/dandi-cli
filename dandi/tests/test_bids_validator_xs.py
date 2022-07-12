@@ -16,11 +16,11 @@ BIDS_EXAMPLES_BLACKLIST = [
     "invalid_pet001",
 ]
 
-TEST_SCHEMA_PATH = "{module_path}/support/bids/schemadata/1.7.0+369"
+TEST_SCHEMA_PATH = "{module_path}/schemadata/1.7.0+369"
 
 
 def test__add_entity():
-    from dandi.bids_validator_xs import _add_entity
+    from ..support.bids.validator import _add_entity
 
     # Test empty input and directory creation and required entity
     regex_entities = ""
@@ -69,7 +69,7 @@ def test__add_entity():
 
 
 def test__add_extensions():
-    from dandi.bids_validator_xs import _add_extensions
+    from ..support.bids.validator import _add_extensions
 
     # Test single extension
     regex_string = (
@@ -122,7 +122,7 @@ def test__add_extensions():
 
 
 def test__add_subdirs():
-    from dandi.bids_validator_xs import _add_subdirs
+    from ..support.bids.validator import _add_subdirs
 
     regex_string = "sub-(?P=subject)_sessions\\.(tsv|json)"
     variant = {
@@ -180,7 +180,7 @@ def test__add_subdirs():
 
 
 def test__add_suffixes():
-    from dandi.bids_validator_xs import _add_suffixes
+    from ..support.bids.validator import _add_suffixes
 
     # Test single expansion
     regex_entities = "sub-(?P=subject)"
@@ -240,7 +240,7 @@ def test__add_suffixes():
 
 
 def test_load_all():
-    from dandi.bids_validator_xs import load_all
+    from ..support.bids.validator import load_all
 
     schema_path = os.path.join(
         os.path.abspath(os.path.dirname(__file__)),
@@ -256,7 +256,7 @@ def test_load_all():
 
 
 def test_write_report(tmp_path):
-    from dandi.bids_validator_xs import write_report
+    from ..support.bids.validator import write_report
 
     validation_result = {}
 
@@ -314,7 +314,7 @@ def test_write_report(tmp_path):
 
 
 def test_bids_datasets(bids_examples, tmp_path):
-    from dandi.bids_validator_xs import validate_bids
+    from ..support.bids.validator import validate_bids
 
     # Validate per dataset with explicit schema specification:
     for i in os.listdir(bids_examples):
@@ -336,7 +336,11 @@ def test_bids_datasets(bids_examples, tmp_path):
             selected_path = os.path.join(root, f)
             selected_paths.append(selected_path)
     # Does terminal debug output and schema auto-fallback work?
-    result = validate_bids(selected_paths, debug=True)
+    result = validate_bids(
+        selected_paths,
+        schema_reference_root="{module_path}/schemadata",
+        debug=True,
+    )
     # Does default log path specification work?
     result = validate_bids(
         selected_paths, schema_version=TEST_SCHEMA_PATH, report_path=True
@@ -354,13 +358,14 @@ def test_bids_datasets(bids_examples, tmp_path):
 
 
 def test_error_datasets(bids_examples):
-    from dandi.bids_validator_xs import validate_bids
+    from ..support.bids.validator import validate_bids
 
     # Validate per dataset, with automatic schema selection:
     for i in os.listdir(bids_examples):
         if i in BIDS_EXAMPLES_BLACKLIST:
             result = validate_bids(
                 os.path.join(bids_examples, i),
+                schema_reference_root="{module_path}/schemadata",
             )
             # Are there non-validated files?
             assert len(result["path_tracking"]) != 0
