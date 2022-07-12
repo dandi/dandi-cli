@@ -1,7 +1,3 @@
-"""
-THIS FILE IS BUNDLED FROM THE bids-specification PACKAGE.
-Schema loading- and processing-related functions.
-"""
 from copy import deepcopy
 import datetime
 from functools import lru_cache
@@ -163,7 +159,12 @@ def _add_extensions(regex_string, variant):
 
 
 def _add_subdirs(
-    regex_string, variant, datatype, entity_definitions, formats, modality_datatypes
+    regex_string,
+    variant,
+    datatype,
+    entity_definitions,
+    formats,
+    modality_datatypes,
 ):
     """Add appropriate subdirectories as required by entities present."""
 
@@ -466,7 +467,7 @@ def validate_all(
 
 def write_report(
     validation_result,
-    report_path="/var/tmp/bids-validator-report_{datetime}-{pid}.log",
+    report_path="/var/tmp/bids-validator/report_{datetime}-{pid}.log",
     datetime_format="%Y%m%d%H%M%SZ",
 ):
     """Write a human-readable report based on the validation result.
