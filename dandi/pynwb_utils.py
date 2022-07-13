@@ -10,7 +10,6 @@ import dandischema
 from fscacher import PersistentCache
 import h5py
 import hdmf
-import numpy as np
 import pynwb
 from pynwb import NWBHDF5IO
 import semantic_version
@@ -214,7 +213,7 @@ def _get_pynwb_metadata(path: Union[str, Path]) -> Dict[str, Any]:
             out.update(dandi_icephys.fields)
         # Go through devices and see if there any probes used to record this file
         probe_ids = [
-            np.asscalar(v.probe_id)  # .asscalar to avoid numpy types
+            v.probe_id.item()  # .item to avoid numpy types
             for v in getattr(nwb, "devices", {}).values()
             if hasattr(v, "probe_id")  # duck typing
         ]
