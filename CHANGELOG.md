@@ -1,3 +1,26 @@
+# 0.45.0 (Wed Jul 13 2022)
+
+#### 🚀 Enhancement
+
+- Built-in BIDS support for `dandi upload` [#1011](https://github.com/dandi/dandi-cli/pull/1011) ([@TheChymera](https://github.com/TheChymera))
+
+#### 🐛 Bug Fix
+
+- DOC: describe the purpose for --instance in download [#1053](https://github.com/dandi/dandi-cli/pull/1053) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Replace numpy.asscalar() with numpy.ndarray.item() [#1056](https://github.com/dandi/dandi-cli/pull/1056) ([@jwodder](https://github.com/jwodder))
+- Clone entire repo in "Lint" action [#1052](https://github.com/dandi/dandi-cli/pull/1052) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 3
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.44.1 (Fri Jul 08 2022)
 
 #### 🐛 Bug Fix
