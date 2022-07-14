@@ -137,9 +137,6 @@ def summary(
         entity_sets[entity] = set(
             [i[entity] for i in match_listing if entity in i.keys()]
         )
-    # subjects = set([i["subject"] for i in match_listing if "subject" in i.keys()])
-    # sessions = set([i["session"] for i in match_listing if "session" in i.keys()])
-    # sessions = set([i["sample"] for i in match_listing if "sample" in i.keys()])
 
     summary_full = {}
     for entity in entities:
@@ -163,35 +160,4 @@ def summary(
                 )
             sub_summary.append(entry)
         summary_full[entity + "_summary"] = sub_summary
-
-    # subject_summary = []
-    # for subject in subjects:
-    #    entry = {}
-    #    entry["subject"] = subject
-    #    entry["sessions"] = set(
-    #       [
-    #           i["session"]
-    #           for i in match_listing
-    #           if "subject" in i.keys()
-    #           and "session" in i.keys()
-    #           and i["subject"]==subject
-    #       ]
-    #   )
-    #    subject_summary.append(entry)
-    # summary_full["subject_summary"] = subject_summary
-    # session_summary = []
-    # for session in sessions:
-    #    entry = {}
-    #    entry["session"] = session
-    #    entry["subjects"] = set(
-    #       [
-    #           i["subject"] for
-    #           i in match_listing
-    #           if "subject" in i.keys()
-    #           and "session" in i.keys()
-    #           and i["session"]==session
-    #       ]
-    #   )
-    #    session_summary.append(entry)
-    # summary_full["session_summary"] = session_summary
     print_summary(summary_full)
