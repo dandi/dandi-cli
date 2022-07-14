@@ -25,9 +25,7 @@ def validate_bids(
     devel_debug : bool, optional
         Whether to trigger debugging in the BIDS validator.
     report : bool or str, optional
-        If `True` a log will be written using the standard output path of `.write_report()`.
-        If string, the string will be used as the output path.
-        If the variable evaluates as False, no log will be written.
+        If `True` a log will be written inside the DANDI log directory.
 
     Returns
     -------
