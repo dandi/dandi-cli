@@ -1,7 +1,9 @@
 from dandi.bids_validator_xs import validate_bids
 from dandi.dandiapi import DandiAPIClient
 
-from .utils import pluralize
+from .utils import get_logger, pluralize
+
+lgr = get_logger()
 
 
 def is_valid(
@@ -80,28 +82,116 @@ def report_errors(
         )
 
 
-def summary(dandi_id):
-    import re
+def print_summary(
+    summary,
+    sections=[
+        ["subject", "session"],
+        ["session", "subject"],
+        ["subject", "sample"],
+        ["subject", "stain"],
+    ],
+    max_detail=3,
+):
+    out = ""
+    for section in sections:
+        base = section[0]
+        detail = section[1]
+        out += f"Here is the {base} to {detail} summary:\n"
+        for entry in summary[base + "_summary"]:
+            details = entry[detail + "s"]
+            detail_literal = f"{len(details)} ("
+            if len(details) > max_detail:
+                detail_literal += ", ".join(details[:max_detail]) + ", ...)"
+            else:
+                detail_literal += ", ".join(details) + ")"
+            out += f"\t-`{entry[base]}`\t{detail_literal}\n"
+    print(out)
+
+
+def summary(
+    dandi_id,
+    entities=["subject", "session", "sample", "stain"],
+):
 
     with DandiAPIClient.for_dandi_instance("dandi") as client:
         dandiset = client.get_dandiset(dandi_id)
         path_list = []
         for asset in dandiset.get_assets():
             i = f"dummy/{asset.path}"
-            if "_photo" in i:
-                print(
-                    "Fixing _photo file, https://github.com/dandisets/000108/issues/7"
-                )
-                print(" - Pre-repair:  ", i)
-                session = re.match(
-                    ".*?/ses-(?P<session>([a-zA-Z0-9]*?))/.*?",
-                    "sub-MITU01/ses-20220311h18m03s49/micr/sub-MITU01_sample-20_photo.jpg",
-                ).groupdict()["session"]
-                i = i.replace("_sample", f"_ses-{session}_sample")
-                print(" + Post-repair: ", i)
-            path_list.append(i)
+            if "sub-MITU01h3" in i and "sub-MITU01" in i:
+                lgr.warning("Fixing subject field inconsistencies:")
+                lgr.warning(" - Pre-repair:  %s", i)
+                i = i.replace("sub-MITU01h3", "sub-MITU01")
+                lgr.warning(" + Post-repair: %s", i)
+            # ome.zarr support pending:
+            # https://github.com/dandi/dandi-cli/pull/1050
+            if "ome.zarr" not in i:
+                path_list.append(i)
 
     result = validate_bids(path_list, dummy_paths=True)
-    print(result["match_listing"])
-    print(result["path_tracking"])
-    print(result.keys())
+    for i in result["path_tracking"]:
+        lgr.warning("`%s` was not matched by any BIDS regex pattern.", i)
+    match_listing = result["match_listing"]
+    entity_sets = {}
+    for entity in entities:
+        entity_sets[entity] = set(
+            [i[entity] for i in match_listing if entity in i.keys()]
+        )
+    # subjects = set([i["subject"] for i in match_listing if "subject" in i.keys()])
+    # sessions = set([i["session"] for i in match_listing if "session" in i.keys()])
+    # sessions = set([i["sample"] for i in match_listing if "sample" in i.keys()])
+
+    summary_full = {}
+    for entity in entities:
+        sub_summary = []
+        for value in entity_sets[entity]:
+            entry = {}
+            entry[entity] = value
+            for _entity in entities:
+                if _entity == entity:
+                    continue
+                entry[_entity + "s"] = list(
+                    set(
+                        [
+                            i[_entity]
+                            for i in match_listing
+                            if entity in i.keys()
+                            and _entity in i.keys()
+                            and i[entity] == value
+                        ]
+                    )
+                )
+            sub_summary.append(entry)
+        summary_full[entity + "_summary"] = sub_summary
+
+    # subject_summary = []
+    # for subject in subjects:
+    #    entry = {}
+    #    entry["subject"] = subject
+    #    entry["sessions"] = set(
+    #       [
+    #           i["session"]
+    #           for i in match_listing
+    #           if "subject" in i.keys()
+    #           and "session" in i.keys()
+    #           and i["subject"]==subject
+    #       ]
+    #   )
+    #    subject_summary.append(entry)
+    # summary_full["subject_summary"] = subject_summary
+    # session_summary = []
+    # for session in sessions:
+    #    entry = {}
+    #    entry["session"] = session
+    #    entry["subjects"] = set(
+    #       [
+    #           i["subject"] for
+    #           i in match_listing
+    #           if "subject" in i.keys()
+    #           and "session" in i.keys()
+    #           and i["session"]==session
+    #       ]
+    #   )
+    #    session_summary.append(entry)
+    # summary_full["session_summary"] = session_summary
+    print_summary(summary_full)
