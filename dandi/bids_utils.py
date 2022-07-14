@@ -1,3 +1,6 @@
+from dandi.bids_validator_xs import validate_bids
+from dandi.dandiapi import DandiAPIClient
+
 from .utils import pluralize
 
 
@@ -75,3 +78,30 @@ def report_errors(
             bold=True,
             fg="green",
         )
+
+
+def summary(dandi_id):
+    import re
+
+    with DandiAPIClient.for_dandi_instance("dandi") as client:
+        dandiset = client.get_dandiset(dandi_id)
+        path_list = []
+        for asset in dandiset.get_assets():
+            i = f"dummy/{asset.path}"
+            if "_photo" in i:
+                print(
+                    "Fixing _photo file, https://github.com/dandisets/000108/issues/7"
+                )
+                print(" - Pre-repair:  ", i)
+                session = re.match(
+                    ".*?/ses-(?P<session>([a-zA-Z0-9]*?))/.*?",
+                    "sub-MITU01/ses-20220311h18m03s49/micr/sub-MITU01_sample-20_photo.jpg",
+                ).groupdict()["session"]
+                i = i.replace("_sample", f"_ses-{session}_sample")
+                print(" + Post-repair: ", i)
+            path_list.append(i)
+
+    result = validate_bids(path_list, dummy_paths=True)
+    print(result["match_listing"])
+    print(result["path_tracking"])
+    print(result.keys())

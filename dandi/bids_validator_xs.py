@@ -364,7 +364,7 @@ def load_all(
 
 
 def validate_all(
-    bids_paths,
+    paths_list,
     regex_schema,
     debug=False,
 ):
@@ -398,7 +398,6 @@ def validate_all(
     """
 
     tracking_schema = deepcopy(regex_schema)
-    paths_list = _get_paths(bids_paths)
     tracking_paths = deepcopy(paths_list)
     if debug:
         itemwise_results = []
@@ -695,6 +694,7 @@ def validate_bids(
     schema_version=None,
     debug=False,
     report_path=False,
+    dummy_paths=False,
 ):
     """
     Validate paths according to BIDS schema.
@@ -743,8 +743,12 @@ def validate_bids(
         bids_paths, schema_reference_root, schema_version
     )
     regex_schema = load_all(bids_schema_dir)
+    if not dummy_paths:
+        paths_list = _get_paths(bids_paths)
+    else:
+        paths_list = bids_paths
     validation_result = validate_all(
-        bids_paths,
+        paths_list,
         regex_schema,
         debug=debug,
     )
