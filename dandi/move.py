@@ -216,16 +216,17 @@ class LocalizedMover(Mover):
         Given a sequence of input source paths and a destination path, return a
         sorted list of all assets that will be moved/renamed
         """
+        destpath, dest_is_dir = self.resolve(dest)
         destobj: File | Folder | None
         try:
             destobj = self.get_path(dest, is_src=False)
         except NotFoundError:
-            if dest.endswith("/") or len(srcs) > 1:
-                destobj = Folder(dest, [])
+            if dest_is_dir or len(srcs) > 1:
+                destobj = Folder(destpath, [])
             elif len(srcs) == 1:
                 destobj = None
             else:
-                destobj = File(AssetPath(dest))
+                destobj = File(destpath)
         if isinstance(destobj, File) and len(srcs) > 1:
             raise ValueError(
                 "Cannot take multiple source paths when destination is a file"
@@ -234,9 +235,9 @@ class LocalizedMover(Mover):
         for s in map(self.get_path, srcs):
             if destobj is None:
                 if isinstance(s, File):
-                    destobj = File(AssetPath(dest))
+                    destobj = File(destpath)
                 else:
-                    destobj = Folder(dest, [])
+                    destobj = Folder(destpath, [])
             if isinstance(s, File):
                 if isinstance(destobj, File):
                     pdest = AssetPath(destobj.path)

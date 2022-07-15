@@ -503,6 +503,28 @@ def test_move_from_subdir(
 
 
 @pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+def test_move_in_subdir(
+    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+) -> None:
+    starting_assets = list(moving_dandiset.dandiset.get_assets())
+    monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
+    monkeypatch.setenv("DANDI_API_KEY", moving_dandiset.api.api_key)
+    move(
+        "apple.txt",
+        dest="macintosh.txt",
+        work_on=work_on,
+        dandi_instance=moving_dandiset.api.instance_id,
+        devel_debug=True,
+    )
+    check_assets(
+        moving_dandiset,
+        starting_assets,
+        work_on,
+        {"subdir1/apple.txt": "subdir1/macintosh.txt"},
+    )
+
+
+@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
 def test_move_from_subdir_abspaths(
     monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
 ) -> None:
