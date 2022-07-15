@@ -112,7 +112,6 @@ from .fixtures import DandiAPI, SampleDandiset
                 dandiset_id="000027",
                 version_id=None,
             ),
-            marks=mark.skipif_no_network,
         ),
         pytest.param(
             "DANDI:000027/0.210831.2033",
@@ -121,7 +120,6 @@ from .fixtures import DandiAPI, SampleDandiset
                 dandiset_id="000027",
                 version_id="0.210831.2033",
             ),
-            marks=mark.skipif_no_network,
         ),
         pytest.param(
             "DANDI:000027/draft",
@@ -130,7 +128,6 @@ from .fixtures import DandiAPI, SampleDandiset
                 dandiset_id="000027",
                 version_id="draft",
             ),
-            marks=mark.skipif_no_network,
         ),
         # lower cased
         pytest.param(
@@ -140,7 +137,6 @@ from .fixtures import DandiAPI, SampleDandiset
                 dandiset_id="000027",
                 version_id="0.210831.2033",
             ),
-            marks=mark.skipif_no_network,
         ),
         (
             "http://localhost:8000/api/dandisets/000002/",
@@ -320,6 +316,11 @@ def test_parse_api_url(url: str, parsed_url: ParsedDandiURL) -> None:
 def test_parse_bad_api_url(url: str) -> None:
     with pytest.raises(UnknownURLError):
         parse_dandi_url(url)
+
+
+def test_known_instances() -> None:
+    # all should be lower cased
+    assert all(i.islower() for i in known_instances)
 
 
 def test_parse_dandi_url_unknown_instance() -> None:
