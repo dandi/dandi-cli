@@ -124,6 +124,16 @@ from .fixtures import DandiAPI, SampleDandiset
             marks=mark.skipif_no_network,
         ),
         pytest.param(
+            "DANDI:000027/draft",
+            DandisetURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000027",
+                version_id="draft",
+            ),
+            marks=mark.skipif_no_network,
+        ),
+        # lower cased
+        pytest.param(
             "dandi:000027/0.210831.2033",
             DandisetURL(
                 api_url=known_instances["dandi"].api,
@@ -303,7 +313,6 @@ def test_parse_api_url(url: str, parsed_url: ParsedDandiURL) -> None:
     "url",
     [
         "DANDI:27",
-        "DANDI:000027/draft",
         # Currently takes too long to run; cf. #830:
         # "https://identifiers.org/DANDI:000027/draft",
     ],

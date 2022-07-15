@@ -428,7 +428,19 @@ class _dandi_url_parser:
                 flags=re.I,
             ),
             {"rewrite": lambda x: "https://identifiers.org/" + x.lower()},
-            "DANDI:<dandiset id>[/<version id>] (<version id> cannot be 'draft')",
+            "DANDI:<dandiset id>[/<version id>]",
+        ),
+        (
+            re.compile(
+                rf"DANDI:{dandiset_id_grp}/(?P<version>draft)",
+                flags=re.I,
+            ),
+            {
+                "rewrite": lambda x: "dandi://dandi/{}@draft".format(
+                    x.lower().split(":", 1)[1].rsplit("/", 1)[0]
+                )
+            },
+            "DANDI:<dandiset id>/draft",
         ),
         (
             re.compile(r"https?://dandiarchive\.org/.*"),
