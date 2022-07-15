@@ -424,11 +424,11 @@ class _dandi_url_parser:
         #       for not only "dandiarchive.org" URLs
         (
             re.compile(
-                fr"DANDI:{DANDISET_ID_REGEX}(?:/{PUBLISHED_VERSION_REGEX})?",
+                rf"DANDI:{DANDISET_ID_REGEX}(?:/{PUBLISHED_VERSION_REGEX})?",
                 flags=re.I,
             ),
             {"rewrite": lambda x: "https://identifiers.org/" + x.lower()},
-            "DANDI:<dandiset id>[/<version id>]",
+            "DANDI:<dandiset id>[/<version id>] (<version id> cannot be 'draft')",
         ),
         (
             re.compile(r"https?://dandiarchive\.org/.*"),
@@ -437,12 +437,12 @@ class _dandi_url_parser:
         ),
         (
             re.compile(
-                fr"https?://identifiers\.org/DANDI:{DANDISET_ID_REGEX}"
-                fr"(?:/{PUBLISHED_VERSION_REGEX})?",
+                rf"https?://identifiers\.org/DANDI:{DANDISET_ID_REGEX}"
+                rf"(?:/{PUBLISHED_VERSION_REGEX})?",
                 flags=re.I,
             ),
             {"handle_redirect": "pass"},
-            "https://identifiers.org/DANDI:<dandiset id>[/<version id>]",
+            "https://identifiers.org/DANDI:<dandiset id>[/<version id>] (<version id> cannot be 'draft')",
         ),
         (
             re.compile(
@@ -682,7 +682,7 @@ class _dandi_url_parser:
         while True:
             r = requests.head(url, allow_redirects=True)
             if r.status_code in RETRY_STATUSES and i < 4:
-                delay = 0.1 * 10 ** i
+                delay = 0.1 * 10**i
                 lgr.warning(
                     "HEAD request to %s returned %d; sleeping for %f seconds and then retrying...",
                     url,
