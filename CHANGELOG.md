@@ -1,3 +1,20 @@
+# 0.45.1 (Fri Jul 15 2022)
+
+#### 🐛 Bug Fix
+
+- dandi move: Fix resolution of nonexistent dests when in a subdirectory [#1063](https://github.com/dandi/dandi-cli/pull/1063) ([@jwodder](https://github.com/jwodder))
+- dandi move: Include all mismatches in error messages [#1064](https://github.com/dandi/dandi-cli/pull/1064) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Mention in help text that 'draft' is not supported in DANDI:<dandiset>/<version> [#1062](https://github.com/dandi/dandi-cli/pull/1062) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.45.0 (Wed Jul 13 2022)
 
 #### 🚀 Enhancement
