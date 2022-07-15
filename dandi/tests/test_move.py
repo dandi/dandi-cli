@@ -727,8 +727,9 @@ def test_move_both_src_path_not_in_local(
             devel_debug=True,
         )
     assert (
-        str(excinfo.value) == "Mismatch between local and remote servers: asset"
-        " 'subdir2/banana.txt' only exists remotely"
+        str(excinfo.value) == "Mismatch between local and remote Dandisets:\n"
+        "- Asset 'subdir2/banana.txt' only exists remotely\n"
+        "- Asset 'subdir2/coconut.txt' only exists remotely"
     )
     check_assets(moving_dandiset, starting_assets, "both", {"subdir2/banana.txt": None})
 
@@ -749,8 +750,8 @@ def test_move_both_src_path_not_in_remote(
             devel_debug=True,
         )
     assert (
-        str(excinfo.value) == "Mismatch between local and remote servers: asset"
-        " 'subdir2/mango.txt' only exists locally"
+        str(excinfo.value) == "Mismatch between local and remote Dandisets:\n"
+        "- Asset 'subdir2/mango.txt' only exists locally"
     )
     check_assets(moving_dandiset, starting_assets, "both", {})
 
@@ -773,9 +774,9 @@ def test_move_both_dest_path_not_in_remote(
             devel_debug=True,
         )
     assert (
-        str(excinfo.value)
-        == "Mismatch between local and remote servers: asset 'file.txt' would"
-        " be moved to 'subdir2/file.txt', which exists locally but not remotely"
+        str(excinfo.value) == "Mismatch between local and remote Dandisets:\n"
+        "- Asset 'file.txt' would be moved to 'subdir2/file.txt', which exists"
+        " locally but not remotely"
     )
     check_assets(moving_dandiset, starting_assets, "both", {})
 
@@ -799,8 +800,9 @@ def test_move_both_dest_path_not_in_local(
         )
     assert (
         str(excinfo.value)
-        == "Mismatch between local and remote servers: asset 'file.txt' would"
-        " be moved to 'subdir2/banana.txt', which exists remotely but not locally"
+        == "Mismatch between local and remote Dandisets:\n- Asset 'file.txt'"
+        " would be moved to 'subdir2/banana.txt', which exists remotely but"
+        " not locally"
     )
     check_assets(moving_dandiset, starting_assets, "both", {"subdir2/banana.txt": None})
 
@@ -824,9 +826,9 @@ def test_move_both_dest_mismatch(
             devel_debug=True,
         )
     assert (
-        str(excinfo.value) == "Mismatch between local and remote servers: asset"
-        " 'file.txt' would be moved to 'subdir1/apple.txt/file.txt' locally"
-        " but to 'subdir1/apple.txt' remotely"
+        str(excinfo.value) == "Mismatch between local and remote Dandisets:\n"
+        "- Asset 'file.txt' would be moved to 'subdir1/apple.txt/file.txt'"
+        " locally but to 'subdir1/apple.txt' remotely"
     )
     check_assets(moving_dandiset, starting_assets, "both", {"subdir1/apple.txt": None})
 

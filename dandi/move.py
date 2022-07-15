@@ -714,30 +714,33 @@ class LocalRemoteMover(Mover):
         any differences.
         """
         # Recall that the Movements are sorted by src path
+        mismatches = []
         for lm, rm in zip_longest(local_moves, remote_moves):
             if rm is None:
-                raise AssetMismatchError(f"asset {lm.src!r} only exists locally")
+                mismatches.append(f"Asset {lm.src!r} only exists locally")
             elif lm is None:
-                raise AssetMismatchError(f"asset {rm.src!r} only exists remotely")
+                mismatches.append(f"Asset {rm.src!r} only exists remotely")
             elif lm.src < rm.src:
-                raise AssetMismatchError(f"asset {lm.src!r} only exists locally")
+                mismatches.append(f"Asset {lm.src!r} only exists locally")
             elif lm.src > rm.src:
-                raise AssetMismatchError(f"asset {rm.src!r} only exists remotely")
+                mismatches.append(f"Asset {rm.src!r} only exists remotely")
             elif lm.dest != rm.dest:
-                raise AssetMismatchError(
-                    f"asset {lm.src!r} would be moved to {lm.dest!r} locally"
+                mismatches.append(
+                    f"Asset {lm.src!r} would be moved to {lm.dest!r} locally"
                     f" but to {rm.dest!r} remotely"
                 )
             elif lm.dest_exists and not rm.dest_exists:
-                raise AssetMismatchError(
-                    f"asset {lm.src!r} would be moved to {lm.dest!r}, which"
+                mismatches.append(
+                    f"Asset {lm.src!r} would be moved to {lm.dest!r}, which"
                     " exists locally but not remotely"
                 )
             elif not lm.dest_exists and rm.dest_exists:
-                raise AssetMismatchError(
-                    f"asset {lm.src!r} would be moved to {lm.dest!r}, which"
+                mismatches.append(
+                    f"Asset {lm.src!r} would be moved to {lm.dest!r}, which"
                     " exists remotely but not locally"
                 )
+        if mismatches:
+            raise AssetMismatchError(mismatches)
 
     def process_movement(
         self, m: Movement, dry_run: bool = False
@@ -862,8 +865,10 @@ def find_dandiset_and_subpath(path: Path) -> tuple[Dandiset, Path]:
 
 
 class AssetMismatchError(ValueError):
-    def __init__(self, msg: str) -> None:
-        self.msg = msg
+    def __init__(self, mismatches: list[str]) -> None:
+        self.mismatches = mismatches
 
     def __str__(self) -> str:
-        return f"Mismatch between local and remote servers: {self.msg}"
+        return "Mismatch between local and remote Dandisets:\n" + "\n".join(
+            f"- {msg}" for msg in self.mismatches
+        )
