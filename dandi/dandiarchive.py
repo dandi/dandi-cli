@@ -424,11 +424,13 @@ class _dandi_url_parser:
         #       for not only "dandiarchive.org" URLs
         (
             re.compile(
-                rf"DANDI:{DANDISET_ID_REGEX}(?:/{PUBLISHED_VERSION_REGEX})?",
+                rf"(?P<instance_name>DANDI):"
+                rf"{dandiset_id_grp}"
+                rf"(/(?P<version>{VERSION_REGEX}))?",
                 flags=re.I,
             ),
-            {"rewrite": lambda x: "https://identifiers.org/" + x.lower()},
-            "DANDI:<dandiset id>[/<version id>] (<version id> cannot be 'draft')",
+            {},
+            "DANDI:<dandiset id>[/<version>]",
         ),
         (
             re.compile(r"https?://dandiarchive\.org/.*"),
@@ -548,6 +550,9 @@ class _dandi_url_parser:
             if not match:
                 continue
             groups = match.groupdict()
+            if "instance_name" in groups:
+                # map to lower case so we could immediately map DANDI: into "dandi" instance
+                groups["instance_name"] = groups["instance_name"].lower()
             lgr.log(5, "Matched %r into %s", url, groups)
             rewrite = settings.get("rewrite", False)
             handle_redirect = settings.get("handle_redirect", False)
