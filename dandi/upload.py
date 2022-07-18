@@ -419,7 +419,7 @@ def _bids_discover_and_validate(
         find_files(
             r"(^|[/\x5C])dataset_description\.json$",
             dandiset_path,
-            dirs_avoid=r"\.(ngff|zarr)$",
+            dirs_avoid=r"\.(ngff|zarr)(\..*)?$",
         ),
     )
     bids_datasets = [bd.parent for bd in bids_descriptions]
