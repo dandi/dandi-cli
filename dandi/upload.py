@@ -419,6 +419,7 @@ def _bids_discover_and_validate(
         find_files(
             r"(^|[/\x5C])dataset_description\.json$",
             dandiset_path,
+            # for cases like sub-MITU01h3_..._chunk-4_SPIM.ngff.source
             dirs_avoid=r"\.(ngff|zarr)(\..*)?$",
         ),
     )
