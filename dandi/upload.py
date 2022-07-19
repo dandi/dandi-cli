@@ -453,6 +453,19 @@ def _bids_discover_and_validate(
             )
             if valid:
                 validated_datasets.append(bd)
+        invalid_datasets = []
+        for i in bids_datasets_to_validate:
+            if i not in validated_datasets:
+                invalid_datasets.append(str(i))
+        if invalid_datasets:
+            raise RuntimeError(
+                f"Found {pluralize(len(invalid_datasets), 'BIDS dataset')}, which did not "
+                "pass validation:\n * "
+                + "\n * ".join(invalid_datasets)
+                + "\nTo resolve "
+                "this, perform the required changes or set the validation parameter to "
+                '"skip" or "ignore".'
+            )
         return validated_datasets
     else:
         return bids_datasets
