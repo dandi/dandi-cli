@@ -24,8 +24,8 @@ def validate_bids(
         BIDS schema version to use, this setting will override the version specified in the dataset.
     devel_debug : bool, optional
         Whether to trigger debugging in the BIDS validator.
-    report : bool or str, optional
-        If `True` a log will be written inside the DANDI log directory.
+    report : bool, optional
+        Whether to write a BIDS validator report inside the DANDI log directory.
 
     Returns
     -------
