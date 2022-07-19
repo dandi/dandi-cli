@@ -412,8 +412,8 @@ def has_suffixes(filename: Union[str, Path], suffixes: Iterable[str]) -> set[str
     Could be used as a boolean indicator as to whether the filename has any suffixes
     of interest.
 
-    It will raise Value if one of the suffixes has `.` in the middle of it,
-    and all suffixes should start with `.`
+    It will raise `ValueError` if one of the suffixes has ``.`` in the middle of it
+    or if not all suffixes start with ``.``.
     """
     if any("." in s[1:] for s in suffixes):
         raise ValueError(
