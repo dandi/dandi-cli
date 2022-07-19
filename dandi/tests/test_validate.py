@@ -9,6 +9,7 @@ def test_validate_bids(bids_examples):
 
     selected_dataset = os.path.join(bids_examples, os.listdir(bids_examples)[0])
     _ = validate_bids(selected_dataset, report=True)
+
     # Check if a report is being produced.
     pid = os.getpid()
     log_dir = appdirs.user_log_dir("dandi-cli", "dandi")
