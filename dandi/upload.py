@@ -413,8 +413,15 @@ def _bids_discover_and_validate(
     from .utils import find_files
     from .validate import validate_bids
 
+    lgr.debug("Discovering root directories of BIDS datasets")
     bids_descriptions = map(
-        Path, find_files(r"(^|[/\x5C])dataset_description\.json$", dandiset_path)
+        Path,
+        find_files(
+            r"(^|[/\x5C])dataset_description\.json$",
+            dandiset_path,
+            # for cases like sub-MITU01h3_..._chunk-4_SPIM.ngff.source
+            dirs_avoid=r"\.(ngff|zarr)(\..*)?$",
+        ),
     )
     bids_datasets = [bd.parent for bd in bids_descriptions]
     if bids_datasets:

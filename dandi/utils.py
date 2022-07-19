@@ -266,6 +266,7 @@ def find_files(
     exclude_vcs: bool = True,
     exclude_datalad: bool = False,
     dirs: bool = False,
+    dirs_avoid: Optional[str] = None,
 ) -> Iterator[str]:
     """Generator to find files matching regex
 
@@ -287,6 +288,9 @@ def find_files(
       .datalad/ subdirectory) (regex: `%r`)
     dirs: bool, optional
       Whether to match directories as well as files
+    dirs_avoid: string, optional
+      Regex for directories to not rercurse under (they might still be reported
+      if `dirs=True`)
     """
 
     def exclude_path(path: str) -> bool:
@@ -314,6 +318,7 @@ def find_files(
                     exclude_vcs=exclude_vcs,
                     exclude_datalad=exclude_datalad,
                     dirs=dirs,
+                    dirs_avoid=dirs_avoid,
                 )
             elif good_file(str(path)):
                 yield str(path)
@@ -331,12 +336,14 @@ def find_files(
         # TODO: might want to uniformize on windows to use '/'
         if exclude_dotfiles:
             names = [n for n in names if not n.startswith(".")]
-        if exclude_dotdirs:
+        if exclude_dotdirs or dirs_avoid:
             # and we should filter out directories from dirnames
             # Since we need to del which would change index, let's
             # start from the end
             for i in range(len(dirnames))[::-1]:
-                if dirnames[i].startswith("."):
+                if (exclude_dotdirs and dirnames[i].startswith(".")) or (
+                    dirs_avoid and re.search(dirs_avoid, dirnames[i])
+                ):
                     del dirnames[i]
         strpaths = [op.join(dirpath, name) for name in names]
         for p in filter(re.compile(regex).search, strpaths):

@@ -63,16 +63,19 @@ def test_find_files() -> None:
 def test_find_files_dotfiles(tmp_path: Path) -> None:
     tmpsubdir = tmp_path / "subdir"
     tmpsubdir.mkdir()
-    for p in (".dot.nwb", "regular", ".git"):
+    for p in (".dot.nwb", "regular"):
         for f in (tmp_path / p, tmpsubdir / p):
             f.touch()
+    (tmp_path / ".git").mkdir()  # a "proper" .git/ directory
+    (tmp_path / ".git" / "config").touch()
+    (tmpsubdir / ".git").touch()  # a ".git" link file
 
     def relpaths(paths: Iterable[str]) -> List[str]:
         return sorted(op.relpath(p, tmp_path) for p in paths)
 
     regular = ["regular", op.join("subdir", "regular")]
     dotfiles = [".dot.nwb", op.join("subdir", ".dot.nwb")]
-    vcs = [".git", op.join("subdir", ".git")]
+    vcs = [".git", op.join(".git", "config"), op.join("subdir", ".git")]
 
     ff = find_files(".*", tmp_path)
     assert relpaths(ff) == regular
@@ -85,9 +88,32 @@ def test_find_files_dotfiles(tmp_path: Path) -> None:
     ff = find_files(".*", tmp_path, exclude_vcs=False)
     assert relpaths(ff) == regular
 
-    # current VCS are also dot files
+    # one VCS file is also a dot file
     ff = find_files(".*", tmp_path, exclude_vcs=False, exclude_dotfiles=False)
-    assert relpaths(ff) == sorted(regular + dotfiles + vcs)
+    assert relpaths(ff) == sorted(regular + dotfiles + [op.join("subdir", ".git")])
+
+    # with dirs=True we should match all VCS
+    ff = find_files(
+        ".*",
+        tmp_path,
+        exclude_vcs=False,
+        exclude_dotfiles=False,
+        exclude_dotdirs=False,
+        dirs=True,
+    )
+    assert relpaths(ff) == sorted(regular + dotfiles + vcs + ["subdir"])
+
+    # and we can filter .git directories and their content using dirs_avoid
+    ff = find_files(
+        ".*",
+        tmp_path,
+        exclude_vcs=False,
+        exclude_dotfiles=False,
+        exclude_dotdirs=False,
+        dirs=False,
+        dirs_avoid=r"\.git$",
+    )
+    assert relpaths(ff) == sorted(regular + dotfiles + [op.join("subdir", ".git")])
 
 
 def test_times_manipulations() -> None:
