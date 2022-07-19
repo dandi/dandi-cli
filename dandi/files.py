@@ -75,7 +75,7 @@ from .support.digests import (
     get_zarr_checksum,
     md5file_nocache,
 )
-from .utils import chunked, pluralize, yaml_load
+from .utils import chunked, has_suffixes, pluralize, yaml_load
 
 lgr = get_logger()
 
@@ -1138,7 +1138,7 @@ def dandi_file(
         if not any(filepath.iterdir()):
             raise UnknownAssetError("Empty directories cannot be assets")
         for dirclass in LocalDirectoryAsset.__subclasses__():
-            if filepath.suffix in dirclass.EXTENSIONS:
+            if has_suffixes(filepath.suffix, dirclass.EXTENSIONS):
                 return dirclass(filepath=filepath, path=path)  # type: ignore[abstract]
         raise UnknownAssetError(
             f"Directory has unrecognized suffix {filepath.suffix!r}"
@@ -1147,7 +1147,7 @@ def dandi_file(
         return DandisetMetadataFile(filepath=filepath)
     else:
         for fileclass in LocalFileAsset.__subclasses__():
-            if filepath.suffix in fileclass.EXTENSIONS:
+            if has_suffixes(filepath.suffix, fileclass.EXTENSIONS):
                 return fileclass(filepath=filepath, path=path)  # type: ignore[abstract]
         return GenericAsset(filepath=filepath, path=path)
 
