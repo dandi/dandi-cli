@@ -24,6 +24,7 @@ from ..utils import (
     get_mime_type,
     get_module_version,
     get_utcnow_datetime,
+    has_suffixes,
     is_page2_url,
     is_same_time,
     on_windows,
@@ -459,3 +460,42 @@ def test_get_mime_type(filename: str, mtype: str) -> None:
 )
 def test_is_page2_url(page1: str, page2: str, r: bool) -> None:
     assert is_page2_url(page1, page2) is r
+
+
+@pytest.mark.parametrize(
+    "filename,suffixes,target",
+    [
+        ("blah.ome.zarr", {".ome", ".zarr"}, {".ome", ".zarr"}),
+        (
+            ".ome.zarr",
+            {".ome", ".zarr"},
+            {".zarr"},
+        ),  # does not take .ome as an extension in such case
+        # no hits and that is ok
+        ("blah.ome.zarr", {".ngff", ".dat"}, set()),
+        ("blah", {".ngff", ".dat"}, set()),
+        ("blah", set(), set()),
+        ("blah.ome", set(), set()),
+    ],
+)
+def test_has_suffixes(filename: str, suffixes: set, target: set) -> None:
+    # as is
+    assert has_suffixes(filename, suffixes) == target
+
+    # poor Yarik doesn't know nice way for combining multiple .parametrize
+    for suffix_t in (list, set, tuple):
+        for filename_t in (str, Path):
+            assert has_suffixes(filename_t(filename), suffix_t(suffixes)) == target
+
+
+@pytest.mark.parametrize(
+    "suffixes",
+    [
+        {"nodot"},
+        {".good", "nodot"},
+        {".good", ".not.so"},
+    ],
+)
+def test_has_suffixes_errors(suffixes: set) -> None:
+    with pytest.raises(ValueError):
+        has_suffixes("blah", suffixes)

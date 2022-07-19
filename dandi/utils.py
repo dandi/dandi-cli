@@ -403,6 +403,24 @@ def find_parent_directory_containing(
         path = path.parent  # go up
 
 
+def has_suffixes(filename: Union[str, Path], suffixes: Union[set, list, tuple]) -> set:
+    """For a filename, return the set of matching suffixes among provided.
+
+    Could be used as a boolean indicator on either filename has any of the suffixes
+    of interest.
+
+    It will raise Value if one of the suffixes has `.` in the middle of it,
+    and all suffixes should start with `.`
+    """
+    if any("." in s[1:] for s in suffixes):
+        raise ValueError(
+            f"There must be no '.' in the middle or at the end of any suffix. Got {suffixes}"
+        )
+    if not all(s.startswith(".") for s in suffixes):
+        raise ValueError(f"All suffixes must start with `.`. Got {suffixes}")
+    return set(Path(filename).suffixes).intersection(suffixes)
+
+
 def yaml_dump(rec: Any) -> str:
     """Consistent dump into yaml
 
