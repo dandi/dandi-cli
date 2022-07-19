@@ -9,7 +9,7 @@ from datetime import datetime
 import os
 from pathlib import Path
 from time import sleep
-from typing import Any, ClassVar, Optional, cast
+from typing import Any, Optional, cast
 
 from dandischema.digests.zarr import get_checksum
 from dandischema.models import BareAsset, DigestType
@@ -129,8 +129,6 @@ class ZarrStat:
 
 class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
     """Representation of a local Zarr directory"""
-
-    EXTENSIONS: ClassVar[list[str]] = [".ngff", ".zarr"]
 
     @property
     def filetree(self) -> LocalZarrEntry:

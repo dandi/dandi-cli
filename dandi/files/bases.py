@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 import re
 from threading import Lock
-from typing import Any, BinaryIO, ClassVar, Generic, Optional
+from typing import Any, BinaryIO, Generic, Optional
 from xml.etree.ElementTree import fromstring
 
 from dandischema.digests.dandietag import DandiETag
@@ -22,7 +22,6 @@ from pydantic import ValidationError
 import requests
 
 from dandi import get_logger
-from dandi.consts import VIDEO_FILE_EXTENSIONS
 from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from dandi.metadata import get_default_metadata, nwb2asset
 from dandi.misctypes import DUMMY_DIGEST, Digest, P
@@ -269,8 +268,6 @@ class LocalFileAsset(LocalAsset):
     an asset of a Dandiset
     """
 
-    EXTENSIONS: ClassVar[list[str]] = []
-
     def get_metadata(
         self,
         digest: Optional[Digest] = None,
@@ -435,8 +432,6 @@ class LocalFileAsset(LocalAsset):
 class NWBAsset(LocalFileAsset):
     """Representation of a local NWB file"""
 
-    EXTENSIONS: ClassVar[list[str]] = [".nwb"]
-
     def get_metadata(
         self,
         digest: Optional[Digest] = None,
@@ -499,7 +494,7 @@ class NWBAsset(LocalFileAsset):
 
 
 class VideoAsset(LocalFileAsset):
-    EXTENSIONS: ClassVar[list[str]] = VIDEO_FILE_EXTENSIONS
+    pass
 
 
 class GenericAsset(LocalFileAsset):
@@ -507,7 +502,7 @@ class GenericAsset(LocalFileAsset):
     Representation of a generic regular file, one that is not of any known type
     """
 
-    EXTENSIONS: ClassVar[list[str]] = []
+    pass
 
 
 class LocalDirectoryAsset(LocalAsset, Generic[P]):
@@ -516,8 +511,6 @@ class LocalDirectoryAsset(LocalAsset, Generic[P]):
     a single asset of a Dandiset.  It is generic in ``P``, bound to
     `dandi.misctypes.BasePath`.
     """
-
-    EXTENSIONS: ClassVar[list[str]] = []
 
     @property
     @abstractmethod

@@ -13,11 +13,19 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Iterator
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Optional
+import weakref
 
 from dandi import get_logger
-from dandi.consts import dandiset_metadata_file
+from dandi.consts import (
+    BIDS_DATASET_DESCRIPTION,
+    VIDEO_FILE_EXTENSIONS,
+    ZARR_EXTENSIONS,
+    dandiset_metadata_file,
+)
 from dandi.exceptions import UnknownAssetError
 
 from .bases import (
@@ -30,22 +38,34 @@ from .bases import (
     NWBAsset,
     VideoAsset,
 )
+from .bids import (
+    BIDSAsset,
+    BIDSDatasetDescriptionAsset,
+    GenericBIDSAsset,
+    NWBBIDSAsset,
+    ZarrBIDSAsset,
+)
 from .zarr import LocalZarrEntry, ZarrAsset, ZarrStat
 
 __all__ = [
+    "BIDSAsset",
+    "BIDSDatasetDescriptionAsset",
     "DandiFile",
     "DandisetMetadataFile",
-    "LocalAsset",
-    "LocalFileAsset",
-    "NWBAsset",
-    "VideoAsset",
     "GenericAsset",
+    "GenericBIDSAsset",
+    "LocalAsset",
     "LocalDirectoryAsset",
+    "LocalFileAsset",
     "LocalZarrEntry",
-    "ZarrStat",
+    "NWBAsset",
+    "NWBBIDSAsset",
+    "VideoAsset",
     "ZarrAsset",
-    "find_dandi_files",
+    "ZarrBIDSAsset",
+    "ZarrStat",
     "dandi_file",
+    "find_dandi_files",
 ]
 
 lgr = get_logger()
@@ -79,7 +99,10 @@ def find_dandi_files(
         (unless ``allow_all`` is true).
     """
 
-    path_queue: deque[Path] = deque()
+    # A pair of each file or directory being considered plus the most recent
+    # BIDS dataset_description.json file at the path (if a directory) or in a
+    # parent path
+    path_queue: deque[tuple[Path, Optional[BIDSDatasetDescriptionAsset]]] = deque()
     for p in map(Path, paths):
         if dandiset_path is not None:
             try:
@@ -88,26 +111,36 @@ def find_dandi_files(
                 raise ValueError(
                     "Path {str(p)!r} is not inside Dandiset path {str(dandiset_path)!r}"
                 )
-        path_queue.append(p)
+        path_queue.append((p, None))
     while path_queue:
-        p = path_queue.popleft()
+        p, bidsdd = path_queue.popleft()
         if p.name.startswith("."):
             continue
         if p.is_dir():
             if p.is_symlink():
                 lgr.warning("%s: Ignoring unsupported symbolic link to directory", p)
             elif dandiset_path is not None and p == Path(dandiset_path):
-                path_queue.extend(p.iterdir())
+                if (p / BIDS_DATASET_DESCRIPTION).exists():
+                    bids2 = dandi_file(p / BIDS_DATASET_DESCRIPTION, dandiset_path)
+                    assert isinstance(bids2, BIDSDatasetDescriptionAsset)
+                    bidsdd = bids2
+                path_queue.extend((q, bidsdd) for q in p.iterdir())
             elif any(p.iterdir()):
                 try:
-                    df = dandi_file(p, dandiset_path)
+                    df = dandi_file(p, dandiset_path, bids_dataset_description=bidsdd)
                 except UnknownAssetError:
-                    path_queue.extend(p.iterdir())
+                    if (p / BIDS_DATASET_DESCRIPTION).exists():
+                        bids2 = dandi_file(p / BIDS_DATASET_DESCRIPTION, dandiset_path)
+                        assert isinstance(bids2, BIDSDatasetDescriptionAsset)
+                        bidsdd = bids2
+                    path_queue.extend((q, bidsdd) for q in p.iterdir())
                 else:
                     yield df
         else:
-            df = dandi_file(p, dandiset_path)
-            if isinstance(df, GenericAsset) and not allow_all:
+            df = dandi_file(p, dandiset_path, bids_dataset_description=bidsdd)
+            # Don't use isinstance() here, as GenericBIDSAsset's should still
+            # be returned
+            if type(df) is GenericAsset and not allow_all:
                 pass
             elif isinstance(df, DandisetMetadataFile) and not (
                 allow_all or include_metadata
@@ -118,13 +151,19 @@ def find_dandi_files(
 
 
 def dandi_file(
-    filepath: str | Path, dandiset_path: Optional[str | Path] = None
+    filepath: str | Path,
+    dandiset_path: Optional[str | Path] = None,
+    bids_dataset_description: Optional[BIDSDatasetDescriptionAsset] = None,
 ) -> DandiFile:
     """
     Return a `DandiFile` instance of the appropriate type for the file at
     ``filepath`` inside the Dandiset rooted at ``dandiset_path``.  If
     ``dandiset_path`` is not set, it will default to ``filepath``'s parent
     directory.
+
+    If ``bids_dataset_description`` is set, the file will be assumed to lie
+    within the BIDS dataset with the given :file:`dataset_description.json`
+    file at its root, resulting in a `BIDSAsset`.
 
     If ``filepath`` is a directory, it must be of a type represented by a
     `LocalDirectoryAsset` subclass; otherwise, an `UnknownAssetError` exception
@@ -143,19 +182,83 @@ def dandi_file(
             raise ValueError("Dandi file path cannot equal Dandiset path")
     else:
         path = filepath.name
-    if filepath.is_dir():
-        if not any(filepath.iterdir()):
-            raise UnknownAssetError("Empty directories cannot be assets")
-        for dirclass in LocalDirectoryAsset.__subclasses__():
-            if filepath.suffix in dirclass.EXTENSIONS:
-                return dirclass(filepath=filepath, path=path)  # type: ignore[abstract]
-        raise UnknownAssetError(
-            f"Directory has unrecognized suffix {filepath.suffix!r}"
-        )
-    elif path == dandiset_metadata_file:
+    if filepath.is_file() and path == dandiset_metadata_file:
         return DandisetMetadataFile(filepath=filepath)
+    if bids_dataset_description is None:
+        factory = DandiFileFactory()
     else:
-        for fileclass in LocalFileAsset.__subclasses__():
-            if filepath.suffix in fileclass.EXTENSIONS:
-                return fileclass(filepath=filepath, path=path)  # type: ignore[abstract]
-        return GenericAsset(filepath=filepath, path=path)
+        factory = BIDSFileFactory(bids_dataset_description)
+    return factory(filepath, path)
+
+
+class DandiFileType(Enum):
+    """:meta private:"""
+
+    NWB = 1
+    ZARR = 2
+    VIDEO = 3
+    GENERIC = 4
+    BIDS_DATASET_DESCRIPTION = 5
+
+    @staticmethod
+    def classify(path: Path) -> DandiFileType:
+        if path.is_dir():
+            if not any(path.iterdir()):
+                raise UnknownAssetError("Empty directories cannot be assets")
+            if path.suffix in ZARR_EXTENSIONS:
+                return DandiFileType.ZARR
+            raise UnknownAssetError(
+                f"Directory has unrecognized suffix {path.suffix!r}"
+            )
+        elif path.name == BIDS_DATASET_DESCRIPTION:
+            return DandiFileType.BIDS_DATASET_DESCRIPTION
+        elif path.suffix == ".nwb":
+            return DandiFileType.NWB
+        elif path.suffix in VIDEO_FILE_EXTENSIONS:
+            return DandiFileType.VIDEO
+        else:
+            return DandiFileType.GENERIC
+
+
+class DandiFileFactory:
+    """:meta private:"""
+
+    CLASSES: dict[DandiFileType, type[LocalAsset]] = {
+        DandiFileType.NWB: NWBAsset,
+        DandiFileType.ZARR: ZarrAsset,
+        DandiFileType.VIDEO: VideoAsset,
+        DandiFileType.GENERIC: GenericAsset,
+        DandiFileType.BIDS_DATASET_DESCRIPTION: BIDSDatasetDescriptionAsset,
+    }
+
+    def __call__(self, filepath: Path, path: str) -> DandiFile:
+        return self.CLASSES[DandiFileType.classify(filepath)](
+            filepath=filepath, path=path
+        )
+
+
+@dataclass
+class BIDSFileFactory(DandiFileFactory):
+    bids_dataset_description: BIDSDatasetDescriptionAsset
+
+    CLASSES = {
+        DandiFileType.NWB: NWBBIDSAsset,
+        DandiFileType.ZARR: ZarrBIDSAsset,
+        DandiFileType.VIDEO: GenericBIDSAsset,
+        DandiFileType.GENERIC: GenericBIDSAsset,
+    }
+
+    def __call__(self, filepath: Path, path: str) -> DandiFile:
+        ftype = DandiFileType.classify(filepath)
+        if ftype is DandiFileType.BIDS_DATASET_DESCRIPTION:
+            if filepath == self.bids_dataset_description.filepath:
+                return self.bids_dataset_description
+            else:
+                return BIDSDatasetDescriptionAsset(filepath=filepath, path=path)
+        df = self.CLASSES[ftype](
+            filepath=filepath,
+            path=path,
+            bids_dataset_description_ref=weakref.ref(self.bids_dataset_description),
+        )
+        self.bids_dataset_description.dataset_files.append(df)
+        return df
