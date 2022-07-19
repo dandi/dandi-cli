@@ -550,7 +550,7 @@ def _find_dataset_description(my_path):
     if os.path.isfile(candidate):
         return candidate
     else:
-        level_up = os.path.dirname(my_path.rstrip("/"))
+        level_up = os.path.dirname(my_path.rstrip("/").rstrip("\\"))
         return _find_dataset_description(level_up)
 
 
