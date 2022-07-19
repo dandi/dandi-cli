@@ -22,7 +22,14 @@ from .base import devel_debug_option, devel_option, lgr, map_to_click_exceptions
 def validate_bids(
     paths, schema=None, devel_debug=False, report=False, report_flag=False
 ):
-    """Validate BIDS paths."""
+    """Validate BIDS paths.
+
+    Notes
+    -----
+    Used from bash, eg:
+        dandi validate-bids /my/path
+    """
+
     from ..bids_utils import is_valid, report_errors
     from ..validate import validate_bids as validate_bids_
 

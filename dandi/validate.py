@@ -32,11 +32,6 @@ def validate_bids(
     dict
         Dictionary reporting required patterns not found and existing filenames not matching any
         patterns.
-
-    Notes
-    -----
-    Can be used from bash, as:
-        DANDI_DEVEL=1 dandi validate-bids --report="my.log" /my/path
     """
     from .support.bids.validator import validate_bids as validate_bids_
 
