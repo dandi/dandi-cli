@@ -478,14 +478,12 @@ def test_is_page2_url(page1: str, page2: str, r: bool) -> None:
         ("blah.ome", set(), set()),
     ],
 )
-def test_has_suffixes(filename: str, suffixes: set, target: set) -> None:
-    # as is
-    assert has_suffixes(filename, suffixes) == target
-
-    # poor Yarik doesn't know nice way for combining multiple .parametrize
-    for suffix_t in (list, set, tuple):
-        for filename_t in (str, Path):
-            assert has_suffixes(filename_t(filename), suffix_t(suffixes)) == target
+@pytest.mark.parametrize("suffix_t", [list, set, tuple])
+@pytest.mark.parametrize("filename_t", [str, Path])
+def test_has_suffixes(
+    filename: str, suffixes: set, target: set, suffix_t: type, filename_t: type
+) -> None:
+    assert has_suffixes(filename_t(filename), suffix_t(suffixes)) == target
 
 
 @pytest.mark.parametrize(
