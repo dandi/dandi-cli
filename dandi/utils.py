@@ -1,3 +1,6 @@
+# for set[str]
+from __future__ import annotations
+
 import datetime
 import inspect
 import io
@@ -403,7 +406,7 @@ def find_parent_directory_containing(
         path = path.parent  # go up
 
 
-def has_suffixes(filename: Union[str, Path], suffixes: Union[set, list, tuple]) -> set:
+def has_suffixes(filename: Union[str, Path], suffixes: Iterable[str]) -> set[str]:
     """For a filename, return the set of matching suffixes among provided.
 
     Could be used as a boolean indicator on either filename has any of the suffixes
