@@ -409,7 +409,7 @@ def find_parent_directory_containing(
 def has_suffixes(filename: Union[str, Path], suffixes: Iterable[str]) -> set[str]:
     """For a filename, return the set of matching suffixes among provided.
 
-    Could be used as a boolean indicator on either filename has any of the suffixes
+    Could be used as a boolean indicator as to whether the filename has any suffixes
     of interest.
 
     It will raise Value if one of the suffixes has `.` in the middle of it,
