@@ -33,6 +33,7 @@ def validate_bids(
         Dictionary reporting required patterns not found and existing filenames not matching any
         patterns.
     """
+
     from .support.bids.validator import validate_bids as validate_bids_
 
     if report:
