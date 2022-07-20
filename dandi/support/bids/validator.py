@@ -546,7 +546,7 @@ def write_report(
 def _find_dataset_description(my_path):
     candidate = os.path.join(my_path, "dataset_description.json")
     # Windows support... otherwise we could do `if my_path == "/"`.
-    if my_path == "/" or "\\" and "/" not in my_path:
+    if my_path == "/" or not any(i in my_path for i in ["/", "\\"]):
         return None
     if os.path.isfile(candidate):
         return candidate
