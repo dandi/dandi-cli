@@ -11,6 +11,10 @@ from .base import devel_debug_option, devel_option, lgr, map_to_click_exceptions
     "--schema", help="Validate against new BIDS schema version", metavar="VERSION"
 )
 @click.option(
+    "--report-path",
+    help="Write report under path, this option implies `--report/-r`.",
+)
+@click.option(
     "--report",
     "-r",
     is_flag=True,
@@ -24,6 +28,7 @@ def validate_bids(
     schema=None,
     devel_debug=False,
     report=False,
+    report_path="",
 ):
     """Validate BIDS paths.
 
@@ -39,6 +44,7 @@ def validate_bids(
     validator_result = validate_bids_(
         *paths,
         report=report,
+        report_path=report_path,
         schema_version=schema,
         devel_debug=devel_debug,
     )

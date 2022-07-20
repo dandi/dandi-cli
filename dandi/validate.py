@@ -13,6 +13,7 @@ def validate_bids(
     schema_version: Optional[str] = None,
     devel_debug: bool = False,
     report: bool = False,
+    report_path: str = "",
 ) -> dict:
     """Validate BIDS paths.
 
@@ -26,6 +27,8 @@ def validate_bids(
         Whether to trigger debugging in the BIDS validator.
     report : bool, optional
         Whether to write a BIDS validator report inside the DANDI log directory.
+    report_path : str, optional
+        Path underneath which to write a validation report, this option implies `report`.
 
     Returns
     -------
@@ -36,14 +39,12 @@ def validate_bids(
 
     from .support.bids.validator import validate_bids as validate_bids_
 
-    if report:
+    if report and not report_path:
         log_dir = appdirs.user_log_dir("dandi-cli", "dandi")
         report_path = "{log_dir}/bids-validator-report_{{datetime}}-{{pid}}.log"
         report_path = report_path.format(
             log_dir=log_dir,
         )
-    else:
-        report_path = ""
     validation_result = validate_bids_(
         paths,
         schema_version=schema_version,
