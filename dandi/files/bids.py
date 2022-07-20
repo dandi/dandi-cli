@@ -12,6 +12,10 @@ from .zarr import ZarrAsset
 class BIDSDatasetDescriptionAsset(LocalFileAsset):
     dataset_files: list[BIDSAsset] = field(default_factory=list)
 
+    @property
+    def bids_root(self) -> Path:
+        return self.filepath.parent
+
 
 @dataclass
 class BIDSAsset(LocalFileAsset):
