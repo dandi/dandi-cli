@@ -20,7 +20,10 @@ from .base import devel_debug_option, devel_option, lgr, map_to_click_exceptions
 @devel_debug_option()
 @map_to_click_exceptions
 def validate_bids(
-    paths, schema=None, devel_debug=False, report=False, report_flag=False
+    paths,
+    schema=None,
+    devel_debug=False,
+    report=False,
 ):
     """Validate BIDS paths.
 
