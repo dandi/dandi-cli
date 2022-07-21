@@ -443,7 +443,7 @@ def _bids_discover_and_validate(
         else:
             bids_datasets_to_validate = bids_datasets
         bids_datasets_to_validate.sort()
-        valid_datasets = []
+        valid_datasets: List[str] = []
         invalid_datasets = []
         for bd in bids_datasets_to_validate:
             validator_result = validate_bids(bd)
