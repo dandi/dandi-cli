@@ -61,7 +61,7 @@ def _get_paths(
             path_list.append(bids_path)
             continue
         for root, dirs, file_names in os.walk(bids_path, topdown=True):
-            if any(root.endswith(i) for i in pseudofile_suffixes):
+            if root.endswith(tuple(pseudofile_suffixes)):
                 # Add the directory name to the validation paths list.
                 path_list.append(f"{root}/")
                 # Do not index the contents of the directory.
