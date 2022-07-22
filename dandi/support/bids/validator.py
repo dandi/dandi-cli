@@ -3,6 +3,7 @@ import datetime
 from functools import lru_cache
 import json
 import os
+from pathlib import Path
 import re
 
 from . import schema, utils
@@ -58,12 +59,12 @@ def _get_paths(
     for bids_path in bids_paths:
         bids_path = os.path.abspath(os.path.expanduser(bids_path))
         if os.path.isfile(bids_path):
-            path_list.append(bids_path)
+            path_list.append(Path(bids_path).as_posix())
             continue
         for root, dirs, file_names in os.walk(bids_path, topdown=True):
             if root.endswith(tuple(pseudofile_suffixes)):
                 # Add the directory name to the validation paths list.
-                path_list.append(f"{root}/")
+                path_list.append(Path(root).as_posix() + "/")
                 # Do not index the contents of the directory.
                 dirs[:] = []
             # will break if BIDS ever puts meaningful data under `/.{dandi,datalad,git}*/`
@@ -74,12 +75,7 @@ def _get_paths(
                     continue
                 file_path = os.path.join(root, file_name)
                 # This will need to be replaced with bids root finding.
-                path_list.append(file_path)
-
-    # Standardize Windows paths
-    if "\\" in path_list[0]:
-        for ix, i in enumerate(path_list):
-            path_list[ix] = i.replace("\\", "/")
+                path_list.append(Path(file_path).as_posix())
 
     return path_list
 
@@ -724,9 +720,8 @@ def _get_directory_suffixes(my_schema):
     pseudofile_suffixes = []
     for i in my_schema["objects"]["extensions"].values():
         i_value = i["value"]
-        if i_value.endswith("/"):
-            if i_value != "/":
-                pseudofile_suffixes.append(i_value[:-1])
+        if i_value.endswith("/") and i_value != "/":
+            pseudofile_suffixes.append(i_value[:-1])
     return pseudofile_suffixes
 
 
