@@ -7,7 +7,7 @@ from .base import devel_debug_option, devel_option, lgr, map_to_click_exceptions
 
 
 @click.command()
-@devel_option(
+@click.option(
     "--schema", help="Validate against new BIDS schema version", metavar="VERSION"
 )
 @click.option(
@@ -25,10 +25,10 @@ from .base import devel_debug_option, devel_option, lgr, map_to_click_exceptions
 @map_to_click_exceptions
 def validate_bids(
     paths,
-    schema=None,
+    schema,
+    report,
+    report_path,
     devel_debug=False,
-    report=False,
-    report_path="",
 ):
     """Validate BIDS paths.
 
