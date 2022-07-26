@@ -41,9 +41,9 @@ def _get_paths(
         input.
     """
     exclude_subdirs = [
-        rf"{os.sep}.dandi",
-        rf"{os.sep}.datalad",
-        rf"{os.sep}.git",
+        ".dandi",
+        ".datalad",
+        ".git",
     ]
     # `.bidsignore` is not, in fact, a BIDS file, as per:
     # https://github.com/bids-standard/bids-specification/issues/980
@@ -67,7 +67,7 @@ def _get_paths(
                 # Do not index the contents of the directory.
                 dirs[:] = []
             # will break if BIDS ever puts meaningful data under `/.{dandi,datalad,git}*/`
-            if any(exclude_subdir in root for exclude_subdir in exclude_subdirs):
+            if os.path.basename(root) in exclude_subdirs::
                 continue
             for file_name in file_names:
                 if file_name in exclude_files:
