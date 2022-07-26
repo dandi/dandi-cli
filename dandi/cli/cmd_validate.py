@@ -7,8 +7,12 @@ from .base import devel_debug_option, devel_option, lgr, map_to_click_exceptions
 
 
 @click.command()
-@devel_option(
+@click.option(
     "--schema", help="Validate against new BIDS schema version", metavar="VERSION"
+)
+@click.option(
+    "--report-path",
+    help="Write report under path, this option implies `--report/-r`.",
 )
 @click.option(
     "--report",
@@ -20,15 +24,27 @@ from .base import devel_debug_option, devel_option, lgr, map_to_click_exceptions
 @devel_debug_option()
 @map_to_click_exceptions
 def validate_bids(
-    paths, schema=None, devel_debug=False, report=False, report_flag=False
+    paths,
+    schema,
+    report,
+    report_path,
+    devel_debug=False,
 ):
-    """Validate BIDS paths."""
+    """Validate BIDS paths.
+
+    Notes
+    -----
+    Used from bash, eg:
+        dandi validate-bids /my/path
+    """
+
     from ..bids_utils import is_valid, report_errors
     from ..validate import validate_bids as validate_bids_
 
     validator_result = validate_bids_(
         *paths,
         report=report,
+        report_path=report_path,
         schema_version=schema,
         devel_debug=devel_debug,
     )
