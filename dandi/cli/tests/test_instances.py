@@ -19,7 +19,7 @@ def test_cmd_instances(monkeypatch):
         f"  redirector: {redirector_base}\n"
         "dandi-api-local-docker-tests:\n"
         f"  api: http://{instancehost}:8000/api\n"
-        "  gui: null\n"
+        f"  gui: http://{instancehost}:8085\n"
         "  redirector: null\n"
         "dandi-devel:\n"
         "  api: null\n"
