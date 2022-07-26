@@ -68,7 +68,7 @@ def _get_paths(
                 # Do not index the contents of the directory.
                 dirs[:] = []
             # will break if BIDS ever puts meaningful data under `/.{dandi,datalad,git}*/`
-            if os.path.basename(root) in exclude_subdirs::
+            if os.path.basename(root) in exclude_subdirs:
                 continue
             for file_name in file_names:
                 if file_name in exclude_files:
