@@ -7,8 +7,6 @@ from threading import Lock
 from typing import Optional
 import weakref
 
-from dandi.validate import validate_bids
-
 from .bases import GenericAsset, LocalFileAsset, NWBAsset
 from .zarr import ZarrAsset
 
@@ -45,6 +43,9 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
     def _validate(self) -> None:
         with self._lock:
             if self._dataset_errors is None:
+                # Import here to avoid circular import
+                from dandi.validate import validate_bids
+
                 bids_paths = [str(self.filepath)] + [
                     str(asset.filepath) for asset in self.dataset_files
                 ]
