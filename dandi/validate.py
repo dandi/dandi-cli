@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import Iterator, List, Optional, Tuple, Union
 
+import appdirs
+
 from .files import find_dandi_files
 
 # TODO: provide our own "errors" records, which would also include warnings etc
@@ -10,7 +12,8 @@ def validate_bids(
     *paths: Union[str, Path],
     schema_version: Optional[str] = None,
     devel_debug: bool = False,
-    report: Optional[str] = None,
+    report: bool = False,
+    report_path: str = "",
 ) -> dict:
     """Validate BIDS paths.
 
@@ -22,26 +25,32 @@ def validate_bids(
         BIDS schema version to use, this setting will override the version specified in the dataset.
     devel_debug : bool, optional
         Whether to trigger debugging in the BIDS validator.
-    report_path : bool or str, optional
-        If `True` a log will be written using the standard output path of `.write_report()`.
-        If string, the string will be used as the output path.
-        If the variable evaluates as False, no log will be written.
+    report : bool, optional
+        Whether to write a BIDS validator report inside the DANDI log directory.
+    report_path : str, optional
+        Path underneath which to write a validation report, this option implies `report`.
 
     Returns
     -------
     dict
         Dictionary reporting required patterns not found and existing filenames not matching any
         patterns.
-
-    Notes
-    -----
-    Can be used from bash, as:
-        DANDI_DEVEL=1 dandi validate-bids --schema="1.7.0+012+dandi001" --report="my.log" /my/path
     """
-    from .bids_validator_xs import validate_bids as validate_bids_
 
+    from .support.bids.validator import validate_bids as validate_bids_
+
+    if report and not report_path:
+        log_dir = appdirs.user_log_dir("dandi-cli", "dandi")
+        report_path = "{log_dir}/bids-validator-report_{{datetime}}-{{pid}}.log"
+        report_path = report_path.format(
+            log_dir=log_dir,
+        )
     validation_result = validate_bids_(
-        paths, schema_version=schema_version, debug=devel_debug, report_path=report
+        paths,
+        schema_version=schema_version,
+        schema_reference_root="{module_path}/schemadata",
+        debug=devel_debug,
+        report_path=report_path,
     )
     return dict(validation_result)
 

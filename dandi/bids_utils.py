@@ -11,7 +11,7 @@ def is_valid(
     Parameters
     ----------
     validation_result: dict
-        Dictionary as returned by `dandi.bids_validator_xs.validate_bids()`.
+        Dictionary as returned by `dandi.support.bids.validator.validate_bids()`.
     allow_missing_files: bool, optional
         Whether to consider the dataset invalid if any mandatory files are not present.
     allow_invalid_filenames: bool, optional
