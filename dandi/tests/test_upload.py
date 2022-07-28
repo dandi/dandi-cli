@@ -181,9 +181,20 @@ def test_upload_sync_folder(
         text_dandiset.dandiset.get_asset_by_path("subdir2/banana.txt")
 
 
-def test_upload_bids(mocker: MockerFixture, bids_dandiset: SampleDandiset) -> None:
+def test_upload_bids_invalid(
+    mocker: MockerFixture, bids_dandiset_invalid: SampleDandiset
+) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
-    bids_dandiset.upload(existing="forced")
+    bids_dandiset_invalid.upload(existing="forced")
+    # Check whether upload failed
+    iter_upload_spy.assert_not_called()
+
+
+def test_upload_bids_validation_ignore(
+    mocker: MockerFixture, bids_dandiset: SampleDandiset
+) -> None:
+    iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
+    bids_dandiset.upload(existing="forced", validation="ignore")
     # Check whether upload was run
     iter_upload_spy.assert_called()
     # Check existence of assets:
@@ -196,11 +207,9 @@ def test_upload_bids(mocker: MockerFixture, bids_dandiset: SampleDandiset) -> No
     dandiset.get_asset_by_path("sub-Sub1/anat/sub-Sub1_T1w.nii.gz")
 
 
-def test_upload_bids_validation_ignore(
-    mocker: MockerFixture, bids_dandiset: SampleDandiset
-) -> None:
+def test_upload_bids(mocker: MockerFixture, bids_dandiset: SampleDandiset) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
-    bids_dandiset.upload(existing="forced", validation="ignore")
+    bids_dandiset.upload(existing="forced")
     # Check whether upload was run
     iter_upload_spy.assert_called()
     # Check existence of assets:
