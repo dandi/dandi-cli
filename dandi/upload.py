@@ -452,12 +452,12 @@ def _bids_discover_and_validate(
                 allow_missing_files=validation == "ignore",
                 allow_invalid_filenames=validation == "ignore",
             )
-            (valid_datasets if valid else invalid_datasets).append(str(bd))
+            (valid_datasets if valid else invalid_datasets).append(bd)
         if invalid_datasets:
             raise RuntimeError(
                 f"Found {pluralize(len(invalid_datasets), 'BIDS dataset')}, which did not "
                 "pass validation:\n * "
-                + "\n * ".join(invalid_datasets)
+                + "\n * ".join([str(i) for i in invalid_datasets])
                 + "\nTo resolve "
                 "this, perform the required changes or set the validation parameter to "
                 '"skip" or "ignore".'
