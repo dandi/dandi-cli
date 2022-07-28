@@ -102,6 +102,9 @@ jobs:
     - name: Dump Docker Compose logs
       if: failure() && startsWith(matrix.os, 'ubuntu')
       run: |
+        docker -v
+        docker-compose -v
+        docker compose -v
         docker-compose \
           -f dandi/tests/data/dandiarchive-docker/docker-compose.yml \
           logs --timestamps
