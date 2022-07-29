@@ -306,7 +306,7 @@ def docker_compose_setup() -> Iterator[Dict[str, str]]:
 
         if create:
             run(
-                ["docker-compose", "up", "-d", "django", "celery", "redirector"],
+                ["docker-compose", "up", "-d", "django", "celery"],
                 cwd=str(LOCAL_DOCKER_DIR),
                 env=env,
                 check=True,
