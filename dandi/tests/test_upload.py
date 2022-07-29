@@ -188,6 +188,11 @@ def test_upload_bids_invalid(
     with pytest.raises(RuntimeError):
         bids_dandiset_invalid.upload(existing="forced")
     iter_upload_spy.assert_not_called()
+    # Does validation ignoring work?
+    bids_dandiset_invalid.upload(existing="forced", validation="ignore")
+    iter_upload_spy.assert_called_once()
+    # Are files uploaded?
+    dandiset.get_asset_by_path("dataset_description.json")
 
 
 def test_upload_bids_validation_ignore(
