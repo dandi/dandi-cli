@@ -450,7 +450,8 @@ def _bids_discover_and_validate(
         else:
             bids_datasets_to_validate = bids_datasets
         bids_datasets_to_validate.sort()
-        validated_datasets = []
+        valid_datasets: List[Path] = []
+        invalid_datasets: List[Path] = []
         for bd in bids_datasets_to_validate:
             validator_result = validate_bids(bd)
             valid = is_valid(
@@ -458,8 +459,16 @@ def _bids_discover_and_validate(
                 allow_missing_files=validation == "ignore",
                 allow_invalid_filenames=validation == "ignore",
             )
-            if valid:
-                validated_datasets.append(bd)
-        return validated_datasets
+            (valid_datasets if valid else invalid_datasets).append(bd)
+        if invalid_datasets:
+            raise RuntimeError(
+                f"Found {pluralize(len(invalid_datasets), 'BIDS dataset')}, which did not "
+                "pass validation:\n * "
+                + "\n * ".join([str(i) for i in invalid_datasets])
+                + "\nTo resolve "
+                "this, perform the required changes or set the validation parameter to "
+                '"skip" or "ignore".'
+            )
+        return valid_datasets
     else:
         return bids_datasets
