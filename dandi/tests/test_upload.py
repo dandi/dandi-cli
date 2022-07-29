@@ -191,10 +191,9 @@ def test_upload_bids_invalid(
     iter_upload_spy.assert_not_called()
     # Does validation ignoring work?
     bids_dandiset_invalid.upload(existing="forced", validation="ignore")
-    iter_upload_spy.assert_called_once()
+    iter_upload_spy.assert_called()
     # Check existence of assets:
     dandiset = bids_dandiset_invalid.dandiset
-    # Check file existence:
     dandiset.get_asset_by_path("dataset_description.json")
 
 
