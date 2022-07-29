@@ -193,7 +193,7 @@ def test_upload_bids_invalid(
     bids_dandiset_invalid.upload(existing="forced", validation="ignore")
     iter_upload_spy.assert_called_once()
     # Are files uploaded?
-    dandiset.get_asset_by_path("dataset_description.json")
+    bids_dandiset_invalid.get_asset_by_path("dataset_description.json")
 
 
 def test_upload_bids_validation_ignore(
