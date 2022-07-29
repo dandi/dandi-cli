@@ -7,17 +7,6 @@
 version: '2.1'
 
 services:
-  redirector:
-    image: dandiarchive/dandiarchive-redirector
-    depends_on:
-      - django
-    ports:
-      - "8079:8080"
-    environment:
-      #GUI_URL: http://localhost:8086
-      ABOUT_URL: http://www.dandiarchive.org
-      API_URL: http://localhost:8000/api
-
   django:
     image: dandiarchive/dandiarchive-api
     command: ["./manage.py", "runserver", "--nothreading", "0.0.0.0:8000"]
