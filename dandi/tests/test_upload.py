@@ -185,8 +185,8 @@ def test_upload_bids_invalid(
     mocker: MockerFixture, bids_dandiset_invalid: SampleDandiset
 ) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
-    bids_dandiset_invalid.upload(existing="forced")
-    # Check whether upload failed
+    with pytest.raises(RuntimeError):
+        bids_dandiset_invalid.upload(existing="forced")
     iter_upload_spy.assert_not_called()
 
 
