@@ -636,9 +636,7 @@ def extract_session(metadata: dict) -> Optional[List[models.Session]]:
     ]
 
 
-def extract_digest(
-    metadata: dict,
-) -> Optional[Dict[models.DigestType, str]]:
+def extract_digest(metadata: dict) -> Optional[Dict[models.DigestType, str]]:
     if "digest" in metadata:
         return {models.DigestType[metadata["digest_type"]]: metadata["digest"]}
     else:
@@ -868,9 +866,7 @@ neurodata_typemap: Dict[str, Neurodatum] = {
 }
 
 
-def process_ndtypes(
-    asset: models.BareAsset, nd_types: Iterable[str]
-) -> models.BareAsset:
+def process_ndtypes(metadata: Dict[str, Any], nd_types: Iterable[str]) -> None:
     approach = set()
     technique = set()
     variables = set()
@@ -883,12 +879,13 @@ def process_ndtypes(
         if neurodata_typemap[val]["technique"]:
             technique.add(neurodata_typemap[val]["technique"])
         variables.add(val)
-    asset.approach = [models.ApproachType(name=val) for val in approach]
-    asset.measurementTechnique = [
+    metadata["approach"] = [models.ApproachType(name=val) for val in approach]
+    metadata["measurementTechnique"] = [
         models.MeasurementTechniqueType(name=val) for val in technique
     ]
-    asset.variableMeasured = [models.PropertyValue(value=val) for val in variables]
-    return asset
+    metadata["variableMeasured"] = [
+        models.PropertyValue(value=val) for val in variables
+    ]
 
 
 def nwb2asset(
@@ -904,48 +901,46 @@ def nwb2asset(
             )
     start_time = datetime.now().astimezone()
     metadata = get_metadata(nwb_path)
-    if digest is not None:
-        metadata["digest"] = digest.value
-        metadata["digest_type"] = digest.algorithm.name
-    metadata["contentSize"] = op.getsize(nwb_path)
-    metadata["encodingFormat"] = "application/x-nwb"
-    metadata["dateModified"] = get_utcnow_datetime()
-    metadata["blobDateModified"] = ensure_datetime(os.stat(nwb_path).st_mtime)
-    metadata["path"] = str(nwb_path)
-    if metadata["blobDateModified"] > metadata["dateModified"]:
-        lgr.warning(
-            "mtime %s of %s is in the future", metadata["blobDateModified"], nwb_path
-        )
-    asset = metadata2asset(metadata)
-    asset = process_ndtypes(asset, metadata["nd_types"])
+    asset_md = prepare_metadata(metadata)
+    process_ndtypes(asset_md, metadata["nd_types"])
     end_time = datetime.now().astimezone()
-    if asset.wasGeneratedBy is None:
-        asset.wasGeneratedBy = []
-    asset.wasGeneratedBy.append(get_generator(start_time, end_time))
-    return asset
+    add_common_metadata(asset_md, nwb_path, start_time, end_time, digest)
+    asset_md["encodingFormat"] = "application/x-nwb"
+    asset_md["path"] = str(nwb_path)
+    return models.BareAsset(**asset_md)
 
 
 def get_default_metadata(
     path: Union[str, Path], digest: Optional[Digest] = None
 ) -> models.BareAsset:
-    start_time = datetime.now().astimezone()
+    metadata: Dict[str, Any] = {}
+    start_time = end_time = datetime.now().astimezone()
+    add_common_metadata(metadata, path, start_time, end_time, digest)
+    return models.BareAsset.unvalidated(**metadata)
+
+
+def add_common_metadata(
+    metadata: Dict[str, Any],
+    path: Union[str, Path],
+    start_time: datetime,
+    end_time: datetime,
+    digest: Optional[Digest] = None,
+) -> None:
     if digest is not None:
-        digest_model = digest.asdict()
+        metadata["digest"] = digest.asdict()
     else:
-        digest_model = {}
-    dateModified = get_utcnow_datetime()
-    blobDateModified = ensure_datetime(os.stat(path).st_mtime)
-    if blobDateModified > dateModified:
-        lgr.warning("mtime %s of %s is in the future", blobDateModified, path)
-    end_time = datetime.now().astimezone()
-    return models.BareAsset.unvalidated(
-        contentSize=os.path.getsize(path),
-        digest=digest_model,
-        dateModified=dateModified,
-        blobDateModified=blobDateModified,
-        wasGeneratedBy=[get_generator(start_time, end_time)],
-        encodingFormat=get_mime_type(str(path)),
+        metadata["digest"] = {}
+    metadata["dateModified"] = get_utcnow_datetime()
+    metadata["blobDateModified"] = ensure_datetime(os.stat(path).st_mtime)
+    if metadata["blobDateModified"] > metadata["dateModified"]:
+        lgr.warning(
+            "mtime %s of %s is in the future", metadata["blobDateModified"], path
+        )
+    metadata["contentSize"] = os.path.getsize(path)
+    metadata.setdefault("wasGeneratedBy", []).append(
+        get_generator(start_time, end_time)
     )
+    metadata["encodingFormat"] = get_mime_type(str(path))
 
 
 def get_generator(start_time: datetime, end_time: datetime) -> models.Activity:
@@ -967,6 +962,5 @@ def get_generator(start_time: datetime, end_time: datetime) -> models.Activity:
     )
 
 
-def metadata2asset(metadata: dict) -> models.BareAsset:
-    bare_dict = extract_model(models.BareAsset, metadata).json_dict()
-    return models.BareAsset(**bare_dict)
+def prepare_metadata(metadata: dict) -> Dict[str, Any]:
+    return cast(Dict[str, Any], extract_model(models.BareAsset, metadata).json_dict())

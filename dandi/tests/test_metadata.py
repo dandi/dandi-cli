@@ -1,4 +1,3 @@
-from copy import deepcopy
 from datetime import datetime, timedelta
 import json
 from pathlib import Path
@@ -7,7 +6,6 @@ from typing import Any, Dict, Optional, Tuple, Union
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dandischema.metadata import validate
 from dandischema.models import AgeReferenceType
-from dandischema.models import BareAsset as BareAssetMeta
 from dandischema.models import Dandiset as DandisetMeta
 from dandischema.models import PropertyValue
 from dateutil.tz import tzutc
@@ -19,9 +17,9 @@ from ..metadata import (
     extract_age,
     extract_species,
     get_metadata,
-    metadata2asset,
     parse_age,
     parse_purlobourl,
+    prepare_metadata,
     process_ndtypes,
     timedelta2duration,
 )
@@ -266,14 +264,12 @@ def test_timedelta2duration(td: timedelta, duration: str) -> None:
         ),
     ],
 )
-def test_metadata2asset(filename: str, metadata: Dict[str, Any]) -> None:
-    data = metadata2asset(metadata)
+def test_prepare_metadata(filename: str, metadata: Dict[str, Any]) -> None:
+    data = prepare_metadata(metadata)
     with (METADATA_DIR / filename).open() as fp:
         data_as_dict = json.load(fp)
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
-    assert data == BareAssetMeta(**data_as_dict)
-    bare_dict = deepcopy(data_as_dict)
-    assert data.json_dict() == bare_dict
+    assert data == data_as_dict
     data_as_dict["identifier"] = "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be"
     # as of schema-0.5.0 (https://github.com/dandi/dandischema/pull/52)
     # contentUrl is required, and validate below would map into Asset,
@@ -633,17 +629,17 @@ def test_species():
     ],
 )
 def test_ndtypes(ndtypes, asset_dict):
-    asset = BareAssetMeta(
-        contentSize=1,
-        encodingFormat="application/x-nwb",
-        digest={"dandi:dandi-etag": "0" * 32 + "-1"},
-        path="test.nwb",
-    )
-    asset = process_ndtypes(asset, ndtypes)
+    metadata = {
+        "contentSize": 1,
+        "encodingFormat": "application/x-nwb",
+        "digest": {"dandi:dandi-etag": "0" * 32 + "-1"},
+        "path": "test.nwb",
+    }
+    process_ndtypes(metadata, ndtypes)
     for key in ["approach", "measurementTechnique"]:
         if asset_dict.get(key) is None:
-            assert getattr(asset, key) == []
+            assert metadata[key] == []
         else:
-            assert getattr(asset, key)[0].name == asset_dict.get(key)[0]
+            assert metadata[key][0].name == asset_dict.get(key)[0]
     key = "variableMeasured"
-    assert getattr(asset, key)[0].value == asset_dict.get(key)[0]
+    assert metadata[key][0].value == asset_dict.get(key)[0]
