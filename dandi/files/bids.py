@@ -2,13 +2,23 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from threading import Lock
-from typing import Optional
+from typing import Any, Optional
 import weakref
+
+from dandischema.models import BareAsset
 
 from .bases import GenericAsset, LocalFileAsset, NWBAsset
 from .zarr import ZarrAsset
+from ..metadata import add_common_metadata, prepare_metadata
+from ..misctypes import Digest
+
+BIDS_TO_DANDI = {
+    "subject": "subject_id",
+    "session": "session_id",
+}
 
 
 @dataclass
@@ -28,6 +38,11 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
     #: A list of validation error messages for individual assets in the
     #: dataset, keyed by `bids_path` properties; populated by `_validate()`
     _asset_errors: Optional[dict[str, list[str]]] = None
+
+    #: Asset metadata (in the form of a `dict` of BareAsset fields) for
+    #: individual assets in the dataset, keyed by `bids_path` properties;
+    #: populated by `_validate()`
+    _asset_metadata: Optional[dict[str, dict[str, Any]]] = None
 
     #: Threading lock needed in case multiple assets are validated in parallel
     #: during upload
@@ -68,8 +83,21 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                     self._asset_errors[bids_path].append(
                         "File not matched by any regex schema entry"
                     )
+                self._asset_metadata = defaultdict(dict)
+                for meta in results["match_listing"]:
+                    bids_path = (
+                        Path(meta.pop("path")).relative_to(self.bids_root).as_posix()
+                    )
+                    meta = {
+                        BIDS_TO_DANDI[k]: v
+                        for k, v in meta.items()
+                        if k in BIDS_TO_DANDI
+                    }
+                    # meta["bids_schema_version"] = results["bids_schema_version"]
+                    self._asset_metadata[bids_path] = prepare_metadata(meta)
 
     def get_asset_errors(self, asset: BIDSAsset) -> list[str]:
+        """:meta private:"""
         self._validate()
         errors: list[str] = []
         if self._dataset_errors:
@@ -77,6 +105,12 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         assert self._asset_errors is not None
         errors.extend(self._asset_errors[asset.bids_path])
         return errors
+
+    def get_asset_metadata(self, asset: BIDSAsset) -> dict[str, Any]:
+        """:meta private:"""
+        self._validate()
+        assert self._asset_metadata is not None
+        return self._asset_metadata[asset.bids_path]
 
     def get_validation_errors(
         self,
@@ -86,6 +120,13 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         self._validate()
         assert self._dataset_errors is not None
         return list(self._dataset_errors)
+
+    def get_metadata(
+        self,
+        digest: Optional[Digest] = None,
+        ignore_errors: bool = True,
+    ) -> BareAsset:
+        raise NotImplementedError
 
 
 @dataclass
@@ -131,6 +172,17 @@ class BIDSAsset(LocalFileAsset):
     ) -> list[str]:
         return self.bids_dataset_description.get_asset_errors(self)
 
+    def get_metadata(
+        self,
+        digest: Optional[Digest] = None,
+        ignore_errors: bool = True,
+    ) -> BareAsset:
+        metadata = self.bids_dataset_description.get_asset_metadata(self)
+        start_time = end_time = datetime.now().astimezone()
+        add_common_metadata(metadata, self.filepath, start_time, end_time, digest)
+        metadata["path"] = self.path
+        return BareAsset(**metadata)
+
 
 class NWBBIDSAsset(BIDSAsset, NWBAsset):
     """An NWB file in a BIDS dataset"""
@@ -143,6 +195,17 @@ class NWBBIDSAsset(BIDSAsset, NWBAsset):
         return NWBAsset.get_validation_errors(
             self, schema_version, devel_debug
         ) + BIDSAsset.get_validation_errors(self)
+
+    def get_metadata(
+        self,
+        digest: Optional[Digest] = None,
+        ignore_errors: bool = True,
+    ) -> BareAsset:
+        bids_metadata = BIDSAsset.get_metadata(self)
+        nwb_metadata = NWBAsset.get_metadata(self, digest, ignore_errors)
+        return BareAsset(
+            **{**bids_metadata.dict(), **nwb_metadata.dict(exclude_none=True)}
+        )
 
 
 class ZarrBIDSAsset(BIDSAsset, ZarrAsset):

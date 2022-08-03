@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from functools import lru_cache
-import itertools
 import os
 import os.path as op
 from pathlib import Path
@@ -44,48 +43,6 @@ from .utils import ensure_datetime, get_mime_type, get_utcnow_datetime
 
 lgr = get_logger()
 
-# Remove hard-coding when current version fallback is merged.
-
-BIDS_TO_DANDI = {
-    "subject": "subject_id",
-    "session": "session_id",
-}
-
-
-def _rename_bids_keys(bids_metadata, mapping=BIDS_TO_DANDI):
-    """Standardize BIDS metadata field naming to match DANDI."""
-    return {mapping.get(k, k): v for k, v in bids_metadata.items()}
-
-
-def _path_in_bids(
-    check_path, bids_marker="dataset_description.json", end_marker="dandiset.yaml"
-):
-    """Determine whether a path is a member of a BIDS dataset.
-
-    Parameters
-    ----------
-    check_path: str or Path
-    bids_marker: str, optional
-        String giving a filename, the existence of which in a directory will mark it as a
-        BIDS dataset root directory.
-    end_marker: str, optional
-        String giving a filename, the existence of which in a directory will end the
-        search.
-
-    Returns
-    -------
-    bool
-    """
-    check_path = Path(check_path)
-    for dir_level in itertools.chain([check_path], check_path.parents):
-        bids_marker_candidate = dir_level / bids_marker
-        end_marker_candidate = dir_level / end_marker
-        if bids_marker_candidate.is_file() or bids_marker_candidate.is_symlink():
-            return True
-        if end_marker_candidate.is_file() or end_marker_candidate.is_symlink():
-            return False
-    return False
-
 
 # Disable this for clean hacking
 @metadata_cache.memoize_path
@@ -114,18 +71,6 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
         except ValueError as exc:
             lgr.debug("Failed to get metadata for %s: %s", path, exc)
             return None
-
-    # Somewhat less fragile search than previous proposals,
-    # could still be augmented with `_is_nwb` to disambiguate both cases
-    # at the detection level.
-    if _path_in_bids(path):
-        from .validate import validate_bids
-
-        _meta = validate_bids(path)
-        meta = _meta["match_listing"][0]
-        meta["bids_schema_version"] = _meta["bids_schema_version"]
-        meta = _rename_bids_keys(meta)
-        return meta
 
     if nwb_has_external_links(path):
         raise NotImplementedError(
