@@ -53,6 +53,7 @@ from .files import LocalAsset, find_dandi_files
 from .support.digests import get_digest, get_zarr_checksum
 from .support.iterators import IteratorWithAggregation
 from .support.pyout import naturalsize
+from .support.typing import Literal
 from .utils import (
     abbrev_prompt,
     ensure_datetime,
@@ -130,6 +131,7 @@ def download(
         get_metadata=get_metadata,
         get_assets=get_assets,
         jobs_per_zarr=jobs_per_zarr,
+        on_error="yield" if format == "pyout" else "raise",
         **kw,
     )
 
@@ -207,6 +209,7 @@ def download_generator(
     get_metadata: bool = True,
     get_assets: bool = True,
     jobs_per_zarr: Optional[int] = None,
+    on_error: Literal["raise", "yield"] = "raise",
 ) -> Iterator[dict]:
     """A generator for downloads of files, folders, or entire dandiset from DANDI
     (as identified by URL)
@@ -309,11 +312,29 @@ def download_generator(
                     lock=lock,
                 )
 
+            # If exception is raised we might just raise it, or yield
+            # an error record
+            gen = {
+                "raise": _download_generator,
+                "yield": _download_generator_guard(path, _download_generator),
+            }[on_error]
+
             if yield_generator_for_fields:
-                yield {"path": path, yield_generator_for_fields: _download_generator}
+                yield {"path": path, yield_generator_for_fields: gen}
             else:
-                for resp in _download_generator:
+                for resp in gen:
                     yield dict(resp, path=path)
+
+
+def _download_generator_guard(path: str, generator: Iterator[dict]) -> Iterator[dict]:
+    try:
+        yield from generator
+    except Exception as exc:
+        lgr.exception("Caught while downloading %s:", path)
+        yield {
+            "status": "error",
+            "message": str(exc.__class__.__name__),
+        }
 
 
 class ItemsSummary:
