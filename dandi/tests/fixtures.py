@@ -8,7 +8,6 @@ from pathlib import Path
 import re
 import shutil
 from subprocess import DEVNULL, check_output, run
-import sys
 import tempfile
 from time import sleep
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union
@@ -179,10 +178,7 @@ def organized_nwb_dir2(
 
 
 if TYPE_CHECKING:
-    if sys.version_info >= (3, 8):
-        from typing import Literal
-    else:
-        from typing_extensions import Literal
+    from ..support.typing import Literal
 
     Scope = Union[
         Literal["session"],
@@ -448,7 +444,9 @@ def bids_dandiset(new_dandiset: SampleDandiset, bids_examples: str) -> SampleDan
 
 
 @pytest.fixture()
-def bids_dandiset_invalid(new_dandiset: SampleDandiset, bids_examples: str) -> SampleDandiset:
+def bids_dandiset_invalid(
+    new_dandiset: SampleDandiset, bids_examples: str
+) -> SampleDandiset:
     copytree(
         os.path.join(bids_examples, "invalid_pet001"),
         str(new_dandiset.dspath) + "/",

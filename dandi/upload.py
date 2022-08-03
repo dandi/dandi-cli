@@ -3,7 +3,6 @@ from functools import reduce
 import os.path
 from pathlib import Path
 import re
-import sys
 import time
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Tuple, Union
 
@@ -26,10 +25,7 @@ from .misctypes import Digest
 from .utils import ensure_datetime, get_instance, pluralize
 
 if TYPE_CHECKING:
-    if sys.version_info >= (3, 8):
-        from typing import TypedDict
-    else:
-        from typing_extensions import TypedDict
+    from .support.typing import TypedDict
 
     class Uploaded(TypedDict):
         size: int

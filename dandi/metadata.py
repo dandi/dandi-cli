@@ -7,7 +7,6 @@ import os
 import os.path as op
 from pathlib import Path
 import re
-import sys
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -664,10 +663,7 @@ def extract_field(field: str, metadata: dict) -> Any:
 
 
 if TYPE_CHECKING:
-    if sys.version_info >= (3, 8):
-        from typing import TypedDict
-    else:
-        from typing_extensions import TypedDict
+    from .support.typing import TypedDict
 
     class Neurodatum(TypedDict):
         module: str
