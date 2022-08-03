@@ -328,12 +328,10 @@ def download_generator(
 
 def _download_generator_guard(path: str, generator: Iterator[dict]) -> Iterator[dict]:
     try:
-        for resp in generator:
-            yield dict(resp, path=path)
+        yield from generator
     except Exception as exc:
-        lgr.error("Caught while downloading %s", path, exc_info=exc)
+        lgr.exception("Caught while downloading %s:", path)
         yield {
-            "path": path,
             "status": "error",
             "message": str(exc.__class__.__name__),
         }
