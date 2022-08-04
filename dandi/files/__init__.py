@@ -66,6 +66,7 @@ __all__ = [
     "ZarrStat",
     "dandi_file",
     "find_dandi_files",
+    "find_bids_dataset_description",
 ]
 
 lgr = get_logger()
@@ -262,3 +263,26 @@ class BIDSFileFactory(DandiFileFactory):
         )
         self.bids_dataset_description.dataset_files.append(df)
         return df
+
+
+def find_bids_dataset_description(
+    dirpath: str | Path, dandiset_path: Optional[str | Path] = None
+) -> Optional[BIDSDatasetDescriptionAsset]:
+    """
+    Look for a :file:`dataset_description.json` file in the directory
+    ``dirpath`` and each of its parents, stopping when a :file:`dandiset.yaml`
+    file is found or ``dandiset_path`` is reached.
+    """
+    dirpath = Path(dirpath)
+    for d in (dirpath, *dirpath.parents):
+        bids_marker = d / BIDS_DATASET_DESCRIPTION
+        dandi_end = d / dandiset_metadata_file
+        if bids_marker.is_file() or bids_marker.is_symlink():
+            f = dandi_file(bids_marker, dandiset_path)
+            assert isinstance(f, BIDSDatasetDescriptionAsset)
+            return f
+        elif dandi_end.is_file() or dandi_end.is_symlink():
+            return None
+        elif dandiset_path is not None and d == Path(dandiset_path):
+            return None
+    return None
