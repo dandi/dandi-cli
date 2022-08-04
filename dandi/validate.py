@@ -37,7 +37,7 @@ def validate_bids(
         patterns.
     """
 
-    from .support.bids.validator import validate_bids as validate_bids_
+    from bidsschematools.validator import validate_bids as validate_bids_
 
     if report and not report_path:
         log_dir = appdirs.user_log_dir("dandi-cli", "dandi")
