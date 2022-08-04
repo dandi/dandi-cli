@@ -19,7 +19,7 @@ Example output:
       redirector: https://dandiarchive.org
     dandi-api-local-docker-tests:
       api: http://localhost:8000/api
-      gui: null
+      gui: http://localhost:8085
       redirector: null
     dandi-devel:
       api: null

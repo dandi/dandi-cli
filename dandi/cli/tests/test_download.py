@@ -3,9 +3,10 @@ from pathlib import Path
 
 import click
 from click.testing import CliRunner
+import pytest
 
 from ..command import download
-from ...consts import dandiset_metadata_file
+from ...consts import dandiset_metadata_file, known_instances
 
 
 def test_download_defaults(mocker):
@@ -105,6 +106,10 @@ def test_download_gui_instance_in_dandiset(mocker):
     )
 
 
+@pytest.mark.skipif(
+    bool(known_instances["dandi-api-local-docker-tests"].gui),
+    reason="this instance now has GUI URL",
+)
 def test_download_api_instance_in_dandiset(mocker):
     mock_download = mocker.patch("dandi.download.download")
     runner = CliRunner()
