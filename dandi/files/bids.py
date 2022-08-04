@@ -121,12 +121,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         assert self._dataset_errors is not None
         return list(self._dataset_errors)
 
-    def get_metadata(
-        self,
-        digest: Optional[Digest] = None,
-        ignore_errors: bool = True,
-    ) -> BareAsset:
-        raise NotImplementedError
+    # get_metadata(): inherit use of default metadata from LocalFileAsset
 
 
 @dataclass
