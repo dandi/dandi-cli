@@ -48,7 +48,6 @@ def validate_bids(
     validation_result = validate_bids_(
         paths,
         schema_version=schema_version,
-        schema_reference_root="{module_path}/schemadata",
         debug=devel_debug,
         report_path=report_path,
     )
