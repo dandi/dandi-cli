@@ -20,7 +20,7 @@ install them in your Python (native, virtualenv, or conda) environment via
 
 or
 
-   conda install -c conda-forge dandi
+    conda install -c conda-forge dandi
 
 if you are in a conda environment.
 
