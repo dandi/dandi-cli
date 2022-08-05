@@ -313,3 +313,31 @@ def test_upload_zarr(new_dandiset, tmp_path):
         assert not (file_src.filetree / "arr_2" / "0").exists()
         assert not (file_src.filetree / "arr_2" / "0").is_file()
         assert not (file_src.filetree / "arr_2" / "0").is_dir()
+
+
+def test_zarr_properties(tmp_path: Path) -> None:
+    # This test assumes that the Zarr serialization format never changes
+    filepath = tmp_path / "example.zarr"
+    dt = np.dtype("<i8")
+    zarr.save(filepath, np.arange(1000, dtype=dt), np.arange(1000, 0, -1, dtype=dt))
+    zf = dandi_file(filepath)
+    assert isinstance(zf, ZarrAsset)
+    assert zf.filetree.size == 1516
+    assert zf.filetree.get_digest().value == "4313ab36412db2981c3ed391b38604d6-5--1516"
+    entries = sorted(zf.iterfiles(include_dirs=True), key=attrgetter("parts"))
+    assert [(str(e), e.size, e.get_digest().value) for e in entries] == [
+        (".zgroup", 24, "e20297935e73dd0154104d4ea53040ab"),
+        ("arr_0", 746, "51c74ec257069ce3a555bdddeb50230a-2--746"),
+        ("arr_0/.zarray", 315, "9e30a0a1a465e24220d4132fdd544634"),
+        ("arr_0/0", 431, "ed4e934a474f1d2096846c6248f18c00"),
+        ("arr_1", 746, "7b99a0ad9bd8bb3331657e54755b1a31-2--746"),
+        ("arr_1/.zarray", 315, "9e30a0a1a465e24220d4132fdd544634"),
+        ("arr_1/0", 431, "fba4dee03a51bde314e9713b00284a93"),
+    ]
+    assert zf.get_digest().value == "4313ab36412db2981c3ed391b38604d6-5--1516"
+    stat = zf.stat()
+    assert stat.size == 1516
+    assert stat.digest.value == "4313ab36412db2981c3ed391b38604d6-5--1516"
+    assert sorted(stat.files, key=attrgetter("parts")) == [
+        e for e in entries if e.is_file()
+    ]

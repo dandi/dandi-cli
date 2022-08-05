@@ -152,11 +152,11 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 if p.is_dir():
                     st = dirstat(p)
                     size += st.size
-                    dir_md5s[str(p)] = (st.digest.value, st.size)
+                    dir_md5s[p.name] = (st.digest.value, st.size)
                     files.extend(st.files)
                 else:
                     size += p.size
-                    file_md5s[str(p)] = (md5file_nocache(p.filepath), p.size)
+                    file_md5s[p.name] = (md5file_nocache(p.filepath), p.size)
                     files.append(p)
             return ZarrStat(
                 size=size,
