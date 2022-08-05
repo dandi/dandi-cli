@@ -130,6 +130,10 @@ def find_dandi_files(
                 try:
                     df = dandi_file(p, dandiset_path, bids_dataset_description=bidsdd)
                 except UnknownAssetError:
+                    # The directory does not have a recognized file extension
+                    # (ie., it's not a Zarr or any other directory asset type
+                    # we may add later), so traverse through it as a regular
+                    # directory.
                     if (p / BIDS_DATASET_DESCRIPTION).exists():
                         bids2 = dandi_file(p / BIDS_DATASET_DESCRIPTION, dandiset_path)
                         assert isinstance(bids2, BIDSDatasetDescriptionAsset)
