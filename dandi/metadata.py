@@ -47,7 +47,8 @@ lgr = get_logger()
 # Disable this for clean hacking
 @metadata_cache.memoize_path
 def get_metadata(path: Union[str, Path]) -> Optional[dict]:
-    """Get selected metadata from a .nwb file or a dandiset directory
+    """
+    Get "flatdata" from a .nwb file or a Dandiset directory
 
     If a directory given and it is not a Dandiset, None is returned
 
@@ -871,6 +872,10 @@ def add_common_metadata(
     end_time: datetime,
     digest: Optional[Digest] = None,
 ) -> None:
+    """
+    Update a `dict` of raw "schemadata" with the fields that are common to both
+    NWB assets and non-NWB assets
+    """
     if digest is not None:
         metadata["digest"] = digest.asdict()
     else:
@@ -908,4 +913,14 @@ def get_generator(start_time: datetime, end_time: datetime) -> models.Activity:
 
 
 def prepare_metadata(metadata: dict) -> Dict[str, Any]:
+    """
+    Convert "flatdata" [1]_ for an asset into raw [2]_ "schemadata" [3]_
+
+    .. [1] a flat `dict` mapping strings to strings & other primitive types;
+       returned by `get_metadata()`
+
+    .. [2] i.e, a `dict` rather than a `BareAsset`
+
+    .. [3] metadata in the form used by the ``dandischema`` library
+    """
     return cast(Dict[str, Any], extract_model(models.BareAsset, metadata).json_dict())
