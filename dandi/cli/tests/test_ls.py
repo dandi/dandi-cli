@@ -50,6 +50,7 @@ def test_smoke(simple1_nwb_metadata, simple1_nwb, format):
 
 
 @mark.skipif_no_network
+@pytest.mark.xfail(reason="https://github.com/dandi/dandi-cli/issues/1097")
 def test_ls_bids_file(bids_examples):
     bids_file_path = "asl003/sub-Sub1/anat/sub-Sub1_T1w.nii.gz"
     bids_file_path = os.path.join(bids_examples, bids_file_path)
