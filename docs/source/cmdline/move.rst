@@ -90,3 +90,34 @@ set to a nonempty value.
 .. option:: --devel-debug
 
     Do not use pyout callbacks, do not swallow exceptions, do not parallelize.
+
+
+Examples
+--------
+
+- When working in a local clone of a Dandiset, a file
+  :file:`sub-01/sub-01_blah.nii.gz` can be renamed to
+  :file:`sub-02/sub-02_useful.nii.gz` in both the local clone and on the server
+  with::
+
+    dandi move sub-01/sub-01_blah.nii.gz sub-02/sub-02_useful.nii.gz
+
+  To rename the file only in the local or remote instance, insert ``--work-on
+  local`` or ``--work-on remote`` after ``move``.
+
+- When not working in a local clone of a Dandiset, a file can be renamed in a
+  remote Dandiset on a server by providing a resource identifier for the
+  Dandiset to the ``--dandiset`` option.  For example, in order to operate on
+  Dandiset 123456 on the main ``dandi`` instance, use::
+
+    dandi move --dandiset DANDI:123456 sub-01/sub-01_blah.nii.gz sub-02/sub-02_useful.nii.gz
+
+  To operate on Dandiset 123456 on ``dandi-staging``, you can use::
+
+    dandi move --dandiset https://gui-staging.dandiarchive.org/dandiset/123456 sub-01/sub-01_blah.nii.gz sub-02/sub-02_useful.nii.gz
+
+- To move the contents of a folder :file:`rawdata/` to the top level of a
+  Dandiset, you can use the ``--regex`` option to strip the ``rawdata/`` prefix
+  from the beginning of all matching asset paths::
+
+    dandi move --regex "^rawdata/" ""
