@@ -80,6 +80,9 @@ def move(
     to the current directory, if in a subdirectory of a Dandiset); if a path
     matches, the matching portion is replaced with the replacement string,
     after expanding any backreferences.
+
+    For more information, including examples, see
+    <https://dandi.rtfd.io/en/latest/cmdline/move.html>.
     """
 
     from .. import move as move_mod
