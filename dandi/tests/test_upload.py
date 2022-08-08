@@ -185,12 +185,10 @@ def test_upload_bids_invalid(
     mocker: MockerFixture, bids_dandiset_invalid: SampleDandiset
 ) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
-    # Does it fail when it should fail?
-    with pytest.raises(RuntimeError):
-        bids_dandiset_invalid.upload(existing="forced")
+    bids_dandiset_invalid.upload(existing="force")
     iter_upload_spy.assert_not_called()
     # Does validation ignoring work?
-    bids_dandiset_invalid.upload(existing="forced", validation="ignore")
+    bids_dandiset_invalid.upload(existing="force", validation="ignore")
     iter_upload_spy.assert_called()
     # Check existence of assets:
     dandiset = bids_dandiset_invalid.dandiset
@@ -201,7 +199,7 @@ def test_upload_bids_validation_ignore(
     mocker: MockerFixture, bids_dandiset: SampleDandiset
 ) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
-    bids_dandiset.upload(existing="forced", validation="ignore")
+    bids_dandiset.upload(existing="force", validation="ignore")
     # Check whether upload was run
     iter_upload_spy.assert_called()
     # Check existence of assets:
@@ -216,7 +214,7 @@ def test_upload_bids_validation_ignore(
 
 def test_upload_bids(mocker: MockerFixture, bids_dandiset: SampleDandiset) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
-    bids_dandiset.upload(existing="forced")
+    bids_dandiset.upload(existing="force")
     # Check whether upload was run
     iter_upload_spy.assert_called()
     # Check existence of assets:

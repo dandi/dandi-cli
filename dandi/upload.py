@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Tupl
 import click
 
 from . import lgr
-from .bids_utils import is_valid
 from .consts import DRAFT, dandiset_identifier_regex, dandiset_metadata_file
 from .dandiapi import RemoteAsset
 from .exceptions import NotFoundError
@@ -61,20 +60,6 @@ def upload(
             f"Found no {dandiset_metadata_file} anywhere in common ancestor of"
             " paths.  Use 'dandi download' or 'organize' first."
         )
-
-    # Pre-validate BIDS datasets before going for individual files.
-    bids_datasets = _bids_discover_and_validate(dandiset_.path, validation)
-
-    if bids_datasets:
-        _bids_datasets = [str(i) for i in bids_datasets]
-        if not allow_any_path:
-            lgr.info(
-                "Enabling --allow-any-path since we detected %s under the following "
-                "paths: %s",
-                pluralize(len(_bids_datasets), "BIDS dataset"),
-                ", ".join(_bids_datasets),
-            )
-            allow_any_path = True
 
     instance = get_instance(dandi_instance)
     assert instance.api is not None
@@ -398,77 +383,3 @@ def check_replace_asset(
 
 def skip_file(msg: Any) -> Dict[str, str]:
     return {"status": "skipped", "message": str(msg)}
-
-
-def _bids_discover_and_validate(
-    dandiset_path: str,
-    validation: Optional[str] = "require",
-) -> List[Path]:
-    """Temporary implementation for discovery and validation of BIDS datasets
-
-    References:
-    - unification of validation records: https://github.com/dandi/dandi-cli/issues/943
-    - validation "design doc": https://github.com/dandi/dandi-cli/pull/663
-    """
-    from .utils import find_files
-    from .validate import validate_bids
-
-    lgr.debug("Discovering root directories of BIDS datasets")
-    bids_descriptions = map(
-        Path,
-        find_files(
-            r"(^|[/\x5C])dataset_description\.json$",
-            dandiset_path,
-            # for cases like sub-MITU01h3_..._chunk-4_SPIM.ngff.source
-            dirs_avoid=r"\.(ngff|zarr)(\..*)?$",
-        ),
-    )
-    bids_datasets = [bd.parent for bd in bids_descriptions]
-    if bids_datasets:
-        lgr.debug(
-            "Detected %s under following paths: %s",
-            pluralize(len(bids_datasets), "BIDS dataset"),
-            ", ".join(str(i) for i in bids_datasets),
-        )
-
-    if validation != "skip":
-        if bids_datasets:
-            bids_datasets_to_validate = list()
-            for p in bids_datasets:
-                for bd in bids_datasets:
-                    try:
-                        p.relative_to(bd)
-                    except ValueError:
-                        try:
-                            bd.relative_to(p)
-                        except ValueError:
-                            pass
-                        else:
-                            bids_datasets_to_validate.append(bd)
-                    else:
-                        bids_datasets_to_validate.append(bd)
-        else:
-            bids_datasets_to_validate = bids_datasets
-        bids_datasets_to_validate.sort()
-        valid_datasets: List[Path] = []
-        invalid_datasets: List[Path] = []
-        for bd in bids_datasets_to_validate:
-            validator_result = validate_bids(bd)
-            valid = is_valid(
-                validator_result,
-                allow_missing_files=validation == "ignore",
-                allow_invalid_filenames=validation == "ignore",
-            )
-            (valid_datasets if valid else invalid_datasets).append(bd)
-        if invalid_datasets:
-            raise RuntimeError(
-                f"Found {pluralize(len(invalid_datasets), 'BIDS dataset')}, which did not "
-                "pass validation:\n * "
-                + "\n * ".join([str(i) for i in invalid_datasets])
-                + "\nTo resolve "
-                "this, perform the required changes or set the validation parameter to "
-                '"skip" or "ignore".'
-            )
-        return valid_datasets
-    else:
-        return bids_datasets
