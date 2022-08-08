@@ -24,6 +24,8 @@ BIDS_TO_DANDI = {
 @dataclass
 class BIDSDatasetDescriptionAsset(LocalFileAsset):
     """
+    .. versionadded:: 0.46.0
+
     The :file:`dataset_description.json` file for a BIDS dataset, used to
     perform operations on the dataset as a whole
     """
@@ -127,6 +129,8 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
 @dataclass
 class BIDSAsset(LocalFileAsset):
     """
+    .. versionadded:: 0.46.0
+
     Base class for non-:file:`dataset_description.json` assets in BIDS datasets
     """
 
@@ -180,7 +184,11 @@ class BIDSAsset(LocalFileAsset):
 
 
 class NWBBIDSAsset(BIDSAsset, NWBAsset):
-    """An NWB file in a BIDS dataset"""
+    """
+    .. versionadded:: 0.46.0
+
+    An NWB file in a BIDS dataset
+    """
 
     def get_validation_errors(
         self,
@@ -204,7 +212,11 @@ class NWBBIDSAsset(BIDSAsset, NWBAsset):
 
 
 class ZarrBIDSAsset(BIDSAsset, ZarrAsset):
-    """A Zarr directory in a BIDS dataset"""
+    """
+    .. versionadded:: 0.46.0
+
+    A Zarr directory in a BIDS dataset
+    """
 
     def get_validation_errors(
         self,
@@ -218,6 +230,8 @@ class ZarrBIDSAsset(BIDSAsset, ZarrAsset):
 
 class GenericBIDSAsset(BIDSAsset, GenericAsset):
     """
+    .. versionadded:: 0.46.0
+
     An asset in a BIDS dataset that is not an NWB file, a Zarr directory, or a
     :file:`dataset_description.json` file.  Note that, unlike the non-BIDS
     classes, this includes video files.

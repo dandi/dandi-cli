@@ -244,6 +244,8 @@ class DandiFileFactory:
 
 @dataclass
 class BIDSFileFactory(DandiFileFactory):
+    """:meta private:"""
+
     bids_dataset_description: BIDSDatasetDescriptionAsset
 
     CLASSES = {
@@ -273,6 +275,8 @@ def find_bids_dataset_description(
     dirpath: str | Path, dandiset_path: Optional[str | Path] = None
 ) -> Optional[BIDSDatasetDescriptionAsset]:
     """
+    .. versionadded:: 0.46.0
+
     Look for a :file:`dataset_description.json` file in the directory
     ``dirpath`` and each of its parents, stopping when a :file:`dandiset.yaml`
     file is found or ``dandiset_path`` is reached.
