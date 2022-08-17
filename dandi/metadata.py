@@ -246,8 +246,8 @@ def _check_range_limits(limits: List[List[str], List[str]]):
         ok = False
     if not ok:
         raise ValueError(
-            "The upper limit has to be larger than the lower limit "
-            "and they should have a consistent units."
+            "The upper limit has to be larger than the lower limit, "
+            "and they should have consistent units."
         )
 
 
