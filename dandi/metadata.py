@@ -201,7 +201,7 @@ def _parse_hours_format(age: str) -> Tuple[str, List[str]]:
         return age, []
 
 
-def _check_decimal_parts(age_parts: List[str]):
+def _check_decimal_parts(age_parts: List[str]) -> None:
     """checking if decimal parts are only in the lowest order component"""
     # if the last part is the T component I have to separate the parts
     decim_part = ["." in el for el in age_parts]
@@ -209,7 +209,7 @@ def _check_decimal_parts(age_parts: List[str]):
         raise ValueError("Decimal fraction allowed in the lowest order part only.")
 
 
-def _check_range_limits(limits: List[List[str], List[str]]):
+def _check_range_limits(limits: List[List[str], List[str]]) -> None:
     """checking if the upper limit is bigger than the lower limit"""
     ok = True
     units_t = dict(zip(["S", "M", "H"], range(3)))
