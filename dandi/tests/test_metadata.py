@@ -130,23 +130,23 @@ def test_parse_age(age: str, duration: Union[str, Tuple[str, str]]) -> None:
         ),
         (
             "14 /",
-            "Age that use / for range need to use ISO8601 format, but '14' found.",
+            "Ages that use / for range need to use ISO8601 format, but '14' found.",
         ),
         (
             "P12Y/P10Y",
-            "The upper limit has to be larger than the lower limit and they should have "
-            "a consistent units.",
+            "The upper limit has to be larger than the lower limit, and they should have "
+            "consistent units.",
         ),
         (
             "P12Y2W/P12Y",
-            "The upper limit has to be larger than the lower limit and they should have "
-            "a consistent units.",
+            "The upper limit has to be larger than the lower limit, and they should have "
+            "consistent units.",
         ),
         # the upper limit is bigger than lower, but I think we should not allow for this
         (
             "P1Y/P500D",
-            "The upper limit has to be larger than the lower limit and they should have "
-            "a consistent units.",
+            "The upper limit has to be larger than the lower limit, and they should have "
+            "consistent units.",
         ),
     ],
 )
