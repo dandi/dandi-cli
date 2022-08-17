@@ -209,7 +209,7 @@ def _check_decimal_parts(age_parts: List[str]) -> None:
         raise ValueError("Decimal fraction allowed in the lowest order part only.")
 
 
-def _check_range_limits(limits: List[List[str], List[str]]) -> None:
+def _check_range_limits(limits: List[List[str]]) -> None:
     """checking if the upper limit is bigger than the lower limit"""
     ok = True
     units_t = dict(zip(["S", "M", "H"], range(3)))
