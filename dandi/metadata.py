@@ -287,7 +287,7 @@ def parse_age(age: Optional[str]) -> Tuple[str, str]:
                 limits.append([""])
             else:
                 raise ValueError(
-                    f"Age that use / for range need to use ISO8601 format, "
+                    f"Ages that use / for range need to use ISO8601 format, "
                     f"but {el!r} found."
                 )
         age_f = limits[0] + ["/"] + limits[1]
