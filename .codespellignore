@@ -1,2 +1,4 @@
         ("fo", "foo/bar", "foo/bar"),
         ("foo/ba", "foo/bar/baz/quux", "bar/baz/quux"),
+            filename="/bu",
+                "^File /bu: nwb_version 'NWB-2.1.0' starts with NWB- prefix,"
