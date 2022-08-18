@@ -130,7 +130,22 @@ def _parse_iso8601(age: str) -> List[str]:
     )
     m = re.match(pattern, age, flags=re.I)
     if m:
-        return ["P"] + [m[i] for i in range(1, 6) if m[i]]
+        age_f = ["P"] + [m[i] for i in range(1, 6) if m[i]]
+        # expanding the Time part (todo: can be done already in pattern)
+        if "T" in age_f[-1]:
+            mT = re.match(
+                r"^T(\d+(?:\.\d+)?H)?(\d+(?:\.\d+)?M)?(\d+(?:\.\d+)?S)?",
+                age_f[-1],
+                flags=re.I,
+            )
+            if mT is None:
+                raise ValueError(
+                    f"Failed to parse the trailing part of age {age_f[-1]!r}"
+                )
+            age_f = age_f[:-1] + ["T"] + [mT[i] for i in range(1, 3) if mT[i]]
+        # checking if there are decimal parts in the higher order components
+        _check_decimal_parts(age_f)
+        return age_f
     else:
         raise ValueError(f"ISO 8601 expected, but {age!r} was received")
 
@@ -180,28 +195,60 @@ def _parse_hours_format(age: str) -> Tuple[str, List[str]]:
     """parsing format 0:30:10"""
     m = re.match(r"\s*(\d\d?):(\d\d):(\d\d)", age)
     if m:
-        time_part = f"T{int(m[1])}H{int(m[2])}M{int(m[3])}S"
-        return (age[: m.start()] + age[m.end() :]).strip(), [time_part]
+        time_part = ["T", f"{int(m[1])}H", f"{int(m[2])}M", f"{int(m[3])}S"]
+        return (age[: m.start()] + age[m.end() :]).strip(), time_part
     else:
         return age, []
 
 
-def _check_decimal_parts(age_parts: List[str]) -> bool:
+def _check_decimal_parts(age_parts: List[str]) -> None:
     """checking if decimal parts are only in the lowest order component"""
     # if the last part is the T component I have to separate the parts
-    if "T" in age_parts[-1]:
-        m = re.match(
-            r"^T(\d+(?:\.\d+)?H)?(\d+(?:\.\d+)?M)?(\d+(?:\.\d+)?S)?",
-            age_parts[-1],
-            flags=re.I,
-        )
-        if m is None:
-            raise ValueError(
-                f"Failed to parse the trailing part of age {age_parts[-1]!r}"
-            )
-        age_parts = age_parts[:-1] + [m[i] for i in range(1, 3) if m[i]]
     decim_part = ["." in el for el in age_parts]
-    return not (any(decim_part) and any(decim_part[:-1]))
+    if len(decim_part) > 1 and any(decim_part[:-1]):
+        raise ValueError("Decimal fraction allowed in the lowest order part only.")
+
+
+def _check_range_limits(limits: List[List[str]]) -> None:
+    """checking if the upper limit is bigger than the lower limit"""
+    ok = True
+    units_t = dict(zip(["S", "M", "H"], range(3)))
+    units_d = dict(zip(["D", "W", "M", "Y"], range(4)))
+    lower, upper = limits
+    units_order = units_d
+    for ii, el in enumerate(upper):
+        if ii == len(lower):  # nothing to compare in the lower limit
+            break
+        if el == "T":  # changing to the time-related unit order
+            if lower[ii] != "T":  # lower unit still has
+                ok = False
+                break
+            units_order = units_t
+        elif el == lower[ii]:
+            continue
+        else:  # comparing the first element that differs
+            if el[-1] == lower[ii][-1]:  # the same unit
+                if float(el[:-1]) > float(lower[ii][:-1]):
+                    break
+                elif float(el[:-1]) == float(
+                    lower[ii][:-1]
+                ):  # in case having 2.D and 2D
+                    continue
+                else:
+                    ok = False
+                    break
+            elif units_order[el[-1]] > units_order[lower[ii][-1]]:
+                break
+            else:  # lower limit has higher unit
+                ok = False
+                break
+    if len(lower) > len(upper):  # lower has still more elements
+        ok = False
+    if not ok:
+        raise ValueError(
+            "The upper limit has to be larger than the lower limit, "
+            "and they should have consistent units."
+        )
 
 
 def parse_age(age: Optional[str]) -> Tuple[str, str]:
@@ -230,7 +277,24 @@ def parse_age(age: Optional[str]) -> Tuple[str, str]:
 
     age = age.strip()
 
-    if age.startswith("P"):
+    if "/" in age and len(age.split("/")) == 2:  # age as a range
+        age = age.replace(" ", "")
+        limits = []
+        for el in age.split("/"):
+            if el.startswith("P"):
+                limits.append(_parse_iso8601(el))
+            elif el == "":  # start or end of range is unknown
+                limits.append([""])
+            else:
+                raise ValueError(
+                    f"Ages that use / for range need to use ISO8601 format, "
+                    f"but {el!r} found."
+                )
+        age_f = limits[0] + ["/"] + limits[1]
+        # if both limits provided checking if the upper limit is bigegr than the lower
+        if limits[0][0] and limits[1][0]:
+            _check_range_limits(limits)
+    elif age.startswith("P"):
         age_f = _parse_iso8601(age)
     else:  # trying to figure out any free form
         # removing some symbols
@@ -272,13 +336,9 @@ def parse_age(age: Optional[str]) -> Tuple[str, str]:
             raise ValueError(
                 f"Cannot parse age {age_orig!r}: no rules to convert {age!r}"
             )
+        # checking if there are decimal parts in the higher order components
+        _check_decimal_parts(age_f)
 
-    # checking if there are decimal parts in the higher order components
-    if not _check_decimal_parts(age_f):
-        raise ValueError(
-            f"Decimal fraction allowed in the lowest order part only,"
-            f" but {age!r} was received"
-        )
     return "".join(age_f), ref
 
 

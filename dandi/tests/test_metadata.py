@@ -90,6 +90,13 @@ def test_get_metadata(simple1_nwb: str, simple1_nwb_metadata: Dict[str, Any]) ->
         ("14 (Units: days)", "P14D"),
         ("14 unit day", "P14D"),
         ("Gestational Week 19", ("P19W", "Gestational")),
+        ("P100D/P200D", "P100D/P200D"),
+        ("P1DT10H/P1DT20H", "P1DT10H/P1DT20H"),
+        ("P1DT10H/P1DT10H20M", "P1DT10H/P1DT10H20M"),
+        ("P100D / P200D ", "P100D/P200D"),
+        ("/P200D", "/P200D"),
+        ("P100D/", "P100D/"),
+        ("/", "/"),
     ],
 )
 def test_parse_age(age: str, duration: Union[str, Tuple[str, str]]) -> None:
@@ -116,14 +123,30 @@ def test_parse_age(age: str, duration: Union[str, Tuple[str, str]]) -> None:
         (" , ", "Age doesn't have any information"),
         ("", "Age is empty"),
         (None, "Age is empty"),
-        (
-            "P2DT10.5H10M",
-            "Decimal fraction allowed in the lowest order part only, but"
-            " 'P2DT10.5H10M' was received",
-        ),
+        ("P2DT10.5H10M", "Decimal fraction allowed in the lowest order part only."),
         (
             "4.5 hours 10 sec",
-            "Decimal fraction allowed in the lowest order part only, but '' was received",
+            "Decimal fraction allowed in the lowest order part only.",
+        ),
+        (
+            "14 /",
+            "Ages that use / for range need to use ISO8601 format, but '14' found.",
+        ),
+        (
+            "P12Y/P10Y",
+            "The upper limit has to be larger than the lower limit, and they should have "
+            "consistent units.",
+        ),
+        (
+            "P12Y2W/P12Y",
+            "The upper limit has to be larger than the lower limit, and they should have "
+            "consistent units.",
+        ),
+        # the upper limit is bigger than lower, but I think we should not allow for this
+        (
+            "P1Y/P500D",
+            "The upper limit has to be larger than the lower limit, and they should have "
+            "consistent units.",
         ),
     ],
 )
