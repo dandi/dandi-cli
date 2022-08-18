@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Iterator, List, Optional, Tuple, Union
 
@@ -5,7 +9,34 @@ import appdirs
 
 from .files import find_dandi_files
 
-# TODO: provide our own "errors" records, which would also include warnings etc
+
+@dataclass
+class ValidationResult:
+    origin: ValidationOrigin
+    severity: Severity
+    id: str
+    scope: Scope
+    path: Path
+    message: str
+    dataset_path: Optional[Path]
+    asset_paths: Optional[list[str]] = None
+
+
+@dataclass
+class ValidationOrigin:
+    name: str
+    version: str
+
+
+class Severity(Enum):
+    ERROR = "ERROR"
+    WARNING = "WARNING"
+    HINT = "HINT"
+
+
+class Scope(Enum):
+    FILE = "file"
+    DANDISET = "dandiset"
 
 
 def validate_bids(
