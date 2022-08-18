@@ -1,3 +1,25 @@
+# 0.46.1 (Thu Aug 18 2022)
+
+#### 🐛 Bug Fix
+
+- Add support for age range [#1101](https://github.com/dandi/dandi-cli/pull/1101) ([@djarecka](https://github.com/djarecka))
+
+#### 📝 Documentation
+
+- DOC: minor - boost copyright years in the docs [#1106](https://github.com/dandi/dandi-cli/pull/1106) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Update test.yml to use ubuntu-latest [#1103](https://github.com/dandi/dandi-cli/pull/1103) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 3
+
+- Dorota Jarecka ([@djarecka](https://github.com/djarecka))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.46.0 (Thu Aug 18 2022)
 
 #### 🚀 Enhancement
