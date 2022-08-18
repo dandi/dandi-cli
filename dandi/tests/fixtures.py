@@ -521,7 +521,7 @@ def _create_nwb_files(video_list):
             name=f"MouseWhiskers{no}",
             format="external",
             external_file=[str(vid_1), str(vid_2)],
-            starting_frame=[0, 0],
+            starting_frame=[0, 2],
             starting_time=0.0,
             rate=150.0,
         )
