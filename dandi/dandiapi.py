@@ -1341,19 +1341,22 @@ class BaseRemoteAsset(ABC, APIBase):
             raise NotFoundError(
                 "No matching URL found in asset's contentUrl metadata field"
             )
-        if follow_redirects is True:
-            url = self.client.request(
-                "HEAD", url, json_resp=False, allow_redirects=True
-            ).url
-        elif follow_redirects:
-            for _ in range(follow_redirects):
-                r = self.client.request(
-                    "HEAD", url, json_resp=False, allow_redirects=False
-                )
-                if "Location" in r.headers:
-                    url = r.headers["Location"]
-                else:
-                    break
+        try:
+            if follow_redirects is True:
+                url = self.client.request(
+                    "HEAD", url, json_resp=False, allow_redirects=True
+                ).url
+            elif follow_redirects:
+                for _ in range(follow_redirects):
+                    r = self.client.request(
+                        "HEAD", url, json_resp=False, allow_redirects=False
+                    )
+                    if "Location" in r.headers:
+                        url = r.headers["Location"]
+                    else:
+                        break
+        except requests.HTTPError as e:
+            url = e.request.url
         if strip_query:
             url = urlunparse(urlparse(url)._replace(query=""))
         return url
