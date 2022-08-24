@@ -250,6 +250,16 @@ def test_get_content_url_follow_one_redirects_strip_query() -> None:
         )
 
 
+def test_get_content_url_follow_redirects_zarr(zarr_dandiset: SampleDandiset) -> None:
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    url = asset.get_content_url(follow_redirects=True, strip_query=True)
+    assert re.fullmatch(
+        f"http://localhost:9000/dandi-dandisets/zarr/{asset.zarr}/*",
+        url,
+    )
+
+
 def test_remote_asset_json_dict(text_dandiset: SampleDandiset) -> None:
     asset = text_dandiset.dandiset.get_asset_by_path("file.txt")
     assert asset.json_dict() == {
