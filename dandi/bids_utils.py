@@ -1,46 +1,14 @@
 from .utils import pluralize
+from .validate import ValidationResult
 
 
-def is_valid(
-    validation_result: dict,
-    allow_invalid_filenames: bool = False,
-    allow_missing_files: bool = False,
-) -> bool:
-    """Determine whether a dataset validation result marks it as valid.
-
-    Parameters
-    ----------
-    validation_result: dict
-        Dictionary as returned by `dandi.support.bids.validator.validate_bids()`.
-    allow_missing_files: bool, optional
-        Whether to consider the dataset invalid if any mandatory files are not present.
-    allow_invalid_filenames: bool, optional
-        Whether to consider the dataset invalid if any filenames inside are invalid.
-
-    Returns
-    -------
-    bool: whether the dataset validation result marks it as valid.
-
-    """
-
-    if allow_invalid_filenames and allow_missing_files:
-        return True
-    missing_files = [
-        i["regex"] for i in validation_result["schema_tracking"] if i["mandatory"]
-    ]
-    invalid_filenames = validation_result["path_tracking"]
-
-    if missing_files and not allow_missing_files:
-        return False
-    if invalid_filenames and not allow_invalid_filenames:
-        return False
-    else:
-        return True
-
-
-def report_errors(
-    validation_result: dict,
+def print_validation_results(
+    validation_result: list[ValidationResult],
+    # TODO: options for control
+    #  - either report warnings, hints, ...
+    #  - either report groupped by severity, record.id
 ) -> None:
+    raise NotImplementedError("TODO: RF to use ValidationResult records")
     import click
 
     missing_files = [

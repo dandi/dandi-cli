@@ -36,19 +36,23 @@ def validate_bids(
         dandi validate-bids /my/path
     """
 
-    from ..bids_utils import is_valid, report_errors
+    from ..bids_utils import print_validation_results
+    from ..validate import Severity
     from ..validate import validate_bids as validate_bids_
 
-    validator_result = validate_bids_(
+    validator_result = validate_bids_(  # Controller
         *paths,
         report=report,
         report_path=report_path,
         schema_version=schema,
     )
-    valid = is_valid(validator_result)
-    report_errors(validator_result)
 
-    if not valid:
+    if validator_result:
+        print_validation_results(validator_result)  # View
+
+    validation_errors = [e for e in validator_result if e.severity == Severity.ERROR]
+
+    if validation_errors:
         raise SystemExit(1)
 
 

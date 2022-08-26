@@ -44,7 +44,7 @@ def validate_bids(
     schema_version: Optional[str] = None,
     report: bool = False,
     report_path: str = "",
-) -> dict:
+) -> list[ValidationResult]:
     """Validate BIDS paths.
 
     Parameters
@@ -67,6 +67,7 @@ def validate_bids(
         patterns.
     """
 
+    import bidsschematools
     from bidsschematools.validator import validate_bids as validate_bids_
 
     if report and not report_path:
@@ -80,7 +81,45 @@ def validate_bids(
         schema_version=schema_version,
         report_path=report_path,
     )
-    return dict(validation_result)
+    our_validation_result = []
+    origin = ValidationOrigin(
+        name="bidsschematools",
+        version=bidsschematools.__version__,
+    )
+    for path in validation_result["path_tracking"]:
+        our_validation_result.append(
+            ValidationResult(
+                origin=origin,
+                severity=Severity.ERROR,
+                id="BIDS.WRONG_PATH_TODO",
+                scope=Scope.FILE,
+                path=path,
+                message="TODO",
+                # TODO - discover dandiset or actually BIDS dataset
+                # might want separate the two
+                # dandiset_path="TODO",  # might contain multiple datasets
+                # dataset_path="TODO",  # BIDS dataset in this case
+                # asset_paths: Optional[list[str]] = None
+            )
+        )
+
+    for pattern in validation_result["schema_tracking"]:
+        if pattern["mandatory"]:  # TODO: future proof if gets renamed to required
+            our_validation_result.append(
+                ValidationResult(
+                    origin=origin,
+                    severity=Severity.ERROR,
+                    id="BIDS.MANDATORY_FILE_MISSING",  # we decided to generalize, and not have
+                    scope=Scope.FILE,
+                    message="TODO",
+                    # TODO - discover dandiset or actually BIDS dataset
+                    # might want separate the two
+                    # dandiset_path="TODO",  # might contain multiple datasets
+                    # dataset_path="TODO",  # BIDS dataset in this case
+                    # asset_paths: Optional[list[str]] = None
+                )
+            )
+    return our_validation_result
 
 
 def validate(

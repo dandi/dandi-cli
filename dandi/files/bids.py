@@ -66,6 +66,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 bids_paths = [str(self.filepath)] + [
                     str(asset.filepath) for asset in self.dataset_files
                 ]
+                # TODO: use RFed data structures, avoid duplicating logic
                 results = validate_bids(*bids_paths)
                 self._dataset_errors: list[str] = []
                 if len(results["path_listing"]) == len(results["path_tracking"]):
