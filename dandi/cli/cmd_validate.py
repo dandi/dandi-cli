@@ -21,14 +21,12 @@ from .base import devel_debug_option, devel_option, lgr, map_to_click_exceptions
     help="Whether to write a report under a unique path in the DANDI log directory.",
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
-@devel_debug_option()
 @map_to_click_exceptions
 def validate_bids(
     paths,
     schema,
     report,
     report_path,
-    devel_debug=False,
 ):
     """Validate BIDS paths.
 
@@ -46,7 +44,6 @@ def validate_bids(
         report=report,
         report_path=report_path,
         schema_version=schema,
-        devel_debug=devel_debug,
     )
     valid = is_valid(validator_result)
     report_errors(validator_result)
