@@ -16,9 +16,9 @@ class ValidationResult:
     severity: Severity
     id: str
     scope: Scope
-    path: Path
     message: str
     dataset_path: Optional[Path]
+    path: Optional[Path] = None
     asset_paths: Optional[list[str]] = None
 
 
@@ -87,14 +87,22 @@ def validate_bids(
         version=bidsschematools.__version__,
     )
     for path in validation_result["path_tracking"]:
+        # Hard-coding exclusion here pending feature + release in:
+        # https://github.com/bids-standard/bids-specification/issues/1272
+        if path.endswith((".ERRORS", ".ERRORS.json")):
+            continue
+        dataset_path = _get_dataset_path(path, paths)
         our_validation_result.append(
             ValidationResult(
+                dataset_path=dataset_path,
                 origin=origin,
                 severity=Severity.ERROR,
-                id="BIDS.WRONG_PATH_TODO",
+                # For schema-integrated error code discussion, see:
+                # https://github.com/bids-standard/bids-specification/issues/1262
+                id="BIDS.NON_BIDS_PATH_PLACEHOLDER",
                 scope=Scope.FILE,
                 path=path,
-                message="TODO",
+                message=f"The `{path}` file does not match any pattern known to BIDS.",
                 # TODO - discover dandiset or actually BIDS dataset
                 # might want separate the two
                 # dandiset_path="TODO",  # might contain multiple datasets
@@ -104,14 +112,21 @@ def validate_bids(
         )
 
     for pattern in validation_result["schema_tracking"]:
-        if pattern["mandatory"]:  # TODO: future proof if gets renamed to required
+        # Future proofing for standard-compliant name.
+        if ("mandatory" in pattern and pattern["mandatory"]) or (
+            "required" in pattern and pattern["required"]
+        ):
+            dataset_path = _get_dataset_path(path, paths)
             our_validation_result.append(
                 ValidationResult(
+                    dataset_path=dataset_path,
                     origin=origin,
                     severity=Severity.ERROR,
-                    id="BIDS.MANDATORY_FILE_MISSING",  # we decided to generalize, and not have
+                    # For schema-integrated error code discussion, see:
+                    # https://github.com/bids-standard/bids-specification/issues/1262
+                    id="BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",
                     scope=Scope.FILE,
-                    message="TODO",
+                    message=f'Missing file matching the following pattern: `{pattern["regex"]}`',
                     # TODO - discover dandiset or actually BIDS dataset
                     # might want separate the two
                     # dandiset_path="TODO",  # might contain multiple datasets
@@ -120,6 +135,13 @@ def validate_bids(
                 )
             )
     return our_validation_result
+
+
+def _get_dataset_path(file_path, datasets):
+    # This logic might break with nested datasets.
+    for dataset in datasets:
+        if dataset in file_path:
+            return dataset
 
 
 def validate(
