@@ -1,3 +1,22 @@
+# 0.46.2 (Thu Sep 01 2022)
+
+#### 🐛 Bug Fix
+
+- Use upstream bidsschematools for BIDS validation [#1095](https://github.com/dandi/dandi-cli/pull/1095) ([@TheChymera](https://github.com/TheChymera))
+- get_content_url(): If a HEAD fails, return the failing URL [#1107](https://github.com/dandi/dandi-cli/pull/1107) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- BF(workaround): blacklist 23.9.0 of keyring since introduced regression [#1112](https://github.com/dandi/dandi-cli/pull/1112) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 3
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.46.1 (Thu Aug 18 2022)
 
 #### 🐛 Bug Fix
