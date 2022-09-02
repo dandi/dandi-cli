@@ -69,25 +69,26 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 # TODO gh-943: use RFed data structures, avoid duplicating logic
                 results = validate_bids(*bids_paths)
                 self._dataset_errors: list[str] = []
-                # TODO gh-943: Should we add valid files to Validation result?
-                # This specific check seems difficult to implement.
-                # if len(results["path_listing"]) == len(results["path_tracking"]):
-                #     self._dataset_errors.append("No valid BIDS files were found")
-                for entry in results["schema_tracking"]:
-                    if entry["mandatory"]:
+                self._asset_errors = defaultdict(list)
+                for i in results:
+                    if i.id == "BIDS.NON_BIDS_PATH_PLACEHOLDER":
+                        bids_path = Path(i.path).relative_to(self.bids_root).as_posix()
                         self._dataset_errors.append(
-                            f"The `{entry['regex']}` regex pattern file"
+                            f"The `{bids_path}` file was not matched by any regex schema entry."
+                        )
+                        self._asset_errors[bids_path].append(
+                            "File not matched by any regex schema entry"
+                        )
+                    elif i.id == "BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER":
+                        self._dataset_errors.append(
+                            f"The `{i.regex}` regex pattern file"
                             " required by BIDS was not found."
                         )
-                self._asset_errors = defaultdict(list)
-                for path in results["path_tracking"]:
-                    bids_path = Path(path).relative_to(self.bids_root).as_posix()
-                    self._dataset_errors.append(
-                        f"The `{bids_path}` file was not matched by any regex schema entry."
-                    )
-                    self._asset_errors[bids_path].append(
-                        "File not matched by any regex schema entry"
-                    )
+
+                # TODO gh-943: Should we add valid files to Validation result?
+                # The following checks seem difficult to implement.
+                if len(results["path_listing"]) == len(results["path_tracking"]):
+                    self._dataset_errors.append("No valid BIDS files were found")
                 self._asset_metadata = defaultdict(dict)
                 for meta in results["match_listing"]:
                     bids_path = (
