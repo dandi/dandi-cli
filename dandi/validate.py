@@ -102,7 +102,7 @@ def validate_bids(
                 id="BIDS.NON_BIDS_PATH_PLACEHOLDER",
                 scope=Scope.FILE,
                 path=path,
-                message=f"The `{path}` file does not match any pattern known to BIDS.",
+                message="File does not match any pattern known to BIDS.",
                 # TODO - discover dandiset or actually BIDS dataset
                 # might want separate the two
                 # dandiset_path="TODO",  # might contain multiple datasets
@@ -126,7 +126,7 @@ def validate_bids(
                     # https://github.com/bids-standard/bids-specification/issues/1262
                     id="BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",
                     scope=Scope.FILE,
-                    message=f'Missing file matching the following pattern: `{pattern["regex"]}`',
+                    message="BIDS-required file is not present.",
                     # TODO - discover dandiset or actually BIDS dataset
                     # might want separate the two
                     # dandiset_path="TODO",  # might contain multiple datasets

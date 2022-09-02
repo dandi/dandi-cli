@@ -36,7 +36,7 @@ def validate_bids(
         dandi validate-bids /my/path
     """
 
-    from ..bids_utils import print_validation_results
+    # from ..bids_utils import print_validation_results
     from ..validate import Severity
     from ..validate import validate_bids as validate_bids_
 
@@ -47,8 +47,12 @@ def validate_bids(
         schema_version=schema,
     )
 
-    if validator_result:
-        print_validation_results(validator_result)  # View
+    for i in validator_result:
+        click.secho(
+            i.message,
+            bold=True,
+            fg="red",
+        )
 
     validation_errors = [e for e in validator_result if e.severity == Severity.ERROR]
 

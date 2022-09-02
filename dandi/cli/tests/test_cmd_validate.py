@@ -7,9 +7,10 @@ def test_validate_bids_error(bids_examples):
     from ..cmd_validate import validate_bids
 
     expected_error = (
-        "Summary: 1 filename pattern required by BIDS could not be found "
-        "and 1 filename did not match any pattern known to BIDS.\n"
+        "File does not match any pattern known to BIDS.\n"
+        "BIDS-required file is not present.\n"
     )
+
     broken_dataset = os.path.join(bids_examples, "invalid_pet001")
     r = CliRunner().invoke(validate_bids, [broken_dataset])
     # Does it break?
