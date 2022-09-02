@@ -66,11 +66,13 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 bids_paths = [str(self.filepath)] + [
                     str(asset.filepath) for asset in self.dataset_files
                 ]
-                # TODO: use RFed data structures, avoid duplicating logic
+                # TODO gh-943: use RFed data structures, avoid duplicating logic
                 results = validate_bids(*bids_paths)
                 self._dataset_errors: list[str] = []
-                if len(results["path_listing"]) == len(results["path_tracking"]):
-                    self._dataset_errors.append("No valid BIDS files were found")
+                # TODO gh-943: Should we add valid files to Validation result?
+                # This specific check seems difficult to implement.
+                # if len(results["path_listing"]) == len(results["path_tracking"]):
+                #     self._dataset_errors.append("No valid BIDS files were found")
                 for entry in results["schema_tracking"]:
                     if entry["mandatory"]:
                         self._dataset_errors.append(
