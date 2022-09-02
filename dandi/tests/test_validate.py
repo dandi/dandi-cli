@@ -17,7 +17,7 @@ def test_validate_bids(bids_examples, tmp_path):
 
     # Check if a report is being produced.
     pid = os.getpid()
-    log_dir = appdirs.user_log_dir("dandi-cli", "dandi")
+    log_dir = appdirs.user_log_dir("dandi")
     report_expression = os.path.join(log_dir, f"bids-validator-report_*-{pid}.log")
     assert len(glob(report_expression)) == 1
 
