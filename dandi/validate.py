@@ -18,10 +18,13 @@ class ValidationResult:
     scope: Scope
     message: str
     dataset_path: Optional[Path]
+    # TODO gh-943: add dandiset_path as attribute (optional).
+    dataset_path: Optional[Path]
     # TODO gh-943: should this be relative to `dataset_path`?
     # would make writing tests with tmp paths a lot easier :3
+    # keep it absolute!!!
     path: Optional[Path] = None
-    regex: Optional[str] = None
+    path_regex: Optional[str] = None
     asset_paths: Optional[list[str]] = None
 
 
@@ -129,7 +132,7 @@ def validate_bids(
                     # https://github.com/bids-standard/bids-specification/issues/1262
                     id="BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",
                     scope=Scope.FILE,
-                    regex=pattern["regex"],
+                    path_regex=pattern["regex"],
                     message="BIDS-required file is not present.",
                     # TODO - discover dandiset or actually BIDS dataset
                     # might want separate the two

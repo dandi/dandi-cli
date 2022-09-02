@@ -70,6 +70,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 results = validate_bids(*bids_paths)
                 self._dataset_errors: list[str] = []
                 self._asset_errors = defaultdict(list)
+                # TODO gh-943: rename regex maybe and make sure you use messages from class.
                 for i in results:
                     if i.id == "BIDS.NON_BIDS_PATH_PLACEHOLDER":
                         bids_path = Path(i.path).relative_to(self.bids_root).as_posix()
@@ -81,12 +82,13 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                         )
                     elif i.id == "BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER":
                         self._dataset_errors.append(
-                            f"The `{i.regex}` regex pattern file"
+                            f"The `{i.path_regex}` regex pattern file"
                             " required by BIDS was not found."
                         )
 
                 # TODO gh-943: Should we add valid files to Validation result?
                 # The following checks seem difficult to implement.
+                # Reimplement this at the object level, Validator Result does not have to be one per file.
                 if len(results["path_listing"]) == len(results["path_tracking"]):
                     self._dataset_errors.append("No valid BIDS files were found")
                 self._asset_metadata = defaultdict(dict)
