@@ -18,6 +18,8 @@ class ValidationResult:
     scope: Scope
     message: str
     dataset_path: Optional[Path]
+    # TODO gh-943: should this be relative to `dataset_path`?
+    # would make writing tests with tmp paths a lot easier :3
     path: Optional[Path] = None
     asset_paths: Optional[list[str]] = None
 
