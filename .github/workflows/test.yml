@@ -75,9 +75,10 @@ jobs:
         python -m pip install --upgrade pip wheel
         pip install ".[test]"
 
-    - name: Install dev version of pynwb
+    - name: Install dev version of pynwb and nwbinspector
       if: matrix.mode == 'dev-deps'
       run: |
+        pip install git+https://github.com/NeurodataWithoutBorders/nwbinspector
         pip install git+https://github.com/NeurodataWithoutBorders/pynwb
 
     - name: Run all tests
