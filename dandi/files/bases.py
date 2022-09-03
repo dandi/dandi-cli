@@ -17,7 +17,10 @@ from dandischema.digests.dandietag import DandiETag
 from dandischema.models import BareAsset, CommonModel
 from dandischema.models import Dandiset as DandisetMeta
 from dandischema.models import get_schema_version
+from etelemetry import get_project
 from nwbinspector import Importance, inspect_nwb, load_config
+from nwbinspector.utils import get_package_version
+from packaging.version import Version
 from pydantic import ValidationError
 import requests
 
@@ -469,6 +472,33 @@ class NWBAsset(LocalFileAsset):
         else:
             # make sure that we have some basic metadata fields we require
             try:
+                # Ensure latest version of NWB Inspector is installed and used client-side
+                try:
+                    max_version = Version(
+                        get_project(repo="NeurodataWithoutBorders/nwbinspector")[
+                            "version"
+                        ]
+                    )
+                    current_version = get_package_version(name="nwbinspector")
+
+                    if current_version < max_version:
+                        errors.append(
+                            f"NWB Inspector version {current_version} is installed - please "
+                            f"use the latest release of the NWB Inspector ({max_version}) "
+                            "when performing `dandi validate`. To update, run "
+                            "`pip install -U nwbinspector` if you installed it with `pip`."
+                        )
+                        return errors
+
+                except Exception as e:  # In case of no internet connection or other error
+                    lgr.warning(
+                        "Failed to retrieve NWB Inspector version due to %s: %s",
+                        type(e).__name__,
+                        str(e),
+                    )
+
+                # Run NWB Inspector with 'dandi' config
+                # CRITICAL errors and above are equivalent to validation errors
                 errors.extend(
                     [
                         error.message

@@ -113,8 +113,8 @@ def simple2_nwb(
         subject=pynwb.file.Subject(
             subject_id="mouse001",
             date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
-            sex="M",
-            species="mouse",
+            sex="U",
+            species="Mus musculus",
         ),
         **simple1_nwb_metadata,
     )
@@ -128,9 +128,9 @@ def simple3_nwb(
     return make_nwb_file(
         str(tmpdir_factory.mktemp("simple2").join("simple2.nwb")),
         subject=pynwb.file.Subject(
-            date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
-            sex="M",
-            species="mouse",
+            age="P1D/",
+            sex="O",
+            species="Mus musculus",
         ),
         **simple1_nwb_metadata,
     )
