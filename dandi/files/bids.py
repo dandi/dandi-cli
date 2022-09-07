@@ -15,10 +15,12 @@ from .zarr import ZarrAsset
 from ..metadata import add_common_metadata, prepare_metadata
 from ..misctypes import Digest
 
-BIDS_TO_DANDI = {
-    "subject": "subject_id",
-    "session": "session_id",
-}
+BIDS_ASSET_ERRORS = [
+    "BIDS.NON_BIDS_PATH_PLACEHOLDER",
+    ]
+BIDS_DATASET_ERRORS = [
+    "BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",
+    ]
 
 
 @dataclass
@@ -66,43 +68,18 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 bids_paths = [str(self.filepath)] + [
                     str(asset.filepath) for asset in self.dataset_files
                 ]
-                # TODO gh-943: use RFed data structures, avoid duplicating logic
                 results = validate_bids(*bids_paths)
                 self._dataset_errors: list[str] = []
                 self._asset_errors = defaultdict(list)
-                # TODO gh-943: rename regex maybe and make sure you use messages from class.
-                for i in results:
-                    if i.id == "BIDS.NON_BIDS_PATH_PLACEHOLDER":
-                        bids_path = Path(i.path).relative_to(self.bids_root).as_posix()
-                        self._dataset_errors.append(
-                            f"The `{bids_path}` file was not matched by any regex schema entry."
-                        )
-                        self._asset_errors[bids_path].append(
-                            "File not matched by any regex schema entry"
-                        )
-                    elif i.id == "BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER":
-                        self._dataset_errors.append(
-                            f"The `{i.path_regex}` regex pattern file"
-                            " required by BIDS was not found."
-                        )
-
-                # TODO gh-943: Should we add valid files to Validation result?
-                # The following checks seem difficult to implement.
-                # Reimplement this at the object level, Validator Result does not have to be one per file.
-                if len(results["path_listing"]) == len(results["path_tracking"]):
-                    self._dataset_errors.append("No valid BIDS files were found")
                 self._asset_metadata = defaultdict(dict)
-                for meta in results["match_listing"]:
-                    bids_path = (
-                        Path(meta.pop("path")).relative_to(self.bids_root).as_posix()
-                    )
-                    meta = {
-                        BIDS_TO_DANDI[k]: v
-                        for k, v in meta.items()
-                        if k in BIDS_TO_DANDI
-                    }
-                    # meta["bids_schema_version"] = results["bids_schema_version"]
-                    self._asset_metadata[bids_path] = prepare_metadata(meta)
+                for i in results:
+                    if i.id in BIDS_ASSET_ERRORS:
+                        self._asset_errors[i.path].append(i.message)
+                    elif i.id in BIDS_DATASET_ERRORS:
+                        self._dataset_errors.append(i.message)
+                    elif i.id == "BIDS.MATCH":
+                        bids_path = Path(i.path.relative_to(self.bids_root).as_posix())
+                        self._asset_metadata[bids_path] = prepare_metadata(i.metadata)
 
     def get_asset_errors(self, asset: BIDSAsset) -> list[str]:
         """:meta private:"""

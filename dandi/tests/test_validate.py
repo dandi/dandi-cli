@@ -51,6 +51,8 @@ def test_validate_bids_errors(bids_error_examples, dataset):
     with open(os.path.join(selected_dataset, ".ERRORS.json")) as f:
         expected_errors = json.load(f)
     for i in validation_result:
+        if i.id == "BIDS.MATCH":
+            continue
         error_id = i.id
         if i.path:
             error_path = i.path

@@ -10,22 +10,25 @@ import appdirs
 from .files import find_dandi_files
 
 
+BIDS_TO_DANDI = {
+    "subject": "subject_id",
+    "session": "session_id",
+}
+
+
 @dataclass
 class ValidationResult:
-    origin: ValidationOrigin
-    severity: Severity
     id: str
+    origin: ValidationOrigin
     scope: Scope
-    message: str
-    # TODO gh-943: add dandiset_path as attribute (optional).
-    # TODO gh-943: should this be relative to `dataset_path`?
-    # would make writing tests with tmp paths a lot easier :3
-    # keep it absolute!!!
+    asset_paths: Optional[list[str]] = None
     dandiset_path: Optional[Path] = None
     dataset_path: Optional[Path] = None
+    message: Optional[str] = ""
+    metadata: Optional[dict] = None
     path: Optional[Path] = None
-    path_regex: Optional[str] = None
-    asset_paths: Optional[list[str]] = None
+    path_regex: Optional[str] = ""
+    severity: Optional[Severity] = None
 
 
 @dataclass
@@ -43,6 +46,7 @@ class Severity(Enum):
 class Scope(Enum):
     FILE = "file"
     DANDISET = "dandiset"
+    DATASET = "dataset"
 
 
 def validate_bids(
@@ -71,6 +75,11 @@ def validate_bids(
     dict
         Dictionary reporting required patterns not found and existing filenames not matching any
         patterns.
+
+    Notes
+    -----
+    * Eventually this should be migrated to BIDS schema specified errors, see discussion here:
+        https://github.com/bids-standard/bids-specification/issues/1262
     """
 
     import bidsschematools
@@ -92,6 +101,7 @@ def validate_bids(
         name="bidsschematools",
         version=bidsschematools.__version__,
     )
+
     for path in validation_result["path_tracking"]:
         # Hard-coding exclusion here pending feature + release in:
         # https://github.com/bids-standard/bids-specification/issues/1272
@@ -103,15 +113,10 @@ def validate_bids(
             ValidationResult(
                 origin=origin,
                 severity=Severity.ERROR,
-                # For schema-integrated error code discussion, see:
-                # https://github.com/bids-standard/bids-specification/issues/1262
                 id="BIDS.NON_BIDS_PATH_PLACEHOLDER",
                 scope=Scope.FILE,
                 path=path,
                 message="File does not match any pattern known to BIDS.",
-                # TODO - discover dandiset or actually BIDS dataset
-                # might want separate the two
-                # asset_paths: Optional[list[str]] = None
                 dataset_path=dataset_path,
                 dandiset_path=dandiset_path,
             )
@@ -129,19 +134,29 @@ def validate_bids(
                 ValidationResult(
                     origin=origin,
                     severity=Severity.ERROR,
-                    # For schema-integrated error code discussion, see:
-                    # https://github.com/bids-standard/bids-specification/issues/1262
                     id="BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",
-                    scope=Scope.FILE,
+                    scope=Scope.DATASET,
                     path_regex=pattern["regex"],
                     message="BIDS-required file is not present.",
-                    # TODO - discover dandiset or actually BIDS dataset
-                    # might want separate the two
-                    # asset_paths: Optional[list[str]] = None
-                    #dataset_path=dataset_path,
-                    #dandiset_path=dandiset_path,
                 )
             )
+    for meta in validation_result["match_listing"]:
+        file_path = meta.pop("path")
+        meta = {
+            BIDS_TO_DANDI[k]: v
+            for k, v in meta.items()
+            if k in BIDS_TO_DANDI
+        }
+        our_validation_result.append(
+            ValidationResult(
+                origin=origin,
+                id="BIDS.MATCH",
+                scope=Scope.FILE,
+                path=file_path,
+                metadata=meta,
+            )
+        )
+
     return our_validation_result
 
 
