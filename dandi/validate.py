@@ -97,7 +97,7 @@ def validate_bids(
         # https://github.com/bids-standard/bids-specification/issues/1272
         if path.endswith((".ERRORS", ".ERRORS.json")):
             continue
-        dataset_path = _get_dataset_path(path, paths)
+        dataset_path = _get_set_path(path, "dataset_description.json")
         our_validation_result.append(
             ValidationResult(
                 dataset_path=dataset_path,
@@ -122,7 +122,9 @@ def validate_bids(
         if ("mandatory" in pattern and pattern["mandatory"]) or (
             "required" in pattern and pattern["required"]
         ):
-            dataset_path = _get_dataset_path(path, paths)
+            # We don't have a path for this so we'll need some external logic to make sure
+            # that the dataset path is populated.
+            # dataset_path = _get_dataset_path(path, paths)
             our_validation_result.append(
                 ValidationResult(
                     dataset_path=dataset_path,
@@ -144,11 +146,27 @@ def validate_bids(
     return our_validation_result
 
 
-def _get_dataset_path(file_path, datasets):
-    # This logic might break with nested datasets.
-    for dataset in datasets:
-        if dataset in file_path:
-            return dataset
+def _get_set_path(in_path, marker):
+    """Get the path to the root of a file set (e.g. BIDS dataset or DANDIset).
+
+    Parameters
+    ----------
+    in_path : str, optional
+        File for which to determine set path.
+    marker : str, optional
+        Filename marker which identifies the set root.
+    """
+    import os
+
+    candidate = os.path.join(in_path, marker)
+    # Windows support... otherwise we could do `if in_path == "/"`.
+    if in_path == "/" or not any(i in in_path for i in ["/", "\\"]):
+        return None
+    if os.path.isfile(candidate):
+        return candidate
+    else:
+        level_up = os.path.dirname(in_path.rstrip("/\\"))
+        return _get_set_path(level_up, marker)
 
 
 def validate(
