@@ -101,8 +101,6 @@ def validate_bids(
         dandiset_path = _get_set_path(path, "dandiset.yaml")
         our_validation_result.append(
             ValidationResult(
-                dataset_path=dataset_path,
-                dandiset_path=dandiset_path,
                 origin=origin,
                 severity=Severity.ERROR,
                 # For schema-integrated error code discussion, see:
@@ -113,9 +111,9 @@ def validate_bids(
                 message="File does not match any pattern known to BIDS.",
                 # TODO - discover dandiset or actually BIDS dataset
                 # might want separate the two
-                # dandiset_path="TODO",  # might contain multiple datasets
-                # dataset_path="TODO",  # BIDS dataset in this case
                 # asset_paths: Optional[list[str]] = None
+                dataset_path=dataset_path,
+                dandiset_path=dandiset_path,
             )
         )
 
@@ -129,7 +127,6 @@ def validate_bids(
             # dataset_path = _get_dataset_path(path, paths)
             our_validation_result.append(
                 ValidationResult(
-                    #dataset_path=dataset_path,
                     origin=origin,
                     severity=Severity.ERROR,
                     # For schema-integrated error code discussion, see:
@@ -140,9 +137,9 @@ def validate_bids(
                     message="BIDS-required file is not present.",
                     # TODO - discover dandiset or actually BIDS dataset
                     # might want separate the two
-                    # dandiset_path="TODO",  # might contain multiple datasets
-                    # dataset_path="TODO",  # BIDS dataset in this case
                     # asset_paths: Optional[list[str]] = None
+                    #dataset_path=dataset_path,
+                    #dandiset_path=dandiset_path,
                 )
             )
     return our_validation_result
