@@ -17,12 +17,12 @@ class ValidationResult:
     id: str
     scope: Scope
     message: str
-    dataset_path: Optional[Path]
     # TODO gh-943: add dandiset_path as attribute (optional).
-    dataset_path: Optional[Path]
     # TODO gh-943: should this be relative to `dataset_path`?
     # would make writing tests with tmp paths a lot easier :3
     # keep it absolute!!!
+    dandiset_path: Optional[Path] = None
+    dataset_path: Optional[Path] = None
     path: Optional[Path] = None
     path_regex: Optional[str] = None
     asset_paths: Optional[list[str]] = None
@@ -98,9 +98,11 @@ def validate_bids(
         if path.endswith((".ERRORS", ".ERRORS.json")):
             continue
         dataset_path = _get_set_path(path, "dataset_description.json")
+        dandiset_path = _get_set_path(path, "dandiset.yaml")
         our_validation_result.append(
             ValidationResult(
                 dataset_path=dataset_path,
+                dandiset_path=dandiset_path,
                 origin=origin,
                 severity=Severity.ERROR,
                 # For schema-integrated error code discussion, see:
@@ -127,7 +129,7 @@ def validate_bids(
             # dataset_path = _get_dataset_path(path, paths)
             our_validation_result.append(
                 ValidationResult(
-                    dataset_path=dataset_path,
+                    #dataset_path=dataset_path,
                     origin=origin,
                     severity=Severity.ERROR,
                     # For schema-integrated error code discussion, see:
@@ -163,7 +165,7 @@ def _get_set_path(in_path, marker):
     if in_path == "/" or not any(i in in_path for i in ["/", "\\"]):
         return None
     if os.path.isfile(candidate):
-        return candidate
+        return os.path.dirname(candidate)
     else:
         level_up = os.path.dirname(in_path.rstrip("/\\"))
         return _get_set_path(level_up, marker)
