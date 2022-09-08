@@ -115,7 +115,7 @@ def validate_bids(
                 severity=Severity.ERROR,
                 id="BIDS.NON_BIDS_PATH_PLACEHOLDER",
                 scope=Scope.FILE,
-                path=path,
+                path=Path(path),
                 message="File does not match any pattern known to BIDS.",
                 dataset_path=dataset_path,
                 dandiset_path=dandiset_path,
