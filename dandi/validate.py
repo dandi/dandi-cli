@@ -90,6 +90,7 @@ def validate_bids(
         report_path = report_path.format(
             log_dir=log_dir,
         )
+
     validation_result = validate_bids_(
         paths,
         schema_version=schema_version,
