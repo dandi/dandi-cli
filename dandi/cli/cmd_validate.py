@@ -48,11 +48,18 @@ def validate_bids(
     )
 
     for i in validator_result:
-        click.secho(
-            i.message,
-            bold=True,
-            fg="red",
-        )
+        if i.severity == Severity.ERROR:
+            click.secho(
+                i.message,
+                bold=True,
+                fg="red",
+            )
+        if i.severity == Severity.WARNING:
+            click.secho(
+                i.message,
+                bold=True,
+                fg="orange",
+            )
 
     validation_errors = [e for e in validator_result if e.severity == Severity.ERROR]
 
