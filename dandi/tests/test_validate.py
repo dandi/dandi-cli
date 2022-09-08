@@ -43,6 +43,7 @@ def test_validate_bids_errors(bids_error_examples, dataset):
     # This only checks that the error we found is correct, not that we found all errors.
     # ideally make a list and erode etc.
     import json
+    import pathlib
 
     from ..validate import validate_bids
 
@@ -57,6 +58,7 @@ def test_validate_bids_errors(bids_error_examples, dataset):
         if i.path:
             error_path = i.path
             relative_error_path = os.path.relpath(error_path, i.dataset_path)
+            relative_error_path = pathlib.Path(relative_error_path).as_posix()
             assert (
                 relative_error_path
                 in expected_errors[error_id.lstrip("BIDS.")]["scope"]
