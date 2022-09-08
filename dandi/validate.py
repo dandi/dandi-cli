@@ -9,7 +9,6 @@ import appdirs
 
 from .files import find_dandi_files
 
-
 BIDS_TO_DANDI = {
     "subject": "subject_id",
     "session": "session_id",
@@ -24,7 +23,7 @@ class ValidationResult:
     asset_paths: Optional[list[str]] = None
     dandiset_path: Optional[Path] = None
     dataset_path: Optional[Path] = None
-    message: Optional[str] = ""
+    message: str = ""
     metadata: Optional[dict] = None
     path: Optional[Path] = None
     path_regex: Optional[str] = ""
@@ -142,11 +141,7 @@ def validate_bids(
             )
     for meta in validation_result["match_listing"]:
         file_path = meta.pop("path")
-        meta = {
-            BIDS_TO_DANDI[k]: v
-            for k, v in meta.items()
-            if k in BIDS_TO_DANDI
-        }
+        meta = {BIDS_TO_DANDI[k]: v for k, v in meta.items() if k in BIDS_TO_DANDI}
         our_validation_result.append(
             ValidationResult(
                 origin=origin,
