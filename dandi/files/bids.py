@@ -78,7 +78,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                     elif i.id in BIDS_DATASET_ERRORS:
                         self._dataset_errors.append(i.message)
                     elif i.id == "BIDS.MATCH":
-                        bids_path = Path(i.path).relative_to(self.bids_root).as_posix()
+                        bids_path = i.path.relative_to(self.bids_root).as_posix()
                         self._asset_metadata[bids_path] = prepare_metadata(i.metadata)
 
     def get_asset_errors(self, asset: BIDSAsset) -> list[str]:
