@@ -235,7 +235,7 @@ def get_gitrepo_fixture(
 
 def get_filtered_gitrepo_fixture(
     url: str,
-    whitelist: Iterator[str],
+    whitelist: List[str],
 ) -> Callable[[], Iterator[str]]:
     @pytest.fixture(scope="session")
     def fixture():
