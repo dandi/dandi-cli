@@ -148,7 +148,7 @@ def validate_bids(
                 origin=origin,
                 id="BIDS.MATCH",
                 scope=Scope.FILE,
-                path=file_path,
+                path=Path(file_path),
                 metadata=meta,
             )
         )
