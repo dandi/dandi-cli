@@ -39,6 +39,18 @@ from ..upload import upload
 lgr = get_logger()
 
 
+BIDS_TESTDATA_SELECTION = [
+    "asl003",
+    "eeg_cbm",
+    "hcp_example_bids",
+    "micr_SEMzarr",
+    "micr_SPIM",
+    "pet003",
+    "qmri_tb1tfl",
+    "qmri_vfa",
+]
+
+
 def copytree(src, dst, symlinks=False, ignore=None):
     """Function mimicking `shutil.copytree()` behaviour but supporting existing target
     directories.
@@ -221,8 +233,43 @@ def get_gitrepo_fixture(
     return fixture
 
 
+def get_filtered_gitrepo_fixture(
+    url: str,
+    whitelist: Iterator[str],
+) -> Callable[[], Iterator[str]]:
+    @pytest.fixture(scope="session")
+    def fixture():
+        with tempfile.TemporaryDirectory() as path:
+            lgr.debug("Cloning %r into %r", url, path)
+            runout = run(
+                [
+                    "git",
+                    "clone",
+                    "--depth=1",
+                    "--filter=blob:none",
+                    "--sparse",
+                    url,
+                    path,
+                ],
+                capture_output=True,
+            )
+            if runout.returncode:
+                raise RuntimeError(f"Failed to clone {url} into {path}")
+            # cwd specification is VERY important, not only to achieve the correct
+            # effects, but also to avoid dropping files from your repository if you
+            # were to run `git sparse-checkout` inside the software repo.
+            _ = run(["git", "sparse-checkout", "init", "--cone"], cwd=path)
+            _ = run(["git", "sparse-checkout", "set"] + whitelist, cwd=path)
+            yield path
+
+    return fixture
+
+
 nwb_test_data = get_gitrepo_fixture("http://github.com/dandi-datasets/nwb_test_data")
-bids_examples = get_gitrepo_fixture("https://github.com/dandi/bids-examples")
+bids_examples = get_filtered_gitrepo_fixture(
+    "https://github.com/dandi/bids-examples",
+    BIDS_TESTDATA_SELECTION,
+)
 bids_error_examples = get_gitrepo_fixture(
     "https://github.com/bids-standard/bids-error-examples"
 )
