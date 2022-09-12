@@ -506,7 +506,7 @@ def bids_dandiset_invalid(
     new_dandiset: SampleDandiset, bids_examples: str
 ) -> SampleDandiset:
     copytree(
-        os.path.join(bids_examples, "invalid_pet001"),
+        os.path.join(bids_error_examples, "invalid_pet001"),
         str(new_dandiset.dspath) + "/",
     )
     return new_dandiset
