@@ -503,7 +503,7 @@ def bids_dandiset(new_dandiset: SampleDandiset, bids_examples: str) -> SampleDan
 
 @pytest.fixture()
 def bids_dandiset_invalid(
-    new_dandiset: SampleDandiset, bids_examples: str
+    new_dandiset: SampleDandiset, bids_error_examples: str
 ) -> SampleDandiset:
     copytree(
         os.path.join(bids_error_examples, "invalid_pet001"),
