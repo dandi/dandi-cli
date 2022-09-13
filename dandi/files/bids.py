@@ -81,13 +81,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                     elif result.id == "BIDS.MATCH":
                         assert result.path
                         bids_path = result.path.relative_to(self.bids_root).as_posix()
-                        try:
-                            assert result.metadata
-                        except AssertionError:
-                            print(result)
-                            print(result)
-                            print(result.path)
-                            print(result.metadata)
+                        assert result.metadata
                         self._asset_metadata[bids_path] = prepare_metadata(
                             result.metadata
                         )
