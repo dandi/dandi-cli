@@ -228,7 +228,10 @@ def get_gitrepo_fixture(
             try:
                 shutil.rmtree(path)
             except BaseException as exc:
-                lgr.warning("Failed to remove %s - using Windows?: %s", path, exc)
+                lgr.warning("1Failed to remove %s - using Windows?: %s", path, exc)
+                lgr.warning("2Failed to remove %s - using Windows?: %s", path, exc)
+                lgr.warning("3Failed to remove %s - using Windows?: %s", path, exc)
+                lgr.warning("4Failed to remove %s - using Windows?: %s", path, exc)
 
     return fixture
 
