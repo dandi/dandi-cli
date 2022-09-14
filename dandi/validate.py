@@ -143,6 +143,11 @@ def validate_bids(
     for meta in validation_result["match_listing"]:
         file_path = meta.pop("path")
         meta = {BIDS_TO_DANDI[k]: v for k, v in meta.items() if k in BIDS_TO_DANDI}
+        # Top level files do not have any other metadata other than path.
+        if not meta:
+            meta = {
+                "subject": None,
+            }
         our_validation_result.append(
             ValidationResult(
                 origin=origin,

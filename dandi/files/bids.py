@@ -10,13 +10,10 @@ import weakref
 
 from dandischema.models import BareAsset
 
-from . import get_logger
 from .bases import GenericAsset, LocalFileAsset, NWBAsset
 from .zarr import ZarrAsset
 from ..metadata import add_common_metadata, prepare_metadata
 from ..misctypes import Digest
-
-lgr = get_logger()
 
 BIDS_ASSET_ERRORS = [
     "BIDS.NON_BIDS_PATH_PLACEHOLDER",
@@ -84,11 +81,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                     elif result.id == "BIDS.MATCH":
                         assert result.path
                         bids_path = result.path.relative_to(self.bids_root).as_posix()
-                        try:
-                            assert result.metadata
-                        except AssertionError:
-                            lgr.warning("The path is %s", result.path)
-                            lgr.warning("The metadata is %s", result.metadata)
+                        assert result.metadata
                         self._asset_metadata[bids_path] = prepare_metadata(
                             result.metadata
                         )
