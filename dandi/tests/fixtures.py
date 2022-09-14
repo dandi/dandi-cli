@@ -505,10 +505,12 @@ def bids_dandiset(new_dandiset: SampleDandiset, bids_examples: str) -> SampleDan
 def bids_dandiset_invalid(
     new_dandiset: SampleDandiset, bids_error_examples: str
 ) -> SampleDandiset:
+    dataset_path = new_dandiset.dspath
     copytree(
         os.path.join(bids_error_examples, "invalid_pet001"),
-        str(new_dandiset.dspath) + "/",
+        str(dataset_path) + "/",
     )
+    os.remove(os.path.join(dataset_path, "README"))
     return new_dandiset
 
 
