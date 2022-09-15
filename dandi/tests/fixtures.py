@@ -228,10 +228,10 @@ def get_gitrepo_fixture(
             try:
                 shutil.rmtree(path)
             except BaseException as exc:
-                lgr.warning("1Failed to remove %s - using Windows?: %s", path, exc)
-                lgr.warning("2Failed to remove %s - using Windows?: %s", path, exc)
-                lgr.warning("3Failed to remove %s - using Windows?: %s", path, exc)
-                lgr.warning("4Failed to remove %s - using Windows?: %s", path, exc)
+                lgr.warning("1 Failed to remove %s - using Windows?: %s", path, exc)
+                lgr.warning("2 Failed to remove %s - using Windows?: %s", path, exc)
+                lgr.warning("3 Failed to remove %s - using Windows?: %s", path, exc)
+                lgr.warning("4 Failed to remove %s - using Windows?: %s", path, exc)
 
     return fixture
 
@@ -241,7 +241,9 @@ def get_filtered_gitrepo_fixture(
     whitelist: List[str],
 ) -> Callable[[], Iterator[str]]:
     @pytest.fixture(scope="session")
-    def fixture():
+    def fixture() -> Iterator[str]:
+        skipif.no_network()
+        skipif.no_git()
         try:
             with tempfile.TemporaryDirectory() as path:
                 lgr.debug("Cloning %r into %r", url, path)
@@ -268,8 +270,9 @@ def get_filtered_gitrepo_fixture(
         finally:
             try:
                 shutil.rmtree(path)
-            except BaseException as exc:
-                lgr.warning("Failed to remove %s - using Windows?: %s", path, exc)
+            except PermissionError as exc:
+                lgr.warning("AA Failed to remove %s - using Windows?: %s", path, exc)
+                lgr.warning("BB Failed to remove %s - using Windows?: %s", path, exc)
 
     return fixture
 
