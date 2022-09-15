@@ -259,7 +259,7 @@ def test_detect_link_type(
 
     monkeypatch.setattr(os, "symlink", succeed_link if sym_success else error_link)
     monkeypatch.setattr(os, "link", succeed_link if hard_success else error_link)
-    assert detect_link_type(tmp_path) == result
+    assert detect_link_type(tmp_path, tmp_path) == result
 
 
 @pytest.mark.parametrize("mode", ["copy", "move"])
