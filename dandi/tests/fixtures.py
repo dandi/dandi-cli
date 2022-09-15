@@ -244,29 +244,31 @@ def get_filtered_gitrepo_fixture(
     def fixture() -> Iterator[str]:
         skipif.no_network()
         skipif.no_git()
+        path = tempfile.mktemp()  # not using pytest's tmpdir fixture to not
+        # collide in different scopes etc. But we
+        # would need to remove it ourselves
         try:
-            with tempfile.TemporaryDirectory() as path:
-                lgr.debug("Cloning %r into %r", url, path)
-                runout = run(
-                    [
-                        "git",
-                        "clone",
-                        "--depth=1",
-                        "--filter=blob:none",
-                        "--sparse",
-                        url,
-                        path,
-                    ],
-                    capture_output=True,
-                )
-                if runout.returncode:
-                    raise RuntimeError(f"Failed to clone {url} into {path}")
-                # cwd specification is VERY important, not only to achieve the correct
-                # effects, but also to avoid dropping files from your repository if you
-                # were to run `git sparse-checkout` inside the software repo.
-                _ = run(["git", "sparse-checkout", "init", "--cone"], cwd=path)
-                _ = run(["git", "sparse-checkout", "set"] + whitelist, cwd=path)
-                yield path
+            lgr.debug("Cloning %r into %r", url, path)
+            runout = run(
+                [
+                    "git",
+                    "clone",
+                    "--depth=1",
+                    "--filter=blob:none",
+                    "--sparse",
+                    url,
+                    path,
+                ],
+                capture_output=True,
+            )
+            if runout.returncode:
+                raise RuntimeError(f"Failed to clone {url} into {path}")
+            # cwd specification is VERY important, not only to achieve the correct
+            # effects, but also to avoid dropping files from your repository if you
+            # were to run `git sparse-checkout` inside the software repo.
+            _ = run(["git", "sparse-checkout", "init", "--cone"], cwd=path)
+            _ = run(["git", "sparse-checkout", "set"] + whitelist, cwd=path)
+            yield path
         finally:
             try:
                 shutil.rmtree(path)
