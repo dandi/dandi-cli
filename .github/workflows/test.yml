@@ -75,9 +75,10 @@ jobs:
         python -m pip install --upgrade pip wheel
         pip install ".[test]"
 
-    - name: Install dev version of pynwb and nwbinspector
+    - name: Install dev versions of select dependencies
       if: matrix.mode == 'dev-deps'
       run: |
+        pip install git+https://github.com/jaraco/keyring
         pip install git+https://github.com/NeurodataWithoutBorders/nwbinspector
         pip install git+https://github.com/NeurodataWithoutBorders/pynwb
 
