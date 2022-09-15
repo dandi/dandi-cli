@@ -270,7 +270,7 @@ def get_filtered_gitrepo_fixture(
         finally:
             try:
                 shutil.rmtree(path)
-            except PermissionError as exc:
+            except BaseException as exc:
                 lgr.warning("AA Failed to remove %s - using Windows?: %s", path, exc)
                 lgr.warning("BB Failed to remove %s - using Windows?: %s", path, exc)
 
