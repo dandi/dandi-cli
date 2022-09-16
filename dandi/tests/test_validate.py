@@ -1,7 +1,7 @@
-# from glob import glob
+from glob import glob
 import os
 
-# import appdirs
+import appdirs
 import pytest
 
 from .fixtures import BIDS_TESTDATA_SELECTION
@@ -17,26 +17,24 @@ def test_validate_bids(bids_examples, tmp_path, dataset):
         assert not hasattr(i, "severtiy")
 
 
-#    # Check if a report is being produced.
-#    pid = os.getpid()
-#    log_dir = appdirs.user_log_dir("dandi-cli", "dandi")
-#    # appdirs.user_log_dir("dandi-cli")
-#    report_expression = os.path.join(log_dir, f"bids-validator-report_*-{pid}.log")
-#    assert len(glob(report_expression)) == 1
-#
-#    # TEST CUSTOM REPORT PATH:
-#    # Replace explicit dataset with `os.listdir(bids_examples)[1]` whenever we
-#    # implement light data cloning analogous to (`[1]` because `[0]` is .git):
-#    # https://github.com/bids-standard/bids-specification/pull/1143
-#    report_path = os.path.join(tmp_path, "inplace_bids-validator-report.log")
-#    selected_dataset = os.path.join(bids_examples, "asl003")
-#    _ = validate_bids(
-#        selected_dataset,
-#        report_path=report_path,
-#    )
-#
-#    # Check if a report is being produced.
-#    assert len(glob(report_path)) == 1
+def test_report_path(bids_examples, tmp_path):
+    from ..validate import validate_bids
+
+    pid = os.getpid()
+    log_dir = appdirs.user_log_dir("dandi-cli", "dandi")
+    # appdirs.user_log_dir("dandi-cli")
+    report_expression = os.path.join(log_dir, f"bids-validator-report_*-{pid}.log")
+    assert len(glob(report_expression)) == 1
+
+    report_path = os.path.join(tmp_path, "inplace_bids-validator-report.log")
+    selected_dataset = os.path.join(bids_examples, BIDS_TESTDATA_SELECTION[0])
+    _ = validate_bids(
+        selected_dataset,
+        report_path=report_path,
+    )
+
+    # Check if a report is being produced.
+    assert len(glob(report_path)) == 1
 
 
 @pytest.mark.parametrize(
