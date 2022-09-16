@@ -14,4 +14,4 @@ def test_validate_bids_error(bids_error_examples):
     assert r.exit_code == 1
 
     # Does it report the issue correctly?
-    assert r.output == expected_error
+    assert expected_error in r.output
