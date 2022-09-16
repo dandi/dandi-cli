@@ -48,15 +48,22 @@ def validate_bids(
     )
 
     for i in validator_result:
+        if i.path:
+            scope = i.path
+        elif i.path_regex:
+            scope = i.path_regex
+        else:
+            scope = i.dataset_path
+        echo_string = f"[{i.id}] {scope}: {i.message}"
         if i.severity == Severity.ERROR:
             click.secho(
-                i.message,
+                echo_string,
                 bold=True,
                 fg="red",
             )
         if i.severity == Severity.WARNING:
             click.secho(
-                i.message,
+                echo_string,
                 bold=True,
                 fg="orange",
             )
