@@ -277,7 +277,7 @@ def get_filtered_gitrepo_fixture(
 
 nwb_test_data = get_gitrepo_fixture("http://github.com/dandi-datasets/nwb_test_data")
 bids_examples = get_filtered_gitrepo_fixture(
-    "https://github.com/dandi/bids-examples",
+    "https://github.com/bids-standard/bids-examples",
     BIDS_TESTDATA_SELECTION,
 )
 bids_error_examples = get_gitrepo_fixture(
