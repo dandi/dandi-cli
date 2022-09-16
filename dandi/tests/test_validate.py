@@ -1,7 +1,7 @@
 from glob import glob
 import os
 
-import appdirs
+# import appdirs
 import pytest
 
 from .fixtures import BIDS_TESTDATA_SELECTION
@@ -20,11 +20,10 @@ def test_validate_bids(bids_examples, tmp_path, dataset):
 def test_report_path(bids_examples, tmp_path):
     from ..validate import validate_bids
 
-    pid = os.getpid()
-    log_dir = appdirs.user_log_dir("dandi-cli", "dandi")
-    # appdirs.user_log_dir("dandi-cli")
-    report_expression = os.path.join(log_dir, f"bids-validator-report_*-{pid}.log")
-    assert len(glob(report_expression)) == 1
+    # pid = os.getpid()
+    # log_dir = appdirs.user_log_dir("dandi-cli", "dandi")
+    # report_expression = os.path.join(log_dir, f"bids-validator-report_*-{pid}.log")
+    # assert len(glob(report_expression)) == 1
 
     report_path = os.path.join(tmp_path, "inplace_bids-validator-report.log")
     selected_dataset = os.path.join(bids_examples, BIDS_TESTDATA_SELECTION[0])
