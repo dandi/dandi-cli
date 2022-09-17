@@ -143,7 +143,10 @@ def validate_bids(
     for meta in validation_result["match_listing"]:
         file_path = meta.pop("path")
         meta = {BIDS_TO_DANDI[k]: v for k, v in meta.items() if k in BIDS_TO_DANDI}
-        # Top level files do not have any other metadata other than path.
+        dataset_path = _get_set_path(file_path, "dataset_description.json")
+        dandiset_path = _get_set_path(file_path, "dandiset.yaml")
+        # Top level files do not have any other metadata other than path,
+        # which we pop and put in the object...
         if not meta:
             meta = {
                 "subject": None,
@@ -155,6 +158,8 @@ def validate_bids(
                 scope=Scope.FILE,
                 path=Path(file_path),
                 metadata=meta,
+                dataset_path=dataset_path,
+                dandiset_path=dandiset_path,
             )
         )
 
