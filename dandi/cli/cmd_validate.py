@@ -36,7 +36,6 @@ def validate_bids(
         dandi validate-bids /my/path
     """
 
-    # from ..bids_utils import print_validation_results
     from ..validate import Severity
     from ..validate import validate_bids as validate_bids_
 
