@@ -1,3 +1,21 @@
+# 0.46.3 (Mon Sep 19 2022)
+
+#### 🐛 Bug Fix
+
+- Detect link type for `organize` by linking from first src dir to dest dir [#1115](https://github.com/dandi/dandi-cli/pull/1115) ([@jwodder](https://github.com/jwodder))
+- Check for usage of latest NWB Inspector release [#1108](https://github.com/dandi/dandi-cli/pull/1108) ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🧪 Tests
+
+- Test against dev version of keyring package [#1116](https://github.com/dandi/dandi-cli/pull/1116) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.46.2 (Thu Sep 01 2022)
 
 #### 🐛 Bug Fix
