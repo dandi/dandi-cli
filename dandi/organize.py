@@ -680,17 +680,15 @@ def _get_non_unique_paths(metadata):
     return non_unique
 
 
-def detect_link_type(workdir):
+def detect_link_type(srcfile, destdir):
     """
-    Determine what type of links the filesystem will let us make in the
-    directory ``workdir``.  If symlinks are allowed, returns ``"symlink"``.
-    Otherwise, if hard links are allowed, returns ``"hardlink"``.  Otherwise,
-    returns ``"copy"``.
+    Determine what type of links the filesystem will let us make from the file
+    ``srcfile`` to the directory ``destdir``.  If symlinks are allowed, returns
+    ``"symlink"``.  Otherwise, if hard links are allowed, returns
+    ``"hardlink"``.  Otherwise, returns ``"copy"``.
     """
-    srcfile = Path(workdir, f".dandi.{os.getpid()}.src")
-    destfile = Path(workdir, f".dandi.{os.getpid()}.dest")
+    destfile = Path(destdir, f".dandi.{os.getpid()}.dest")
     try:
-        srcfile.touch()
         try:
             os.symlink(srcfile, destfile)
         except OSError:
@@ -712,10 +710,6 @@ def detect_link_type(workdir):
     finally:
         try:
             destfile.unlink()
-        except FileNotFoundError:
-            pass
-        try:
-            srcfile.unlink()
         except FileNotFoundError:
             pass
 
@@ -789,13 +783,15 @@ def organize(
             )
         lgr.info("We will organize %s in-place", dandiset_path)
         in_place = True
-        paths = dandiset_path
+        paths = [dandiset_path]
 
     if len(paths) == 1 and paths[0].endswith(".json"):
         # Our dumps of metadata
         metadata = load_jsonl(paths[0])
+        link_test_file = metadata[0]["path"]
     else:
         paths = list(find_files(r"\.nwb\Z", paths=paths))
+        link_test_file = paths[0] if paths else None
         lgr.info("Loading metadata from %d files", len(paths))
         # Done here so we could still reuse cached 'get_metadata'
         # without having two types of invocation and to guard against
@@ -857,7 +853,7 @@ def organize(
         act(os.makedirs, dandiset_path)
 
     if files_mode == "auto":
-        files_mode = detect_link_type(dandiset_path)
+        files_mode = detect_link_type(link_test_file, dandiset_path)
 
     metadata = create_unique_filenames_from_metadata(metadata)
 
