@@ -1,15 +1,16 @@
 from glob import glob
+import json
 import os
+import pathlib
 
-# import appdirs
 import pytest
 
 from .fixtures import BIDS_TESTDATA_SELECTION
+from ..validate import validate_bids
 
 
 @pytest.mark.parametrize("dataset", BIDS_TESTDATA_SELECTION)
 def test_validate_bids(bids_examples, tmp_path, dataset):
-    from ..validate import validate_bids
 
     selected_dataset = os.path.join(bids_examples, dataset)
     validation_result = validate_bids(selected_dataset, report=True)
@@ -18,7 +19,6 @@ def test_validate_bids(bids_examples, tmp_path, dataset):
 
 
 def test_report_path(bids_examples, tmp_path):
-    from ..validate import validate_bids
 
     report_path = os.path.join(tmp_path, "inplace_bids-validator-report.log")
     selected_dataset = os.path.join(bids_examples, BIDS_TESTDATA_SELECTION[0])
@@ -37,10 +37,6 @@ def test_report_path(bids_examples, tmp_path):
 def test_validate_bids_errors(bids_error_examples, dataset):
     # This only checks that the error we found is correct, not that we found all errors.
     # ideally make a list and erode etc.
-    import json
-    import pathlib
-
-    from ..validate import validate_bids
 
     selected_dataset = os.path.join(bids_error_examples, dataset)
     validation_result = validate_bids(selected_dataset, report=True)

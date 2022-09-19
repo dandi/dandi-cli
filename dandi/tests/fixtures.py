@@ -263,8 +263,8 @@ def get_filtered_gitrepo_fixture(
             # cwd specification is VERY important, not only to achieve the correct
             # effects, but also to avoid dropping files from your repository if you
             # were to run `git sparse-checkout` inside the software repo.
-            _ = run(["git", "sparse-checkout", "init", "--cone"], cwd=path)
-            _ = run(["git", "sparse-checkout", "set"] + whitelist, cwd=path)
+            run(["git", "sparse-checkout", "init", "--cone"], cwd=path, check=True)
+            run(["git", "sparse-checkout", "set"] + whitelist, cwd=path, check=True)
             yield path
         finally:
             try:

@@ -23,10 +23,10 @@ class ValidationResult:
     asset_paths: Optional[list[str]] = None
     dandiset_path: Optional[Path] = None
     dataset_path: Optional[Path] = None
-    message: str = ""
+    message: Optional[str] = None
     metadata: Optional[dict] = None
     path: Optional[Path] = None
-    path_regex: Optional[str] = ""
+    path_regex: Optional[str] = None
     severity: Optional[Severity] = None
 
 
@@ -124,9 +124,7 @@ def validate_bids(
 
     for pattern in validation_result["schema_tracking"]:
         # Future proofing for standard-compliant name.
-        if ("mandatory" in pattern and pattern["mandatory"]) or (
-            "required" in pattern and pattern["required"]
-        ):
+        if pattern.get("mandatory") or pattern.get("required"):
             # We don't have a path for this so we'll need some external logic to make sure
             # that the dataset path is populated.
             # dataset_path = _get_dataset_path(path, paths)

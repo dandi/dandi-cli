@@ -15,12 +15,8 @@ from .zarr import ZarrAsset
 from ..metadata import add_common_metadata, prepare_metadata
 from ..misctypes import Digest
 
-BIDS_ASSET_ERRORS = [
-    "BIDS.NON_BIDS_PATH_PLACEHOLDER",
-]
-BIDS_DATASET_ERRORS = [
-    "BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",
-]
+BIDS_ASSET_ERRORS = ("BIDS.NON_BIDS_PATH_PLACEHOLDER",)
+BIDS_DATASET_ERRORS = ("BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",)
 
 
 @dataclass
