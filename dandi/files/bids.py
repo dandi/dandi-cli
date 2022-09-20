@@ -71,8 +71,10 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 for result in results:
                     if result.id in BIDS_ASSET_ERRORS:
                         assert result.path
+                        assert result.message
                         self._asset_errors[str(result.path)].append(result.message)
                     elif result.id in BIDS_DATASET_ERRORS:
+                        assert result.message
                         self._dataset_errors.append(result.message)
                     elif result.id == "BIDS.MATCH":
                         assert result.path
