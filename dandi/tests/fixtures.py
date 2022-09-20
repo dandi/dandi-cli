@@ -239,39 +239,33 @@ def get_filtered_gitrepo_fixture(
     whitelist: List[str],
 ) -> Callable[[], Iterator[str]]:
     @pytest.fixture(scope="session")
-    def fixture() -> Iterator[Path]:
+    def fixture(
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> Iterator[str]:
         skipif.no_network()
         skipif.no_git()
-        path = tmp_path  # not using pytest's tmpdir fixture to not
-        # collide in different scopes etc. But we
-        # would need to remove it ourselves
-        try:
-            lgr.debug("Cloning %r into %r", url, path)
-            runout = run(
-                [
-                    "git",
-                    "clone",
-                    "--depth=1",
-                    "--filter=blob:none",
-                    "--sparse",
-                    url,
-                    path,
-                ],
-                capture_output=True,
-            )
-            if runout.returncode:
-                raise RuntimeError(f"Failed to clone {url} into {path}")
-            # cwd specification is VERY important, not only to achieve the correct
-            # effects, but also to avoid dropping files from your repository if you
-            # were to run `git sparse-checkout` inside the software repo.
-            run(["git", "sparse-checkout", "init", "--cone"], cwd=path, check=True)
-            run(["git", "sparse-checkout", "set"] + whitelist, cwd=path, check=True)
-            yield path
-        finally:
-            try:
-                shutil.rmtree(path)
-            except Exception as exc:
-                lgr.warning("Failed to remove %s - using Windows?: %s", path, exc)
+        path = tmp_path_factory.mktemp("gitrepo")
+        lgr.debug("Cloning %r into %r", url, path)
+        runout = run(
+            [
+                "git",
+                "clone",
+                "--depth=1",
+                "--filter=blob:none",
+                "--sparse",
+                url,
+                str(path),
+            ],
+            capture_output=True,
+        )
+        if runout.returncode:
+            raise RuntimeError(f"Failed to clone {url} into {path}")
+        # cwd specification is VERY important, not only to achieve the correct
+        # effects, but also to avoid dropping files from your repository if you
+        # were to run `git sparse-checkout` inside the software repo.
+        run(["git", "sparse-checkout", "init", "--cone"], cwd=path, check=True)
+        run(["git", "sparse-checkout", "set"] + whitelist, cwd=path, check=True)
+        yield path
 
     return fixture
 
