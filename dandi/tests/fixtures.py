@@ -234,10 +234,9 @@ def get_gitrepo_fixture(
 
 
 def get_filtered_gitrepo_fixture(
-    tmp_path,
     url: str,
     whitelist: List[str],
-) -> Callable[[], Iterator[str]]:
+) -> Callable[[pytest.TempPathFactory], Iterator[str]]:
     @pytest.fixture(scope="session")
     def fixture(
         tmp_path_factory: pytest.TempPathFactory,
