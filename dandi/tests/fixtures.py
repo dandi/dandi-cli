@@ -234,14 +234,15 @@ def get_gitrepo_fixture(
 
 
 def get_filtered_gitrepo_fixture(
+    tmp_path,
     url: str,
     whitelist: List[str],
 ) -> Callable[[], Iterator[str]]:
     @pytest.fixture(scope="session")
-    def fixture() -> Iterator[str]:
+    def fixture() -> Iterator[Path]:
         skipif.no_network()
         skipif.no_git()
-        path = tempfile.mktemp()  # not using pytest's tmpdir fixture to not
+        path = tmp_path  # not using pytest's tmpdir fixture to not
         # collide in different scopes etc. But we
         # would need to remove it ourselves
         try:
@@ -269,7 +270,7 @@ def get_filtered_gitrepo_fixture(
         finally:
             try:
                 shutil.rmtree(path)
-            except BaseException as exc:
+            except Exception as exc:
                 lgr.warning("Failed to remove %s - using Windows?: %s", path, exc)
 
     return fixture
@@ -277,8 +278,8 @@ def get_filtered_gitrepo_fixture(
 
 nwb_test_data = get_gitrepo_fixture("http://github.com/dandi-datasets/nwb_test_data")
 bids_examples = get_filtered_gitrepo_fixture(
-    "https://github.com/bids-standard/bids-examples",
-    BIDS_TESTDATA_SELECTION,
+    url="https://github.com/bids-standard/bids-examples",
+    whitelist=BIDS_TESTDATA_SELECTION,
 )
 bids_error_examples = get_gitrepo_fixture(
     "https://github.com/bids-standard/bids-error-examples"
