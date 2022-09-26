@@ -146,6 +146,10 @@ def validate_bids(
         dandiset_path = find_parent_directory_containing("dandiset.yaml", file_path)
         # Top level files do not have any other metadata other than path,
         # which we pop and put in the object...
+        if not meta:
+            meta = {
+                "subject": None,
+            }
         our_validation_result.append(
             ValidationResult(
                 origin=origin,
