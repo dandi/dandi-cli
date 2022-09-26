@@ -105,7 +105,7 @@ def validate_bids(
     )
 
     # Storing variable to not re-compute set paths for each individual file.
-    parent_path = False
+    parent_path = None
     for path in validation_result["path_tracking"]:
         # Hard-coding exclusion here pending feature + release in:
         # https://github.com/bids-standard/bids-specification/issues/1272
@@ -146,7 +146,7 @@ def validate_bids(
             )
 
     # Storing variable to not re-compute set paths for each individual file.
-    parent_path = False
+    parent_path = None
     for meta in validation_result["match_listing"]:
         file_path = meta.pop("path")
         meta = {BIDS_TO_DANDI[k]: v for k, v in meta.items() if k in BIDS_TO_DANDI}
