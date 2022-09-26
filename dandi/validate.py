@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Iterator, List, Optional, Tuple, Union
 
 import appdirs
+import os
 
 from .files import find_dandi_files
 
@@ -174,7 +175,6 @@ def _get_set_path(in_path, marker):
     marker : str, optional
         Filename marker which identifies the set root.
     """
-    import os
 
     candidate = os.path.join(in_path, marker)
     # Windows support... otherwise we could do `if in_path == "/"`.
