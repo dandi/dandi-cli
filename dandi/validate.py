@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Iterator, List, Optional, Tuple, Union
 
 import appdirs
+import os
 
 from .files import find_dandi_files
 from .utils import find_parent_directory_containing
@@ -103,13 +104,17 @@ def validate_bids(
         version=bidsschematools.__version__,
     )
 
+    # Storing variable to not re-compute set paths for each individual file.
+    parent_path = False
     for path in validation_result["path_tracking"]:
         # Hard-coding exclusion here pending feature + release in:
         # https://github.com/bids-standard/bids-specification/issues/1272
         if path.endswith((".ERRORS", ".ERRORS.json")):
             continue
-        dataset_path = find_parent_directory_containing("dataset_description.json", path)
-        dandiset_path = find_parent_directory_containing("dandiset.yaml", path)
+        if parent_path != os.path.dirname(path):
+            parent_path = os.path.dirname(path)
+            dataset_path = find_parent_directory_containing("dataset_description.json", parent_path)
+            dandiset_path = find_parent_directory_containing("dandiset.yaml", parent_path)
         our_validation_result.append(
             ValidationResult(
                 origin=origin,
@@ -139,9 +144,16 @@ def validate_bids(
                     message="BIDS-required file is not present.",
                 )
             )
+
+    # Storing variable to not re-compute set paths for each individual file.
+    parent_path = False
     for meta in validation_result["match_listing"]:
         file_path = meta.pop("path")
         meta = {BIDS_TO_DANDI[k]: v for k, v in meta.items() if k in BIDS_TO_DANDI}
+        if parent_path != os.path.dirname(file_path):
+            parent_path = os.path.dirname(file_path)
+            dataset_path = find_parent_directory_containing("dataset_description.json", parent_path)
+            dandiset_path = find_parent_directory_containing("dandiset.yaml", parent_path)
         dataset_path = find_parent_directory_containing("dataset_description.json", file_path)
         dandiset_path = find_parent_directory_containing("dandiset.yaml", file_path)
         # Top level files do not have any other metadata other than path,
