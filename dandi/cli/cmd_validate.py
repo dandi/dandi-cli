@@ -54,17 +54,16 @@ def validate_bids(
         else:
             scope = i.dataset_path
         echo_string = f"[{i.id}] {scope}: {i.message}"
+        i_fg = ""
         if i.severity == Severity.ERROR:
+            i_fg = "red"
+        elif i.severity == Severity.WARNING:
+            i_fg = "orange"
+        if i_fg:
             click.secho(
                 echo_string,
                 bold=True,
-                fg="red",
-            )
-        if i.severity == Severity.WARNING:
-            click.secho(
-                echo_string,
-                bold=True,
-                fg="orange",
+                fg=i_fg,
             )
 
     validation_errors = [e for e in validator_result if e.severity == Severity.ERROR]
