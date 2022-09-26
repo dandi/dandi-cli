@@ -9,6 +9,7 @@ import appdirs
 import os
 
 from .files import find_dandi_files
+from .utils import find_parent_directory_containing
 
 BIDS_TO_DANDI = {
     "subject": "subject_id",
@@ -108,8 +109,8 @@ def validate_bids(
         # https://github.com/bids-standard/bids-specification/issues/1272
         if path.endswith((".ERRORS", ".ERRORS.json")):
             continue
-        dataset_path = _get_set_path(path, "dataset_description.json")
-        dandiset_path = _get_set_path(path, "dandiset.yaml")
+        dataset_path = find_parent_directory_containing("dataset_description.json", path)
+        dandiset_path = find_parent_directory_containing("dandiset.yaml", path)
         our_validation_result.append(
             ValidationResult(
                 origin=origin,
@@ -128,7 +129,7 @@ def validate_bids(
         if pattern.get("mandatory") or pattern.get("required"):
             # We don't have a path for this so we'll need some external logic to make sure
             # that the dataset path is populated.
-            # dataset_path = _get_dataset_path(path, paths)
+            # dataset_path = find_parent_directory_containing(paths, path)
             our_validation_result.append(
                 ValidationResult(
                     origin=origin,
@@ -142,8 +143,8 @@ def validate_bids(
     for meta in validation_result["match_listing"]:
         file_path = meta.pop("path")
         meta = {BIDS_TO_DANDI[k]: v for k, v in meta.items() if k in BIDS_TO_DANDI}
-        dataset_path = _get_set_path(file_path, "dataset_description.json")
-        dandiset_path = _get_set_path(file_path, "dandiset.yaml")
+        dataset_path = find_parent_directory_containing("dataset_description.json", file_path)
+        dandiset_path = find_parent_directory_containing("dandiset.yaml", file_path)
         # Top level files do not have any other metadata other than path,
         # which we pop and put in the object...
         if not meta:
@@ -163,28 +164,6 @@ def validate_bids(
         )
 
     return our_validation_result
-
-
-def _get_set_path(in_path, marker):
-    """Get the path to the root of a file set (e.g. BIDS dataset or DANDIset).
-
-    Parameters
-    ----------
-    in_path : str, optional
-        File for which to determine set path.
-    marker : str, optional
-        Filename marker which identifies the set root.
-    """
-
-    candidate = os.path.join(in_path, marker)
-    # Windows support... otherwise we could do `if in_path == "/"`.
-    if in_path == "/" or not any(i in in_path for i in ["/", "\\"]):
-        return None
-    if os.path.isfile(candidate):
-        return os.path.dirname(candidate)
-    else:
-        level_up = os.path.dirname(in_path.rstrip("/\\"))
-        return _get_set_path(level_up, marker)
 
 
 def validate(
