@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Iterator, List, Optional, Tuple, Union
 
 import appdirs
-import os
 
 from .files import find_dandi_files
 from .utils import find_parent_directory_containing
@@ -147,10 +146,6 @@ def validate_bids(
         dandiset_path = find_parent_directory_containing("dandiset.yaml", file_path)
         # Top level files do not have any other metadata other than path,
         # which we pop and put in the object...
-        if not meta:
-            meta = {
-                "subject": None,
-            }
         our_validation_result.append(
             ValidationResult(
                 origin=origin,
