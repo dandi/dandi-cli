@@ -79,7 +79,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                     elif result.id == "BIDS.MATCH":
                         assert result.path
                         bids_path = result.path.relative_to(self.bids_root).as_posix()
-                        assert result.metadata
+                        assert result.metadata is not None
                         self._asset_metadata[bids_path] = prepare_metadata(
                             result.metadata
                         )
