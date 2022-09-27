@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+import os
 from pathlib import Path
 from typing import Iterator, List, Optional, Tuple, Union
 
 import appdirs
-import os
 
 from .files import find_dandi_files
 from .utils import find_parent_directory_containing
@@ -113,8 +113,12 @@ def validate_bids(
             continue
         if parent_path != os.path.dirname(path):
             parent_path = os.path.dirname(path)
-            dataset_path = find_parent_directory_containing("dataset_description.json", parent_path)
-            dandiset_path = find_parent_directory_containing("dandiset.yaml", parent_path)
+            dataset_path = find_parent_directory_containing(
+                "dataset_description.json", parent_path
+            )
+            dandiset_path = find_parent_directory_containing(
+                "dandiset.yaml", parent_path
+            )
         our_validation_result.append(
             ValidationResult(
                 origin=origin,
@@ -152,10 +156,12 @@ def validate_bids(
         meta = {BIDS_TO_DANDI[k]: v for k, v in meta.items() if k in BIDS_TO_DANDI}
         if parent_path != os.path.dirname(file_path):
             parent_path = os.path.dirname(file_path)
-            dataset_path = find_parent_directory_containing("dataset_description.json", parent_path)
-            dandiset_path = find_parent_directory_containing("dandiset.yaml", parent_path)
-        dataset_path = find_parent_directory_containing("dataset_description.json", file_path)
-        dandiset_path = find_parent_directory_containing("dandiset.yaml", file_path)
+            dataset_path = find_parent_directory_containing(
+                "dataset_description.json", parent_path
+            )
+            dandiset_path = find_parent_directory_containing(
+                "dandiset.yaml", parent_path
+            )
         # Top level files do not have any other metadata other than path,
         # which we pop and put in the object...
         if not meta:
