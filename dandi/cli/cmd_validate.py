@@ -5,7 +5,6 @@ import click
 
 from .base import devel_debug_option, devel_option, map_to_click_exceptions
 from ..utils import pluralize
-from ..validate import Severity
 
 
 @click.command()
@@ -38,6 +37,7 @@ def validate_bids(
         dandi validate-bids /my/path
     """
 
+    from ..validate import Severity
     from ..validate import validate_bids as validate_bids_
 
     validator_result = validate_bids_(  # Controller
@@ -151,6 +151,8 @@ def validate(paths, schema=None, devel_debug=False, allow_any_path=False):
 
 
 def display_errors(scope, errors, severities=[], messages=[]):
+    from ..validate import Severity
+
     if Severity.ERROR in severities:
         fg = "red"
     elif Severity.WARNING in severities:
