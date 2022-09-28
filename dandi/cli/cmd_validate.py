@@ -3,7 +3,9 @@ import os
 
 import click
 
-from .base import devel_debug_option, devel_option, lgr, map_to_click_exceptions
+from .base import devel_debug_option, devel_option, map_to_click_exceptions
+from ..utils import pluralize
+from ..validate import Severity
 
 
 @click.command()
@@ -36,7 +38,6 @@ def validate_bids(
         dandi validate-bids /my/path
     """
 
-    from ..validate import Severity
     from ..validate import validate_bids as validate_bids_
 
     validator_result = validate_bids_(  # Controller
@@ -47,24 +48,15 @@ def validate_bids(
     )
 
     for i in validator_result:
+        if not i.severity:
+            continue
         if i.path:
             scope = i.path
         elif i.path_regex:
             scope = i.path_regex
         else:
             scope = i.dataset_path
-        echo_string = f"[{i.id}] {scope}: {i.message}"
-        i_fg = ""
-        if i.severity == Severity.ERROR:
-            i_fg = "red"
-        elif i.severity == Severity.WARNING:
-            i_fg = "orange"
-        if i_fg:
-            click.secho(
-                echo_string,
-                bold=True,
-                fg=i_fg,
-            )
+        display_errors(scope, [i.id], [i.severity], [i.message])
 
     validation_errors = [e for e in validator_result if e.severity == Severity.ERROR]
 
@@ -155,10 +147,21 @@ def validate(paths, schema=None, devel_debug=False, allow_any_path=False):
         )
 
 
-def display_errors(path, errors):
-    if not errors:
-        lgr.info("%s: ok", path)
+def display_errors(scope, errors, severities=[], messages=[]):
+    if Severity.ERROR in severities:
+        fg = "red"
+    elif Severity.WARNING in severities:
+        fg = "orange"
     else:
-        lgr.error("%s: %d error(s)", path, len(errors))
-        for error in errors:
-            lgr.error("  %s", error)
+        fg = "blue"
+    summary = f"{scope}: {pluralize(len(errors), 'issue')} detected."
+    click.secho(summary, bold=True, fg="red")
+    for error, severity, message in zip(errors, severities, messages):
+        if severity == Severity.ERROR:
+            fg = "red"
+        elif severity == Severity.WARNING:
+            fg = "green"
+        else:
+            fg = "blue"
+        error_message = f"  [{error}] {message}"
+        click.secho(error_message, fg=fg)
