@@ -108,7 +108,10 @@ def validate(paths, schema=None, devel_debug=False, allow_any_path=False):
     ):
         nfiles += 1
         if view == "one-at-a-time":
-            display_errors(path, errors)
+            if errors:
+                display_errors(
+                    path, ["NWBError"] * len(errors), [""] * len(errors), errors
+                )
         all_files_errors[path] = errors
 
     if view == "groupped":
@@ -155,7 +158,7 @@ def display_errors(scope, errors, severities=[], messages=[]):
     else:
         fg = "blue"
     summary = f"{scope}: {pluralize(len(errors), 'issue')} detected."
-    click.secho(summary, bold=True, fg="red")
+    click.secho(summary, fg=fg)
     for error, severity, message in zip(errors, severities, messages):
         if severity == Severity.ERROR:
             fg = "red"
