@@ -49,8 +49,8 @@ def validate_bids(
         dandi validate-bids /my/path
     """
 
-    from ..validate import Severity
     from ..validate import validate_bids as validate_bids_
+    from ..validate_types import Severity
 
     validator_result = validate_bids_(  # Controller
         *paths,
@@ -186,7 +186,7 @@ def validate(
 
 
 def _get_severity_color(severities):
-    from ..validate import Severity
+    from ..validate_types import Severity
 
     if Severity.ERROR in severities:
         return "red"
@@ -205,7 +205,7 @@ def display_errors(purviews, errors, severities, messages):
     ----------
     purviews: list of str
     errors: list of str
-    severities: list of dandi.validate.Severity
+    severities: list of dandi.validate_types.Severity
     messages: list of str
 
 

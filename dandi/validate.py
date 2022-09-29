@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from enum import Enum
 import os
 from pathlib import Path
 from typing import Iterator, List, Optional, Tuple, Union
@@ -10,44 +8,12 @@ import appdirs
 
 from .files import find_dandi_files
 from .utils import find_parent_directory_containing
+from .validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
 BIDS_TO_DANDI = {
     "subject": "subject_id",
     "session": "session_id",
 }
-
-
-@dataclass
-class ValidationResult:
-    id: str
-    origin: ValidationOrigin
-    scope: Scope
-    asset_paths: Optional[list[str]] = None
-    dandiset_path: Optional[Path] = None
-    dataset_path: Optional[Path] = None
-    message: Optional[str] = None
-    metadata: Optional[dict] = None
-    path: Optional[Path] = None
-    path_regex: Optional[str] = None
-    severity: Optional[Severity] = None
-
-
-@dataclass
-class ValidationOrigin:
-    name: str
-    version: str
-
-
-class Severity(Enum):
-    ERROR = "ERROR"
-    WARNING = "WARNING"
-    HINT = "HINT"
-
-
-class Scope(Enum):
-    FILE = "file"
-    DANDISET = "dandiset"
-    DATASET = "dataset"
 
 
 def validate_bids(

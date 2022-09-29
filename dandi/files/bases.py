@@ -13,18 +13,19 @@ from threading import Lock
 from typing import Any, BinaryIO, Generic, Optional
 from xml.etree.ElementTree import fromstring
 
+import dandischema
 from dandischema.digests.dandietag import DandiETag
 from dandischema.models import BareAsset, CommonModel
 from dandischema.models import Dandiset as DandisetMeta
 from dandischema.models import get_schema_version
 from etelemetry import get_project
 from nwbinspector import Importance, inspect_nwb, load_config
-import nwbinspector.__version__ as nwbinspector_version
 from nwbinspector.utils import get_package_version
 from packaging.version import Version
 from pydantic import ValidationError
 import requests
 
+import dandi
 from dandi import get_logger
 from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from dandi.metadata import get_default_metadata, nwb2asset
@@ -32,7 +33,7 @@ from dandi.misctypes import DUMMY_DIGEST, Digest, P
 from dandi.pynwb_utils import validate as pynwb_validate
 from dandi.support.digests import get_dandietag, get_digest
 from dandi.utils import yaml_load
-from dandi.validate import Scope, Severity, ValidationOrigin, ValidationResult
+from dandi.validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
 lgr = get_logger()
 
@@ -40,7 +41,7 @@ lgr = get_logger()
 _required_dandiset_metadata_fields = ["identifier", "name", "description"]
 
 
-NWB_IMPORTANCE_TO_DANDI_SEVERITY = {
+NWBI_IMPORTANCE_TO_DANDI_SEVERITY = {
     "ERROR": Severity.ERROR,
     "PYNWB_VALIDATION": Severity.ERROR,
     "CRITICAL": Severity.ERROR,  # when using --config dandi
@@ -81,7 +82,7 @@ class DandiFile(ABC):
         self,
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
-    ) -> list[str]:
+    ) -> list[ValidationResult]:
         """
         Attempt to validate the file and return a list of errors encountered
         """
@@ -106,7 +107,7 @@ class DandisetMetadataFile(DandiFile):
         self,
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
-    ) -> list[str]:
+    ) -> list[ValidationResult]:
         with open(self.filepath) as f:
             meta = yaml_load(f, typ="safe")
         if schema_version is None:
@@ -130,7 +131,7 @@ class DandisetMetadataFile(DandiFile):
                     e,
                     extra={"validating": True},
                 )
-                return [str(e)]
+                return [str(e)]  # TODO: proper record, scope dandiset
             except Exception as e:
                 if devel_debug:
                     raise
@@ -140,7 +141,9 @@ class DandisetMetadataFile(DandiFile):
                     e,
                     extra={"validating": True},
                 )
-                return [f"Failed to initialize Dandiset meta: {e}"]
+                return [
+                    f"Failed to initialize Dandiset meta: {e}"
+                ]  # TODO: proper record
             return []
 
 
@@ -177,7 +180,7 @@ class LocalAsset(DandiFile):
         self,
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
-    ) -> list[str]:
+    ) -> list[ValidationResult]:
         if schema_version is not None:
             current_version = get_schema_version()
             if schema_version != current_version:
@@ -196,7 +199,23 @@ class LocalAsset(DandiFile):
                     e,
                     extra={"validating": True},
                 )
-                return [str(e)]
+                # TODO: how do we get **all** errors from validation - there must be a way
+                return [
+                    ValidationResult(
+                        origin=ValidationOrigin(
+                            name="dandischema",
+                            version=dandischema.__version__,
+                        ),
+                        severity=Severity.ERROR,
+                        id="dandischema.TODO",
+                        scope=Scope.FILE,
+                        # metadata=metadata,
+                        path=self.filepath,  # note that it is not relative .path
+                        message=str(e),
+                        # TODO? dataset_path=dataset_path,
+                        # TODO? dandiset_path=dandiset_path,
+                    )
+                ]
             except Exception as e:
                 if devel_debug:
                     raise
@@ -206,7 +225,22 @@ class LocalAsset(DandiFile):
                     e,
                     extra={"validating": True},
                 )
-                return [f"Failed to read metadata: {e}"]
+                return [
+                    ValidationResult(
+                        origin=ValidationOrigin(
+                            name="dandi",
+                            version=dandi.__version__,
+                        ),
+                        severity=Severity.ERROR,
+                        id="dandi.SOFTWARE_ERROR",
+                        scope=Scope.FILE,
+                        # metadata=metadata,
+                        path=self.filepath,  # note that it is not relative .path
+                        message=f"Failed to read metadata: {e}",
+                        # TODO? dataset_path=dataset_path,
+                        # TODO? dandiset_path=dandiset_path,
+                    )
+                ]
             return []
         else:
             # TODO: Do something else?
@@ -472,8 +506,10 @@ class NWBAsset(LocalFileAsset):
         self,
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
-    ) -> list[str]:
-        errors: list[str] = pynwb_validate(self.filepath, devel_debug=devel_debug)
+    ) -> list[ValidationResult]:
+        errors: list[ValidationResult] = pynwb_validate(
+            self.filepath, devel_debug=devel_debug
+        )
         # Q gh-943 do we want to manage this thing as an error?
         # It should be a separate thing possibly via logging IMHO.
         if schema_version is not None:
@@ -485,31 +521,25 @@ class NWBAsset(LocalFileAsset):
         else:
             # make sure that we have some basic metadata fields we require
             try:
+                current_version = get_package_version(name="nwbinspector")
+
                 # Ensure latest version of NWB Inspector is installed and used client-side
-                # Q gh-943
-                # Are you sure we want to do this? Maybe some version-selection
-                # logic analogous to BIDS would be better, so people can prospectively specify
-                # what they used.... even if for the time being we're just chasing upstream.
                 try:
                     max_version = Version(
                         get_project(repo="NeurodataWithoutBorders/nwbinspector")[
                             "version"
                         ]
                     )
-                    # Any reason we're not using `nwbinspector.__version__` ?
-                    current_version = get_package_version(name="nwbinspector")
 
                     if current_version < max_version:
-                        # Q gh-943 do we want to manage this thing as an error?
-                        # It should be a separate thing possibly via logging IMHO.
-                        # commenting out temporarily for tests
-                        errors.append(
-                            f"NWB Inspector version {current_version} is installed - please "
-                            f"use the latest release of the NWB Inspector ({max_version}) "
+                        lgr.warning(
+                            "NWB Inspector version %s is installed - please "
+                            "use the latest release of the NWB Inspector (%s) "
                             "when performing `dandi validate`. To update, run "
-                            "`pip install -U nwbinspector` if you installed it with `pip`."
+                            "`pip install -U nwbinspector` if you installed it with `pip`.",
+                            current_version,
+                            max_version,
                         )
-                        return errors
 
                 except Exception as e:  # In case of no internet connection or other error
                     lgr.warning(
@@ -517,48 +547,36 @@ class NWBAsset(LocalFileAsset):
                         type(e).__name__,
                         str(e),
                     )
+
                 origin = ValidationOrigin(
                     name="nwbinspector",
-                    version=nwbinspector_version,
+                    version=str(current_version),
                 )
 
-                scope = (
-                    Scope.FILE
-                )  # There's technically one folder-level thing but it gets registered at file level
                 for error in inspect_nwb(
                     nwbfile_path=self.filepath,
                     skip_validate=True,
                     config=load_config(filepath_or_keyword="dandi"),
                     importance_threshold=Importance.CRITICAL,
                 ):
-                    id = error.check_function_name
-                    asset_paths = [error.file_path]
-                    # Assuming multiple sessions per multiple subjects, otherwise nesting level
-                    # might differ
-                    dandiset_path = error.file_path.parent.parent
-                    dataset_path = error.dandiset_path
-                    metadata = None
-                    # assuming this is HDF5 Group information within the file
-                    path = error.location
                     # unfortunate name collision; the InspectorMessage.severity is used only for
                     # minor ordering of final report - will have to remove the
-                    # `importance_treshold` currently used to filter DANDI-level CRITICAL
+                    # `importance_threshold` currently used to filter DANDI-level CRITICAL
                     # evaluations as errors vs. validation results
-                    severity = NWB_IMPORTANCE_TO_DANDI_SEVERITY[error.importance]
-                    message = error.message
-
+                    severity = NWBI_IMPORTANCE_TO_DANDI_SEVERITY[error.importance]
                     errors.append(
                         ValidationResult(
-                            asset_paths=asset_paths,
                             origin=origin,
                             severity=severity,
-                            id=id,
-                            scope=scope,
-                            metadata=metadata,
-                            path=path,
-                            message=message,
-                            dataset_path=dataset_path,
-                            dandiset_path=dandiset_path,
+                            id=f"NWBI.{error.check_function_name}",
+                            scope=Scope.FILE,
+                            path=Path(error.file_path),
+                            # TODO inner_path=error.location,
+                            message=error.message,
+                            # Assuming multiple sessions per multiple subjects,
+                            # otherwise nesting level might differ
+                            dataset_path=Path(error.file_path).parent.parent,  # TODO
+                            dandiset_path=Path(error.file_path).parent,  # TODO
                         )
                     )
             except Exception as e:
@@ -570,6 +588,8 @@ class NWBAsset(LocalFileAsset):
                     e,
                     extra={"validating": True},
                 )
+                # TODO: might reraise instead of making it into an error
+                # TODO: provide proper ValidationResult struct
                 errors.append(f"Failed to inspect NWBFile: {e}")
         return errors
 
