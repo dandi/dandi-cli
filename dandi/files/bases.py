@@ -41,7 +41,7 @@ lgr = get_logger()
 _required_dandiset_metadata_fields = ["identifier", "name", "description"]
 
 
-NWBI_IMPORTANCE_TO_DANDI_SEVERITY = {
+NWBI_IMPORTANCE_TO_DANDI_SEVERITY: dict[Importance.name, Severity] = {
     "ERROR": Severity.ERROR,
     "PYNWB_VALIDATION": Severity.ERROR,
     "CRITICAL": Severity.ERROR,  # when using --config dandi
@@ -563,7 +563,7 @@ class NWBAsset(LocalFileAsset):
                     # minor ordering of final report - will have to remove the
                     # `importance_threshold` currently used to filter DANDI-level CRITICAL
                     # evaluations as errors vs. validation results
-                    severity = NWBI_IMPORTANCE_TO_DANDI_SEVERITY[error.importance]
+                    severity = NWBI_IMPORTANCE_TO_DANDI_SEVERITY[error.importance.name]
                     kw = {}
                     if error.location:
                         kw["within_asset_paths"] = {
