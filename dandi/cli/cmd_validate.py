@@ -191,7 +191,7 @@ def _get_severity_color(severities):
     if Severity.ERROR in severities:
         return "red"
     elif Severity.WARNING in severities:
-        return "green"
+        return "yellow"
     else:
         return "blue"
 
