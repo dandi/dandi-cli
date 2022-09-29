@@ -521,36 +521,9 @@ class NWBAsset(LocalFileAsset):
         else:
             # make sure that we have some basic metadata fields we require
             try:
-                current_version = get_package_version(name="nwbinspector")
-
-                # Ensure latest version of NWB Inspector is installed and used client-side
-                try:
-                    max_version = Version(
-                        get_project(repo="NeurodataWithoutBorders/nwbinspector")[
-                            "version"
-                        ]
-                    )
-
-                    if current_version < max_version:
-                        lgr.warning(
-                            "NWB Inspector version %s is installed - please "
-                            "use the latest release of the NWB Inspector (%s) "
-                            "when performing `dandi validate`. To update, run "
-                            "`pip install -U nwbinspector` if you installed it with `pip`.",
-                            current_version,
-                            max_version,
-                        )
-
-                except Exception as e:  # In case of no internet connection or other error
-                    lgr.warning(
-                        "Failed to retrieve NWB Inspector version due to %s: %s",
-                        type(e).__name__,
-                        str(e),
-                    )
-
                 origin = ValidationOrigin(
                     name="nwbinspector",
-                    version=str(current_version),
+                    version=str(_get_nwb_inspector_version()),
                 )
 
                 for error in inspect_nwb(
@@ -711,3 +684,36 @@ def _check_required_fields(d: dict, required: list[str]) -> list[str]:
         if v in ("REQUIRED", "PLACEHOLDER"):
             errors += [f"Required field {f!r} has value {v!r}"]
     return errors
+
+
+_current_nwbinspector_version = None
+
+
+def _get_nwb_inspector_version():
+    global _current_nwbinspector_version
+    if _current_nwbinspector_version is not None:
+        return _current_nwbinspector_version
+    _current_nwbinspector_version = get_package_version(name="nwbinspector")
+    # Ensure latest version of NWB Inspector is installed and used client-side
+    try:
+        max_version = Version(
+            get_project(repo="NeurodataWithoutBorders/nwbinspector")["version"]
+        )
+
+        if _current_nwbinspector_version < max_version:
+            lgr.warning(
+                "NWB Inspector version %s is installed - please "
+                "use the latest release of the NWB Inspector (%s) "
+                "when performing `dandi validate`. To update, run "
+                "`pip install -U nwbinspector` if you installed it with `pip`.",
+                _current_nwbinspector_version,
+                max_version,
+            )
+
+    except Exception as e:  # In case of no internet connection or other error
+        lgr.warning(
+            "Failed to retrieve NWB Inspector version due to %s: %s",
+            type(e).__name__,
+            str(e),
+        )
+    return _current_nwbinspector_version
