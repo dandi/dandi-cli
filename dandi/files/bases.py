@@ -564,6 +564,11 @@ class NWBAsset(LocalFileAsset):
                     # `importance_threshold` currently used to filter DANDI-level CRITICAL
                     # evaluations as errors vs. validation results
                     severity = NWBI_IMPORTANCE_TO_DANDI_SEVERITY[error.importance]
+                    kw = {}
+                    if error.location:
+                        kw["within_asset_paths"] = {
+                            error.file_path: error.location,
+                        }
                     errors.append(
                         ValidationResult(
                             origin=origin,
@@ -571,12 +576,12 @@ class NWBAsset(LocalFileAsset):
                             id=f"NWBI.{error.check_function_name}",
                             scope=Scope.FILE,
                             path=Path(error.file_path),
-                            # TODO inner_path=error.location,
                             message=error.message,
                             # Assuming multiple sessions per multiple subjects,
                             # otherwise nesting level might differ
                             dataset_path=Path(error.file_path).parent.parent,  # TODO
                             dandiset_path=Path(error.file_path).parent,  # TODO
+                            **kw,
                         )
                     )
             except Exception as e:
