@@ -19,6 +19,7 @@ from dandischema.models import Dandiset as DandisetMeta
 from dandischema.models import get_schema_version
 from etelemetry import get_project
 from nwbinspector import Importance, inspect_nwb, load_config
+import nwbinspector.__version__ as nwbinspector_version
 from nwbinspector.utils import get_package_version
 from packaging.version import Version
 from pydantic import ValidationError
@@ -31,11 +32,21 @@ from dandi.misctypes import DUMMY_DIGEST, Digest, P
 from dandi.pynwb_utils import validate as pynwb_validate
 from dandi.support.digests import get_dandietag, get_digest
 from dandi.utils import yaml_load
+from dandi.validate import Scope, Severity, ValidationOrigin, ValidationResult
 
 lgr = get_logger()
 
 # TODO -- should come from schema.  This is just a simplistic example for now
 _required_dandiset_metadata_fields = ["identifier", "name", "description"]
+
+
+NWB_IMPORTANCE_TO_DANDI_SEVERITY = {
+    "ERROR": Severity.ERROR,
+    "PYNWB_VALIDATION": Severity.ERROR,
+    "CRITICAL": Severity.ERROR,  # when using --config dandi
+    "BEST_PRACTICE_VIOLATION": Severity.WARNING,
+    "BEST_PRACTICE_SUGGESTION": Severity.HINT,
+}
 
 
 @dataclass  # type: ignore[misc]  # <https://github.com/python/mypy/issues/5374>
@@ -463,6 +474,8 @@ class NWBAsset(LocalFileAsset):
         devel_debug: bool = False,
     ) -> list[str]:
         errors: list[str] = pynwb_validate(self.filepath, devel_debug=devel_debug)
+        # Q gh-943 do we want to manage this thing as an error?
+        # It should be a separate thing possibly via logging IMHO.
         if schema_version is not None:
             errors.extend(
                 super().get_validation_errors(
@@ -473,15 +486,23 @@ class NWBAsset(LocalFileAsset):
             # make sure that we have some basic metadata fields we require
             try:
                 # Ensure latest version of NWB Inspector is installed and used client-side
+                # Q gh-943
+                # Are you sure we want to do this? Maybe some version-selection
+                # logic analogous to BIDS would be better, so people can prospectively specify
+                # what they used.... even if for the time being we're just chasing upstream.
                 try:
                     max_version = Version(
                         get_project(repo="NeurodataWithoutBorders/nwbinspector")[
                             "version"
                         ]
                     )
+                    # Any reason we're not using `nwbinspector.__version__` ?
                     current_version = get_package_version(name="nwbinspector")
 
                     if current_version < max_version:
+                        # Q gh-943 do we want to manage this thing as an error?
+                        # It should be a separate thing possibly via logging IMHO.
+                        # commenting out temporarily for tests
                         errors.append(
                             f"NWB Inspector version {current_version} is installed - please "
                             f"use the latest release of the NWB Inspector ({max_version}) "
@@ -496,20 +517,50 @@ class NWBAsset(LocalFileAsset):
                         type(e).__name__,
                         str(e),
                     )
-
-                # Run NWB Inspector with 'dandi' config
-                # CRITICAL errors and above are equivalent to validation errors
-                errors.extend(
-                    [
-                        error.message
-                        for error in inspect_nwb(
-                            nwbfile_path=self.filepath,
-                            skip_validate=True,
-                            config=load_config(filepath_or_keyword="dandi"),
-                            importance_threshold=Importance.CRITICAL,
-                        )
-                    ]
+                origin = ValidationOrigin(
+                    name="nwbinspector",
+                    version=nwbinspector_version,
                 )
+
+                scope = (
+                    Scope.FILE
+                )  # There's technically one folder-level thing but it gets registered at file level
+                for error in inspect_nwb(
+                    nwbfile_path=self.filepath,
+                    skip_validate=True,
+                    config=load_config(filepath_or_keyword="dandi"),
+                    importance_threshold=Importance.CRITICAL,
+                ):
+                    id = error.check_function_name
+                    asset_paths = [error.file_path]
+                    # Assuming multiple sessions per multiple subjects, otherwise nesting level
+                    # might differ
+                    dandiset_path = error.file_path.parent.parent
+                    dataset_path = error.dandiset_path
+                    metadata = None
+                    # assuming this is HDF5 Group information within the file
+                    path = error.location
+                    # unfortunate name collision; the InspectorMessage.severity is used only for
+                    # minor ordering of final report - will have to remove the
+                    # `importance_treshold` currently used to filter DANDI-level CRITICAL
+                    # evaluations as errors vs. validation results
+                    severity = NWB_IMPORTANCE_TO_DANDI_SEVERITY[error.importance]
+                    message = error.message
+
+                    errors.append(
+                        ValidationResult(
+                            asset_paths=asset_paths,
+                            origin=origin,
+                            severity=severity,
+                            id=id,
+                            scope=scope,
+                            metadata=metadata,
+                            path=path,
+                            message=message,
+                            dataset_path=dataset_path,
+                            dandiset_path=dandiset_path,
+                        )
+                    )
             except Exception as e:
                 if devel_debug:
                     raise
