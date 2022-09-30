@@ -125,25 +125,11 @@ class DandisetMetadataFile(DandiFile):
             except ValidationError as e:
                 if devel_debug:
                     raise
-                lgr.warning(
-                    "Validation error for %s: %s",
-                    self.filepath,
-                    e,
-                    extra={"validating": True},
-                )
-                return [str(e)]  # TODO: proper record, scope dandiset
+                return _pydantic_errors_to_validation_results(e, self.filepath)
             except Exception as e:
                 if devel_debug:
                     raise
-                lgr.warning(
-                    "Unexpected validation error for %s: %s",
-                    self.filepath,
-                    e,
-                    extra={"validating": True},
-                )
-                return [
-                    f"Failed to initialize Dandiset meta: {e}"
-                ]  # TODO: proper record
+                return _pydantic_errors_to_validation_results(e, self.filepath)
             return []
 
 
@@ -560,14 +546,8 @@ class NWBAsset(LocalFileAsset):
             except Exception as e:
                 if devel_debug:
                     raise
-                lgr.warning(
-                    "Failed to inspect NWBFile in %s: %s",
-                    self.filepath,
-                    e,
-                    extra={"validating": True},
-                )
                 # TODO: might reraise instead of making it into an error
-                # TODO: provide proper ValidationResult struct
+                return _pydantic_errors_to_validation_results(e, self.filepath)
                 errors.append(f"Failed to inspect NWBFile: {e}")
         return errors
 
@@ -717,3 +697,39 @@ def _get_nwb_inspector_version():
             str(e),
         )
     return _current_nwbinspector_version
+
+
+def _pydantic_errors_to_validation_results(
+    errors: list[dict],
+    file_path: str,
+) -> list[ValidationResult]:
+    """Convert list of dict from pydantic into our custom object."""
+    out = []
+    for e in errors:
+        id = dict(
+            id=":".join(
+                filter(
+                    bool,
+                    (
+                        "dandischema",
+                        e.get("type", "UNKNOWN"),
+                        "+".join(e.get("loc", [])),
+                    ),
+                )
+            )
+        )
+        ValidationResult(
+            origin=ValidationOrigin(
+                name="dandischema",
+                version=dandischema.__version__,
+            ),
+            severity=Severity.ERROR,
+            id=id,
+            scope=Scope.DANDISET,
+            path=Path(file_path),
+            message=e.get("message", None),
+            # TODO? dataset_path=dataset_path,
+            # TODO? dandiset_path=dandiset_path,
+        )
+        out.append(e)
+    return e
