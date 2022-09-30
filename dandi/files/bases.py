@@ -113,7 +113,9 @@ class DandisetMetadataFile(DandiFile):
         if schema_version is None:
             schema_version = meta.get("schemaVersion")
         if schema_version is None:
-            return _check_required_fields(meta, _required_dandiset_metadata_fields)
+            return _check_required_fields(
+                meta, _required_dandiset_metadata_fields, self.filepath
+            )
         else:
             current_version = get_schema_version()
             if schema_version != current_version:
@@ -655,14 +657,42 @@ def _upload_blob_part(
     }
 
 
-def _check_required_fields(d: dict, required: list[str]) -> list[str]:
+def _check_required_fields(
+    d: dict, required: list[str], file_path: str
+) -> list[ValidationResult]:
     errors: list[str] = []
     for f in required:
         v = d.get(f, None)
         if not v or (isinstance(v, str) and not v.strip()):
-            errors += [f"Required field {f!r} has no value"]
+            message = f"Required field {f!r} has no value"
+            errors.append(
+                ValidationResult(
+                    origin=ValidationOrigin(
+                        name="dandischema",
+                        version=dandischema.__version__,
+                    ),
+                    severity=Severity.ERROR,
+                    id="dandischema.requred_field",
+                    scope=Scope.FILE,
+                    path=Path(file_path),
+                    message=message,
+                )
+            )
         if v in ("REQUIRED", "PLACEHOLDER"):
-            errors += [f"Required field {f!r} has value {v!r}"]
+            message = f"Required field {f!r} has value {v!r}"
+            errors.append(
+                ValidationResult(
+                    origin=ValidationOrigin(
+                        name="dandischema",
+                        version=dandischema.__version__,
+                    ),
+                    severity=Severity.WARNING,
+                    id="dandischema.placeholder_value",
+                    scope=Scope.FILE,
+                    path=Path(file_path),
+                    message=message,
+                )
+            )
     return errors
 
 
