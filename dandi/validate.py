@@ -148,7 +148,7 @@ def validate(
     schema_version: Optional[str] = None,
     devel_debug: bool = False,
     allow_any_path: bool = False,
-) -> Iterator[Tuple[str, List[str]]]:
+) -> Iterator[ValidationResult]:
     """Validate content
 
     Parameters
@@ -162,9 +162,6 @@ def validate(
       errors for a path
     """
     for df in find_dandi_files(*paths, dandiset_path=None, allow_all=allow_any_path):
-        yield (
-            str(df.filepath),
-            df.get_validation_errors(
+        yield from df.get_validation_errors(
                 schema_version=schema_version, devel_debug=devel_debug
-            ),
-        )
+                )

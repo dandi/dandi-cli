@@ -114,7 +114,7 @@ class DandisetMetadataFile(DandiFile):
             schema_version = meta.get("schemaVersion")
         if schema_version is None:
             return _check_required_fields(
-                meta, _required_dandiset_metadata_fields, self.filepath
+                meta, _required_dandiset_metadata_fields, str(self.filepath)
             )
         else:
             current_version = get_schema_version()
@@ -131,7 +131,7 @@ class DandisetMetadataFile(DandiFile):
             except Exception as e:
                 if devel_debug:
                     raise
-                return _pydantic_errors_to_validation_results(e, self.filepath)
+                return _pydantic_errors_to_validation_results(e, str(self.filepath))
             return []
 
 
@@ -696,7 +696,7 @@ def _check_required_fields(
     return errors
 
 
-_current_nwbinspector_version = None
+_current_nwbinspector_version: str = None
 
 
 def _get_nwb_inspector_version():
