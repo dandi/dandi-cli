@@ -718,18 +718,19 @@ def _pydantic_errors_to_validation_results(
                 )
             )
         )
-        ValidationResult(
-            origin=ValidationOrigin(
-                name="dandischema",
-                version=dandischema.__version__,
-            ),
-            severity=Severity.ERROR,
-            id=id,
-            scope=Scope.DANDISET,
-            path=Path(file_path),
-            message=e.get("message", None),
-            # TODO? dataset_path=dataset_path,
-            # TODO? dandiset_path=dandiset_path,
+        out.append(
+            ValidationResult(
+                origin=ValidationOrigin(
+                    name="dandischema",
+                    version=dandischema.__version__,
+                ),
+                severity=Severity.ERROR,
+                id=id,
+                scope=Scope.DANDISET,
+                path=Path(file_path),
+                message=e.get("message", None),
+                # TODO? dataset_path=dataset_path,
+                # TODO? dandiset_path=dandiset_path,
+            )
         )
-        out.append(e)
-    return e
+    return out
