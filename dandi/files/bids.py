@@ -38,7 +38,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
 
     #: A list of validation error messages for individual assets in the
     #: dataset, keyed by `bids_path` properties; populated by `_validate()`
-    _asset_errors: Optional[dict[str, list[str]]] = None
+    _asset_errors: Optional[dict[str, list[ValidationResult]]] = None
 
     #: Asset metadata (in the form of a `dict` of BareAsset fields) for
     #: individual assets in the dataset, keyed by `bids_path` properties;
@@ -67,7 +67,9 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 ]
                 results = validate_bids(*bids_paths)
                 self._dataset_errors: list[ValidationResult] = []
-                self._asset_errors: dict[str, list[ValidationResult]] = defaultdict(list)
+                self._asset_errors: dict[str, list[ValidationResult]] = defaultdict(
+                    list
+                )
                 self._asset_metadata = defaultdict(dict)
                 for result in results:
                     if result.id in BIDS_ASSET_ERRORS:
@@ -83,12 +85,12 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                             result.metadata
                         )
 
-    def get_asset_errors(self, asset: BIDSAsset) -> list[str]:
+    def get_asset_errors(self, asset: BIDSAsset) -> list[ValidationResult]:
         """:meta private:"""
         self._validate()
-        errors: list[str] = []
+        errors: list[ValidationResult] = []
         if self._dataset_errors:
-            errors.append("BIDS dataset is invalid")
+            errors.extend(self._dataset_errors)
         assert self._asset_errors is not None
         errors.extend(self._asset_errors[asset.bids_path])
         return errors
@@ -179,7 +181,7 @@ class NWBBIDSAsset(BIDSAsset, NWBAsset):
         self,
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
-    ) -> list[str]:
+    ) -> list[ValidationResult]:
         return NWBAsset.get_validation_errors(
             self, schema_version, devel_debug
         ) + BIDSAsset.get_validation_errors(self)

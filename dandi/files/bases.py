@@ -181,12 +181,19 @@ class LocalAsset(DandiFile):
             except ValidationError as e:
                 if devel_debug:
                     raise
-                lgr.warning(
-                    "Validation error for %s: %s",
-                    self.filepath,
-                    e,
-                    extra={"validating": True},
-                )
+                return [
+                    ValidationResult(
+                        origin=ValidationOrigin(
+                            name="dandischema",
+                            version=dandischema.__version__,
+                        ),
+                        severity=Severity.ERROR,
+                        id="dandischema.validationerror",
+                        scope=Scope.FILE,
+                        path=self.filepath,  # note that it is not relative .path
+                        message=str(e),
+                    )
+                ]
                 # TODO: how do we get **all** errors from validation - there must be a way
                 return [
                     ValidationResult(
