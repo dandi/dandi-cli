@@ -181,19 +181,6 @@ class LocalAsset(DandiFile):
             except ValidationError as e:
                 if devel_debug:
                     raise
-                return [
-                    ValidationResult(
-                        origin=ValidationOrigin(
-                            name="dandischema",
-                            version=dandischema.__version__,
-                        ),
-                        severity=Severity.ERROR,
-                        id="dandischema.validationerror",
-                        scope=Scope.FILE,
-                        path=self.filepath,  # note that it is not relative .path
-                        message=str(e),
-                    )
-                ]
                 # TODO: how do we get **all** errors from validation - there must be a way
                 return [
                     ValidationResult(
@@ -557,7 +544,6 @@ class NWBAsset(LocalFileAsset):
                     raise
                 # TODO: might reraise instead of making it into an error
                 return _pydantic_errors_to_validation_results(e, self.filepath)
-                errors.append(f"Failed to inspect NWBFile: {e}")
         return errors
 
 
@@ -667,7 +653,7 @@ def _upload_blob_part(
 def _check_required_fields(
     d: dict, required: list[str], file_path: str
 ) -> list[ValidationResult]:
-    errors: list[str] = []
+    errors: list[ValidationResult] = []
     for f in required:
         v = d.get(f, None)
         if not v or (isinstance(v, str) and not v.strip()):
@@ -703,7 +689,7 @@ def _check_required_fields(
     return errors
 
 
-_current_nwbinspector_version: str = None
+_current_nwbinspector_version: str = ""
 
 
 def _get_nwb_inspector_version():
@@ -743,16 +729,14 @@ def _pydantic_errors_to_validation_results(
     """Convert list of dict from pydantic into our custom object."""
     out = []
     for e in errors:
-        id = dict(
-            id=":".join(
-                filter(
-                    bool,
-                    (
-                        "dandischema",
-                        e.get("type", "UNKNOWN"),
-                        "+".join(e.get("loc", [])),
-                    ),
-                )
+        id = ":".join(
+            filter(
+                bool,
+                (
+                    "dandischema",
+                    e.get("type", "UNKNOWN"),
+                    "+".join(e.get("loc", [])),
+                ),
             )
         )
         out.append(
