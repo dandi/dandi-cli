@@ -339,33 +339,37 @@ def validate(
             error_outputs = pynwb.validate(reader)
             # TODO: return ValidationResult structs
             for error_output in error_outputs:
-                errors.append = ValidationResult(
-                    origin=ValidationOrigin(
-                        name="pynwb",
-                        version=pynwb.__version__,
-                    ),
-                    severity=Severity.WARNING,
-                    id=f"pywnb.{error_output}",
-                    scope=Scope.FILE,
-                    path=Path(path),
-                    message="Failed to validate.",
+                errors.append(
+                    ValidationResult(
+                        origin=ValidationOrigin(
+                            name="pynwb",
+                            version=pynwb.__version__,
+                        ),
+                        severity=Severity.WARNING,
+                        id=f"pywnb.{error_output}",
+                        scope=Scope.FILE,
+                        path=Path(path),
+                        message="Failed to validate.",
+                    )
                 )
     except Exception as exc:
         if devel_debug:
             raise
-        errors.extend = [
-            ValidationResult(
-                origin=ValidationOrigin(
-                    name="pynwb",
-                    version=pynwb.__version__,
-                ),
-                severity=Severity.ERROR,
-                id=f"pywnb.{error_output}",
-                scope=Scope.FILE,
-                path=Path(path),
-                message=f"{exc}",
-            )
-        ]
+        errors.extend(
+            [
+                ValidationResult(
+                    origin=ValidationOrigin(
+                        name="pynwb",
+                        version=pynwb.__version__,
+                    ),
+                    severity=Severity.ERROR,
+                    id=f"pywnb.{error_output}",
+                    scope=Scope.FILE,
+                    path=Path(path),
+                    message=f"{exc}",
+                )
+            ]
+        )
 
     # To overcome
     #   https://github.com/NeurodataWithoutBorders/pynwb/issues/1090
