@@ -109,7 +109,9 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         self._validate()
         assert self._dataset_errors is not None
         if self._asset_errors is not None:
-            return self._dataset_errors + [*self._asset_errors.values()]
+            return self._dataset_errors + [
+                i for j in self._asset_errors.values() for i in j
+            ]
         else:
             return self._dataset_errors
 
