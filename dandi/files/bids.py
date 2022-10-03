@@ -34,7 +34,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
 
     #: A list of validation error messages pertaining to the dataset as a
     #: whole, populated by `_validate()`
-    _dataset_errors: Optional[list[str]] = None
+    _dataset_errors: Optional[list[ValidationResult]] = None
 
     #: A list of validation error messages for individual assets in the
     #: dataset, keyed by `bids_path` properties; populated by `_validate()`
@@ -108,7 +108,10 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
     ) -> list[ValidationResult]:
         self._validate()
         assert self._dataset_errors is not None
-        return self._dataset_errors + self._asset_errors.values()
+        if self._asset_errors is not None:
+            return self._dataset_errors + [*self._asset_errors.values()]
+        else:
+            return self._dataset_errors
 
     # get_metadata(): inherit use of default metadata from LocalFileAsset
 
