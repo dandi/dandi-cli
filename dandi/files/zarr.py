@@ -11,7 +11,6 @@ from pathlib import Path
 from time import sleep
 from typing import Any, Optional, cast
 
-from ..validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 from dandischema.digests.zarr import get_checksum
 from dandischema.models import BareAsset, DigestType
 import requests
@@ -37,6 +36,7 @@ from dandi.support.digests import get_digest, get_zarr_checksum, md5file_nocache
 from dandi.utils import chunked, pluralize
 
 from .bases import LocalDirectoryAsset
+from ..validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
 lgr = get_logger()
 
@@ -188,56 +188,57 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
     ) -> list[ValidationResult]:
         try:
             data = zarr.open(self.filepath)
-        except Exception as e:
+        except Exception:
             if devel_debug:
                 raise
             return [
                 ValidationResult(
                     origin=ValidationOrigin(
                         name="zarr",
-                        version= zarr.version.version,
+                        version=zarr.version.version,
                     ),
                     severity=Severity.ERROR,
                     id="zarr.cannot_open",
                     scope=Scope.FILE,
                     path=self.filepath,
                     message="Error opening file.",
-                    )
-                ]
+                )
+            ]
         if isinstance(data, zarr.Group) and not data:
             return [
                 ValidationResult(
                     origin=ValidationOrigin(
                         name="zarr",
-                        version= zarr.version.version,
+                        version=zarr.version.version,
                     ),
                     severity=Severity.ERROR,
                     id="zarr.empty_group",
                     scope=Scope.FILE,
                     path=self.filepath,
                     message="Zarr group is empty.",
-                    )
-                ]
+                )
+            ]
         try:
             next(self.filepath.glob(f"*{os.sep}" + os.sep.join(["*"] * MAX_ZARR_DEPTH)))
         except StopIteration:
             pass
         else:
+            msg = f"Zarr directory tree more than {MAX_ZARR_DEPTH} directories deep"
             if devel_debug:
                 raise ValueError(msg)
             return [
                 ValidationResult(
                     origin=ValidationOrigin(
                         name="zarr",
-                        version= zarr.version.version,
+                        version=zarr.version.version,
                     ),
                     severity=Severity.ERROR,
                     id="zarr.tree_depth_exceeded",
                     scope=Scope.FILE,
                     path=self.filepath,
-                    message=f"Zarr directory tree more than {MAX_ZARR_DEPTH} directories deep",
-                    )
-                ]
+                    message=msg,
+                )
+            ]
         # TODO: Should this be appended to the above errors?
         return super().get_validation_errors(
             schema_version=schema_version, devel_debug=devel_debug
