@@ -127,7 +127,7 @@ class DandisetMetadataFile(DandiFile):
             except ValidationError as e:
                 if devel_debug:
                     raise
-                return _pydantic_errors_to_validation_results(e, self.filepath)
+                return _pydantic_errors_to_validation_results(e, str(self.filepath))
             except Exception as e:
                 if devel_debug:
                     raise
@@ -543,7 +543,7 @@ class NWBAsset(LocalFileAsset):
                 if devel_debug:
                     raise
                 # TODO: might reraise instead of making it into an error
-                return _pydantic_errors_to_validation_results(e, self.filepath)
+                return _pydantic_errors_to_validation_results(e, str(self.filepath))
         return errors
 
 
@@ -723,7 +723,7 @@ def _get_nwb_inspector_version():
 
 
 def _pydantic_errors_to_validation_results(
-    errors: list[dict],
+    errors: Any[list[dict], Exception],
     file_path: str,
 ) -> list[ValidationResult]:
     """Convert list of dict from pydantic into our custom object."""
