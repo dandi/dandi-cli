@@ -21,6 +21,20 @@ In the source directory
 pre-commit install
 ```
 
+### Running tests locally
+
+You can run all tests locally by running `tox`:
+```
+tox -e py3
+```
+
+In order to check proper linting and typing of your changes
+you can also run `tox` with `lint` or `typing`:
+```
+tox -e lint
+tox -e typing
+```
+
 ### dandi-api instance
 
 The [dandi-api](https://github.com/dandi/dandi-api) repository provides a
