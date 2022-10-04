@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -31,10 +31,10 @@ class ValidationResult:
     # {"path": "task-broken_bold.json",
     #  "asset_paths": ["sub-01/func/sub-01_task-broken_bold.json",
     #                  "sub-02/func/sub-02_task-broken_bold.json"]}
-    asset_paths: Optional[list[str]] = None
+    asset_paths: Optional[List[str]] = None
     # e.g. path within hdf5 file hierarchy
     # As a dict we will map asset_paths into location within them
-    within_asset_paths: Optional[dict[str, str]] = None
+    within_asset_paths: Optional[Dict[str, str]] = None
     dandiset_path: Optional[Path] = None
     dataset_path: Optional[Path] = None
     # TODO: locations analogous to nwbinspector.InspectorMessage.location
