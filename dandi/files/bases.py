@@ -26,7 +26,6 @@ from pydantic import ValidationError
 import requests
 
 import dandi
-from dandi import get_logger
 from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from dandi.metadata import get_default_metadata, nwb2asset
 from dandi.misctypes import DUMMY_DIGEST, Digest, P
@@ -35,7 +34,7 @@ from dandi.support.digests import get_dandietag, get_digest
 from dandi.utils import yaml_load
 from dandi.validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
-lgr = get_logger()
+lgr = dandi.get_logger()
 
 # TODO -- should come from schema.  This is just a simplistic example for now
 _required_dandiset_metadata_fields = ["identifier", "name", "description"]
