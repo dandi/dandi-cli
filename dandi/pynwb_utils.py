@@ -363,7 +363,7 @@ def validate(
                         version=pynwb.__version__,
                     ),
                     severity=Severity.ERROR,
-                    id=f"pywnb.{error_output}",
+                    id="pywnb.GENERIC",
                     scope=Scope.FILE,
                     path=Path(path),
                     message=f"{exc}",
