@@ -23,16 +23,15 @@ pre-commit install
 
 ### Running tests locally
 
-You can run all tests locally by running `tox`:
+You can run all tests locally by running `tox` (you can install `tox` running `pip install tox`):
 ```
 tox -e py3
 ```
 
 In order to check proper linting and typing of your changes
-you can also run `tox` with `lint` or `typing`:
+you can also run `tox` with `lint` and `typing`:
 ```
-tox -e lint
-tox -e typing
+tox -e lint,typing
 ```
 
 ### dandi-api instance
