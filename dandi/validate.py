@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Iterator, List, Optional, Tuple, Union
+from typing import Iterator, Optional, Union
 
 import appdirs
 
@@ -163,5 +163,5 @@ def validate(
     """
     for df in find_dandi_files(*paths, dandiset_path=None, allow_all=allow_any_path):
         yield from df.get_validation_errors(
-                schema_version=schema_version, devel_debug=devel_debug
-                )
+            schema_version=schema_version, devel_debug=devel_debug
+        )
