@@ -519,7 +519,7 @@ class NWBAsset(LocalFileAsset):
                     # `importance_threshold` currently used to filter DANDI-level CRITICAL
                     # evaluations as errors vs. validation results
                     severity = NWBI_IMPORTANCE_TO_DANDI_SEVERITY[error.importance.name]
-                    kw = {}
+                    kw: Any = {}
                     if error.location:
                         kw["within_asset_paths"] = {
                             error.file_path: error.location,
