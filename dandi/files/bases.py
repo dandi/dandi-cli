@@ -736,7 +736,7 @@ def _pydantic_errors_to_validation_results(
             id = "exception"
             scope = Scope.FILE
         else:
-            id = ":".join(
+            id = ".".join(
                 filter(
                     bool,
                     (
