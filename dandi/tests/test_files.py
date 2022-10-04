@@ -232,7 +232,7 @@ def test_validate_simple1(simple1_nwb):
 
 def test_validate_simple1_no_subject(simple1_nwb):
     errors = dandi_file(simple1_nwb).get_validation_errors()
-    assert errors == ["Subject is missing."]
+    assert [e.message for e in errors] == ["Subject is missing."]
 
 
 def test_validate_simple2(simple2_nwb):
@@ -251,7 +251,7 @@ def test_validate_simple2_new(simple2_nwb):
 
 def test_validate_simple3_no_subject_id(simple3_nwb):
     errors = dandi_file(simple3_nwb).get_validation_errors()
-    assert errors == ["subject_id is missing."]
+    assert [e.message for e in errors] == ["subject_id is missing."]
 
 
 def test_validate_bogus(tmp_path):
