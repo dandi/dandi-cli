@@ -309,7 +309,7 @@ def docker_compose_setup() -> Iterator[Dict[str, str]]:
                 check=True,
             )
             API_URL = known_instances["dandi-api-local-docker-tests"].api
-            for _ in range(10):
+            for _ in range(25):
                 try:
                     requests.get(f"{API_URL}/dandisets/")
                 except requests.ConnectionError:
