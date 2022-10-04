@@ -728,9 +728,12 @@ def _pydantic_errors_to_validation_results(
     """Convert list of dict from pydantic into our custom object."""
     out = []
     for e in errors:
-        if isinstance(e, OSError):
-            id = "OSError"
-            message = e.__str__()
+        if isinstance(e, Exception):
+            if hasattr(e, "message"):
+                message = e.message
+            else:
+                message = str(e)
+            id = "exception"
             scope = Scope.FILE
         else:
             id = ":".join(
