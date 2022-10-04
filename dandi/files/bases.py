@@ -543,7 +543,7 @@ class NWBAsset(LocalFileAsset):
                 if devel_debug:
                     raise
                 # TODO: might reraise instead of making it into an error
-                return _pydantic_errors_to_validation_results(e, str(self.filepath))
+                return _pydantic_errors_to_validation_results([e], str(self.filepath))
         return errors
 
 
@@ -729,16 +729,23 @@ def _pydantic_errors_to_validation_results(
     """Convert list of dict from pydantic into our custom object."""
     out = []
     for e in errors:
-        id = ":".join(
-            filter(
-                bool,
-                (
-                    "dandischema",
-                    e.get("type", "UNKNOWN"),
-                    "+".join(e.get("loc", [])),
-                ),
+        if isinstance(e, OSError):
+            id = "OSError"
+            message = e.__str__()
+            scope = Scope.FILE
+        else:
+            id = ":".join(
+                filter(
+                    bool,
+                    (
+                        "dandischema",
+                        e.get("type", "UNKNOWN"),
+                        "+".join(e.get("loc", [])),
+                    ),
+                )
             )
-        )
+            message = e.get("message", None)
+            scope = Scope.DANDISET
         out.append(
             ValidationResult(
                 origin=ValidationOrigin(
@@ -747,9 +754,9 @@ def _pydantic_errors_to_validation_results(
                 ),
                 severity=Severity.ERROR,
                 id=id,
-                scope=Scope.DANDISET,
+                scope=scope,
                 path=Path(file_path),
-                message=e.get("message", None),
+                message=message,
                 # TODO? dataset_path=dataset_path,
                 # TODO? dandiset_path=dandiset_path,
             )

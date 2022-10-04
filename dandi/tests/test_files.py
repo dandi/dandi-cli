@@ -263,7 +263,7 @@ def test_validate_bogus(tmp_path):
     errors = dandi_file(path).get_validation_errors()
     # ATM we would get 2 errors -- since could not be open in two places,
     # but that would be too rigid to test. Let's just see that we have expected errors
-    assert any(e.startswith("Failed to inspect NWBFile") for e in errors)
+    assert any(e.message.startswith("Unable to open file") for e in errors)
 
 
 def test_upload_zarr(new_dandiset, tmp_path):
