@@ -57,6 +57,7 @@ def test_publish_and_manipulate(new_dandiset: SampleDandiset, tmp_path: Path) ->
     d.wait_until_valid()
     v = d.publish().version
     version_id = v.identifier
+    assert version_id != "draft"
     assert str(v) == version_id
     dv = d.for_version(v)
     assert str(dv) == f"DANDI-API-LOCAL-DOCKER-TESTS:{dandiset_id}/{version_id}"
@@ -486,6 +487,7 @@ def test_remote_dandiset_json_dict(text_dandiset: SampleDandiset) -> None:
             "size": anys.ANY_INT,
             "created": anys.ANY_AWARE_DATETIME_STR,
             "modified": anys.ANY_AWARE_DATETIME_STR,
+            "status": anys.ANY_STR,
         },
         "version": anys.ANY_DICT,
     }
