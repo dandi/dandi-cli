@@ -730,6 +730,7 @@ def _pydantic_errors_to_validation_results(
     for e in errors:
         if isinstance(e, Exception):
             if hasattr(e, "message"):
+                assert e.message
                 message = e.message
             else:
                 message = str(e)
