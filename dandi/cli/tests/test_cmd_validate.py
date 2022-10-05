@@ -24,9 +24,7 @@ def test_validate_bids_error(bids_error_examples, dataset):
         assert key in r.output
 
 
-def test_validate_bids_error_grouping_nwb(
-    bids_error_examples, dataset="invalid_asl003"
-):
+def test_validate_bids_error_grouping(bids_error_examples, dataset="invalid_asl003"):
     """
     This is currently a placeholder test, and should be updated once we have paths with
     multiple errors.
@@ -43,20 +41,21 @@ def test_validate_bids_error_grouping_nwb(
     assert dataset in r.output
 
 
-def test_validate_bids_error_grouping_bids(simple3_nwb):
+def test_validate_nwb_grouping_severity(simple3_nwb):
     """
     This is currently a placeholder test, and should be updated once we have paths with
     multiple errors.
     """
 
-    from ..cmd_validate import validate_bids
+    from ..cmd_validate import validate
 
-    r = CliRunner().invoke(validate_bids, ["--grouping=path", simple3_nwb])
-    # Does it break?
-    assert r.exit_code == 1
+    r = CliRunner().invoke(validate, ["--grouping=path", simple3_nwb])
+    # Does it pass?
+    assert r.exit_code == 0
 
-    # Does it detect all errors?
+    # Does it give required warnings for required path?
     assert simple3_nwb in r.output
+    assert "NWBI.check_subject_id_exists" in r.output
 
 
 def test_validate_bids_error_grouping_notification(

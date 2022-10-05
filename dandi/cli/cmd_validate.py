@@ -129,6 +129,7 @@ def validate(
     """
     from ..pynwb_utils import ignore_benign_pynwb_warnings
     from ..validate import validate as validate_
+    from ..validate_types import Severity
 
     # Don't log validation warnings, as this command reports them to the user
     # anyway:
@@ -144,50 +145,49 @@ def validate(
     # way to get relevant warnings (not errors) from PyNWB
     ignore_benign_pynwb_warnings()
 
-    all_files_error_messages = {}
-    nfiles = 0
-    for path, messages in validate_(
+    validator_result = validate_(
         *paths,
         schema_version=schema,
         devel_debug=devel_debug,
         allow_any_path=allow_any_path,
-    ):
-        nfiles += 1
-        if not grouping:
-            error_paths = [path] * len(messages)
-            errors = ["NWBError"] * len(messages)
-            severities = [""] * len(messages)
-            display_errors(error_paths, errors, severities, messages)
-        elif grouping == "path":
-            error_paths = [path]
-            errors = ["NWBError"] * len(messages)
-            severities = [""] * len(messages)
-            display_errors(error_paths, errors, severities, messages)
+    )
+    issues = []
+    for i in validator_result:
+        if not i.severity:
+            continue
         else:
-            raise NotImplementedError(
-                "The `grouping` parameter values currently supported are "
-                "path or None."
+            issues.append(i)
+
+    purviews = [
+        list(filter(bool, [i.path, i.path_regex, i.dataset_path]))[0] for i in issues
+    ]
+    if not grouping:
+        display_errors(
+            purviews,
+            [i.id for i in issues],
+            [i.severity for i in issues],
+            [i.message for i in issues],
+        )
+    elif grouping == "path":
+        for purview in purviews:
+            applies_to = [
+                i for i in issues if purview in [i.path, i.path_regex, i.dataset_path]
+            ]
+            display_errors(
+                [purview],
+                [i.id for i in applies_to],
+                [i.severity for i in applies_to],
+                [i.message for i in applies_to],
             )
-
-        all_files_error_messages[path] = messages
-
-    files_with_errors = [f for f, errors in all_files_error_messages.items() if errors]
-
-    if files_with_errors:
-        click.secho(
-            "Summary: Validation errors in {} out of {} files".format(
-                len(files_with_errors), nfiles
-            ),
-            bold=True,
-            fg="red",
-        )
-        raise SystemExit(1)
     else:
-        click.secho(
-            "Summary: No validation errors among {} file(s)".format(nfiles),
-            bold=True,
-            fg="green",
+        raise NotImplementedError(
+            "The `grouping` parameter values currently supported are " "path or None."
         )
+
+    validation_errors = [i for i in issues if i.severity == Severity.ERROR]
+
+    if validation_errors:
+        raise SystemExit(1)
 
 
 def _get_severity_color(severities):
