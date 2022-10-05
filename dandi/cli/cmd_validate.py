@@ -106,6 +106,11 @@ def validate_bids(
     default=False,
     is_flag=True,
 )
+@click.option(
+    "--grouping",
+    "-g",
+    help="How to group error/warning reporting.",
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
 @devel_debug_option()
 @map_to_click_exceptions
