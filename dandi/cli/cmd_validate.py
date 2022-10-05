@@ -96,6 +96,8 @@ def validate_bids(
 
     if validation_errors:
         raise SystemExit(1)
+    else:
+        click.secho("No errors found.", fg="green")
 
 
 @click.command()
@@ -188,6 +190,8 @@ def validate(
 
     if validation_errors:
         raise SystemExit(1)
+    else:
+        click.secho("No errors found.", fg="green")
 
 
 def _get_severity_color(severities):
