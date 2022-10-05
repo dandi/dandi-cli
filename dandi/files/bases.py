@@ -491,8 +491,6 @@ class NWBAsset(LocalFileAsset):
         errors: list[ValidationResult] = pynwb_validate(
             self.filepath, devel_debug=devel_debug
         )
-        # Q gh-943 do we want to manage this thing as an error?
-        # It should be a separate thing possibly via logging IMHO.
         if schema_version is not None:
             errors.extend(
                 super().get_validation_errors(
