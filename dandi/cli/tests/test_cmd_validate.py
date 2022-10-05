@@ -22,3 +22,24 @@ def test_validate_bids_error(bids_error_examples, dataset):
     # Does it detect all errors?
     for key in expected_errors:
         assert key in r.output
+
+
+def test_validate_bids_error_grouping(bids_error_examples, dataset="invalid_asl003"):
+    """
+    This is currently a placeholder test, and should be updated once we have paths with
+    multiple errors.
+    """
+    import json
+
+    from ..cmd_validate import validate_bids
+
+    broken_dataset = os.path.join(bids_error_examples, dataset)
+    with open(os.path.join(broken_dataset, ".ERRORS.json")) as f:
+        expected_errors = json.load(f)
+    r = CliRunner().invoke(validate_bids, ["--grouping=path", broken_dataset])
+    # Does it break?
+    assert r.exit_code == 1
+
+    # Does it detect all errors?
+    for key in expected_errors:
+        assert key in r.output

@@ -24,7 +24,7 @@ from ..utils import pluralize
 @click.option(
     "--grouping",
     "-g",
-    help="Write report under path, this option implies `--report/-r`.",
+    help="How to group error/warning reporting.",
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
 @map_to_click_exceptions
