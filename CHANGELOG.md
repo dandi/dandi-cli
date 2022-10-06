@@ -1,3 +1,21 @@
+# 0.46.4 (Thu Oct 06 2022)
+
+#### 🏠 Internal
+
+- Update client-side publication workflow [#1125](https://github.com/dandi/dandi-cli/pull/1125) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- increase number of trials in docker_compose_setup to 25 [#1122](https://github.com/dandi/dandi-cli/pull/1122) ([@djarecka](https://github.com/djarecka))
+- Pull latest Docker images before spinning up Compose [#1121](https://github.com/dandi/dandi-cli/pull/1121) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Dorota Jarecka ([@djarecka](https://github.com/djarecka))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.46.3 (Mon Sep 19 2022)
 
 #### 🐛 Bug Fix
