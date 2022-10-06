@@ -77,6 +77,15 @@ class AssetType(Enum):
     ZARR = 2
 
 
+class VersionStatus(Enum):
+    PENDING = "Pending"
+    VALIDATING = "Validating"
+    VALID = "Valid"
+    INVALID = "Invalid"
+    PUBLISHING = "Publishing"
+    PUBLISHED = "Published"
+
+
 # Following class is loosely based on GirderClient, with authentication etc
 # being stripped.
 # TODO: add copyright/license info
@@ -636,6 +645,7 @@ class Version(APIBase):
     created: datetime
     #: The timestamp at which the version was last modified
     modified: datetime
+    status: VersionStatus
 
     def __str__(self) -> str:
         return self.identifier
@@ -850,10 +860,19 @@ class RemoteDandiset:
         # Clear _version so it will be refetched the next time it is accessed
         self._version = None
 
-    def get_versions(self) -> Iterator[Version]:
-        """Returns an iterator of all available `Version`\\s for the Dandiset"""
+    def get_versions(self, order: Optional[str] = None) -> Iterator[Version]:
+        """
+        Returns an iterator of all available `Version`\\s for the Dandiset
+
+        Versions can be sorted by a given field by passing the name of that
+        field as the ``order`` parameter.  Currently, the only accepted field
+        name is ``"created"``.  Prepend a hyphen to the field name to reverse
+        the sort order.
+        """
         try:
-            for v in self.client.paginate(f"{self.api_path}versions/"):
+            for v in self.client.paginate(
+                f"{self.api_path}versions/", params={"order": order}
+            ):
                 yield Version.parse_obj(v)
         except HTTP404Error:
             raise NotFoundError(f"No such Dandiset: {self.identifier!r}")
@@ -962,14 +981,32 @@ class RemoteDandiset:
             f"Dandiset {self.identifier} is {r['status']}: {json.dumps(about, indent=4)}"
         )
 
-    def publish(self) -> "RemoteDandiset":
+    def publish(self, max_time: float = 120) -> "RemoteDandiset":
         """
-        Publish this version of the Dandiset.  Returns a copy of the
-        `RemoteDandiset` with the `version` attribute set to the new published
-        `Version`.
+        Publish the draft version of the Dandiset and wait at most ``max_time``
+        seconds for the publication operation to complete.  If the operation
+        does not complete in time, a `ValueError` is raised.
+
+        Returns a copy of the `RemoteDandiset` with the `version` attribute set
+        to the new published `Version`.
         """
-        return self.for_version(
-            Version.parse_obj(self.client.post(f"{self.version_api_path}publish/"))
+        draft_api_path = f"/dandisets/{self.identifier}/versions/draft/"
+        self.client.post(f"{draft_api_path}publish/")
+        lgr.debug(
+            "Waiting for Dandiset %s to complete publication ...", self.identifier
+        )
+        start = time()
+        while time() - start < max_time:
+            v = Version.parse_obj(self.client.get(f"{draft_api_path}info/"))
+            if v.status is VersionStatus.PUBLISHED:
+                break
+            sleep(0.5)
+        else:
+            raise ValueError(f"Dandiset {self.identifier} did not publish in time")
+        for v in self.get_versions(order="-created"):
+            return self.for_version(v)
+        raise AssertionError(
+            f"No published versions found for Dandiset {self.identifier}"
         )
 
     def get_assets(self, order: Optional[str] = None) -> Iterator["RemoteAsset"]:
