@@ -136,7 +136,7 @@ def ls(
         for path in paths:
             if is_url(path):
                 parsed_url = parse_dandi_url(path)
-                with parsed_url.navigate() as (client, dandiset, assets):
+                with parsed_url.navigate(strict=True) as (client, dandiset, assets):
                     if isinstance(parsed_url, DandisetURL):
                         rec = {
                             "path": dandiset.identifier,
