@@ -474,6 +474,7 @@ class DandiAPIClient(RESTFullAPIClient):
         # Shortcut for advanced folks
         api_key = os.environ.get("DANDI_API_KEY", None)
         if api_key:
+            lgr.debug("Using api key from DANDI_API_KEY environment variable")
             self.authenticate(api_key)
             return
         if self.api_url in known_instances_rev:
@@ -488,6 +489,10 @@ class DandiAPIClient(RESTFullAPIClient):
                 api_key = input(f"Please provide API Key for {client_name}: ")
                 key_from_keyring = False
             try:
+                lgr.debug(
+                    "Using API key from %s",
+                    {True: "keyring", False: "user input"}[key_from_keyring],
+                )
                 self.authenticate(api_key)
             except requests.HTTPError:
                 if is_interactive() and click.confirm(
