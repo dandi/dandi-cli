@@ -463,6 +463,12 @@ species_map = [
         "http://purl.obolibrary.org/obo/NCBITaxon_7227",
         "Drosophila melanogaster - Fruit fly",
     ),
+    (
+        ["danio", "zebrafish", "zebra fish"],
+        None,
+        "http://purl.obolibrary.org/obo/NCBITaxon_7955",
+        "Danio rerio - Zebra fish",
+    ),    
 ]
 
 
