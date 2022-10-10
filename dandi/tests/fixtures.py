@@ -245,7 +245,7 @@ def get_filtered_gitrepo_fixture(
         skipif.no_git()
         path = tmp_path_factory.mktemp("gitrepo")
         lgr.debug("Cloning %r into %r", url, path)
-        runout = run(
+        run(
             [
                 "git",
                 "clone",
@@ -255,10 +255,8 @@ def get_filtered_gitrepo_fixture(
                 url,
                 str(path),
             ],
-            capture_output=True,
+            check=True,
         )
-        if runout.returncode:
-            raise RuntimeError(f"Failed to clone {url} into {path}")
         # cwd specification is VERY important, not only to achieve the correct
         # effects, but also to avoid dropping files from your repository if you
         # were to run `git sparse-checkout` inside the software repo.
