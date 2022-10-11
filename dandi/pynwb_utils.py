@@ -387,7 +387,7 @@ def validate(
         if version is not None:
             # Explicitly sanitize so we collect warnings.
             # TODO: later cast into proper ERRORs
-            # Do we really need to do these acrobatics? string comparison works fine...
+            # Do we really need this custom internal function? string comparison works fine..
             version = _sanitize_nwb_version(version, log=errors.append)
             try:
                 v = semantic_version.Version(version)
@@ -403,7 +403,6 @@ def validate(
                             errors.append(e)
                     except AssertionError:
                         errors.append(e)
-                # errors = [e for e in errors if not re_ok_prior_210.search(e.message)]
                 # This is not an error, just logging about the process, hence logging:
                 if errors != errors_:
                     lgr.debug(
