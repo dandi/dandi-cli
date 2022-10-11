@@ -4,13 +4,12 @@ import os
 from click.testing import CliRunner
 import pytest
 
+from ..cmd_validate import validate, validate_bids
 
 @pytest.mark.parametrize(
     "dataset", ["invalid_asl003", "invalid_eeg_cbm", "invalid_pet001"]
 )
 def test_validate_bids_error(bids_error_examples, dataset):
-
-    from ..cmd_validate import validate_bids
 
     broken_dataset = os.path.join(bids_error_examples, dataset)
     with open(os.path.join(broken_dataset, ".ERRORS.json")) as f:
@@ -30,8 +29,6 @@ def test_validate_bids_grouping_error(bids_error_examples, dataset="invalid_asl0
     multiple errors.
     """
 
-    from ..cmd_validate import validate_bids
-
     dataset = os.path.join(bids_error_examples, dataset)
     r = CliRunner().invoke(validate_bids, ["--grouping=path", dataset])
     # Does it break?
@@ -47,8 +44,6 @@ def test_validate_nwb_path_grouping(simple3_nwb):
     multiple errors.
     """
 
-    from ..cmd_validate import validate
-
     r = CliRunner().invoke(validate, ["--grouping=path", simple3_nwb])
     # Does it pass?
     print(r.output)
@@ -63,8 +58,6 @@ def test_validate_bids_error_grouping_notification(
     bids_error_examples, dataset="invalid_asl003"
 ):
     """Test user notification for unimplemented parameter value."""
-
-    from ..cmd_validate import validate_bids
 
     broken_dataset = os.path.join(bids_error_examples, dataset)
     r = CliRunner().invoke(validate_bids, ["--grouping=error", broken_dataset])
