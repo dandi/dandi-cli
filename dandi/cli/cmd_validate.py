@@ -75,12 +75,14 @@ def validate_bids(
     "--grouping",
     "-g",
     help="How to group error/warning reporting.",
+    type=click.Choice(['none', 'path'], case_sensitive=False),
+    default="none",
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
 @devel_debug_option()
 @map_to_click_exceptions
 def validate(
-    paths, schema=None, devel_debug=False, allow_any_path=False, grouping=None
+    paths, schema=None, devel_debug=False, allow_any_path=False, grouping="none",
 ):
     """Validate files for NWB and DANDI compliance.
 

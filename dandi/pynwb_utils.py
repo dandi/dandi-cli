@@ -395,14 +395,7 @@ def validate(
                 v = None
             if v is not None and v < semantic_version.Version("2.1.0"):
                 errors_ = errors[:]
-                errors = []
-                for e in errors:
-                    try:
-                        assert e.message
-                        if not re_ok_prior_210.search(e.message):
-                            errors.append(e)
-                    except AssertionError:
-                        errors.append(e)
+                errors = [e for e in errors if not re_ok_prior_210.search(cast(str, getattr(e, "message", "")))]
                 # This is not an error, just logging about the process, hence logging:
                 if errors != errors_:
                     lgr.debug(
