@@ -217,7 +217,7 @@ def display_errors(purviews, errors, severities, messages):
     by assert if this won't ever be the case.
     """
 
-    if all([len(i) == 1 for i in [purviews, errors, severities, messages]]):
+    if all(len(i) == 1 for i in [purviews, errors, severities, messages]):
         fg = _get_severity_color(severities)
         error_message = f"[{errors[0]}] {purviews[0]} — {messages[0]}"
         click.secho(error_message, fg=fg)
