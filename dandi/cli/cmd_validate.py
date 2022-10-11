@@ -25,6 +25,8 @@ from ..utils import pluralize
     "--grouping",
     "-g",
     help="How to group error/warning reporting.",
+    type=click.Choice(['none', 'path'], case_sensitive=False),
+    default="none",
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
 @map_to_click_exceptions
@@ -33,7 +35,7 @@ def validate_bids(
     schema,
     report,
     report_path,
-    grouping=None,
+    grouping="none",
 ):
     """Validate BIDS paths.
 
@@ -69,7 +71,7 @@ def validate_bids(
     purviews = [
         list(filter(bool, [i.path, i.path_regex, i.dataset_path]))[0] for i in issues
     ]
-    if not grouping:
+    if grouping == "none":
         display_errors(
             purviews,
             [i.id for i in issues],

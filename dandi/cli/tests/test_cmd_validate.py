@@ -68,10 +68,10 @@ def test_validate_bids_error_grouping_notification(
     broken_dataset = os.path.join(bids_error_examples, dataset)
     r = CliRunner().invoke(validate_bids, ["--grouping=error", broken_dataset])
     # Does it break?
-    assert r.exit_code == 1
+    assert r.exit_code == 2
 
     # Does it notify the user correctly?
     notification_substring = (
-        "`grouping` parameter values currently supported are path or None"
+        "Invalid value for '--grouping'"
     )
     assert notification_substring in r.output
