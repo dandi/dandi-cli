@@ -61,12 +61,7 @@ def validate_bids(
         schema_version=schema,
     )
 
-    issues = []
-    for i in validator_result:
-        if not i.severity:
-            continue
-        else:
-            issues.append(i)
+    issues = [i for i in validator_result if i.severity]
 
     purviews = [
         list(filter(bool, [i.path, i.path_regex, i.dataset_path]))[0] for i in issues
@@ -155,12 +150,7 @@ def validate(
         devel_debug=devel_debug,
         allow_any_path=allow_any_path,
     )
-    issues = []
-    for i in validator_result:
-        if not i.severity:
-            continue
-        else:
-            issues.append(i)
+    issues = [i for i in validator_result if i.severity]
 
     purviews = [
         list(filter(bool, [i.path, i.path_regex, i.dataset_path]))[0] for i in issues
