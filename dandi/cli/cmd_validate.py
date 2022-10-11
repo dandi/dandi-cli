@@ -52,7 +52,6 @@ def validate_bids(
     """
 
     from ..validate import validate_bids as validate_bids_
-    from ..validate_types import Severity
 
     validator_result = validate_bids_(  # Controller
         *paths,
@@ -61,40 +60,7 @@ def validate_bids(
         schema_version=schema,
     )
 
-    issues = [i for i in validator_result if i.severity]
-
-    purviews = [
-        list(filter(bool, [i.path, i.path_regex, i.dataset_path]))[0] for i in issues
-    ]
-    if grouping == "none":
-        display_errors(
-            purviews,
-            [i.id for i in issues],
-            [i.severity for i in issues],
-            [i.message for i in issues],
-        )
-    elif grouping == "path":
-        for purview in purviews:
-            applies_to = [
-                i for i in issues if purview in [i.path, i.path_regex, i.dataset_path]
-            ]
-            display_errors(
-                [purview],
-                [i.id for i in applies_to],
-                [i.severity for i in applies_to],
-                [i.message for i in applies_to],
-            )
-    else:
-        raise NotImplementedError(
-            "The `grouping` parameter values currently supported are " "path or None."
-        )
-
-    validation_errors = [i for i in issues if i.severity == Severity.ERROR]
-
-    if validation_errors:
-        raise SystemExit(1)
-    else:
-        click.secho("No errors found.", fg="green")
+    _process_issues(validator_result, grouping)
 
 
 @click.command()
@@ -128,7 +94,6 @@ def validate(
     """
     from ..pynwb_utils import ignore_benign_pynwb_warnings
     from ..validate import validate as validate_
-    from ..validate_types import Severity
 
     # Don't log validation warnings, as this command reports them to the user
     # anyway:
@@ -150,12 +115,18 @@ def validate(
         devel_debug=devel_debug,
         allow_any_path=allow_any_path,
     )
+
+    _process_issues(validator_result, grouping)
+
+
+def _process_issues(validator_result, grouping):
+    from ..validate_types import Severity
     issues = [i for i in validator_result if i.severity]
 
     purviews = [
         list(filter(bool, [i.path, i.path_regex, i.dataset_path]))[0] for i in issues
     ]
-    if not grouping:
+    if grouping == "none":
         display_errors(
             purviews,
             [i.id for i in issues],

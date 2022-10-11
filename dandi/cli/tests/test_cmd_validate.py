@@ -24,7 +24,7 @@ def test_validate_bids_error(bids_error_examples, dataset):
         assert key in r.output
 
 
-def test_validate_bids_error_grouping(bids_error_examples, dataset="invalid_asl003"):
+def test_validate_bids_grouping_error(bids_error_examples, dataset="invalid_asl003"):
     """
     This is currently a placeholder test, and should be updated once we have paths with
     multiple errors.
@@ -41,7 +41,7 @@ def test_validate_bids_error_grouping(bids_error_examples, dataset="invalid_asl0
     assert dataset in r.output
 
 
-def test_validate_nwb_grouping_severity(simple3_nwb):
+def test_validate_nwb_path_grouping(simple3_nwb):
     """
     This is currently a placeholder test, and should be updated once we have paths with
     multiple errors.
@@ -51,6 +51,7 @@ def test_validate_nwb_grouping_severity(simple3_nwb):
 
     r = CliRunner().invoke(validate, ["--grouping=path", simple3_nwb])
     # Does it pass?
+    print(r.output)
     assert r.exit_code == 0
 
     # Does it give required warnings for required path?
