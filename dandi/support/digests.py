@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 import hashlib
 import logging
 import os.path
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Dict, List, Optional, Tuple, Union, cast
 
 from dandischema.digests.dandietag import DandiETag
@@ -123,10 +123,10 @@ def get_zarr_checksum(path: Path, known: Optional[Dict[str, str]] = None) -> str
             dgst = md5file_nocache(f)
         return (f, dgst, os.path.getsize(f))
 
-    zcc = ZCDirectory()
+    zcc = ZCTree()
     for p, digest, size in threaded_walk(path, digest_file):
         zcc.add(p.relative_to(path), digest, size)
-    return zcc.get_digest_size()[0]
+    return zcc.get_digest()
 
 
 @dataclass
@@ -169,10 +169,22 @@ class ZCDirectory:
             size += sz
         return (cast(str, get_checksum(files, dirs)), size)
 
-    def add(self, path: Path, digest: str, size: int) -> None:
+
+@dataclass
+class ZCTree:
+    """
+    Tree root node used for building an in-memory tree of Zarr entries and
+    their digests when calculating a complete Zarr checksum
+
+    :meta private:
+    """
+
+    tree: ZCDirectory = field(init=False, default_factory=ZCDirectory)
+
+    def add(self, path: PurePath, digest: str, size: int) -> None:
         *dirs, name = path.parts
         parts = []
-        d = self
+        d = self.tree
         for dirname in dirs:
             parts.append(dirname)
             e = d.children.setdefault(dirname, ZCDirectory())
@@ -184,6 +196,14 @@ class ZCDirectory:
         pstr = "/".join(parts)
         assert name not in d.children, f"File {pstr} encountered twice"
         d.children[name] = ZCFile(digest=digest, size=size)
+
+    def get_digest(self) -> str:
+        if self.tree.children:
+            return self.tree.get_digest_size()[0]
+        else:
+            # get_checksum() refuses to operate on empty directories, so we
+            # return the checksum for an empty Zarr ourselves:
+            return "481a2f77ab786a0f45aafd5db0971caa-0--0"
 
 
 def md5file_nocache(filepath: Union[str, Path]) -> str:
