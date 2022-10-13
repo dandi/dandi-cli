@@ -594,11 +594,11 @@ class DandiAPIClient(RESTFullAPIClient):
         method must be used instead.
         """
         try:
-            return BaseRemoteAsset.from_base_data(
-                self, self.get(f"/assets/{asset_id}/info/")
-            )
+            info = self.get(f"/assets/{asset_id}/info/")
         except HTTP404Error:
             raise NotFoundError(f"No such asset: {asset_id!r}")
+        metadata = info.pop("metadata", None)
+        return BaseRemoteAsset.from_base_data(self, info, metadata)
 
 
 class APIBase(BaseModel):
@@ -1039,12 +1039,11 @@ class RemoteDandiset:
         ID.  If the given asset does not exist, a `NotFoundError` is raised.
         """
         try:
-            metadata = self.client.get(f"{self.version_api_path}assets/{asset_id}/")
+            info = self.client.get(f"{self.version_api_path}assets/{asset_id}/info/")
         except HTTP404Error:
             raise NotFoundError(f"No such asset: {asset_id!r} for {self}")
-        asset = self.get_asset_by_path(metadata["path"])
-        asset._metadata = metadata
-        return asset
+        metadata = info.pop("metadata", None)
+        return RemoteAsset.from_data(self, info, metadata)
 
     def get_assets_with_path_prefix(
         self, path: str, order: Optional[str] = None
