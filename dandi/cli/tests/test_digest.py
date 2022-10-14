@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -52,3 +53,12 @@ def test_digest_zarr():
         r = runner.invoke(digest, ["--digest", "zarr-checksum", "sample.zarr"])
         assert r.exit_code == 0
         assert r.output == "sample.zarr: 4313ab36412db2981c3ed391b38604d6-5--1516\n"
+
+
+def test_digest_empty_zarr(tmp_path: Path) -> None:
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        os.mkdir("empty.zarr")
+        r = runner.invoke(digest, ["--digest", "zarr-checksum", "empty.zarr"])
+        assert r.exit_code == 0
+        assert r.output == "empty.zarr: 481a2f77ab786a0f45aafd5db0971caa-0--0\n"

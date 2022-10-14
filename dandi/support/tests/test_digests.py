@@ -9,7 +9,6 @@
 
 from pathlib import Path
 
-import pytest
 from pytest_mock import MockerFixture
 
 from .. import digests
@@ -79,9 +78,7 @@ def test_get_zarr_checksum(mocker: MockerFixture, tmp_path: Path) -> None:
     assert get_zarr_checksum(tmp_path) == "25627e0fc7c609d10100d020f7782a25-8--197"
     assert get_zarr_checksum(sub1) == "64af93ad7f8d471c00044d1ddbd4c0ba-4--97"
 
-    with pytest.raises(ValueError) as excinfo:
-        get_zarr_checksum(empty)
-    assert str(excinfo.value) == "Cannot compute a Zarr checksum for an empty directory"
+    assert get_zarr_checksum(empty) == "481a2f77ab786a0f45aafd5db0971caa-0--0"
 
     spy = mocker.spy(digests, "md5file_nocache")
     assert (
