@@ -1,3 +1,25 @@
+# 0.46.5 (Fri Oct 14 2022)
+
+#### 🐛 Bug Fix
+
+- ENH: lgr.debug that we are using DANDI_API_KEY provided key [#1133](https://github.com/dandi/dandi-cli/pull/1133) ([@yarikoptic](https://github.com/yarikoptic))
+- add zebrafish to species list [#1129](https://github.com/dandi/dandi-cli/pull/1129) ([@satra](https://github.com/satra))
+- Make `dandi ls` properly detect embargoed Dandisets [#1132](https://github.com/dandi/dandi-cli/pull/1132) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Make internal Zarr-checksumming tree types support empty Zarrs [#1138](https://github.com/dandi/dandi-cli/pull/1138) ([@jwodder](https://github.com/jwodder))
+- Simplify implementations of `get_asset()` methods [#1136](https://github.com/dandi/dandi-cli/pull/1136) ([@jwodder](https://github.com/jwodder))
+- Update GitHub Actions action versions [#1135](https://github.com/dandi/dandi-cli/pull/1135) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 3
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.46.4 (Thu Oct 06 2022)
 
 #### 🏠 Internal
