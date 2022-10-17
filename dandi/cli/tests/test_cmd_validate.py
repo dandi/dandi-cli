@@ -6,6 +6,7 @@ import pytest
 
 from ..cmd_validate import validate, validate_bids
 
+
 @pytest.mark.parametrize(
     "dataset", ["invalid_asl003", "invalid_eeg_cbm", "invalid_pet001"]
 )
@@ -65,7 +66,5 @@ def test_validate_bids_error_grouping_notification(
     assert r.exit_code == 2
 
     # Does it notify the user correctly?
-    notification_substring = (
-        "Invalid value for '--grouping'"
-    )
+    notification_substring = "Invalid value for '--grouping'"
     assert notification_substring in r.output
