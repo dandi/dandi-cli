@@ -25,7 +25,7 @@ from ..utils import pluralize
     "--grouping",
     "-g",
     help="How to group error/warning reporting.",
-    type=click.Choice(['none', 'path'], case_sensitive=False),
+    type=click.Choice(["none", "path"], case_sensitive=False),
     default="none",
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
@@ -75,14 +75,18 @@ def validate_bids(
     "--grouping",
     "-g",
     help="How to group error/warning reporting.",
-    type=click.Choice(['none', 'path'], case_sensitive=False),
+    type=click.Choice(["none", "path"], case_sensitive=False),
     default="none",
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
 @devel_debug_option()
 @map_to_click_exceptions
 def validate(
-    paths, schema=None, devel_debug=False, allow_any_path=False, grouping="none",
+    paths,
+    schema=None,
+    devel_debug=False,
+    allow_any_path=False,
+    grouping="none",
 ):
     """Validate files for NWB and DANDI compliance.
 
@@ -123,6 +127,7 @@ def validate(
 
 def _process_issues(validator_result, grouping):
     from ..validate_types import Severity
+
     issues = [i for i in validator_result if i.severity]
 
     purviews = [
@@ -170,7 +175,12 @@ def _get_severity_color(severities):
         return "blue"
 
 
-def display_errors(purviews, errors, severities, messages):
+def display_errors(
+    purviews: list[str],
+    errors: list[str],
+    severities: list[str],
+    messages: list[str],
+) -> None:
     """
     Unified error display for validation CLI, which auto-resolves grouping logic based on
     the length of input lists.
