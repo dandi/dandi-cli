@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import List
 
 import click
 
@@ -176,10 +177,10 @@ def _get_severity_color(severities):
 
 
 def display_errors(
-    purviews: list[str],
-    errors: list[str],
-    severities: list[str],
-    messages: list[str],
+    purviews: List[str],
+    errors: List[str],
+    severities: List[str],
+    messages: List[str],
 ) -> None:
     """
     Unified error display for validation CLI, which auto-resolves grouping logic based on
