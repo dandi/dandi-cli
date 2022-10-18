@@ -450,6 +450,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                 f.cancel()
                             executor.shutdown()
                             client.delete(f"/zarr/{zarr_id}/upload/")
+                            ZARR_UPLOADS_IN_PROGRESS.discard(upload_data)
                             raise
                         else:
                             bytes_uploaded += size
