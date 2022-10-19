@@ -1,11 +1,12 @@
 import logging
 import os
-from typing import List
+from typing import List, cast
 
 import click
 
 from .base import devel_debug_option, devel_option, map_to_click_exceptions
 from ..utils import pluralize
+from ..validate_types import Severity
 
 
 @click.command()
@@ -39,12 +40,6 @@ def validate_bids(
     grouping="none",
 ):
     """Validate BIDS paths.
-
-    Parameters
-    ----------
-
-    grouping : str, optional
-        A string which is either "", "error", or "path" — "error" implemented.
 
     Notes
     -----
@@ -127,7 +122,6 @@ def validate(
 
 
 def _process_issues(validator_result, grouping):
-    from ..validate_types import Severity
 
     issues = [i for i in validator_result if i.severity]
 
@@ -166,7 +160,6 @@ def _process_issues(validator_result, grouping):
 
 
 def _get_severity_color(severities):
-    from ..validate_types import Severity
 
     if Severity.ERROR in severities:
         return "red"
@@ -179,19 +172,12 @@ def _get_severity_color(severities):
 def display_errors(
     purviews: List[str],
     errors: List[str],
-    severities: List[str],
+    severities: List[Severity],
     messages: List[str],
 ) -> None:
     """
     Unified error display for validation CLI, which auto-resolves grouping logic based on
     the length of input lists.
-
-    Parameters
-    ----------
-    purviews: list of str
-    errors: list of str
-    severities: list of dandi.validate_types.Severity
-    messages: list of str
 
 
     Notes
@@ -201,7 +187,7 @@ def display_errors(
     by assert if this won't ever be the case.
     """
 
-    if all(len(i) == 1 for i in [purviews, errors, severities, messages]):
+    if all(len(cast(list, i)) == 1 for i in [purviews, errors, severities, messages]):
         fg = _get_severity_color(severities)
         error_message = f"[{errors[0]}] {purviews[0]} — {messages[0]}"
         click.secho(error_message, fg=fg)
