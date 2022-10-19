@@ -11,7 +11,7 @@ from ..validate_types import Severity
 
 @click.command()
 @click.option(
-    "--schema", help="Validate against new BIDS schema version", metavar="VERSION"
+    "--schema", help="Validate against new BIDS schema version.", metavar="VERSION"
 )
 @click.option(
     "--report-path",
