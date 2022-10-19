@@ -47,7 +47,6 @@ def test_validate_nwb_path_grouping(simple3_nwb):
 
     r = CliRunner().invoke(validate, ["--grouping=path", simple3_nwb])
     # Does it pass?
-    print(r.output)
     assert r.exit_code == 0
 
     # Does it give required warnings for required path?
