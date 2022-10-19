@@ -123,10 +123,6 @@ class DandisetMetadataFile(DandiFile):
                 )
             try:
                 DandisetMeta(**meta)
-            except ValidationError as e:
-                if devel_debug:
-                    raise
-                return _pydantic_errors_to_validation_results(e, str(self.filepath))
             except Exception as e:
                 if devel_debug:
                     raise
