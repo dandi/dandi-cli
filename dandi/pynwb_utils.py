@@ -318,6 +318,75 @@ def rename_nwb_external_files(metadata: List[dict], dandiset_path: str) -> None:
                         container.external_file[no] = str(name_new)
 
 
+# borrowed from
+# https://github.com/NeurodataWithoutBorders/pynwb/blob/745aaf26fa56958254e1d22a73d4c962c8074332/src/pynwb/validate.py#L29
+# which is part of the https://github.com/NeurodataWithoutBorders/pynwb/pull/1432
+# and needed to overcome errors like in https://github.com/dandi/helpdesk/discussions/43
+def get_cached_namespaces_to_validate(path):
+    """
+    Determine the most specific namespace(s) (i.e., extensions) that are cached in the given
+    NWB file that should be used for validation.
+
+    Example
+    -------
+
+    The following example illustrates how we can use this function to validate against namespaces
+    cached in a file. This is useful, e.g., when a file was created using an extension
+
+    >>> from pynwb import validate
+    >>> from pynwb.validate import get_cached_namespaces_to_validate
+    >>> path = "my_nwb_file.nwb"
+    >>> validate_namespaces, manager, cached_namespaces = get_cached_namespaces_to_validate(path)
+    >>> with NWBHDF5IO(path, "r", manager=manager) as reader:
+    >>>     errors = []
+    >>>     for ns in validate_namespaces:
+    >>>         errors += validate(io=reader, namespace=ns)
+
+    :param path: Path for the NWB file
+    :return: Tuple with:
+      - List of strings with the most specific namespace(s) to use for validation.
+      - BuildManager object for opening the file for validation
+      - Dict with the full result from NWBHDF5IO.load_namespaces
+    """
+    from hdmf.build import BuildManager, TypeMap
+    from hdmf.spec import NamespaceCatalog
+    from pynwb.spec import NWBDatasetSpec, NWBGroupSpec, NWBNamespace
+
+    catalog = NamespaceCatalog(NWBGroupSpec, NWBDatasetSpec, NWBNamespace)
+    ns_deps = NWBHDF5IO.load_namespaces(catalog, path)
+    # determine which namespaces are the most specific (i.e. extensions) and validate against those
+    s = set(ns_deps.keys())
+    for k in ns_deps:
+        s -= ns_deps[k].keys()
+    # TODO remove this workaround for issue
+    # https://github.com/NeurodataWithoutBorders/pynwb/issues/1357
+    s.discard("hdmf-experimental")  # remove validation of hdmf-experimental for now
+    namespaces = sorted(s)
+
+    if len(namespaces) > 0:
+        tm = TypeMap(catalog)
+        manager = BuildManager(tm)
+    else:
+        manager = None
+
+    return namespaces, manager, ns_deps
+
+
+def validate_namespaces(path: Union[str, Path]) -> List[str]:
+    """pynwb.validate which validates each validatable namespace separately
+
+    Proposed by @orugbel in https://github.com/dandi/dandi-cli/issues/917#issuecomment-1045154252
+    """
+    namespaces_validate, manager, namespaces_cached = get_cached_namespaces_to_validate(
+        path
+    )
+    with NWBHDF5IO(path, "r", manager=manager) as reader:
+        errors = []
+        for ns in namespaces_validate:
+            errors += pynwb.validate(io=reader, namespace=ns)
+    return errors
+
+
 @validate_cache.memoize_path
 def validate(path: Union[str, Path], devel_debug: bool = False) -> List[str]:
     """Run validation on a file and return errors
@@ -332,8 +401,7 @@ def validate(path: Union[str, Path], devel_debug: bool = False) -> List[str]:
     path = str(path)  # Might come in as pathlib's PATH
     errors: List[str]
     try:
-        with pynwb.NWBHDF5IO(path, "r", load_namespaces=True) as reader:
-            errors = pynwb.validate(reader)
+        errors = validate_namespaces(path)
         lgr.warning(
             "pynwb validation errors for %s: %s",
             path,
