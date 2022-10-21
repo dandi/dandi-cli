@@ -74,6 +74,10 @@ development command line options.
   new set on each run.  Set this environment variable to `0` to cause the
   containers to be destroyed at the end of the next run.
 
+- `DANDI_TESTS_PULL_DOCKER_COMPOSE` -- When set to an empty string or `0`, the
+  tests will not pull the latest needed Docker images at the start of a run if
+  older versions of the images are already present.
+
 ## Sourcegraph
 
 The [Sourcegraph](https://sourcegraph.com) browser extension can be used to

@@ -253,7 +253,8 @@ def docker_compose_setup() -> Iterator[Dict[str, str]]:
     env = {**os.environ, "DJANGO_DANDI_SCHEMA_VERSION": DANDI_SCHEMA_VERSION}
     try:
         if create:
-            run(["docker-compose", "pull"], cwd=str(LOCAL_DOCKER_DIR), check=True)
+            if os.environ.get("DANDI_TESTS_PULL_DOCKER_COMPOSE", "1") not in ("", "0"):
+                run(["docker-compose", "pull"], cwd=str(LOCAL_DOCKER_DIR), check=True)
             run(
                 ["docker-compose", "run", "--rm", "django", "./manage.py", "migrate"],
                 cwd=str(LOCAL_DOCKER_DIR),
