@@ -357,7 +357,18 @@ def find_files(
 
 
 def list_paths(dirpath: Union[str, Path], dirs: bool = False) -> List[Path]:
-    return sorted(map(Path, find_files(r".*", [dirpath], dirs=dirs)))
+    return sorted(
+        map(
+            Path,
+            find_files(
+                r".*",
+                [dirpath],
+                dirs=dirs,
+                exclude_dotfiles=False,
+                exclude_dotdirs=False,
+            ),
+        )
+    )
 
 
 _cp_supports_reflink: Optional[bool] = None
