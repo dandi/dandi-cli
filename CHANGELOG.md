@@ -1,3 +1,24 @@
+# 0.46.6 (Fri Oct 21 2022)
+
+#### 🐛 Bug Fix
+
+- Don't try to cancel failed Zarr uploads twice [#1139](https://github.com/dandi/dandi-cli/pull/1139) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- adding testing instructions [#1123](https://github.com/dandi/dandi-cli/pull/1123) ([@djarecka](https://github.com/djarecka))
+
+#### 🧪 Tests
+
+- Add `DANDI_TESTS_PULL_DOCKER_COMPOSE` envvar [#1141](https://github.com/dandi/dandi-cli/pull/1141) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Dorota Jarecka ([@djarecka](https://github.com/djarecka))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.46.5 (Fri Oct 14 2022)
 
 #### 🐛 Bug Fix
