@@ -95,21 +95,21 @@ def simple1_nwb_metadata() -> Dict[str, Any]:
 
 @pytest.fixture(scope="session")
 def simple1_nwb(
-    simple1_nwb_metadata: Dict[str, Any], tmpdir_factory: pytest.TempdirFactory
+    simple1_nwb_metadata: Dict[str, Any], tmp_path_factory: pytest.TempPathFactory
 ) -> str:
     return make_nwb_file(
-        str(tmpdir_factory.mktemp("simple1").join("simple1.nwb")),
+        str(tmp_path_factory.mktemp("simple1") / "simple1.nwb"),
         **simple1_nwb_metadata,
     )
 
 
 @pytest.fixture(scope="session")
 def simple2_nwb(
-    simple1_nwb_metadata: Dict[str, Any], tmpdir_factory: pytest.TempdirFactory
+    simple1_nwb_metadata: Dict[str, Any], tmp_path_factory: pytest.TempPathFactory
 ) -> str:
     """With a subject"""
     return make_nwb_file(
-        str(tmpdir_factory.mktemp("simple2").join("simple2.nwb")),
+        str(tmp_path_factory.mktemp("simple2") / "simple2.nwb"),
         subject=pynwb.file.Subject(
             subject_id="mouse001",
             date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
@@ -122,11 +122,11 @@ def simple2_nwb(
 
 @pytest.fixture(scope="session")
 def simple3_nwb(
-    simple1_nwb_metadata: Dict[str, Any], tmpdir_factory: pytest.TempdirFactory
+    simple1_nwb_metadata: Dict[str, Any], tmp_path_factory: pytest.TempPathFactory
 ) -> str:
     """With a subject, but no subject_id."""
     return make_nwb_file(
-        str(tmpdir_factory.mktemp("simple2").join("simple2.nwb")),
+        str(tmp_path_factory.mktemp("simple2") / "simple2.nwb"),
         subject=pynwb.file.Subject(
             age="P1D/",
             sex="O",
