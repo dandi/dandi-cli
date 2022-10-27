@@ -262,7 +262,7 @@ def get_filtered_gitrepo_fixture(
         # were to run `git sparse-checkout` inside the software repo.
         run(["git", "sparse-checkout", "init", "--cone"], cwd=path, check=True)
         run(["git", "sparse-checkout", "set"] + whitelist, cwd=path, check=True)
-        yield path
+        yield str(path)
 
     return fixture
 
