@@ -39,6 +39,18 @@ from ..upload import upload
 lgr = get_logger()
 
 
+BIDS_TESTDATA_SELECTION = [
+    "asl003",
+    "eeg_cbm",
+    "hcp_example_bids",
+    "micr_SEMzarr",
+    "micr_SPIM",
+    "pet003",
+    "qmri_tb1tfl",
+    "qmri_vfa",
+]
+
+
 def copytree(src, dst, symlinks=False, ignore=None):
     """Function mimicking `shutil.copytree()` behaviour but supporting existing target
     directories.
@@ -221,8 +233,48 @@ def get_gitrepo_fixture(
     return fixture
 
 
+def get_filtered_gitrepo_fixture(
+    url: str,
+    whitelist: List[str],
+) -> Callable[[pytest.TempPathFactory], Iterator[str]]:
+    @pytest.fixture(scope="session")
+    def fixture(
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> Iterator[str]:
+        skipif.no_network()
+        skipif.no_git()
+        path = tmp_path_factory.mktemp("gitrepo")
+        lgr.debug("Cloning %r into %r", url, path)
+        run(
+            [
+                "git",
+                "clone",
+                "--depth=1",
+                "--filter=blob:none",
+                "--sparse",
+                url,
+                str(path),
+            ],
+            check=True,
+        )
+        # cwd specification is VERY important, not only to achieve the correct
+        # effects, but also to avoid dropping files from your repository if you
+        # were to run `git sparse-checkout` inside the software repo.
+        run(["git", "sparse-checkout", "init", "--cone"], cwd=path, check=True)
+        run(["git", "sparse-checkout", "set"] + whitelist, cwd=path, check=True)
+        yield str(path)
+
+    return fixture
+
+
 nwb_test_data = get_gitrepo_fixture("http://github.com/dandi-datasets/nwb_test_data")
-bids_examples = get_gitrepo_fixture("https://github.com/dandi/bids-examples")
+bids_examples = get_filtered_gitrepo_fixture(
+    url="https://github.com/bids-standard/bids-examples",
+    whitelist=BIDS_TESTDATA_SELECTION,
+)
+bids_error_examples = get_gitrepo_fixture(
+    "https://github.com/bids-standard/bids-error-examples"
+)
 
 LOCAL_DOCKER_DIR = Path(__file__).with_name("data") / "dandiarchive-docker"
 LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name
@@ -447,12 +499,14 @@ def bids_dandiset(new_dandiset: SampleDandiset, bids_examples: str) -> SampleDan
 
 @pytest.fixture()
 def bids_dandiset_invalid(
-    new_dandiset: SampleDandiset, bids_examples: str
+    new_dandiset: SampleDandiset, bids_error_examples: str
 ) -> SampleDandiset:
+    dataset_path = new_dandiset.dspath
     copytree(
-        os.path.join(bids_examples, "invalid_pet001"),
-        str(new_dandiset.dspath) + "/",
+        os.path.join(bids_error_examples, "invalid_pet001"),
+        str(dataset_path) + "/",
     )
+    os.remove(os.path.join(dataset_path, "README"))
     return new_dandiset
 
 

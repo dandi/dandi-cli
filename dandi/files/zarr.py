@@ -36,6 +36,7 @@ from dandi.support.digests import get_digest, get_zarr_checksum, md5file_nocache
 from dandi.utils import chunked, pluralize
 
 from .bases import LocalDirectoryAsset
+from ..validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
 lgr = get_logger()
 
@@ -184,26 +185,39 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         self,
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
-    ) -> list[str]:
+    ) -> list[ValidationResult]:
         try:
             data = zarr.open(self.filepath)
-        except Exception as e:
+        except Exception:
             if devel_debug:
                 raise
-            lgr.warning(
-                "Error opening %s: %s: %s",
-                self.filepath,
-                type(e).__name__,
-                e,
-                extra={"validating": True},
-            )
-            return [str(e)]
+            return [
+                ValidationResult(
+                    origin=ValidationOrigin(
+                        name="zarr",
+                        version=zarr.version.version,
+                    ),
+                    severity=Severity.ERROR,
+                    id="zarr.cannot_open",
+                    scope=Scope.FILE,
+                    path=self.filepath,
+                    message="Error opening file.",
+                )
+            ]
         if isinstance(data, zarr.Group) and not data:
-            msg = "Zarr group is empty"
-            if devel_debug:
-                raise ValueError(msg)
-            lgr.warning("%s: %s", self.filepath, msg, extra={"validating": True})
-            return [msg]
+            return [
+                ValidationResult(
+                    origin=ValidationOrigin(
+                        name="zarr",
+                        version=zarr.version.version,
+                    ),
+                    severity=Severity.ERROR,
+                    id="zarr.empty_group",
+                    scope=Scope.FILE,
+                    path=self.filepath,
+                    message="Zarr group is empty.",
+                )
+            ]
         try:
             next(self.filepath.glob(f"*{os.sep}" + os.sep.join(["*"] * MAX_ZARR_DEPTH)))
         except StopIteration:
@@ -212,8 +226,19 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             msg = f"Zarr directory tree more than {MAX_ZARR_DEPTH} directories deep"
             if devel_debug:
                 raise ValueError(msg)
-            lgr.warning("%s: %s", self.filepath, msg, extra={"validating": True})
-            return [msg]
+            return [
+                ValidationResult(
+                    origin=ValidationOrigin(
+                        name="zarr",
+                        version=zarr.version.version,
+                    ),
+                    severity=Severity.ERROR,
+                    id="zarr.tree_depth_exceeded",
+                    scope=Scope.FILE,
+                    path=self.filepath,
+                    message=msg,
+                )
+            ]
         # TODO: Should this be appended to the above errors?
         return super().get_validation_errors(
             schema_version=schema_version, devel_debug=devel_debug

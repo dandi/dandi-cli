@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
-from typing import Any, Optional
+from typing import Any, List, Optional
 import weakref
 
 from dandischema.models import BareAsset
@@ -14,11 +14,10 @@ from .bases import GenericAsset, LocalFileAsset, NWBAsset
 from .zarr import ZarrAsset
 from ..metadata import add_common_metadata, prepare_metadata
 from ..misctypes import Digest
+from ..validate_types import ValidationResult
 
-BIDS_TO_DANDI = {
-    "subject": "subject_id",
-    "session": "session_id",
-}
+BIDS_ASSET_ERRORS = ("BIDS.NON_BIDS_PATH_PLACEHOLDER",)
+BIDS_DATASET_ERRORS = ("BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",)
 
 
 @dataclass
@@ -35,11 +34,11 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
 
     #: A list of validation error messages pertaining to the dataset as a
     #: whole, populated by `_validate()`
-    _dataset_errors: Optional[list[str]] = None
+    _dataset_errors: Optional[list[ValidationResult]] = None
 
     #: A list of validation error messages for individual assets in the
     #: dataset, keyed by `bids_path` properties; populated by `_validate()`
-    _asset_errors: Optional[dict[str, list[str]]] = None
+    _asset_errors: Optional[dict[str, list[ValidationResult]]] = None
 
     #: Asset metadata (in the form of a `dict` of BareAsset fields) for
     #: individual assets in the dataset, keyed by `bids_path` properties;
@@ -67,43 +66,31 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                     str(asset.filepath) for asset in self.dataset_files
                 ]
                 results = validate_bids(*bids_paths)
-                self._dataset_errors: list[str] = []
-                if len(results["path_listing"]) == len(results["path_tracking"]):
-                    self._dataset_errors.append("No valid BIDS files were found")
-                for entry in results["schema_tracking"]:
-                    if entry["mandatory"]:
-                        self._dataset_errors.append(
-                            f"The `{entry['regex']}` regex pattern file"
-                            " required by BIDS was not found."
-                        )
-                self._asset_errors = defaultdict(list)
-                for path in results["path_tracking"]:
-                    bids_path = Path(path).relative_to(self.bids_root).as_posix()
-                    self._dataset_errors.append(
-                        f"The `{bids_path}` file was not matched by any regex schema entry."
-                    )
-                    self._asset_errors[bids_path].append(
-                        "File not matched by any regex schema entry"
-                    )
+                self._dataset_errors: list[ValidationResult] = []
+                self._asset_errors: dict[str, list[ValidationResult]] = defaultdict(
+                    list
+                )
                 self._asset_metadata = defaultdict(dict)
-                for meta in results["match_listing"]:
-                    bids_path = (
-                        Path(meta.pop("path")).relative_to(self.bids_root).as_posix()
-                    )
-                    meta = {
-                        BIDS_TO_DANDI[k]: v
-                        for k, v in meta.items()
-                        if k in BIDS_TO_DANDI
-                    }
-                    # meta["bids_schema_version"] = results["bids_schema_version"]
-                    self._asset_metadata[bids_path] = prepare_metadata(meta)
+                for result in results:
+                    if result.id in BIDS_ASSET_ERRORS:
+                        assert result.path
+                        self._asset_errors[str(result.path)].append(result)
+                    elif result.id in BIDS_DATASET_ERRORS:
+                        self._dataset_errors.append(result)
+                    elif result.id == "BIDS.MATCH":
+                        assert result.path
+                        bids_path = result.path.relative_to(self.bids_root).as_posix()
+                        assert result.metadata is not None
+                        self._asset_metadata[bids_path] = prepare_metadata(
+                            result.metadata
+                        )
 
-    def get_asset_errors(self, asset: BIDSAsset) -> list[str]:
+    def get_asset_errors(self, asset: BIDSAsset) -> list[ValidationResult]:
         """:meta private:"""
         self._validate()
-        errors: list[str] = []
+        errors: list[ValidationResult] = []
         if self._dataset_errors:
-            errors.append("BIDS dataset is invalid")
+            errors.extend(self._dataset_errors)
         assert self._asset_errors is not None
         errors.extend(self._asset_errors[asset.bids_path])
         return errors
@@ -118,10 +105,15 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         self,
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
-    ) -> list[str]:
+    ) -> list[ValidationResult]:
         self._validate()
         assert self._dataset_errors is not None
-        return list(self._dataset_errors)
+        if self._asset_errors is not None:
+            return self._dataset_errors + [
+                i for j in self._asset_errors.values() for i in j
+            ]
+        else:
+            return self._dataset_errors
 
     # get_metadata(): inherit use of default metadata from LocalFileAsset
 
@@ -168,7 +160,7 @@ class BIDSAsset(LocalFileAsset):
         self,
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
-    ) -> list[str]:
+    ) -> list[ValidationResult]:
         return self.bids_dataset_description.get_asset_errors(self)
 
     def get_metadata(
@@ -194,7 +186,7 @@ class NWBBIDSAsset(BIDSAsset, NWBAsset):
         self,
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
-    ) -> list[str]:
+    ) -> list[ValidationResult]:
         return NWBAsset.get_validation_errors(
             self, schema_version, devel_debug
         ) + BIDSAsset.get_validation_errors(self)
@@ -222,7 +214,7 @@ class ZarrBIDSAsset(BIDSAsset, ZarrAsset):
         self,
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
-    ) -> list[str]:
+    ) -> list[ValidationResult]:
         return ZarrBIDSAsset.get_validation_errors(
             self, schema_version, devel_debug
         ) + BIDSAsset.get_validation_errors(self)
@@ -241,7 +233,7 @@ class GenericBIDSAsset(BIDSAsset, GenericAsset):
         self,
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
-    ) -> list[str]:
+    ) -> List[ValidationResult]:
         return GenericAsset.get_validation_errors(
             self, schema_version, devel_debug
         ) + BIDSAsset.get_validation_errors(self)

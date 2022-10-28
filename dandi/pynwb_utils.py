@@ -3,7 +3,7 @@ import os
 import os.path as op
 from pathlib import Path
 import re
-from typing import Any, Dict, List, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Tuple, TypeVar, Union, cast
 import warnings
 
 import dandischema
@@ -23,6 +23,7 @@ from .consts import (
     metadata_nwb_subject_fields,
 )
 from .utils import get_module_version, is_url
+from .validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
 lgr = get_logger()
 
@@ -319,7 +320,9 @@ def rename_nwb_external_files(metadata: List[dict], dandiset_path: str) -> None:
 
 
 @validate_cache.memoize_path
-def validate(path: Union[str, Path], devel_debug: bool = False) -> List[str]:
+def validate(
+    path: Union[str, Path], devel_debug: bool = False
+) -> List[ValidationResult]:
     """Run validation on a file and return errors
 
     In case of an exception being thrown, an error message added to the
@@ -330,21 +333,43 @@ def validate(path: Union[str, Path], devel_debug: bool = False) -> List[str]:
     path: str or Path
     """
     path = str(path)  # Might come in as pathlib's PATH
-    errors: List[str]
+    errors: List[ValidationResult] = []
     try:
         with pynwb.NWBHDF5IO(path, "r", load_namespaces=True) as reader:
-            errors = pynwb.validate(reader)
-        lgr.warning(
-            "pynwb validation errors for %s: %s",
-            path,
-            errors,
-            extra={"validating": True},
-        )
+            error_outputs = pynwb.validate(reader)
+            # TODO: return ValidationResult structs
+            for error_output in error_outputs:
+                errors.append(
+                    ValidationResult(
+                        origin=ValidationOrigin(
+                            name="pynwb",
+                            version=pynwb.__version__,
+                        ),
+                        severity=Severity.WARNING,
+                        id=f"pywnb.{error_output}",
+                        scope=Scope.FILE,
+                        path=Path(path),
+                        message="Failed to validate.",
+                    )
+                )
     except Exception as exc:
         if devel_debug:
             raise
-        lgr.warning("Failed to validate %s: %s", path, exc, extra={"validating": True})
-        errors = [f"Failed to validate {path}: {exc}"]
+        errors.extend(
+            [
+                ValidationResult(
+                    origin=ValidationOrigin(
+                        name="pynwb",
+                        version=pynwb.__version__,
+                    ),
+                    severity=Severity.ERROR,
+                    id="pywnb.GENERIC",
+                    scope=Scope.FILE,
+                    path=Path(path),
+                    message=f"{exc}",
+                )
+            ]
+        )
 
     # To overcome
     #   https://github.com/NeurodataWithoutBorders/pynwb/issues/1090
@@ -362,6 +387,7 @@ def validate(path: Union[str, Path], devel_debug: bool = False) -> List[str]:
         if version is not None:
             # Explicitly sanitize so we collect warnings.
             # TODO: later cast into proper ERRORs
+            # Do we really need this custom internal function? string comparison works fine..
             version = _sanitize_nwb_version(version, log=errors.append)
             try:
                 v = semantic_version.Version(version)
@@ -369,7 +395,12 @@ def validate(path: Union[str, Path], devel_debug: bool = False) -> List[str]:
                 v = None
             if v is not None and v < semantic_version.Version("2.1.0"):
                 errors_ = errors[:]
-                errors = [e for e in errors if not re_ok_prior_210.search(str(e))]
+                errors = [
+                    e
+                    for e in errors
+                    if not re_ok_prior_210.search(cast(str, getattr(e, "message", "")))
+                ]
+                # This is not an error, just logging about the process, hence logging:
                 if errors != errors_:
                     lgr.debug(
                         "Filtered out %d validation errors on %s",
