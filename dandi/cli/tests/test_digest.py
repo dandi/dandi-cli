@@ -77,6 +77,9 @@ def test_digest_zarr_with_excluded_dotfiles():
         os.mkdir("sample.zarr/.dandi")
         Path("sample.zarr", ".dandi", "somefile.txt").touch()
         Path("sample.zarr", ".gitattributes").touch()
+        Path("sample.zarr", "arr_0", ".gitmodules").touch()
+        Path("sample.zarr", "arr_1", ".datalad").mkdir()
+        Path("sample.zarr", "arr_1", ".datalad", "config").touch()
         r = runner.invoke(digest, ["--digest", "zarr-checksum", "sample.zarr"])
         assert r.exit_code == 0
         assert r.output == "sample.zarr: 4313ab36412db2981c3ed391b38604d6-5--1516\n"

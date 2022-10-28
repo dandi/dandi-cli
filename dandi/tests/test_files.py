@@ -229,11 +229,16 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
 def test_dandi_file_zarr_with_excluded_dotfiles(tmp_path: Path) -> None:
     zarr_path = tmp_path / "foo.zarr"
     mkpaths(
-        zarr_path, ".git/data", ".gitattributes", ".dandi/somefile.txt", ".datalad/"
+        zarr_path,
+        ".git/data",
+        ".gitattributes",
+        ".dandi/somefile.txt",
+        ".datalad/",
+        "arr_0/.gitmodules",
     )
     with pytest.raises(UnknownAssetError):
         dandi_file(zarr_path)
-    (zarr_path / "foo").touch()
+    (zarr_path / "arr_0" / "foo").touch()
     zf = dandi_file(zarr_path)
     assert isinstance(zf, ZarrAsset)
 
@@ -368,6 +373,9 @@ def test_upload_zarr_with_excluded_dotfiles(
     (filepath / ".dandi").mkdir()
     (filepath / ".dandi" / "somefile.txt").write_text("Hello world!\n")
     (filepath / ".gitattributes").write_text("* eol=lf\n")
+    (filepath / "arr_0" / ".gitmodules").write_text("# Empty\n")
+    (filepath / "arr_1" / ".datalad").mkdir()
+    (filepath / "arr_1" / ".datalad" / "config").write_text("# Empty\n")
     zf = dandi_file(filepath)
     assert isinstance(zf, ZarrAsset)
     asset = zf.upload(new_dandiset.dandiset, {})
@@ -407,6 +415,6 @@ def test_validate_deep_zarr(tmp_path: Path) -> None:
 def test_validate_zarr_deep_via_excluded_dotfiles(tmp_path: Path) -> None:
     zarr_path = tmp_path / "foo.zarr"
     zarr.save(zarr_path, np.arange(1000), np.arange(1000, 0, -1))
-    mkpaths(zarr_path, ".git/a/b/c/d/e/f/g.txt")
+    mkpaths(zarr_path, ".git/a/b/c/d/e/f/g.txt", "a/b/c/.git/d/e/f/g.txt")
     zf = dandi_file(zarr_path)
     assert zf.get_validation_errors() == []

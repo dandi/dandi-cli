@@ -796,6 +796,6 @@ def is_page2_url(page1: str, page2: str) -> bool:
 def exclude_from_zarr(path: Path) -> bool:
     """
     Returns `True` if the ``path`` is a file or directory that should be
-    excluded from consideration when located at the root of a Zarr
+    excluded from consideration when located in a Zarr
     """
     return path.name in (".dandi", ".datalad", ".git", ".gitattributes", ".gitmodules")

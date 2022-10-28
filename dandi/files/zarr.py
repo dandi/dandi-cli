@@ -80,7 +80,7 @@ class LocalZarrEntry(BasePath):
 
     def iterdir(self) -> Iterator[LocalZarrEntry]:
         for p in self.filepath.iterdir():
-            if self.is_root() and exclude_from_zarr(p):
+            if exclude_from_zarr(p):
                 continue
             if p.is_dir() and not any(p.iterdir()):
                 # Ignore empty directories

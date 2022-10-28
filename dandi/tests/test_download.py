@@ -356,6 +356,8 @@ def test_download_different_zarr_onto_excluded_dotfiles(
     (zarr_path / ".dandi" / "somefile.txt").touch()
     (zarr_path / ".datalad").mkdir()
     (zarr_path / ".gitattributes").touch()
+    (zarr_path / "arr_0").mkdir()
+    (zarr_path / "arr_0" / ".gitmodules").touch()
     download(
         zarr_dandiset.dandiset.version_api_url, tmp_path, existing="overwrite-different"
     )
@@ -367,6 +369,7 @@ def test_download_different_zarr_onto_excluded_dotfiles(
         zarr_path / ".gitattributes",
         zarr_path / ".zgroup",
         zarr_path / "arr_0",
+        zarr_path / "arr_0" / ".gitmodules",
         zarr_path / "arr_0" / ".zarray",
         zarr_path / "arr_0" / "0",
         zarr_path / "arr_1",

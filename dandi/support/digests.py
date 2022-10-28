@@ -124,9 +124,7 @@ def get_zarr_checksum(path: Path, known: Optional[Dict[str, str]] = None) -> str
         return (f, dgst, os.path.getsize(f))
 
     zcc = ZCTree()
-    for p, digest, size in threaded_walk(
-        path, digest_file, exclude=lambda p: p.parent == path and exclude_from_zarr(p)
-    ):
+    for p, digest, size in threaded_walk(path, digest_file, exclude=exclude_from_zarr):
         zcc.add(p.relative_to(path), digest, size)
     return zcc.get_digest()
 

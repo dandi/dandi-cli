@@ -880,7 +880,7 @@ def _download_zarr(
         d = dirs.popleft()
         is_empty = True
         for p in list(d.iterdir()):
-            if d == zarr_basepath and exclude_from_zarr(p):
+            if exclude_from_zarr(p):
                 is_empty = False
             elif (
                 p.is_file()
