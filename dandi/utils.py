@@ -356,7 +356,9 @@ def find_files(
                     yield p
 
 
-def list_paths(dirpath: Union[str, Path], dirs: bool = False) -> List[Path]:
+def list_paths(
+    dirpath: Union[str, Path], dirs: bool = False, exclude_vcs: bool = True
+) -> List[Path]:
     return sorted(
         map(
             Path,
@@ -366,6 +368,7 @@ def list_paths(dirpath: Union[str, Path], dirs: bool = False) -> List[Path]:
                 dirs=dirs,
                 exclude_dotfiles=False,
                 exclude_dotdirs=False,
+                exclude_vcs=exclude_vcs,
             ),
         )
     )

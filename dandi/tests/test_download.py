@@ -359,7 +359,7 @@ def test_download_different_zarr_onto_excluded_dotfiles(
     download(
         zarr_dandiset.dandiset.version_api_url, tmp_path, existing="overwrite-different"
     )
-    assert list_paths(zarr_path, dirs=True) == [
+    assert list_paths(zarr_path, dirs=True, exclude_vcs=False) == [
         zarr_path / ".dandi",
         zarr_path / ".dandi" / "somefile.txt",
         zarr_path / ".datalad",

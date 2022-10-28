@@ -57,6 +57,7 @@ from .support.typing import Literal
 from .utils import (
     abbrev_prompt,
     ensure_datetime,
+    exclude_from_zarr,
     flattened,
     is_same_time,
     on_windows,
@@ -879,7 +880,9 @@ def _download_zarr(
         d = dirs.popleft()
         is_empty = True
         for p in list(d.iterdir()):
-            if (
+            if d == zarr_basepath and exclude_from_zarr(p):
+                is_empty = False
+            elif (
                 p.is_file()
                 and p.relative_to(zarr_basepath).as_posix() not in remote_paths
             ):
