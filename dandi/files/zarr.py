@@ -33,7 +33,7 @@ from dandi.dandiapi import (
 from dandi.metadata import get_default_metadata
 from dandi.misctypes import BasePath, Digest
 from dandi.support.digests import get_digest, get_zarr_checksum, md5file_nocache
-from dandi.utils import chunked, pluralize
+from dandi.utils import chunked, exclude_from_zarr, pluralize
 
 from .bases import LocalDirectoryAsset
 from ..validate_types import Scope, Severity, ValidationOrigin, ValidationResult
@@ -80,6 +80,8 @@ class LocalZarrEntry(BasePath):
 
     def iterdir(self) -> Iterator[LocalZarrEntry]:
         for p in self.filepath.iterdir():
+            if self.is_root() and exclude_from_zarr(p):
+                continue
             if p.is_dir() and not any(p.iterdir()):
                 # Ignore empty directories
                 continue
