@@ -6,12 +6,14 @@ from unittest.mock import ANY
 
 from dandischema.models import get_schema_version
 import numpy as np
+import pytest
 import zarr
 
 from .fixtures import SampleDandiset
 from .. import get_logger
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteZarrAsset
+from ..exceptions import UnknownAssetError
 from ..files import (
     BIDSDatasetDescriptionAsset,
     DandisetMetadataFile,
@@ -222,6 +224,18 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
     ]
     for asset in bidsdd.dataset_files:
         assert asset.bids_dataset_description is bidsdd
+
+
+def test_dandi_file_zarr_with_excluded_dotfiles(tmp_path: Path) -> None:
+    zarr_path = tmp_path / "foo.zarr"
+    mkpaths(
+        zarr_path, ".git/data", ".gitattributes", ".dandi/somefile.txt", ".datalad/"
+    )
+    with pytest.raises(UnknownAssetError):
+        dandi_file(zarr_path)
+    (zarr_path / "foo").touch()
+    zf = dandi_file(zarr_path)
+    assert isinstance(zf, ZarrAsset)
 
 
 def test_validate_simple1(simple1_nwb):

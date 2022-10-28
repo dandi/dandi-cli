@@ -20,6 +20,7 @@ from .bids import (
     ZarrBIDSAsset,
 )
 from .zarr import ZarrAsset
+from ..utils import exclude_from_zarr
 
 
 class DandiFileType(Enum):
@@ -34,7 +35,7 @@ class DandiFileType(Enum):
     @staticmethod
     def classify(path: Path) -> DandiFileType:
         if path.is_dir():
-            if not any(path.iterdir()):
+            if not any(p for p in path.iterdir() if not exclude_from_zarr(p)):
                 raise UnknownAssetError("Empty directories cannot be assets")
             if path.suffix in ZARR_EXTENSIONS:
                 return DandiFileType.ZARR
