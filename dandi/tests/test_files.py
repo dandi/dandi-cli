@@ -392,3 +392,21 @@ def test_upload_zarr_with_excluded_dotfiles(
         "arr_1/.zarray",
         "arr_1/0",
     ]
+
+
+def test_validate_deep_zarr(tmp_path: Path) -> None:
+    zarr_path = tmp_path / "foo.zarr"
+    zarr.save(zarr_path, np.arange(1000), np.arange(1000, 0, -1))
+    mkpaths(zarr_path, "a/b/c/d/e/f/g.txt")
+    zf = dandi_file(zarr_path)
+    assert zf.get_validation_errors() == []
+    mkpaths(zarr_path, "a/b/c/d/e/f/g/h.txt")
+    assert [e.id for e in zf.get_validation_errors()] == ["zarr.tree_depth_exceeded"]
+
+
+def test_validate_zarr_deep_via_excluded_dotfiles(tmp_path: Path) -> None:
+    zarr_path = tmp_path / "foo.zarr"
+    zarr.save(zarr_path, np.arange(1000), np.arange(1000, 0, -1))
+    mkpaths(zarr_path, ".git/a/b/c/d/e/f/g.txt")
+    zf = dandi_file(zarr_path)
+    assert zf.get_validation_errors() == []
