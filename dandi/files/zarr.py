@@ -33,7 +33,7 @@ from dandi.dandiapi import (
 from dandi.metadata import get_default_metadata
 from dandi.misctypes import BasePath, Digest
 from dandi.support.digests import get_digest, get_zarr_checksum, md5file_nocache
-from dandi.utils import chunked, pluralize
+from dandi.utils import chunked, exclude_from_zarr, pluralize
 
 from .bases import LocalDirectoryAsset
 from ..validate_types import Scope, Severity, ValidationOrigin, ValidationResult
@@ -80,6 +80,8 @@ class LocalZarrEntry(BasePath):
 
     def iterdir(self) -> Iterator[LocalZarrEntry]:
         for p in self.filepath.iterdir():
+            if exclude_from_zarr(p):
+                continue
             if p.is_dir() and not any(p.iterdir()):
                 # Ignore empty directories
                 continue
@@ -218,11 +220,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     message="Zarr group is empty.",
                 )
             ]
-        try:
-            next(self.filepath.glob(f"*{os.sep}" + os.sep.join(["*"] * MAX_ZARR_DEPTH)))
-        except StopIteration:
-            pass
-        else:
+        if self._is_too_deep():
             msg = f"Zarr directory tree more than {MAX_ZARR_DEPTH} directories deep"
             if devel_debug:
                 raise ValueError(msg)
@@ -243,6 +241,12 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         return super().get_validation_errors(
             schema_version=schema_version, devel_debug=devel_debug
         )
+
+    def _is_too_deep(self) -> bool:
+        for e in self.iterfiles():
+            if len(e.parts) >= MAX_ZARR_DEPTH + 1:
+                return True
+        return False
 
     def iter_upload(
         self,

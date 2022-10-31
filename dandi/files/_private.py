@@ -34,9 +34,9 @@ class DandiFileType(Enum):
     @staticmethod
     def classify(path: Path) -> DandiFileType:
         if path.is_dir():
-            if not any(path.iterdir()):
-                raise UnknownAssetError("Empty directories cannot be assets")
             if path.suffix in ZARR_EXTENSIONS:
+                if is_empty_zarr(path):
+                    raise UnknownAssetError("Empty directories cannot be Zarr assets")
                 return DandiFileType.ZARR
             raise UnknownAssetError(
                 f"Directory has unrecognized suffix {path.suffix!r}"
@@ -95,3 +95,9 @@ class BIDSFileFactory(DandiFileFactory):
         )
         self.bids_dataset_description.dataset_files.append(df)
         return df
+
+
+def is_empty_zarr(path: Path) -> bool:
+    """:meta private:"""
+    zf = ZarrAsset(filepath=path, path=path.name)
+    return not any(zf.iterfiles())

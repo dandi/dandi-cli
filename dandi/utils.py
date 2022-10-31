@@ -356,7 +356,9 @@ def find_files(
                     yield p
 
 
-def list_paths(dirpath: Union[str, Path], dirs: bool = False) -> List[Path]:
+def list_paths(
+    dirpath: Union[str, Path], dirs: bool = False, exclude_vcs: bool = True
+) -> List[Path]:
     return sorted(
         map(
             Path,
@@ -366,6 +368,7 @@ def list_paths(dirpath: Union[str, Path], dirs: bool = False) -> List[Path]:
                 dirs=dirs,
                 exclude_dotfiles=False,
                 exclude_dotdirs=False,
+                exclude_vcs=exclude_vcs,
             ),
         )
     )
@@ -788,3 +791,11 @@ def is_page2_url(page1: str, page2: str) -> bool:
     bits2 = urlparse(page2)
     params2 = parse_qs(bits2.query)
     return (bits1[:3], params1, bits1.fragment) == (bits2[:3], params2, bits2.fragment)
+
+
+def exclude_from_zarr(path: Path) -> bool:
+    """
+    Returns `True` if the ``path`` is a file or directory that should be
+    excluded from consideration when located in a Zarr
+    """
+    return path.name in (".dandi", ".datalad", ".git", ".gitattributes", ".gitmodules")

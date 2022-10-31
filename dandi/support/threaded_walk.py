@@ -28,6 +28,7 @@ def threaded_walk(
     dirpath: Union[str, Path],
     func: Optional[Callable[[Path], Any]] = None,
     threads: int = 60,
+    exclude: Optional[Callable[[Path], Any]] = None,
 ) -> Iterable[Any]:
     if not os.path.isdir(dirpath):
         return
@@ -54,7 +55,9 @@ def threaded_walk(
                     break
             try:
                 for p in path.iterdir():
-                    if p.is_dir():
+                    if exclude is not None and exclude(p):
+                        log.debug("Excluding %s from traversal", p)
+                    elif p.is_dir():
                         with lock:
                             tasks += 1
                             paths.append(p)

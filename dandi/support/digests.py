@@ -23,7 +23,7 @@ from dandischema.digests.zarr import get_checksum
 from fscacher import PersistentCache
 
 from .threaded_walk import threaded_walk
-from ..utils import auto_repr
+from ..utils import auto_repr, exclude_from_zarr
 
 lgr = logging.getLogger("dandi.support.digests")
 
@@ -124,7 +124,7 @@ def get_zarr_checksum(path: Path, known: Optional[Dict[str, str]] = None) -> str
         return (f, dgst, os.path.getsize(f))
 
     zcc = ZCTree()
-    for p, digest, size in threaded_walk(path, digest_file):
+    for p, digest, size in threaded_walk(path, digest_file, exclude=exclude_from_zarr):
         zcc.add(p.relative_to(path), digest, size)
     return zcc.get_digest()
 

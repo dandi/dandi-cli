@@ -344,6 +344,40 @@ def test_download_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) 
     )
 
 
+def test_download_different_zarr_onto_excluded_dotfiles(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    dd = tmp_path / zarr_dandiset.dandiset_id
+    dd.mkdir()
+    zarr_path = dd / "sample.zarr"
+    zarr.save(zarr_path, np.eye(5))
+    (zarr_path / ".git").touch()
+    (zarr_path / ".dandi").mkdir()
+    (zarr_path / ".dandi" / "somefile.txt").touch()
+    (zarr_path / ".datalad").mkdir()
+    (zarr_path / ".gitattributes").touch()
+    (zarr_path / "arr_0").mkdir()
+    (zarr_path / "arr_0" / ".gitmodules").touch()
+    download(
+        zarr_dandiset.dandiset.version_api_url, tmp_path, existing="overwrite-different"
+    )
+    assert list_paths(zarr_path, dirs=True, exclude_vcs=False) == [
+        zarr_path / ".dandi",
+        zarr_path / ".dandi" / "somefile.txt",
+        zarr_path / ".datalad",
+        zarr_path / ".git",
+        zarr_path / ".gitattributes",
+        zarr_path / ".zgroup",
+        zarr_path / "arr_0",
+        zarr_path / "arr_0" / ".gitmodules",
+        zarr_path / "arr_0" / ".zarray",
+        zarr_path / "arr_0" / "0",
+        zarr_path / "arr_1",
+        zarr_path / "arr_1" / ".zarray",
+        zarr_path / "arr_1" / "0",
+    ]
+
+
 def test_download_different_zarr_delete_dir(
     new_dandiset: SampleDandiset, tmp_path: Path
 ) -> None:
