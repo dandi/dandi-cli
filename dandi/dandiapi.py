@@ -60,6 +60,8 @@ lgr = get_logger()
 
 T = TypeVar("T")
 
+DATA_STANDARD_MAP = dict(NWB="RRID:SCR_015242")
+
 
 class AssetType(Enum):
     """
@@ -1071,19 +1073,24 @@ class RemoteDandiset:
             self, metadata=asset_metadata, jobs=jobs, replacing=replace_asset
         )
 
-    def is_nwb(self) -> bool:
+    def has_data_standard(self, data_standard: str) -> bool:
         """
-        Returns True if the Dandiset contains one or more NWB file assets.
-
-        This is determined by checking for "RRID:SCR_015242" in the "dataStandard" field
-        of the assetsSummary of the dandiset.
+        Returns True if the Dandiset contains one or more files of the indicated
+        standard. Otherwise, returns False.
         """
-        assetsSummary = self.get_raw_metadata()["assetsSummary"]
-        if "dataStandard" not in assetsSummary:
+        if data_standard in DATA_STANDARD_MAP:
+            rrid = DATA_STANDARD_MAP[data_standard]
+        elif data_standard.startswith("RRID:"):
+            rrid = data_standard
+        else:
+            raise ValueError(
+                f"'data_standard' must be an RRID (of form 'RRID:XXX_NNNNNNN`) or one "
+                f"of the following values: {DATA_STANDARD_MAP.keys()}"
+            )
+        assets_summary = self.get_raw_metadata()["assetsSummary"]
+        if "dataStandard" not in assets_summary:
             return False
-        return any(
-            x["identifier"] == "RRID:SCR_015242" for x in assetsSummary["dataStandard"]
-        )
+        return any(x["identifier"] == rrid for x in assets_summary["dataStandard"])
 
 
 class BaseRemoteAsset(ABC, APIBase):
