@@ -15,7 +15,7 @@ def test_validate_bids(bids_examples, tmp_path, dataset):
     selected_dataset = os.path.join(bids_examples, dataset)
     validation_result = validate_bids(selected_dataset, report=True)
     for i in validation_result:
-        assert not hasattr(i, "severtiy")
+        assert i.severity is None
 
 
 def test_report_path(bids_examples, tmp_path):
