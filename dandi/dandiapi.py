@@ -60,7 +60,10 @@ lgr = get_logger()
 
 T = TypeVar("T")
 
-DATA_STANDARD_MAP = dict(NWB="RRID:SCR_015242")
+DATA_STANDARD_MAP = dict(
+    NWB="RRID:SCR_015242",
+    BIDS="RRID:SCR_016124",
+)
 
 
 class AssetType(Enum):
@@ -1076,7 +1079,13 @@ class RemoteDandiset:
     def has_data_standard(self, data_standard: str) -> bool:
         """
         Returns True if the Dandiset contains one or more files of the indicated
-        standard. Otherwise, returns False.
+        standard. Otherwise, returns False. This is determined by checking for
+        the RRID of the standard  in the "dataStandard" field of the assetsSummary of
+        the dandiset.
+
+        :param data_standard: str that can either be "NWB", "BIDS", or an RRID of a
+        standard.
+        :type data_standard: str
         """
         if data_standard in DATA_STANDARD_MAP:
             rrid = DATA_STANDARD_MAP[data_standard]
