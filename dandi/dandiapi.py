@@ -1093,7 +1093,7 @@ class RemoteDandiset:
             rrid = data_standard
         else:
             raise ValueError(
-                f"'data_standard' must be an RRID (of form 'RRID:XXX_NNNNNNN`) or one "
+                "'data_standard' must be an RRID (of form 'RRID:XXX_NNNNNNN`) or one "
                 f"of the following values: {", ".join(DATA_STANDARD_MAP.keys())}"
             )
         assets_summary = self.get_raw_metadata()["assetsSummary"]
