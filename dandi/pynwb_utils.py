@@ -10,6 +10,7 @@ import dandischema
 from fscacher import PersistentCache
 import h5py
 import hdmf
+from packaging.version import Version
 import pynwb
 from pynwb import NWBHDF5IO
 import semantic_version
