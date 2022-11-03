@@ -87,12 +87,6 @@ def validate(
     """Validate files for NWB and DANDI compliance.
 
     Exits with non-0 exit code if any file is not compliant.
-
-    Parameters
-    ----------
-
-    grouping : str, optional
-        A string which is either "", "error", or "path" — "error" not yet implemented.
     """
     from ..pynwb_utils import ignore_benign_pynwb_warnings
     from ..validate import validate as validate_
