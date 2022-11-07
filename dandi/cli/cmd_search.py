@@ -1,8 +1,8 @@
 from pathlib import Path
 
+from SPARQLWrapper import JSON, SPARQLWrapper
 import click
 import pandas as pd
-import stardog
 
 from .base import map_to_click_exceptions
 
@@ -100,12 +100,6 @@ def search(
     if file and search_type:
         raise Exception("file and type are mutually exclusive options")
 
-    conn_details = {
-        "endpoint": "https://search.dandiarchive.org:5820",
-        "username": "anonymous",
-        "password": "anonymous",
-    }
-
     if file:
         filepath = Path(file)
         with filepath.open() as f:
@@ -129,8 +123,12 @@ def search(
     else:
         raise NotImplementedError
 
-    with stardog.Connection(database_name, **conn_details) as conn:
-        results = conn.select(query_str)
+    endpoint = "https://search.dandiarchive.org:5820/dandisets_new/query"
+    sparql = SPARQLWrapper(endpoint)
+    sparql.setCredentials("anonymous", "anonymous")
+    sparql.setReturnFormat(JSON)
+    sparql.setQuery(query_str)
+    results = sparql.queryAndConvert()
     res_df = results2df(results, number_of_lines)
 
     if format == "stdout":
