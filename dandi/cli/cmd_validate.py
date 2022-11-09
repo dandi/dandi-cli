@@ -11,11 +11,7 @@ from ..validate_types import Severity
 
 @click.command()
 @click.option(
-    "--schema", help="Validate against new BIDS schema version.", metavar="VERSION"
-)
-@click.option(
-    "--report-path",
-    help="Write report under path, this option implies `--report/-r`.",
+    "--bids-schema", help="Validate against new BIDS schema version.", metavar="VERSION"
 )
 @click.option(
     "--report",
@@ -24,42 +20,9 @@ from ..validate_types import Severity
     help="Whether to write a report under a unique path in the DANDI log directory.",
 )
 @click.option(
-    "--grouping",
-    "-g",
-    help="How to group error/warning reporting.",
-    type=click.Choice(["none", "path"], case_sensitive=False),
-    default="none",
+    "--report-path",
+    help="Write report under path, this option implies `--report/-r`.",
 )
-@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
-@map_to_click_exceptions
-def validate_bids(
-    paths,
-    schema,
-    report,
-    report_path,
-    grouping="none",
-):
-    """Validate BIDS paths.
-
-    Notes
-    -----
-    Used from bash, eg:
-        dandi validate-bids /my/path
-    """
-
-    from ..validate import validate_bids as validate_bids_
-
-    validator_result = validate_bids_(  # Controller
-        *paths,
-        report=report,
-        report_path=report_path,
-        schema_version=schema,
-    )
-
-    _process_issues(validator_result, grouping)
-
-
-@click.command()
 @devel_option("--schema", help="Validate against new schema version", metavar="VERSION")
 @devel_option(
     "--allow-any-path",
@@ -79,6 +42,9 @@ def validate_bids(
 @map_to_click_exceptions
 def validate(
     paths,
+    bids_schema,
+    report,
+    report_path,
     schema=None,
     devel_debug=False,
     allow_any_path=False,
@@ -108,9 +74,16 @@ def validate(
     validator_result = validate_(
         *paths,
         schema_version=schema,
+        bids_schema_version=bids_schema,
         devel_debug=devel_debug,
         allow_any_path=allow_any_path,
     )
+    from collections import Counter
+
+    # for some reason we get the same error repeated over and over again, probably related
+    # to different behaviour of yield and return
+    print(Counter([i.id for i in validator_result]))
+    raise
 
     _process_issues(validator_result, grouping)
 

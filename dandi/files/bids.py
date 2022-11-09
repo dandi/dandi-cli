@@ -61,7 +61,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         """
         The directory on the filesystem in which the BIDS dataset is located
         """
-        return self.filepath.parent
+        return self.filepath.parent.resolve()
 
     def _validate(self) -> None:
         with self._lock:
@@ -94,21 +94,38 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                     list
                 )
                 self._asset_metadata = defaultdict(dict)
+                print("..")
                 for result in results:
+                    print(result)
                     if result.id in BIDS_ASSET_ERRORS:
+                        print("jj")
+                        print(result)
+                        print("jj")
                         assert result.path
                         bids_path = result.path.relative_to(self.bids_root).as_posix()
                         self._asset_errors[bids_path].append(result)
                     elif result.id in BIDS_DATASET_ERRORS:
+                        print("ii")
+                        print(result)
                         self._dataset_errors.append(result)
+                        print("ii")
                     elif result.id == "BIDS.MATCH":
+                        print("kk")
+                        print(result)
+                        print("kk")
                         assert result.path
+                        print(result.path)
+                        print("kk1")
                         bids_path = result.path.relative_to(self.bids_root).as_posix()
+                        print("kk2")
                         assert result.metadata is not None
+                        print("kk3")
                         self._asset_metadata[bids_path] = prepare_metadata(
                             result.metadata
                         )
                         self._bids_version = result.origin.bids_version
+                        print("kk4")
+                print("..")
 
     def get_asset_errors(self, asset: BIDSAsset) -> list[ValidationResult]:
         """:meta private:"""
@@ -179,7 +196,7 @@ class BIDSAsset(LocalFileAsset):
         """
         ``/``-separated path to the asset from the root of the BIDS dataset
         """
-        return self.filepath.relative_to(self.bids_root).as_posix()
+        return self.filepath.resolve().relative_to(self.bids_root).as_posix()
 
     def get_validation_errors(
         self,
