@@ -61,7 +61,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         """
         The directory on the filesystem in which the BIDS dataset is located
         """
-        return self.filepath.parent.resolve()
+        return self.filepath.parent.absolute()
 
     def _validate(self) -> None:
         with self._lock:
@@ -196,7 +196,7 @@ class BIDSAsset(LocalFileAsset):
         """
         ``/``-separated path to the asset from the root of the BIDS dataset
         """
-        return self.filepath.resolve().relative_to(self.bids_root).as_posix()
+        return self.filepath.absolute().relative_to(self.bids_root).as_posix()
 
     def get_validation_errors(
         self,
