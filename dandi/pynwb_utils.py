@@ -10,6 +10,7 @@ import dandischema
 from fscacher import PersistentCache
 import h5py
 import hdmf
+from packaging.version import Version
 import pynwb
 from pynwb import NWBHDF5IO
 import semantic_version
@@ -335,23 +336,27 @@ def validate(
     path = str(path)  # Might come in as pathlib's PATH
     errors: List[ValidationResult] = []
     try:
-        with pynwb.NWBHDF5IO(path, "r", load_namespaces=True) as reader:
-            error_outputs = pynwb.validate(reader)
-            # TODO: return ValidationResult structs
-            for error_output in error_outputs:
-                errors.append(
-                    ValidationResult(
-                        origin=ValidationOrigin(
-                            name="pynwb",
-                            version=pynwb.__version__,
-                        ),
-                        severity=Severity.WARNING,
-                        id=f"pywnb.{error_output}",
-                        scope=Scope.FILE,
-                        path=Path(path),
-                        message="Failed to validate.",
-                    )
+        if Version(pynwb.__version__) >= Version("2.2.0"):  # Use cached namespace feature
+            # argument get_cached_namespaces is True by default
+            error_outputs, _ = pynwb.validate(paths=[path])
+        else:  # Fallback if an older version
+            with pynwb.NWBHDF5IO(path=path, mode="r", load_namespaces=True) as reader:
+                error_outputs = pynwb.validate(io=reader)
+        # TODO: return ValidationResult structs
+        for error_output in error_outputs:
+            errors.append(
+                ValidationResult(
+                    origin=ValidationOrigin(
+                        name="pynwb",
+                        version=pynwb.__version__,
+                    ),
+                    severity=Severity.WARNING,
+                    id=f"pywnb.{error_output}",
+                    scope=Scope.FILE,
+                    path=Path(path),
+                    message="Failed to validate.",
                 )
+            )
     except Exception as exc:
         if devel_debug:
             raise
