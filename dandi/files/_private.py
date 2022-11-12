@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import ClassVar
 import weakref
 
 from dandi.consts import (
@@ -14,6 +16,7 @@ from dandi.exceptions import UnknownAssetError
 
 from .bases import DandiFile, GenericAsset, LocalAsset, NWBAsset, VideoAsset
 from .bids import (
+    BIDSAsset,
     BIDSDatasetDescriptionAsset,
     GenericBIDSAsset,
     NWBBIDSAsset,
@@ -54,7 +57,7 @@ class DandiFileType(Enum):
 class DandiFileFactory:
     """:meta private:"""
 
-    CLASSES: dict[DandiFileType, type[LocalAsset]] = {
+    CLASSES: ClassVar[Mapping[DandiFileType, type[LocalAsset]]] = {
         DandiFileType.NWB: NWBAsset,
         DandiFileType.ZARR: ZarrAsset,
         DandiFileType.VIDEO: VideoAsset,
@@ -74,7 +77,7 @@ class BIDSFileFactory(DandiFileFactory):
 
     bids_dataset_description: BIDSDatasetDescriptionAsset
 
-    CLASSES = {
+    CLASSES: ClassVar[Mapping[DandiFileType, type[BIDSAsset]]] = {
         DandiFileType.NWB: NWBBIDSAsset,
         DandiFileType.ZARR: ZarrBIDSAsset,
         DandiFileType.VIDEO: GenericBIDSAsset,
