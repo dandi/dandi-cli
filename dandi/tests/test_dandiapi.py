@@ -698,7 +698,6 @@ def test_rename_collision(text_dandiset: SampleDandiset) -> None:
     assert asset2.identifier == asset2a.identifier
 
 
-@pytest.mark.xfail(reason="https://github.com/dandi/dandi-archive/issues/1109")
 @pytest.mark.parametrize("dest", ["subdir1", "subdir1/apple.txt/core.dat"])
 def test_rename_type_mismatch(text_dandiset: SampleDandiset, dest: str) -> None:
     asset1 = text_dandiset.dandiset.get_asset_by_path("file.txt")
