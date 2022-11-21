@@ -150,6 +150,42 @@ def simple3_nwb(
     )
 
 
+# @pytest.fixture(scope="session")
+# def simple4_nwb(
+#    simple1_nwb_metadata: Dict[str, Any], tmp_path_factory: pytest.TempPathFactory
+# ) -> str:
+#    """
+#    With, subject, subject_id, species, but including data orientation ambiguity,
+#    the only currently non-critical issue in the dandi schema for nwbinspector validation:
+#    https://github.com/NeurodataWithoutBorders/nwbinspector/blob/
+#        54ac2bc7cdcb92802b9251e29f249f155fb1ff52
+#        /src/nwbinspector/internal_configs/dandi.inspector_config.yaml#L10
+#    """
+#    from datetime import datetime, timezone
+#    start_time = datetime(2017, 4, 3, 11, tzinfo=timezone.utc)
+#    create_date = datetime(2017, 4, 15, 12, tzinfo=timezone.utc)
+#    time_series=pynwb.TimeSeries(
+#            name="test_time_series",
+#            unit="test_units",
+#            data=np.zeros(shape=(2, 100)),
+#            rate=1.0,
+#    )
+#    nwbfile = NWBFile(
+#        session_description="demonstrate external files",
+#        identifier="NWBE4",
+#        session_start_time=start_time,
+#        file_create_date=create_date,
+#        age="P1D/",
+#        sex="O",
+#        species="Mus musculus",
+#    )
+#    nwbfile.add_acquisition(time_series)
+#    filename = str(tmp_path_factory.mktemp("simple4") / "simple4.nwb")
+#    with pynwb.NWBHDF5IO(filename, "w") as io:
+#        io.write(nwbfile, cache_spec=False)
+#    return filename
+
+
 @pytest.fixture(scope="session")
 def organized_nwb_dir(
     simple2_nwb: str, tmp_path_factory: pytest.TempPathFactory
