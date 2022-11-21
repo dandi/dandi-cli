@@ -505,12 +505,14 @@ class NWBAsset(LocalFileAsset):
                     nwbfile_path=self.filepath,
                     skip_validate=True,
                     config=load_config(filepath_or_keyword="dandi"),
-                    importance_threshold=Importance.CRITICAL,
+                    #importance_threshold=Importance.BEST_PRACTICE_VIOLATION,
+                    importance_threshold=Importance.BEST_PRACTICE_SUGGESTION,
                 ):
                     # unfortunate name collision; the InspectorMessage.severity is used only for
                     # minor ordering of final report - will have to remove the
                     # `importance_threshold` currently used to filter DANDI-level CRITICAL
                     # evaluations as errors vs. validation results
+                    print(error.importance.name)
                     severity = NWBI_IMPORTANCE_TO_DANDI_SEVERITY[error.importance.name]
                     kw: Any = {}
                     if error.location:
