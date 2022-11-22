@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import os
 from pathlib import Path
@@ -162,7 +162,6 @@ def simple4_nwb(
     54ac2bc7cdcb92802b9251e29f249f155fb1ff52
     /src/nwbinspector/internal_configs/dandi.inspector_config.yaml#L10
     """
-    from datetime import datetime, timezone
 
     start_time = datetime(2017, 4, 3, 11, tzinfo=timezone.utc)
     time_series = pynwb.TimeSeries(
