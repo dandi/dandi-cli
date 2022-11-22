@@ -159,8 +159,8 @@ def simple4_nwb(
     the only currently non-critical issue in the dandi schema for nwbinspector validation:
     NWBI.check_data_orientation
     https://github.com/NeurodataWithoutBorders/nwbinspector/blob/
-        54ac2bc7cdcb92802b9251e29f249f155fb1ff52
-        /src/nwbinspector/internal_configs/dandi.inspector_config.yaml#L10
+    54ac2bc7cdcb92802b9251e29f249f155fb1ff52
+    /src/nwbinspector/internal_configs/dandi.inspector_config.yaml#L10
     """
     from datetime import datetime, timezone
 
