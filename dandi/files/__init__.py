@@ -97,6 +97,7 @@ def find_dandi_files(
     # BIDS dataset_description.json file at the path (if a directory) or in a
     # parent path
     path_queue: deque[tuple[Path, Optional[BIDSDatasetDescriptionAsset]]] = deque()
+    print(paths)
     for p in map(Path, paths):
         if dandiset_path is not None:
             try:

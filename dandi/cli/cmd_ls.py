@@ -340,6 +340,8 @@ def get_metadata_ls(
     def fn():
         rec = {}
         # No need for calling get_metadata if no keys are needed from it
+        print(path)
+        print("jsfkfjskl")
         if keys is None or list(keys) != ["nwb_version"]:
             try:
                 if schema is not None:
@@ -358,6 +360,7 @@ def get_metadata_ls(
                             digest=Digest.dandi_etag(digest),
                         ).json_dict()
                 else:
+                    print("99999999999")
                     rec = get_metadata(path)
             except Exception as exc:
                 _add_exc_error(path, rec, errors, exc)
