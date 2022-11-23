@@ -97,7 +97,9 @@ def find_dandi_files(
     # BIDS dataset_description.json file at the path (if a directory) or in a
     # parent path
     path_queue: deque[tuple[Path, Optional[BIDSDatasetDescriptionAsset]]] = deque()
+    print("=^.^=")
     print(paths)
+    print("=^_^=")
     for p in map(Path, paths):
         if dandiset_path is not None:
             try:
@@ -107,8 +109,13 @@ def find_dandi_files(
                     "Path {str(p)!r} is not inside Dandiset path {str(dandiset_path)!r}"
                 )
         path_queue.append((p, None))
+    print(path_queue)
     while path_queue:
         p, bidsdd = path_queue.popleft()
+        print(p)
+        print("hhhhhhhhhhhh")
+        print(bidsdd)
+        print("lölölölölö")
         if p.name.startswith("."):
             continue
         if p.is_dir():
@@ -187,6 +194,7 @@ def dandi_file(
         factory = DandiFileFactory()
     else:
         factory = BIDSFileFactory(bids_dataset_description)
+    print("hhhhhhhhhhhh")
     return factory(filepath, path)
 
 

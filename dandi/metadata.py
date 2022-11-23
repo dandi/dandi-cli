@@ -64,7 +64,8 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
     -------
     dict
     """
-    from .files import find_dandi_files
+    # from .files import dandi_file, find_dandi_files
+    from .files import dandi_file
 
     # when we run in parallel, these annoying warnings appear
     ignore_benign_pynwb_warnings()
@@ -133,19 +134,38 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
 
         meta["nd_types"] = get_neurodata_types(path)
     else:
-        # dataset_path = find_parent_directory_containing(
-        #    "dataset_description.json", path
-        # )
+        dataset_path = find_parent_directory_containing(
+            "dataset_description.json", path
+        )
         dandiset_path = find_parent_directory_containing("dandiset.yaml", path)
-        print("99999999999")
+        print("ſſſſſſſſſſſſſſſſſſſſ")
         print(path)
+        # df = list(
+        #    find_dandi_files(
+        #        path,
+        #        dataset_path,
+        #        dandiset_path=dandiset_path,
+        #        allow_all=True,
+        #    )
+        # )
+        print(type(path))
+        p = Path(path)
+        print(type(p))
+        print(type(dandiset_path))
+        print(type(dataset_path))
+        # df = dandi_file(pathlib.PosixPath(path), dandiset_path,
+        #                bids_dataset_description=dataset_path,
+        #    )
         df = list(
-            find_dandi_files(
-                path,
-                dandiset_path=dandiset_path,
-                allow_all=True,
+            dandi_file(
+                p,
+                dandiset_path,
+                bids_dataset_description=dataset_path,
             )
         )
+        print("ăăăăăăăăăăăăăăăăă")
+        for i in df:
+            print(i)
         assert len(df) == 1
         df = df[0]
         print("aaaaaaaaaaaaa")
