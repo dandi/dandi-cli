@@ -17,6 +17,7 @@ DANDISETS_FIELDS = {
 ASSETS_FIELDS = {
     "size": ["size", "?asset schema:contentSize ?size ."],
     "format": ["format", "?asset schema:encodingFormat ?format ."],
+    "age": ["age", "?asset prov:wasAttributedTo / dandi:age / schema:value ?age ."],
 }
 
 
