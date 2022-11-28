@@ -71,7 +71,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 # purpose. The issue is that README* is still required and if we don't
                 # include it explicitly in the listing validation will implicitly fail, even
                 # if the file is present.
-                readme_extensions = ["", "md", "rst", "txt"]
+                readme_extensions = ["", ".md", ".rst", ".txt"]
                 for ext in readme_extensions:
                     ds_root = self.filepath.parent
                     readme_candidate = ds_root / Path("README" + ext)

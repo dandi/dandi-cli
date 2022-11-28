@@ -50,7 +50,10 @@ lgr = get_logger()
 
 # Disable this for clean hacking
 @metadata_cache.memoize_path
-def get_metadata(path: Union[str, Path]) -> Optional[dict]:
+def get_metadata(
+    path: Union[str, Path],
+    digest: Optional[Digest] = None,
+) -> Optional[dict]:
     """
     Get "flatdata" from a .nwb file or a Dandiset directory
 
@@ -141,7 +144,8 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
             bids_dataset_description=bids_dataset_description,
         )
         print("ăăăăăăăăăăăăăăăăă")
-        a = df.get_metadata()
+        print(df, type(df))
+        a = df.get_metadata(digest=digest)
         print("ßßßßßßßßßßßßßßßßßßßßßßßß")
         print(a)
 

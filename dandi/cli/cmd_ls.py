@@ -341,6 +341,7 @@ def get_metadata_ls(
         rec = {}
         # No need for calling get_metadata if no keys are needed from it
         print("Debugging ls for the following path: ", path)
+        print(keys)
         if keys is None or list(keys) != ["nwb_version"]:
             try:
                 if schema is not None:
@@ -359,8 +360,13 @@ def get_metadata_ls(
                             digest=Digest.dandi_etag(digest),
                         ).json_dict()
                 else:
+                    if use_fake_digest:
+                        digest = "0" * 32 + "-1"
+                    else:
+                        lgr.info("Calculating digest for %s", path)
+                        digest = get_digest(path, digest="dandi-etag")
                     print("000000000000000000000000000000000")
-                    rec = get_metadata(path)
+                    rec = get_metadata(path, Digest.dandi_etag(digest))
             except Exception as exc:
                 _add_exc_error(path, rec, errors, exc)
             if flatten:
