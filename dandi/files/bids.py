@@ -113,6 +113,9 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         """:meta private:"""
         self._validate()
         assert self._asset_metadata is not None
+        print("qqqqqqqqqqqqqqqqqqqqqq get_asset_metadata")
+        print(self._asset_metadata)
+        print(self._asset_metadata[asset.bids_path])
         return self._asset_metadata[asset.bids_path]
 
     def get_validation_errors(
@@ -186,6 +189,9 @@ class BIDSAsset(LocalFileAsset):
         start_time = end_time = datetime.now().astimezone()
         add_common_metadata(metadata, self.filepath, start_time, end_time, digest)
         metadata["path"] = self.path
+        print("fffffffffffffffffffffffff get_metadata")
+        print(metadata)
+        print(**metadata)
         return BareAsset(**metadata)
 
 

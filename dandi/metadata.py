@@ -74,7 +74,6 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
     path = os.path.abspath(str(path))  # for Path
     meta = dict()
 
-    print("00000000000000000")
     if op.isdir(path):
         try:
             dandiset = Dandiset(path)
@@ -91,13 +90,7 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
             )
 
         # First read out possibly available versions of specifications for NWB(:N)
-        print("1111111111")
-        print(meta)
-        print("2222222222")
         meta["nwb_version"] = get_nwb_version(path)
-        print("3333333333")
-        print(meta)
-        print("4444444444")
 
         # PyNWB might fail to load because of missing extensions.
         # There is a new initiative of establishing registry of such extensions.
