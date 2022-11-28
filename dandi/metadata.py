@@ -28,6 +28,7 @@ import requests
 import tenacity
 
 from . import __version__, get_logger
+from .consts import metadata_all_fields
 from .dandiset import Dandiset
 from .misctypes import Digest
 from .pynwb_utils import (
@@ -143,11 +144,17 @@ def get_metadata(
             dandiset_path,
             bids_dataset_description=bids_dataset_description,
         )
-        print("ăăăăăăăăăăăăăăăăă")
-        print(df, type(df))
         a = df.get_metadata(digest=digest)
-        print("ßßßßßßßßßßßßßßßßßßßßßßßß")
+        print("UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU")
         print(a)
+        print(a.wasAttributedTo[0].identifier)
+        print(meta)
+        print("UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU")
+        for key in metadata_all_fields:
+            print(key)
+            value = getattr(a.wasAttributedTo[0], key)
+            meta[key] = value
+        print(meta)
 
     return meta
 

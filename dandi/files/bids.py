@@ -98,6 +98,11 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                         self._asset_metadata[bids_path] = prepare_metadata(
                             result.metadata
                         )
+                        # probably best done as part of `prepare_metadata()`
+                        # pending figuring out how
+                        self._asset_metadata[bids_path][
+                            "bids_version"
+                        ] = result.metadata["wasAttributedTo"]["bids_schema_version"]
 
     def get_asset_errors(self, asset: BIDSAsset) -> list[ValidationResult]:
         """:meta private:"""
@@ -115,7 +120,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         assert self._asset_metadata is not None
         print("qqqqqqqqqqqqqqqqqqqqqq get_asset_metadata")
         print(self._asset_metadata)
-        print(self._asset_metadata[asset.bids_path])
+        print(type(self._asset_metadata))
         return self._asset_metadata[asset.bids_path]
 
     def get_validation_errors(
