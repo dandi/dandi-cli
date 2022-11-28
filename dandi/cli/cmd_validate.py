@@ -199,14 +199,15 @@ def display_errors(
             f"{errors[0]}: detected in {pluralize(len(purviews), 'purviews')}"
         )
         if len(set(messages)) == 1:
-            error_message += f" — {messages[0]}."
+            group_message += f" — {messages[0]}."
             click.secho(group_message, fg=fg)
             for purview, severity in zip(purviews, severities):
                 error_message = f"  {purview}"
                 fg = _get_severity_color([severity])
                 click.secho(error_message, fg=fg)
         else:
-            error_message += "."
+            group_message += "."
+            click.secho(group_message, fg=fg)
             for purview, severity, message in zip(purviews, severities, messages):
                 error_message = f"  {purview} — {message}"
                 fg = _get_severity_color([severity])
