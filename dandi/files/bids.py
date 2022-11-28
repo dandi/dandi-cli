@@ -54,7 +54,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         """
         The directory on the filesystem in which the BIDS dataset is located
         """
-        return self.filepath.parent.absolute()
+        return self.filepath.parent
 
     def _validate(self) -> None:
         with self._lock:
@@ -189,9 +189,8 @@ class BIDSAsset(LocalFileAsset):
         start_time = end_time = datetime.now().astimezone()
         add_common_metadata(metadata, self.filepath, start_time, end_time, digest)
         metadata["path"] = self.path
-        print("fffffffffffffffffffffffff get_metadata")
+        print("zzzzzzzzzzzzzzzzzzzzzzzzz get_metadata")
         print(metadata)
-        print(**metadata)
         return BareAsset(**metadata)
 
 
