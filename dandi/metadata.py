@@ -65,7 +65,7 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
     dict
     """
     # from .files import dandi_file, find_dandi_files
-    from .files import dandi_file
+    from .files import dandi_file, find_bids_dataset_description
 
     # when we run in parallel, these annoying warnings appear
     ignore_benign_pynwb_warnings()
@@ -138,6 +138,8 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
             "dataset_description.json", path
         )
         dandiset_path = find_parent_directory_containing("dandiset.yaml", path)
+        print("ßßßßßßßßßßßßßßßßßßßßßßßß")
+        bids_dataset_description = find_bids_dataset_description(path)
         print("ſſſſſſſſſſſſſſſſſſſſ")
         print(path)
         # df = list(
@@ -150,25 +152,32 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
         # )
         print(type(path))
         p = Path(path)
-        print(type(p))
-        print(type(dandiset_path))
         print(type(dataset_path))
         # df = dandi_file(pathlib.PosixPath(path), dandiset_path,
         #                bids_dataset_description=dataset_path,
         #    )
-        df = list(
-            dandi_file(
-                p,
-                dandiset_path,
-                bids_dataset_description=dataset_path,
-            )
+        print("łłłłłłłłłłłłłłłłłłłłłłłłłłłłłłłłłłł")
+        print(p, type(p))
+        print(dandiset_path, type(p))
+        print(bids_dataset_description)
+        # df = list(
+        #    dandi_file(
+        #        p,
+        #        dandiset_path,
+        #        bids_dataset_description=bids_dataset_description,
+        #    )
+        # )
+        df = dandi_file(
+            p,
+            dandiset_path,
+            bids_dataset_description=bids_dataset_description,
         )
         print("ăăăăăăăăăăăăăăăăă")
-        for i in df:
-            print(i)
-        assert len(df) == 1
-        df = df[0]
-        print("aaaaaaaaaaaaa")
+        # for i in df:
+        #    print(i)
+        # assert len(df) == 1
+        # df = df[0]
+        # print("aaaaaaaaaaaaa")
         # a = df.get_metadata()
         a = df.get_metadata()
         print(a)
