@@ -1250,7 +1250,7 @@ class BaseRemoteAsset(ABC, APIBase):
 
     @classmethod
     def from_base_data(
-        self,
+        cls,
         client: "DandiAPIClient",
         data: Dict[str, Any],
         metadata: Optional[Dict[str, Any]] = None,

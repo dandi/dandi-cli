@@ -91,8 +91,10 @@ def test_ls_path_url():
         [
             "-f",
             "yaml",
-            "https://api.dandiarchive.org/api/dandisets/000027/versions/draft"
-            "/assets/?path=sub-RAT123/",
+            (
+                "https://api.dandiarchive.org/api/dandisets/000027/versions/draft"
+                "/assets/?path=sub-RAT123/"
+            ),
         ],
     )
     assert r.exit_code == 0, r.output
