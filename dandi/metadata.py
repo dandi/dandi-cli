@@ -65,11 +65,13 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
     dict
     """
     # from .files import dandi_file, find_dandi_files
+    import os
+
     from .files import dandi_file, find_bids_dataset_description
 
     # when we run in parallel, these annoying warnings appear
     ignore_benign_pynwb_warnings()
-    path = str(path)  # for Path
+    path = os.path.abspath(str(path))  # for Path
     meta = dict()
 
     print("00000000000000000")
@@ -89,13 +91,13 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
             )
 
         # First read out possibly available versions of specifications for NWB(:N)
-        print("99999999999")
-        print(meta)
         print("1111111111")
+        print(meta)
+        print("2222222222")
         meta["nwb_version"] = get_nwb_version(path)
-        print("99999999999")
+        print("3333333333")
         print(meta)
-        print("1111111111")
+        print("4444444444")
 
         # PyNWB might fail to load because of missing extensions.
         # There is a new initiative of establishing registry of such extensions.
@@ -134,52 +136,20 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
 
         meta["nd_types"] = get_neurodata_types(path)
     else:
-        dataset_path = find_parent_directory_containing(
-            "dataset_description.json", path
-        )
+        # dataset_path = find_parent_directory_containing(
+        #    "dataset_description.json", path
+        # )
         dandiset_path = find_parent_directory_containing("dandiset.yaml", path)
-        print("ßßßßßßßßßßßßßßßßßßßßßßßß")
         bids_dataset_description = find_bids_dataset_description(path)
-        print("ſſſſſſſſſſſſſſſſſſſſ")
-        print(path)
-        # df = list(
-        #    find_dandi_files(
-        #        path,
-        #        dataset_path,
-        #        dandiset_path=dandiset_path,
-        #        allow_all=True,
-        #    )
-        # )
-        print(type(path))
         p = Path(path)
-        print(type(dataset_path))
-        # df = dandi_file(pathlib.PosixPath(path), dandiset_path,
-        #                bids_dataset_description=dataset_path,
-        #    )
-        print("łłłłłłłłłłłłłłłłłłłłłłłłłłłłłłłłłłł")
-        print(p, type(p))
-        print(dandiset_path, type(p))
-        print(bids_dataset_description)
-        # df = list(
-        #    dandi_file(
-        #        p,
-        #        dandiset_path,
-        #        bids_dataset_description=bids_dataset_description,
-        #    )
-        # )
         df = dandi_file(
             p,
             dandiset_path,
             bids_dataset_description=bids_dataset_description,
         )
         print("ăăăăăăăăăăăăăăăăă")
-        # for i in df:
-        #    print(i)
-        # assert len(df) == 1
-        # df = df[0]
-        # print("aaaaaaaaaaaaa")
-        # a = df.get_metadata()
         a = df.get_metadata()
+        print("ßßßßßßßßßßßßßßßßßßßßßßßß")
         print(a)
 
     return meta

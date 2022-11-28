@@ -65,6 +65,20 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 bids_paths = [str(self.filepath)] + [
                     str(asset.filepath) for asset in self.dataset_files
                 ]
+                # This is an ad-hoc fix which should be removed once bidsschematools greater than
+                # 0.6.0 is released.
+                # It won't cause any trouble afterwards, but it will no longer fulfill any
+                # purpose. The issue is that README* is still required and if we don't
+                # include it explicitly in the listing validation will implicitly fail, even
+                # if the file is present.
+                readme_extensions = ["", "md", "rst", "txt"]
+                for ext in readme_extensions:
+                    ds_root = self.filepath.parent
+                    readme_candidate = ds_root / Path("README" + ext)
+                    if readme_candidate.exists():
+                        bids_paths += [readme_candidate]
+                # end of ad-hoc fix.
+
                 results = validate_bids(*bids_paths)
                 self._dataset_errors: list[ValidationResult] = []
                 self._asset_errors: dict[str, list[ValidationResult]] = defaultdict(
@@ -79,9 +93,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                         self._dataset_errors.append(result)
                     elif result.id == "BIDS.MATCH":
                         assert result.path
-                        print("mimimimimim")
                         bids_path = result.path.relative_to(self.bids_root).as_posix()
-                        print("lililililil")
                         assert result.metadata is not None
                         self._asset_metadata[bids_path] = prepare_metadata(
                             result.metadata
@@ -156,11 +168,7 @@ class BIDSAsset(LocalFileAsset):
         """
         ``/``-separated path to the asset from the root of the BIDS dataset
         """
-        print("111111")
-        a = self.filepath.absolute().relative_to(self.bids_root).as_posix()
-        print("222222")
-        return a
-        # return self.filepath.relative_to(self.bids_root).as_posix()
+        return self.filepath.relative_to(self.bids_root).as_posix()
 
     def get_validation_errors(
         self,
