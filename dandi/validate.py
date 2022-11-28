@@ -120,6 +120,7 @@ def validate_bids(
     for meta in validation_result["match_listing"]:
         file_path = meta.pop("path")
         meta = {BIDS_TO_DANDI[k]: v for k, v in meta.items() if k in BIDS_TO_DANDI}
+        meta["bids_schema_version"] = validation_result["bids_version"]
         if parent_path != os.path.dirname(file_path):
             parent_path = os.path.dirname(file_path)
             dataset_path = find_parent_directory_containing(
