@@ -45,6 +45,12 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
     #: populated by `_validate()`
     _asset_metadata: Optional[dict[str, dict[str, Any]]] = None
 
+    #: Version of BIDS used for the validation;
+    #: populated by `_validate()`
+    #: In future this might be removed and the information included in the
+    #: BareAsset via dandischema.
+    _bids_version: Optional[str] = None
+
     #: Threading lock needed in case multiple assets are validated in parallel
     #: during upload
     _lock: Lock = field(init=False, default_factory=Lock, repr=False, compare=False)
@@ -85,7 +91,6 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                     list
                 )
                 self._asset_metadata = defaultdict(dict)
-                # self._validation_bids_version = result.origin.bids_version
                 for result in results:
                     if result.id in BIDS_ASSET_ERRORS:
                         assert result.path
@@ -99,18 +104,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                         self._asset_metadata[bids_path] = prepare_metadata(
                             result.metadata
                         )
-                        # probably best done as part of `prepare_metadata()`
-                        # pending figuring out how
-                        print("wwwwww")
-                        print(result.origin.bids_version)
-                        print("mmmmmm")
-                        # print(result.metadata["bids_schema_version"])
-                        # print("ĸĸĸĸĸĸĸ")
-                        # bids_ver = {"bids_schema_version": result.metadata["bids_schema_version"]}
-                        # self._asset_metadata[bids_path]["wasAttributedTo"].append(bids_ver)
-                        # #self._asset_metadata[bids_path][
-                        # #    "bids_schema_version"
-                        # #] = result.metadata["bids_schema_version"]
+                        self._bids_version = result.origin.bids_version
 
     def get_asset_errors(self, asset: BIDSAsset) -> list[ValidationResult]:
         """:meta private:"""
@@ -126,9 +120,6 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         """:meta private:"""
         self._validate()
         assert self._asset_metadata is not None
-        print("qqqqqqqqqqqqqqqqqqqqqq get_asset_metadata")
-        print(self._asset_metadata)
-        print(type(self._asset_metadata))
         return self._asset_metadata[asset.bids_path]
 
     def get_validation_errors(
@@ -200,13 +191,12 @@ class BIDSAsset(LocalFileAsset):
     ) -> BareAsset:
         metadata = self.bids_dataset_description.get_asset_metadata(self)
         start_time = end_time = datetime.now().astimezone()
-        print(metadata, "\n")
         add_common_metadata(metadata, self.filepath, start_time, end_time, digest)
-        print(metadata, "\n")
         metadata["path"] = self.path
-        print(metadata, "\n")
-        print("zzzzzzzzzzzzzzzzzzzzzzzzz get_metadata")
         return BareAsset(**metadata)
+
+    def get_validation_bids_version(self) -> str:
+        return self.bids_dataset_description._bids_version
 
 
 class NWBBIDSAsset(BIDSAsset, NWBAsset):

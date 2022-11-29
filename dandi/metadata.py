@@ -133,9 +133,6 @@ def get_metadata(
 
         meta["nd_types"] = get_neurodata_types(path)
     else:
-        # dataset_path = find_parent_directory_containing(
-        #    "dataset_description.json", path
-        # )
         dandiset_path = find_parent_directory_containing("dandiset.yaml", path)
         bids_dataset_description = find_bids_dataset_description(path)
         p = Path(path)
@@ -145,14 +142,7 @@ def get_metadata(
             bids_dataset_description=bids_dataset_description,
         )
         a = df.get_metadata(digest=digest)
-        print("kkkkkkkkkkkkk")
-        print(df._asset_metadata)
-        print("UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU")
-        print(type(a))
-        print(a)
-        print(a.wasAttributedTo[0].identifier)
-        print(meta)
-        print("UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU")
+        meta["bids_version"] = df.get_validation_bids_version()
         for key in metadata_all_fields:
             try:
                 value = getattr(a.wasAttributedTo[0], key)
@@ -160,7 +150,9 @@ def get_metadata(
                 pass
             else:
                 meta[key] = value
+        print("aaaaaaaaaaaaaaaaaaa")
         print(meta)
+        print("bbbbbbbbbbbbbbbbbbb")
 
     return meta
 
