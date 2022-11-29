@@ -8,7 +8,6 @@ from pathlib import Path
 import re
 import shutil
 from subprocess import DEVNULL, check_output, run
-import tempfile
 from time import sleep
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union
 from uuid import uuid4
@@ -246,30 +245,19 @@ def get_gitrepo_fixture(
     url: str,
     committish: Optional[str] = None,
     scope: Scope = "session",
-) -> Callable[[], Iterator[str]]:
+) -> Callable[[pytest.TempPathFactory], str]:
 
     if committish:
         raise NotImplementedError()
 
     @pytest.fixture(scope=scope)
-    def fixture() -> Iterator[str]:
+    def fixture(tmp_path_factory: pytest.TempPathFactory) -> str:
         skipif.no_network()
         skipif.no_git()
-
-        path = tempfile.mktemp()  # not using pytest's tmpdir fixture to not
-        # collide in different scopes etc. But we
-        # would need to remove it ourselves
+        path = str(tmp_path_factory.mktemp("gitrepo"))
         lgr.debug("Cloning %r into %r", url, path)
-        try:
-            runout = run(["git", "clone", "--depth=1", url, path])
-            if runout.returncode:
-                raise RuntimeError(f"Failed to clone {url} into {path}")
-            yield path
-        finally:
-            try:
-                shutil.rmtree(path)
-            except BaseException as exc:
-                lgr.warning("Failed to remove %s - using Windows?: %s", path, exc)
+        run(["git", "clone", "--depth=1", url, path], check=True)
+        return path
 
     return fixture
 
