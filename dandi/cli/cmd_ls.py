@@ -365,7 +365,6 @@ def get_metadata_ls(
                     else:
                         lgr.info("Calculating digest for %s", path)
                         digest = get_digest(path, digest="dandi-etag")
-                    print("000000000000000000000000000000000")
                     rec = get_metadata(path, Digest.dandi_etag(digest))
             except Exception as exc:
                 _add_exc_error(path, rec, errors, exc)

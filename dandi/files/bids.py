@@ -85,6 +85,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                     list
                 )
                 self._asset_metadata = defaultdict(dict)
+                # self._validation_bids_version = result.origin.bids_version
                 for result in results:
                     if result.id in BIDS_ASSET_ERRORS:
                         assert result.path
@@ -100,9 +101,16 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                         )
                         # probably best done as part of `prepare_metadata()`
                         # pending figuring out how
-                        self._asset_metadata[bids_path][
-                            "bids_version"
-                        ] = result.metadata["wasAttributedTo"]["bids_schema_version"]
+                        print("wwwwww")
+                        print(result.origin.bids_version)
+                        print("mmmmmm")
+                        # print(result.metadata["bids_schema_version"])
+                        # print("ĸĸĸĸĸĸĸ")
+                        # bids_ver = {"bids_schema_version": result.metadata["bids_schema_version"]}
+                        # self._asset_metadata[bids_path]["wasAttributedTo"].append(bids_ver)
+                        # #self._asset_metadata[bids_path][
+                        # #    "bids_schema_version"
+                        # #] = result.metadata["bids_schema_version"]
 
     def get_asset_errors(self, asset: BIDSAsset) -> list[ValidationResult]:
         """:meta private:"""
@@ -192,10 +200,12 @@ class BIDSAsset(LocalFileAsset):
     ) -> BareAsset:
         metadata = self.bids_dataset_description.get_asset_metadata(self)
         start_time = end_time = datetime.now().astimezone()
+        print(metadata, "\n")
         add_common_metadata(metadata, self.filepath, start_time, end_time, digest)
+        print(metadata, "\n")
         metadata["path"] = self.path
+        print(metadata, "\n")
         print("zzzzzzzzzzzzzzzzzzzzzzzzz get_metadata")
-        print(metadata)
         return BareAsset(**metadata)
 
 

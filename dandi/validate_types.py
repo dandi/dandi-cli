@@ -8,6 +8,7 @@ from typing import Dict, List, Optional
 class ValidationOrigin:
     name: str
     version: str
+    bids_version: str
 
 
 class Severity(Enum):

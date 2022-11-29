@@ -145,15 +145,21 @@ def get_metadata(
             bids_dataset_description=bids_dataset_description,
         )
         a = df.get_metadata(digest=digest)
+        print("kkkkkkkkkkkkk")
+        print(df._asset_metadata)
         print("UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU")
+        print(type(a))
         print(a)
         print(a.wasAttributedTo[0].identifier)
         print(meta)
         print("UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU")
         for key in metadata_all_fields:
-            print(key)
-            value = getattr(a.wasAttributedTo[0], key)
-            meta[key] = value
+            try:
+                value = getattr(a.wasAttributedTo[0], key)
+            except AttributeError:
+                pass
+            else:
+                meta[key] = value
         print(meta)
 
     return meta
