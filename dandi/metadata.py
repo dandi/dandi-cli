@@ -78,7 +78,7 @@ def get_metadata(
     path = os.path.abspath(str(path))  # for Path
     meta = dict()
 
-    if op.isdir(path):
+    if op.isdir(path) and not path.endswith((".zarr", ".ZARR")):
         try:
             dandiset = Dandiset(path)
             return cast(dict, dandiset.metadata)
@@ -141,6 +141,8 @@ def get_metadata(
             dandiset_path,
             bids_dataset_description=bids_dataset_description,
         )
+        print("qqqqqqqqqqqqqqqqqqqqqqqqqqqqq")
+        print(type(df))
         a = df.get_metadata(digest=digest)
         meta["bids_version"] = df.get_validation_bids_version()
         for key in metadata_all_fields:

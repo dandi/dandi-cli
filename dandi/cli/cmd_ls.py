@@ -364,7 +364,10 @@ def get_metadata_ls(
                         digest = "0" * 32 + "-1"
                     else:
                         lgr.info("Calculating digest for %s", path)
-                        digest = get_digest(path, digest="dandi-etag")
+                        if path.endswith((".zarr", ".ZARR")):
+                            digest = get_digest(path, digest="zarr-checksum")
+                        else:
+                            digest = get_digest(path, digest="dandi-etag")
                     rec = get_metadata(path, Digest.dandi_etag(digest))
             except Exception as exc:
                 _add_exc_error(path, rec, errors, exc)
