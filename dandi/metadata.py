@@ -69,7 +69,6 @@ def get_metadata(
     dict
     """
     # from .files import dandi_file, find_dandi_files
-    import os
 
     from .files import dandi_file, find_bids_dataset_description
 
