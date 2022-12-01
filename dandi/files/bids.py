@@ -12,6 +12,7 @@ from dandischema.models import BareAsset
 
 from .bases import GenericAsset, LocalFileAsset, NWBAsset
 from .zarr import ZarrAsset
+from ..consts import ZARR_MIME_TYPE
 from ..metadata import add_common_metadata, prepare_metadata
 from ..misctypes import Digest
 from ..validate_types import ValidationResult
@@ -243,6 +244,19 @@ class ZarrBIDSAsset(BIDSAsset, ZarrAsset):
         return ZarrBIDSAsset.get_validation_errors(
             self, schema_version, devel_debug
         ) + BIDSAsset.get_validation_errors(self)
+
+    def get_metadata(
+        self,
+        digest: Optional[Digest] = None,
+        ignore_errors: bool = True,
+    ) -> BareAsset:
+        metadata = self.bids_dataset_description.get_asset_metadata(self)
+        start_time = end_time = datetime.now().astimezone()
+        add_common_metadata(metadata, self.filepath, start_time, end_time, digest)
+        metadata["path"] = self.path
+        metadata["encodingFormat"] = ZARR_MIME_TYPE
+        print("u5u5u5u5u5u5u5u")
+        return BareAsset(**metadata)
 
 
 class GenericBIDSAsset(BIDSAsset, GenericAsset):
