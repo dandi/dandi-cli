@@ -193,6 +193,7 @@ class BIDSAsset(LocalFileAsset):
         start_time = end_time = datetime.now().astimezone()
         add_common_metadata(metadata, self.filepath, start_time, end_time, digest)
         metadata["path"] = self.path
+        print("7777777777777777777")
         return BareAsset(**metadata)
 
     def get_validation_bids_version(self) -> str:

@@ -143,7 +143,9 @@ def get_metadata(
         )
         print("qqqqqqqqqqqqqqqqqqqqqqqqqqqqq")
         print(type(df))
+        print("666666666666666666666666")
         a = df.get_metadata(digest=digest)
+        print("8888888888888888888888")
         meta["bids_version"] = df.get_validation_bids_version()
         for key in metadata_all_fields:
             try:
