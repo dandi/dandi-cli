@@ -992,6 +992,12 @@ def add_common_metadata(
             "mtime %s of %s is in the future", metadata["blobDateModified"], path
         )
     metadata["contentSize"] = os.path.getsize(path)
+    if digest is not None and digest.algorithm is models.DigestType.dandi_zarr_checksum:
+        m = re.fullmatch(
+            r"(?P<hash>[0-9a-f]{32})-(?P<files>[0-9]+)--(?P<size>[0-9]+)", digest.value
+        )
+        if m:
+            metadata["contentSize"] = int(m["size"])
     metadata.setdefault("wasGeneratedBy", []).append(
         get_generator(start_time, end_time)
     )
