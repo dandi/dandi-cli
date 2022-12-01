@@ -360,16 +360,20 @@ def get_metadata_ls(
                             digest=Digest.dandi_etag(digest),
                         ).json_dict()
                 else:
-                    if use_fake_digest:
-                        digest = "0" * 32 + "-1"
-                    else:
-                        lgr.info("Calculating digest for %s", path)
-                        if path.endswith(tuple(ZARR_EXTENSIONS)):
-                            digest = get_digest(path, digest="zarr-checksum")
-                            rec = get_metadata(path, Digest.dandi_zarr(digest))
+                    if path.endswith(tuple(ZARR_EXTENSIONS)):
+                        if use_fake_digest:
+                            digest = "0" * 32 + "-1"
                         else:
+                            lgr.info("Calculating digest for %s", path)
+                            digest = get_digest(path, digest="zarr-checksum")
+                        rec = get_metadata(path, Digest.dandi_zarr(digest))
+                    else:
+                        if use_fake_digest:
+                            digest = "0" * 32 + "-1"
+                        else:
+                            lgr.info("Calculating digest for %s", path)
                             digest = get_digest(path, digest="dandi-etag")
-                            rec = get_metadata(path, Digest.dandi_etag(digest))
+                        rec = get_metadata(path, Digest.dandi_etag(digest))
             except Exception as exc:
                 _add_exc_error(path, rec, errors, exc)
             if flatten:
