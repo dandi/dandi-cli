@@ -980,7 +980,10 @@ def add_common_metadata(
     NWB assets and non-NWB assets
     """
     if digest is not None:
+        print("$$$$$$$$$$$$$$$$$$$$$")
+        print(type(digest))
         metadata["digest"] = digest.asdict()
+        print("èèèèèèèèèèèèèèèèèèèèè")
     else:
         metadata["digest"] = {}
     metadata["dateModified"] = get_utcnow_datetime()
