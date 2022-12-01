@@ -28,7 +28,7 @@ import requests
 import tenacity
 
 from . import __version__, get_logger
-from .consts import metadata_all_fields
+from .consts import ZARR_EXTENSIONS, metadata_all_fields
 from .dandiset import Dandiset
 from .misctypes import Digest
 from .pynwb_utils import (
@@ -77,7 +77,7 @@ def get_metadata(
     path = os.path.abspath(str(path))  # for Path
     meta = dict()
 
-    if op.isdir(path) and not path.endswith((".zarr", ".ZARR")):
+    if op.isdir(path) and not path.endswith(tuple(ZARR_EXTENSIONS)):
         try:
             dandiset = Dandiset(path)
             return cast(dict, dandiset.metadata)
