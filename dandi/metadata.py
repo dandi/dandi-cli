@@ -141,8 +141,7 @@ def get_metadata(
             bids_dataset_description=bids_dataset_description,
         )
         path_metadata = df.get_metadata(digest=digest)
-        # This seems like a really bad idea, but without it type checks fail:
-        assert type(df) in [bids.GenericBIDSAsset, bids.ZarrBIDSAsset]
+        assert isinstance(df, bids.BIDSAsset)
         meta["bids_version"] = df.get_validation_bids_version()
         # there might be a more elegant way to do this:
         for key in metadata_all_fields:
