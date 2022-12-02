@@ -85,7 +85,9 @@ def get_metadata(
             lgr.debug("Failed to get metadata for %s: %s", path, exc)
             return None
 
-    # Clunky test to determine whether this is NWB
+    # We assume that non-NWB data is BIDS.
+    # This is currently the case, and is slated to change only when we have NWB data which
+    # is *also* BIDS.
     if path.endswith(("NWB", "nwb")):
         if nwb_has_external_links(path):
             raise NotImplementedError(
@@ -142,6 +144,7 @@ def get_metadata(
         )
         a = df.get_metadata(digest=digest)
         meta["bids_version"] = df.get_validation_bids_version()
+        # there might be a more elegant way to do this:
         for key in metadata_all_fields:
             try:
                 value = getattr(a.wasAttributedTo[0], key)
