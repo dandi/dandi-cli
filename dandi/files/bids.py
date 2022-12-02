@@ -83,7 +83,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                     ds_root = self.filepath.parent
                     readme_candidate = ds_root / Path("README" + ext)
                     if readme_candidate.exists():
-                        bids_paths += [readme_candidate]
+                        bids_paths += [str(readme_candidate)]
                 # end of ad-hoc fix.
 
                 results = validate_bids(*bids_paths)
@@ -197,6 +197,7 @@ class BIDSAsset(LocalFileAsset):
         return BareAsset(**metadata)
 
     def get_validation_bids_version(self) -> str:
+        assert self.bids_dataset_description._bids_version
         return self.bids_dataset_description._bids_version
 
 

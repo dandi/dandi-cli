@@ -136,18 +136,17 @@ def get_metadata(
     else:
         dandiset_path = find_parent_directory_containing("dandiset.yaml", path)
         bids_dataset_description = find_bids_dataset_description(path)
-        p = Path(path)
         df = dandi_file(
-            p,
+            Path(path),
             dandiset_path,
             bids_dataset_description=bids_dataset_description,
         )
-        a = df.get_metadata(digest=digest)
+        path_metadata = df.get_metadata(digest=digest)
         meta["bids_version"] = df.get_validation_bids_version()
         # there might be a more elegant way to do this:
         for key in metadata_all_fields:
             try:
-                value = getattr(a.wasAttributedTo[0], key)
+                value = getattr(path_metadata.wasAttributedTo[0], key)
             except AttributeError:
                 pass
             else:
