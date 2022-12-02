@@ -140,11 +140,7 @@ def get_metadata(
             dandiset_path,
             bids_dataset_description=bids_dataset_description,
         )
-        print("qqqqqqqqqqqqqqqqqqqqqqqqqqqqq")
-        print(type(df))
-        print("666666666666666666666666")
         a = df.get_metadata(digest=digest)
-        print("8888888888888888888888")
         meta["bids_version"] = df.get_validation_bids_version()
         for key in metadata_all_fields:
             try:
@@ -153,10 +149,6 @@ def get_metadata(
                 pass
             else:
                 meta[key] = value
-        print("aaaaaaaaaaaaaaaaaaa")
-        print(meta)
-        print("bbbbbbbbbbbbbbbbbbb")
-
     return meta
 
 
@@ -979,10 +971,7 @@ def add_common_metadata(
     NWB assets and non-NWB assets
     """
     if digest is not None:
-        print("$$$$$$$$$$$$$$$$$$$$$")
-        print(type(digest))
         metadata["digest"] = digest.asdict()
-        print("èèèèèèèèèèèèèèèèèèèèè")
     else:
         metadata["digest"] = {}
     metadata["dateModified"] = get_utcnow_datetime()

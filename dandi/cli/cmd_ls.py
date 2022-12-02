@@ -340,8 +340,6 @@ def get_metadata_ls(
     def fn():
         rec = {}
         # No need for calling get_metadata if no keys are needed from it
-        print("Debugging ls for the following path: ", path)
-        print(keys)
         if keys is None or list(keys) != ["nwb_version"]:
             try:
                 if schema is not None:
