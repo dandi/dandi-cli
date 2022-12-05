@@ -37,7 +37,7 @@ tox -e lint,typing
 ### dandi-api instance
 
 The [dandi-api](https://github.com/dandi/dandi-api) repository provides a
-docker-compose recipe for establishing a local instance of a fresh dandi-api.
+`docker compose` recipe for establishing a local instance of a fresh dandi-api.
 See
 [README.md:Docker](https://github.com/dandi/dandi-api#develop-with-docker-recommended-quickstart)
 for the instructions.  In a new instance, you would need to generate a new API
