@@ -95,7 +95,8 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 for result in results:
                     if result.id in BIDS_ASSET_ERRORS:
                         assert result.path
-                        self._asset_errors[str(result.path)].append(result)
+                        bids_path = result.path.relative_to(self.bids_root).as_posix()
+                        self._asset_errors[bids_path].append(result)
                     elif result.id in BIDS_DATASET_ERRORS:
                         self._dataset_errors.append(result)
                     elif result.id == "BIDS.MATCH":
