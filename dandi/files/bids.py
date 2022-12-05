@@ -82,7 +82,10 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 for ext in readme_extensions:
                     ds_root = self.filepath.parent
                     readme_candidate = ds_root / Path("README" + ext)
-                    if readme_candidate.exists():
+                    if (
+                        readme_candidate.exists()
+                        and str(readme_candidate) not in bids_paths
+                    ):
                         bids_paths += [str(readme_candidate)]
                 # end of ad-hoc fix.
 
