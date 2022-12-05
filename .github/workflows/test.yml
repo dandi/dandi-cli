@@ -94,14 +94,14 @@ jobs:
     - name: Dump Docker Compose logs
       if: failure() && startsWith(matrix.os, 'ubuntu')
       run: |
-        docker-compose \
+        docker compose \
           -f dandi/tests/data/dandiarchive-docker/docker-compose.yml \
           logs --timestamps
 
     - name: Shut down Docker Compose
       if: startsWith(matrix.os, 'ubuntu')
       run: |
-        docker-compose \
+        docker compose \
           -f dandi/tests/data/dandiarchive-docker/docker-compose.yml \
           down -v
 
