@@ -61,6 +61,19 @@ def test_ls_bids_file(bids_examples):
 
 
 @mark.skipif_no_network
+def test_ls_zarrbids_file(bids_examples):
+    bids_file_path = (
+        "micr_SEMzarr/sub-01/ses-01/micr/sub-01_ses-01_sample-A_SPIM.ome.zarr"
+    )
+    bids_file_path = os.path.join(bids_examples, bids_file_path)
+    r = CliRunner().invoke(ls, ["-f", "yaml", bids_file_path])
+    assert r.exit_code == 0, r.output
+    data = yaml_load(r.stdout, "safe")
+    assert len(data) == 1
+    assert data[0]["identifier"] == "01"
+
+
+@mark.skipif_no_network
 def test_ls_dandiset_url():
     r = CliRunner().invoke(
         ls, ["-f", "yaml", "https://api.dandiarchive.org/api/dandisets/000027"]
