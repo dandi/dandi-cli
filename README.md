@@ -8,7 +8,7 @@
 
 The [DANDI Python client](https://pypi.org/project/dandi/) allows you to:
 
-* Download `Danidsets` and individual subject folders or files
+* Download `Dandisets` and individual subject folders or files
 * Organize your data locally before upload
 * Upload `Dandisets`
 
