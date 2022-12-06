@@ -80,8 +80,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 # if the file is present.
                 readme_extensions = ["", ".md", ".rst", ".txt"]
                 for ext in readme_extensions:
-                    ds_root = self.filepath.parent
-                    readme_candidate = ds_root / Path("README" + ext)
+                    readme_candidate = self.bids_root / Path("README" + ext)
                     if (
                         readme_candidate.exists()
                         and str(readme_candidate) not in bids_paths
