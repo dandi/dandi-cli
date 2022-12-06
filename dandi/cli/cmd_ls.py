@@ -360,7 +360,7 @@ def get_metadata_ls(
                 else:
                     if path.endswith(tuple(ZARR_EXTENSIONS)):
                         if use_fake_digest:
-                            digest = "0" * 32 + "-1"
+                            digest = "0" * 32 + "-0--0"
                         else:
                             lgr.info("Calculating digest for %s", path)
                             digest = get_digest(path, digest="zarr-checksum")
