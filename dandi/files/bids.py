@@ -200,6 +200,7 @@ class BIDSAsset(LocalFileAsset):
         return BareAsset(**metadata)
 
     def get_validation_bids_version(self) -> str:
+        self.bids_dataset_description._validate()
         assert self.bids_dataset_description._bids_version is not None
         return self.bids_dataset_description._bids_version
 
