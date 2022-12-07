@@ -84,10 +84,28 @@ def get_metadata(
             lgr.debug("Failed to get metadata for %s: %s", path, exc)
             return None
 
-    # We assume that non-NWB data is BIDS.
-    # This is currently the case, and is slated to change only when we have NWB data which
-    # is *also* BIDS.
-    if path.endswith((".NWB", ".nwb")):
+    # Is the data BIDS (as defined by the presence of a BIDS dataset descriptor)
+    bids_dataset_description = find_bids_dataset_description(path)
+    if bids_dataset_description:
+        dandiset_path = find_parent_directory_containing("dandiset.yaml", path)
+        bids_dataset_description = find_bids_dataset_description(path)
+        df = dandi_file(
+            Path(path),
+            dandiset_path,
+            bids_dataset_description=bids_dataset_description,
+        )
+        path_metadata = df.get_metadata(digest=digest)
+        assert isinstance(df, bids.BIDSAsset)
+        meta["bids_version"] = df.get_validation_bids_version()
+        # there might be a more elegant way to do this:
+        for key in metadata_all_fields:
+            try:
+                value = getattr(path_metadata.wasAttributedTo[0], key)
+            except AttributeError:
+                pass
+            else:
+                meta[key] = value
+    elif path.endswith((".NWB", ".nwb")):
         if nwb_has_external_links(path):
             raise NotImplementedError(
                 f"NWB files with external links are not supported: {path}"
@@ -133,24 +151,7 @@ def get_metadata(
 
         meta["nd_types"] = get_neurodata_types(path)
     else:
-        dandiset_path = find_parent_directory_containing("dandiset.yaml", path)
-        bids_dataset_description = find_bids_dataset_description(path)
-        df = dandi_file(
-            Path(path),
-            dandiset_path,
-            bids_dataset_description=bids_dataset_description,
-        )
-        path_metadata = df.get_metadata(digest=digest)
-        assert isinstance(df, bids.BIDSAsset)
-        meta["bids_version"] = df.get_validation_bids_version()
-        # there might be a more elegant way to do this:
-        for key in metadata_all_fields:
-            try:
-                value = getattr(path_metadata.wasAttributedTo[0], key)
-            except AttributeError:
-                pass
-            else:
-                meta[key] = value
+        raise RuntimeError("Unable to get metadata from non-BIDS, non-NWB asset.")
     return meta
 
 

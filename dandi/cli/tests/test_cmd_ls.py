@@ -49,6 +49,15 @@ def test_smoke(simple1_nwb_metadata, simple1_nwb, format):
         assert metadata[f] == simple1_nwb_metadata[f]
 
 
+def test_ls_nwb_file(simple2_nwb):
+    bids_file_path = "simple2.nwb"
+    bids_file_path = os.path.join(simple2_nwb, bids_file_path)
+    r = CliRunner().invoke(ls, ["-f", "yaml", bids_file_path])
+    assert r.exit_code == 0, r.output
+    data = yaml_load(r.stdout, "safe")
+    assert len(data) == 1
+
+
 @mark.skipif_no_network
 def test_ls_bids_file(bids_examples):
     bids_file_path = "asl003/sub-Sub1/anat/sub-Sub1_T1w.nii.gz"
