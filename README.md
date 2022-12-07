@@ -9,8 +9,12 @@
 The [DANDI Python client](https://pypi.org/project/dandi/) allows you to:
 
 * Download `Dandisets` and individual subject folders or files
+* Validate data to locally conform to standards
 * Organize your data locally before upload
 * Upload `Dandisets`
+* Interact with the DANDI archive's web API from Python
+* Delete data in the DANDI archive
+* Perform other auxiliary operations with data or the DANDI archive
 
 **Note**: This project is under heavy development. See [the issues log](https://github.com/dandi/dandi-cli/issues) or
 [Work-in-Progress (WiP)](https://github.com/dandi/dandi-cli/pulls).
