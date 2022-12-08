@@ -90,13 +90,18 @@ def filter_invalid_metadata_rows(metadata_rows):
     return valid, invalid
 
 
-def create_unique_filenames_from_metadata(metadata):
+def create_unique_filenames_from_metadata(
+    metadata, mandatory_if_not_empty: list[str] = None
+):
     """Create unique filenames given metadata
 
     Parameters
     ----------
     metadata: list of dict
       List of metadata records
+    mandatory_if_not_empty: list of str, optional
+      List of names from `potential_fields` which would be considered
+      `"mandatory_if_not_empty"`.
 
     Returns
     -------
@@ -107,6 +112,15 @@ def create_unique_filenames_from_metadata(metadata):
     # need a deepcopy since we will be tuning fields, and there should be no
     # side effects to original metadata
     metadata = deepcopy(metadata)
+
+    # sanity check -- should all be known
+    if mandatory_if_not_empty:
+        unknown = set(mandatory_if_not_empty).difference(potential_fields)
+        if unknown:
+            raise ValueError(
+                f"Following provided fields are not known: {', '.join(unknown)}. "
+                f"Known are: {', '.join(potential_fields)}"
+            )
 
     # TODO this does not act in a greedy fashion
     # i.e., only using enough fields to ensure uniqueness of filenames, but that
@@ -139,11 +153,19 @@ def create_unique_filenames_from_metadata(metadata):
             if value:
                 r[field] = _sanitize_value(value, field)
 
+        # _mandatory_if_not_empty is used in addition to "type" mandatory
+        # by _assign_dandi_names.
+        if mandatory_if_not_empty:
+            r["_mandatory_if_not_empty"] = (
+                r.get("_mandatory_if_not_empty", []) + mandatory_if_not_empty
+            )
+
     _assign_dandi_names(metadata)
 
     non_unique = _get_non_unique_paths(metadata)
 
     additional_nonunique = []
+
     if non_unique:
         # Consider additional fields which might provide disambiguation
         # but which we otherwise do not include ATM
@@ -725,6 +747,7 @@ def organize(
     devel_debug=False,
     update_external_file_paths=False,
     media_files_mode=None,
+    mandatory_if_not_empty=None,
 ):
     in_place = False  # If we deduce that we are organizing in-place
 
@@ -858,7 +881,9 @@ def organize(
     if files_mode == "auto":
         files_mode = detect_link_type(link_test_file, dandiset_path)
 
-    metadata = create_unique_filenames_from_metadata(metadata)
+    metadata = create_unique_filenames_from_metadata(
+        metadata, mandatory_if_not_empty=mandatory_if_not_empty
+    )
 
     # update metadata with external_file information:
     external_files_missing_in_nwbfiles = [

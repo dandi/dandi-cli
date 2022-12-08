@@ -46,6 +46,8 @@ from ..consts import file_operation_modes
     default=None,
     help="How to relocate video files referenced by NWB files",
 )
+# TODO: add --mandatory-if-not-empty to define entities which must be present in the filename
+# (unless empty, i.e. no value). Propagate to create_unique_filenames_from_metadata
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
 @devel_debug_option()
 @map_to_click_exceptions
@@ -57,6 +59,7 @@ def organize(
     devel_debug=False,
     update_external_file_paths=False,
     media_files_mode=None,
+    mandatory_if_not_empty=None,
 ):
     """(Re)organize files according to the metadata.
 
@@ -101,4 +104,5 @@ def organize(
         devel_debug=devel_debug,
         update_external_file_paths=update_external_file_paths,
         media_files_mode=media_files_mode,
+        mandatory_if_not_empty=mandatory_if_not_empty,
     )
