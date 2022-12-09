@@ -52,18 +52,25 @@ Usage: dandi [OPTIONS] COMMAND [ARGS]...
 
 Options:
   --version
-  -l, --log-level [DEBUG|INFO|WARNING|ERROR|CRITICAL]
-                                  Log level name  [default: INFO].
-  --pdb                           Fall into pdb if errors out.
+ -l, --log-level [DEBUG|INFO|WARNING|ERROR|CRITICAL]
+                                  Log level (case insensitive).  May be
+                                  specified as an integer.  [default: INFO]
+  --pdb                           Fall into pdb if errors out
   --help                          Show this message and exit.
 
 Commands:
-  download  Download a file or entire folder from DANDI.
-  ls        List .nwb files and dandisets metadata.
-  organize  (Re)organize files according to the metadata.
-  register  Register a new dandiset in the DANDI archive.
-  upload    Upload dandiset (files) to DANDI archive.
-  validate  Validate files for NWB (and DANDI) compliance.
+  delete            Delete dandisets and assets from the server.
+  digest            Calculate file digests
+  download          Download a file or entire folder from DANDI.
+  instances         List known Dandi Archive instances that the CLI can...
+  ls                List .nwb files and dandisets metadata.
+  move              Move or rename assets in a local Dandiset and/or on...
+  organize          (Re)organize files according to the metadata.
+  service-scripts   Various utility operations
+  shell-completion  Emit shell script for enabling command completion.
+  upload            Upload Dandiset files to DANDI Archive.
+  validate          Validate files for NWB and DANDI compliance.
+  validate-bids     Validate BIDS paths.
 ```
 
 Each of the commands has a set of options to alter its behavior.  Run
@@ -71,19 +78,42 @@ Each of the commands has a set of options to alter its behavior.  Run
 
 ```
 $> dandi ls --help
-Usage: dandi ls [OPTIONS] [PATHS]...
+Usage: dandi ls [OPTIONS] PATH|URL
 
-  List .nwb files metadata
+  List .nwb files and dandisets metadata.
+
+  The arguments may be either resource identifiers or paths to local
+  files/directories.
+
+  Accepted resource identifier patterns:
+   - DANDI:<dandiset id>[/<version>]
+   - https://dandiarchive.org/...
+   - https://identifiers.org/DANDI:<dandiset id>[/<version id>] (<version id> cannot be 'draft')
+   - https://<server>[/api]/[#/]dandiset/<dandiset id>[/<version>][/files[?location=<path>]]
+   - https://*dandiarchive-org.netflify.app/...
+   - https://<server>[/api]/dandisets/<dandiset id>[/versions[/<version>]]
+   - https://<server>[/api]/assets/<asset id>[/download]
+   - https://<server>[/api]/dandisets/<dandiset id>/versions/<version>/assets/<asset id>[/download]
+   - https://<server>[/api]/dandisets/<dandiset id>/versions/<version>/assets/?path=<path>
+   - dandi://<instance name>/<dandiset id>[@<version>][/<path>]
+   - https://<server>/...
 
 Options:
   -F, --fields TEXT               Comma-separated list of fields to display.
                                   An empty value to trigger a list of
-                                  available fields to be printed out.
-  -f, --format [auto|pyout|json|json_pp|yaml]
+                                  available fields to be printed out
+  -f, --format [auto|pyout|json|json_pp|json_lines|yaml]
                                   Choose the format/frontend for output. If
                                   'auto', 'pyout' will be used in case of
                                   multiple files, and 'yaml' for a single
                                   file.
+  -r, --recursive                 Recurse into content of
+                                  dandisets/directories. Only .nwb files will
+                                  be considered.
+  -J, --jobs INTEGER              Number of parallel download jobs.  [default:
+                                  6]
+  --metadata [api|all|assets]
+  --schema VERSION                Convert metadata to new schema version
   --help                          Show this message and exit.
 ```
 
