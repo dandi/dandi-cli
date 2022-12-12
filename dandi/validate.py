@@ -68,6 +68,7 @@ def validate_bids(
     origin = ValidationOrigin(
         name="bidsschematools",
         version=bidsschematools.__version__,
+        bids_version=validation_result["bids_version"],
     )
 
     # Storing variable to not re-compute set paths for each individual file.

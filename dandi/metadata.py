@@ -28,6 +28,7 @@ import requests
 import tenacity
 
 from . import __version__, get_logger
+from .consts import ZARR_EXTENSIONS, metadata_all_fields
 from .dandiset import Dandiset
 from .misctypes import Digest
 from .pynwb_utils import (
@@ -38,14 +39,22 @@ from .pynwb_utils import (
     metadata_cache,
     nwb_has_external_links,
 )
-from .utils import ensure_datetime, get_mime_type, get_utcnow_datetime
+from .utils import (
+    ensure_datetime,
+    find_parent_directory_containing,
+    get_mime_type,
+    get_utcnow_datetime,
+)
 
 lgr = get_logger()
 
 
 # Disable this for clean hacking
 @metadata_cache.memoize_path
-def get_metadata(path: Union[str, Path]) -> Optional[dict]:
+def get_metadata(
+    path: Union[str, Path],
+    digest: Optional[Digest] = None,
+) -> Optional[dict]:
     """
     Get "flatdata" from a .nwb file or a Dandiset directory
 
@@ -59,12 +68,15 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
     -------
     dict
     """
+
+    from .files import bids, dandi_file, find_bids_dataset_description
+
     # when we run in parallel, these annoying warnings appear
     ignore_benign_pynwb_warnings()
-    path = str(path)  # for Path
+    path = os.path.abspath(str(path))  # for Path
     meta = dict()
 
-    if op.isdir(path):
+    if op.isdir(path) and not path.endswith(tuple(ZARR_EXTENSIONS)):
         try:
             dandiset = Dandiset(path)
             return cast(dict, dandiset.metadata)
@@ -72,51 +84,74 @@ def get_metadata(path: Union[str, Path]) -> Optional[dict]:
             lgr.debug("Failed to get metadata for %s: %s", path, exc)
             return None
 
-    if nwb_has_external_links(path):
-        raise NotImplementedError(
-            f"NWB files with external links are not supported: {path}"
+    # Is the data BIDS (as defined by the presence of a BIDS dataset descriptor)
+    bids_dataset_description = find_bids_dataset_description(path)
+    if bids_dataset_description:
+        dandiset_path = find_parent_directory_containing("dandiset.yaml", path)
+        bids_dataset_description = find_bids_dataset_description(path)
+        df = dandi_file(
+            Path(path),
+            dandiset_path,
+            bids_dataset_description=bids_dataset_description,
         )
+        path_metadata = df.get_metadata(digest=digest)
+        assert isinstance(df, bids.BIDSAsset)
+        meta["bids_version"] = df.get_validation_bids_version()
+        # there might be a more elegant way to do this:
+        for key in metadata_all_fields:
+            try:
+                value = getattr(path_metadata.wasAttributedTo[0], key)
+            except AttributeError:
+                pass
+            else:
+                meta[key] = value
+    elif path.endswith((".NWB", ".nwb")):
+        if nwb_has_external_links(path):
+            raise NotImplementedError(
+                f"NWB files with external links are not supported: {path}"
+            )
 
-    # First read out possibly available versions of specifications for NWB(:N)
-    meta["nwb_version"] = get_nwb_version(path)
+        # First read out possibly available versions of specifications for NWB(:N)
+        meta["nwb_version"] = get_nwb_version(path)
 
-    # PyNWB might fail to load because of missing extensions.
-    # There is a new initiative of establishing registry of such extensions.
-    # Not yet sure if PyNWB is going to provide "native" support for needed
-    # functionality: https://github.com/NeurodataWithoutBorders/pynwb/issues/1143
-    # So meanwhile, hard-coded workaround for data types we care about
-    ndtypes_registry = {
-        "AIBS_ecephys": "allensdk.brain_observatory.ecephys.nwb",
-        "ndx-labmetadata-abf": "ndx_dandi_icephys",
-    }
-    tried_imports = set()
-    while True:
-        try:
-            meta.update(_get_pynwb_metadata(path))
-            break
-        except KeyError as exc:  # ATM there is
-            lgr.debug("Failed to read %s: %s", path, exc)
-            res = re.match(r"^['\"\\]+(\S+). not a namespace", str(exc))
-            if not res:
-                raise
-            ndtype = res.groups()[0]
-            if ndtype not in ndtypes_registry:
-                raise ValueError(
-                    "We do not know which extension provides %s. "
-                    "Original exception was: %s. " % (ndtype, exc)
-                )
-            import_mod = ndtypes_registry[ndtype]
-            lgr.debug("Importing %r which should provide %r", import_mod, ndtype)
-            if import_mod in tried_imports:
-                raise RuntimeError(
-                    "We already tried importing %s to provide %s, but it seems it didn't help"
-                    % (import_mod, ndtype)
-                )
-            tried_imports.add(import_mod)
-            __import__(import_mod)
+        # PyNWB might fail to load because of missing extensions.
+        # There is a new initiative of establishing registry of such extensions.
+        # Not yet sure if PyNWB is going to provide "native" support for needed
+        # functionality: https://github.com/NeurodataWithoutBorders/pynwb/issues/1143
+        # So meanwhile, hard-coded workaround for data types we care about
+        ndtypes_registry = {
+            "AIBS_ecephys": "allensdk.brain_observatory.ecephys.nwb",
+            "ndx-labmetadata-abf": "ndx_dandi_icephys",
+        }
+        tried_imports = set()
+        while True:
+            try:
+                meta.update(_get_pynwb_metadata(path))
+                break
+            except KeyError as exc:  # ATM there is
+                lgr.debug("Failed to read %s: %s", path, exc)
+                res = re.match(r"^['\"\\]+(\S+). not a namespace", str(exc))
+                if not res:
+                    raise
+                ndtype = res.groups()[0]
+                if ndtype not in ndtypes_registry:
+                    raise ValueError(
+                        "We do not know which extension provides %s. "
+                        "Original exception was: %s. " % (ndtype, exc)
+                    )
+                import_mod = ndtypes_registry[ndtype]
+                lgr.debug("Importing %r which should provide %r", import_mod, ndtype)
+                if import_mod in tried_imports:
+                    raise RuntimeError(
+                        "We already tried importing %s to provide %s, but it seems it didn't help"
+                        % (import_mod, ndtype)
+                    )
+                tried_imports.add(import_mod)
+                __import__(import_mod)
 
-    meta["nd_types"] = get_neurodata_types(path)
-
+        meta["nd_types"] = get_neurodata_types(path)
+    else:
+        raise RuntimeError("Unable to get metadata from non-BIDS, non-NWB asset.")
     return meta
 
 
@@ -949,6 +984,12 @@ def add_common_metadata(
             "mtime %s of %s is in the future", metadata["blobDateModified"], path
         )
     metadata["contentSize"] = os.path.getsize(path)
+    if digest is not None and digest.algorithm is models.DigestType.dandi_zarr_checksum:
+        m = re.fullmatch(
+            r"(?P<hash>[0-9a-f]{32})-(?P<files>[0-9]+)--(?P<size>[0-9]+)", digest.value
+        )
+        if m:
+            metadata["contentSize"] = int(m["size"])
     metadata.setdefault("wasGeneratedBy", []).append(
         get_generator(start_time, end_time)
     )

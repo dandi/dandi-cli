@@ -12,6 +12,7 @@ from dandischema.models import BareAsset
 
 from .bases import GenericAsset, LocalFileAsset, NWBAsset
 from .zarr import ZarrAsset
+from ..consts import ZARR_MIME_TYPE
 from ..metadata import add_common_metadata, prepare_metadata
 from ..misctypes import Digest
 from ..validate_types import ValidationResult
@@ -45,6 +46,12 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
     #: populated by `_validate()`
     _asset_metadata: Optional[dict[str, dict[str, Any]]] = None
 
+    #: Version of BIDS used for the validation;
+    #: populated by `_validate()`
+    #: In future this might be removed and the information included in the
+    #: BareAsset via dandischema.
+    _bids_version: Optional[str] = None
+
     #: Threading lock needed in case multiple assets are validated in parallel
     #: during upload
     _lock: Lock = field(init=False, default_factory=Lock, repr=False, compare=False)
@@ -65,6 +72,22 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 bids_paths = [str(self.filepath)] + [
                     str(asset.filepath) for asset in self.dataset_files
                 ]
+                # This is an ad-hoc fix which should be removed once bidsschematools greater than
+                # 0.6.0 is released.
+                # It won't cause any trouble afterwards, but it will no longer fulfill any
+                # purpose. The issue is that README* is still required and if we don't
+                # include it explicitly in the listing validation will implicitly fail, even
+                # if the file is present.
+                readme_extensions = ["", ".md", ".rst", ".txt"]
+                for ext in readme_extensions:
+                    readme_candidate = self.bids_root / Path("README" + ext)
+                    if (
+                        readme_candidate.exists()
+                        and str(readme_candidate) not in bids_paths
+                    ):
+                        bids_paths += [str(readme_candidate)]
+                # end of ad-hoc fix.
+
                 results = validate_bids(*bids_paths)
                 self._dataset_errors: list[ValidationResult] = []
                 self._asset_errors: dict[str, list[ValidationResult]] = defaultdict(
@@ -74,7 +97,8 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 for result in results:
                     if result.id in BIDS_ASSET_ERRORS:
                         assert result.path
-                        self._asset_errors[str(result.path)].append(result)
+                        bids_path = result.path.relative_to(self.bids_root).as_posix()
+                        self._asset_errors[bids_path].append(result)
                     elif result.id in BIDS_DATASET_ERRORS:
                         self._dataset_errors.append(result)
                     elif result.id == "BIDS.MATCH":
@@ -84,6 +108,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                         self._asset_metadata[bids_path] = prepare_metadata(
                             result.metadata
                         )
+                        self._bids_version = result.origin.bids_version
 
     def get_asset_errors(self, asset: BIDSAsset) -> list[ValidationResult]:
         """:meta private:"""
@@ -174,6 +199,11 @@ class BIDSAsset(LocalFileAsset):
         metadata["path"] = self.path
         return BareAsset(**metadata)
 
+    def get_validation_bids_version(self) -> str:
+        self.bids_dataset_description._validate()
+        assert self.bids_dataset_description._bids_version is not None
+        return self.bids_dataset_description._bids_version
+
 
 class NWBBIDSAsset(BIDSAsset, NWBAsset):
     """
@@ -218,6 +248,18 @@ class ZarrBIDSAsset(BIDSAsset, ZarrAsset):
         return ZarrBIDSAsset.get_validation_errors(
             self, schema_version, devel_debug
         ) + BIDSAsset.get_validation_errors(self)
+
+    def get_metadata(
+        self,
+        digest: Optional[Digest] = None,
+        ignore_errors: bool = True,
+    ) -> BareAsset:
+        metadata = self.bids_dataset_description.get_asset_metadata(self)
+        start_time = end_time = datetime.now().astimezone()
+        add_common_metadata(metadata, self.filepath, start_time, end_time, digest)
+        metadata["path"] = self.path
+        metadata["encodingFormat"] = ZARR_MIME_TYPE
+        return BareAsset(**metadata)
 
 
 class GenericBIDSAsset(BIDSAsset, GenericAsset):

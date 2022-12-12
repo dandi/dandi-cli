@@ -49,8 +49,16 @@ def test_smoke(simple1_nwb_metadata, simple1_nwb, format):
         assert metadata[f] == simple1_nwb_metadata[f]
 
 
+def test_ls_nwb_file(simple2_nwb):
+    bids_file_path = "simple2.nwb"
+    bids_file_path = os.path.join(simple2_nwb, bids_file_path)
+    r = CliRunner().invoke(ls, ["-f", "yaml", bids_file_path])
+    assert r.exit_code == 0, r.output
+    data = yaml_load(r.stdout, "safe")
+    assert len(data) == 1
+
+
 @mark.skipif_no_network
-@pytest.mark.xfail(reason="https://github.com/dandi/dandi-cli/issues/1097")
 def test_ls_bids_file(bids_examples):
     bids_file_path = "asl003/sub-Sub1/anat/sub-Sub1_T1w.nii.gz"
     bids_file_path = os.path.join(bids_examples, bids_file_path)
@@ -58,7 +66,20 @@ def test_ls_bids_file(bids_examples):
     assert r.exit_code == 0, r.output
     data = yaml_load(r.stdout, "safe")
     assert len(data) == 1
-    assert data[0]["subject_id"] == "Sub1"
+    assert data[0]["identifier"] == "Sub1"
+
+
+@mark.skipif_no_network
+def test_ls_zarrbids_file(bids_examples):
+    bids_file_path = (
+        "micr_SEMzarr/sub-01/ses-01/micr/sub-01_ses-01_sample-A_SPIM.ome.zarr"
+    )
+    bids_file_path = os.path.join(bids_examples, bids_file_path)
+    r = CliRunner().invoke(ls, ["-f", "yaml", bids_file_path])
+    assert r.exit_code == 0, r.output
+    data = yaml_load(r.stdout, "safe")
+    assert len(data) == 1
+    assert data[0]["identifier"] == "01"
 
 
 @mark.skipif_no_network

@@ -220,7 +220,7 @@ def test_upload_bids(mocker: MockerFixture, bids_dandiset: SampleDandiset) -> No
     # Check existence of assets:
     dandiset = bids_dandiset.dandiset
     # file we created?
-    dandiset.get_asset_by_path("CHANGES")
+    dandiset.get_asset_by_path("README")
     # BIDS descriptor file?
     dandiset.get_asset_by_path("dataset_description.json")
     # actual data file?
