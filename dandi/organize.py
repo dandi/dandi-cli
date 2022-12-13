@@ -2,19 +2,21 @@
 ATM primarily a sandbox for some functionality for  dandi organize
 """
 
+from __future__ import annotations
+
 import binascii
 from collections import Counter
 from copy import deepcopy
 import os
 import os.path as op
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 from typing import List
 import uuid
 
 import numpy as np
 
-from . import get_logger
+from . import __version__, get_logger
 from .dandiset import Dandiset
 from .exceptions import OrganizeImpossibleError
 from .metadata import get_metadata
@@ -36,6 +38,7 @@ from .utils import (
     move_file,
     yaml_load,
 )
+from .validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
 lgr = get_logger()
 
@@ -1025,3 +1028,75 @@ def organize(
         msg_(" %d invalid not considered.", skip_invalid),
         dandiset_path.rstrip("/"),
     )
+
+
+LABELREGEX = r"[^_*\\/<>:|\"'?%@;.]+"
+ORGANIZED_FILENAME_REGEX = (
+    rf"sub-{LABELREGEX}(_(ses|tis|slice|cell)-{LABELREGEX})*(_[a-z]+(\+[a-z]+)*)?\.nwb"
+)
+ORGANIZED_FOLDER_REGEX = rf"sub-{LABELREGEX}"
+
+
+def validate_organized_path(
+    asset_path: str, filepath: Path, dandiset_path: Path
+) -> list[ValidationResult]:
+    """
+    :param str asset_path:
+        The forward-slash-separated path to the asset within its local Dandiset
+        (i.e., relative to the Dandiset's root)
+    :param pathlib.Path filepath:
+        The actual filesystem path of the asset (used to construct
+        `ValidationResult` objects)
+    :param pathlib.Path dandiset_path:
+        The path to the root of the Dandiset (used to construct
+        `ValidationResult` objects)
+    """
+    path = PurePosixPath(asset_path)
+    if path.suffix != ".nwb":
+        return []
+    errors = []
+    if not re.fullmatch(ORGANIZED_FILENAME_REGEX, path.name):
+        errors.append(
+            ValidationResult(
+                id="DANDI.NON_DANDI_FILENAME",
+                origin=ValidationOrigin(name="dandi", version=__version__),
+                severity=Severity.ERROR,
+                scope=Scope.FILE,
+                path=filepath,
+                message="Filename does not conform to Dandi standard",
+                path_regex=ORGANIZED_FILENAME_REGEX,
+                dandiset_path=dandiset_path,
+            )
+        )
+    if not (
+        len(path.parent.parts) == 1
+        and re.fullmatch(ORGANIZED_FOLDER_REGEX, str(path.parent))
+    ):
+        errors.append(
+            ValidationResult(
+                id="DANDI.NON_DANDI_FOLDERNAME",
+                origin=ValidationOrigin(name="dandi", version=__version__),
+                severity=Severity.ERROR,
+                scope=Scope.FOLDER,
+                path=filepath,
+                message="File is not in folder at root with subject name",
+                path_regex=ORGANIZED_FOLDER_REGEX,
+                dandiset_path=dandiset_path,
+            )
+        )
+    if not errors:
+        m = re.match(ORGANIZED_FOLDER_REGEX, path.name)
+        assert m
+        if str(path.parent) != m[0]:
+            errors.append(
+                ValidationResult(
+                    id="DANDI.METADATA_MISMATCH_SUBJECT",
+                    origin=ValidationOrigin(name="dandi", version=__version__),
+                    severity=Severity.ERROR,
+                    scope=Scope.FILE,
+                    path=filepath,
+                    message="Filename subject does not match folder name subject",
+                    dandiset_path=dandiset_path,
+                )
+            )
+    return errors

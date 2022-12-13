@@ -175,18 +175,19 @@ def dandi_file(
     """
     filepath = Path(filepath)
     if dandiset_path is not None:
+        dandiset_path = Path(dandiset_path)
         path = filepath.relative_to(dandiset_path).as_posix()
         if path == ".":
             raise ValueError("Dandi file path cannot equal Dandiset path")
     else:
         path = filepath.name
     if filepath.is_file() and path == dandiset_metadata_file:
-        return DandisetMetadataFile(filepath=filepath)
+        return DandisetMetadataFile(filepath=filepath, dandiset_path=dandiset_path)
     if bids_dataset_description is None:
         factory = DandiFileFactory()
     else:
         factory = BIDSFileFactory(bids_dataset_description)
-    return factory(filepath, path)
+    return factory(filepath, path, dandiset_path)
 
 
 def find_bids_dataset_description(

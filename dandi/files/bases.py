@@ -29,6 +29,7 @@ import dandi
 from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from dandi.metadata import get_default_metadata, nwb2asset
 from dandi.misctypes import DUMMY_DIGEST, Digest, P
+from dandi.organize import validate_organized_path
 from dandi.pynwb_utils import validate as pynwb_validate
 from dandi.support.digests import get_dandietag, get_digest
 from dandi.utils import yaml_load
@@ -55,6 +56,9 @@ class DandiFile(ABC):
 
     #: The path to the actual file or directory on disk
     filepath: Path
+
+    #: The path to the root of the Dandiset, if there is one
+    dandiset_path: Optional[Path]
 
     @property
     def size(self) -> int:
@@ -190,7 +194,7 @@ class LocalAsset(DandiFile):
                         path=self.filepath,  # note that it is not relative .path
                         message=str(e),
                         # TODO? dataset_path=dataset_path,
-                        # TODO? dandiset_path=dandiset_path,
+                        dandiset_path=self.dandiset_path,
                     )
                 ]
             except Exception as e:
@@ -215,7 +219,7 @@ class LocalAsset(DandiFile):
                         path=self.filepath,  # note that it is not relative .path
                         message=f"Failed to read metadata: {e}",
                         # TODO? dataset_path=dataset_path,
-                        # TODO? dandiset_path=dandiset_path,
+                        dandiset_path=self.dandiset_path,
                     )
                 ]
             return []
@@ -537,6 +541,29 @@ class NWBAsset(LocalFileAsset):
                     raise
                 # TODO: might reraise instead of making it into an error
                 return _pydantic_errors_to_validation_results([e], str(self.filepath))
+
+        from .bids import NWBBIDSAsset
+
+        if not isinstance(self, NWBBIDSAsset):
+            if self.dandiset_path is None:
+                errors.append(
+                    ValidationResult(
+                        id="DANDI.NO_DANDISET_FOUND",
+                        origin=ValidationOrigin(
+                            name="dandi", version=dandi.__version__
+                        ),
+                        severity=Severity.ERROR,
+                        scope=Scope.FILE,
+                        path=self.filepath,
+                        message="File is not inside a Dandiset",
+                    )
+                )
+            else:
+                errors.extend(
+                    validate_organized_path(
+                        self.path, self.filepath, self.dandiset_path
+                    )
+                )
         return errors
 
 

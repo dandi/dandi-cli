@@ -10,9 +10,9 @@ from ..command import __all_commands__, ls, validate
 
 
 @pytest.mark.parametrize("command", (ls, validate))
-def test_smoke(simple2_nwb, command):
+def test_smoke(organized_nwb_dir, command):
     runner = CliRunner()
-    r = runner.invoke(command, [simple2_nwb])
+    r = runner.invoke(command, [str(organized_nwb_dir)])
     assert r.exit_code == 0, f"Exited abnormally. out={r.stdout}"
     assert r.stdout, "There were no output whatsoever"
 

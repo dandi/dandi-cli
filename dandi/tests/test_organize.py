@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from glob import glob
 import os
 import os.path as op
@@ -18,6 +20,7 @@ from ..organize import (
     detect_link_type,
     get_obj_id,
     populate_dataset_yml,
+    validate_organized_path,
 )
 from ..pynwb_utils import _get_image_series, copy_nwb_file, get_object_id
 from ..utils import find_files, on_windows, yaml_load
@@ -323,3 +326,25 @@ def test_video_organize_common(video_mode, nwbfiles_video_common):
     else:
         assert r.exit_code == 0
         print(r.stdout)
+
+
+@pytest.mark.parametrize(
+    "path,error_ids",
+    [
+        ("XCaMPgf/XCaMPgf_ANM471996_cell01.dat", []),
+        ("sub-RAT123/sub-RAT123.nwb", []),
+        ("sub-RAT123/sub-RAT124.nwb", ["DANDI.METADATA_MISMATCH_SUBJECT"]),
+        ("sub-RAT124.nwb", ["DANDI.NON_DANDI_FOLDERNAME"]),
+        ("foo/sub-RAT124.nwb", ["DANDI.NON_DANDI_FOLDERNAME"]),
+        ("foo/sub-RAT123/sub-RAT124.nwb", ["DANDI.NON_DANDI_FOLDERNAME"]),
+        ("sub-RAT123/foo/sub-RAT124.nwb", ["DANDI.NON_DANDI_FOLDERNAME"]),
+        (
+            "XCaMPgf/XCaMPgf_ANM471996_cell01.nwb",
+            ["DANDI.NON_DANDI_FILENAME", "DANDI.NON_DANDI_FOLDERNAME"],
+        ),
+        ("sub-RAT123/XCaMPgf_ANM471996_cell01.nwb", ["DANDI.NON_DANDI_FILENAME"]),
+    ],
+)
+def test_validate_organized_path(path: str, error_ids: list[str]) -> None:
+    errors = validate_organized_path(path, Path("dummy"), Path("dummyset"))
+    assert [e.id for e in errors] == error_ids
