@@ -19,6 +19,7 @@ class Severity(Enum):
 
 class Scope(Enum):
     FILE = "file"
+    FOLDER = "folder"
     DANDISET = "dandiset"
     DATASET = "dataset"
 

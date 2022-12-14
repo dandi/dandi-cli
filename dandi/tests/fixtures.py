@@ -150,11 +150,9 @@ def simple3_nwb(
 
 
 @pytest.fixture(scope="session")
-def simple4_nwb(
-    simple1_nwb_metadata: Dict[str, Any], tmp_path_factory: pytest.TempPathFactory
-) -> str:
+def simple4_nwb(tmp_path_factory: pytest.TempPathFactory) -> str:
     """
-    With, subject, subject_id, species, but including data orientation ambiguity,
+    With subject, subject_id, species, but including data orientation ambiguity,
     the only currently non-critical issue in the dandi schema for nwbinspector validation:
     NWBI.check_data_orientation
     https://github.com/NeurodataWithoutBorders/nwbinspector/blob/
@@ -226,6 +224,19 @@ def organized_nwb_dir2(
     r = CliRunner().invoke(organize, ["-f", "move", "--dandiset-path", str(tmp_path)])
     assert r.exit_code == 0, r.stdout
     assert sum(p.is_dir() for p in tmp_path.iterdir()) == 2
+    return tmp_path
+
+
+@pytest.fixture(scope="session")
+def organized_nwb_dir3(
+    simple4_nwb: str, tmp_path_factory: pytest.TempPathFactory
+) -> Path:
+    tmp_path = tmp_path_factory.mktemp("organized_nwb_dir")
+    (tmp_path / dandiset_metadata_file).write_text("{}\n")
+    r = CliRunner().invoke(
+        organize, ["-f", "copy", "--dandiset-path", str(tmp_path), str(simple4_nwb)]
+    )
+    assert r.exit_code == 0, r.stdout
     return tmp_path
 
 

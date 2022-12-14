@@ -65,14 +65,28 @@ def test_find_dandi_files(tmp_path: Path) -> None:
         find_dandi_files(tmp_path, dandiset_path=tmp_path), key=attrgetter("filepath")
     )
     assert files == [
-        VideoAsset(filepath=tmp_path / "glarch.mp4", path="glarch.mp4"),
-        ZarrAsset(filepath=tmp_path / "sample01.zarr", path="sample01.zarr"),
-        NWBAsset(filepath=tmp_path / "sample02.nwb", path="sample02.nwb"),
-        NWBAsset(
-            filepath=tmp_path / "subdir" / "sample03.nwb", path="subdir/sample03.nwb"
+        VideoAsset(
+            filepath=tmp_path / "glarch.mp4", path="glarch.mp4", dandiset_path=tmp_path
         ),
         ZarrAsset(
-            filepath=tmp_path / "subdir" / "sample04.zarr", path="subdir/sample04.zarr"
+            filepath=tmp_path / "sample01.zarr",
+            path="sample01.zarr",
+            dandiset_path=tmp_path,
+        ),
+        NWBAsset(
+            filepath=tmp_path / "sample02.nwb",
+            path="sample02.nwb",
+            dandiset_path=tmp_path,
+        ),
+        NWBAsset(
+            filepath=tmp_path / "subdir" / "sample03.nwb",
+            path="subdir/sample03.nwb",
+            dandiset_path=tmp_path,
+        ),
+        ZarrAsset(
+            filepath=tmp_path / "subdir" / "sample04.zarr",
+            path="subdir/sample04.zarr",
+            dandiset_path=tmp_path,
         ),
     ]
 
@@ -81,21 +95,45 @@ def test_find_dandi_files(tmp_path: Path) -> None:
         key=attrgetter("filepath"),
     )
     assert files == [
-        GenericAsset(filepath=tmp_path / "bar.txt", path="bar.txt"),
-        DandisetMetadataFile(filepath=tmp_path / dandiset_metadata_file),
-        GenericAsset(filepath=tmp_path / "foo", path="foo"),
-        VideoAsset(filepath=tmp_path / "glarch.mp4", path="glarch.mp4"),
-        ZarrAsset(filepath=tmp_path / "sample01.zarr", path="sample01.zarr"),
-        NWBAsset(filepath=tmp_path / "sample02.nwb", path="sample02.nwb"),
         GenericAsset(
-            filepath=tmp_path / "subdir" / "cleesh.txt", path="subdir/cleesh.txt"
+            filepath=tmp_path / "bar.txt", path="bar.txt", dandiset_path=tmp_path
         ),
-        GenericAsset(filepath=tmp_path / "subdir" / "gnusto", path="subdir/gnusto"),
-        NWBAsset(
-            filepath=tmp_path / "subdir" / "sample03.nwb", path="subdir/sample03.nwb"
+        DandisetMetadataFile(
+            filepath=tmp_path / dandiset_metadata_file, dandiset_path=tmp_path
+        ),
+        GenericAsset(filepath=tmp_path / "foo", path="foo", dandiset_path=tmp_path),
+        VideoAsset(
+            filepath=tmp_path / "glarch.mp4", path="glarch.mp4", dandiset_path=tmp_path
         ),
         ZarrAsset(
-            filepath=tmp_path / "subdir" / "sample04.zarr", path="subdir/sample04.zarr"
+            filepath=tmp_path / "sample01.zarr",
+            path="sample01.zarr",
+            dandiset_path=tmp_path,
+        ),
+        NWBAsset(
+            filepath=tmp_path / "sample02.nwb",
+            path="sample02.nwb",
+            dandiset_path=tmp_path,
+        ),
+        GenericAsset(
+            filepath=tmp_path / "subdir" / "cleesh.txt",
+            path="subdir/cleesh.txt",
+            dandiset_path=tmp_path,
+        ),
+        GenericAsset(
+            filepath=tmp_path / "subdir" / "gnusto",
+            path="subdir/gnusto",
+            dandiset_path=tmp_path,
+        ),
+        NWBAsset(
+            filepath=tmp_path / "subdir" / "sample03.nwb",
+            path="subdir/sample03.nwb",
+            dandiset_path=tmp_path,
+        ),
+        ZarrAsset(
+            filepath=tmp_path / "subdir" / "sample04.zarr",
+            path="subdir/sample04.zarr",
+            dandiset_path=tmp_path,
         ),
     ]
 
@@ -104,15 +142,31 @@ def test_find_dandi_files(tmp_path: Path) -> None:
         key=attrgetter("filepath"),
     )
     assert files == [
-        DandisetMetadataFile(filepath=tmp_path / dandiset_metadata_file),
-        VideoAsset(filepath=tmp_path / "glarch.mp4", path="glarch.mp4"),
-        ZarrAsset(filepath=tmp_path / "sample01.zarr", path="sample01.zarr"),
-        NWBAsset(filepath=tmp_path / "sample02.nwb", path="sample02.nwb"),
-        NWBAsset(
-            filepath=tmp_path / "subdir" / "sample03.nwb", path="subdir/sample03.nwb"
+        DandisetMetadataFile(
+            filepath=tmp_path / dandiset_metadata_file, dandiset_path=tmp_path
+        ),
+        VideoAsset(
+            filepath=tmp_path / "glarch.mp4", path="glarch.mp4", dandiset_path=tmp_path
         ),
         ZarrAsset(
-            filepath=tmp_path / "subdir" / "sample04.zarr", path="subdir/sample04.zarr"
+            filepath=tmp_path / "sample01.zarr",
+            path="sample01.zarr",
+            dandiset_path=tmp_path,
+        ),
+        NWBAsset(
+            filepath=tmp_path / "sample02.nwb",
+            path="sample02.nwb",
+            dandiset_path=tmp_path,
+        ),
+        NWBAsset(
+            filepath=tmp_path / "subdir" / "sample03.nwb",
+            path="subdir/sample03.nwb",
+            dandiset_path=tmp_path,
+        ),
+        ZarrAsset(
+            filepath=tmp_path / "subdir" / "sample04.zarr",
+            path="subdir/sample04.zarr",
+            dandiset_path=tmp_path,
         ),
     ]
 
@@ -139,45 +193,53 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
     )
 
     assert files == [
-        NWBAsset(filepath=tmp_path / "bar.nwb", path="bar.nwb"),
+        NWBAsset(filepath=tmp_path / "bar.nwb", path="bar.nwb", dandiset_path=tmp_path),
         BIDSDatasetDescriptionAsset(
             filepath=tmp_path / "bids1" / "dataset_description.json",
             path="bids1/dataset_description.json",
+            dandiset_path=tmp_path,
             dataset_files=ANY,
         ),
         GenericBIDSAsset(
             filepath=tmp_path / "bids1" / "file.txt",
             path="bids1/file.txt",
+            dandiset_path=tmp_path,
             bids_dataset_description_ref=ANY,
         ),
         ZarrBIDSAsset(
             filepath=tmp_path / "bids1" / "subdir" / "glarch.zarr",
             path="bids1/subdir/glarch.zarr",
+            dandiset_path=tmp_path,
             bids_dataset_description_ref=ANY,
         ),
         NWBBIDSAsset(
             filepath=tmp_path / "bids1" / "subdir" / "quux.nwb",
             path="bids1/subdir/quux.nwb",
+            dandiset_path=tmp_path,
             bids_dataset_description_ref=ANY,
         ),
         BIDSDatasetDescriptionAsset(
             filepath=tmp_path / "bids2" / "dataset_description.json",
             path="bids2/dataset_description.json",
+            dandiset_path=tmp_path,
             dataset_files=ANY,
         ),
         GenericBIDSAsset(
             filepath=tmp_path / "bids2" / "movie.mp4",
             path="bids2/movie.mp4",
+            dandiset_path=tmp_path,
             bids_dataset_description_ref=ANY,
         ),
         GenericBIDSAsset(
             filepath=tmp_path / "bids2" / "subbids" / "data.json",
             path="bids2/subbids/data.json",
+            dandiset_path=tmp_path,
             bids_dataset_description_ref=ANY,
         ),
         BIDSDatasetDescriptionAsset(
             filepath=tmp_path / "bids2" / "subbids" / "dataset_description.json",
             path="bids2/subbids/dataset_description.json",
+            dandiset_path=tmp_path,
             dataset_files=ANY,
         ),
     ]
@@ -187,16 +249,19 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
         GenericBIDSAsset(
             filepath=tmp_path / "bids1" / "file.txt",
             path="bids1/file.txt",
+            dandiset_path=tmp_path,
             bids_dataset_description_ref=ANY,
         ),
         ZarrBIDSAsset(
             filepath=tmp_path / "bids1" / "subdir" / "glarch.zarr",
             path="bids1/subdir/glarch.zarr",
+            dandiset_path=tmp_path,
             bids_dataset_description_ref=ANY,
         ),
         NWBBIDSAsset(
             filepath=tmp_path / "bids1" / "subdir" / "quux.nwb",
             path="bids1/subdir/quux.nwb",
+            dandiset_path=tmp_path,
             bids_dataset_description_ref=ANY,
         ),
     ]
@@ -208,6 +273,7 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
         GenericBIDSAsset(
             filepath=tmp_path / "bids2" / "movie.mp4",
             path="bids2/movie.mp4",
+            dandiset_path=tmp_path,
             bids_dataset_description_ref=ANY,
         ),
     ]
@@ -219,6 +285,7 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
         GenericBIDSAsset(
             filepath=tmp_path / "bids2" / "subbids" / "data.json",
             path="bids2/subbids/data.json",
+            dandiset_path=tmp_path,
             bids_dataset_description_ref=ANY,
         ),
     ]
@@ -248,31 +315,41 @@ def test_validate_simple1(simple1_nwb):
     errors = dandi_file(simple1_nwb).get_validation_errors(
         schema_version=get_schema_version()
     )
-    assert not errors
+    assert [e.message for e in errors] == ["File is not inside a Dandiset"]
 
 
 def test_validate_simple1_no_subject(simple1_nwb):
     errors = dandi_file(simple1_nwb).get_validation_errors()
-    assert [e.message for e in errors] == ["Subject is missing."]
+    assert sorted(e.message for e in errors) == [
+        "File is not inside a Dandiset",
+        "Subject is missing.",
+    ]
 
 
-def test_validate_simple2(simple2_nwb):
+def test_validate_simple2(organized_nwb_dir: Path) -> None:
     # this file should be ok since a Subject is included
-    errors = dandi_file(simple2_nwb).get_validation_errors()
+    errors = dandi_file(
+        organized_nwb_dir / "sub-mouse001" / "sub-mouse001.nwb",
+        dandiset_path=organized_nwb_dir,
+    ).get_validation_errors()
     assert not errors
 
 
-def test_validate_simple2_new(simple2_nwb):
+def test_validate_simple2_new(organized_nwb_dir: Path) -> None:
     # this file should be ok
-    errors = dandi_file(simple2_nwb).get_validation_errors(
-        schema_version=get_schema_version()
-    )
+    errors = dandi_file(
+        organized_nwb_dir / "sub-mouse001" / "sub-mouse001.nwb",
+        dandiset_path=organized_nwb_dir,
+    ).get_validation_errors(schema_version=get_schema_version())
     assert not errors
 
 
 def test_validate_simple3_no_subject_id(simple3_nwb):
     errors = dandi_file(simple3_nwb).get_validation_errors()
-    assert [e.message for e in errors] == ["subject_id is missing."]
+    assert sorted(e.message for e in errors) == [
+        "File is not inside a Dandiset",
+        "subject_id is missing.",
+    ]
 
 
 def test_validate_bogus(tmp_path):

@@ -6,6 +6,7 @@ from typing import Iterator, Optional, Union
 
 import appdirs
 
+from .consts import dandiset_metadata_file
 from .files import find_dandi_files
 from .utils import find_parent_directory_containing
 from .validate_types import Scope, Severity, ValidationOrigin, ValidationResult
@@ -162,7 +163,11 @@ def validate(
     path, errors
       errors for a path
     """
-    for df in find_dandi_files(*paths, dandiset_path=None, allow_all=allow_any_path):
-        yield from df.get_validation_errors(
-            schema_version=schema_version, devel_debug=devel_debug
-        )
+    for p in paths:
+        dandiset_path = find_parent_directory_containing(dandiset_metadata_file, p)
+        for df in find_dandi_files(
+            p, dandiset_path=dandiset_path, allow_all=allow_any_path
+        ):
+            yield from df.get_validation_errors(
+                schema_version=schema_version, devel_debug=devel_debug
+            )

@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, Optional
 import weakref
 
 from dandi.consts import (
@@ -65,9 +65,11 @@ class DandiFileFactory:
         DandiFileType.BIDS_DATASET_DESCRIPTION: BIDSDatasetDescriptionAsset,
     }
 
-    def __call__(self, filepath: Path, path: str) -> DandiFile:
+    def __call__(
+        self, filepath: Path, path: str, dandiset_path: Optional[Path]
+    ) -> DandiFile:
         return self.CLASSES[DandiFileType.classify(filepath)](
-            filepath=filepath, path=path
+            filepath=filepath, path=path, dandiset_path=dandiset_path
         )
 
 
@@ -84,16 +86,21 @@ class BIDSFileFactory(DandiFileFactory):
         DandiFileType.GENERIC: GenericBIDSAsset,
     }
 
-    def __call__(self, filepath: Path, path: str) -> DandiFile:
+    def __call__(
+        self, filepath: Path, path: str, dandiset_path: Optional[Path]
+    ) -> DandiFile:
         ftype = DandiFileType.classify(filepath)
         if ftype is DandiFileType.BIDS_DATASET_DESCRIPTION:
             if filepath == self.bids_dataset_description.filepath:
                 return self.bids_dataset_description
             else:
-                return BIDSDatasetDescriptionAsset(filepath=filepath, path=path)
+                return BIDSDatasetDescriptionAsset(
+                    filepath=filepath, path=path, dandiset_path=dandiset_path
+                )
         df = self.CLASSES[ftype](
             filepath=filepath,
             path=path,
+            dandiset_path=dandiset_path,
             bids_dataset_description_ref=weakref.ref(self.bids_dataset_description),
         )
         self.bids_dataset_description.dataset_files.append(df)
@@ -102,5 +109,5 @@ class BIDSFileFactory(DandiFileFactory):
 
 def is_empty_zarr(path: Path) -> bool:
     """:meta private:"""
-    zf = ZarrAsset(filepath=path, path=path.name)
+    zf = ZarrAsset(filepath=path, path=path.name, dandiset_path=None)
     return not any(zf.iterfiles())

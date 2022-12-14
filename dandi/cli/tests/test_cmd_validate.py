@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 from click.testing import CliRunner
 import pytest
@@ -50,17 +51,16 @@ def test_validate_bids_grouping_error(bids_error_examples, dataset="invalid_asl0
     assert dataset in r.output
 
 
-def test_validate_nwb_path_grouping(simple4_nwb):
+def test_validate_nwb_path_grouping(organized_nwb_dir3: Path) -> None:
     """
-    This is currently a placeholder test, and should be updated once we have paths with
-    multiple errors for which grouping functionality can actually be tested.
+    This is currently a placeholder test and should be updated once we have
+    paths with multiple errors for which grouping functionality can actually be
+    tested.
     """
-
-    r = CliRunner().invoke(validate, ["--grouping=path", simple4_nwb])
+    r = CliRunner().invoke(validate, ["--grouping=path", str(organized_nwb_dir3)])
     assert r.exit_code == 0
-
     # Does it give required warnings for required path?
-    assert simple4_nwb in r.output
+    assert str(organized_nwb_dir3 / "sub-mouse001" / "sub-mouse001.nwb") in r.output
     assert "NWBI.check_data_orientation" in r.output
 
 
