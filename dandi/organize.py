@@ -1032,7 +1032,11 @@ def organize(
 
 LABELREGEX = r"[^_*\\/<>:|\"'?%@;.]+"
 ORGANIZED_FILENAME_REGEX = (
-    rf"sub-{LABELREGEX}(_(ses|tis|slice|cell)-{LABELREGEX})*(_[a-z]+(\+[a-z]+)*)?\.nwb"
+    rf"sub-{LABELREGEX}"
+    rf"(_ses-{LABELREGEX})?"
+    rf"(_(tis|slice|cell|probe|obj)-{LABELREGEX})*"
+    r"(_[a-z]+(\+[a-z]+)*)?"
+    r"\.nwb"
 )
 ORGANIZED_FOLDER_REGEX = rf"sub-{LABELREGEX}"
 
