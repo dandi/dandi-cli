@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections import Counter
 import os
 import os.path as op
@@ -336,7 +338,9 @@ def validate(
     path = str(path)  # Might come in as pathlib's PATH
     errors: List[ValidationResult] = []
     try:
-        if Version(pynwb.__version__) >= Version("2.2.0"):  # Use cached namespace feature
+        if Version(pynwb.__version__) >= Version(
+            "2.2.0"
+        ):  # Use cached namespace feature
             # argument get_cached_namespaces is True by default
             error_outputs, _ = pynwb.validate(paths=[path])
         else:  # Fallback if an older version
@@ -391,9 +395,23 @@ def validate(
     else:
         if version is not None:
             # Explicitly sanitize so we collect warnings.
-            # TODO: later cast into proper ERRORs
-            # Do we really need this custom internal function? string comparison works fine..
-            version = _sanitize_nwb_version(version, log=errors.append)
+            nwb_errors: list[str] = []
+            version = _sanitize_nwb_version(version, log=nwb_errors.append)
+            for e in nwb_errors:
+                errors.append(
+                    ValidationResult(
+                        origin=ValidationOrigin(
+                            name="pynwb",
+                            version=pynwb.__version__,
+                        ),
+                        severity=Severity.ERROR,
+                        id="pywnb.GENERIC",
+                        scope=Scope.FILE,
+                        path=Path(path),
+                        message=e,
+                    )
+                )
+            # Do we really need this custom internal function? string comparison works fine.
             try:
                 v = semantic_version.Version(version)
             except ValueError:
