@@ -6,6 +6,7 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import closing
 from dataclasses import dataclass, field, replace
 from datetime import datetime
+from functools import partial
 import os
 from pathlib import Path
 from time import sleep
@@ -39,6 +40,14 @@ from .bases import LocalDirectoryAsset
 from ..validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
 lgr = get_logger()
+
+ZarrValidationResult = partial(
+    ValidationResult,
+    origin=ValidationOrigin(
+        name="zarr",
+        version=zarr.version.version,
+    ),
+)
 
 
 @dataclass
@@ -194,11 +203,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             if devel_debug:
                 raise
             return [
-                ValidationResult(
-                    origin=ValidationOrigin(
-                        name="zarr",
-                        version=zarr.version.version,
-                    ),
+                ZarrValidationResult(
                     severity=Severity.ERROR,
                     id="zarr.cannot_open",
                     scope=Scope.FILE,
@@ -208,11 +213,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             ]
         if isinstance(data, zarr.Group) and not data:
             return [
-                ValidationResult(
-                    origin=ValidationOrigin(
-                        name="zarr",
-                        version=zarr.version.version,
-                    ),
+                ZarrValidationResult(
                     severity=Severity.ERROR,
                     id="zarr.empty_group",
                     scope=Scope.FILE,
@@ -225,11 +226,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             if devel_debug:
                 raise ValueError(msg)
             return [
-                ValidationResult(
-                    origin=ValidationOrigin(
-                        name="zarr",
-                        version=zarr.version.version,
-                    ),
+                ZarrValidationResult(
                     severity=Severity.ERROR,
                     id="zarr.tree_depth_exceeded",
                     scope=Scope.FILE,

@@ -6,6 +6,7 @@ from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime
+from functools import partial
 import os
 from pathlib import Path
 import re
@@ -33,7 +34,21 @@ from dandi.organize import validate_organized_path
 from dandi.pynwb_utils import validate as pynwb_validate
 from dandi.support.digests import get_dandietag, get_digest
 from dandi.utils import yaml_load
-from dandi.validate_types import Scope, Severity, ValidationOrigin, ValidationResult
+from dandi.validate_types import (
+    DandiValidationResult,
+    Scope,
+    Severity,
+    ValidationOrigin,
+    ValidationResult,
+)
+
+DandiSchemaValidationResult = partial(
+    ValidationResult,
+    origin=ValidationOrigin(
+        name="dandischema",
+        version=dandischema.__version__,
+    ),
+)
 
 lgr = dandi.get_logger()
 
@@ -182,11 +197,7 @@ class LocalAsset(DandiFile):
                     raise
                 # TODO: how do we get **all** errors from validation - there must be a way
                 return [
-                    ValidationResult(
-                        origin=ValidationOrigin(
-                            name="dandischema",
-                            version=dandischema.__version__,
-                        ),
+                    DandiSchemaValidationResult(
                         severity=Severity.ERROR,
                         id="dandischema.TODO",
                         scope=Scope.FILE,
@@ -207,11 +218,7 @@ class LocalAsset(DandiFile):
                     extra={"validating": True},
                 )
                 return [
-                    ValidationResult(
-                        origin=ValidationOrigin(
-                            name="dandi",
-                            version=dandi.__version__,
-                        ),
+                    DandiSchemaValidationResult(
                         severity=Severity.ERROR,
                         id="dandi.SOFTWARE_ERROR",
                         scope=Scope.FILE,
@@ -547,11 +554,8 @@ class NWBAsset(LocalFileAsset):
         if not isinstance(self, NWBBIDSAsset):
             if self.dandiset_path is None:
                 errors.append(
-                    ValidationResult(
+                    DandiValidationResult(
                         id="DANDI.NO_DANDISET_FOUND",
-                        origin=ValidationOrigin(
-                            name="dandi", version=dandi.__version__
-                        ),
                         severity=Severity.ERROR,
                         scope=Scope.FILE,
                         path=self.filepath,
@@ -679,11 +683,7 @@ def _check_required_fields(
         if not v or (isinstance(v, str) and not v.strip()):
             message = f"Required field {f!r} has no value"
             errors.append(
-                ValidationResult(
-                    origin=ValidationOrigin(
-                        name="dandischema",
-                        version=dandischema.__version__,
-                    ),
+                DandiValidationResult(
                     severity=Severity.ERROR,
                     id="dandischema.requred_field",
                     scope=Scope.FILE,
@@ -694,11 +694,7 @@ def _check_required_fields(
         if v in ("REQUIRED", "PLACEHOLDER"):
             message = f"Required field {f!r} has value {v!r}"
             errors.append(
-                ValidationResult(
-                    origin=ValidationOrigin(
-                        name="dandischema",
-                        version=dandischema.__version__,
-                    ),
+                DandiValidationResult(
                     severity=Severity.WARNING,
                     id="dandischema.placeholder_value",
                     scope=Scope.FILE,
@@ -767,11 +763,7 @@ def _pydantic_errors_to_validation_results(
             message = e.get("message", None)
             scope = Scope.DANDISET
         out.append(
-            ValidationResult(
-                origin=ValidationOrigin(
-                    name="dandischema",
-                    version=dandischema.__version__,
-                ),
+            DandiSchemaValidationResult(
                 severity=Severity.ERROR,
                 id=id,
                 scope=scope,

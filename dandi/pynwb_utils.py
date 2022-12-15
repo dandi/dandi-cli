@@ -47,6 +47,11 @@ validate_cache = PersistentCache(
     envvar="DANDI_CACHE",
 )
 
+PyNWBValidationOrigin = ValidationOrigin(
+    name="pynwb",
+    version=pynwb.__version__,
+)
+
 
 def _sanitize_nwb_version(v, filename=None, log=None):
     """Helper to sanitize the value of nwb_version where possible
@@ -350,10 +355,7 @@ def validate(
         for error_output in error_outputs:
             errors.append(
                 ValidationResult(
-                    origin=ValidationOrigin(
-                        name="pynwb",
-                        version=pynwb.__version__,
-                    ),
+                    origin=PyNWBValidationOrigin,
                     severity=Severity.WARNING,
                     id=f"pywnb.{error_output}",
                     scope=Scope.FILE,
@@ -367,10 +369,7 @@ def validate(
         errors.extend(
             [
                 ValidationResult(
-                    origin=ValidationOrigin(
-                        name="pynwb",
-                        version=pynwb.__version__,
-                    ),
+                    origin=PyNWBValidationOrigin,
                     severity=Severity.ERROR,
                     id="pywnb.GENERIC",
                     scope=Scope.FILE,
@@ -400,10 +399,7 @@ def validate(
             for e in nwb_errors:
                 errors.append(
                     ValidationResult(
-                        origin=ValidationOrigin(
-                            name="pynwb",
-                            version=pynwb.__version__,
-                        ),
+                        origin=PyNWBValidationOrigin,
                         severity=Severity.ERROR,
                         id="pywnb.GENERIC",
                         scope=Scope.FILE,

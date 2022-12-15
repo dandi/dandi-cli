@@ -16,7 +16,7 @@ import uuid
 
 import numpy as np
 
-from . import __version__, get_logger
+from . import get_logger
 from .dandiset import Dandiset
 from .exceptions import OrganizeImpossibleError
 from .metadata import get_metadata
@@ -38,7 +38,7 @@ from .utils import (
     move_file,
     yaml_load,
 )
-from .validate_types import Scope, Severity, ValidationOrigin, ValidationResult
+from .validate_types import DandiValidationResult, Scope, Severity, ValidationResult
 
 lgr = get_logger()
 
@@ -1061,9 +1061,8 @@ def validate_organized_path(
     errors = []
     if not re.fullmatch(ORGANIZED_FILENAME_REGEX, path.name):
         errors.append(
-            ValidationResult(
+            DandiValidationResult(
                 id="DANDI.NON_DANDI_FILENAME",
-                origin=ValidationOrigin(name="dandi", version=__version__),
                 severity=Severity.ERROR,
                 scope=Scope.FILE,
                 path=filepath,
@@ -1077,9 +1076,8 @@ def validate_organized_path(
         and re.fullmatch(ORGANIZED_FOLDER_REGEX, str(path.parent))
     ):
         errors.append(
-            ValidationResult(
+            DandiValidationResult(
                 id="DANDI.NON_DANDI_FOLDERNAME",
-                origin=ValidationOrigin(name="dandi", version=__version__),
                 severity=Severity.ERROR,
                 scope=Scope.FOLDER,
                 path=filepath,
@@ -1093,9 +1091,8 @@ def validate_organized_path(
         assert m
         if str(path.parent) != m[0]:
             errors.append(
-                ValidationResult(
+                DandiValidationResult(
                     id="DANDI.METADATA_MISMATCH_SUBJECT",
-                    origin=ValidationOrigin(name="dandi", version=__version__),
                     severity=Severity.ERROR,
                     scope=Scope.FILE,
                     path=filepath,

@@ -1,7 +1,10 @@
 from dataclasses import dataclass
 from enum import Enum
+from functools import partial
 from pathlib import Path
 from typing import Dict, List, Optional
+
+from . import __version__
 
 
 @dataclass
@@ -49,3 +52,12 @@ class ValidationResult:
     path: Optional[Path] = None
     path_regex: Optional[str] = None
     severity: Optional[Severity] = None
+
+
+#
+# Our common result shortcut to avoid respecifying origin.
+# More specific library ones could be defined closer to those libraries
+# imports.
+DandiValidationResult = partial(
+    ValidationResult, origin=ValidationOrigin(name="dandi", version=__version__)
+)
