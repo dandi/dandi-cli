@@ -397,4 +397,5 @@ def test_upload_zarr_with_empty_dir(new_dandiset: SampleDandiset) -> None:
     assert isinstance(asset, RemoteZarrAsset)
     assert asset.asset_type is AssetType.ZARR
     assert asset.path == "sample.zarr"
-    assert not (asset.filetree / "empty").exists()
+    with pytest.raises(NotFoundError):
+        asset.get_entry_by_path("empty")
