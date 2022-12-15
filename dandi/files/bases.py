@@ -145,7 +145,9 @@ class DandisetMetadataFile(DandiFile):
             except Exception as e:
                 if devel_debug:
                     raise
-                return _pydantic_errors_to_validation_results(e, str(self.filepath))
+                return _pydantic_errors_to_validation_results(
+                    e, str(self.filepath), dandiset_path=self.dandiset_path
+                )
             return []
 
 
@@ -195,19 +197,9 @@ class LocalAsset(DandiFile):
             except ValidationError as e:
                 if devel_debug:
                     raise
-                # TODO: how do we get **all** errors from validation - there must be a way
-                return [
-                    DandiSchemaValidationResult(
-                        severity=Severity.ERROR,
-                        id="dandischema.TODO",
-                        scope=Scope.FILE,
-                        # metadata=metadata,
-                        path=self.filepath,  # note that it is not relative .path
-                        message=str(e),
-                        # TODO? dataset_path=dataset_path,
-                        dandiset_path=self.dandiset_path,
-                    )
-                ]
+                return _pydantic_errors_to_validation_results(
+                    e, str(self.filepath), dandiset_path=self.dandiset_path
+                )
             except Exception as e:
                 if devel_debug:
                     raise
@@ -547,7 +539,9 @@ class NWBAsset(LocalFileAsset):
                 if devel_debug:
                     raise
                 # TODO: might reraise instead of making it into an error
-                return _pydantic_errors_to_validation_results([e], str(self.filepath))
+                return _pydantic_errors_to_validation_results(
+                    [e], str(self.filepath), dandiset_path=self.dandiset_path
+                )
 
         from .bids import NWBBIDSAsset
 
@@ -741,6 +735,7 @@ def _get_nwb_inspector_version():
 def _pydantic_errors_to_validation_results(
     errors: Any[list[dict], Exception],
     file_path: str,
+    dandiset_path: Optional[Path] = None,
 ) -> list[ValidationResult]:
     """Convert list of dict from pydantic into our custom object."""
     out = []
@@ -770,7 +765,7 @@ def _pydantic_errors_to_validation_results(
                 path=Path(file_path),
                 message=message,
                 # TODO? dataset_path=dataset_path,
-                # TODO? dandiset_path=dandiset_path,
+                dandiset_path=dandiset_path,
             )
         )
     return out
