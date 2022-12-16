@@ -92,8 +92,8 @@ def filter_invalid_metadata_rows(metadata_rows):
 
 
 def create_unique_filenames_from_metadata(
-    metadata, required_fields: Optional[Sequence[str]] = None
-):
+    metadata: list[dict], required_fields: Optional[Sequence[str]] = None
+) -> list[dict]:
     """Create unique filenames given metadata
 
     Parameters
@@ -105,7 +105,7 @@ def create_unique_filenames_from_metadata(
 
     Returns
     -------
-    dict
+    list of dict
       Adjusted metadata. A copy, which might have removed some metadata fields
       Do not rely on it being the same
     """

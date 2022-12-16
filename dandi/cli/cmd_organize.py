@@ -64,7 +64,7 @@ from ..organize import potential_fields
 @map_to_click_exceptions
 def organize(
     paths,
-    required_fields: tuple[str, ...],
+    required_fields,
     dandiset_path=None,
     invalid="fail",
     files_mode="auto",
