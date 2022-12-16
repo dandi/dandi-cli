@@ -12,7 +12,7 @@ import pytest
 import ruamel.yaml
 
 from ..cli.command import organize
-from ..consts import file_operation_modes
+from ..consts import dandiset_metadata_file, file_operation_modes
 from ..organize import (
     _sanitize_value,
     create_dataset_yml_template,
@@ -23,7 +23,7 @@ from ..organize import (
     validate_organized_path,
 )
 from ..pynwb_utils import _get_image_series, copy_nwb_file, get_object_id
-from ..utils import find_files, on_windows, yaml_load
+from ..utils import find_files, list_paths, on_windows, yaml_load
 
 
 def test_sanitize_value() -> None:
@@ -348,3 +348,23 @@ def test_video_organize_common(video_mode, nwbfiles_video_common):
 def test_validate_organized_path(path: str, error_ids: list[str]) -> None:
     errors = validate_organized_path(path, Path("dummy"), Path("dummyset"))
     assert [e.id for e in errors] == error_ids
+
+
+def test_organize_required_field(simple2_nwb: str, tmp_path: Path) -> None:
+    (tmp_path / dandiset_metadata_file).write_text("{}\n")
+    r = CliRunner().invoke(
+        organize,
+        [
+            "-f",
+            "copy",
+            "--dandiset-path",
+            str(tmp_path),
+            "--required-field=session_id",
+            simple2_nwb,
+        ],
+    )
+    assert r.exit_code == 0
+    assert list_paths(tmp_path) == [
+        tmp_path / dandiset_metadata_file,
+        tmp_path / "sub-mouse001" / "sub-mouse001_ses-session-id1.nwb",
+    ]
