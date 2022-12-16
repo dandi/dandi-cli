@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import click
 
 from .base import dandiset_path_option, devel_debug_option, map_to_click_exceptions
 from ..consts import file_operation_modes
+from ..organize import potential_fields
 
 
 @click.command()
@@ -46,20 +49,28 @@ from ..consts import file_operation_modes
     default=None,
     help="How to relocate video files referenced by NWB files",
 )
-# TODO: add --mandatory-if-not-empty to define entities which must be present in the filename
-# (unless empty, i.e. no value). Propagate to create_unique_filenames_from_metadata
+@click.option(
+    "--required-field",
+    "required_fields",
+    type=click.Choice(list(potential_fields)),
+    multiple=True,
+    help=(
+        "Force a given field to be included in the organized filename of any"
+        " file for which it is nonempty.  Can be specified multiple times."
+    ),
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
 @devel_debug_option()
 @map_to_click_exceptions
 def organize(
     paths,
+    required_fields: tuple[str, ...],
     dandiset_path=None,
     invalid="fail",
     files_mode="auto",
     devel_debug=False,
     update_external_file_paths=False,
     media_files_mode=None,
-    mandatory_if_not_empty=None,
 ):
     """(Re)organize files according to the metadata.
 
@@ -104,5 +115,5 @@ def organize(
         devel_debug=devel_debug,
         update_external_file_paths=update_external_file_paths,
         media_files_mode=media_files_mode,
-        mandatory_if_not_empty=mandatory_if_not_empty,
+        required_fields=required_fields,
     )
