@@ -65,16 +65,33 @@ Options
     What to do if files without sufficient metadata are encountered  [default:
     ``fail``]
 
+.. option:: --media-files-mode [copy|move|symlink|hardlink]
+
+    How to relocate video files referenced by NWB files [default: ``symlink``]
+
+.. option:: --required-field <field>
+
+    Force a given field to be included in the organized filename of any file
+    for which it is nonempty.  Can be specified multiple times.
+
+    The valid field names are:
+
+    - ``subject_id`` (already required by default)
+    - ``session_id``
+    - ``tissue_sample_id``
+    - ``slice_id``
+    - ``cell_id``
+    - ``probe_ids``
+    - ``obj_id``
+    - ``modalities`` (already required by default)
+    - ``extension`` (already required by default)
+
 .. option:: --update-external-file-paths
 
     Rewrite the ``external_file`` arguments of ImageSeries in NWB files.  The
     new values will correspond to the new locations of the video files after
     being organized.  This option requires :option:`--files-mode` to be
     "``copy``" or "``move``".
-
-.. option:: --media-files-mode [copy|move|symlink|hardlink]
-
-    How to relocate video files referenced by NWB files [default: ``symlink``]
 
 Development Options
 -------------------
