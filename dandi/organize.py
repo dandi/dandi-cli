@@ -18,6 +18,7 @@ import uuid
 import numpy as np
 
 from . import __version__, get_logger
+from .consts import dandi_layout_fields
 from .dandiset import Dandiset
 from .exceptions import OrganizeImpossibleError
 from .metadata import get_metadata
@@ -43,33 +44,6 @@ from .validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
 lgr = get_logger()
 
-# Fields which would be used to compose the filename
-# TODO: add full description into command --help etc
-# Order matters!
-potential_fields = {
-    # "type" - if not defined, additional
-    "subject_id": {"format": "sub-{}", "type": "required"},
-    "session_id": {"format": "_ses-{}"},
-    "tissue_sample_id": {"format": "_tis-{}"},
-    "slice_id": {"format": "_slice-{}"},
-    "cell_id": {"format": "_cell-{}"},
-    # disambiguation ones
-    "probe_ids": {"format": "_probe-{}", "type": "disambiguation"},
-    "obj_id": {
-        "format": "_obj-{}",
-        "type": "disambiguation",
-    },  # will be not id, but checksum of it to shorten
-    # "session_description"
-    "modalities": {"format": "_{}", "type": "required_if_not_empty"},
-    "extension": {"format": "{}", "type": "required"},
-}
-# verify no typos
-assert {v.get("type", "additional") for v in potential_fields.values()} == {
-    "required",
-    "disambiguation",
-    "additional",
-    "required_if_not_empty",
-}
 dandi_path = op.join("sub-{subject_id}", "{dandi_filename}")
 
 
@@ -101,7 +75,7 @@ def create_unique_filenames_from_metadata(
     metadata: list of dict
       List of metadata records
     required_fields: sequence of str, optional
-      Names from `potential_fields` to consider `"required_if_not_empty"`
+      Names from `dandi_layout_fields` to consider `"required_if_not_empty"`
 
     Returns
     -------
@@ -115,11 +89,11 @@ def create_unique_filenames_from_metadata(
 
     # sanity check -- should all be known
     if required_fields:
-        unknown = set(required_fields).difference(potential_fields)
+        unknown = set(required_fields).difference(dandi_layout_fields)
         if unknown:
             raise ValueError(
                 f"Unknown fields provided as required_fields: {', '.join(unknown)}."
-                f"  Known fields are: {', '.join(potential_fields)}"
+                f"  Known fields are: {', '.join(dandi_layout_fields)}"
             )
 
     # TODO this does not act in a greedy fashion
@@ -167,7 +141,7 @@ def create_unique_filenames_from_metadata(
     if non_unique:
         # Consider additional fields which might provide disambiguation
         # but which we otherwise do not include ATM
-        for field, field_rec in potential_fields.items():
+        for field, field_rec in dandi_layout_fields.items():
             if not field_rec.get("type") == "disambiguation":
                 continue
             additional_nonunique.append(field)
@@ -375,12 +349,12 @@ def is_undefined(value):
 
 
 def _assign_dandi_names(metadata):
-    unique_values = _get_unique_values(metadata, potential_fields)
+    unique_values = _get_unique_values(metadata, dandi_layout_fields)
     # unless it is required, we would not include the fields with more than a
     # single unique field
     for r in metadata:
         dandi_filename = ""
-        for field, field_rec in potential_fields.items():
+        for field, field_rec in dandi_layout_fields.items():
             field_format = field_rec["format"]
             field_type = field_rec.get("type", "additional")
             if (
