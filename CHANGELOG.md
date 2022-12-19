@@ -1,3 +1,15 @@
+# 0.48.0 (Mon Dec 19 2022)
+
+#### 🚀 Enhancement
+
+- Update client for change in Zarr entries API [#1175](https://github.com/dandi/dandi-cli/pull/1175) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.47.0 (Mon Dec 19 2022)
 
 #### 🚀 Enhancement
