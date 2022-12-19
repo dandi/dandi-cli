@@ -1,3 +1,51 @@
+# 0.47.0 (Mon Dec 19 2022)
+
+#### 🚀 Enhancement
+
+- Add validation of filepaths for non-BIDS NWB assets [#1173](https://github.com/dandi/dandi-cli/pull/1173) ([@jwodder](https://github.com/jwodder))
+- Exclude special dotfiles from Zarrs [#1147](https://github.com/dandi/dandi-cli/pull/1147) ([@jwodder](https://github.com/jwodder))
+- Structured validation results [#1104](https://github.com/dandi/dandi-cli/pull/1104) ([@jwodder](https://github.com/jwodder) [@yarikoptic](https://github.com/yarikoptic) [@TheChymera](https://github.com/TheChymera))
+
+#### 🐛 Bug Fix
+
+- Allow user to specify mandatory (if not empty) fields in organize [#1171](https://github.com/dandi/dandi-cli/pull/1171) ([@yarikoptic](https://github.com/yarikoptic) [@jwodder](https://github.com/jwodder))
+- BF: convert str errors from checking nwb version into proper ValidationResult [#1174](https://github.com/dandi/dandi-cli/pull/1174) ([@yarikoptic](https://github.com/yarikoptic))
+- Tests for `ls` reinstated, underlying function fixed, support for ZARR-BIDS files added. [#1164](https://github.com/dandi/dandi-cli/pull/1164) ([@TheChymera](https://github.com/TheChymera) [@jwodder](https://github.com/jwodder))
+- Add CodeQL workflow for GitHub code scanning and fix few bugs it detected [#1165](https://github.com/dandi/dandi-cli/pull/1165) ([@lgtm-migrator](https://github.com/lgtm-migrator) [@jwodder](https://github.com/jwodder) [@lgtm-com[bot]](https://github.com/lgtm-com[bot]))
+- Corrected reporting function logic to complete group message variable [#1166](https://github.com/dandi/dandi-cli/pull/1166) ([@TheChymera](https://github.com/TheChymera))
+- Renamed failing test, added prospective use case for NWBI warning. [#1162](https://github.com/dandi/dandi-cli/pull/1162) ([@TheChymera](https://github.com/TheChymera))
+- Use cached namespace validation [#1149](https://github.com/dandi/dandi-cli/pull/1149) ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🏠 Internal
+
+- Make `list_paths()` include dotfiles [#1142](https://github.com/dandi/dandi-cli/pull/1142) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- dandi-cli readme edit [#1170](https://github.com/dandi/dandi-cli/pull/1170) ([@melster1010](https://github.com/melster1010))
+- Remove Parameters description from docstring used by click [#1150](https://github.com/dandi/dandi-cli/pull/1150) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- No longer mark `test_rename_type_mismatch` as xfailing [#1161](https://github.com/dandi/dandi-cli/pull/1161) ([@jwodder](https://github.com/jwodder))
+- Fix typing error under mypy 0.990 [#1156](https://github.com/dandi/dandi-cli/pull/1156) ([@jwodder](https://github.com/jwodder))
+- Update `test_validate_nwb_path_grouping` test [#1157](https://github.com/dandi/dandi-cli/pull/1157) ([@jwodder](https://github.com/jwodder))
+- Fixed logic and commented a temporarily broken BIDS (lacking README) dataset [#1148](https://github.com/dandi/dandi-cli/pull/1148) ([@TheChymera](https://github.com/TheChymera))
+- Installing hdf5 for Python 3.10 is no longer needed [#1145](https://github.com/dandi/dandi-cli/pull/1145) ([@jwodder](https://github.com/jwodder))
+- Fix a typing issue involving the outdated `tmpdir_factory` [#1144](https://github.com/dandi/dandi-cli/pull/1144) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 7
+
+- [@lgtm-com[bot]](https://github.com/lgtm-com[bot])
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- LGTM Migrator ([@lgtm-migrator](https://github.com/lgtm-migrator))
+- Mary Elise Dedicke ([@melster1010](https://github.com/melster1010))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.46.6 (Fri Oct 21 2022)
 
 #### 🐛 Bug Fix
