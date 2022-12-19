@@ -170,3 +170,31 @@ ZARR_UPLOAD_BATCH_SIZE = 255
 ZARR_DELETE_BATCH_SIZE = 100
 
 BIDS_DATASET_DESCRIPTION = "dataset_description.json"
+
+# Fields which would be used to compose organized filenames
+# TODO: add full description into command --help etc
+# Order matters!
+dandi_layout_fields = {
+    # "type" - if not defined, additional
+    "subject_id": {"format": "sub-{}", "type": "required"},
+    "session_id": {"format": "_ses-{}"},
+    "tissue_sample_id": {"format": "_tis-{}"},
+    "slice_id": {"format": "_slice-{}"},
+    "cell_id": {"format": "_cell-{}"},
+    # disambiguation ones
+    "probe_ids": {"format": "_probe-{}", "type": "disambiguation"},
+    "obj_id": {
+        "format": "_obj-{}",
+        "type": "disambiguation",
+    },  # will be not id, but checksum of it to shorten
+    # "session_description"
+    "modalities": {"format": "_{}", "type": "required_if_not_empty"},
+    "extension": {"format": "{}", "type": "required"},
+}
+# verify no typos
+assert {v.get("type", "additional") for v in dandi_layout_fields.values()} == {
+    "required",
+    "disambiguation",
+    "additional",
+    "required_if_not_empty",
+}

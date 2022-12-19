@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import click
 
 from .base import dandiset_path_option, devel_debug_option, map_to_click_exceptions
-from ..consts import file_operation_modes
+from ..consts import dandi_layout_fields, file_operation_modes
 
 
 @click.command()
@@ -46,11 +48,22 @@ from ..consts import file_operation_modes
     default=None,
     help="How to relocate video files referenced by NWB files",
 )
+@click.option(
+    "--required-field",
+    "required_fields",
+    type=click.Choice(list(dandi_layout_fields)),
+    multiple=True,
+    help=(
+        "Force a given field to be included in the organized filename of any"
+        " file for which it is nonempty.  Can be specified multiple times."
+    ),
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
 @devel_debug_option()
 @map_to_click_exceptions
 def organize(
     paths,
+    required_fields,
     dandiset_path=None,
     invalid="fail",
     files_mode="auto",
@@ -101,4 +114,5 @@ def organize(
         devel_debug=devel_debug,
         update_external_file_paths=update_external_file_paths,
         media_files_mode=media_files_mode,
+        required_fields=required_fields,
     )

@@ -6,17 +6,19 @@ from __future__ import annotations
 
 import binascii
 from collections import Counter
+from collections.abc import Sequence
 from copy import deepcopy
 import os
 import os.path as op
 from pathlib import Path, PurePosixPath
 import re
-from typing import List
+from typing import List, Optional
 import uuid
 
 import numpy as np
 
 from . import __version__, get_logger
+from .consts import dandi_layout_fields
 from .dandiset import Dandiset
 from .exceptions import OrganizeImpossibleError
 from .metadata import get_metadata
@@ -42,33 +44,6 @@ from .validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
 lgr = get_logger()
 
-# Fields which would be used to compose the filename
-# TODO: add full description into command --help etc
-# Order matters!
-potential_fields = {
-    # "type" - if not defined, additional
-    "subject_id": {"format": "sub-{}", "type": "mandatory"},
-    "session_id": {"format": "_ses-{}"},
-    "tissue_sample_id": {"format": "_tis-{}"},
-    "slice_id": {"format": "_slice-{}"},
-    "cell_id": {"format": "_cell-{}"},
-    # disambiguation ones
-    "probe_ids": {"format": "_probe-{}", "type": "disambiguation"},
-    "obj_id": {
-        "format": "_obj-{}",
-        "type": "disambiguation",
-    },  # will be not id, but checksum of it to shorten
-    # "session_description"
-    "modalities": {"format": "_{}", "type": "mandatory_if_not_empty"},
-    "extension": {"format": "{}", "type": "mandatory"},
-}
-# verify no typos
-assert {v.get("type", "additional") for v in potential_fields.values()} == {
-    "mandatory",
-    "disambiguation",
-    "additional",
-    "mandatory_if_not_empty",
-}
 dandi_path = op.join("sub-{subject_id}", "{dandi_filename}")
 
 
@@ -90,23 +65,36 @@ def filter_invalid_metadata_rows(metadata_rows):
     return valid, invalid
 
 
-def create_unique_filenames_from_metadata(metadata):
+def create_unique_filenames_from_metadata(
+    metadata: list[dict], required_fields: Optional[Sequence[str]] = None
+) -> list[dict]:
     """Create unique filenames given metadata
 
     Parameters
     ----------
     metadata: list of dict
       List of metadata records
+    required_fields: sequence of str, optional
+      Names from `dandi_layout_fields` to consider `"required_if_not_empty"`
 
     Returns
     -------
-    dict
+    list of dict
       Adjusted metadata. A copy, which might have removed some metadata fields
       Do not rely on it being the same
     """
     # need a deepcopy since we will be tuning fields, and there should be no
     # side effects to original metadata
     metadata = deepcopy(metadata)
+
+    # sanity check -- should all be known
+    if required_fields:
+        unknown = set(required_fields).difference(dandi_layout_fields)
+        if unknown:
+            raise ValueError(
+                f"Unknown fields provided as required_fields: {', '.join(unknown)}."
+                f"  Known fields are: {', '.join(dandi_layout_fields)}"
+            )
 
     # TODO this does not act in a greedy fashion
     # i.e., only using enough fields to ensure uniqueness of filenames, but that
@@ -139,22 +127,28 @@ def create_unique_filenames_from_metadata(metadata):
             if value:
                 r[field] = _sanitize_value(value, field)
 
+        # _required_if_not_empty is used in addition to "type" required by
+        # _assign_dandi_names.
+        if required_fields:
+            r.setdefault("_required_if_not_empty", []).extend(required_fields)
+
     _assign_dandi_names(metadata)
 
     non_unique = _get_non_unique_paths(metadata)
 
     additional_nonunique = []
+
     if non_unique:
         # Consider additional fields which might provide disambiguation
         # but which we otherwise do not include ATM
-        for field, field_rec in potential_fields.items():
+        for field, field_rec in dandi_layout_fields.items():
             if not field_rec.get("type") == "disambiguation":
                 continue
             additional_nonunique.append(field)
             if field == "obj_id":  # yet to be computed
                 _assign_obj_id(metadata, non_unique)
             # If a given field is found useful to disambiguate in a single case,
-            # we will add _mandatory_if_not_empty to those files records, which will
+            # we will add _required_if_not_empty to those files records, which will
             # _assign_dandi_names will use in addition to the ones specified.
             # The use case of 000022 - there is a common to many probes file (has many probe_ids)
             # but listing them all in filename -- does not scale, so we only limit to where
@@ -169,9 +163,7 @@ def create_unique_filenames_from_metadata(metadata):
                     # add to all files in the group
                     for r in metadata:
                         if r["dandi_path"] == conflicting_path:
-                            r["_mandatory_if_not_empty"] = r.get(
-                                "_mandatory_if_not_empty", []
-                            ) + [field]
+                            r.setdefault("_required_if_not_empty", []).append(field)
                 _assign_dandi_names(metadata)
             non_unique = _get_non_unique_paths(metadata)
             if not non_unique:
@@ -357,20 +349,20 @@ def is_undefined(value):
 
 
 def _assign_dandi_names(metadata):
-    unique_values = _get_unique_values(metadata, potential_fields)
-    # unless it is mandatory, we would not include the fields with more than
-    # a single unique field
+    unique_values = _get_unique_values(metadata, dandi_layout_fields)
+    # unless it is required, we would not include the fields with more than a
+    # single unique field
     for r in metadata:
         dandi_filename = ""
-        for field, field_rec in potential_fields.items():
+        for field, field_rec in dandi_layout_fields.items():
             field_format = field_rec["format"]
             field_type = field_rec.get("type", "additional")
             if (
-                (field_type == "mandatory")
+                (field_type == "required")
                 or (field_type == "additional" and len(unique_values[field]) > 1)
                 or (
-                    field_type == "mandatory_if_not_empty"
-                    or (field in r.get("_mandatory_if_not_empty", []))
+                    field_type == "required_if_not_empty"
+                    or (field in r.get("_required_if_not_empty", []))
                 )
             ):
                 value = r.get(field, None)
@@ -725,6 +717,7 @@ def organize(
     devel_debug=False,
     update_external_file_paths=False,
     media_files_mode=None,
+    required_fields=None,
 ):
     in_place = False  # If we deduce that we are organizing in-place
 
@@ -858,7 +851,9 @@ def organize(
     if files_mode == "auto":
         files_mode = detect_link_type(link_test_file, dandiset_path)
 
-    metadata = create_unique_filenames_from_metadata(metadata)
+    metadata = create_unique_filenames_from_metadata(
+        metadata, required_fields=required_fields
+    )
 
     # update metadata with external_file information:
     external_files_missing_in_nwbfiles = [
