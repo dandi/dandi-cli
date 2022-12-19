@@ -146,7 +146,7 @@ class DandisetMetadataFile(DandiFile):
                 if devel_debug:
                     raise
                 return _pydantic_errors_to_validation_results(
-                    e, str(self.filepath), dandiset_path=self.dandiset_path
+                    [e], str(self.filepath), dandiset_path=self.dandiset_path
                 )
             return []
 
@@ -198,7 +198,7 @@ class LocalAsset(DandiFile):
                 if devel_debug:
                     raise
                 return _pydantic_errors_to_validation_results(
-                    e, str(self.filepath), dandiset_path=self.dandiset_path
+                    [e], str(self.filepath), dandiset_path=self.dandiset_path
                 )
             except Exception as e:
                 if devel_debug:
@@ -733,7 +733,7 @@ def _get_nwb_inspector_version():
 
 
 def _pydantic_errors_to_validation_results(
-    errors: Any[list[dict], Exception],
+    errors: list[dict | Exception],
     file_path: str,
     dandiset_path: Optional[Path] = None,
 ) -> list[ValidationResult]:
