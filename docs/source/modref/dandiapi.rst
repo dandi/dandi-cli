@@ -74,8 +74,4 @@ Zarr Assets
 .. autoclass:: RemoteZarrEntry()
     :show-inheritance:
 
-.. autoclass:: ZarrListing()
-
-.. autoclass:: ZarrEntryStat()
-
-.. Excluded from documentation: APIBase, RemoteDandisetData
+.. Excluded from documentation: APIBase, RemoteDandisetData, ZarrEntryServerData

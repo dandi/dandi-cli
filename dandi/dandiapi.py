@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections import deque
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from fnmatch import fnmatchcase
 import json
 import os.path
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import re
 from time import sleep, time
 from types import TracebackType
@@ -28,12 +28,11 @@ from typing import (
     Union,
     cast,
 )
-from urllib.parse import unquote, urlparse, urlunparse
+from urllib.parse import quote_plus, urlparse, urlunparse
 
 import click
 from dandischema import models
-import dateutil.parser
-from pydantic import AnyHttpUrl, BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr
 import requests
 import tenacity
 
@@ -50,7 +49,7 @@ from .consts import (
 )
 from .exceptions import HTTP404Error, NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup
-from .misctypes import BasePath, Digest
+from .misctypes import Digest
 from .utils import (
     USER_AGENT,
     check_dandi_version,
@@ -1514,23 +1513,31 @@ class BaseRemoteZarrAsset(BaseRemoteAsset):
         """
         return AssetType.ZARR
 
-    @property
-    def filetree(self) -> "RemoteZarrEntry":
+    def iterfiles(self, prefix: Optional[str] = None) -> Iterator[RemoteZarrEntry]:
         """
-        The `RemoteZarrEntry` for the root of the hierarchy of files within the
-        Zarr
+        Returns a generator of all `RemoteZarrEntry`\\s within the Zarr,
+        optionally limited to those whose path starts with the given prefix
         """
-        return RemoteZarrEntry(
-            client=self.client, zarr_id=self.zarr, parts=(), _known_dir=True
-        )
+        for r in self.client.paginate(
+            f"{self.client.api_url}/zarr/{self.zarr}/files", params={"prefix": prefix}
+        ):
+            data = ZarrEntryServerData.parse_obj(r)
+            yield RemoteZarrEntry.from_server_data(self, data)
 
-    def iterfiles(self, include_dirs: bool = False) -> Iterator["RemoteZarrEntry"]:
+    def get_entry_by_path(self, path: str) -> RemoteZarrEntry:
         """
-        Returns a generator of all `RemoteZarrEntry`\\s within the Zarr.  By
-        default, only instances for files are produced, unless ``include_dirs``
-        is true.
+        Fetch the entry in this Zarr whose `~RemoteZarrEntry.path` equals
+        ``path``.  If the given entry does not exist, a `NotFoundError` is
+        raised.
         """
-        return self.filetree.iterfiles(include_dirs=include_dirs)
+        try:
+            # Weed out any entries that happen to have the given path as a
+            # proper prefix:
+            (entry,) = (e for e in self.iterfiles(prefix=path) if str(e) == path)
+        except ValueError:
+            raise NotFoundError(f"No entry at path {path!r}")
+        else:
+            return entry
 
     def rmfiles(
         self, files: Iterable["RemoteZarrEntry"], reingest: bool = True
@@ -1717,238 +1724,94 @@ class RemoteZarrAsset(RemoteAsset, BaseRemoteZarrAsset):
         self._metadata = data["metadata"]
 
 
-class ZarrListing(BaseModel):
-    """
-    .. versionadded:: 0.36.0
-
-    Information about a directory within a `RemoteZarrAsset`
-    """
-
-    #: API URLs for the listings of the directory's subdirectories
-    directories: List[AnyHttpUrl]
-    #: API URLs for downloading the files in the directory
-    files: List[AnyHttpUrl]
-    #: The checksums (MD5 or Dandi Zarr checksum, as appropriate) for the
-    #: directory's entries, as a mapping from basenames to checksums
-    checksums: Dict[str, str]
-    #: The Dandi Zarr checksum for the directory
-    checksum: str
-
-    @property
-    def dirnames(self) -> List[str]:
-        """The basenames of the directory URLs in `directories`"""
-        return [PurePosixPath(unquote(url.path or "")).name for url in self.directories]
-
-    @property
-    def filenames(self) -> List[str]:
-        """The basenames of the file URLs in `files`"""
-        return [PurePosixPath(unquote(url.path or "")).name for url in self.files]
-
-
 @dataclass
-class ZarrEntryStat:
+class RemoteZarrEntry:
     """
     .. versionadded:: 0.36.0
 
-    Combined size & timestamp information for a file in a `RemoteZarrAsset`
-    """
+    A file within a `RemoteZarrAsset`
 
-    #: The size of the file
-    size: int
-    #: The time at which the file was last modified
-    modified: datetime
+    .. versionchanged:: 0.48.0
 
-
-@dataclass
-class RemoteZarrEntry(BasePath):
-    """
-    .. versionadded:: 0.36.0
-
-    A file or directory within a `RemoteZarrAsset`.  Implements
-    `~dandi.misctypes.BasePath`.
+        - No longer represents directories
+        - No longer implements `~dandi.misctypes.BasePath`
     """
 
     #: The `DandiAPIClient` instance used for API requests
     client: DandiAPIClient
     #: The ID of the Zarr backing the asset
     zarr_id: str
-    _known_dir: Optional[bool] = field(default=None, compare=False, repr=False)
-    _digest: Optional[Digest] = field(default=None, compare=False, repr=False)
+    #: The path components of the entry
+    parts: tuple[str, ...]
+    #: The timestamp at which the entry was last modified
+    modified: datetime
+    #: The entry's digest
+    digest: Digest
+    #: The entry's size in bytes
+    size: int
 
-    def _get_subpath(
-        self, name: str, isdir: Optional[bool] = None, checksum: Optional[str] = None
-    ) -> "RemoteZarrEntry":
-        if not name or "/" in name:
-            raise ValueError(f"Invalid path component: {name!r}")
-        elif name == ".":
-            return self
-        elif name == "..":
-            return self.parent
-        else:
-            if checksum is not None and isdir is not None:
-                if isdir:
-                    algorithm = models.DigestType.dandi_zarr_checksum
-                else:
-                    algorithm = models.DigestType.md5
-                digest = Digest(algorithm=algorithm, value=checksum)
-            else:
-                digest = None
-            return replace(
-                self, parts=self.parts + (name,), _known_dir=isdir, _digest=digest
-            )
-
-    @property
-    def parent(self) -> "RemoteZarrEntry":
-        if self.is_root():
-            return self
-        else:
-            return replace(
-                self,
-                parts=self.parts[:-1],
-                _known_dir=True if self._known_dir is not None else None,
-                _digest=None,
-            )
-
-    def _isdir(self) -> bool:
-        if self._known_dir is not None:
-            return self._known_dir
-        elif self.is_root():
-            try:
-                self.client.get(f"/zarr/{self.zarr_id}/")
-            except HTTP404Error:
-                raise NotFoundError(f"No such Zarr: {self.zarr_id!r}")
-            return True
-        else:
-            listing = self.parent.get_listing()
-            if self.name in listing.dirnames:
-                return True
-            elif self.name in listing.filenames:
-                return False
-            else:
-                raise NotFoundError(
-                    f"No such entry {str(self)!r} in Zarr {self.zarr_id!r}"
-                )
-
-    def exists(self) -> bool:
-        try:
-            self._isdir()
-        except NotFoundError:
-            return False
-        else:
-            return True
-
-    def is_file(self) -> bool:
-        try:
-            return not self._isdir()
-        except NotFoundError:
-            return False
-
-    def is_dir(self) -> bool:
-        try:
-            return self._isdir()
-        except NotFoundError:
-            return False
-
-    def iterdir(self) -> Iterator["RemoteZarrEntry"]:
-        listing = self.get_listing()
-        for name in listing.dirnames:
-            if name == "." or name == "..":
-                continue
-            yield self._get_subpath(name, isdir=True, checksum=listing.checksums[name])
-        for name in listing.filenames:
-            yield self._get_subpath(name, isdir=False, checksum=listing.checksums[name])
-
-    def get_digest(self) -> Digest:
-        """
-        Retrieve the DANDI etag digest for the entry.  If the entry is a
-        directory, the algorithm will be the Dandi Zarr checksum algorithm; if
-        it is a file, it will be MD5.
-
-        :raises NotFoundError: if the path does not exist in the Zarr asset
-        """
-        if self._digest is not None:
-            # `self` was returned by `parent.iterdir()`, which iterated over a
-            # ZarrListing and thus had access to the checksum, which it stored
-            # on `self`; use that value.
-            return self._digest
-        if self.is_root():
-            algorithm = models.DigestType.dandi_zarr_checksum
-            value = self.get_listing().checksum
-        else:
-            listing = self.parent.get_listing()
-            if self.name in listing.dirnames:
-                algorithm = models.DigestType.dandi_zarr_checksum
-            elif self.name in listing.filenames:
-                algorithm = models.DigestType.md5
-            else:
-                raise NotFoundError(
-                    f"No such entry {str(self)!r} in Zarr {self.zarr_id!r}"
-                )
-            value = listing.checksums[self.name]
-        return Digest(algorithm=algorithm, value=value)
-
-    @property
-    def size(self) -> int:
-        """
-        The size of the entry, which must be a file
-
-        :raises NotFoundError: if the path does not exist in the Zarr asset
-        :raises ValueError: if the path is a directory
-        """
-        return self.stat().size
-
-    @property
-    def modified(self) -> datetime:
-        """
-        The time at which the entry (which must be a file) was last modified
-
-        :raises NotFoundError: if the path does not exist in the Zarr asset
-        :raises ValueError: if the path is a directory
-        """
-        return self.stat().modified
-
-    def stat(self) -> ZarrEntryStat:
-        """
-        Return combined size & timestamp information for the entry, which must
-        be a file
-
-        :raises NotFoundError: if the path does not exist in the Zarr asset
-        :raises ValueError: if the path is a directory
-        """
-        if not self.is_file():
-            raise ValueError("Cannot stat directories in Zarrs")
-        try:
-            r = self.client.request(
-                "HEAD",
-                f"/zarr/{self.zarr_id}.zarr/{'/'.join(self.parts)}",
-                json_resp=False,
-                allow_redirects=True,
-            )
-        except HTTP404Error:
-            raise NotFoundError(
-                f"{str(self)!r} in Zarr {self.zarr_id!r} does not exist"
-            )
-        return ZarrEntryStat(
-            size=int(r.headers["Content-Length"]),
-            modified=dateutil.parser.parse(r.headers["Last-Modified"]),
+    @classmethod
+    def from_server_data(
+        cls, asset: BaseRemoteZarrAsset, data: ZarrEntryServerData
+    ) -> RemoteZarrEntry:
+        """:meta private:"""
+        return cls(
+            client=asset.client,
+            zarr_id=asset.zarr,
+            parts=tuple(data.key.split("/")),
+            modified=data.last_modified,
+            digest=Digest(algorithm=models.DigestType.md5, value=data.etag),
+            size=data.size,
         )
 
-    def get_listing(self) -> ZarrListing:
-        """
-        Return the `ZarrListing` for the entry, which must be a directory
+    def __str__(self) -> str:
+        return "/".join(self.parts)
 
-        :raises NotFoundError:
-            if the path does not exist in the Zarr asset or is not a directory
-        """
-        path = "".join(p + "/" for p in self.parts)
-        try:
-            r = self.client.get(f"/zarr/{self.zarr_id}.zarr/{path}")
-        except HTTP404Error:
-            raise NotFoundError(
-                f"{str(self)!r} in Zarr {self.zarr_id!r} does not exist or is"
-                " not a directory"
-            )
-        return ZarrListing.parse_obj(r)
+    @property
+    def name(self) -> str:
+        """The basename of the path object"""
+        assert self.parts
+        return self.parts[-1]
+
+    @property
+    def suffix(self) -> str:
+        """The final file extension of the basename, if any"""
+        i = self.name.rfind(".")
+        if 0 < i < len(self.name) - 1:
+            return self.name[i:]
+        else:
+            return ""
+
+    @property
+    def suffixes(self) -> List[str]:
+        """A list of the basename's file extensions"""
+        if self.name.endswith("."):
+            return []
+        name = self.name.lstrip(".")
+        return ["." + suffix for suffix in name.split(".")[1:]]
+
+    @property
+    def stem(self) -> str:
+        """The basename without its final file extension, if any"""
+        i = self.name.rfind(".")
+        if 0 < i < len(self.name) - 1:
+            return self.name[:i]
+        else:
+            return self.name
+
+    def match(self, pattern: str) -> bool:
+        """Tests whether the path matches the given glob pattern"""
+        if pattern.startswith("/"):
+            raise ValueError(f"Absolute paths not allowed: {pattern!r}")
+        patparts = tuple(q for q in pattern.split("/") if q)
+        if not patparts:
+            raise ValueError("Empty pattern")
+        if len(patparts) > len(self.parts):
+            return False
+        for part, pat in zip(reversed(self.parts), reversed(patparts)):
+            if not fnmatchcase(part, pat):
+                return False
+        return True
 
     def get_download_file_iter(
         self, chunk_size: int = MAX_CHUNK_SIZE
@@ -1957,13 +1820,10 @@ class RemoteZarrEntry(BasePath):
         Returns a function that when called (optionally with an offset into the
         file to start downloading at) returns a generator of chunks of the file
         """
-        if not self.is_file():
-            raise RuntimeError(
-                f"{str(self)!r} in Zarr {self.zarr_id!r} does not exist or"
-                " is not a file"
-            )
-
-        url = self.client.get_url(f"/zarr/{self.zarr_id}.zarr/{'/'.join(self.parts)}")
+        prefix = quote_plus(str(self))
+        url = self.client.get_url(
+            f"/zarr/{self.zarr_id}/files?prefix={prefix}&download=true"
+        )
 
         def downloader(start_at: int = 0) -> Iterator[bytes]:
             lgr.debug("Starting download from %s", url)
@@ -1981,33 +1841,16 @@ class RemoteZarrEntry(BasePath):
 
         return downloader
 
-    def iterfiles(self, include_dirs: bool = False) -> Iterator["RemoteZarrEntry"]:
-        """
-        Returns a generator of all `RemoteZarrEntry`\\s under the directory.
-        By default, only instances for files are produced, unless
-        ``include_dirs`` is true.
-        """
-        dirs = deque([self])
-        while dirs:
-            d = dirs.popleft()
-            try:
-                subpaths = list(d.iterdir())
-            except NotFoundError:
-                if d.is_root():
-                    # Empty zarr; can happen if an upload is interrupted during
-                    # the initial batch
-                    return
-                else:
-                    raise
-            for p in subpaths:
-                if p.is_dir():
-                    dirs.append(p)
-                    if include_dirs:
-                        yield p
-                else:
-                    yield p
 
-    def clear_cache(self) -> None:
-        """Delete any locally-cached data about the entry"""
-        self._known_dir = None
-        self._digest = None
+class ZarrEntryServerData(BaseModel):
+    """
+    Intermediate structure used for parsing details on a Zarr entry returned by
+    the server
+
+    :meta private:
+    """
+
+    key: str = Field(alias="Key")
+    last_modified: datetime = Field(alias="LastModified")
+    etag: str = Field(alias="ETag")
+    size: int = Field(alias="Size")

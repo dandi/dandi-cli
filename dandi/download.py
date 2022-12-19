@@ -838,15 +838,14 @@ def _download_zarr(
             digests[path] = d
 
     for entry in entries:
-        etag = entry.get_digest()
+        etag = entry.digest
         assert etag.algorithm is DigestType.md5
-        stat = entry.stat()
         download_gens[str(entry)] = _download_file(
             entry.get_download_file_iter(),
             op.join(download_path, op.normpath(str(entry))),
             toplevel_path=toplevel_path,
-            size=stat.size,
-            mtime=stat.modified,
+            size=entry.size,
+            mtime=entry.modified,
             existing=existing,
             digests={"md5": etag.value},
             lock=lock,

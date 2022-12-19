@@ -286,10 +286,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         client = dandiset.client
         lgr.debug("%s: Producing asset", asset_path)
         yield {"status": "producing asset"}
-        old_zarr_entries: dict[str, RemoteZarrEntry] = {}
 
         def mkzarr() -> str:
-            nonlocal old_zarr_entries
             try:
                 r = client.post(
                     "/zarr/",
@@ -310,15 +308,6 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         },
                     )
                     zarr_id = old_zarr["zarr_id"]
-                    filetree = RemoteZarrEntry(
-                        client=client,
-                        zarr_id=zarr_id,
-                        parts=(),
-                        _known_dir=True,
-                    )
-                    old_zarr_entries = {
-                        str(e): e for e in filetree.iterfiles(include_dirs=True)
-                    }
                 else:
                     raise
             else:
@@ -333,9 +322,6 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     "%s: Pre-existing asset is a Zarr; reusing & updating", asset_path
                 )
                 zarr_id = replacing.zarr
-                old_zarr_entries = {
-                    str(e): e for e in replacing.iterfiles(include_dirs=True)
-                }
             else:
                 lgr.debug(
                     "%s: Pre-existing asset is not a Zarr; minting new Zarr", asset_path
@@ -354,6 +340,9 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             )
         a = RemoteAsset.from_data(dandiset, r)
         assert isinstance(a, RemoteZarrAsset)
+        old_zarr_entries: dict[str, RemoteZarrEntry] = {
+            str(e): e for e in a.iterfiles()
+        }
 
         total_size = 0
         to_upload = EntryUploadTracker()
@@ -370,17 +359,33 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         for pp in local_entry.parents:
                             pps = str(pp)
                             if pps in old_zarr_entries:
-                                if old_zarr_entries[pps].is_file():
-                                    lgr.debug(
-                                        "%s: Parent path %s of file %s"
-                                        " corresponds to a remote file;"
-                                        " deleting remote",
-                                        asset_path,
-                                        pps,
-                                        local_entry,
-                                    )
-                                    to_delete.append(old_zarr_entries.pop(pps))
+                                lgr.debug(
+                                    "%s: Parent path %s of file %s"
+                                    " corresponds to a remote file;"
+                                    " deleting remote",
+                                    asset_path,
+                                    pps,
+                                    local_entry,
+                                )
+                                to_delete.append(old_zarr_entries.pop(pps))
                                 break
+                        else:
+                            eprefix = str(local_entry) + "/"
+                            sub_e = [
+                                (k, v)
+                                for k, v in old_zarr_entries.items()
+                                if k.startswith(eprefix)
+                            ]
+                            if sub_e:
+                                lgr.debug(
+                                    "%s: Path %s of local file is a directory"
+                                    " in remote Zarr; deleting remote",
+                                    asset_path,
+                                    local_entry,
+                                )
+                                for k, v in sub_e:
+                                    old_zarr_entries.pop(k)
+                                    to_delete.append(v)
                         lgr.debug(
                             "%s: Path %s not present in remote Zarr; uploading",
                             asset_path,
@@ -388,32 +393,14 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         )
                         to_upload.register(local_entry)
                     else:
-                        if remote_entry.is_dir():
-                            lgr.debug(
-                                "%s: Path %s of local file is a directory in"
-                                " remote Zarr; deleting remote & re-uploading",
+                        digesting.append(
+                            executor.submit(
+                                _cmp_digests,
                                 asset_path,
                                 local_entry,
+                                remote_entry.digest.value,
                             )
-                            eprefix = str(remote_entry) + "/"
-                            sub_e = [
-                                (k, v)
-                                for k, v in old_zarr_entries.items()
-                                if k.startswith(eprefix)
-                            ]
-                            for k, v in sub_e:
-                                old_zarr_entries.pop(k)
-                                to_delete.append(v)
-                            to_upload.register(local_entry)
-                        else:
-                            digesting.append(
-                                executor.submit(
-                                    _cmp_digests,
-                                    asset_path,
-                                    local_entry,
-                                    remote_entry.get_digest().value,
-                                )
-                            )
+                        )
                 for dgstfut in as_completed(digesting):
                     try:
                         item = dgstfut.result()
@@ -492,7 +479,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 client.post(f"/zarr/{zarr_id}/upload/complete/")
                 ZARR_UPLOADS_IN_PROGRESS.discard(upload_data)
         lgr.debug("%s: All files uploaded", asset_path)
-        old_zarr_files = [e for e in old_zarr_entries.values() if e.is_file()]
+        old_zarr_files = list(old_zarr_entries.values())
         if old_zarr_files:
             yield {"status": "deleting extra remote files"}
             lgr.debug(

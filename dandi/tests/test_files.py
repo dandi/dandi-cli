@@ -381,36 +381,43 @@ def test_upload_zarr(new_dandiset, tmp_path):
     md = asset.get_raw_metadata()
     assert md["description"] == "A modified Zarr"
 
-    for file_src in [zf, asset]:
-        lgr.debug("Traversing %s", type(file_src).__name__)
-        entries = sorted(file_src.iterfiles(include_dirs=True), key=attrgetter("parts"))
-        assert [str(e) for e in entries] == [
-            ".zgroup",
-            "arr_0",
-            "arr_0/.zarray",
-            "arr_0/0",
-            "arr_1",
-            "arr_1/.zarray",
-            "arr_1/0",
-        ]
-        assert (file_src.filetree / ".zgroup").exists()
-        assert (file_src.filetree / ".zgroup").is_file()
-        assert not (file_src.filetree / ".zgroup").is_dir()
-        assert (file_src.filetree / "arr_0").exists()
-        assert not (file_src.filetree / "arr_0").is_file()
-        assert (file_src.filetree / "arr_0").is_dir()
-        assert not (file_src.filetree / "0").exists()
-        assert not (file_src.filetree / "0").is_file()
-        assert not (file_src.filetree / "0").is_dir()
-        assert not (file_src.filetree / "arr_0" / ".zgroup").exists()
-        assert not (file_src.filetree / "arr_0" / ".zgroup").is_file()
-        assert not (file_src.filetree / "arr_0" / ".zgroup").is_dir()
-        assert not (file_src.filetree / ".zgroup" / "0").exists()
-        assert not (file_src.filetree / ".zgroup" / "0").is_file()
-        assert not (file_src.filetree / ".zgroup" / "0").is_dir()
-        assert not (file_src.filetree / "arr_2" / "0").exists()
-        assert not (file_src.filetree / "arr_2" / "0").is_file()
-        assert not (file_src.filetree / "arr_2" / "0").is_dir()
+    entries = sorted(asset.iterfiles(), key=attrgetter("parts"))
+    assert [str(e) for e in entries] == [
+        ".zgroup",
+        "arr_0/.zarray",
+        "arr_0/0",
+        "arr_1/.zarray",
+        "arr_1/0",
+    ]
+
+    entries = sorted(zf.iterfiles(include_dirs=True), key=attrgetter("parts"))
+    assert [str(e) for e in entries] == [
+        ".zgroup",
+        "arr_0",
+        "arr_0/.zarray",
+        "arr_0/0",
+        "arr_1",
+        "arr_1/.zarray",
+        "arr_1/0",
+    ]
+    assert (zf.filetree / ".zgroup").exists()
+    assert (zf.filetree / ".zgroup").is_file()
+    assert not (zf.filetree / ".zgroup").is_dir()
+    assert (zf.filetree / "arr_0").exists()
+    assert not (zf.filetree / "arr_0").is_file()
+    assert (zf.filetree / "arr_0").is_dir()
+    assert not (zf.filetree / "0").exists()
+    assert not (zf.filetree / "0").is_file()
+    assert not (zf.filetree / "0").is_dir()
+    assert not (zf.filetree / "arr_0" / ".zgroup").exists()
+    assert not (zf.filetree / "arr_0" / ".zgroup").is_file()
+    assert not (zf.filetree / "arr_0" / ".zgroup").is_dir()
+    assert not (zf.filetree / ".zgroup" / "0").exists()
+    assert not (zf.filetree / ".zgroup" / "0").is_file()
+    assert not (zf.filetree / ".zgroup" / "0").is_dir()
+    assert not (zf.filetree / "arr_2" / "0").exists()
+    assert not (zf.filetree / "arr_2" / "0").is_file()
+    assert not (zf.filetree / "arr_2" / "0").is_dir()
 
 
 def test_zarr_properties(tmp_path: Path) -> None:
@@ -467,13 +474,11 @@ def test_upload_zarr_with_excluded_dotfiles(
         "arr_1/.zarray",
         "arr_1/0",
     ]
-    remote_entries = sorted(asset.iterfiles(include_dirs=True), key=attrgetter("parts"))
+    remote_entries = sorted(asset.iterfiles(), key=attrgetter("parts"))
     assert [str(e) for e in remote_entries] == [
         ".zgroup",
-        "arr_0",
         "arr_0/.zarray",
         "arr_0/0",
-        "arr_1",
         "arr_1/.zarray",
         "arr_1/0",
     ]
