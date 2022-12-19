@@ -369,6 +369,23 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                 )
                                 to_delete.append(old_zarr_entries.pop(pps))
                                 break
+                        else:
+                            eprefix = str(local_entry) + "/"
+                            sub_e = [
+                                (k, v)
+                                for k, v in old_zarr_entries.items()
+                                if k.startswith(eprefix)
+                            ]
+                            if sub_e:
+                                lgr.debug(
+                                    "%s: Path %s of local file is a directory"
+                                    " in remote Zarr; deleting remote",
+                                    asset_path,
+                                    local_entry,
+                                )
+                                for k, v in sub_e:
+                                    old_zarr_entries.pop(k)
+                                    to_delete.append(v)
                         lgr.debug(
                             "%s: Path %s not present in remote Zarr; uploading",
                             asset_path,
@@ -376,32 +393,14 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         )
                         to_upload.register(local_entry)
                     else:
-                        eprefix = str(local_entry) + "/"
-                        sub_e = [
-                            (k, v)
-                            for k, v in old_zarr_entries.items()
-                            if k.startswith(eprefix)
-                        ]
-                        if sub_e:
-                            lgr.debug(
-                                "%s: Path %s of local file is a directory in"
-                                " remote Zarr; deleting remote & re-uploading",
+                        digesting.append(
+                            executor.submit(
+                                _cmp_digests,
                                 asset_path,
                                 local_entry,
+                                remote_entry.digest.value,
                             )
-                            for k, v in sub_e:
-                                old_zarr_entries.pop(k)
-                                to_delete.append(v)
-                            to_upload.register(local_entry)
-                        else:
-                            digesting.append(
-                                executor.submit(
-                                    _cmp_digests,
-                                    asset_path,
-                                    local_entry,
-                                    remote_entry.digest.value,
-                                )
-                            )
+                        )
                 for dgstfut in as_completed(digesting):
                     try:
                         item = dgstfut.result()
