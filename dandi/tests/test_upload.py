@@ -212,6 +212,27 @@ def test_upload_bids_validation_ignore(
     dandiset.get_asset_by_path("sub-Sub1/anat/sub-Sub1_T1w.nii.gz")
 
 
+def test_upload_bids_metadata(
+    mocker: MockerFixture, bids_dandiset: SampleDandiset
+) -> None:
+    iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
+    bids_dandiset.upload(existing="force")
+    # Check whether upload was run
+    iter_upload_spy.assert_called()
+    # Check existence of assets:
+    dandiset = bids_dandiset.dandiset
+    # file we created?
+    dandiset.get_asset_by_path("README")
+    # BIDS descriptor file?
+    dandiset.get_asset_by_path("dataset_description.json")
+    # actual data file?
+    dandiset.get_asset_by_path("sub-Sub1/anat/sub-Sub1_T1w.nii.gz")
+    dspath = dandiset.dspath
+    ds_orig = APIDandiset(dspath)
+    ds_metadata = ds_orig.metadata
+    print(ds_metadata)
+
+
 def test_upload_bids(mocker: MockerFixture, bids_dandiset: SampleDandiset) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     bids_dandiset.upload(existing="force")
