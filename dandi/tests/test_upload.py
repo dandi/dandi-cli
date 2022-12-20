@@ -215,22 +215,14 @@ def test_upload_bids_validation_ignore(
 def test_upload_bids_metadata(
     mocker: MockerFixture, bids_dandiset: SampleDandiset
 ) -> None:
-    from pprint import pprint
-
     bids_dandiset.upload(existing="force")
     dandiset = bids_dandiset.dandiset
-    metadata = dandiset.get_asset_by_path(
-        "sub-Sub1/anat/sub-Sub1_T1w.nii.gz"
-    ).get_raw_metadata()
-    pprint(metadata)
-    # Could be automated somehow, but we're already hard-coding the path.
-    assert metadata["wasAttributedTo"][0]["identifier"] == "Sub1"
-    print("AAAAAAAAAAAAAAAAAAAAAA")
-    metadata = dandiset.get_asset_by_path(
-        "sub-Sub1/anat/sub-Sub1_T1w.nii.gz"
-    ).get_metadata()
-    pprint(metadata)
-    print("AAAAAAAAAAAAAAAAAAAAAA")
+    # Automatically check all files, heuristic should remain very BIDS-stable
+    for asset in dandiset.get_assets(order="path"):
+        apath = asset.path
+        if "Sub1" in apath:
+            metadata = dandiset.get_asset_by_path(apath).get_metadata()
+            assert metadata.wasAttributedTo[0].identifier == "Sub1"
 
 
 def test_upload_bids(mocker: MockerFixture, bids_dandiset: SampleDandiset) -> None:
