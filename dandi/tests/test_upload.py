@@ -212,6 +212,20 @@ def test_upload_bids_validation_ignore(
     dandiset.get_asset_by_path("sub-Sub1/anat/sub-Sub1_T1w.nii.gz")
 
 
+def test_upload_bids_metadata(
+    mocker: MockerFixture, bids_dandiset: SampleDandiset
+) -> None:
+    bids_dandiset.upload(existing="force")
+    dandiset = bids_dandiset.dandiset
+    # Automatically check all files, heuristic should remain very BIDS-stable
+    for asset in dandiset.get_assets(order="path"):
+        apath = asset.path
+        if "sub-" in apath:
+            metadata = dandiset.get_asset_by_path(apath).get_metadata()
+            # Hard-coded check for the subject identifier set in the fixture:
+            assert metadata.wasAttributedTo[0].identifier == "Sub1"
+
+
 def test_upload_bids(mocker: MockerFixture, bids_dandiset: SampleDandiset) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     bids_dandiset.upload(existing="force")
