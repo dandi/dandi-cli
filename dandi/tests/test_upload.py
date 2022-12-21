@@ -220,8 +220,9 @@ def test_upload_bids_metadata(
     # Automatically check all files, heuristic should remain very BIDS-stable
     for asset in dandiset.get_assets(order="path"):
         apath = asset.path
-        if "Sub1" in apath:
+        if "sub-" in apath:
             metadata = dandiset.get_asset_by_path(apath).get_metadata()
+            # Hard-coded check for the subject identifier set in the fixture:
             assert metadata.wasAttributedTo[0].identifier == "Sub1"
 
 
