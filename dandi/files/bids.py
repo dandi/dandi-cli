@@ -13,7 +13,7 @@ from dandischema.models import BareAsset
 from .bases import GenericAsset, LocalFileAsset, NWBAsset
 from .zarr import ZarrAsset
 from ..consts import ZARR_MIME_TYPE
-from ..metadata import add_common_metadata, prepare_metadata
+from ..metadata import add_common_metadata
 from ..misctypes import Digest
 from ..validate_types import ValidationResult
 
@@ -102,6 +102,8 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                         print(result)
                         print("jj")
                         assert result.path
+                        print(result.path)
+                        print("kk1")
                         bids_path = result.path.relative_to(self.bids_root).as_posix()
                         self._asset_errors[bids_path].append(result)
                     elif result.id in BIDS_DATASET_ERRORS:
@@ -117,12 +119,6 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                         print(result.path)
                         print("kk1")
                         bids_path = result.path.relative_to(self.bids_root).as_posix()
-                        print("kk2")
-                        assert result.metadata is not None
-                        print("kk3")
-                        self._asset_metadata[bids_path] = prepare_metadata(
-                            result.metadata
-                        )
                         self._bids_version = result.origin.bids_version
                         print("kk4")
                 print("..")
