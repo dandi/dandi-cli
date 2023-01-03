@@ -41,6 +41,7 @@ lgr = get_logger()
 BIDS_TESTDATA_SELECTION = [
     "asl003",
     "eeg_cbm",
+    "ieeg_epilepsyNWB",
     # uncomment once upstream releases fixed spec:
     # https://github.com/bids-standard/bids-specification/pull/1346#event-7696972438
     # "hcp_example_bids",
