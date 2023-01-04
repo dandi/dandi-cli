@@ -12,6 +12,7 @@ from dateutil.tz import tzutc
 import pytest
 from semantic_version import Version
 
+from .fixtures import SampleDandiset
 from .skip import mark
 from ..metadata import (
     extract_age,
@@ -46,6 +47,11 @@ def test_get_metadata(simple1_nwb: str, simple1_nwb_metadata: Dict[str, Any]) ->
     # version it currently "supports", we will just pop it
     assert metadata.pop("nwb_version").startswith("2.")
     assert target_metadata == metadata
+
+
+def test_bids_nwb_metadata_integration(bids_nwb_dandiset: SampleDandiset) -> None:
+    metadata = get_metadata(bids_nwb_dandiset)
+    print(metadata)
 
 
 @pytest.mark.parametrize(

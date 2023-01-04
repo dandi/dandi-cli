@@ -539,6 +539,18 @@ def bids_dandiset(new_dandiset: SampleDandiset, bids_examples: str) -> SampleDan
 
 
 @pytest.fixture()
+def bids_nwb_dandiset(
+    new_dandiset: SampleDandiset, bids_examples: str
+) -> SampleDandiset:
+    copytree(
+        os.path.join(bids_examples, "ieeg_epilepsyNWB"),
+        str(new_dandiset.dspath) + "/",
+    )
+    (new_dandiset.dspath / "CHANGES").write_text("0.1.0 2014-11-03\n")
+    return new_dandiset
+
+
+@pytest.fixture()
 def bids_dandiset_invalid(
     new_dandiset: SampleDandiset, bids_error_examples: str
 ) -> SampleDandiset:
