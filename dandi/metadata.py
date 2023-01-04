@@ -105,7 +105,7 @@ def get_metadata(
                 pass
             else:
                 meta[key] = value
-    elif path.endswith((".NWB", ".nwb")):
+    if path.endswith((".NWB", ".nwb")):
         if nwb_has_external_links(path):
             raise NotImplementedError(
                 f"NWB files with external links are not supported: {path}"
