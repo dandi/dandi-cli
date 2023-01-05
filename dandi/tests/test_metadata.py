@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 
@@ -50,7 +51,14 @@ def test_get_metadata(simple1_nwb: str, simple1_nwb_metadata: Dict[str, Any]) ->
 
 
 def test_bids_nwb_metadata_integration(bids_nwb_dandiset: SampleDandiset) -> None:
-    metadata = get_metadata(bids_nwb_dandiset)
+
+    dpath = bids_nwb_dandiset.dspath
+    file_path = os.path.join(
+        dpath, "sub-01/ses-postimp/ieeg/sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
+    )
+    print(file_path)
+    print(os.path.exists(file_path))
+    metadata = get_metadata(file_path)
     print(metadata)
 
 
