@@ -355,11 +355,6 @@ class RESTFullAPIClient:
         if r["next"] is not None:
             page1 = resp.history[0].url if resp.history else resp.url
             if not is_page2_url(page1, r["next"]):
-                lgr.warning(
-                    "Pagination request to %s returned unexpected 'next' URL: %s",
-                    page1,
-                    r["next"],
-                )
                 if os.environ.get("DANDI_PAGINATION_DISABLE_FALLBACK"):
                     raise RuntimeError(
                         f"API server changed pagination strategy: {page1} URL"
