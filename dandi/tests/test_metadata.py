@@ -64,7 +64,7 @@ def test_bids_nwb_metadata_integration(bids_examples, tmp_path):
         dpath, "sub-01/ses-postimp/ieeg/sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
     )
     metadata = get_metadata(file_path)
-    print(metadata)
+    assert metadata["subject_id"] == "01"
 
 
 def test_bids_nwb_metadata_integration_(bids_nwb_dandiset: SampleDandiset) -> None:
@@ -74,7 +74,7 @@ def test_bids_nwb_metadata_integration_(bids_nwb_dandiset: SampleDandiset) -> No
         dpath, "sub-01/ses-postimp/ieeg/sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
     )
     metadata = get_metadata(file_path)
-    print(metadata)
+    assert metadata["subject_id"] == "01"
 
 
 @pytest.mark.parametrize(

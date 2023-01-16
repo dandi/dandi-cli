@@ -94,12 +94,9 @@ def get_metadata(
             dandiset_path,
             bids_dataset_description=bids_dataset_description,
         )
-        print(digest)
-        print("AAAAAAAAAAAAAAAAAAAAAAAA")
         if not digest:
             digest = "0" * 32 + "-1"
             digest = Digest.dandi_etag(digest)
-        print(digest)
         path_metadata = df.get_metadata(digest=digest)
         assert isinstance(df, bids.BIDSAsset)
         meta["bids_version"] = df.get_validation_bids_version()
