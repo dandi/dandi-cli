@@ -155,8 +155,8 @@ def upload(
                                 strpath,
                                 len(validation_errors),
                             )
-                            for i, e in enumerate(validation_errors):
-                                lgr.warning(" Error %d: %s", i + 1, e)
+                            for i, e in enumerate(validation_errors, start=1):
+                                lgr.warning(" Error %d: %s", i, e)
                             yield skip_file("failed validation")
                             return
                     else:
