@@ -66,8 +66,6 @@ def test_ls_bids_file(bids_examples):
     assert r.exit_code == 0, r.output
     data = yaml_load(r.stdout, "safe")
     assert len(data) == 1
-    print(data)
-    print(data[0])
     assert data[0]["identifier"] == "Sub1"
 
 

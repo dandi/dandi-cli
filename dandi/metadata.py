@@ -153,7 +153,7 @@ def get_metadata(
                 __import__(import_mod)
 
         meta["nd_types"] = get_neurodata_types(path)
-    else:
+    if not meta:
         raise RuntimeError("Unable to get metadata from non-BIDS, non-NWB asset.")
     return meta
 
