@@ -22,6 +22,7 @@ from .files import (
 )
 from .misctypes import Digest
 from .utils import ensure_datetime, get_instance, pluralize
+from .validate_types import Severity
 
 if TYPE_CHECKING:
     from .support.typing import TypedDict
@@ -141,11 +142,21 @@ def upload(
                 # TODO: enable back validation of dandiset.yaml
                 if isinstance(dfile, LocalAsset) and validation != "skip":
                     yield {"status": "pre-validating"}
-                    validation_errors = dfile.get_validation_errors()
+                    validation_statuses = dfile.get_validation_errors()
+                    validation_errors = [
+                        s for s in validation_statuses if s.severity == Severity.ERROR
+                    ]
                     yield {"errors": len(validation_errors)}
                     # TODO: split for dandi, pynwb errors
                     if validation_errors:
                         if validation == "require":
+                            lgr.warning(
+                                "%r had %d validation errors preventing its upload:",
+                                strpath,
+                                len(validation_errors),
+                            )
+                            for i, e in enumerate(validation_errors, start=1):
+                                lgr.warning(" Error %d: %s", i, e)
                             yield skip_file("failed validation")
                             return
                     else:
