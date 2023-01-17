@@ -1,3 +1,19 @@
+# 0.48.1 (Tue Jan 17 2023)
+
+#### 🐛 Bug Fix
+
+- Fail upload only for validation ERRORs and not necessarily WARNINGs or HINTs + log all errors [#1186](https://github.com/dandi/dandi-cli/pull/1186) ([@yarikoptic](https://github.com/yarikoptic))
+- Don't warn on unexpected formats for "next" page URLs [#1184](https://github.com/dandi/dandi-cli/pull/1184) ([@jwodder](https://github.com/jwodder))
+- Upload test to check for metadata [#1180](https://github.com/dandi/dandi-cli/pull/1180) ([@TheChymera](https://github.com/TheChymera))
+
+#### Authors: 3
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.48.0 (Mon Dec 19 2022)
 
 #### 🚀 Enhancement
