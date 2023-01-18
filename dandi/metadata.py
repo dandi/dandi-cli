@@ -88,7 +88,6 @@ def get_metadata(
     bids_dataset_description = find_bids_dataset_description(path)
     if bids_dataset_description:
         dandiset_path = find_parent_directory_containing("dandiset.yaml", path)
-        bids_dataset_description = find_bids_dataset_description(path)
         df = dandi_file(
             Path(path),
             dandiset_path,
