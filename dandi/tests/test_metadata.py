@@ -14,7 +14,6 @@ from dateutil.tz import tzutc
 import pytest
 from semantic_version import Version
 
-from .fixtures import SampleDandiset
 from .skip import mark
 from ..metadata import (
     extract_age,
@@ -52,6 +51,13 @@ def test_get_metadata(simple1_nwb: str, simple1_nwb_metadata: Dict[str, Any]) ->
 
 
 def test_bids_nwb_metadata_integration(bids_examples, tmp_path):
+    """
+    Notes
+    -----
+    * Generating data manually here, as fixture workflow calls `new_dandiset`,
+        which requires spinning up docker:
+        https://github.com/dandi/dandi-cli/pull/1183#discussion_r1061622910
+    """
 
     source_dpath = os.path.join(bids_examples, "ieeg_epilepsyNWB")
     dpath = os.path.join(tmp_path, "ieeg_epilepsyNWB")
@@ -60,16 +66,6 @@ def test_bids_nwb_metadata_integration(bids_examples, tmp_path):
         f.write("identifier: '000001'")
         f.close
 
-    file_path = os.path.join(
-        dpath, "sub-01/ses-postimp/ieeg/sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
-    )
-    metadata = get_metadata(file_path)
-    assert metadata["subject_id"] == "01"
-
-
-def test_bids_nwb_metadata_integration_(bids_nwb_dandiset: SampleDandiset) -> None:
-
-    dpath = bids_nwb_dandiset.dspath
     file_path = os.path.join(
         dpath, "sub-01/ses-postimp/ieeg/sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
     )
