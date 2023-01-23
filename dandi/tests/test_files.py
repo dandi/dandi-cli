@@ -354,11 +354,17 @@ def test_validate_simple3_no_subject_id(simple3_nwb):
 
 
 def test_validate_bogus(tmp_path):
+    """
+    Notes
+    -----
+    * Intended to produce use-case for https://github.com/dandi/dandi-cli/issues/93
+        but it would be tricky, so it is more of a smoke test that
+        we do not crash
+    """
     path = tmp_path / "wannabe.nwb"
     path.write_text("not really nwb")
-    # intended to produce use-case for https://github.com/dandi/dandi-cli/issues/93
-    # but it would be tricky, so it is more of a smoke test that
-    # we do not crash
+    # We need to catch this warning lest pytest interprets it as a failure:
+    # https://github.com/hdmf-dev/hdmf/issues/817#issuecomment-1399080575
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore", message="HDF5IO was not fully initialized before close"
