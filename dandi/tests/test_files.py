@@ -3,6 +3,7 @@ from pathlib import Path
 import subprocess
 from typing import cast
 from unittest.mock import ANY
+import warnings
 
 from dandischema.models import get_schema_version
 import numpy as np
@@ -358,7 +359,11 @@ def test_validate_bogus(tmp_path):
     # intended to produce use-case for https://github.com/dandi/dandi-cli/issues/93
     # but it would be tricky, so it is more of a smoke test that
     # we do not crash
-    errors = dandi_file(path).get_validation_errors()
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message="HDF5IO was not fully initialized before close"
+        )
+        errors = dandi_file(path).get_validation_errors()
     # ATM we would get 2 errors -- since could not be open in two places,
     # but that would be too rigid to test. Let's just see that we have expected errors
     assert any(e.message.startswith("Unable to open file") for e in errors)
