@@ -62,15 +62,15 @@ def test_bids_nwb_metadata_integration(bids_examples, tmp_path):
     source_dpath = os.path.join(bids_examples, "ieeg_epilepsyNWB")
     dpath = os.path.join(tmp_path, "ieeg_epilepsyNWB")
     shutil.copytree(source_dpath, dpath)
-    with open("example.txt", "w") as f:
-        f.write("identifier: '000001'")
-        f.close
 
     file_path = os.path.join(
         dpath, "sub-01/ses-postimp/ieeg/sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
     )
     metadata = get_metadata(file_path)
+    # This is a key sourced from both NWB and BIDS:
     assert metadata["subject_id"] == "01"
+    # This is a key sourced from NWB only:
+    assert metadata["sex"] == "U"
 
 
 @pytest.mark.parametrize(
