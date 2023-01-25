@@ -64,7 +64,10 @@ def test_bids_nwb_metadata_integration(bids_examples, tmp_path):
     shutil.copytree(source_dpath, dpath)
 
     file_path = os.path.join(
-        dpath, "sub-01/ses-postimp/ieeg/sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
+        dpath,
+        *"sub-01/ses-postimp/ieeg/sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb".split(
+            "/"
+        )
     )
     metadata = get_metadata(file_path)
     # This is a key sourced from both NWB and BIDS:
