@@ -408,13 +408,19 @@ def find_parent_directory_containing(
 ) -> Optional[Path]:
     """Find a directory, on the path to 'path' containing filename
 
-    if no 'path' - path from cwd
-    Returns None if no such found, pathlib's Path to the directory if found
+    if no 'path' - path from cwd. If 'path' is not absolute, absolute path
+    is taken assuming relative to cwd.
+
+    Returns None if no such found, pathlib's Path (absolute) to the directory
+    if found.
     """
     if not path:
         path = Path.cwd()
     else:  # assure pathlib object
         path = Path(path)
+
+    if not path.is_absolute():
+        path = path.absolute()
 
     while True:
         if (path / filename).exists():
