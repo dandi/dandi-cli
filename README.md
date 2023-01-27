@@ -37,6 +37,42 @@ or
 This package provides a command line utility with a basic interface
 to help you prepare and upload your data to, or obtain data from, the [DANDI archive](http://dandiarchive.org). 
 
+
+```bash
+$> dandi
+Usage: dandi [OPTIONS] COMMAND [ARGS]...
+
+  A client to support interactions with DANDI archive
+  (http://dandiarchive.org).
+
+  To see help for a specific command, run
+
+      dandi COMMAND --help
+
+  e.g. dandi upload --help
+
+Options:
+  --version
+  -l, --log-level [DEBUG|INFO|WARNING|ERROR|CRITICAL]
+                                  Log level (case insensitive).  May be
+                                  specified as an integer.  [default: INFO]
+  --pdb                           Fall into pdb if errors out
+  --help                          Show this message and exit.
+
+Commands:
+  delete            Delete dandisets and assets from the server.
+  digest            Calculate file digests
+  download          Download a file or entire folder from DANDI.
+  instances         List known Dandi Archive instances that the CLI can...
+  ls                List .nwb files and dandisets metadata.
+  move              Move or rename assets in a local Dandiset and/or on...
+  organize          (Re)organize files according to the metadata.
+  service-scripts   Various utility operations
+  shell-completion  Emit shell script for enabling command completion.
+  upload            Upload Dandiset files to DANDI Archive.
+  validate          Validate files for NWB and DANDI compliance.
+  validate-bids     Validate BIDS paths.
+```
 Run `dandi --help` or `dandi <subcommand> --help` (e.g. `dandi upload --help`) to see manual pages.
 
 ## Resources
