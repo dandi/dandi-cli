@@ -35,7 +35,8 @@ or
 ## CLI Tool
 
 This package provides a command line utility with a basic interface
-to help you prepare and upload your data to, or obtain data from, the [DANDI archive](http://dandiarchive.org):
+to help you prepare and upload your data to, or obtain data from, the [DANDI archive](http://dandiarchive.org). 
+
 
 ```bash
 $> dandi
@@ -52,7 +53,7 @@ Usage: dandi [OPTIONS] COMMAND [ARGS]...
 
 Options:
   --version
- -l, --log-level [DEBUG|INFO|WARNING|ERROR|CRITICAL]
+  -l, --log-level [DEBUG|INFO|WARNING|ERROR|CRITICAL]
                                   Log level (case insensitive).  May be
                                   specified as an integer.  [default: INFO]
   --pdb                           Fall into pdb if errors out
@@ -72,61 +73,15 @@ Commands:
   validate          Validate files for NWB and DANDI compliance.
   validate-bids     Validate BIDS paths.
 ```
-
-Each of the commands has a set of options to alter its behavior.  Run
-`dandi COMMAND --help` to get more information:
-
-```
-$> dandi ls --help
-Usage: dandi ls [OPTIONS] PATH|URL
-
-  List .nwb files and dandisets metadata.
-
-  The arguments may be either resource identifiers or paths to local
-  files/directories.
-
-  Accepted resource identifier patterns:
-   - DANDI:<dandiset id>[/<version>]
-   - https://dandiarchive.org/...
-   - https://identifiers.org/DANDI:<dandiset id>[/<version id>] (<version id> cannot be 'draft')
-   - https://<server>[/api]/[#/]dandiset/<dandiset id>[/<version>][/files[?location=<path>]]
-   - https://*dandiarchive-org.netflify.app/...
-   - https://<server>[/api]/dandisets/<dandiset id>[/versions[/<version>]]
-   - https://<server>[/api]/assets/<asset id>[/download]
-   - https://<server>[/api]/dandisets/<dandiset id>/versions/<version>/assets/<asset id>[/download]
-   - https://<server>[/api]/dandisets/<dandiset id>/versions/<version>/assets/?path=<path>
-   - dandi://<instance name>/<dandiset id>[@<version>][/<path>]
-   - https://<server>/...
-
-Options:
-  -F, --fields TEXT               Comma-separated list of fields to display.
-                                  An empty value to trigger a list of
-                                  available fields to be printed out
-  -f, --format [auto|pyout|json|json_pp|json_lines|yaml]
-                                  Choose the format/frontend for output. If
-                                  'auto', 'pyout' will be used in case of
-                                  multiple files, and 'yaml' for a single
-                                  file.
-  -r, --recursive                 Recurse into content of
-                                  dandisets/directories. Only .nwb files will
-                                  be considered.
-  -J, --jobs INTEGER              Number of parallel download jobs.  [default:
-                                  6]
-  --metadata [api|all|assets]
-  --schema VERSION                Convert metadata to new schema version
-  --help                          Show this message and exit.
-```
-
-
-## Third-party Components
-
-**dandi/tests/skip.py** -- from https://github.com/ReproNim/reproman, as of v0.2.1-40-gf4f026d
-Copyright (c) 2016-2020  ReproMan Team
+Run `dandi --help` or `dandi <subcommand> --help` (e.g. `dandi upload --help`) to see manual pages.
 
 ## Resources
 
 * To learn how to interact with the DANDI archive and for examples on how to use the DANDI Client in various use cases,
-see [the handbook](https://www.dandiarchive.org/handbook/).
+see [the handbook](https://www.dandiarchive.org/handbook/)
+  (specifically the sections on using the CLI to
+[download](https://www.dandiarchive.org/handbook/12_download/) and
+[upload](https://www.dandiarchive.org/handbook/13_upload/) `Dandisets`).
 
 * To get help:
   - ask a question: https://github.com/dandi/helpdesk/discussions
