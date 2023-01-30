@@ -88,12 +88,14 @@ def get_metadata(
     bids_dataset_description = find_bids_dataset_description(path)
     if bids_dataset_description:
         dandiset_path = find_parent_directory_containing("dandiset.yaml", path)
-        bids_dataset_description = find_bids_dataset_description(path)
         df = dandi_file(
             Path(path),
             dandiset_path,
             bids_dataset_description=bids_dataset_description,
         )
+        if not digest:
+            _digest = "0" * 32 + "-1"
+            digest = Digest.dandi_etag(_digest)
         path_metadata = df.get_metadata(digest=digest)
         assert isinstance(df, bids.BIDSAsset)
         meta["bids_version"] = df.get_validation_bids_version()
@@ -105,7 +107,7 @@ def get_metadata(
                 pass
             else:
                 meta[key] = value
-    elif path.endswith((".NWB", ".nwb")):
+    if path.endswith((".NWB", ".nwb")):
         if nwb_has_external_links(path):
             raise NotImplementedError(
                 f"NWB files with external links are not supported: {path}"
@@ -150,8 +152,10 @@ def get_metadata(
                 __import__(import_mod)
 
         meta["nd_types"] = get_neurodata_types(path)
-    else:
-        raise RuntimeError("Unable to get metadata from non-BIDS, non-NWB asset.")
+    if not meta:
+        raise RuntimeError(
+            "Unable to get metadata from non-BIDS, non-NWB asset: `%s`." % path
+        )
     return meta
 
 

@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 import json
+import os
 from pathlib import Path
+import shutil
 from typing import Any, Dict, Optional, Tuple, Union
 
 from dandischema.consts import DANDI_SCHEMA_VERSION
@@ -46,6 +48,32 @@ def test_get_metadata(simple1_nwb: str, simple1_nwb_metadata: Dict[str, Any]) ->
     # version it currently "supports", we will just pop it
     assert metadata.pop("nwb_version").startswith("2.")
     assert target_metadata == metadata
+
+
+def test_bids_nwb_metadata_integration(bids_examples, tmp_path):
+    """
+    Notes
+    -----
+    * Generating data manually here, as fixture workflow calls `new_dandiset`,
+        which requires spinning up docker:
+        https://github.com/dandi/dandi-cli/pull/1183#discussion_r1061622910
+    """
+
+    source_dpath = os.path.join(bids_examples, "ieeg_epilepsyNWB")
+    dpath = os.path.join(tmp_path, "ieeg_epilepsyNWB")
+    shutil.copytree(source_dpath, dpath)
+
+    file_path = os.path.join(
+        dpath,
+        *"sub-01/ses-postimp/ieeg/sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb".split(
+            "/"
+        )
+    )
+    metadata = get_metadata(file_path)
+    # This is a key sourced from both NWB and BIDS:
+    assert metadata["subject_id"] == "01"
+    # This is a key sourced from NWB only:
+    assert metadata["sex"] == "U"
 
 
 @pytest.mark.parametrize(

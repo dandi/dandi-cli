@@ -41,6 +41,7 @@ lgr = get_logger()
 BIDS_TESTDATA_SELECTION = [
     "asl003",
     "eeg_cbm",
+    "ieeg_epilepsyNWB",
     # uncomment once upstream releases fixed spec:
     # https://github.com/bids-standard/bids-specification/pull/1346#event-7696972438
     # "hcp_example_bids",
@@ -531,6 +532,18 @@ def zarr_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
 def bids_dandiset(new_dandiset: SampleDandiset, bids_examples: str) -> SampleDandiset:
     copytree(
         os.path.join(bids_examples, "asl003"),
+        str(new_dandiset.dspath) + "/",
+    )
+    (new_dandiset.dspath / "CHANGES").write_text("0.1.0 2014-11-03\n")
+    return new_dandiset
+
+
+@pytest.fixture()
+def bids_nwb_dandiset(
+    new_dandiset: SampleDandiset, bids_examples: str
+) -> SampleDandiset:
+    copytree(
+        os.path.join(bids_examples, "ieeg_epilepsyNWB"),
         str(new_dandiset.dspath) + "/",
     )
     (new_dandiset.dspath / "CHANGES").write_text("0.1.0 2014-11-03\n")

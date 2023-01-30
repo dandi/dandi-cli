@@ -226,7 +226,7 @@ class NWBBIDSAsset(BIDSAsset, NWBAsset):
         digest: Optional[Digest] = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
-        bids_metadata = BIDSAsset.get_metadata(self)
+        bids_metadata = BIDSAsset.get_metadata(self, digest, ignore_errors)
         nwb_metadata = NWBAsset.get_metadata(self, digest, ignore_errors)
         return BareAsset(
             **{**bids_metadata.dict(), **nwb_metadata.dict(exclude_none=True)}
