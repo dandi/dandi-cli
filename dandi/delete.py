@@ -188,6 +188,11 @@ def delete(
     force: bool = False,
     skip_missing: bool = False,
 ) -> None:
+    """Delete dandisets and assets from the server.
+
+    PATH could be a local path or a URL to an asset, directory, or an entire
+    dandiset.
+    """
     deleter = Deleter(skip_missing=skip_missing)
     for p in paths:
         if is_url(p):
