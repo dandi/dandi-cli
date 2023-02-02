@@ -12,12 +12,32 @@ Python API
 High-level user interfaces
 ==========================
 
+Such interfaces mirror :ref:`Command-Line Interfaces <chap_cmdline>`.
+
+.. autosummary::
+   :toctree: generated
+
+   delete
+   download
+   move
+   organize
+   upload
+   validate
+
+Mid-level user interfaces
+==========================
+
+These interfaces provide Object-Oriented-Programming oriented interfaces to manipulate dandisets and assets in the
+archive.
+
 .. toctree::
 
    dandiarchive
 
-Mid-level user interfaces
+Low-level user interfaces
 =========================
+
+Low level interfaces to e.g. interact with archive REST API interfaces and files directly.
 
 .. toctree::
 
