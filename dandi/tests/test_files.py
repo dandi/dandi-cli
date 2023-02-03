@@ -3,7 +3,6 @@ from pathlib import Path
 import subprocess
 from typing import cast
 from unittest.mock import ANY
-import warnings
 
 from dandischema.models import get_schema_version
 import numpy as np
@@ -363,13 +362,7 @@ def test_validate_bogus(tmp_path):
     """
     path = tmp_path / "wannabe.nwb"
     path.write_text("not really nwb")
-    # We need to catch this warning lest pytest interprets it as a failure:
-    # https://github.com/hdmf-dev/hdmf/issues/817#issuecomment-1399080575
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore", message="HDF5IO was not fully initialized before close"
-        )
-        errors = dandi_file(path).get_validation_errors()
+    errors = dandi_file(path).get_validation_errors()
     # ATM we would get 2 errors -- since could not be open in two places,
     # but that would be too rigid to test. Let's just see that we have expected errors
     assert any(e.message.startswith("Unable to open file") for e in errors)
