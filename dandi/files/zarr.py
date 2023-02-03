@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from base64 import b64encode
 from collections.abc import Generator, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import closing
@@ -452,7 +453,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         i,
                         pluralize(len(uploading), "file"),
                     )
-                    r = client.post(f"/zarr/{zarr_id}/files", json=uploading)
+                    r = client.post(f"/zarr/{zarr_id}/files/", json=uploading)
                     with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
                         futures = [
                             executor.submit(
@@ -504,7 +505,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 )
                 yield {"status": "server calculating checksum"}
                 client.post(
-                    f"/zarr/{zarr_id}/finalize", json={"digest": str(zcc.process())}
+                    f"/zarr/{zarr_id}/finalize/", json={"digest": str(zcc.process())}
                 )
                 while True:
                     sleep(2)
@@ -542,7 +543,9 @@ def _upload_zarr_file(
             data=fp,
             json_resp=False,
             retry_if=_retry_zarr_file,
-            headers={"Content-MD5": digest},
+            headers={
+                "Content-MD5": b64encode(bytes.fromhex(digest)).decode("us-ascii")
+            },
         )
     return path.stat().st_size
 
