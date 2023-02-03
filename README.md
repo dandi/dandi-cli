@@ -22,7 +22,7 @@ The [DANDI Python client](https://pypi.org/project/dandi/) allows you to:
 ## Installation
 
 DANDI Client releases are [available from PyPI](https://pypi.org/project/dandi)
-and [conda-forge](https://anaconda.org/conda-forge/dandi).  Install them in your Python (native, virtualenv, or 
+and [conda-forge](https://anaconda.org/conda-forge/dandi).  Install them in your Python (native, virtualenv, or
 conda) environment via
 
     pip install dandi
@@ -35,7 +35,7 @@ or
 ## CLI Tool
 
 This package provides a command line utility with a basic interface
-to help you prepare and upload your data to, or obtain data from, the [DANDI archive](http://dandiarchive.org). 
+to help you prepare and upload your data to, or obtain data from, the [DANDI archive](http://dandiarchive.org).
 
 
 ```bash
@@ -67,7 +67,6 @@ Commands:
   ls                List .nwb files and dandisets metadata.
   move              Move or rename assets in a local Dandiset and/or on...
   organize          (Re)organize files according to the metadata.
-  service-scripts   Various utility operations
   shell-completion  Emit shell script for enabling command completion.
   upload            Upload Dandiset files to DANDI Archive.
   validate          Validate files for NWB and DANDI compliance.
