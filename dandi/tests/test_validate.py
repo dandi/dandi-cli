@@ -51,8 +51,6 @@ def test_validate_bids_onefile(bids_error_examples, tmp_path):
         os.path.join(bids_error_examples, selected_dataset)
     )
     (bids_dataset_path / dandiset_metadata_file).write_text("{}\n")
-    for i in os.listdir(bids_dataset_path):
-        print(i)
     error_reference = os.path.join(
         bids_error_examples, selected_dataset, ".ERRORS.json"
     )
