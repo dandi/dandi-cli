@@ -336,8 +336,9 @@ def upload(
                 if Version(latest_version) > Version(__version__):
                     lgr.warning(
                         "Upload failed, and you are not using the latest"
-                        " version of dandi.  Suggest upgrading dandi and trying"
-                        " again."
+                        " version of dandi.  We suggest upgrading dandi to v%s"
+                        " and trying again.",
+                        latest_version,
                     )
             sys.exit(1)
 
