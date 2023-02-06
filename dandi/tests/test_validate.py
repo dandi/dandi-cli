@@ -57,7 +57,7 @@ def test_validate_bids_onefile(bids_error_examples, tmp_path):
     )
     with open(error_reference) as f:
         expected_errors = json.load(f)
-    validation_result = validate(bids_file_path, report=True)
+    validation_result = validate(bids_file_path)
     for i in validation_result:
         error_id = i.id
         error_path = i.path
