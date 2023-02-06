@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Iterator
-import os
 from pathlib import Path
 from typing import Optional
 
@@ -109,7 +108,14 @@ def find_dandi_files(
                 )
         bids_root = find_parent_directory_containing("dataset_description.json", p)
         if bids_root:
-            bidsdd = dandi_file(os.path.join(bids_root, "dataset_description.json"))
+            bidsdd_path = bids_root / "dataset_description.json"
+            factory = BIDSDatasetDescriptionAsset
+            assert dandiset_path is not None
+            bidsdd = factory(
+                filepath=bidsdd_path,
+                path=str(bidsdd_path.relative_to(Path(dandiset_path))),
+                dandiset_path=Path(dandiset_path),
+            )
         else:
             bidsdd = None
         path_queue.append((Path(p), bidsdd))
