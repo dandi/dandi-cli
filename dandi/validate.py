@@ -171,7 +171,9 @@ def validate(
             # This is pretty awkward, as it turns out, if validation is called once on just the base
             # files, the results are somehow cached, and subsequent validation attempts in the same
             # BIDS dataset will just return the errors of the first run, which is to say, none.
-            if df.path in [
+            # This also won't fix all instances of missed validation, since results seem sensitive
+            # To the order in which files are presented...
+            if os.path.basename(str(df.filepath)) in [
                 "dataset_description.json",
                 "README",
                 "README.md",
