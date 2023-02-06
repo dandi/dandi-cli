@@ -6,7 +6,6 @@ import pathlib
 import pytest
 
 from .fixtures import BIDS_TESTDATA_SELECTION
-from ..consts import dandiset_metadata_file
 from ..validate import validate, validate_bids
 
 
@@ -50,10 +49,7 @@ def test_validate_bids_onefile(bids_error_examples, tmp_path):
     bids_dataset_path = pathlib.Path(
         os.path.join(bids_error_examples, selected_dataset)
     )
-    (bids_dataset_path / dandiset_metadata_file).write_text("{}\n")
-    error_reference = os.path.join(
-        bids_error_examples, selected_dataset, ".ERRORS.json"
-    )
+    error_reference = os.path.join(bids_dataset_path, ".ERRORS.json")
     with open(error_reference) as f:
         expected_errors = json.load(f)
     validation_result = validate(bids_file_path)
