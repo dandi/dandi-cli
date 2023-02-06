@@ -504,21 +504,25 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     "%s: Waiting for server to calculate Zarr checksum", asset_path
                 )
                 yield {"status": "server calculating checksum"}
-                client.post(
-                    f"/zarr/{zarr_id}/finalize/", json={"digest": str(zcc.process())}
-                )
+                client.post(f"/zarr/{zarr_id}/finalize/")
                 while True:
                     sleep(2)
                     r = client.get(f"/zarr/{zarr_id}/")
-                    if r["status"].upper() == "COMPLETE":
-                        mismatched = False
-                        break
-                    elif r["status"].upper() == "MISMATCH":
-                        mismatched = True
-                        lgr.info(
-                            "%s: Asset checksum mismatch; re-uploading", asset_path
-                        )
-                        yield {"status": "Checksum mismatch"}
+                    if r["status"] == "Complete":
+                        our_checksum = str(zcc.process())
+                        server_checksum = r["checksum"]
+                        if our_checksum == server_checksum:
+                            mismatched = False
+                        else:
+                            mismatched = True
+                            lgr.info(
+                                "%s: Asset checksum mismatch (local: %s;"
+                                " server: %s); redoing upload",
+                                our_checksum,
+                                server_checksum,
+                                asset_path,
+                            )
+                            yield {"status": "Checksum mismatch"}
                         break
             elif mismatched and not first_run:
                 lgr.error(
