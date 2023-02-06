@@ -112,7 +112,7 @@ def find_dandi_files(
             bidsdd = dandi_file(os.path.join(bids_root, "dataset_description.json"))
         else:
             bidsdd = None
-        path_queue.append((p, bidsdd))
+        path_queue.append((Path(p), bidsdd))
     while path_queue:
         p, bidsdd = path_queue.popleft()
         if p.name.startswith("."):
