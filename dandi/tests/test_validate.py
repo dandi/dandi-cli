@@ -6,7 +6,16 @@ import pathlib
 import pytest
 
 from .fixtures import BIDS_TESTDATA_SELECTION
-from ..validate import validate_bids
+from ..validate import validate, validate_bids
+
+
+def test_validate_nwb_error(simple3_nwb):
+    """
+    Do we fail on critical NWB validation errors?
+    """
+
+    validation_result = validate(simple3_nwb)
+    assert len([i for i in validation_result if i.severity]) > 0
 
 
 @pytest.mark.parametrize("dataset", BIDS_TESTDATA_SELECTION)
