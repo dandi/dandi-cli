@@ -3,7 +3,6 @@ from functools import reduce
 import os.path
 from pathlib import Path
 import re
-import sys
 import time
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Tuple, Union
 
@@ -111,7 +110,7 @@ def upload(
             lambda: {"size": 0, "errors": []}
         )
 
-        ok = True
+        upload_err: Optional[Exception] = None
         validate_ok = True
 
         # TODO: we might want to always yield a full record so no field is not
@@ -128,7 +127,7 @@ def upload(
             dict
               Records for pyout
             """
-            nonlocal ok, validate_ok
+            nonlocal upload_err, validate_ok
             strpath = str(dfile.filepath)
             try:
                 if not isinstance(dfile, LocalDirectoryAsset):
@@ -255,7 +254,8 @@ def upload(
                 yield {"status": "done"}
 
             except Exception as exc:
-                ok = False
+                if upload_err is None:
+                    upload_err = exc
                 if devel_debug:
                     raise
                 lgr.exception("Error uploading %s:", strpath)
@@ -325,7 +325,7 @@ def upload(
                 "One or more assets failed validation.  Consult the logfile for"
                 " details."
             )
-        if not ok:
+        if upload_err is not None:
             try:
                 import etelemetry
 
@@ -340,7 +340,7 @@ def upload(
                         " and trying again.",
                         latest_version,
                     )
-            sys.exit(1)
+            raise upload_err
 
         if sync:
             relpaths: List[str] = []

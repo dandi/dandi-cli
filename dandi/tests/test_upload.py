@@ -121,7 +121,7 @@ def test_upload_extant_bad_existing(
     mocker: MockerFixture, text_dandiset: SampleDandiset
 ) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
-    with pytest.raises(SystemExit):
+    with pytest.raises(ValueError):
         text_dandiset.upload(existing="foobar")
     iter_upload_spy.assert_not_called()
 
