@@ -15,7 +15,7 @@ from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteBlobAsset, RemoteZarrAsset
 from ..dandiset import APIDandiset
 from ..download import download
-from ..exceptions import NotFoundError
+from ..exceptions import NotFoundError, UploadError
 from ..files import LocalFileAsset
 from ..pynwb_utils import make_nwb_file
 from ..utils import list_paths, yaml_dump
@@ -121,7 +121,8 @@ def test_upload_extant_bad_existing(
     mocker: MockerFixture, text_dandiset: SampleDandiset
 ) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
-    text_dandiset.upload(existing="foobar")
+    with pytest.raises(SystemExit):
+        text_dandiset.upload(existing="foobar")
     iter_upload_spy.assert_not_called()
 
 
@@ -185,7 +186,8 @@ def test_upload_bids_invalid(
     mocker: MockerFixture, bids_dandiset_invalid: SampleDandiset
 ) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
-    bids_dandiset_invalid.upload(existing="force")
+    with pytest.raises(UploadError):
+        bids_dandiset_invalid.upload(existing="force")
     iter_upload_spy.assert_not_called()
     # Does validation ignoring work?
     bids_dandiset_invalid.upload(existing="force", validation="ignore")
@@ -265,7 +267,8 @@ def test_upload_invalid_metadata(
         ),
         **simple1_nwb_metadata,
     )
-    new_dandiset.upload()
+    with pytest.raises(UploadError):
+        new_dandiset.upload()
     with pytest.raises(NotFoundError):
         new_dandiset.dandiset.get_asset_by_path("broken.nwb")
 
