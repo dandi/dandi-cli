@@ -5,6 +5,7 @@ import pathlib
 import pytest
 
 from .fixtures import BIDS_TESTDATA_SELECTION
+from ..consts import dandiset_metadata_file
 from ..validate import validate, validate_bids
 
 
@@ -29,6 +30,43 @@ def test_validate_bids(bids_examples, tmp_path, dataset):
 def test_validate_bids_onefile(bids_error_examples, tmp_path):
     """
     Dedicated test using to single-file validation.
+
+    Notes
+    -----
+    * Due to the dataset-wide scope of BIDS, issues have arisen and can potentially arise again
+    with single-file handling. Best to keep this in to always make sure.
+    * This can be further automated thanks to the upstream `.ERRORS.json` convention to be
+    performed on all error datasets, but that might be overkill since we test the datasets as
+    a whole anyway.
+    """
+
+    selected_dataset, error_file = (
+        "invalid_asl003",
+        "sub-Sub1/perf/sub-Sub1_headshape.jpg",
+    )
+
+    bids_file_path = os.path.join(bids_error_examples, selected_dataset, error_file)
+    bids_dataset_path = pathlib.Path(
+        os.path.join(bids_error_examples, selected_dataset)
+    )
+    (bids_dataset_path / dandiset_metadata_file).write_text("{}\n")
+    for i in os.listdir(bids_dataset_path):
+        print(i)
+    error_reference = os.path.join(
+        bids_error_examples, selected_dataset, ".ERRORS.json"
+    )
+    with open(error_reference) as f:
+        expected_errors = json.load(f)
+    validation_result = validate(bids_file_path, report=True)
+    for i in validation_result:
+        error_id = i.id
+        error_path = i.path
+        relative_error_path = os.path.relpath(error_path, i.dataset_path)
+        relative_error_path = pathlib.Path(relative_error_path).as_posix()
+        assert relative_error_path in expected_errors[error_id.lstrip("BIDS.")]["scope"]
+
+
+def test_report_path(bids_examples, tmp_path):
 
     Notes
     -----
