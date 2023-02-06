@@ -5,7 +5,7 @@ import pathlib
 import pytest
 
 from .fixtures import BIDS_TESTDATA_SELECTION
-from ..validate import validate
+from ..validate import validate, validate_bids
 
 
 def test_validate_nwb_error(simple3_nwb):
