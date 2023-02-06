@@ -140,7 +140,7 @@ def simple3_nwb(
 ) -> str:
     """With a subject, but no subject_id."""
     return make_nwb_file(
-        str(tmp_path_factory.mktemp("simple2") / "simple2.nwb"),
+        str(tmp_path_factory.mktemp("simple3") / "simple3.nwb"),
         subject=pynwb.file.Subject(
             age="P1D/",
             sex="O",
