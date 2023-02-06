@@ -99,7 +99,6 @@ def test_validate_bids_errors(bids_error_examples, dataset):
 
     selected_dataset = os.path.join(bids_error_examples, dataset)
     validation_result = validate(selected_dataset)
-    validation_result = list(validation_result)
     with open(os.path.join(selected_dataset, ".ERRORS.json")) as f:
         expected_errors = json.load(f)
 
