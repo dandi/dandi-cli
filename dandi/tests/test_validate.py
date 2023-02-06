@@ -101,6 +101,7 @@ def test_validate_bids_errors(bids_error_examples, dataset):
     validation_result = validate(selected_dataset)
     with open(os.path.join(selected_dataset, ".ERRORS.json")) as f:
         expected_errors = json.load(f)
+    validation_result = [i for i in validation_result]
 
     # We know that these datasets contain errors.
     assert len(validation_result) > 0
