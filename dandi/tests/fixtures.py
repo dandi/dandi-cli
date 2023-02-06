@@ -269,6 +269,14 @@ def get_gitrepo_fixture(
         path = str(tmp_path_factory.mktemp("gitrepo"))
         lgr.debug("Cloning %r into %r", url, path)
         run(["git", "clone", "--depth=1", url, path], check=True)
+        for i in os.listdir(path):
+            bids_dataset_path = os.path.join(path, i)
+            if os.path.isdir(bids_dataset_path):
+                dandiset_metadata_file_path = os.path.join(
+                    bids_dataset_path, dandiset_metadata_file
+                )
+                with open(dandiset_metadata_file_path, "w") as f:
+                    f.write(" \n")
         return path
 
     return fixture
@@ -284,7 +292,7 @@ def get_filtered_gitrepo_fixture(
     ) -> Iterator[str]:
         skipif.no_network()
         skipif.no_git()
-        path = tmp_path_factory.mktemp("gitrepo")
+        path = str(tmp_path_factory.mktemp("gitrepo"))
         lgr.debug("Cloning %r into %r", url, path)
         run(
             [
@@ -294,7 +302,7 @@ def get_filtered_gitrepo_fixture(
                 "--filter=blob:none",
                 "--sparse",
                 url,
-                str(path),
+                path,
             ],
             check=True,
         )
@@ -303,7 +311,15 @@ def get_filtered_gitrepo_fixture(
         # were to run `git sparse-checkout` inside the software repo.
         run(["git", "sparse-checkout", "init", "--cone"], cwd=path, check=True)
         run(["git", "sparse-checkout", "set"] + whitelist, cwd=path, check=True)
-        yield str(path)
+        for i in os.listdir(path):
+            bids_dataset_path = os.path.join(path, i)
+            if os.path.isdir(bids_dataset_path):
+                dandiset_metadata_file_path = os.path.join(
+                    bids_dataset_path, dandiset_metadata_file
+                )
+                with open(dandiset_metadata_file_path, "w") as f:
+                    f.write(" \n")
+        yield path
 
     return fixture
 
