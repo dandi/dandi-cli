@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Iterator
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -39,6 +40,7 @@ from .bids import (
     ZarrBIDSAsset,
 )
 from .zarr import LocalZarrEntry, ZarrAsset, ZarrStat
+from ..utils import find_parent_directory_containing
 
 __all__ = [
     "BIDSAsset",
@@ -105,7 +107,12 @@ def find_dandi_files(
                 raise ValueError(
                     "Path {str(p)!r} is not inside Dandiset path {str(dandiset_path)!r}"
                 )
-        path_queue.append((p, None))
+        bids_root = find_parent_directory_containing("dataset_description.json", p)
+        if bids_root:
+            bidsdd = dandi_file(os.path.join(bids_root, "dataset_description.json"))
+        else:
+            bidsdd = None
+        path_queue.append((p, bidsdd))
     while path_queue:
         p, bidsdd = path_queue.popleft()
         if p.name.startswith("."):
