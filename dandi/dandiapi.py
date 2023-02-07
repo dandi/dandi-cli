@@ -1578,7 +1578,7 @@ class BaseRemoteZarrAsset(BaseRemoteAsset):
                 json=[{"path": str(e)} for e in entries],
             )
         if reingest:
-            self.client.post(f"/zarr/{self.zarr}/ingest/")
+            self.client.post(f"/zarr/{self.zarr}/finalize/")
             while True:
                 sleep(2)
                 r = self.client.get(f"/zarr/{self.zarr}/")
