@@ -7,11 +7,12 @@ import time
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Tuple, Union
 
 import click
+from packaging.version import Version
 
-from . import lgr
+from . import __version__, lgr
 from .consts import DRAFT, dandiset_identifier_regex, dandiset_metadata_file
 from .dandiapi import RemoteAsset
-from .exceptions import NotFoundError
+from .exceptions import NotFoundError, UploadError
 from .files import (
     DandiFile,
     DandisetMetadataFile,
@@ -109,6 +110,9 @@ def upload(
             lambda: {"size": 0, "errors": []}
         )
 
+        upload_err: Optional[Exception] = None
+        validate_ok = True
+
         # TODO: we might want to always yield a full record so no field is not
         # provided to pyout to cause it to halt
         def process_path(dfile: DandiFile) -> Iterator[dict]:
@@ -123,18 +127,17 @@ def upload(
             dict
               Records for pyout
             """
+            nonlocal upload_err, validate_ok
             strpath = str(dfile.filepath)
             try:
                 if not isinstance(dfile, LocalDirectoryAsset):
                     try:
                         yield {"size": dfile.size}
                     except FileNotFoundError:
-                        yield skip_file("ERROR: File not found")
-                        return
+                        raise UploadError("File not found")
                     except Exception as exc:
                         # without limiting [:50] it might cause some pyout indigestion
-                        yield skip_file("ERROR: %s" % str(exc)[:50])
-                        return
+                        raise UploadError(str(exc)[:50])
 
                 #
                 # Validate first, so we do not bother server at all if not kosher
@@ -157,8 +160,8 @@ def upload(
                             )
                             for i, e in enumerate(validation_errors, start=1):
                                 lgr.warning(" Error %d: %s", i, e)
-                            yield skip_file("failed validation")
-                            return
+                            validate_ok = False
+                            raise UploadError("failed validation")
                     else:
                         yield {"status": "validated"}
                 else:
@@ -196,8 +199,7 @@ def upload(
                     try:
                         file_etag = dfile.get_digest()
                     except Exception as exc:
-                        yield skip_file("failed to compute digest: %s" % str(exc))
-                        return
+                        raise UploadError("failed to compute digest: %s" % str(exc))
 
                 try:
                     extant = remote_dandiset.get_asset_by_path(dfile.path)
@@ -228,8 +230,7 @@ def upload(
                         digest=file_etag, ignore_errors=allow_any_path
                     ).json_dict()
                 except Exception as e:
-                    yield skip_file("failed to extract metadata: %s" % str(e))
-                    return
+                    raise UploadError("failed to extract metadata: %s" % str(e))
 
                 #
                 # Upload file
@@ -253,6 +254,8 @@ def upload(
                 yield {"status": "done"}
 
             except Exception as exc:
+                if upload_err is None:
+                    upload_err = exc
                 if devel_debug:
                     raise
                 lgr.exception("Error uploading %s:", strpath)
@@ -260,7 +263,7 @@ def upload(
                 # user-meaningful message
                 message = str(exc)
                 uploaded_paths[strpath]["errors"].append(message)
-                yield {"status": "ERROR", "message": message}
+                yield error_file(message)
             finally:
                 process_paths.remove(strpath)
 
@@ -314,8 +317,30 @@ def upload(
                     else:
                         rec[tuple(rec_fields[1:])] = process_path(dfile)
                 except ValueError as exc:
-                    rec.update(skip_file(exc))
+                    rec.update(error_file(exc))
                 out(rec)
+
+        if not validate_ok:
+            lgr.warning(
+                "One or more assets failed validation.  Consult the logfile for"
+                " details."
+            )
+        if upload_err is not None:
+            try:
+                import etelemetry
+
+                latest_version = etelemetry.get_project("dandi/dandi-cli")["version"]
+            except Exception:
+                pass
+            else:
+                if Version(latest_version) > Version(__version__):
+                    lgr.warning(
+                        "Upload failed, and you are not using the latest"
+                        " version of dandi.  We suggest upgrading dandi to v%s"
+                        " and trying again.",
+                        latest_version,
+                    )
+            raise upload_err
 
         if sync:
             relpaths: List[str] = []
@@ -390,3 +415,7 @@ def check_replace_asset(
 
 def skip_file(msg: Any) -> Dict[str, str]:
     return {"status": "skipped", "message": str(msg)}
+
+
+def error_file(msg: Any) -> Dict[str, str]:
+    return {"status": "ERROR", "message": str(msg)}

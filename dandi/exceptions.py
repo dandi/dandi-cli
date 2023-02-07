@@ -80,3 +80,7 @@ class UnknownAssetError(ValueError):
 
 class HTTP404Error(requests.HTTPError):
     pass
+
+
+class UploadError(Exception):
+    pass
