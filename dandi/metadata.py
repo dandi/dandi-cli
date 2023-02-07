@@ -511,7 +511,7 @@ species_map = [
 ]
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=None)  # type: ignore[arg-type]
 @tenacity.retry(
     reraise=True,
     stop=tenacity.stop_after_attempt(3),
@@ -564,7 +564,9 @@ def extract_species(metadata: dict) -> Optional[models.SpeciesType]:
                 value_id = value_orig
                 lookup = ("rdfs:label", "oboInOwl:hasExactSynonym")
                 try:
-                    result = parse_purlobourl(value_orig, lookup=lookup)
+                    result: Optional[Dict[str, str]] = parse_purlobourl(
+                        value_orig, lookup=lookup
+                    )
                 except ConnectionError:
                     value = None
                 else:
