@@ -131,7 +131,7 @@ class DandisetMetadataFile(DandiFile):
                 if devel_debug:
                     raise
                 return _pydantic_errors_to_validation_results(
-                    [e], str(self.filepath), scope=Scope.DANDISET
+                    [e], self.filepath, scope=Scope.DANDISET
                 )
             return []
 
@@ -186,7 +186,7 @@ class LocalAsset(DandiFile):
             if devel_debug:
                 raise
             return _pydantic_errors_to_validation_results(
-                e, str(self.filepath), scope=Scope.FILE
+                e, self.filepath, scope=Scope.FILE
             )
         except Exception as e:
             if devel_debug:
@@ -535,7 +535,7 @@ class NWBAsset(LocalFileAsset):
                     raise
                 # TODO: might reraise instead of making it into an error
                 return _pydantic_errors_to_validation_results(
-                    [e], str(self.filepath), scope=Scope.FILE
+                    [e], self.filepath, scope=Scope.FILE
                 )
 
         from .bids import NWBBIDSAsset
@@ -740,7 +740,7 @@ def _get_nwb_inspector_version():
 
 def _pydantic_errors_to_validation_results(
     errors: list[dict | Exception] | ValidationError,
-    file_path: str,
+    file_path: Path,
     scope: Scope,
 ) -> list[ValidationResult]:
     """Convert list of dict from pydantic into our custom object."""
@@ -773,7 +773,7 @@ def _pydantic_errors_to_validation_results(
                 severity=Severity.ERROR,
                 id=id,
                 scope=scope,
-                path=Path(file_path),
+                path=file_path,
                 message=message,
                 # TODO? dataset_path=dataset_path,
                 # TODO? dandiset_path=dandiset_path,
