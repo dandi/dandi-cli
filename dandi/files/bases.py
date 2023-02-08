@@ -470,6 +470,12 @@ class NWBAsset(LocalFileAsset):
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
+        """Validate NWB asset
+
+        If `schema_version` was provided, we only validate basic metadata,
+        and completely skip validation using nwbinspector.inspect_nwb
+
+        """
         errors: list[ValidationResult] = pynwb_validate(
             self.filepath, devel_debug=devel_debug
         )
