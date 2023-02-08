@@ -990,7 +990,7 @@ class RemoteDandiset:
                 e.json_dict() for e in v.asset_validation_errors
             ],
             "version_validation_errors": [
-                e.json_dict() for e in v.asset_validation_errors
+                e.json_dict() for e in v.version_validation_errors
             ],
         }
         raise ValueError(
