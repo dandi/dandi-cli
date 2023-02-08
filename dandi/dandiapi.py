@@ -650,7 +650,15 @@ class Version(APIBase):
         return self.identifier
 
 
-class ValidationError(APIBase):
+class RemoteValidationError(APIBase):
+    """
+    .. versionadded:: 0.49.0
+
+    Validation error record obtained from a server.  Not to be confused with
+    :class:`dandi.validate_types.ValidationResult`, which provides richer
+    representation of validation errors.
+    """
+
     field: str
     message: str
 
@@ -663,8 +671,8 @@ class VersionInfo(Version):
     errors
     """
 
-    asset_validation_errors: List[ValidationError]
-    version_validation_errors: List[ValidationError]
+    asset_validation_errors: List[RemoteValidationError]
+    version_validation_errors: List[RemoteValidationError]
 
 
 class RemoteDandisetData(APIBase):
