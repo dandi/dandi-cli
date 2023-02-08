@@ -43,6 +43,12 @@ Dandisets
     :inherited-members: BaseModel
     :exclude-members: Config, JSON_EXCLUDE
 
+.. autoclass:: VersionInfo()
+    :show-inheritance:
+
+.. autoclass:: ValidationError()
+    :inherited-members: BaseModel
+
 Assets
 ------
 
