@@ -192,7 +192,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
     ) -> list[ValidationResult]:
         errors: list[ValidationResult] = []
         try:
-            data = zarr.open(self.filepath)
+            data = zarr.open(str(self.filepath))
         except Exception:
             if devel_debug:
                 raise
