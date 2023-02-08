@@ -190,12 +190,13 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
+        errors: list[ValidationResult] = []
         try:
             data = zarr.open(self.filepath)
         except Exception:
             if devel_debug:
                 raise
-            return [
+            errors.append(
                 ValidationResult(
                     origin=ValidationOrigin(
                         name="zarr",
@@ -207,9 +208,10 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     path=self.filepath,
                     message="Error opening file.",
                 )
-            ]
+            )
+            data = None
         if isinstance(data, zarr.Group) and not data:
-            return [
+            errors.append(
                 ValidationResult(
                     origin=ValidationOrigin(
                         name="zarr",
@@ -221,12 +223,12 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     path=self.filepath,
                     message="Zarr group is empty.",
                 )
-            ]
+            )
         if self._is_too_deep():
             msg = f"Zarr directory tree more than {MAX_ZARR_DEPTH} directories deep"
             if devel_debug:
                 raise ValueError(msg)
-            return [
+            errors.append(
                 ValidationResult(
                     origin=ValidationOrigin(
                         name="zarr",
@@ -238,9 +240,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     path=self.filepath,
                     message=msg,
                 )
-            ]
-        # TODO: Should this be appended to the above errors?
-        return super().get_validation_errors(
+            )
+        return errors + super().get_validation_errors(
             schema_version=schema_version, devel_debug=devel_debug
         )
 
