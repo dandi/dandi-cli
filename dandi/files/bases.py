@@ -478,7 +478,7 @@ class NWBAsset(LocalFileAsset):
     ) -> list[ValidationResult]:
         """Validate NWB asset
 
-        If `schema_version` was provided, we only validate basic metadata,
+        If ``schema_version`` was provided, we only validate basic metadata,
         and completely skip validation using nwbinspector.inspect_nwb
 
         """
