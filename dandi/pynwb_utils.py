@@ -364,20 +364,18 @@ def validate(
     except Exception as exc:
         if devel_debug:
             raise
-        errors.extend(
-            [
-                ValidationResult(
-                    origin=ValidationOrigin(
-                        name="pynwb",
-                        version=pynwb.__version__,
-                    ),
-                    severity=Severity.ERROR,
-                    id="pywnb.GENERIC",
-                    scope=Scope.FILE,
-                    path=Path(path),
-                    message=f"{exc}",
-                )
-            ]
+        errors.append(
+            ValidationResult(
+                origin=ValidationOrigin(
+                    name="pynwb",
+                    version=pynwb.__version__,
+                ),
+                severity=Severity.ERROR,
+                id="pywnb.GENERIC",
+                scope=Scope.FILE,
+                path=Path(path),
+                message=f"{exc}",
+            )
         )
 
     # To overcome
