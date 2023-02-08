@@ -50,7 +50,11 @@ class Digest:
 
 #: Placeholder digest used in some situations where a digest is required but
 #: not actually relevant and would be too expensive to calculate
-DUMMY_DIGEST = Digest(algorithm=DigestType.dandi_etag, value=32 * "d" + "-1")
+DUMMY_DANDI_ETAG = Digest(algorithm=DigestType.dandi_etag, value=32 * "d" + "-1")
+DUMMY_DANDI_ZARR_CHECKSUM = Digest(
+    algorithm=DigestType.dandi_zarr_checksum,
+    value="2ed39fd5ae56fd4177c4eb503d163528-1--1",
+)
 
 P = TypeVar("P", bound="BasePath")
 

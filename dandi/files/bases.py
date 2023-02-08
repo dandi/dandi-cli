@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 import re
 from threading import Lock
-from typing import Any, BinaryIO, Generic, Optional
+from typing import Any, BinaryIO, Generic, Optional, cast
 from xml.etree.ElementTree import fromstring
 
 import dandischema
@@ -28,7 +28,7 @@ import requests
 import dandi
 from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from dandi.metadata import get_default_metadata, nwb2asset
-from dandi.misctypes import DUMMY_DIGEST, Digest, P
+from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, P
 from dandi.organize import validate_organized_path
 from dandi.pynwb_utils import validate as pynwb_validate
 from dandi.support.digests import get_dandietag, get_digest
@@ -130,7 +130,9 @@ class DandisetMetadataFile(DandiFile):
             except Exception as e:
                 if devel_debug:
                     raise
-                return _pydantic_errors_to_validation_results(e, str(self.filepath))
+                return _pydantic_errors_to_validation_results(
+                    [e], str(self.filepath), scope=Scope.DANDISET
+                )
             return []
 
 
@@ -144,6 +146,8 @@ class LocalAsset(DandiFile):
     #: The forward-slash-separated path to the asset within its local Dandiset
     #: (i.e., relative to the Dandiset's root)
     path: str
+
+    _DUMMY_DIGEST = DUMMY_DANDI_ETAG
 
     @abstractmethod
     def get_digest(self) -> Digest:
@@ -176,12 +180,14 @@ class LocalAsset(DandiFile):
                 f"Unsupported schema version: {schema_version}; expected {current_version}"
             )
         try:
-            asset = self.get_metadata(digest=DUMMY_DIGEST)
+            asset = self.get_metadata(digest=self._DUMMY_DIGEST)
             BareAsset(**asset.dict())
         except ValidationError as e:
             if devel_debug:
                 raise
-            return _pydantic_errors_to_validation_results(e, str(self.filepath))
+            return _pydantic_errors_to_validation_results(
+                e, str(self.filepath), scope=Scope.FILE
+            )
         except Exception as e:
             if devel_debug:
                 raise
@@ -528,7 +534,9 @@ class NWBAsset(LocalFileAsset):
                 if devel_debug:
                     raise
                 # TODO: might reraise instead of making it into an error
-                return _pydantic_errors_to_validation_results([e], str(self.filepath))
+                return _pydantic_errors_to_validation_results(
+                    [e], str(self.filepath), scope=Scope.FILE
+                )
 
         from .bids import NWBBIDSAsset
 
@@ -731,12 +739,15 @@ def _get_nwb_inspector_version():
 
 
 def _pydantic_errors_to_validation_results(
-    errors: Any[list[dict], Exception],
+    errors: list[dict | Exception] | ValidationError,
     file_path: str,
+    scope: Scope,
 ) -> list[ValidationResult]:
     """Convert list of dict from pydantic into our custom object."""
     out = []
-    for e in errors:
+    for e in (
+        errors.errors() if isinstance(errors, ValidationError) else cast(list, errors)
+    ):
         if isinstance(e, Exception):
             message = getattr(e, "message", str(e))
             id = "exception"
@@ -752,8 +763,7 @@ def _pydantic_errors_to_validation_results(
                     ),
                 )
             )
-            message = e.get("message", None)
-            scope = Scope.DANDISET
+            message = e.get("message", e.get("msg", None))
         out.append(
             ValidationResult(
                 origin=ValidationOrigin(
