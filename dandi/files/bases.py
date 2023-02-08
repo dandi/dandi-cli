@@ -181,23 +181,7 @@ class LocalAsset(DandiFile):
         except ValidationError as e:
             if devel_debug:
                 raise
-            # TODO: how do we get **all** errors from validation - there must be a way
-            return [
-                ValidationResult(
-                    origin=ValidationOrigin(
-                        name="dandischema",
-                        version=dandischema.__version__,
-                    ),
-                    severity=Severity.ERROR,
-                    id="dandischema.TODO",
-                    scope=Scope.FILE,
-                    # metadata=metadata,
-                    path=self.filepath,  # note that it is not relative .path
-                    message=str(e),
-                    # TODO? dataset_path=dataset_path,
-                    dandiset_path=self.dandiset_path,
-                )
-            ]
+            return _pydantic_errors_to_validation_results(e, str(self.filepath))
         except Exception as e:
             if devel_debug:
                 raise
