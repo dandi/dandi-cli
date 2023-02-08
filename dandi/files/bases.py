@@ -168,64 +168,62 @@ class LocalAsset(DandiFile):
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
-        if schema_version is not None:
-            current_version = get_schema_version()
-            if schema_version != current_version:
-                raise ValueError(
-                    f"Unsupported schema version: {schema_version}; expected {current_version}"
+        current_version = get_schema_version()
+        if schema_version is None:
+            schema_version = current_version
+        if schema_version != current_version:
+            raise ValueError(
+                f"Unsupported schema version: {schema_version}; expected {current_version}"
+            )
+        try:
+            asset = self.get_metadata(digest=DUMMY_DIGEST)
+            BareAsset(**asset.dict())
+        except ValidationError as e:
+            if devel_debug:
+                raise
+            # TODO: how do we get **all** errors from validation - there must be a way
+            return [
+                ValidationResult(
+                    origin=ValidationOrigin(
+                        name="dandischema",
+                        version=dandischema.__version__,
+                    ),
+                    severity=Severity.ERROR,
+                    id="dandischema.TODO",
+                    scope=Scope.FILE,
+                    # metadata=metadata,
+                    path=self.filepath,  # note that it is not relative .path
+                    message=str(e),
+                    # TODO? dataset_path=dataset_path,
+                    dandiset_path=self.dandiset_path,
                 )
-            try:
-                asset = self.get_metadata(digest=DUMMY_DIGEST)
-                BareAsset(**asset.dict())
-            except ValidationError as e:
-                if devel_debug:
-                    raise
-                # TODO: how do we get **all** errors from validation - there must be a way
-                return [
-                    ValidationResult(
-                        origin=ValidationOrigin(
-                            name="dandischema",
-                            version=dandischema.__version__,
-                        ),
-                        severity=Severity.ERROR,
-                        id="dandischema.TODO",
-                        scope=Scope.FILE,
-                        # metadata=metadata,
-                        path=self.filepath,  # note that it is not relative .path
-                        message=str(e),
-                        # TODO? dataset_path=dataset_path,
-                        dandiset_path=self.dandiset_path,
-                    )
-                ]
-            except Exception as e:
-                if devel_debug:
-                    raise
-                lgr.warning(
-                    "Unexpected validation error for %s: %s",
-                    self.filepath,
-                    e,
-                    extra={"validating": True},
+            ]
+        except Exception as e:
+            if devel_debug:
+                raise
+            lgr.warning(
+                "Unexpected validation error for %s: %s",
+                self.filepath,
+                e,
+                extra={"validating": True},
+            )
+            return [
+                ValidationResult(
+                    origin=ValidationOrigin(
+                        name="dandi",
+                        version=dandi.__version__,
+                    ),
+                    severity=Severity.ERROR,
+                    id="dandi.SOFTWARE_ERROR",
+                    scope=Scope.FILE,
+                    # metadata=metadata,
+                    path=self.filepath,  # note that it is not relative .path
+                    message=f"Failed to read metadata: {e}",
+                    # TODO? dataset_path=dataset_path,
+                    dandiset_path=self.dandiset_path,
                 )
-                return [
-                    ValidationResult(
-                        origin=ValidationOrigin(
-                            name="dandi",
-                            version=dandi.__version__,
-                        ),
-                        severity=Severity.ERROR,
-                        id="dandi.SOFTWARE_ERROR",
-                        scope=Scope.FILE,
-                        # metadata=metadata,
-                        path=self.filepath,  # note that it is not relative .path
-                        message=f"Failed to read metadata: {e}",
-                        # TODO? dataset_path=dataset_path,
-                        dandiset_path=self.dandiset_path,
-                    )
-                ]
-            return []
-        else:
-            # TODO: Do something else?
-            return []
+            ]
+        return []
 
     def upload(
         self,
