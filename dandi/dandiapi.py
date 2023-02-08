@@ -650,6 +650,31 @@ class Version(APIBase):
         return self.identifier
 
 
+class RemoteValidationError(APIBase):
+    """
+    .. versionadded:: 0.49.0
+
+    Validation error record obtained from a server.  Not to be confused with
+    :class:`dandi.validate_types.ValidationResult`, which provides richer
+    representation of validation errors.
+    """
+
+    field: str
+    message: str
+
+
+class VersionInfo(Version):
+    """
+    .. versionadded:: 0.49.0
+
+    Version information for a Dandiset, including information about validation
+    errors
+    """
+
+    asset_validation_errors: List[RemoteValidationError]
+    version_validation_errors: List[RemoteValidationError]
+
+
 class RemoteDandisetData(APIBase):
     """
     Class for storing the data for a Dandiset retrieved from the API.
@@ -876,15 +901,20 @@ class RemoteDandiset:
         except HTTP404Error:
             raise NotFoundError(f"No such Dandiset: {self.identifier!r}")
 
-    def get_version(self, version_id: str) -> Version:
+    def get_version(self, version_id: str) -> VersionInfo:
         """
         Get information about a given version of the Dandiset.  If the given
         version does not exist, a `NotFoundError` is raised.
+
+        .. versionchanged:: 0.49.0
+
+            This method now returns a `VersionInfo` instance instead of just a
+            `Version`.
         """
         try:
-            return Version.parse_obj(
+            return VersionInfo.parse_obj(
                 self.client.get(
-                    f"/dandisets/{self.identifier}/versions/{version_id}/info"
+                    f"/dandisets/{self.identifier}/versions/{version_id}/info/"
                 )
             )
         except HTTP404Error:
@@ -958,26 +988,21 @@ class RemoteDandiset:
         lgr.debug("Waiting for Dandiset %s to complete validation ...", self.identifier)
         start = time()
         while time() - start < max_time:
-            try:
-                r = self.client.get(f"{self.version_api_path}info/")
-            except HTTP404Error:
-                raise NotFoundError(
-                    f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
-                )
-            if "status" not in r:
-                # Running against older version of dandi-api that doesn't
-                # validate
-                return
-            if r["status"] == "Valid":
+            v = self.get_version(self.version_id)
+            if v.status is VersionStatus.VALID:
                 return
             sleep(0.5)
         # TODO: Improve the presentation of the error messages
         about = {
-            "asset_validation_errors": r.get("asset_validation_errors"),
-            "version_validation_errors": r.get("version_validation_errors"),
+            "asset_validation_errors": [
+                e.json_dict() for e in v.asset_validation_errors
+            ],
+            "version_validation_errors": [
+                e.json_dict() for e in v.version_validation_errors
+            ],
         }
         raise ValueError(
-            f"Dandiset {self.identifier} is {r['status']}: {json.dumps(about, indent=4)}"
+            f"Dandiset {self.identifier} is {v.status.value}: {json.dumps(about, indent=4)}"
         )
 
     def publish(self, max_time: float = 120) -> "RemoteDandiset":
