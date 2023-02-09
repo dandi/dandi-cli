@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 import re
 from threading import Lock
-from typing import Any, BinaryIO, Generic, Optional
+from typing import Any, BinaryIO, Generic, Optional, cast
 from xml.etree.ElementTree import fromstring
 
 import dandischema
@@ -28,7 +28,7 @@ import requests
 import dandi
 from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from dandi.metadata import get_default_metadata, nwb2asset
-from dandi.misctypes import DUMMY_DIGEST, Digest, P
+from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, P
 from dandi.organize import validate_organized_path
 from dandi.pynwb_utils import validate as pynwb_validate
 from dandi.support.digests import get_dandietag, get_digest
@@ -130,7 +130,9 @@ class DandisetMetadataFile(DandiFile):
             except Exception as e:
                 if devel_debug:
                     raise
-                return _pydantic_errors_to_validation_results(e, str(self.filepath))
+                return _pydantic_errors_to_validation_results(
+                    [e], self.filepath, scope=Scope.DANDISET
+                )
             return []
 
 
@@ -144,6 +146,8 @@ class LocalAsset(DandiFile):
     #: The forward-slash-separated path to the asset within its local Dandiset
     #: (i.e., relative to the Dandiset's root)
     path: str
+
+    _DUMMY_DIGEST = DUMMY_DANDI_ETAG
 
     @abstractmethod
     def get_digest(self) -> Digest:
@@ -168,64 +172,48 @@ class LocalAsset(DandiFile):
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
-        if schema_version is not None:
-            current_version = get_schema_version()
-            if schema_version != current_version:
-                raise ValueError(
-                    f"Unsupported schema version: {schema_version}; expected {current_version}"
+        current_version = get_schema_version()
+        if schema_version is None:
+            schema_version = current_version
+        if schema_version != current_version:
+            raise ValueError(
+                f"Unsupported schema version: {schema_version}; expected {current_version}"
+            )
+        try:
+            asset = self.get_metadata(digest=self._DUMMY_DIGEST)
+            BareAsset(**asset.dict())
+        except ValidationError as e:
+            if devel_debug:
+                raise
+            return _pydantic_errors_to_validation_results(
+                e, self.filepath, scope=Scope.FILE
+            )
+        except Exception as e:
+            if devel_debug:
+                raise
+            lgr.warning(
+                "Unexpected validation error for %s: %s",
+                self.filepath,
+                e,
+                extra={"validating": True},
+            )
+            return [
+                ValidationResult(
+                    origin=ValidationOrigin(
+                        name="dandi",
+                        version=dandi.__version__,
+                    ),
+                    severity=Severity.ERROR,
+                    id="dandi.SOFTWARE_ERROR",
+                    scope=Scope.FILE,
+                    # metadata=metadata,
+                    path=self.filepath,  # note that it is not relative .path
+                    message=f"Failed to read metadata: {e}",
+                    # TODO? dataset_path=dataset_path,
+                    dandiset_path=self.dandiset_path,
                 )
-            try:
-                asset = self.get_metadata(digest=DUMMY_DIGEST)
-                BareAsset(**asset.dict())
-            except ValidationError as e:
-                if devel_debug:
-                    raise
-                # TODO: how do we get **all** errors from validation - there must be a way
-                return [
-                    ValidationResult(
-                        origin=ValidationOrigin(
-                            name="dandischema",
-                            version=dandischema.__version__,
-                        ),
-                        severity=Severity.ERROR,
-                        id="dandischema.TODO",
-                        scope=Scope.FILE,
-                        # metadata=metadata,
-                        path=self.filepath,  # note that it is not relative .path
-                        message=str(e),
-                        # TODO? dataset_path=dataset_path,
-                        dandiset_path=self.dandiset_path,
-                    )
-                ]
-            except Exception as e:
-                if devel_debug:
-                    raise
-                lgr.warning(
-                    "Unexpected validation error for %s: %s",
-                    self.filepath,
-                    e,
-                    extra={"validating": True},
-                )
-                return [
-                    ValidationResult(
-                        origin=ValidationOrigin(
-                            name="dandi",
-                            version=dandi.__version__,
-                        ),
-                        severity=Severity.ERROR,
-                        id="dandi.SOFTWARE_ERROR",
-                        scope=Scope.FILE,
-                        # metadata=metadata,
-                        path=self.filepath,  # note that it is not relative .path
-                        message=f"Failed to read metadata: {e}",
-                        # TODO? dataset_path=dataset_path,
-                        dandiset_path=self.dandiset_path,
-                    )
-                ]
-            return []
-        else:
-            # TODO: Do something else?
-            return []
+            ]
+        return []
 
     def upload(
         self,
@@ -488,6 +476,12 @@ class NWBAsset(LocalFileAsset):
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
+        """Validate NWB asset
+
+        If ``schema_version`` was provided, we only validate basic metadata,
+        and completely skip validation using nwbinspector.inspect_nwb
+
+        """
         errors: list[ValidationResult] = pynwb_validate(
             self.filepath, devel_debug=devel_debug
         )
@@ -540,7 +534,9 @@ class NWBAsset(LocalFileAsset):
                 if devel_debug:
                     raise
                 # TODO: might reraise instead of making it into an error
-                return _pydantic_errors_to_validation_results([e], str(self.filepath))
+                return _pydantic_errors_to_validation_results(
+                    [e], self.filepath, scope=Scope.FILE
+                )
 
         from .bids import NWBBIDSAsset
 
@@ -743,12 +739,15 @@ def _get_nwb_inspector_version():
 
 
 def _pydantic_errors_to_validation_results(
-    errors: Any[list[dict], Exception],
-    file_path: str,
+    errors: list[dict | Exception] | ValidationError,
+    file_path: Path,
+    scope: Scope,
 ) -> list[ValidationResult]:
     """Convert list of dict from pydantic into our custom object."""
     out = []
-    for e in errors:
+    for e in (
+        errors.errors() if isinstance(errors, ValidationError) else cast(list, errors)
+    ):
         if isinstance(e, Exception):
             message = getattr(e, "message", str(e))
             id = "exception"
@@ -764,8 +763,7 @@ def _pydantic_errors_to_validation_results(
                     ),
                 )
             )
-            message = e.get("message", None)
-            scope = Scope.DANDISET
+            message = e.get("message", e.get("msg", None))
         out.append(
             ValidationResult(
                 origin=ValidationOrigin(
@@ -775,7 +773,7 @@ def _pydantic_errors_to_validation_results(
                 severity=Severity.ERROR,
                 id=id,
                 scope=scope,
-                path=Path(file_path),
+                path=file_path,
                 message=message,
                 # TODO? dataset_path=dataset_path,
                 # TODO? dandiset_path=dandiset_path,

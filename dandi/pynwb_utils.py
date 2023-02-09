@@ -346,7 +346,6 @@ def validate(
         else:  # Fallback if an older version
             with pynwb.NWBHDF5IO(path=path, mode="r", load_namespaces=True) as reader:
                 error_outputs = pynwb.validate(io=reader)
-        # TODO: return ValidationResult structs
         for error_output in error_outputs:
             errors.append(
                 ValidationResult(
@@ -364,20 +363,18 @@ def validate(
     except Exception as exc:
         if devel_debug:
             raise
-        errors.extend(
-            [
-                ValidationResult(
-                    origin=ValidationOrigin(
-                        name="pynwb",
-                        version=pynwb.__version__,
-                    ),
-                    severity=Severity.ERROR,
-                    id="pywnb.GENERIC",
-                    scope=Scope.FILE,
-                    path=Path(path),
-                    message=f"{exc}",
-                )
-            ]
+        errors.append(
+            ValidationResult(
+                origin=ValidationOrigin(
+                    name="pynwb",
+                    version=pynwb.__version__,
+                ),
+                severity=Severity.ERROR,
+                id="pywnb.GENERIC",
+                scope=Scope.FILE,
+                path=Path(path),
+                message=f"{exc}",
+            )
         )
 
     # To overcome
