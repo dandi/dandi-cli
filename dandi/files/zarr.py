@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import atexit
+from base64 import b64encode
 from collections.abc import Generator, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import closing
@@ -9,12 +9,13 @@ from datetime import datetime
 import os
 from pathlib import Path
 from time import sleep
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 from dandischema.digests.zarr import get_checksum
 from dandischema.models import BareAsset, DigestType
 import requests
 import zarr
+from zarr_checksum import ZarrChecksumTree
 
 from dandi import get_logger
 from dandi.consts import (
@@ -343,176 +344,212 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             )
         a = RemoteAsset.from_data(dandiset, r)
         assert isinstance(a, RemoteZarrAsset)
-        old_zarr_entries: dict[str, RemoteZarrEntry] = {
-            str(e): e for e in a.iterfiles()
-        }
-
-        total_size = 0
-        to_upload = EntryUploadTracker()
-        if old_zarr_entries:
-            to_delete: list[RemoteZarrEntry] = []
-            digesting: list[Future[Optional[tuple[LocalZarrEntry, str]]]] = []
-            yield {"status": "comparing against remote Zarr"}
-            with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
-                for local_entry in self.iterfiles():
-                    total_size += local_entry.size
-                    try:
-                        remote_entry = old_zarr_entries.pop(str(local_entry))
-                    except KeyError:
-                        for pp in local_entry.parents:
-                            pps = str(pp)
-                            if pps in old_zarr_entries:
-                                lgr.debug(
-                                    "%s: Parent path %s of file %s"
-                                    " corresponds to a remote file;"
-                                    " deleting remote",
-                                    asset_path,
-                                    pps,
-                                    local_entry,
-                                )
-                                to_delete.append(old_zarr_entries.pop(pps))
-                                break
-                        else:
-                            eprefix = str(local_entry) + "/"
-                            sub_e = [
-                                (k, v)
-                                for k, v in old_zarr_entries.items()
-                                if k.startswith(eprefix)
-                            ]
-                            if sub_e:
-                                lgr.debug(
-                                    "%s: Path %s of local file is a directory"
-                                    " in remote Zarr; deleting remote",
-                                    asset_path,
-                                    local_entry,
-                                )
-                                for k, v in sub_e:
-                                    old_zarr_entries.pop(k)
-                                    to_delete.append(v)
-                        lgr.debug(
-                            "%s: Path %s not present in remote Zarr; uploading",
-                            asset_path,
-                            local_entry,
-                        )
-                        to_upload.register(local_entry)
-                    else:
-                        digesting.append(
-                            executor.submit(
-                                _cmp_digests,
+        mismatched = True
+        first_run = True
+        while mismatched:
+            zcc = ZarrChecksumTree()
+            old_zarr_entries: dict[str, RemoteZarrEntry] = {
+                str(e): e for e in a.iterfiles()
+            }
+            total_size = 0
+            to_upload = EntryUploadTracker()
+            if old_zarr_entries:
+                to_delete: list[RemoteZarrEntry] = []
+                digesting: list[Future[tuple[LocalZarrEntry, str, int]]] = []
+                yield {"status": "comparing against remote Zarr"}
+                with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
+                    for local_entry in self.iterfiles():
+                        total_size += local_entry.size
+                        try:
+                            remote_entry = old_zarr_entries.pop(str(local_entry))
+                        except KeyError:
+                            for pp in local_entry.parents:
+                                pps = str(pp)
+                                if pps in old_zarr_entries:
+                                    lgr.debug(
+                                        "%s: Parent path %s of file %s"
+                                        " corresponds to a remote file;"
+                                        " deleting remote",
+                                        asset_path,
+                                        pps,
+                                        local_entry,
+                                    )
+                                    to_delete.append(old_zarr_entries.pop(pps))
+                                    break
+                            else:
+                                eprefix = str(local_entry) + "/"
+                                sub_e = [
+                                    (k, v)
+                                    for k, v in old_zarr_entries.items()
+                                    if k.startswith(eprefix)
+                                ]
+                                if sub_e:
+                                    lgr.debug(
+                                        "%s: Path %s of local file is a directory"
+                                        " in remote Zarr; deleting remote",
+                                        asset_path,
+                                        local_entry,
+                                    )
+                                    for k, v in sub_e:
+                                        old_zarr_entries.pop(k)
+                                        to_delete.append(v)
+                            lgr.debug(
+                                "%s: Path %s not present in remote Zarr; uploading",
                                 asset_path,
                                 local_entry,
-                                remote_entry.digest.value,
                             )
-                        )
-                for dgstfut in as_completed(digesting):
-                    try:
-                        item = dgstfut.result()
-                    except Exception:
-                        for d in digesting:
-                            d.cancel()
-                        raise
-                    else:
-                        if item is not None:
-                            local_entry, local_digest = item
-                            to_upload.register(local_entry, local_digest)
-            if to_delete:
-                a.rmfiles(to_delete, reingest=False)
-        else:
-            yield {"status": "traversing local Zarr"}
-            for local_entry in self.iterfiles():
-                total_size += local_entry.size
-                to_upload.register(local_entry)
-        yield {"status": "initiating upload", "size": total_size}
-        lgr.debug("%s: Beginning upload", asset_path)
-        bytes_uploaded = 0
-        need_ingest = False
-        upload_data = (
-            zarr_id,
-            client.get_url(f"/zarr/{zarr_id}/upload"),
-            cast(Optional[str], client.session.headers.get("Authorization")),
-        )
-        with RESTFullAPIClient(
-            "http://nil.nil",
-            headers={"X-Amz-ACL": "bucket-owner-full-control"},
-        ) as storage, closing(to_upload.get_items()) as upload_items:
-            for i, upload_body in enumerate(
-                chunked(upload_items, ZARR_UPLOAD_BATCH_SIZE), start=1
-            ):
-                lgr.debug(
-                    "%s: Uploading Zarr file batch #%d (%s)",
-                    asset_path,
-                    i,
-                    pluralize(len(upload_body), "file"),
-                )
-                r = client.post(f"/zarr/{zarr_id}/upload/", json=upload_body)
-                ZARR_UPLOADS_IN_PROGRESS.add(upload_data)
-                with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
-                    futures = [
-                        executor.submit(
-                            _upload_zarr_file,
-                            storage_session=storage,
-                            path=self.filepath / upspec["path"],
-                            upload_url=upspec["upload_url"],
-                        )
-                        for upspec in r
-                    ]
-                    need_ingest = True
-                    for fut in as_completed(futures):
+                            to_upload.register(local_entry)
+                        else:
+                            digesting.append(
+                                executor.submit(
+                                    _cmp_digests,
+                                    asset_path,
+                                    local_entry,
+                                    remote_entry.digest.value,
+                                )
+                            )
+                    for dgstfut in as_completed(digesting):
                         try:
-                            size = fut.result()
-                        except Exception as e:
-                            lgr.debug(
-                                "Error uploading zarr: %s: %s", type(e).__name__, e
-                            )
-                            lgr.debug("Cancelling upload")
-                            for f in futures:
-                                f.cancel()
-                            executor.shutdown()
-                            client.delete(f"/zarr/{zarr_id}/upload/")
-                            ZARR_UPLOADS_IN_PROGRESS.discard(upload_data)
+                            item = dgstfut.result()
+                        except Exception:
+                            for d in digesting:
+                                d.cancel()
                             raise
                         else:
-                            bytes_uploaded += size
-                            yield {
-                                "status": "uploading",
-                                "upload": 100 * bytes_uploaded / to_upload.total_size,
-                                "current": bytes_uploaded,
-                            }
-                lgr.debug("%s: Completing upload of batch #%d", asset_path, i)
-                client.post(f"/zarr/{zarr_id}/upload/complete/")
-                ZARR_UPLOADS_IN_PROGRESS.discard(upload_data)
-        lgr.debug("%s: All files uploaded", asset_path)
-        old_zarr_files = list(old_zarr_entries.values())
-        if old_zarr_files:
-            yield {"status": "deleting extra remote files"}
-            lgr.debug(
-                "%s: Deleting %s in remote Zarr not present locally",
-                asset_path,
-                pluralize(len(old_zarr_files), "file"),
-            )
-            a.rmfiles(old_zarr_files, reingest=False)
-            need_ingest = True
-        if need_ingest:
-            lgr.debug("%s: Waiting for server to calculate Zarr checksum", asset_path)
-            yield {"status": "server calculating checksum"}
-            client.post(f"/zarr/{zarr_id}/ingest/")
-            while True:
-                sleep(2)
-                r = client.get(f"/zarr/{zarr_id}/")
-                if r["status"] == "Complete":
-                    break
-            lgr.info("%s: Asset successfully uploaded", asset_path)
-        else:
-            lgr.info("%s: No changes made to Zarr", asset_path)
+                            local_entry, local_digest, differs = item
+                            if differs:
+                                to_upload.register(local_entry, local_digest)
+                            else:
+                                zcc.add_leaf(
+                                    Path(str(local_entry)),
+                                    local_entry.size,
+                                    local_digest,
+                                )
+                if to_delete:
+                    a.rmfiles(to_delete, reingest=False)
+            else:
+                yield {"status": "traversing local Zarr"}
+                for local_entry in self.iterfiles():
+                    total_size += local_entry.size
+                    to_upload.register(local_entry)
+            yield {"status": "initiating upload", "size": total_size}
+            lgr.debug("%s: Beginning upload", asset_path)
+            bytes_uploaded = 0
+            changed = False
+            with RESTFullAPIClient(
+                "http://nil.nil",
+                headers={"X-Amz-ACL": "bucket-owner-full-control"},
+            ) as storage, closing(to_upload.get_items()) as upload_items:
+                for i, items in enumerate(
+                    chunked(upload_items, ZARR_UPLOAD_BATCH_SIZE), start=1
+                ):
+                    uploading = []
+                    for (entry_path, digest, size) in items:
+                        zcc.add_leaf(Path(entry_path), size, digest)
+                        uploading.append(entry_path)
+                    lgr.debug(
+                        "%s: Uploading Zarr file batch #%d (%s)",
+                        asset_path,
+                        i,
+                        pluralize(len(uploading), "file"),
+                    )
+                    r = client.post(f"/zarr/{zarr_id}/files/", json=uploading)
+                    with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
+                        futures = [
+                            executor.submit(
+                                _upload_zarr_file,
+                                storage_session=storage,
+                                path=self.filepath / entry_path,
+                                upload_url=signed_url,
+                                digest=digest,
+                            )
+                            for (signed_url, (entry_path, digest, _)) in zip(r, items)
+                        ]
+                        changed = True
+                        for fut in as_completed(futures):
+                            try:
+                                size = fut.result()
+                            except Exception as e:
+                                lgr.debug(
+                                    "Error uploading zarr: %s: %s", type(e).__name__, e
+                                )
+                                lgr.debug("Cancelling upload")
+                                for f in futures:
+                                    f.cancel()
+                                executor.shutdown()
+                                raise
+                            else:
+                                bytes_uploaded += size
+                                yield {
+                                    "status": "uploading",
+                                    "upload": 100
+                                    * bytes_uploaded
+                                    / to_upload.total_size,
+                                    "current": bytes_uploaded,
+                                }
+                    lgr.debug("%s: Completing upload of batch #%d", asset_path, i)
+            lgr.debug("%s: All files uploaded", asset_path)
+            old_zarr_files = list(old_zarr_entries.values())
+            if old_zarr_files:
+                yield {"status": "deleting extra remote files"}
+                lgr.debug(
+                    "%s: Deleting %s in remote Zarr not present locally",
+                    asset_path,
+                    pluralize(len(old_zarr_files), "file"),
+                )
+                a.rmfiles(old_zarr_files, reingest=False)
+                changed = True
+            if changed:
+                lgr.debug(
+                    "%s: Waiting for server to calculate Zarr checksum", asset_path
+                )
+                yield {"status": "server calculating checksum"}
+                client.post(f"/zarr/{zarr_id}/finalize/")
+                while True:
+                    sleep(2)
+                    r = client.get(f"/zarr/{zarr_id}/")
+                    if r["status"] == "Complete":
+                        our_checksum = str(zcc.process())
+                        server_checksum = r["checksum"]
+                        if our_checksum == server_checksum:
+                            mismatched = False
+                        else:
+                            mismatched = True
+                            lgr.info(
+                                "%s: Asset checksum mismatch (local: %s;"
+                                " server: %s); redoing upload",
+                                our_checksum,
+                                server_checksum,
+                                asset_path,
+                            )
+                            yield {"status": "Checksum mismatch"}
+                        break
+            elif mismatched and not first_run:
+                lgr.error(
+                    "%s: Previous upload loop resulted in checksum mismatch,"
+                    " and no discrepancies between local and remote Zarr were found"
+                )
+                raise RuntimeError("Unresolvable Zarr checksum mismatch")
+            else:
+                mismatched = False
+                lgr.info("%s: No changes made to Zarr", asset_path)
+            first_run = False
+        lgr.info("%s: Asset successfully uploaded", asset_path)
         yield {"status": "done", "asset": a}
 
 
 def _upload_zarr_file(
-    storage_session: RESTFullAPIClient, path: Path, upload_url: str
+    storage_session: RESTFullAPIClient, path: Path, upload_url: str, digest: str
 ) -> int:
     with path.open("rb") as fp:
         storage_session.put(
-            upload_url, data=fp, json_resp=False, retry_if=_retry_zarr_file
+            upload_url,
+            data=fp,
+            json_resp=False,
+            retry_if=_retry_zarr_file,
+            headers={
+                "Content-MD5": b64encode(bytes.fromhex(digest)).decode("us-ascii")
+            },
         )
     return path.stat().st_size
 
@@ -537,30 +574,32 @@ class EntryUploadTracker:
     """
 
     total_size: int = 0
-    digested_entries: list[tuple[LocalZarrEntry, str]] = field(default_factory=list)
+    digested_entries: list[tuple[LocalZarrEntry, str, int]] = field(
+        default_factory=list
+    )
     fresh_entries: list[LocalZarrEntry] = field(default_factory=list)
 
     def register(self, e: LocalZarrEntry, digest: Optional[str] = None) -> None:
         if digest is not None:
-            self.digested_entries.append((e, digest))
+            self.digested_entries.append((e, digest, e.size))
         else:
             self.fresh_entries.append(e)
         self.total_size += e.size
 
     @staticmethod
-    def _mkitem(e: LocalZarrEntry) -> dict:
+    def _mkitem(e: LocalZarrEntry) -> tuple[str, str, int]:
         digest = md5file_nocache(e.filepath)
-        return {"path": str(e), "etag": digest}
+        return (str(e), digest, e.size)
 
-    def get_items(self, jobs: int = 5) -> Generator[dict, None, None]:
+    def get_items(self, jobs: int = 5) -> Generator[tuple[str, str, int], None, None]:
         # Note: In order for the ThreadPoolExecutor to be closed if an error
         # occurs during upload, the method must be used like this:
         #
         #     with contextlib.closing(to_upload.get_items()) as upload_items:
         #         for item in upload_items:
         #             ...
-        for e, digest in self.digested_entries:
-            yield {"path": str(e), "etag": digest}
+        for e, digest, size in self.digested_entries:
+            yield (str(e), digest, size)
         if not self.fresh_entries:
             return
         with ThreadPoolExecutor(max_workers=jobs) as executor:
@@ -578,7 +617,7 @@ class EntryUploadTracker:
 
 def _cmp_digests(
     asset_path: str, local_entry: LocalZarrEntry, remote_digest: str
-) -> Optional[tuple[LocalZarrEntry, str]]:
+) -> tuple[LocalZarrEntry, str, bool]:
     local_digest = md5file_nocache(local_entry.filepath)
     if local_digest != remote_digest:
         lgr.debug(
@@ -586,26 +625,7 @@ def _cmp_digests(
             asset_path,
             local_entry,
         )
-        return (local_entry, local_digest)
+        return (local_entry, local_digest, True)
     else:
         lgr.debug("%s: File %s already on server; skipping", asset_path, local_entry)
-        return None
-
-
-# Collection of (zarr ID, upload endpoint URL, auth header value) tuples
-ZARR_UPLOADS_IN_PROGRESS: set[tuple[str, str, Optional[str]]] = set()
-
-
-@atexit.register
-def cancel_zarr_uploads() -> None:
-    for zarr_id, url, auth in ZARR_UPLOADS_IN_PROGRESS:
-        lgr.debug("Cancelling upload for Zarr %s", zarr_id)
-        headers = {"Authorization": auth} if auth is not None else {}
-        r = requests.delete(url, headers=headers)
-        if not r.ok:
-            lgr.warning(
-                "Upload cancellation failed with %d: %s: %s",
-                r.status_code,
-                r.reason,
-                r.text,
-            )
+        return (local_entry, local_digest, False)

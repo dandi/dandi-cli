@@ -11,16 +11,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import hashlib
 import logging
 import os.path
-from pathlib import Path, PurePath
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union, cast
 
 from dandischema.digests.dandietag import DandiETag
-from dandischema.digests.zarr import get_checksum
 from fscacher import PersistentCache
+from zarr_checksum import ZarrChecksumTree
 
 from .threaded_walk import threaded_walk
 from ..utils import auto_repr, exclude_from_zarr
@@ -123,87 +122,10 @@ def get_zarr_checksum(path: Path, known: Optional[Dict[str, str]] = None) -> str
             dgst = md5file_nocache(f)
         return (f, dgst, os.path.getsize(f))
 
-    zcc = ZCTree()
+    zcc = ZarrChecksumTree()
     for p, digest, size in threaded_walk(path, digest_file, exclude=exclude_from_zarr):
-        zcc.add(p.relative_to(path), digest, size)
-    return zcc.get_digest()
-
-
-@dataclass
-class ZCFile:
-    """
-    File node used for building an in-memory tree of Zarr entries and their
-    digests when calculating a complete Zarr checksum
-
-    :meta private:
-    """
-
-    digest: str
-    size: int
-
-    def get_digest_size(self) -> Tuple[str, int]:
-        return (self.digest, self.size)
-
-
-@dataclass
-class ZCDirectory:
-    """
-    Directory node used for building an in-memory tree of Zarr entries and
-    their digests when calculating a complete Zarr checksum
-
-    :meta private:
-    """
-
-    children: Dict[str, Union[ZCDirectory, ZCFile]] = field(default_factory=dict)
-
-    def get_digest_size(self) -> Tuple[str, int]:
-        size = 0
-        files = {}
-        dirs = {}
-        for name, n in self.children.items():
-            dgst, sz = n.get_digest_size()
-            if isinstance(n, ZCDirectory):
-                dirs[name] = (dgst, sz)
-            else:
-                files[name] = (dgst, sz)
-            size += sz
-        return (cast(str, get_checksum(files, dirs)), size)
-
-
-@dataclass
-class ZCTree:
-    """
-    Tree root node used for building an in-memory tree of Zarr entries and
-    their digests when calculating a complete Zarr checksum
-
-    :meta private:
-    """
-
-    tree: ZCDirectory = field(init=False, default_factory=ZCDirectory)
-
-    def add(self, path: PurePath, digest: str, size: int) -> None:
-        *dirs, name = path.parts
-        parts = []
-        d = self.tree
-        for dirname in dirs:
-            parts.append(dirname)
-            e = d.children.setdefault(dirname, ZCDirectory())
-            assert isinstance(
-                e, ZCDirectory
-            ), f"Path type conflict for {'/'.join(parts)}"
-            d = e
-        parts.append(name)
-        pstr = "/".join(parts)
-        assert name not in d.children, f"File {pstr} encountered twice"
-        d.children[name] = ZCFile(digest=digest, size=size)
-
-    def get_digest(self) -> str:
-        if self.tree.children:
-            return self.tree.get_digest_size()[0]
-        else:
-            # get_checksum() refuses to operate on empty directories, so we
-            # return the checksum for an empty Zarr ourselves:
-            return "481a2f77ab786a0f45aafd5db0971caa-0--0"
+        zcc.add_leaf(p.relative_to(path), size, digest)
+    return str(zcc.process())
 
 
 def md5file_nocache(filepath: Union[str, Path]) -> str:
