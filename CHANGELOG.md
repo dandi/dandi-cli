@@ -1,3 +1,46 @@
+# 0.49.0 (Fri Feb 10 2023)
+
+#### 🚀 Enhancement
+
+- Update for new Zarr upload procedure; remove no longer needed `service-scripts` [#1202](https://github.com/dandi/dandi-cli/pull/1202) ([@jwodder](https://github.com/jwodder))
+- BF+RF validation [#1209](https://github.com/dandi/dandi-cli/pull/1209) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🐛 Bug Fix
+
+- Make `RemoteDandiset.get_version()` return a `VersionInfo` instance with validation error fields [#1210](https://github.com/dandi/dandi-cli/pull/1210) ([@jwodder](https://github.com/jwodder))
+- Improve messages displayed when an upload fails [#1204](https://github.com/dandi/dandi-cli/pull/1204) ([@jwodder](https://github.com/jwodder))
+- RF/BF: make find_parent_directory_containing operate on absolute path [#1188](https://github.com/dandi/dandi-cli/pull/1188) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Pass $USER to tox envs [#1201](https://github.com/dandi/dandi-cli/pull/1201) ([@jwodder](https://github.com/jwodder))
+- boost isort in precommit to 5.12.0 to overcome issue with poetry [#1199](https://github.com/dandi/dandi-cli/pull/1199) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 📝 Documentation
+
+- Move doc/design under docs/ where the rest of docs reside [#1198](https://github.com/dandi/dandi-cli/pull/1198) ([@yarikoptic](https://github.com/yarikoptic))
+- Further improve README.md: point to specific sections of handbook, remove lengthy `dandi ls --help` example [#1193](https://github.com/dandi/dandi-cli/pull/1193) ([@melster1010](https://github.com/melster1010))
+
+#### 🧪 Tests
+
+- Fix type errors; unbound mypy [#1207](https://github.com/dandi/dandi-cli/pull/1207) ([@jwodder](https://github.com/jwodder))
+- We no longer need to catch warning as hdmf has fixed the bug [#1194](https://github.com/dandi/dandi-cli/pull/1194) ([@TheChymera](https://github.com/TheChymera))
+- Joint BIDS-NWB metadata extraction. [#1183](https://github.com/dandi/dandi-cli/pull/1183) ([@TheChymera](https://github.com/TheChymera))
+- Fix for newer HDMF [#1191](https://github.com/dandi/dandi-cli/pull/1191) ([@TheChymera](https://github.com/TheChymera))
+
+#### 🔩 Dependency Updates
+
+- Blacklisting the most recent hdmf version 3.5.0 forbidding its use and breaking CI/testing. [#1190](https://github.com/dandi/dandi-cli/pull/1190) ([@TheChymera](https://github.com/TheChymera))
+
+#### Authors: 4
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Mary Elise Dedicke ([@melster1010](https://github.com/melster1010))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.48.1 (Tue Jan 17 2023)
 
 #### 🐛 Bug Fix
