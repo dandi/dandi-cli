@@ -174,7 +174,6 @@ def validate(
                 "README.txt",
                 "README.rst",
             ]:
-                print("🤔🤔🤔🤔🤔")
                 continue
             yield from df.get_validation_errors(
                 schema_version=schema_version, devel_debug=devel_debug
