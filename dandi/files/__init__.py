@@ -39,7 +39,6 @@ from .bids import (
     ZarrBIDSAsset,
 )
 from .zarr import LocalZarrEntry, ZarrAsset, ZarrStat
-from ..utils import find_parent_directory_containing
 
 __all__ = [
     "BIDSAsset",
@@ -106,18 +105,7 @@ def find_dandi_files(
                 raise ValueError(
                     "Path {str(p)!r} is not inside Dandiset path {str(dandiset_path)!r}"
                 )
-        bids_root = find_parent_directory_containing("dataset_description.json", p)
-        if bids_root:
-            bidsdd_path = bids_root / "dataset_description.json"
-            factory = BIDSDatasetDescriptionAsset
-            assert dandiset_path is not None
-            bidsdd = factory(
-                filepath=bidsdd_path,
-                path=str(bidsdd_path.relative_to(Path(dandiset_path))),
-                dandiset_path=Path(dandiset_path),
-            )
-        else:
-            bidsdd = None
+        bidsdd = None
         path_queue.append((Path(p), bidsdd))
     while path_queue:
         p, bidsdd = path_queue.popleft()
@@ -126,7 +114,7 @@ def find_dandi_files(
         if p.is_dir():
             if p.is_symlink():
                 lgr.warning("%s: Ignoring unsupported symbolic link to directory", p)
-            elif dandiset_path is not None and p == Path(dandiset_path):
+            elif dandiset_path is not None and p == Path(dandiset_path) and not bidsdd:
                 if (p / BIDS_DATASET_DESCRIPTION).exists():
                     bids2 = dandi_file(p / BIDS_DATASET_DESCRIPTION, dandiset_path)
                     assert isinstance(bids2, BIDSDatasetDescriptionAsset)
@@ -140,11 +128,9 @@ def find_dandi_files(
                     # (ie., it's not a Zarr or any other directory asset type
                     # we may add later), so traverse through it as a regular
                     # directory.
-                    if (p / BIDS_DATASET_DESCRIPTION).exists():
-                        bids2 = dandi_file(p / BIDS_DATASET_DESCRIPTION, dandiset_path)
-                        assert isinstance(bids2, BIDSDatasetDescriptionAsset)
-                        bidsdd = bids2
-                    path_queue.extend((q, bidsdd) for q in p.iterdir())
+                    # No nested BIDS.
+                    if not ((p / BIDS_DATASET_DESCRIPTION).exists() and bidsdd):
+                        path_queue.extend((q, bidsdd) for q in p.iterdir())
                 else:
                     yield df
         else:
