@@ -162,19 +162,6 @@ def validate(
         for df in find_dandi_files(
             p, dandiset_path=dandiset_path, allow_all=allow_any_path
         ):
-            # This is pretty awkward, as it turns out, if validation is called once on just the base
-            # files, the results are somehow cached, and subsequent validation attempts in the same
-            # BIDS dataset will just return the errors of the first run, which is to say, none.
-            # This also won't fix all instances of missed validation, since results seem sensitive
-            # To the order in which files are presented...
-            if os.path.basename(str(df.filepath)) in [
-                "dataset_description.json",
-                "README",
-                "README.md",
-                "README.txt",
-                "README.rst",
-            ]:
-                continue
             yield from df.get_validation_errors(
                 schema_version=schema_version, devel_debug=devel_debug
             )
