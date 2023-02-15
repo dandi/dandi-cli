@@ -88,7 +88,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                         bids_paths += [str(readme_candidate)]
                 # end of ad-hoc fix.
 
-                results = validate_bids(*bids_paths)
+                results = validate_bids(self.bids_root)
                 self._dataset_errors: list[ValidationResult] = []
                 self._asset_errors: dict[str, list[ValidationResult]] = defaultdict(
                     list
