@@ -245,7 +245,7 @@ class ZarrBIDSAsset(BIDSAsset, ZarrAsset):
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
-        return ZarrBIDSAsset.get_validation_errors(
+        return ZarrAsset.get_validation_errors(
             self, schema_version, devel_debug
         ) + BIDSAsset.get_validation_errors(self)
 
