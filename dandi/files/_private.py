@@ -94,9 +94,7 @@ class BIDSFileFactory(DandiFileFactory):
             if filepath == self.bids_dataset_description.filepath:
                 return self.bids_dataset_description
             else:
-                return BIDSDatasetDescriptionAsset(
-                    filepath=filepath, path=path, dandiset_path=dandiset_path
-                )
+                ftype = DandiFileType.GENERIC
         df = self.CLASSES[ftype](
             filepath=filepath,
             path=path,

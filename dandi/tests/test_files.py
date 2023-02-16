@@ -236,11 +236,11 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
             dandiset_path=tmp_path,
             bids_dataset_description_ref=ANY,
         ),
-        BIDSDatasetDescriptionAsset(
+        GenericBIDSAsset(
             filepath=tmp_path / "bids2" / "subbids" / "dataset_description.json",
             path="bids2/subbids/dataset_description.json",
             dandiset_path=tmp_path,
-            dataset_files=ANY,
+            bids_dataset_description_ref=ANY,
         ),
     ]
 
@@ -269,22 +269,22 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
         assert asset.bids_dataset_description is bidsdd
 
     bidsdd = cast(BIDSDatasetDescriptionAsset, files[5])
-    assert bidsdd.dataset_files == [
+    assert sorted(bidsdd.dataset_files, key=attrgetter("filepath")) == [
         GenericBIDSAsset(
             filepath=tmp_path / "bids2" / "movie.mp4",
             path="bids2/movie.mp4",
             dandiset_path=tmp_path,
             bids_dataset_description_ref=ANY,
         ),
-    ]
-    for asset in bidsdd.dataset_files:
-        assert asset.bids_dataset_description is bidsdd
-
-    bidsdd = cast(BIDSDatasetDescriptionAsset, files[8])
-    assert bidsdd.dataset_files == [
         GenericBIDSAsset(
             filepath=tmp_path / "bids2" / "subbids" / "data.json",
             path="bids2/subbids/data.json",
+            dandiset_path=tmp_path,
+            bids_dataset_description_ref=ANY,
+        ),
+        GenericBIDSAsset(
+            filepath=tmp_path / "bids2" / "subbids" / "dataset_description.json",
+            path="bids2/subbids/dataset_description.json",
             dandiset_path=tmp_path,
             bids_dataset_description_ref=ANY,
         ),
