@@ -132,7 +132,7 @@ def find_dandi_files(
                     # directory.
                     if (p / BIDS_DATASET_DESCRIPTION).exists():
                         # No nested BIDS.
-                        if not any([i in p.parents for i in bids_roots]):
+                        if not any(i in p.parents for i in bids_roots):
                             bids2 = dandi_file(
                                 p / BIDS_DATASET_DESCRIPTION, dandiset_path
                             )
