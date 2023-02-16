@@ -8,7 +8,7 @@ from enum import Enum
 from fnmatch import fnmatchcase
 import json
 import os.path
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 from time import sleep, time
 from types import TracebackType
@@ -49,7 +49,7 @@ from .consts import (
 )
 from .exceptions import HTTP404Error, NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup
-from .misctypes import Digest
+from .misctypes import Digest, RemoteReadableAsset
 from .utils import (
     USER_AGENT,
     check_dandi_version,
@@ -1512,6 +1512,35 @@ class BaseRemoteBlobAsset(BaseRemoteAsset):
         The type of the asset's underlying data
         """
         return AssetType.BLOB
+
+    def as_readable(self) -> RemoteReadableAsset:
+        """
+        .. versionadded:: 0.50.0
+
+        Returns a `Readable` instance that can be used to obtain a file-like
+        object for reading bytes directly from the asset on the server
+        """
+        md = self.get_raw_metadata()
+        local_prefix = self.client.api_url.lower()
+        for url in md.get("contentUrl", []):
+            if not url.lower().startswith(local_prefix):
+                # This must be the S3 URL
+                try:
+                    size = int(md["contentSize"])
+                except (KeyError, TypeError, ValueError):
+                    lgr.warning('"contentSize" not set for asset %s', self.identifier)
+                    r = requests.head(url)
+                    r.raise_for_status()
+                    size = int(r.headers["Content-Length"])
+                mtime: Optional[datetime]
+                try:
+                    mtime = ensure_datetime(md["blobDateModified"])
+                except (KeyError, TypeError, ValueError):
+                    mtime = None
+                name = PurePosixPath(md["path"]).name
+                return RemoteReadableAsset(url=url, size=size, mtime=mtime, name=name)
+        else:
+            raise NotFoundError("S3 URL not found in asset's contentUrl metadata field")
 
 
 class BaseRemoteZarrAsset(BaseRemoteAsset):

@@ -28,7 +28,7 @@ import requests
 import dandi
 from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from dandi.metadata import get_default_metadata, nwb2asset
-from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, P
+from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
 from dandi.organize import validate_organized_path
 from dandi.pynwb_utils import validate as pynwb_validate
 from dandi.support.digests import get_dandietag, get_digest
@@ -134,6 +134,14 @@ class DandisetMetadataFile(DandiFile):
                     [e], self.filepath, scope=Scope.DANDISET
                 )
             return []
+
+    def as_readable(self) -> LocalReadableFile:
+        """
+        .. versionadded:: 0.50.0
+
+        Returns a `Readable` instance wrapping the local file
+        """
+        return LocalReadableFile(self.filepath)
 
 
 @dataclass  # type: ignore[misc]  # <https://github.com/python/mypy/issues/5374>
@@ -444,6 +452,14 @@ class LocalFileAsset(LocalAsset):
         a = RemoteAsset.from_data(dandiset, r)
         lgr.info("%s: Asset successfully uploaded", asset_path)
         yield {"status": "done", "asset": a}
+
+    def as_readable(self) -> LocalReadableFile:
+        """
+        .. versionadded:: 0.50.0
+
+        Returns a `Readable` instance wrapping the local file
+        """
+        return LocalReadableFile(self.filepath)
 
 
 class NWBAsset(LocalFileAsset):
