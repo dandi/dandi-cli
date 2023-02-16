@@ -46,7 +46,7 @@ def test_validate_bids_onefile(bids_error_examples, tmp_path):
 
     bids_file_path = os.path.join(bids_error_examples, selected_dataset, error_file)
     bids_dataset_path = pathlib.Path(
-        os.path.join(bids_error_examples, selected_dataset)
+        bids_error_examples, selected_dataset
     )
     error_reference = os.path.join(bids_dataset_path, ".ERRORS.json")
     with open(error_reference) as f:
