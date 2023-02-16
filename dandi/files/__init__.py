@@ -107,6 +107,7 @@ def find_dandi_files(
                 )
         bidsdd = None
         path_queue.append((Path(p), bidsdd))
+    bids_roots = []
     while path_queue:
         p, bidsdd = path_queue.popleft()
         if p.name.startswith("."):
@@ -114,11 +115,12 @@ def find_dandi_files(
         if p.is_dir():
             if p.is_symlink():
                 lgr.warning("%s: Ignoring unsupported symbolic link to directory", p)
-            elif dandiset_path is not None and p == Path(dandiset_path) and not bidsdd:
+            elif dandiset_path is not None and p == Path(dandiset_path):
                 if (p / BIDS_DATASET_DESCRIPTION).exists():
-                    bids2 = dandi_file(p / BIDS_DATASET_DESCRIPTION, dandiset_path)
-                    assert isinstance(bids2, BIDSDatasetDescriptionAsset)
-                    bidsdd = bids2
+                    bids = dandi_file(p / BIDS_DATASET_DESCRIPTION, dandiset_path)
+                    assert isinstance(bids, BIDSDatasetDescriptionAsset)
+                    bidsdd = bids
+                    bids_roots.append(p)
                 path_queue.extend((q, bidsdd) for q in p.iterdir())
             elif any(p.iterdir()):
                 try:
@@ -128,8 +130,17 @@ def find_dandi_files(
                     # (ie., it's not a Zarr or any other directory asset type
                     # we may add later), so traverse through it as a regular
                     # directory.
-                    # No nested BIDS.
-                    if not ((p / BIDS_DATASET_DESCRIPTION).exists() and bidsdd):
+                    if (p / BIDS_DATASET_DESCRIPTION).exists():
+                        # No nested BIDS.
+                        if not any([i in p.parents for i in bids_roots]):
+                            bids2 = dandi_file(
+                                p / BIDS_DATASET_DESCRIPTION, dandiset_path
+                            )
+                            assert isinstance(bids2, BIDSDatasetDescriptionAsset)
+                            bidsdd = bids2
+                            bids_roots.append(p)
+                            path_queue.extend((q, bidsdd) for q in p.iterdir())
+                    else:
                         path_queue.extend((q, bidsdd) for q in p.iterdir())
                 else:
                     yield df
