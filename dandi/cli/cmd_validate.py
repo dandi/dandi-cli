@@ -10,56 +10,6 @@ from ..validate_types import Severity
 
 
 @click.command()
-@click.option(
-    "--schema", help="Validate against new BIDS schema version.", metavar="VERSION"
-)
-@click.option(
-    "--report-path",
-    help="Write report under path, this option implies `--report/-r`.",
-)
-@click.option(
-    "--report",
-    "-r",
-    is_flag=True,
-    help="Whether to write a report under a unique path in the DANDI log directory.",
-)
-@click.option(
-    "--grouping",
-    "-g",
-    help="How to group error/warning reporting.",
-    type=click.Choice(["none", "path"], case_sensitive=False),
-    default="none",
-)
-@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
-@map_to_click_exceptions
-def validate_bids(
-    paths,
-    schema,
-    report,
-    report_path,
-    grouping="none",
-):
-    """Validate BIDS paths.
-
-    Notes
-    -----
-    Used from bash, eg:
-        dandi validate-bids /my/path
-    """
-
-    from ..validate import validate_bids as validate_bids_
-
-    validator_result = validate_bids_(  # Controller
-        *paths,
-        report=report,
-        report_path=report_path,
-        schema_version=schema,
-    )
-
-    _process_issues(validator_result, grouping)
-
-
-@click.command()
 @devel_option("--schema", help="Validate against new schema version", metavar="VERSION")
 @devel_option(
     "--allow-any-path",

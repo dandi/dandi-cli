@@ -20,8 +20,6 @@ BIDS_TO_DANDI = {
 def validate_bids(
     *paths: Union[str, Path],
     schema_version: Optional[str] = None,
-    report: bool = False,
-    report_path: str = "",
 ) -> list[ValidationResult]:
     """Validate BIDS paths.
 
@@ -33,10 +31,6 @@ def validate_bids(
         BIDS schema version to use, this setting will override the version specified in the dataset.
     devel_debug : bool, optional
         Whether to trigger debugging in the BIDS validator.
-    report : bool, optional
-        Whether to write a BIDS validator report inside the DANDI log directory.
-    report_path : str, optional
-        Path underneath which to write a validation report, this option implies `report`.
 
     Returns
     -------
@@ -53,12 +47,11 @@ def validate_bids(
     import bidsschematools
     from bidsschematools.validator import validate_bids as validate_bids_
 
-    if report and not report_path:
-        log_dir = appdirs.user_log_dir("dandi-cli", "dandi")
-        report_path = "{log_dir}/bids-validator-report_{{datetime}}-{{pid}}.log"
-        report_path = report_path.format(
-            log_dir=log_dir,
-        )
+    log_dir = appdirs.user_log_dir("dandi-cli", "dandi")
+    report_path = "{log_dir}/bids-validator-report_{{datetime}}-{{pid}}.log"
+    report_path = report_path.format(
+        log_dir=log_dir,
+    )
 
     validation_result = validate_bids_(
         paths,

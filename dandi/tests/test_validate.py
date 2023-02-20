@@ -45,9 +45,7 @@ def test_validate_bids_onefile(bids_error_examples, tmp_path):
     )
 
     bids_file_path = os.path.join(bids_error_examples, selected_dataset, error_file)
-    bids_dataset_path = pathlib.Path(
-        bids_error_examples, selected_dataset
-    )
+    bids_dataset_path = pathlib.Path(bids_error_examples, selected_dataset)
     error_reference = os.path.join(bids_dataset_path, ".ERRORS.json")
     with open(error_reference) as f:
         expected_errors = json.load(f)
@@ -69,9 +67,9 @@ def test_validate_bids_errors(bids_error_examples, dataset):
 
     selected_dataset = os.path.join(bids_error_examples, dataset)
     validation_result = validate(selected_dataset)
+    validation_result = list(validation_result)
     with open(os.path.join(selected_dataset, ".ERRORS.json")) as f:
         expected_errors = json.load(f)
-    validation_result = [i for i in validation_result]
 
     # We know that these datasets contain errors.
     assert len(validation_result) > 0
