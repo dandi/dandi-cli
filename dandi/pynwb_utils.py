@@ -192,7 +192,9 @@ def _scan_neurodata_types(grp: h5py.File) -> List[Tuple[Any, Any]]:
 
 def _get_pynwb_metadata(path: str | Path | Readable) -> dict[str, Any]:
     out = {}
-    with open_readable(path) as fp, NWBHDF5IO(fp, load_namespaces=True) as io:
+    with open_readable(path) as fp, h5py.File(fp) as h5, NWBHDF5IO(
+        file=h5, load_namespaces=True
+    ) as io:
         nwb = io.read()
         for key in metadata_nwb_file_fields:
             value = getattr(nwb, key)
