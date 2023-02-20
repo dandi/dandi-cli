@@ -1539,8 +1539,7 @@ class BaseRemoteBlobAsset(BaseRemoteAsset):
                     mtime = None
                 name = PurePosixPath(md["path"]).name
                 return RemoteReadableAsset(url=url, size=size, mtime=mtime, name=name)
-        else:
-            raise NotFoundError("S3 URL not found in asset's contentUrl metadata field")
+        raise NotFoundError("S3 URL not found in asset's contentUrl metadata field")
 
 
 class BaseRemoteZarrAsset(BaseRemoteAsset):
