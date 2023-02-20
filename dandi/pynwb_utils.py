@@ -5,7 +5,7 @@ import os
 import os.path as op
 from pathlib import Path
 import re
-from typing import Any, Dict, List, Tuple, TypeVar, Union, cast
+from typing import IO, Any, Dict, List, Optional, Tuple, TypeVar, Union, cast
 import warnings
 
 import dandischema
@@ -25,6 +25,7 @@ from .consts import (
     metadata_nwb_file_fields,
     metadata_nwb_subject_fields,
 )
+from .misctypes import Readable
 from .utils import get_module_version, is_url
 from .validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
@@ -84,7 +85,9 @@ def _sanitize_nwb_version(v, filename=None, log=None):
     return v
 
 
-def get_nwb_version(filepath, sanitize=False):
+def get_nwb_version(
+    filepath: str | Path | Readable, sanitize: bool = False
+) -> Optional[str]:
     """Return a version of the NWB standard used by a file
 
     Parameters
@@ -100,7 +103,7 @@ def get_nwb_version(filepath, sanitize=False):
     """
     _sanitize = _sanitize_nwb_version if sanitize else lambda v: v
 
-    with h5py.File(filepath, "r") as h5file:
+    with open_readable(filepath) as fp, h5py.File(fp) as h5file:
         # 2.x stored it as an attribute
         try:
             return _sanitize(h5file.attrs["nwb_version"])
@@ -159,8 +162,8 @@ def get_neurodata_types_to_modalities_map() -> Dict[str, str]:
 
 
 @metadata_cache.memoize_path
-def get_neurodata_types(filepath: Union[str, Path]) -> List[str]:
-    with h5py.File(filepath, "r") as h5file:
+def get_neurodata_types(filepath: str | Path | Readable) -> list[str]:
+    with open_readable(filepath) as fp, h5py.File(fp) as h5file:
         all_pairs = _scan_neurodata_types(h5file)
 
     # so far descriptions are useless so let's just output actual names only
@@ -187,9 +190,9 @@ def _scan_neurodata_types(grp: h5py.File) -> List[Tuple[Any, Any]]:
     return out
 
 
-def _get_pynwb_metadata(path: Union[str, Path]) -> Dict[str, Any]:
+def _get_pynwb_metadata(path: str | Path | Readable) -> dict[str, Any]:
     out = {}
-    with NWBHDF5IO(path, "r", load_namespaces=True) as io:
+    with open_readable(path) as fp, NWBHDF5IO(fp, load_namespaces=True) as io:
         nwb = io.read()
         for key in metadata_nwb_file_fields:
             value = getattr(nwb, key)
@@ -452,12 +455,12 @@ def ignore_benign_pynwb_warnings() -> None:
     _ignored_benign_pynwb_warnings = True
 
 
-def get_object_id(path: Union[str, Path]) -> Any:
+def get_object_id(path: str | Path | Readable) -> Any:
     """Read, if present an object_id
 
     if not available -- would simply raise a corresponding exception
     """
-    with h5py.File(path, "r") as f:
+    with open_readable(path) as fp, h5py.File(fp) as f:
         return f.attrs["object_id"]
 
 
@@ -509,8 +512,8 @@ def copy_nwb_file(src: Union[str, Path], dest: Union[str, Path]) -> str:
 
 
 @metadata_cache.memoize_path
-def nwb_has_external_links(filepath: Union[str, Path]) -> bool:
-    with h5py.File(filepath, "r") as fp:
+def nwb_has_external_links(filepath: str | Path | Readable) -> bool:
+    with open_readable(filepath) as f, h5py.File(f) as fp:
         visited = set()
 
         # cannot use `file.visititems` because it skips external links
@@ -530,3 +533,10 @@ def nwb_has_external_links(filepath: Union[str, Path]) -> bool:
             return False
 
         return visit()
+
+
+def open_readable(r: str | Path | Readable) -> IO[bytes]:
+    if isinstance(r, Readable):
+        return r.open()
+    else:
+        return open(r, "rb")

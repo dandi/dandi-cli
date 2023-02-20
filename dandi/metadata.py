@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from functools import lru_cache
 import os
-import os.path as op
+import os.path
 from pathlib import Path
 import re
 from typing import (
@@ -28,9 +28,8 @@ import requests
 import tenacity
 
 from . import __version__, get_logger
-from .consts import ZARR_EXTENSIONS, metadata_all_fields
-from .dandiset import Dandiset
-from .misctypes import Digest
+from .consts import metadata_all_fields
+from .misctypes import Digest, LocalReadableFile, Readable
 from .pynwb_utils import (
     _get_pynwb_metadata,
     get_neurodata_types,
@@ -52,17 +51,15 @@ lgr = get_logger()
 # Disable this for clean hacking
 @metadata_cache.memoize_path
 def get_metadata(
-    path: Union[str, Path],
+    path: str | Path | Readable,
     digest: Optional[Digest] = None,
 ) -> Optional[dict]:
     """
-    Get "flatdata" from a .nwb file or a Dandiset directory
-
-    If a directory given and it is not a Dandiset, None is returned
+    Get "flatdata" from a .nwb file
 
     Parameters
     ----------
-    path: str or Path
+    path: str, Path, or Readable
 
     Returns
     -------
@@ -73,48 +70,49 @@ def get_metadata(
 
     # when we run in parallel, these annoying warnings appear
     ignore_benign_pynwb_warnings()
-    path = os.path.abspath(str(path))  # for Path
-    meta = dict()
 
-    if op.isdir(path) and not path.endswith(tuple(ZARR_EXTENSIONS)):
-        try:
-            dandiset = Dandiset(path)
-            return cast(dict, dandiset.metadata)
-        except ValueError as exc:
-            lgr.debug("Failed to get metadata for %s: %s", path, exc)
-            return None
+    if isinstance(path, Readable):
+        r = path
+    else:
+        r = LocalReadableFile(os.path.abspath(path))
 
-    # Is the data BIDS (as defined by the presence of a BIDS dataset descriptor)
-    bids_dataset_description = find_bids_dataset_description(path)
-    if bids_dataset_description:
-        dandiset_path = find_parent_directory_containing("dandiset.yaml", path)
-        df = dandi_file(
-            Path(path),
-            dandiset_path,
-            bids_dataset_description=bids_dataset_description,
-        )
-        if not digest:
-            _digest = "0" * 32 + "-1"
-            digest = Digest.dandi_etag(_digest)
-        path_metadata = df.get_metadata(digest=digest)
-        assert isinstance(df, bids.BIDSAsset)
-        meta["bids_version"] = df.get_validation_bids_version()
-        # there might be a more elegant way to do this:
-        for key in metadata_all_fields:
-            try:
-                value = getattr(path_metadata.wasAttributedTo[0], key)
-            except AttributeError:
-                pass
-            else:
-                meta[key] = value
-    if path.endswith((".NWB", ".nwb")):
-        if nwb_has_external_links(path):
+    meta: dict[str, Any] = {}
+
+    if isinstance(r, LocalReadableFile):
+        # Is the data BIDS (as defined by the presence of a BIDS dataset descriptor)
+        bids_dataset_description = find_bids_dataset_description(r.filepath)
+        if bids_dataset_description:
+            dandiset_path = find_parent_directory_containing(
+                "dandiset.yaml", r.filepath
+            )
+            df = dandi_file(
+                r.filepath,
+                dandiset_path,
+                bids_dataset_description=bids_dataset_description,
+            )
+            if not digest:
+                _digest = "0" * 32 + "-1"
+                digest = Digest.dandi_etag(_digest)
+            path_metadata = df.get_metadata(digest=digest)
+            assert isinstance(df, bids.BIDSAsset)
+            meta["bids_version"] = df.get_validation_bids_version()
+            # there might be a more elegant way to do this:
+            for key in metadata_all_fields:
+                try:
+                    value = getattr(path_metadata.wasAttributedTo[0], key)
+                except AttributeError:
+                    pass
+                else:
+                    meta[key] = value
+
+    if r.get_filename().endswith((".NWB", ".nwb")):
+        if nwb_has_external_links(r):
             raise NotImplementedError(
-                f"NWB files with external links are not supported: {path}"
+                f"NWB files with external links are not supported: {r}"
             )
 
         # First read out possibly available versions of specifications for NWB(:N)
-        meta["nwb_version"] = get_nwb_version(path)
+        meta["nwb_version"] = get_nwb_version(r)
 
         # PyNWB might fail to load because of missing extensions.
         # There is a new initiative of establishing registry of such extensions.
@@ -128,10 +126,10 @@ def get_metadata(
         tried_imports = set()
         while True:
             try:
-                meta.update(_get_pynwb_metadata(path))
+                meta.update(_get_pynwb_metadata(r))
                 break
             except KeyError as exc:  # ATM there is
-                lgr.debug("Failed to read %s: %s", path, exc)
+                lgr.debug("Failed to read %s: %s", r, exc)
                 res = re.match(r"^['\"\\]+(\S+). not a namespace", str(exc))
                 if not res:
                     raise
@@ -151,10 +149,10 @@ def get_metadata(
                 tried_imports.add(import_mod)
                 __import__(import_mod)
 
-        meta["nd_types"] = get_neurodata_types(path)
+        meta["nd_types"] = get_neurodata_types(r)
     if not meta:
         raise RuntimeError(
-            "Unable to get metadata from non-BIDS, non-NWB asset: `%s`." % path
+            f"Unable to get metadata from non-BIDS, non-NWB asset: `{path}`."
         )
     return meta
 
@@ -947,7 +945,7 @@ def process_ndtypes(metadata: Dict[str, Any], nd_types: Iterable[str]) -> None:
 
 
 def nwb2asset(
-    nwb_path: Union[str, Path],
+    nwb_path: str | Path | Readable,
     digest: Optional[Digest] = None,
     schema_version: Optional[str] = None,
 ) -> models.BareAsset:
@@ -964,14 +962,18 @@ def nwb2asset(
     end_time = datetime.now().astimezone()
     add_common_metadata(asset_md, nwb_path, start_time, end_time, digest)
     asset_md["encodingFormat"] = "application/x-nwb"
-    asset_md["path"] = str(nwb_path)
+    # This gets overwritten with a better value by the caller:
+    if isinstance(nwb_path, Readable):
+        asset_md["path"] = nwb_path.get_filename()
+    else:
+        asset_md["path"] = str(nwb_path)
     return models.BareAsset(**asset_md)
 
 
 def get_default_metadata(
-    path: Union[str, Path], digest: Optional[Digest] = None
+    path: str | Path | Readable, digest: Optional[Digest] = None
 ) -> models.BareAsset:
-    metadata: Dict[str, Any] = {}
+    metadata: dict[str, Any] = {}
     start_time = end_time = datetime.now().astimezone()
     add_common_metadata(metadata, path, start_time, end_time, digest)
     return models.BareAsset.unvalidated(**metadata)
@@ -979,7 +981,7 @@ def get_default_metadata(
 
 def add_common_metadata(
     metadata: Dict[str, Any],
-    path: Union[str, Path],
+    path: str | Path | Readable,
     start_time: datetime,
     end_time: datetime,
     digest: Optional[Digest] = None,
@@ -993,12 +995,16 @@ def add_common_metadata(
     else:
         metadata["digest"] = {}
     metadata["dateModified"] = get_utcnow_datetime()
-    metadata["blobDateModified"] = ensure_datetime(os.stat(path).st_mtime)
-    if metadata["blobDateModified"] > metadata["dateModified"]:
-        lgr.warning(
-            "mtime %s of %s is in the future", metadata["blobDateModified"], path
-        )
-    metadata["contentSize"] = os.path.getsize(path)
+    if isinstance(path, Readable):
+        r = path
+    else:
+        r = LocalReadableFile(path)
+    mtime = r.get_mtime()
+    if mtime is not None:
+        metadata["blobDateModified"] = mtime
+        if mtime > metadata["dateModified"]:
+            lgr.warning("mtime %s of %s is in the future", mtime, r)
+    metadata["contentSize"] = r.get_size()
     if digest is not None and digest.algorithm is models.DigestType.dandi_zarr_checksum:
         m = re.fullmatch(
             r"(?P<hash>[0-9a-f]{32})-(?P<files>[0-9]+)--(?P<size>[0-9]+)", digest.value
@@ -1008,7 +1014,7 @@ def add_common_metadata(
     metadata.setdefault("wasGeneratedBy", []).append(
         get_generator(start_time, end_time)
     )
-    metadata["encodingFormat"] = get_mime_type(str(path))
+    metadata["encodingFormat"] = get_mime_type(r.get_filename())
 
 
 def get_generator(start_time: datetime, end_time: datetime) -> models.Activity:
