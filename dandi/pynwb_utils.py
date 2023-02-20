@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Callable
 import os
 import os.path as op
 from pathlib import Path
@@ -49,7 +50,11 @@ validate_cache = PersistentCache(
 )
 
 
-def _sanitize_nwb_version(v, filename=None, log=None):
+def _sanitize_nwb_version(
+    v: Any,
+    filename: str | Path | None = None,
+    log: Optional[Callable[[str], Any]] = None,
+) -> str:
     """Helper to sanitize the value of nwb_version where possible
 
     Would log a warning if something detected to be fishy"""
@@ -58,31 +63,29 @@ def _sanitize_nwb_version(v, filename=None, log=None):
 
     if log is None:
         log = lgr.warning
-    elif not log:
-
-        def log(v: str) -> str:  # does nothing
-            return v
 
     if isinstance(v, str):
         if v.startswith("NWB-"):
-            v_ = v[4:]
+            vstr = v[4:]
             # should be semver since 2.1.0
-            if not (v_.startswith("1.") or v_.startswith("2.0")):
+            if not (vstr.startswith("1.") or vstr.startswith("2.0")):
                 log(
                     f"{msg} starts with NWB- prefix, which is not part of the "
                     f"specification since NWB 2.1.0"
                 )
-            v = v_
+        else:
+            vstr = v
+        if not semantic_version.validate(vstr):
+            log(f"error: {msg} is not a proper semantic version. See http://semver.org")
     elif isinstance(v, int):
         log(f"{msg} is an integer whenever it should be text")
-        v = str(v)
-    elif v:
+        vstr = str(v)
+        if not semantic_version.validate(vstr):
+            log(f"error: {msg} is not a proper semantic version. See http://semver.org")
+    else:
         log(f"{msg} is not text which follows semver specification")
-
-    if isinstance(v, str) and not semantic_version.validate(v):
-        log(f"error: {msg} is not a proper semantic version. See http://semver.org")
-
-    return v
+        vstr = str(v)
+    return vstr
 
 
 def get_nwb_version(
@@ -101,7 +104,15 @@ def get_nwb_version(
     str or None
        None if there is no version detected
     """
-    _sanitize = _sanitize_nwb_version if sanitize else lambda v: v
+    if sanitize:
+
+        def _sanitize(v: Any) -> str:
+            return _sanitize_nwb_version(v)
+
+    else:
+
+        def _sanitize(v: Any) -> str:
+            return str(v)
 
     with open_readable(filepath) as fp, h5py.File(fp) as h5file:
         # 2.x stored it as an attribute
