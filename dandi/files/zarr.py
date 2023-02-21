@@ -446,7 +446,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     uploading = []
                     for (entry_path, digest, size) in items:
                         zcc.add_leaf(Path(entry_path), size, digest)
-                        uploading.append(entry_path)
+                        uploading.append({"path": entry_path, "md5": digest})
                     lgr.debug(
                         "%s: Uploading Zarr file batch #%d (%s)",
                         asset_path,
