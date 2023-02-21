@@ -922,7 +922,7 @@ neurodata_typemap: Dict[str, Neurodatum] = {
 }
 
 
-def process_ndtypes(metadata: Dict[str, Any], nd_types: Iterable[str]) -> None:
+def process_ndtypes(metadata: models.BareAsset, nd_types: Iterable[str]) -> None:
     approach = set()
     technique = set()
     variables = set()
@@ -935,13 +935,11 @@ def process_ndtypes(metadata: Dict[str, Any], nd_types: Iterable[str]) -> None:
         if neurodata_typemap[val]["technique"]:
             technique.add(neurodata_typemap[val]["technique"])
         variables.add(val)
-    metadata["approach"] = [models.ApproachType(name=val) for val in approach]
-    metadata["measurementTechnique"] = [
+    metadata.approach = [models.ApproachType(name=val) for val in approach]
+    metadata.measurementTechnique = [
         models.MeasurementTechniqueType(name=val) for val in technique
     ]
-    metadata["variableMeasured"] = [
-        models.PropertyValue(value=val) for val in variables
-    ]
+    metadata.variableMeasured = [models.PropertyValue(value=val) for val in variables]
 
 
 def nwb2asset(
@@ -961,26 +959,26 @@ def nwb2asset(
     process_ndtypes(asset_md, metadata["nd_types"])
     end_time = datetime.now().astimezone()
     add_common_metadata(asset_md, nwb_path, start_time, end_time, digest)
-    asset_md["encodingFormat"] = "application/x-nwb"
+    asset_md.encodingFormat = "application/x-nwb"
     # This gets overwritten with a better value by the caller:
     if isinstance(nwb_path, Readable):
-        asset_md["path"] = nwb_path.get_filename()
+        asset_md.path = nwb_path.get_filename()
     else:
-        asset_md["path"] = str(nwb_path)
-    return models.BareAsset(**asset_md)
+        asset_md.path = str(nwb_path)
+    return asset_md
 
 
 def get_default_metadata(
     path: str | Path | Readable, digest: Optional[Digest] = None
 ) -> models.BareAsset:
-    metadata: dict[str, Any] = {}
+    metadata = models.BareAsset.unvalidated()
     start_time = end_time = datetime.now().astimezone()
     add_common_metadata(metadata, path, start_time, end_time, digest)
-    return models.BareAsset.unvalidated(**metadata)
+    return metadata
 
 
 def add_common_metadata(
-    metadata: Dict[str, Any],
+    metadata: models.BareAsset,
     path: str | Path | Readable,
     start_time: datetime,
     end_time: datetime,
@@ -991,30 +989,30 @@ def add_common_metadata(
     NWB assets and non-NWB assets
     """
     if digest is not None:
-        metadata["digest"] = digest.asdict()
+        metadata.digest = digest.asdict()
     else:
-        metadata["digest"] = {}
-    metadata["dateModified"] = get_utcnow_datetime()
+        metadata.digest = {}
+    metadata.dateModified = get_utcnow_datetime()
     if isinstance(path, Readable):
         r = path
     else:
         r = LocalReadableFile(path)
     mtime = r.get_mtime()
     if mtime is not None:
-        metadata["blobDateModified"] = mtime
-        if mtime > metadata["dateModified"]:
+        metadata.blobDateModified = mtime
+        if mtime > metadata.dateModified:
             lgr.warning("mtime %s of %s is in the future", mtime, r)
-    metadata["contentSize"] = r.get_size()
+    metadata.contentSize = r.get_size()
     if digest is not None and digest.algorithm is models.DigestType.dandi_zarr_checksum:
         m = re.fullmatch(
             r"(?P<hash>[0-9a-f]{32})-(?P<files>[0-9]+)--(?P<size>[0-9]+)", digest.value
         )
         if m:
-            metadata["contentSize"] = int(m["size"])
-    metadata.setdefault("wasGeneratedBy", []).append(
-        get_generator(start_time, end_time)
-    )
-    metadata["encodingFormat"] = get_mime_type(r.get_filename())
+            metadata.contentSize = int(m["size"])
+    if metadata.wasGeneratedBy is None:
+        metadata.wasGeneratedBy = []
+    metadata.wasGeneratedBy.append(get_generator(start_time, end_time))
+    metadata.encodingFormat = get_mime_type(r.get_filename())
 
 
 def get_generator(start_time: datetime, end_time: datetime) -> models.Activity:
@@ -1031,20 +1029,19 @@ def get_generator(start_time: datetime, end_time: datetime) -> models.Activity:
                 schemaKey="Software",
             )
         ],
-        startedAt=start_time,
-        endedAt=end_time,
+        startDate=start_time,
+        endDate=end_time,
     )
 
 
-def prepare_metadata(metadata: dict) -> Dict[str, Any]:
+def prepare_metadata(metadata: dict) -> models.BareAsset:
     """
-    Convert "flatdata" [1]_ for an asset into raw [2]_ "schemadata" [3]_
+    Convert "flatdata" [1]_ for an asset into "schemadata" [2]_ as a
+    `BareAsset`
 
     .. [1] a flat `dict` mapping strings to strings & other primitive types;
        returned by `get_metadata()`
 
-    .. [2] i.e, a `dict` rather than a `BareAsset`
-
-    .. [3] metadata in the form used by the ``dandischema`` library
+    .. [2] metadata in the form used by the ``dandischema`` library
     """
-    return cast(Dict[str, Any], extract_model(models.BareAsset, metadata).json_dict())
+    return extract_model(models.BareAsset, metadata)
