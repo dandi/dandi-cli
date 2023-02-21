@@ -21,7 +21,7 @@ def test_validate_nwb_error(simple3_nwb):
 def test_validate_bids(bids_examples, tmp_path, dataset):
 
     selected_dataset = os.path.join(bids_examples, dataset)
-    validation_result = validate(selected_dataset, report=True)
+    validation_result = validate(selected_dataset)
     for i in validation_result:
         assert i.severity is None
 

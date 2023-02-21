@@ -143,7 +143,6 @@ def validate(
     schema_version: Optional[str] = None,
     devel_debug: bool = False,
     allow_any_path: bool = False,
-    report: bool = False,
 ) -> Iterator[ValidationResult]:
     """Validate content
 
