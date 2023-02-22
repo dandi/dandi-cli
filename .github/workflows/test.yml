@@ -32,6 +32,7 @@ jobs:
           - 3.8
           - 3.9
           - '3.10'  # Needs quotes so YAML doesn't think it's 3.1
+          - '3.11'
         mode:
           - normal
         include:
