@@ -627,7 +627,7 @@ class UploadItem:
         return b64encode(bytes.fromhex(self.digest)).decode("us-ascii")
 
     def upload_request(self) -> dict[str, str]:
-        return {"path": self.entry_path, "md5": self.base64_digest}
+        return {"path": self.entry_path, "base64md5": self.base64_digest}
 
 
 def _cmp_digests(
