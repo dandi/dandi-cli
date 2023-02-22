@@ -1,3 +1,19 @@
+# 0.49.1 (Wed Feb 22 2023)
+
+#### 🐛 Bug Fix
+
+- Update for fix to Zarr upload procedure [#1215](https://github.com/dandi/dandi-cli/pull/1215) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Restore testing against Windows with Python 3.10 [#1213](https://github.com/dandi/dandi-cli/pull/1213) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.49.0 (Fri Feb 10 2023)
 
 #### 🚀 Enhancement
