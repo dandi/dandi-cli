@@ -453,6 +453,14 @@ def extract_sex(metadata: dict) -> Optional[models.SexType]:
         return None
 
 
+def extract_strain(metadata: dict) -> Optional[models.StrainType]:
+    value = metadata.get("strain", None)
+    if value is not None and value != "":
+        return models.StrainType(name=value)
+    else:
+        return None
+
+
 species_map = [
     (
         ["mouse"],
@@ -701,6 +709,7 @@ FIELD_EXTRACTORS: Dict[str, Callable[[dict], Any]] = {
     "wasGeneratedBy": extract_session,
     "age": extract_age,
     "sex": extract_sex,
+    "strain": extract_strain,
     "assayType": extract_assay_type,
     "anatomy": extract_anatomy,
     "digest": extract_digest,

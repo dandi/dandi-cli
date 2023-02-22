@@ -294,6 +294,7 @@ def test_timedelta2duration(td: timedelta, duration: str) -> None:
                 "date_of_birth": "2020-03-14T12:34:56-04:00",
                 "genotype": "Typical",
                 "sex": "M",
+                "strain": "abcdef/1",
                 "species": "http://purl.obolibrary.org/obo/NCBITaxon_1234175",  # Corner case
                 "subject_id": "a1b2c3",
                 "cell_id": "cell01",
