@@ -1,3 +1,5 @@
+.. _chap_cmdline:
+
 **********************
 Command-Line Interface
 **********************

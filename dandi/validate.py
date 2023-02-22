@@ -27,7 +27,7 @@ def validate_bids(
 
     Parameters
     ----------
-    paths : *str
+    paths : list(str)
         Paths to validate.
     schema_version : str, optional
         BIDS schema version to use, this setting will override the version specified in the dataset.
@@ -46,7 +46,7 @@ def validate_bids(
 
     Notes
     -----
-    * Eventually this should be migrated to BIDS schema specified errors, see discussion here:
+    - Eventually this should be migrated to BIDS schema specified errors, see discussion here:
         https://github.com/bids-standard/bids-specification/issues/1262
     """
 
@@ -155,7 +155,7 @@ def validate(
 
     Parameters
     ----------
-    paths: *str
+    paths: list(str)
       Could be individual (.nwb) files or a single dandiset path.
 
     Yields
