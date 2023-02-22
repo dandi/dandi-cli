@@ -82,7 +82,8 @@
         "name": "Male"
       },
       "strain": {
-        "name": "abcdef/1"
+        "name": "abcdef/1",
+        "schemaKey": "StrainType"
       },
       "genotype": "Typical",
       "species": {
