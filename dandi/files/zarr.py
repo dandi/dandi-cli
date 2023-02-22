@@ -355,7 +355,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             to_upload = EntryUploadTracker()
             if old_zarr_entries:
                 to_delete: list[RemoteZarrEntry] = []
-                digesting: list[Future[tuple[LocalZarrEntry, str, int]]] = []
+                digesting: list[Future[tuple[LocalZarrEntry, str, bool]]] = []
                 yield {"status": "comparing against remote Zarr"}
                 with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
                     for local_entry in self.iterfiles():
