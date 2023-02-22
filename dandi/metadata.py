@@ -453,7 +453,7 @@ def extract_sex(metadata: dict) -> Optional[models.SexType]:
         return None
 
 
-def extract_strain(metadata: dict) -> Optional[models.PropertyValue]:
+def extract_strain(metadata: dict) -> Optional[models.StrainType]:
     value = metadata.get("strain", None)
     if value is not None and value != "":
         return models.StrainType(name=value)
