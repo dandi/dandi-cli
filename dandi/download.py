@@ -121,9 +121,16 @@ def download(
     # which never blooms... All because assets are looped through inside download_generator
     # TODO: redo
     kw = dict(assets_it=out_helper.it)
-    if jobs > 1 and format == "pyout":
-        # It could handle delegated to generator downloads
-        kw["yield_generator_for_fields"] = rec_fields[1:]  # all but path
+    if jobs > 1:
+        if format == "pyout":
+            # It could handle delegated to generator downloads
+            kw["yield_generator_for_fields"] = rec_fields[1:]  # all but path
+        else:
+            lgr.warning(
+                "Parallel downloads are not yet implemented for non-pyout format=%r. "
+                "Download will proceed serially.",
+                format,
+            )
 
     gen_ = download_generator(
         parsed_url,
