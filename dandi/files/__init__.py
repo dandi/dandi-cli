@@ -105,8 +105,7 @@ def find_dandi_files(
                 raise ValueError(
                     "Path {str(p)!r} is not inside Dandiset path {str(dandiset_path)!r}"
                 )
-        bidsdd = None
-        path_queue.append((Path(p), bidsdd))
+        path_queue.append((Path(p), None))
     bids_roots = []
     while path_queue:
         p, bidsdd = path_queue.popleft()

@@ -28,12 +28,12 @@ def test_validate_bids(bids_examples, tmp_path, dataset):
 
 def test_validate_bids_onefile(bids_error_examples, tmp_path):
     """
-    Dedicated test using to single-file validation.
+    Dedicated test using single-file validation.
 
     Notes
     -----
-    * Due to the dataset-wide scope of BIDS, issues have arisen and can potentially arise again
-    with single-file handling. Best to keep this in to always make sure.
+    * Due to the dataset-wide scope of BIDS, issues with single-file handling have arisen and can
+    potentially arise again. Best to keep this in to always make sure.
     * This can be further automated thanks to the upstream `.ERRORS.json` convention to be
     performed on all error datasets, but that might be overkill since we test the datasets as
     a whole anyway.
