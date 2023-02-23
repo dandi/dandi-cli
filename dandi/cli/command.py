@@ -109,6 +109,10 @@ def main(ctx, log_level, pdb=False):
         datefmt="%Y-%m-%dT%H:%M:%S%z",
     )
     handler.setFormatter(fmter)
+    if log_level > logging.DEBUG:
+        handler.addFilter(
+            lambda r: r.name != "pyout" and not r.name.startswith("pyout.")
+        )
     root.addHandler(handler)
 
     lgr.info(
