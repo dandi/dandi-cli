@@ -6,11 +6,10 @@ from click.testing import CliRunner
 import pytest
 
 from ..cmd_validate import validate
+from ...tests.fixtures import BIDS_ERROR_TESTDATA_SELECTION
 
 
-@pytest.mark.parametrize(
-    "dataset", ["invalid_asl003", "invalid_eeg_cbm", "invalid_pet001"]
-)
+@pytest.mark.parametrize("dataset", BIDS_ERROR_TESTDATA_SELECTION)
 def test_validate_bids_error(bids_error_examples, dataset):
 
     broken_dataset = os.path.join(bids_error_examples, dataset)

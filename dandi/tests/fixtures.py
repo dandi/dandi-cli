@@ -52,6 +52,8 @@ BIDS_TESTDATA_SELECTION = [
     "qmri_vfa",
 ]
 
+BIDS_ERROR_TESTDATA_SELECTION = ["invalid_asl003", "invalid_pet001"]
+
 
 def copytree(src, dst, symlinks=False, ignore=None):
     """Function mimicking `shutil.copytree()` behaviour but supporting existing target
@@ -257,6 +259,7 @@ def get_gitrepo_fixture(
     url: str,
     committish: Optional[str] = None,
     scope: Scope = "session",
+    make_subdirs_dandisets: bool = False,
 ) -> Callable[[pytest.TempPathFactory], str]:
 
     if committish:
@@ -269,14 +272,8 @@ def get_gitrepo_fixture(
         path = str(tmp_path_factory.mktemp("gitrepo"))
         lgr.debug("Cloning %r into %r", url, path)
         run(["git", "clone", "--depth=1", url, path], check=True)
-        for i in os.listdir(path):
-            bids_dataset_path = os.path.join(path, i)
-            if os.path.isdir(bids_dataset_path):
-                dandiset_metadata_file_path = os.path.join(
-                    bids_dataset_path, dandiset_metadata_file
-                )
-                with open(dandiset_metadata_file_path, "w") as f:
-                    f.write(" \n")
+        if make_subdirs_dandisets:
+            _make_subdirs_dandisets(path)
         return path
 
     return fixture
@@ -285,6 +282,7 @@ def get_gitrepo_fixture(
 def get_filtered_gitrepo_fixture(
     url: str,
     whitelist: List[str],
+    make_subdirs_dandisets: Optional[bool] = False,
 ) -> Callable[[pytest.TempPathFactory], Iterator[str]]:
     @pytest.fixture(scope="session")
     def fixture(
@@ -311,26 +309,30 @@ def get_filtered_gitrepo_fixture(
         # were to run `git sparse-checkout` inside the software repo.
         run(["git", "sparse-checkout", "init", "--cone"], cwd=path, check=True)
         run(["git", "sparse-checkout", "set"] + whitelist, cwd=path, check=True)
-        for i in os.listdir(path):
-            bids_dataset_path = os.path.join(path, i)
-            if os.path.isdir(bids_dataset_path):
-                dandiset_metadata_file_path = os.path.join(
-                    bids_dataset_path, dandiset_metadata_file
-                )
-                with open(dandiset_metadata_file_path, "w") as f:
-                    f.write(" \n")
+        if make_subdirs_dandisets:
+            _make_subdirs_dandisets(path)
         yield path
 
     return fixture
+
+
+def _make_subdirs_dandisets(path: str) -> None:
+    for i in os.listdir(path):
+        bids_dataset_path = Path(path) / i
+        if bids_dataset_path.is_dir():
+            (bids_dataset_path / dandiset_metadata_file).write_text(" \n")
 
 
 nwb_test_data = get_gitrepo_fixture("http://github.com/dandi-datasets/nwb_test_data")
 bids_examples = get_filtered_gitrepo_fixture(
     url="https://github.com/bids-standard/bids-examples",
     whitelist=BIDS_TESTDATA_SELECTION,
+    make_subdirs_dandisets=True,
 )
-bids_error_examples = get_gitrepo_fixture(
-    "https://github.com/bids-standard/bids-error-examples"
+bids_error_examples = get_filtered_gitrepo_fixture(
+    "https://github.com/bids-standard/bids-error-examples",
+    whitelist=BIDS_ERROR_TESTDATA_SELECTION,
+    make_subdirs_dandisets=True,
 )
 
 LOCAL_DOCKER_DIR = Path(__file__).with_name("data") / "dandiarchive-docker"

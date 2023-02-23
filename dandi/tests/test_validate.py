@@ -4,7 +4,7 @@ import pathlib
 
 import pytest
 
-from .fixtures import BIDS_TESTDATA_SELECTION
+from .fixtures import BIDS_ERROR_TESTDATA_SELECTION, BIDS_TESTDATA_SELECTION
 from ..validate import validate
 
 
@@ -60,9 +60,7 @@ def test_validate_bids_onefile(bids_error_examples, tmp_path):
         assert relative_error_path in expected_errors[error_id.lstrip("BIDS.")]["scope"]
 
 
-@pytest.mark.parametrize(
-    "dataset", ["invalid_asl003", "invalid_eeg_cbm", "invalid_pet001"]
-)
+@pytest.mark.parametrize("dataset", BIDS_ERROR_TESTDATA_SELECTION)
 def test_validate_bids_errors(bids_error_examples, dataset):
     # This only checks that the error we found is correct, not that we found all errors.
     # ideally make a list and erode etc.
