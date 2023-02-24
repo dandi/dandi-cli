@@ -1,12 +1,64 @@
 import logging
 import os
 from typing import List, cast
+import warnings
 
 import click
 
 from .base import devel_debug_option, devel_option, map_to_click_exceptions
 from ..utils import pluralize
 from ..validate_types import Severity
+
+
+@click.command()
+@click.option(
+    "--schema", help="Validate against new BIDS schema version.", metavar="VERSION"
+)
+@click.option(
+    "--report-path",
+    help="Write report under path, this option implies `--report/-r`.",
+)
+@click.option(
+    "--report",
+    "-r",
+    is_flag=True,
+    help="Whether to write a report under a unique path in the DANDI log directory.",
+)
+@click.option(
+    "--grouping",
+    "-g",
+    help="How to group error/warning reporting.",
+    type=click.Choice(["none", "path"], case_sensitive=False),
+    default="none",
+)
+@click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
+@map_to_click_exceptions
+def validate_bids(
+    paths,
+    schema,
+    report,
+    report_path,
+    grouping="none",
+):
+    """Validate BIDS paths.
+    Notes
+    -----
+    * Used from bash, eg:
+    dandi validate-bids /my/path
+    * Deprecated
+    """
+
+    warnings.warn(
+        "The `dandi validate-bids` command line interface is deprecated, you can use "
+        "`dandi validate` instead. Proceeding to parse the call to `dandi validate` now.",
+        DeprecationWarning,
+    )
+    import inspect
+
+    from .cmd_validate import validate as validate_
+
+    print(inspect.signature(validate_))
+    validate_(paths, grouping=grouping)
 
 
 @click.command()
