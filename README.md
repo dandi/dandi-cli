@@ -4,6 +4,7 @@
 [![codecov.io](https://codecov.io/github/dandi/dandi-cli/coverage.svg?branch=master)](https://codecov.io/github/dandi/dandi-cli?branch=master)
 [![GitHub release](https://img.shields.io/github/release/dandi/dandi-cli.svg)](https://GitHub.com/dandi/dandi-cli/releases/)
 [![PyPI version fury.io](https://badge.fury.io/py/dandi.svg)](https://pypi.python.org/pypi/dandi/)
+[![Gentoo (::science)](https://repology.org/badge/version-for-repo/gentoo_ovl_science/dandi-cli.svg?header=Gentoo%20%28%3A%3Ascience%29)](https://repology.org/project/dandi-cli/versions)
 [![Documentation Status](https://readthedocs.org/projects/dandi/badge/?version=latest)](https://dandi.readthedocs.io/en/latest/?badge=latest)
 
 The [DANDI Python client](https://pypi.org/project/dandi/) allows you to:
