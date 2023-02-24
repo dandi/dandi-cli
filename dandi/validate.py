@@ -4,8 +4,6 @@ import os
 from pathlib import Path
 from typing import Iterator, Optional, Union
 
-import appdirs
-
 from .consts import dandiset_metadata_file
 from .files import find_dandi_files
 from .utils import find_parent_directory_containing
@@ -47,16 +45,9 @@ def validate_bids(
     import bidsschematools
     from bidsschematools.validator import validate_bids as validate_bids_
 
-    log_dir = appdirs.user_log_dir("dandi-cli", "dandi")
-    report_path = "{log_dir}/bids-validator-report_{{datetime}}-{{pid}}.log"
-    report_path = report_path.format(
-        log_dir=log_dir,
-    )
-
     validation_result = validate_bids_(
         paths,
         schema_version=schema_version,
-        report_path=report_path,
     )
     our_validation_result = []
     origin = ValidationOrigin(
