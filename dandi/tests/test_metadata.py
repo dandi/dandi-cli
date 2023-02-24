@@ -273,7 +273,7 @@ def test_timedelta2duration(td: timedelta, duration: str) -> None:
             },
         ),
         # Put all corner cases in this test case:
-        (
+        pytest.param(
             "metadata2asset_3.json",
             {
                 "contentSize": 69105,
@@ -313,6 +313,7 @@ def test_timedelta2duration(td: timedelta, duration: str) -> None:
                 ],
                 "path": "/test/path",
             },
+            marks=pytest.mark.obolibrary,
         ),
     ],
 )
@@ -379,6 +380,7 @@ def test_time_extract_gest() -> None:
 
 
 @mark.skipif_no_network
+@pytest.mark.obolibrary
 @pytest.mark.parametrize(
     "url,value",
     [
@@ -405,6 +407,7 @@ def test_parseobourl(url, value):
     assert parse_purlobourl(url) == value
 
 
+@pytest.mark.obolibrary
 @mark.skipif_no_network
 def test_species():
     m = {"species": "http://purl.obolibrary.org/obo/NCBITaxon_28584"}
