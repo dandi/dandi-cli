@@ -374,7 +374,7 @@ def list_paths(
     )
 
 
-_cp_supports_reflink: Optional[bool] = None
+_cp_supports_reflink: Optional[bool] = False if on_windows else None
 
 
 def copy_file(src: Union[str, Path], dst: Union[str, Path]) -> None:
