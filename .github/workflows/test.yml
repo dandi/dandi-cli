@@ -71,7 +71,7 @@ jobs:
     - name: Run all tests
       if: matrix.mode != 'dandi-api'
       run: |
-        python -m pytest -s -v --cov=dandi --cov-report=xml -m "not obolibrary" dandi
+        python -m pytest -s -v --cov=dandi --cov-report=xml dandi
 
     - name: Smoke test example code in docs
       if: matrix.mode != 'dandi-api' && github.event_name == 'schedule'
