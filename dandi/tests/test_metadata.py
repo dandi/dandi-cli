@@ -392,7 +392,7 @@ def test_time_extract_gest() -> None:
             "http://purl.obolibrary.org/obo/NCBITaxon_10116",
             {
                 "rdfs:label": "Rattus norvegicus",
-                "oboInOwl:hasExactSynonym": "Norway rat",
+                "oboInOwl:hasExactSynonym": "Rat",
             },
         ),
         (
