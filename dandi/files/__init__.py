@@ -103,7 +103,7 @@ def find_dandi_files(
                 p.relative_to(dandiset_path)
             except ValueError:
                 raise ValueError(
-                    "Path {str(p)!r} is not inside Dandiset path {str(dandiset_path)!r}"
+                    f"Path {str(p)!r} is not inside Dandiset path {str(dandiset_path)!r}"
                 )
         path_queue.append((p, None))
     while path_queue:
