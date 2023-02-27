@@ -5,6 +5,7 @@ from pathlib import Path
 import shutil
 from typing import Any, Dict, Optional, Tuple, Union
 
+from anys import AnyIn
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dandischema.metadata import validate
 from dandischema.models import AgeReferenceType
@@ -392,7 +393,9 @@ def test_time_extract_gest() -> None:
             "http://purl.obolibrary.org/obo/NCBITaxon_10116",
             {
                 "rdfs:label": "Rattus norvegicus",
-                "oboInOwl:hasExactSynonym": "Rat",
+                "oboInOwl:hasExactSynonym": AnyIn(
+                    ["Rat", "Rats", "Brown rat", "Norway rat"]
+                ),
             },
         ),
         (
