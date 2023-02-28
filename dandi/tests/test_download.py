@@ -12,7 +12,7 @@ from pytest_mock import MockerFixture
 import responses
 import zarr
 
-from .fixtures import SampleDandiset
+from .fixtures import DandiAPI, SampleDandiset
 from .skip import mark
 from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
@@ -779,3 +779,45 @@ def test_progress_combiner(
 )
 def test_multiasset_target(url_path: str, asset_path: str, target: str) -> None:
     assert multiasset_target(url_path, asset_path) == target
+
+
+def test_download_multiple_urls(
+    local_dandi_api: DandiAPI,
+    text_dandiset: SampleDandiset,
+    tmp_path: Path,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    # We can't request both `text_dandiset` and `zarr_dandiset`, as those will
+    # end up using the same `new_dandiset`.  Hence, we have to construct the
+    # Zarr Dandiset here.
+    d = local_dandi_api.client.create_dandiset("Sample Zarr Dandiset", {})
+    dspath = tmp_path_factory.mktemp("zarr-dandiset")
+    (dspath / dandiset_metadata_file).write_text(f"identifier: '{d.identifier}'\n")
+    zarr_dandiset = SampleDandiset(
+        api=local_dandi_api,
+        dspath=dspath,
+        dandiset=d,
+        dandiset_id=d.identifier,
+    )
+    zarr.save(dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
+    zarr_dandiset.upload()
+
+    download([text_dandiset.dandiset.api_url, zarr_dandiset.dandiset.api_url], tmp_path)
+    assert list_paths(tmp_path) == [
+        tmp_path / text_dandiset.dandiset_id / "dandiset.yaml",
+        tmp_path / text_dandiset.dandiset_id / "file.txt",
+        tmp_path / text_dandiset.dandiset_id / "subdir1" / "apple.txt",
+        tmp_path / text_dandiset.dandiset_id / "subdir2" / "banana.txt",
+        tmp_path / text_dandiset.dandiset_id / "subdir2" / "coconut.txt",
+        tmp_path / zarr_dandiset.dandiset_id / "dandiset.yaml",
+        tmp_path
+        / zarr_dandiset.dandiset_id
+        / tmp_path
+        / zarr_dandiset.dandiset_id
+        / "sample.zarr"
+        / ".zgroup",
+        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_0" / ".zarray",
+        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_0" / "0",
+        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_1" / ".zarray",
+        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_1" / "0",
+    ]
