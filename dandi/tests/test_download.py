@@ -17,7 +17,7 @@ from .skip import mark
 from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
-from ..download import ProgressCombiner, download, download_generator, multiasset_target
+from ..download import Downloader, ProgressCombiner, download, multiasset_target
 from ..utils import list_paths
 
 
@@ -297,14 +297,19 @@ def test_download_metadata404(text_dandiset: SampleDandiset, tmp_path: Path) -> 
     asset = text_dandiset.dandiset.get_asset_by_path("subdir1/apple.txt")
     responses.add(responses.GET, asset.api_url, status=404)
     statuses = list(
-        download_generator(
-            DandisetURL(
+        Downloader(
+            url=DandisetURL(
                 api_url=text_dandiset.client.api_url,
                 dandiset_id=text_dandiset.dandiset.identifier,
                 version_id=text_dandiset.dandiset.version_id,
             ),
-            tmp_path,
-        )
+            output_dir=tmp_path,
+            existing="error",
+            get_metadata=True,
+            get_assets=True,
+            jobs_per_zarr=None,
+            on_error="raise",
+        ).download_generator()
     )
     errors = [s for s in statuses if s.get("status") == "error"]
     assert errors == [
@@ -315,11 +320,12 @@ def test_download_metadata404(text_dandiset: SampleDandiset, tmp_path: Path) -> 
         }
     ]
     assert list_paths(tmp_path, dirs=True) == [
-        tmp_path / dandiset_metadata_file,
-        tmp_path / "file.txt",
-        tmp_path / "subdir2",
-        tmp_path / "subdir2" / "banana.txt",
-        tmp_path / "subdir2" / "coconut.txt",
+        tmp_path / text_dandiset.dandiset_id,
+        tmp_path / text_dandiset.dandiset_id / dandiset_metadata_file,
+        tmp_path / text_dandiset.dandiset_id / "file.txt",
+        tmp_path / text_dandiset.dandiset_id / "subdir2",
+        tmp_path / text_dandiset.dandiset_id / "subdir2" / "banana.txt",
+        tmp_path / text_dandiset.dandiset_id / "subdir2" / "coconut.txt",
     ]
 
 
