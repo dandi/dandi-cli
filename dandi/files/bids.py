@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
-from typing import Any, List, Optional
+from typing import List, Optional
 import weakref
 
 from dandischema.models import BareAsset
@@ -41,10 +41,9 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
     #: dataset, keyed by `bids_path` properties; populated by `_validate()`
     _asset_errors: Optional[dict[str, list[ValidationResult]]] = None
 
-    #: Asset metadata (in the form of a `dict` of BareAsset fields) for
-    #: individual assets in the dataset, keyed by `bids_path` properties;
-    #: populated by `_validate()`
-    _asset_metadata: Optional[dict[str, dict[str, Any]]] = None
+    #: Asset metadata for individual assets in the dataset, keyed by
+    #: `bids_path` properties; populated by `_validate()`
+    _asset_metadata: Optional[dict[str, BareAsset]] = None
 
     #: Version of BIDS used for the validation;
     #: populated by `_validate()`
@@ -93,7 +92,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 self._asset_errors: dict[str, list[ValidationResult]] = defaultdict(
                     list
                 )
-                self._asset_metadata = defaultdict(dict)
+                self._asset_metadata = defaultdict(BareAsset.unvalidated)
                 for result in results:
                     if result.id in BIDS_ASSET_ERRORS:
                         assert result.path
@@ -120,7 +119,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         errors.extend(self._asset_errors[asset.bids_path])
         return errors
 
-    def get_asset_metadata(self, asset: BIDSAsset) -> dict[str, Any]:
+    def get_asset_metadata(self, asset: BIDSAsset) -> BareAsset:
         """:meta private:"""
         self._validate()
         assert self._asset_metadata is not None
@@ -196,8 +195,8 @@ class BIDSAsset(LocalFileAsset):
         metadata = self.bids_dataset_description.get_asset_metadata(self)
         start_time = end_time = datetime.now().astimezone()
         add_common_metadata(metadata, self.filepath, start_time, end_time, digest)
-        metadata["path"] = self.path
-        return BareAsset(**metadata)
+        metadata.path = self.path
+        return metadata
 
     def get_validation_bids_version(self) -> str:
         self.bids_dataset_description._validate()
@@ -257,9 +256,9 @@ class ZarrBIDSAsset(BIDSAsset, ZarrAsset):
         metadata = self.bids_dataset_description.get_asset_metadata(self)
         start_time = end_time = datetime.now().astimezone()
         add_common_metadata(metadata, self.filepath, start_time, end_time, digest)
-        metadata["path"] = self.path
-        metadata["encodingFormat"] = ZARR_MIME_TYPE
-        return BareAsset(**metadata)
+        metadata.path = self.path
+        metadata.encodingFormat = ZARR_MIME_TYPE
+        return metadata
 
 
 class GenericBIDSAsset(BIDSAsset, GenericAsset):
