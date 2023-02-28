@@ -78,10 +78,11 @@ def _sanitize_nwb_version(
         if not semantic_version.validate(vstr):
             log(f"error: {msg} is not a proper semantic version. See http://semver.org")
     elif isinstance(v, int):
-        log(f"{msg} is an integer whenever it should be text")
         vstr = str(v)
-        if not semantic_version.validate(vstr):
-            log(f"error: {msg} is not a proper semantic version. See http://semver.org")
+        log(
+            f"error: {msg} is an integer instead of a proper semantic version."
+            " See http://semver.org"
+        )
     else:
         log(f"{msg} is not text which follows semver specification")
         vstr = str(v)
