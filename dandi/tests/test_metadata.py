@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 import json
-import os
 from pathlib import Path
 import shutil
 from shutil import copyfile
@@ -53,7 +52,7 @@ from ..utils import ensure_datetime, list_paths
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
 
 
-def test_get_metadata(simple1_nwb: str, simple1_nwb_metadata: Dict[str, Any]) -> None:
+def test_get_metadata(simple1_nwb: Path, simple1_nwb_metadata: Dict[str, Any]) -> None:
     target_metadata = simple1_nwb_metadata.copy()
     # we will also get some counts
     target_metadata["number_of_electrodes"] = 0
@@ -65,7 +64,7 @@ def test_get_metadata(simple1_nwb: str, simple1_nwb_metadata: Dict[str, Any]) ->
     # we do not populate any subject fields in our simple1_nwb
     for f in metadata_nwb_subject_fields:
         target_metadata[f] = None
-    metadata = get_metadata(str(simple1_nwb))
+    metadata = get_metadata(simple1_nwb)
     # we also load nwb_version field, so it must not be degenerate and ATM
     # it is 2.X.Y. And since I don't know how to query pynwb on what
     # version it currently "supports", we will just pop it
@@ -73,7 +72,7 @@ def test_get_metadata(simple1_nwb: str, simple1_nwb_metadata: Dict[str, Any]) ->
     assert target_metadata == metadata
 
 
-def test_bids_nwb_metadata_integration(bids_examples, tmp_path):
+def test_bids_nwb_metadata_integration(bids_examples: Path, tmp_path: Path) -> None:
     """
     Notes
     -----
@@ -82,15 +81,16 @@ def test_bids_nwb_metadata_integration(bids_examples, tmp_path):
         https://github.com/dandi/dandi-cli/pull/1183#discussion_r1061622910
     """
 
-    source_dpath = os.path.join(bids_examples, "ieeg_epilepsyNWB")
-    dpath = os.path.join(tmp_path, "ieeg_epilepsyNWB")
+    source_dpath = bids_examples / "ieeg_epilepsyNWB"
+    dpath = tmp_path / "ieeg_epilepsyNWB"
     shutil.copytree(source_dpath, dpath)
 
-    file_path = os.path.join(
-        dpath,
-        *"sub-01/ses-postimp/ieeg/sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb".split(
-            "/"
-        )
+    file_path = (
+        dpath
+        / "sub-01"
+        / "ses-postimp"
+        / "ieeg"
+        / "sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
     )
     metadata = get_metadata(file_path)
     # This is a key sourced from both NWB and BIDS:
@@ -726,7 +726,7 @@ def test_ndtypes(ndtypes, asset_dict):
 
 
 @mark.skipif_no_network
-def test_nwb2asset(simple2_nwb: str) -> None:
+def test_nwb2asset(simple2_nwb: Path) -> None:
     assert nwb2asset(simple2_nwb, digest=DUMMY_DANDI_ETAG) == BareAsset.unvalidated(
         schemaKey="Asset",
         schemaVersion=DANDI_SCHEMA_VERSION,
@@ -767,7 +767,7 @@ def test_nwb2asset(simple2_nwb: str) -> None:
         contentSize=19664,
         encodingFormat="application/x-nwb",
         digest={DigestType.dandi_etag: "dddddddddddddddddddddddddddddddd-1"},
-        path=simple2_nwb,
+        path=str(simple2_nwb),
         dateModified=ANY_AWARE_DATETIME,
         blobDateModified=ANY_AWARE_DATETIME,
         wasAttributedTo=[

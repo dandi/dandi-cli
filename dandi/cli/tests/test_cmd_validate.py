@@ -1,5 +1,4 @@
 import json
-import os
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -10,44 +9,40 @@ from ...tests.fixtures import BIDS_ERROR_TESTDATA_SELECTION
 
 
 @pytest.mark.parametrize("dataset", BIDS_ERROR_TESTDATA_SELECTION)
-def test_validate_bids_error(bids_error_examples, dataset):
-
-    broken_dataset = os.path.join(bids_error_examples, dataset)
-    with open(os.path.join(broken_dataset, ".ERRORS.json")) as f:
+def test_validate_bids_error(bids_error_examples: Path, dataset: str) -> None:
+    broken_dataset = bids_error_examples / dataset
+    with (broken_dataset / ".ERRORS.json").open() as f:
         expected_errors = json.load(f)
-    r = CliRunner().invoke(validate, [broken_dataset])
+    r = CliRunner().invoke(validate, [str(broken_dataset)])
     # Does it break?
     assert r.exit_code == 1
-
     # Does it detect all errors?
     for key in expected_errors:
         assert key in r.output
 
 
-def test_validate_nwb_error(simple3_nwb):
-    """
-    Do we fail on critical NWB validation errors?
-    """
-
-    r = CliRunner().invoke(validate, [simple3_nwb])
+def test_validate_nwb_error(simple3_nwb: Path) -> None:
+    """Do we fail on critical NWB validation errors?"""
+    r = CliRunner().invoke(validate, [str(simple3_nwb)])
     # does it fail? as per:
     # https://github.com/dandi/dandi-cli/pull/1157#issuecomment-1312546812
     assert r.exit_code != 0
 
 
-def test_validate_bids_grouping_error(bids_error_examples, dataset="invalid_asl003"):
+def test_validate_bids_grouping_error(
+    bids_error_examples: Path, dataset: str = "invalid_asl003"
+) -> None:
     """
-    This is currently a placeholder test, and should be updated once we have paths with
-    multiple errors for which grouping functionality can actually be tested.
+    This is currently a placeholder test, and should be updated once we have
+    paths with multiple errors for which grouping functionality can actually be
+    tested.
     """
-
-    dataset = os.path.join(bids_error_examples, dataset)
-    r = CliRunner().invoke(validate, ["--grouping=path", dataset])
+    bids_dataset = bids_error_examples / dataset
+    r = CliRunner().invoke(validate, ["--grouping=path", str(bids_dataset)])
     # Does it break?
     assert r.exit_code == 1
-
     # Does it detect all errors?
-    assert dataset in r.output
+    assert str(bids_dataset) in r.output
 
 
 def test_validate_nwb_path_grouping(organized_nwb_dir3: Path) -> None:
@@ -64,15 +59,13 @@ def test_validate_nwb_path_grouping(organized_nwb_dir3: Path) -> None:
 
 
 def test_validate_bids_error_grouping_notification(
-    bids_error_examples, dataset="invalid_asl003"
-):
+    bids_error_examples: Path, dataset: str = "invalid_asl003"
+) -> None:
     """Test user notification for unimplemented parameter value."""
-
-    broken_dataset = os.path.join(bids_error_examples, dataset)
-    r = CliRunner().invoke(validate, ["--grouping=error", broken_dataset])
+    broken_dataset = bids_error_examples / dataset
+    r = CliRunner().invoke(validate, ["--grouping=error", str(broken_dataset)])
     # Does it break?
     assert r.exit_code == 2
-
     # Does it notify the user correctly?
     notification_substring = "Invalid value for '--grouping'"
     assert notification_substring in r.output

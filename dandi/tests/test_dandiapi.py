@@ -1,7 +1,6 @@
 import builtins
 from datetime import datetime, timezone
 import logging
-import os.path
 from pathlib import Path
 import random
 import re
@@ -32,7 +31,9 @@ from ..files import GenericAsset, dandi_file
 from ..utils import list_paths
 
 
-def test_upload(new_dandiset: SampleDandiset, simple1_nwb: str, tmp_path: Path) -> None:
+def test_upload(
+    new_dandiset: SampleDandiset, simple1_nwb: Path, tmp_path: Path
+) -> None:
     d = new_dandiset.dandiset
     assert d.version_id == DRAFT
     d.upload_raw_asset(simple1_nwb, {"path": "testing/simple1.nwb"})
@@ -41,7 +42,7 @@ def test_upload(new_dandiset: SampleDandiset, simple1_nwb: str, tmp_path: Path) 
     d.download_directory("", tmp_path)
     paths = list_paths(tmp_path)
     assert paths == [tmp_path / "testing" / "simple1.nwb"]
-    assert paths[0].stat().st_size == os.path.getsize(simple1_nwb)
+    assert paths[0].stat().st_size == simple1_nwb.stat().st_size
 
 
 def test_publish_and_manipulate(new_dandiset: SampleDandiset, tmp_path: Path) -> None:
@@ -92,7 +93,7 @@ def test_publish_and_manipulate(new_dandiset: SampleDandiset, tmp_path: Path) ->
     )
 
 
-def test_get_asset_metadata(new_dandiset: SampleDandiset, simple1_nwb: str) -> None:
+def test_get_asset_metadata(new_dandiset: SampleDandiset, simple1_nwb: Path) -> None:
     d = new_dandiset.dandiset
     d.upload_raw_asset(simple1_nwb, {"path": "testing/simple1.nwb", "foo": "bar"})
     (asset,) = d.get_assets()

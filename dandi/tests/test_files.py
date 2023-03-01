@@ -310,7 +310,7 @@ def test_dandi_file_zarr_with_excluded_dotfiles(tmp_path: Path) -> None:
     assert isinstance(zf, ZarrAsset)
 
 
-def test_validate_simple1(simple1_nwb):
+def test_validate_simple1(simple1_nwb: Path) -> None:
     # this file should be ok as long as schema_version is specified
     errors = dandi_file(simple1_nwb).get_validation_errors(
         schema_version=get_schema_version()
@@ -318,9 +318,14 @@ def test_validate_simple1(simple1_nwb):
     assert [e.message for e in errors] == ["File is not inside a Dandiset"]
 
 
-def test_validate_simple1_no_subject(simple1_nwb):
+def test_validate_simple1_no_subject(simple1_nwb: Path) -> None:
     errors = dandi_file(simple1_nwb).get_validation_errors()
-    assert sorted(e.message for e in errors) == [
+    errmsgs = []
+    for e in errors:
+        assert e.message is not None
+        errmsgs.append(e.message)
+    errmsgs.sort()
+    assert errmsgs == [
         "File is not inside a Dandiset",
         "Subject is missing.",
     ]
@@ -344,9 +349,14 @@ def test_validate_simple2_new(organized_nwb_dir: Path) -> None:
     assert not errors
 
 
-def test_validate_simple3_no_subject_id(simple3_nwb):
+def test_validate_simple3_no_subject_id(simple3_nwb: Path) -> None:
     errors = dandi_file(simple3_nwb).get_validation_errors()
-    assert sorted(e.message for e in errors) == [
+    errmsgs = []
+    for e in errors:
+        assert e.message is not None
+        errmsgs.append(e.message)
+    errmsgs.sort()
+    assert errmsgs == [
         "File is not inside a Dandiset",
         "subject_id is missing.",
     ]
