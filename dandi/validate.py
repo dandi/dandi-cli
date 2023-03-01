@@ -130,7 +130,7 @@ def validate_bids(
 
 
 def validate(
-    *paths: str,
+    *paths: str | Path,
     schema_version: Optional[str] = None,
     devel_debug: bool = False,
     allow_any_path: bool = False,

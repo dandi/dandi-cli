@@ -55,9 +55,10 @@ BIDS_TESTDATA_SELECTION = [
 BIDS_ERROR_TESTDATA_SELECTION = ["invalid_asl003", "invalid_pet001"]
 
 
-def copytree(src, dst, symlinks=False, ignore=None):
-    """Function mimicking `shutil.copytree()` behaviour but supporting existing target
-    directories.
+def copytree(src: str | Path, dst: str | Path) -> None:
+    """
+    Function mimicking `shutil.copytree()` behaviour but supporting existing
+    target directories.
 
     Notes
     -----
@@ -75,7 +76,7 @@ def copytree(src, dst, symlinks=False, ignore=None):
         s = os.path.join(src, item)
         d = os.path.join(dst, item)
         if os.path.isdir(s):
-            copytree(s, d, symlinks, ignore)
+            copytree(s, d)
         else:
             if not os.path.exists(d) or os.stat(s).st_mtime - os.stat(d).st_mtime > 1:
                 shutil.copy2(s, d)
@@ -112,9 +113,9 @@ def simple1_nwb_metadata() -> Dict[str, Any]:
 @pytest.fixture(scope="session")
 def simple1_nwb(
     simple1_nwb_metadata: Dict[str, Any], tmp_path_factory: pytest.TempPathFactory
-) -> str:
+) -> Path:
     return make_nwb_file(
-        str(tmp_path_factory.mktemp("simple1") / "simple1.nwb"),
+        tmp_path_factory.mktemp("simple1") / "simple1.nwb",
         **simple1_nwb_metadata,
     )
 
@@ -122,10 +123,10 @@ def simple1_nwb(
 @pytest.fixture(scope="session")
 def simple2_nwb(
     simple1_nwb_metadata: Dict[str, Any], tmp_path_factory: pytest.TempPathFactory
-) -> str:
+) -> Path:
     """With a subject"""
     return make_nwb_file(
-        str(tmp_path_factory.mktemp("simple2") / "simple2.nwb"),
+        tmp_path_factory.mktemp("simple2") / "simple2.nwb",
         subject=pynwb.file.Subject(
             subject_id="mouse001",
             date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
@@ -139,10 +140,10 @@ def simple2_nwb(
 @pytest.fixture(scope="session")
 def simple3_nwb(
     simple1_nwb_metadata: Dict[str, Any], tmp_path_factory: pytest.TempPathFactory
-) -> str:
+) -> Path:
     """With a subject, but no subject_id."""
     return make_nwb_file(
-        str(tmp_path_factory.mktemp("simple3") / "simple3.nwb"),
+        tmp_path_factory.mktemp("simple3") / "simple3.nwb",
         subject=pynwb.file.Subject(
             age="P1D/",
             sex="O",
@@ -153,7 +154,7 @@ def simple3_nwb(
 
 
 @pytest.fixture(scope="session")
-def simple4_nwb(tmp_path_factory: pytest.TempPathFactory) -> str:
+def simple4_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """
     With subject, subject_id, species, but including data orientation ambiguity,
     the only currently non-critical issue in the dandi schema for nwbinspector validation:
@@ -183,7 +184,7 @@ def simple4_nwb(tmp_path_factory: pytest.TempPathFactory) -> str:
         ),
     )
     nwbfile.add_acquisition(time_series)
-    filename = str(tmp_path_factory.mktemp("simple4") / "simple4.nwb")
+    filename = tmp_path_factory.mktemp("simple4") / "simple4.nwb"
     with pynwb.NWBHDF5IO(filename, "w") as io:
         io.write(nwbfile, cache_spec=False)
     return filename
@@ -191,7 +192,7 @@ def simple4_nwb(tmp_path_factory: pytest.TempPathFactory) -> str:
 
 @pytest.fixture(scope="session")
 def organized_nwb_dir(
-    simple2_nwb: str, tmp_path_factory: pytest.TempPathFactory
+    simple2_nwb: Path, tmp_path_factory: pytest.TempPathFactory
 ) -> Path:
     tmp_path = tmp_path_factory.mktemp("organized_nwb_dir")
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
@@ -205,7 +206,7 @@ def organized_nwb_dir(
 @pytest.fixture(scope="session")
 def organized_nwb_dir2(
     simple1_nwb_metadata: Dict[str, Any],
-    simple2_nwb: str,
+    simple2_nwb: Path,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Path:
     tmp_path = tmp_path_factory.mktemp("organized_nwb_dir2")
@@ -214,7 +215,7 @@ def organized_nwb_dir2(
     # file to be "organized"
     shutil.copy(simple2_nwb, tmp_path)
     make_nwb_file(
-        str(tmp_path / "simple3.nwb"),
+        tmp_path / "simple3.nwb",
         subject=pynwb.file.Subject(
             subject_id="lizard001",
             date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
@@ -232,7 +233,7 @@ def organized_nwb_dir2(
 
 @pytest.fixture(scope="session")
 def organized_nwb_dir3(
-    simple4_nwb: str, tmp_path_factory: pytest.TempPathFactory
+    simple4_nwb: Path, tmp_path_factory: pytest.TempPathFactory
 ) -> Path:
     tmp_path = tmp_path_factory.mktemp("organized_nwb_dir")
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
@@ -260,18 +261,18 @@ def get_gitrepo_fixture(
     committish: Optional[str] = None,
     scope: Scope = "session",
     make_subdirs_dandisets: bool = False,
-) -> Callable[[pytest.TempPathFactory], str]:
+) -> Callable[[pytest.TempPathFactory], Path]:
 
     if committish:
         raise NotImplementedError()
 
     @pytest.fixture(scope=scope)
-    def fixture(tmp_path_factory: pytest.TempPathFactory) -> str:
+    def fixture(tmp_path_factory: pytest.TempPathFactory) -> Path:
         skipif.no_network()
         skipif.no_git()
-        path = str(tmp_path_factory.mktemp("gitrepo"))
+        path = tmp_path_factory.mktemp("gitrepo")
         lgr.debug("Cloning %r into %r", url, path)
-        run(["git", "clone", "--depth=1", url, path], check=True)
+        run(["git", "clone", "--depth=1", url, str(path)], check=True)
         if make_subdirs_dandisets:
             _make_subdirs_dandisets(path)
         return path
@@ -283,14 +284,14 @@ def get_filtered_gitrepo_fixture(
     url: str,
     whitelist: List[str],
     make_subdirs_dandisets: Optional[bool] = False,
-) -> Callable[[pytest.TempPathFactory], Iterator[str]]:
+) -> Callable[[pytest.TempPathFactory], Iterator[Path]]:
     @pytest.fixture(scope="session")
     def fixture(
         tmp_path_factory: pytest.TempPathFactory,
-    ) -> Iterator[str]:
+    ) -> Iterator[Path]:
         skipif.no_network()
         skipif.no_git()
-        path = str(tmp_path_factory.mktemp("gitrepo"))
+        path = tmp_path_factory.mktemp("gitrepo")
         lgr.debug("Cloning %r into %r", url, path)
         run(
             [
@@ -300,15 +301,15 @@ def get_filtered_gitrepo_fixture(
                 "--filter=blob:none",
                 "--sparse",
                 url,
-                path,
+                str(path),
             ],
             check=True,
         )
         # cwd specification is VERY important, not only to achieve the correct
         # effects, but also to avoid dropping files from your repository if you
         # were to run `git sparse-checkout` inside the software repo.
-        run(["git", "sparse-checkout", "init", "--cone"], cwd=path, check=True)
-        run(["git", "sparse-checkout", "set"] + whitelist, cwd=path, check=True)
+        run(["git", "sparse-checkout", "init", "--cone"], cwd=str(path), check=True)
+        run(["git", "sparse-checkout", "set"] + whitelist, cwd=str(path), check=True)
         if make_subdirs_dandisets:
             _make_subdirs_dandisets(path)
         yield path
@@ -316,9 +317,8 @@ def get_filtered_gitrepo_fixture(
     return fixture
 
 
-def _make_subdirs_dandisets(path: str) -> None:
-    for i in os.listdir(path):
-        bids_dataset_path = Path(path) / i
+def _make_subdirs_dandisets(path: Path) -> None:
+    for bids_dataset_path in path.iterdir():
         if bids_dataset_path.is_dir():
             (bids_dataset_path / dandiset_metadata_file).write_text(" \n")
 
@@ -547,45 +547,36 @@ def zarr_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
 
 
 @pytest.fixture()
-def bids_dandiset(new_dandiset: SampleDandiset, bids_examples: str) -> SampleDandiset:
-    copytree(
-        os.path.join(bids_examples, "asl003"),
-        str(new_dandiset.dspath) + "/",
-    )
+def bids_dandiset(new_dandiset: SampleDandiset, bids_examples: Path) -> SampleDandiset:
+    copytree(bids_examples / "asl003", new_dandiset.dspath)
     (new_dandiset.dspath / "CHANGES").write_text("0.1.0 2014-11-03\n")
     return new_dandiset
 
 
 @pytest.fixture()
 def bids_nwb_dandiset(
-    new_dandiset: SampleDandiset, bids_examples: str
+    new_dandiset: SampleDandiset, bids_examples: Path
 ) -> SampleDandiset:
-    copytree(
-        os.path.join(bids_examples, "ieeg_epilepsyNWB"),
-        str(new_dandiset.dspath) + "/",
-    )
+    copytree(bids_examples / "ieeg_epilepsyNWB", new_dandiset.dspath)
     (new_dandiset.dspath / "CHANGES").write_text("0.1.0 2014-11-03\n")
     return new_dandiset
 
 
 @pytest.fixture()
 def bids_dandiset_invalid(
-    new_dandiset: SampleDandiset, bids_error_examples: str
+    new_dandiset: SampleDandiset, bids_error_examples: Path
 ) -> SampleDandiset:
     dataset_path = new_dandiset.dspath
-    copytree(
-        os.path.join(bids_error_examples, "invalid_pet001"),
-        str(dataset_path) + "/",
-    )
-    os.remove(os.path.join(dataset_path, "README"))
+    copytree(bids_error_examples / "invalid_pet001", dataset_path)
+    (dataset_path / "README").unlink()
     return new_dandiset
 
 
 @pytest.fixture()
-def video_files(tmp_path):
-    video_paths = []
+def video_files(tmp_path: Path) -> list[tuple[Path, Path]]:
     import cv2
 
+    video_paths = []
     video_path = tmp_path / "video_files"
     video_path.mkdir()
     for no in range(2):

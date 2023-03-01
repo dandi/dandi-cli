@@ -1,6 +1,5 @@
 import json
 import os
-import os.path as op
 from pathlib import Path
 import re
 from shutil import rmtree
@@ -123,12 +122,10 @@ def test_download_000027_resume(
     with (dldir / "checksum").open("w") as fp:
         json.dump(digests, fp)
     download(url, tmp_path, get_metadata=False)
-    contents = [
-        op.relpath(op.join(dirpath, entry), dsdir)
-        for (dirpath, dirnames, filenames) in os.walk(dsdir)
-        for entry in dirnames + filenames
+    assert list_paths(dsdir, dirs=True) == [
+        dsdir / "sub-RAT123",
+        dsdir / "sub-RAT123" / "sub-RAT123.nwb",
     ]
-    assert sorted(contents) == ["sub-RAT123", op.join("sub-RAT123", "sub-RAT123.nwb")]
     assert nwb.stat().st_size == size
     assert digester(str(nwb)) == digests
 

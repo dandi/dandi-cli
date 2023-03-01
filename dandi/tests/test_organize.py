@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from glob import glob
 import os
 import os.path as op
 from pathlib import Path
@@ -111,8 +110,8 @@ if not on_windows:
 
 @pytest.mark.integration
 @pytest.mark.parametrize("mode", no_move_modes)
-def test_organize_nwb_test_data(nwb_test_data: str, tmp_path: Path, mode: str) -> None:
-    outdir = str(tmp_path / "organized")
+def test_organize_nwb_test_data(nwb_test_data: Path, tmp_path: Path, mode: str) -> None:
+    outdir = tmp_path / "organized"
 
     relative = False
     if mode == "symlink-relative":
@@ -123,8 +122,8 @@ def test_organize_nwb_test_data(nwb_test_data: str, tmp_path: Path, mode: str) -
         # organize also organize using relative paths in case of 'symlink'
         # mode
         cwd = os.getcwd()
-        nwb_test_data = op.relpath(nwb_test_data, cwd)
-        outdir = op.relpath(outdir, cwd)
+        nwb_test_data = Path(op.relpath(nwb_test_data, cwd))
+        outdir = Path(op.relpath(outdir, cwd))
 
     src = tmp_path / "src"
     src.touch()
@@ -151,16 +150,16 @@ def test_organize_nwb_test_data(nwb_test_data: str, tmp_path: Path, mode: str) -
     elif mode == "hardlink" and not hardlinks_work:
         pytest.skip("Hard links not supported")
 
-    input_files = op.join(nwb_test_data, "v2.0.1")
+    input_files = nwb_test_data / "v2.0.1"
 
-    cmd = ["-d", outdir, "--files-mode", mode, input_files]
+    cmd = ["-d", str(outdir), "--files-mode", mode, str(input_files)]
     r = CliRunner().invoke(organize, cmd)
 
     # with @map_to_click_exceptions we loose original str of message somehow
     # although it is shown to the user - checked. TODO - figure it out
     # assert "not containing all" in str(r.exc_info[1])
     assert r.exit_code != 0, "Must have aborted since many files lack subject_id"
-    assert not glob(op.join(outdir, "*")), "no files should have been populated"
+    assert not any(outdir.glob("*")), "no files should have been populated"
 
     r = CliRunner().invoke(organize, cmd + ["--invalid", "warn"])
     assert r.exit_code == 0
@@ -187,19 +186,19 @@ def test_organize_nwb_test_data(nwb_test_data: str, tmp_path: Path, mode: str) -
         assert not any(op.islink(p) for p in produced_paths)
 
 
-def test_ambiguous(simple2_nwb: str, tmp_path: Path) -> None:
+def test_ambiguous(simple2_nwb: Path, tmp_path: Path) -> None:
     copy2 = copy_nwb_file(simple2_nwb, tmp_path)
-    outdir = str(tmp_path / "organized")
-    args = ["--files-mode", "copy", "-d", outdir, simple2_nwb, copy2]
+    outdir = tmp_path / "organized"
+    args = ["--files-mode", "copy", "-d", str(outdir), str(simple2_nwb), copy2]
     r = CliRunner().invoke(organize, args)
     assert r.exit_code == 0
-    produced_paths = sorted(find_files(".*", paths=outdir))
-    produced_paths_rel = [op.relpath(p, outdir) for p in produced_paths]
-    assert produced_paths_rel == sorted(
-        op.join(
-            "sub-mouse001", "sub-mouse001_obj-%s.nwb" % get_obj_id(get_object_id(f))
-        )
-        for f in [simple2_nwb, copy2]
+    assert list_paths(outdir) == sorted(
+        [
+            outdir
+            / "sub-mouse001"
+            / f"sub-mouse001_obj-{get_obj_id(get_object_id(f))}.nwb"
+            for f in [simple2_nwb, Path(copy2)]
+        ]
     )
 
 
@@ -350,7 +349,7 @@ def test_validate_organized_path(path: str, error_ids: list[str]) -> None:
     assert [e.id for e in errors] == error_ids
 
 
-def test_organize_required_field(simple2_nwb: str, tmp_path: Path) -> None:
+def test_organize_required_field(simple2_nwb: Path, tmp_path: Path) -> None:
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
     r = CliRunner().invoke(
         organize,
@@ -360,7 +359,7 @@ def test_organize_required_field(simple2_nwb: str, tmp_path: Path) -> None:
             "--dandiset-path",
             str(tmp_path),
             "--required-field=session_id",
-            simple2_nwb,
+            str(simple2_nwb),
         ],
     )
     assert r.exit_code == 0
