@@ -183,6 +183,7 @@ class Downloader:
 
     url: ParsedDandiURL
     output_dir: InitVar[str | Path]
+    output_prefix: Path = field(init=False)
     output_path: Path = field(init=False)
     existing: str
     get_metadata: bool
@@ -201,9 +202,10 @@ class Downloader:
         # under
         if isinstance(self.url, DandisetURL):
             assert self.url.dandiset_id is not None
-            self.output_path = Path(output_dir, self.url.dandiset_id)
+            self.output_prefix = Path(self.url.dandiset_id)
         else:
-            self.output_path = Path(output_dir)
+            self.output_prefix = Path()
+        self.output_path = Path(output_dir, self.output_prefix)
 
     def download_generator(self) -> Iterator[dict]:
         """
@@ -222,7 +224,10 @@ class Downloader:
                 for resp in _populate_dandiset_yaml(
                     self.output_path, dandiset, self.existing
                 ):
-                    yield {"path": dandiset_metadata_file, **resp}
+                    yield {
+                        "path": str(self.output_prefix / dandiset_metadata_file),
+                        **resp,
+                    }
 
             # TODO: do analysis of assets for early detection of needed renames
             # etc to avoid any need for late treatment of existing and also for
@@ -246,6 +251,7 @@ class Downloader:
                             f"Unexpected URL type {type(self.url).__name__}"
                         )
                 download_path = Path(self.output_path, path)
+                path = str(self.output_prefix / path)
 
                 try:
                     metadata = asset.get_raw_metadata()

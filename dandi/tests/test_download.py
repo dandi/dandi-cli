@@ -314,7 +314,7 @@ def test_download_metadata404(text_dandiset: SampleDandiset, tmp_path: Path) -> 
     errors = [s for s in statuses if s.get("status") == "error"]
     assert errors == [
         {
-            "path": "subdir1/apple.txt",
+            "path": op.join(text_dandiset.dandiset_id, "subdir1", "apple.txt"),
             "status": "error",
             "message": f"No such asset: {asset}",
         }
