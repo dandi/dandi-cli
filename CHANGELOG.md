@@ -1,3 +1,45 @@
+# 0.50.0 (Wed Mar 01 2023)
+
+#### 🚀 Enhancement
+
+- Add `--ignore ID_REGEX` option to `dandi validate` [#1234](https://github.com/dandi/dandi-cli/pull/1234) ([@jwodder](https://github.com/jwodder))
+- download: support for downloading multiple URLs at once; dandiset path is now included in the report [#1231](https://github.com/dandi/dandi-cli/pull/1231) ([@jwodder](https://github.com/jwodder))
+- Merging `bids_validate` into `validate`, stop validating nested BIDS. [#1203](https://github.com/dandi/dandi-cli/pull/1203) ([@TheChymera](https://github.com/TheChymera) [@jwodder](https://github.com/jwodder))
+- Support re-extracting metadata from remote assets [#1214](https://github.com/dandi/dandi-cli/pull/1214) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Inform user with a warning in case of jobs > 1 but non pyout format [#1222](https://github.com/dandi/dandi-cli/pull/1222) ([@yarikoptic](https://github.com/yarikoptic))
+- BF: add missing f- for a string [#1228](https://github.com/dandi/dandi-cli/pull/1228) ([@yarikoptic](https://github.com/yarikoptic))
+- Don't even test for `cp --reflink` support on Windows [#1221](https://github.com/dandi/dandi-cli/pull/1221) ([@jwodder](https://github.com/jwodder))
+- Filter out pyout logs from logfile by default [#1220](https://github.com/dandi/dandi-cli/pull/1220) ([@jwodder](https://github.com/jwodder))
+- Metadata: add extraction of strain from nwb files [#1216](https://github.com/dandi/dandi-cli/pull/1216) ([@satra](https://github.com/satra) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Use pathlib more in tests [#1233](https://github.com/dandi/dandi-cli/pull/1233) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Added distribution badge (sadly only one ATM) [#1224](https://github.com/dandi/dandi-cli/pull/1224) ([@TheChymera](https://github.com/TheChymera))
+- List in documentation the "high level" interfaces corresponding to CLI [#1200](https://github.com/dandi/dandi-cli/pull/1200) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Update `parse_purlobourl()` test for change to rat metadata [#1227](https://github.com/dandi/dandi-cli/pull/1227) ([@jwodder](https://github.com/jwodder))
+- Revert "Temporarily disable all tests which talk to obolibrary" - ontobee said to be back [#1226](https://github.com/dandi/dandi-cli/pull/1226) ([@yarikoptic](https://github.com/yarikoptic))
+- Fix tests: avoid obolibrary (for now) and pynwb 2.3.0 (forever) [#1225](https://github.com/dandi/dandi-cli/pull/1225) ([@yarikoptic](https://github.com/yarikoptic))
+- Test against Python 3.11 [#1143](https://github.com/dandi/dandi-cli/pull/1143) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 4
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.49.1 (Wed Feb 22 2023)
 
 #### 🐛 Bug Fix
