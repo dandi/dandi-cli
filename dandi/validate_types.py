@@ -49,3 +49,14 @@ class ValidationResult:
     path: Optional[Path] = None
     path_regex: Optional[str] = None
     severity: Optional[Severity] = None
+
+    @property
+    def purview(self) -> Optional[str]:
+        if self.path is not None:
+            return str(self.path)
+        elif self.path_regex is not None:
+            return self.path_regex
+        elif self.dataset_path is not None:
+            return str(self.dataset_path)
+        else:
+            return None

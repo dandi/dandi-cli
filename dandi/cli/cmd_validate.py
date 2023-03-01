@@ -1,13 +1,17 @@
+from __future__ import annotations
+
+from collections.abc import Iterable
 import logging
 import os
-from typing import List, cast
+import re
+from typing import List, Optional, cast
 import warnings
 
 import click
 
 from .base import devel_debug_option, devel_option, map_to_click_exceptions
 from ..utils import pluralize
-from ..validate_types import Severity
+from ..validate_types import Severity, ValidationResult
 
 
 @click.command()
@@ -74,16 +78,18 @@ def validate_bids(
     type=click.Choice(["none", "path"], case_sensitive=False),
     default="none",
 )
+@click.option("--ignore", metavar="REGEX", help="Regex matching error IDs to ignore")
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
 @devel_debug_option()
 @map_to_click_exceptions
 def validate(
-    paths,
-    schema=None,
-    devel_debug=False,
-    allow_any_path=False,
-    grouping="none",
-):
+    paths: tuple[str, ...],
+    ignore: Optional[str],
+    grouping: str,
+    schema: Optional[str] = None,
+    devel_debug: bool = False,
+    allow_any_path: bool = False,
+) -> None:
     """Validate files for NWB and DANDI compliance.
 
     Exits with non-0 exit code if any file is not compliant.
@@ -98,7 +104,7 @@ def validate(
         h.addFilter(lambda r: not getattr(r, "validating", False))
 
     if not paths:
-        paths = [os.curdir]
+        paths = (os.curdir,)
     # below we are using load_namespaces but it causes HDMF to whine if there
     # is no cached name spaces in the file.  It is benign but not really useful
     # at this point, so we ignore it although ideally there should be a formal
@@ -111,50 +117,44 @@ def validate(
         devel_debug=devel_debug,
         allow_any_path=allow_any_path,
     )
+    _process_issues(validator_result, grouping, ignore)
 
-    _process_issues(validator_result, grouping)
 
-
-def _process_issues(validator_result, grouping):
-
-    issues = [i for i in validator_result if i.severity]
-
-    purviews = [
-        list(filter(bool, [i.path, i.path_regex, i.dataset_path]))[0] for i in issues
-    ]
+def _process_issues(
+    validator_result: Iterable[ValidationResult], grouping: str, ignore: Optional[str]
+) -> None:
+    issues = [i for i in validator_result if i.severity is not None]
+    if ignore is not None:
+        issues = [i for i in issues if not re.search(ignore, i.id)]
+    purviews = [i.purview for i in issues]
     if grouping == "none":
         display_errors(
             purviews,
             [i.id for i in issues],
-            [i.severity for i in issues],
+            cast(List[Severity], [i.severity for i in issues]),
             [i.message for i in issues],
         )
     elif grouping == "path":
         for purview in purviews:
-            applies_to = [
-                i for i in issues if purview in [i.path, i.path_regex, i.dataset_path]
-            ]
+            applies_to = [i for i in issues if purview == i.purview]
             display_errors(
                 [purview],
                 [i.id for i in applies_to],
-                [i.severity for i in applies_to],
+                cast(List[Severity], [i.severity for i in applies_to]),
                 [i.message for i in applies_to],
             )
     else:
         raise NotImplementedError(
-            "The `grouping` parameter values currently supported are " "path or None."
+            "The `grouping` parameter values currently supported are 'path' and"
+            " 'none'."
         )
-
-    validation_errors = [i for i in issues if i.severity == Severity.ERROR]
-
-    if validation_errors:
+    if any(i.severity is Severity.ERROR for i in issues):
         raise SystemExit(1)
     else:
         click.secho("No errors found.", fg="green")
 
 
-def _get_severity_color(severities):
-
+def _get_severity_color(severities: list[Severity]) -> str:
     if Severity.ERROR in severities:
         return "red"
     elif Severity.WARNING in severities:
@@ -164,23 +164,22 @@ def _get_severity_color(severities):
 
 
 def display_errors(
-    purviews: List[str],
-    errors: List[str],
-    severities: List[Severity],
-    messages: List[str],
+    purviews: list[Optional[str]],
+    errors: list[str],
+    severities: list[Severity],
+    messages: list[Optional[str]],
 ) -> None:
     """
-    Unified error display for validation CLI, which auto-resolves grouping logic based on
-    the length of input lists.
-
+    Unified error display for validation CLI, which auto-resolves grouping
+    logic based on the length of input lists.
 
     Notes
     -----
-    * There is a bit of roundabout and currently untestable logic to deal with potential cases
-    where the same error has multiple error message, could be removed in the future and removed
-    by assert if this won't ever be the case.
+    * There is a bit of roundabout and currently untestable logic to deal with
+      potential cases where the same error has multiple error message, could be
+      removed in the future and removed by assert if this won't ever be the
+      case.
     """
-
     if all(len(cast(list, i)) == 1 for i in [purviews, errors, severities, messages]):
         fg = _get_severity_color(severities)
         error_message = f"[{errors[0]}] {purviews[0]} — {messages[0]}"

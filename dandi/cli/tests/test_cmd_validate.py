@@ -29,6 +29,15 @@ def test_validate_nwb_error(simple3_nwb: Path) -> None:
     assert r.exit_code != 0
 
 
+def test_validate_ignore(simple2_nwb: Path) -> None:
+    r = CliRunner().invoke(validate, [str(simple2_nwb)])
+    assert r.exit_code != 0
+    assert "DANDI.NO_DANDISET_FOUND" in r.output
+    r = CliRunner().invoke(validate, ["--ignore=NO_DANDISET_FOUND", str(simple2_nwb)])
+    assert r.exit_code == 0, r.output
+    assert "DANDI.NO_DANDISET_FOUND" not in r.output
+
+
 def test_validate_bids_grouping_error(
     bids_error_examples: Path, dataset: str = "invalid_asl003"
 ) -> None:
