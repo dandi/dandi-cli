@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter, deque
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from datetime import datetime
 from enum import Enum
 from functools import partial
@@ -9,7 +9,7 @@ import hashlib
 import json
 import os
 import os.path as op
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import random
 from shutil import rmtree
 import sys
@@ -60,7 +60,6 @@ from .utils import (
     exclude_from_zarr,
     flattened,
     is_same_time,
-    on_windows,
     path_is_subpath,
     pluralize,
     yaml_load,
@@ -87,24 +86,13 @@ def download(
     from .support import pyout as pyouts
 
     urls = flattened([urls])
-    if len(urls) > 1:
-        raise NotImplementedError("multiple URLs not supported")
     if not urls:
         # if no paths provided etc, we will download dandiset path
         # we are at, BUT since we are not git -- we do not even know
         # on which instance it exists!  Thus ATM we would do nothing but crash
         raise NotImplementedError("No URLs were provided.  Cannot download anything")
 
-    parsed_url = parse_dandi_url(urls[0])
-
-    # TODO: if we are ALREADY in a dandiset - we can validate that it is the
-    # same dandiset and use that dandiset path as the one to download under
-    output_path: Union[str, Path]
-    if isinstance(parsed_url, DandisetURL):
-        assert parsed_url.dandiset_id is not None
-        output_path = op.join(output_dir, parsed_url.dandiset_id)
-    else:
-        output_path = output_dir
+    parsed_urls = [parse_dandi_url(u) for u in urls]
 
     # dandi.cli.formatters are used in cmd_ls to provide switchable
     pyout_style = pyouts.get_style(hide_if_missing=False)
@@ -132,16 +120,21 @@ def download(
                 format,
             )
 
-    gen_ = download_generator(
-        parsed_url,
-        output_path,
-        existing=existing,
-        get_metadata=get_metadata,
-        get_assets=get_assets,
-        jobs_per_zarr=jobs_per_zarr,
-        on_error="yield" if format == "pyout" else "raise",
-        **kw,
-    )
+    downloaders = [
+        Downloader(
+            url=purl,
+            output_dir=output_dir,
+            existing=existing,
+            get_metadata=get_metadata,
+            get_assets=get_assets,
+            jobs_per_zarr=jobs_per_zarr,
+            on_error="yield" if format == "pyout" else "raise",
+            **kw,
+        )
+        for purl in parsed_urls
+    ]
+
+    gen_ = (r for dl in downloaders for r in dl.download_generator())
 
     # TODOs:
     #  - redo frontends similarly to how command_ls did it
@@ -160,31 +153,8 @@ def download(
     else:
         raise ValueError(format)
 
-    if sync and not isinstance(parsed_url, SingleAssetURL):
-        with parsed_url.get_client() as client:
-            asset_paths = {asset.path for asset in parsed_url.get_assets(client)}
-        if isinstance(parsed_url, DandisetURL):
-            prefix = os.curdir
-            download_dir = output_path
-        elif isinstance(parsed_url, MultiAssetURL):
-            folder_path = op.normpath(parsed_url.path)
-            prefix = folder_path
-            download_dir = op.join(output_path, op.basename(folder_path))
-        else:
-            raise NotImplementedError(
-                f"Unexpected URL type {type(parsed_url).__name__}"
-            )
-        to_delete = []
-        for df in find_dandi_files(
-            download_dir, dandiset_path=download_dir, allow_all=True
-        ):
-            if not isinstance(df, LocalAsset):
-                continue
-            a_path = op.normpath(op.join(prefix, df.path))
-            if on_windows:
-                a_path = a_path.replace("\\", "/")
-            if a_path not in asset_paths:
-                to_delete.append(df.filepath)
+    if sync:
+        to_delete = [p for dl in downloaders for p in dl.delete_for_sync()]
         if to_delete:
             while True:
                 opt = abbrev_prompt(
@@ -207,131 +177,175 @@ def download(
                     break
 
 
-def download_generator(
-    parsed_url: ParsedDandiURL,
-    output_path: Union[str, Path],
-    *,
-    assets_it: Optional[IteratorWithAggregation] = None,
-    yield_generator_for_fields: Optional[Tuple[str, ...]] = None,
-    existing: str = "error",
-    get_metadata: bool = True,
-    get_assets: bool = True,
-    jobs_per_zarr: Optional[int] = None,
-    on_error: Literal["raise", "yield"] = "raise",
-) -> Iterator[dict]:
-    """A generator for downloads of files, folders, or entire dandiset from DANDI
-    (as identified by URL)
+@dataclass
+class Downloader:
+    """:meta private:"""
 
-    This function is a generator which would yield records on ongoing activities.
-    Activities include traversal of the remote resource (DANDI archive), download of
-    individual assets while yielding records (TODO: schema) while validating their
-    checksums "on the fly", etc.
+    url: ParsedDandiURL
+    output_dir: InitVar[str | Path]
+    output_prefix: Path = field(init=False)
+    output_path: Path = field(init=False)
+    existing: str
+    get_metadata: bool
+    get_assets: bool
+    jobs_per_zarr: Optional[int]
+    on_error: Literal["raise", "yield"]
+    #: which will be set .gen to assets.  Purpose is to make it possible to get
+    #: summary statistics while already downloading.  TODO: reimplement
+    #: properly!
+    assets_it: Optional[IteratorWithAggregation] = None
+    yield_generator_for_fields: Optional[tuple[str, ...]] = None
 
-    Parameters
-    ----------
-    assets_it: IteratorWithAggregation
-      which will be set .gen to assets.  Purpose is to make it possible to get
-      summary statistics while already downloading.  TODO: reimplement properly!
+    def __post_init__(self, output_dir: str | Path) -> None:
+        # TODO: if we are ALREADY in a dandiset - we can validate that it is
+        # the same dandiset and use that dandiset path as the one to download
+        # under
+        if isinstance(self.url, DandisetURL):
+            assert self.url.dandiset_id is not None
+            self.output_prefix = Path(self.url.dandiset_id)
+        else:
+            self.output_prefix = Path()
+        self.output_path = Path(output_dir, self.output_prefix)
 
-    """
+    def download_generator(self) -> Iterator[dict]:
+        """
+        A generator for downloads of files, folders, or entire dandiset from
+        DANDI (as identified by URL)
 
-    with parsed_url.navigate(strict=True) as (client, dandiset, assets):
-        if assets_it:
-            assets_it.gen = assets
-            assets = assets_it
+        This function is a generator which would yield records on ongoing
+        activities.  Activities include traversal of the remote resource (DANDI
+        archive), download of individual assets while yielding records (TODO:
+        schema) while validating their checksums "on the fly", etc.
+        """
 
-        if isinstance(parsed_url, DandisetURL) and get_metadata:
-            assert dandiset is not None
-            for resp in _populate_dandiset_yaml(output_path, dandiset, existing):
-                yield dict(path=dandiset_metadata_file, **resp)
+        with self.url.navigate(strict=True) as (client, dandiset, assets):
+            if isinstance(self.url, DandisetURL) and self.get_metadata:
+                assert dandiset is not None
+                for resp in _populate_dandiset_yaml(
+                    self.output_path, dandiset, self.existing
+                ):
+                    yield {
+                        "path": str(self.output_prefix / dandiset_metadata_file),
+                        **resp,
+                    }
 
-        # TODO: do analysis of assets for early detection of needed renames etc
-        # to avoid any need for late treatment of existing and also for
-        # more efficient download if files are just renamed etc
+            # TODO: do analysis of assets for early detection of needed renames
+            # etc to avoid any need for late treatment of existing and also for
+            # more efficient download if files are just renamed etc
 
-        if not get_assets:
-            return
+            if not self.get_assets:
+                return
 
-        lock = Lock()
-        for asset in assets:
-            path = asset.path.lstrip("/")  # make into relative path
-            if not isinstance(parsed_url, DandisetURL):
-                if isinstance(parsed_url, MultiAssetURL):
-                    path = multiasset_target(parsed_url.path, path)
-                elif isinstance(parsed_url, SingleAssetURL):
-                    path = op.basename(path)
-                else:
-                    raise NotImplementedError(
-                        f"Unexpected URL type {type(parsed_url).__name__}"
+            if self.assets_it:
+                assets = self.assets_it.feed(assets)
+            lock = Lock()
+            for asset in assets:
+                path = asset.path.lstrip("/")  # make into relative path
+                if not isinstance(self.url, DandisetURL):
+                    if isinstance(self.url, MultiAssetURL):
+                        path = multiasset_target(self.url.path, path)
+                    elif isinstance(self.url, SingleAssetURL):
+                        path = PurePosixPath(path).name
+                    else:
+                        raise NotImplementedError(
+                            f"Unexpected URL type {type(self.url).__name__}"
+                        )
+                download_path = Path(self.output_path, path)
+                path = str(self.output_prefix / path)
+
+                try:
+                    metadata = asset.get_raw_metadata()
+                except NotFoundError as e:
+                    yield {"path": path, "status": "error", "message": str(e)}
+                    continue
+                d = metadata.get("digest", {})
+
+                if asset.asset_type is AssetType.BLOB:
+                    if "dandi:dandi-etag" in d:
+                        digests = {"dandi-etag": d["dandi:dandi-etag"]}
+                    else:
+                        raise RuntimeError(
+                            f"dandi-etag not available for asset. Known digests: {d}"
+                        )
+                    try:
+                        digests["sha256"] = d["dandi:sha2-256"]
+                    except KeyError:
+                        pass
+                    try:
+                        mtime = ensure_datetime(metadata["blobDateModified"])
+                    except KeyError:
+                        mtime = None
+                    if mtime is None:
+                        lgr.warning(
+                            "Asset %s is missing blobDateModified metadata field",
+                            asset.path,
+                        )
+                        mtime = asset.modified
+                    _download_generator = _download_file(
+                        asset.get_download_file_iter(),
+                        download_path,
+                        toplevel_path=self.output_path,
+                        # size and modified generally should be there but
+                        # better to redownload than to crash
+                        size=asset.size,
+                        mtime=mtime,
+                        existing=self.existing,
+                        digests=digests,
+                        lock=lock,
                     )
-            download_path = op.join(output_path, op.normpath(path))
 
-            try:
-                metadata = asset.get_raw_metadata()
-            except NotFoundError as e:
-                yield {"path": path, "status": "error", "message": str(e)}
+                else:
+                    assert isinstance(
+                        asset, BaseRemoteZarrAsset
+                    ), f"Asset {asset.path} is neither blob nor Zarr"
+                    _download_generator = _download_zarr(
+                        asset,
+                        download_path,
+                        toplevel_path=self.output_path,
+                        existing=self.existing,
+                        jobs=self.jobs_per_zarr,
+                        lock=lock,
+                    )
+
+                # If exception is raised we might just raise it, or yield
+                # an error record
+                gen = {
+                    "raise": _download_generator,
+                    "yield": _download_generator_guard(path, _download_generator),
+                }[self.on_error]
+
+                if self.yield_generator_for_fields:
+                    yield {"path": path, self.yield_generator_for_fields: gen}
+                else:
+                    for resp in gen:
+                        yield {**resp, "path": path}
+
+    def delete_for_sync(self) -> list[Path]:
+        """
+        Returns the paths of local files that need to be deleted in order to
+        sync the contents of `output_path` with the remote URL
+        """
+        if isinstance(self.url, SingleAssetURL):
+            return []
+        with self.url.get_client() as client:
+            asset_paths = {asset.path for asset in self.url.get_assets(client)}
+        if isinstance(self.url, DandisetURL):
+            prefix = Path()
+            download_dir = self.output_path
+        elif isinstance(self.url, MultiAssetURL):
+            prefix = Path(self.url.path)
+            download_dir = Path(self.output_path, prefix.name)
+        else:
+            raise NotImplementedError(f"Unexpected URL type {type(self.url).__name__}")
+        to_delete = []
+        for df in find_dandi_files(
+            download_dir, dandiset_path=download_dir, allow_all=True
+        ):
+            if not isinstance(df, LocalAsset):
                 continue
-            d = metadata.get("digest", {})
-
-            if asset.asset_type is AssetType.BLOB:
-                if "dandi:dandi-etag" in d:
-                    digests = {"dandi-etag": d["dandi:dandi-etag"]}
-                else:
-                    raise RuntimeError(
-                        f"dandi-etag not available for asset. Known digests: {d}"
-                    )
-                try:
-                    digests["sha256"] = d["dandi:sha2-256"]
-                except KeyError:
-                    pass
-                try:
-                    mtime = ensure_datetime(metadata["blobDateModified"])
-                except KeyError:
-                    mtime = None
-                if mtime is None:
-                    lgr.warning(
-                        "Asset %s is missing blobDateModified metadata field",
-                        asset.path,
-                    )
-                    mtime = asset.modified
-                _download_generator = _download_file(
-                    asset.get_download_file_iter(),
-                    download_path,
-                    toplevel_path=output_path,
-                    # size and modified generally should be there but better to
-                    # redownload than to crash
-                    size=asset.size,
-                    mtime=mtime,
-                    existing=existing,
-                    digests=digests,
-                    lock=lock,
-                )
-
-            else:
-                assert isinstance(
-                    asset, BaseRemoteZarrAsset
-                ), f"Asset {asset.path} is neither blob nor Zarr"
-                _download_generator = _download_zarr(
-                    asset,
-                    download_path,
-                    toplevel_path=output_path,
-                    existing=existing,
-                    jobs=jobs_per_zarr,
-                    lock=lock,
-                )
-
-            # If exception is raised we might just raise it, or yield
-            # an error record
-            gen = {
-                "raise": _download_generator,
-                "yield": _download_generator_guard(path, _download_generator),
-            }[on_error]
-
-            if yield_generator_for_fields:
-                yield {"path": path, yield_generator_for_fields: gen}
-            else:
-                for resp in gen:
-                    yield dict(resp, path=path)
+            if Path(prefix, df.path).as_posix() not in asset_paths:
+                to_delete.append(df.filepath)
+        return to_delete
 
 
 def _download_generator_guard(path: str, generator: Iterator[dict]) -> Iterator[dict]:
@@ -508,7 +522,7 @@ def _populate_dandiset_yaml(
 
 def _download_file(
     downloader: Callable[[int], Iterator[bytes]],
-    path: str,
+    path: Path,
     toplevel_path: Union[str, Path],
     lock: Lock,
     size: Optional[int] = None,
@@ -830,7 +844,7 @@ class DownloadDirectory:
 
 def _download_zarr(
     asset: BaseRemoteZarrAsset,
-    download_path: str,
+    download_path: Path,
     toplevel_path: Union[str, Path],
     existing: str,
     lock: Lock,
@@ -849,7 +863,7 @@ def _download_zarr(
         assert etag.algorithm is DigestType.md5
         download_gens[str(entry)] = _download_file(
             entry.get_download_file_iter(),
-            op.join(download_path, op.normpath(str(entry))),
+            download_path / str(entry),
             toplevel_path=toplevel_path,
             size=entry.size,
             mtime=entry.modified,

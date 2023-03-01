@@ -75,6 +75,9 @@ class IteratorWithAggregation:
         self._exc = None
 
     def __iter__(self):
+        yield from self.feed(self.gen)
+
+    def feed(self, iterator):
         self.finished = False
         self._exc = None
 
@@ -85,7 +88,7 @@ class IteratorWithAggregation:
             into queue_total upon completion"""
             total = None
             try:
-                for value in self.gen:
+                for value in iterator:
                     queue.put(value)
                     self.total = total = (
                         self.agg(value, total) if total is not None else self.agg(value)

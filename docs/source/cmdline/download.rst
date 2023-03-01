@@ -3,9 +3,9 @@
 
 ::
 
-    dandi [<global options>] download [<options>] <url>
+    dandi [<global options>] download [<options>] <url> ...
 
-Download a Dandiset, asset, or folder of assets from DANDI.
+Download one or more Dandisets, assets, or folders of assets from DANDI.
 
 See :ref:`resource_ids` for allowed URL formats.
 

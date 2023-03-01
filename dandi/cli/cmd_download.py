@@ -34,7 +34,7 @@ class ChoiceList(click.ParamType):
 # click doesn't use it unless we explicitly assign it to `help`:
 @click.command(
     help=f"""\
-Download a file or entire folder from DANDI.
+Download files or entire folders from DANDI.
 
 \b
 {_dandi_url_parser.known_patterns}
