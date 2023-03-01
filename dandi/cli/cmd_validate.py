@@ -1,6 +1,7 @@
 import logging
 import os
 from typing import List, cast
+import warnings
 
 import click
 
@@ -31,8 +32,10 @@ from ..validate_types import Severity
     default="none",
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
+@click.pass_context
 @map_to_click_exceptions
 def validate_bids(
+    ctx,
     paths,
     schema,
     report,
@@ -40,23 +43,20 @@ def validate_bids(
     grouping="none",
 ):
     """Validate BIDS paths.
-
     Notes
     -----
-    Used from bash, eg:
-        dandi validate-bids /my/path
+    * Used from bash, eg:
+    dandi validate-bids /my/path
+    * DEPRECATED: use  dandi validate /my/path
     """
 
-    from ..validate import validate_bids as validate_bids_
-
-    validator_result = validate_bids_(  # Controller
-        *paths,
-        report=report,
-        report_path=report_path,
-        schema_version=schema,
+    warnings.filterwarnings("default")
+    warnings.warn(
+        "The `dandi validate-bids` command line interface is deprecated, you can use "
+        "`dandi validate` instead. Proceeding to parse the call to `dandi validate` now.",
+        DeprecationWarning,
     )
-
-    _process_issues(validator_result, grouping)
+    ctx.invoke(validate, paths=paths, grouping=grouping)
 
 
 @click.command()

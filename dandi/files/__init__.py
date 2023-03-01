@@ -105,7 +105,8 @@ def find_dandi_files(
                 raise ValueError(
                     f"Path {str(p)!r} is not inside Dandiset path {str(dandiset_path)!r}"
                 )
-        path_queue.append((p, None))
+        path_queue.append((Path(p), None))
+    bids_roots = []
     while path_queue:
         p, bidsdd = path_queue.popleft()
         if p.name.startswith("."):
@@ -115,9 +116,10 @@ def find_dandi_files(
                 lgr.warning("%s: Ignoring unsupported symbolic link to directory", p)
             elif dandiset_path is not None and p == Path(dandiset_path):
                 if (p / BIDS_DATASET_DESCRIPTION).exists():
-                    bids2 = dandi_file(p / BIDS_DATASET_DESCRIPTION, dandiset_path)
-                    assert isinstance(bids2, BIDSDatasetDescriptionAsset)
-                    bidsdd = bids2
+                    bids = dandi_file(p / BIDS_DATASET_DESCRIPTION, dandiset_path)
+                    assert isinstance(bids, BIDSDatasetDescriptionAsset)
+                    bidsdd = bids
+                    bids_roots.append(p)
                 path_queue.extend((q, bidsdd) for q in p.iterdir())
             elif any(p.iterdir()):
                 try:
@@ -127,10 +129,13 @@ def find_dandi_files(
                     # (ie., it's not a Zarr or any other directory asset type
                     # we may add later), so traverse through it as a regular
                     # directory.
-                    if (p / BIDS_DATASET_DESCRIPTION).exists():
+                    if (p / BIDS_DATASET_DESCRIPTION).exists() and not any(
+                        i in p.parents for i in bids_roots
+                    ):  # No nested BIDS
                         bids2 = dandi_file(p / BIDS_DATASET_DESCRIPTION, dandiset_path)
                         assert isinstance(bids2, BIDSDatasetDescriptionAsset)
                         bidsdd = bids2
+                        bids_roots.append(p)
                     path_queue.extend((q, bidsdd) for q in p.iterdir())
                 else:
                     yield df
@@ -196,10 +201,11 @@ def find_bids_dataset_description(
     """
     .. versionadded:: 0.46.0
 
-    Look for a :file:`dataset_description.json` file in the directory
+    Look for the topmost :file:`dataset_description.json` file in the directory
     ``dirpath`` and each of its parents, stopping when a :file:`dandiset.yaml`
     file is found or ``dandiset_path`` is reached.
     """
+    topmost: Optional[BIDSDatasetDescriptionAsset] = None
     dirpath = Path(dirpath)
     for d in (dirpath, *dirpath.parents):
         bids_marker = d / BIDS_DATASET_DESCRIPTION
@@ -207,9 +213,9 @@ def find_bids_dataset_description(
         if bids_marker.is_file() or bids_marker.is_symlink():
             f = dandi_file(bids_marker, dandiset_path)
             assert isinstance(f, BIDSDatasetDescriptionAsset)
-            return f
+            topmost = f
         elif dandi_end.is_file() or dandi_end.is_symlink():
-            return None
+            break
         elif dandiset_path is not None and d == Path(dandiset_path):
-            return None
-    return None
+            break
+    return topmost

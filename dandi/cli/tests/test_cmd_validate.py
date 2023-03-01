@@ -5,18 +5,17 @@ from pathlib import Path
 from click.testing import CliRunner
 import pytest
 
-from ..cmd_validate import validate, validate_bids
+from ..cmd_validate import validate
+from ...tests.fixtures import BIDS_ERROR_TESTDATA_SELECTION
 
 
-@pytest.mark.parametrize(
-    "dataset", ["invalid_asl003", "invalid_eeg_cbm", "invalid_pet001"]
-)
+@pytest.mark.parametrize("dataset", BIDS_ERROR_TESTDATA_SELECTION)
 def test_validate_bids_error(bids_error_examples, dataset):
 
     broken_dataset = os.path.join(bids_error_examples, dataset)
     with open(os.path.join(broken_dataset, ".ERRORS.json")) as f:
         expected_errors = json.load(f)
-    r = CliRunner().invoke(validate_bids, [broken_dataset])
+    r = CliRunner().invoke(validate, [broken_dataset])
     # Does it break?
     assert r.exit_code == 1
 
@@ -43,7 +42,7 @@ def test_validate_bids_grouping_error(bids_error_examples, dataset="invalid_asl0
     """
 
     dataset = os.path.join(bids_error_examples, dataset)
-    r = CliRunner().invoke(validate_bids, ["--grouping=path", dataset])
+    r = CliRunner().invoke(validate, ["--grouping=path", dataset])
     # Does it break?
     assert r.exit_code == 1
 
@@ -70,7 +69,7 @@ def test_validate_bids_error_grouping_notification(
     """Test user notification for unimplemented parameter value."""
 
     broken_dataset = os.path.join(bids_error_examples, dataset)
-    r = CliRunner().invoke(validate_bids, ["--grouping=error", broken_dataset])
+    r = CliRunner().invoke(validate, ["--grouping=error", broken_dataset])
     # Does it break?
     assert r.exit_code == 2
 

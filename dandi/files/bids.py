@@ -87,7 +87,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                         bids_paths += [str(readme_candidate)]
                 # end of ad-hoc fix.
 
-                results = validate_bids(*bids_paths)
+                results = validate_bids(self.bids_root)
                 self._dataset_errors: list[ValidationResult] = []
                 self._asset_errors: dict[str, list[ValidationResult]] = defaultdict(
                     list
@@ -244,7 +244,7 @@ class ZarrBIDSAsset(BIDSAsset, ZarrAsset):
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
-        return ZarrBIDSAsset.get_validation_errors(
+        return ZarrAsset.get_validation_errors(
             self, schema_version, devel_debug
         ) + BIDSAsset.get_validation_errors(self)
 
