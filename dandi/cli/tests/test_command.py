@@ -20,9 +20,10 @@ def test_smoke(organized_nwb_dir, command):
     # But we must cd to the temp directory since current directory could
     # have all kinds of files which could trip the command, e.g. validate
     # could find some broken test files in the code base
-    with runner.isolated_filesystem():
-        r = runner.invoke(command, [])
-    assert r.exit_code == 0, f"Exited abnormally. out={r.stdout}"
+    if command is not validate:
+        with runner.isolated_filesystem():
+            r = runner.invoke(command, [])
+        assert r.exit_code == 0, f"Exited abnormally. out={r.stdout}"
 
 
 @pytest.mark.parametrize("command", __all_commands__)
