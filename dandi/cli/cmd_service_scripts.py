@@ -11,7 +11,6 @@ from .. import lgr
 from ..dandiapi import RemoteBlobAsset
 from ..dandiarchive import parse_dandi_url
 from ..exceptions import NotFoundError
-from ..metadata import nwb2asset
 
 
 @click.group()
@@ -38,6 +37,8 @@ def reextract_metadata(url: str, diff: bool, when: str) -> None:
     Running this command requires the fsspec library to be installed with the
     `http` extra (e.g., `pip install "fsspec[http]"`).
     """
+    from ..metadata import nwb2asset  # Avoid heavy import at top level
+
     parsed_url = parse_dandi_url(url)
     if parsed_url.version_id not in (None, "draft"):
         raise click.UsageError("URL cannot point to a published Dandiset")
