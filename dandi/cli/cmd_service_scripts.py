@@ -10,7 +10,7 @@ from .. import lgr
 from ..dandiapi import RemoteBlobAsset
 from ..dandiarchive import parse_dandi_url
 from ..exceptions import NotFoundError
-from ..util import yaml_dump
+from ..utils import yaml_dump
 
 
 @click.group()

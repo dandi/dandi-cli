@@ -22,7 +22,7 @@ from ..utils import list_paths, yaml_dump
 
 
 def test_upload_download(
-    new_dandiset: SampleDandiset, organized_nwb_dir: str, tmp_path: Path
+    new_dandiset: SampleDandiset, organized_nwb_dir: Path, tmp_path: Path
 ) -> None:
     d = new_dandiset.dandiset
     dspath = new_dandiset.dspath
