@@ -315,7 +315,7 @@ def test_validate_simple1(simple1_nwb: Path) -> None:
     errors = dandi_file(simple1_nwb).get_validation_errors(
         schema_version=get_schema_version()
     )
-    assert [e.message for e in errors] == ["File is not inside a Dandiset"]
+    assert errors == []
 
 
 def test_validate_simple1_no_subject(simple1_nwb: Path) -> None:
@@ -324,11 +324,7 @@ def test_validate_simple1_no_subject(simple1_nwb: Path) -> None:
     for e in errors:
         assert e.message is not None
         errmsgs.append(e.message)
-    errmsgs.sort()
-    assert errmsgs == [
-        "File is not inside a Dandiset",
-        "Subject is missing.",
-    ]
+    assert errmsgs == ["Subject is missing."]
 
 
 def test_validate_simple2(organized_nwb_dir: Path) -> None:
@@ -355,11 +351,7 @@ def test_validate_simple3_no_subject_id(simple3_nwb: Path) -> None:
     for e in errors:
         assert e.message is not None
         errmsgs.append(e.message)
-    errmsgs.sort()
-    assert errmsgs == [
-        "File is not inside a Dandiset",
-        "subject_id is missing.",
-    ]
+    assert errmsgs == ["subject_id is missing."]
 
 
 def test_validate_bogus(tmp_path):
