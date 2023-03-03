@@ -556,26 +556,10 @@ class NWBAsset(LocalFileAsset):
 
         from .bids import NWBBIDSAsset
 
-        if not isinstance(self, NWBBIDSAsset):
-            if self.dandiset_path is None:
-                errors.append(
-                    ValidationResult(
-                        id="DANDI.NO_DANDISET_FOUND",
-                        origin=ValidationOrigin(
-                            name="dandi", version=dandi.__version__
-                        ),
-                        severity=Severity.ERROR,
-                        scope=Scope.FILE,
-                        path=self.filepath,
-                        message="File is not inside a Dandiset",
-                    )
-                )
-            else:
-                errors.extend(
-                    validate_organized_path(
-                        self.path, self.filepath, self.dandiset_path
-                    )
-                )
+        if not isinstance(self, NWBBIDSAsset) and self.dandiset_path is not None:
+            errors.extend(
+                validate_organized_path(self.path, self.filepath, self.dandiset_path)
+            )
         return errors
 
 
