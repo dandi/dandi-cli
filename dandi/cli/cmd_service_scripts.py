@@ -1,5 +1,4 @@
 from difflib import unified_diff
-import json
 from pathlib import PurePosixPath
 
 import click
@@ -11,6 +10,7 @@ from .. import lgr
 from ..dandiapi import RemoteBlobAsset
 from ..dandiarchive import parse_dandi_url
 from ..exceptions import NotFoundError
+from ..util import yaml_dump
 
 
 @click.group()
@@ -40,9 +40,12 @@ def reextract_metadata(url: str, diff: bool, when: str) -> None:
     from ..metadata import nwb2asset  # Avoid heavy import at top level
 
     parsed_url = parse_dandi_url(url)
-    if parsed_url.version_id not in (None, "draft"):
-        raise click.UsageError("URL cannot point to a published Dandiset")
-    parsed_url.version_id = "draft"
+    if parsed_url.dandiset_id is None:
+        raise click.UsageError("URL must point to an asset within a Dandiset.")
+    if parsed_url.version_id != "draft":
+        raise click.UsageError(
+            "URL must explicitly point to a draft version of a Dandiset"
+        )
     current_schema_version = Version(DANDI_SCHEMA_VERSION)
     with parsed_url.navigate(authenticate=True, strict=True) as (_, _, assets):
         for asset in assets:
@@ -62,10 +65,15 @@ def reextract_metadata(url: str, diff: bool, when: str) -> None:
                 else:
                     schemaVersion = Version(sv)
                     if schemaVersion < current_schema_version:
+                        lgr.info(
+                            "Asset's schemaVersion %r is out of date; will reextract",
+                            sv,
+                        )
                         do_reextract = True
                     elif schemaVersion == current_schema_version:
                         lgr.info(
-                            "Asset's schemaVersion is up to date; not reextracting"
+                            "Asset's schemaVersion %r is up to date; not reextracting",
+                            sv,
                         )
                         do_reextract = False
                     else:
@@ -89,14 +97,16 @@ def reextract_metadata(url: str, diff: bool, when: str) -> None:
                 mddict = metadata.json_dict()
                 if diff:
                     oldmd = asset.get_raw_metadata()
-                    oldmd_str = json.dumps(oldmd, indent=4, sort_keys=True)
-                    mddict_str = json.dumps(mddict, indent=4, sort_keys=True)
+                    oldmd_str = yaml_dump(oldmd)
+                    mddict_str = yaml_dump(mddict)
                     print(
-                        unified_diff(
-                            oldmd_str.splitlines(True),
-                            mddict_str.splitlines(True),
-                            fromfile=f"{asset.path}:old",
-                            tofile=f"{asset.path}:new",
+                        "".join(
+                            unified_diff(
+                                oldmd_str.splitlines(True),
+                                mddict_str.splitlines(True),
+                                fromfile=f"{asset.path}:old",
+                                tofile=f"{asset.path}:new",
+                            )
                         )
                     )
                 lgr.info("Saving new asset metadata")
