@@ -800,6 +800,7 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
 def test_nwb2asset_remote_asset(
     new_dandiset: SampleDandiset, organized_nwb_dir: Path
 ) -> None:
+    pytest.importorskip("fsspec")
     d = new_dandiset.dandiset
     dspath = new_dandiset.dspath
     (nwb_file,) = [
