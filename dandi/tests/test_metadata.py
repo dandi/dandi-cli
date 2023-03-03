@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 import json
 from pathlib import Path
 import shutil
-from shutil import copyfile
 from typing import Any, Dict, Optional, Tuple, Union
 
 from anys import ANY_AWARE_DATETIME, AnyFullmatch, AnyIn
@@ -32,7 +31,6 @@ from semantic_version import Version
 from .fixtures import SampleDandiset
 from .skip import mark
 from .. import __version__
-from ..consts import dandiset_metadata_file
 from ..dandiapi import RemoteBlobAsset
 from ..metadata import (
     extract_age,
@@ -47,7 +45,7 @@ from ..metadata import (
 )
 from ..misctypes import DUMMY_DANDI_ETAG
 from ..pynwb_utils import metadata_nwb_subject_fields
-from ..utils import ensure_datetime, list_paths
+from ..utils import ensure_datetime
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
 
@@ -797,23 +795,9 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
     )
 
 
-def test_nwb2asset_remote_asset(
-    new_dandiset: SampleDandiset, organized_nwb_dir: Path
-) -> None:
+def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
     pytest.importorskip("fsspec")
-    d = new_dandiset.dandiset
-    dspath = new_dandiset.dspath
-    (nwb_file,) = [
-        p for p in list_paths(organized_nwb_dir) if p.name != dandiset_metadata_file
-    ]
-    assert nwb_file.suffix == ".nwb"
-    relpath = nwb_file.relative_to(organized_nwb_dir)
-    parent, name = relpath.parts
-    (dspath / parent).mkdir()
-    copyfile(nwb_file, dspath / parent / name)
-    new_dandiset.upload()
-
-    asset = d.get_asset_by_path(relpath.as_posix())
+    asset = nwb_dandiset.dandiset.get_asset_by_path("sub-mouse001/sub-mouse001.nwb")
     digest = asset.get_digest()
     mtime = ensure_datetime(asset.get_raw_metadata()["blobDateModified"])
     assert isinstance(asset, RemoteBlobAsset)
@@ -858,7 +842,7 @@ def test_nwb2asset_remote_asset(
         contentSize=asset.size,
         encodingFormat="application/x-nwb",
         digest={DigestType.dandi_etag: digest.value},
-        path=name,
+        path="sub-mouse001.nwb",
         dateModified=ANY_AWARE_DATETIME,
         blobDateModified=mtime,
         wasAttributedTo=[

@@ -525,6 +525,14 @@ def new_dandiset(
 
 
 @pytest.fixture()
+def nwb_dandiset(new_dandiset: SampleDandiset, simple2_nwb: Path) -> SampleDandiset:
+    (new_dandiset.dspath / "sub-mouse001").mkdir()
+    shutil.copy2(simple2_nwb, new_dandiset.dspath / "sub-mouse001" / "sub-mouse001.nwb")
+    new_dandiset.upload()
+    return new_dandiset
+
+
+@pytest.fixture()
 def text_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
     (new_dandiset.dspath / "file.txt").write_text("This is test text.\n")
     (new_dandiset.dspath / "subdir1").mkdir()
