@@ -1,3 +1,15 @@
+# 0.50.1 (Fri Mar 03 2023)
+
+#### 🧪 Tests
+
+- skip test_nwb2asset_remote_asset if no fsspec installed [#1239](https://github.com/dandi/dandi-cli/pull/1239) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.50.0 (Wed Mar 01 2023)
 
 #### 🚀 Enhancement
