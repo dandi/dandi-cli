@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import Iterator, Optional, Union
 
+from . import __version__
 from .consts import dandiset_metadata_file
 from .files import find_dandi_files
 from .utils import find_parent_directory_containing
@@ -149,6 +150,15 @@ def validate(
     """
     for p in paths:
         dandiset_path = find_parent_directory_containing(dandiset_metadata_file, p)
+        if dandiset_path is None:
+            yield ValidationResult(
+                id="DANDI.NO_DANDISET_FOUND",
+                origin=ValidationOrigin(name="dandi", version=__version__),
+                severity=Severity.ERROR,
+                scope=Scope.DANDISET,
+                path=Path(p),
+                message="Path is not inside a Dandiset",
+            )
         for df in find_dandi_files(
             p, dandiset_path=dandiset_path, allow_all=allow_any_path
         ):

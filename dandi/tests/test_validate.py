@@ -4,13 +4,36 @@ from pathlib import Path
 import pytest
 
 from .fixtures import BIDS_ERROR_TESTDATA_SELECTION, BIDS_TESTDATA_SELECTION
+from .. import __version__
+from ..consts import dandiset_metadata_file
 from ..validate import validate
+from ..validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
 
 def test_validate_nwb_error(simple3_nwb: Path) -> None:
     """Do we fail on critical NWB validation errors?"""
     validation_result = validate(simple3_nwb)
     assert len([i for i in validation_result if i.severity]) > 0
+
+
+def test_validate_empty(tmp_path: Path) -> None:
+    assert list(validate(tmp_path)) == [
+        ValidationResult(
+            id="DANDI.NO_DANDISET_FOUND",
+            origin=ValidationOrigin(name="dandi", version=__version__),
+            severity=Severity.ERROR,
+            scope=Scope.DANDISET,
+            path=tmp_path,
+            message="Path is not inside a Dandiset",
+        )
+    ]
+
+
+def test_validate_just_dandiset_yaml(tmp_path: Path) -> None:
+    (tmp_path / dandiset_metadata_file).write_text(
+        "identifier: 12346\nname: Foo\ndescription: Dandiset Foo\n"
+    )
+    assert list(validate(tmp_path)) == []
 
 
 @pytest.mark.parametrize("dataset", BIDS_TESTDATA_SELECTION)
