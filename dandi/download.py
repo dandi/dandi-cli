@@ -53,7 +53,7 @@ from .files import LocalAsset, find_dandi_files
 from .support.digests import get_digest, get_zarr_checksum
 from .support.iterators import IteratorWithAggregation
 from .support.pyout import naturalsize
-from .support.typing import Literal
+from .support.typing import Literal, Protocol
 from .utils import (
     abbrev_prompt,
     ensure_datetime,
@@ -520,6 +520,14 @@ def _populate_dandiset_yaml(
     }
 
 
+class Hasher(Protocol):
+    def update(self, data: bytes) -> None:
+        ...
+
+    def hexdigest(self) -> str:
+        ...
+
+
 def _download_file(
     downloader: Callable[[int], Iterator[bytes]],
     path: Path,
@@ -646,20 +654,26 @@ def _download_file(
 
     yield {"status": "downloading"}
 
-    algo, digester, digest, downloaded_digest = None, None, None, None
+    algo: Optional[str] = None
+    digester: Optional[Callable[[], Hasher]] = None
+    digest: Optional[str] = None
+    downloaded_digest: Optional[Hasher] = None
     if digests:
         # choose first available for now.
         # TODO: reuse that sorting based on speed
         for algo, digest in digests.items():
-            if algo == "dandi-etag":
+            if algo == "dandi-etag" and size is not None:
                 from dandischema.digests.dandietag import ETagHashlike
 
-                digester = lambda: ETagHashlike(size)  # noqa: E731
+                # Instantiate outside the lambda so that mypy is assured that
+                # `size` is not None:
+                hasher = ETagHashlike(size)
+                digester = lambda: hasher  # noqa: E731
             else:
                 digester = getattr(hashlib, algo, None)
-            if digester:
+            if digester is not None:
                 break
-        if not digester:
+        if digester is None:
             lgr.warning("Found no digests in hashlib for any of %s", str(digests))
 
     # TODO: how do we discover the total size????
@@ -725,12 +739,12 @@ def _download_file(
 
     if downloaded_digest and not resuming:
         assert downloaded_digest is not None
-        downloaded_digest = downloaded_digest.hexdigest()  # we care only about hex
+        final_digest = downloaded_digest.hexdigest()  # we care only about hex
         if digest_callback is not None:
             assert isinstance(algo, str)
-            digest_callback(algo, downloaded_digest)
-        if digest != downloaded_digest:
-            msg = f"{algo}: downloaded {downloaded_digest} != {digest}"
+            digest_callback(algo, final_digest)
+        if digest != final_digest:
+            msg = f"{algo}: downloaded {final_digest} != {digest}"
             yield {"checksum": "differs", "status": "error", "message": msg}
             lgr.debug("%s is different: %s.", path, msg)
             return

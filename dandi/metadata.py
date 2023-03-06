@@ -24,12 +24,13 @@ from uuid import uuid4
 from xml.dom.minidom import parseString
 
 from dandischema import models
+from pydantic import ByteSize, parse_obj_as
 import requests
 import tenacity
 
 from . import __version__, get_logger
 from .consts import metadata_all_fields
-from .misctypes import Digest, LocalReadableFile, Readable
+from .misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, Readable
 from .pynwb_utils import (
     _get_pynwb_metadata,
     get_neurodata_types,
@@ -90,20 +91,21 @@ def get_metadata(
                 dandiset_path,
                 bids_dataset_description=bids_dataset_description,
             )
-            if not digest:
-                _digest = "0" * 32 + "-1"
-                digest = Digest.dandi_etag(_digest)
-            path_metadata = df.get_metadata(digest=digest)
             assert isinstance(df, bids.BIDSAsset)
+            if not digest:
+                digest = DUMMY_DANDI_ETAG
+            path_metadata = df.get_metadata(digest=digest)
             meta["bids_version"] = df.get_validation_bids_version()
             # there might be a more elegant way to do this:
-            for key in metadata_all_fields:
-                try:
-                    value = getattr(path_metadata.wasAttributedTo[0], key)
-                except AttributeError:
-                    pass
-                else:
-                    meta[key] = value
+            if path_metadata.wasAttributedTo is not None:
+                attributed = path_metadata.wasAttributedTo[0]
+                for key in metadata_all_fields:
+                    try:
+                        value = getattr(attributed, key)
+                    except AttributeError:
+                        pass
+                    else:
+                        meta[key] = value
 
     if r.get_filename().endswith((".NWB", ".nwb")):
         if nwb_has_external_links(r):
@@ -1002,13 +1004,14 @@ def add_common_metadata(
         metadata.blobDateModified = mtime
         if mtime > metadata.dateModified:
             lgr.warning("mtime %s of %s is in the future", mtime, r)
-    metadata.contentSize = r.get_size()
+    size = r.get_size()
     if digest is not None and digest.algorithm is models.DigestType.dandi_zarr_checksum:
         m = re.fullmatch(
             r"(?P<hash>[0-9a-f]{32})-(?P<files>[0-9]+)--(?P<size>[0-9]+)", digest.value
         )
         if m:
-            metadata.contentSize = int(m["size"])
+            size = int(m["size"])
+    metadata.contentSize = parse_obj_as(ByteSize, size)
     if metadata.wasGeneratedBy is None:
         metadata.wasGeneratedBy = []
     metadata.wasGeneratedBy.append(get_generator(start_time, end_time))
