@@ -26,8 +26,6 @@ def validate_bids(
     ----------
     paths : list(str)
         Paths to validate.
-    schema_version : str, optional
-        BIDS schema version to use, this setting will override the version specified in the dataset.
     devel_debug : bool, optional
         Whether to trigger debugging in the BIDS validator.
 
@@ -46,10 +44,7 @@ def validate_bids(
     import bidsschematools
     from bidsschematools.validator import validate_bids as validate_bids_
 
-    validation_result = validate_bids_(
-        paths,
-        schema_version=schema_version,
-    )
+    validation_result = validate_bids_(paths, exclude_files=["dandiset.yaml"])
     our_validation_result = []
     origin = ValidationOrigin(
         name="bidsschematools",
