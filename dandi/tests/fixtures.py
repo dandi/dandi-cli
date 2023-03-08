@@ -244,6 +244,29 @@ def organized_nwb_dir3(
     return tmp_path
 
 
+@pytest.fixture(scope="session")
+def organized_nwb_dir4(
+    simple4_nwb: Path,
+    simple1_nwb: Path,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Path:
+    tmp_path = tmp_path_factory.mktemp("organized_nwb_dir")
+    (tmp_path / dandiset_metadata_file).write_text("{}\n")
+    r = CliRunner().invoke(
+        organize,
+        [
+            "-f",
+            "copy",
+            "--dandiset-path",
+            str(tmp_path),
+            str(simple4_nwb),
+            str(simple1_nwb),
+        ],
+    )
+    assert r.exit_code == 0, r.stdout
+    return tmp_path
+
+
 if TYPE_CHECKING:
     from ..support.typing import Literal
 
