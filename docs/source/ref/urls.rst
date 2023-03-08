@@ -18,8 +18,9 @@ used otherwise.
   (case insensitive; ``version`` cannot be "draft") when it redirects
   to one of the other URL formats
 
-- :samp:`DANDI:{dandiset-id}[/{version}]` — (case insensitive;
-  ``version`` cannot be "draft") Abbreviation for the above
+- :samp:`DANDI:{dandiset-id}[/{version}]` (case insensitive)
+  — Refers to a Dandiset on the main archive instance named "dandi".
+  `parse_dandi_url()` converts this format to a `DandisetURL`.
 
 - Any ``https://dandiarchive.org/`` or
   ``https://*dandiarchive-org.netflify.app/`` URL which redirects to

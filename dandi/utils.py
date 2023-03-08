@@ -25,6 +25,7 @@ from typing import (
     TypeVar,
     Union,
 )
+from urllib.parse import parse_qs, urlparse
 
 import dateutil.parser
 import requests
@@ -265,6 +266,7 @@ def find_files(
     exclude_vcs: bool = True,
     exclude_datalad: bool = False,
     dirs: bool = False,
+    dirs_avoid: Optional[str] = None,
 ) -> Iterator[str]:
     """Generator to find files matching regex
 
@@ -286,6 +288,9 @@ def find_files(
       .datalad/ subdirectory) (regex: `%r`)
     dirs: bool, optional
       Whether to match directories as well as files
+    dirs_avoid: string, optional
+      Regex for directories to not rercurse under (they might still be reported
+      if `dirs=True`)
     """
 
     def exclude_path(path: str) -> bool:
@@ -313,6 +318,7 @@ def find_files(
                     exclude_vcs=exclude_vcs,
                     exclude_datalad=exclude_datalad,
                     dirs=dirs,
+                    dirs_avoid=dirs_avoid,
                 )
             elif good_file(str(path)):
                 yield str(path)
@@ -330,12 +336,14 @@ def find_files(
         # TODO: might want to uniformize on windows to use '/'
         if exclude_dotfiles:
             names = [n for n in names if not n.startswith(".")]
-        if exclude_dotdirs:
+        if exclude_dotdirs or dirs_avoid:
             # and we should filter out directories from dirnames
             # Since we need to del which would change index, let's
             # start from the end
             for i in range(len(dirnames))[::-1]:
-                if dirnames[i].startswith("."):
+                if (exclude_dotdirs and dirnames[i].startswith(".")) or (
+                    dirs_avoid and re.search(dirs_avoid, dirnames[i])
+                ):
                     del dirnames[i]
         strpaths = [op.join(dirpath, name) for name in names]
         for p in filter(re.compile(regex).search, strpaths):
@@ -348,11 +356,25 @@ def find_files(
                     yield p
 
 
-def list_paths(dirpath: Union[str, Path], dirs: bool = False) -> List[Path]:
-    return sorted(map(Path, find_files(r".*", [dirpath], dirs=dirs)))
+def list_paths(
+    dirpath: Union[str, Path], dirs: bool = False, exclude_vcs: bool = True
+) -> List[Path]:
+    return sorted(
+        map(
+            Path,
+            find_files(
+                r".*",
+                [dirpath],
+                dirs=dirs,
+                exclude_dotfiles=False,
+                exclude_dotdirs=False,
+                exclude_vcs=exclude_vcs,
+            ),
+        )
+    )
 
 
-_cp_supports_reflink: Optional[bool] = None
+_cp_supports_reflink: Optional[bool] = False if on_windows else None
 
 
 def copy_file(src: Union[str, Path], dst: Union[str, Path]) -> None:
@@ -386,13 +408,19 @@ def find_parent_directory_containing(
 ) -> Optional[Path]:
     """Find a directory, on the path to 'path' containing filename
 
-    if no 'path' - path from cwd
-    Returns None if no such found, pathlib's Path to the directory if found
+    if no 'path' - path from cwd. If 'path' is not absolute, absolute path
+    is taken assuming relative to cwd.
+
+    Returns None if no such found, pathlib's Path (absolute) to the directory
+    if found.
     """
     if not path:
         path = Path.cwd()
     else:  # assure pathlib object
         path = Path(path)
+
+    if not path.is_absolute():
+        path = path.absolute()
 
     while True:
         if (path / filename).exists():
@@ -594,6 +622,9 @@ def get_instance(dandi_instance_id: str) -> DandiInstance:
         )  # note: somehow was ending up with {"girder": None}
         for name, rec in server_info.get("services", {}).items()
     }
+    for k, v in list(services.items()):
+        if v is not None:
+            services[k] = v.rstrip("/")
     if services.get("api"):
         return DandiInstance(
             gui=services.get("webui"),
@@ -753,3 +784,24 @@ def chunked(iterable: Iterable[T], size: int) -> Iterator[List[T]]:
                 else:
                     return
         yield xs
+
+
+def is_page2_url(page1: str, page2: str) -> bool:
+    """
+    Tests whether the URL ``page2`` is the same as ``page1`` but with the
+    ``page`` query parameter set to ``2``
+    """
+    bits1 = urlparse(page1)
+    params1 = parse_qs(bits1.query)
+    params1["page"] = ["2"]
+    bits2 = urlparse(page2)
+    params2 = parse_qs(bits2.query)
+    return (bits1[:3], params1, bits1.fragment) == (bits2[:3], params2, bits2.fragment)
+
+
+def exclude_from_zarr(path: Path) -> bool:
+    """
+    Returns `True` if the ``path`` is a file or directory that should be
+    excluded from consideration when located in a Zarr
+    """
+    return path.name in (".dandi", ".datalad", ".git", ".gitattributes", ".gitmodules")

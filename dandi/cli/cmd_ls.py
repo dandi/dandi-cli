@@ -5,6 +5,7 @@ import os.path as op
 import click
 
 from .base import devel_option, lgr, map_to_click_exceptions
+from ..consts import ZARR_EXTENSIONS, metadata_all_fields
 from ..dandiarchive import DandisetURL, _dandi_url_parser, parse_dandi_url
 from ..misctypes import Digest
 from ..utils import is_url
@@ -92,7 +93,6 @@ def ls(
         PYOUTFormatter,
         YAMLFormatter,
     )
-    from ..consts import metadata_all_fields
 
     # TODO: avoid
     from ..support.pyout import PYOUT_SHORT_NAMES_rev
@@ -136,7 +136,7 @@ def ls(
         for path in paths:
             if is_url(path):
                 parsed_url = parse_dandi_url(path)
-                with parsed_url.navigate() as (client, dandiset, assets):
+                with parsed_url.navigate(strict=True) as (client, dandiset, assets):
                     if isinstance(parsed_url, DandisetURL):
                         rec = {
                             "path": dandiset.identifier,
@@ -358,7 +358,20 @@ def get_metadata_ls(
                             digest=Digest.dandi_etag(digest),
                         ).json_dict()
                 else:
-                    rec = get_metadata(path)
+                    if path.endswith(tuple(ZARR_EXTENSIONS)):
+                        if use_fake_digest:
+                            digest = "0" * 32 + "-0--0"
+                        else:
+                            lgr.info("Calculating digest for %s", path)
+                            digest = get_digest(path, digest="zarr-checksum")
+                        rec = get_metadata(path, Digest.dandi_zarr(digest))
+                    else:
+                        if use_fake_digest:
+                            digest = "0" * 32 + "-1"
+                        else:
+                            lgr.info("Calculating digest for %s", path)
+                            digest = get_digest(path, digest="dandi-etag")
+                        rec = get_metadata(path, Digest.dandi_etag(digest))
             except Exception as exc:
                 _add_exc_error(path, rec, errors, exc)
             if flatten:
@@ -368,6 +381,7 @@ def get_metadata_ls(
         if (
             not op.isdir(path)
             and "nwb_version" not in rec
+            and "bids_schema_version" not in rec
             and (keys and "nwb_version" in keys)
         ):
             # Let's at least get that one

@@ -15,14 +15,14 @@ from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteBlobAsset, RemoteZarrAsset
 from ..dandiset import APIDandiset
 from ..download import download
-from ..exceptions import NotFoundError
+from ..exceptions import NotFoundError, UploadError
 from ..files import LocalFileAsset
 from ..pynwb_utils import make_nwb_file
 from ..utils import list_paths, yaml_dump
 
 
 def test_upload_download(
-    new_dandiset: SampleDandiset, organized_nwb_dir: str, tmp_path: Path
+    new_dandiset: SampleDandiset, organized_nwb_dir: Path, tmp_path: Path
 ) -> None:
     d = new_dandiset.dandiset
     dspath = new_dandiset.dspath
@@ -121,7 +121,8 @@ def test_upload_extant_bad_existing(
     mocker: MockerFixture, text_dandiset: SampleDandiset
 ) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
-    text_dandiset.upload(existing="foobar")
+    with pytest.raises(ValueError):
+        text_dandiset.upload(existing="foobar")
     iter_upload_spy.assert_not_called()
 
 
@@ -181,6 +182,67 @@ def test_upload_sync_folder(
         text_dandiset.dandiset.get_asset_by_path("subdir2/banana.txt")
 
 
+def test_upload_bids_invalid(
+    mocker: MockerFixture, bids_dandiset_invalid: SampleDandiset
+) -> None:
+    iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
+    with pytest.raises(UploadError):
+        bids_dandiset_invalid.upload(existing="force")
+    iter_upload_spy.assert_not_called()
+    # Does validation ignoring work?
+    bids_dandiset_invalid.upload(existing="force", validation="ignore")
+    iter_upload_spy.assert_called()
+    # Check existence of assets:
+    dandiset = bids_dandiset_invalid.dandiset
+    dandiset.get_asset_by_path("dataset_description.json")
+
+
+def test_upload_bids_validation_ignore(
+    mocker: MockerFixture, bids_dandiset: SampleDandiset
+) -> None:
+    iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
+    bids_dandiset.upload(existing="force", validation="ignore")
+    # Check whether upload was run
+    iter_upload_spy.assert_called()
+    # Check existence of assets:
+    dandiset = bids_dandiset.dandiset
+    # file we created?
+    dandiset.get_asset_by_path("CHANGES")
+    # BIDS descriptor file?
+    dandiset.get_asset_by_path("dataset_description.json")
+    # actual data file?
+    dandiset.get_asset_by_path("sub-Sub1/anat/sub-Sub1_T1w.nii.gz")
+
+
+def test_upload_bids_metadata(
+    mocker: MockerFixture, bids_dandiset: SampleDandiset
+) -> None:
+    bids_dandiset.upload(existing="force")
+    dandiset = bids_dandiset.dandiset
+    # Automatically check all files, heuristic should remain very BIDS-stable
+    for asset in dandiset.get_assets(order="path"):
+        apath = asset.path
+        if "sub-" in apath:
+            metadata = dandiset.get_asset_by_path(apath).get_metadata()
+            # Hard-coded check for the subject identifier set in the fixture:
+            assert metadata.wasAttributedTo[0].identifier == "Sub1"
+
+
+def test_upload_bids(mocker: MockerFixture, bids_dandiset: SampleDandiset) -> None:
+    iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
+    bids_dandiset.upload(existing="force")
+    # Check whether upload was run
+    iter_upload_spy.assert_called()
+    # Check existence of assets:
+    dandiset = bids_dandiset.dandiset
+    # file we created?
+    dandiset.get_asset_by_path("README")
+    # BIDS descriptor file?
+    dandiset.get_asset_by_path("dataset_description.json")
+    # actual data file?
+    dandiset.get_asset_by_path("sub-Sub1/anat/sub-Sub1_T1w.nii.gz")
+
+
 def test_upload_sync_zarr(mocker, zarr_dandiset):
     rmtree(zarr_dandiset.dspath / "sample.zarr")
     zarr.save(zarr_dandiset.dspath / "identity.zarr", np.eye(5))
@@ -205,7 +267,8 @@ def test_upload_invalid_metadata(
         ),
         **simple1_nwb_metadata,
     )
-    new_dandiset.upload()
+    with pytest.raises(UploadError):
+        new_dandiset.upload()
     with pytest.raises(NotFoundError):
         new_dandiset.dandiset.get_asset_by_path("broken.nwb")
 
@@ -219,12 +282,32 @@ def test_upload_zarr(new_dandiset: SampleDandiset) -> None:
     assert isinstance(asset, RemoteZarrAsset)
     assert asset.asset_type is AssetType.ZARR
     assert asset.path == "sample.zarr"
+    # Test that uploading again without any changes works:
+    new_dandiset.upload()
 
 
 def test_upload_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
     asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
     assert isinstance(asset, RemoteZarrAsset)
     zarr_id = asset.zarr
+    rmtree(zarr_dandiset.dspath / "sample.zarr")
+    zarr.save(zarr_dandiset.dspath / "sample.zarr", np.eye(5))
+    zarr_dandiset.upload()
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    assert asset.zarr == zarr_id
+    download(zarr_dandiset.dandiset.version_api_url, tmp_path)
+    assert_dirtrees_eq(
+        zarr_dandiset.dspath / "sample.zarr",
+        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr",
+    )
+
+
+def test_upload_loose_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    zarr_id = asset.zarr
+    asset.delete()
     rmtree(zarr_dandiset.dspath / "sample.zarr")
     zarr.save(zarr_dandiset.dspath / "sample.zarr", np.eye(5))
     zarr_dandiset.upload()
@@ -331,4 +414,5 @@ def test_upload_zarr_with_empty_dir(new_dandiset: SampleDandiset) -> None:
     assert isinstance(asset, RemoteZarrAsset)
     assert asset.asset_type is AssetType.ZARR
     assert asset.path == "sample.zarr"
-    assert not (asset.filetree / "empty").exists()
+    with pytest.raises(NotFoundError):
+        asset.get_entry_by_path("empty")

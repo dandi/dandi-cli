@@ -1,36 +1,56 @@
-from copy import deepcopy
 from datetime import datetime, timedelta
 import json
 from pathlib import Path
+import shutil
 from typing import Any, Dict, Optional, Tuple, Union
 
+from anys import ANY_AWARE_DATETIME, AnyFullmatch, AnyIn
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dandischema.metadata import validate
-from dandischema.models import AgeReferenceType
-from dandischema.models import BareAsset as BareAssetMeta
+from dandischema.models import (
+    AccessRequirements,
+    AccessType,
+    Activity,
+    AgeReferenceType,
+    BareAsset,
+)
+from dandischema.models import (
+    DigestType,
+    Participant,
+    PropertyValue,
+    Session,
+    SexType,
+    Software,
+    SpeciesType,
+)
 from dandischema.models import Dandiset as DandisetMeta
-from dandischema.models import PropertyValue
 from dateutil.tz import tzutc
 import pytest
 from semantic_version import Version
 
+from .fixtures import SampleDandiset
 from .skip import mark
+from .. import __version__
+from ..dandiapi import RemoteBlobAsset
 from ..metadata import (
     extract_age,
     extract_species,
     get_metadata,
-    metadata2asset,
+    nwb2asset,
     parse_age,
     parse_purlobourl,
+    prepare_metadata,
     process_ndtypes,
     timedelta2duration,
 )
+from ..misctypes import DUMMY_DANDI_ETAG
 from ..pynwb_utils import metadata_nwb_subject_fields
+from ..utils import ensure_datetime
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
 
 
-def test_get_metadata(simple1_nwb: str, simple1_nwb_metadata: Dict[str, Any]) -> None:
+def test_get_metadata(simple1_nwb: Path, simple1_nwb_metadata: Dict[str, Any]) -> None:
     target_metadata = simple1_nwb_metadata.copy()
     # we will also get some counts
     target_metadata["number_of_electrodes"] = 0
@@ -42,12 +62,39 @@ def test_get_metadata(simple1_nwb: str, simple1_nwb_metadata: Dict[str, Any]) ->
     # we do not populate any subject fields in our simple1_nwb
     for f in metadata_nwb_subject_fields:
         target_metadata[f] = None
-    metadata = get_metadata(str(simple1_nwb))
+    metadata = get_metadata(simple1_nwb)
     # we also load nwb_version field, so it must not be degenerate and ATM
     # it is 2.X.Y. And since I don't know how to query pynwb on what
     # version it currently "supports", we will just pop it
     assert metadata.pop("nwb_version").startswith("2.")
     assert target_metadata == metadata
+
+
+def test_bids_nwb_metadata_integration(bids_examples: Path, tmp_path: Path) -> None:
+    """
+    Notes
+    -----
+    * Generating data manually here, as fixture workflow calls `new_dandiset`,
+        which requires spinning up docker:
+        https://github.com/dandi/dandi-cli/pull/1183#discussion_r1061622910
+    """
+
+    source_dpath = bids_examples / "ieeg_epilepsyNWB"
+    dpath = tmp_path / "ieeg_epilepsyNWB"
+    shutil.copytree(source_dpath, dpath)
+
+    file_path = (
+        dpath
+        / "sub-01"
+        / "ses-postimp"
+        / "ieeg"
+        / "sub-01_ses-postimp_task-seizure_run-01_ieeg.nwb"
+    )
+    metadata = get_metadata(file_path)
+    # This is a key sourced from both NWB and BIDS:
+    assert metadata["subject_id"] == "01"
+    # This is a key sourced from NWB only:
+    assert metadata["sex"] == "U"
 
 
 @pytest.mark.parametrize(
@@ -92,6 +139,13 @@ def test_get_metadata(simple1_nwb: str, simple1_nwb_metadata: Dict[str, Any]) ->
         ("14 (Units: days)", "P14D"),
         ("14 unit day", "P14D"),
         ("Gestational Week 19", ("P19W", "Gestational")),
+        ("P100D/P200D", "P100D/P200D"),
+        ("P1DT10H/P1DT20H", "P1DT10H/P1DT20H"),
+        ("P1DT10H/P1DT10H20M", "P1DT10H/P1DT10H20M"),
+        ("P100D / P200D ", "P100D/P200D"),
+        ("/P200D", "/P200D"),
+        ("P100D/", "P100D/"),
+        ("/", "/"),
     ],
 )
 def test_parse_age(age: str, duration: Union[str, Tuple[str, str]]) -> None:
@@ -118,14 +172,30 @@ def test_parse_age(age: str, duration: Union[str, Tuple[str, str]]) -> None:
         (" , ", "Age doesn't have any information"),
         ("", "Age is empty"),
         (None, "Age is empty"),
-        (
-            "P2DT10.5H10M",
-            "Decimal fraction allowed in the lowest order part only, but"
-            " 'P2DT10.5H10M' was received",
-        ),
+        ("P2DT10.5H10M", "Decimal fraction allowed in the lowest order part only."),
         (
             "4.5 hours 10 sec",
-            "Decimal fraction allowed in the lowest order part only, but '' was received",
+            "Decimal fraction allowed in the lowest order part only.",
+        ),
+        (
+            "14 /",
+            "Ages that use / for range need to use ISO8601 format, but '14' found.",
+        ),
+        (
+            "P12Y/P10Y",
+            "The upper limit has to be larger than the lower limit, and they should have "
+            "consistent units.",
+        ),
+        (
+            "P12Y2W/P12Y",
+            "The upper limit has to be larger than the lower limit, and they should have "
+            "consistent units.",
+        ),
+        # the upper limit is bigger than lower, but I think we should not allow for this
+        (
+            "P1Y/P500D",
+            "The upper limit has to be larger than the lower limit, and they should have "
+            "consistent units.",
         ),
     ],
 )
@@ -224,7 +294,7 @@ def test_timedelta2duration(td: timedelta, duration: str) -> None:
             },
         ),
         # Put all corner cases in this test case:
-        (
+        pytest.param(
             "metadata2asset_3.json",
             {
                 "contentSize": 69105,
@@ -245,6 +315,7 @@ def test_timedelta2duration(td: timedelta, duration: str) -> None:
                 "date_of_birth": "2020-03-14T12:34:56-04:00",
                 "genotype": "Typical",
                 "sex": "M",
+                "strain": "abcdef/1",
                 "species": "http://purl.obolibrary.org/obo/NCBITaxon_1234175",  # Corner case
                 "subject_id": "a1b2c3",
                 "cell_id": "cell01",
@@ -263,17 +334,16 @@ def test_timedelta2duration(td: timedelta, duration: str) -> None:
                 ],
                 "path": "/test/path",
             },
+            marks=pytest.mark.obolibrary,
         ),
     ],
 )
-def test_metadata2asset(filename: str, metadata: Dict[str, Any]) -> None:
-    data = metadata2asset(metadata)
+def test_prepare_metadata(filename: str, metadata: Dict[str, Any]) -> None:
+    data = prepare_metadata(metadata).json_dict()
     with (METADATA_DIR / filename).open() as fp:
         data_as_dict = json.load(fp)
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
-    assert data == BareAssetMeta(**data_as_dict)
-    bare_dict = deepcopy(data_as_dict)
-    assert data.json_dict() == bare_dict
+    assert data == data_as_dict
     data_as_dict["identifier"] = "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be"
     # as of schema-0.5.0 (https://github.com/dandi/dandischema/pull/52)
     # contentUrl is required, and validate below would map into Asset,
@@ -331,6 +401,7 @@ def test_time_extract_gest() -> None:
 
 
 @mark.skipif_no_network
+@pytest.mark.obolibrary
 @pytest.mark.parametrize(
     "url,value",
     [
@@ -342,7 +413,9 @@ def test_time_extract_gest() -> None:
             "http://purl.obolibrary.org/obo/NCBITaxon_10116",
             {
                 "rdfs:label": "Rattus norvegicus",
-                "oboInOwl:hasExactSynonym": "Norway rat",
+                "oboInOwl:hasExactSynonym": AnyIn(
+                    ["Rat", "Rats", "Brown rat", "Norway rat"]
+                ),
             },
         ),
         (
@@ -357,6 +430,7 @@ def test_parseobourl(url, value):
     assert parse_purlobourl(url) == value
 
 
+@pytest.mark.obolibrary
 @mark.skipif_no_network
 def test_species():
     m = {"species": "http://purl.obolibrary.org/obo/NCBITaxon_28584"}
@@ -633,17 +707,166 @@ def test_species():
     ],
 )
 def test_ndtypes(ndtypes, asset_dict):
-    asset = BareAssetMeta(
+    metadata = BareAsset.unvalidated(
         contentSize=1,
         encodingFormat="application/x-nwb",
-        digest={"dandi:dandi-etag": "0" * 32 + "-1"},
+        digest={DigestType.dandi_etag: "0" * 32 + "-1"},
         path="test.nwb",
     )
-    asset = process_ndtypes(asset, ndtypes)
+    process_ndtypes(metadata, ndtypes)
     for key in ["approach", "measurementTechnique"]:
         if asset_dict.get(key) is None:
-            assert getattr(asset, key) == []
+            assert getattr(metadata, key) == []
         else:
-            assert getattr(asset, key)[0].name == asset_dict.get(key)[0]
+            assert getattr(metadata, key)[0].name == asset_dict.get(key)[0]
     key = "variableMeasured"
-    assert getattr(asset, key)[0].value == asset_dict.get(key)[0]
+    assert metadata.variableMeasured[0].value == asset_dict.get(key)[0]
+
+
+@mark.skipif_no_network
+def test_nwb2asset(simple2_nwb: Path) -> None:
+    assert nwb2asset(simple2_nwb, digest=DUMMY_DANDI_ETAG) == BareAsset.unvalidated(
+        schemaKey="Asset",
+        schemaVersion=DANDI_SCHEMA_VERSION,
+        keywords=["keyword1", "keyword 2"],
+        access=[
+            AccessRequirements.unvalidated(
+                schemaKey="AccessRequirements", status=AccessType.OpenAccess
+            )
+        ],
+        wasGeneratedBy=[
+            Session.unvalidated(
+                schemaKey="Session",
+                identifier="session_id1",
+                name="session_id1",
+                description="session_description1",
+                startDate=ANY_AWARE_DATETIME,
+            ),
+            Activity.unvalidated(
+                id=AnyFullmatch(
+                    r"urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                ),
+                schemaKey="Activity",
+                name="Metadata generation",
+                description="Metadata generated by DANDI cli",
+                startDate=ANY_AWARE_DATETIME,
+                endDate=ANY_AWARE_DATETIME,
+                wasAssociatedWith=[
+                    Software.unvalidated(
+                        schemaKey="Software",
+                        identifier="RRID:SCR_019009",
+                        name="DANDI Command Line Interface",
+                        version=__version__,
+                        url="https://github.com/dandi/dandi-cli",
+                    )
+                ],
+            ),
+        ],
+        contentSize=19664,
+        encodingFormat="application/x-nwb",
+        digest={DigestType.dandi_etag: "dddddddddddddddddddddddddddddddd-1"},
+        path=str(simple2_nwb),
+        dateModified=ANY_AWARE_DATETIME,
+        blobDateModified=ANY_AWARE_DATETIME,
+        wasAttributedTo=[
+            Participant.unvalidated(
+                identifier="mouse001",
+                schemaKey="Participant",
+                age=PropertyValue.unvalidated(
+                    schemaKey="PropertyValue",
+                    unitText="ISO-8601 duration",
+                    value="P135DT43200S",
+                    valueReference=PropertyValue.unvalidated(
+                        schemaKey="PropertyValue",
+                        value=AgeReferenceType.BirthReference,
+                    ),
+                ),
+                sex=SexType.unvalidated(schemaKey="SexType", name="Unknown"),
+                species=SpeciesType.unvalidated(
+                    schemaKey="SpeciesType",
+                    identifier="http://purl.obolibrary.org/obo/NCBITaxon_10090",
+                    name="Mus musculus - House mouse",
+                ),
+            ),
+        ],
+        variableMeasured=[],
+        measurementTechnique=[],
+        approach=[],
+    )
+
+
+def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
+    pytest.importorskip("fsspec")
+    asset = nwb_dandiset.dandiset.get_asset_by_path("sub-mouse001/sub-mouse001.nwb")
+    digest = asset.get_digest()
+    mtime = ensure_datetime(asset.get_raw_metadata()["blobDateModified"])
+    assert isinstance(asset, RemoteBlobAsset)
+    r = asset.as_readable()
+    assert nwb2asset(r, digest=digest) == BareAsset.unvalidated(
+        schemaKey="Asset",
+        schemaVersion=DANDI_SCHEMA_VERSION,
+        keywords=["keyword1", "keyword 2"],
+        access=[
+            AccessRequirements.unvalidated(
+                schemaKey="AccessRequirements", status=AccessType.OpenAccess
+            )
+        ],
+        wasGeneratedBy=[
+            Session.unvalidated(
+                schemaKey="Session",
+                identifier="session_id1",
+                name="session_id1",
+                description="session_description1",
+                startDate=ANY_AWARE_DATETIME,
+            ),
+            Activity.unvalidated(
+                id=AnyFullmatch(
+                    r"urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                ),
+                schemaKey="Activity",
+                name="Metadata generation",
+                description="Metadata generated by DANDI cli",
+                startDate=ANY_AWARE_DATETIME,
+                endDate=ANY_AWARE_DATETIME,
+                wasAssociatedWith=[
+                    Software.unvalidated(
+                        schemaKey="Software",
+                        identifier="RRID:SCR_019009",
+                        name="DANDI Command Line Interface",
+                        version=__version__,
+                        url="https://github.com/dandi/dandi-cli",
+                    )
+                ],
+            ),
+        ],
+        contentSize=asset.size,
+        encodingFormat="application/x-nwb",
+        digest={DigestType.dandi_etag: digest.value},
+        path="sub-mouse001.nwb",
+        dateModified=ANY_AWARE_DATETIME,
+        blobDateModified=mtime,
+        wasAttributedTo=[
+            Participant.unvalidated(
+                identifier="mouse001",
+                schemaKey="Participant",
+                age=PropertyValue.unvalidated(
+                    schemaKey="PropertyValue",
+                    unitText="ISO-8601 duration",
+                    value="P135DT43200S",
+                    valueReference=PropertyValue.unvalidated(
+                        schemaKey="PropertyValue",
+                        value=AgeReferenceType.BirthReference,
+                    ),
+                ),
+                sex=SexType.unvalidated(schemaKey="SexType", name="Unknown"),
+                species=SpeciesType.unvalidated(
+                    schemaKey="SpeciesType",
+                    identifier="http://purl.obolibrary.org/obo/NCBITaxon_10090",
+                    name="Mus musculus - House mouse",
+                ),
+            ),
+        ],
+        variableMeasured=[],
+        measurementTechnique=[],
+        approach=[],
+    )

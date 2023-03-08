@@ -2,19 +2,23 @@
 ATM primarily a sandbox for some functionality for  dandi organize
 """
 
+from __future__ import annotations
+
 import binascii
 from collections import Counter
+from collections.abc import Sequence
 from copy import deepcopy
 import os
 import os.path as op
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
-from typing import List
+from typing import List, Optional
 import uuid
 
 import numpy as np
 
-from . import get_logger
+from . import __version__, get_logger
+from .consts import dandi_layout_fields
 from .dandiset import Dandiset
 from .exceptions import OrganizeImpossibleError
 from .metadata import get_metadata
@@ -36,36 +40,10 @@ from .utils import (
     move_file,
     yaml_load,
 )
+from .validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
 lgr = get_logger()
 
-# Fields which would be used to compose the filename
-# TODO: add full description into command --help etc
-# Order matters!
-potential_fields = {
-    # "type" - if not defined, additional
-    "subject_id": {"format": "sub-{}", "type": "mandatory"},
-    "session_id": {"format": "_ses-{}"},
-    "tissue_sample_id": {"format": "_tis-{}"},
-    "slice_id": {"format": "_slice-{}"},
-    "cell_id": {"format": "_cell-{}"},
-    # disambiguation ones
-    "probe_ids": {"format": "_probe-{}", "type": "disambiguation"},
-    "obj_id": {
-        "format": "_obj-{}",
-        "type": "disambiguation",
-    },  # will be not id, but checksum of it to shorten
-    # "session_description"
-    "modalities": {"format": "_{}", "type": "mandatory_if_not_empty"},
-    "extension": {"format": "{}", "type": "mandatory"},
-}
-# verify no typos
-assert {v.get("type", "additional") for v in potential_fields.values()} == {
-    "mandatory",
-    "disambiguation",
-    "additional",
-    "mandatory_if_not_empty",
-}
 dandi_path = op.join("sub-{subject_id}", "{dandi_filename}")
 
 
@@ -87,23 +65,36 @@ def filter_invalid_metadata_rows(metadata_rows):
     return valid, invalid
 
 
-def create_unique_filenames_from_metadata(metadata):
+def create_unique_filenames_from_metadata(
+    metadata: list[dict], required_fields: Optional[Sequence[str]] = None
+) -> list[dict]:
     """Create unique filenames given metadata
 
     Parameters
     ----------
     metadata: list of dict
       List of metadata records
+    required_fields: sequence of str, optional
+      Names from `dandi_layout_fields` to consider `"required_if_not_empty"`
 
     Returns
     -------
-    dict
+    list of dict
       Adjusted metadata. A copy, which might have removed some metadata fields
       Do not rely on it being the same
     """
     # need a deepcopy since we will be tuning fields, and there should be no
     # side effects to original metadata
     metadata = deepcopy(metadata)
+
+    # sanity check -- should all be known
+    if required_fields:
+        unknown = set(required_fields).difference(dandi_layout_fields)
+        if unknown:
+            raise ValueError(
+                f"Unknown fields provided as required_fields: {', '.join(unknown)}."
+                f"  Known fields are: {', '.join(dandi_layout_fields)}"
+            )
 
     # TODO this does not act in a greedy fashion
     # i.e., only using enough fields to ensure uniqueness of filenames, but that
@@ -136,22 +127,28 @@ def create_unique_filenames_from_metadata(metadata):
             if value:
                 r[field] = _sanitize_value(value, field)
 
+        # _required_if_not_empty is used in addition to "type" required by
+        # _assign_dandi_names.
+        if required_fields:
+            r.setdefault("_required_if_not_empty", []).extend(required_fields)
+
     _assign_dandi_names(metadata)
 
     non_unique = _get_non_unique_paths(metadata)
 
     additional_nonunique = []
+
     if non_unique:
         # Consider additional fields which might provide disambiguation
         # but which we otherwise do not include ATM
-        for field, field_rec in potential_fields.items():
+        for field, field_rec in dandi_layout_fields.items():
             if not field_rec.get("type") == "disambiguation":
                 continue
             additional_nonunique.append(field)
             if field == "obj_id":  # yet to be computed
                 _assign_obj_id(metadata, non_unique)
             # If a given field is found useful to disambiguate in a single case,
-            # we will add _mandatory_if_not_empty to those files records, which will
+            # we will add _required_if_not_empty to those files records, which will
             # _assign_dandi_names will use in addition to the ones specified.
             # The use case of 000022 - there is a common to many probes file (has many probe_ids)
             # but listing them all in filename -- does not scale, so we only limit to where
@@ -166,9 +163,7 @@ def create_unique_filenames_from_metadata(metadata):
                     # add to all files in the group
                     for r in metadata:
                         if r["dandi_path"] == conflicting_path:
-                            r["_mandatory_if_not_empty"] = r.get(
-                                "_mandatory_if_not_empty", []
-                            ) + [field]
+                            r.setdefault("_required_if_not_empty", []).append(field)
                 _assign_dandi_names(metadata)
             non_unique = _get_non_unique_paths(metadata)
             if not non_unique:
@@ -354,20 +349,20 @@ def is_undefined(value):
 
 
 def _assign_dandi_names(metadata):
-    unique_values = _get_unique_values(metadata, potential_fields)
-    # unless it is mandatory, we would not include the fields with more than
-    # a single unique field
+    unique_values = _get_unique_values(metadata, dandi_layout_fields)
+    # unless it is required, we would not include the fields with more than a
+    # single unique field
     for r in metadata:
         dandi_filename = ""
-        for field, field_rec in potential_fields.items():
+        for field, field_rec in dandi_layout_fields.items():
             field_format = field_rec["format"]
             field_type = field_rec.get("type", "additional")
             if (
-                (field_type == "mandatory")
+                (field_type == "required")
                 or (field_type == "additional" and len(unique_values[field]) > 1)
                 or (
-                    field_type == "mandatory_if_not_empty"
-                    or (field in r.get("_mandatory_if_not_empty", []))
+                    field_type == "required_if_not_empty"
+                    or (field in r.get("_required_if_not_empty", []))
                 )
             ):
                 value = r.get(field, None)
@@ -400,7 +395,7 @@ def _sanitize_value(value, field):
     Of particular importance is _ which we use, as in BIDS, to separate
     _key-value entries
     """
-    value = re.sub("[_*:%@]", "-", value)
+    value = re.sub(r"[_*\\/<>:|\"'?%@;]", "-", value)
     if field != "extension":
         value = value.replace(".", "-")
     return value
@@ -680,17 +675,15 @@ def _get_non_unique_paths(metadata):
     return non_unique
 
 
-def detect_link_type(workdir):
+def detect_link_type(srcfile, destdir):
     """
-    Determine what type of links the filesystem will let us make in the
-    directory ``workdir``.  If symlinks are allowed, returns ``"symlink"``.
-    Otherwise, if hard links are allowed, returns ``"hardlink"``.  Otherwise,
-    returns ``"copy"``.
+    Determine what type of links the filesystem will let us make from the file
+    ``srcfile`` to the directory ``destdir``.  If symlinks are allowed, returns
+    ``"symlink"``.  Otherwise, if hard links are allowed, returns
+    ``"hardlink"``.  Otherwise, returns ``"copy"``.
     """
-    srcfile = Path(workdir, f".dandi.{os.getpid()}.src")
-    destfile = Path(workdir, f".dandi.{os.getpid()}.dest")
+    destfile = Path(destdir, f".dandi.{os.getpid()}.dest")
     try:
-        srcfile.touch()
         try:
             os.symlink(srcfile, destfile)
         except OSError:
@@ -714,10 +707,6 @@ def detect_link_type(workdir):
             destfile.unlink()
         except FileNotFoundError:
             pass
-        try:
-            srcfile.unlink()
-        except FileNotFoundError:
-            pass
 
 
 def organize(
@@ -728,6 +717,7 @@ def organize(
     devel_debug=False,
     update_external_file_paths=False,
     media_files_mode=None,
+    required_fields=None,
 ):
     in_place = False  # If we deduce that we are organizing in-place
 
@@ -789,13 +779,15 @@ def organize(
             )
         lgr.info("We will organize %s in-place", dandiset_path)
         in_place = True
-        paths = dandiset_path
+        paths = [dandiset_path]
 
     if len(paths) == 1 and paths[0].endswith(".json"):
         # Our dumps of metadata
         metadata = load_jsonl(paths[0])
+        link_test_file = metadata[0]["path"]
     else:
         paths = list(find_files(r"\.nwb\Z", paths=paths))
+        link_test_file = paths[0] if paths else None
         lgr.info("Loading metadata from %d files", len(paths))
         # Done here so we could still reuse cached 'get_metadata'
         # without having two types of invocation and to guard against
@@ -857,9 +849,11 @@ def organize(
         act(os.makedirs, dandiset_path)
 
     if files_mode == "auto":
-        files_mode = detect_link_type(dandiset_path)
+        files_mode = detect_link_type(link_test_file, dandiset_path)
 
-    metadata = create_unique_filenames_from_metadata(metadata)
+    metadata = create_unique_filenames_from_metadata(
+        metadata, required_fields=required_fields
+    )
 
     # update metadata with external_file information:
     external_files_missing_in_nwbfiles = [
@@ -1029,3 +1023,79 @@ def organize(
         msg_(" %d invalid not considered.", skip_invalid),
         dandiset_path.rstrip("/"),
     )
+
+
+LABELREGEX = r"[^_*\\/<>:|\"'?%@;.]+"
+ORGANIZED_FILENAME_REGEX = (
+    rf"sub-{LABELREGEX}"
+    rf"(_ses-{LABELREGEX})?"
+    rf"(_(tis|slice|cell|probe|obj)-{LABELREGEX})*"
+    r"(_[a-z]+(\+[a-z]+)*)?"
+    r"\.nwb"
+)
+ORGANIZED_FOLDER_REGEX = rf"sub-{LABELREGEX}"
+
+
+def validate_organized_path(
+    asset_path: str, filepath: Path, dandiset_path: Path
+) -> list[ValidationResult]:
+    """
+    :param str asset_path:
+        The forward-slash-separated path to the asset within its local Dandiset
+        (i.e., relative to the Dandiset's root)
+    :param pathlib.Path filepath:
+        The actual filesystem path of the asset (used to construct
+        `ValidationResult` objects)
+    :param pathlib.Path dandiset_path:
+        The path to the root of the Dandiset (used to construct
+        `ValidationResult` objects)
+    """
+    path = PurePosixPath(asset_path)
+    if path.suffix != ".nwb":
+        return []
+    errors = []
+    if not re.fullmatch(ORGANIZED_FILENAME_REGEX, path.name):
+        errors.append(
+            ValidationResult(
+                id="DANDI.NON_DANDI_FILENAME",
+                origin=ValidationOrigin(name="dandi", version=__version__),
+                severity=Severity.ERROR,
+                scope=Scope.FILE,
+                path=filepath,
+                message="Filename does not conform to Dandi standard",
+                path_regex=ORGANIZED_FILENAME_REGEX,
+                dandiset_path=dandiset_path,
+            )
+        )
+    if not (
+        len(path.parent.parts) == 1
+        and re.fullmatch(ORGANIZED_FOLDER_REGEX, str(path.parent))
+    ):
+        errors.append(
+            ValidationResult(
+                id="DANDI.NON_DANDI_FOLDERNAME",
+                origin=ValidationOrigin(name="dandi", version=__version__),
+                severity=Severity.ERROR,
+                scope=Scope.FOLDER,
+                path=filepath,
+                message="File is not in folder at root with subject name",
+                path_regex=ORGANIZED_FOLDER_REGEX,
+                dandiset_path=dandiset_path,
+            )
+        )
+    if not errors:
+        m = re.match(ORGANIZED_FOLDER_REGEX, path.name)
+        assert m
+        if str(path.parent) != m[0]:
+            errors.append(
+                ValidationResult(
+                    id="DANDI.METADATA_MISMATCH_SUBJECT",
+                    origin=ValidationOrigin(name="dandi", version=__version__),
+                    severity=Severity.ERROR,
+                    scope=Scope.FILE,
+                    path=filepath,
+                    message="Filename subject does not match folder name subject",
+                    dandiset_path=dandiset_path,
+                )
+            )
+    return errors

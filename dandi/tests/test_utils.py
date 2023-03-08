@@ -24,6 +24,7 @@ from ..utils import (
     get_mime_type,
     get_module_version,
     get_utcnow_datetime,
+    is_page2_url,
     is_same_time,
     on_windows,
 )
@@ -62,16 +63,19 @@ def test_find_files() -> None:
 def test_find_files_dotfiles(tmp_path: Path) -> None:
     tmpsubdir = tmp_path / "subdir"
     tmpsubdir.mkdir()
-    for p in (".dot.nwb", "regular", ".git"):
+    for p in (".dot.nwb", "regular"):
         for f in (tmp_path / p, tmpsubdir / p):
             f.touch()
+    (tmp_path / ".git").mkdir()  # a "proper" .git/ directory
+    (tmp_path / ".git" / "config").touch()
+    (tmpsubdir / ".git").touch()  # a ".git" link file
 
     def relpaths(paths: Iterable[str]) -> List[str]:
         return sorted(op.relpath(p, tmp_path) for p in paths)
 
     regular = ["regular", op.join("subdir", "regular")]
     dotfiles = [".dot.nwb", op.join("subdir", ".dot.nwb")]
-    vcs = [".git", op.join("subdir", ".git")]
+    vcs = [".git", op.join(".git", "config"), op.join("subdir", ".git")]
 
     ff = find_files(".*", tmp_path)
     assert relpaths(ff) == regular
@@ -84,9 +88,32 @@ def test_find_files_dotfiles(tmp_path: Path) -> None:
     ff = find_files(".*", tmp_path, exclude_vcs=False)
     assert relpaths(ff) == regular
 
-    # current VCS are also dot files
+    # one VCS file is also a dot file
     ff = find_files(".*", tmp_path, exclude_vcs=False, exclude_dotfiles=False)
-    assert relpaths(ff) == sorted(regular + dotfiles + vcs)
+    assert relpaths(ff) == sorted(regular + dotfiles + [op.join("subdir", ".git")])
+
+    # with dirs=True we should match all VCS
+    ff = find_files(
+        ".*",
+        tmp_path,
+        exclude_vcs=False,
+        exclude_dotfiles=False,
+        exclude_dotdirs=False,
+        dirs=True,
+    )
+    assert relpaths(ff) == sorted(regular + dotfiles + vcs + ["subdir"])
+
+    # and we can filter .git directories and their content using dirs_avoid
+    ff = find_files(
+        ".*",
+        tmp_path,
+        exclude_vcs=False,
+        exclude_dotfiles=False,
+        exclude_dotdirs=False,
+        dirs=False,
+        dirs_avoid=r"\.git$",
+    )
+    assert relpaths(ff) == sorted(regular + dotfiles + [op.join("subdir", ".git")])
 
 
 def test_times_manipulations() -> None:
@@ -311,6 +338,7 @@ else:
     using_docker = mark.skipif_no_network
 
 
+@pytest.mark.xfail(reason="https://github.com/dandi/dandi-archive/issues/1045")
 @pytest.mark.redirector
 @using_docker
 def test_server_info() -> None:
@@ -358,3 +386,102 @@ def test_get_module_version() -> None:
 )
 def test_get_mime_type(filename: str, mtype: str) -> None:
     assert get_mime_type(filename) == mtype
+
+
+@pytest.mark.parametrize(
+    "page1,page2,r",
+    [
+        (
+            "https://example.com/api/fruits",
+            "https://example.com/api/fruits?page=2",
+            True,
+        ),
+        (
+            "https://example.com/api/fruits",
+            "https://example.com/api/fruits",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits",
+            "http://example.com/api/fruits?page=2",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits",
+            "https://example.com/api/fruits/?page=2",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits",
+            "https://api.example.com/api/fruits?page=2",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits",
+            "/api/fruits?page=2",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits?page=1",
+            "https://example.com/api/fruits?page=2",
+            True,
+        ),
+        (
+            "https://example.com/api/fruits?per_page=100",
+            "https://example.com/api/fruits?per_page=100&page=2",
+            True,
+        ),
+        (
+            "https://example.com/api/fruits?per_page=100",
+            "https://example.com/api/fruits?page=2&per_page=100",
+            True,
+        ),
+        (
+            "https://example.com/api/fruits?per_page=100",
+            "https://example.com/api/fruits?page=2",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits?per_page=100&order=path",
+            "https://example.com/api/fruits?page=2&per_page=100&order=path",
+            True,
+        ),
+        (
+            "https://example.com/api/fruits?per_page=100&order=path",
+            "https://example.com/api/fruits?order=path&page=2&per_page=100",
+            True,
+        ),
+        (
+            "https://example.com/api/fruits?per_page=100&order=path",
+            "https://example.com/api/fruits?page=2&per_page=100",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits#here",
+            "https://example.com/api/fruits?page=2#here",
+            True,
+        ),
+        (
+            "https://example.com/api/fruits",
+            "https://example.com/api/fruits?page=2#here",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits#here",
+            "https://example.com/api/fruits?page=2",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits#here",
+            "https://example.com/api/fruits?page=2#there",
+            False,
+        ),
+        (
+            "https://example.com/api/fruits?path=åßç",
+            "https://example.com/api/fruits?page=2&path=%C3%A5%C3%9F%C3%A7",
+            True,
+        ),
+    ],
+)
+def test_is_page2_url(page1: str, page2: str, r: bool) -> None:
+    assert is_page2_url(page1, page2) is r

@@ -7,17 +7,6 @@
 version: '2.1'
 
 services:
-  redirector:
-    image: dandiarchive/dandiarchive-redirector
-    depends_on:
-      - django
-    ports:
-      - "8079:8080"
-    environment:
-      #GUI_URL: http://localhost:8086
-      ABOUT_URL: http://www.dandiarchive.org
-      API_URL: http://localhost:8000/api
-
   django:
     image: dandiarchive/dandiarchive-api
     command: ["./manage.py", "runserver", "--nothreading", "0.0.0.0:8000"]
@@ -44,6 +33,7 @@ services:
       DJANGO_DANDI_SCHEMA_VERSION:
       DJANGO_DANDI_WEB_APP_URL: http://localhost:8085
       DJANGO_DANDI_API_URL: http://localhost:8000
+      DJANGO_DANDI_JUPYTERHUB_URL: https://hub.dandiarchive.org
       DANDI_ALLOW_LOCALHOST_URLS: "1"
     ports:
       - "8000:8000"
@@ -84,6 +74,7 @@ services:
       DJANGO_DANDI_VALIDATION_JOB_INTERVAL: "5"
       DJANGO_DANDI_WEB_APP_URL: http://localhost:8085
       DJANGO_DANDI_API_URL: http://localhost:8000
+      DJANGO_DANDI_JUPYTERHUB_URL: https://hub.dandiarchive.org
       DANDI_ALLOW_LOCALHOST_URLS: "1"
 
   minio:

@@ -1,4 +1,5 @@
-from glob import glob
+from __future__ import annotations
+
 import os
 import os.path as op
 from pathlib import Path
@@ -10,7 +11,7 @@ import pytest
 import ruamel.yaml
 
 from ..cli.command import organize
-from ..consts import file_operation_modes
+from ..consts import dandiset_metadata_file, file_operation_modes
 from ..organize import (
     _sanitize_value,
     create_dataset_yml_template,
@@ -18,15 +19,19 @@ from ..organize import (
     detect_link_type,
     get_obj_id,
     populate_dataset_yml,
+    validate_organized_path,
 )
 from ..pynwb_utils import _get_image_series, copy_nwb_file, get_object_id
-from ..utils import find_files, on_windows, yaml_load
+from ..utils import find_files, list_paths, on_windows, yaml_load
 
 
 def test_sanitize_value() -> None:
     # . is not sanitized in extension but elsewhere
     assert _sanitize_value("_.ext", "extension") == "-.ext"
     assert _sanitize_value("_.ext", "unrelated") == "--ext"
+    assert _sanitize_value("A;B", "unrelated") == "A-B"
+    assert _sanitize_value("A\\/B", "unrelated") == "A--B"
+    assert _sanitize_value("A\"'B", "unrelated") == "A--B"
 
 
 def test_populate_dataset_yml(tmp_path: Path) -> None:
@@ -105,8 +110,8 @@ if not on_windows:
 
 @pytest.mark.integration
 @pytest.mark.parametrize("mode", no_move_modes)
-def test_organize_nwb_test_data(nwb_test_data: str, tmp_path: Path, mode: str) -> None:
-    outdir = str(tmp_path / "organized")
+def test_organize_nwb_test_data(nwb_test_data: Path, tmp_path: Path, mode: str) -> None:
+    outdir = tmp_path / "organized"
 
     relative = False
     if mode == "symlink-relative":
@@ -117,8 +122,8 @@ def test_organize_nwb_test_data(nwb_test_data: str, tmp_path: Path, mode: str) -
         # organize also organize using relative paths in case of 'symlink'
         # mode
         cwd = os.getcwd()
-        nwb_test_data = op.relpath(nwb_test_data, cwd)
-        outdir = op.relpath(outdir, cwd)
+        nwb_test_data = Path(op.relpath(nwb_test_data, cwd))
+        outdir = Path(op.relpath(outdir, cwd))
 
     src = tmp_path / "src"
     src.touch()
@@ -145,16 +150,16 @@ def test_organize_nwb_test_data(nwb_test_data: str, tmp_path: Path, mode: str) -
     elif mode == "hardlink" and not hardlinks_work:
         pytest.skip("Hard links not supported")
 
-    input_files = op.join(nwb_test_data, "v2.0.1")
+    input_files = nwb_test_data / "v2.0.1"
 
-    cmd = ["-d", outdir, "--files-mode", mode, input_files]
+    cmd = ["-d", str(outdir), "--files-mode", mode, str(input_files)]
     r = CliRunner().invoke(organize, cmd)
 
     # with @map_to_click_exceptions we loose original str of message somehow
     # although it is shown to the user - checked. TODO - figure it out
     # assert "not containing all" in str(r.exc_info[1])
     assert r.exit_code != 0, "Must have aborted since many files lack subject_id"
-    assert not glob(op.join(outdir, "*")), "no files should have been populated"
+    assert not any(outdir.glob("*")), "no files should have been populated"
 
     r = CliRunner().invoke(organize, cmd + ["--invalid", "warn"])
     assert r.exit_code == 0
@@ -181,19 +186,19 @@ def test_organize_nwb_test_data(nwb_test_data: str, tmp_path: Path, mode: str) -
         assert not any(op.islink(p) for p in produced_paths)
 
 
-def test_ambiguous(simple2_nwb: str, tmp_path: Path) -> None:
+def test_ambiguous(simple2_nwb: Path, tmp_path: Path) -> None:
     copy2 = copy_nwb_file(simple2_nwb, tmp_path)
-    outdir = str(tmp_path / "organized")
-    args = ["--files-mode", "copy", "-d", outdir, simple2_nwb, copy2]
+    outdir = tmp_path / "organized"
+    args = ["--files-mode", "copy", "-d", str(outdir), str(simple2_nwb), copy2]
     r = CliRunner().invoke(organize, args)
     assert r.exit_code == 0
-    produced_paths = sorted(find_files(".*", paths=outdir))
-    produced_paths_rel = [op.relpath(p, outdir) for p in produced_paths]
-    assert produced_paths_rel == sorted(
-        op.join(
-            "sub-mouse001", "sub-mouse001_obj-%s.nwb" % get_obj_id(get_object_id(f))
-        )
-        for f in [simple2_nwb, copy2]
+    assert list_paths(outdir) == sorted(
+        [
+            outdir
+            / "sub-mouse001"
+            / f"sub-mouse001_obj-{get_obj_id(get_object_id(f))}.nwb"
+            for f in [simple2_nwb, Path(copy2)]
+        ]
     )
 
 
@@ -256,7 +261,9 @@ def test_detect_link_type(
 
     monkeypatch.setattr(os, "symlink", succeed_link if sym_success else error_link)
     monkeypatch.setattr(os, "link", succeed_link if hard_success else error_link)
-    assert detect_link_type(tmp_path) == result
+    p = tmp_path / "file"
+    p.touch()
+    assert detect_link_type(p, tmp_path) == result
 
 
 @pytest.mark.parametrize("mode", ["copy", "move"])
@@ -318,3 +325,45 @@ def test_video_organize_common(video_mode, nwbfiles_video_common):
     else:
         assert r.exit_code == 0
         print(r.stdout)
+
+
+@pytest.mark.parametrize(
+    "path,error_ids",
+    [
+        ("XCaMPgf/XCaMPgf_ANM471996_cell01.dat", []),
+        ("sub-RAT123/sub-RAT123.nwb", []),
+        ("sub-RAT123/sub-RAT124.nwb", ["DANDI.METADATA_MISMATCH_SUBJECT"]),
+        ("sub-RAT124.nwb", ["DANDI.NON_DANDI_FOLDERNAME"]),
+        ("foo/sub-RAT124.nwb", ["DANDI.NON_DANDI_FOLDERNAME"]),
+        ("foo/sub-RAT123/sub-RAT124.nwb", ["DANDI.NON_DANDI_FOLDERNAME"]),
+        ("sub-RAT123/foo/sub-RAT124.nwb", ["DANDI.NON_DANDI_FOLDERNAME"]),
+        (
+            "XCaMPgf/XCaMPgf_ANM471996_cell01.nwb",
+            ["DANDI.NON_DANDI_FILENAME", "DANDI.NON_DANDI_FOLDERNAME"],
+        ),
+        ("sub-RAT123/XCaMPgf_ANM471996_cell01.nwb", ["DANDI.NON_DANDI_FILENAME"]),
+    ],
+)
+def test_validate_organized_path(path: str, error_ids: list[str]) -> None:
+    errors = validate_organized_path(path, Path("dummy"), Path("dummyset"))
+    assert [e.id for e in errors] == error_ids
+
+
+def test_organize_required_field(simple2_nwb: Path, tmp_path: Path) -> None:
+    (tmp_path / dandiset_metadata_file).write_text("{}\n")
+    r = CliRunner().invoke(
+        organize,
+        [
+            "-f",
+            "copy",
+            "--dandiset-path",
+            str(tmp_path),
+            "--required-field=session_id",
+            str(simple2_nwb),
+        ],
+    )
+    assert r.exit_code == 0
+    assert list_paths(tmp_path) == [
+        tmp_path / dandiset_metadata_file,
+        tmp_path / "sub-mouse001" / "sub-mouse001_ses-session-id1.nwb",
+    ]

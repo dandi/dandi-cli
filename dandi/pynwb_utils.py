@@ -1,16 +1,19 @@
+from __future__ import annotations
+
 from collections import Counter
+from collections.abc import Callable
 import os
 import os.path as op
 from pathlib import Path
 import re
-from typing import Any, Dict, List, Tuple, TypeVar, Union
+from typing import IO, Any, Dict, List, Optional, Tuple, TypeVar, Union, cast
 import warnings
 
 import dandischema
 from fscacher import PersistentCache
 import h5py
 import hdmf
-import numpy as np
+from packaging.version import Version
 import pynwb
 from pynwb import NWBHDF5IO
 import semantic_version
@@ -23,7 +26,9 @@ from .consts import (
     metadata_nwb_file_fields,
     metadata_nwb_subject_fields,
 )
+from .misctypes import Readable
 from .utils import get_module_version, is_url
+from .validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
 lgr = get_logger()
 
@@ -45,7 +50,11 @@ validate_cache = PersistentCache(
 )
 
 
-def _sanitize_nwb_version(v, filename=None, log=None):
+def _sanitize_nwb_version(
+    v: Any,
+    filename: str | Path | None = None,
+    log: Optional[Callable[[str], Any]] = None,
+) -> str:
     """Helper to sanitize the value of nwb_version where possible
 
     Would log a warning if something detected to be fishy"""
@@ -54,34 +63,35 @@ def _sanitize_nwb_version(v, filename=None, log=None):
 
     if log is None:
         log = lgr.warning
-    elif not log:
-
-        def log(v: str) -> str:  # does nothing
-            return v
 
     if isinstance(v, str):
         if v.startswith("NWB-"):
-            v_ = v[4:]
+            vstr = v[4:]
             # should be semver since 2.1.0
-            if not (v_.startswith("1.") or v_.startswith("2.0")):
+            if not (vstr.startswith("1.") or vstr.startswith("2.0")):
                 log(
                     f"{msg} starts with NWB- prefix, which is not part of the "
                     f"specification since NWB 2.1.0"
                 )
-            v = v_
+        else:
+            vstr = v
+        if not semantic_version.validate(vstr):
+            log(f"error: {msg} is not a proper semantic version. See http://semver.org")
     elif isinstance(v, int):
-        log(f"{msg} is an integer whenever it should be text")
-        v = str(v)
-    elif v:
+        vstr = str(v)
+        log(
+            f"error: {msg} is an integer instead of a proper semantic version."
+            " See http://semver.org"
+        )
+    else:
         log(f"{msg} is not text which follows semver specification")
-
-    if isinstance(v, str) and not semantic_version.validate(v):
-        log(f"error: {msg} is not a proper semantic version. See http://semver.org")
-
-    return v
+        vstr = str(v)
+    return vstr
 
 
-def get_nwb_version(filepath, sanitize=False):
+def get_nwb_version(
+    filepath: str | Path | Readable, sanitize: bool = False
+) -> Optional[str]:
     """Return a version of the NWB standard used by a file
 
     Parameters
@@ -95,9 +105,17 @@ def get_nwb_version(filepath, sanitize=False):
     str or None
        None if there is no version detected
     """
-    _sanitize = _sanitize_nwb_version if sanitize else lambda v: v
+    if sanitize:
 
-    with h5py.File(filepath, "r") as h5file:
+        def _sanitize(v: Any) -> str:
+            return _sanitize_nwb_version(v)
+
+    else:
+
+        def _sanitize(v: Any) -> str:
+            return str(v)
+
+    with open_readable(filepath) as fp, h5py.File(fp) as h5file:
         # 2.x stored it as an attribute
         try:
             return _sanitize(h5file.attrs["nwb_version"])
@@ -156,8 +174,8 @@ def get_neurodata_types_to_modalities_map() -> Dict[str, str]:
 
 
 @metadata_cache.memoize_path
-def get_neurodata_types(filepath: Union[str, Path]) -> List[str]:
-    with h5py.File(filepath, "r") as h5file:
+def get_neurodata_types(filepath: str | Path | Readable) -> list[str]:
+    with open_readable(filepath) as fp, h5py.File(fp) as h5file:
         all_pairs = _scan_neurodata_types(h5file)
 
     # so far descriptions are useless so let's just output actual names only
@@ -184,9 +202,11 @@ def _scan_neurodata_types(grp: h5py.File) -> List[Tuple[Any, Any]]:
     return out
 
 
-def _get_pynwb_metadata(path: Union[str, Path]) -> Dict[str, Any]:
+def _get_pynwb_metadata(path: str | Path | Readable) -> dict[str, Any]:
     out = {}
-    with NWBHDF5IO(path, "r", load_namespaces=True) as io:
+    with open_readable(path) as fp, h5py.File(fp) as h5, NWBHDF5IO(
+        file=h5, load_namespaces=True
+    ) as io:
         nwb = io.read()
         for key in metadata_nwb_file_fields:
             value = getattr(nwb, key)
@@ -214,7 +234,7 @@ def _get_pynwb_metadata(path: Union[str, Path]) -> Dict[str, Any]:
             out.update(dandi_icephys.fields)
         # Go through devices and see if there any probes used to record this file
         probe_ids = [
-            np.asscalar(v.probe_id)  # .asscalar to avoid numpy types
+            v.probe_id.item()  # .item to avoid numpy types
             for v in getattr(nwb, "devices", {}).values()
             if hasattr(v, "probe_id")  # duck typing
         ]
@@ -320,7 +340,9 @@ def rename_nwb_external_files(metadata: List[dict], dandiset_path: str) -> None:
 
 
 @validate_cache.memoize_path
-def validate(path: Union[str, Path], devel_debug: bool = False) -> List[str]:
+def validate(
+    path: Union[str, Path], devel_debug: bool = False
+) -> List[ValidationResult]:
     """Run validation on a file and return errors
 
     In case of an exception being thrown, an error message added to the
@@ -331,21 +353,46 @@ def validate(path: Union[str, Path], devel_debug: bool = False) -> List[str]:
     path: str or Path
     """
     path = str(path)  # Might come in as pathlib's PATH
-    errors: List[str]
+    errors: List[ValidationResult] = []
     try:
-        with pynwb.NWBHDF5IO(path, "r", load_namespaces=True) as reader:
-            errors = pynwb.validate(reader)
-        lgr.warning(
-            "pynwb validation errors for %s: %s",
-            path,
-            errors,
-            extra={"validating": True},
-        )
+        if Version(pynwb.__version__) >= Version(
+            "2.2.0"
+        ):  # Use cached namespace feature
+            # argument get_cached_namespaces is True by default
+            error_outputs, _ = pynwb.validate(paths=[path])
+        else:  # Fallback if an older version
+            with pynwb.NWBHDF5IO(path=path, mode="r", load_namespaces=True) as reader:
+                error_outputs = pynwb.validate(io=reader)
+        for error_output in error_outputs:
+            errors.append(
+                ValidationResult(
+                    origin=ValidationOrigin(
+                        name="pynwb",
+                        version=pynwb.__version__,
+                    ),
+                    severity=Severity.WARNING,
+                    id=f"pywnb.{error_output}",
+                    scope=Scope.FILE,
+                    path=Path(path),
+                    message="Failed to validate.",
+                )
+            )
     except Exception as exc:
         if devel_debug:
             raise
-        lgr.warning("Failed to validate %s: %s", path, exc, extra={"validating": True})
-        errors = [f"Failed to validate {path}: {exc}"]
+        errors.append(
+            ValidationResult(
+                origin=ValidationOrigin(
+                    name="pynwb",
+                    version=pynwb.__version__,
+                ),
+                severity=Severity.ERROR,
+                id="pywnb.GENERIC",
+                scope=Scope.FILE,
+                path=Path(path),
+                message=f"{exc}",
+            )
+        )
 
     # To overcome
     #   https://github.com/NeurodataWithoutBorders/pynwb/issues/1090
@@ -362,15 +409,35 @@ def validate(path: Union[str, Path], devel_debug: bool = False) -> List[str]:
     else:
         if version is not None:
             # Explicitly sanitize so we collect warnings.
-            # TODO: later cast into proper ERRORs
-            version = _sanitize_nwb_version(version, log=errors.append)
+            nwb_errors: list[str] = []
+            version = _sanitize_nwb_version(version, log=nwb_errors.append)
+            for e in nwb_errors:
+                errors.append(
+                    ValidationResult(
+                        origin=ValidationOrigin(
+                            name="pynwb",
+                            version=pynwb.__version__,
+                        ),
+                        severity=Severity.ERROR,
+                        id="pywnb.GENERIC",
+                        scope=Scope.FILE,
+                        path=Path(path),
+                        message=e,
+                    )
+                )
+            # Do we really need this custom internal function? string comparison works fine.
             try:
                 v = semantic_version.Version(version)
             except ValueError:
                 v = None
             if v is not None and v < semantic_version.Version("2.1.0"):
                 errors_ = errors[:]
-                errors = [e for e in errors if not re_ok_prior_210.search(str(e))]
+                errors = [
+                    e
+                    for e in errors
+                    if not re_ok_prior_210.search(cast(str, getattr(e, "message", "")))
+                ]
+                # This is not an error, just logging about the process, hence logging:
                 if errors != errors_:
                     lgr.debug(
                         "Filtered out %d validation errors on %s",
@@ -402,12 +469,12 @@ def ignore_benign_pynwb_warnings() -> None:
     _ignored_benign_pynwb_warnings = True
 
 
-def get_object_id(path: Union[str, Path]) -> Any:
+def get_object_id(path: str | Path | Readable) -> Any:
     """Read, if present an object_id
 
     if not available -- would simply raise a corresponding exception
     """
-    with h5py.File(path, "r") as f:
+    with open_readable(path) as fp, h5py.File(fp) as f:
         return f.attrs["object_id"]
 
 
@@ -459,8 +526,8 @@ def copy_nwb_file(src: Union[str, Path], dest: Union[str, Path]) -> str:
 
 
 @metadata_cache.memoize_path
-def nwb_has_external_links(filepath: Union[str, Path]) -> bool:
-    with h5py.File(filepath, "r") as fp:
+def nwb_has_external_links(filepath: str | Path | Readable) -> bool:
+    with open_readable(filepath) as f, h5py.File(f) as fp:
         visited = set()
 
         # cannot use `file.visititems` because it skips external links
@@ -480,3 +547,10 @@ def nwb_has_external_links(filepath: Union[str, Path]) -> bool:
             return False
 
         return visit()
+
+
+def open_readable(r: str | Path | Readable) -> IO[bytes]:
+    if isinstance(r, Readable):
+        return r.open()
+    else:
+        return open(r, "rb")

@@ -1,18 +1,18 @@
 import builtins
 from datetime import datetime, timezone
 import logging
-import os.path
 from pathlib import Path
 import random
 import re
 from shutil import rmtree
-from typing import Union
+from typing import List, Union
 
 import anys
 import click
 from dandischema.models import UUID_PATTERN, DigestType, get_schema_version
 import pytest
 from pytest_mock import MockerFixture
+import requests
 import responses
 
 from .fixtures import DandiAPI, SampleDandiset
@@ -27,10 +27,13 @@ from ..consts import (
 from ..dandiapi import DandiAPIClient, RemoteAsset, RemoteZarrAsset, Version
 from ..download import download
 from ..exceptions import NotFoundError, SchemaVersionError
+from ..files import GenericAsset, dandi_file
 from ..utils import list_paths
 
 
-def test_upload(new_dandiset: SampleDandiset, simple1_nwb: str, tmp_path: Path) -> None:
+def test_upload(
+    new_dandiset: SampleDandiset, simple1_nwb: Path, tmp_path: Path
+) -> None:
     d = new_dandiset.dandiset
     assert d.version_id == DRAFT
     d.upload_raw_asset(simple1_nwb, {"path": "testing/simple1.nwb"})
@@ -39,7 +42,7 @@ def test_upload(new_dandiset: SampleDandiset, simple1_nwb: str, tmp_path: Path) 
     d.download_directory("", tmp_path)
     paths = list_paths(tmp_path)
     assert paths == [tmp_path / "testing" / "simple1.nwb"]
-    assert paths[0].stat().st_size == os.path.getsize(simple1_nwb)
+    assert paths[0].stat().st_size == simple1_nwb.stat().st_size
 
 
 def test_publish_and_manipulate(new_dandiset: SampleDandiset, tmp_path: Path) -> None:
@@ -49,11 +52,13 @@ def test_publish_and_manipulate(new_dandiset: SampleDandiset, tmp_path: Path) ->
     assert str(d) == f"DANDI-API-LOCAL-DOCKER-TESTS:{dandiset_id}/draft"
     (dspath / "subdir").mkdir()
     (dspath / "subdir" / "file.txt").write_text("This is test text.\n")
+    (dspath / "subdir" / "doomed.txt").write_text("This will be deleted.\n")
     new_dandiset.upload(allow_any_path=True)
 
     d.wait_until_valid()
     v = d.publish().version
     version_id = v.identifier
+    assert version_id != "draft"
     assert str(v) == version_id
     dv = d.for_version(v)
     assert str(dv) == f"DANDI-API-LOCAL-DOCKER-TESTS:{dandiset_id}/{version_id}"
@@ -61,21 +66,11 @@ def test_publish_and_manipulate(new_dandiset: SampleDandiset, tmp_path: Path) ->
     dandiset_yaml = tmp_path / dandiset_id / dandiset_metadata_file
     file_in_version = tmp_path / dandiset_id / "subdir" / "file.txt"
 
-    download(dv.version_api_url, tmp_path)
-    assert list_paths(tmp_path) == [dandiset_yaml, file_in_version]
-    assert file_in_version.read_text() == "This is test text.\n"
-
     (dspath / "subdir" / "file.txt").write_text("This is different text.\n")
-    new_dandiset.upload(allow_any_path=True)
-    rmtree(tmp_path / dandiset_id)
-    download(dv.version_api_url, tmp_path)
-    assert list_paths(tmp_path) == [dandiset_yaml, file_in_version]
-    assert file_in_version.read_text() == "This is test text.\n"
-
     (dspath / "subdir" / "file2.txt").write_text("This is more text.\n")
     new_dandiset.upload(allow_any_path=True)
+    d.get_asset_by_path("subdir/doomed.txt").delete()
 
-    rmtree(tmp_path / dandiset_id)
     download(d.version_api_url, tmp_path)
     assert list_paths(tmp_path) == [
         dandiset_yaml,
@@ -87,26 +82,18 @@ def test_publish_and_manipulate(new_dandiset: SampleDandiset, tmp_path: Path) ->
 
     rmtree(tmp_path / dandiset_id)
     download(dv.version_api_url, tmp_path)
-    assert list_paths(tmp_path) == [dandiset_yaml, file_in_version]
-    assert file_in_version.read_text() == "This is test text.\n"
-
-    d.get_asset_by_path("subdir/file.txt").delete()
-
-    rmtree(tmp_path / dandiset_id)
-    download(d.version_api_url, tmp_path)
     assert list_paths(tmp_path) == [
         dandiset_yaml,
-        file_in_version.with_name("file2.txt"),
+        file_in_version.with_name("doomed.txt"),
+        file_in_version,
     ]
-    assert file_in_version.with_name("file2.txt").read_text() == "This is more text.\n"
-
-    rmtree(tmp_path / dandiset_id)
-    download(dv.version_api_url, tmp_path)
-    assert list_paths(tmp_path) == [dandiset_yaml, file_in_version]
     assert file_in_version.read_text() == "This is test text.\n"
+    assert (
+        file_in_version.with_name("doomed.txt").read_text() == "This will be deleted.\n"
+    )
 
 
-def test_get_asset_metadata(new_dandiset: SampleDandiset, simple1_nwb: str) -> None:
+def test_get_asset_metadata(new_dandiset: SampleDandiset, simple1_nwb: Path) -> None:
     d = new_dandiset.dandiset
     d.upload_raw_asset(simple1_nwb, {"path": "testing/simple1.nwb", "foo": "bar"})
     (asset,) = d.get_assets()
@@ -491,6 +478,7 @@ def test_remote_dandiset_json_dict(text_dandiset: SampleDandiset) -> None:
             "size": anys.ANY_INT,
             "created": anys.ANY_AWARE_DATETIME_STR,
             "modified": anys.ANY_AWARE_DATETIME_STR,
+            "status": anys.ANY_STR,
         },
         "version": anys.ANY_DICT,
     }
@@ -622,6 +610,20 @@ def test_get_assets_with_path_prefix(text_dandiset: SampleDandiset) -> None:
     ] == ["subdir2/coconut.txt", "subdir2/banana.txt", "subdir1/apple.txt"]
 
 
+def test_get_assets_by_glob(text_dandiset: SampleDandiset) -> None:
+    assert sorted(
+        asset.path for asset in text_dandiset.dandiset.get_assets_by_glob("*a*.txt")
+    ) == ["subdir1/apple.txt", "subdir2/banana.txt"]
+    assert [
+        asset.path
+        for asset in text_dandiset.dandiset.get_assets_by_glob("*a*.txt", order="path")
+    ] == ["subdir1/apple.txt", "subdir2/banana.txt"]
+    assert [
+        asset.path
+        for asset in text_dandiset.dandiset.get_assets_by_glob("*a*.txt", order="-path")
+    ] == ["subdir2/banana.txt", "subdir1/apple.txt"]
+
+
 def test_empty_zarr_iterfiles(new_dandiset: SampleDandiset) -> None:
     client = new_dandiset.client
     r = client.post(
@@ -635,6 +637,70 @@ def test_empty_zarr_iterfiles(new_dandiset: SampleDandiset) -> None:
     a = RemoteAsset.from_data(new_dandiset.dandiset, r)
     assert isinstance(a, RemoteZarrAsset)
     assert list(a.iterfiles()) == []
+
+
+def test_get_many_pages_of_assets(
+    mocker: MockerFixture, new_dandiset: SampleDandiset
+) -> None:
+    new_dandiset.client.page_size = 4
+    get_spy = mocker.spy(new_dandiset.client, "get")
+    paths: List[str] = []
+    for i in range(26):
+        p = new_dandiset.dspath / f"{i:04}.txt"
+        paths.append(p.name)
+        p.write_text(f"File #{i}\n")
+        df = dandi_file(p, new_dandiset.dspath)
+        assert isinstance(df, GenericAsset)
+        df.upload(new_dandiset.dandiset, {"description": f"File #{i}"})
+    assert [
+        asset.path for asset in new_dandiset.dandiset.get_assets(order="path")
+    ] == paths
+    assert get_spy.call_count == 7
+    pth = f"{new_dandiset.dandiset.version_api_path}assets/"
+    get_spy.assert_any_call(
+        pth, params={"order": "path", "page_size": 4}, json_resp=False
+    )
+    for n in range(2, 8):
+        get_spy.assert_any_call(
+            pth, params={"order": "path", "page_size": 4, "page": n}
+        )
+
+
+def test_rename(text_dandiset: SampleDandiset) -> None:
+    asset = text_dandiset.dandiset.get_asset_by_path("file.txt")
+    asset.rename("foo/bar.txt")
+    assert asset.path == "foo/bar.txt"
+    assert asset.get_raw_metadata()["path"] == "foo/bar.txt"
+    asset2 = text_dandiset.dandiset.get_asset_by_path("foo/bar.txt")
+    assert asset.identifier == asset2.identifier
+
+
+def test_rename_collision(text_dandiset: SampleDandiset) -> None:
+    asset1 = text_dandiset.dandiset.get_asset_by_path("file.txt")
+    asset2 = text_dandiset.dandiset.get_asset_by_path("subdir1/apple.txt")
+    with pytest.raises(requests.HTTPError):
+        asset1.rename("subdir1/apple.txt")
+    assert asset1.path == "file.txt"
+    assert asset1.get_raw_metadata()["path"] == "file.txt"
+    asset1a = text_dandiset.dandiset.get_asset_by_path("file.txt")
+    assert asset1a.path == "file.txt"
+    assert asset1a.get_raw_metadata()["path"] == "file.txt"
+    asset2a = text_dandiset.dandiset.get_asset_by_path("subdir1/apple.txt")
+    assert asset2.identifier == asset2a.identifier
+
+
+@pytest.mark.parametrize("dest", ["subdir1", "subdir1/apple.txt/core.dat"])
+def test_rename_type_mismatch(text_dandiset: SampleDandiset, dest: str) -> None:
+    asset1 = text_dandiset.dandiset.get_asset_by_path("file.txt")
+    with pytest.raises(requests.HTTPError):
+        asset1.rename(dest)
+    assert asset1.path == "file.txt"
+    assert asset1.get_raw_metadata()["path"] == "file.txt"
+    asset1a = text_dandiset.dandiset.get_asset_by_path("file.txt")
+    assert asset1a.path == "file.txt"
+    assert asset1a.get_raw_metadata()["path"] == "file.txt"
+    with pytest.raises(NotFoundError):
+        text_dandiset.dandiset.get_asset_by_path(dest)
 
 
 def test_dandiset_has_data_standard():

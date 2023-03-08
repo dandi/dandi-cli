@@ -21,6 +21,19 @@ In the source directory
 pre-commit install
 ```
 
+### Running tests locally
+
+You can run all tests locally by running `tox` (you can install `tox` running `pip install tox`):
+```
+tox -e py3
+```
+
+In order to check proper linting and typing of your changes
+you can also run `tox` with `lint` and `typing`:
+```
+tox -e lint,typing
+```
+
 ### dandi-api instance
 
 The [dandi-api](https://github.com/dandi/dandi-api) repository provides a
@@ -60,6 +73,10 @@ development command line options.
   same Docker containers across test runs instead of creating & destroying a
   new set on each run.  Set this environment variable to `0` to cause the
   containers to be destroyed at the end of the next run.
+
+- `DANDI_TESTS_PULL_DOCKER_COMPOSE` -- When set to an empty string or `0`, the
+  tests will not pull the latest needed Docker images at the start of a run if
+  older versions of the images are already present.
 
 ## Sourcegraph
 

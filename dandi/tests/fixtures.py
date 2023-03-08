@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import os
 from pathlib import Path
 import re
 import shutil
 from subprocess import DEVNULL, check_output, run
-import sys
-import tempfile
 from time import sleep
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union
 from uuid import uuid4
@@ -38,6 +36,50 @@ from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
 from ..upload import upload
 
 lgr = get_logger()
+
+
+BIDS_TESTDATA_SELECTION = [
+    "asl003",
+    "eeg_cbm",
+    "ieeg_epilepsyNWB",
+    # uncomment once upstream releases fixed spec:
+    # https://github.com/bids-standard/bids-specification/pull/1346#event-7696972438
+    # "hcp_example_bids",
+    "micr_SEMzarr",
+    "micr_SPIM",
+    "pet003",
+    "qmri_tb1tfl",
+    "qmri_vfa",
+]
+
+BIDS_ERROR_TESTDATA_SELECTION = ["invalid_asl003", "invalid_pet001"]
+
+
+def copytree(src: str | Path, dst: str | Path) -> None:
+    """
+    Function mimicking `shutil.copytree()` behaviour but supporting existing
+    target directories.
+
+    Notes
+    -----
+    * This function can be removed and replaced by a call to `shutil.copytree()`
+        setting the `dirs_exist_ok` keyword argument to true, whenever Python 3.7
+        is no longer supported.
+
+    References
+    ----------
+    https://docs.python.org/3/whatsnew/3.8.html#shutil
+    """
+    if not os.path.exists(dst):
+        os.makedirs(dst)
+    for item in os.listdir(src):
+        s = os.path.join(src, item)
+        d = os.path.join(dst, item)
+        if os.path.isdir(s):
+            copytree(s, d)
+        else:
+            if not os.path.exists(d) or os.stat(s).st_mtime - os.stat(d).st_mtime > 1:
+                shutil.copy2(s, d)
 
 
 @pytest.fixture(autouse=True)
@@ -70,34 +112,87 @@ def simple1_nwb_metadata() -> Dict[str, Any]:
 
 @pytest.fixture(scope="session")
 def simple1_nwb(
-    simple1_nwb_metadata: Dict[str, Any], tmpdir_factory: pytest.TempdirFactory
-) -> str:
+    simple1_nwb_metadata: Dict[str, Any], tmp_path_factory: pytest.TempPathFactory
+) -> Path:
     return make_nwb_file(
-        str(tmpdir_factory.mktemp("simple1").join("simple1.nwb")),
+        tmp_path_factory.mktemp("simple1") / "simple1.nwb",
         **simple1_nwb_metadata,
     )
 
 
 @pytest.fixture(scope="session")
 def simple2_nwb(
-    simple1_nwb_metadata: Dict[str, Any], tmpdir_factory: pytest.TempdirFactory
-) -> str:
+    simple1_nwb_metadata: Dict[str, Any], tmp_path_factory: pytest.TempPathFactory
+) -> Path:
     """With a subject"""
     return make_nwb_file(
-        str(tmpdir_factory.mktemp("simple2").join("simple2.nwb")),
+        tmp_path_factory.mktemp("simple2") / "simple2.nwb",
         subject=pynwb.file.Subject(
             subject_id="mouse001",
             date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
-            sex="M",
-            species="mouse",
+            sex="U",
+            species="Mus musculus",
         ),
         **simple1_nwb_metadata,
     )
 
 
 @pytest.fixture(scope="session")
+def simple3_nwb(
+    simple1_nwb_metadata: Dict[str, Any], tmp_path_factory: pytest.TempPathFactory
+) -> Path:
+    """With a subject, but no subject_id."""
+    return make_nwb_file(
+        tmp_path_factory.mktemp("simple3") / "simple3.nwb",
+        subject=pynwb.file.Subject(
+            age="P1D/",
+            sex="O",
+            species="Mus musculus",
+        ),
+        **simple1_nwb_metadata,
+    )
+
+
+@pytest.fixture(scope="session")
+def simple4_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """
+    With subject, subject_id, species, but including data orientation ambiguity,
+    the only currently non-critical issue in the dandi schema for nwbinspector validation:
+    NWBI.check_data_orientation
+    https://github.com/NeurodataWithoutBorders/nwbinspector/blob/
+    54ac2bc7cdcb92802b9251e29f249f155fb1ff52
+    /src/nwbinspector/internal_configs/dandi.inspector_config.yaml#L10
+    """
+
+    start_time = datetime(2017, 4, 3, 11, tzinfo=timezone.utc)
+    time_series = pynwb.TimeSeries(
+        name="test_time_series",
+        unit="test_units",
+        data=np.zeros(shape=(2, 100)),
+        rate=1.0,
+    )
+
+    nwbfile = NWBFile(
+        session_description="some session",
+        identifier="NWBE4",
+        session_start_time=start_time,
+        subject=Subject(
+            subject_id="mouse001",
+            age="P1D/",
+            sex="O",
+            species="Mus musculus",
+        ),
+    )
+    nwbfile.add_acquisition(time_series)
+    filename = tmp_path_factory.mktemp("simple4") / "simple4.nwb"
+    with pynwb.NWBHDF5IO(filename, "w") as io:
+        io.write(nwbfile, cache_spec=False)
+    return filename
+
+
+@pytest.fixture(scope="session")
 def organized_nwb_dir(
-    simple2_nwb: str, tmp_path_factory: pytest.TempPathFactory
+    simple2_nwb: Path, tmp_path_factory: pytest.TempPathFactory
 ) -> Path:
     tmp_path = tmp_path_factory.mktemp("organized_nwb_dir")
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
@@ -111,7 +206,7 @@ def organized_nwb_dir(
 @pytest.fixture(scope="session")
 def organized_nwb_dir2(
     simple1_nwb_metadata: Dict[str, Any],
-    simple2_nwb: str,
+    simple2_nwb: Path,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Path:
     tmp_path = tmp_path_factory.mktemp("organized_nwb_dir2")
@@ -120,7 +215,7 @@ def organized_nwb_dir2(
     # file to be "organized"
     shutil.copy(simple2_nwb, tmp_path)
     make_nwb_file(
-        str(tmp_path / "simple3.nwb"),
+        tmp_path / "simple3.nwb",
         subject=pynwb.file.Subject(
             subject_id="lizard001",
             date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
@@ -136,11 +231,21 @@ def organized_nwb_dir2(
     return tmp_path
 
 
+@pytest.fixture(scope="session")
+def organized_nwb_dir3(
+    simple4_nwb: Path, tmp_path_factory: pytest.TempPathFactory
+) -> Path:
+    tmp_path = tmp_path_factory.mktemp("organized_nwb_dir")
+    (tmp_path / dandiset_metadata_file).write_text("{}\n")
+    r = CliRunner().invoke(
+        organize, ["-f", "copy", "--dandiset-path", str(tmp_path), str(simple4_nwb)]
+    )
+    assert r.exit_code == 0, r.stdout
+    return tmp_path
+
+
 if TYPE_CHECKING:
-    if sys.version_info >= (3, 8):
-        from typing import Literal
-    else:
-        from typing_extensions import Literal
+    from ..support.typing import Literal
 
     Scope = Union[
         Literal["session"],
@@ -155,36 +260,80 @@ def get_gitrepo_fixture(
     url: str,
     committish: Optional[str] = None,
     scope: Scope = "session",
-) -> Callable[[], Iterator[str]]:
+    make_subdirs_dandisets: bool = False,
+) -> Callable[[pytest.TempPathFactory], Path]:
 
     if committish:
         raise NotImplementedError()
 
     @pytest.fixture(scope=scope)
-    def fixture() -> Iterator[str]:
+    def fixture(tmp_path_factory: pytest.TempPathFactory) -> Path:
         skipif.no_network()
         skipif.no_git()
-
-        path = tempfile.mktemp()  # not using pytest's tmpdir fixture to not
-        # collide in different scopes etc. But we
-        # would need to remove it ourselves
+        path = tmp_path_factory.mktemp("gitrepo")
         lgr.debug("Cloning %r into %r", url, path)
-        try:
-            runout = run(["git", "clone", "--depth=1", url, path])
-            if runout.returncode:
-                raise RuntimeError(f"Failed to clone {url} into {path}")
-            yield path
-        finally:
-            try:
-                shutil.rmtree(path)
-            except BaseException as exc:
-                lgr.warning("Failed to remove %s - using Windows?: %s", path, exc)
+        run(["git", "clone", "--depth=1", url, str(path)], check=True)
+        if make_subdirs_dandisets:
+            _make_subdirs_dandisets(path)
+        return path
 
     return fixture
 
 
+def get_filtered_gitrepo_fixture(
+    url: str,
+    whitelist: List[str],
+    make_subdirs_dandisets: Optional[bool] = False,
+) -> Callable[[pytest.TempPathFactory], Iterator[Path]]:
+    @pytest.fixture(scope="session")
+    def fixture(
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> Iterator[Path]:
+        skipif.no_network()
+        skipif.no_git()
+        path = tmp_path_factory.mktemp("gitrepo")
+        lgr.debug("Cloning %r into %r", url, path)
+        run(
+            [
+                "git",
+                "clone",
+                "--depth=1",
+                "--filter=blob:none",
+                "--sparse",
+                url,
+                str(path),
+            ],
+            check=True,
+        )
+        # cwd specification is VERY important, not only to achieve the correct
+        # effects, but also to avoid dropping files from your repository if you
+        # were to run `git sparse-checkout` inside the software repo.
+        run(["git", "sparse-checkout", "init", "--cone"], cwd=str(path), check=True)
+        run(["git", "sparse-checkout", "set"] + whitelist, cwd=str(path), check=True)
+        if make_subdirs_dandisets:
+            _make_subdirs_dandisets(path)
+        yield path
+
+    return fixture
+
+
+def _make_subdirs_dandisets(path: Path) -> None:
+    for bids_dataset_path in path.iterdir():
+        if bids_dataset_path.is_dir():
+            (bids_dataset_path / dandiset_metadata_file).write_text(" \n")
+
+
 nwb_test_data = get_gitrepo_fixture("http://github.com/dandi-datasets/nwb_test_data")
-bids_examples = get_gitrepo_fixture("https://github.com/dandi/bids-examples")
+bids_examples = get_filtered_gitrepo_fixture(
+    url="https://github.com/bids-standard/bids-examples",
+    whitelist=BIDS_TESTDATA_SELECTION,
+    make_subdirs_dandisets=True,
+)
+bids_error_examples = get_filtered_gitrepo_fixture(
+    "https://github.com/bids-standard/bids-error-examples",
+    whitelist=BIDS_ERROR_TESTDATA_SELECTION,
+    make_subdirs_dandisets=True,
+)
 
 LOCAL_DOCKER_DIR = Path(__file__).with_name("data") / "dandiarchive-docker"
 LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name
@@ -215,6 +364,8 @@ def docker_compose_setup() -> Iterator[Dict[str, str]]:
     env = {**os.environ, "DJANGO_DANDI_SCHEMA_VERSION": DANDI_SCHEMA_VERSION}
     try:
         if create:
+            if os.environ.get("DANDI_TESTS_PULL_DOCKER_COMPOSE", "1") not in ("", "0"):
+                run(["docker-compose", "pull"], cwd=str(LOCAL_DOCKER_DIR), check=True)
             run(
                 ["docker-compose", "run", "--rm", "django", "./manage.py", "migrate"],
                 cwd=str(LOCAL_DOCKER_DIR),
@@ -264,13 +415,13 @@ def docker_compose_setup() -> Iterator[Dict[str, str]]:
 
         if create:
             run(
-                ["docker-compose", "up", "-d", "django", "celery", "redirector"],
+                ["docker-compose", "up", "-d", "django", "celery"],
                 cwd=str(LOCAL_DOCKER_DIR),
                 env=env,
                 check=True,
             )
             API_URL = known_instances["dandi-api-local-docker-tests"].api
-            for _ in range(10):
+            for _ in range(25):
                 try:
                     requests.get(f"{API_URL}/dandisets/")
                 except requests.ConnectionError:
@@ -374,6 +525,14 @@ def new_dandiset(
 
 
 @pytest.fixture()
+def nwb_dandiset(new_dandiset: SampleDandiset, simple2_nwb: Path) -> SampleDandiset:
+    (new_dandiset.dspath / "sub-mouse001").mkdir()
+    shutil.copy2(simple2_nwb, new_dandiset.dspath / "sub-mouse001" / "sub-mouse001.nwb")
+    new_dandiset.upload()
+    return new_dandiset
+
+
+@pytest.fixture()
 def text_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
     (new_dandiset.dspath / "file.txt").write_text("This is test text.\n")
     (new_dandiset.dspath / "subdir1").mkdir()
@@ -396,10 +555,36 @@ def zarr_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
 
 
 @pytest.fixture()
-def video_files(tmp_path):
-    video_paths = []
+def bids_dandiset(new_dandiset: SampleDandiset, bids_examples: Path) -> SampleDandiset:
+    copytree(bids_examples / "asl003", new_dandiset.dspath)
+    (new_dandiset.dspath / "CHANGES").write_text("0.1.0 2014-11-03\n")
+    return new_dandiset
+
+
+@pytest.fixture()
+def bids_nwb_dandiset(
+    new_dandiset: SampleDandiset, bids_examples: Path
+) -> SampleDandiset:
+    copytree(bids_examples / "ieeg_epilepsyNWB", new_dandiset.dspath)
+    (new_dandiset.dspath / "CHANGES").write_text("0.1.0 2014-11-03\n")
+    return new_dandiset
+
+
+@pytest.fixture()
+def bids_dandiset_invalid(
+    new_dandiset: SampleDandiset, bids_error_examples: Path
+) -> SampleDandiset:
+    dataset_path = new_dandiset.dspath
+    copytree(bids_error_examples / "invalid_pet001", dataset_path)
+    (dataset_path / "README").unlink()
+    return new_dandiset
+
+
+@pytest.fixture()
+def video_files(tmp_path: Path) -> list[tuple[Path, Path]]:
     import cv2
 
+    video_paths = []
     video_path = tmp_path / "video_files"
     video_path.mkdir()
     for no in range(2):
@@ -462,7 +647,7 @@ def _create_nwb_files(video_list):
             name=f"MouseWhiskers{no}",
             format="external",
             external_file=[str(vid_1), str(vid_2)],
-            starting_frame=[0],
+            starting_frame=[0, 2],
             starting_time=0.0,
             rate=150.0,
         )

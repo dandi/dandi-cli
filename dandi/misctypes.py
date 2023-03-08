@@ -7,9 +7,13 @@ Miscellaneous public classes
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import datetime
 from fnmatch import fnmatchcase
-from typing import Dict, Iterator, List, Tuple, TypeVar
+import os.path
+from pathlib import Path
+from typing import IO, Optional, TypeVar, cast
 
 from dandischema.models import DigestType
 
@@ -40,7 +44,7 @@ class Digest:
         """
         return cls(algorithm=DigestType.dandi_zarr_checksum, value=value)
 
-    def asdict(self) -> Dict[DigestType, str]:
+    def asdict(self) -> dict[DigestType, str]:
         """
         Convert the instance to a single-item `dict` mapping the digest
         algorithm to the digest value
@@ -50,7 +54,11 @@ class Digest:
 
 #: Placeholder digest used in some situations where a digest is required but
 #: not actually relevant and would be too expensive to calculate
-DUMMY_DIGEST = Digest(algorithm=DigestType.dandi_etag, value=32 * "d" + "-1")
+DUMMY_DANDI_ETAG = Digest(algorithm=DigestType.dandi_etag, value=32 * "d" + "-1")
+DUMMY_DANDI_ZARR_CHECKSUM = Digest(
+    algorithm=DigestType.dandi_zarr_checksum,
+    value=32 * "d" + "-1--1",
+)
 
 P = TypeVar("P", bound="BasePath")
 
@@ -66,7 +74,7 @@ class BasePath(ABC):
     """
 
     #: The path components of the object
-    parts: Tuple[str, ...]
+    parts: tuple[str, ...]
 
     def __str__(self) -> str:
         return "/".join(self.parts)
@@ -110,7 +118,7 @@ class BasePath(ABC):
         return p
 
     @staticmethod
-    def _split_path(path: str) -> Tuple[str, ...]:
+    def _split_path(path: str) -> tuple[str, ...]:
         """Split a path into its path components"""
         if path.startswith("/"):
             raise ValueError(f"Absolute paths not allowed: {path!r}")
@@ -140,12 +148,12 @@ class BasePath(ABC):
         ...
 
     @property
-    def parents(self: P) -> Tuple[P, ...]:
+    def parents(self: P) -> tuple[P, ...]:
         """
         A tuple of the path's ancestors, starting at the parent and going up to
         (and including) the root of the hierarchy
         """
-        ps: List[P] = []
+        ps: list[P] = []
         p = self
         while not p.is_root():
             q = p.parent
@@ -167,7 +175,7 @@ class BasePath(ABC):
             return ""
 
     @property
-    def suffixes(self) -> List[str]:
+    def suffixes(self) -> list[str]:
         """A list of the basename's file extensions"""
         if self.name.endswith("."):
             return []
@@ -239,3 +247,113 @@ class BasePath(ABC):
     def size(self) -> int:
         """The size of the resource at the path"""
         ...
+
+
+class Readable(ABC):
+    """
+    .. versionadded:: 0.50.0
+
+    An abstract base class representing a local or remote resource that can be
+    opened & read like a file
+    """
+
+    @abstractmethod
+    def open(self) -> IO[bytes]:
+        """
+        Returns a readable binary filehandle for accessing the resource's bytes
+        """
+        ...
+
+    @abstractmethod
+    def get_size(self) -> int:
+        """Returns the size in bytes of the resource"""
+        ...
+
+    @abstractmethod
+    def get_mtime(self) -> Optional[datetime]:
+        """
+        Returns the time at which the resource's contents were last modified,
+        if it can be determined
+        """
+        ...
+
+    @abstractmethod
+    def get_filename(self) -> str:
+        """
+        Returns the base name of the resource, suitable for use as a file name
+        """
+        ...
+
+
+class LocalReadableFile(Readable):
+    """
+    A concrete implementation of `Readable` for local files.
+
+    Instances of this class are obtained by calling
+    `LocalFileAsset.as_readable()` or `DandisetMetadataFile.as_readable()`.
+    """
+
+    def __init__(self, filepath: str | Path) -> None:
+        #: The path to a local file to read
+        self.filepath = Path(filepath)
+
+    def __fspath__(self) -> str:
+        return str(self.filepath)
+
+    def __str__(self) -> str:
+        return str(self.filepath)
+
+    def open(self) -> IO[bytes]:
+        return self.filepath.open("rb")
+
+    def get_size(self) -> int:
+        return os.path.getsize(self.filepath)
+
+    def get_mtime(self) -> datetime:
+        return datetime.fromtimestamp(self.filepath.stat().st_mtime).astimezone()
+
+    def get_filename(self) -> str:
+        return self.filepath.name
+
+
+@dataclass
+class RemoteReadableAsset(Readable):
+    """
+    A concrete implementation of `Readable` for DANDI blob assets on a remote
+    server.  The fsspec_ library must be installed with the ``http`` extra
+    (e.g., ``pip install "fsspec[http]"``) in order for `.open()` to be usable.
+
+    Instances of this class are obtained by calling
+    `BaseRemoteBlobAsset.as_readable()`.
+
+    .. _fsspec: http://github.com/fsspec/filesystem_spec
+    """
+
+    #: The URL that data is read from
+    url: str
+
+    #: :meta private:
+    size: int
+
+    #: :meta private:
+    mtime: Optional[datetime]
+
+    #: :meta private:
+    name: str
+
+    def open(self) -> IO[bytes]:
+        import fsspec
+
+        return cast(IO[bytes], fsspec.open(self.url, mode="rb"))
+
+    def get_size(self) -> int:
+        return self.size
+
+    def get_mtime(self) -> Optional[datetime]:
+        return self.mtime
+
+    def get_filename(self) -> str:
+        return self.name
+
+    def __str__(self) -> str:
+        return self.url

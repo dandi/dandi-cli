@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path
 import re
 from typing import Any, Callable, NoReturn
 
@@ -8,10 +9,10 @@ from pynwb import NWBHDF5IO, NWBFile, TimeSeries
 from ..pynwb_utils import _sanitize_nwb_version, nwb_has_external_links
 
 
-def test_pynwb_io(simple1_nwb: str) -> None:
+def test_pynwb_io(simple1_nwb: Path) -> None:
     # To verify that our dependencies spec is sufficient to avoid
     # stepping into known pynwb/hdmf issues
-    with NWBHDF5IO(str(simple1_nwb), "r", load_namespaces=True) as reader:
+    with NWBHDF5IO(simple1_nwb, "r", load_namespaces=True) as reader:
         nwbfile = reader.read()
     assert repr(nwbfile)
     assert str(nwbfile)

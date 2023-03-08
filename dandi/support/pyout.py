@@ -36,11 +36,11 @@ def naturalsize(v):
     return humanize.naturalsize(v)
 
 
-def datefmt(v, fmt=u"%Y-%m-%d/%H:%M:%S"):
+def datefmt(v, fmt="%Y-%m-%d/%H:%M:%S"):
     if isinstance(v, datetime.datetime):
         return v.strftime(fmt)
     else:
-        time.strftime(fmt, time.localtime(v))
+        return time.strftime(fmt, time.localtime(v))
 
 
 # def empty_for_none(v):
@@ -71,8 +71,8 @@ size_style = dict(
     color=dict(
         interval=[
             [0, 1024, "blue"],
-            [1024, 1024 ** 2, "green"],
-            [1024 ** 2, None, "red"],
+            [1024, 1024**2, "green"],
+            [1024**2, None, "red"],
         ]
     ),
     aggregate=lambda x: naturalsize(sum(x)),

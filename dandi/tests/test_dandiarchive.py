@@ -1,3 +1,5 @@
+import re
+
 import pytest
 import responses
 
@@ -108,9 +110,8 @@ from .fixtures import DandiAPI, SampleDandiset
             DandisetURL(
                 api_url=known_instances["dandi"].api,
                 dandiset_id="000027",
-                version_id="draft",  # TODO: why not None?
+                version_id=None,
             ),
-            marks=mark.skipif_no_network,
         ),
         pytest.param(
             "DANDI:000027/0.210831.2033",
@@ -119,8 +120,16 @@ from .fixtures import DandiAPI, SampleDandiset
                 dandiset_id="000027",
                 version_id="0.210831.2033",
             ),
-            marks=mark.skipif_no_network,
         ),
+        pytest.param(
+            "DANDI:000027/draft",
+            DandisetURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="000027",
+                version_id="draft",
+            ),
+        ),
+        # lower cased
         pytest.param(
             "dandi:000027/0.210831.2033",
             DandisetURL(
@@ -128,7 +137,6 @@ from .fixtures import DandiAPI, SampleDandiset
                 dandiset_id="000027",
                 version_id="0.210831.2033",
             ),
-            marks=mark.skipif_no_network,
         ),
         (
             "http://localhost:8000/api/dandisets/000002/",
@@ -160,6 +168,14 @@ from .fixtures import DandiAPI, SampleDandiset
                 api_url="http://localhost:8000/api",
                 dandiset_id="000002",
                 version_id="draft",
+            ),
+        ),
+        (
+            "http://localhost:8085/dandiset/000002",
+            DandisetURL(
+                api_url="http://localhost:8000/api",
+                dandiset_id="000002",
+                version_id=None,
             ),
         ),
         (
@@ -301,7 +317,6 @@ def test_parse_api_url(url: str, parsed_url: ParsedDandiURL) -> None:
     "url",
     [
         "DANDI:27",
-        "DANDI:000027/draft",
         # Currently takes too long to run; cf. #830:
         # "https://identifiers.org/DANDI:000027/draft",
     ],
@@ -309,6 +324,11 @@ def test_parse_api_url(url: str, parsed_url: ParsedDandiURL) -> None:
 def test_parse_bad_api_url(url: str) -> None:
     with pytest.raises(UnknownURLError):
         parse_dandi_url(url)
+
+
+def test_known_instances() -> None:
+    # all should be lower cased
+    assert all(i.islower() for i in known_instances)
 
 
 def test_parse_dandi_url_unknown_instance() -> None:
@@ -321,6 +341,7 @@ def test_parse_dandi_url_unknown_instance() -> None:
 
 
 @mark.skipif_no_network
+@pytest.mark.xfail(reason="https://github.com/dandi/dandi-archive/issues/1020")
 def test_parse_dandi_url_not_found() -> None:
     # Unlikely this one would ever come to existence
     with pytest.raises(NotFoundError):
@@ -329,10 +350,8 @@ def test_parse_dandi_url_not_found() -> None:
 
 @mark.skipif_no_network
 def test_follow_redirect() -> None:
-    assert (
-        follow_redirect("https://bit.ly/dandi12")
-        == "https://gui.dandiarchive.org/#/file-browser/folder/5e72b6ac3da50caa9adb0498"
-    )
+    url = follow_redirect("https://bit.ly/dandi12")
+    assert re.match(r"https://(.*\.)?dandiarchive.org", url)
 
 
 @responses.activate

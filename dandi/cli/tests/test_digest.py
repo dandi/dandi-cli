@@ -1,4 +1,6 @@
+import os
 from pathlib import Path
+import subprocess
 
 from click.testing import CliRunner
 import numpy as np
@@ -49,6 +51,35 @@ def test_digest_zarr():
         zarr.save(
             "sample.zarr", np.arange(1000, dtype=dt), np.arange(1000, 0, -1, dtype=dt)
         )
+        r = runner.invoke(digest, ["--digest", "zarr-checksum", "sample.zarr"])
+        assert r.exit_code == 0
+        assert r.output == "sample.zarr: 4313ab36412db2981c3ed391b38604d6-5--1516\n"
+
+
+def test_digest_empty_zarr(tmp_path: Path) -> None:
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        os.mkdir("empty.zarr")
+        r = runner.invoke(digest, ["--digest", "zarr-checksum", "empty.zarr"])
+        assert r.exit_code == 0
+        assert r.output == "empty.zarr: 481a2f77ab786a0f45aafd5db0971caa-0--0\n"
+
+
+def test_digest_zarr_with_excluded_dotfiles():
+    # This test assumes that the Zarr serialization format never changes
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        dt = np.dtype("<i8")
+        zarr.save(
+            "sample.zarr", np.arange(1000, dtype=dt), np.arange(1000, 0, -1, dtype=dt)
+        )
+        subprocess.run(["git", "init"], cwd="sample.zarr", check=True)
+        os.mkdir("sample.zarr/.dandi")
+        Path("sample.zarr", ".dandi", "somefile.txt").touch()
+        Path("sample.zarr", ".gitattributes").touch()
+        Path("sample.zarr", "arr_0", ".gitmodules").touch()
+        Path("sample.zarr", "arr_1", ".datalad").mkdir()
+        Path("sample.zarr", "arr_1", ".datalad", "config").touch()
         r = runner.invoke(digest, ["--digest", "zarr-checksum", "sample.zarr"])
         assert r.exit_code == 0
         assert r.output == "sample.zarr: 4313ab36412db2981c3ed391b38604d6-5--1516\n"

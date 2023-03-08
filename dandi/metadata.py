@@ -3,10 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from functools import lru_cache
 import os
-import os.path as op
+import os.path
 from pathlib import Path
 import re
-import sys
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -29,8 +28,8 @@ import requests
 import tenacity
 
 from . import __version__, get_logger
-from .dandiset import Dandiset
-from .misctypes import Digest
+from .consts import metadata_all_fields
+from .misctypes import Digest, LocalReadableFile, Readable
 from .pynwb_utils import (
     _get_pynwb_metadata,
     get_neurodata_types,
@@ -39,83 +38,122 @@ from .pynwb_utils import (
     metadata_cache,
     nwb_has_external_links,
 )
-from .utils import ensure_datetime, get_mime_type, get_utcnow_datetime
+from .utils import (
+    ensure_datetime,
+    find_parent_directory_containing,
+    get_mime_type,
+    get_utcnow_datetime,
+)
 
 lgr = get_logger()
 
 
+# Disable this for clean hacking
 @metadata_cache.memoize_path
-def get_metadata(path: Union[str, Path]) -> Optional[dict]:
-    """Get selected metadata from a .nwb file or a dandiset directory
-
-    If a directory given and it is not a Dandiset, None is returned
+def get_metadata(
+    path: str | Path | Readable,
+    digest: Optional[Digest] = None,
+) -> Optional[dict]:
+    """
+    Get "flatdata" from a .nwb file
 
     Parameters
     ----------
-    path: str or Path
+    path: str, Path, or Readable
 
     Returns
     -------
     dict
     """
+
+    from .files import bids, dandi_file, find_bids_dataset_description
+
     # when we run in parallel, these annoying warnings appear
     ignore_benign_pynwb_warnings()
-    path = str(path)  # for Path
-    meta = dict()
 
-    if op.isdir(path):
-        try:
-            dandiset = Dandiset(path)
-            return cast(dict, dandiset.metadata)
-        except ValueError as exc:
-            lgr.debug("Failed to get metadata for %s: %s", path, exc)
-            return None
+    if isinstance(path, Readable):
+        r = path
+    else:
+        r = LocalReadableFile(os.path.abspath(path))
 
-    if nwb_has_external_links(path):
-        raise NotImplementedError(
-            f"NWB files with external links are not supported: {path}"
+    meta: dict[str, Any] = {}
+
+    if isinstance(r, LocalReadableFile):
+        # Is the data BIDS (as defined by the presence of a BIDS dataset descriptor)
+        bids_dataset_description = find_bids_dataset_description(r.filepath)
+        if bids_dataset_description:
+            dandiset_path = find_parent_directory_containing(
+                "dandiset.yaml", r.filepath
+            )
+            df = dandi_file(
+                r.filepath,
+                dandiset_path,
+                bids_dataset_description=bids_dataset_description,
+            )
+            if not digest:
+                _digest = "0" * 32 + "-1"
+                digest = Digest.dandi_etag(_digest)
+            path_metadata = df.get_metadata(digest=digest)
+            assert isinstance(df, bids.BIDSAsset)
+            meta["bids_version"] = df.get_validation_bids_version()
+            # there might be a more elegant way to do this:
+            for key in metadata_all_fields:
+                try:
+                    value = getattr(path_metadata.wasAttributedTo[0], key)
+                except AttributeError:
+                    pass
+                else:
+                    meta[key] = value
+
+    if r.get_filename().endswith((".NWB", ".nwb")):
+        if nwb_has_external_links(r):
+            raise NotImplementedError(
+                f"NWB files with external links are not supported: {r}"
+            )
+
+        # First read out possibly available versions of specifications for NWB(:N)
+        meta["nwb_version"] = get_nwb_version(r)
+
+        # PyNWB might fail to load because of missing extensions.
+        # There is a new initiative of establishing registry of such extensions.
+        # Not yet sure if PyNWB is going to provide "native" support for needed
+        # functionality: https://github.com/NeurodataWithoutBorders/pynwb/issues/1143
+        # So meanwhile, hard-coded workaround for data types we care about
+        ndtypes_registry = {
+            "AIBS_ecephys": "allensdk.brain_observatory.ecephys.nwb",
+            "ndx-labmetadata-abf": "ndx_dandi_icephys",
+        }
+        tried_imports = set()
+        while True:
+            try:
+                meta.update(_get_pynwb_metadata(r))
+                break
+            except KeyError as exc:  # ATM there is
+                lgr.debug("Failed to read %s: %s", r, exc)
+                res = re.match(r"^['\"\\]+(\S+). not a namespace", str(exc))
+                if not res:
+                    raise
+                ndtype = res.groups()[0]
+                if ndtype not in ndtypes_registry:
+                    raise ValueError(
+                        "We do not know which extension provides %s. "
+                        "Original exception was: %s. " % (ndtype, exc)
+                    )
+                import_mod = ndtypes_registry[ndtype]
+                lgr.debug("Importing %r which should provide %r", import_mod, ndtype)
+                if import_mod in tried_imports:
+                    raise RuntimeError(
+                        "We already tried importing %s to provide %s, but it seems it didn't help"
+                        % (import_mod, ndtype)
+                    )
+                tried_imports.add(import_mod)
+                __import__(import_mod)
+
+        meta["nd_types"] = get_neurodata_types(r)
+    if not meta:
+        raise RuntimeError(
+            f"Unable to get metadata from non-BIDS, non-NWB asset: `{path}`."
         )
-
-    # First read out possibly available versions of specifications for NWB(:N)
-    meta["nwb_version"] = get_nwb_version(path)
-
-    # PyNWB might fail to load because of missing extensions.
-    # There is a new initiative of establishing registry of such extensions.
-    # Not yet sure if PyNWB is going to provide "native" support for needed
-    # functionality: https://github.com/NeurodataWithoutBorders/pynwb/issues/1143
-    # So meanwhile, hard-coded workaround for data types we care about
-    ndtypes_registry = {
-        "AIBS_ecephys": "allensdk.brain_observatory.ecephys.nwb",
-        "ndx-labmetadata-abf": "ndx_dandi_icephys",
-    }
-    tried_imports = set()
-    while True:
-        try:
-            meta.update(_get_pynwb_metadata(path))
-            break
-        except KeyError as exc:  # ATM there is
-            lgr.debug("Failed to read %s: %s", path, exc)
-            res = re.match(r"^['\"\\]+(\S+). not a namespace", str(exc))
-            if not res:
-                raise
-            ndtype = res.groups()[0]
-            if ndtype not in ndtypes_registry:
-                raise ValueError(
-                    "We do not know which extension provides %s. "
-                    "Original exception was: %s. " % (ndtype, exc)
-                )
-            import_mod = ndtypes_registry[ndtype]
-            lgr.debug("Importing %r which should provide %r", import_mod, ndtype)
-            if import_mod in tried_imports:
-                raise RuntimeError(
-                    "We already tried importing %s to provide %s, but it seems it didn't help"
-                    % (import_mod, ndtype)
-                )
-            tried_imports.add(import_mod)
-            __import__(import_mod)
-
-    meta["nd_types"] = get_neurodata_types(path)
-
     return meta
 
 
@@ -129,7 +167,22 @@ def _parse_iso8601(age: str) -> List[str]:
     )
     m = re.match(pattern, age, flags=re.I)
     if m:
-        return ["P"] + [m[i] for i in range(1, 6) if m[i]]
+        age_f = ["P"] + [m[i] for i in range(1, 6) if m[i]]
+        # expanding the Time part (todo: can be done already in pattern)
+        if "T" in age_f[-1]:
+            mT = re.match(
+                r"^T(\d+(?:\.\d+)?H)?(\d+(?:\.\d+)?M)?(\d+(?:\.\d+)?S)?",
+                age_f[-1],
+                flags=re.I,
+            )
+            if mT is None:
+                raise ValueError(
+                    f"Failed to parse the trailing part of age {age_f[-1]!r}"
+                )
+            age_f = age_f[:-1] + ["T"] + [mT[i] for i in range(1, 3) if mT[i]]
+        # checking if there are decimal parts in the higher order components
+        _check_decimal_parts(age_f)
+        return age_f
     else:
         raise ValueError(f"ISO 8601 expected, but {age!r} was received")
 
@@ -179,26 +232,60 @@ def _parse_hours_format(age: str) -> Tuple[str, List[str]]:
     """parsing format 0:30:10"""
     m = re.match(r"\s*(\d\d?):(\d\d):(\d\d)", age)
     if m:
-        time_part = f"T{int(m[1])}H{int(m[2])}M{int(m[3])}S"
-        return (age[: m.start()] + age[m.end() :]).strip(), [time_part]
+        time_part = ["T", f"{int(m[1])}H", f"{int(m[2])}M", f"{int(m[3])}S"]
+        return (age[: m.start()] + age[m.end() :]).strip(), time_part
     else:
         return age, []
 
 
-def _check_decimal_parts(age_parts: List[str]) -> bool:
+def _check_decimal_parts(age_parts: List[str]) -> None:
     """checking if decimal parts are only in the lowest order component"""
     # if the last part is the T component I have to separate the parts
-    if "T" in age_parts[-1]:
-        m = re.match(
-            r"^T(\d+(?:\.\d+)?H)?(\d+(?:\.\d+)?M)?(\d+(?:\.\d+)?S)?",
-            age_parts[-1],
-            flags=re.I,
-        )
-        if m is None:
-            raise ValueError(f"Failed to parse the trailing part of age {age_parts[-1]!r}")
-        age_parts = age_parts[:-1] + [m[i] for i in range(1, 3) if m[i]]
     decim_part = ["." in el for el in age_parts]
-    return not (any(decim_part) and any(decim_part[:-1]))
+    if len(decim_part) > 1 and any(decim_part[:-1]):
+        raise ValueError("Decimal fraction allowed in the lowest order part only.")
+
+
+def _check_range_limits(limits: List[List[str]]) -> None:
+    """checking if the upper limit is bigger than the lower limit"""
+    ok = True
+    units_t = dict(zip(["S", "M", "H"], range(3)))
+    units_d = dict(zip(["D", "W", "M", "Y"], range(4)))
+    lower, upper = limits
+    units_order = units_d
+    for ii, el in enumerate(upper):
+        if ii == len(lower):  # nothing to compare in the lower limit
+            break
+        if el == "T":  # changing to the time-related unit order
+            if lower[ii] != "T":  # lower unit still has
+                ok = False
+                break
+            units_order = units_t
+        elif el == lower[ii]:
+            continue
+        else:  # comparing the first element that differs
+            if el[-1] == lower[ii][-1]:  # the same unit
+                if float(el[:-1]) > float(lower[ii][:-1]):
+                    break
+                elif float(el[:-1]) == float(
+                    lower[ii][:-1]
+                ):  # in case having 2.D and 2D
+                    continue
+                else:
+                    ok = False
+                    break
+            elif units_order[el[-1]] > units_order[lower[ii][-1]]:
+                break
+            else:  # lower limit has higher unit
+                ok = False
+                break
+    if len(lower) > len(upper):  # lower has still more elements
+        ok = False
+    if not ok:
+        raise ValueError(
+            "The upper limit has to be larger than the lower limit, "
+            "and they should have consistent units."
+        )
 
 
 def parse_age(age: Optional[str]) -> Tuple[str, str]:
@@ -227,7 +314,24 @@ def parse_age(age: Optional[str]) -> Tuple[str, str]:
 
     age = age.strip()
 
-    if age.startswith("P"):
+    if "/" in age and len(age.split("/")) == 2:  # age as a range
+        age = age.replace(" ", "")
+        limits = []
+        for el in age.split("/"):
+            if el.startswith("P"):
+                limits.append(_parse_iso8601(el))
+            elif el == "":  # start or end of range is unknown
+                limits.append([""])
+            else:
+                raise ValueError(
+                    f"Ages that use / for range need to use ISO8601 format, "
+                    f"but {el!r} found."
+                )
+        age_f = limits[0] + ["/"] + limits[1]
+        # if both limits provided checking if the upper limit is bigegr than the lower
+        if limits[0][0] and limits[1][0]:
+            _check_range_limits(limits)
+    elif age.startswith("P"):
         age_f = _parse_iso8601(age)
     else:  # trying to figure out any free form
         # removing some symbols
@@ -269,13 +373,9 @@ def parse_age(age: Optional[str]) -> Tuple[str, str]:
             raise ValueError(
                 f"Cannot parse age {age_orig!r}: no rules to convert {age!r}"
             )
+        # checking if there are decimal parts in the higher order components
+        _check_decimal_parts(age_f)
 
-    # checking if there are decimal parts in the higher order components
-    if not _check_decimal_parts(age_f):
-        raise ValueError(
-            f"Decimal fraction allowed in the lowest order part only,"
-            f" but {age!r} was received"
-        )
     return "".join(age_f), ref
 
 
@@ -351,6 +451,14 @@ def extract_sex(metadata: dict) -> Optional[models.SexType]:
         return None
 
 
+def extract_strain(metadata: dict) -> Optional[models.StrainType]:
+    value = metadata.get("strain", None)
+    if value is not None and value != "":
+        return models.StrainType(name=value)
+    else:
+        return None
+
+
 species_map = [
     (
         ["mouse"],
@@ -400,10 +508,16 @@ species_map = [
         "http://purl.obolibrary.org/obo/NCBITaxon_7227",
         "Drosophila melanogaster - Fruit fly",
     ),
+    (
+        ["danio", "zebrafish", "zebra fish"],
+        None,
+        "http://purl.obolibrary.org/obo/NCBITaxon_7955",
+        "Danio rerio - Zebra fish",
+    ),
 ]
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=None)  # type: ignore[arg-type]
 @tenacity.retry(
     reraise=True,
     stop=tenacity.stop_after_attempt(3),
@@ -456,7 +570,9 @@ def extract_species(metadata: dict) -> Optional[models.SpeciesType]:
                 value_id = value_orig
                 lookup = ("rdfs:label", "oboInOwl:hasExactSynonym")
                 try:
-                    result = parse_purlobourl(value_orig, lookup=lookup)
+                    result: Optional[Dict[str, str]] = parse_purlobourl(
+                        value_orig, lookup=lookup
+                    )
                 except ConnectionError:
                     value = None
                 else:
@@ -578,9 +694,7 @@ def extract_session(metadata: dict) -> Optional[List[models.Session]]:
     ]
 
 
-def extract_digest(
-    metadata: dict,
-) -> Optional[Dict[models.DigestType, str]]:
+def extract_digest(metadata: dict) -> Optional[Dict[models.DigestType, str]]:
     if "digest" in metadata:
         return {models.DigestType[metadata["digest_type"]]: metadata["digest"]}
     else:
@@ -593,6 +707,7 @@ FIELD_EXTRACTORS: Dict[str, Callable[[dict], Any]] = {
     "wasGeneratedBy": extract_session,
     "age": extract_age,
     "sex": extract_sex,
+    "strain": extract_strain,
     "assayType": extract_assay_type,
     "anatomy": extract_anatomy,
     "digest": extract_digest,
@@ -608,10 +723,7 @@ def extract_field(field: str, metadata: dict) -> Any:
 
 
 if TYPE_CHECKING:
-    if sys.version_info >= (3, 8):
-        from typing import TypedDict
-    else:
-        from typing_extensions import TypedDict
+    from .support.typing import TypedDict
 
     class Neurodatum(TypedDict):
         module: str
@@ -810,9 +922,7 @@ neurodata_typemap: Dict[str, Neurodatum] = {
 }
 
 
-def process_ndtypes(
-    asset: models.BareAsset, nd_types: Iterable[str]
-) -> models.BareAsset:
+def process_ndtypes(metadata: models.BareAsset, nd_types: Iterable[str]) -> None:
     approach = set()
     technique = set()
     variables = set()
@@ -825,16 +935,15 @@ def process_ndtypes(
         if neurodata_typemap[val]["technique"]:
             technique.add(neurodata_typemap[val]["technique"])
         variables.add(val)
-    asset.approach = [models.ApproachType(name=val) for val in approach]
-    asset.measurementTechnique = [
+    metadata.approach = [models.ApproachType(name=val) for val in approach]
+    metadata.measurementTechnique = [
         models.MeasurementTechniqueType(name=val) for val in technique
     ]
-    asset.variableMeasured = [models.PropertyValue(value=val) for val in variables]
-    return asset
+    metadata.variableMeasured = [models.PropertyValue(value=val) for val in variables]
 
 
 def nwb2asset(
-    nwb_path: Union[str, Path],
+    nwb_path: str | Path | Readable,
     digest: Optional[Digest] = None,
     schema_version: Optional[str] = None,
 ) -> models.BareAsset:
@@ -846,48 +955,64 @@ def nwb2asset(
             )
     start_time = datetime.now().astimezone()
     metadata = get_metadata(nwb_path)
-    if digest is not None:
-        metadata["digest"] = digest.value
-        metadata["digest_type"] = digest.algorithm.name
-    metadata["contentSize"] = op.getsize(nwb_path)
-    metadata["encodingFormat"] = "application/x-nwb"
-    metadata["dateModified"] = get_utcnow_datetime()
-    metadata["blobDateModified"] = ensure_datetime(os.stat(nwb_path).st_mtime)
-    metadata["path"] = str(nwb_path)
-    if metadata["blobDateModified"] > metadata["dateModified"]:
-        lgr.warning(
-            "mtime %s of %s is in the future", metadata["blobDateModified"], nwb_path
-        )
-    asset = metadata2asset(metadata)
-    asset = process_ndtypes(asset, metadata["nd_types"])
+    asset_md = prepare_metadata(metadata)
+    process_ndtypes(asset_md, metadata["nd_types"])
     end_time = datetime.now().astimezone()
-    if asset.wasGeneratedBy is None:
-        asset.wasGeneratedBy = []
-    asset.wasGeneratedBy.append(get_generator(start_time, end_time))
-    return asset
+    add_common_metadata(asset_md, nwb_path, start_time, end_time, digest)
+    asset_md.encodingFormat = "application/x-nwb"
+    # This gets overwritten with a better value by the caller:
+    if isinstance(nwb_path, Readable):
+        asset_md.path = nwb_path.get_filename()
+    else:
+        asset_md.path = str(nwb_path)
+    return asset_md
 
 
 def get_default_metadata(
-    path: Union[str, Path], digest: Optional[Digest] = None
+    path: str | Path | Readable, digest: Optional[Digest] = None
 ) -> models.BareAsset:
-    start_time = datetime.now().astimezone()
+    metadata = models.BareAsset.unvalidated()
+    start_time = end_time = datetime.now().astimezone()
+    add_common_metadata(metadata, path, start_time, end_time, digest)
+    return metadata
+
+
+def add_common_metadata(
+    metadata: models.BareAsset,
+    path: str | Path | Readable,
+    start_time: datetime,
+    end_time: datetime,
+    digest: Optional[Digest] = None,
+) -> None:
+    """
+    Update a `dict` of raw "schemadata" with the fields that are common to both
+    NWB assets and non-NWB assets
+    """
     if digest is not None:
-        digest_model = digest.asdict()
+        metadata.digest = digest.asdict()
     else:
-        digest_model = {}
-    dateModified = get_utcnow_datetime()
-    blobDateModified = ensure_datetime(os.stat(path).st_mtime)
-    if blobDateModified > dateModified:
-        lgr.warning("mtime %s of %s is in the future", blobDateModified, path)
-    end_time = datetime.now().astimezone()
-    return models.BareAsset.unvalidated(
-        contentSize=os.path.getsize(path),
-        digest=digest_model,
-        dateModified=dateModified,
-        blobDateModified=blobDateModified,
-        wasGeneratedBy=[get_generator(start_time, end_time)],
-        encodingFormat=get_mime_type(str(path)),
-    )
+        metadata.digest = {}
+    metadata.dateModified = get_utcnow_datetime()
+    if isinstance(path, Readable):
+        r = path
+    else:
+        r = LocalReadableFile(path)
+    mtime = r.get_mtime()
+    if mtime is not None:
+        metadata.blobDateModified = mtime
+        if mtime > metadata.dateModified:
+            lgr.warning("mtime %s of %s is in the future", mtime, r)
+    metadata.contentSize = r.get_size()
+    if digest is not None and digest.algorithm is models.DigestType.dandi_zarr_checksum:
+        m = re.fullmatch(
+            r"(?P<hash>[0-9a-f]{32})-(?P<files>[0-9]+)--(?P<size>[0-9]+)", digest.value
+        )
+        if m:
+            metadata.contentSize = int(m["size"])
+    if metadata.wasGeneratedBy is None:
+        metadata.wasGeneratedBy = []
+    metadata.wasGeneratedBy.append(get_generator(start_time, end_time))
+    metadata.encodingFormat = get_mime_type(r.get_filename())
 
 
 def get_generator(start_time: datetime, end_time: datetime) -> models.Activity:
@@ -904,11 +1029,19 @@ def get_generator(start_time: datetime, end_time: datetime) -> models.Activity:
                 schemaKey="Software",
             )
         ],
-        startedAt=start_time,
-        endedAt=end_time,
+        startDate=start_time,
+        endDate=end_time,
     )
 
 
-def metadata2asset(metadata: dict) -> models.BareAsset:
-    bare_dict = extract_model(models.BareAsset, metadata).json_dict()
-    return models.BareAsset(**bare_dict)
+def prepare_metadata(metadata: dict) -> models.BareAsset:
+    """
+    Convert "flatdata" [1]_ for an asset into "schemadata" [2]_ as a
+    `BareAsset`
+
+    .. [1] a flat `dict` mapping strings to strings & other primitive types;
+       returned by `get_metadata()`
+
+    .. [2] metadata in the form used by the ``dandischema`` library
+    """
+    return extract_model(models.BareAsset, metadata)

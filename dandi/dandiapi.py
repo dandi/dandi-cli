@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from collections import deque
-from dataclasses import dataclass, field, replace
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from fnmatch import fnmatchcase
 import json
 import os.path
 from pathlib import Path, PurePosixPath
@@ -25,12 +28,11 @@ from typing import (
     Union,
     cast,
 )
-from urllib.parse import unquote, urlparse, urlunparse
+from urllib.parse import quote_plus, urlparse, urlunparse
 
 import click
 from dandischema import models
-import dateutil.parser
-from pydantic import AnyHttpUrl, BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr
 import requests
 import tenacity
 
@@ -47,13 +49,14 @@ from .consts import (
 )
 from .exceptions import HTTP404Error, NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup
-from .misctypes import BasePath, Digest
+from .misctypes import Digest, RemoteReadableAsset
 from .utils import (
     USER_AGENT,
     check_dandi_version,
     chunked,
     ensure_datetime,
     is_interactive,
+    is_page2_url,
 )
 
 lgr = get_logger()
@@ -76,6 +79,15 @@ class AssetType(Enum):
 
     BLOB = 1
     ZARR = 2
+
+
+class VersionStatus(Enum):
+    PENDING = "Pending"
+    VALIDATING = "Validating"
+    VALID = "Valid"
+    INVALID = "Invalid"
+    PUBLISHING = "Publishing"
+    PUBLISHED = "Published"
 
 
 # Following class is loosely based on GirderClient, with authentication etc
@@ -114,6 +126,11 @@ class RESTFullAPIClient:
         if headers is not None:
             session.headers.update(headers)
         self.session = session
+        #: Default number of items to request per page when paginating (`None`
+        #: means to use the server's default)
+        self.page_size: Optional[int] = None
+        #: How many pages to fetch at once when parallelizing pagination
+        self.page_workers: int = 5
 
     def __enter__(self: T) -> T:
         return self
@@ -137,6 +154,7 @@ class RESTFullAPIClient:
         headers: Optional[dict] = None,
         json_resp: bool = True,
         retry_statuses: Sequence[int] = (),
+        retry_if: Optional[Callable[[requests.Response], Any]] = None,
         **kwargs: Any,
     ) -> Any:
         """
@@ -180,6 +198,8 @@ class RESTFullAPIClient:
         :type json_resp: bool
         :param retry_statuses: a sequence of HTTP response status codes to
             retry in addition to `dandi.consts.RETRY_STATUSES`
+        :param retry_if: an optional predicate applied to a failed HTTP
+            response to test whether to retry
         """
 
         url = self.get_url(path)
@@ -219,7 +239,9 @@ class RESTFullAPIClient:
                         headers=headers,
                         **kwargs,
                     )
-                    if result.status_code in [*RETRY_STATUSES, *retry_statuses]:
+                    if result.status_code in [*RETRY_STATUSES, *retry_statuses] or (
+                        retry_if is not None and retry_if(result)
+                    ):
                         result.raise_for_status()
         except Exception:
             lgr.exception("HTTP connection failed")
@@ -244,6 +266,10 @@ class RESTFullAPIClient:
                 lgr.debug("%s: %s", msg, result.text)
             else:
                 lgr.error("%s: %s", msg, result.text)
+            if len(result.text) <= 1024:
+                msg += f": {result.text}"
+            else:
+                msg += f": {result.text[:1024]}... [{len(result.text)}-char response truncated]"
             if result.status_code == 404:
                 raise HTTP404Error(msg, response=result)
             else:
@@ -306,25 +332,69 @@ class RESTFullAPIClient:
         path: str,
         page_size: Optional[int] = None,
         params: Optional[dict] = None,
-        **kwargs: Any,
     ) -> Iterator:
         """
         Paginate through the resources at the given path: GET the path, yield
         the values in the ``"results"`` key, and repeat with the URL in the
         ``"next"`` key until it is ``null``.
+
+        If the first ``"next"`` key is the same as the initially-requested URL
+        but with the ``page`` query parameter set to ``2``, then the remaining
+        pages are fetched concurrently in separate threads, `page_workers`
+        (default 5) at a time.  This behavior requires the initial response to
+        contain a ``"count"`` key giving the number of items across all pages.
+
+        :param Optional[int] page_size:
+            If non-`None`, overrides the client's `page_size` attribute for
+            this sequence of pages
         """
+        if page_size is None:
+            page_size = self.page_size
         if page_size is not None:
             if params is None:
                 params = {}
             params["page_size"] = page_size
-        r = self.get(path, params=params, **kwargs)
-        while True:
-            for item in r["results"]:
-                yield item
-            if r.get("next"):
-                r = self.get(r["next"])
-            else:
-                break
+
+        resp = self.get(path, params=params, json_resp=False)
+        r = resp.json()
+        if r["next"] is not None:
+            page1 = resp.history[0].url if resp.history else resp.url
+            if not is_page2_url(page1, r["next"]):
+                if os.environ.get("DANDI_PAGINATION_DISABLE_FALLBACK"):
+                    raise RuntimeError(
+                        f"API server changed pagination strategy: {page1} URL"
+                        f" is now followed by {r['next']}"
+                    )
+                else:
+                    while True:
+                        yield from r["results"]
+                        if r.get("next"):
+                            r = self.get(r["next"])
+                        else:
+                            return
+        yield from r["results"]
+        if r["next"] is None:
+            return
+
+        if page_size is None:
+            page_size = len(r["results"])
+        pages = (r["count"] + page_size - 1) // page_size
+
+        def get_page(pageno: int) -> list:
+            params2 = params.copy() if params is not None else {}
+            params2["page"] = pageno
+            results = self.get(path, params=params2)["results"]
+            assert isinstance(results, list)
+            return results
+
+        with ThreadPoolExecutor(max_workers=self.page_workers) as pool:
+            futures = [pool.submit(get_page, i) for i in range(2, pages + 1)]
+            try:
+                for f in futures:
+                    yield from f.result()
+            finally:
+                for f in futures:
+                    f.cancel()
 
 
 class DandiAPIClient(RESTFullAPIClient):
@@ -403,6 +473,7 @@ class DandiAPIClient(RESTFullAPIClient):
         # Shortcut for advanced folks
         api_key = os.environ.get("DANDI_API_KEY", None)
         if api_key:
+            lgr.debug("Using api key from DANDI_API_KEY environment variable")
             self.authenticate(api_key)
             return
         if self.api_url in known_instances_rev:
@@ -417,6 +488,10 @@ class DandiAPIClient(RESTFullAPIClient):
                 api_key = input(f"Please provide API Key for {client_name}: ")
                 key_from_keyring = False
             try:
+                lgr.debug(
+                    "Using API key from %s",
+                    {True: "keyring", False: "user input"}[key_from_keyring],
+                )
                 self.authenticate(api_key)
             except requests.HTTPError:
                 if is_interactive() and click.confirm(
@@ -518,11 +593,11 @@ class DandiAPIClient(RESTFullAPIClient):
         method must be used instead.
         """
         try:
-            return BaseRemoteAsset.from_base_data(
-                self, self.get(f"/assets/{asset_id}/info/")
-            )
+            info = self.get(f"/assets/{asset_id}/info/")
         except HTTP404Error:
             raise NotFoundError(f"No such asset: {asset_id!r}")
+        metadata = info.pop("metadata", None)
+        return BaseRemoteAsset.from_base_data(self, info, metadata)
 
 
 class APIBase(BaseModel):
@@ -574,9 +649,35 @@ class Version(APIBase):
     created: datetime
     #: The timestamp at which the version was last modified
     modified: datetime
+    status: VersionStatus
 
     def __str__(self) -> str:
         return self.identifier
+
+
+class RemoteValidationError(APIBase):
+    """
+    .. versionadded:: 0.49.0
+
+    Validation error record obtained from a server.  Not to be confused with
+    :class:`dandi.validate_types.ValidationResult`, which provides richer
+    representation of validation errors.
+    """
+
+    field: str
+    message: str
+
+
+class VersionInfo(Version):
+    """
+    .. versionadded:: 0.49.0
+
+    Version information for a Dandiset, including information about validation
+    errors
+    """
+
+    asset_validation_errors: List[RemoteValidationError]
+    version_validation_errors: List[RemoteValidationError]
 
 
 class RemoteDandisetData(APIBase):
@@ -788,23 +889,37 @@ class RemoteDandiset:
         # Clear _version so it will be refetched the next time it is accessed
         self._version = None
 
-    def get_versions(self) -> Iterator[Version]:
-        """Returns an iterator of all available `Version`\\s for the Dandiset"""
+    def get_versions(self, order: Optional[str] = None) -> Iterator[Version]:
+        """
+        Returns an iterator of all available `Version`\\s for the Dandiset
+
+        Versions can be sorted by a given field by passing the name of that
+        field as the ``order`` parameter.  Currently, the only accepted field
+        name is ``"created"``.  Prepend a hyphen to the field name to reverse
+        the sort order.
+        """
         try:
-            for v in self.client.paginate(f"{self.api_path}versions/"):
+            for v in self.client.paginate(
+                f"{self.api_path}versions/", params={"order": order}
+            ):
                 yield Version.parse_obj(v)
         except HTTP404Error:
             raise NotFoundError(f"No such Dandiset: {self.identifier!r}")
 
-    def get_version(self, version_id: str) -> Version:
+    def get_version(self, version_id: str) -> VersionInfo:
         """
         Get information about a given version of the Dandiset.  If the given
         version does not exist, a `NotFoundError` is raised.
+
+        .. versionchanged:: 0.49.0
+
+            This method now returns a `VersionInfo` instance instead of just a
+            `Version`.
         """
         try:
-            return Version.parse_obj(
+            return VersionInfo.parse_obj(
                 self.client.get(
-                    f"/dandisets/{self.identifier}/versions/{version_id}/info"
+                    f"/dandisets/{self.identifier}/versions/{version_id}/info/"
                 )
             )
         except HTTP404Error:
@@ -878,36 +993,49 @@ class RemoteDandiset:
         lgr.debug("Waiting for Dandiset %s to complete validation ...", self.identifier)
         start = time()
         while time() - start < max_time:
-            try:
-                r = self.client.get(f"{self.version_api_path}info/")
-            except HTTP404Error:
-                raise NotFoundError(
-                    f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
-                )
-            if "status" not in r:
-                # Running against older version of dandi-api that doesn't
-                # validate
-                return
-            if r["status"] == "Valid":
+            v = self.get_version(self.version_id)
+            if v.status is VersionStatus.VALID:
                 return
             sleep(0.5)
         # TODO: Improve the presentation of the error messages
         about = {
-            "asset_validation_errors": r.get("asset_validation_errors"),
-            "version_validation_errors": r.get("version_validation_errors"),
+            "asset_validation_errors": [
+                e.json_dict() for e in v.asset_validation_errors
+            ],
+            "version_validation_errors": [
+                e.json_dict() for e in v.version_validation_errors
+            ],
         }
         raise ValueError(
-            f"Dandiset {self.identifier} is {r['status']}: {json.dumps(about, indent=4)}"
+            f"Dandiset {self.identifier} is {v.status.value}: {json.dumps(about, indent=4)}"
         )
 
-    def publish(self) -> "RemoteDandiset":
+    def publish(self, max_time: float = 120) -> "RemoteDandiset":
         """
-        Publish this version of the Dandiset.  Returns a copy of the
-        `RemoteDandiset` with the `version` attribute set to the new published
-        `Version`.
+        Publish the draft version of the Dandiset and wait at most ``max_time``
+        seconds for the publication operation to complete.  If the operation
+        does not complete in time, a `ValueError` is raised.
+
+        Returns a copy of the `RemoteDandiset` with the `version` attribute set
+        to the new published `Version`.
         """
-        return self.for_version(
-            Version.parse_obj(self.client.post(f"{self.version_api_path}publish/"))
+        draft_api_path = f"/dandisets/{self.identifier}/versions/draft/"
+        self.client.post(f"{draft_api_path}publish/")
+        lgr.debug(
+            "Waiting for Dandiset %s to complete publication ...", self.identifier
+        )
+        start = time()
+        while time() - start < max_time:
+            v = Version.parse_obj(self.client.get(f"{draft_api_path}info/"))
+            if v.status is VersionStatus.PUBLISHED:
+                break
+            sleep(0.5)
+        else:
+            raise ValueError(f"Dandiset {self.identifier} did not publish in time")
+        for v in self.get_versions(order="-created"):
+            return self.for_version(v)
+        raise AssertionError(
+            f"No published versions found for Dandiset {self.identifier}"
         )
 
     def get_assets(self, order: Optional[str] = None) -> Iterator["RemoteAsset"]:
@@ -935,12 +1063,11 @@ class RemoteDandiset:
         ID.  If the given asset does not exist, a `NotFoundError` is raised.
         """
         try:
-            metadata = self.client.get(f"{self.version_api_path}assets/{asset_id}/")
+            info = self.client.get(f"{self.version_api_path}assets/{asset_id}/info/")
         except HTTP404Error:
             raise NotFoundError(f"No such asset: {asset_id!r} for {self}")
-        asset = self.get_asset_by_path(metadata["path"])
-        asset._metadata = metadata
-        return asset
+        metadata = info.pop("metadata", None)
+        return RemoteAsset.from_data(self, info, metadata)
 
     def get_assets_with_path_prefix(
         self, path: str, order: Optional[str] = None
@@ -958,6 +1085,31 @@ class RemoteDandiset:
             for a in self.client.paginate(
                 f"{self.version_api_path}assets/",
                 params={"path": path, "order": order},
+            ):
+                yield RemoteAsset.from_data(self, a)
+        except HTTP404Error:
+            raise NotFoundError(
+                f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
+            )
+
+    def get_assets_by_glob(
+        self, pattern: str, order: Optional[str] = None
+    ) -> Iterator["RemoteAsset"]:
+        """
+        .. versionadded:: 0.44.0
+
+        Returns an iterator of all assets in this version of the Dandiset whose
+        `~RemoteAsset.path` attributes match the glob pattern ``pattern``
+
+        Assets can be sorted by a given field by passing the name of that field
+        as the ``order`` parameter.  The accepted field names are
+        ``"created"``, ``"modified"``, and ``"path"``.  Prepend a hyphen to the
+        field name to reverse the sort order.
+        """
+        try:
+            for a in self.client.paginate(
+                f"{self.version_api_path}assets/",
+                params={"glob": pattern, "order": order},
             ):
                 yield RemoteAsset.from_data(self, a)
         except HTTP404Error:
@@ -1146,7 +1298,7 @@ class BaseRemoteAsset(ABC, APIBase):
 
     @classmethod
     def from_base_data(
-        self,
+        cls,
         client: "DandiAPIClient",
         data: Dict[str, Any],
         metadata: Optional[Dict[str, Any]] = None,
@@ -1278,19 +1430,22 @@ class BaseRemoteAsset(ABC, APIBase):
             raise NotFoundError(
                 "No matching URL found in asset's contentUrl metadata field"
             )
-        if follow_redirects is True:
-            url = self.client.request(
-                "HEAD", url, json_resp=False, allow_redirects=True
-            ).url
-        elif follow_redirects:
-            for _ in range(follow_redirects):
-                r = self.client.request(
-                    "HEAD", url, json_resp=False, allow_redirects=False
-                )
-                if "Location" in r.headers:
-                    url = r.headers["Location"]
-                else:
-                    break
+        try:
+            if follow_redirects is True:
+                url = self.client.request(
+                    "HEAD", url, json_resp=False, allow_redirects=True
+                ).url
+            elif follow_redirects:
+                for _ in range(follow_redirects):
+                    r = self.client.request(
+                        "HEAD", url, json_resp=False, allow_redirects=False
+                    )
+                    if "Location" in r.headers:
+                        url = r.headers["Location"]
+                    else:
+                        break
+        except requests.HTTPError as e:
+            url = e.request.url
         if strip_query:
             url = urlunparse(urlparse(url)._replace(query=""))
         return url
@@ -1387,6 +1542,34 @@ class BaseRemoteBlobAsset(BaseRemoteAsset):
         """
         return AssetType.BLOB
 
+    def as_readable(self) -> RemoteReadableAsset:
+        """
+        .. versionadded:: 0.50.0
+
+        Returns a `Readable` instance that can be used to obtain a file-like
+        object for reading bytes directly from the asset on the server
+        """
+        md = self.get_raw_metadata()
+        local_prefix = self.client.api_url.lower()
+        for url in md.get("contentUrl", []):
+            if not url.lower().startswith(local_prefix):
+                # This must be the S3 URL
+                try:
+                    size = int(md["contentSize"])
+                except (KeyError, TypeError, ValueError):
+                    lgr.warning('"contentSize" not set for asset %s', self.identifier)
+                    r = requests.head(url)
+                    r.raise_for_status()
+                    size = int(r.headers["Content-Length"])
+                mtime: Optional[datetime]
+                try:
+                    mtime = ensure_datetime(md["blobDateModified"])
+                except (KeyError, TypeError, ValueError):
+                    mtime = None
+                name = PurePosixPath(md["path"]).name
+                return RemoteReadableAsset(url=url, size=size, mtime=mtime, name=name)
+        raise NotFoundError("S3 URL not found in asset's contentUrl metadata field")
+
 
 class BaseRemoteZarrAsset(BaseRemoteAsset):
     """
@@ -1407,23 +1590,31 @@ class BaseRemoteZarrAsset(BaseRemoteAsset):
         """
         return AssetType.ZARR
 
-    @property
-    def filetree(self) -> "RemoteZarrEntry":
+    def iterfiles(self, prefix: Optional[str] = None) -> Iterator[RemoteZarrEntry]:
         """
-        The `RemoteZarrEntry` for the root of the hierarchy of files within the
-        Zarr
+        Returns a generator of all `RemoteZarrEntry`\\s within the Zarr,
+        optionally limited to those whose path starts with the given prefix
         """
-        return RemoteZarrEntry(
-            client=self.client, zarr_id=self.zarr, parts=(), _known_dir=True
-        )
+        for r in self.client.paginate(
+            f"{self.client.api_url}/zarr/{self.zarr}/files", params={"prefix": prefix}
+        ):
+            data = ZarrEntryServerData.parse_obj(r)
+            yield RemoteZarrEntry.from_server_data(self, data)
 
-    def iterfiles(self, include_dirs: bool = False) -> Iterator["RemoteZarrEntry"]:
+    def get_entry_by_path(self, path: str) -> RemoteZarrEntry:
         """
-        Returns a generator of all `RemoteZarrEntry`\\s within the Zarr.  By
-        default, only instances for files are produced, unless ``include_dirs``
-        is true.
+        Fetch the entry in this Zarr whose `~RemoteZarrEntry.path` equals
+        ``path``.  If the given entry does not exist, a `NotFoundError` is
+        raised.
         """
-        return self.filetree.iterfiles(include_dirs=include_dirs)
+        try:
+            # Weed out any entries that happen to have the given path as a
+            # proper prefix:
+            (entry,) = (e for e in self.iterfiles(prefix=path) if str(e) == path)
+        except ValueError:
+            raise NotFoundError(f"No entry at path {path!r}")
+        else:
+            return entry
 
     def rmfiles(
         self, files: Iterable["RemoteZarrEntry"], reingest: bool = True
@@ -1444,7 +1635,7 @@ class BaseRemoteZarrAsset(BaseRemoteAsset):
                 json=[{"path": str(e)} for e in entries],
             )
         if reingest:
-            self.client.post(f"/zarr/{self.zarr}/ingest/")
+            self.client.post(f"/zarr/{self.zarr}/finalize/")
             while True:
                 sleep(2)
                 r = self.client.get(f"/zarr/{self.zarr}/")
@@ -1547,6 +1738,18 @@ class RemoteAsset(BaseRemoteAsset):
         """
         ...
 
+    def rename(self, dest: str) -> None:
+        """
+        .. versionadded:: 0.41.0
+
+        Change the path of the asset on the server to the given value and
+        update the `RemoteAsset` in place.  If another asset already exists at
+        the given path, a `requests.HTTPError` is raised.
+        """
+        md = self.get_raw_metadata().copy()
+        md["path"] = dest
+        self.set_raw_metadata(md)
+
     def delete(self) -> None:
         """Delete the asset"""
         self.client.delete(self.api_path)
@@ -1598,238 +1801,94 @@ class RemoteZarrAsset(RemoteAsset, BaseRemoteZarrAsset):
         self._metadata = data["metadata"]
 
 
-class ZarrListing(BaseModel):
-    """
-    .. versionadded:: 0.36.0
-
-    Information about a directory within a `RemoteZarrAsset`
-    """
-
-    #: API URLs for the listings of the directory's subdirectories
-    directories: List[AnyHttpUrl]
-    #: API URLs for downloading the files in the directory
-    files: List[AnyHttpUrl]
-    #: The checksums (MD5 or Dandi Zarr checksum, as appropriate) for the
-    #: directory's entries, as a mapping from basenames to checksums
-    checksums: Dict[str, str]
-    #: The Dandi Zarr checksum for the directory
-    checksum: str
-
-    @property
-    def dirnames(self) -> List[str]:
-        """The basenames of the directory URLs in `directories`"""
-        return [PurePosixPath(unquote(url.path or "")).name for url in self.directories]
-
-    @property
-    def filenames(self) -> List[str]:
-        """The basenames of the file URLs in `files`"""
-        return [PurePosixPath(unquote(url.path or "")).name for url in self.files]
-
-
 @dataclass
-class ZarrEntryStat:
+class RemoteZarrEntry:
     """
     .. versionadded:: 0.36.0
 
-    Combined size & timestamp information for a file in a `RemoteZarrAsset`
-    """
+    A file within a `RemoteZarrAsset`
 
-    #: The size of the file
-    size: int
-    #: The time at which the file was last modified
-    modified: datetime
+    .. versionchanged:: 0.48.0
 
-
-@dataclass
-class RemoteZarrEntry(BasePath):
-    """
-    .. versionadded:: 0.36.0
-
-    A file or directory within a `RemoteZarrAsset`.  Implements
-    `~dandi.misctypes.BasePath`.
+        - No longer represents directories
+        - No longer implements `~dandi.misctypes.BasePath`
     """
 
     #: The `DandiAPIClient` instance used for API requests
     client: DandiAPIClient
     #: The ID of the Zarr backing the asset
     zarr_id: str
-    _known_dir: Optional[bool] = field(default=None, compare=False, repr=False)
-    _digest: Optional[Digest] = field(default=None, compare=False, repr=False)
+    #: The path components of the entry
+    parts: tuple[str, ...]
+    #: The timestamp at which the entry was last modified
+    modified: datetime
+    #: The entry's digest
+    digest: Digest
+    #: The entry's size in bytes
+    size: int
 
-    def _get_subpath(
-        self, name: str, isdir: Optional[bool] = None, checksum: Optional[str] = None
-    ) -> "RemoteZarrEntry":
-        if not name or "/" in name:
-            raise ValueError(f"Invalid path component: {name!r}")
-        elif name == ".":
-            return self
-        elif name == "..":
-            return self.parent
-        else:
-            if checksum is not None and isdir is not None:
-                if isdir:
-                    algorithm = models.DigestType.dandi_zarr_checksum
-                else:
-                    algorithm = models.DigestType.md5
-                digest = Digest(algorithm=algorithm, value=checksum)
-            else:
-                digest = None
-            return replace(
-                self, parts=self.parts + (name,), _known_dir=isdir, _digest=digest
-            )
-
-    @property
-    def parent(self) -> "RemoteZarrEntry":
-        if self.is_root():
-            return self
-        else:
-            return replace(
-                self,
-                parts=self.parts[:-1],
-                _known_dir=True if self._known_dir is not None else None,
-                _digest=None,
-            )
-
-    def _isdir(self) -> bool:
-        if self._known_dir is not None:
-            return self._known_dir
-        elif self.is_root():
-            try:
-                self.client.get(f"/zarr/{self.zarr_id}/")
-            except HTTP404Error:
-                raise NotFoundError(f"No such Zarr: {self.zarr_id!r}")
-            return True
-        else:
-            listing = self.parent.get_listing()
-            if self.name in listing.dirnames:
-                return True
-            elif self.name in listing.filenames:
-                return False
-            else:
-                raise NotFoundError(
-                    f"No such entry {str(self)!r} in Zarr {self.zarr_id!r}"
-                )
-
-    def exists(self) -> bool:
-        try:
-            self._isdir()
-        except NotFoundError:
-            return False
-        else:
-            return True
-
-    def is_file(self) -> bool:
-        try:
-            return not self._isdir()
-        except NotFoundError:
-            return False
-
-    def is_dir(self) -> bool:
-        try:
-            return self._isdir()
-        except NotFoundError:
-            return False
-
-    def iterdir(self) -> Iterator["RemoteZarrEntry"]:
-        listing = self.get_listing()
-        for name in listing.dirnames:
-            if name == "." or name == "..":
-                continue
-            yield self._get_subpath(name, isdir=True, checksum=listing.checksums[name])
-        for name in listing.filenames:
-            yield self._get_subpath(name, isdir=False, checksum=listing.checksums[name])
-
-    def get_digest(self) -> Digest:
-        """
-        Retrieve the DANDI etag digest for the entry.  If the entry is a
-        directory, the algorithm will be the Dandi Zarr checksum algorithm; if
-        it is a file, it will be MD5.
-
-        :raises NotFoundError: if the path does not exist in the Zarr asset
-        """
-        if self._digest is not None:
-            # `self` was returned by `parent.iterdir()`, which iterated over a
-            # ZarrListing and thus had access to the checksum, which it stored
-            # on `self`; use that value.
-            return self._digest
-        if self.is_root():
-            algorithm = models.DigestType.dandi_zarr_checksum
-            value = self.get_listing().checksum
-        else:
-            listing = self.parent.get_listing()
-            if self.name in listing.dirnames:
-                algorithm = models.DigestType.dandi_zarr_checksum
-            elif self.name in listing.filenames:
-                algorithm = models.DigestType.md5
-            else:
-                raise NotFoundError(
-                    f"No such entry {str(self)!r} in Zarr {self.zarr_id!r}"
-                )
-            value = listing.checksums[self.name]
-        return Digest(algorithm=algorithm, value=value)
-
-    @property
-    def size(self) -> int:
-        """
-        The size of the entry, which must be a file
-
-        :raises NotFoundError: if the path does not exist in the Zarr asset
-        :raises ValueError: if the path is a directory
-        """
-        return self.stat().size
-
-    @property
-    def modified(self) -> datetime:
-        """
-        The time at which the entry (which must be a file) was last modified
-
-        :raises NotFoundError: if the path does not exist in the Zarr asset
-        :raises ValueError: if the path is a directory
-        """
-        return self.stat().modified
-
-    def stat(self) -> ZarrEntryStat:
-        """
-        Return combined size & timestamp information for the entry, which must
-        be a file
-
-        :raises NotFoundError: if the path does not exist in the Zarr asset
-        :raises ValueError: if the path is a directory
-        """
-        if not self.is_file():
-            raise ValueError("Cannot stat directories in Zarrs")
-        try:
-            r = self.client.request(
-                "HEAD",
-                f"/zarr/{self.zarr_id}.zarr/{'/'.join(self.parts)}",
-                json_resp=False,
-                allow_redirects=True,
-            )
-        except HTTP404Error:
-            raise NotFoundError(
-                f"{str(self)!r} in Zarr {self.zarr_id!r} does not exist"
-            )
-        return ZarrEntryStat(
-            size=int(r.headers["Content-Length"]),
-            modified=dateutil.parser.parse(r.headers["Last-Modified"]),
+    @classmethod
+    def from_server_data(
+        cls, asset: BaseRemoteZarrAsset, data: ZarrEntryServerData
+    ) -> RemoteZarrEntry:
+        """:meta private:"""
+        return cls(
+            client=asset.client,
+            zarr_id=asset.zarr,
+            parts=tuple(data.key.split("/")),
+            modified=data.last_modified,
+            digest=Digest(algorithm=models.DigestType.md5, value=data.etag),
+            size=data.size,
         )
 
-    def get_listing(self) -> ZarrListing:
-        """
-        Return the `ZarrListing` for the entry, which must be a directory
+    def __str__(self) -> str:
+        return "/".join(self.parts)
 
-        :raises NotFoundError:
-            if the path does not exist in the Zarr asset or is not a directory
-        """
-        path = "".join(p + "/" for p in self.parts)
-        try:
-            r = self.client.get(f"/zarr/{self.zarr_id}.zarr/{path}")
-        except HTTP404Error:
-            raise NotFoundError(
-                f"{str(self)!r} in Zarr {self.zarr_id!r} does not exist or is"
-                " not a directory"
-            )
-        return ZarrListing.parse_obj(r)
+    @property
+    def name(self) -> str:
+        """The basename of the path object"""
+        assert self.parts
+        return self.parts[-1]
+
+    @property
+    def suffix(self) -> str:
+        """The final file extension of the basename, if any"""
+        i = self.name.rfind(".")
+        if 0 < i < len(self.name) - 1:
+            return self.name[i:]
+        else:
+            return ""
+
+    @property
+    def suffixes(self) -> List[str]:
+        """A list of the basename's file extensions"""
+        if self.name.endswith("."):
+            return []
+        name = self.name.lstrip(".")
+        return ["." + suffix for suffix in name.split(".")[1:]]
+
+    @property
+    def stem(self) -> str:
+        """The basename without its final file extension, if any"""
+        i = self.name.rfind(".")
+        if 0 < i < len(self.name) - 1:
+            return self.name[:i]
+        else:
+            return self.name
+
+    def match(self, pattern: str) -> bool:
+        """Tests whether the path matches the given glob pattern"""
+        if pattern.startswith("/"):
+            raise ValueError(f"Absolute paths not allowed: {pattern!r}")
+        patparts = tuple(q for q in pattern.split("/") if q)
+        if not patparts:
+            raise ValueError("Empty pattern")
+        if len(patparts) > len(self.parts):
+            return False
+        for part, pat in zip(reversed(self.parts), reversed(patparts)):
+            if not fnmatchcase(part, pat):
+                return False
+        return True
 
     def get_download_file_iter(
         self, chunk_size: int = MAX_CHUNK_SIZE
@@ -1838,13 +1897,10 @@ class RemoteZarrEntry(BasePath):
         Returns a function that when called (optionally with an offset into the
         file to start downloading at) returns a generator of chunks of the file
         """
-        if not self.is_file():
-            raise RuntimeError(
-                f"{str(self)!r} in Zarr {self.zarr_id!r} does not exist or"
-                " is not a file"
-            )
-
-        url = self.client.get_url(f"/zarr/{self.zarr_id}.zarr/{'/'.join(self.parts)}")
+        prefix = quote_plus(str(self))
+        url = self.client.get_url(
+            f"/zarr/{self.zarr_id}/files?prefix={prefix}&download=true"
+        )
 
         def downloader(start_at: int = 0) -> Iterator[bytes]:
             lgr.debug("Starting download from %s", url)
@@ -1862,33 +1918,16 @@ class RemoteZarrEntry(BasePath):
 
         return downloader
 
-    def iterfiles(self, include_dirs: bool = False) -> Iterator["RemoteZarrEntry"]:
-        """
-        Returns a generator of all `RemoteZarrEntry`\\s under the directory.
-        By default, only instances for files are produced, unless
-        ``include_dirs`` is true.
-        """
-        dirs = deque([self])
-        while dirs:
-            d = dirs.popleft()
-            try:
-                subpaths = list(d.iterdir())
-            except NotFoundError:
-                if d.is_root():
-                    # Empty zarr; can happen if an upload is interrupted during
-                    # the initial batch
-                    return
-                else:
-                    raise
-            for p in subpaths:
-                if p.is_dir():
-                    dirs.append(p)
-                    if include_dirs:
-                        yield p
-                else:
-                    yield p
 
-    def clear_cache(self) -> None:
-        """Delete any locally-cached data about the entry"""
-        self._known_dir = None
-        self._digest = None
+class ZarrEntryServerData(BaseModel):
+    """
+    Intermediate structure used for parsing details on a Zarr entry returned by
+    the server
+
+    :meta private:
+    """
+
+    key: str = Field(alias="Key")
+    last_modified: datetime = Field(alias="LastModified")
+    etag: str = Field(alias="ETag")
+    size: int = Field(alias="Size")

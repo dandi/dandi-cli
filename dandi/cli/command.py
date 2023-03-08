@@ -109,6 +109,10 @@ def main(ctx, log_level, pdb=False):
         datefmt="%Y-%m-%dT%H:%M:%S%z",
     )
     handler.setFormatter(fmter)
+    if log_level > logging.DEBUG:
+        handler.addFilter(
+            lambda r: r.name != "pyout" and not r.name.startswith("pyout.")
+        )
     root.addHandler(handler)
 
     lgr.info(
@@ -143,7 +147,9 @@ from .cmd_digest import digest  # noqa: E402
 from .cmd_download import download  # noqa: E402
 from .cmd_instances import instances  # noqa: E402
 from .cmd_ls import ls  # noqa: E402
+from .cmd_move import move  # noqa: E402
 from .cmd_organize import organize  # noqa: E402
+from .cmd_service_scripts import service_scripts  # noqa: E402
 from .cmd_shell_completion import shell_completion  # noqa: E402
 from .cmd_upload import upload  # noqa: E402
 from .cmd_validate import validate, validate_bids  # noqa: E402
@@ -154,7 +160,9 @@ __all_commands__ = (
     download,
     instances,
     ls,
+    move,
     organize,
+    service_scripts,
     shell_completion,
     upload,
     validate,

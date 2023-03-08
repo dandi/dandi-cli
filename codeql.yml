@@ -1,0 +1,4 @@
+paths-ignore:
+  - dandi/_version.py
+  - dandi/due.py
+  - versioneer.py

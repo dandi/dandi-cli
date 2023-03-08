@@ -14,7 +14,6 @@
       "status": "dandi:OpenAccess"
     }
   ],
-  "repository": "https://dandiarchive.org/",
   "wasGeneratedBy": [
     {
       "schemaKey": "Session",
@@ -81,6 +80,10 @@
         "schemaKey": "SexType",
         "identifier": "http://purl.obolibrary.org/obo/PATO_0000384",
         "name": "Male"
+      },
+      "strain": {
+        "name": "abcdef/1",
+        "schemaKey": "StrainType"
       },
       "genotype": "Typical",
       "species": {

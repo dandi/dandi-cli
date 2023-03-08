@@ -36,6 +36,8 @@ metadata_nwb_computed_fields = (
     "nd_types",
 )
 
+metadata_bids_fields = ("bids_schema_version",)
+
 metadata_nwb_fields = (
     metadata_nwb_file_fields
     + metadata_nwb_subject_fields
@@ -63,7 +65,9 @@ metadata_dandiset_fields = (
     "number_of_tissue_samples",
 )
 
-metadata_all_fields = metadata_nwb_fields + metadata_dandiset_fields
+metadata_all_fields = (
+    metadata_bids_fields + metadata_nwb_fields + metadata_dandiset_fields
+)
 
 #: Regular expression for a valid Dandiset identifier.  This regex is not
 #: anchored.
@@ -75,7 +79,7 @@ PUBLISHED_VERSION_REGEX = r"[0-9]+\.[0-9]+\.[0-9]+"
 
 #: Regular expression for a valid Dandiset version identifier.  This regex is
 #: not anchored.
-VERSION_REGEX = fr"(?:{PUBLISHED_VERSION_REGEX}|draft)"
+VERSION_REGEX = rf"(?:{PUBLISHED_VERSION_REGEX}|draft)"
 
 
 class EmbargoStatus(Enum):
@@ -117,7 +121,7 @@ known_instances = {
         "https://api-staging.dandiarchive.org/api",
     ),
     "dandi-api-local-docker-tests": DandiInstance(
-        None, None, f"http://{instancehost}:8000/api"
+        f"http://{instancehost}:8085", None, f"http://{instancehost}:8000/api"
     ),
 }
 # to map back url: name
@@ -151,8 +155,10 @@ RETRY_STATUSES = (500, 502, 503, 504)
 VIDEO_FILE_EXTENSIONS = [".mp4", ".avi", ".wmv", ".mov", ".flv", ".mkv"]
 VIDEO_FILE_MODULES = ["processing", "acquisition"]
 
+ZARR_EXTENSIONS = [".ngff", ".zarr"]
+
 #: Maximum allowed depth of a Zarr directory tree
-MAX_ZARR_DEPTH = 5
+MAX_ZARR_DEPTH = 7
 
 #: MIME type assigned to & used to identify Zarr assets
 ZARR_MIME_TYPE = "application/x-zarr"
@@ -162,3 +168,33 @@ ZARR_UPLOAD_BATCH_SIZE = 255
 
 #: Maximum number of Zarr directory entries to delete at once
 ZARR_DELETE_BATCH_SIZE = 100
+
+BIDS_DATASET_DESCRIPTION = "dataset_description.json"
+
+# Fields which would be used to compose organized filenames
+# TODO: add full description into command --help etc
+# Order matters!
+dandi_layout_fields = {
+    # "type" - if not defined, additional
+    "subject_id": {"format": "sub-{}", "type": "required"},
+    "session_id": {"format": "_ses-{}"},
+    "tissue_sample_id": {"format": "_tis-{}"},
+    "slice_id": {"format": "_slice-{}"},
+    "cell_id": {"format": "_cell-{}"},
+    # disambiguation ones
+    "probe_ids": {"format": "_probe-{}", "type": "disambiguation"},
+    "obj_id": {
+        "format": "_obj-{}",
+        "type": "disambiguation",
+    },  # will be not id, but checksum of it to shorten
+    # "session_description"
+    "modalities": {"format": "_{}", "type": "required_if_not_empty"},
+    "extension": {"format": "{}", "type": "required"},
+}
+# verify no typos
+assert {v.get("type", "additional") for v in dandi_layout_fields.values()} == {
+    "required",
+    "disambiguation",
+    "additional",
+    "required_if_not_empty",
+}

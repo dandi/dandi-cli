@@ -9,6 +9,19 @@ Validate files for NWB and DANDI compliance.
 
 Exits with non-zero exit code if any file is not compliant.
 
+Options
+-------
+
+.. option:: -g, --grouping [none|path]
+
+    Set how to group reported errors & warnings: by path or not at all
+    (default)
+
+.. option:: --ignore REGEX
+
+    Ignore any validation errors & warnings whose ID matches the given regular
+    expression
+
 
 Development Options
 -------------------

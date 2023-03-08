@@ -1,6 +1,6 @@
 import json
 import os
-import os.path as op
+import os.path
 from pathlib import Path
 import re
 from shutil import rmtree
@@ -12,12 +12,12 @@ from pytest_mock import MockerFixture
 import responses
 import zarr
 
-from .fixtures import SampleDandiset
+from .fixtures import DandiAPI, SampleDandiset
 from .skip import mark
 from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
-from ..download import ProgressCombiner, download, download_generator
+from ..download import Downloader, ProgressCombiner, download, multiasset_target
 from ..utils import list_paths
 
 
@@ -32,7 +32,9 @@ from ..utils import list_paths
         "https://dandiarchive.org/dandiset/000027/draft",
     ],
 )
-def test_download_000027(url: str, tmp_path: Path) -> None:
+def test_download_000027(
+    url: str, tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
     ret = download(url, tmp_path)  # type: ignore[func-returns-value]
     assert not ret  # we return nothing ATM, might want to "generate"
     dsdir = tmp_path / "000027"
@@ -48,9 +50,14 @@ def test_download_000027(url: str, tmp_path: Path) -> None:
         Digester(["md5"])(dsdir / "sub-RAT123" / "sub-RAT123.nwb")["md5"]
         == "33318fd510094e4304868b4a481d4a5a"
     )
-    # redownload - since already exist there should be an exception
+    # redownload - since already exist there should be an exception if we are
+    # not using pyout
     with pytest.raises(FileExistsError):
-        download(url, tmp_path)
+        download(url, tmp_path, format="debug")
+    assert "FileExistsError" not in capsys.readouterr().out
+    # but  no exception is raised, and rather it gets output to pyout otherwise
+    download(url, tmp_path)
+    assert "FileExistsError" in capsys.readouterr().out
 
     # TODO: somehow get that status report about what was downloaded and what not
     download(url, tmp_path, existing="skip")  # TODO: check that skipped
@@ -116,12 +123,10 @@ def test_download_000027_resume(
     with (dldir / "checksum").open("w") as fp:
         json.dump(digests, fp)
     download(url, tmp_path, get_metadata=False)
-    contents = [
-        op.relpath(op.join(dirpath, entry), dsdir)
-        for (dirpath, dirnames, filenames) in os.walk(dsdir)
-        for entry in dirnames + filenames
+    assert list_paths(dsdir, dirs=True) == [
+        dsdir / "sub-RAT123",
+        dsdir / "sub-RAT123" / "sub-RAT123.nwb",
     ]
-    assert sorted(contents) == ["sub-RAT123", op.join("sub-RAT123", "sub-RAT123.nwb")]
     assert nwb.stat().st_size == size
     assert digester(str(nwb)) == digests
 
@@ -176,6 +181,17 @@ def test_download_asset_id_only(text_dandiset: SampleDandiset, tmp_path: Path) -
     download(asset.base_download_url, tmp_path)
     assert list_paths(tmp_path, dirs=True) == [tmp_path / "coconut.txt"]
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
+
+
+def test_download_asset_by_equal_prefix(
+    text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    download(
+        f"{text_dandiset.dandiset.version_api_url}assets/?path=subdir1/apple.txt",
+        tmp_path,
+    )
+    assert list_paths(tmp_path, dirs=True) == [tmp_path / "apple.txt"]
+    assert (tmp_path / "apple.txt").read_text() == "Apple\n"
 
 
 @pytest.mark.parametrize("confirm", [True, False])
@@ -279,29 +295,35 @@ def test_download_metadata404(text_dandiset: SampleDandiset, tmp_path: Path) -> 
     asset = text_dandiset.dandiset.get_asset_by_path("subdir1/apple.txt")
     responses.add(responses.GET, asset.api_url, status=404)
     statuses = list(
-        download_generator(
-            DandisetURL(
+        Downloader(
+            url=DandisetURL(
                 api_url=text_dandiset.client.api_url,
                 dandiset_id=text_dandiset.dandiset.identifier,
                 version_id=text_dandiset.dandiset.version_id,
             ),
-            tmp_path,
-        )
+            output_dir=tmp_path,
+            existing="error",
+            get_metadata=True,
+            get_assets=True,
+            jobs_per_zarr=None,
+            on_error="raise",
+        ).download_generator()
     )
     errors = [s for s in statuses if s.get("status") == "error"]
     assert errors == [
         {
-            "path": "subdir1/apple.txt",
+            "path": os.path.join(text_dandiset.dandiset_id, "subdir1", "apple.txt"),
             "status": "error",
             "message": f"No such asset: {asset}",
         }
     ]
     assert list_paths(tmp_path, dirs=True) == [
-        tmp_path / dandiset_metadata_file,
-        tmp_path / "file.txt",
-        tmp_path / "subdir2",
-        tmp_path / "subdir2" / "banana.txt",
-        tmp_path / "subdir2" / "coconut.txt",
+        tmp_path / text_dandiset.dandiset_id,
+        tmp_path / text_dandiset.dandiset_id / dandiset_metadata_file,
+        tmp_path / text_dandiset.dandiset_id / "file.txt",
+        tmp_path / text_dandiset.dandiset_id / "subdir2",
+        tmp_path / text_dandiset.dandiset_id / "subdir2" / "banana.txt",
+        tmp_path / text_dandiset.dandiset_id / "subdir2" / "coconut.txt",
     ]
 
 
@@ -324,6 +346,40 @@ def test_download_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) 
         zarr_dandiset.dspath / "sample.zarr",
         tmp_path / zarr_dandiset.dandiset_id / "sample.zarr",
     )
+
+
+def test_download_different_zarr_onto_excluded_dotfiles(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    dd = tmp_path / zarr_dandiset.dandiset_id
+    dd.mkdir()
+    zarr_path = dd / "sample.zarr"
+    zarr.save(zarr_path, np.eye(5))
+    (zarr_path / ".git").touch()
+    (zarr_path / ".dandi").mkdir()
+    (zarr_path / ".dandi" / "somefile.txt").touch()
+    (zarr_path / ".datalad").mkdir()
+    (zarr_path / ".gitattributes").touch()
+    (zarr_path / "arr_0").mkdir()
+    (zarr_path / "arr_0" / ".gitmodules").touch()
+    download(
+        zarr_dandiset.dandiset.version_api_url, tmp_path, existing="overwrite-different"
+    )
+    assert list_paths(zarr_path, dirs=True, exclude_vcs=False) == [
+        zarr_path / ".dandi",
+        zarr_path / ".dandi" / "somefile.txt",
+        zarr_path / ".datalad",
+        zarr_path / ".git",
+        zarr_path / ".gitattributes",
+        zarr_path / ".zgroup",
+        zarr_path / "arr_0",
+        zarr_path / "arr_0" / ".gitmodules",
+        zarr_path / "arr_0" / ".zarray",
+        zarr_path / "arr_0" / "0",
+        zarr_path / "arr_1",
+        zarr_path / "arr_1" / ".zarray",
+        zarr_path / "arr_1" / "0",
+    ]
 
 
 def test_download_different_zarr_delete_dir(
@@ -378,6 +434,23 @@ def test_download_zarr_asset_id_only(
     download(asset.base_download_url, tmp_path)
     assert list(tmp_path.iterdir()) == [tmp_path / "sample.zarr"]
     assert_dirtrees_eq(zarr_dandiset.dspath / "sample.zarr", tmp_path / "sample.zarr")
+
+
+def test_download_zarr_subdir_has_only_subdirs(
+    tmp_path: Path, new_dandiset: SampleDandiset
+) -> None:
+    zf = new_dandiset.dspath / "sample.zarr"
+    zf.mkdir()
+    (zf / "dirs").mkdir()
+    (zf / "dirs" / "apple").mkdir()
+    (zf / "dirs" / "apple" / "file.txt").write_text("Apple\n")
+    (zf / "dirs" / "banana").mkdir()
+    (zf / "dirs" / "banana" / "file.txt").write_text("Banana\n")
+    (zf / "dirs" / "coconut").mkdir()
+    (zf / "dirs" / "coconut" / "file.txt").write_text("Coconut\n")
+    new_dandiset.upload(validation="skip")
+    download(new_dandiset.dandiset.version_api_url, tmp_path)
+    assert_dirtrees_eq(zf, tmp_path / new_dandiset.dandiset_id / "sample.zarr")
 
 
 @pytest.mark.parametrize(
@@ -686,3 +759,63 @@ def test_progress_combiner(
     for path, status in inputs:
         outputs.extend(pc.feed(path, status))
     assert outputs == expected
+
+
+@pytest.mark.parametrize(
+    "url_path,asset_path,target",
+    [
+        ("", "foo/bar", "foo/bar"),
+        ("fo", "foo/bar", "foo/bar"),
+        ("foo", "foo/bar", "foo/bar"),
+        ("foo/", "foo/bar", "foo/bar"),
+        ("foo/bar", "foo/bar/baz/quux", "bar/baz/quux"),
+        ("foo/bar/", "foo/bar/baz/quux", "bar/baz/quux"),
+        ("/foo/bar", "foo/bar/baz/quux", "bar/baz/quux"),
+        ("foo/ba", "foo/bar/baz/quux", "bar/baz/quux"),
+        ("foo/bar", "foo/bar", "bar"),
+    ],
+)
+def test_multiasset_target(url_path: str, asset_path: str, target: str) -> None:
+    assert multiasset_target(url_path, asset_path) == target
+
+
+def test_download_multiple_urls(
+    local_dandi_api: DandiAPI,
+    text_dandiset: SampleDandiset,
+    tmp_path: Path,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    # We can't request both `text_dandiset` and `zarr_dandiset`, as those will
+    # end up using the same `new_dandiset`.  Hence, we have to construct the
+    # Zarr Dandiset here.
+    d = local_dandi_api.client.create_dandiset("Sample Zarr Dandiset", {})
+    dspath = tmp_path_factory.mktemp("zarr-dandiset")
+    (dspath / dandiset_metadata_file).write_text(f"identifier: '{d.identifier}'\n")
+    zarr_dandiset = SampleDandiset(
+        api=local_dandi_api,
+        dspath=dspath,
+        dandiset=d,
+        dandiset_id=d.identifier,
+    )
+    zarr.save(dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
+    zarr_dandiset.upload()
+
+    download([text_dandiset.dandiset.api_url, zarr_dandiset.dandiset.api_url], tmp_path)
+    assert list_paths(tmp_path) == [
+        tmp_path / text_dandiset.dandiset_id / "dandiset.yaml",
+        tmp_path / text_dandiset.dandiset_id / "file.txt",
+        tmp_path / text_dandiset.dandiset_id / "subdir1" / "apple.txt",
+        tmp_path / text_dandiset.dandiset_id / "subdir2" / "banana.txt",
+        tmp_path / text_dandiset.dandiset_id / "subdir2" / "coconut.txt",
+        tmp_path / zarr_dandiset.dandiset_id / "dandiset.yaml",
+        tmp_path
+        / zarr_dandiset.dandiset_id
+        / tmp_path
+        / zarr_dandiset.dandiset_id
+        / "sample.zarr"
+        / ".zgroup",
+        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_0" / ".zarray",
+        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_0" / "0",
+        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_1" / ".zarray",
+        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_1" / "0",
+    ]

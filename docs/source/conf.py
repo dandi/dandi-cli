@@ -20,7 +20,7 @@
 import dandi
 
 project = "dandi"
-copyright = "2021, DANDI Team"
+copyright = "2021-2022, DANDI Team"
 author = "DANDI Team"
 
 # The full version, including alpha/beta/rc tags

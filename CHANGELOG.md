@@ -1,3 +1,653 @@
+# 0.50.1 (Fri Mar 03 2023)
+
+#### 🧪 Tests
+
+- skip test_nwb2asset_remote_asset if no fsspec installed [#1239](https://github.com/dandi/dandi-cli/pull/1239) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.50.0 (Wed Mar 01 2023)
+
+#### 🚀 Enhancement
+
+- Add `--ignore ID_REGEX` option to `dandi validate` [#1234](https://github.com/dandi/dandi-cli/pull/1234) ([@jwodder](https://github.com/jwodder))
+- download: support for downloading multiple URLs at once; dandiset path is now included in the report [#1231](https://github.com/dandi/dandi-cli/pull/1231) ([@jwodder](https://github.com/jwodder))
+- Merging `bids_validate` into `validate`, stop validating nested BIDS. [#1203](https://github.com/dandi/dandi-cli/pull/1203) ([@TheChymera](https://github.com/TheChymera) [@jwodder](https://github.com/jwodder))
+- Support re-extracting metadata from remote assets [#1214](https://github.com/dandi/dandi-cli/pull/1214) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Inform user with a warning in case of jobs > 1 but non pyout format [#1222](https://github.com/dandi/dandi-cli/pull/1222) ([@yarikoptic](https://github.com/yarikoptic))
+- BF: add missing f- for a string [#1228](https://github.com/dandi/dandi-cli/pull/1228) ([@yarikoptic](https://github.com/yarikoptic))
+- Don't even test for `cp --reflink` support on Windows [#1221](https://github.com/dandi/dandi-cli/pull/1221) ([@jwodder](https://github.com/jwodder))
+- Filter out pyout logs from logfile by default [#1220](https://github.com/dandi/dandi-cli/pull/1220) ([@jwodder](https://github.com/jwodder))
+- Metadata: add extraction of strain from nwb files [#1216](https://github.com/dandi/dandi-cli/pull/1216) ([@satra](https://github.com/satra) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Use pathlib more in tests [#1233](https://github.com/dandi/dandi-cli/pull/1233) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Added distribution badge (sadly only one ATM) [#1224](https://github.com/dandi/dandi-cli/pull/1224) ([@TheChymera](https://github.com/TheChymera))
+- List in documentation the "high level" interfaces corresponding to CLI [#1200](https://github.com/dandi/dandi-cli/pull/1200) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Update `parse_purlobourl()` test for change to rat metadata [#1227](https://github.com/dandi/dandi-cli/pull/1227) ([@jwodder](https://github.com/jwodder))
+- Revert "Temporarily disable all tests which talk to obolibrary" - ontobee said to be back [#1226](https://github.com/dandi/dandi-cli/pull/1226) ([@yarikoptic](https://github.com/yarikoptic))
+- Fix tests: avoid obolibrary (for now) and pynwb 2.3.0 (forever) [#1225](https://github.com/dandi/dandi-cli/pull/1225) ([@yarikoptic](https://github.com/yarikoptic))
+- Test against Python 3.11 [#1143](https://github.com/dandi/dandi-cli/pull/1143) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 4
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.49.1 (Wed Feb 22 2023)
+
+#### 🐛 Bug Fix
+
+- Update for fix to Zarr upload procedure [#1215](https://github.com/dandi/dandi-cli/pull/1215) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Restore testing against Windows with Python 3.10 [#1213](https://github.com/dandi/dandi-cli/pull/1213) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.49.0 (Fri Feb 10 2023)
+
+#### 🚀 Enhancement
+
+- Update for new Zarr upload procedure; remove no longer needed `service-scripts` [#1202](https://github.com/dandi/dandi-cli/pull/1202) ([@jwodder](https://github.com/jwodder))
+- BF+RF validation [#1209](https://github.com/dandi/dandi-cli/pull/1209) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🐛 Bug Fix
+
+- Make `RemoteDandiset.get_version()` return a `VersionInfo` instance with validation error fields [#1210](https://github.com/dandi/dandi-cli/pull/1210) ([@jwodder](https://github.com/jwodder))
+- Improve messages displayed when an upload fails [#1204](https://github.com/dandi/dandi-cli/pull/1204) ([@jwodder](https://github.com/jwodder))
+- RF/BF: make find_parent_directory_containing operate on absolute path [#1188](https://github.com/dandi/dandi-cli/pull/1188) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Pass $USER to tox envs [#1201](https://github.com/dandi/dandi-cli/pull/1201) ([@jwodder](https://github.com/jwodder))
+- boost isort in precommit to 5.12.0 to overcome issue with poetry [#1199](https://github.com/dandi/dandi-cli/pull/1199) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 📝 Documentation
+
+- Move doc/design under docs/ where the rest of docs reside [#1198](https://github.com/dandi/dandi-cli/pull/1198) ([@yarikoptic](https://github.com/yarikoptic))
+- Further improve README.md: point to specific sections of handbook, remove lengthy `dandi ls --help` example [#1193](https://github.com/dandi/dandi-cli/pull/1193) ([@melster1010](https://github.com/melster1010))
+
+#### 🧪 Tests
+
+- Fix type errors; unbound mypy [#1207](https://github.com/dandi/dandi-cli/pull/1207) ([@jwodder](https://github.com/jwodder))
+- We no longer need to catch warning as hdmf has fixed the bug [#1194](https://github.com/dandi/dandi-cli/pull/1194) ([@TheChymera](https://github.com/TheChymera))
+- Joint BIDS-NWB metadata extraction. [#1183](https://github.com/dandi/dandi-cli/pull/1183) ([@TheChymera](https://github.com/TheChymera))
+- Fix for newer HDMF [#1191](https://github.com/dandi/dandi-cli/pull/1191) ([@TheChymera](https://github.com/TheChymera))
+
+#### 🔩 Dependency Updates
+
+- Blacklisting the most recent hdmf version 3.5.0 forbidding its use and breaking CI/testing. [#1190](https://github.com/dandi/dandi-cli/pull/1190) ([@TheChymera](https://github.com/TheChymera))
+
+#### Authors: 4
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Mary Elise Dedicke ([@melster1010](https://github.com/melster1010))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.48.1 (Tue Jan 17 2023)
+
+#### 🐛 Bug Fix
+
+- Fail upload only for validation ERRORs and not necessarily WARNINGs or HINTs + log all errors [#1186](https://github.com/dandi/dandi-cli/pull/1186) ([@yarikoptic](https://github.com/yarikoptic))
+- Don't warn on unexpected formats for "next" page URLs [#1184](https://github.com/dandi/dandi-cli/pull/1184) ([@jwodder](https://github.com/jwodder))
+- Upload test to check for metadata [#1180](https://github.com/dandi/dandi-cli/pull/1180) ([@TheChymera](https://github.com/TheChymera))
+
+#### Authors: 3
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.48.0 (Mon Dec 19 2022)
+
+#### 🚀 Enhancement
+
+- Update client for change in Zarr entries API [#1175](https://github.com/dandi/dandi-cli/pull/1175) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.47.0 (Mon Dec 19 2022)
+
+#### 🚀 Enhancement
+
+- Add validation of filepaths for non-BIDS NWB assets [#1173](https://github.com/dandi/dandi-cli/pull/1173) ([@jwodder](https://github.com/jwodder))
+- Exclude special dotfiles from Zarrs [#1147](https://github.com/dandi/dandi-cli/pull/1147) ([@jwodder](https://github.com/jwodder))
+- Structured validation results [#1104](https://github.com/dandi/dandi-cli/pull/1104) ([@jwodder](https://github.com/jwodder) [@yarikoptic](https://github.com/yarikoptic) [@TheChymera](https://github.com/TheChymera))
+
+#### 🐛 Bug Fix
+
+- Allow user to specify mandatory (if not empty) fields in organize [#1171](https://github.com/dandi/dandi-cli/pull/1171) ([@yarikoptic](https://github.com/yarikoptic) [@jwodder](https://github.com/jwodder))
+- BF: convert str errors from checking nwb version into proper ValidationResult [#1174](https://github.com/dandi/dandi-cli/pull/1174) ([@yarikoptic](https://github.com/yarikoptic))
+- Tests for `ls` reinstated, underlying function fixed, support for ZARR-BIDS files added. [#1164](https://github.com/dandi/dandi-cli/pull/1164) ([@TheChymera](https://github.com/TheChymera) [@jwodder](https://github.com/jwodder))
+- Add CodeQL workflow for GitHub code scanning and fix few bugs it detected [#1165](https://github.com/dandi/dandi-cli/pull/1165) ([@lgtm-migrator](https://github.com/lgtm-migrator) [@jwodder](https://github.com/jwodder) [@lgtm-com[bot]](https://github.com/lgtm-com[bot]))
+- Corrected reporting function logic to complete group message variable [#1166](https://github.com/dandi/dandi-cli/pull/1166) ([@TheChymera](https://github.com/TheChymera))
+- Renamed failing test, added prospective use case for NWBI warning. [#1162](https://github.com/dandi/dandi-cli/pull/1162) ([@TheChymera](https://github.com/TheChymera))
+- Use cached namespace validation [#1149](https://github.com/dandi/dandi-cli/pull/1149) ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🏠 Internal
+
+- Make `list_paths()` include dotfiles [#1142](https://github.com/dandi/dandi-cli/pull/1142) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- dandi-cli readme edit [#1170](https://github.com/dandi/dandi-cli/pull/1170) ([@melster1010](https://github.com/melster1010))
+- Remove Parameters description from docstring used by click [#1150](https://github.com/dandi/dandi-cli/pull/1150) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- No longer mark `test_rename_type_mismatch` as xfailing [#1161](https://github.com/dandi/dandi-cli/pull/1161) ([@jwodder](https://github.com/jwodder))
+- Fix typing error under mypy 0.990 [#1156](https://github.com/dandi/dandi-cli/pull/1156) ([@jwodder](https://github.com/jwodder))
+- Update `test_validate_nwb_path_grouping` test [#1157](https://github.com/dandi/dandi-cli/pull/1157) ([@jwodder](https://github.com/jwodder))
+- Fixed logic and commented a temporarily broken BIDS (lacking README) dataset [#1148](https://github.com/dandi/dandi-cli/pull/1148) ([@TheChymera](https://github.com/TheChymera))
+- Installing hdf5 for Python 3.10 is no longer needed [#1145](https://github.com/dandi/dandi-cli/pull/1145) ([@jwodder](https://github.com/jwodder))
+- Fix a typing issue involving the outdated `tmpdir_factory` [#1144](https://github.com/dandi/dandi-cli/pull/1144) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 7
+
+- [@lgtm-com[bot]](https://github.com/lgtm-com[bot])
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- LGTM Migrator ([@lgtm-migrator](https://github.com/lgtm-migrator))
+- Mary Elise Dedicke ([@melster1010](https://github.com/melster1010))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.46.6 (Fri Oct 21 2022)
+
+#### 🐛 Bug Fix
+
+- Don't try to cancel failed Zarr uploads twice [#1139](https://github.com/dandi/dandi-cli/pull/1139) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- adding testing instructions [#1123](https://github.com/dandi/dandi-cli/pull/1123) ([@djarecka](https://github.com/djarecka))
+
+#### 🧪 Tests
+
+- Add `DANDI_TESTS_PULL_DOCKER_COMPOSE` envvar [#1141](https://github.com/dandi/dandi-cli/pull/1141) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Dorota Jarecka ([@djarecka](https://github.com/djarecka))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.46.5 (Fri Oct 14 2022)
+
+#### 🐛 Bug Fix
+
+- ENH: lgr.debug that we are using DANDI_API_KEY provided key [#1133](https://github.com/dandi/dandi-cli/pull/1133) ([@yarikoptic](https://github.com/yarikoptic))
+- add zebrafish to species list [#1129](https://github.com/dandi/dandi-cli/pull/1129) ([@satra](https://github.com/satra))
+- Make `dandi ls` properly detect embargoed Dandisets [#1132](https://github.com/dandi/dandi-cli/pull/1132) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Make internal Zarr-checksumming tree types support empty Zarrs [#1138](https://github.com/dandi/dandi-cli/pull/1138) ([@jwodder](https://github.com/jwodder))
+- Simplify implementations of `get_asset()` methods [#1136](https://github.com/dandi/dandi-cli/pull/1136) ([@jwodder](https://github.com/jwodder))
+- Update GitHub Actions action versions [#1135](https://github.com/dandi/dandi-cli/pull/1135) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 3
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.46.4 (Thu Oct 06 2022)
+
+#### 🏠 Internal
+
+- Update client-side publication workflow [#1125](https://github.com/dandi/dandi-cli/pull/1125) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- increase number of trials in docker_compose_setup to 25 [#1122](https://github.com/dandi/dandi-cli/pull/1122) ([@djarecka](https://github.com/djarecka))
+- Pull latest Docker images before spinning up Compose [#1121](https://github.com/dandi/dandi-cli/pull/1121) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Dorota Jarecka ([@djarecka](https://github.com/djarecka))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.46.3 (Mon Sep 19 2022)
+
+#### 🐛 Bug Fix
+
+- Detect link type for `organize` by linking from first src dir to dest dir [#1115](https://github.com/dandi/dandi-cli/pull/1115) ([@jwodder](https://github.com/jwodder))
+- Check for usage of latest NWB Inspector release [#1108](https://github.com/dandi/dandi-cli/pull/1108) ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🧪 Tests
+
+- Test against dev version of keyring package [#1116](https://github.com/dandi/dandi-cli/pull/1116) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.46.2 (Thu Sep 01 2022)
+
+#### 🐛 Bug Fix
+
+- Use upstream bidsschematools for BIDS validation [#1095](https://github.com/dandi/dandi-cli/pull/1095) ([@TheChymera](https://github.com/TheChymera))
+- get_content_url(): If a HEAD fails, return the failing URL [#1107](https://github.com/dandi/dandi-cli/pull/1107) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- BF(workaround): blacklist 23.9.0 of keyring since introduced regression [#1112](https://github.com/dandi/dandi-cli/pull/1112) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 3
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.46.1 (Thu Aug 18 2022)
+
+#### 🐛 Bug Fix
+
+- Add support for age range [#1101](https://github.com/dandi/dandi-cli/pull/1101) ([@djarecka](https://github.com/djarecka))
+
+#### 📝 Documentation
+
+- DOC: minor - boost copyright years in the docs [#1106](https://github.com/dandi/dandi-cli/pull/1106) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Update test.yml to use ubuntu-latest [#1103](https://github.com/dandi/dandi-cli/pull/1103) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 3
+
+- Dorota Jarecka ([@djarecka](https://github.com/djarecka))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.46.0 (Thu Aug 18 2022)
+
+#### 🚀 Enhancement
+
+- Add classes for BIDS assets [#1076](https://github.com/dandi/dandi-cli/pull/1076) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- ENH: list localhost:8085 as the web UI for dandi-api-local-docker-tests [#1003](https://github.com/dandi/dandi-cli/pull/1003) ([@yarikoptic](https://github.com/yarikoptic))
+- BF: guard download_generator to not propagate errors [#1008](https://github.com/dandi/dandi-cli/pull/1008) ([@yarikoptic](https://github.com/yarikoptic))
+- User notification if datasets are invalid. [#1080](https://github.com/dandi/dandi-cli/pull/1080) ([@TheChymera](https://github.com/TheChymera))
+- Updating BIDS validator and schema to contemporary upstream equivalent [#1050](https://github.com/dandi/dandi-cli/pull/1050) ([@TheChymera](https://github.com/TheChymera))
+- Support DANDI:<ID>/draft and stop using identifiers.org for any of the DANDI: URIs [#1066](https://github.com/dandi/dandi-cli/pull/1066) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏎 Performance
+
+- Do not traverse .ome.zarr and .ngff folders while looking for BIDS datasets [#1071](https://github.com/dandi/dandi-cli/pull/1071) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### ⚠️ Pushed to `master`
+
+- Update README.md ([@bendichter](https://github.com/bendichter))
+
+#### 🏠 Internal
+
+- Factor out common fields in nwb2asset() and get_default_metadata() [#1088](https://github.com/dandi/dandi-cli/pull/1088) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Add examples to `dandi move` docs [#1098](https://github.com/dandi/dandi-cli/pull/1098) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Tell codespell to ignore "bu" strings in tests [#1102](https://github.com/dandi/dandi-cli/pull/1102) ([@jwodder](https://github.com/jwodder))
+- Update video NWB fixtures for next pynwb version [#1100](https://github.com/dandi/dandi-cli/pull/1100) ([@jwodder](https://github.com/jwodder))
+- Remove redirector from Docker Compose setup [#1087](https://github.com/dandi/dandi-cli/pull/1087) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 4
+
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.45.1 (Fri Jul 15 2022)
+
+#### 🐛 Bug Fix
+
+- dandi move: Fix resolution of nonexistent dests when in a subdirectory [#1063](https://github.com/dandi/dandi-cli/pull/1063) ([@jwodder](https://github.com/jwodder))
+- dandi move: Include all mismatches in error messages [#1064](https://github.com/dandi/dandi-cli/pull/1064) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Mention in help text that 'draft' is not supported in DANDI:<dandiset>/<version> [#1062](https://github.com/dandi/dandi-cli/pull/1062) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.45.0 (Wed Jul 13 2022)
+
+#### 🚀 Enhancement
+
+- Built-in BIDS support for `dandi upload` [#1011](https://github.com/dandi/dandi-cli/pull/1011) ([@TheChymera](https://github.com/TheChymera))
+
+#### 🐛 Bug Fix
+
+- DOC: describe the purpose for --instance in download [#1053](https://github.com/dandi/dandi-cli/pull/1053) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Replace numpy.asscalar() with numpy.ndarray.item() [#1056](https://github.com/dandi/dandi-cli/pull/1056) ([@jwodder](https://github.com/jwodder))
+- Clone entire repo in "Lint" action [#1052](https://github.com/dandi/dandi-cli/pull/1052) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 3
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.44.1 (Fri Jul 08 2022)
+
+#### 🐛 Bug Fix
+
+- Retry Zarr entry uploads that fail with "header ... implies functionality ... not implemented" [#1048](https://github.com/dandi/dandi-cli/pull/1048) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.44.0 (Fri Jul 08 2022)
+
+#### 🚀 Enhancement
+
+- Add `get_assets_by_glob()` [#981](https://github.com/dandi/dandi-cli/pull/981) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Don't ingest a Zarr if nothing changed while uploading [#1047](https://github.com/dandi/dandi-cli/pull/1047) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.43.0 (Tue Jul 05 2022)
+
+#### 🚀 Enhancement
+
+- Better cancellation of Zarr uploads [#1041](https://github.com/dandi/dandi-cli/pull/1041) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.42.0 (Fri Jul 01 2022)
+
+#### 🚀 Enhancement
+
+- Reuse "loose" Zarrs that conflict with uploaded path [#1035](https://github.com/dandi/dandi-cli/pull/1035) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Include leading text of response bodies in HTTP error messages [#1023](https://github.com/dandi/dandi-cli/pull/1023) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Properly include "data packages" in project [#1029](https://github.com/dandi/dandi-cli/pull/1029) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Make `test_move_command_too_few_paths` support `DANDI_DEVEL=1` [#1040](https://github.com/dandi/dandi-cli/pull/1040) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.41.0 (Mon Jun 27 2022)
+
+#### 🚀 Enhancement
+
+- Add `dandi move` command [#1024](https://github.com/dandi/dandi-cli/pull/1024) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.40.1 (Fri Jun 03 2022)
+
+#### 🐛 Bug Fix
+
+- Fix calculation of download paths for asset path prefix URLs [#1026](https://github.com/dandi/dandi-cli/pull/1026) ([@jwodder](https://github.com/jwodder))
+- organize - sanitize ; as well within the entity value [#1009](https://github.com/dandi/dandi-cli/pull/1009) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.40.0 (Tue May 31 2022)
+
+#### 🚀 Enhancement
+
+- BIDS metadata read-in pilot. [#962](https://github.com/dandi/dandi-cli/pull/962) ([@TheChymera](https://github.com/TheChymera) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🐛 Bug Fix
+
+- Corrected regex label string [#1015](https://github.com/dandi/dandi-cli/pull/1015) ([@TheChymera](https://github.com/TheChymera))
+- Fix error message formatting [#1013](https://github.com/dandi/dandi-cli/pull/1013) ([@JuliaSprenger](https://github.com/JuliaSprenger))
+- Removing trace from previous commit [#1010](https://github.com/dandi/dandi-cli/pull/1010) ([@TheChymera](https://github.com/TheChymera))
+
+#### 🏎 Performance
+
+- Fetch paginated results concurrently [#1021](https://github.com/dandi/dandi-cli/pull/1021) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 4
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Julia Sprenger ([@JuliaSprenger](https://github.com/JuliaSprenger))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.39.6 (Mon May 09 2022)
+
+#### 🐛 Bug Fix
+
+- Logging validation warnings and errors [#992](https://github.com/dandi/dandi-cli/pull/992) ([@TheChymera](https://github.com/TheChymera))
+- ENH: delete - allow to specify --force in CLI [#1001](https://github.com/dandi/dandi-cli/pull/1001) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 2
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.39.5 (Thu May 05 2022)
+
+#### 🐛 Bug Fix
+
+- Setting version to min version if not available [#994](https://github.com/dandi/dandi-cli/pull/994) ([@TheChymera](https://github.com/TheChymera))
+- Whitespace for string returns [#985](https://github.com/dandi/dandi-cli/pull/985) ([@TheChymera](https://github.com/TheChymera))
+
+#### 🏠 Internal
+
+- Upgrade dandischema to 0.7.x series [#987](https://github.com/dandi/dandi-cli/pull/987) ([@yarikoptic](https://github.com/yarikoptic) [@jwodder](https://github.com/jwodder))
+- Prepend to sys.path to fix versioneer in PEP517 mode [#998](https://github.com/dandi/dandi-cli/pull/998) ([@mgorny](https://github.com/mgorny))
+- minor spelling typo fix [#998](https://github.com/dandi/dandi-cli/pull/998) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 4
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Michał Górny ([@mgorny](https://github.com/mgorny))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.39.4 (Tue Apr 26 2022)
+
+#### 🏎 Performance
+
+- Remove size comparison check when uploading Zarr entries [#986](https://github.com/dandi/dandi-cli/pull/986) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.39.3 (Mon Apr 25 2022)
+
+#### 🐛 Bug Fix
+
+- Increase Zarr depth limit to 7 directories [#984](https://github.com/dandi/dandi-cli/pull/984) ([@jwodder](https://github.com/jwodder))
+- keeping logs cleaner in dedicated directory [#971](https://github.com/dandi/dandi-cli/pull/971) ([@TheChymera](https://github.com/TheChymera))
+- performance: do not duplicate schema loading [#982](https://github.com/dandi/dandi-cli/pull/982) ([@TheChymera](https://github.com/TheChymera))
+- Strip trailing slash from URLs in `/server-info` [#972](https://github.com/dandi/dandi-cli/pull/972) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Add new API design doc [#447](https://github.com/dandi/dandi-cli/pull/447) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Removed duplicate, and simplified bids validator tests [#965](https://github.com/dandi/dandi-cli/pull/965) ([@TheChymera](https://github.com/TheChymera))
+- Mark `test_server_info` as xfailing [#978](https://github.com/dandi/dandi-cli/pull/978) ([@jwodder](https://github.com/jwodder))
+- Mark `test_parse_dandi_url_not_found` as xfailing [#973](https://github.com/dandi/dandi-cli/pull/973) ([@jwodder](https://github.com/jwodder))
+- Update `test_parse_api_url[DANDI:000027]` [#974](https://github.com/dandi/dandi-cli/pull/974) ([@jwodder](https://github.com/jwodder))
+- Update `test_follow_redirect` [#975](https://github.com/dandi/dandi-cli/pull/975) ([@jwodder](https://github.com/jwodder))
+- Combine subtests of `test_publish_and_manipulate` [#964](https://github.com/dandi/dandi-cli/pull/964) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.39.2 (Tue Apr 19 2022)
+
+#### 🐛 Bug Fix
+
+- Validator fixes: fallback to our version, skip dotdirs on windows, etc [#955](https://github.com/dandi/dandi-cli/pull/955) ([@TheChymera](https://github.com/TheChymera))
+- Better detection of empty directories when download-syncing Zarrs [#961](https://github.com/dandi/dandi-cli/pull/961) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
+# 0.39.1 (Thu Apr 14 2022)
+
+#### 🐛 Bug Fix
+
+- Fix type in test docker-compose env var [#960](https://github.com/dandi/dandi-cli/pull/960) ([@AlmightyYakob](https://github.com/AlmightyYakob))
+
+#### Authors: 1
+
+- Jacob Nesbitt ([@AlmightyYakob](https://github.com/AlmightyYakob))
+
+---
+
+# 0.39.0 (Thu Apr 14 2022)
+
+#### 🚀 Enhancement
+
+- Add DANDI_JUPYTERHUB_URL to test docker-compose [#959](https://github.com/dandi/dandi-cli/pull/959) ([@AlmightyYakob](https://github.com/AlmightyYakob))
+- Integrate NWBInspector with DANDI validation [#941](https://github.com/dandi/dandi-cli/pull/941) ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🐛 Bug Fix
+
+- Integration test config [#957](https://github.com/dandi/dandi-cli/pull/957) ([@dchiquito](https://github.com/dchiquito))
+- Smaller video files [#947](https://github.com/dandi/dandi-cli/pull/947) ([@TheChymera](https://github.com/TheChymera))
+
+#### ⚠️ Pushed to `master`
+
+- add .mkv as a valid video extension ([@bendichter](https://github.com/bendichter))
+
+#### 🏠 Internal
+
+- DX: enable "released" plugin for auto [#951](https://github.com/dandi/dandi-cli/pull/951) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Fixed test_write_report() log path issue [#954](https://github.com/dandi/dandi-cli/pull/954) ([@TheChymera](https://github.com/TheChymera))
+- Specify all queues in test celery worker [#953](https://github.com/dandi/dandi-cli/pull/953) ([@dchiquito](https://github.com/dchiquito))
+- Work around a bug in docker-compose [#949](https://github.com/dandi/dandi-cli/pull/949) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 7
+
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Daniel Chiquito ([@dchiquito](https://github.com/dchiquito))
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- Jacob Nesbitt ([@AlmightyYakob](https://github.com/AlmightyYakob))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.38.0 (Mon Apr 04 2022)
 
 #### 🚀 Enhancement
