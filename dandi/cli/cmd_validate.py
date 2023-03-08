@@ -90,7 +90,7 @@ def validate(
     devel_debug: bool = False,
     allow_any_path: bool = False,
 ) -> None:
-    """Validate files for NWB and DANDI compliance.
+    """Validate files for DANDI and BIDS and/or NWB compliance.
 
     Exits with non-0 exit code if any file is not compliant.
     """
