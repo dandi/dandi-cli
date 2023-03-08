@@ -1083,8 +1083,7 @@ class RemoteDandiset:
         the RRID of the standard  in the "dataStandard" field of the assetsSummary of
         the dandiset.
 
-        :param data_standard: str that can either be "NWB", "BIDS", or an RRID of a
-        standard.
+        :param data_standard: can be "NWB", "BIDS", or an RRID of a standard.
         :type data_standard: str
         """
         if data_standard in DATA_STANDARD_MAP:
@@ -1094,7 +1093,7 @@ class RemoteDandiset:
         else:
             raise ValueError(
                 "'data_standard' must be an RRID (of form 'RRID:XXX_NNNNNNN`) or one "
-                f"of the following values: {", ".join(DATA_STANDARD_MAP.keys())}"
+                f"of the following values: {', '.join(DATA_STANDARD_MAP.keys())}"
             )
         assets_summary = self.get_raw_metadata()["assetsSummary"]
         if "dataStandard" not in assets_summary:
