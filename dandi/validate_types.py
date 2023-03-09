@@ -12,9 +12,10 @@ class ValidationOrigin:
 
 
 class Severity(Enum):
-    ERROR = "ERROR"
-    WARNING = "WARNING"
-    HINT = "HINT"
+    _order_ = "HINT WARNING ERROR"
+    HINT = 1
+    WARNING = 2
+    ERROR = 3
 
 
 class Scope(Enum):
@@ -29,6 +30,7 @@ class ValidationResult:
     id: str
     origin: ValidationOrigin
     scope: Scope
+    severity: Optional[Severity] = None
     # asset_paths, if not populated, assumes [.path], but could be smth like
     # {"path": "task-broken_bold.json",
     #  "asset_paths": ["sub-01/func/sub-01_task-broken_bold.json",
@@ -48,7 +50,6 @@ class ValidationResult:
     # multiple files, like mismatch between .nii.gz header and .json sidecar
     path: Optional[Path] = None
     path_regex: Optional[str] = None
-    severity: Optional[Severity] = None
 
     @property
     def purview(self) -> Optional[str]:
