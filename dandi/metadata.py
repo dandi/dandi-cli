@@ -18,7 +18,6 @@ from typing import (
     Type,
     TypeVar,
     Union,
-    cast,
 )
 from uuid import uuid4
 from xml.dom.minidom import parseString
@@ -625,7 +624,7 @@ M = TypeVar("M", bound=models.DandiBaseModel)
 
 
 def extract_model(modelcls: Type[M], metadata: dict, **kwargs: Any) -> M:
-    m = cast(M, modelcls.unvalidated())
+    m = modelcls.unvalidated()
     for field in m.__fields__.keys():
         value = kwargs.get(field, extract_field(field, metadata))
         if value is not None:
