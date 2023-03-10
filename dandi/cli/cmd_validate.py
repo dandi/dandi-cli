@@ -150,6 +150,8 @@ def _process_issues(
             [i.message for i in issues],
         )
     elif grouping == "path":
+        # The purviews are the paths, if we group by path, we need to de-duplicate.
+        purviews = set(purviews)
         for purview in purviews:
             applies_to = [i for i in issues if purview == i.purview]
             display_errors(
