@@ -155,19 +155,50 @@ def simple3_nwb(
 
 @pytest.fixture(scope="session")
 def simple4_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """
-    With subject, subject_id, species, but including data orientation ambiguity,
-    the only currently non-critical issue in the dandi schema for nwbinspector validation:
-    NWBI.check_data_orientation
-    https://github.com/NeurodataWithoutBorders/nwbinspector/blob/
-    54ac2bc7cdcb92802b9251e29f249f155fb1ff52
-    /src/nwbinspector/internal_configs/dandi.inspector_config.yaml#L10
-    """
+    """With subject, subject_id, species, but including data orientation ambiguity."""
 
     start_time = datetime(2017, 4, 3, 11, tzinfo=timezone.utc)
     time_series = pynwb.TimeSeries(
         name="test_time_series",
         unit="test_units",
+        data=np.zeros(shape=(2, 100)),
+        rate=1.0,
+    )
+
+    nwbfile = NWBFile(
+        session_description="some session",
+        identifier="NWBE4",
+        session_start_time=start_time,
+        subject=Subject(
+            subject_id="mouse004",
+            age="P1D/",
+            sex="O",
+            species="Mus musculus",
+        ),
+    )
+    nwbfile.add_acquisition(time_series)
+    filename = tmp_path_factory.mktemp("simple4") / "simple4.nwb"
+    with pynwb.NWBHDF5IO(filename, "w") as io:
+        io.write(nwbfile, cache_spec=False)
+    return filename
+
+
+@pytest.fixture(scope="session")
+def simple5_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """
+    With subject, subject_id, species, but including data orientation ambiguity, and missing
+    the `pywnb.Timeseries` `unit` attribute.
+
+    Notes
+    -----
+    * These are both best practice violations, as per the discussion upstream:
+    https://github.com/NeurodataWithoutBorders/nwbinspector/issues/345#issuecomment-1459232718
+    """
+
+    start_time = datetime(2017, 4, 3, 11, tzinfo=timezone.utc)
+    time_series = pynwb.TimeSeries(
+        name="test_time_series",
+        unit="",
         data=np.zeros(shape=(2, 100)),
         rate=1.0,
     )
@@ -247,9 +278,13 @@ def organized_nwb_dir3(
 @pytest.fixture(scope="session")
 def organized_nwb_dir4(
     simple4_nwb: Path,
-    simple1_nwb: Path,
+    simple5_nwb: Path,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Path:
+    """
+    Organized NWB directory with one file having one best practice violation, and another file
+    having two best practice violations.
+    """
     tmp_path = tmp_path_factory.mktemp("organized_nwb_dir")
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
     r = CliRunner().invoke(
@@ -260,7 +295,7 @@ def organized_nwb_dir4(
             "--dandiset-path",
             str(tmp_path),
             str(simple4_nwb),
-            str(simple1_nwb),
+            str(simple5_nwb),
         ],
     )
     assert r.exit_code == 0, r.stdout
