@@ -705,7 +705,7 @@ def test_rename_type_mismatch(text_dandiset: SampleDandiset, dest: str) -> None:
 
 def test_dandiset_has_data_standard():
     with DandiAPIClient() as client:
-        dandiset = client.get_dandiset("000003", version_id='0.210812.1448')
+        dandiset = client.get_dandiset("000003", version_id="0.210812.1448")
         assert dandiset.has_data_standard("NWB")
         assert dandiset.has_data_standard("RRID:SCR_015242")
         assert not dandiset.has_data_standard("RRID:XXX_000000")
@@ -714,7 +714,11 @@ def test_dandiset_has_data_standard():
 
 def test_dandiset_has_data_standard_incorrect_arg():
     with DandiAPIClient() as client:
-        dandiset = client.get_dandiset("000003", version_id='0.210812.1448')
+        dandiset = client.get_dandiset("000003", version_id="0.210812.1448")
         with pytest.raises(ValueError) as exc_info:
             dandiset.has_data_standard("NWC")
-    assert str(exc_info.value) == "'data_standard' must be an RRID (of form 'RRID:XXX_NNNNNNN`) or one of the following values: NWB, BIDS"
+    assert (
+        str(exc_info.value)
+        == "'data_standard' must be an RRID (of form 'RRID:XXX_NNNNNNN`) or one of the "
+        "following values: NWB, BIDS "
+    )
