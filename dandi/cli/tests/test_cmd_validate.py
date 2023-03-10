@@ -75,14 +75,13 @@ def test_validate_nwb_path_grouping(organized_nwb_dir4: Path) -> None:
     """
     r = CliRunner().invoke(validate, ["--grouping=path", str(organized_nwb_dir4)])
     assert r.exit_code == 0
-    # Does it give required warnings for required path?
-    print(r.output)
-    print(r.output)
-    print(r.output)
-    print(r.output)
-    print("LALA")
-    # assert str(organized_nwb_dir2 / "sub-mouse001" / "sub-mouse001.nwb") in r.output
-    # assert "NWBI.check_data_orientation" in r.output
+    # Is the path with only one error displayed as such
+    assert (
+        str(organized_nwb_dir4 / "sub-mouse004" / "sub-mouse004.nwb") + " —" in r.output
+    )
+    # Does multiple error display work?
+    assert "  [NWBI.check_data_orientation]" in r.output
+    assert "  [NWBI.check_missing_unit]" in r.output
 
 
 def test_validate_bids_error_grouping_notification(
