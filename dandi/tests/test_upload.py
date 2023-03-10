@@ -225,6 +225,7 @@ def test_upload_bids_metadata(
         if "sub-" in apath:
             metadata = dandiset.get_asset_by_path(apath).get_metadata()
             # Hard-coded check for the subject identifier set in the fixture:
+            assert metadata.wasAttributedTo is not None
             assert metadata.wasAttributedTo[0].identifier == "Sub1"
 
 
