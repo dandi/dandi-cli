@@ -720,5 +720,5 @@ def test_dandiset_has_data_standard_incorrect_arg():
     assert (
         str(exc_info.value)
         == "'data_standard' must be an RRID (of form 'RRID:XXX_NNNNNNN`) or one of the "
-        "following values: NWB, BIDS "
+        "following values: NWB, BIDS"
     )
