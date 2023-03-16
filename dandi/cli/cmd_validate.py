@@ -128,7 +128,8 @@ def validate(
     min_severity_value = Severity[min_severity].value
 
     filtered_results = [
-        i for i in validator_result
+        i
+        for i in validator_result
         if i.severity is not None and i.severity.value >= min_severity_value
     ]
 
@@ -136,9 +137,8 @@ def validate(
 
 
 def _process_issues(
-    validator_result: Iterable[ValidationResult], grouping: str, ignore: Optional[str]
+    issues: Iterable[ValidationResult], grouping: str, ignore: Optional[str]
 ) -> None:
-    issues = [i for i in validator_result if i.severity is not None]
     if ignore is not None:
         issues = [i for i in issues if not re.search(ignore, i.id)]
     purviews = [i.purview for i in issues]
