@@ -192,7 +192,8 @@ def simple5_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
     Notes
     -----
     * These are both best practice violations, as per the discussion upstream:
-    https://github.com/NeurodataWithoutBorders/nwbinspector/issues/345#issuecomment-1459232718
+        https://github.com/NeurodataWithoutBorders/nwbinspector/issues/345#issuecomment-1459232718
+
     """
 
     start_time = datetime(2017, 4, 3, 11, tzinfo=timezone.utc)

@@ -55,9 +55,12 @@ def test_validate_bids_grouping_error(
     bids_error_examples: Path, dataset: str = "invalid_asl003"
 ) -> None:
     """
-    This is currently a placeholder test, and should be updated once we have
-    paths with multiple errors for which grouping functionality can actually be
-    tested.
+    Does grouping of issues by path work?
+
+    Notes
+    -----
+    * Should be updated once we have paths with multiple errors for which grouping functionality
+        can actually be tested.
     """
     bids_dataset = bids_error_examples / dataset
     r = CliRunner().invoke(validate, ["--grouping=path", str(bids_dataset)])
@@ -69,9 +72,7 @@ def test_validate_bids_grouping_error(
 
 def test_validate_nwb_path_grouping(organized_nwb_dir4: Path) -> None:
     """
-    This is currently a placeholder test and should be updated once we have
-    paths with multiple errors for which grouping functionality can actually be
-    tested.
+    Does grouping of issues by path work?
     """
     r = CliRunner().invoke(validate, ["--grouping=path", str(organized_nwb_dir4)])
     assert r.exit_code == 0
