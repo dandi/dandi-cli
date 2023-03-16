@@ -22,6 +22,10 @@ Options
     Ignore any validation errors & warnings whose ID matches the given regular
     expression
 
+.. option:: --min-severity [HINT|WARNING|ERROR]
+
+    Only display issues with severities above this level (HINT by default)
+
 
 Development Options
 -------------------
