@@ -6,7 +6,7 @@ filepath = "sub-anm372795/sub-anm372795_ses-20170718.nwb"  # 450 kB file
 with DandiAPIClient() as client:
     asset = client.get_dandiset(dandiset_id, "draft").get_asset_by_path(filepath)
     # https://dandi.readthedocs.io/en/latest/modref/dandiapi.html#dandi.dandiapi.BaseRemoteBlobAsset.as_readable
-    # provides File like object which via fsspec provides sparse access to content
+    # provides file-like object which uses fsspec to provide sparse access to content
     # of the file on S3:
     with asset.as_readable().open() as f:
         print(f.read(4))

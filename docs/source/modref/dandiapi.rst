@@ -26,15 +26,15 @@ every Dandiset:
 .. literalinclude:: /examples/dandiapi-example.py
     :language: python
 
-Example code for accessing asset files as regular Python File objects without
-downloading their entire content locally.  Such File objects could then
+Example code for accessing asset files as regular Python file objects without
+downloading their entire content locally.  Such file objects could then
 be passed to functions of pynwb etc.
 
 .. literalinclude:: /examples/dandiapi-as_readable.py
     :language: python
 
 You can see more usages of DANDI API to assist with data streaming at
-`PyNWB: Streaming NWB files <https://pynwb.readthedocs.io/en/stable/tutorials/advanced_io/streaming.html>` .
+`PyNWB: Streaming NWB files <https://pynwb.readthedocs.io/en/stable/tutorials/advanced_io/streaming.html>`_.
 
 Client
 ------
