@@ -455,7 +455,18 @@ def extract_sex(metadata: dict) -> Optional[models.SexType]:
 def extract_strain(metadata: dict) -> Optional[models.StrainType]:
     value = metadata.get("strain", None)
     if value is not None and value != "":
+        # Don't assign cell lines to strain
+        if value.lower().startswith("cellline:"):
+            return None
         return models.StrainType(name=value)
+    else:
+        return None
+
+
+def extract_cellLine(metadata: dict) -> Optional[str]:
+    value = metadata.get("strain", None)
+    if value is not None and value != "" and value.lower().startswith("cellline:"):
+        return value.split("cellline: ")[1]
     else:
         return None
 
@@ -709,6 +720,7 @@ FIELD_EXTRACTORS: Dict[str, Callable[[dict], Any]] = {
     "age": extract_age,
     "sex": extract_sex,
     "strain": extract_strain,
+    "cellLine": extract_cellLine,
     "assayType": extract_assay_type,
     "anatomy": extract_anatomy,
     "digest": extract_digest,
