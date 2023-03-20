@@ -454,7 +454,7 @@ def extract_sex(metadata: dict) -> Optional[models.SexType]:
 
 def extract_strain(metadata: dict) -> Optional[models.StrainType]:
     value = metadata.get("strain", None)
-    if value is not None and value != "":
+    if value:
         # Don't assign cell lines to strain
         if value.lower().startswith("cellline:"):
             return None
@@ -465,8 +465,8 @@ def extract_strain(metadata: dict) -> Optional[models.StrainType]:
 
 def extract_cellLine(metadata: dict) -> Optional[str]:
     value = metadata.get("strain", None)
-    if value is not None and value != "" and value.lower().startswith("cellline:"):
-        return value.split("cellline: ")[1]
+    if value and value.lower().startswith("cellline:"):
+        return value.split("cellline:", 1)[1].strip()
     else:
         return None
 
