@@ -21,6 +21,19 @@ def test_validate_bids_error(bids_error_examples: Path, dataset: str) -> None:
         assert key in r.output
 
 
+def test_validate_severity(organized_nwb_dir3: Path) -> None:
+    """
+    Can we specify a severity floor?
+    """
+    r = CliRunner().invoke(
+        validate, ["--grouping=path", "--min-severity=ERROR", str(organized_nwb_dir3)]
+    )
+    # Is the usage correct?
+    assert r.exit_code == 0
+    # Is the WARNING-level issue reporting suppressed?
+    assert "NWBI.check_data_orientation" not in r.output
+
+
 def test_validate_nwb_error(simple3_nwb: Path) -> None:
     """Do we fail on critical NWB validation errors?"""
     r = CliRunner().invoke(validate, [str(simple3_nwb)])
