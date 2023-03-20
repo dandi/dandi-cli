@@ -76,6 +76,7 @@ def test_validate_nwb_path_grouping(organized_nwb_dir4: Path) -> None:
     """
     r = CliRunner().invoke(validate, ["--grouping=path", str(organized_nwb_dir4)])
     assert r.exit_code == 0
+
     # Is the path with only one error displayed as such
     assert (
         str(organized_nwb_dir4 / "sub-mouse004" / "sub-mouse004.nwb") + " —" in r.output
@@ -83,6 +84,58 @@ def test_validate_nwb_path_grouping(organized_nwb_dir4: Path) -> None:
     # Does multiple error display work?
     assert "  [NWBI.check_data_orientation]" in r.output
     assert "  [NWBI.check_missing_unit]" in r.output
+
+
+def test_process_issues(capsys):
+    from pathlib import Path
+
+    from ..cmd_validate import _process_issues
+    from ...validate_types import Scope, Severity, ValidationOrigin, ValidationResult
+
+    issues = [
+        ValidationResult(
+            id="NWBI.check_data_orientation",
+            origin=ValidationOrigin(
+                name="nwbinspector",
+                version="",
+            ),
+            scope=Scope.FILE,
+            message="Data may be in the wrong orientation.",
+            path=Path("dir0/sub-mouse004/sub-mouse004.nwb"),
+            severity=Severity.WARNING,
+        ),
+        ValidationResult(
+            id="NWBI.check_data_orientation",
+            origin=ValidationOrigin(
+                name="nwbinspector",
+                version="",
+            ),
+            scope=Scope.FILE,
+            message="Data may be in the wrong orientation.",
+            path=Path("dir1/sub-mouse001/sub-mouse001.nwb"),
+            severity=Severity.WARNING,
+        ),
+        ValidationResult(
+            id="NWBI.check_missing_unit",
+            origin=ValidationOrigin(
+                name="nwbinspector",
+                version="",
+            ),
+            scope=Scope.FILE,
+            message="Missing text for attribute 'unit'.",
+            path=Path("dir1/sub-mouse001/sub-mouse001.nwb"),
+            severity=Severity.WARNING,
+        ),
+    ]
+    _process_issues(issues, grouping="path")
+    captured = capsys.readouterr().out
+
+    # Is the path with only one error displayed as such
+    assert "sub-mouse004.nwb —" in captured
+
+    # Does multiple error display work?
+    assert "  [NWBI.check_data_orientation]" in captured
+    assert "  [NWBI.check_missing_unit]" in captured
 
 
 def test_validate_bids_error_grouping_notification(

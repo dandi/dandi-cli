@@ -137,7 +137,9 @@ def validate(
 
 
 def _process_issues(
-    issues: Iterable[ValidationResult], grouping: str, ignore: Optional[str]
+    validator_result: Iterable[ValidationResult],
+    grouping: str,
+    ignore: Optional[str] = None,
 ) -> None:
     if ignore is not None:
         issues = [i for i in issues if not re.search(ignore, i.id)]
