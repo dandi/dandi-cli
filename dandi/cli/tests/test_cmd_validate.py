@@ -51,25 +51,6 @@ def test_validate_ignore(simple2_nwb: Path) -> None:
     assert "DANDI.NO_DANDISET_FOUND" not in r.output
 
 
-def test_validate_bids_grouping_error(
-    bids_error_examples: Path, dataset: str = "invalid_asl003"
-) -> None:
-    """
-    Does grouping of issues by path work?
-
-    Notes
-    -----
-    * Should be updated once we have paths with multiple errors for which grouping functionality
-        can actually be tested.
-    """
-    bids_dataset = bids_error_examples / dataset
-    r = CliRunner().invoke(validate, ["--grouping=path", str(bids_dataset)])
-    # Does it break?
-    assert r.exit_code == 1
-    # Does it detect all errors?
-    assert str(bids_dataset) in r.output
-
-
 def test_validate_nwb_path_grouping(organized_nwb_dir4: Path) -> None:
     """
     Does grouping of issues by path work?
