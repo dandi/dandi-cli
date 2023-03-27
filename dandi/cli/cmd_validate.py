@@ -141,6 +141,7 @@ def _process_issues(
     grouping: str,
     ignore: Optional[str] = None,
 ) -> None:
+    issues = [i for i in validator_result if i.severity is not None]
     if ignore is not None:
         issues = [i for i in issues if not re.search(ignore, i.id)]
     purviews = [i.purview for i in issues]

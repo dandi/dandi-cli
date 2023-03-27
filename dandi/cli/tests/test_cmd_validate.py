@@ -77,13 +77,12 @@ def test_validate_nwb_path_grouping(organized_nwb_dir4: Path) -> None:
     r = CliRunner().invoke(validate, ["--grouping=path", str(organized_nwb_dir4)])
     assert r.exit_code == 0
 
-    # Is the path with only one error displayed as such
-    assert (
-        str(organized_nwb_dir4 / "sub-mouse004" / "sub-mouse004.nwb") + " —" in r.output
-    )
-    # Does multiple error display work?
-    assert "  [NWBI.check_data_orientation]" in r.output
-    assert "  [NWBI.check_missing_unit]" in r.output
+    # Do paths with issues appear only once?
+    assert r.output.count("sub-mouse004.nwb") == 1
+    assert r.output.count("sub-mouse001.nwb") == 1
+
+    # Do issues affecting multiple paths get listed multiple times?
+    assert r.output.count("NWBI.check_data_orientation") >= 2
 
 
 def test_process_issues(capsys):
@@ -130,12 +129,12 @@ def test_process_issues(capsys):
     _process_issues(issues, grouping="path")
     captured = capsys.readouterr().out
 
-    # Is the path with only one error displayed as such
-    assert "sub-mouse004.nwb —" in captured
+    # Do paths with issues appear only once?
+    assert captured.count("sub-mouse004.nwb") == 1
+    assert captured.count("sub-mouse001.nwb") == 1
 
-    # Does multiple error display work?
-    assert "  [NWBI.check_data_orientation]" in captured
-    assert "  [NWBI.check_missing_unit]" in captured
+    # Do issues affecting multiple paths get listed multiple times?
+    assert captured.count("NWBI.check_data_orientation") >= 2
 
 
 def test_validate_bids_error_grouping_notification(
