@@ -137,8 +137,11 @@ def validate(
 
 
 def _process_issues(
-    issues: Iterable[ValidationResult], grouping: str, ignore: Optional[str]
+    validator_result: Iterable[ValidationResult],
+    grouping: str,
+    ignore: Optional[str] = None,
 ) -> None:
+    issues = [i for i in validator_result if i.severity is not None]
     if ignore is not None:
         issues = [i for i in issues if not re.search(ignore, i.id)]
     purviews = [i.purview for i in issues]
@@ -150,6 +153,9 @@ def _process_issues(
             [i.message for i in issues],
         )
     elif grouping == "path":
+        # The purviews are the paths, if we group by path, we need to de-duplicate.
+        # typing complains if we just take the set, though the code works otherwise.
+        purviews = list(set(purviews))
         for purview in purviews:
             applies_to = [i for i in issues if purview == i.purview]
             display_errors(
