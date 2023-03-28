@@ -464,7 +464,7 @@ def extract_strain(metadata: dict) -> Optional[models.StrainType]:
 
 
 def extract_cellLine(metadata: dict) -> Optional[str]:
-    value = metadata.get("strain", None)
+    value: str = metadata.get("strain", "")
     if value and value.lower().startswith("cellline:"):
         return value.split("cellline:", 1)[1].strip()
     else:
