@@ -34,6 +34,7 @@ from .. import __version__
 from ..dandiapi import RemoteBlobAsset
 from ..metadata import (
     extract_age,
+    extract_cellLine,
     extract_species,
     get_metadata,
     nwb2asset,
@@ -154,6 +155,18 @@ def test_parse_age(age: str, duration: Union[str, Tuple[str, str]]) -> None:
     else:  # birth will be a default ref
         ref = "Birth"
     assert parse_age(age) == (duration, ref)
+
+
+@pytest.mark.parametrize(
+    "s, t",
+    [
+        ("cellline: abcdef/1", "abcdef/1"),
+        ("CellLine:  cellline:1 ", "cellline:1"),
+        ("cell line: 1", None),
+    ],
+)
+def test_extract_cellLine(s, t):
+    assert extract_cellLine({"strain": s}) == t
 
 
 @pytest.mark.parametrize(
