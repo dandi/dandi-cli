@@ -198,3 +198,5 @@ assert {v.get("type", "additional") for v in dandi_layout_fields.values()} == {
     "additional",
     "required_if_not_empty",
 }
+
+REQUEST_RETRIES = 12
