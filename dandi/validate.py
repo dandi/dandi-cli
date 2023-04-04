@@ -149,7 +149,7 @@ def validate(
       errors for a path
     """
     for p in paths:
-        p = os.path.abspath(os.path.expanduser(p))
+        p = os.path.abspath(p)
         dandiset_path = find_parent_directory_containing(dandiset_metadata_file, p)
         if dandiset_path is None:
             yield ValidationResult(
