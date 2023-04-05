@@ -40,6 +40,7 @@ from . import get_logger
 from .consts import (
     DRAFT,
     MAX_CHUNK_SIZE,
+    REQUEST_RETRIES,
     RETRY_STATUSES,
     ZARR_DELETE_BATCH_SIZE,
     DandiInstance,
@@ -217,13 +218,11 @@ class RESTFullAPIClient:
                     retry=tenacity.retry_if_exception_type(
                         (requests.ConnectionError, requests.HTTPError)
                     ),
-                    stop=tenacity.stop_after_attempt(12),
+                    stop=tenacity.stop_after_attempt(REQUEST_RETRIES),
                     reraise=True,
                 )
             ):
                 with attempt:
-                    if attempt.retry_state.attempt_number > 1:
-                        lgr.warning("Retrying %s %s", method.upper(), url)
                     result = self.session.request(
                         method,
                         url,
@@ -237,9 +236,26 @@ class RESTFullAPIClient:
                     if result.status_code in [*RETRY_STATUSES, *retry_statuses] or (
                         retry_if is not None and retry_if(result)
                     ):
+                        if attempt.retry_state.attempt_number < REQUEST_RETRIES:
+                            lgr.warning(
+                                "Will retry: Error %d while sending %s request to %s: %s",
+                                result.status_code,
+                                method,
+                                url,
+                                result.text,
+                            )
                         result.raise_for_status()
-        except Exception:
-            lgr.exception("HTTP connection failed")
+        except Exception as e:
+            if isinstance(e, requests.HTTPError):
+                lgr.error(
+                    "HTTP request failed repeatedly: Error %d while sending %s request to %s: %s",
+                    e.response.status_code,
+                    method,
+                    url,
+                    e.response.text,
+                )
+            else:
+                lgr.exception("HTTP connection failed")
             raise
 
         if i > 0:
