@@ -3,13 +3,14 @@ from __future__ import annotations
 from base64 import b64encode
 from collections.abc import Generator, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
-from contextlib import closing
+from contextlib import ExitStack, closing
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 import os
 from pathlib import Path
 from time import sleep
 from typing import Any, Optional
+from unittest.mock import patch
 
 from dandischema.digests.zarr import get_checksum
 from dandischema.models import BareAsset, DigestType
@@ -540,14 +541,38 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 def _upload_zarr_file(
     storage_session: RESTFullAPIClient, upload_url: str, item: UploadItem
 ) -> int:
-    with item.filepath.open("rb") as fp:
-        storage_session.put(
-            upload_url,
-            data=fp,
-            json_resp=False,
-            retry_if=_retry_zarr_file,
-            headers={"Content-MD5": item.base64_digest},
-        )
+    with ExitStack() as stack:
+        if os.environ.get("DANDI_DEVEL_INSTRUMENT_REQUESTS_SUPERLEN"):
+            from requests.utils import super_len
+
+            def new_super_len(o):
+                try:
+                    n = super_len(o)
+                except Exception:
+                    lgr.debug(
+                        "requests.utils.super_len() failed while uploading %s:",
+                        item.filepath,
+                        exc_info=True,
+                    )
+                    raise
+                else:
+                    lgr.debug(
+                        "requests.utils.super_len() reported %d while uploading %s",
+                        n,
+                        item.filepath,
+                    )
+                    return n
+
+            stack.enter_context(patch("requests.models.super_len", new_super_len))
+
+        with item.filepath.open("rb") as fp:
+            storage_session.put(
+                upload_url,
+                data=fp,
+                json_resp=False,
+                retry_if=_retry_zarr_file,
+                headers={"Content-MD5": item.base64_digest},
+            )
     return item.size
 
 
