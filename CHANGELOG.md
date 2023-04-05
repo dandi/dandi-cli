@@ -1,3 +1,32 @@
+# 0.52.0 (Wed Apr 05 2023)
+
+#### 🚀 Enhancement
+
+- enh: add cellline parsing [#1254](https://github.com/dandi/dandi-cli/pull/1254) ([@satra](https://github.com/satra) [@yarikoptic](https://github.com/yarikoptic))
+- [ENH] Add severity restriction option to `dandi-validate` [#1248](https://github.com/dandi/dandi-cli/pull/1248) ([@TheChymera](https://github.com/TheChymera))
+
+#### 🐛 Bug Fix
+
+- Log more information about retried HTTP requests [#1264](https://github.com/dandi/dandi-cli/pull/1264) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Add an example for streaming using as_readable + reference to PyNWB examples [#1250](https://github.com/dandi/dandi-cli/pull/1250) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Add CI run testing against NFS [#1262](https://github.com/dandi/dandi-cli/pull/1262) ([@jwodder](https://github.com/jwodder))
+- Creating test for file-wise NWB error output listing [#1244](https://github.com/dandi/dandi-cli/pull/1244) ([@TheChymera](https://github.com/TheChymera))
+
+#### Authors: 4
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Satrajit Ghosh ([@satra](https://github.com/satra))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.51.0 (Fri Mar 10 2023)
 
 #### 🚀 Enhancement
