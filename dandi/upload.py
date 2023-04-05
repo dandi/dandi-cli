@@ -1,10 +1,12 @@
 from collections import defaultdict
+from contextlib import ExitStack
 from functools import reduce
 import os.path
 from pathlib import Path
 import re
 import time
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Tuple, Union
+from unittest.mock import patch
 
 import click
 from packaging.version import Version
@@ -63,12 +65,30 @@ def upload(
     assert instance.api is not None
     api_url = instance.api
 
-    # We need to use this as a context manager in order to ensure the session
-    # gets properly closed.  Otherwise, pytest sometimes complains under
-    # obscure conditions.
-    with DandiAPIClient(api_url) as client:
+    with ExitStack() as stack:
+        # We need to use the client as a context manager in order to ensure the
+        # session gets properly closed.  Otherwise, pytest sometimes complains
+        # under obscure conditions.
+        client = stack.enter_context(DandiAPIClient(api_url))
         client.check_schema_version()
         client.dandi_authenticate()
+
+        if os.environ.get("DANDI_DEVEL_INSTRUMENT_REQUESTS_SUPERLEN"):
+            from requests.utils import super_len
+
+            def new_super_len(o):
+                try:
+                    n = super_len(o)
+                except Exception:
+                    lgr.debug(
+                        "requests.utils.super_len() failed on %r:", o, exc_info=True
+                    )
+                    raise
+                else:
+                    lgr.debug("requests.utils.super_len() reported %d for %r", n, o)
+                    return n
+
+            stack.enter_context(patch("requests.models.super_len", new_super_len))
 
         dandiset = APIDandiset(dandiset_.path)  # "cast" to a new API based dandiset
 
