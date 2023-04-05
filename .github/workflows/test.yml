@@ -82,6 +82,7 @@ jobs:
         sudo mount -t nfs localhost:/tmp/nfsmount_ /tmp/nfsmount
         echo TMPDIR=/tmp/nfsmount/tmp >> "$GITHUB_ENV"
         echo HOME=/tmp/nfsmount/home >> "$GITHUB_ENV"
+        echo DANDI_DEVEL_INSTRUMENT_REQUESTS_SUPERLEN=1 >> "$GITHUB_ENV"
 
     - name: Run all tests
       if: matrix.mode != 'dandi-api'
