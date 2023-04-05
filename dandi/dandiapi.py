@@ -49,7 +49,7 @@ from .consts import (
     known_instances_rev,
 )
 from .exceptions import HTTP404Error, NotFoundError, SchemaVersionError
-from .keyring import keyring_lookup
+from .keyring import keyring_lookup, keyring_save
 from .misctypes import Digest, RemoteReadableAsset
 from .utils import (
     USER_AGENT,
@@ -457,15 +457,32 @@ class DandiAPIClient(RESTFullAPIClient):
             client.dandi_authenticate()
         return client
 
-    def authenticate(self, token: str) -> None:
+    def authenticate(self, token: str, save_to_keyring: bool = False) -> None:
         """
         Set the authentication token/API key used by the `DandiAPIClient`.
         Before setting the token, a test request to ``/auth/token`` is made to
         check the token's validity; if it fails, a `requests.HTTPError` is
         raised.
+
+        If ``save_to_keyring`` is true, then (after querying ``/auth/token``
+        but before setting the API key used by the client), the token is saved
+        in the user's keyring at the same location as used by
+        `dandi_authenticate()`.
+
+        .. versionchanged:: 0.53.0
+
+            ``save_to_keyring`` added
         """
         # Fails if token is invalid:
         self.get("/auth/token", headers={"Authorization": f"token {token}"})
+        if save_to_keyring:
+            if self.api_url in known_instances_rev:
+                client_name = known_instances_rev[self.api_url]
+            else:
+                raise NotImplementedError("TODO client name derivation for keyring")
+            app_id = f"dandi-api-{client_name}"
+            keyring_save(app_id, "key", token)
+            lgr.debug("Stored key in keyring")
         self.session.headers["Authorization"] = f"token {token}"
 
     def dandi_authenticate(self) -> None:
