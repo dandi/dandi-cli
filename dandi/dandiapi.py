@@ -476,12 +476,7 @@ class DandiAPIClient(RESTFullAPIClient):
         # Fails if token is invalid:
         self.get("/auth/token", headers={"Authorization": f"token {token}"})
         if save_to_keyring:
-            if self.api_url in known_instances_rev:
-                client_name = known_instances_rev[self.api_url]
-            else:
-                raise NotImplementedError("TODO client name derivation for keyring")
-            app_id = f"dandi-api-{client_name}"
-            keyring_save(app_id, "key", token)
+            keyring_save(self._get_keyring_ids()[1], "key", token)
             lgr.debug("Stored key in keyring")
         self.session.headers["Authorization"] = f"token {token}"
 
@@ -504,11 +499,7 @@ class DandiAPIClient(RESTFullAPIClient):
             lgr.debug("Using api key from DANDI_API_KEY environment variable")
             self.authenticate(api_key)
             return
-        if self.api_url in known_instances_rev:
-            client_name = known_instances_rev[self.api_url]
-        else:
-            raise NotImplementedError("TODO client name derivation for keyring")
-        app_id = f"dandi-api-{client_name}"
+        client_name, app_id = self._get_keyring_ids()
         keyring_backend, api_key = keyring_lookup(app_id, "key")
         key_from_keyring = api_key is not None
         while True:
@@ -534,6 +525,13 @@ class DandiAPIClient(RESTFullAPIClient):
                     keyring_backend.set_password(app_id, "key", api_key)
                     lgr.debug("Stored key in keyring")
                 break
+
+    def _get_keyring_ids(self) -> tuple[str, str]:
+        try:
+            client_name = known_instances_rev[self.api_url]
+        except KeyError:
+            raise NotImplementedError("TODO client name derivation for keyring")
+        return (client_name, f"dandi-api-{client_name}")
 
     @property
     def _instance_id(self) -> str:
