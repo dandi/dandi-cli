@@ -79,7 +79,7 @@ jobs:
         echo "/tmp/nfsmount_ localhost(rw)" | sudo tee /etc/exports
         sudo apt-get install -y nfs-kernel-server
         sudo exportfs -a
-        sudo mount -t nfs localhost:/tmp/nfsmount_ /tmp/nfsmount
+        sudo mount -t nfs -o sync localhost:/tmp/nfsmount_ /tmp/nfsmount
         echo TMPDIR=/tmp/nfsmount/tmp >> "$GITHUB_ENV"
         echo HOME=/tmp/nfsmount/home >> "$GITHUB_ENV"
         echo DANDI_DEVEL_INSTRUMENT_REQUESTS_SUPERLEN=1 >> "$GITHUB_ENV"
