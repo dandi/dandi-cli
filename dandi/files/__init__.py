@@ -140,6 +140,10 @@ def find_dandi_files(
                 else:
                     yield df
         else:
+            if (p.parent / BIDS_DATASET_DESCRIPTION).exists() and not bidsdd:
+                bids = dandi_file(p.parent / BIDS_DATASET_DESCRIPTION, dandiset_path)
+                assert isinstance(bids, BIDSDatasetDescriptionAsset)
+                bidsdd = bids
             df = dandi_file(p, dandiset_path, bids_dataset_description=bidsdd)
             # Don't use isinstance() here, as GenericBIDSAsset's should still
             # be returned
