@@ -1,4 +1,5 @@
 from operator import attrgetter
+import os
 from pathlib import Path
 import subprocess
 from typing import cast
@@ -305,7 +306,11 @@ def test_dandi_file_zarr_with_excluded_dotfiles(tmp_path: Path) -> None:
     )
     with pytest.raises(UnknownAssetError):
         dandi_file(zarr_path)
-    (zarr_path / "arr_0" / "foo").touch()
+    with (zarr_path / "arr_0" / "foo").open("w") as fp:
+        print("Text.", file=fp)
+        # Force changes to be synced when testing on NFS:
+        fp.flush()
+        os.fsync(fp.fileno())
     zf = dandi_file(zarr_path)
     assert isinstance(zf, ZarrAsset)
 
