@@ -229,6 +229,20 @@ def test_upload_bids_metadata(
             assert metadata.wasAttributedTo[0].identifier == "Sub1"
 
 
+def test_upload_bids_readme_only(
+    mocker: MockerFixture, bids_dandiset: SampleDandiset
+) -> None:
+    iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
+    print(bids_dandiset.dspath / "README")
+    bids_dandiset.upload(paths=[bids_dandiset.dspath / "README"], existing="force")
+    # Check whether upload was run
+    iter_upload_spy.assert_called()
+    # Check existence of assets:
+    dandiset = bids_dandiset.dandiset
+    # file uploaded?
+    dandiset.get_asset_by_path("README")
+
+
 def test_upload_bids(mocker: MockerFixture, bids_dandiset: SampleDandiset) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     bids_dandiset.upload(existing="force")
