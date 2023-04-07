@@ -16,6 +16,17 @@ def test_validate_nwb_error(simple3_nwb: Path) -> None:
     assert len([i for i in validation_result if i.severity]) > 0
 
 
+def test_validate_relative_path(
+    bids_examples: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selected_dataset_path = bids_examples / "asl003"
+    monkeypatch.chdir(selected_dataset_path)
+    # improper relative path handling would fail with:
+    # ValueError: Path '.' is not inside Dandiset path '/tmp/.../asl003'
+    validate(".")
+
+
 def test_validate_empty(tmp_path: Path) -> None:
     assert list(validate(tmp_path)) == [
         ValidationResult(
