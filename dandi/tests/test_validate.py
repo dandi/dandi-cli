@@ -24,7 +24,7 @@ def test_validate_relative_path(
     monkeypatch.chdir(selected_dataset_path)
     # improper relative path handling would fail with:
     # ValueError: Path '.' is not inside Dandiset path '/tmp/.../asl003'
-    validate(".")
+    list(validate("."))
 
 
 def test_validate_empty(tmp_path: Path) -> None:
