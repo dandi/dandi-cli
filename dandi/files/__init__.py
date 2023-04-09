@@ -105,7 +105,13 @@ def find_dandi_files(
                 raise ValueError(
                     f"Path {str(p)!r} is not inside Dandiset path {str(dandiset_path)!r}"
                 )
-        path_queue.append((Path(p), None))
+            else:
+                bidsdd = find_bids_dataset_description(p, dandiset_path)
+                if bidsdd:
+                    yield bidsdd
+        else:
+            bidsdd = None
+        path_queue.append((Path(p), bidsdd))
     bids_roots = []
     while path_queue:
         p, bidsdd = path_queue.popleft()
@@ -140,10 +146,6 @@ def find_dandi_files(
                 else:
                     yield df
         else:
-            if (p.parent / BIDS_DATASET_DESCRIPTION).exists() and not bidsdd:
-                bids = dandi_file(p.parent / BIDS_DATASET_DESCRIPTION, dandiset_path)
-                assert isinstance(bids, BIDSDatasetDescriptionAsset)
-                bidsdd = bids
             df = dandi_file(p, dandiset_path, bids_dataset_description=bidsdd)
             # Don't use isinstance() here, as GenericBIDSAsset's should still
             # be returned
