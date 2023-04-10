@@ -118,6 +118,13 @@ def upload(
                 include_metadata=True,
             )
         )
+        # Making sure metadata which needs to be yielded for object construction
+        # is not implicitly uploaded.
+        dandi_files = [
+            i
+            for i in dandi_files
+            if any([i.filepath.is_relative_to(Path(j)) for j in paths])
+        ]
         lgr.info(f"Found {len(dandi_files)} files to consider")
 
         # We will keep a shared set of "being processed" paths so
