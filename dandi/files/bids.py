@@ -92,7 +92,9 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 self._asset_errors: dict[str, list[ValidationResult]] = defaultdict(
                     list
                 )
-                self._asset_metadata = defaultdict(BareAsset.unvalidated)
+                # Don't apply eta-reduction to the lambda, as mypy needs to be
+                # assured that defaultdict's argument takes no parameters.
+                self._asset_metadata = defaultdict(lambda: BareAsset.unvalidated())
                 for result in results:
                     if result.id in BIDS_ASSET_ERRORS:
                         assert result.path

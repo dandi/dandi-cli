@@ -40,6 +40,7 @@ from . import get_logger
 from .consts import (
     DRAFT,
     MAX_CHUNK_SIZE,
+    REQUEST_RETRIES,
     RETRY_STATUSES,
     ZARR_DELETE_BATCH_SIZE,
     DandiInstance,
@@ -48,7 +49,7 @@ from .consts import (
     known_instances_rev,
 )
 from .exceptions import HTTP404Error, NotFoundError, SchemaVersionError
-from .keyring import keyring_lookup
+from .keyring import keyring_lookup, keyring_save
 from .misctypes import Digest, RemoteReadableAsset
 from .utils import (
     USER_AGENT,
@@ -217,13 +218,11 @@ class RESTFullAPIClient:
                     retry=tenacity.retry_if_exception_type(
                         (requests.ConnectionError, requests.HTTPError)
                     ),
-                    stop=tenacity.stop_after_attempt(12),
+                    stop=tenacity.stop_after_attempt(REQUEST_RETRIES),
                     reraise=True,
                 )
             ):
                 with attempt:
-                    if attempt.retry_state.attempt_number > 1:
-                        lgr.warning("Retrying %s %s", method.upper(), url)
                     result = self.session.request(
                         method,
                         url,
@@ -237,9 +236,26 @@ class RESTFullAPIClient:
                     if result.status_code in [*RETRY_STATUSES, *retry_statuses] or (
                         retry_if is not None and retry_if(result)
                     ):
+                        if attempt.retry_state.attempt_number < REQUEST_RETRIES:
+                            lgr.warning(
+                                "Will retry: Error %d while sending %s request to %s: %s",
+                                result.status_code,
+                                method,
+                                url,
+                                result.text,
+                            )
                         result.raise_for_status()
-        except Exception:
-            lgr.exception("HTTP connection failed")
+        except Exception as e:
+            if isinstance(e, requests.HTTPError):
+                lgr.error(
+                    "HTTP request failed repeatedly: Error %d while sending %s request to %s: %s",
+                    e.response.status_code,
+                    method,
+                    url,
+                    e.response.text,
+                )
+            else:
+                lgr.exception("HTTP connection failed")
             raise
 
         if i > 0:
@@ -441,15 +457,27 @@ class DandiAPIClient(RESTFullAPIClient):
             client.dandi_authenticate()
         return client
 
-    def authenticate(self, token: str) -> None:
+    def authenticate(self, token: str, save_to_keyring: bool = False) -> None:
         """
         Set the authentication token/API key used by the `DandiAPIClient`.
         Before setting the token, a test request to ``/auth/token`` is made to
         check the token's validity; if it fails, a `requests.HTTPError` is
         raised.
+
+        If ``save_to_keyring`` is true, then (after querying ``/auth/token``
+        but before setting the API key used by the client), the token is saved
+        in the user's keyring at the same location as used by
+        `dandi_authenticate()`.
+
+        .. versionchanged:: 0.53.0
+
+            ``save_to_keyring`` added
         """
         # Fails if token is invalid:
         self.get("/auth/token", headers={"Authorization": f"token {token}"})
+        if save_to_keyring:
+            keyring_save(self._get_keyring_ids()[1], "key", token)
+            lgr.debug("Stored key in keyring")
         self.session.headers["Authorization"] = f"token {token}"
 
     def dandi_authenticate(self) -> None:
@@ -471,11 +499,7 @@ class DandiAPIClient(RESTFullAPIClient):
             lgr.debug("Using api key from DANDI_API_KEY environment variable")
             self.authenticate(api_key)
             return
-        if self.api_url in known_instances_rev:
-            client_name = known_instances_rev[self.api_url]
-        else:
-            raise NotImplementedError("TODO client name derivation for keyring")
-        app_id = f"dandi-api-{client_name}"
+        client_name, app_id = self._get_keyring_ids()
         keyring_backend, api_key = keyring_lookup(app_id, "key")
         key_from_keyring = api_key is not None
         while True:
@@ -501,6 +525,13 @@ class DandiAPIClient(RESTFullAPIClient):
                     keyring_backend.set_password(app_id, "key", api_key)
                     lgr.debug("Stored key in keyring")
                 break
+
+    def _get_keyring_ids(self) -> tuple[str, str]:
+        try:
+            client_name = known_instances_rev[self.api_url]
+        except KeyError:
+            raise NotImplementedError("TODO client name derivation for keyring")
+        return (client_name, f"dandi-api-{client_name}")
 
     @property
     def _instance_id(self) -> str:

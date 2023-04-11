@@ -18,18 +18,18 @@ from typing import (
     Type,
     TypeVar,
     Union,
-    cast,
 )
 from uuid import uuid4
 from xml.dom.minidom import parseString
 
 from dandischema import models
+from pydantic import ByteSize, parse_obj_as
 import requests
 import tenacity
 
 from . import __version__, get_logger
 from .consts import metadata_all_fields
-from .misctypes import Digest, LocalReadableFile, Readable
+from .misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, Readable
 from .pynwb_utils import (
     _get_pynwb_metadata,
     get_neurodata_types,
@@ -90,20 +90,21 @@ def get_metadata(
                 dandiset_path,
                 bids_dataset_description=bids_dataset_description,
             )
-            if not digest:
-                _digest = "0" * 32 + "-1"
-                digest = Digest.dandi_etag(_digest)
-            path_metadata = df.get_metadata(digest=digest)
             assert isinstance(df, bids.BIDSAsset)
+            if not digest:
+                digest = DUMMY_DANDI_ETAG
+            path_metadata = df.get_metadata(digest=digest)
             meta["bids_version"] = df.get_validation_bids_version()
             # there might be a more elegant way to do this:
-            for key in metadata_all_fields:
-                try:
-                    value = getattr(path_metadata.wasAttributedTo[0], key)
-                except AttributeError:
-                    pass
-                else:
-                    meta[key] = value
+            if path_metadata.wasAttributedTo is not None:
+                attributed = path_metadata.wasAttributedTo[0]
+                for key in metadata_all_fields:
+                    try:
+                        value = getattr(attributed, key)
+                    except AttributeError:
+                        pass
+                    else:
+                        meta[key] = value
 
     if r.get_filename().endswith((".NWB", ".nwb")):
         if nwb_has_external_links(r):
@@ -453,8 +454,19 @@ def extract_sex(metadata: dict) -> Optional[models.SexType]:
 
 def extract_strain(metadata: dict) -> Optional[models.StrainType]:
     value = metadata.get("strain", None)
-    if value is not None and value != "":
+    if value:
+        # Don't assign cell lines to strain
+        if value.lower().startswith("cellline:"):
+            return None
         return models.StrainType(name=value)
+    else:
+        return None
+
+
+def extract_cellLine(metadata: dict) -> Optional[str]:
+    value: str = metadata.get("strain", "")
+    if value and value.lower().startswith("cellline:"):
+        return value.split(":", 1)[1].strip()
     else:
         return None
 
@@ -623,7 +635,7 @@ M = TypeVar("M", bound=models.DandiBaseModel)
 
 
 def extract_model(modelcls: Type[M], metadata: dict, **kwargs: Any) -> M:
-    m = cast(M, modelcls.unvalidated())
+    m = modelcls.unvalidated()
     for field in m.__fields__.keys():
         value = kwargs.get(field, extract_field(field, metadata))
         if value is not None:
@@ -708,6 +720,7 @@ FIELD_EXTRACTORS: Dict[str, Callable[[dict], Any]] = {
     "age": extract_age,
     "sex": extract_sex,
     "strain": extract_strain,
+    "cellLine": extract_cellLine,
     "assayType": extract_assay_type,
     "anatomy": extract_anatomy,
     "digest": extract_digest,
@@ -1002,13 +1015,14 @@ def add_common_metadata(
         metadata.blobDateModified = mtime
         if mtime > metadata.dateModified:
             lgr.warning("mtime %s of %s is in the future", mtime, r)
-    metadata.contentSize = r.get_size()
+    size = r.get_size()
     if digest is not None and digest.algorithm is models.DigestType.dandi_zarr_checksum:
         m = re.fullmatch(
             r"(?P<hash>[0-9a-f]{32})-(?P<files>[0-9]+)--(?P<size>[0-9]+)", digest.value
         )
         if m:
-            metadata.contentSize = int(m["size"])
+            size = int(m["size"])
+    metadata.contentSize = parse_obj_as(ByteSize, size)
     if metadata.wasGeneratedBy is None:
         metadata.wasGeneratedBy = []
     metadata.wasGeneratedBy.append(get_generator(start_time, end_time))

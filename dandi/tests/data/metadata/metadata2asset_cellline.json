@@ -1,0 +1,93 @@
+{
+  "id": "dandiasset:0b0a1a0b-e3ea-4cf6-be94-e02c830d54be",
+  "schemaKey": "Asset",
+  "schemaVersion": "0.4.1",
+  "keywords": [
+    "test",
+    "sample",
+    "example",
+    "test-case"
+  ],
+  "access": [
+    {
+      "schemaKey": "AccessRequirements",
+      "status": "dandi:OpenAccess"
+    }
+  ],
+  "wasGeneratedBy": [
+    {
+      "schemaKey": "Session",
+      "identifier": "XYZ789",
+      "name": "XYZ789",
+      "description": "Some test data",
+      "startDate": "2020-08-31T15:58:28-04:00",
+      "used": [
+        {
+          "schemaKey": "Equipment",
+          "identifier": "probe:probe04",
+          "name": "Ecephys Probe"
+        }
+      ]
+    }
+  ],
+  "contentSize": 69105,
+  "encodingFormat": "application/x-nwb",
+  "digest": {
+    "dandi:dandi-etag": "e455839e5ab2fa659861f58a423fd17f-1"
+  },
+  "path": "/test/path",
+  "wasDerivedFrom": [
+    {
+      "schemaKey": "BioSample",
+      "identifier": "cell01",
+      "sampleType": {
+        "schemaKey": "SampleType",
+        "name": "cell"
+      },
+      "wasDerivedFrom": [
+        {
+          "schemaKey": "BioSample",
+          "identifier": "slice02",
+          "sampleType": {
+            "schemaKey": "SampleType",
+            "name": "slice"
+          },
+          "wasDerivedFrom": [
+            {
+              "schemaKey": "BioSample",
+              "identifier": "tissue03",
+              "sampleType": {
+                "schemaKey": "SampleType",
+                "name": "tissuesample"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "wasAttributedTo": [
+    {
+      "schemaKey": "Participant",
+      "identifier": "a1b2c3",
+      "age": {
+        "unitText": "ISO-8601 duration",
+        "value": "P170DT12212S",
+        "schemaKey": "PropertyValue",
+        "valueReference": {"schemaKey": "PropertyValue", "value": "dandi:BirthReference"}
+      },
+      "sex": {
+        "schemaKey": "SexType",
+        "identifier": "http://purl.obolibrary.org/obo/PATO_0000384",
+        "name": "Male"
+      },
+      "cellLine": "abcdef/1",
+      "genotype": "Typical",
+      "species": {
+        "schemaKey": "SpeciesType",
+        "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_1234175",
+        "name": "Cyperus bulbosus"
+      }
+    }
+  ]
+}

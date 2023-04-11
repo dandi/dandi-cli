@@ -568,7 +568,7 @@ def test_retry_logging(caplog: pytest.LogCaptureFixture) -> None:
     assert (
         "dandi",
         logging.WARNING,
-        "Retrying GET https://test.nil/api/info/",
+        "Will retry: Error 503 while sending GET request to https://test.nil/api/info/: ",
     ) in caplog.record_tuples
     assert (
         "dandi",

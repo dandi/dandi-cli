@@ -79,6 +79,12 @@ def validate_bids(
     default="none",
 )
 @click.option("--ignore", metavar="REGEX", help="Regex matching error IDs to ignore")
+@click.option(
+    "--min-severity",
+    help="Only display issues with severities above this level.",
+    type=click.Choice([i.name for i in Severity], case_sensitive=True),
+    default="HINT",
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
 @devel_debug_option()
 @map_to_click_exceptions
@@ -86,6 +92,7 @@ def validate(
     paths: tuple[str, ...],
     ignore: Optional[str],
     grouping: str,
+    min_severity: str,
     schema: Optional[str] = None,
     devel_debug: bool = False,
     allow_any_path: bool = False,
@@ -117,11 +124,22 @@ def validate(
         devel_debug=devel_debug,
         allow_any_path=allow_any_path,
     )
-    _process_issues(validator_result, grouping, ignore)
+
+    min_severity_value = Severity[min_severity].value
+
+    filtered_results = [
+        i
+        for i in validator_result
+        if i.severity is not None and i.severity.value >= min_severity_value
+    ]
+
+    _process_issues(filtered_results, grouping, ignore)
 
 
 def _process_issues(
-    validator_result: Iterable[ValidationResult], grouping: str, ignore: Optional[str]
+    validator_result: Iterable[ValidationResult],
+    grouping: str,
+    ignore: Optional[str] = None,
 ) -> None:
     issues = [i for i in validator_result if i.severity is not None]
     if ignore is not None:
@@ -135,6 +153,9 @@ def _process_issues(
             [i.message for i in issues],
         )
     elif grouping == "path":
+        # The purviews are the paths, if we group by path, we need to de-duplicate.
+        # typing complains if we just take the set, though the code works otherwise.
+        purviews = list(set(purviews))
         for purview in purviews:
             applies_to = [i for i in issues if purview == i.purview]
             display_errors(
