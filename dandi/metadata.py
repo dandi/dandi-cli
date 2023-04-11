@@ -438,7 +438,7 @@ def extract_sex(metadata: dict) -> Optional[models.SexType]:
         elif value in ["unknown", "u"]:
             value_id = None
             value = "Unknown"
-        elif value in ["other"]:
+        elif value in ["other", "o"]:
             value_id = None
             value = "Other"
         elif value.startswith("http"):
