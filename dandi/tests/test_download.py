@@ -17,7 +17,7 @@ from .skip import mark
 from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
-from ..download import Downloader, ProgressCombiner, download, multiasset_target
+from ..download import Downloader, ProgressCombiner, download
 from ..utils import list_paths
 
 
@@ -761,24 +761,6 @@ def test_progress_combiner(
     assert outputs == expected
 
 
-@pytest.mark.parametrize(
-    "url_path,asset_path,target",
-    [
-        ("", "foo/bar", "foo/bar"),
-        ("fo", "foo/bar", "foo/bar"),
-        ("foo", "foo/bar", "foo/bar"),
-        ("foo/", "foo/bar", "foo/bar"),
-        ("foo/bar", "foo/bar/baz/quux", "bar/baz/quux"),
-        ("foo/bar/", "foo/bar/baz/quux", "bar/baz/quux"),
-        ("/foo/bar", "foo/bar/baz/quux", "bar/baz/quux"),
-        ("foo/ba", "foo/bar/baz/quux", "bar/baz/quux"),
-        ("foo/bar", "foo/bar", "bar"),
-    ],
-)
-def test_multiasset_target(url_path: str, asset_path: str, target: str) -> None:
-    assert multiasset_target(url_path, asset_path) == target
-
-
 def test_download_multiple_urls(
     local_dandi_api: DandiAPI,
     text_dandiset: SampleDandiset,
@@ -819,3 +801,53 @@ def test_download_multiple_urls(
         tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_1" / ".zarray",
         tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_1" / "0",
     ]
+
+
+def test_download_glob_option(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
+    dandiset_id = text_dandiset.dandiset_id
+    download(
+        f"dandi://{text_dandiset.api.instance_id}/{dandiset_id}/s*.Txt",
+        tmp_path,
+        glob=True,
+    )
+    assert list_paths(tmp_path, dirs=True) == [
+        tmp_path / "subdir1",
+        tmp_path / "subdir1" / "apple.txt",
+        tmp_path / "subdir2",
+        tmp_path / "subdir2" / "banana.txt",
+        tmp_path / "subdir2" / "coconut.txt",
+    ]
+    assert (tmp_path / "subdir1" / "apple.txt").read_text() == "Apple\n"
+    assert (tmp_path / "subdir2" / "banana.txt").read_text() == "Banana\n"
+    assert (tmp_path / "subdir2" / "coconut.txt").read_text() == "Coconut\n"
+
+
+def test_download_glob_url(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
+    download(f"{text_dandiset.dandiset.version_api_url}assets/?glob=s*.Txt", tmp_path)
+    assert list_paths(tmp_path, dirs=True) == [
+        tmp_path / "subdir1",
+        tmp_path / "subdir1" / "apple.txt",
+        tmp_path / "subdir2",
+        tmp_path / "subdir2" / "banana.txt",
+        tmp_path / "subdir2" / "coconut.txt",
+    ]
+    assert (tmp_path / "subdir1" / "apple.txt").read_text() == "Apple\n"
+    assert (tmp_path / "subdir2" / "banana.txt").read_text() == "Banana\n"
+    assert (tmp_path / "subdir2" / "coconut.txt").read_text() == "Coconut\n"
+
+
+def test_download_sync_glob(
+    mocker: MockerFixture, text_dandiset: SampleDandiset
+) -> None:
+    text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
+    text_dandiset.dandiset.get_asset_by_path("subdir2/banana.txt").delete()
+    confirm_mock = mocker.patch("dandi.download.abbrev_prompt", return_value="yes")
+    download(
+        f"{text_dandiset.dandiset.version_api_url}assets/?glob=s*.Txt",
+        text_dandiset.dspath,
+        existing="overwrite",
+        sync=True,
+    )
+    confirm_mock.assert_called_with("Delete 1 local asset?", "yes", "no", "list")
+    assert (text_dandiset.dspath / "file.txt").exists()
+    assert not (text_dandiset.dspath / "subdir2" / "banana.txt").exists()

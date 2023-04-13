@@ -68,6 +68,11 @@ Download files or entire folders from DANDI.
     default="pyout",
 )
 @click.option(
+    "--glob",
+    is_flag=True,
+    help="Interpret asset paths in URLs as path glob patterns",
+)
+@click.option(
     "-J",
     "--jobs",
     type=IntColonInt(),
@@ -112,7 +117,7 @@ Download files or entire folders from DANDI.
 @click.argument("url", nargs=-1)
 @map_to_click_exceptions
 def download(
-    url, output_dir, existing, jobs, format, download_types, sync, dandi_instance
+    url, output_dir, existing, jobs, format, download_types, sync, dandi_instance, glob
 ):
     # We need to import the download module rather than the download function
     # so that the tests can properly patch the function with a mock.
@@ -155,5 +160,6 @@ def download(
         get_metadata="dandiset.yaml" in download_types,
         get_assets="assets" in download_types,
         sync=sync,
+        glob=glob,
         # develop_debug=develop_debug
     )

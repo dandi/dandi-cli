@@ -6,6 +6,7 @@ import responses
 from dandi.consts import known_instances
 from dandi.dandiarchive import (
     AssetFolderURL,
+    AssetGlobURL,
     AssetIDURL,
     AssetItemURL,
     AssetPathPrefixURL,
@@ -13,6 +14,7 @@ from dandi.dandiarchive import (
     DandisetURL,
     ParsedDandiURL,
     follow_redirect,
+    multiasset_target,
     parse_dandi_url,
 )
 from dandi.exceptions import NotFoundError, UnknownURLError
@@ -307,10 +309,88 @@ from .fixtures import DandiAPI, SampleDandiset
                 version_id=None,
             ),
         ),
+        (
+            "https://gui.dandiarchive.org/#/dandiset/001001/draft/files"
+            "?location=sub-RAT123/*.nwb",
+            AssetItemURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="001001",
+                version_id="draft",
+                path="sub-RAT123/*.nwb",
+            ),
+        ),
+        (
+            "dandi://dandi-api-local-docker-tests/000002/f*/bar.nwb",
+            AssetItemURL(
+                api_url=known_instances["dandi-api-local-docker-tests"].api,
+                dandiset_id="000002",
+                version_id=None,
+                path="f*/bar.nwb",
+            ),
+        ),
+        (
+            "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
+            "/assets/?glob=sub-YutaMouse*",
+            AssetGlobURL(
+                api_url="https://api.dandiarchive.org/api",
+                dandiset_id="000003",
+                version_id="draft",
+                path="sub-YutaMouse*",
+            ),
+        ),
     ],
 )
 def test_parse_api_url(url: str, parsed_url: ParsedDandiURL) -> None:
     assert parse_dandi_url(url) == parsed_url
+
+
+@pytest.mark.parametrize(
+    "url,parsed_url",
+    [
+        (
+            "https://gui.dandiarchive.org/#/dandiset/001001/draft/files"
+            "?location=sub-RAT123/*.nwb",
+            AssetGlobURL(
+                api_url=known_instances["dandi"].api,
+                dandiset_id="001001",
+                version_id="draft",
+                path="sub-RAT123/*.nwb",
+            ),
+        ),
+        (
+            "dandi://dandi-api-local-docker-tests/000002/f*/bar.nwb",
+            AssetGlobURL(
+                api_url=known_instances["dandi-api-local-docker-tests"].api,
+                dandiset_id="000002",
+                version_id=None,
+                path="f*/bar.nwb",
+            ),
+        ),
+        (
+            # `path=` does not produce a glob:
+            "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
+            "/assets/?path=sub-YutaMouse*",
+            AssetPathPrefixURL(
+                api_url="https://api.dandiarchive.org/api",
+                dandiset_id="000003",
+                version_id="draft",
+                path="sub-YutaMouse*",
+            ),
+        ),
+        (
+            "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
+            "/assets/?glob=sub-YutaMouse*",
+            AssetGlobURL(
+                api_url="https://api.dandiarchive.org/api",
+                dandiset_id="000003",
+                version_id="draft",
+                path="sub-YutaMouse*",
+            ),
+        ),
+    ],
+)
+def test_parse_api_url_glob(url: str, parsed_url: ParsedDandiURL) -> None:
+    assert parse_dandi_url(url, glob=True) == parsed_url
 
 
 @pytest.mark.parametrize(
@@ -518,3 +598,21 @@ def test_get_nonexistent_asset_prefix(text_dandiset: SampleDandiset) -> None:
     client = text_dandiset.client
     assert list(parsed_url.get_assets(client)) == []
     assert list(parsed_url.get_assets(client, strict=True)) == []
+
+
+@pytest.mark.parametrize(
+    "url_path,asset_path,target",
+    [
+        ("", "foo/bar", "foo/bar"),
+        ("fo", "foo/bar", "foo/bar"),
+        ("foo", "foo/bar", "foo/bar"),
+        ("foo/", "foo/bar", "foo/bar"),
+        ("foo/bar", "foo/bar/baz/quux", "bar/baz/quux"),
+        ("foo/bar/", "foo/bar/baz/quux", "bar/baz/quux"),
+        ("/foo/bar", "foo/bar/baz/quux", "bar/baz/quux"),
+        ("foo/ba", "foo/bar/baz/quux", "bar/baz/quux"),
+        ("foo/bar", "foo/bar", "bar"),
+    ],
+)
+def test_multiasset_target(url_path: str, asset_path: str, target: str) -> None:
+    assert multiasset_target(url_path, asset_path) == target

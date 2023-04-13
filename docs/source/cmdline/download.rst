@@ -27,6 +27,10 @@ Options
 
     Choose the format/frontend for output  [default: ``pyout``]
 
+.. option:: --glob
+
+    Interpret asset paths in URLs as path glob patterns
+
 .. option:: -i, --dandi-instance <instance-name>
 
     DANDI instance to download from  [default: ``dandi``]
