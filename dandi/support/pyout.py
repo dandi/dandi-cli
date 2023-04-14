@@ -212,11 +212,16 @@ class LogSafeTabular(pyout.Tabular):
     def __enter__(self):
         super().__enter__()
         root = logging.getLogger()
-        for h in root.handlers:
-            # Use `type()` instead of `isinstance()` because FileHandler is a
-            # subclass of StreamHandler, and we don't want to disable it:
-            if type(h) is logging.StreamHandler:
-                h.addFilter(exclude_all)
+        if root.handlers:
+            for h in root.handlers:
+                # Use `type()` instead of `isinstance()` because FileHandler is
+                # a subclass of StreamHandler, and we don't want to disable it:
+                if type(h) is logging.StreamHandler:
+                    h.addFilter(exclude_all)
+            self.__added_handler = None
+        else:
+            self.__added_handler = logging.NullHandler()
+            root.addHandler(self.__added_handler)
         return self
 
     def __exit__(self, exc_type, exc_value, tb):
@@ -229,3 +234,6 @@ class LogSafeTabular(pyout.Tabular):
                 # a subclass of StreamHandler, and we don't want to disable it:
                 if type(h) is logging.StreamHandler:
                     h.removeFilter(exclude_all)
+            if self.__added_handler is not None:
+                root.removeHandler(self.__added_handler)
+                self.__added_handler = None
