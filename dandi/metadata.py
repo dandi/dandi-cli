@@ -527,7 +527,7 @@ species_map = [
         "Danio rerio - Zebra fish",
     ),
     (
-        ["c. elegans", "Caenorhabditis elegans"],
+        ["c. elegans", "caenorhabditis elegans"],
         "caenorhabditis",
         "http://purl.obolibrary.org/obo/NCBITaxon_6239",
         "Caenorhabditis elegans",
