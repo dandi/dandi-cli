@@ -42,6 +42,7 @@ from ..metadata import (
     parse_purlobourl,
     prepare_metadata,
     process_ndtypes,
+    species_map,
     timedelta2duration,
 )
 from ..misctypes import DUMMY_DANDI_ETAG
@@ -495,6 +496,13 @@ def test_species():
         "schemaKey": "SpeciesType",
         "name": "Drosophila suzukii",
     }
+
+
+def test_species_map():
+    # all alternative names should be lower case
+    for common_names, *_ in species_map:
+        for key in common_names:
+            assert key.lower() == key
 
 
 @pytest.mark.parametrize(
