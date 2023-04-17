@@ -1,3 +1,31 @@
+# 0.53.0 (Mon Apr 17 2023)
+
+#### 🚀 Enhancement
+
+- Give `DandiAPIClient.authenticate()` a `save_to_keyring` parameter [#1268](https://github.com/dandi/dandi-cli/pull/1268) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Suppress log messages when downloading with pyout, even if no logger has been configured [#1279](https://github.com/dandi/dandi-cli/pull/1279) ([@jwodder](https://github.com/jwodder))
+- Accept Other sex as o abbreviation [#1275](https://github.com/dandi/dandi-cli/pull/1275) ([@bendichter](https://github.com/bendichter))
+- validate: resolved issues with relative path input [#1260](https://github.com/dandi/dandi-cli/pull/1260) ([@TheChymera](https://github.com/TheChymera))
+- Log results of `requests.utils.super_len()` when `DANDI_DEVEL_INSTRUMENT_REQUESTS_SUPERLEN` is set [#1267](https://github.com/dandi/dandi-cli/pull/1267) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Add configuration for log buckets in testing [#1277](https://github.com/dandi/dandi-cli/pull/1277) ([@danlamanna](https://github.com/danlamanna))
+- Make test NFS-safe [#1274](https://github.com/dandi/dandi-cli/pull/1274) ([@jwodder](https://github.com/jwodder))
+- Fix `test_validate_relative_path` [#1272](https://github.com/dandi/dandi-cli/pull/1272) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 4
+
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Dan LaManna ([@danlamanna](https://github.com/danlamanna))
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.52.0 (Wed Apr 05 2023)
 
 #### 🚀 Enhancement
