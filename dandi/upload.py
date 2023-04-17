@@ -123,7 +123,7 @@ def upload(
         dandi_files = [
             i
             for i in dandi_files
-            if any([i.filepath.is_relative_to(Path(j)) for j in paths])
+            if any([str(i.filepath).startswith(str(j)) for j in paths])
         ]
         lgr.info(f"Found {len(dandi_files)} files to consider")
 
