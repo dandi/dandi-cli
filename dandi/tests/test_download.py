@@ -18,6 +18,7 @@ from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
 from ..download import Downloader, ProgressCombiner, download
+from ..exceptions import NotFoundError
 from ..utils import list_paths
 
 
@@ -851,3 +852,34 @@ def test_download_sync_glob(
     confirm_mock.assert_called_with("Delete 1 local asset?", "yes", "no", "list")
     assert (text_dandiset.dspath / "file.txt").exists()
     assert not (text_dandiset.dspath / "subdir2" / "banana.txt").exists()
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "dandi://{instance_id}/{dandiset_id}/does/not/exist/",
+        "{api_url}/dandisets/{dandiset_id}/versions/draft/assets/?path=does/not/exist",
+        "{api_url}/dandisets/{dandiset_id}/versions/draft/assets/?glob=d*/*/*st",
+    ],
+)
+def test_download_nonexistent_multiasset(
+    text_dandiset: SampleDandiset, tmp_path: Path, url: str
+) -> None:
+    with pytest.raises(NotFoundError):
+        download(
+            url.format(
+                instance_id=text_dandiset.api.instance_id,
+                api_url=text_dandiset.dandiset.api_url,
+                dandiset_id=text_dandiset.dandiset_id,
+            ),
+            tmp_path,
+        )
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_download_empty_dandiset(new_dandiset: SampleDandiset, tmp_path: Path) -> None:
+    download(new_dandiset.dandiset.api_url, tmp_path)
+    assert list_paths(tmp_path, dirs=True) == [
+        tmp_path / new_dandiset.dandiset_id,
+        tmp_path / new_dandiset.dandiset_id / "dandiset.yaml",
+    ]

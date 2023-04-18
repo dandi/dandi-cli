@@ -570,7 +570,9 @@ def test_get_nonexistent_asset_folder(text_dandiset: SampleDandiset) -> None:
     parsed_url = parse_dandi_url(url)
     client = text_dandiset.client
     assert list(parsed_url.get_assets(client)) == []
-    assert list(parsed_url.get_assets(client, strict=True)) == []
+    with pytest.raises(NotFoundError) as excinfo:
+        list(parsed_url.get_assets(client, strict=True))
+    assert str(excinfo.value) == "No assets found under folder 'does/not/exist/'"
 
 
 @pytest.mark.parametrize("version", ["draft", "0.999999.9999"])
@@ -597,7 +599,22 @@ def test_get_nonexistent_asset_prefix(text_dandiset: SampleDandiset) -> None:
     parsed_url = parse_dandi_url(url)
     client = text_dandiset.client
     assert list(parsed_url.get_assets(client)) == []
-    assert list(parsed_url.get_assets(client, strict=True)) == []
+    with pytest.raises(NotFoundError) as excinfo:
+        list(parsed_url.get_assets(client, strict=True))
+    assert str(excinfo.value) == "No assets found with path prefix 'does/not/exist'"
+
+
+def test_get_nonexistent_asset_glob(text_dandiset: SampleDandiset) -> None:
+    url = (
+        f"{text_dandiset.api.api_url}/dandisets/"
+        f"{text_dandiset.dandiset_id}/versions/draft/assets/?glob=d*/*/*st"
+    )
+    parsed_url = parse_dandi_url(url)
+    client = text_dandiset.client
+    assert list(parsed_url.get_assets(client)) == []
+    with pytest.raises(NotFoundError) as excinfo:
+        list(parsed_url.get_assets(client, strict=True))
+    assert str(excinfo.value) == "No assets found matching glob 'd*/*/*st'"
 
 
 @pytest.mark.parametrize(

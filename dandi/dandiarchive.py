@@ -331,11 +331,24 @@ class AssetPathPrefixURL(MultiAssetURL):
     def get_assets(
         self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
-        """Returns the assets whose paths start with `path`"""
+        """
+        Returns the assets whose paths start with `path`.  If `strict` is true
+        and there are no such assets, raises `NotFoundError`.
+
+        .. versionchanged:: 0.54.0
+
+            `NotFoundError` will now be raised if `strict` is true and there
+            are no such assets.
+        """
+        any_assets = False
         with _maybe_strict(strict):
             d = self.get_dandiset(client, lazy=not strict)
             assert d is not None
-            yield from d.get_assets_with_path_prefix(self.path, order=order)
+            for a in d.get_assets_with_path_prefix(self.path, order=order):
+                any_assets = True
+                yield a
+        if strict and not any_assets:
+            raise NotFoundError(f"No assets found with path prefix {self.path!r}")
 
 
 class AssetItemURL(SingleAssetURL):
@@ -395,16 +408,27 @@ class AssetFolderURL(MultiAssetURL):
         self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
-        Returns all assets under the folder at `path`.  Yields nothing if the
-        folder does not exist.
+        Returns all assets under the folder at `path`.  If the folder does not
+        exist and `strict` is true, raises `NotFoundError`; otherwise, if the
+        folder does not exist and `strict` is false, yields nothing.
+
+        .. versionchanged:: 0.54.0
+
+            `NotFoundError` will now be raised if `strict` is true and there
+            is no such folder.
         """
         path = self.path
         if not path.endswith("/"):
             path += "/"
+        any_assets = False
         with _maybe_strict(strict):
             d = self.get_dandiset(client, lazy=not strict)
             assert d is not None
-            yield from d.get_assets_with_path_prefix(path, order=order)
+            for a in d.get_assets_with_path_prefix(path, order=order):
+                any_assets = True
+                yield a
+        if strict and not any_assets:
+            raise NotFoundError(f"No assets found under folder {path!r}")
 
 
 class AssetGlobURL(MultiAssetURL):
@@ -417,11 +441,24 @@ class AssetGlobURL(MultiAssetURL):
     def get_assets(
         self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
-        """Returns all assets whose paths match the glob pattern `path`"""
+        """
+        Returns all assets whose paths match the glob pattern `path`.  If
+        `strict` is true and there are no such assets, raises `NotFoundError`.
+
+        .. versionchanged:: 0.54.0
+
+            `NotFoundError` will now be raised if `strict` is true and there
+            are no such assets.
+        """
+        any_assets = False
         with _maybe_strict(strict):
             d = self.get_dandiset(client, lazy=not strict)
             assert d is not None
-            yield from d.get_assets_by_glob(self.path, order=order)
+            for a in d.get_assets_by_glob(self.path, order=order):
+                any_assets = True
+                yield a
+        if strict and not any_assets:
+            raise NotFoundError(f"No assets found matching glob {self.path!r}")
 
     def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
         return asset.path.lstrip("/")
