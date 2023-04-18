@@ -170,6 +170,7 @@ class ParsedDandiURL(ABC, BaseModel):
             assets = self.get_assets(client, strict=strict)
             yield (client, dandiset, assets)
 
+    @abstractmethod
     def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
         """
         Returns the path (relative to the base download directory) at which the
@@ -178,8 +179,9 @@ class ParsedDandiURL(ABC, BaseModel):
 
         :meta private:
         """
-        return asset.path.lstrip("/")
+        ...
 
+    @abstractmethod
     def is_under_download_path(self, path: str) -> bool:
         """
         Returns `True` iff `path` (a forward-slash-separated path to a file
@@ -191,9 +193,15 @@ class ParsedDandiURL(ABC, BaseModel):
         return value start with ``"bar/"``, and so this method will return true
         for ``"bar/apple.txt"`` but not ``"foo/bar/apple.txt"``.
 
+        Technically, this method should only be called on `DandisetURL` and
+        `MultiAssetURL` instances, not on `SingleAssetURL` instances, but
+        defining it on `ParsedDandiURL` instead of the first two classes lets
+        us call it on a `ParsedDandiURL` we know to be non-`SingleAssetURL`
+        without mypy complaining.
+
         :meta private:
         """
-        return True
+        ...
 
 
 class DandisetURL(ParsedDandiURL):
@@ -210,12 +218,23 @@ class DandisetURL(ParsedDandiURL):
             assert d is not None
             yield from d.get_assets(order=order)
 
+    def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
+        return asset.path.lstrip("/")
+
+    def is_under_download_path(self, path: str) -> bool:
+        return True
+
 
 class SingleAssetURL(ParsedDandiURL):
     """Superclass for parsed URLs that refer to a single asset"""
 
     def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
         return posixpath.basename(asset.path.lstrip("/"))
+
+    def is_under_download_path(self, path: str) -> bool:
+        raise TypeError(
+            f"{type(self).__name__}.is_under_download_path() should not be called"
+        )
 
 
 class MultiAssetURL(ParsedDandiURL):
@@ -256,9 +275,6 @@ class BaseAssetIDURL(SingleAssetURL):
     def get_asset_ids(self, client: DandiAPIClient) -> Iterator[str]:
         """Yields the ID of the asset (regardless of whether it exists)"""
         yield self.asset_id
-
-    def is_under_download_path(self, path: str) -> bool:
-        raise TypeError("BaseAssetIDURL.is_under_download_path() should not be called")
 
     @contextmanager
     def navigate(
@@ -305,9 +321,6 @@ class AssetIDURL(SingleAssetURL):
     def get_asset_ids(self, client: DandiAPIClient) -> Iterator[str]:
         """Yields the ID of the asset (regardless of whether it exists)"""
         yield self.asset_id
-
-    def is_under_download_path(self, path: str) -> bool:
-        raise TypeError("AssetIDURL.is_under_download_path() should not be called")
 
 
 class AssetPathPrefixURL(MultiAssetURL):
@@ -371,9 +384,6 @@ class AssetItemURL(SingleAssetURL):
                 raise ValueError(
                     f"Asset path {self.path!r} points to a directory but lacks trailing /"
                 )
-
-    def is_under_download_path(self, path: str) -> bool:
-        return posixpath.basename(self.path) == path
 
 
 class AssetFolderURL(MultiAssetURL):
