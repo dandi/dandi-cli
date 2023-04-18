@@ -12,7 +12,7 @@ from pytest_mock import MockerFixture
 import responses
 import zarr
 
-from .fixtures import DandiAPI, SampleDandiset
+from .fixtures import SampleDandiset, SampleDandisetFactory
 from .skip import mark
 from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
@@ -763,24 +763,17 @@ def test_progress_combiner(
 
 
 def test_download_multiple_urls(
-    local_dandi_api: DandiAPI,
     text_dandiset: SampleDandiset,
     tmp_path: Path,
-    tmp_path_factory: pytest.TempPathFactory,
+    sample_dandiset_factory: SampleDandisetFactory,
 ) -> None:
     # We can't request both `text_dandiset` and `zarr_dandiset`, as those will
-    # end up using the same `new_dandiset`.  Hence, we have to construct the
-    # Zarr Dandiset here.
-    d = local_dandi_api.client.create_dandiset("Sample Zarr Dandiset", {})
-    dspath = tmp_path_factory.mktemp("zarr-dandiset")
-    (dspath / dandiset_metadata_file).write_text(f"identifier: '{d.identifier}'\n")
-    zarr_dandiset = SampleDandiset(
-        api=local_dandi_api,
-        dspath=dspath,
-        dandiset=d,
-        dandiset_id=d.identifier,
+    # end up using the same `new_dandiset`.  Hence, we need to fall back to
+    # using `sample_dandiset_factory` here.
+    zarr_dandiset = sample_dandiset_factory.mkdandiset("Sample Zarr Dandiset")
+    zarr.save(
+        zarr_dandiset.dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1)
     )
-    zarr.save(dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
     zarr_dandiset.upload()
 
     download([text_dandiset.dandiset.api_url, zarr_dandiset.dandiset.api_url], tmp_path)
@@ -882,4 +875,27 @@ def test_download_empty_dandiset(new_dandiset: SampleDandiset, tmp_path: Path) -
     assert list_paths(tmp_path, dirs=True) == [
         tmp_path / new_dandiset.dandiset_id,
         tmp_path / new_dandiset.dandiset_id / "dandiset.yaml",
+    ]
+
+
+def test_download_empty_dandiset_and_nonexistent_multiasset(
+    sample_dandiset_factory: SampleDandisetFactory,
+    text_dandiset: SampleDandiset,
+    tmp_path: Path,
+) -> None:
+    empty_dandiset = sample_dandiset_factory.mkdandiset("Empty Dandiset")
+    with pytest.raises(NotFoundError):
+        download(
+            [
+                empty_dandiset.dandiset.api_url,
+                (
+                    f"dandi://{text_dandiset.api.instance_id}"
+                    f"/{text_dandiset.dandiset_id}/does/not/exist/"
+                ),
+            ],
+            tmp_path,
+        )
+    assert list_paths(tmp_path, dirs=True) == [
+        tmp_path / empty_dandiset.dandiset_id,
+        tmp_path / empty_dandiset.dandiset_id / "dandiset.yaml",
     ]

@@ -548,38 +548,54 @@ class SampleDandiset:
             )
 
 
+@dataclass
+class SampleDandisetFactory:
+    local_dandi_api: DandiAPI
+    tmp_path_factory: pytest.TempPathFactory
+
+    def mkdandiset(self, name: str) -> SampleDandiset:
+        d = self.local_dandi_api.client.create_dandiset(
+            name,
+            # Minimal metadata needed to create a publishable Dandiset:
+            {
+                "description": "A test Dandiset",
+                "license": ["spdx:CC0-1.0"],
+                # The contributor needs to be given explicitly here or else it'll
+                # be set based on the user account.  For the Docker Compose setup,
+                # that would mean basing it on the admin user, whose name doesn't
+                # validate under dandischema.
+                "contributor": [
+                    {
+                        "schemaKey": "Person",
+                        "name": "Tests, Dandi-Cli",
+                        "roleName": ["dcite:Author", "dcite:ContactPerson"],
+                    }
+                ],
+            },
+        )
+        dspath = self.tmp_path_factory.mktemp("dandiset")
+        (dspath / dandiset_metadata_file).write_text(f"identifier: '{d.identifier}'\n")
+        return SampleDandiset(
+            api=self.local_dandi_api,
+            dspath=dspath,
+            dandiset=d,
+            dandiset_id=d.identifier,
+        )
+
+
+@pytest.fixture
+def sample_dandiset_factory(
+    local_dandi_api: DandiAPI, tmp_path_factory: pytest.TempPathFactory
+) -> SampleDandisetFactory:
+    return SampleDandisetFactory(local_dandi_api, tmp_path_factory)
+
+
 @pytest.fixture()
 def new_dandiset(
-    local_dandi_api: DandiAPI,
-    request: FixtureRequest,
-    tmp_path_factory: pytest.TempPathFactory,
+    request: FixtureRequest, sample_dandiset_factory: SampleDandisetFactory
 ) -> SampleDandiset:
-    d = local_dandi_api.client.create_dandiset(
-        f"Sample Dandiset for {request.node.name}",
-        # Minimal metadata needed to create a publishable Dandiset:
-        {
-            "description": "A test Dandiset",
-            "license": ["spdx:CC0-1.0"],
-            # The contributor needs to be given explicitly here or else it'll
-            # be set based on the user account.  For the Docker Compose setup,
-            # that would mean basing it on the admin user, whose name doesn't
-            # validate under dandischema.
-            "contributor": [
-                {
-                    "schemaKey": "Person",
-                    "name": "Wodder, John",
-                    "roleName": ["dcite:Author", "dcite:ContactPerson"],
-                }
-            ],
-        },
-    )
-    dspath = tmp_path_factory.mktemp("dandiset")
-    (dspath / dandiset_metadata_file).write_text(f"identifier: '{d.identifier}'\n")
-    return SampleDandiset(
-        api=local_dandi_api,
-        dspath=dspath,
-        dandiset=d,
-        dandiset_id=d.identifier,
+    return sample_dandiset_factory.mkdandiset(
+        f"Sample Dandiset for {request.node.name}"
     )
 
 
