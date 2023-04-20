@@ -27,10 +27,6 @@ Options
 
     Choose the format/frontend for output  [default: ``pyout``]
 
-.. option:: --glob
-
-    Interpret asset paths in URLs as path glob patterns
-
 .. option:: -i, --dandi-instance <instance-name>
 
     DANDI instance to download from  [default: ``dandi``]
@@ -44,6 +40,10 @@ Options
 
     Directory to download to (must exist).  Files will be downloaded with paths
     relative to that directory.  [default: current working directory]
+
+.. option:: --path-type [exact|glob]
+
+    Whether to interpret asset paths in URLs as exact matches or glob patterns
 
 .. option:: --sync
 

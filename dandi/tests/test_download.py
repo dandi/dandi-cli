@@ -802,7 +802,7 @@ def test_download_glob_option(text_dandiset: SampleDandiset, tmp_path: Path) -> 
     download(
         f"dandi://{text_dandiset.api.instance_id}/{dandiset_id}/s*.Txt",
         tmp_path,
-        glob=True,
+        path_type="glob",
     )
     assert list_paths(tmp_path, dirs=True) == [
         tmp_path / "subdir1",

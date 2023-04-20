@@ -73,7 +73,7 @@ def download(
     get_metadata: bool = True,
     get_assets: bool = True,
     sync: bool = False,
-    glob: bool = False,
+    path_type: str = "exact",
 ) -> None:
     # TODO: unduplicate with upload. For now stole from that one
     # We will again use pyout to provide a neat table summarizing our progress
@@ -87,7 +87,7 @@ def download(
         # on which instance it exists!  Thus ATM we would do nothing but crash
         raise NotImplementedError("No URLs were provided.  Cannot download anything")
 
-    parsed_urls = [parse_dandi_url(u, glob=glob) for u in urls]
+    parsed_urls = [parse_dandi_url(u, glob=path_type == "glob") for u in urls]
 
     # dandi.cli.formatters are used in cmd_ls to provide switchable
     pyout_style = pyouts.get_style(hide_if_missing=False)
