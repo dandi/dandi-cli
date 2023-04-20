@@ -29,6 +29,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
+import posixpath
 import re
 from time import sleep
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, cast
@@ -169,6 +170,39 @@ class ParsedDandiURL(ABC, BaseModel):
             assets = self.get_assets(client, strict=strict)
             yield (client, dandiset, assets)
 
+    @abstractmethod
+    def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
+        """
+        Returns the path (relative to the base download directory) at which the
+        asset ``asset`` (assumed to have been returned by this object's
+        `get_assets()` method) should be downloaded
+
+        :meta private:
+        """
+        ...
+
+    @abstractmethod
+    def is_under_download_path(self, path: str) -> bool:
+        """
+        Returns `True` iff `path` (a forward-slash-separated path to a file
+        relative to a base download directory) is a location to which an asset
+        returned by this URL could be downloaded.
+
+        For example, for an `AssetFolderURL` with a path of ``"foo/bar/"``, all
+        assets returned by the URL will have their `get_asset_download_path()`
+        return value start with ``"bar/"``, and so this method will return true
+        for ``"bar/apple.txt"`` but not ``"foo/bar/apple.txt"``.
+
+        Technically, this method should only be called on `DandisetURL` and
+        `MultiAssetURL` instances, not on `SingleAssetURL` instances, but
+        defining it on `ParsedDandiURL` instead of the first two classes lets
+        us call it on a `ParsedDandiURL` we know to be non-`SingleAssetURL`
+        without mypy complaining.
+
+        :meta private:
+        """
+        ...
+
 
 class DandisetURL(ParsedDandiURL):
     """
@@ -184,17 +218,39 @@ class DandisetURL(ParsedDandiURL):
             assert d is not None
             yield from d.get_assets(order=order)
 
+    def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
+        return asset.path.lstrip("/")
+
+    def is_under_download_path(self, path: str) -> bool:
+        return True
+
 
 class SingleAssetURL(ParsedDandiURL):
     """Superclass for parsed URLs that refer to a single asset"""
 
-    pass
+    def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
+        return posixpath.basename(asset.path.lstrip("/"))
+
+    def is_under_download_path(self, path: str) -> bool:
+        raise TypeError(
+            f"{type(self).__name__}.is_under_download_path() should not be called"
+        )
 
 
 class MultiAssetURL(ParsedDandiURL):
     """Superclass for parsed URLs that refer to multiple assets"""
 
     path: str
+
+    def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
+        return multiasset_target(self.path, asset.path.lstrip("/"))
+
+    def is_under_download_path(self, path: str) -> bool:
+        prefix = posixpath.dirname(self.path.strip("/"))
+        if prefix:
+            return path.startswith(prefix + "/")
+        else:
+            return path.startswith(self.path)
 
 
 class BaseAssetIDURL(SingleAssetURL):
@@ -275,11 +331,24 @@ class AssetPathPrefixURL(MultiAssetURL):
     def get_assets(
         self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
-        """Returns the assets whose paths start with `path`"""
+        """
+        Returns the assets whose paths start with `path`.  If `strict` is true
+        and there are no such assets, raises `NotFoundError`.
+
+        .. versionchanged:: 0.54.0
+
+            `NotFoundError` will now be raised if `strict` is true and there
+            are no such assets.
+        """
+        any_assets = False
         with _maybe_strict(strict):
             d = self.get_dandiset(client, lazy=not strict)
             assert d is not None
-            yield from d.get_assets_with_path_prefix(self.path, order=order)
+            for a in d.get_assets_with_path_prefix(self.path, order=order):
+                any_assets = True
+                yield a
+        if strict and not any_assets:
+            raise NotFoundError(f"No assets found with path prefix {self.path!r}")
 
 
 class AssetItemURL(SingleAssetURL):
@@ -335,22 +404,70 @@ class AssetFolderURL(MultiAssetURL):
     Parsed from a URL that refers to a collection of assets by folder path
     """
 
-    path: str
+    def get_assets(
+        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
+    ) -> Iterator[BaseRemoteAsset]:
+        """
+        Returns all assets under the folder at `path`.  If the folder does not
+        exist and `strict` is true, raises `NotFoundError`; otherwise, if the
+        folder does not exist and `strict` is false, yields nothing.
+
+        .. versionchanged:: 0.54.0
+
+            `NotFoundError` will now be raised if `strict` is true and there
+            is no such folder.
+        """
+        path = self.path
+        if not path.endswith("/"):
+            path += "/"
+        any_assets = False
+        with _maybe_strict(strict):
+            d = self.get_dandiset(client, lazy=not strict)
+            assert d is not None
+            for a in d.get_assets_with_path_prefix(path, order=order):
+                any_assets = True
+                yield a
+        if strict and not any_assets:
+            raise NotFoundError(f"No assets found under folder {path!r}")
+
+
+class AssetGlobURL(MultiAssetURL):
+    """
+    .. versionadded:: 0.54.0
+
+    Parsed from a URL that refers to a collection of assets by a path glob
+    """
 
     def get_assets(
         self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
-        Returns all assets under the folder at `path`.  Yields nothing if the
-        folder does not exist.
+        Returns all assets whose paths match the glob pattern `path`.  If
+        `strict` is true and there are no such assets, raises `NotFoundError`.
+
+        .. versionchanged:: 0.54.0
+
+            `NotFoundError` will now be raised if `strict` is true and there
+            are no such assets.
         """
-        path = self.path
-        if not path.endswith("/"):
-            path += "/"
+        any_assets = False
         with _maybe_strict(strict):
             d = self.get_dandiset(client, lazy=not strict)
             assert d is not None
-            yield from d.get_assets_with_path_prefix(path, order=order)
+            for a in d.get_assets_by_glob(self.path, order=order):
+                any_assets = True
+                yield a
+        if strict and not any_assets:
+            raise NotFoundError(f"No assets found matching glob {self.path!r}")
+
+    def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
+        return asset.path.lstrip("/")
+
+    def is_under_download_path(self, path: str) -> bool:
+        # cf. <https://github.com/dandi/dandi-archive/blob/185a583b505bcb0ca990758b26210cd09228e81b/dandiapi/api/views/asset.py#L403-L409>
+        return bool(
+            re.fullmatch(re.escape(self.path).replace(r"\*", ".*"), path, flags=re.I)
+        )
 
 
 @contextmanager
@@ -499,6 +616,16 @@ class _dandi_url_parser:
             "https://<server>[/api]/dandisets/<dandiset id>/versions/<version>"
             "/assets/?path=<path>",
         ),
+        (
+            re.compile(
+                rf"{server_grp}(?P<asset_type>dandiset)s/{dandiset_id_grp}"
+                rf"/versions/(?P<version>{VERSION_REGEX})"
+                r"/assets/\?glob=(?P<glob>[^&]+)",
+            ),
+            {},
+            "https://<server>[/api]/dandisets/<dandiset id>/versions/<version>"
+            "/assets/?glob=<glob>",
+        ),
         # ad-hoc explicitly pointing within URL to the specific instance to use
         # and otherwise really simple:
         # dandi://INSTANCE/DANDISET_ID[@VERSION][/PATH]
@@ -533,11 +660,20 @@ class _dandi_url_parser:
                     map_to[h] = api
 
     @classmethod
-    def parse(cls, url: str, *, map_instance: bool = True) -> ParsedDandiURL:
+    def parse(
+        cls, url: str, *, map_instance: bool = True, glob: bool = False
+    ) -> ParsedDandiURL:
         """
         Parse a Dandi Archive URL and return a `ParsedDandiURL` instance.  See
         :ref:`resource_ids` for the supported URL formats.
 
+        .. versionadded:: 0.54.0
+
+            ``glob`` parameter added
+
+        :param bool glob:
+            if true, certain URL formats will be parsed into `AssetGlobURL`
+            instances
         :raises UnknownURLError: if the URL is not one of the above
         """
 
@@ -627,6 +763,7 @@ class _dandi_url_parser:
         location = groups.get("location")
         asset_id = groups.get("asset_id")
         path = groups.get("path")
+        glob_param = groups.get("glob")
         if location:
             location = urlunquote(location)
             # ATM carries leading '/' which IMHO is not needed/misguiding
@@ -634,7 +771,14 @@ class _dandi_url_parser:
             location = location.lstrip("/")
         # if location is not degenerate -- it would be a folder or a file
         if location:
-            if location.endswith("/"):
+            if glob:
+                parsed_url = AssetGlobURL(
+                    api_url=server,
+                    dandiset_id=dandiset_id,
+                    version_id=version_id,
+                    path=location,
+                )
+            elif location.endswith("/"):
                 parsed_url = AssetFolderURL(
                     api_url=server,
                     dandiset_id=dandiset_id,
@@ -664,6 +808,13 @@ class _dandi_url_parser:
                 dandiset_id=dandiset_id,
                 version_id=version_id,
                 path=path,
+            )
+        elif glob_param:
+            parsed_url = AssetGlobURL(
+                api_url=server,
+                dandiset_id=dandiset_id,
+                version_id=version_id,
+                path=glob_param,
             )
         else:
             parsed_url = DandisetURL(
@@ -714,3 +865,18 @@ class _dandi_url_parser:
 # convenience binding
 parse_dandi_url = _dandi_url_parser.parse
 follow_redirect = _dandi_url_parser.follow_redirect
+
+
+def multiasset_target(url_path: str, asset_path: str) -> str:
+    """
+    When downloading assets for a non-glob `MultiAssetURL` with
+    `~MultiAssetURL.path` equal to ``url_path``, calculate the path (relative
+    to the output path) at which to save the asset with path ``asset_path``.
+
+    :meta private:
+    """
+    prefix = posixpath.dirname(url_path.strip("/"))
+    if prefix:
+        prefix += "/"
+    assert asset_path.startswith(prefix)
+    return asset_path[len(prefix) :]

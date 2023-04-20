@@ -41,6 +41,10 @@ Options
     Directory to download to (must exist).  Files will be downloaded with paths
     relative to that directory.  [default: current working directory]
 
+.. option:: --path-type [exact|glob]
+
+    Whether to interpret asset paths in URLs as exact matches or glob patterns
+
 .. option:: --sync
 
     Delete local assets that do not exist on the server after downloading

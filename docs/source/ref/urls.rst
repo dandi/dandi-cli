@@ -30,13 +30,19 @@ used otherwise.
   — Refers to a Dandiset.  `parse_dandi_url()` converts this format to a
   `DandisetURL`.
 
-- :samp:`https://{server}[/api]/[#/]dandiset/{dandiset-id}[/{version}]/files?location={path}/`
-  (trailing slash) — Refers to an asset folder by path.  `parse_dandi_url()`
-  converts this format to an `AssetFolderURL`.
-
 - :samp:`https://{server}[/api]/[#/]dandiset/{dandiset-id}[/{version}]/files?location={path}`
-  (no trailing slash) — Refers to a single asset by path.  `parse_dandi_url()`
-  converts this format to an `AssetItemURL`.
+
+  - If the ``glob``/``--path-type glob`` option is in effect, the URL refers to
+    a collection of assets whose paths match the glob pattern ``path``, and
+    `parse_dandi_url()` will convert the URL to an `AssetGlobURL`.
+
+  - If the ``glob``/``--path-type glob`` option is not in effect and ``path``
+    ends with a trailing slash, the URL refers to an asset folder by path, and
+    `parse_dandi_url()` will convert the URL to an `AssetFolderURL`.
+
+  - If the ``glob``/``--path-type glob`` option is not in effect and ``path``
+    does not end with a trailing slash, the URL refers to a single asset by
+    path, and `parse_dandi_url()` will convert the URL to an `AssetItemURL`.
 
 - :samp:`https://{server}[/api]/dandisets/{dandiset-id}[/versions[/{version}]]`
   — Refers to a Dandiset.  `parse_dandi_url()` converts this format to a
@@ -55,19 +61,29 @@ used otherwise.
   prefix ``path``.  `parse_dandi_url()` converts this format to an
   `AssetPathPrefixURL`.
 
+- :samp:`https://{server}[/api]/dandisets/{dandiset-id}/versions/{version}/assets/?glob={path}`
+  — Refers to all assets in the given Dandiset whose paths match the glob
+  pattern ``path``.  `parse_dandi_url()` converts this format to an
+  `AssetGlobURL`.
+
 - :samp:`dandi://{instance-name}/{dandiset-id}[@{version}]` (where
   ``instance-name`` is the name of a registered Dandi Archive instance) —
   Refers to a Dandiset.  `parse_dandi_url()` converts this format to a
   `DandisetURL`.
 
-- :samp:`dandi://{instance-name}/{dandiset-id}[@{version}]/{path}/` (where
-  ``instance-name`` is the name of a registered Dandi Archive instance)
-  (trailing slash) — Refers to an asset folder by path.  `parse_dandi_url()`
-  converts this format to an `AssetFolderURL`.
-
 - :samp:`dandi://{instance-name}/{dandiset-id}[@{version}]/{path}` (where
-  ``instance-name`` is the name of a registered Dandi Archive instance) (no
-  trailing slash) — Refers to a single asset by path.  `parse_dandi_url()`
-  converts this format to an `AssetItemURL`.
+  ``instance-name`` is the name of a registered Dandi Archive instance)
+
+  - If the ``glob``/``--path-type glob`` option is in effect, the URL refers to
+    a collection of assets whose paths match the glob pattern ``path``, and
+    `parse_dandi_url()` will convert the URL to an `AssetGlobURL`.
+
+  - If the ``glob``/``--path-type glob`` option is not in effect and ``path``
+    ends with a trailing slash, the URL refers to an asset folder by path, and
+    `parse_dandi_url()` will convert the URL to an `AssetFolderURL`.
+
+  - If the ``glob``/``--path-type glob`` option is not in effect and ``path``
+    does not end with a trailing slash, the URL refers to a single asset by
+    path, and `parse_dandi_url()` will convert the URL to an `AssetItemURL`.
 
 - Any other HTTPS URL that redirects to one of the above

@@ -12,12 +12,13 @@ from pytest_mock import MockerFixture
 import responses
 import zarr
 
-from .fixtures import DandiAPI, SampleDandiset
+from .fixtures import SampleDandiset, SampleDandisetFactory
 from .skip import mark
 from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
-from ..download import Downloader, ProgressCombiner, download, multiasset_target
+from ..download import Downloader, ProgressCombiner, download
+from ..exceptions import NotFoundError
 from ..utils import list_paths
 
 
@@ -761,43 +762,18 @@ def test_progress_combiner(
     assert outputs == expected
 
 
-@pytest.mark.parametrize(
-    "url_path,asset_path,target",
-    [
-        ("", "foo/bar", "foo/bar"),
-        ("fo", "foo/bar", "foo/bar"),
-        ("foo", "foo/bar", "foo/bar"),
-        ("foo/", "foo/bar", "foo/bar"),
-        ("foo/bar", "foo/bar/baz/quux", "bar/baz/quux"),
-        ("foo/bar/", "foo/bar/baz/quux", "bar/baz/quux"),
-        ("/foo/bar", "foo/bar/baz/quux", "bar/baz/quux"),
-        ("foo/ba", "foo/bar/baz/quux", "bar/baz/quux"),
-        ("foo/bar", "foo/bar", "bar"),
-    ],
-)
-def test_multiasset_target(url_path: str, asset_path: str, target: str) -> None:
-    assert multiasset_target(url_path, asset_path) == target
-
-
 def test_download_multiple_urls(
-    local_dandi_api: DandiAPI,
     text_dandiset: SampleDandiset,
     tmp_path: Path,
-    tmp_path_factory: pytest.TempPathFactory,
+    sample_dandiset_factory: SampleDandisetFactory,
 ) -> None:
     # We can't request both `text_dandiset` and `zarr_dandiset`, as those will
-    # end up using the same `new_dandiset`.  Hence, we have to construct the
-    # Zarr Dandiset here.
-    d = local_dandi_api.client.create_dandiset("Sample Zarr Dandiset", {})
-    dspath = tmp_path_factory.mktemp("zarr-dandiset")
-    (dspath / dandiset_metadata_file).write_text(f"identifier: '{d.identifier}'\n")
-    zarr_dandiset = SampleDandiset(
-        api=local_dandi_api,
-        dspath=dspath,
-        dandiset=d,
-        dandiset_id=d.identifier,
+    # end up using the same `new_dandiset`.  Hence, we need to fall back to
+    # using `sample_dandiset_factory` here.
+    zarr_dandiset = sample_dandiset_factory.mkdandiset("Sample Zarr Dandiset")
+    zarr.save(
+        zarr_dandiset.dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1)
     )
-    zarr.save(dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
     zarr_dandiset.upload()
 
     download([text_dandiset.dandiset.api_url, zarr_dandiset.dandiset.api_url], tmp_path)
@@ -818,4 +794,108 @@ def test_download_multiple_urls(
         tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_0" / "0",
         tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_1" / ".zarray",
         tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_1" / "0",
+    ]
+
+
+def test_download_glob_option(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
+    dandiset_id = text_dandiset.dandiset_id
+    download(
+        f"dandi://{text_dandiset.api.instance_id}/{dandiset_id}/s*.Txt",
+        tmp_path,
+        path_type="glob",
+    )
+    assert list_paths(tmp_path, dirs=True) == [
+        tmp_path / "subdir1",
+        tmp_path / "subdir1" / "apple.txt",
+        tmp_path / "subdir2",
+        tmp_path / "subdir2" / "banana.txt",
+        tmp_path / "subdir2" / "coconut.txt",
+    ]
+    assert (tmp_path / "subdir1" / "apple.txt").read_text() == "Apple\n"
+    assert (tmp_path / "subdir2" / "banana.txt").read_text() == "Banana\n"
+    assert (tmp_path / "subdir2" / "coconut.txt").read_text() == "Coconut\n"
+
+
+def test_download_glob_url(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
+    download(f"{text_dandiset.dandiset.version_api_url}assets/?glob=s*.Txt", tmp_path)
+    assert list_paths(tmp_path, dirs=True) == [
+        tmp_path / "subdir1",
+        tmp_path / "subdir1" / "apple.txt",
+        tmp_path / "subdir2",
+        tmp_path / "subdir2" / "banana.txt",
+        tmp_path / "subdir2" / "coconut.txt",
+    ]
+    assert (tmp_path / "subdir1" / "apple.txt").read_text() == "Apple\n"
+    assert (tmp_path / "subdir2" / "banana.txt").read_text() == "Banana\n"
+    assert (tmp_path / "subdir2" / "coconut.txt").read_text() == "Coconut\n"
+
+
+def test_download_sync_glob(
+    mocker: MockerFixture, text_dandiset: SampleDandiset
+) -> None:
+    text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
+    text_dandiset.dandiset.get_asset_by_path("subdir2/banana.txt").delete()
+    confirm_mock = mocker.patch("dandi.download.abbrev_prompt", return_value="yes")
+    download(
+        f"{text_dandiset.dandiset.version_api_url}assets/?glob=s*.Txt",
+        text_dandiset.dspath,
+        existing="overwrite",
+        sync=True,
+    )
+    confirm_mock.assert_called_with("Delete 1 local asset?", "yes", "no", "list")
+    assert (text_dandiset.dspath / "file.txt").exists()
+    assert not (text_dandiset.dspath / "subdir2" / "banana.txt").exists()
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "dandi://{instance_id}/{dandiset_id}/does/not/exist/",
+        "{api_url}/dandisets/{dandiset_id}/versions/draft/assets/?path=does/not/exist",
+        "{api_url}/dandisets/{dandiset_id}/versions/draft/assets/?glob=d*/*/*st",
+    ],
+)
+def test_download_nonexistent_multiasset(
+    text_dandiset: SampleDandiset, tmp_path: Path, url: str
+) -> None:
+    with pytest.raises(NotFoundError):
+        download(
+            url.format(
+                instance_id=text_dandiset.api.instance_id,
+                api_url=text_dandiset.dandiset.api_url,
+                dandiset_id=text_dandiset.dandiset_id,
+            ),
+            tmp_path,
+        )
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_download_empty_dandiset(new_dandiset: SampleDandiset, tmp_path: Path) -> None:
+    download(new_dandiset.dandiset.api_url, tmp_path)
+    assert list_paths(tmp_path, dirs=True) == [
+        tmp_path / new_dandiset.dandiset_id,
+        tmp_path / new_dandiset.dandiset_id / "dandiset.yaml",
+    ]
+
+
+def test_download_empty_dandiset_and_nonexistent_multiasset(
+    sample_dandiset_factory: SampleDandisetFactory,
+    text_dandiset: SampleDandiset,
+    tmp_path: Path,
+) -> None:
+    empty_dandiset = sample_dandiset_factory.mkdandiset("Empty Dandiset")
+    with pytest.raises(NotFoundError):
+        download(
+            [
+                empty_dandiset.dandiset.api_url,
+                (
+                    f"dandi://{text_dandiset.api.instance_id}"
+                    f"/{text_dandiset.dandiset_id}/does/not/exist/"
+                ),
+            ],
+            tmp_path,
+        )
+    assert list_paths(tmp_path, dirs=True) == [
+        tmp_path / empty_dandiset.dandiset_id,
+        tmp_path / empty_dandiset.dandiset_id / "dandiset.yaml",
     ]

@@ -9,7 +9,7 @@ import hashlib
 import json
 import os
 import os.path as op
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import random
 from shutil import rmtree
 import sys
@@ -40,13 +40,7 @@ import requests
 from . import get_logger
 from .consts import RETRY_STATUSES, dandiset_metadata_file
 from .dandiapi import AssetType, BaseRemoteZarrAsset, RemoteDandiset
-from .dandiarchive import (
-    DandisetURL,
-    MultiAssetURL,
-    ParsedDandiURL,
-    SingleAssetURL,
-    parse_dandi_url,
-)
+from .dandiarchive import DandisetURL, ParsedDandiURL, SingleAssetURL, parse_dandi_url
 from .dandiset import Dandiset
 from .exceptions import NotFoundError
 from .files import LocalAsset, find_dandi_files
@@ -79,6 +73,7 @@ def download(
     get_metadata: bool = True,
     get_assets: bool = True,
     sync: bool = False,
+    path_type: str = "exact",
 ) -> None:
     # TODO: unduplicate with upload. For now stole from that one
     # We will again use pyout to provide a neat table summarizing our progress
@@ -92,7 +87,7 @@ def download(
         # on which instance it exists!  Thus ATM we would do nothing but crash
         raise NotImplementedError("No URLs were provided.  Cannot download anything")
 
-    parsed_urls = [parse_dandi_url(u) for u in urls]
+    parsed_urls = [parse_dandi_url(u, glob=path_type == "glob") for u in urls]
 
     # dandi.cli.formatters are used in cmd_ls to provide switchable
     pyout_style = pyouts.get_style(hide_if_missing=False)
@@ -195,6 +190,7 @@ class Downloader:
     #: properly!
     assets_it: Optional[IteratorWithAggregation] = None
     yield_generator_for_fields: Optional[tuple[str, ...]] = None
+    asset_download_paths: set[str] = field(init=False, default_factory=set)
 
     def __post_init__(self, output_dir: str | Path) -> None:
         # TODO: if we are ALREADY in a dandiset - we can validate that it is
@@ -240,16 +236,8 @@ class Downloader:
                 assets = self.assets_it.feed(assets)
             lock = Lock()
             for asset in assets:
-                path = asset.path.lstrip("/")  # make into relative path
-                if not isinstance(self.url, DandisetURL):
-                    if isinstance(self.url, MultiAssetURL):
-                        path = multiasset_target(self.url.path, path)
-                    elif isinstance(self.url, SingleAssetURL):
-                        path = PurePosixPath(path).name
-                    else:
-                        raise NotImplementedError(
-                            f"Unexpected URL type {type(self.url).__name__}"
-                        )
+                path = self.url.get_asset_download_path(asset)
+                self.asset_download_paths.add(path)
                 download_path = Path(self.output_path, path)
                 path = str(self.output_prefix / path)
 
@@ -327,23 +315,16 @@ class Downloader:
         """
         if isinstance(self.url, SingleAssetURL):
             return []
-        with self.url.get_client() as client:
-            asset_paths = {asset.path for asset in self.url.get_assets(client)}
-        if isinstance(self.url, DandisetURL):
-            prefix = Path()
-            download_dir = self.output_path
-        elif isinstance(self.url, MultiAssetURL):
-            prefix = Path(self.url.path)
-            download_dir = Path(self.output_path, prefix.name)
-        else:
-            raise NotImplementedError(f"Unexpected URL type {type(self.url).__name__}")
         to_delete = []
         for df in find_dandi_files(
-            download_dir, dandiset_path=download_dir, allow_all=True
+            self.output_path, dandiset_path=self.output_path, allow_all=True
         ):
             if not isinstance(df, LocalAsset):
                 continue
-            if Path(prefix, df.path).as_posix() not in asset_paths:
+            if (
+                self.url.is_under_download_path(df.path)
+                and df.path not in self.asset_download_paths
+            ):
                 to_delete.append(df.filepath)
         return to_delete
 
@@ -1089,16 +1070,3 @@ class ProgressCombiner:
             lgr.warning(
                 "Unexpected download status dict for %r received: %r", path, status
             )
-
-
-def multiasset_target(url_path: str, asset_path: str) -> str:
-    """
-    When downloading assets for a `MultiAssetURL` with `~MultiAssetURL.path`
-    equal to ``url_path``, calculate the path (relative to the output path) at
-    which to save the asset with path ``asset_path``.
-    """
-    prefix = op.dirname(url_path.strip("/"))
-    if prefix:
-        prefix += "/"
-    assert asset_path.startswith(prefix)
-    return asset_path[len(prefix) :]
