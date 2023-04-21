@@ -115,7 +115,7 @@ def get_nwb_version(
         def _sanitize(v: Any) -> str:
             return str(v)
 
-    with open_readable(filepath) as fp, h5py.File(fp) as h5file:
+    with open_readable(filepath) as fp, h5py.File(fp, "r") as h5file:
         # 2.x stored it as an attribute
         try:
             return _sanitize(h5file.attrs["nwb_version"])
@@ -175,7 +175,7 @@ def get_neurodata_types_to_modalities_map() -> Dict[str, str]:
 
 @metadata_cache.memoize_path
 def get_neurodata_types(filepath: str | Path | Readable) -> list[str]:
-    with open_readable(filepath) as fp, h5py.File(fp) as h5file:
+    with open_readable(filepath) as fp, h5py.File(fp, "r") as h5file:
         all_pairs = _scan_neurodata_types(h5file)
 
     # so far descriptions are useless so let's just output actual names only
@@ -204,7 +204,7 @@ def _scan_neurodata_types(grp: h5py.File) -> List[Tuple[Any, Any]]:
 
 def _get_pynwb_metadata(path: str | Path | Readable) -> dict[str, Any]:
     out = {}
-    with open_readable(path) as fp, h5py.File(fp) as h5, NWBHDF5IO(
+    with open_readable(path) as fp, h5py.File(fp, "r") as h5, NWBHDF5IO(
         file=h5, load_namespaces=True
     ) as io:
         nwb = io.read()
@@ -474,7 +474,7 @@ def get_object_id(path: str | Path | Readable) -> Any:
 
     if not available -- would simply raise a corresponding exception
     """
-    with open_readable(path) as fp, h5py.File(fp) as f:
+    with open_readable(path) as fp, h5py.File(fp, "r") as f:
         return f.attrs["object_id"]
 
 
@@ -527,7 +527,7 @@ def copy_nwb_file(src: Union[str, Path], dest: Union[str, Path]) -> str:
 
 @metadata_cache.memoize_path
 def nwb_has_external_links(filepath: str | Path | Readable) -> bool:
-    with open_readable(filepath) as f, h5py.File(f) as fp:
+    with open_readable(filepath) as f, h5py.File(f, "r") as fp:
         visited = set()
 
         # cannot use `file.visititems` because it skips external links
