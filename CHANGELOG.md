@@ -1,3 +1,22 @@
+# 0.54.0 (Fri Apr 21 2023)
+
+#### 🚀 Enhancement
+
+- Support asset path globs in `dandi download` [#1278](https://github.com/dandi/dandi-cli/pull/1278) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Explicitly open h5py.File as read-only where we read it [#1282](https://github.com/dandi/dandi-cli/pull/1282) ([@yarikoptic](https://github.com/yarikoptic))
+- C elegans [#1276](https://github.com/dandi/dandi-cli/pull/1276) ([@bendichter](https://github.com/bendichter) [@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 3
+
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.53.0 (Mon Apr 17 2023)
 
 #### 🚀 Enhancement
