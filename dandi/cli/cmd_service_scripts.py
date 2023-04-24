@@ -166,18 +166,19 @@ def update_dandiset_from_doi(dandiset: str, existing: str, fields: set[str]) -> 
         if "contributor" in fields:
             changed = False
             for author in doidata["author"]:
-                contrib = {
-                    "name": f"{author['family']}, {author['given']}",
-                    "roleName": ["dcite:Author"],
-                    "schemaKey": "Person",
-                    "includeInCitation": True,
-                }
-                if "ORCID" in author:
-                    contrib["identifier"] = author["ORCID"].split(r"\/")[-1]
-                if add_dict_to_list_field(
-                    new_metadata, "contributor", contrib, eq_authors, existing
-                ):
-                    changed = True
+                if "family" in author and "given" in author:
+                    contrib = {
+                        "name": f"{author['family']}, {author['given']}",
+                        "roleName": ["dcite:Author"],
+                        "schemaKey": "Person",
+                        "includeInCitation": True,
+                    }
+                    if "ORCID" in author:
+                        contrib["identifier"] = author["ORCID"].split("/")[-1]
+                    if add_dict_to_list_field(
+                        new_metadata, "contributor", contrib, eq_authors, existing
+                    ):
+                        changed = True
             if changed:
                 changed_fields.append("contributor")
 
