@@ -5,6 +5,7 @@ from copy import deepcopy
 from datetime import datetime
 from difflib import unified_diff
 from pathlib import PurePosixPath
+from textwrap import indent
 from typing import Any, TypeVar
 from uuid import uuid4
 
@@ -168,8 +169,6 @@ def update_dandiset_from_doi(dandiset: str, existing: str, fields: set[str]) -> 
                 contrib = {
                     "name": f"{author['family']}, {author['given']}",
                     "roleName": ["dcite:Author"],
-                    ### TODO: If corresponding author of the paper, add
-                    ### dcite:ContactPerson
                     "schemaKey": "Person",
                     "includeInCitation": True,
                 }
@@ -309,51 +308,66 @@ def add_dict_to_list_field(
     eqtest: Callable[[T, T], bool],
     existing: str,
 ) -> bool:
+    newvalue_yaml = indent(yaml_dump(newvalue), " " * 4)
     if metadata.get(key) is None:
         metadata[key] = []
     assert isinstance(metadata[key], list)
-
     matches = [item for item in metadata[key] if eqtest(newvalue, item)]  # type: ignore[arg-type]
     if matches:
         item = matches[0]
+        item_yaml = indent(yaml_dump(item), " " * 4)
         if item == newvalue:
-            lgr.info("Dandiset %s already up to date", key)
+            lgr.info("Dandiset %s field already up to date", key)
             return False
-
-        ### TODO: Improve the log messages in this section:
         elif existing == "overwrite":
+            lgr.info(
+                "Adding new value to Dandiset %s field:\n\n%s\n", key, newvalue_yaml
+            )
+            lgr.info("Replacing:\n\n%s\n", item_yaml)
             item.clear()
             item.update(newvalue)
-            lgr.info("Adding %r to Dandiset %s", newvalue, key)
             return True
         elif existing == "skip":
-            lgr.info("Item %r missing from Dandiset %s; not updating", newvalue, key)
+            lgr.info(
+                "Item in Dandiset %s not up to date; expected value:\n\n%s\n",
+                key,
+                newvalue_yaml,
+            )
+            lgr.info("Current value:\n\n%s\n", item_yaml)
+            lgr.info("Not updating")
             return False
-        elif click.confirm(
-            f"Add {newvalue!r} to Dandiset {key}?", default=True, prompt_suffix=" "
+        else:
+            lgr.info(
+                "New value to add to Dandiset %s field:\n\n%s\n", key, newvalue_yaml
+            )
+            lgr.info("Replacing:\n\n%s\n", item_yaml)
+            if click.confirm(
+                f"Add value to Dandiset {key} field?", default=True, prompt_suffix=" "
+            ):
+                lgr.info("Adding value to Dandiset %s field", key)
+                item.clear()
+                item.update(newvalue)
+                return True
+            else:
+                return False
+    elif existing == "overwrite":
+        lgr.info("Adding new value to Dandiset %s field:\n\n%s\n", key, newvalue_yaml)
+        metadata[key].append(newvalue)
+        return True
+    elif existing == "skip":
+        lgr.info("Item missing from Dandiset %s field:\n\n%s\n", key, newvalue_yaml)
+        lgr.info("Not updating")
+        return False
+    else:
+        lgr.info("New value to add to Dandiset %s field:\n\n%s\n", key, newvalue_yaml)
+        if click.confirm(
+            f"Add value to Dandiset {key} field?", default=True, prompt_suffix=" "
         ):
-            item.clear()
-            item.update(newvalue)
-            lgr.info("Adding value to Dandiset %s", key)
+            lgr.info("Adding value to Dandiset %s field", key)
+            metadata[key].append(newvalue)
             return True
         else:
             return False
-
-    elif existing == "overwrite":
-        metadata[key].append(newvalue)
-        lgr.info("Adding %r to Dandiset %s", newvalue, key)
-        return True
-    elif existing == "skip":
-        lgr.info("Item %r missing from Dandiset %s; not updating", newvalue, key)
-        return False
-    elif click.confirm(
-        f"Add {newvalue!r} to Dandiset {key}?", default=True, prompt_suffix=" "
-    ):
-        metadata[key].append(newvalue)
-        lgr.info("Adding value to Dandiset %s", key)
-        return True
-    else:
-        return False
 
 
 def eq_rel_resource(r1: dict[str, Any], r2: dict[str, Any]) -> bool:
