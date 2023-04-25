@@ -137,19 +137,14 @@ def reextract_metadata(url: str, diff: bool, when: str) -> None:
     default="all",
     show_default=True,
 )
-def update_dandiset_from_doi(dandiset: str, existing: str, fields: set[str]) -> None:
+@click.argument("doi")
+def update_dandiset_from_doi(
+    dandiset: str, doi: str, existing: str, fields: set[str]
+) -> None:
     if dandiset.startswith("DANDI:"):
         dandiset = dandiset[6:]
     start_time = datetime.now().astimezone()
     with DandiAPIClient.for_dandi_instance("dandi", authenticate=True) as client:
-        dpublished = client.get_dandiset(dandiset, lazy=False)
-        if dpublished.version_id == "draft":
-            raise click.UsageError(f"Dandiset {dandiset} has no published versions.")
-        published_metadata = dpublished.get_raw_metadata()
-        doi = published_metadata.get("doi")
-        if not isinstance(doi, str):
-            raise click.UsageError(f"{dpublished} does not have a DOI.")
-
         with RESTFullAPIClient(
             "https://doi.org/",
             headers={
@@ -158,27 +153,52 @@ def update_dandiset_from_doi(dandiset: str, existing: str, fields: set[str]) -> 
         ) as doiclient:
             doidata = doiclient.get(doi)
 
-        ddraft = dpublished.for_version("draft")
-        original_metadata = ddraft.get_raw_metadata()
+        d = client.get_dandiset(dandiset, "draft", lazy=False)
+        original_metadata = d.get_raw_metadata()
         new_metadata = deepcopy(original_metadata)
         changed_fields = []
 
         if "contributor" in fields:
             changed = False
             for author in doidata["author"]:
-                if "family" in author and "given" in author:
-                    contrib = {
-                        "name": f"{author['family']}, {author['given']}",
-                        "roleName": ["dcite:Author"],
-                        "schemaKey": "Person",
-                        "includeInCitation": True,
-                    }
-                    if "ORCID" in author:
-                        contrib["identifier"] = author["ORCID"].split("/")[-1]
-                    if add_dict_to_list_field(
-                        new_metadata, "contributor", contrib, eq_authors, existing
-                    ):
-                        changed = True
+                author_mut = author.copy()
+                try:
+                    given = author_mut.pop("given")
+                except KeyError:
+                    lgr.warning("Author %r in DOI lacks 'given' field", author)
+                    continue
+                try:
+                    family = author_mut.pop("family")
+                except KeyError:
+                    lgr.warning("Author %r in DOI lacks 'family' field", author)
+                    continue
+                name = f"{family}, {given}"
+                contrib = {
+                    "name": name,
+                    "roleName": ["dcite:Author"],
+                    "schemaKey": "Person",
+                    "includeInCitation": True,
+                    "affiliation": [
+                        {"name": affil} for affil in author_mut.pop("affiliation", [])
+                    ],
+                }
+                if "ORCID" in author_mut:
+                    contrib["identifier"] = author_mut.pop("ORCID").split("/")[-1]
+                author_mut.pop("authenticated-orcid", None)
+                author_mut.pop("sequence", None)
+                for key, value in author_mut.items():
+                    if value:
+                        lgr.warning(
+                            "DOI entry for author %r contained non-empty %r field: %r",
+                            name,
+                            key,
+                            value,
+                        )
+                if add_dict_to_list_field(
+                    new_metadata, "contributor", contrib, eq_authors, existing
+                ):
+                    changed = True
+
             if changed:
                 changed_fields.append("contributor")
 
@@ -254,7 +274,7 @@ def update_dandiset_from_doi(dandiset: str, existing: str, fields: set[str]) -> 
                 "Save modified Dandiset metadata?", default=True, prompt_suffix=" "
             ):
                 lgr.info("Saving ...")
-                ddraft.set_raw_metadata(new_metadata)
+                d.set_raw_metadata(new_metadata)
         else:
             lgr.info("No changes to Dandiset metadata")
 
