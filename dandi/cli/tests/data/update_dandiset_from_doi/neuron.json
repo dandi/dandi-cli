@@ -1,0 +1,87 @@
+{
+    "id": "DANDI:000003/draft",
+    "url": "http://localhost:8085/dandiset/000003/draft",
+    "name": "Routing of Hippocampal Ripples to Subcortical Structures via the Lateral Septum",
+    "access": [
+        {
+            "status": "dandi:OpenAccess",
+            "schemaKey": "AccessRequirements"
+        }
+    ],
+    "license": [
+        "spdx:CC0-1.0"
+    ],
+    "version": "draft",
+    "@context": "https://raw.githubusercontent.com/dandi/schema/master/releases/0.6.4/context.json",
+    "citation": "Tingley, David; Buzs\u00e1ki, Gy\u00f6rgy (2023) Routing of Hippocampal Ripples to Subcortical Structures via the Lateral Septum (Version draft) [Data set]. DANDI archive. http://localhost:8085/dandiset/000003/draft",
+    "schemaKey": "Dandiset",
+    "identifier": "DANDI:000003",
+    "repository": "http://localhost:8085",
+    "contributor": [
+        {
+            "name": "Tests, Dandi-Cli",
+            "roleName": [
+                "dcite:Author",
+                "dcite:ContactPerson"
+            ],
+            "schemaKey": "Person"
+        },
+        {
+            "name": "Tingley, David",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Buzs\u00e1ki, Gy\u00f6rgy",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "affiliation": [],
+            "includeInCitation": true
+        }
+    ],
+    "dateCreated": "2023-04-25T16:28:29.373034+00:00",
+    "description": "A test Dandiset",
+    "assetsSummary": {
+        "schemaKey": "AssetsSummary",
+        "numberOfBytes": 0,
+        "numberOfFiles": 0
+    },
+    "schemaVersion": "0.6.4",
+    "wasGeneratedBy": [
+        {
+            "id": "urn:uuid:02d3faac-26d7-488d-b63f-9e6c97d6848d",
+            "name": "Metadata extraction from DOI",
+            "endDate": "2023-04-25 12:28:30.254637-04:00",
+            "schemaKey": "Activity",
+            "startDate": "2023-04-25 12:28:29.833382-04:00",
+            "description": "Metadata (contributor, name, relatedResource) was enhanced with data from DOI 10.1016/j.neuron.2019.10.012 by DANDI cli",
+            "wasAssociatedWith": [
+                {
+                    "url": "https://github.com/dandi/dandi-cli",
+                    "name": "DANDI Command Line Interface",
+                    "version": "0.53.0+16.g9e9bc9c.dirty",
+                    "schemaKey": "Software",
+                    "identifier": "RRID:SCR_019009"
+                }
+            ]
+        }
+    ],
+    "relatedResource": [
+        {
+            "url": "https://doi.org/10.1016/j.neuron.2019.10.012",
+            "name": "Routing of Hippocampal Ripples to Subcortical Structures via the Lateral Septum",
+            "relation": "dcite:IsDescribedBy",
+            "schemaKey": "Resource",
+            "identifier": "10.1016/j.neuron.2019.10.012"
+        }
+    ],
+    "manifestLocation": [
+        "http://localhost:8000/api/dandisets/000003/versions/draft/assets/"
+    ]
+}

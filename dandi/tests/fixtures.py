@@ -560,10 +560,10 @@ class SampleDandisetFactory:
             {
                 "description": "A test Dandiset",
                 "license": ["spdx:CC0-1.0"],
-                # The contributor needs to be given explicitly here or else it'll
-                # be set based on the user account.  For the Docker Compose setup,
-                # that would mean basing it on the admin user, whose name doesn't
-                # validate under dandischema.
+                # The contributor needs to be given explicitly here or else
+                # it'll be set based on the user account.  For the Docker
+                # Compose setup, that would mean basing it on the admin user,
+                # whose name doesn't validate under dandischema.
                 "contributor": [
                     {
                         "schemaKey": "Person",

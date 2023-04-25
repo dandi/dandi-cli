@@ -1,0 +1,147 @@
+{
+    "id": "DANDI:000004/draft",
+    "url": "http://localhost:8085/dandiset/000004/draft",
+    "name": "Area 2 of primary somatosensory cortex encodes kinematics of the whole arm",
+    "access": [
+        {
+            "status": "dandi:OpenAccess",
+            "schemaKey": "AccessRequirements"
+        }
+    ],
+    "license": [
+        "spdx:CC0-1.0"
+    ],
+    "version": "draft",
+    "@context": "https://raw.githubusercontent.com/dandi/schema/master/releases/0.6.4/context.json",
+    "citation": "Chowdhury, Raeed H; Glaser, Joshua I; Miller, Lee E (2023) Area 2 of primary somatosensory cortex encodes kinematics of the whole arm (Version draft) [Data set]. DANDI archive. http://localhost:8085/dandiset/000004/draft",
+    "schemaKey": "Dandiset",
+    "identifier": "DANDI:000004",
+    "repository": "http://localhost:8085",
+    "contributor": [
+        {
+            "name": "Tests, Dandi-Cli",
+            "roleName": [
+                "dcite:Author",
+                "dcite:ContactPerson"
+            ],
+            "schemaKey": "Person"
+        },
+        {
+            "name": "Chowdhury, Raeed H",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0002-5934-919X",
+            "affiliation": [
+                {
+                    "name": {
+                        "name": "Department of Biomedical Engineering, Northwestern University, Evanston, United States"
+                    }
+                },
+                {
+                    "name": {
+                        "name": "Systems Neuroscience Institute, University of Pittsburgh, Pittsburgh, United States"
+                    }
+                }
+            ],
+            "includeInCitation": true
+        },
+        {
+            "name": "Glaser, Joshua I",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0003-2906-115X",
+            "affiliation": [
+                {
+                    "name": {
+                        "name": "Interdepartmental Neuroscience Program, Northwestern University, Chicago, United States"
+                    }
+                },
+                {
+                    "name": {
+                        "name": "Department of Statistics, Columbia University, New York, United States"
+                    }
+                },
+                {
+                    "name": {
+                        "name": "Zuckerman Mind Brain Behavior Institute, Columbia University, New York, United States"
+                    }
+                }
+            ],
+            "includeInCitation": true
+        },
+        {
+            "name": "Miller, Lee E",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0001-8675-7140",
+            "affiliation": [
+                {
+                    "name": {
+                        "name": "Department of Biomedical Engineering, Northwestern University, Evanston, United States"
+                    }
+                },
+                {
+                    "name": {
+                        "name": "Department of Physiology, Northwestern University, Chicago, United States"
+                    }
+                },
+                {
+                    "name": {
+                        "name": "Department of Physical Medicine and Rehabilitation, Northwestern University, Chicago, United States"
+                    }
+                },
+                {
+                    "name": {
+                        "name": "Shirley Ryan AbilityLab, Chicago, United States"
+                    }
+                }
+            ],
+            "includeInCitation": true
+        }
+    ],
+    "dateCreated": "2023-04-25T16:28:30.453019+00:00",
+    "description": "<jats:p>Proprioception, the sense of body position, movement, and associated forces, remains poorly understood, despite its critical role in movement. Most studies of area 2, a proprioceptive area of somatosensory cortex, have simply compared neurons\u2019 activities to the movement of the hand through space. Using motion tracking, we sought to elaborate this relationship by characterizing how area 2 activity relates to whole arm movements. We found that a whole-arm model, unlike classic models, successfully predicted how features of neural activity changed as monkeys reached to targets in two workspaces. However, when we then evaluated this whole-arm model across active and passive movements, we found that many neurons did not consistently represent the whole arm over both conditions. These results suggest that 1) neural activity in area 2 includes representation of the whole arm during reaching and 2) many of these neurons represented limb state differently during active and passive movements.</jats:p>",
+    "assetsSummary": {
+        "schemaKey": "AssetsSummary",
+        "numberOfBytes": 0,
+        "numberOfFiles": 0
+    },
+    "schemaVersion": "0.6.4",
+    "wasGeneratedBy": [
+        {
+            "id": "urn:uuid:1cb5f0e2-6866-40b5-9e78-aec77b17ef63",
+            "name": "Metadata extraction from DOI",
+            "endDate": "2023-04-25 12:28:31.422996-04:00",
+            "schemaKey": "Activity",
+            "startDate": "2023-04-25 12:28:30.999986-04:00",
+            "description": "Metadata (contributor, name, description, relatedResource) was enhanced with data from DOI 10.7554/eLife.48198 by DANDI cli",
+            "wasAssociatedWith": [
+                {
+                    "url": "https://github.com/dandi/dandi-cli",
+                    "name": "DANDI Command Line Interface",
+                    "version": "0.53.0+16.g9e9bc9c.dirty",
+                    "schemaKey": "Software",
+                    "identifier": "RRID:SCR_019009"
+                }
+            ]
+        }
+    ],
+    "relatedResource": [
+        {
+            "url": "https://doi.org/10.7554/eLife.48198",
+            "name": "Area 2 of primary somatosensory cortex encodes kinematics of the whole arm",
+            "relation": "dcite:IsDescribedBy",
+            "schemaKey": "Resource",
+            "identifier": "10.7554/eLife.48198"
+        }
+    ],
+    "manifestLocation": [
+        "http://localhost:8000/api/dandisets/000004/versions/draft/assets/"
+    ]
+}

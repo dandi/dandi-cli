@@ -1,0 +1,88 @@
+{
+    "id": "DANDI:000005/draft",
+    "url": "http://localhost:8085/dandiset/000005/draft",
+    "name": "Coregistration of heading to visual cues in retrosplenial cortex",
+    "access": [
+        {
+            "status": "dandi:OpenAccess",
+            "schemaKey": "AccessRequirements"
+        }
+    ],
+    "license": [
+        "spdx:CC0-1.0"
+    ],
+    "version": "draft",
+    "@context": "https://raw.githubusercontent.com/dandi/schema/master/releases/0.6.4/context.json",
+    "citation": "Sit, Kevin K.; Goard, Michael J. (2023) Coregistration of heading to visual cues in retrosplenial cortex (Version draft) [Data set]. DANDI archive. http://localhost:8085/dandiset/000005/draft",
+    "schemaKey": "Dandiset",
+    "identifier": "DANDI:000005",
+    "repository": "http://localhost:8085",
+    "contributor": [
+        {
+            "name": "Tests, Dandi-Cli",
+            "roleName": [
+                "dcite:Author",
+                "dcite:ContactPerson"
+            ],
+            "schemaKey": "Person"
+        },
+        {
+            "name": "Sit, Kevin K.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Goard, Michael J.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0002-5366-8501",
+            "affiliation": [],
+            "includeInCitation": true
+        }
+    ],
+    "dateCreated": "2023-04-25T16:28:31.601155+00:00",
+    "description": "<jats:title>Abstract</jats:title><jats:p>Spatial cognition depends on an accurate representation of orientation within an environment. Head direction cells in distributed brain regions receive a range of sensory inputs, but visual input is particularly important for aligning their responses to environmental landmarks. To investigate how population-level heading responses are aligned to visual input, we recorded from retrosplenial cortex (RSC) of head-fixed mice in a moving environment using two-photon calcium imaging. We show that RSC neurons are tuned to the animal\u2019s relative orientation in the environment, even in the absence of head movement. Next, we found that RSC receives functionally distinct projections from visual and thalamic areas and contains several functional classes of neurons. While some functional classes mirror RSC inputs, a newly discovered class coregisters visual and thalamic signals. Finally, decoding analyses reveal unique contributions to heading from each class. Our results suggest an RSC circuit for anchoring heading representations to environmental visual landmarks.</jats:p>",
+    "assetsSummary": {
+        "schemaKey": "AssetsSummary",
+        "numberOfBytes": 0,
+        "numberOfFiles": 0
+    },
+    "schemaVersion": "0.6.4",
+    "wasGeneratedBy": [
+        {
+            "id": "urn:uuid:71209ec0-1378-4b50-a3d8-73d0a7d7315e",
+            "name": "Metadata extraction from DOI",
+            "endDate": "2023-04-25 12:28:32.455952-04:00",
+            "schemaKey": "Activity",
+            "startDate": "2023-04-25 12:28:32.087930-04:00",
+            "description": "Metadata (contributor, name, description, relatedResource) was enhanced with data from DOI 10.1038/s41467-023-37704-5 by DANDI cli",
+            "wasAssociatedWith": [
+                {
+                    "url": "https://github.com/dandi/dandi-cli",
+                    "name": "DANDI Command Line Interface",
+                    "version": "0.53.0+16.g9e9bc9c.dirty",
+                    "schemaKey": "Software",
+                    "identifier": "RRID:SCR_019009"
+                }
+            ]
+        }
+    ],
+    "relatedResource": [
+        {
+            "url": "https://doi.org/10.1038/s41467-023-37704-5",
+            "name": "Coregistration of heading to visual cues in retrosplenial cortex",
+            "relation": "dcite:IsDescribedBy",
+            "schemaKey": "Resource",
+            "identifier": "10.1038/s41467-023-37704-5"
+        }
+    ],
+    "manifestLocation": [
+        "http://localhost:8000/api/dandisets/000005/versions/draft/assets/"
+    ]
+}

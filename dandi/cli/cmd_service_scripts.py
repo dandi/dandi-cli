@@ -138,9 +138,15 @@ def reextract_metadata(url: str, diff: bool, when: str) -> None:
     default="all",
     show_default=True,
 )
+@click.option("--yes", is_flag=True, help="Automatically answer 'yes' to final prompts")
 @click.argument("doi")
 def update_dandiset_from_doi(
-    dandiset: str, doi: str, dandi_instance: str, existing: str, fields: set[str]
+    dandiset: str,
+    doi: str,
+    dandi_instance: str,
+    existing: str,
+    fields: set[str],
+    yes: bool,
 ) -> None:
     if dandiset.startswith("DANDI:"):
         dandiset = dandiset[6:]
@@ -240,7 +246,7 @@ def update_dandiset_from_doi(
                     "name": "Metadata extraction from DOI",
                     "description": (
                         f"Metadata ({', '.join(changed_fields)}) was enhanced"
-                        " with data from DOI {doi} by DANDI cli"
+                        f" with data from DOI {doi} by DANDI cli"
                     ),
                     "schemaKey": "Activity",
                     "startDate": str(start_time),
@@ -256,7 +262,7 @@ def update_dandiset_from_doi(
                     ],
                 }
             )
-            if click.confirm(
+            if yes or click.confirm(
                 "Show diff from old metadata to new?", default=True, prompt_suffix=" "
             ):
                 oldmd = yaml_dump(original_metadata)
@@ -271,7 +277,7 @@ def update_dandiset_from_doi(
                         )
                     )
                 )
-            if click.confirm(
+            if yes or click.confirm(
                 "Save modified Dandiset metadata?", default=True, prompt_suffix=" "
             ):
                 lgr.info("Saving ...")
