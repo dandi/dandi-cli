@@ -230,7 +230,7 @@ def update_dandiset_from_doi(
             ):
                 changed_fields.append("relatedResource")
 
-        if changed:
+        if changed_fields:
             if new_metadata.get("wasGeneratedBy") is None:
                 new_metadata["wasGeneratedBy"] = []
             assert isinstance(new_metadata["wasGeneratedBy"], list)
