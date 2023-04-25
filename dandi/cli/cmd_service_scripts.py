@@ -13,7 +13,7 @@ import click
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from packaging.version import Version
 
-from .base import ChoiceList, map_to_click_exceptions
+from .base import ChoiceList, instance_option, map_to_click_exceptions
 from .. import __version__, lgr
 from ..dandiapi import DandiAPIClient, RemoteBlobAsset, RESTFullAPIClient
 from ..dandiarchive import parse_dandi_url
@@ -125,6 +125,7 @@ def reextract_metadata(url: str, diff: bool, when: str) -> None:
 
 @service_scripts.command()
 @click.option("-d", "--dandiset", metavar="DANDISET_ID", required=True)
+@instance_option()
 @click.option(
     "--existing",
     type=click.Choice(["ask", "overwrite", "skip"]),
@@ -139,12 +140,12 @@ def reextract_metadata(url: str, diff: bool, when: str) -> None:
 )
 @click.argument("doi")
 def update_dandiset_from_doi(
-    dandiset: str, doi: str, existing: str, fields: set[str]
+    dandiset: str, doi: str, dandi_instance: str, existing: str, fields: set[str]
 ) -> None:
     if dandiset.startswith("DANDI:"):
         dandiset = dandiset[6:]
     start_time = datetime.now().astimezone()
-    with DandiAPIClient.for_dandi_instance("dandi", authenticate=True) as client:
+    with DandiAPIClient.for_dandi_instance(dandi_instance, authenticate=True) as client:
         with RESTFullAPIClient(
             "https://doi.org/",
             headers={
