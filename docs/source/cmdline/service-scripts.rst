@@ -41,3 +41,49 @@ Options
       currently in use by DANDI
 
     - ``always`` — always
+
+
+``update-dandiset-from-doi``
+----------------------------
+
+::
+
+    dandi [<global options>] service-scripts update-dandiset-from-doi --dandiset=<DANDISET ID> [<options>] <doi>
+
+Update the metadata for the draft version of a Dandiset with information from a
+given DOI record.
+
+Options
+^^^^^^^
+
+.. option:: -d, --dandiset <DANDISET ID>
+
+    Specify the ID of the Dandiset to operate on.  This option is required.
+
+.. option:: -i, --dandi-instance <instance-name>
+
+    Specify the DANDI instance where the Dandiset is located [default:
+    ``dandi``]
+
+.. option:: -e, --existing [ask|overwrite|skip]
+
+    Specify the behavior when a value would be set on or added to the Dandiset
+    metadata:
+
+    - ``ask`` [default] — Ask the user with confirmation before making the
+      change
+
+    - ``overwrite`` — Make the change without asking for confirmation
+
+    - ``skip`` — Do not change anything, but still print out details on what
+      would have been changed
+
+.. option:: -F, --fields [contributor,name,description,relatedResource,all]
+
+    Comma-separated list of Dandiset metadata fields to update [default:
+    ``all``]
+
+.. option:: -y, --yes
+
+    Show the final metadata diff and save any changes without asking for
+    confirmation

@@ -124,21 +124,36 @@ def reextract_metadata(url: str, diff: bool, when: str) -> None:
 
 
 @service_scripts.command()
-@click.option("-d", "--dandiset", metavar="DANDISET_ID", required=True)
-@instance_option()
 @click.option(
+    "-d",
+    "--dandiset",
+    metavar="DANDISET_ID",
+    required=True,
+    help="ID of Dandiset to operate on",
+)
+@click.option(
+    "-e",
     "--existing",
     type=click.Choice(["ask", "overwrite", "skip"]),
     default="ask",
+    help="Specify behavior when a value would be set on or added to the metadata",
     show_default=True,
 )
 @click.option(
+    "-F",
     "--fields",
     type=ChoiceList(["contributor", "name", "description", "relatedResource"]),
     default="all",
+    help="Comma-separated list of Dandiset metadata fields to update",
     show_default=True,
 )
-@click.option("--yes", is_flag=True, help="Automatically answer 'yes' to final prompts")
+@instance_option()
+@click.option(
+    "-y",
+    "--yes",
+    is_flag=True,
+    help="Show final diff and save changes without prompting",
+)
 @click.argument("doi")
 def update_dandiset_from_doi(
     dandiset: str,
@@ -148,6 +163,10 @@ def update_dandiset_from_doi(
     fields: set[str],
     yes: bool,
 ) -> None:
+    """
+    Update the metadata for the draft version of a Dandiset with information
+    from a given DOI record.
+    """
     if dandiset.startswith("DANDI:"):
         dandiset = dandiset[6:]
     start_time = datetime.now().astimezone()
