@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from contextlib import nullcontext
 import json
+import os
 from pathlib import Path
 import re
 
@@ -8,6 +10,7 @@ import anys
 from click.testing import CliRunner
 from dandischema.consts import DANDI_SCHEMA_VERSION
 import pytest
+import vcr
 
 from dandi import __version__
 from dandi.tests.fixtures import SampleDandiset
@@ -36,41 +39,58 @@ def test_reextract_metadata(
     assert asset_id2 != asset_id
 
 
+def record_only_doi_requests(request):
+    if request.host in ("doi.org", "api.crossref.org"):
+        # We need to capture api.crossref.org requests as doi.org redirects
+        # there.
+        return request
+    else:
+        return None
+
+
 @pytest.mark.parametrize(
-    "doi,filename",
+    "doi,name",
     [
-        ("10.1101/2020.01.17.909838", "biorxiv.json"),
-        ("10.1523/JNEUROSCI.6157-08.2009", "jneurosci.json"),
-        ("10.1016/j.neuron.2019.10.012", "neuron.json"),
-        ("10.7554/eLife.48198", "elife.json"),
-        ("10.1038/s41467-023-37704-5", "nature.json"),
+        ("10.1101/2020.01.17.909838", "biorxiv"),
+        ("10.1523/JNEUROSCI.6157-08.2009", "jneurosci"),
+        ("10.1016/j.neuron.2019.10.012", "neuron"),
+        ("10.7554/eLife.48198", "elife"),
+        ("10.1038/s41467-023-37704-5", "nature"),
     ],
 )
 def test_update_dandiset_from_doi(
     doi: str,
-    filename: str,
+    name: str,
     new_dandiset: SampleDandiset,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     dandiset_id = new_dandiset.dandiset_id
     repository = new_dandiset.api.instance.gui
     monkeypatch.setenv("DANDI_API_KEY", new_dandiset.api.api_key)
-    r = CliRunner().invoke(
-        service_scripts,
-        [
-            "update-dandiset-from-doi",
-            "--dandiset",
-            dandiset_id,
-            "--dandi-instance",
-            new_dandiset.api.instance_id,
-            "--existing=overwrite",
-            "--yes",
-            doi,
-        ],
-    )
+    if os.environ.get("DANDI_TESTS_NO_VCR", ""):
+        ctx = nullcontext()
+    else:
+        ctx = vcr.use_cassette(
+            str(DATA_DIR / "update_dandiset_from_doi" / f"{name}.vcr.yaml"),
+            before_record_request=record_only_doi_requests,
+        )
+    with ctx:
+        r = CliRunner().invoke(
+            service_scripts,
+            [
+                "update-dandiset-from-doi",
+                "--dandiset",
+                dandiset_id,
+                "--dandi-instance",
+                new_dandiset.api.instance_id,
+                "--existing=overwrite",
+                "--yes",
+                doi,
+            ],
+        )
     assert r.exit_code == 0
     metadata = new_dandiset.dandiset.get_raw_metadata()
-    with (DATA_DIR / "update_dandiset_from_doi" / filename).open() as fp:
+    with (DATA_DIR / "update_dandiset_from_doi" / f"{name}.json").open() as fp:
         expected = json.load(fp)
     expected["id"] = f"DANDI:{dandiset_id}/draft"
     expected["url"] = f"{repository}/dandiset/{dandiset_id}/draft"
