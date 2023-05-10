@@ -13,7 +13,7 @@ from .fixtures import SampleDandiset
 from .test_helpers import assert_dirtrees_eq
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteBlobAsset, RemoteZarrAsset
-from ..dandiset import APIDandiset
+from ..dandiset import Dandiset
 from ..download import download
 from ..exceptions import NotFoundError, UploadError
 from ..files import LocalFileAsset
@@ -46,7 +46,7 @@ def test_upload_dandiset_metadata(new_dandiset: SampleDandiset) -> None:
     # which is missing due to https://github.com/dandi/dandi-api/issues/63
     d = new_dandiset.dandiset
     dspath = new_dandiset.dspath
-    ds_orig = APIDandiset(dspath)
+    ds_orig = Dandiset(dspath)
     ds_metadata = ds_orig.metadata
     assert ds_metadata is not None
     ds_metadata["description"] = "very long"

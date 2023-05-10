@@ -48,14 +48,14 @@ def upload(
     sync: bool = False,
 ) -> None:
     from .dandiapi import DandiAPIClient
-    from .dandiset import APIDandiset, Dandiset
+    from .dandiset import Dandiset
 
     if paths:
         paths = [Path(p).absolute() for p in paths]
-        dandiset_ = Dandiset.find(os.path.commonpath(paths))
+        dandiset = Dandiset.find(os.path.commonpath(paths))
     else:
-        dandiset_ = Dandiset.find(None)
-    if not dandiset_:
+        dandiset = Dandiset.find(None)
+    if dandiset is None:
         raise RuntimeError(
             f"Found no {dandiset_metadata_file} anywhere in common ancestor of"
             " paths.  Use 'dandi download' or 'organize' first."
@@ -89,8 +89,6 @@ def upload(
                     return n
 
             stack.enter_context(patch("requests.models.super_len", new_super_len))
-
-        dandiset = APIDandiset(dandiset_.path)  # "cast" to a new API based dandiset
 
         ds_identifier = dandiset.identifier
         remote_dandiset = client.get_dandiset(ds_identifier, DRAFT)
@@ -200,6 +198,7 @@ def upload(
                     # online.
                     if upload_dandiset_metadata:
                         yield {"status": "updating metadata"}
+                        assert dandiset is not None
                         assert dandiset.metadata is not None
                         remote_dandiset.set_raw_metadata(dandiset.metadata)
                         yield {"status": "updated metadata"}
