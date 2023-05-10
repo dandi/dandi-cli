@@ -604,7 +604,6 @@ def populate_dataset_yml(filepath, metadata):
         age["minimum"] = min(uvs["age"])
         age["maximum"] = max(uvs["age"])
         if age.get("units", None) in (None,) + DEFAULT_VALUES:  # template
-            age.pop("units", None)
             age.insert(2, "units", "TODO", comment="REQUIRED")
 
     if uvs["sex"]:
