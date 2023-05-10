@@ -244,6 +244,11 @@ def test_upload_bids(mocker: MockerFixture, bids_dandiset: SampleDandiset) -> No
     dandiset.get_asset_by_path("sub-Sub1/anat/sub-Sub1_T1w.nii.gz")
 
 
+def test_upload_bids_non_nwb_file(bids_dandiset: SampleDandiset) -> None:
+    bids_dandiset.upload([bids_dandiset.dspath / "README"])
+    assert [asset.path for asset in bids_dandiset.dandiset.get_assets()] == ["README"]
+
+
 def test_upload_sync_zarr(mocker, zarr_dandiset):
     rmtree(zarr_dandiset.dspath / "sample.zarr")
     zarr.save(zarr_dandiset.dspath / "identity.zarr", np.eye(5))
