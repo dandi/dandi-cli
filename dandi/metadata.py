@@ -555,10 +555,8 @@ def parse_purlobourl(
     req.raise_for_status()
     doc = parseString(req.text)
     for elfound in doc.getElementsByTagName("Class"):
-        if (
-            "rdf:about" in elfound.attributes.keys()
-            and elfound.attributes.getNamedItem("rdf:about").value == url
-        ):
+        about = elfound.attributes.getNamedItem("rdf:about")
+        if about is not None and about.value == url:
             break
     else:
         return None
@@ -568,8 +566,8 @@ def parse_purlobourl(
     for key in lookup:
         elchild = elfound.getElementsByTagName(key)
         if elchild:
-            elchild = elchild[0]
-            values[key] = elchild.childNodes[0].nodeValue.capitalize()
+            elchild0 = elchild[0]
+            values[key] = elchild0.childNodes[0].nodeValue.capitalize()
     return values
 
 
