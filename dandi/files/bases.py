@@ -19,7 +19,7 @@ from dandischema.models import BareAsset, CommonModel
 from dandischema.models import Dandiset as DandisetMeta
 from dandischema.models import get_schema_version
 from etelemetry import get_project
-from nwbinspector import Importance, inspect_nwb, load_config
+from nwbinspector import Importance, inspect_nwbfile, load_config
 from nwbinspector.utils import get_package_version
 from packaging.version import Version
 from pydantic import ValidationError
@@ -492,11 +492,11 @@ class NWBAsset(LocalFileAsset):
         schema_version: Optional[str] = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
-        """Validate NWB asset
+        """
+        Validate NWB asset
 
         If ``schema_version`` was provided, we only validate basic metadata,
-        and completely skip validation using nwbinspector.inspect_nwb
-
+        and completely skip validation using nwbinspector.inspect_nwbfile
         """
         errors: list[ValidationResult] = pynwb_validate(
             self.filepath, devel_debug=devel_debug
@@ -515,7 +515,7 @@ class NWBAsset(LocalFileAsset):
                     version=str(_get_nwb_inspector_version()),
                 )
 
-                for error in inspect_nwb(
+                for error in inspect_nwbfile(
                     nwbfile_path=self.filepath,
                     skip_validate=True,
                     config=load_config(filepath_or_keyword="dandi"),
