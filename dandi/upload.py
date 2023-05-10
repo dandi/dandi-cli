@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections import defaultdict
 from contextlib import ExitStack
 from functools import reduce
@@ -21,7 +23,6 @@ from .files import (
     LocalAsset,
     LocalDirectoryAsset,
     ZarrAsset,
-    find_dandi_files,
 )
 from .misctypes import Digest
 from .utils import ensure_datetime, get_instance, pluralize
@@ -108,13 +109,16 @@ def upload(
         if not paths:
             paths = [dandiset.path]
 
-        dandi_files = list(
-            find_dandi_files(
-                *paths,
-                dandiset_path=dandiset.path,
-                allow_all=allow_any_path,
-                include_metadata=True,
-            )
+        # DO NOT FACTOR OUT THIS VARIABLE!  It stores any
+        # BIDSDatasetDescriptionAsset instances for the Dandiset, which need to
+        # remain alive until we're done working with all BIDS assets.
+        assets = dandiset.assets(allow_all=allow_any_path)
+
+        dandi_files: list[DandiFile] = []
+        # Build the list step by step so as not to confuse mypy
+        dandi_files.append(dandiset.metadata_file())
+        dandi_files.extend(
+            assets.under_paths(Path(p).relative_to(dandiset.path) for p in paths)
         )
         lgr.info(f"Found {len(dandi_files)} files to consider")
 

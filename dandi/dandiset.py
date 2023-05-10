@@ -1,13 +1,16 @@
 """Classes/utilities for support of a dandiset"""
 from __future__ import annotations
 
-from pathlib import Path
+from collections.abc import Iterable, Iterator
+from dataclasses import dataclass
+from pathlib import Path, PurePath, PurePosixPath
 from typing import Optional, TypeVar
 
 from dandischema.models import get_schema_version
 
 from . import get_logger
 from .consts import dandiset_metadata_file
+from .files import DandisetMetadataFile, LocalAsset, dandi_file, find_dandi_files
 from .utils import find_parent_directory_containing, yaml_dump, yaml_load
 
 lgr = get_logger()
@@ -141,3 +144,52 @@ class Dandiset:
                 f"Found no dandiset.identifier in metadata record: {self.metadata}"
             )
         return id_
+
+    def assets(self, allow_all: bool = False) -> AssetView:
+        data = {}
+        for df in find_dandi_files(
+            self.path, dandiset_path=self.path, allow_all=allow_all
+        ):
+            if isinstance(df, DandisetMetadataFile):
+                continue
+            assert isinstance(df, LocalAsset)
+            data[PurePosixPath(df.path)] = df
+        return AssetView(data)
+
+    def metadata_file(self) -> DandisetMetadataFile:
+        df = dandi_file(self._metadata_file_obj, dandiset_path=self.path)
+        assert isinstance(df, DandisetMetadataFile)
+        return df
+
+
+@dataclass
+class AssetView:
+    """
+    A collection of all assets in a local Dandiset, used to ensure that
+    `BIDSDatasetDescriptionAsset` objects are stored and remain alive while
+    working with only a subset of the files in a Dandiset.
+    """
+
+    data: dict[PurePosixPath, LocalAsset]
+
+    def __iter__(self) -> Iterator[LocalAsset]:
+        return iter(self.data.values())
+
+    def under_paths(self, paths: Iterable[str | Path]) -> Iterator[LocalAsset]:
+        # The given paths must be relative to the Dandiset root.
+        ppaths = [PurePosixPath(p) for p in paths]
+        for p, df in self.data.items():
+            if any(is_relative_to(p, pp) for pp in ppaths):
+                yield df
+
+
+def is_relative_to(p1: PurePath, p2: PurePath) -> bool:
+    # This also returns true when p1 == p2, which we want to happen.
+    # This can be replaced with PurePath.is_relative_to() once we drop support
+    #   for Python 3.8.
+    try:
+        p1.relative_to(p2)
+    except ValueError:
+        return False
+    else:
+        return True

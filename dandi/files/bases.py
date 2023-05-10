@@ -29,7 +29,6 @@ import dandi
 from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from dandi.metadata import get_default_metadata, nwb2asset
 from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
-from dandi.organize import validate_organized_path
 from dandi.pynwb_utils import validate as pynwb_validate
 from dandi.support.digests import get_dandietag, get_digest
 from dandi.utils import yaml_load
@@ -553,6 +552,8 @@ class NWBAsset(LocalFileAsset):
                 return _pydantic_errors_to_validation_results(
                     [e], self.filepath, scope=Scope.FILE
                 )
+
+        from dandi.organize import validate_organized_path
 
         from .bids import NWBBIDSAsset
 
