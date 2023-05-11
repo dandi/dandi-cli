@@ -46,7 +46,10 @@ class ChoiceList(click.ParamType):
             elif v in self.values:
                 selected.add(v)
             else:
-                self.fail(f"{v!r}: invalid value", param, ctx)
+                must_be = ", ".join(self.values) + ", all"
+                self.fail(
+                    f"{v!r}: invalid value; must be one of: {must_be}", param, ctx
+                )
         return selected
 
     def get_metavar(self, param):
