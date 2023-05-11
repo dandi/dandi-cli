@@ -418,7 +418,7 @@ def add_dict_to_list_field(
 
 
 def eq_rel_resource(r1: dict[str, Any], r2: dict[str, Any]) -> bool:
-    return bool(r1["identifier"] == r2["identifier"])
+    return bool(r1["identifier"] == r2.get("identifier"))
 
 
 def eq_authors(author1: dict[str, Any], author2: dict[str, Any]) -> bool:
@@ -426,4 +426,4 @@ def eq_authors(author1: dict[str, Any], author2: dict[str, Any]) -> bool:
     if orcid is not None:
         return bool(orcid == author2.get("identifier"))
     else:
-        return bool(author1["name"] == author2["name"])
+        return bool(author1["name"] == author2.get("name"))
