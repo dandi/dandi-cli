@@ -46,7 +46,7 @@ class ChoiceList(click.ParamType):
             elif v in self.values:
                 selected.add(v)
             else:
-                must_be = ", ".join(self.values) + ", all"
+                must_be = ", ".join(sorted(self.values)) + ", all"
                 self.fail(
                     f"{v!r}: invalid value; must be one of: {must_be}", param, ctx
                 )
