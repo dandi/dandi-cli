@@ -702,7 +702,7 @@ class VersionInfo(Version):
     errors
     """
 
-    asset_validation_errors: List[RemoteValidationError]
+    asset_validation_errors: Dict[str, List[RemoteValidationError]]
     version_validation_errors: List[RemoteValidationError]
 
 
@@ -1025,9 +1025,10 @@ class RemoteDandiset:
             sleep(0.5)
         # TODO: Improve the presentation of the error messages
         about = {
-            "asset_validation_errors": [
-                e.json_dict() for e in v.asset_validation_errors
-            ],
+            "asset_validation_errors": {
+                key: [e.json_dict() for e in val]
+                for key, val in v.asset_validation_errors.items()
+            },
             "version_validation_errors": [
                 e.json_dict() for e in v.version_validation_errors
             ],
