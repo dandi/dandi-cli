@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from bisect import bisect
 import datetime
 import inspect
 import io
@@ -5,7 +8,7 @@ import itertools
 from mimetypes import guess_type
 import os
 import os.path as op
-from pathlib import Path
+from pathlib import Path, PurePath, PurePosixPath
 import platform
 import re
 import shutil
@@ -805,3 +808,43 @@ def exclude_from_zarr(path: Path) -> bool:
     excluded from consideration when located in a Zarr
     """
     return path.name in (".dandi", ".datalad", ".git", ".gitattributes", ".gitmodules")
+
+
+def under_paths(
+    paths: Iterable[str | PurePath], filter_paths: Iterable[str | PurePath]
+) -> Iterator[PurePosixPath]:
+    """
+    Return all elements of ``paths`` (converted to `PurePosixPath` instances)
+    that are equal to or under/start with one or more paths in
+    ``filter_paths``.  The elements of both iterables must be relative &
+    normalized.
+
+    Based on ``get_filtered_paths_`` from datalad's
+    :file:`datalad/support/path.py`
+    """
+    path_parts = _prepare_path_parts(paths)
+    filter_path_parts = _prepare_path_parts(filter_paths)
+    for path in path_parts:
+        i = bisect(filter_path_parts, path)
+        if i > 0 and _starts_with(path, filter_path_parts[i - 1]):
+            yield PurePosixPath(*path)
+        elif i == len(filter_path_parts):
+            break
+
+
+def _prepare_path_parts(paths: Iterable[str | PurePath]) -> list[tuple[str, ...]]:
+    path_parts: list[tuple[str, ...]] = []
+    for p in paths:
+        pp = PurePosixPath(p)
+        if pp.is_absolute():
+            raise ValueError(f"Absolute path: {p!r}")
+        parts = pp.parts
+        if ".." in parts or "." in parts:
+            raise ValueError(f"Non-normalized path: {p!r}")
+        path_parts.append(parts)
+    path_parts.sort()
+    return path_parts
+
+
+def _starts_with(t: tuple[str, ...], prefix: tuple[str, ...]) -> bool:
+    return t[: len(prefix)] == prefix

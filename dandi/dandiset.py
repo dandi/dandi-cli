@@ -11,7 +11,7 @@ from dandischema.models import get_schema_version
 from . import get_logger
 from .consts import dandiset_metadata_file
 from .files import DandisetMetadataFile, LocalAsset, dandi_file, find_dandi_files
-from .utils import find_parent_directory_containing, yaml_dump, yaml_load
+from .utils import find_parent_directory_containing, under_paths, yaml_dump, yaml_load
 
 lgr = get_logger()
 
@@ -175,21 +175,8 @@ class AssetView:
     def __iter__(self) -> Iterator[LocalAsset]:
         return iter(self.data.values())
 
-    def under_paths(self, paths: Iterable[str | Path]) -> Iterator[LocalAsset]:
-        # The given paths must be relative to the Dandiset root.
-        ppaths = [PurePosixPath(p) for p in paths]
-        for p, df in self.data.items():
-            if any(is_relative_to(p, pp) for pp in ppaths):
-                yield df
-
-
-def is_relative_to(p1: PurePath, p2: PurePath) -> bool:
-    # This also returns true when p1 == p2, which we want to happen.
-    # This can be replaced with PurePath.is_relative_to() once we drop support
-    #   for Python 3.8.
-    try:
-        p1.relative_to(p2)
-    except ValueError:
-        return False
-    else:
-        return True
+    def under_paths(self, paths: Iterable[str | PurePath]) -> Iterator[LocalAsset]:
+        # The given paths must be relative to the Dandiset root and may not
+        # contain '.' or '..'
+        for p in under_paths(self.data.keys(), paths):
+            yield self.data[p]
