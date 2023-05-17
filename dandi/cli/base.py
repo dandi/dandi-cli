@@ -30,6 +30,32 @@ class IntColonInt(click.ParamType):
         return "N[:M]"
 
 
+class ChoiceList(click.ParamType):
+    name = "choice-list"
+
+    def __init__(self, values):
+        self.values = set(values)
+
+    def convert(self, value, param, ctx):
+        if value is None or isinstance(value, set):
+            return value
+        selected = set()
+        for v in value.split(","):
+            if v == "all":
+                selected = self.values.copy()
+            elif v in self.values:
+                selected.add(v)
+            else:
+                must_be = ", ".join(sorted(self.values)) + ", all"
+                self.fail(
+                    f"{v!r}: invalid value; must be one of: {must_be}", param, ctx
+                )
+        return selected
+
+    def get_metavar(self, param):
+        return "[" + ",".join(self.values) + ",all]"
+
+
 # ???: could make them always available but hidden
 #  via  hidden=True.
 def devel_option(*args, **kwargs):

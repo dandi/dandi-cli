@@ -1,0 +1,428 @@
+{
+    "id": "DANDI:000001/draft",
+    "url": "http://localhost:8085/dandiset/000001/draft",
+    "name": "Standardized and reproducible measurement of decision-making in mice",
+    "access": [
+        {
+            "status": "dandi:OpenAccess",
+            "schemaKey": "AccessRequirements"
+        }
+    ],
+    "license": [
+        "spdx:CC0-1.0"
+    ],
+    "version": "draft",
+    "@context": "https://raw.githubusercontent.com/dandi/schema/master/releases/0.6.4/context.json",
+    "citation": "Aguillon-Rodriguez, Valeria; Angelaki, Dora E.; Bayer, Hannah M.; Bonacchi, Niccol\u00f2; Carandini, Matteo; Cazettes, Fanny; Chapuis, Gaelle A.; Churchland, Anne K.; Dan, Yang; Dewitt, Eric E. J.; Faulkner, Mayo; Forrest, Hamish; Haetzel, Laura M.; Hausser, Michael; Hofer, Sonja B.; Hu, Fei; Khanal, Anup; Krasniak, Christopher S.; Laranjeira, In\u00eas; Mainen, Zachary F.; Meijer, Guido T.; Miska, Nathaniel J.; Mrsic-Flogel, Thomas D.; Murakami, Masayoshi; Noel, Jean-Paul; Pan-Vazquez, Alejandro; Rossant, Cyrille; Sanders, Joshua I.; Socha, Karolina Z.; Terry, Rebecca; Urai, Anne E.; Vergara, Hernando M.; Wells, Miles J.; Wilson, Christian J.; Witten, Ilana B.; Wool, Lauren E.; Zador, Anthony (2023) Standardized and reproducible measurement of decision-making in mice (Version draft) [Data set]. DANDI archive. http://localhost:8085/dandiset/000001/draft",
+    "schemaKey": "Dandiset",
+    "identifier": "DANDI:000001",
+    "repository": "http://localhost:8085",
+    "contributor": [
+        {
+            "name": "Tests, Dandi-Cli",
+            "roleName": [
+                "dcite:Author",
+                "dcite:ContactPerson"
+            ],
+            "schemaKey": "Person"
+        },
+        {
+            "name": "Aguillon-Rodriguez, Valeria",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Angelaki, Dora E.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0002-9650-8962",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Bayer, Hannah M.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0002-5644-4124",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Bonacchi, Niccol\u00f2",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0001-5228-6918",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Carandini, Matteo",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0003-4880-7682",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Cazettes, Fanny",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0002-9648-4761",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Chapuis, Gaelle A.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0002-6849-5316",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Churchland, Anne K.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0002-3205-3794",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Dan, Yang",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0002-3818-877X",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Dewitt, Eric E. J.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Faulkner, Mayo",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Forrest, Hamish",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Haetzel, Laura M.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0001-5178-9177",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Hausser, Michael",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0002-2673-8957",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Hofer, Sonja B.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0003-4921-8521",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Hu, Fei",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0001-7827-9548",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Khanal, Anup",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0002-8929-7984",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Krasniak, Christopher S.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0001-8852-6805",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Laranjeira, In\u00eas",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Mainen, Zachary F.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0001-7913-9109",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Meijer, Guido T.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0002-7473-0482",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Miska, Nathaniel J.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0001-8587-4919",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Mrsic-Flogel, Thomas D.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0002-8947-408X",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Murakami, Masayoshi",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Noel, Jean-Paul",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0001-5297-3363",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Pan-Vazquez, Alejandro",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Rossant, Cyrille",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Sanders, Joshua I.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Socha, Karolina Z.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0002-1677-1489",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Terry, Rebecca",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Urai, Anne E.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0001-5270-6513",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Vergara, Hernando M.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0001-6904-2311",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Wells, Miles J.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0003-4014-2591",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Wilson, Christian J.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Witten, Ilana B.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0003-0548-2160",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Wool, Lauren E.",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0002-2955-2576",
+            "affiliation": [],
+            "includeInCitation": true
+        },
+        {
+            "name": "Zador, Anthony",
+            "roleName": [
+                "dcite:Author"
+            ],
+            "schemaKey": "Person",
+            "identifier": "0000-0002-8431-9136",
+            "affiliation": [],
+            "includeInCitation": true
+        }
+    ],
+    "dateCreated": "2023-04-25T16:28:26.500181+00:00",
+    "description": "<jats:p>Progress in science requires standardized assays whose results can be readily shared, compared, and reproduced across laboratories. Reproducibility, however, has been a concern in neuroscience, particularly for measurements of mouse behavior. Here we show that a standardized task to probe decision-making in mice produces reproducible results across multiple laboratories. We designed a task for head-fixed mice that combines established assays of perceptual and value-based decision making, and we standardized training protocol and experimental hardware, software, and procedures. We trained 140 mice across seven laboratories in three countries, and we collected 5 million mouse choices into a publicly available database. Learning speed was variable across mice and laboratories, but once training was complete there were no significant differences in behavior across laboratories. Mice in different laboratories adopted similar reliance on visual stimuli, on past successes and failures, and on estimates of stimulus prior probability to guide their choices. These results reveal that a complex mouse behavior can be successfully reproduced across multiple laboratories. They establish a standard for reproducible rodent behavior, and provide an unprecedented dataset and open-access tools to study decision-making in mice. More generally, they indicate a path towards achieving reproducibility in neuroscience through collaborative open-science approaches.</jats:p>",
+    "assetsSummary": {
+        "schemaKey": "AssetsSummary",
+        "numberOfBytes": 0,
+        "numberOfFiles": 0
+    },
+    "schemaVersion": "0.6.4",
+    "wasGeneratedBy": [
+        {
+            "id": "urn:uuid:fe45e45a-ff5c-496c-bd05-d7f4bcaf43c8",
+            "name": "Metadata extraction from DOI",
+            "endDate": "2023-04-25 12:28:28.076268-04:00",
+            "schemaKey": "Activity",
+            "startDate": "2023-04-25 12:28:27.606695-04:00",
+            "description": "Metadata (contributor, name, description, relatedResource) was enhanced with data from DOI 10.1101/2020.01.17.909838 by DANDI cli",
+            "wasAssociatedWith": [
+                {
+                    "url": "https://github.com/dandi/dandi-cli",
+                    "name": "DANDI Command Line Interface",
+                    "version": "0.53.0+16.g9e9bc9c.dirty",
+                    "schemaKey": "Software",
+                    "identifier": "RRID:SCR_019009"
+                }
+            ]
+        }
+    ],
+    "relatedResource": [
+        {
+            "url": "https://doi.org/10.1101/2020.01.17.909838",
+            "name": "Standardized and reproducible measurement of decision-making in mice",
+            "relation": "dcite:IsDescribedBy",
+            "schemaKey": "Resource",
+            "identifier": "10.1101/2020.01.17.909838"
+        }
+    ],
+    "manifestLocation": [
+        "http://localhost:8000/api/dandisets/000001/versions/draft/assets/"
+    ]
+}

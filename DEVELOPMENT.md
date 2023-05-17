@@ -78,6 +78,9 @@ development command line options.
   tests will not pull the latest needed Docker images at the start of a run if
   older versions of the images are already present.
 
+- `DANDI_TESTS_NO_VCR` — When set, the use of vcrpy to playback captured HTTP
+  requests during testing will be disabled
+
 - `DANDI_DEVEL_INSTRUMENT_REQUESTS_SUPERLEN` -- When set, the `upload()`
   function will patch `requests` to log the results of calls to
   `requests.utils.super_len()`

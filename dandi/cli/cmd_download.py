@@ -2,32 +2,9 @@ import os
 
 import click
 
-from .base import IntColonInt, instance_option, map_to_click_exceptions
+from .base import ChoiceList, IntColonInt, instance_option, map_to_click_exceptions
 from ..consts import known_instances, known_instances_rev
 from ..dandiarchive import _dandi_url_parser, parse_dandi_url
-
-
-class ChoiceList(click.ParamType):
-    name = "choice-list"
-
-    def __init__(self, values):
-        self.values = set(values)
-
-    def convert(self, value, param, ctx):
-        if value is None or isinstance(value, set):
-            return value
-        selected = set()
-        for v in value.split(","):
-            if v == "all":
-                selected = self.values.copy()
-            elif v in self.values:
-                selected.add(v)
-            else:
-                self.fail(f"{v!r}: invalid value", param, ctx)
-        return selected
-
-    def get_metavar(self, param):
-        return "[" + ",".join(self.values) + ",all]"
 
 
 # The use of f-strings apparently makes this not a proper docstring, and so

@@ -86,7 +86,10 @@ def test_download_bad_type(mocker):
     r = CliRunner().invoke(download, ["--download", "foo"], standalone_mode=False)
     assert r.exit_code != 0
     assert isinstance(r.exception, click.UsageError)
-    assert str(r.exception) == "'foo': invalid value"
+    assert (
+        str(r.exception)
+        == "'foo': invalid value; must be one of: assets, dandiset.yaml, all"
+    )
     mock_download.assert_not_called()
 
 
