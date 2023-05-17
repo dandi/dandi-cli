@@ -294,6 +294,8 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
         assert asset.bids_dataset_description is bidsdd
 
 
+# This test sometimes fails and sometimes passes when running on NFS.
+@pytest.mark.flaky(reruns=10)
 def test_dandi_file_zarr_with_excluded_dotfiles(tmp_path: Path) -> None:
     zarr_path = tmp_path / "foo.zarr"
     mkpaths(
