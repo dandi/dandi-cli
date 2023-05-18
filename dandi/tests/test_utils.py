@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import inspect
 import os
 import os.path as op
@@ -27,6 +29,7 @@ from ..utils import (
     is_page2_url,
     is_same_time,
     on_windows,
+    under_paths,
 )
 
 
@@ -485,3 +488,25 @@ def test_get_mime_type(filename: str, mtype: str) -> None:
 )
 def test_is_page2_url(page1: str, page2: str, r: bool) -> None:
     assert is_page2_url(page1, page2) is r
+
+
+@pytest.mark.parametrize(
+    "paths,filter_paths,results",
+    [
+        (["a", "b"], ["a", "c"], ["a"]),
+        (["a", "b"], ["b"], ["b"]),
+        (["a", "b"], ["c"], []),
+        (["a", "b"], ["a/b", "c"], []),
+        (["a", "b", "1/2/3", "abc"], ["."], ["1/2/3", "a", "abc", "b"]),
+        (
+            ["a", "b", "1/2/3", "abc"],
+            ["a", "b", "1/2/3", "abc"],
+            ["1/2/3", "a", "abc", "b"],
+        ),
+        (["a", "b", "1/2/3", "abc"], [], []),
+    ],
+)
+def test_under_paths(
+    paths: list[str], filter_paths: list[str], results: list[str]
+) -> None:
+    assert list(map(str, under_paths(paths, filter_paths))) == results

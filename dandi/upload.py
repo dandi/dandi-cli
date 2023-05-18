@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections import defaultdict
 from contextlib import ExitStack
 from functools import reduce
@@ -21,7 +23,6 @@ from .files import (
     LocalAsset,
     LocalDirectoryAsset,
     ZarrAsset,
-    find_dandi_files,
 )
 from .misctypes import Digest
 from .utils import ensure_datetime, get_instance, pluralize
@@ -48,14 +49,14 @@ def upload(
     sync: bool = False,
 ) -> None:
     from .dandiapi import DandiAPIClient
-    from .dandiset import APIDandiset, Dandiset
+    from .dandiset import Dandiset
 
     if paths:
         paths = [Path(p).absolute() for p in paths]
-        dandiset_ = Dandiset.find(os.path.commonpath(paths))
+        dandiset = Dandiset.find(os.path.commonpath(paths))
     else:
-        dandiset_ = Dandiset.find(None)
-    if not dandiset_:
+        dandiset = Dandiset.find(None)
+    if dandiset is None:
         raise RuntimeError(
             f"Found no {dandiset_metadata_file} anywhere in common ancestor of"
             " paths.  Use 'dandi download' or 'organize' first."
@@ -90,8 +91,6 @@ def upload(
 
             stack.enter_context(patch("requests.models.super_len", new_super_len))
 
-        dandiset = APIDandiset(dandiset_.path)  # "cast" to a new API based dandiset
-
         ds_identifier = dandiset.identifier
         remote_dandiset = client.get_dandiset(ds_identifier, DRAFT)
 
@@ -110,13 +109,16 @@ def upload(
         if not paths:
             paths = [dandiset.path]
 
-        dandi_files = list(
-            find_dandi_files(
-                *paths,
-                dandiset_path=dandiset.path,
-                allow_all=allow_any_path,
-                include_metadata=True,
-            )
+        # DO NOT FACTOR OUT THIS VARIABLE!  It stores any
+        # BIDSDatasetDescriptionAsset instances for the Dandiset, which need to
+        # remain alive until we're done working with all BIDS assets.
+        assets = dandiset.assets(allow_all=allow_any_path)
+
+        dandi_files: list[DandiFile] = []
+        # Build the list step by step so as not to confuse mypy
+        dandi_files.append(dandiset.metadata_file())
+        dandi_files.extend(
+            assets.under_paths(Path(p).relative_to(dandiset.path) for p in paths)
         )
         lgr.info(f"Found {len(dandi_files)} files to consider")
 
@@ -200,6 +202,7 @@ def upload(
                     # online.
                     if upload_dandiset_metadata:
                         yield {"status": "updating metadata"}
+                        assert dandiset is not None
                         assert dandiset.metadata is not None
                         remote_dandiset.set_raw_metadata(dandiset.metadata)
                         yield {"status": "updated metadata"}
