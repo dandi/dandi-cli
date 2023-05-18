@@ -256,7 +256,7 @@ def organize_external_files(
                 name_old_str = str(name_old)
                 if not op.isabs(name_old_str):
                     name_old_str = op.join(op.dirname(e["path"]), name_old_str)
-                if not op.exists(name_old_str):
+                if not op.lexists(name_old_str):
                     lgr.error("%s does not exist", name_old_str)
                     raise FileNotFoundError(f"{name_old_str} does not exist")
                 os.makedirs(op.dirname(new_path), exist_ok=True)
@@ -561,7 +561,7 @@ def populate_dataset_yml(filepath, metadata):
     import ruamel.yaml
 
     yaml = ruamel.yaml.YAML()  # defaults to round-trip if no parameters given
-    if not op.exists(filepath):
+    if not op.lexists(filepath):
         # Create an empty one, which we would populate with information
         # we can
         with open(filepath, "w") as f:
@@ -641,6 +641,10 @@ def populate_dataset_yml(filepath, metadata):
             rec["publications"].append(v)
 
     # Save result
+    # If was a symlink to git-annexed file -- we would not be able to
+    # write in place anyways.  So let's replace altogether.
+    if op.lexists(filepath):
+        os.unlink(filepath)
     with open(filepath, "w") as f:
         yaml.dump(rec, f)
 
@@ -753,7 +757,7 @@ def organize(
     # Early checks to not wait to fail
     if files_mode == "simulate":
         # in this mode we will demand the entire output folder to be absent
-        if op.exists(dandiset_path):
+        if op.lexists(dandiset_path):
             # TODO: RF away
             raise RuntimeError(
                 "In simulate mode %r (--dandiset-path) must not exist, we will create it."
@@ -844,7 +848,7 @@ def organize(
         else:
             raise ValueError(f"invalid has an invalid value {invalid}")
 
-    if not op.exists(dandiset_path):
+    if not op.lexists(dandiset_path):
         act(os.makedirs, dandiset_path)
 
     if files_mode == "auto":
@@ -903,7 +907,7 @@ def organize(
     existing = []
     for e in metadata:
         dandi_fullpath = op.join(dandiset_path, e["dandi_path"])
-        if op.exists(dandi_fullpath):
+        if op.lexists(dandi_fullpath):
             # It might be the same file, then we would not complain
             if not (
                 op.realpath(e["path"])
@@ -970,7 +974,7 @@ def organize(
         ):  # TODO: this is actually a files_mode on top of modes!!!?
             dry_print(f"{e_path} -> {dandi_path}")
         else:
-            if not op.exists(dandi_dirpath):
+            if not op.lexists(dandi_dirpath):
                 os.makedirs(dandi_dirpath)
             if files_mode == "simulate":
                 os.symlink(e_path, dandi_fullpath)
