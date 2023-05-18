@@ -1,3 +1,28 @@
+# 0.55.0 (Thu May 18 2023)
+
+#### 🚀 Enhancement
+
+- Support uploading a subset of files from a BIDS dataset [#1286](https://github.com/dandi/dandi-cli/pull/1286) ([@jwodder](https://github.com/jwodder))
+- Add `dandi service-scripts update-dandiset-from-doi` command [#1283](https://github.com/dandi/dandi-cli/pull/1283) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Use `inspect_nwbfile()` instead of `inspect_nwb()`; address bug in recent `ruamel.yaml` versions [#1285](https://github.com/dandi/dandi-cli/pull/1285) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- Cancel any still-running tests when pushing to a branch or PR [#1287](https://github.com/dandi/dandi-cli/pull/1287) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Retry test that intermittently fails on NFS [#1290](https://github.com/dandi/dandi-cli/pull/1290) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.54.0 (Fri Apr 21 2023)
 
 #### 🚀 Enhancement
