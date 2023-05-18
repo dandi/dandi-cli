@@ -426,7 +426,7 @@ def find_parent_directory_containing(
         path = path.absolute()
 
     while True:
-        if (path / filename).exists():
+        if op.lexists(path / filename):
             return path
         if path.parent == path:
             return None

@@ -444,7 +444,7 @@ class LocalMover(LocalizedMover):
         """
         rpath, needs_dir = self.resolve(path)
         p = self.dandiset_path / rpath
-        if not p.exists():
+        if not os.path.lexists(p):
             raise NotFoundError(f"No asset at local path {path!r}")
         if p.is_dir():
             if is_src:

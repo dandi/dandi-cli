@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Iterator
+import os.path
 from pathlib import Path
 from typing import Optional
 
@@ -115,7 +116,7 @@ def find_dandi_files(
             if p.is_symlink():
                 lgr.warning("%s: Ignoring unsupported symbolic link to directory", p)
             elif dandiset_path is not None and p == Path(dandiset_path):
-                if (p / BIDS_DATASET_DESCRIPTION).exists():
+                if os.path.lexists(p / BIDS_DATASET_DESCRIPTION):
                     bids = dandi_file(p / BIDS_DATASET_DESCRIPTION, dandiset_path)
                     assert isinstance(bids, BIDSDatasetDescriptionAsset)
                     bidsdd = bids
@@ -129,7 +130,7 @@ def find_dandi_files(
                     # (ie., it's not a Zarr or any other directory asset type
                     # we may add later), so traverse through it as a regular
                     # directory.
-                    if (p / BIDS_DATASET_DESCRIPTION).exists() and not any(
+                    if os.path.lexists(p / BIDS_DATASET_DESCRIPTION) and not any(
                         i in p.parents for i in bids_roots
                     ):  # No nested BIDS
                         bids2 = dandi_file(p / BIDS_DATASET_DESCRIPTION, dandiset_path)

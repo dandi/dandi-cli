@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
+import os.path
 from pathlib import Path
 from threading import Lock
 from typing import List, Optional
@@ -81,7 +82,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 for ext in readme_extensions:
                     readme_candidate = self.bids_root / Path("README" + ext)
                     if (
-                        readme_candidate.exists()
+                        os.path.lexists(readme_candidate)
                         and str(readme_candidate) not in bids_paths
                     ):
                         bids_paths += [str(readme_candidate)]
