@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
+import os.path
 from pathlib import Path, PurePath, PurePosixPath
 from typing import Optional, TypeVar
 
@@ -58,7 +59,11 @@ class Dandiset:
                 # an int -- we should prevent it... probably with some custom loader
                 self.metadata = yaml_load(f, typ="safe")
         except FileNotFoundError:
-            self.metadata = None
+            if os.path.lexists(self._metadata_file_obj):
+                # Broken symlink
+                raise
+            else:
+                self.metadata = None
 
     @classmethod
     def get_dandiset_record(cls, meta: dict) -> str:
@@ -88,7 +93,11 @@ class Dandiset:
             with self._metadata_file_obj.open() as f:
                 rec = yaml_load(f, typ="safe")
         except FileNotFoundError:
-            rec = {}
+            if os.path.lexists(self._metadata_file_obj):
+                # Broken symlink
+                raise
+            else:
+                rec = {}
 
         # TODO: decide howto and properly do updates to nested structures if
         # possible.  Otherwise limit to the fields we know could be modified
