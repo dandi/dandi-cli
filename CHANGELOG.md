@@ -1,3 +1,16 @@
+# 0.55.1 (Fri May 19 2023)
+
+#### 🔩 Dependency Updates
+
+- Bidsschematools 0.7.0 API usage update [#1243](https://github.com/dandi/dandi-cli/pull/1243) ([@TheChymera](https://github.com/TheChymera) [@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 2
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.55.0 (Thu May 18 2023)
 
 #### 🚀 Enhancement
