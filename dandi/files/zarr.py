@@ -7,6 +7,7 @@ from contextlib import closing
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 import os
+import os.path
 from pathlib import Path
 from time import sleep
 from typing import Any, Optional
@@ -71,7 +72,7 @@ class LocalZarrEntry(BasePath):
             return replace(self, filepath=self.filepath.parent, parts=self.parts[:-1])
 
     def exists(self) -> bool:
-        return self.filepath.exists()
+        return os.path.lexists(self.filepath)
 
     def is_file(self) -> bool:
         return self.filepath.is_file()

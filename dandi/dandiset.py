@@ -38,8 +38,10 @@ class Dandiset:
                 )
         self.path = str(path)
         self.path_obj = Path(path)
-        if not allow_empty and not (self.path_obj / dandiset_metadata_file).exists():
-            raise ValueError(f"No Dandiset at {path}")
+        if not allow_empty and not os.path.lexists(
+            self.path_obj / dandiset_metadata_file
+        ):
+            raise ValueError(f"No dandiset at {path}")
         self.metadata: Optional[dict] = None
         self._metadata_file_obj = self.path_obj / dandiset_metadata_file
         self._load_metadata()

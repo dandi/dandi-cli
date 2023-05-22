@@ -373,10 +373,9 @@ def upload(
             path_prefix = reduce(os.path.commonprefix, relpaths)  # type: ignore[arg-type]
             to_delete = []
             for asset in remote_dandiset.get_assets_with_path_prefix(path_prefix):
-                if (
-                    any(p == "" or path_is_subpath(asset.path, p) for p in relpaths)
-                    and not Path(dandiset.path, asset.path).exists()
-                ):
+                if any(
+                    p == "" or path_is_subpath(asset.path, p) for p in relpaths
+                ) and not os.path.lexists(Path(dandiset.path, asset.path)):
                     to_delete.append(asset)
             if to_delete and click.confirm(
                 f"Delete {pluralize(len(to_delete), 'asset')} on server?"
