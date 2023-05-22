@@ -606,7 +606,12 @@ def zarr_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
 
 @pytest.fixture()
 def bids_dandiset(new_dandiset: SampleDandiset, bids_examples: Path) -> SampleDandiset:
-    shutil.copytree(bids_examples / "asl003", new_dandiset.dspath, dirs_exist_ok=True)
+    shutil.copytree(
+        bids_examples / "asl003",
+        new_dandiset.dspath,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns(dandiset_metadata_file),
+    )
     (new_dandiset.dspath / "CHANGES").write_text("0.1.0 2014-11-03\n")
     return new_dandiset
 
@@ -616,7 +621,10 @@ def bids_nwb_dandiset(
     new_dandiset: SampleDandiset, bids_examples: Path
 ) -> SampleDandiset:
     shutil.copytree(
-        bids_examples / "ieeg_epilepsyNWB", new_dandiset.dspath, dirs_exist_ok=True
+        bids_examples / "ieeg_epilepsyNWB",
+        new_dandiset.dspath,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns(dandiset_metadata_file),
     )
     (new_dandiset.dspath / "CHANGES").write_text("0.1.0 2014-11-03\n")
     return new_dandiset
@@ -628,7 +636,10 @@ def bids_dandiset_invalid(
 ) -> SampleDandiset:
     dataset_path = new_dandiset.dspath
     shutil.copytree(
-        bids_error_examples / "invalid_pet001", dataset_path, dirs_exist_ok=True
+        bids_error_examples / "invalid_pet001",
+        dataset_path,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns(dandiset_metadata_file),
     )
     (dataset_path / "README").unlink()
     return new_dandiset
