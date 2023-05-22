@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from bisect import bisect
 import datetime
+from importlib.metadata import version as importlib_version
 import inspect
 import io
 import itertools
@@ -38,11 +39,6 @@ from semantic_version import Version
 from . import __version__, get_logger
 from .consts import DandiInstance, known_instances, known_instances_rev
 from .exceptions import BadCliVersionError, CliVersionTooOldError
-
-if sys.version_info >= (3, 8):
-    from importlib.metadata import version as importlib_version
-else:
-    from importlib_metadata import version as importlib_version
 
 lgr = get_logger()
 
