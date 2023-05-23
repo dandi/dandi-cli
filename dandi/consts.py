@@ -95,7 +95,7 @@ dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
 class DandiInstance(NamedTuple):
     gui: Optional[str]
     redirector: Optional[str]
-    api: Optional[str]
+    api: str
 
 
 # So it could be easily mapped to external IP (e.g. from within VM)
@@ -109,11 +109,6 @@ known_instances = {
         "https://gui.dandiarchive.org",
         redirector_base,
         "https://api.dandiarchive.org/api",
-    ),
-    "dandi-devel": DandiInstance(
-        "https://gui-beta-dandiarchive-org.netlify.app",
-        None,
-        None,
     ),
     "dandi-staging": DandiInstance(
         "https://gui-staging.dandiarchive.org",

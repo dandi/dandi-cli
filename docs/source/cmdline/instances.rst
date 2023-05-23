@@ -21,10 +21,6 @@ Example output:
       api: http://localhost:8000/api
       gui: http://localhost:8085
       redirector: null
-    dandi-devel:
-      api: null
-      gui: https://gui-beta-dandiarchive-org.netlify.app
-      redirector: null
     dandi-staging:
       api: https://api-staging.dandiarchive.org/api
       gui: https://gui-staging.dandiarchive.org
