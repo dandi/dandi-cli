@@ -593,8 +593,14 @@ class ServerInfo(BaseModel):
     cli_bad_versions: List[str] = Field(alias="cli-bad-versions")
 
 
-def get_instance(dandi_instance_id: str) -> DandiInstance:
-    if dandi_instance_id.lower().startswith(("http://", "https://")):
+def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
+    if isinstance(dandi_instance_id, DandiInstance):
+        instance = dandi_instance_id
+        if instance.redirector is None:
+            return instance
+        else:
+            redirector_url = instance.redirector
+    elif dandi_instance_id.lower().startswith(("http://", "https://")):
         redirector_url = dandi_instance_id
         dandi_id = known_instances_rev.get(redirector_url)
         if dandi_id is not None:

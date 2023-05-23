@@ -45,7 +45,6 @@ from .consts import (
     ZARR_DELETE_BATCH_SIZE,
     DandiInstance,
     EmbargoStatus,
-    known_instances,
     known_instances_rev,
 )
 from .exceptions import HTTP404Error, NotFoundError, SchemaVersionError
@@ -56,6 +55,7 @@ from .utils import (
     check_dandi_version,
     chunked,
     ensure_datetime,
+    get_instance,
     is_interactive,
     is_page2_url,
 )
@@ -412,27 +412,34 @@ class DandiAPIClient(RESTFullAPIClient):
     """A client for interacting with a Dandi Archive server"""
 
     def __init__(
-        self, api_url: Optional[str] = None, token: Optional[str] = None
+        self,
+        api_url: Optional[str] = None,
+        token: Optional[str] = None,
+        dandi_instance: Optional[DandiInstance] = None,
     ) -> None:
         """
-        Construct a client instance.
+        Construct a client instance for the given API URL or Dandi instance
+        (mutually exclusive options).  If no URL or instance is supplied, the
+        instance specified by the :envvar:`DANDI_INSTANCE` environment variable
+        (default value: ``"dandi"``) is used.
 
         :param str api_url: Base API URL of the server to interact with.
-        - For DANDI production, use  ``"https://api.dandiarchive.org/api"``
-        - For DANDI staging, use ``"https://api-staging.dandiarchive.org/api"``
-        - If no URL is supplied, the URL is looked up in `known_instances` using the value of the
-        :envvar:`DANDI_INSTANCE` environment variable (default value: ``"dandi"``).
-        :param str token: User API Key. Note that different instance APIs have different
-        keys.
+            - For DANDI production, use  ``"https://api.dandiarchive.org/api"``
+            - For DANDI staging, use
+              ``"https://api-staging.dandiarchive.org/api"``
+        :param str token: User API Key. Note that different instance APIs have
+            different keys.
         """
-
         check_dandi_version()
         if api_url is None:
-            instance_name = os.environ.get("DANDI_INSTANCE", "dandi")
-            api_url = known_instances[instance_name].api
-            if api_url is None:
-                raise ValueError(f"No API URL for instance {instance_name!r}")
+            if dandi_instance is None:
+                instance_name = os.environ.get("DANDI_INSTANCE", "dandi")
+                dandi_instance = get_instance(instance_name)
+            api_url = dandi_instance.api
+        elif dandi_instance is not None:
+            raise ValueError("api_url and dandi_instance are mutually exclusive")
         super().__init__(api_url)
+        self.dandi_instance = dandi_instance
         if token is not None:
             self.authenticate(token)
 
@@ -450,9 +457,7 @@ class DandiAPIClient(RESTFullAPIClient):
         If no token is supplied and ``authenticate`` is true,
         `dandi_authenticate()` is called on the instance before returning it.
         """
-        if isinstance(instance, str):
-            instance = known_instances[instance]
-        client = cls(instance.api, token=token)
+        client = cls(dandi_instance=get_instance(instance), token=token)
         if token is None and authenticate:
             client.dandi_authenticate()
         return client

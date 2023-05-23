@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from operator import attrgetter
 from pathlib import Path
@@ -5,7 +7,7 @@ from typing import Iterable, Iterator, List, Optional, Tuple
 
 import click
 
-from .consts import DRAFT, ZARR_EXTENSIONS, dandiset_metadata_file
+from .consts import DRAFT, ZARR_EXTENSIONS, DandiInstance, dandiset_metadata_file
 from .dandiapi import DandiAPIClient, RemoteAsset, RemoteDandiset
 from .dandiarchive import BaseAssetIDURL, DandisetURL, ParsedDandiURL, parse_dandi_url
 from .exceptions import NotFoundError
@@ -126,10 +128,11 @@ class Deleter:
                 parsed_url.version_id = DRAFT
             self.register_assets_url(url, parsed_url)
 
-    def register_local_path_equivalent(self, instance_name: str, filepath: str) -> None:
+    def register_local_path_equivalent(
+        self, instance_name: str | DandiInstance, filepath: str
+    ) -> None:
         instance = get_instance(instance_name)
         api_url = instance.api
-        assert api_url is not None
         dandiset_id, asset_path = find_local_asset(filepath)
         if not self.set_dandiset(api_url, dandiset_id):
             return
@@ -182,7 +185,7 @@ class Deleter:
 
 def delete(
     paths: Iterable[str],
-    dandi_instance: str = "dandi",
+    dandi_instance: str | DandiInstance = "dandi",
     devel_debug: bool = False,
     jobs: Optional[int] = None,
     force: bool = False,

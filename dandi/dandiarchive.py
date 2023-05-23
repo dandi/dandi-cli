@@ -722,7 +722,6 @@ class _dandi_url_parser:
                             )
                         )
                     known_instance = get_instance(settings["map_instance"])
-                    assert known_instance.api is not None
                     parsed_url.api_url = cast(
                         AnyHttpUrl, parse_obj_as(AnyHttpUrl, known_instance.api)
                     )

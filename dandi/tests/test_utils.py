@@ -331,8 +331,7 @@ def test_get_instance_bad_version_from_server() -> None:
 
 
 def test_get_instance_actual_dandi() -> None:
-    inst = get_instance("dandi")
-    assert inst.api is not None
+    get_instance("dandi")
 
 
 if "DANDI_REDIRECTOR_BASE" in os.environ:
