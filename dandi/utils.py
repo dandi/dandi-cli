@@ -32,6 +32,7 @@ from typing import (
 from urllib.parse import parse_qs, urlparse
 
 import dateutil.parser
+from pydantic import AnyHttpUrl, BaseModel, Field
 import requests
 import ruamel.yaml
 from semantic_version import Version
@@ -573,6 +574,25 @@ def delayed(*args, **kwargs):
     return joblib.delayed(*args, **kwargs)
 
 
+class ServiceURL(BaseModel):
+    url: AnyHttpUrl
+
+
+class ServerServices(BaseModel):
+    api: ServiceURL
+    webui: Optional[ServiceURL] = None
+    jupyterhub: Optional[ServiceURL] = None
+
+
+class ServerInfo(BaseModel):
+    # schema_version: str
+    # schema_url: str
+    version: str
+    services: ServerServices
+    cli_minimal_version: str = Field(alias="cli-minimal-version")
+    cli_bad_versions: List[str] = Field(alias="cli-bad-versions")
+
+
 def get_instance(dandi_instance_id: str) -> DandiInstance:
     if dandi_instance_id.lower().startswith(("http://", "https://")):
         redirector_url = dandi_instance_id
@@ -600,10 +620,10 @@ def get_instance(dandi_instance_id: str) -> DandiInstance:
                 f"Could not retrieve server info from {redirector_url},"
                 " and client does not recognize URL"
             )
-    server_info = r.json()
+    server_info = ServerInfo.parse_obj(r.json())
     try:
-        minversion = Version(server_info["cli-minimal-version"])
-        bad_versions = [Version(v) for v in server_info["cli-bad-versions"]]
+        minversion = Version(server_info.cli_minimal_version)
+        bad_versions = [Version(v) for v in server_info.cli_bad_versions]
     except ValueError as e:
         raise ValueError(
             f"{redirector_url} returned an incorrectly formatted version;"
@@ -614,29 +634,13 @@ def get_instance(dandi_instance_id: str) -> DandiInstance:
         raise CliVersionTooOldError(our_version, minversion, bad_versions)
     if our_version in bad_versions:
         raise BadCliVersionError(our_version, minversion, bad_versions)
-    # note: service: url, not a full record
-    services = {
-        name: (rec or {}).get(
-            "url"
-        )  # note: somehow was ending up with {"girder": None}
-        for name, rec in server_info.get("services", {}).items()
-    }
-    for k, v in list(services.items()):
-        if v is not None:
-            services[k] = v.rstrip("/")
-    if services.get("api"):
-        return DandiInstance(
-            gui=services.get("webui"),
-            redirector=redirector_url,
-            api=services.get("api"),
-        )
-    else:
-        raise RuntimeError(
-            "redirector's server-info returned unknown set of services keys: "
-            + ", ".join(
-                k for k, v in server_info.get("services", {}).items() if v is not None
-            )
-        )
+    return DandiInstance(
+        gui=str(server_info.services.webui.url)
+        if server_info.services.webui is not None
+        else None,
+        api=str(server_info.services.api.url),
+        redirector=redirector_url,
+    )
 
 
 def is_url(s: str) -> bool:
