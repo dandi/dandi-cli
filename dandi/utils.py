@@ -609,7 +609,10 @@ def get_instance(dandi_instance_id: str) -> DandiInstance:
             redirector_url = instance.redirector
     try:
         r = requests.get(redirector_url.rstrip("/") + "/server-info")
+        if r.status_code == 404:
+            r = requests.get(redirector_url.rstrip("/") + "/api/info")
         r.raise_for_status()
+        server_info = ServerInfo.parse_obj(r.json())
     except Exception as e:
         lgr.warning("Request to %s failed (%s)", redirector_url, str(e))
         if instance is not None:
@@ -620,7 +623,6 @@ def get_instance(dandi_instance_id: str) -> DandiInstance:
                 f"Could not retrieve server info from {redirector_url},"
                 " and client does not recognize URL"
             )
-    server_info = ServerInfo.parse_obj(r.json())
     try:
         minversion = Version(server_info.cli_minimal_version)
         bad_versions = [Version(v) for v in server_info.cli_bad_versions]
