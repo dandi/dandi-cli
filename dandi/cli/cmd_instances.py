@@ -1,3 +1,4 @@
+from dataclasses import asdict
 import sys
 
 import click
@@ -13,4 +14,9 @@ def instances():
     """List known Dandi Archive instances that the CLI can interact with"""
     yaml = ruamel.yaml.YAML(typ="safe")
     yaml.default_flow_style = False
-    yaml.dump({k: v._asdict() for k, v in known_instances.items()}, sys.stdout)
+    instances = {}
+    for inst in known_instances.values():
+        data = asdict(inst)
+        data.pop("name")
+        instances[inst.name] = data
+    yaml.dump(instances, sys.stdout)

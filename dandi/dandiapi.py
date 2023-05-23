@@ -45,7 +45,6 @@ from .consts import (
     ZARR_DELETE_BATCH_SIZE,
     DandiInstance,
     EmbargoStatus,
-    known_instances_rev,
 )
 from .exceptions import HTTP404Error, NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup, keyring_save
@@ -438,8 +437,10 @@ class DandiAPIClient(RESTFullAPIClient):
             api_url = dandi_instance.api
         elif dandi_instance is not None:
             raise ValueError("api_url and dandi_instance are mutually exclusive")
+        else:
+            dandi_instance = get_instance(api_url)
         super().__init__(api_url)
-        self.dandi_instance = dandi_instance
+        self.dandi_instance: DandiInstance = dandi_instance
         if token is not None:
             self.authenticate(token)
 
@@ -532,19 +533,12 @@ class DandiAPIClient(RESTFullAPIClient):
                 break
 
     def _get_keyring_ids(self) -> tuple[str, str]:
-        try:
-            client_name = known_instances_rev[self.api_url]
-        except KeyError:
-            raise NotImplementedError("TODO client name derivation for keyring")
+        client_name = self.dandi_instance.name
         return (client_name, f"dandi-api-{client_name}")
 
     @property
     def _instance_id(self) -> str:
-        url = self.api_url.rstrip("/")
-        try:
-            return known_instances_rev[url].upper()
-        except KeyError:
-            return url
+        return self.dandi_instance.name.upper()
 
     def get_dandiset(
         self, dandiset_id: str, version_id: Optional[str] = None, lazy: bool = True

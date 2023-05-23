@@ -266,10 +266,24 @@ def test_remote_asset_json_dict(text_dandiset: SampleDandiset) -> None:
 
 @responses.activate
 def test_check_schema_version_matches_default() -> None:
+    server_info = {
+        "schema_version": get_schema_version(),
+        "version": "0.0.0",
+        "services": {
+            "api": {"url": "https://test.nil/api"},
+        },
+        "cli-minimal-version": "0.0.0",
+        "cli-bad-versions": [],
+    }
+    responses.add(
+        responses.GET,
+        "https://test.nil/server-info",
+        json=server_info,
+    )
     responses.add(
         responses.GET,
         "https://test.nil/api/info/",
-        json={"schema_version": get_schema_version()},
+        json=server_info,
     )
     client = DandiAPIClient("https://test.nil/api")
     client.check_schema_version()
@@ -277,8 +291,24 @@ def test_check_schema_version_matches_default() -> None:
 
 @responses.activate
 def test_check_schema_version_mismatch() -> None:
+    server_info = {
+        "schema_version": "4.5.6",
+        "version": "0.0.0",
+        "services": {
+            "api": {"url": "https://test.nil/api"},
+        },
+        "cli-minimal-version": "0.0.0",
+        "cli-bad-versions": [],
+    }
     responses.add(
-        responses.GET, "https://test.nil/api/info/", json={"schema_version": "4.5.6"}
+        responses.GET,
+        "https://test.nil/server-info",
+        json=server_info,
+    )
+    responses.add(
+        responses.GET,
+        "https://test.nil/api/info/",
+        json=server_info,
     )
     client = DandiAPIClient("https://test.nil/api")
     with pytest.raises(SchemaVersionError) as excinfo:
@@ -554,6 +584,19 @@ def test_get_asset_with_and_without_metadata(
 
 @responses.activate
 def test_retry_logging(caplog: pytest.LogCaptureFixture) -> None:
+    responses.add(
+        responses.GET,
+        "https://test.nil/server-info",
+        json={
+            "schema_version": get_schema_version(),
+            "version": "0.0.0",
+            "services": {
+                "api": {"url": "https://test.nil/api"},
+            },
+            "cli-minimal-version": "0.0.0",
+            "cli-bad-versions": [],
+        },
+    )
     responses.add(responses.GET, "https://test.nil/api/info/", status=503)
     responses.add(responses.GET, "https://test.nil/api/info/", status=503)
     responses.add(responses.GET, "https://test.nil/api/info/", json={"foo": "bar"})

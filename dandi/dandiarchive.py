@@ -653,11 +653,10 @@ class _dandi_url_parser:
         [""] + [display for _, _, display in known_urls]
     )
     map_to = {}
-    for (gui, redirector, api) in known_instances.values():
-        if api:
-            for h in (gui, redirector):
-                if h:
-                    map_to[h] = api
+    for instance in known_instances.values():
+        for h in (instance.gui, instance.redirector):
+            if h:
+                map_to[h] = instance.api
 
     @classmethod
     def parse(

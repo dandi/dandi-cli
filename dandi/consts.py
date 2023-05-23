@@ -1,6 +1,10 @@
+from __future__ import annotations
+
+from collections.abc import Iterator
+from dataclasses import dataclass
 from enum import Enum
 import os
-from typing import NamedTuple, Optional
+from typing import Optional
 
 #: A list of metadata fields which dandi extracts from .nwb files.
 #: Additional fields (such as ``number_of_*``) might be added by
@@ -92,10 +96,19 @@ dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
 
 
-class DandiInstance(NamedTuple):
+@dataclass
+class DandiInstance:
+    name: str
     gui: Optional[str]
     redirector: Optional[str]
     api: str
+
+    def urls(self) -> Iterator[str]:
+        if self.gui is not None:
+            yield self.gui
+        if self.redirector is not None:
+            yield self.redirector
+        yield self.api
 
 
 # So it could be easily mapped to external IP (e.g. from within VM)
@@ -106,21 +119,28 @@ redirector_base = os.environ.get("DANDI_REDIRECTOR_BASE", "https://dandiarchive.
 
 known_instances = {
     "dandi": DandiInstance(
+        "dandi",
         "https://gui.dandiarchive.org",
         redirector_base,
         "https://api.dandiarchive.org/api",
     ),
     "dandi-staging": DandiInstance(
+        "dandi-staging",
         "https://gui-staging.dandiarchive.org",
         None,
         "https://api-staging.dandiarchive.org/api",
     ),
     "dandi-api-local-docker-tests": DandiInstance(
-        f"http://{instancehost}:8085", None, f"http://{instancehost}:8000/api"
+        "dandi-api-local-docker-tests",
+        f"http://{instancehost}:8085",
+        None,
+        f"http://{instancehost}:8000/api",
     ),
 }
 # to map back url: name
-known_instances_rev = {vv: k for k, v in known_instances.items() for vv in v if vv}
+known_instances_rev = {
+    vv: k for k, v in known_instances.items() for vv in v.urls() if vv
+}
 
 file_operation_modes = [
     "dry",

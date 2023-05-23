@@ -189,6 +189,7 @@ def test_get_instance_dandi_with_api() -> None:
         },
     )
     assert get_instance("dandi") == DandiInstance(
+        name="dandi",
         gui="https://gui.dandi",
         redirector=redirector_base,
         api="https://api.dandi",
@@ -212,8 +213,9 @@ def test_get_instance_url() -> None:
         },
     )
     assert get_instance("https://example.dandi/") == DandiInstance(
+        name="api.dandi",
         gui="https://gui.dandi",
-        redirector="https://example.dandi/",
+        redirector="https://example.dandi",
         api="https://api.dandi",
     )
 
@@ -324,7 +326,7 @@ def test_get_instance_bad_version_from_server() -> None:
     with pytest.raises(ValueError) as excinfo:
         get_instance("https://example.dandi/")
     assert str(excinfo.value).startswith(
-        "https://example.dandi/ returned an incorrectly formatted version;"
+        "https://example.dandi returned an incorrectly formatted version;"
         " please contact that server's administrators: "
     )
     assert "foobar" in str(excinfo.value)

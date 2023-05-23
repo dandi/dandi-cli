@@ -29,7 +29,7 @@ from typing import (
     TypeVar,
     Union,
 )
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse, urlunparse
 
 import dateutil.parser
 from pydantic import AnyHttpUrl, BaseModel, Field
@@ -594,6 +594,7 @@ class ServerInfo(BaseModel):
 
 
 def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
+    dandi_id = None
     if isinstance(dandi_instance_id, DandiInstance):
         instance = dandi_instance_id
         if instance.redirector is None:
@@ -607,8 +608,11 @@ def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
             instance = known_instances[dandi_id]
         else:
             instance = None
+            bits = urlparse(redirector_url)
+            redirector_url = urlunparse((bits[0], bits[1], "", "", "", ""))
     else:
-        instance = known_instances[dandi_instance_id]
+        dandi_id = dandi_instance_id
+        instance = known_instances[dandi_id]
         if instance.redirector is None:
             return instance
         else:
@@ -642,11 +646,20 @@ def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
         raise CliVersionTooOldError(our_version, minversion, bad_versions)
     if our_version in bad_versions:
         raise BadCliVersionError(our_version, minversion, bad_versions)
+    api_url = server_info.services.api.url
+    if dandi_id is None:
+        dandi_id = api_url.host
+        assert dandi_id is not None
+        if api_url.port is not None:
+            if ":" in dandi_id:
+                dandi_id = f"[{dandi_id}]"
+            dandi_id += f":{api_url.port}"
     return DandiInstance(
+        name=dandi_id,
         gui=str(server_info.services.webui.url)
         if server_info.services.webui is not None
         else None,
-        api=str(server_info.services.api.url),
+        api=str(api_url),
         redirector=redirector_url,
     )
 
