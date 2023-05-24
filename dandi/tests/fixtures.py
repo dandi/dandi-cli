@@ -499,28 +499,26 @@ def docker_compose_setup() -> Iterator[Dict[str, str]]:
 class DandiAPI:
     api_key: str
     client: DandiAPIClient
-    instance: DandiInstance
-    instance_id: str
+
+    @property
+    def instance(self) -> DandiInstance:
+        return self.client.dandi_instance
+
+    @property
+    def instance_id(self) -> str:
+        return self.instance.name
 
     @property
     def api_url(self) -> str:
-        url = self.instance.api
-        assert isinstance(url, str)
-        return url
+        return self.instance.api
 
 
 @pytest.fixture(scope="session")
 def local_dandi_api(docker_compose_setup: Dict[str, str]) -> Iterator[DandiAPI]:
-    instance_id = "dandi-api-local-docker-tests"
-    instance = known_instances[instance_id]
+    instance = known_instances["dandi-api-local-docker-tests"]
     api_key = docker_compose_setup["django_api_key"]
-    with DandiAPIClient(api_url=instance.api, token=api_key) as client:
-        yield DandiAPI(
-            api_key=api_key,
-            client=client,
-            instance=instance,
-            instance_id=instance_id,
-        )
+    with DandiAPIClient.for_dandi_instance(instance, token=api_key) as client:
+        yield DandiAPI(api_key=api_key, client=client)
 
 
 @dataclass

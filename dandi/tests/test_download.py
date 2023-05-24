@@ -298,7 +298,7 @@ def test_download_metadata404(text_dandiset: SampleDandiset, tmp_path: Path) -> 
     statuses = list(
         Downloader(
             url=DandisetURL(
-                api_url=text_dandiset.client.api_url,
+                instance=text_dandiset.api.instance,
                 dandiset_id=text_dandiset.dandiset.identifier,
                 version_id=text_dandiset.dandiset.version_id,
             ),

@@ -3,7 +3,7 @@ import re
 import pytest
 import responses
 
-from dandi.consts import known_instances
+from dandi.consts import DandiInstance, known_instances
 from dandi.dandiarchive import (
     AssetFolderURL,
     AssetGlobURL,
@@ -30,7 +30,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "https://gui.dandiarchive.org/#/dandiset/000001",
             DandisetURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="000001",
                 version_id=None,
             ),
@@ -38,7 +38,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "https://gui.dandiarchive.org/#/dandiset/000001/",
             DandisetURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="000001",
                 version_id=None,
             ),
@@ -46,7 +46,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302",
             DandisetURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="000001",
                 version_id="0.201104.2302",
             ),
@@ -54,7 +54,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302/",
             DandisetURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="000001",
                 version_id="0.201104.2302",
             ),
@@ -62,7 +62,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302/files",
             DandisetURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="000001",
                 version_id="0.201104.2302",
             ),
@@ -70,7 +70,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "https://gui.dandiarchive.org/#/dandiset/000001/draft",
             DandisetURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="000001",
                 version_id="draft",
             ),
@@ -78,7 +78,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "https://gui.dandiarchive.org/dandiset/000001",
             DandisetURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="000001",
                 version_id=None,
             ),
@@ -86,7 +86,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "https://gui.dandiarchive.org/dandiset/000001/0.201104.2302",
             DandisetURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="000001",
                 version_id="0.201104.2302",
             ),
@@ -94,7 +94,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "https://gui.dandiarchive.org/dandiset/000001/0.201104.2302/files",
             DandisetURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="000001",
                 version_id="0.201104.2302",
             ),
@@ -102,7 +102,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "https://gui.dandiarchive.org/dandiset/000001/draft",
             DandisetURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="000001",
                 version_id="draft",
             ),
@@ -110,7 +110,7 @@ from .fixtures import DandiAPI, SampleDandiset
         pytest.param(
             "DANDI:000027",
             DandisetURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="000027",
                 version_id=None,
             ),
@@ -118,7 +118,7 @@ from .fixtures import DandiAPI, SampleDandiset
         pytest.param(
             "DANDI:000027/0.210831.2033",
             DandisetURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="000027",
                 version_id="0.210831.2033",
             ),
@@ -126,7 +126,7 @@ from .fixtures import DandiAPI, SampleDandiset
         pytest.param(
             "DANDI:000027/draft",
             DandisetURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="000027",
                 version_id="draft",
             ),
@@ -135,7 +135,7 @@ from .fixtures import DandiAPI, SampleDandiset
         pytest.param(
             "dandi:000027/0.210831.2033",
             DandisetURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="000027",
                 version_id="0.210831.2033",
             ),
@@ -143,7 +143,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "http://localhost:8000/api/dandisets/000002/",
             DandisetURL(
-                api_url="http://localhost:8000/api",
+                instance=known_instances["dandi-api-local-docker-tests"],
                 dandiset_id="000002",
                 version_id=None,
             ),
@@ -151,7 +151,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "http://localhost:8000/api/dandisets/000002",
             DandisetURL(
-                api_url="http://localhost:8000/api",
+                instance=known_instances["dandi-api-local-docker-tests"],
                 dandiset_id="000002",
                 version_id=None,
             ),
@@ -159,7 +159,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "http://localhost:8000/api/dandisets/000002/versions/draft",
             DandisetURL(
-                api_url="http://localhost:8000/api",
+                instance=known_instances["dandi-api-local-docker-tests"],
                 dandiset_id="000002",
                 version_id="draft",
             ),
@@ -167,7 +167,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "http://localhost:8000/api/dandisets/000002/versions/draft/",
             DandisetURL(
-                api_url="http://localhost:8000/api",
+                instance=known_instances["dandi-api-local-docker-tests"],
                 dandiset_id="000002",
                 version_id="draft",
             ),
@@ -175,7 +175,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "http://localhost:8085/dandiset/000002",
             DandisetURL(
-                api_url="http://localhost:8000/api",
+                instance=known_instances["dandi-api-local-docker-tests"],
                 dandiset_id="000002",
                 version_id=None,
             ),
@@ -184,7 +184,7 @@ from .fixtures import DandiAPI, SampleDandiset
             "https://gui.dandiarchive.org/#/dandiset/000001/files"
             "?location=%2Fsub-anm369962",
             AssetItemURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="000001",
                 version_id=None,
                 path="sub-anm369962",
@@ -194,7 +194,7 @@ from .fixtures import DandiAPI, SampleDandiset
             "https://gui.dandiarchive.org/#/dandiset/000006/0.200714.1807/files"
             "?location=%2Fsub-anm369962",
             AssetItemURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="000006",
                 version_id="0.200714.1807",
                 path="sub-anm369962",
@@ -204,7 +204,7 @@ from .fixtures import DandiAPI, SampleDandiset
             "https://gui.dandiarchive.org/#/dandiset/001001/draft/files"
             "?location=sub-RAT123%2F",
             AssetFolderURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="001001",
                 version_id="draft",
                 path="sub-RAT123/",
@@ -214,7 +214,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "dandi://dandi-api-local-docker-tests/000002@draft",
             DandisetURL(
-                api_url=known_instances["dandi-api-local-docker-tests"].api,
+                instance=known_instances["dandi-api-local-docker-tests"],
                 dandiset_id="000002",
                 version_id="draft",
             ),
@@ -222,7 +222,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "dandi://dandi-api-local-docker-tests/000002@draft/path",
             AssetItemURL(
-                api_url=known_instances["dandi-api-local-docker-tests"].api,
+                instance=known_instances["dandi-api-local-docker-tests"],
                 dandiset_id="000002",
                 version_id="draft",
                 path="path",
@@ -231,7 +231,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "dandi://dandi-api-local-docker-tests/000002/path",
             AssetItemURL(
-                api_url=known_instances["dandi-api-local-docker-tests"].api,
+                instance=known_instances["dandi-api-local-docker-tests"],
                 dandiset_id="000002",
                 version_id=None,
                 path="path",
@@ -240,7 +240,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (  # test on "public" instance and have trailing / to signal the folder
             "dandi://dandi/000002/path/",
             AssetFolderURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="000002",
                 version_id=None,
                 path="path/",
@@ -250,7 +250,7 @@ from .fixtures import DandiAPI, SampleDandiset
             "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
             "/assets/0a748f90-d497-4a9c-822e-9c63811db412/download/",
             AssetIDURL(
-                api_url="https://api.dandiarchive.org/api",
+                instance=known_instances["dandi"],
                 dandiset_id="000003",
                 version_id="draft",
                 asset_id="0a748f90-d497-4a9c-822e-9c63811db412",
@@ -260,7 +260,7 @@ from .fixtures import DandiAPI, SampleDandiset
             "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
             "/assets/0a748f90-d497-4a9c-822e-9c63811db412/download",
             AssetIDURL(
-                api_url="https://api.dandiarchive.org/api",
+                instance=known_instances["dandi"],
                 dandiset_id="000003",
                 version_id="draft",
                 asset_id="0a748f90-d497-4a9c-822e-9c63811db412",
@@ -270,7 +270,7 @@ from .fixtures import DandiAPI, SampleDandiset
             "https://api.dandiarchive.org/api"
             "/assets/0a748f90-d497-4a9c-822e-9c63811db412/download/",
             BaseAssetIDURL(
-                api_url="https://api.dandiarchive.org/api",
+                instance=known_instances["dandi"],
                 asset_id="0a748f90-d497-4a9c-822e-9c63811db412",
             ),
         ),
@@ -278,7 +278,7 @@ from .fixtures import DandiAPI, SampleDandiset
             "https://api.dandiarchive.org/api"
             "/assets/0a748f90-d497-4a9c-822e-9c63811db412/download",
             BaseAssetIDURL(
-                api_url="https://api.dandiarchive.org/api",
+                instance=known_instances["dandi"],
                 asset_id="0a748f90-d497-4a9c-822e-9c63811db412",
             ),
         ),
@@ -286,7 +286,7 @@ from .fixtures import DandiAPI, SampleDandiset
             "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
             "/assets/?path=sub-YutaMouse20",
             AssetPathPrefixURL(
-                api_url="https://api.dandiarchive.org/api",
+                instance=known_instances["dandi"],
                 dandiset_id="000003",
                 version_id="draft",
                 path="sub-YutaMouse20",
@@ -295,7 +295,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "https://gui-staging.dandiarchive.org/#/dandiset/000018",
             DandisetURL(
-                api_url=known_instances["dandi-staging"].api,
+                instance=known_instances["dandi-staging"],
                 dandiset_id="000018",
                 version_id=None,
             ),
@@ -304,7 +304,7 @@ from .fixtures import DandiAPI, SampleDandiset
             "https://deploy-preview-854--gui-dandiarchive-org.netlify.app"
             "/#/dandiset/000018",
             DandisetURL(
-                api_url=known_instances["dandi-staging"].api,
+                instance=known_instances["dandi-staging"],
                 dandiset_id="000018",
                 version_id=None,
             ),
@@ -313,7 +313,7 @@ from .fixtures import DandiAPI, SampleDandiset
             "https://gui.dandiarchive.org/#/dandiset/001001/draft/files"
             "?location=sub-RAT123/*.nwb",
             AssetItemURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="001001",
                 version_id="draft",
                 path="sub-RAT123/*.nwb",
@@ -322,7 +322,7 @@ from .fixtures import DandiAPI, SampleDandiset
         (
             "dandi://dandi-api-local-docker-tests/000002/f*/bar.nwb",
             AssetItemURL(
-                api_url=known_instances["dandi-api-local-docker-tests"].api,
+                instance=known_instances["dandi-api-local-docker-tests"],
                 dandiset_id="000002",
                 version_id=None,
                 path="f*/bar.nwb",
@@ -332,7 +332,7 @@ from .fixtures import DandiAPI, SampleDandiset
             "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
             "/assets/?glob=sub-YutaMouse*",
             AssetGlobURL(
-                api_url="https://api.dandiarchive.org/api",
+                instance=known_instances["dandi"],
                 dandiset_id="000003",
                 version_id="draft",
                 path="sub-YutaMouse*",
@@ -351,7 +351,7 @@ def test_parse_api_url(url: str, parsed_url: ParsedDandiURL) -> None:
             "https://gui.dandiarchive.org/#/dandiset/001001/draft/files"
             "?location=sub-RAT123/*.nwb",
             AssetGlobURL(
-                api_url=known_instances["dandi"].api,
+                instance=known_instances["dandi"],
                 dandiset_id="001001",
                 version_id="draft",
                 path="sub-RAT123/*.nwb",
@@ -360,7 +360,7 @@ def test_parse_api_url(url: str, parsed_url: ParsedDandiURL) -> None:
         (
             "dandi://dandi-api-local-docker-tests/000002/f*/bar.nwb",
             AssetGlobURL(
-                api_url=known_instances["dandi-api-local-docker-tests"].api,
+                instance=known_instances["dandi-api-local-docker-tests"],
                 dandiset_id="000002",
                 version_id=None,
                 path="f*/bar.nwb",
@@ -371,7 +371,7 @@ def test_parse_api_url(url: str, parsed_url: ParsedDandiURL) -> None:
             "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
             "/assets/?path=sub-YutaMouse*",
             AssetPathPrefixURL(
-                api_url="https://api.dandiarchive.org/api",
+                instance=known_instances["dandi"],
                 dandiset_id="000003",
                 version_id="draft",
                 path="sub-YutaMouse*",
@@ -381,7 +381,7 @@ def test_parse_api_url(url: str, parsed_url: ParsedDandiURL) -> None:
             "https://api.dandiarchive.org/api/dandisets/000003/versions/draft"
             "/assets/?glob=sub-YutaMouse*",
             AssetGlobURL(
-                api_url="https://api.dandiarchive.org/api",
+                instance=known_instances["dandi"],
                 dandiset_id="000003",
                 version_id="draft",
                 path="sub-YutaMouse*",
@@ -451,7 +451,7 @@ def test_parse_gui_new_redirect() -> None:
             "cli-minimal-version": "0.6.0",
             "cli-bad-versions": [],
             "services": {
-                "webui": {"url": "https://gui.dandirchive.org"},
+                "webui": {"url": "https://dandiarchive.org"},
                 "api": {"url": "https://api.dandiarchive.org/api"},
                 "jupyterhub": {"url": "https://hub.dandiarchive.org"},
             },
@@ -460,8 +460,66 @@ def test_parse_gui_new_redirect() -> None:
     assert parse_dandi_url(
         "https://gui.dandiarchive.org/#/dandiset/000003"
     ) == DandisetURL(
-        api_url="https://api.dandiarchive.org/api",
+        instance=known_instances["dandi"],
         dandiset_id="000003",
+        version_id=None,
+    )
+
+
+@responses.activate
+def test_parse_arbitrary_gui_url() -> None:
+    responses.add(
+        responses.GET,
+        "https://example.test/server-info",
+        json={
+            "version": "1.2.0",
+            "cli-minimal-version": "0.6.0",
+            "cli-bad-versions": [],
+            "services": {
+                "webui": {"url": "https://example.test"},
+                "api": {"url": "https://api.example.test/api"},
+            },
+        },
+    )
+    assert parse_dandi_url("https://example.test/dandiset/000123") == DandisetURL(
+        instance=DandiInstance(
+            name="api.example.test",
+            gui="https://example.test",
+            api="https://api.example.test/api",
+        ),
+        dandiset_id="000123",
+        version_id=None,
+    )
+
+
+@responses.activate
+def test_parse_arbitrary_api_url() -> None:
+    responses.add(
+        responses.GET,
+        "https://api.example.test/server-info",
+        status=404,
+    )
+    responses.add(
+        responses.GET,
+        "https://api.example.test/api/info/",
+        json={
+            "version": "1.2.0",
+            "cli-minimal-version": "0.6.0",
+            "cli-bad-versions": [],
+            "services": {
+                "api": {"url": "https://api.example.test/api"},
+            },
+        },
+    )
+    assert parse_dandi_url(
+        "https://api.example.test/api/dandiset/000123"
+    ) == DandisetURL(
+        instance=DandiInstance(
+            name="api.example.test",
+            gui=None,
+            api="https://api.example.test/api",
+        ),
+        dandiset_id="000123",
         version_id=None,
     )
 

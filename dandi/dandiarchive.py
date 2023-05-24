@@ -35,7 +35,7 @@ from time import sleep
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, cast
 from urllib.parse import unquote as urlunquote
 
-from pydantic import AnyHttpUrl, BaseModel, parse_obj_as, validator
+from pydantic import AnyHttpUrl, BaseModel, parse_obj_as
 import requests
 
 from . import get_logger
@@ -44,6 +44,7 @@ from .consts import (
     PUBLISHED_VERSION_REGEX,
     RETRY_STATUSES,
     VERSION_REGEX,
+    DandiInstance,
     known_instances,
 )
 from .dandiapi import BaseRemoteAsset, DandiAPIClient, RemoteDandiset
@@ -59,13 +60,14 @@ class ParsedDandiURL(ABC, BaseModel):
     (Dandiset or asset(s)).  Subclasses must implement `get_assets()`.
 
     Most methods take a ``client: DandiAPIClient`` argument, which must be a
-    `~dandi.dandiapi.DandiAPIClient` object for querying `api_url` (This is not
-    checked).  Such a client instance can be obtained by calling
+    `~dandi.dandiapi.DandiAPIClient` object for querying `instance` (This is
+    not checked).  Such a client instance can be obtained by calling
     `get_client()`, or an appropriate pre-existing client instance can be
-    passed instead."""
+    passed instead.
+    """
 
-    #: The base URL of the Dandi API service, without a trailing slash
-    api_url: AnyHttpUrl
+    #: The Dandi Archive instance that the URL points to
+    instance: DandiInstance
     #: The ID of the Dandiset given in the URL
     dandiset_id: Optional[str]
     #: The version of the Dandiset, if specified.  If this is not set, the
@@ -73,16 +75,18 @@ class ParsedDandiURL(ABC, BaseModel):
     #: `DandiAPIClient.get_dandiset()`.
     version_id: Optional[str] = None
 
-    @validator("api_url")
-    def _validate_api_url(cls, v: AnyHttpUrl) -> AnyHttpUrl:
-        return cast(AnyHttpUrl, parse_obj_as(AnyHttpUrl, v.rstrip("/")))
+    @property
+    def api_url(self) -> AnyHttpUrl:
+        """The base URL of the Dandi API service, without a trailing slash"""
+        # Kept for backwards compatibility
+        return cast(AnyHttpUrl, parse_obj_as(AnyHttpUrl, self.instance.api.rstrip("/")))
 
     def get_client(self) -> DandiAPIClient:
         """
         Returns an unauthenticated `~dandi.dandiapi.DandiAPIClient` for
-        `api_url`
+        `instance`
         """
-        return DandiAPIClient(self.api_url)
+        return DandiAPIClient(dandi_instance=self.instance)
 
     def get_dandiset(
         self, client: DandiAPIClient, lazy: bool = True
@@ -652,10 +656,6 @@ class _dandi_url_parser:
     known_patterns = "Accepted resource identifier patterns:" + "\n - ".join(
         [""] + [display for _, _, display in known_urls]
     )
-    map_to = {}
-    for instance in known_instances.values():
-        if instance.gui:
-            map_to[instance.gui] = instance.api
 
     @classmethod
     def parse(
@@ -719,10 +719,7 @@ class _dandi_url_parser:
                                 settings["map_instance"], ", ".join(known_instances)
                             )
                         )
-                    known_instance = get_instance(settings["map_instance"])
-                    parsed_url.api_url = cast(
-                        AnyHttpUrl, parse_obj_as(AnyHttpUrl, known_instance.api)
-                    )
+                    parsed_url.instance = get_instance(settings["map_instance"])
                 continue  # in this run we ignore and match further
             elif "instance_name" in groups:
                 try:
@@ -753,7 +750,7 @@ class _dandi_url_parser:
             url_server,
         ):
             url_server = "https://gui-staging.dandiarchive.org"
-        server = cls.map_to.get(url_server, url_server)
+        instance = get_instance(url_server)
         # asset_type = groups.get("asset_type")
         dandiset_id = groups.get("dandiset_id")
         version_id = groups.get("version")
@@ -770,52 +767,52 @@ class _dandi_url_parser:
         if location:
             if glob:
                 parsed_url = AssetGlobURL(
-                    api_url=server,
+                    instance=instance,
                     dandiset_id=dandiset_id,
                     version_id=version_id,
                     path=location,
                 )
             elif location.endswith("/"):
                 parsed_url = AssetFolderURL(
-                    api_url=server,
+                    instance=instance,
                     dandiset_id=dandiset_id,
                     version_id=version_id,
                     path=location,
                 )
             else:
                 parsed_url = AssetItemURL(
-                    api_url=server,
+                    instance=instance,
                     dandiset_id=dandiset_id,
                     version_id=version_id,
                     path=location,
                 )
         elif asset_id:
             if dandiset_id is None:
-                parsed_url = BaseAssetIDURL(api_url=server, asset_id=asset_id)
+                parsed_url = BaseAssetIDURL(instance=instance, asset_id=asset_id)
             else:
                 parsed_url = AssetIDURL(
-                    api_url=server,
+                    instance=instance,
                     dandiset_id=dandiset_id,
                     version_id=version_id,
                     asset_id=asset_id,
                 )
         elif path:
             parsed_url = AssetPathPrefixURL(
-                api_url=server,
+                instance=instance,
                 dandiset_id=dandiset_id,
                 version_id=version_id,
                 path=path,
             )
         elif glob_param:
             parsed_url = AssetGlobURL(
-                api_url=server,
+                instance=instance,
                 dandiset_id=dandiset_id,
                 version_id=version_id,
                 path=glob_param,
             )
         else:
             parsed_url = DandisetURL(
-                api_url=server,
+                instance=instance,
                 dandiset_id=dandiset_id,
                 version_id=version_id,
             )
