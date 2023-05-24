@@ -55,33 +55,6 @@ BIDS_TESTDATA_SELECTION = [
 BIDS_ERROR_TESTDATA_SELECTION = ["invalid_asl003", "invalid_pet001"]
 
 
-def copytree(src: str | Path, dst: str | Path) -> None:
-    """
-    Function mimicking `shutil.copytree()` behaviour but supporting existing
-    target directories.
-
-    Notes
-    -----
-    * This function can be removed and replaced by a call to `shutil.copytree()`
-        setting the `dirs_exist_ok` keyword argument to true, whenever Python 3.7
-        is no longer supported.
-
-    References
-    ----------
-    https://docs.python.org/3/whatsnew/3.8.html#shutil
-    """
-    if not os.path.exists(dst):
-        os.makedirs(dst)
-    for item in os.listdir(src):
-        s = os.path.join(src, item)
-        d = os.path.join(dst, item)
-        if os.path.isdir(s):
-            copytree(s, d)
-        else:
-            if not os.path.exists(d) or os.stat(s).st_mtime - os.stat(d).st_mtime > 1:
-                shutil.copy2(s, d)
-
-
 @pytest.fixture(autouse=True)
 def capture_all_logs(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG, logger="dandi")
@@ -379,7 +352,9 @@ def get_filtered_gitrepo_fixture(
 def _make_subdirs_dandisets(path: Path) -> None:
     for bids_dataset_path in path.iterdir():
         if bids_dataset_path.is_dir():
-            (bids_dataset_path / dandiset_metadata_file).write_text(" \n")
+            (bids_dataset_path / dandiset_metadata_file).write_text(
+                "identifier: '000001'\n"
+            )
 
 
 nwb_test_data = get_gitrepo_fixture("http://github.com/dandi-datasets/nwb_test_data")
@@ -631,7 +606,12 @@ def zarr_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
 
 @pytest.fixture()
 def bids_dandiset(new_dandiset: SampleDandiset, bids_examples: Path) -> SampleDandiset:
-    copytree(bids_examples / "asl003", new_dandiset.dspath)
+    shutil.copytree(
+        bids_examples / "asl003",
+        new_dandiset.dspath,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns(dandiset_metadata_file),
+    )
     (new_dandiset.dspath / "CHANGES").write_text("0.1.0 2014-11-03\n")
     return new_dandiset
 
@@ -640,7 +620,12 @@ def bids_dandiset(new_dandiset: SampleDandiset, bids_examples: Path) -> SampleDa
 def bids_nwb_dandiset(
     new_dandiset: SampleDandiset, bids_examples: Path
 ) -> SampleDandiset:
-    copytree(bids_examples / "ieeg_epilepsyNWB", new_dandiset.dspath)
+    shutil.copytree(
+        bids_examples / "ieeg_epilepsyNWB",
+        new_dandiset.dspath,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns(dandiset_metadata_file),
+    )
     (new_dandiset.dspath / "CHANGES").write_text("0.1.0 2014-11-03\n")
     return new_dandiset
 
@@ -650,7 +635,12 @@ def bids_dandiset_invalid(
     new_dandiset: SampleDandiset, bids_error_examples: Path
 ) -> SampleDandiset:
     dataset_path = new_dandiset.dspath
-    copytree(bids_error_examples / "invalid_pet001", dataset_path)
+    shutil.copytree(
+        bids_error_examples / "invalid_pet001",
+        dataset_path,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns(dandiset_metadata_file),
+    )
     (dataset_path / "README").unlink()
     return new_dandiset
 
