@@ -291,6 +291,11 @@ def test_get_instance_known_url_bad_response() -> None:
     assert get_instance("https://dandiarchive.org") is known_instances["dandi"]
 
 
+def test_get_known_instance_by_api() -> None:
+    _get_instance.cache_clear()
+    assert get_instance("https://api.dandiarchive.org/api/") == known_instances["dandi"]
+
+
 @responses.activate
 def test_get_instance_unknown_url_bad_response() -> None:
     responses.add(
@@ -337,6 +342,56 @@ def test_get_instance_bad_version_from_server() -> None:
 def test_get_instance_actual_dandi() -> None:
     _get_instance.cache_clear()
     get_instance("dandi")
+
+
+@responses.activate
+def test_get_instance_arbitrary_gui_url() -> None:
+    responses.add(
+        responses.GET,
+        "https://example.test/server-info",
+        json={
+            "version": "1.2.0",
+            "cli-minimal-version": "0.6.0",
+            "cli-bad-versions": [],
+            "services": {
+                "webui": {"url": "https://example.test"},
+                "api": {"url": "https://api.example.test/api"},
+            },
+        },
+    )
+    _get_instance.cache_clear()
+    assert get_instance("https://example.test/") == DandiInstance(
+        name="api.example.test",
+        gui="https://example.test",
+        api="https://api.example.test/api",
+    )
+
+
+@responses.activate
+def test_get_instance_arbitrary_api_url() -> None:
+    responses.add(
+        responses.GET,
+        "https://api.example.test/server-info",
+        status=404,
+    )
+    responses.add(
+        responses.GET,
+        "https://api.example.test/api/info/",
+        json={
+            "version": "1.2.0",
+            "cli-minimal-version": "0.6.0",
+            "cli-bad-versions": [],
+            "services": {
+                "api": {"url": "https://api.example.test/api"},
+            },
+        },
+    )
+    _get_instance.cache_clear()
+    assert get_instance("https://api.example.test/api/") == DandiInstance(
+        name="api.example.test",
+        gui=None,
+        api="https://api.example.test/api",
+    )
 
 
 @pytest.mark.xfail(reason="https://github.com/dandi/dandi-archive/issues/1045")
