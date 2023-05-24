@@ -36,9 +36,7 @@ class Deleter:
         existing
         """
         if self.client is None:
-            # Strip the trailing slash so that dandi_authenticate can find the
-            # URL in known_instances_rev:
-            self.client = DandiAPIClient(api_url.rstrip("/"))
+            self.client = DandiAPIClient(api_url)
             self.client.dandi_authenticate()
             try:
                 self.dandiset = self.client.get_dandiset(dandiset_id, DRAFT, lazy=False)

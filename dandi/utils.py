@@ -603,7 +603,7 @@ def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
             redirector_url = instance.redirector
     elif dandi_instance_id.lower().startswith(("http://", "https://")):
         redirector_url = dandi_instance_id
-        dandi_id = known_instances_rev.get(redirector_url)
+        dandi_id = known_instances_rev.get(redirector_url.rstrip("/"))
         if dandi_id is not None:
             instance = known_instances[dandi_id]
         else:
