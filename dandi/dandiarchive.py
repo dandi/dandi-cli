@@ -554,7 +554,7 @@ class _dandi_url_parser:
             "DANDI:<dandiset id>[/<version>]",
         ),
         (
-            re.compile(r"https?://gui.dandiarchive\.org/.*"),
+            re.compile(r"https?://gui\.dandiarchive\.org/.*"),
             {"handle_redirect": "pass"},
             "https://gui.dandiarchive.org/...",
         ),
