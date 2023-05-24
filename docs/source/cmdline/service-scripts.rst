@@ -60,10 +60,10 @@ Options
 
     Specify the ID of the Dandiset to operate on.  This option is required.
 
-.. option:: -i, --dandi-instance <instance-name>
+.. option:: -i, --dandi-instance <instance>
 
-    Specify the DANDI instance where the Dandiset is located [default:
-    ``dandi``]
+    DANDI instance (either a base URL or a known instance name) where the
+    Dandiset is located [default: ``dandi``]
 
 .. option:: -e, --existing [ask|overwrite|skip]
 

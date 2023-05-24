@@ -27,9 +27,10 @@ Options
 
     Choose the format/frontend for output  [default: ``pyout``]
 
-.. option:: -i, --dandi-instance <instance-name>
+.. option:: -i, --dandi-instance <instance>
 
-    DANDI instance to download from  [default: ``dandi``]
+    DANDI instance (either a base URL or a known instance name) to download
+    from [default: ``dandi``]
 
 .. option:: -J, --jobs N[:M]
 
