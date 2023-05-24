@@ -595,12 +595,9 @@ class ServerInfo(BaseModel):
 
 def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
     dandi_id = None
+    redirector_url = None
     if isinstance(dandi_instance_id, DandiInstance):
         instance = dandi_instance_id
-        if instance.redirector is None:
-            return instance
-        else:
-            redirector_url = instance.redirector
     elif dandi_instance_id.lower().startswith(("http://", "https://")):
         redirector_url = dandi_instance_id
         dandi_id = known_instances_rev.get(redirector_url.rstrip("/"))
@@ -613,14 +610,14 @@ def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
     else:
         dandi_id = dandi_instance_id
         instance = known_instances[dandi_id]
-        if instance.redirector is None:
-            return instance
-        else:
-            redirector_url = instance.redirector
     try:
-        r = requests.get(redirector_url.rstrip("/") + "/server-info")
-        if r.status_code == 404:
-            r = requests.get(redirector_url.rstrip("/") + "/api/info")
+        if redirector_url is None:
+            assert instance is not None
+            r = requests.get(instance.api.rstrip("/") + "/info/")
+        else:
+            r = requests.get(redirector_url.rstrip("/") + "/server-info")
+            if r.status_code == 404:
+                r = requests.get(redirector_url.rstrip("/") + "/api/info/")
         r.raise_for_status()
         server_info = ServerInfo.parse_obj(r.json())
     except Exception as e:
@@ -660,7 +657,6 @@ def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
         if server_info.services.webui is not None
         else None,
         api=str(api_url),
-        redirector=redirector_url,
     )
 
 

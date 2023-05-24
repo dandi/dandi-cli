@@ -550,9 +550,9 @@ class _dandi_url_parser:
             "DANDI:<dandiset id>[/<version>]",
         ),
         (
-            re.compile(r"https?://dandiarchive\.org/.*"),
+            re.compile(r"https?://gui.dandiarchive\.org/.*"),
             {"handle_redirect": "pass"},
-            "https://dandiarchive.org/...",
+            "https://gui.dandiarchive.org/...",
         ),
         (
             re.compile(
@@ -654,9 +654,8 @@ class _dandi_url_parser:
     )
     map_to = {}
     for instance in known_instances.values():
-        for h in (instance.gui, instance.redirector):
-            if h:
-                map_to[h] = instance.api
+        if instance.gui:
+            map_to[instance.gui] = instance.api
 
     @classmethod
     def parse(

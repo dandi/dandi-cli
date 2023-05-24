@@ -16,12 +16,9 @@ Example output:
     dandi:
       api: https://api.dandiarchive.org/api
       gui: https://gui.dandiarchive.org
-      redirector: https://dandiarchive.org
     dandi-api-local-docker-tests:
       api: http://localhost:8000/api
       gui: http://localhost:8085
-      redirector: null
     dandi-staging:
       api: https://api-staging.dandiarchive.org/api
       gui: https://gui-staging.dandiarchive.org
-      redirector: null

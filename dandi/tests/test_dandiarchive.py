@@ -436,10 +436,16 @@ def test_follow_redirect() -> None:
 
 @responses.activate
 def test_parse_gui_new_redirect() -> None:
-    redirector_base = known_instances["dandi"].redirector
+    responses.add(
+        responses.HEAD,
+        "https://gui.dandiarchive.org/#/dandiset/000003",
+        status=302,
+        headers={"Location": "https://dandiarchive.org/"},
+    )
+    responses.add(responses.HEAD, "https://dandiarchive.org/")
     responses.add(
         responses.GET,
-        f"{redirector_base}/server-info",
+        "https://dandiarchive.org/server-info",
         json={
             "version": "1.2.0",
             "cli-minimal-version": "0.6.0",

@@ -100,14 +100,16 @@ dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
 class DandiInstance:
     name: str
     gui: Optional[str]
-    redirector: Optional[str]
     api: str
+
+    @property
+    def redirector(self) -> None:
+        # For "backwards compatibility"
+        return None
 
     def urls(self) -> Iterator[str]:
         if self.gui is not None:
             yield self.gui
-        if self.redirector is not None:
-            yield self.redirector
         yield self.api
 
 
@@ -115,25 +117,20 @@ class DandiInstance:
 # to test against instance running outside of current environment
 instancehost = os.environ.get("DANDI_INSTANCEHOST", "localhost")
 
-redirector_base = os.environ.get("DANDI_REDIRECTOR_BASE", "https://dandiarchive.org")
-
 known_instances = {
     "dandi": DandiInstance(
         "dandi",
-        "https://gui.dandiarchive.org",
-        redirector_base,
+        "https://dandiarchive.org",
         "https://api.dandiarchive.org/api",
     ),
     "dandi-staging": DandiInstance(
         "dandi-staging",
         "https://gui-staging.dandiarchive.org",
-        None,
         "https://api-staging.dandiarchive.org/api",
     ),
     "dandi-api-local-docker-tests": DandiInstance(
         "dandi-api-local-docker-tests",
         f"http://{instancehost}:8085",
-        None,
         f"http://{instancehost}:8000/api",
     ),
 }

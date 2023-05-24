@@ -101,7 +101,7 @@ def test_download_gui_instance_in_dandiset(mocker):
         r = runner.invoke(download, ["-i", "dandi"])
     assert r.exit_code == 0
     mock_download.assert_called_once_with(
-        ["https://gui.dandiarchive.org/#/dandiset/123456/draft"],
+        ["https://dandiarchive.org/#/dandiset/123456/draft"],
         os.curdir,
         existing="error",
         format="pyout",

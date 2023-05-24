@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import inspect
-import os
 import os.path as op
 from pathlib import Path
 import time
@@ -169,14 +168,11 @@ def test_flatten() -> None:
     ]
 
 
-redirector_base = known_instances["dandi"].redirector
-
-
 @responses.activate
 def test_get_instance_dandi_with_api() -> None:
     responses.add(
         responses.GET,
-        f"{redirector_base}/server-info",
+        "https://api.dandiarchive.org/api/info/",
         json={
             "version": "1.0.0",
             "cli-minimal-version": "0.5.0",
@@ -191,7 +187,6 @@ def test_get_instance_dandi_with_api() -> None:
     assert get_instance("dandi") == DandiInstance(
         name="dandi",
         gui="https://gui.dandi",
-        redirector=redirector_base,
         api="https://api.dandi",
     )
 
@@ -215,7 +210,6 @@ def test_get_instance_url() -> None:
     assert get_instance("https://example.dandi/") == DandiInstance(
         name="api.dandi",
         gui="https://gui.dandi",
-        redirector="https://example.dandi",
         api="https://api.dandi",
     )
 
@@ -272,7 +266,7 @@ def test_get_instance_bad_cli_version() -> None:
 def test_get_instance_id_bad_response() -> None:
     responses.add(
         responses.GET,
-        f"{redirector_base}/server-info",
+        "https://dandiarchive.org/server-info",
         body="404 -- not found",
         status=404,
     )
@@ -281,14 +275,13 @@ def test_get_instance_id_bad_response() -> None:
 
 @responses.activate
 def test_get_instance_known_url_bad_response() -> None:
-    assert redirector_base is not None
     responses.add(
         responses.GET,
-        f"{redirector_base}/server-info",
+        "https://dandiarchive.org/server-info",
         body="404 -- not found",
         status=404,
     )
-    assert get_instance(redirector_base) is known_instances["dandi"]
+    assert get_instance("https://dandiarchive.org") is known_instances["dandi"]
 
 
 @responses.activate
@@ -336,17 +329,10 @@ def test_get_instance_actual_dandi() -> None:
     get_instance("dandi")
 
 
-if "DANDI_REDIRECTOR_BASE" in os.environ:
-    using_docker = pytest.mark.usefixtures("local_dandi_api")
-else:
-    using_docker = mark.skipif_no_network
-
-
 @pytest.mark.xfail(reason="https://github.com/dandi/dandi-archive/issues/1045")
-@pytest.mark.redirector
-@using_docker
+@mark.skipif_no_network
 def test_server_info() -> None:
-    r = requests.get(f"{redirector_base}/server-info")
+    r = requests.get("https://dandiarchive.org/server-info")
     r.raise_for_status()
     data = r.json()
     assert "version" in data
