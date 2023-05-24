@@ -96,7 +96,7 @@ dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
 
 
-@dataclass
+@dataclass(frozen=True)
 class DandiInstance:
     name: str
     gui: Optional[str]

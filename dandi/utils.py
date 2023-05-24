@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from bisect import bisect
 import datetime
+from functools import lru_cache
 from importlib.metadata import version as importlib_version
 import inspect
 import io
@@ -611,24 +612,34 @@ def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
     else:
         dandi_id = dandi_instance_id
         instance = known_instances[dandi_id]
+    if redirector_url is None:
+        assert instance is not None
+        return _get_instance(instance.api.rstrip("/"), True, instance, dandi_id)
+    else:
+        return _get_instance(redirector_url.rstrip("/"), False, instance, dandi_id)
+
+
+@lru_cache
+def _get_instance(
+    url: str, is_api: bool, instance: Optional[DandiInstance], dandi_id: Optional[str]
+) -> DandiInstance:
     try:
-        if redirector_url is None:
-            assert instance is not None
-            r = requests.get(instance.api.rstrip("/") + "/info/")
+        if is_api:
+            r = requests.get(f"{url}/info/")
         else:
-            r = requests.get(redirector_url.rstrip("/") + "/server-info")
+            r = requests.get(f"{url}/server-info")
             if r.status_code == 404:
-                r = requests.get(redirector_url.rstrip("/") + "/api/info/")
+                r = requests.get(f"{url}/api/info/")
         r.raise_for_status()
         server_info = ServerInfo.parse_obj(r.json())
     except Exception as e:
-        lgr.warning("Request to %s failed (%s)", redirector_url, str(e))
+        lgr.warning("Request to %s failed (%s)", url, str(e))
         if instance is not None:
             lgr.warning("Using hard-coded URLs")
             return instance
         else:
             raise RuntimeError(
-                f"Could not retrieve server info from {redirector_url},"
+                f"Could not retrieve server info from {url},"
                 " and client does not recognize URL"
             )
     try:
@@ -636,7 +647,7 @@ def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
         bad_versions = [Version(v) for v in server_info.cli_bad_versions]
     except ValueError as e:
         raise ValueError(
-            f"{redirector_url} returned an incorrectly formatted version;"
+            f"{url} returned an incorrectly formatted version;"
             f" please contact that server's administrators: {e}"
         )
     our_version = Version(__version__)

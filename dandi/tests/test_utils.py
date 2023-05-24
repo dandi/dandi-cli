@@ -16,6 +16,7 @@ from .. import __version__
 from ..consts import DandiInstance, known_instances
 from ..exceptions import BadCliVersionError, CliVersionTooOldError
 from ..utils import (
+    _get_instance,
     ensure_datetime,
     ensure_strtime,
     find_files,
@@ -184,6 +185,7 @@ def test_get_instance_dandi_with_api() -> None:
             },
         },
     )
+    _get_instance.cache_clear()
     assert get_instance("dandi") == DandiInstance(
         name="dandi",
         gui="https://gui.dandi",
@@ -207,6 +209,7 @@ def test_get_instance_url() -> None:
             },
         },
     )
+    _get_instance.cache_clear()
     assert get_instance("https://example.dandi/") == DandiInstance(
         name="api.dandi",
         gui="https://gui.dandi",
@@ -230,6 +233,7 @@ def test_get_instance_cli_version_too_old() -> None:
             },
         },
     )
+    _get_instance.cache_clear()
     with pytest.raises(CliVersionTooOldError) as excinfo:
         get_instance("https://example.dandi/")
     assert str(excinfo.value) == (
@@ -254,6 +258,7 @@ def test_get_instance_bad_cli_version() -> None:
             },
         },
     )
+    _get_instance.cache_clear()
     with pytest.raises(BadCliVersionError) as excinfo:
         get_instance("https://example.dandi/")
     assert str(excinfo.value) == (
@@ -270,6 +275,7 @@ def test_get_instance_id_bad_response() -> None:
         body="404 -- not found",
         status=404,
     )
+    _get_instance.cache_clear()
     assert get_instance("dandi") is known_instances["dandi"]
 
 
@@ -281,6 +287,7 @@ def test_get_instance_known_url_bad_response() -> None:
         body="404 -- not found",
         status=404,
     )
+    _get_instance.cache_clear()
     assert get_instance("https://dandiarchive.org") is known_instances["dandi"]
 
 
@@ -292,6 +299,7 @@ def test_get_instance_unknown_url_bad_response() -> None:
         body="404 -- not found",
         status=404,
     )
+    _get_instance.cache_clear()
     with pytest.raises(RuntimeError) as excinfo:
         get_instance("https://dandi.nil")
     assert str(excinfo.value) == (
@@ -316,6 +324,7 @@ def test_get_instance_bad_version_from_server() -> None:
             },
         },
     )
+    _get_instance.cache_clear()
     with pytest.raises(ValueError) as excinfo:
         get_instance("https://example.dandi/")
     assert str(excinfo.value).startswith(
@@ -326,6 +335,7 @@ def test_get_instance_bad_version_from_server() -> None:
 
 
 def test_get_instance_actual_dandi() -> None:
+    _get_instance.cache_clear()
     get_instance("dandi")
 
 
