@@ -12,6 +12,7 @@ import re
 from typing import NewType, Optional
 
 from . import get_logger
+from .consts import DandiInstance
 from .dandiapi import DandiAPIClient, RemoteAsset, RemoteDandiset
 from .dandiarchive import DandisetURL, parse_dandi_url
 from .dandiset import Dandiset
@@ -760,7 +761,7 @@ def move(
     dest: str,
     regex: bool = False,
     existing: str = "error",
-    dandi_instance: str = "dandi",
+    dandi_instance: str | DandiInstance = "dandi",
     dandiset: Path | str | None = None,
     work_on: str = "auto",
     devel_debug: bool = False,

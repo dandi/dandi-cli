@@ -3,8 +3,8 @@ import os
 import click
 
 from .base import ChoiceList, IntColonInt, instance_option, map_to_click_exceptions
-from ..consts import known_instances, known_instances_rev
 from ..dandiarchive import _dandi_url_parser, parse_dandi_url
+from ..utils import get_instance
 
 
 # The use of f-strings apparently makes this not a proper docstring, and so
@@ -111,10 +111,11 @@ def download(
     from .. import download
 
     if dandi_instance is not None:
+        instance = get_instance(dandi_instance)
         if url:
             for u in url:
                 parsed_url = parse_dandi_url(u)
-                if known_instances_rev.get(parsed_url.api_url) != dandi_instance:
+                if parsed_url.instance != instance:
                     raise click.UsageError(
                         f"{u} does not point to {dandi_instance!r} instance"
                     )
@@ -127,15 +128,10 @@ def download(
                 # No Dandiset here; leave `url` alone
                 pass
             else:
-                instance = known_instances[dandi_instance]
                 if instance.gui is not None:
                     url = [f"{instance.gui}/#/dandiset/{dandiset_id}/draft"]
-                elif instance.api is not None:
-                    url = [f"{instance.api}/dandisets/{dandiset_id}/"]
                 else:
-                    raise NotImplementedError(
-                        f"Do not know how to construct URLs for {dandi_instance!r}"
-                    )
+                    url = [f"{instance.api}/dandisets/{dandiset_id}/"]
 
     return download.download(
         url,

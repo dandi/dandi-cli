@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import inspect
-import os
 import os.path as op
 from pathlib import Path
 import time
@@ -17,6 +16,7 @@ from .. import __version__
 from ..consts import DandiInstance, known_instances
 from ..exceptions import BadCliVersionError, CliVersionTooOldError
 from ..utils import (
+    _get_instance,
     ensure_datetime,
     ensure_strtime,
     find_files,
@@ -169,14 +169,11 @@ def test_flatten() -> None:
     ]
 
 
-redirector_base = known_instances["dandi"].redirector
-
-
 @responses.activate
 def test_get_instance_dandi_with_api() -> None:
     responses.add(
         responses.GET,
-        f"{redirector_base}/server-info",
+        "https://api.dandiarchive.org/api/info/",
         json={
             "version": "1.0.0",
             "cli-minimal-version": "0.5.0",
@@ -188,9 +185,10 @@ def test_get_instance_dandi_with_api() -> None:
             },
         },
     )
+    _get_instance.cache_clear()
     assert get_instance("dandi") == DandiInstance(
+        name="dandi",
         gui="https://gui.dandi",
-        redirector=redirector_base,
         api="https://api.dandi",
     )
 
@@ -211,9 +209,10 @@ def test_get_instance_url() -> None:
             },
         },
     )
+    _get_instance.cache_clear()
     assert get_instance("https://example.dandi/") == DandiInstance(
+        name="api.dandi",
         gui="https://gui.dandi",
-        redirector="https://example.dandi/",
         api="https://api.dandi",
     )
 
@@ -234,6 +233,7 @@ def test_get_instance_cli_version_too_old() -> None:
             },
         },
     )
+    _get_instance.cache_clear()
     with pytest.raises(CliVersionTooOldError) as excinfo:
         get_instance("https://example.dandi/")
     assert str(excinfo.value) == (
@@ -258,6 +258,7 @@ def test_get_instance_bad_cli_version() -> None:
             },
         },
     )
+    _get_instance.cache_clear()
     with pytest.raises(BadCliVersionError) as excinfo:
         get_instance("https://example.dandi/")
     assert str(excinfo.value) == (
@@ -270,23 +271,29 @@ def test_get_instance_bad_cli_version() -> None:
 def test_get_instance_id_bad_response() -> None:
     responses.add(
         responses.GET,
-        f"{redirector_base}/server-info",
+        "https://dandiarchive.org/server-info",
         body="404 -- not found",
         status=404,
     )
+    _get_instance.cache_clear()
     assert get_instance("dandi") is known_instances["dandi"]
 
 
 @responses.activate
 def test_get_instance_known_url_bad_response() -> None:
-    assert redirector_base is not None
     responses.add(
         responses.GET,
-        f"{redirector_base}/server-info",
+        "https://dandiarchive.org/server-info",
         body="404 -- not found",
         status=404,
     )
-    assert get_instance(redirector_base) is known_instances["dandi"]
+    _get_instance.cache_clear()
+    assert get_instance("https://dandiarchive.org") is known_instances["dandi"]
+
+
+def test_get_known_instance_by_api() -> None:
+    _get_instance.cache_clear()
+    assert get_instance("https://api.dandiarchive.org/api/") == known_instances["dandi"]
 
 
 @responses.activate
@@ -297,6 +304,7 @@ def test_get_instance_unknown_url_bad_response() -> None:
         body="404 -- not found",
         status=404,
     )
+    _get_instance.cache_clear()
     with pytest.raises(RuntimeError) as excinfo:
         get_instance("https://dandi.nil")
     assert str(excinfo.value) == (
@@ -321,31 +329,75 @@ def test_get_instance_bad_version_from_server() -> None:
             },
         },
     )
+    _get_instance.cache_clear()
     with pytest.raises(ValueError) as excinfo:
         get_instance("https://example.dandi/")
     assert str(excinfo.value).startswith(
-        "https://example.dandi/ returned an incorrectly formatted version;"
+        "https://example.dandi returned an incorrectly formatted version;"
         " please contact that server's administrators: "
     )
     assert "foobar" in str(excinfo.value)
 
 
 def test_get_instance_actual_dandi() -> None:
-    inst = get_instance("dandi")
-    assert inst.api is not None
+    _get_instance.cache_clear()
+    get_instance("dandi")
 
 
-if "DANDI_REDIRECTOR_BASE" in os.environ:
-    using_docker = pytest.mark.usefixtures("local_dandi_api")
-else:
-    using_docker = mark.skipif_no_network
+@responses.activate
+def test_get_instance_arbitrary_gui_url() -> None:
+    responses.add(
+        responses.GET,
+        "https://example.test/server-info",
+        json={
+            "version": "1.2.0",
+            "cli-minimal-version": "0.6.0",
+            "cli-bad-versions": [],
+            "services": {
+                "webui": {"url": "https://example.test"},
+                "api": {"url": "https://api.example.test/api"},
+            },
+        },
+    )
+    _get_instance.cache_clear()
+    assert get_instance("https://example.test/") == DandiInstance(
+        name="api.example.test",
+        gui="https://example.test",
+        api="https://api.example.test/api",
+    )
+
+
+@responses.activate
+def test_get_instance_arbitrary_api_url() -> None:
+    responses.add(
+        responses.GET,
+        "https://api.example.test/server-info",
+        status=404,
+    )
+    responses.add(
+        responses.GET,
+        "https://api.example.test/api/info/",
+        json={
+            "version": "1.2.0",
+            "cli-minimal-version": "0.6.0",
+            "cli-bad-versions": [],
+            "services": {
+                "api": {"url": "https://api.example.test/api"},
+            },
+        },
+    )
+    _get_instance.cache_clear()
+    assert get_instance("https://api.example.test/api/") == DandiInstance(
+        name="api.example.test",
+        gui=None,
+        api="https://api.example.test/api",
+    )
 
 
 @pytest.mark.xfail(reason="https://github.com/dandi/dandi-archive/issues/1045")
-@pytest.mark.redirector
-@using_docker
+@mark.skipif_no_network
 def test_server_info() -> None:
-    r = requests.get(f"{redirector_base}/server-info")
+    r = requests.get("https://dandiarchive.org/server-info")
     r.raise_for_status()
     data = r.json()
     assert "version" in data

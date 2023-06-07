@@ -1,6 +1,10 @@
+from __future__ import annotations
+
+from collections.abc import Iterator
+from dataclasses import dataclass
 from enum import Enum
 import os
-from typing import NamedTuple, Optional
+from typing import Optional
 
 #: A list of metadata fields which dandi extracts from .nwb files.
 #: Additional fields (such as ``number_of_*``) might be added by
@@ -92,40 +96,48 @@ dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
 
 
-class DandiInstance(NamedTuple):
+@dataclass(frozen=True)
+class DandiInstance:
+    name: str
     gui: Optional[str]
-    redirector: Optional[str]
-    api: Optional[str]
+    api: str
+
+    @property
+    def redirector(self) -> None:
+        # For "backwards compatibility"
+        return None
+
+    def urls(self) -> Iterator[str]:
+        if self.gui is not None:
+            yield self.gui
+        yield self.api
 
 
 # So it could be easily mapped to external IP (e.g. from within VM)
 # to test against instance running outside of current environment
 instancehost = os.environ.get("DANDI_INSTANCEHOST", "localhost")
 
-redirector_base = os.environ.get("DANDI_REDIRECTOR_BASE", "https://dandiarchive.org")
-
 known_instances = {
     "dandi": DandiInstance(
-        "https://gui.dandiarchive.org",
-        redirector_base,
+        "dandi",
+        "https://dandiarchive.org",
         "https://api.dandiarchive.org/api",
     ),
-    "dandi-devel": DandiInstance(
-        "https://gui-beta-dandiarchive-org.netlify.app",
-        None,
-        None,
-    ),
     "dandi-staging": DandiInstance(
+        "dandi-staging",
         "https://gui-staging.dandiarchive.org",
-        None,
         "https://api-staging.dandiarchive.org/api",
     ),
     "dandi-api-local-docker-tests": DandiInstance(
-        f"http://{instancehost}:8085", None, f"http://{instancehost}:8000/api"
+        "dandi-api-local-docker-tests",
+        f"http://{instancehost}:8085",
+        f"http://{instancehost}:8000/api",
     ),
 }
 # to map back url: name
-known_instances_rev = {vv: k for k, v in known_instances.items() for vv in v if vv}
+known_instances_rev = {
+    vv: k for k, v in known_instances.items() for vv in v.urls() if vv
+}
 
 file_operation_modes = [
     "dry",

@@ -37,10 +37,11 @@ replaced with the replacement string, after expanding any backreferences.
 Options
 -------
 
-.. option:: -i, --dandi-instance <instance-name>
+.. option:: -i, --dandi-instance <instance>
 
-    DANDI instance containing the remote Dandiset corresponding to the local
-    Dandiset in the current directory [default: ``dandi``]
+    DANDI instance (either a base URL or a known instance name) containing the
+    remote Dandiset corresponding to the local Dandiset in the current
+    directory [default: ``dandi``]
 
 .. option:: -d, --dandiset <URL>
 

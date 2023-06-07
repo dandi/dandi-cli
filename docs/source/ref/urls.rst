@@ -8,11 +8,10 @@ Resource Identifiers
 ``dandi`` commands and Python functions accept URLs and URL-like identifiers in
 the following formats for identifying Dandisets, assets, and asset collections.
 
-Text in [brackets] is optional.  A ``server`` field is a base API, GUI, or
-redirector URL for a registered DANDI Archive instance.  If an optional
-``version`` field is omitted from a URL, the given Dandiset's most recent
-published version will be used if it has one, and its draft version will be
-used otherwise.
+Text in [brackets] is optional.  A ``server`` field is a base API or GUI URL
+for a DANDI Archive instance.  If an optional ``version`` field is omitted from
+a URL, the given Dandiset's most recent published version will be used if it
+has one, and its draft version will be used otherwise.
 
 - :samp:`https://identifiers.org/DANDI:{dandiset-id}[/{version}]`
   (case insensitive; ``version`` cannot be "draft") when it redirects
@@ -22,7 +21,7 @@ used otherwise.
   — Refers to a Dandiset on the main archive instance named "dandi".
   `parse_dandi_url()` converts this format to a `DandisetURL`.
 
-- Any ``https://dandiarchive.org/`` or
+- Any ``https://gui.dandiarchive.org/`` or
   ``https://*dandiarchive-org.netflify.app/`` URL which redirects to
   one of the other URL formats
 

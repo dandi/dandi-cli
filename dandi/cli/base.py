@@ -4,7 +4,6 @@ import os
 import click
 
 from .. import get_logger
-from ..consts import known_instances
 
 lgr = get_logger()
 
@@ -95,7 +94,6 @@ def dandiset_path_option(**kwargs):
 def instance_option(**kwargs):
     params = {
         "help": "DANDI instance to use",
-        "type": click.Choice(sorted(known_instances)),
         "default": "dandi",
         "show_default": True,
         "envvar": "DANDI_INSTANCE",

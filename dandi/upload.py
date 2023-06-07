@@ -14,7 +14,12 @@ import click
 from packaging.version import Version
 
 from . import __version__, lgr
-from .consts import DRAFT, dandiset_identifier_regex, dandiset_metadata_file
+from .consts import (
+    DRAFT,
+    DandiInstance,
+    dandiset_identifier_regex,
+    dandiset_metadata_file,
+)
 from .dandiapi import RemoteAsset
 from .exceptions import NotFoundError, UploadError
 from .files import (
@@ -25,7 +30,7 @@ from .files import (
     ZarrAsset,
 )
 from .misctypes import Digest
-from .utils import ensure_datetime, get_instance, pluralize
+from .utils import ensure_datetime, pluralize
 from .validate_types import Severity
 
 if TYPE_CHECKING:
@@ -40,7 +45,7 @@ def upload(
     paths: Optional[List[Union[str, Path]]] = None,
     existing: str = "refresh",
     validation: str = "require",
-    dandi_instance: str = "dandi",
+    dandi_instance: str | DandiInstance = "dandi",
     allow_any_path: bool = False,
     upload_dandiset_metadata: bool = False,
     devel_debug: bool = False,
@@ -62,15 +67,11 @@ def upload(
             " paths.  Use 'dandi download' or 'organize' first."
         )
 
-    instance = get_instance(dandi_instance)
-    assert instance.api is not None
-    api_url = instance.api
-
     with ExitStack() as stack:
         # We need to use the client as a context manager in order to ensure the
         # session gets properly closed.  Otherwise, pytest sometimes complains
         # under obscure conditions.
-        client = stack.enter_context(DandiAPIClient(api_url))
+        client = stack.enter_context(DandiAPIClient.for_dandi_instance(dandi_instance))
         client.check_schema_version()
         client.dandi_authenticate()
 
