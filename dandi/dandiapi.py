@@ -693,6 +693,10 @@ class RemoteValidationError(APIBase):
     message: str
 
 
+class RemoteAssetValidationError(RemoteValidationError):
+    path: str
+
+
 class VersionInfo(Version):
     """
     .. versionadded:: 0.49.0
@@ -701,7 +705,7 @@ class VersionInfo(Version):
     errors
     """
 
-    asset_validation_errors: List[RemoteValidationError]
+    asset_validation_errors: List[RemoteAssetValidationError]
     version_validation_errors: List[RemoteValidationError]
 
 
