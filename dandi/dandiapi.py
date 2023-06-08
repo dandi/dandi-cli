@@ -694,7 +694,7 @@ class RemoteValidationError(APIBase):
 
 
 class RemoteAssetValidationError(RemoteValidationError):
-    path: str
+    path: Optional[str] = None
 
 
 class VersionInfo(Version):
