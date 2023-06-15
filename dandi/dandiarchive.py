@@ -694,12 +694,12 @@ class _dandi_url_parser:
                 assert not handle_redirect
                 assert not settings.get("map_instance")
                 new_url = rewrite(url)
-                return cls.parse(new_url)
+                return cls.parse(new_url, map_instance=map_instance, glob=glob)
             elif handle_redirect:
                 assert handle_redirect in ("pass", "only")
                 new_url = cls.follow_redirect(url)
                 if new_url != url:
-                    return cls.parse(new_url)
+                    return cls.parse(new_url, map_instance=map_instance, glob=glob)
                 if handle_redirect == "pass":
                     # We used to issue warning in such cases, but may be it got implemented
                     # now via reverse proxy and we had added a new regex? let's just
@@ -712,7 +712,7 @@ class _dandi_url_parser:
                     )
             elif settings.get("map_instance"):
                 if map_instance:
-                    parsed_url = cls.parse(url, map_instance=False)
+                    parsed_url = cls.parse(url, map_instance=False, glob=glob)
                     if settings["map_instance"] not in known_instances:
                         raise ValueError(
                             "Unknown instance {}. Known are: {}".format(

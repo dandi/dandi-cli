@@ -361,6 +361,16 @@ def test_parse_api_url(url: str, parsed_url: ParsedDandiURL) -> None:
 @pytest.mark.parametrize(
     "url,parsed_url",
     [
+        (
+            "https://dandiarchive.org/dandiset/001001/draft/files"
+            "?location=sub-RAT123/*.nwb",
+            AssetGlobURL(
+                instance=known_instances["dandi"],
+                dandiset_id="001001",
+                version_id="draft",
+                path="sub-RAT123/*.nwb",
+            ),
+        ),
         pytest.param(
             "https://gui.dandiarchive.org/#/dandiset/001001/draft/files"
             "?location=sub-RAT123/*.nwb",
