@@ -571,7 +571,7 @@ class _dandi_url_parser:
             re.compile(
                 rf"{server_grp}(#/)?(?P<asset_type>dandiset)/{dandiset_id_grp}"
                 rf"(/(?P<version>{VERSION_REGEX}))?"
-                r"(/(files(\?location=(?P<location>.*)?)?)?)?"
+                r"(/(files(\?location=(?P<location-folder>.*)?)?)?)?"
             ),
             {},
             "https://<server>[/api]/[#/]dandiset/<dandiset id>[/<version>]"
@@ -754,7 +754,13 @@ class _dandi_url_parser:
         # asset_type = groups.get("asset_type")
         dandiset_id = groups.get("dandiset_id")
         version_id = groups.get("version")
-        location = groups.get("location")
+        if "location-folder" in groups:
+            assert "location" not in groups
+            location = groups.get("location-folder")
+            if not location.endswith("/"):
+                location += "/"
+        else:
+            location = groups.get("location")
         asset_id = groups.get("asset_id")
         path = groups.get("path")
         glob_param = groups.get("glob")
