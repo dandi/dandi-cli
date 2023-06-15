@@ -571,7 +571,7 @@ class _dandi_url_parser:
             re.compile(
                 rf"{server_grp}(#/)?(?P<asset_type>dandiset)/{dandiset_id_grp}"
                 rf"(/(?P<version>{VERSION_REGEX}))?"
-                r"(/(files(\?location=(?P<location-folder>.*)?)?)?)?"
+                r"(/(files(\?location=(?P<location_folder>.*)?)?)?)?"
             ),
             {},
             "https://<server>[/api]/[#/]dandiset/<dandiset id>[/<version>]"
@@ -754,18 +754,20 @@ class _dandi_url_parser:
         # asset_type = groups.get("asset_type")
         dandiset_id = groups.get("dandiset_id")
         version_id = groups.get("version")
-        if "location-folder" in groups:
+        location: Optional[str]
+        if groups.get("location_folder") is not None:
             assert "location" not in groups
-            location = groups.get("location-folder")
-            if not location.endswith("/"):
+            location = urlunquote(groups["location_folder"])
+            if not location.endswith("/") and not glob:
                 location += "/"
         else:
             location = groups.get("location")
+            if location:
+                location = urlunquote(location)
         asset_id = groups.get("asset_id")
         path = groups.get("path")
         glob_param = groups.get("glob")
         if location:
-            location = urlunquote(location)
             # ATM carries leading '/' which IMHO is not needed/misguiding
             # somewhat, so I will just strip it
             location = location.lstrip("/")
