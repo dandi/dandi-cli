@@ -6,7 +6,7 @@ import os
 import os.path as op
 from pathlib import Path
 import re
-from typing import IO, Any, Dict, List, Optional, Tuple, TypeVar, Union, cast
+from typing import IO, Any, Dict, List, Literal, Optional, Tuple, TypeVar, Union, cast
 import warnings
 
 import dandischema
@@ -483,7 +483,11 @@ StrPath = TypeVar("StrPath", str, Path)
 
 
 def make_nwb_file(
-    filename: StrPath, *args: Any, cache_spec: bool = False, backend: Literal["hdf5", "zarr"] = "hdf5", **kwargs: Any
+    filename: StrPath,
+    *args: Any,
+    cache_spec: bool = False,
+    backend: Literal["hdf5", "zarr"] = "hdf5",
+    **kwargs: Any,
 ) -> StrPath:
     """A little helper to produce an .nwb file in the path using NWBFile
 
