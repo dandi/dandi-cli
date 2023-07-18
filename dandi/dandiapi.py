@@ -1023,7 +1023,7 @@ class RemoteDandiset:
         start = time()
         while time() - start < max_time:
             v = self.get_version(self.version_id)
-            if v.status is VersionStatus.VALID:
+            if v.status is VersionStatus.VALID and not v.asset_validation_errors:
                 return
             sleep(0.5)
         # TODO: Improve the presentation of the error messages
