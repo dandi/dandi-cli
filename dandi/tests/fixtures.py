@@ -656,19 +656,17 @@ def video_files(tmp_path: Path) -> list[tuple[Path, Path]]:
         (nf, nx, ny) = (2, 2, 2)
         writer1 = cv2.VideoWriter(
             filename=str(movie_file1),
-            apiPreference=None,
-            fourcc=cv2.VideoWriter_fourcc(*"DIVX"),
-            fps=25,
+            apiPreference=0,
+            fourcc=cv2.VideoWriter.fourcc(*"DIVX"),
+            fps=25.0,
             frameSize=(ny, nx),
-            params=None,
         )
         writer2 = cv2.VideoWriter(
             filename=str(movie_file2),
-            apiPreference=None,
-            fourcc=cv2.VideoWriter_fourcc(*"DIVX"),
+            apiPreference=0,
+            fourcc=cv2.VideoWriter.fourcc(*"DIVX"),
             fps=25,
             frameSize=(ny, nx),
-            params=None,
         )
         for k in range(nf):
             writer1.write(np.random.randint(0, 255, (nx, ny, 3)).astype("uint8"))
