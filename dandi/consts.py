@@ -194,6 +194,7 @@ dandi_layout_fields = {
     "slice_id": {"format": "_slice-{}"},
     "cell_id": {"format": "_cell-{}"},
     # disambiguation ones
+    "description": {"format": "_desc-{}", "type": "disambiguation"},
     "probe_ids": {"format": "_probe-{}", "type": "disambiguation"},
     "obj_id": {
         "format": "_obj-{}",
