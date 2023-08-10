@@ -110,6 +110,7 @@ def keyring_op(
             len(kbs) == 1
         ), "EncryptedKeyring not available; is pycryptodomex installed?"
         kb = kbs[0]
+        assert isinstance(kb, EncryptedKeyring)
         if op.exists(kb.file_path):
             lgr.info("EncryptedKeyring file exists; using as keyring backend")
             return (kb, func(kb))
