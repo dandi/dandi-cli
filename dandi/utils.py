@@ -596,6 +596,7 @@ class ServerInfo(BaseModel):
 
 def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
     dandi_id = None
+    is_api = True
     redirector_url = None
     if isinstance(dandi_instance_id, DandiInstance):
         instance = dandi_instance_id
@@ -605,8 +606,10 @@ def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
         dandi_id = known_instances_rev.get(redirector_url.rstrip("/"))
         if dandi_id is not None:
             instance = known_instances[dandi_id]
+            is_api = instance.api.rstrip("/") == redirector_url.rstrip("/")
         else:
             instance = None
+            is_api = False
             bits = urlparse(redirector_url)
             redirector_url = urlunparse((bits[0], bits[1], "", "", "", ""))
     else:
@@ -616,7 +619,7 @@ def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
         assert instance is not None
         return _get_instance(instance.api.rstrip("/"), True, instance, dandi_id)
     else:
-        return _get_instance(redirector_url.rstrip("/"), False, instance, dandi_id)
+        return _get_instance(redirector_url.rstrip("/"), is_api, instance, dandi_id)
 
 
 @lru_cache
