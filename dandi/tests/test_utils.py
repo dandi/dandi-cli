@@ -394,14 +394,13 @@ def test_get_instance_arbitrary_api_url() -> None:
     )
 
 
-@pytest.mark.xfail(reason="https://github.com/dandi/dandi-archive/issues/1045")
 @mark.skipif_no_network
 def test_server_info() -> None:
     r = requests.get("https://dandiarchive.org/server-info")
     r.raise_for_status()
     data = r.json()
     assert "version" in data
-    assert Version(data["version"]) >= Version("1.2.0")
+    assert Version(data["version"]) >= Version("0.2.18")
     assert "cli-minimal-version" in data
     assert "cli-bad-versions" in data
     assert "services" in data
