@@ -5,13 +5,14 @@ import os.path as op
 from pathlib import Path
 import time
 from typing import Iterable, List
+from urllib.parse import urlparse, urlunparse
 
 import pytest
 import requests
 import responses
 from semantic_version import Version
 
-from .skip import mark
+from .fixtures import DandiAPI
 from .. import __version__
 from ..consts import DandiInstance, known_instances
 from ..exceptions import BadCliVersionError, CliVersionTooOldError
@@ -394,10 +395,10 @@ def test_get_instance_arbitrary_api_url() -> None:
     )
 
 
-@pytest.mark.xfail(reason="https://github.com/dandi/dandi-archive/issues/1045")
-@mark.skipif_no_network
-def test_server_info() -> None:
-    r = requests.get("https://dandiarchive.org/server-info")
+def test_server_info(local_dandi_api: DandiAPI) -> None:
+    u = urlparse(local_dandi_api.api_url)
+    root_url = urlunparse(u[:2] + ("",) * 4)
+    r = requests.get(f"{root_url}/server-info")
     r.raise_for_status()
     data = r.json()
     assert "version" in data
