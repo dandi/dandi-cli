@@ -1032,7 +1032,7 @@ LABELREGEX = r"[^_*\\/<>:|\"'?%@;.]+"
 ORGANIZED_FILENAME_REGEX = (
     rf"sub-{LABELREGEX}"
     rf"(_ses-{LABELREGEX})?"
-    rf"(_(tis|slice|cell|probe|obj)-{LABELREGEX})*"
+    rf"(_(tis|slice|cell|desc|probe|obj)-{LABELREGEX})*"
     r"(_[a-z]+(\+[a-z]+)*)?"
     r"\.nwb"
 )

@@ -237,6 +237,21 @@ def test_ambiguous_probe1() -> None:
     ]
 
 
+def test_ambiguous_desc() -> None:
+    base = dict(subject_id="1", session="2", modalities=["mod"], extension="nwb")
+    # fake filenames should be ok since we never should get to reading them for object_id
+    metadata = [
+        dict(path="1.nwb", **base),
+        dict(path="2.nwb", description="ms5", **base),
+    ]
+    metadata_ = create_unique_filenames_from_metadata(metadata)
+    assert metadata_ != metadata
+    assert [m["dandi_path"] for m in metadata_] == [
+        op.join("sub-1", "sub-1_mod.nwb"),
+        op.join("sub-1", "sub-1_desc-ms5_mod.nwb"),
+    ]
+
+
 @pytest.mark.parametrize(
     "sym_success,hard_success,result",
     [
@@ -332,6 +347,11 @@ def test_video_organize_common(video_mode, nwbfiles_video_common):
     [
         ("XCaMPgf/XCaMPgf_ANM471996_cell01.dat", []),
         ("sub-RAT123/sub-RAT123.nwb", []),
+        ("sub-RAT123/sub-RAT123_desc-label.nwb", []),  # _desc- is supported now
+        (
+            "sub-RAT123/sub-RAT123_notsupported-irrelevant.nwb",
+            ["DANDI.NON_DANDI_FILENAME"],
+        ),
         ("sub-RAT123/sub-RAT124.nwb", ["DANDI.METADATA_MISMATCH_SUBJECT"]),
         ("sub-RAT124.nwb", ["DANDI.NON_DANDI_FOLDERNAME"]),
         ("foo/sub-RAT124.nwb", ["DANDI.NON_DANDI_FOLDERNAME"]),
