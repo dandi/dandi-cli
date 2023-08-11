@@ -1,3 +1,41 @@
+# 0.56.0 (Fri Aug 11 2023)
+
+#### 🚀 Enhancement
+
+- ENH: Add support for _desc- entity to label different processings of a file [#1315](https://github.com/dandi/dandi-cli/pull/1315) ([@yarikoptic](https://github.com/yarikoptic))
+- Accept URLs as Dandi instance specifiers [#1298](https://github.com/dandi/dandi-cli/pull/1298) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Check if URL matches the API URL so we do not hardcode wrong "False" for is_api [#1318](https://github.com/dandi/dandi-cli/pull/1318) ([@yarikoptic](https://github.com/yarikoptic))
+- Fix wait_until_valid to properly wait for a publishable version [#1311](https://github.com/dandi/dandi-cli/pull/1311) ([@danlamanna](https://github.com/danlamanna))
+- Update `asset_validation_errors` structure [#1303](https://github.com/dandi/dandi-cli/pull/1303) ([@jwodder](https://github.com/jwodder))
+- Don't treat certain broken symlinks as absent files [#1292](https://github.com/dandi/dandi-cli/pull/1292) ([@jwodder](https://github.com/jwodder) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Removed deprecated boilerplate for copying tree to an existing directory [#1294](https://github.com/dandi/dandi-cli/pull/1294) ([@TheChymera](https://github.com/TheChymera) [@jwodder](https://github.com/jwodder))
+- Remove Python 3.7-specific code [#1296](https://github.com/dandi/dandi-cli/pull/1296) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- TST: fix and not announce xfailed test which checks /server-info - version is provided now [#1319](https://github.com/dandi/dandi-cli/pull/1319) ([@yarikoptic](https://github.com/yarikoptic))
+- Fix typing errors due to keyring and cv externals changes. [#1316](https://github.com/dandi/dandi-cli/pull/1316) ([@jwodder](https://github.com/jwodder))
+- Fix test for newer hdf5 [#1301](https://github.com/dandi/dandi-cli/pull/1301) ([@jwodder](https://github.com/jwodder))
+
+#### 🔩 Dependency Updates
+
+- Drop dependency on importlib-metadata backport for Python 3.7 [#1299](https://github.com/dandi/dandi-cli/pull/1299) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 4
+
+- Dan LaManna ([@danlamanna](https://github.com/danlamanna))
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.55.1 (Fri May 19 2023)
 
 #### 🔩 Dependency Updates
