@@ -471,6 +471,7 @@ def extract_cellLine(metadata: dict) -> Optional[str]:
         return None
 
 
+# common_names, prefix, uri, name
 species_map = [
     (
         ["mouse"],
@@ -531,6 +532,12 @@ species_map = [
         "caenorhabditis",
         "http://purl.obolibrary.org/obo/NCBITaxon_6239",
         "Caenorhabditis elegans",
+    ),
+    (
+        ["simia nemestrina"],
+        None,
+        "http://purl.obolibrary.org/obo/NCBITaxon_9545",
+        "Macaca nemestrina",
     ),
 ]
 
