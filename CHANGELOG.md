@@ -1,3 +1,15 @@
+# 0.56.1 (Mon Sep 11 2023)
+
+#### 🐛 Bug Fix
+
+- Add Macaca nemestrina to species [#1327](https://github.com/dandi/dandi-cli/pull/1327) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.56.0 (Fri Aug 11 2023)
 
 #### 🚀 Enhancement
