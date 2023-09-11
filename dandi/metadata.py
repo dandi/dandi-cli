@@ -534,7 +534,7 @@ species_map = [
         "Caenorhabditis elegans",
     ),
     (
-        ["simia nemestrina"],
+        ["pig-tailed macaque", "pigtail monkey", "pigtail macaque"],
         None,
         "http://purl.obolibrary.org/obo/NCBITaxon_9545",
         "Macaca nemestrina",
