@@ -164,7 +164,7 @@ DRAFT = "draft"
 #: of retries)
 RETRY_STATUSES = (500, 502, 503, 504)
 
-VIDEO_FILE_EXTENSIONS = [".mp4", ".avi", ".wmv", ".mov", ".flv", ".mkv"]
+VIDEO_FILE_EXTENSIONS = [".mp4", ".avi", ".wmv", ".mov", ".flv", ".mkv", ".h264"]
 VIDEO_FILE_MODULES = ["processing", "acquisition"]
 
 ZARR_EXTENSIONS = [".ngff", ".zarr"]
