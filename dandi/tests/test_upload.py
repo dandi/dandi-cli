@@ -292,6 +292,19 @@ def test_upload_zarr(new_dandiset: SampleDandiset) -> None:
     new_dandiset.upload()
 
 
+# identical to above, but different scenaior/fixture and path. TODO: avoid duplication
+def test_upload_bids_zarr(bids_zarr_dandiset: SampleDandiset) -> None:
+    bids_zarr_dandiset.upload()
+    assets = list(bids_zarr_dandiset.dandiset.get_assets())
+    assert len(assets) > 10  # it is a bigish dataset
+    (asset,) = [a for a in assets if a.path.endswith(".zarr")]
+    assert isinstance(asset, RemoteZarrAsset)
+    assert asset.asset_type is AssetType.ZARR
+    assert asset.path.endswith(".zarr")
+    # Test that uploading again without any changes works:
+    bids_zarr_dandiset.upload()
+
+
 def test_upload_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
     asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
     assert isinstance(asset, RemoteZarrAsset)

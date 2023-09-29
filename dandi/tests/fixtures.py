@@ -628,6 +628,22 @@ def bids_nwb_dandiset(
     return new_dandiset
 
 
+# TODO: refactor: avoid duplication and come up with some fixture helper which would
+# just need specify bids example name
+@pytest.fixture()
+def bids_zarr_dandiset(
+    new_dandiset: SampleDandiset, bids_examples: Path
+) -> SampleDandiset:
+    shutil.copytree(
+        bids_examples / "micr_SEMzarr",
+        new_dandiset.dspath,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns(dandiset_metadata_file),
+    )
+    (new_dandiset.dspath / "CHANGES").write_text("0.1.0 2014-11-03\n")
+    return new_dandiset
+
+
 @pytest.fixture()
 def bids_dandiset_invalid(
     new_dandiset: SampleDandiset, bids_error_examples: Path

@@ -235,7 +235,7 @@ class NWBBIDSAsset(BIDSAsset, NWBAsset):
         )
 
 
-class ZarrBIDSAsset(BIDSAsset, ZarrAsset):
+class ZarrBIDSAsset(ZarrAsset, BIDSAsset):
     """
     .. versionadded:: 0.46.0
 
