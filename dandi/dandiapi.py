@@ -1450,7 +1450,10 @@ class BaseRemoteAsset(ABC, APIBase):
                     else:
                         break
         except requests.HTTPError as e:
-            url = e.request.url
+            if e.request is not None and isinstance(e.request.url, str):
+                url = e.request.url
+            else:
+                raise  # reraise since we need to figure out how to handle such a case
         if strip_query:
             url = urlunparse(urlparse(url)._replace(query=""))
         return url
