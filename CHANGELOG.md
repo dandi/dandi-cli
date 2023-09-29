@@ -1,3 +1,15 @@
+# 0.56.2 (Fri Sep 29 2023)
+
+#### 🐛 Bug Fix
+
+- Fix uploading Zarr within a BIDS dataset; typing-check guided fix for handling requests exception [#1331](https://github.com/dandi/dandi-cli/pull/1331) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.56.1 (Mon Sep 11 2023)
 
 #### 🐛 Bug Fix
