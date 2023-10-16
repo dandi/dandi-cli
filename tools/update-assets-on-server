@@ -3,7 +3,7 @@
 
 Composed by Satra (with only little changes by yoh).
 Initially based on code in dandisets' backups2datalad.py code for updating
-as a part of that script but it was intefering with the updates to datalad thus
+as a part of that script but it was interfering with the updates to datalad thus
 extracted into a separate script.
 """
 
