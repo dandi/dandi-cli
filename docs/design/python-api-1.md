@@ -118,7 +118,7 @@ Designs for an improved Python API
         * The basic methods simply upload/download everything, blocking until completion, and return either nothing or a summary of everything that was uploaded/downloaded
             * These methods have `show_progress=True` options for whether to display progress output using pyout or to remain silent
             * The upload methods return an `Asset` or collection of `Asset`s.  This can be implemented by having the final value yielded by the `iter_` upload function contain an `"asset"` field.
-        * Each method also has an iterator variant (named with an "`iter_`" preffix) that can be used to iterate over values containing progress information compatible with pyout
+        * Each method also has an iterator variant (named with an "`iter_`" prefix) that can be used to iterate over values containing progress information compatible with pyout
             * These methods do not output anything (aside perhaps from logging)
 
     * An `UploadProgressDict` is a `dict` containing some number of the following keys:
