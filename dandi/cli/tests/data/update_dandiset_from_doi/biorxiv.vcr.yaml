@@ -7,7 +7,7 @@ interactions:
       Connection:
       - keep-alive
       User-Agent:
-      - dandi/0.53.0+17.gc2f268f.dirty requests/2.28.2 CPython/3.11.3
+      - dandi/0.56.2+5.ga0199fce.dirty requests/2.31.0 CPython/3.11.6
       accept:
       - application/json
     method: GET
@@ -21,7 +21,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7bd8e4c52e4a8215-IAD
+      - 81727698abd08c87-EWR
       Connection:
       - keep-alive
       Content-Length:
@@ -29,19 +29,19 @@ interactions:
       Content-Type:
       - text/html;charset=utf-8
       Date:
-      - Tue, 25 Apr 2023 19:11:45 GMT
+      - Mon, 16 Oct 2023 18:46:12 GMT
       NEL:
       - '{"success_fraction":0,"report_to":"cf-nel","max_age":604800}'
       Report-To:
-      - '{"endpoints":[{"url":"https:\/\/a.nel.cloudflare.com\/report\/v3?s=SJS2DJ8aGNbnuREMgLzy912O9dvXnZb2JaxDoyHf%2Bt89NGxInojmjPbXGHH6obSowIxEvUFRQOXV0D%2BUUd80pcYWDjAyb8upDquZQJH6wK90J%2BJbBnc2KRGYXFnlLN9zuBrwVX8%3D"}],"group":"cf-nel","max_age":604800}'
+      - '{"endpoints":[{"url":"https:\/\/a.nel.cloudflare.com\/report\/v3?s=EDGcAsnWWLKU8tj03j7uq9EVlzy6xYZBi3MtNGzcjVP%2FFeXDm5vKv0bmihqXEY6T5Fl2CaX6you4Hx5FgLmEu%2BEqJQP526h221xcfmW2wn6UJHsxA52UV%2FE%3D"}],"group":"cf-nel","max_age":604800}'
       Server:
       - cloudflare
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       alt-svc:
-      - h3=":443"; ma=86400, h3-29=":443"; ma=86400
+      - h3=":443"; ma=86400
       expires:
-      - Tue, 25 Apr 2023 19:32:12 GMT
+      - Mon, 16 Oct 2023 19:27:25 GMT
       location:
       - https://api.crossref.org/v1/works/10.1101%2F2020.01.17.909838/transform
       permissions-policy:
@@ -59,120 +59,134 @@ interactions:
       Connection:
       - keep-alive
       User-Agent:
-      - dandi/0.53.0+17.gc2f268f.dirty requests/2.28.2 CPython/3.11.3
+      - dandi/0.56.2+5.ga0199fce.dirty requests/2.31.0 CPython/3.11.6
       accept:
       - application/json
     method: GET
     uri: https://api.crossref.org/v1/works/10.1101%2F2020.01.17.909838/transform
   response:
     body:
-      string: !!binary |
-        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
+      string: '{"institution":[{"name":"bioRxiv"}],"indexed":{"date-parts":[[2023,7,31]],"date-time":"2023-07-31T10:13:47Z","timestamp":1690798427865},"posted":{"date-parts":[[2020,1,17]]},"group-title":"Neuroscience","reference-count":65,"publisher":"Cold
+        Spring Harbor Laboratory","content-domain":{"domain":[],"crossmark-restriction":false},"accepted":{"date-parts":[[2020,10,9]]},"abstract":"<jats:p>Progress
+        in science requires standardized assays whose results can be readily shared,
+        compared, and reproduced across laboratories. Reproducibility, however, has
+        been a concern in neuroscience, particularly for measurements of mouse behavior.
+        Here we show that a standardized task to probe decision-making in mice produces
+        reproducible results across multiple laboratories. We designed a task for
+        head-fixed mice that combines established assays of perceptual and value-based
+        decision making, and we standardized training protocol and experimental hardware,
+        software, and procedures. We trained 140 mice across seven laboratories in
+        three countries, and we collected 5 million mouse choices into a publicly
+        available database. Learning speed was variable across mice and laboratories,
+        but once training was complete there were no significant differences in behavior
+        across laboratories. Mice in different laboratories adopted similar reliance
+        on visual stimuli, on past successes and failures, and on estimates of stimulus
+        prior probability to guide their choices. These results reveal that a complex
+        mouse behavior can be successfully reproduced across multiple laboratories.
+        They establish a standard for reproducible rodent behavior, and provide an
+        unprecedented dataset and open-access tools to study decision-making in mice.
+        More generally, they indicate a path towards achieving reproducibility in
+        neuroscience through collaborative open-science approaches.<\/jats:p>","DOI":"10.1101\/2020.01.17.909838","type":"posted-content","created":{"date-parts":[[2020,1,18]],"date-time":"2020-01-18T09:15:13Z","timestamp":1579338913000},"source":"Crossref","is-referenced-by-count":12,"title":"Standardized
+        and reproducible measurement of decision-making in mice","prefix":"10.1101","author":[{"name":"The
+        International Brain Laboratory","sequence":"first","affiliation":[]},{"given":"Valeria","family":"Aguillon-Rodriguez","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-9650-8962","authenticated-orcid":false,"given":"Dora
+        E.","family":"Angelaki","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-5644-4124","authenticated-orcid":false,"given":"Hannah
+        M.","family":"Bayer","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0001-5228-6918","authenticated-orcid":false,"given":"Niccol\u00f2","family":"Bonacchi","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0003-4880-7682","authenticated-orcid":false,"given":"Matteo","family":"Carandini","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-9648-4761","authenticated-orcid":false,"given":"Fanny","family":"Cazettes","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-6849-5316","authenticated-orcid":false,"given":"Gaelle
+        A.","family":"Chapuis","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-3205-3794","authenticated-orcid":false,"given":"Anne
+        K.","family":"Churchland","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-3818-877X","authenticated-orcid":false,"given":"Yang","family":"Dan","sequence":"additional","affiliation":[]},{"given":"Eric
+        E. J.","family":"Dewitt","sequence":"additional","affiliation":[]},{"given":"Mayo","family":"Faulkner","sequence":"additional","affiliation":[]},{"given":"Hamish","family":"Forrest","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0001-5178-9177","authenticated-orcid":false,"given":"Laura
+        M.","family":"Haetzel","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-2673-8957","authenticated-orcid":false,"given":"Michael","family":"Hausser","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0003-4921-8521","authenticated-orcid":false,"given":"Sonja
+        B.","family":"Hofer","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0001-7827-9548","authenticated-orcid":false,"given":"Fei","family":"Hu","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-8929-7984","authenticated-orcid":false,"given":"Anup","family":"Khanal","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0001-8852-6805","authenticated-orcid":false,"given":"Christopher
+        S.","family":"Krasniak","sequence":"additional","affiliation":[]},{"given":"In\u00eas","family":"Laranjeira","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0001-7913-9109","authenticated-orcid":false,"given":"Zachary
+        F.","family":"Mainen","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-7473-0482","authenticated-orcid":false,"given":"Guido
+        T.","family":"Meijer","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0001-8587-4919","authenticated-orcid":false,"given":"Nathaniel
+        J.","family":"Miska","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-8947-408X","authenticated-orcid":false,"given":"Thomas
+        D.","family":"Mrsic-Flogel","sequence":"additional","affiliation":[]},{"given":"Masayoshi","family":"Murakami","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0001-5297-3363","authenticated-orcid":false,"given":"Jean-Paul","family":"Noel","sequence":"additional","affiliation":[]},{"given":"Alejandro","family":"Pan-Vazquez","sequence":"additional","affiliation":[]},{"given":"Cyrille","family":"Rossant","sequence":"additional","affiliation":[]},{"given":"Joshua
+        I.","family":"Sanders","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-1677-1489","authenticated-orcid":false,"given":"Karolina
+        Z.","family":"Socha","sequence":"additional","affiliation":[]},{"given":"Rebecca","family":"Terry","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0001-5270-6513","authenticated-orcid":false,"given":"Anne
+        E.","family":"Urai","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0001-6904-2311","authenticated-orcid":false,"given":"Hernando
+        M.","family":"Vergara","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0003-4014-2591","authenticated-orcid":false,"given":"Miles
+        J.","family":"Wells","sequence":"additional","affiliation":[]},{"given":"Christian
+        J.","family":"Wilson","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0003-0548-2160","authenticated-orcid":false,"given":"Ilana
+        B.","family":"Witten","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-2955-2576","authenticated-orcid":false,"given":"Lauren
+        E.","family":"Wool","sequence":"additional","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-8431-9136","authenticated-orcid":false,"given":"Anthony","family":"Zador","sequence":"additional","affiliation":[]}],"member":"246","reference":[{"key":"2020101212001600000_2020.01.17.909838v5.1","doi-asserted-by":"publisher","DOI":"10.1038\/s41467-016-0009-6"},{"key":"2020101212001600000_2020.01.17.909838v5.2","unstructured":"Ashwood,
+        Z. , et al., IBL Collaboration, and Pillow, J.W. (2019). State-dependent modeling
+        of psychophysical behavior during decision making. Soc. Neurosci. 2019 Online."},{"key":"2020101212001600000_2020.01.17.909838v5.3","first-page":"1947","volume-title":"In
+        Advances in Neural Information Processing Systems","volume":"29","year":"2016"},{"key":"2020101212001600000_2020.01.17.909838v5.4","doi-asserted-by":"crossref","first-page":"452","DOI":"10.1038\/533452a","article-title":"1,500
+        scientists lift the lid on reproducibility","volume":"533","year":"2016","journal-title":"Nat.
+        News"},{"key":"2020101212001600000_2020.01.17.909838v5.5","doi-asserted-by":"crossref","first-page":"e49630","DOI":"10.7554\/eLife.49630","article-title":"MouseBytes,
+        an open-access high-throughput pipeline and database for rodent touchscreen-based
+        cognitive assessment","volume":"8","year":"2019","journal-title":"ELife"},{"key":"2020101212001600000_2020.01.17.909838v5.6","doi-asserted-by":"crossref","first-page":"84","DOI":"10.1038\/s41586-020-2314-9","article-title":"Variability
+        in the analysis of a single neuroimaging dataset by many teams","volume":"582","year":"2020","journal-title":"Nature"},{"key":"2020101212001600000_2020.01.17.909838v5.7","doi-asserted-by":"crossref","first-page":"151","DOI":"10.1087\/20150211","article-title":"Beyond
+        authorship: attribution, contribution, collaboration, and credit","volume":"28","year":"2015","journal-title":"Learn.
+        Publ"},{"key":"2020101212001600000_2020.01.17.909838v5.8","doi-asserted-by":"publisher","DOI":"10.1016\/j.celrep.2017.08.047"},{"key":"2020101212001600000_2020.01.17.909838v5.9","doi-asserted-by":"publisher","DOI":"10.1523\/JNEUROSCI.6689-10.2011"},{"key":"2020101212001600000_2020.01.17.909838v5.10","doi-asserted-by":"publisher","DOI":"10.1038\/nrn3475"},{"key":"2020101212001600000_2020.01.17.909838v5.11","doi-asserted-by":"publisher","DOI":"10.1038\/s41586-018-0579-z"},{"key":"2020101212001600000_2020.01.17.909838v5.12","doi-asserted-by":"crossref","first-page":"637","DOI":"10.1038\/s41562-018-0399-z","article-title":"Evaluating
+        the replicability of social science experiments in Nature and Science between
+        2010 and 2015","volume":"2","year":"2018","journal-title":"Nat. Hum. Behav"},{"key":"2020101212001600000_2020.01.17.909838v5.13","doi-asserted-by":"publisher","DOI":"10.1038\/nn.3410"},{"key":"2020101212001600000_2020.01.17.909838v5.14","unstructured":"CERN
+        Education , Communications and Outreach Group (2018). CERN Annual Report 2017
+        (CERN)."},{"key":"2020101212001600000_2020.01.17.909838v5.15","doi-asserted-by":"crossref","unstructured":"Charles,
+        A.S. , Falk, B. , Turner, N. , Pereira, T.D. , Tward, D. , Pedigo, B.D. ,
+        Chung, J. , Burns, R. , Ghosh, S.S. , Kebschull, J.M. , et al. (2020). Toward
+        Community-Driven Big Open Brain Science: Open Big Data and Tools for Structure,
+        Function, and Genetics. Annu. Rev. Neurosci.43, null.","DOI":"10.1146\/annurev-neuro-100119-110036"},{"key":"2020101212001600000_2020.01.17.909838v5.16","doi-asserted-by":"publisher","DOI":"10.1038\/nn1102-1101"},{"key":"2020101212001600000_2020.01.17.909838v5.17","doi-asserted-by":"publisher","DOI":"10.1038\/nn.2439"},{"key":"2020101212001600000_2020.01.17.909838v5.18","doi-asserted-by":"publisher","DOI":"10.1901\/jeab.2005.23-05"},{"key":"2020101212001600000_2020.01.17.909838v5.19","doi-asserted-by":"publisher","DOI":"10.1126\/science.284.5420.1670"},{"key":"2020101212001600000_2020.01.17.909838v5.20","doi-asserted-by":"publisher","DOI":"10.1038\/nature19356"},{"key":"2020101212001600000_2020.01.17.909838v5.21","doi-asserted-by":"publisher","DOI":"10.7554\/eLife.36018"},{"key":"2020101212001600000_2020.01.17.909838v5.22","doi-asserted-by":"crossref","first-page":"54","DOI":"10.3390\/galaxies4040054","article-title":"Observing\u2014and
+        Imaging\u2014Active Galactic Nuclei with the Event Horizon Telescope","volume":"4","year":"2016","journal-title":"Galaxies"},{"key":"2020101212001600000_2020.01.17.909838v5.23","doi-asserted-by":"crossref","unstructured":"Forscher,
+        P.S. , Wagenmakers, E.-J. , Coles, N.A. , Silan, M.A. , and IJzerman, H. (2020).
+        A Manifesto for Team Science (PsyArXiv).","DOI":"10.31234\/osf.io\/2mdxh"},{"key":"2020101212001600000_2020.01.17.909838v5.24","first-page":"421","article-title":"A
+        Collaborative Approach to Infant Research: Promoting Reproducibility, Best
+        Practices, and Theory-Building. Infancy Off","volume":"22","year":"2017","journal-title":"J.
+        Int. Soc. Infant Stud"},{"key":"2020101212001600000_2020.01.17.909838v5.25","doi-asserted-by":"publisher","DOI":"10.1016\/j.conb.2013.08.009"},{"key":"2020101212001600000_2020.01.17.909838v5.26","doi-asserted-by":"publisher","DOI":"10.1371\/journal.pone.0088678"},{"key":"2020101212001600000_2020.01.17.909838v5.27","doi-asserted-by":"publisher","DOI":"10.1038\/s41586-020-2649-2"},{"key":"2020101212001600000_2020.01.17.909838v5.28","doi-asserted-by":"publisher","DOI":"10.1901\/jeab.1961.4-267"},{"key":"2020101212001600000_2020.01.17.909838v5.29","unstructured":"International
+        Brain Laboratory , Bonacchi, N. , Chapuis, G. , Churchland, A. , Harris, K.D.
+        , Rossant, C. , Sasaki, M. , Shen, S. , Steinmetz, N.A. , Walker, E.Y. , et
+        al. (2019). Data architecture and visualization for a large-scale neuroscience
+        collaboration. BioRxiv 827873."},{"key":"2020101212001600000_2020.01.17.909838v5.30","doi-asserted-by":"crossref","unstructured":"Ioannidis,
+        J.P.A. (2005). Why Most Published Research Findings Are False. PLoS Med. 2.","DOI":"10.1371\/journal.pmed.0020124"},{"key":"2020101212001600000_2020.01.17.909838v5.31","doi-asserted-by":"publisher","DOI":"10.1016\/j.neubiorev.2018.01.003"},{"key":"2020101212001600000_2020.01.17.909838v5.32","doi-asserted-by":"publisher","DOI":"10.1093\/nar\/gkt977"},{"key":"2020101212001600000_2020.01.17.909838v5.33","doi-asserted-by":"crossref","first-page":"e49834","DOI":"10.7554\/eLife.49834","article-title":"Reinforcement
+        biases subsequent perceptual decisions when confidence is low, a widespread
+        behavioral phenomenon","volume":"9","year":"2020","journal-title":"ELife"},{"key":"2020101212001600000_2020.01.17.909838v5.34","doi-asserted-by":"crossref","first-page":"700","DOI":"10.1016\/j.neuron.2019.11.018","article-title":"Dopaminergic
+        and Prefrontal Basis of Learning from Sensory Confidence and Reward Value","volume":"105","year":"2020","journal-title":"Neuron"},{"key":"2020101212001600000_2020.01.17.909838v5.35","doi-asserted-by":"publisher","DOI":"10.1901\/jeab.2005.110-04"},{"key":"2020101212001600000_2020.01.17.909838v5.36","doi-asserted-by":"crossref","unstructured":"Lopes,
+        G. , Bonacchi, N. , Fraz\u00e3o, J. , Neto, J.P. , Atallah, B.V. , Soares,
+        S. , Moreira, L. , Matias, S. , Itskov, P.M. , Correia, P.A. , et al. (2015).
+        Bonsai: an event-based framework for processing and controlling data streams.
+        Front. Neuroinformatics 9.","DOI":"10.3389\/fninf.2015.00007"},{"key":"2020101212001600000_2020.01.17.909838v5.37","doi-asserted-by":"crossref","unstructured":"Lopes,
+        G. , Farrell, K. , Horrocks, E.A.B. , Lee, C.-Y. , Morimoto, M.M. , Muzzu,
+        T. , Papanikolaou, A. , Rodrigues, F.R. , Wheatcroft, T. , Zucca, S. , et
+        al. (2020). BonVision \u2013 an open-source software to create and control
+        visual environments. BioRxiv 2020.03.09.983775.","DOI":"10.1101\/2020.03.09.983775"},{"key":"2020101212001600000_2020.01.17.909838v5.38","doi-asserted-by":"crossref","first-page":"537","DOI":"10.1177\/1745691612460688","article-title":"Replications
+        in Psychology Research: How Often Do They Really Occur?","volume":"7","year":"2012","journal-title":"Perspect.
+        Psychol. Sci. J. Assoc. Psychol. Sci"},{"key":"2020101212001600000_2020.01.17.909838v5.39","doi-asserted-by":"publisher","DOI":"10.1038\/s41593-018-0209-y"},{"key":"2020101212001600000_2020.01.17.909838v5.40","doi-asserted-by":"publisher","DOI":"10.1016\/j.neuron.2015.09.012"},{"key":"2020101212001600000_2020.01.17.909838v5.41","doi-asserted-by":"crossref","unstructured":"Mendon\u00e7a,
+        A.G. , Drugowitsch, J. , Vicente, M.I. , DeWitt, E. , Pouget, A. , and Mainen,
+        Z.F. (2018). The impact of learning on perceptual decisions and its implication
+        for speed-accuracy tradeoffs. BioRxiv 501858.","DOI":"10.1101\/501858"},{"key":"2020101212001600000_2020.01.17.909838v5.42","unstructured":"Miller,
+        K.J. , Botvinick, M.M. , and Brody, C.D. (2019). From predictive models to
+        cognitive models: An analysis of rat behavior in the two-armed bandit task.
+        BioRxiv 461129."},{"key":"2020101212001600000_2020.01.17.909838v5.43","doi-asserted-by":"crossref","first-page":"e1006681","DOI":"10.1371\/journal.pcbi.1006681","article-title":"Human
+        online adaptation to changes in prior probability","volume":"15","year":"2019","journal-title":"PLOS
+        Comput. Biol"},{"key":"2020101212001600000_2020.01.17.909838v5.44","doi-asserted-by":"publisher","DOI":"10.1038\/nature08539"},{"key":"2020101212001600000_2020.01.17.909838v5.45","doi-asserted-by":"publisher","DOI":"10.1016\/j.cpc.2010.04.018"},{"key":"2020101212001600000_2020.01.17.909838v5.46","doi-asserted-by":"crossref","unstructured":"Pinto,
+        L. , Koay, S.A. , Engelhard, B. , Yoon, A.M. , Deverett, B. , Thiberge, S.Y.
+        , Witten, I.B. , Tank, D.W. , and Brody, C.D. (2018). An Accumulation-of-Evidence
+        Task Using Visual Pulses for Mice Navigating in Virtual Reality. Front. Behav.
+        Neurosci.12.","DOI":"10.3389\/fnbeh.2018.00036"},{"key":"2020101212001600000_2020.01.17.909838v5.47","doi-asserted-by":"crossref","unstructured":"Pisupati,
+        S. , Chartarifsky-Lynn, L. , Khanal, A. , and Churchland, A.K. (2019). Lapses
+        in perceptual decisions reflect exploration (Neuroscience).","DOI":"10.1101\/613828"},{"key":"2020101212001600000_2020.01.17.909838v5.48","doi-asserted-by":"publisher","DOI":"10.1371\/journal.pone.0083171"},{"key":"2020101212001600000_2020.01.17.909838v5.49","doi-asserted-by":"publisher","DOI":"10.1038\/nn.3818"},{"key":"2020101212001600000_2020.01.17.909838v5.50","unstructured":"Reback,
+        J. , McKinney, W. , jbrockmendel, Bossche , J.V. den , Augspurger, T. , Cloud,
+        P. , gfyoung, Sinhrks , Klein, A. , Roeschke, M. , et al. (2020). pandas-dev\/pandas:
+        Pandas 1.0.1 (Zenodo)."},{"key":"2020101212001600000_2020.01.17.909838v5.51","doi-asserted-by":"crossref","unstructured":"Roy,
+        N.A. , Bak, J.H. , Akrami, A. , Brody, C.D. , and Pillow, J.W. (2020). Extracting
+        the Dynamics of Behavior in Decision-Making Experiments. BioRxiv 2020.05.21.109678.","DOI":"10.1101\/2020.05.21.109678"},{"key":"2020101212001600000_2020.01.17.909838v5.52","doi-asserted-by":"publisher","DOI":"10.7554\/eLife.11308"},{"key":"2020101212001600000_2020.01.17.909838v5.53","doi-asserted-by":"crossref","unstructured":"Seabold,
+        S. , and Perktold, J. (2010). Statsmodels: Econometric and Statistical Modeling
+        with Python. p. Smith, N.J., Hudon, C., broessli, Skipper Seabold, Peter Quackenbush,
+        Michael Hudson-Doyle, Max","DOI":"10.25080\/Majora-92bf1922-011"},{"key":"2020101212001600000_2020.01.17.909838v5.54","unstructured":"Humber,
+        Katrin Leinweber , Hassan Kibirige , Cameron Davidson-Pilon , et al. (2018).
+        pydata\/patsy: v0.5.1 (Zenodo)."},{"key":"2020101212001600000_2020.01.17.909838v5.55","doi-asserted-by":"publisher","DOI":"10.1038\/nmeth.2935"},{"key":"2020101212001600000_2020.01.17.909838v5.56","doi-asserted-by":"publisher","DOI":"10.1037\/h0058700"},{"key":"2020101212001600000_2020.01.17.909838v5.57","doi-asserted-by":"crossref","first-page":"A1","DOI":"10.1051\/0004-6361\/201732098","article-title":"The
+        H.E.S.S. Galactic plane survey","volume":"612","year":"2018","journal-title":"Astron.
+        Astrophys"},{"key":"2020101212001600000_2020.01.17.909838v5.58","doi-asserted-by":"publisher","DOI":"10.1016\/j.neuron.2017.12.013"},{"key":"2020101212001600000_2020.01.17.909838v5.59","doi-asserted-by":"publisher","DOI":"10.1038\/s41592-018-0224-7"},{"key":"2020101212001600000_2020.01.17.909838v5.60","doi-asserted-by":"publisher","DOI":"10.1038\/ncomms14637"},{"key":"2020101212001600000_2020.01.17.909838v5.61","doi-asserted-by":"crossref","unstructured":"Urai,
+        A.E. , Aguillon-Rodriguez, V. , Laranjeira, I.C. , Cazettes, F. , Laboratory,
+        T.I.B. , Mainen, Z.F. , and Churchland, A.K. (2020). Citric Acid Water as
+        an Alternative to Water Restriction for High-Yield Mouse Behavior. BioRxiv
+        2020.03.02.973016.","DOI":"10.1101\/2020.03.02.973016"},{"key":"2020101212001600000_2020.01.17.909838v5.62","doi-asserted-by":"publisher","DOI":"10.1101\/359513"},{"key":"2020101212001600000_2020.01.17.909838v5.63","unstructured":"Waskom,
+        M. , Botvinnik, O. , O\u2019Kane, D. , Hobson, P. , Lukauskas, S. , Gemperline,
+        D.C. , Augspurger, T. , Halchenko, Y. , Cole, J.B. , Warmenhoven, J. , et
+        al. (2017). mwaskom\/seaborn: v0.8.1 (September 2017) (Zenodo)."},{"key":"2020101212001600000_2020.01.17.909838v5.64","doi-asserted-by":"publisher","DOI":"10.1167\/8.6.2"},{"key":"2020101212001600000_2020.01.17.909838v5.65","unstructured":"Wool,
+        L. , and The International Brain Laboratory . (2020). PsyArXiv Preprints |
+        Knowledge across networks: how to build a global neuroscience collaboration.
+        PsyArxiv."}],"container-title":[],"original-title":[],"link":[{"URL":"https:\/\/syndication.highwire.org\/content\/doi\/10.1101\/2020.01.17.909838","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2022,10,11]],"date-time":"2022-10-11T22:04:00Z","timestamp":1665525840000},"score":1,"resource":{"primary":{"URL":"http:\/\/biorxiv.org\/lookup\/doi\/10.1101\/2020.01.17.909838"}},"subtitle":[],"short-title":[],"issued":{"date-parts":[[2020,1,17]]},"references-count":65,"URL":"http:\/\/dx.doi.org\/10.1101\/2020.01.17.909838","relation":{"is-preprint-of":[{"id-type":"doi","id":"10.7554\/eLife.63711","asserted-by":"subject"}]},"published":{"date-parts":[[2020,1,17]]},"subtype":"preprint"}'
     headers:
       access-control-allow-headers:
       - X-Requested-With, Accept, Accept-Encoding, Accept-Charset, Accept-Language,
@@ -190,7 +204,7 @@ interactions:
       content-type:
       - application/json
       date:
-      - Tue, 25 Apr 2023 19:11:45 GMT
+      - Mon, 16 Oct 2023 18:46:12 GMT
       link:
       - "<http://dx.doi.org/10.1101/2020.01.17.909838>; rel=\"canonical\", <https://syndication.highwire.org/content/doi/10.1101/2020.01.17.909838>;
         version=\"vor\"; rel=\"item\", <http://orcid.org/0000-0002-9650-8962>; title=\"Dora
