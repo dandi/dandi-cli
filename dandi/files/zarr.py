@@ -299,7 +299,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     json={"name": asset_path, "dandiset": dandiset.identifier},
                 )
             except requests.HTTPError as e:
-                if "Zarr already exists" in e.response.text:
+                if e.response and "Zarr already exists" in e.response.text:
                     lgr.warning(
                         "%s: Found pre-existing Zarr at same path not"
                         " associated with any asset; reusing",
