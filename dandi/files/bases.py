@@ -362,7 +362,7 @@ class LocalFileAsset(LocalAsset):
                 },
             )
         except requests.HTTPError as e:
-            if e.response.status_code == 409:
+            if e.response is not None and e.response.status_code == 409:
                 lgr.debug("%s: Blob already exists on server", asset_path)
                 blob_id = e.response.headers["Location"]
             else:

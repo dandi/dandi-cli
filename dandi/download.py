@@ -700,10 +700,14 @@ def _download_file(
         except requests.exceptions.HTTPError as exc:
             # TODO: actually we should probably retry only on selected codes, and also
             # respect Retry-After
-            if attempt >= 2 or exc.response.status_code not in (
-                400,  # Bad Request, but happened with gider:
-                # https://github.com/dandi/dandi-cli/issues/87
-                *RETRY_STATUSES,
+            if attempt >= 2 or (
+                exc.response is not None
+                and exc.response.status_code
+                not in (
+                    400,  # Bad Request, but happened with gider:
+                    # https://github.com/dandi/dandi-cli/issues/87
+                    *RETRY_STATUSES,
+                )
             ):
                 lgr.debug("Download failed: %s", exc)
                 yield {"status": "error", "message": str(exc)}
