@@ -754,16 +754,14 @@ class _dandi_url_parser:
         # asset_type = groups.get("asset_type")
         dandiset_id = groups.get("dandiset_id")
         version_id = groups.get("version")
-        location: Optional[str]
+        location: str
         if groups.get("location_folder") is not None:
             assert "location" not in groups
             location = urlunquote(groups["location_folder"])
             if not location.endswith("/") and not glob:
                 location += "/"
         else:
-            location = groups.get("location")
-            if location:
-                location = urlunquote(location)
+            location = urlunquote(groups.get("location") or "")
         asset_id = groups.get("asset_id")
         path = groups.get("path")
         glob_param = groups.get("glob")
