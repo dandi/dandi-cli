@@ -571,7 +571,7 @@ class _dandi_url_parser:
             re.compile(
                 rf"{server_grp}(#/)?(?P<asset_type>dandiset)/{dandiset_id_grp}"
                 rf"(/(?P<version>{VERSION_REGEX}))?"
-                r"(/(files(\?location=(?P<location>.*)?)?)?)?"
+                r"(/(files(\?location=(?P<location_folder>.*)?)?)?)?"
             ),
             {},
             "https://<server>[/api]/[#/]dandiset/<dandiset id>[/<version>]"
@@ -694,12 +694,12 @@ class _dandi_url_parser:
                 assert not handle_redirect
                 assert not settings.get("map_instance")
                 new_url = rewrite(url)
-                return cls.parse(new_url)
+                return cls.parse(new_url, map_instance=map_instance, glob=glob)
             elif handle_redirect:
                 assert handle_redirect in ("pass", "only")
                 new_url = cls.follow_redirect(url)
                 if new_url != url:
-                    return cls.parse(new_url)
+                    return cls.parse(new_url, map_instance=map_instance, glob=glob)
                 if handle_redirect == "pass":
                     # We used to issue warning in such cases, but may be it got implemented
                     # now via reverse proxy and we had added a new regex? let's just
@@ -712,7 +712,7 @@ class _dandi_url_parser:
                     )
             elif settings.get("map_instance"):
                 if map_instance:
-                    parsed_url = cls.parse(url, map_instance=False)
+                    parsed_url = cls.parse(url, map_instance=False, glob=glob)
                     if settings["map_instance"] not in known_instances:
                         raise ValueError(
                             "Unknown instance {}. Known are: {}".format(
@@ -754,12 +754,18 @@ class _dandi_url_parser:
         # asset_type = groups.get("asset_type")
         dandiset_id = groups.get("dandiset_id")
         version_id = groups.get("version")
-        location = groups.get("location")
+        location: str
+        if groups.get("location_folder") is not None:
+            assert "location" not in groups
+            location = urlunquote(groups["location_folder"])
+            if not location.endswith("/") and not glob:
+                location += "/"
+        else:
+            location = urlunquote(groups.get("location") or "")
         asset_id = groups.get("asset_id")
         path = groups.get("path")
         glob_param = groups.get("glob")
         if location:
-            location = urlunquote(location)
             # ATM carries leading '/' which IMHO is not needed/misguiding
             # somewhat, so I will just strip it
             location = location.lstrip("/")
