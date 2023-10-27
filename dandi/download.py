@@ -444,7 +444,7 @@ class PYOUTHelper:
             and self.items_summary.size != 0
         ):
             dt = time.time() - self.items_summary.t0
-            more_time = dt / r if r != 1 else 0
+            more_time = (dt / r) - dt if r != 1 else 0
             more_time_str = humanize.naturaldelta(more_time)
             if not self.it.finished:
                 more_time_str += "<"
