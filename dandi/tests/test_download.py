@@ -934,7 +934,7 @@ def test_pyouthelper_time_remaining_1339():
         helper.items_summary.t0 = time.time() - (100 - (10 - i))
         done = helper.agg_done(iter([100 - (10 - i)]))
         if i == 9:
-            assert done[-1] == f"ETA: a second<"
+            assert done[-1] == "ETA: a second<"
         elif i == 10:
             # once done, dont print ETA
             assert len(done) == 2
