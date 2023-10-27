@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 from shutil import rmtree
 from typing import Callable, List, Tuple
+import time
 
 import numpy as np
 import pytest
@@ -17,7 +18,7 @@ from .skip import mark
 from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
-from ..download import Downloader, ProgressCombiner, download
+from ..download import Downloader, ProgressCombiner, download, PYOUTHelper
 from ..exceptions import NotFoundError
 from ..utils import list_paths
 
@@ -899,3 +900,43 @@ def test_download_empty_dandiset_and_nonexistent_multiasset(
         tmp_path / empty_dandiset.dandiset_id,
         tmp_path / empty_dandiset.dandiset_id / "dandiset.yaml",
     ]
+
+
+def test_pyouthelper_time_remaining_1339():
+    """
+    Ensure that time remaining goes down!
+    https://github.com/dandi/dandi-cli/issues/1339
+
+    Since time.now() is called inside the agg methods, we
+    simulate time elapsing by changing t0
+
+    Assume downloading files totaling 100 arbitrary units at rates to trigger
+    a few hours, then countdown to 0.
+    check that ETA goes down like we want it to
+    """
+
+    helper = PYOUTHelper()
+    helper.items_summary.size = 100
+
+    # first check hours
+    # 5 hours remaining = 50% done in 60*60*5
+    helper.items_summary.t0 = time.time() - (60 * 60 * 5)
+    done = helper.agg_done(iter([50]))
+    assert done[-1] == "ETA: 5 hours<"
+
+    # 5 minutes remaining = 50% done in 60 * 5
+    helper.items_summary.t0 = time.time() - (5 * 60)
+    done = helper.agg_done(iter([50]))
+    assert done[-1] == "ETA: 5 minutes<"
+
+    # countdown the last 10 seconds!
+    for i in range(11):
+        helper.items_summary.t0 = time.time() - (100 - (10 - i))
+        done = helper.agg_done(iter([100 - (10 - i)]))
+        if i == 9:
+            assert done[-1] == f"ETA: a second<"
+        elif i == 10:
+            # once done, dont print ETA
+            assert len(done) == 2
+        else:
+            assert done[-1] == f"ETA: {10-i} seconds<"
