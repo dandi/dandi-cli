@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 import click
 
 from .base import dandiset_path_option, devel_debug_option, map_to_click_exceptions
@@ -59,6 +61,13 @@ from ..consts import dandi_layout_fields, file_operation_modes
     ),
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
+@click.option(
+    "--number-of-jobs",
+    "number_of_jobs",
+    type=int,
+    default=None,
+    help="The number of jobs to use during organization.",
+)
 @devel_debug_option()
 @map_to_click_exceptions
 def organize(
@@ -70,6 +79,7 @@ def organize(
     devel_debug=False,
     update_external_file_paths=False,
     media_files_mode=None,
+    number_of_jobs: Optional[int] = None,
 ):
     """(Re)organize files according to the metadata.
 
@@ -115,4 +125,5 @@ def organize(
         update_external_file_paths=update_external_file_paths,
         media_files_mode=media_files_mode,
         required_fields=required_fields,
+        number_of_jobs=number_of_jobs,
     )
