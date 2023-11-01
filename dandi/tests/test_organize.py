@@ -399,7 +399,7 @@ def test_organize_single_job(simple2_nwb: Path, tmp_path: Path) -> None:
             "--dandiset-path",
             str(tmp_path),
             "--jobs",
-            1,
+            "1",
         ],
     )
     assert r.exit_code == 0
