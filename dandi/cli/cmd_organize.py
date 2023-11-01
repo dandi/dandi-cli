@@ -59,6 +59,7 @@ from ..consts import dandi_layout_fields, file_operation_modes
     ),
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
+@click.option("-J", "--jobs", type=int, help="Number of jobs during organization")
 @devel_debug_option()
 @map_to_click_exceptions
 def organize(
@@ -70,6 +71,7 @@ def organize(
     devel_debug=False,
     update_external_file_paths=False,
     media_files_mode=None,
+    jobs=None,
 ):
     """(Re)organize files according to the metadata.
 
@@ -115,4 +117,5 @@ def organize(
         update_external_file_paths=update_external_file_paths,
         media_files_mode=media_files_mode,
         required_fields=required_fields,
+        jobs=jobs,
     )
