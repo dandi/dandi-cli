@@ -394,8 +394,6 @@ def test_organize_single_job(simple2_nwb: Path, tmp_path: Path) -> None:
     r = CliRunner().invoke(
         organize,
         [
-            "-f",
-            "copy",
             "--dandiset-path",
             str(tmp_path),
             "--jobs",
