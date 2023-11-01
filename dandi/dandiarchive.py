@@ -165,7 +165,11 @@ class ParsedDandiURL(ABC, BaseModel):
             try:
                 dandiset = self.get_dandiset(client, lazy=not strict)
             except requests.HTTPError as e:
-                if e.response.status_code == 401 and authenticate is not False:
+                if (
+                    e.response is not None
+                    and e.response.status_code == 401
+                    and authenticate is not False
+                ):
                     lgr.info("Resource requires authentication; authenticating ...")
                     client.dandi_authenticate()
                     dandiset = self.get_dandiset(client, lazy=not strict)
@@ -293,7 +297,11 @@ class BaseAssetIDURL(SingleAssetURL):
             try:
                 assets = list(self.get_assets(client, strict=strict))
             except requests.HTTPError as e:
-                if e.response.status_code == 401 and authenticate is not False:
+                if (
+                    e.response is not None
+                    and e.response.status_code == 401
+                    and authenticate is not False
+                ):
                     lgr.info("Resource requires authentication; authenticating ...")
                     client.dandi_authenticate()
                     assets = list(self.get_assets(client, strict=strict))

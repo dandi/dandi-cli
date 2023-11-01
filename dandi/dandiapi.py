@@ -248,10 +248,10 @@ class RESTFullAPIClient:
             if isinstance(e, requests.HTTPError):
                 lgr.error(
                     "HTTP request failed repeatedly: Error %d while sending %s request to %s: %s",
-                    e.response.status_code,
+                    e.response.status_code if e.response is not None else "?",
                     method,
                     url,
-                    e.response.text,
+                    e.response.text if e.response is not None else "?",
                 )
             else:
                 lgr.exception("HTTP connection failed")
