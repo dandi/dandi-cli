@@ -1,3 +1,37 @@
+# 0.57.0 (Wed Nov 01 2023)
+
+#### 🚀 Enhancement
+
+- `?location` parameter in URLs can only point to a folder [#1305](https://github.com/dandi/dandi-cli/pull/1305) ([@yarikoptic](https://github.com/yarikoptic) [@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Add missing term in ETA calculation [#1340](https://github.com/dandi/dandi-cli/pull/1340) ([@sneakers-the-rat](https://github.com/sneakers-the-rat))
+
+#### 🏠 Internal
+
+- typing: Account for the fact that requests.HTTPError .response migth be None now [#1336](https://github.com/dandi/dandi-cli/pull/1336) ([@yarikoptic](https://github.com/yarikoptic))
+- [gh-actions](deps): Bump actions/checkout from 3 to 4 [#1326](https://github.com/dandi/dandi-cli/pull/1326) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- codespell: tuneup of config and some new typos detected fixes [#1334](https://github.com/dandi/dandi-cli/pull/1334) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 📝 Documentation
+
+- Minor documentation tune up [#1338](https://github.com/dandi/dandi-cli/pull/1338) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Re-record VCR tapes using newer versions of libraries [#1337](https://github.com/dandi/dandi-cli/pull/1337) ([@yarikoptic](https://github.com/yarikoptic))
+- Ignore unclosed connection resource warning from VCR [#1333](https://github.com/dandi/dandi-cli/pull/1333) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 4
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Jonny Saunders ([@sneakers-the-rat](https://github.com/sneakers-the-rat))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.56.2 (Fri Sep 29 2023)
 
 #### 🐛 Bug Fix
