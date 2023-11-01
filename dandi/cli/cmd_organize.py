@@ -61,13 +61,7 @@ from ..consts import dandi_layout_fields, file_operation_modes
     ),
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
-@click.option(
-    "--number-of-jobs",
-    "number_of_jobs",
-    type=int,
-    default=None,
-    help="The number of jobs to use during organization.",
-)
+@click.option("-J", "--jobs", type=int, help="Number of jobs during organization")
 @devel_debug_option()
 @map_to_click_exceptions
 def organize(
