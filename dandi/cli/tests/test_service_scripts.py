@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import re
+import sys
 
 import anys
 from click.testing import CliRunner
@@ -48,6 +49,10 @@ def record_only_doi_requests(request):
         return None
 
 
+@pytest.mark.xfail(
+    sys.version_info < (3, 10),
+    reason="Some difference in VCR tape: https://github.com/dandi/dandi-cli/pull/1337",
+)
 @pytest.mark.parametrize(
     "doi,name",
     [
