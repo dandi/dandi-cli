@@ -721,10 +721,10 @@ def organize(
     update_external_file_paths=False,
     media_files_mode=None,
     required_fields=None,
-    number_of_jobs: Optional[int] = None,
+    jobs: Optional[int] = None,
 ):
     in_place = False  # If we deduce that we are organizing in-place
-    number_of_jobs = number_of_jobs or -1
+    jobs= jobs or -1
 
     # will come handy when dry becomes proper separate option
     def dry_print(msg):
@@ -814,12 +814,12 @@ def organize(
             meta["path"] = path
             return meta
 
-        if not devel_debug and number_of_jobs != 1:  # Do not use joblib at all if number_of_jobs=1
+        if not devel_debug and jobs != 1:  # Do not use joblib at all if number_of_jobs=1
             # Note: It is Python (pynwb) intensive, not IO, so ATM there is little
             # to no benefit from Parallel without using multiproc!  But that would
             # complicate progress bar indication... TODO
             metadata = list(
-                Parallel(n_jobs=number_of_jobs, verbose=10)(
+                Parallel(n_jobs=jobs, verbose=10)(
                     delayed(_get_metadata)(path) for path in paths
                 )
             )

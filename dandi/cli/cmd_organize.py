@@ -73,7 +73,7 @@ def organize(
     devel_debug=False,
     update_external_file_paths=False,
     media_files_mode=None,
-    number_of_jobs: Optional[int] = None,
+    jobs: Optional[int] = None,
 ):
     """(Re)organize files according to the metadata.
 
@@ -119,5 +119,5 @@ def organize(
         update_external_file_paths=update_external_file_paths,
         media_files_mode=media_files_mode,
         required_fields=required_fields,
-        number_of_jobs=number_of_jobs,
+        jobs=jobs,
     )
