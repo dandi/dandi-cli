@@ -724,7 +724,7 @@ def organize(
     jobs: Optional[int] = None,
 ):
     in_place = False  # If we deduce that we are organizing in-place
-    jobs= jobs or -1
+    jobs = jobs or -1
 
     # will come handy when dry becomes proper separate option
     def dry_print(msg):
