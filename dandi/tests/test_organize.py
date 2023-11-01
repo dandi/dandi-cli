@@ -110,7 +110,8 @@ if not on_windows:
 
 @pytest.mark.integration
 @pytest.mark.parametrize("mode", no_move_modes)
-def test_organize_nwb_test_data(nwb_test_data: Path, tmp_path: Path, mode: str) -> None:
+@pytest.mark.parametrize("jobs", (1, None))
+def test_organize_nwb_test_data(nwb_test_data: Path, tmp_path: Path, mode: str, jobs: int) -> None:
     outdir = tmp_path / "organized"
 
     relative = False
@@ -152,7 +153,7 @@ def test_organize_nwb_test_data(nwb_test_data: Path, tmp_path: Path, mode: str) 
 
     input_files = nwb_test_data / "v2.0.1"
 
-    cmd = ["-d", str(outdir), "--files-mode", mode, str(input_files)]
+    cmd = ["-d", str(outdir), "--files-mode", mode, str(input_files), "--jobs", str(jobs)]
     r = CliRunner().invoke(organize, cmd)
 
     # with @map_to_click_exceptions we loose original str of message somehow
@@ -380,24 +381,6 @@ def test_organize_required_field(simple2_nwb: Path, tmp_path: Path) -> None:
             str(tmp_path),
             "--required-field=session_id",
             str(simple2_nwb),
-        ],
-    )
-    assert r.exit_code == 0
-    assert list_paths(tmp_path) == [
-        tmp_path / dandiset_metadata_file,
-        tmp_path / "sub-mouse001" / "sub-mouse001_ses-session-id1.nwb",
-    ]
-
-
-def test_organize_single_job(simple2_nwb: Path, tmp_path: Path) -> None:
-    (tmp_path / dandiset_metadata_file).write_text("{}\n")
-    r = CliRunner().invoke(
-        organize,
-        [
-            "--dandiset-path",
-            str(tmp_path),
-            "--jobs",
-            "1",
         ],
     )
     assert r.exit_code == 0
