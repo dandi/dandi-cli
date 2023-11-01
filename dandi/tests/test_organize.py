@@ -387,3 +387,23 @@ def test_organize_required_field(simple2_nwb: Path, tmp_path: Path) -> None:
         tmp_path / dandiset_metadata_file,
         tmp_path / "sub-mouse001" / "sub-mouse001_ses-session-id1.nwb",
     ]
+
+
+def test_organize_single_job(simple2_nwb: Path, tmp_path: Path) -> None:
+    (tmp_path / dandiset_metadata_file).write_text("{}\n")
+    r = CliRunner().invoke(
+        organize,
+        [
+            "-f",
+            "copy",
+            "--dandiset-path",
+            str(tmp_path),
+            "--jobs",
+            1,
+        ],
+    )
+    assert r.exit_code == 0
+    assert list_paths(tmp_path) == [
+        tmp_path / dandiset_metadata_file,
+        tmp_path / "sub-mouse001" / "sub-mouse001_ses-session-id1.nwb",
+    ]
