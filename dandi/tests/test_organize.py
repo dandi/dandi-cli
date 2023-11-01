@@ -110,7 +110,7 @@ if not on_windows:
 
 @pytest.mark.integration
 @pytest.mark.parametrize("mode", no_move_modes)
-@pytest.mark.parametrize("jobs", (1, None))
+@pytest.mark.parametrize("jobs", (1, -1))
 def test_organize_nwb_test_data(nwb_test_data: Path, tmp_path: Path, mode: str, jobs: int) -> None:
     outdir = tmp_path / "organized"
 
