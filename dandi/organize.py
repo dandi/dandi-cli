@@ -721,7 +721,7 @@ def organize(
     update_external_file_paths=False,
     media_files_mode=None,
     required_fields=None,
-    jobs: Optional[int] = None,
+    jobs=None,
 ):
     in_place = False  # If we deduce that we are organizing in-place
     jobs = jobs or -1
