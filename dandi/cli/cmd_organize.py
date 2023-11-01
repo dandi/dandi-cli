@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 import click
 
 from .base import dandiset_path_option, devel_debug_option, map_to_click_exceptions
