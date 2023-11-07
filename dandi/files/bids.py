@@ -6,7 +6,6 @@ from datetime import datetime
 import os.path
 from pathlib import Path
 from threading import Lock
-from typing import List, Optional
 import weakref
 
 from dandischema.models import BareAsset
@@ -36,21 +35,21 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
 
     #: A list of validation error messages pertaining to the dataset as a
     #: whole, populated by `_validate()`
-    _dataset_errors: Optional[list[ValidationResult]] = None
+    _dataset_errors: list[ValidationResult] | None = None
 
     #: A list of validation error messages for individual assets in the
     #: dataset, keyed by `bids_path` properties; populated by `_validate()`
-    _asset_errors: Optional[dict[str, list[ValidationResult]]] = None
+    _asset_errors: dict[str, list[ValidationResult]] | None = None
 
     #: Asset metadata for individual assets in the dataset, keyed by
     #: `bids_path` properties; populated by `_validate()`
-    _asset_metadata: Optional[dict[str, BareAsset]] = None
+    _asset_metadata: dict[str, BareAsset] | None = None
 
     #: Version of BIDS used for the validation;
     #: populated by `_validate()`
     #: In future this might be removed and the information included in the
     #: BareAsset via dandischema.
-    _bids_version: Optional[str] = None
+    _bids_version: str | None = None
 
     #: Threading lock needed in case multiple assets are validated in parallel
     #: during upload
@@ -130,7 +129,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
 
     def get_validation_errors(
         self,
-        schema_version: Optional[str] = None,
+        schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
         self._validate()
@@ -185,14 +184,14 @@ class BIDSAsset(LocalFileAsset):
 
     def get_validation_errors(
         self,
-        schema_version: Optional[str] = None,
+        schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
         return self.bids_dataset_description.get_asset_errors(self)
 
     def get_metadata(
         self,
-        digest: Optional[Digest] = None,
+        digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
         metadata = self.bids_dataset_description.get_asset_metadata(self)
@@ -216,7 +215,7 @@ class NWBBIDSAsset(BIDSAsset, NWBAsset):
 
     def get_validation_errors(
         self,
-        schema_version: Optional[str] = None,
+        schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
         return NWBAsset.get_validation_errors(
@@ -225,7 +224,7 @@ class NWBBIDSAsset(BIDSAsset, NWBAsset):
 
     def get_metadata(
         self,
-        digest: Optional[Digest] = None,
+        digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
         bids_metadata = BIDSAsset.get_metadata(self, digest, ignore_errors)
@@ -244,7 +243,7 @@ class ZarrBIDSAsset(ZarrAsset, BIDSAsset):
 
     def get_validation_errors(
         self,
-        schema_version: Optional[str] = None,
+        schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
         return ZarrAsset.get_validation_errors(
@@ -253,7 +252,7 @@ class ZarrBIDSAsset(ZarrAsset, BIDSAsset):
 
     def get_metadata(
         self,
-        digest: Optional[Digest] = None,
+        digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
         metadata = self.bids_dataset_description.get_asset_metadata(self)
@@ -275,9 +274,9 @@ class GenericBIDSAsset(BIDSAsset, GenericAsset):
 
     def get_validation_errors(
         self,
-        schema_version: Optional[str] = None,
+        schema_version: str | None = None,
         devel_debug: bool = False,
-    ) -> List[ValidationResult]:
+    ) -> list[ValidationResult]:
         return GenericAsset.get_validation_errors(
             self, schema_version, devel_debug
         ) + BIDSAsset.get_validation_errors(self)

@@ -4,7 +4,6 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import Enum
 import os
-from typing import Optional
 
 #: A list of metadata fields which dandi extracts from .nwb files.
 #: Additional fields (such as ``number_of_*``) might be added by
@@ -99,7 +98,7 @@ dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
 @dataclass(frozen=True)
 class DandiInstance:
     name: str
-    gui: Optional[str]
+    gui: str | None
     api: str
 
     @property

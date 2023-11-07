@@ -10,7 +10,7 @@ import os
 import os.path
 from pathlib import Path
 from time import sleep
-from typing import Any, Optional
+from typing import Any
 
 from dandischema.digests.zarr import get_checksum
 from dandischema.models import BareAsset, DigestType
@@ -179,7 +179,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 
     def get_metadata(
         self,
-        digest: Optional[Digest] = None,
+        digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
         metadata = get_default_metadata(self.filepath, digest=digest)
@@ -189,7 +189,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 
     def get_validation_errors(
         self,
-        schema_version: Optional[str] = None,
+        schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
         errors: list[ValidationResult] = []
@@ -257,8 +257,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         self,
         dandiset: RemoteDandiset,
         metadata: dict[str, Any],
-        jobs: Optional[int] = None,
-        replacing: Optional[RemoteAsset] = None,
+        jobs: int | None = None,
+        replacing: RemoteAsset | None = None,
     ) -> Iterator[dict]:
         """
         Upload the Zarr directory as an asset with the given metadata to the
@@ -575,7 +575,7 @@ class EntryUploadTracker:
     digested_entries: list[UploadItem] = field(default_factory=list)
     fresh_entries: list[LocalZarrEntry] = field(default_factory=list)
 
-    def register(self, e: LocalZarrEntry, digest: Optional[str] = None) -> None:
+    def register(self, e: LocalZarrEntry, digest: str | None = None) -> None:
         if digest is not None:
             self.digested_entries.append(UploadItem.from_entry(e, digest))
         else:

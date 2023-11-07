@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, cast
 
 import pytest
 
@@ -33,9 +34,9 @@ def moving_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
 
 def check_assets(
     sample_dandiset: SampleDandiset,
-    starting_assets: List[RemoteAsset],
+    starting_assets: list[RemoteAsset],
     work_on: str,
-    remapping: Dict[str, Optional[str]],
+    remapping: dict[str, str | None],
 ) -> None:
     for asset in starting_assets:
         if asset.path in remapping and remapping[asset.path] is None:
@@ -43,19 +44,21 @@ def check_assets(
             continue
         if work_on in ("local", "both") and asset.path in remapping:
             assert not (sample_dandiset.dspath / asset.path).exists()
-            assert (
-                sample_dandiset.dspath / cast(str, remapping[asset.path])
-            ).read_text() == f"{asset.path}\n"
+            remapped = remapping[asset.path]
+            assert isinstance(remapped, str)
+            assert (sample_dandiset.dspath / remapped).read_text() == f"{asset.path}\n"
         else:
             assert (
                 sample_dandiset.dspath / asset.path
             ).read_text() == f"{asset.path}\n"
         if work_on in ("remote", "both") and asset.path in remapping:
+            remapped = remapping[asset.path]
+            assert isinstance(remapped, str)
             with pytest.raises(NotFoundError):
                 sample_dandiset.dandiset.get_asset_by_path(asset.path)
             assert (
                 sample_dandiset.dandiset.get_asset_by_path(  # type: ignore[attr-defined]
-                    cast(str, remapping[asset.path])
+                    remapped
                 ).blob
                 == asset.blob  # type: ignore[attr-defined]
             )
@@ -158,10 +161,10 @@ def check_assets(
 def test_move(
     monkeypatch: pytest.MonkeyPatch,
     moving_dandiset: SampleDandiset,
-    srcs: List[str],
+    srcs: list[str],
     dest: str,
     regex: bool,
-    remapping: Dict[str, Optional[str]],
+    remapping: dict[str, str | None],
     work_on: str,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
@@ -205,7 +208,7 @@ def test_move_error(
     monkeypatch: pytest.MonkeyPatch,
     moving_dandiset: SampleDandiset,
     work_on: str,
-    kwargs: Dict[str, str],
+    kwargs: dict[str, str],
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from bisect import bisect
+from collections.abc import Iterable, Iterator
 import datetime
 from functools import lru_cache
 from importlib.metadata import version as importlib_version
 import inspect
 import io
 import itertools
+import json
 from mimetypes import guess_type
 import os
 import os.path as op
@@ -17,19 +19,7 @@ import shutil
 import subprocess
 import sys
 import types
-from typing import (
-    Any,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Set,
-    TextIO,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import IO, Any, List, Optional, TypeVar, Union
 from urllib.parse import parse_qs, urlparse, urlunparse
 
 import dateutil.parser
@@ -41,6 +31,9 @@ from semantic_version import Version
 from . import __version__, get_logger
 from .consts import DandiInstance, known_instances, known_instances_rev
 from .exceptions import BadCliVersionError, CliVersionTooOldError
+
+AnyPath = Union[str, Path]
+
 
 lgr = get_logger()
 
@@ -82,13 +75,13 @@ def setup_exceptionhook(ipython: bool = False) -> None:
     """
 
     def _pdb_excepthook(
-        type: Type[BaseException],
+        exc_type: type[BaseException],
         value: BaseException,
-        tb: Optional[types.TracebackType],
+        tb: types.TracebackType | None,
     ) -> None:
         import traceback
 
-        traceback.print_exception(type, value, tb)
+        traceback.print_exception(exc_type, value, tb)
         print()
         if is_interactive():
             import pdb
@@ -122,7 +115,7 @@ def get_utcnow_datetime(microseconds: bool = True) -> datetime.datetime:
 
 
 def is_same_time(
-    *times: Union[datetime.datetime, int, float, str],
+    *times: datetime.datetime | int | float | str,
     tolerance: float = 1e-6,
     strip_tzinfo: bool = False,
 ) -> bool:
@@ -155,7 +148,7 @@ def is_same_time(
 
 
 def ensure_strtime(
-    t: Union[str, int, float, datetime.datetime], isoformat: bool = True
+    t: str | int | float | datetime.datetime, isoformat: bool = True
 ) -> str:
     """Ensures that time is a string in iso format
 
@@ -189,9 +182,9 @@ def fromisoformat(t: str) -> datetime.datetime:
 
 
 def ensure_datetime(
-    t: Union[datetime.datetime, int, float, str],
+    t: datetime.datetime | int | float | str,
     strip_tzinfo: bool = False,
-    tz: Optional[datetime.tzinfo] = None,
+    tz: datetime.tzinfo | None = None,
 ) -> datetime.datetime:
     """Ensures that time is a datetime
 
@@ -239,15 +232,13 @@ def flattened(it: Iterable) -> list:
 #
 
 
-def load_jsonl(filename: Union[str, Path]) -> list:
+def load_jsonl(filename: AnyPath) -> list:
     """Load json lines formatted file"""
-    import json
-
     with open(filename, "r") as f:
         return list(map(json.loads, f))
 
 
-_encoded_dirsep = r"\\" if on_windows else r"/"
+_encoded_dirsep = re.escape(os.sep)
 _VCS_REGEX = r"%s\.(?:git|gitattributes|svn|bzr|hg)(?:%s|$)" % (
     _encoded_dirsep,
     _encoded_dirsep,
@@ -255,19 +246,16 @@ _VCS_REGEX = r"%s\.(?:git|gitattributes|svn|bzr|hg)(?:%s|$)" % (
 _DATALAD_REGEX = r"%s\.(?:datalad)(?:%s|$)" % (_encoded_dirsep, _encoded_dirsep)
 
 
-AnyPath = Union[str, Path]
-
-
 def find_files(
     regex: str,
-    paths: Union[List[AnyPath], Tuple[AnyPath, ...], Set[AnyPath], AnyPath] = os.curdir,
-    exclude: Optional[str] = None,
+    paths: list[AnyPath] | tuple[AnyPath, ...] | set[AnyPath] | AnyPath = os.curdir,
+    exclude: str | None = None,
     exclude_dotfiles: bool = True,
     exclude_dotdirs: bool = True,
     exclude_vcs: bool = True,
     exclude_datalad: bool = False,
     dirs: bool = False,
-    dirs_avoid: Optional[str] = None,
+    dirs_avoid: str | None = None,
 ) -> Iterator[str]:
     """Generator to find files matching regex
 
@@ -358,8 +346,8 @@ def find_files(
 
 
 def list_paths(
-    dirpath: Union[str, Path], dirs: bool = False, exclude_vcs: bool = True
-) -> List[Path]:
+    dirpath: AnyPath, dirs: bool = False, exclude_vcs: bool = True
+) -> list[Path]:
     return sorted(
         map(
             Path,
@@ -375,10 +363,10 @@ def list_paths(
     )
 
 
-_cp_supports_reflink: Optional[bool] = False if on_windows else None
+_cp_supports_reflink: bool | None = False if on_windows else None
 
 
-def copy_file(src: Union[str, Path], dst: Union[str, Path]) -> None:
+def copy_file(src: AnyPath, dst: AnyPath) -> None:
     """Copy file from src to dst"""
     global _cp_supports_reflink
     if _cp_supports_reflink is None:
@@ -399,14 +387,14 @@ def copy_file(src: Union[str, Path], dst: Union[str, Path]) -> None:
         shutil.copy2(src, dst)
 
 
-def move_file(src: Union[str, Path], dst: Union[str, Path]) -> Any:
+def move_file(src: AnyPath, dst: AnyPath) -> Any:
     """Move file from src to dst"""
     return shutil.move(str(src), str(dst))
 
 
 def find_parent_directory_containing(
-    filename: Union[str, Path], path: Union[str, Path, None] = None
-) -> Optional[Path]:
+    filename: AnyPath, path: AnyPath | None = None
+) -> Path | None:
     """Find a directory, on the path to 'path' containing filename
 
     if no 'path' - path from cwd. If 'path' is not absolute, absolute path
@@ -445,7 +433,7 @@ def yaml_dump(rec: Any) -> str:
     return out.getvalue()
 
 
-def yaml_load(f: Union[str, TextIO], typ: Optional[str] = None) -> Any:
+def yaml_load(f: str | IO[str], typ: str | None = None) -> Any:
     """
     Load YAML source from a file or string.
 
@@ -475,7 +463,7 @@ def with_pathsep(path: str) -> str:
     return path + op.sep if not path.endswith(op.sep) else path
 
 
-def _get_normalized_paths(path: str, prefix: str) -> Tuple[str, str]:
+def _get_normalized_paths(path: str, prefix: str) -> tuple[str, str]:
     if op.isabs(path) != op.isabs(prefix):
         raise ValueError(
             "Both paths must either be absolute or relative. "
@@ -524,7 +512,7 @@ def shortened_repr(value: Any, length: int = 30) -> str:
 
 
 def __auto_repr__(obj: Any) -> str:
-    attr_names: Tuple[str, ...] = ()
+    attr_names: tuple[str, ...] = ()
     if hasattr(obj, "__dict__"):
         attr_names += tuple(obj.__dict__.keys())
     if hasattr(obj, "__slots__"):
@@ -624,7 +612,7 @@ def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
 
 @lru_cache
 def _get_instance(
-    url: str, is_api: bool, instance: Optional[DandiInstance], dandi_id: Optional[str]
+    url: str, is_api: bool, instance: DandiInstance | None, dandi_id: str | None
 ) -> DandiInstance:
     try:
         if is_api:
@@ -684,7 +672,7 @@ def is_url(s: str) -> bool:
     # Slashes are not required after "dandi:" so as to support "DANDI:<id>"
 
 
-def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
+def get_module_version(module: str | types.ModuleType) -> str | None:
     """Return version of the module
 
     Return module's `__version__` if present, or use importlib
@@ -694,7 +682,7 @@ def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
     -------
     object
     """
-    modobj: Optional[types.ModuleType]
+    modobj: types.ModuleType | None
     if isinstance(module, str):
         modobj = sys.modules.get(module)
         mod_name = module
@@ -716,7 +704,7 @@ def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
     return version
 
 
-def pluralize(n: int, word: str, plural: Optional[str] = None) -> str:
+def pluralize(n: int, word: str, plural: str | None = None) -> str:
     if n == 1:
         return f"{n} {word}"
     else:
@@ -805,7 +793,7 @@ def check_dandi_version() -> None:
 T = TypeVar("T")
 
 
-def chunked(iterable: Iterable[T], size: int) -> Iterator[List[T]]:
+def chunked(iterable: Iterable[T], size: int) -> Iterator[list[T]]:
     # cf. chunked() from more-itertools
     i = iter(iterable)
     while True:

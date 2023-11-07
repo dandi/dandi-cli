@@ -15,7 +15,6 @@ import hashlib
 import logging
 import os.path
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union, cast
 
 from dandischema.digests.dandietag import DandiETag
 from fscacher import PersistentCache
@@ -40,7 +39,7 @@ class Digester:
     DEFAULT_DIGESTS = ["md5", "sha1", "sha256", "sha512"]
 
     def __init__(
-        self, digests: Optional[List[str]] = None, blocksize: int = 1 << 16
+        self, digests: list[str] | None = None, blocksize: int = 1 << 16
     ) -> None:
         """
         Parameters
@@ -57,10 +56,10 @@ class Digester:
         self.blocksize = blocksize
 
     @property
-    def digests(self) -> List[str]:
+    def digests(self) -> list[str]:
         return self._digests
 
-    def __call__(self, fpath: Union[str, Path]) -> Dict[str, str]:
+    def __call__(self, fpath: str | Path) -> dict[str, str]:
         """
         fpath : str
           File path for which a checksum shall be computed.
@@ -86,9 +85,11 @@ checksums = PersistentCache(name="dandi-checksums", envvar="DANDI_CACHE")
 
 
 @checksums.memoize_path
-def get_digest(filepath: Union[str, Path], digest: str = "sha256") -> str:
+def get_digest(filepath: str | Path, digest: str = "sha256") -> str:
     if digest == "dandi-etag":
-        return cast(str, get_dandietag(filepath).as_str())
+        s = get_dandietag(filepath).as_str()
+        assert isinstance(s, str)
+        return s
     elif digest == "zarr-checksum":
         return get_zarr_checksum(Path(filepath))
     else:
@@ -96,11 +97,11 @@ def get_digest(filepath: Union[str, Path], digest: str = "sha256") -> str:
 
 
 @checksums.memoize_path
-def get_dandietag(filepath: Union[str, Path]) -> DandiETag:
+def get_dandietag(filepath: str | Path) -> DandiETag:
     return DandiETag.from_file(filepath)
 
 
-def get_zarr_checksum(path: Path, known: Optional[Dict[str, str]] = None) -> str:
+def get_zarr_checksum(path: Path, known: dict[str, str] | None = None) -> str:
     """
     Compute the Zarr checksum for a file or directory tree.
 
@@ -109,11 +110,13 @@ def get_zarr_checksum(path: Path, known: Optional[Dict[str, str]] = None) -> str
     slash-separated paths relative to the root of the Zarr to hex digests.
     """
     if path.is_file():
-        return cast(str, get_digest(path, "md5"))
+        s = get_digest(path, "md5")
+        assert isinstance(s, str)
+        return s
     if known is None:
         known = {}
 
-    def digest_file(f: Path) -> Tuple[Path, str, int]:
+    def digest_file(f: Path) -> tuple[Path, str, int]:
         assert known is not None
         relpath = f.relative_to(path).as_posix()
         try:
@@ -128,7 +131,7 @@ def get_zarr_checksum(path: Path, known: Optional[Dict[str, str]] = None) -> str
     return str(zcc.process())
 
 
-def md5file_nocache(filepath: Union[str, Path]) -> str:
+def md5file_nocache(filepath: str | Path) -> str:
     """
     Compute the MD5 digest of a file without caching with fscacher, which has
     been shown to slow things down for the large numbers of files typically

@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 from operator import attrgetter
 import os
 from pathlib import Path
 import subprocess
-from typing import cast
 from unittest.mock import ANY
 
 from dandischema.models import get_schema_version
@@ -245,7 +246,8 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
         ),
     ]
 
-    bidsdd = cast(BIDSDatasetDescriptionAsset, files[1])
+    bidsdd = files[1]
+    assert isinstance(bidsdd, BIDSDatasetDescriptionAsset)
     assert sorted(bidsdd.dataset_files, key=attrgetter("filepath")) == [
         GenericBIDSAsset(
             filepath=tmp_path / "bids1" / "file.txt",
@@ -269,7 +271,8 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
     for asset in bidsdd.dataset_files:
         assert asset.bids_dataset_description is bidsdd
 
-    bidsdd = cast(BIDSDatasetDescriptionAsset, files[5])
+    bidsdd = files[5]
+    assert isinstance(bidsdd, BIDSDatasetDescriptionAsset)
     assert sorted(bidsdd.dataset_files, key=attrgetter("filepath")) == [
         GenericBIDSAsset(
             filepath=tmp_path / "bids2" / "movie.mp4",

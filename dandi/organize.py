@@ -1,5 +1,5 @@
 """
-ATM primarily a sandbox for some functionality for  dandi organize
+ATM primarily a sandbox for some functionality for dandi organize
 """
 
 from __future__ import annotations
@@ -12,7 +12,6 @@ import os
 import os.path as op
 from pathlib import Path, PurePosixPath
 import re
-from typing import List, Optional
 import uuid
 
 import numpy as np
@@ -66,7 +65,7 @@ def filter_invalid_metadata_rows(metadata_rows):
 
 
 def create_unique_filenames_from_metadata(
-    metadata: list[dict], required_fields: Optional[Sequence[str]] = None
+    metadata: list[dict], required_fields: Sequence[str] | None = None
 ) -> list[dict]:
     """Create unique filenames given metadata
 
@@ -187,7 +186,7 @@ def create_unique_filenames_from_metadata(
     return metadata
 
 
-def _create_external_file_names(metadata: List[dict]) -> List[dict]:
+def _create_external_file_names(metadata: list[dict]) -> list[dict]:
     """Updates the metadata dict with renamed external files.
 
     Renames the external_file attribute in an ImageSeries according to the rule:
@@ -228,7 +227,7 @@ def _create_external_file_names(metadata: List[dict]) -> List[dict]:
 
 
 def organize_external_files(
-    metadata: List[dict], dandiset_path: str, files_mode: str
+    metadata: list[dict], dandiset_path: str, files_mode: str
 ) -> None:
     """Organizes the external_files into the new Dandiset folder structure.
 
@@ -814,7 +813,9 @@ def organize(
             meta["path"] = path
             return meta
 
-        if not devel_debug and jobs != 1:  # Do not use joblib at all if number_of_jobs=1
+        if (
+            not devel_debug and jobs != 1
+        ):  # Do not use joblib at all if number_of_jobs=1
             # Note: It is Python (pynwb) intensive, not IO, so ATM there is little
             # to no benefit from Parallel without using multiproc!  But that would
             # complicate progress bar indication... TODO

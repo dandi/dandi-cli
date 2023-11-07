@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter, deque
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import InitVar, dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -16,22 +17,7 @@ import sys
 from threading import Lock
 import time
 from types import TracebackType
-from typing import (
-    IO,
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Literal,
-    Optional,
-    Protocol,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
-)
+from typing import IO, Any, Literal, Protocol
 
 from dandischema.models import DigestType
 from fasteners import InterProcessLock
@@ -64,13 +50,13 @@ lgr = get_logger()
 
 
 def download(
-    urls: Union[str, Sequence[str]],
-    output_dir: Union[str, Path],
+    urls: str | Sequence[str],
+    output_dir: str | Path,
     *,
     format: str = "pyout",
     existing: str = "error",
     jobs: int = 1,
-    jobs_per_zarr: Optional[int] = None,
+    jobs_per_zarr: int | None = None,
     get_metadata: bool = True,
     get_assets: bool = True,
     sync: bool = False,
@@ -184,13 +170,13 @@ class Downloader:
     existing: str
     get_metadata: bool
     get_assets: bool
-    jobs_per_zarr: Optional[int]
+    jobs_per_zarr: int | None
     on_error: Literal["raise", "yield"]
     #: which will be set .gen to assets.  Purpose is to make it possible to get
     #: summary statistics while already downloading.  TODO: reimplement
     #: properly!
-    assets_it: Optional[IteratorWithAggregation] = None
-    yield_generator_for_fields: Optional[tuple[str, ...]] = None
+    assets_it: IteratorWithAggregation | None = None
+    yield_generator_for_fields: tuple[str, ...] | None = None
     asset_download_paths: set[str] = field(init=False, default_factory=set)
 
     def __post_init__(self, output_dir: str | Path) -> None:
@@ -350,7 +336,7 @@ class ItemsSummary:
     def __init__(self) -> None:
         self.files = 0
         # TODO: get rid of needing it
-        self.t0: Optional[float] = None  # when first record is seen
+        self.t0: float | None = None  # when first record is seen
         self.size = 0
         self.has_unknown_sizes = False
 
@@ -362,7 +348,7 @@ class ItemsSummary:
         }
 
     # TODO: Determine the proper annotation for `rec`
-    def __call__(self, rec: Any, prior: Optional[ItemsSummary] = None) -> ItemsSummary:
+    def __call__(self, rec: Any, prior: ItemsSummary | None = None) -> ItemsSummary:
         assert prior in (None, self)
         if not self.files:
             self.t0 = time.time()
@@ -397,7 +383,7 @@ class PYOUTHelper:
             ret += "+"
         return ret
 
-    def agg_size(self, sizes: Iterable[int]) -> Union[str, List[str]]:
+    def agg_size(self, sizes: Iterable[int]) -> str | list[str]:
         """Formatter for "size" column where it would show
 
         how much is "active" (or done)
@@ -422,7 +408,7 @@ class PYOUTHelper:
                 v.append(extra_str)
         return v
 
-    def agg_done(self, done_sizes: Iterator[int]) -> List[str]:
+    def agg_done(self, done_sizes: Iterator[int]) -> list[str]:
         """Formatter for "DONE" column"""
         done = sum(done_sizes)
         if self.it.finished and done == 0 and self.items_summary.size == 0:
@@ -461,7 +447,7 @@ def _skip_file(msg: Any) -> dict:
 
 
 def _populate_dandiset_yaml(
-    dandiset_path: Union[str, Path], dandiset: RemoteDandiset, existing: str
+    dandiset_path: str | Path, dandiset: RemoteDandiset, existing: str
 ) -> Iterator[dict]:
     metadata = dandiset.get_raw_metadata()
     if not metadata:
@@ -513,13 +499,13 @@ class Hasher(Protocol):
 def _download_file(
     downloader: Callable[[int], Iterator[bytes]],
     path: Path,
-    toplevel_path: Union[str, Path],
+    toplevel_path: str | Path,
     lock: Lock,
-    size: Optional[int] = None,
-    mtime: Optional[datetime] = None,
+    size: int | None = None,
+    mtime: datetime | None = None,
     existing: str = "error",
-    digests: Optional[Dict[str, str]] = None,
-    digest_callback: Optional[Callable[[str, str], Any]] = None,
+    digests: dict[str, str] | None = None,
+    digest_callback: Callable[[str, str], Any] | None = None,
 ) -> Iterator[dict]:
     """
     Common logic for downloading a single file.
@@ -636,10 +622,10 @@ def _download_file(
 
     yield {"status": "downloading"}
 
-    algo: Optional[str] = None
-    digester: Optional[Callable[[], Hasher]] = None
-    digest: Optional[str] = None
-    downloaded_digest: Optional[Hasher] = None
+    algo: str | None = None
+    digester: Callable[[], Hasher] | None = None
+    digest: str | None = None
+    downloaded_digest: Hasher | None = None
     if digests:
         # choose first available for now.
         # TODO: reuse that sorting based on speed
@@ -683,7 +669,7 @@ def _download_file(
                         downloaded_digest.update(block)
                     downloaded += len(block)
                     # TODO: yield progress etc
-                    out: Dict[str, Any] = {"done": downloaded}
+                    out: dict[str, Any] = {"done": downloaded}
                     if size:
                         if downloaded > size and not warned:
                             warned = True
@@ -753,7 +739,7 @@ def _download_file(
 
 
 class DownloadDirectory:
-    def __init__(self, filepath: Union[str, Path], digests: Dict[str, str]) -> None:
+    def __init__(self, filepath: str | Path, digests: dict[str, str]) -> None:
         #: The path to which to save the file after downloading
         self.filepath = Path(filepath)
         #: Expected hashes of the downloaded data, as a mapping from algorithm
@@ -766,11 +752,11 @@ class DownloadDirectory:
         #: received
         self.writefile = self.dirpath / "file"
         #: A `fasteners.InterProcessLock` on `dirpath`
-        self.lock: Optional[InterProcessLock] = None
+        self.lock: InterProcessLock | None = None
         #: An open filehandle to `writefile`
-        self.fp: Optional[IO[bytes]] = None
+        self.fp: IO[bytes] | None = None
         #: How much of the data has been downloaded so far
-        self.offset: Optional[int] = None
+        self.offset: int | None = None
 
     def __enter__(self) -> DownloadDirectory:
         self.dirpath.mkdir(parents=True, exist_ok=True)
@@ -812,9 +798,9 @@ class DownloadDirectory:
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         assert self.fp is not None
         self.fp.close()
@@ -845,10 +831,10 @@ class DownloadDirectory:
 def _download_zarr(
     asset: BaseRemoteZarrAsset,
     download_path: Path,
-    toplevel_path: Union[str, Path],
+    toplevel_path: str | Path,
     existing: str,
     lock: Lock,
-    jobs: Optional[int] = None,
+    jobs: int | None = None,
 ) -> Iterator[dict]:
     download_gens = {}
     entries = list(asset.iterfiles())
@@ -874,7 +860,7 @@ def _download_zarr(
         )
 
     pc = ProgressCombiner(zarr_size=asset.size, file_qty=len(download_gens))
-    final_out: Optional[dict] = None
+    final_out: dict | None = None
     with interleave(
         [pairing(p, gen) for p, gen in download_gens.items()],
         onerror=FINISH_CURRENT,
@@ -942,7 +928,7 @@ def _download_zarr(
     yield {"status": "done"}
 
 
-def pairing(p: str, gen: Iterator[dict]) -> Iterator[Tuple[str, dict]]:
+def pairing(p: str, gen: Iterator[dict]) -> Iterator[tuple[str, dict]]:
     for d in gen:
         yield (p, d)
 
@@ -954,14 +940,14 @@ DLState = Enum("DLState", "STARTING DOWNLOADING SKIPPED ERROR CHECKSUM_ERROR DON
 class DownloadProgress:
     state: DLState = DLState.STARTING
     downloaded: int = 0
-    size: Optional[int] = None
+    size: int | None = None
 
 
 @dataclass
 class ProgressCombiner:
     zarr_size: int
     file_qty: int
-    files: Dict[str, DownloadProgress] = field(default_factory=dict)
+    files: dict[str, DownloadProgress] = field(default_factory=dict)
     #: Total size of all files that were not skipped and did not error out
     #: during download
     maxsize: int = 0

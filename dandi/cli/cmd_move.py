@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 import click
 
 from .base import devel_debug_option, instance_option, map_to_click_exceptions
@@ -47,10 +45,10 @@ from .base import devel_debug_option, instance_option, map_to_click_exceptions
 @map_to_click_exceptions
 def move(
     paths: tuple[str],
-    dandiset: Optional[str],
+    dandiset: str | None,
     dry_run: bool,
     existing: str,
-    jobs: Optional[int],
+    jobs: int | None,
     regex: bool,
     work_on: str,
     dandi_instance: str,

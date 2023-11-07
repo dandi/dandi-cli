@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from operator import attrgetter
 from pathlib import Path
-from typing import Iterable, Iterator, List, Optional, Tuple
 
 import click
 
@@ -20,12 +20,12 @@ class Deleter:
     Class for registering assets & Dandisets to delete and then deleting them
     """
 
-    client: Optional[DandiAPIClient] = None
-    dandiset: Optional[RemoteDandiset] = None
+    client: DandiAPIClient | None = None
+    dandiset: RemoteDandiset | None = None
     #: Whether we are deleting an entire Dandiset (true) or just assets (false)
     deleting_dandiset: bool = False
     skip_missing: bool = False
-    remote_assets: List[RemoteAsset] = field(default_factory=list)
+    remote_assets: list[RemoteAsset] = field(default_factory=list)
 
     def __bool__(self) -> bool:
         return self.deleting_dandiset or bool(self.remote_assets)
@@ -191,7 +191,7 @@ def delete(
     paths: Iterable[str],
     dandi_instance: str | DandiInstance = "dandi",
     devel_debug: bool = False,
-    jobs: Optional[int] = None,
+    jobs: int | None = None,
     force: bool = False,
     skip_missing: bool = False,
 ) -> None:
@@ -226,7 +226,7 @@ def delete(
                     out(r)
 
 
-def find_local_asset(filepath: str) -> Tuple[str, str]:
+def find_local_asset(filepath: str) -> tuple[str, str]:
     """
     Given a path to a local file, return the ID of the Dandiset in which it is
     located and the path to the file relative to the root of said Dandiset.  If
