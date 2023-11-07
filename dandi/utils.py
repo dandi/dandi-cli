@@ -89,7 +89,7 @@ def setup_exceptionhook(ipython: bool = False) -> None:
             pdb.post_mortem(tb)
 
     if ipython:
-        from IPython.core import ultratb
+        from IPython.core import ultratb  # type: ignore[import]
 
         sys.excepthook = ultratb.FormattedTB(
             mode="Verbose",
