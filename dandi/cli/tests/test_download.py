@@ -5,7 +5,7 @@ import click
 from click.testing import CliRunner
 import pytest
 
-from ..command import download
+from ..download import download
 from ...consts import dandiset_metadata_file, known_instances
 
 

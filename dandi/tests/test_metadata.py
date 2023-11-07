@@ -31,6 +31,7 @@ from semantic_version import Version
 from .fixtures import SampleDandiset
 from .skip import mark
 from .. import __version__
+from ..consts import metadata_nwb_subject_fields
 from ..dandiapi import RemoteBlobAsset
 from ..metadata import (
     extract_age,
@@ -46,7 +47,6 @@ from ..metadata import (
     timedelta2duration,
 )
 from ..misctypes import DUMMY_DANDI_ETAG
-from ..pynwb_utils import metadata_nwb_subject_fields
 from ..utils import ensure_datetime
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"

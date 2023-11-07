@@ -7,7 +7,6 @@ import os.path
 from pathlib import Path
 import re
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
@@ -16,6 +15,7 @@ from typing import (
     Optional,
     Tuple,
     Type,
+    TypedDict,
     TypeVar,
     Union,
 )
@@ -746,14 +746,11 @@ def extract_field(field: str, metadata: dict) -> Any:
         return metadata.get(field)
 
 
-if TYPE_CHECKING:
-    from .support.typing import TypedDict
-
-    class Neurodatum(TypedDict):
-        module: str
-        neurodata_type: str
-        technique: Optional[str]
-        approach: Optional[str]
+class Neurodatum(TypedDict):
+    module: str
+    neurodata_type: str
+    technique: Optional[str]
+    approach: Optional[str]
 
 
 neurodata_typemap: Dict[str, Neurodatum] = {

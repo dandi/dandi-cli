@@ -24,7 +24,9 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    Literal,
     Optional,
+    Protocol,
     Sequence,
     Tuple,
     Type,
@@ -47,7 +49,6 @@ from .files import LocalAsset, find_dandi_files
 from .support.digests import get_digest, get_zarr_checksum
 from .support.iterators import IteratorWithAggregation
 from .support.pyout import naturalsize
-from .support.typing import Literal, Protocol
 from .utils import (
     abbrev_prompt,
     ensure_datetime,

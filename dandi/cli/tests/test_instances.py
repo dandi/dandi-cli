@@ -2,7 +2,7 @@ import os
 
 from click.testing import CliRunner
 
-from ..command import instances
+from ..instances import instances
 
 
 def test_cmd_instances(monkeypatch):

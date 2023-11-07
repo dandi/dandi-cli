@@ -7,7 +7,7 @@ import os.path
 from pathlib import Path
 import re
 import time
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, TypedDict, Union
 from unittest.mock import patch
 
 import click
@@ -33,12 +33,10 @@ from .misctypes import Digest
 from .utils import ensure_datetime, pluralize
 from .validate_types import Severity
 
-if TYPE_CHECKING:
-    from .support.typing import TypedDict
 
-    class Uploaded(TypedDict):
-        size: int
-        errors: List[str]
+class Uploaded(TypedDict):
+    size: int
+    errors: List[str]
 
 
 def upload(

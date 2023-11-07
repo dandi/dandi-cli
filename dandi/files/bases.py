@@ -679,7 +679,7 @@ def _check_required_fields(
                 ValidationResult(
                     origin=ValidationOrigin(
                         name="dandischema",
-                        version=dandischema.__version__,
+                        version=dandischema.__version__,  # type: ignore[attr-defined]
                     ),
                     severity=Severity.ERROR,
                     id="dandischema.requred_field",
@@ -694,7 +694,7 @@ def _check_required_fields(
                 ValidationResult(
                     origin=ValidationOrigin(
                         name="dandischema",
-                        version=dandischema.__version__,
+                        version=dandischema.__version__,  # type: ignore[attr-defined]
                     ),
                     severity=Severity.WARNING,
                     id="dandischema.placeholder_value",
@@ -769,7 +769,7 @@ def _pydantic_errors_to_validation_results(
             ValidationResult(
                 origin=ValidationOrigin(
                     name="dandischema",
-                    version=dandischema.__version__,
+                    version=dandischema.__version__,  # type: ignore[attr-defined]
                 ),
                 severity=Severity.ERROR,
                 id=id,

@@ -6,7 +6,9 @@ import sys
 from click.testing import CliRunner
 import pytest
 
-from ..command import __all_commands__, ls, validate
+from ..command import __all_commands__
+from ..ls import ls
+from ..validate import validate
 
 
 @pytest.mark.parametrize("command", (ls, validate))

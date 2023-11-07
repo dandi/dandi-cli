@@ -9,7 +9,7 @@ import re
 import shutil
 from subprocess import DEVNULL, check_output, run
 from time import sleep
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union
+from typing import Any, Callable, Dict, Iterator, List, Literal, Optional, Union
 from uuid import uuid4
 
 from _pytest.fixtures import FixtureRequest
@@ -29,10 +29,15 @@ import zarr
 
 from .skip import skipif
 from .. import get_logger
-from ..cli.command import organize
-from ..consts import DandiInstance, dandiset_metadata_file, known_instances
+from ..cli.organize import organize
+from ..consts import (
+    DandiInstance,
+    dandiset_metadata_file,
+    known_instances,
+    metadata_nwb_file_fields,
+)
 from ..dandiapi import DandiAPIClient, RemoteDandiset
-from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
+from ..pynwb_utils import make_nwb_file
 from ..upload import upload
 
 lgr = get_logger()
@@ -276,16 +281,13 @@ def organized_nwb_dir4(
     return tmp_path
 
 
-if TYPE_CHECKING:
-    from ..support.typing import Literal
-
-    Scope = Union[
-        Literal["session"],
-        Literal["package"],
-        Literal["module"],
-        Literal["class"],
-        Literal["function"],
-    ]
+Scope = Union[
+    Literal["session"],
+    Literal["package"],
+    Literal["module"],
+    Literal["class"],
+    Literal["function"],
+]
 
 
 def get_gitrepo_fixture(
