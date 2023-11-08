@@ -157,7 +157,7 @@ def get_neurodata_types_to_modalities_map() -> dict[str, str]:
 
                 v_split = v_.__module__.split(".")
                 if len(v_split) != 2:
-                    print("Skipping %s coming from %s" % (v_, v_.__module__))
+                    print(f"Skipping {v_} coming from {v_.__module__}")
                     continue
                 modality = v_split[1]  # so smth like ecephys
 
@@ -247,7 +247,7 @@ def _get_pynwb_metadata(path: str | Path | Readable) -> dict[str, Any]:
                 continue
             if not f.startswith("number_of_"):
                 raise NotImplementedError(
-                    "ATM can only compute number_of_ fields. Got {}".format(f)
+                    f"ATM can only compute number_of_ fields. Got {f}"
                 )
             key = f[len("number_of_") :]
             out[f] = len(getattr(nwb, key, []) or [])

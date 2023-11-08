@@ -181,7 +181,7 @@ class NamespaceAttributeError(AttributeError):
     """
 
 
-class Namespace(object, metaclass=abc.ABCMeta):
+class Namespace(metaclass=abc.ABCMeta):
     """Provide namespace skip conditions in CONDITION_FNS."""
 
     fns = {c.__name__: c for c in CONDITION_FNS}
@@ -231,12 +231,12 @@ class Mark(Namespace):
     def __getattr__(self, item):
         if item.startswith("skipif_"):
             try:
-                return super(Mark, self).__getattr__(item[len("skipif_") :])
+                return super().__getattr__(item[len("skipif_") :])
             except NamespaceAttributeError:
                 # Fall back to the original item name so that the attribute
                 # error message doesn't confusingly drop "skipif_".
                 pass
-        return super(Mark, self).__getattr__(item)
+        return super().__getattr__(item)
 
 
 mark = Mark()

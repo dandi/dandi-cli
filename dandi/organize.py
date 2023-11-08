@@ -382,9 +382,9 @@ def _assign_dandi_names(metadata):
 def _get_unique_values(metadata, fields, filter_=False):
     unique_values = {}
     for field in fields:
-        unique_values[field] = set(_get_hashable(r.get(field, None)) for r in metadata)
+        unique_values[field] = {_get_hashable(r.get(field, None)) for r in metadata}
         if filter_:
-            unique_values[field] = set(v for v in unique_values[field] if v)
+            unique_values[field] = {v for v in unique_values[field] if v}
     return unique_values
 
 
@@ -998,7 +998,7 @@ def organize(
     if acted_upon and in_place:
         # We might need to cleanup a bit - e.g. prune empty directories left
         # by the move in in-place mode
-        dirs = set(op.dirname(e["path"]) for e in acted_upon)
+        dirs = {op.dirname(e["path"]) for e in acted_upon}
         for d in sorted(dirs)[::-1]:  # from longest to shortest
             if op.exists(d):
                 try:

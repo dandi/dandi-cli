@@ -7,7 +7,7 @@ from ..support import pyout as pyouts
 lgr = get_logger()
 
 
-class Formatter(object):
+class Formatter:
     def __enter__(self):
         pass
 

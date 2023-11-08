@@ -234,16 +234,15 @@ def flattened(it: Iterable) -> list:
 
 def load_jsonl(filename: AnyPath) -> list:
     """Load json lines formatted file"""
-    with open(filename, "r") as f:
+    with open(filename) as f:
         return list(map(json.loads, f))
 
 
 _encoded_dirsep = re.escape(os.sep)
-_VCS_REGEX = r"%s\.(?:git|gitattributes|svn|bzr|hg)(?:%s|$)" % (
-    _encoded_dirsep,
-    _encoded_dirsep,
+_VCS_REGEX = (
+    rf"{_encoded_dirsep}\.(?:git|gitattributes|svn|bzr|hg)(?:{_encoded_dirsep}|$)"
 )
-_DATALAD_REGEX = r"%s\.(?:datalad)(?:%s|$)" % (_encoded_dirsep, _encoded_dirsep)
+_DATALAD_REGEX = rf"{_encoded_dirsep}\.(?:datalad)(?:{_encoded_dirsep}|$)"
 
 
 def find_files(
@@ -374,7 +373,7 @@ def copy_file(src: AnyPath, dst: AnyPath) -> None:
             ["cp", "--help"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            universal_newlines=True,
+            text=True,
         )
         # Ignore command failures (e.g., if cp doesn't support --help), as the
         # command will still likely output its usage info.

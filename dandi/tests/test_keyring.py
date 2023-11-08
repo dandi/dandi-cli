@@ -36,7 +36,7 @@ def test_dandi_authenticate_no_env_var(
     )
     DandiAPIClient(local_dandi_api.api_url).dandi_authenticate()
     inputmock.assert_called_once_with(
-        "Please provide API Key for {}: ".format(local_dandi_api.instance_id)
+        f"Please provide API Key for {local_dandi_api.instance_id}: "
     )
 
 

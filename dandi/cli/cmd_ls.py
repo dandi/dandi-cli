@@ -298,7 +298,7 @@ def flatten_meta_to_pyout_v1(meta):
             continue
         if isinstance(v, dict):
             for vf, vv in flatten_meta_to_pyout_v1(v).items():
-                out["%s_%s" % (f, vf)] = flatten_v(vv)
+                out[f"{f}_{vf}"] = flatten_v(vv)
         else:
             out[f] = flatten_v(v)
     return out

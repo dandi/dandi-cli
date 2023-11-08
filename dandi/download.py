@@ -423,7 +423,7 @@ class PYOUTHelper:
             pref += "<"
         if self.items_summary.has_unknown_sizes:
             pref += "?"
-        v = [naturalsize(done), "%s%.2f%%" % (pref, 100 * r)]
+        v = [naturalsize(done), f"{pref}{100 * r:.2f}%"]
         if (
             done
             and self.items_summary.t0 is not None
