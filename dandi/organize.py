@@ -395,7 +395,7 @@ def _sanitize_value(value, field):
     Of particular importance is _ which we use, as in BIDS, to separate
     _key-value entries
     """
-    value = re.sub(r"[_*\\/<>:|\"'?%@;]", "-", value)
+    value = re.sub(r"[_*\\/<>:|\"'?%@;,\s]", "-", value)
     if field != "extension":
         value = value.replace(".", "-")
     return value
@@ -814,7 +814,9 @@ def organize(
             meta["path"] = path
             return meta
 
-        if not devel_debug and jobs != 1:  # Do not use joblib at all if number_of_jobs=1
+        if (
+            not devel_debug and jobs != 1
+        ):  # Do not use joblib at all if number_of_jobs=1
             # Note: It is Python (pynwb) intensive, not IO, so ATM there is little
             # to no benefit from Parallel without using multiproc!  But that would
             # complicate progress bar indication... TODO
