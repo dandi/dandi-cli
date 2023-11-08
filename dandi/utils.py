@@ -19,7 +19,7 @@ import shutil
 import subprocess
 import sys
 import types
-from typing import IO, Any, List, Optional, TypeVar, Union
+from typing import IO, Any, List, Optional, Protocol, TypeVar, Union
 from urllib.parse import parse_qs, urlparse, urlunparse
 
 import dateutil.parser
@@ -58,6 +58,14 @@ USER_AGENT = "dandi/{} requests/{} {}/{}".format(
     platform.python_implementation(),
     platform.python_version(),
 )
+
+
+class Hasher(Protocol):
+    def update(self, data: bytes) -> None:
+        ...
+
+    def hexdigest(self) -> str:
+        ...
 
 
 def is_interactive() -> bool:
@@ -509,42 +517,6 @@ def shortened_repr(value: Any, length: int = 30) -> str:
     except Exception:
         value_repr = "<%s>" % value.__class__.__name__.split(".")[-1]
     return value_repr
-
-
-def __auto_repr__(obj: Any) -> str:
-    attr_names: tuple[str, ...] = ()
-    if hasattr(obj, "__dict__"):
-        attr_names += tuple(obj.__dict__.keys())
-    if hasattr(obj, "__slots__"):
-        attr_names += tuple(obj.__slots__)
-
-    items = []
-    for attr in sorted(set(attr_names)):
-        if attr.startswith("_"):
-            continue
-        value = getattr(obj, attr)
-        # TODO:  should we add this feature to minimize some talktative reprs
-        # such as of URL?
-        # if value is None:
-        #    continue
-        items.append("%s=%s" % (attr, shortened_repr(value)))
-
-    return "%s(%s)" % (obj.__class__.__name__, ", ".join(items))
-
-
-TT = TypeVar("TT", bound=type)
-
-
-def auto_repr(cls: TT) -> TT:
-    """Decorator for a class to assign it an automagic quick and dirty __repr__
-
-    It uses public class attributes to prepare repr of a class
-
-    Original idea: http://stackoverflow.com/a/27799004/1265472
-    """
-
-    cls.__repr__ = __auto_repr__  # type: ignore[assignment]
-    return cls
 
 
 def Parallel(**kwargs: Any) -> Any:  # TODO: disable lint complaint
