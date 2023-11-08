@@ -33,7 +33,7 @@ from contextlib import contextmanager
 import posixpath
 import re
 from time import sleep
-from typing import Any
+from typing import Any, Union
 from urllib.parse import unquote as urlunquote
 
 from pydantic import AnyHttpUrl, BaseModel, parse_obj_as
@@ -70,11 +70,11 @@ class ParsedDandiURL(ABC, BaseModel):
     #: The Dandi Archive instance that the URL points to
     instance: DandiInstance
     #: The ID of the Dandiset given in the URL
-    dandiset_id: str | None
+    dandiset_id: Union[str, None]
     #: The version of the Dandiset, if specified.  If this is not set, the
     #: version will be defaulted using the rules described under
     #: `DandiAPIClient.get_dandiset()`.
-    version_id: str | None = None
+    version_id: Union[str, None] = None
 
     @property
     def api_url(self) -> AnyHttpUrl:

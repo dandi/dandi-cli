@@ -10,7 +10,7 @@ from pynwb import NWBHDF5IO
 import pytest
 import ruamel.yaml
 
-from ..cli.organize import organize
+from ..cli.cmd_organize import organize
 from ..consts import dandiset_metadata_file, file_operation_modes
 from ..organize import (
     _sanitize_value,

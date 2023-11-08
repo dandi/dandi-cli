@@ -13,7 +13,7 @@ from pathlib import Path, PurePosixPath
 import re
 from time import sleep, time
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, FrozenSet, List, Optional
 from urllib.parse import quote_plus, urlparse, urlunparse
 
 import click
@@ -621,7 +621,7 @@ class APIBase(BaseModel):
     detail; do not rely on it.
     """
 
-    JSON_EXCLUDE: ClassVar[frozenset[str]] = frozenset(["client"])
+    JSON_EXCLUDE: ClassVar[FrozenSet[str]] = frozenset(["client"])
 
     def json_dict(self) -> dict[str, Any]:
         """

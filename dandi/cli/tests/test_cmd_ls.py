@@ -11,7 +11,7 @@ import pytest
 
 from dandi.tests.skip import mark
 
-from ..ls import ls
+from ..cmd_ls import ls
 from ...utils import yaml_load
 
 

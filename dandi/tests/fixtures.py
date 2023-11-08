@@ -30,7 +30,7 @@ import zarr
 
 from .skip import skipif
 from .. import get_logger
-from ..cli.organize import organize
+from ..cli.cmd_organize import organize
 from ..consts import (
     DandiInstance,
     dandiset_metadata_file,

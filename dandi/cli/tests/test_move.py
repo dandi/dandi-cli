@@ -7,7 +7,7 @@ from click.testing import CliRunner
 import pytest
 from pytest_mock import MockerFixture
 
-from ..move import move
+from ..cmd_move import move
 
 
 @pytest.mark.parametrize(
