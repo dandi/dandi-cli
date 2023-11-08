@@ -9,9 +9,9 @@ import os.path
 import sys
 from types import SimpleNamespace
 
-import appdirs
 import click
 from click_didyoumean import DYMGroup
+import platformdirs
 
 from .base import lgr, map_to_click_exceptions
 from .. import __version__, set_logger_level
@@ -97,7 +97,7 @@ def main(ctx, log_level, pdb=False):
         h.addFilter(lambda r: not getattr(r, "file_only", False))
         set_logger_level(h, log_level)
 
-    logdir = appdirs.user_log_dir("dandi-cli", "dandi")
+    logdir = platformdirs.user_log_dir("dandi-cli", "dandi")
     logfile = os.path.join(
         logdir, "{:%Y%m%d%H%M%SZ}-{}.log".format(datetime.utcnow(), os.getpid())
     )
