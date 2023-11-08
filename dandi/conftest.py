@@ -1,8 +1,6 @@
 from typing import List
 
-from _pytest.config import Config
-from _pytest.config.argparsing import Parser
-from _pytest.nodes import Item
+from pytest import Config, Item, Parser
 
 from .tests.fixtures import *  # noqa: F401, F403  # lgtm [py/polluting-import]
 

@@ -12,7 +12,6 @@ from time import sleep
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union
 from uuid import uuid4
 
-from _pytest.fixtures import FixtureRequest
 from click.testing import CliRunner
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dateutil.tz import tzlocal, tzutc
@@ -565,7 +564,7 @@ def sample_dandiset_factory(
 
 @pytest.fixture()
 def new_dandiset(
-    request: FixtureRequest, sample_dandiset_factory: SampleDandisetFactory
+    request: pytest.FixtureRequest, sample_dandiset_factory: SampleDandisetFactory
 ) -> SampleDandiset:
     return sample_dandiset_factory.mkdandiset(
         f"Sample Dandiset for {request.node.name}"
