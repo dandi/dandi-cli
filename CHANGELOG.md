@@ -1,3 +1,20 @@
+# 0.58.0 (Wed Nov 08 2023)
+
+#### 🚀 Enhancement
+
+- Expose number of jobs to organize [#1341](https://github.com/dandi/dandi-cli/pull/1341) ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🧪 Tests
+
+- Don't use buggy version of `responses` [#1342](https://github.com/dandi/dandi-cli/pull/1342) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.57.0 (Wed Nov 01 2023)
 
 #### 🚀 Enhancement
