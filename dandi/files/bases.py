@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 import re
 from threading import Lock
-from typing import Any, BinaryIO, Generic, Optional, cast
+from typing import IO, Any, Generic
 from xml.etree.ElementTree import fromstring
 
 import dandischema
@@ -57,7 +57,7 @@ class DandiFile(ABC):
     filepath: Path
 
     #: The path to the root of the Dandiset, if there is one
-    dandiset_path: Optional[Path]
+    dandiset_path: Path | None
 
     @property
     def size(self) -> int:
@@ -73,7 +73,7 @@ class DandiFile(ABC):
     @abstractmethod
     def get_metadata(
         self,
-        digest: Optional[Digest] = None,
+        digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> CommonModel:
         """Return the Dandi metadata for the file"""
@@ -82,7 +82,7 @@ class DandiFile(ABC):
     @abstractmethod
     def get_validation_errors(
         self,
-        schema_version: Optional[str] = None,
+        schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
         """
@@ -96,7 +96,7 @@ class DandisetMetadataFile(DandiFile):
 
     def get_metadata(
         self,
-        digest: Optional[Digest] = None,
+        digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> DandisetMeta:
         """Return the Dandiset metadata inside the file"""
@@ -107,7 +107,7 @@ class DandisetMetadataFile(DandiFile):
     # TODO: @validate_cache.memoize_path
     def get_validation_errors(
         self,
-        schema_version: Optional[str] = None,
+        schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
         with open(self.filepath) as f:
@@ -167,7 +167,7 @@ class LocalAsset(DandiFile):
     @abstractmethod
     def get_metadata(
         self,
-        digest: Optional[Digest] = None,
+        digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
         """Return the Dandi metadata for the asset"""
@@ -176,7 +176,7 @@ class LocalAsset(DandiFile):
     # TODO: @validate_cache.memoize_path
     def get_validation_errors(
         self,
-        schema_version: Optional[str] = None,
+        schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
         current_version = get_schema_version()
@@ -226,8 +226,8 @@ class LocalAsset(DandiFile):
         self,
         dandiset: RemoteDandiset,
         metadata: dict[str, Any],
-        jobs: Optional[int] = None,
-        replacing: Optional[RemoteAsset] = None,
+        jobs: int | None = None,
+        replacing: RemoteAsset | None = None,
     ) -> RemoteAsset:
         """
         Upload the file as an asset with the given metadata to the given
@@ -260,8 +260,8 @@ class LocalAsset(DandiFile):
         self,
         dandiset: RemoteDandiset,
         metadata: dict[str, Any],
-        jobs: Optional[int] = None,
-        replacing: Optional[RemoteAsset] = None,
+        jobs: int | None = None,
+        replacing: RemoteAsset | None = None,
     ) -> Iterator[dict]:
         """
         Upload the asset with the given metadata to the given Dandiset,
@@ -294,7 +294,7 @@ class LocalFileAsset(LocalAsset):
 
     def get_metadata(
         self,
-        digest: Optional[Digest] = None,
+        digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
         metadata = get_default_metadata(self.filepath, digest=digest)
@@ -310,8 +310,8 @@ class LocalFileAsset(LocalAsset):
         self,
         dandiset: RemoteDandiset,
         metadata: dict[str, Any],
-        jobs: Optional[int] = None,
-        replacing: Optional[RemoteAsset] = None,
+        jobs: int | None = None,
+        replacing: RemoteAsset | None = None,
     ) -> Iterator[dict]:
         """
         Upload the file as an asset with the given metadata to the given
@@ -466,7 +466,7 @@ class NWBAsset(LocalFileAsset):
 
     def get_metadata(
         self,
-        digest: Optional[Digest] = None,
+        digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
         try:
@@ -488,7 +488,7 @@ class NWBAsset(LocalFileAsset):
     # TODO: @validate_cache.memoize_path
     def get_validation_errors(
         self,
-        schema_version: Optional[str] = None,
+        schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
         """
@@ -612,7 +612,7 @@ class LocalDirectoryAsset(LocalAsset, Generic[P]):
 
 def _upload_blob_part(
     storage_session: RESTFullAPIClient,
-    fp: BinaryIO,
+    fp: IO[bytes],
     lock: Lock,
     etagger: DandiETag,
     asset_path: str,
@@ -679,7 +679,7 @@ def _check_required_fields(
                 ValidationResult(
                     origin=ValidationOrigin(
                         name="dandischema",
-                        version=dandischema.__version__,
+                        version=dandischema.__version__,  # type: ignore[attr-defined]
                     ),
                     severity=Severity.ERROR,
                     id="dandischema.requred_field",
@@ -694,7 +694,7 @@ def _check_required_fields(
                 ValidationResult(
                     origin=ValidationOrigin(
                         name="dandischema",
-                        version=dandischema.__version__,
+                        version=dandischema.__version__,  # type: ignore[attr-defined]
                     ),
                     severity=Severity.WARNING,
                     id="dandischema.placeholder_value",
@@ -746,14 +746,18 @@ def _pydantic_errors_to_validation_results(
 ) -> list[ValidationResult]:
     """Convert list of dict from pydantic into our custom object."""
     out = []
-    for e in (
-        errors.errors() if isinstance(errors, ValidationError) else cast(list, errors)
-    ):
+    errorlist: list
+    if isinstance(errors, ValidationError):
+        errorlist = errors.errors()
+    else:
+        errorlist = errors
+    for e in errorlist:
         if isinstance(e, Exception):
             message = getattr(e, "message", str(e))
             id = "exception"
             scope = Scope.FILE
         else:
+            assert isinstance(e, dict)
             id = ".".join(
                 filter(
                     bool,
@@ -769,7 +773,7 @@ def _pydantic_errors_to_validation_results(
             ValidationResult(
                 origin=ValidationOrigin(
                     name="dandischema",
-                    version=dandischema.__version__,
+                    version=dandischema.__version__,  # type: ignore[attr-defined]
                 ),
                 severity=Severity.ERROR,
                 id=id,

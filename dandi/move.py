@@ -9,7 +9,7 @@ import os.path
 from pathlib import Path, PurePosixPath
 import posixpath
 import re
-from typing import NewType, Optional
+from typing import NewType
 
 from . import get_logger
 from .consts import DandiInstance
@@ -536,7 +536,7 @@ class RemoteMover(LocalizedMover):
 
     #: The `~LocalMover.dandiset_path` of the corresponding `LocalMover` when
     #: inside a `LocalRemoteMover`
-    local_dandiset_path: Optional[Path] = None
+    local_dandiset_path: Path | None = None
 
     #: A collection of all assets in the Dandiset, keyed by their paths
     assets: dict[AssetPath, RemoteAsset] = field(init=False)
@@ -765,7 +765,7 @@ def move(
     dandiset: Path | str | None = None,
     work_on: str = "auto",
     devel_debug: bool = False,
-    jobs: Optional[int] = None,
+    jobs: int | None = None,
     dry_run: bool = False,
 ) -> None:
     if not srcs:
@@ -774,7 +774,7 @@ def move(
         dandiset = Path()
     with ExitStack() as stack:
         mover: Mover
-        client: Optional[DandiAPIClient] = None
+        client: DandiAPIClient | None = None
         if work_on == "auto":
             work_on = "remote" if isinstance(dandiset, str) else "both"
         if work_on == "both":

@@ -15,7 +15,6 @@ from collections import deque
 from collections.abc import Iterator
 import os.path
 from pathlib import Path
-from typing import Optional
 
 from dandi import get_logger
 from dandi.consts import BIDS_DATASET_DESCRIPTION, dandiset_metadata_file
@@ -68,7 +67,7 @@ lgr = get_logger()
 
 def find_dandi_files(
     *paths: str | Path,
-    dandiset_path: Optional[str | Path] = None,
+    dandiset_path: str | Path | None = None,
     allow_all: bool = False,
     include_metadata: bool = False,
 ) -> Iterator[DandiFile]:
@@ -97,7 +96,7 @@ def find_dandi_files(
     # A pair of each file or directory being considered plus the most recent
     # BIDS dataset_description.json file at the path (if a directory) or in a
     # parent path
-    path_queue: deque[tuple[Path, Optional[BIDSDatasetDescriptionAsset]]] = deque()
+    path_queue: deque[tuple[Path, BIDSDatasetDescriptionAsset | None]] = deque()
     for p in map(Path, paths):
         if dandiset_path is not None:
             try:
@@ -156,8 +155,8 @@ def find_dandi_files(
 
 def dandi_file(
     filepath: str | Path,
-    dandiset_path: Optional[str | Path] = None,
-    bids_dataset_description: Optional[BIDSDatasetDescriptionAsset] = None,
+    dandiset_path: str | Path | None = None,
+    bids_dataset_description: BIDSDatasetDescriptionAsset | None = None,
 ) -> DandiFile:
     """
     Return a `DandiFile` instance of the appropriate type for the file at
@@ -197,8 +196,8 @@ def dandi_file(
 
 
 def find_bids_dataset_description(
-    dirpath: str | Path, dandiset_path: Optional[str | Path] = None
-) -> Optional[BIDSDatasetDescriptionAsset]:
+    dirpath: str | Path, dandiset_path: str | Path | None = None
+) -> BIDSDatasetDescriptionAsset | None:
     """
     .. versionadded:: 0.46.0
 
@@ -206,7 +205,7 @@ def find_bids_dataset_description(
     ``dirpath`` and each of its parents, stopping when a :file:`dandiset.yaml`
     file is found or ``dandiset_path`` is reached.
     """
-    topmost: Optional[BIDSDatasetDescriptionAsset] = None
+    topmost: BIDSDatasetDescriptionAsset | None = None
     dirpath = Path(dirpath)
     for d in (dirpath, *dirpath.parents):
         bids_marker = d / BIDS_DATASET_DESCRIPTION

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Iterator
 from contextlib import ExitStack
 from functools import reduce
 import os.path
 from pathlib import Path
 import re
 import time
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Tuple, Union
+from typing import Any, TypedDict
 from unittest.mock import patch
 
 import click
@@ -33,24 +34,22 @@ from .misctypes import Digest
 from .utils import ensure_datetime, pluralize
 from .validate_types import Severity
 
-if TYPE_CHECKING:
-    from .support.typing import TypedDict
 
-    class Uploaded(TypedDict):
-        size: int
-        errors: List[str]
+class Uploaded(TypedDict):
+    size: int
+    errors: list[str]
 
 
 def upload(
-    paths: Optional[List[Union[str, Path]]] = None,
+    paths: list[str | Path] | None = None,
     existing: str = "refresh",
     validation: str = "require",
     dandi_instance: str | DandiInstance = "dandi",
     allow_any_path: bool = False,
     upload_dandiset_metadata: bool = False,
     devel_debug: bool = False,
-    jobs: Optional[int] = None,
-    jobs_per_file: Optional[int] = None,
+    jobs: int | None = None,
+    jobs_per_file: int | None = None,
     sync: bool = False,
 ) -> None:
     from .dandiapi import DandiAPIClient
@@ -127,13 +126,13 @@ def upload(
         # we could limit the number of them until
         #   https://github.com/pyout/pyout/issues/87
         # properly addressed
-        process_paths: Set[str] = set()
+        process_paths: set[str] = set()
 
-        uploaded_paths: Dict[str, Uploaded] = defaultdict(
+        uploaded_paths: dict[str, Uploaded] = defaultdict(
             lambda: {"size": 0, "errors": []}
         )
 
-        upload_err: Optional[Exception] = None
+        upload_err: Exception | None = None
         validate_ok = True
 
         # TODO: we might want to always yield a full record so no field is not
@@ -215,7 +214,7 @@ def upload(
                 #
                 # Compute checksums
                 #
-                file_etag: Optional[Digest]
+                file_etag: Digest | None
                 if isinstance(dfile, ZarrAsset):
                     file_etag = None
                 else:
@@ -326,7 +325,7 @@ def upload(
 
                 process_paths.add(str(dfile.filepath))
 
-                rec: Dict[Any, Any]
+                rec: dict[Any, Any]
                 if isinstance(dfile, DandisetMetadataFile):
                     rec = {"path": dandiset_metadata_file}
                 else:
@@ -367,7 +366,7 @@ def upload(
             raise upload_err
 
         if sync:
-            relpaths: List[str] = []
+            relpaths: list[str] = []
             for p in paths:
                 rp = os.path.relpath(p, dandiset.path)
                 relpaths.append("" if rp == "." else rp)
@@ -389,8 +388,8 @@ def check_replace_asset(
     local_asset: LocalAsset,
     remote_asset: RemoteAsset,
     existing: str,
-    local_etag: Optional[Digest],
-) -> Tuple[bool, Dict[str, str]]:
+    local_etag: Digest | None,
+) -> tuple[bool, dict[str, str]]:
     # Returns a (replace asset, message to yield) tuple
     if isinstance(local_asset, ZarrAsset):
         return (True, {"message": "exists - reuploading"})
@@ -436,9 +435,9 @@ def check_replace_asset(
     return (True, {"message": f"{exists_msg} - reuploading"})
 
 
-def skip_file(msg: Any) -> Dict[str, str]:
+def skip_file(msg: Any) -> dict[str, str]:
     return {"status": "skipped", "message": str(msg)}
 
 
-def error_file(msg: Any) -> Dict[str, str]:
+def error_file(msg: Any) -> dict[str, str]:
     return {"status": "ERROR", "message": str(msg)}

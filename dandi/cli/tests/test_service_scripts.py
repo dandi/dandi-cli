@@ -16,7 +16,7 @@ import vcr
 from dandi import __version__
 from dandi.tests.fixtures import SampleDandiset
 
-from ..command import service_scripts
+from ..cmd_service_scripts import service_scripts
 
 DATA_DIR = Path(__file__).with_name("data")
 

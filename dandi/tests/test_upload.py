@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import os
 from pathlib import Path
 from shutil import copyfile, rmtree
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 import pynwb
@@ -261,7 +263,7 @@ def test_upload_sync_zarr(mocker, zarr_dandiset):
 
 
 def test_upload_invalid_metadata(
-    new_dandiset: SampleDandiset, simple1_nwb_metadata: Dict[str, Any]
+    new_dandiset: SampleDandiset, simple1_nwb_metadata: dict[str, Any]
 ) -> None:
     make_nwb_file(
         new_dandiset.dspath / "broken.nwb",

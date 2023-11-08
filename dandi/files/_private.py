@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import ClassVar, Optional
+from typing import ClassVar
 import weakref
 
 from dandi.consts import (
@@ -66,7 +66,7 @@ class DandiFileFactory:
     }
 
     def __call__(
-        self, filepath: Path, path: str, dandiset_path: Optional[Path]
+        self, filepath: Path, path: str, dandiset_path: Path | None
     ) -> DandiFile:
         return self.CLASSES[DandiFileType.classify(filepath)](
             filepath=filepath, path=path, dandiset_path=dandiset_path
@@ -87,7 +87,7 @@ class BIDSFileFactory(DandiFileFactory):
     }
 
     def __call__(
-        self, filepath: Path, path: str, dandiset_path: Optional[Path]
+        self, filepath: Path, path: str, dandiset_path: Path | None
     ) -> DandiFile:
         ftype = DandiFileType.classify(filepath)
         if ftype is DandiFileType.BIDS_DATASET_DESCRIPTION:

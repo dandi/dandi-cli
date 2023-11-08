@@ -1,10 +1,12 @@
+from __future__ import annotations
+
+from collections.abc import Callable
 import json
 import os
 import os.path
 from pathlib import Path
 import re
 from shutil import rmtree
-from typing import Callable, List, Tuple
 import time
 
 import numpy as np
@@ -18,7 +20,7 @@ from .skip import mark
 from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
-from ..download import Downloader, ProgressCombiner, download, PYOUTHelper
+from ..download import Downloader, ProgressCombiner, PYOUTHelper, download
 from ..exceptions import NotFoundError
 from ..utils import list_paths
 
@@ -754,10 +756,10 @@ def test_download_zarr_subdir_has_only_subdirs(
     ],
 )
 def test_progress_combiner(
-    file_qty: int, inputs: List[Tuple[str, dict]], expected: List[dict]
+    file_qty: int, inputs: list[tuple[str, dict]], expected: list[dict]
 ) -> None:
     pc = ProgressCombiner(zarr_size=69105, file_qty=file_qty)
-    outputs: List[dict] = []
+    outputs: list[dict] = []
     for path, status in inputs:
         outputs.extend(pc.feed(path, status))
     assert outputs == expected

@@ -12,7 +12,7 @@ try:
     # A trick found on https://github.com/h5py/h5py/issues/1079#issuecomment-567081386
     # to avoid some weird behavior on Yarik's laptop where MPI fails to initialize
     # and that takes h5py additional 5 seconds to import
-    import mpi4py
+    import mpi4py  # type: ignore[import-not-found]
 
     mpi4py.rc(initialize=False)
 except Exception:

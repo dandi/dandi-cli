@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import builtins
 from datetime import datetime, timezone
 import logging
@@ -5,7 +7,6 @@ from pathlib import Path
 import random
 import re
 from shutil import rmtree
-from typing import List, Union
 
 import anys
 import click
@@ -535,7 +536,7 @@ def test_set_dandiset_metadata(text_dandiset: SampleDandiset) -> None:
     ],
 )
 def test_get_raw_digest(
-    digest_type: Union[str, DigestType, None],
+    digest_type: str | DigestType | None,
     digest_regex: str,
     text_dandiset: SampleDandiset,
 ) -> None:
@@ -687,7 +688,7 @@ def test_get_many_pages_of_assets(
 ) -> None:
     new_dandiset.client.page_size = 4
     get_spy = mocker.spy(new_dandiset.client, "get")
-    paths: List[str] = []
+    paths: list[str] = []
     for i in range(26):
         p = new_dandiset.dspath / f"{i:04}.txt"
         paths.append(p.name)

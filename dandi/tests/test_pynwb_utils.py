@@ -1,7 +1,10 @@
+from __future__ import annotations
+
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 import re
-from typing import Any, Callable, NoReturn
+from typing import Any, NoReturn
 
 import numpy as np
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries

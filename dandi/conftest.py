@@ -1,4 +1,4 @@
-from typing import List
+from __future__ import annotations
 
 from _pytest.config import Config
 from _pytest.config.argparsing import Parser
@@ -16,7 +16,7 @@ def pytest_addoption(parser: Parser) -> None:
     )
 
 
-def pytest_collection_modifyitems(items: List[Item], config: Config) -> None:
+def pytest_collection_modifyitems(items: list[Item], config: Config) -> None:
     # Based on <https://pythontesting.net/framework/pytest/pytest-run-tests
     # -using-particular-fixture/>
     if config.getoption("--dandi-api"):

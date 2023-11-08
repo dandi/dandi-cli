@@ -10,7 +10,7 @@ from pynwb import NWBHDF5IO
 import pytest
 import ruamel.yaml
 
-from ..cli.command import organize
+from ..cli.cmd_organize import organize
 from ..consts import dandiset_metadata_file, file_operation_modes
 from ..organize import (
     _sanitize_value,
@@ -111,7 +111,9 @@ if not on_windows:
 @pytest.mark.integration
 @pytest.mark.parametrize("mode", no_move_modes)
 @pytest.mark.parametrize("jobs", (1, -1))
-def test_organize_nwb_test_data(nwb_test_data: Path, tmp_path: Path, mode: str, jobs: int) -> None:
+def test_organize_nwb_test_data(
+    nwb_test_data: Path, tmp_path: Path, mode: str, jobs: int
+) -> None:
     outdir = tmp_path / "organized"
 
     relative = False
@@ -153,7 +155,15 @@ def test_organize_nwb_test_data(nwb_test_data: Path, tmp_path: Path, mode: str, 
 
     input_files = nwb_test_data / "v2.0.1"
 
-    cmd = ["-d", str(outdir), "--files-mode", mode, str(input_files), "--jobs", str(jobs)]
+    cmd = [
+        "-d",
+        str(outdir),
+        "--files-mode",
+        mode,
+        str(input_files),
+        "--jobs",
+        str(jobs),
+    ]
     r = CliRunner().invoke(organize, cmd)
 
     # with @map_to_click_exceptions we loose original str of message somehow

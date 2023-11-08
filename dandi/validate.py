@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 import os
 from pathlib import Path
-from typing import Iterator, Optional, Union
 
 from . import __version__
 from .consts import dandiset_metadata_file
@@ -17,8 +17,8 @@ BIDS_TO_DANDI = {
 
 
 def validate_bids(
-    *paths: Union[str, Path],
-    schema_version: Optional[str] = None,
+    *paths: str | Path,
+    schema_version: str | None = None,
 ) -> list[ValidationResult]:
     """Validate BIDS paths.
 
@@ -127,7 +127,7 @@ def validate_bids(
 
 def validate(
     *paths: str | Path,
-    schema_version: Optional[str] = None,
+    schema_version: str | None = None,
     devel_debug: bool = False,
     allow_any_path: bool = False,
 ) -> Iterator[ValidationResult]:

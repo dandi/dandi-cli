@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 import inspect
 import os.path as op
 from pathlib import Path
 import time
-from typing import Iterable, List
 
 import pytest
 import requests
@@ -73,7 +73,7 @@ def test_find_files_dotfiles(tmp_path: Path) -> None:
     (tmp_path / ".git" / "config").touch()
     (tmpsubdir / ".git").touch()  # a ".git" link file
 
-    def relpaths(paths: Iterable[str]) -> List[str]:
+    def relpaths(paths: Iterable[str]) -> list[str]:
         return sorted(op.relpath(p, tmp_path) for p in paths)
 
     regular = ["regular", op.join("subdir", "regular")]

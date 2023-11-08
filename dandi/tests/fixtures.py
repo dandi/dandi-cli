@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import logging
@@ -9,7 +10,7 @@ import re
 import shutil
 from subprocess import DEVNULL, check_output, run
 from time import sleep
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union
+from typing import Any, Literal
 from uuid import uuid4
 
 from _pytest.fixtures import FixtureRequest
@@ -29,10 +30,15 @@ import zarr
 
 from .skip import skipif
 from .. import get_logger
-from ..cli.command import organize
-from ..consts import DandiInstance, dandiset_metadata_file, known_instances
+from ..cli.cmd_organize import organize
+from ..consts import (
+    DandiInstance,
+    dandiset_metadata_file,
+    known_instances,
+    metadata_nwb_file_fields,
+)
 from ..dandiapi import DandiAPIClient, RemoteDandiset
-from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
+from ..pynwb_utils import make_nwb_file
 from ..upload import upload
 
 lgr = get_logger()
@@ -63,9 +69,9 @@ def capture_all_logs(caplog: pytest.LogCaptureFixture) -> None:
 # TODO: move into some common fixtures.  We might produce a number of files
 #       and also carry some small ones directly in git for regression testing
 @pytest.fixture(scope="session")
-def simple1_nwb_metadata() -> Dict[str, Any]:
+def simple1_nwb_metadata() -> dict[str, Any]:
     # very simple assignment with the same values as the key with 1 as suffix
-    metadata: Dict[str, Any] = {f: f"{f}1" for f in metadata_nwb_file_fields}
+    metadata: dict[str, Any] = {f: f"{f}1" for f in metadata_nwb_file_fields}
     metadata["identifier"] = uuid4().hex
     # subject_fields
 
@@ -85,7 +91,7 @@ def simple1_nwb_metadata() -> Dict[str, Any]:
 
 @pytest.fixture(scope="session")
 def simple1_nwb(
-    simple1_nwb_metadata: Dict[str, Any], tmp_path_factory: pytest.TempPathFactory
+    simple1_nwb_metadata: dict[str, Any], tmp_path_factory: pytest.TempPathFactory
 ) -> Path:
     return make_nwb_file(
         tmp_path_factory.mktemp("simple1") / "simple1.nwb",
@@ -95,7 +101,7 @@ def simple1_nwb(
 
 @pytest.fixture(scope="session")
 def simple2_nwb(
-    simple1_nwb_metadata: Dict[str, Any], tmp_path_factory: pytest.TempPathFactory
+    simple1_nwb_metadata: dict[str, Any], tmp_path_factory: pytest.TempPathFactory
 ) -> Path:
     """With a subject"""
     return make_nwb_file(
@@ -112,7 +118,7 @@ def simple2_nwb(
 
 @pytest.fixture(scope="session")
 def simple3_nwb(
-    simple1_nwb_metadata: Dict[str, Any], tmp_path_factory: pytest.TempPathFactory
+    simple1_nwb_metadata: dict[str, Any], tmp_path_factory: pytest.TempPathFactory
 ) -> Path:
     """With a subject, but no subject_id."""
     return make_nwb_file(
@@ -210,7 +216,7 @@ def organized_nwb_dir(
 
 @pytest.fixture(scope="session")
 def organized_nwb_dir2(
-    simple1_nwb_metadata: Dict[str, Any],
+    simple1_nwb_metadata: dict[str, Any],
     simple2_nwb: Path,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Path:
@@ -276,21 +282,12 @@ def organized_nwb_dir4(
     return tmp_path
 
 
-if TYPE_CHECKING:
-    from ..support.typing import Literal
-
-    Scope = Union[
-        Literal["session"],
-        Literal["package"],
-        Literal["module"],
-        Literal["class"],
-        Literal["function"],
-    ]
+Scope = Literal["session", "package", "module", "class", "function"]
 
 
 def get_gitrepo_fixture(
     url: str,
-    committish: Optional[str] = None,
+    committish: str | None = None,
     scope: Scope = "session",
     make_subdirs_dandisets: bool = False,
 ) -> Callable[[pytest.TempPathFactory], Path]:
@@ -314,8 +311,8 @@ def get_gitrepo_fixture(
 
 def get_filtered_gitrepo_fixture(
     url: str,
-    whitelist: List[str],
-    make_subdirs_dandisets: Optional[bool] = False,
+    whitelist: list[str],
+    make_subdirs_dandisets: bool | None = False,
 ) -> Callable[[pytest.TempPathFactory], Iterator[Path]]:
     @pytest.fixture(scope="session")
     def fixture(
@@ -374,7 +371,7 @@ LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name
 
 
 @pytest.fixture(scope="session")
-def docker_compose_setup() -> Iterator[Dict[str, str]]:
+def docker_compose_setup() -> Iterator[dict[str, str]]:
     skipif.no_network()
     skipif.no_docker_engine()
 
@@ -489,7 +486,7 @@ class DandiAPI:
 
 
 @pytest.fixture(scope="session")
-def local_dandi_api(docker_compose_setup: Dict[str, str]) -> Iterator[DandiAPI]:
+def local_dandi_api(docker_compose_setup: dict[str, str]) -> Iterator[DandiAPI]:
     instance = known_instances["dandi-api-local-docker-tests"]
     api_key = docker_compose_setup["django_api_key"]
     with DandiAPIClient.for_dandi_instance(instance, token=api_key) as client:
@@ -502,15 +499,13 @@ class SampleDandiset:
     dspath: Path
     dandiset: RemoteDandiset
     dandiset_id: str
-    upload_kwargs: Dict[str, Any] = field(default_factory=dict)
+    upload_kwargs: dict[str, Any] = field(default_factory=dict)
 
     @property
     def client(self) -> DandiAPIClient:
         return self.api.client
 
-    def upload(
-        self, paths: Optional[List[Union[str, Path]]] = None, **kwargs: Any
-    ) -> None:
+    def upload(self, paths: list[str | Path] | None = None, **kwargs: Any) -> None:
         with pytest.MonkeyPatch().context() as m:
             m.setenv("DANDI_API_KEY", self.api.api_key)
             upload(

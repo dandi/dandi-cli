@@ -1,5 +1,7 @@
+from __future__ import annotations
+
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
 
 from keyring.backend import get_all_keyring
 from keyring.backends import fail, null
@@ -66,7 +68,7 @@ def setup_keyringrc_fail() -> None:
 @pytest.mark.usefixtures("tmp_home")
 def test_keyring_lookup_envvar_no_password(
     monkeypatch: pytest.MonkeyPatch,
-    rcconfig: Optional[Callable[[], None]],
+    rcconfig: Callable[[], None] | None,
 ) -> None:
     monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyring.backends.null.Keyring")
     if rcconfig is not None:
@@ -82,7 +84,7 @@ def test_keyring_lookup_envvar_no_password(
 @pytest.mark.usefixtures("tmp_home")
 def test_keyring_lookup_envvar_password(
     monkeypatch: pytest.MonkeyPatch,
-    rcconfig: Optional[Callable[[], None]],
+    rcconfig: Callable[[], None] | None,
 ) -> None:
     monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyrings.alt.file.PlaintextKeyring")
     keyfile.PlaintextKeyring().set_password(
@@ -102,7 +104,7 @@ def test_keyring_lookup_envvar_password(
 @pytest.mark.usefixtures("tmp_home")
 def test_keyring_lookup_envvar_fail(
     monkeypatch: pytest.MonkeyPatch,
-    rcconfig: Optional[Callable[[], None]],
+    rcconfig: Callable[[], None] | None,
 ) -> None:
     monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyring.backends.fail.Keyring")
     if rcconfig is not None:

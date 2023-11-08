@@ -28,11 +28,12 @@ using the `navigate_url()` function.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 import posixpath
 import re
 from time import sleep
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, cast
+from typing import Any, Union
 from urllib.parse import unquote as urlunquote
 
 from pydantic import AnyHttpUrl, BaseModel, parse_obj_as
@@ -69,17 +70,19 @@ class ParsedDandiURL(ABC, BaseModel):
     #: The Dandi Archive instance that the URL points to
     instance: DandiInstance
     #: The ID of the Dandiset given in the URL
-    dandiset_id: Optional[str]
+    dandiset_id: Union[str, None]
     #: The version of the Dandiset, if specified.  If this is not set, the
     #: version will be defaulted using the rules described under
     #: `DandiAPIClient.get_dandiset()`.
-    version_id: Optional[str] = None
+    version_id: Union[str, None] = None
 
     @property
     def api_url(self) -> AnyHttpUrl:
         """The base URL of the Dandi API service, without a trailing slash"""
         # Kept for backwards compatibility
-        return cast(AnyHttpUrl, parse_obj_as(AnyHttpUrl, self.instance.api.rstrip("/")))
+        r = parse_obj_as(AnyHttpUrl, self.instance.api.rstrip("/"))
+        assert isinstance(r, AnyHttpUrl)
+        return r  # type: ignore[no-any-return]
 
     def get_client(self) -> DandiAPIClient:
         """
@@ -90,7 +93,7 @@ class ParsedDandiURL(ABC, BaseModel):
 
     def get_dandiset(
         self, client: DandiAPIClient, lazy: bool = True
-    ) -> Optional[RemoteDandiset]:
+    ) -> RemoteDandiset | None:
         """
         Returns information about the specified (or default) version of the
         specified Dandiset.  Returns `None` if the URL did not contain a
@@ -106,7 +109,7 @@ class ParsedDandiURL(ABC, BaseModel):
 
     @abstractmethod
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
+        self, client: DandiAPIClient, order: str | None = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
         Returns an iterator of asset structures for the assets referred to by
@@ -136,9 +139,9 @@ class ParsedDandiURL(ABC, BaseModel):
 
     @contextmanager
     def navigate(
-        self, *, strict: bool = False, authenticate: Optional[bool] = None
+        self, *, strict: bool = False, authenticate: bool | None = None
     ) -> Iterator[
-        Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterable[BaseRemoteAsset]]
+        tuple[DandiAPIClient, RemoteDandiset | None, Iterable[BaseRemoteAsset]]
     ]:
         """
         A context manager that returns a triple of a
@@ -218,7 +221,7 @@ class DandisetURL(ParsedDandiURL):
     """
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
+        self, client: DandiAPIClient, order: str | None = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """Returns all assets in the Dandiset"""
         with _maybe_strict(strict):
@@ -270,7 +273,7 @@ class BaseAssetIDURL(SingleAssetURL):
     asset_id: str
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
+        self, client: DandiAPIClient, order: str | None = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
         Yields the asset with the given ID.  If the asset does not exist, then
@@ -286,9 +289,9 @@ class BaseAssetIDURL(SingleAssetURL):
 
     @contextmanager
     def navigate(
-        self, *, strict: bool = False, authenticate: Optional[bool] = None
+        self, *, strict: bool = False, authenticate: bool | None = None
     ) -> Iterator[
-        Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterable[BaseRemoteAsset]]
+        tuple[DandiAPIClient, RemoteDandiset | None, Iterable[BaseRemoteAsset]]
     ]:
         with self.get_client() as client:
             if authenticate:
@@ -318,7 +321,7 @@ class AssetIDURL(SingleAssetURL):
     asset_id: str
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
+        self, client: DandiAPIClient, order: str | None = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
         Yields the asset with the given ID.  If the Dandiset or asset does not
@@ -341,7 +344,7 @@ class AssetPathPrefixURL(MultiAssetURL):
     """
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
+        self, client: DandiAPIClient, order: str | None = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
         Returns the assets whose paths start with `path`.  If `strict` is true
@@ -369,7 +372,7 @@ class AssetItemURL(SingleAssetURL):
     path: str
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
+        self, client: DandiAPIClient, order: str | None = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
         Yields the asset whose path equals `path`.  If there is no such asset:
@@ -417,7 +420,7 @@ class AssetFolderURL(MultiAssetURL):
     """
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
+        self, client: DandiAPIClient, order: str | None = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
         Returns all assets under the folder at `path`.  If the folder does not
@@ -451,7 +454,7 @@ class AssetGlobURL(MultiAssetURL):
     """
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
+        self, client: DandiAPIClient, order: str | None = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
         Returns all assets whose paths match the glob pattern `path`.  If
@@ -493,10 +496,8 @@ def _maybe_strict(strict: bool) -> Iterator[None]:
 
 @contextmanager
 def navigate_url(
-    url: str, *, strict: bool = False, authenticate: Optional[bool] = None
-) -> Iterator[
-    Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterable[BaseRemoteAsset]]
-]:
+    url: str, *, strict: bool = False, authenticate: bool | None = None
+) -> Iterator[tuple[DandiAPIClient, RemoteDandiset | None, Iterable[BaseRemoteAsset]]]:
     """
     A context manager that takes a URL pointing to a DANDI Archive and
     returns a triple of a `~dandi.dandiapi.DandiAPIClient` (with an open
@@ -512,7 +513,7 @@ def navigate_url(
         If true, then `get_dandiset()` is called with ``lazy=False`` and
         `get_assets()` is called with ``strict=True``; if false, the opposite
         occurs.
-    :param Optional[bool] authenticate:
+    :param authenticate:
         If true, then `~dandi.dandiapi.DandiAPIClient.dandi_authenticate()`
         will be called on the client before returning it.  If `None` (the
         default), the method will only be called if the URL requires
@@ -537,7 +538,7 @@ class _dandi_url_parser:
     dandiset_id_grp = f"(?P<dandiset_id>{DANDISET_ID_REGEX})"
     # Should absorb port and "api/":
     server_grp = "(?P<server>(?P<protocol>https?)://(?P<hostname>[^/]+)/(api/)?)"
-    known_urls: List[Tuple[re.Pattern[str], Dict[str, Any], str]] = [
+    known_urls: list[tuple[re.Pattern[str], dict[str, Any], str]] = [
         # List of (regex, settings, display string) triples
         #
         # Settings:

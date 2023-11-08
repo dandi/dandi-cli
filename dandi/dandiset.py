@@ -5,7 +5,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 import os.path
 from pathlib import Path, PurePath, PurePosixPath
-from typing import Optional, TypeVar
+from typing import TYPE_CHECKING
 
 from dandischema.models import get_schema_version
 
@@ -14,9 +14,10 @@ from .consts import dandiset_metadata_file
 from .files import DandisetMetadataFile, LocalAsset, dandi_file, find_dandi_files
 from .utils import find_parent_directory_containing, under_paths, yaml_dump, yaml_load
 
-lgr = get_logger()
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
-D = TypeVar("D", bound="Dandiset")
+lgr = get_logger()
 
 
 class Dandiset:
@@ -28,7 +29,7 @@ class Dandiset:
         self,
         path: str | Path,
         allow_empty: bool = False,
-        schema_version: Optional[str] = None,
+        schema_version: str | None = None,
     ) -> None:
         if schema_version is not None:
             current_version = get_schema_version()
@@ -42,12 +43,12 @@ class Dandiset:
             self.path_obj / dandiset_metadata_file
         ):
             raise ValueError(f"No dandiset at {path}")
-        self.metadata: Optional[dict] = None
+        self.metadata: dict | None = None
         self._metadata_file_obj = self.path_obj / dandiset_metadata_file
         self._load_metadata()
 
     @classmethod
-    def find(cls: type[D], path: str | Path | None) -> Optional[D]:
+    def find(cls, path: str | Path | None) -> Self | None:
         """Find a dandiset possibly pointing to a directory within it"""
         dandiset_path = find_parent_directory_containing(dandiset_metadata_file, path)
         if dandiset_path is not None:
@@ -112,7 +113,7 @@ class Dandiset:
         self._load_metadata()
 
     @staticmethod
-    def _get_identifier(metadata: dict) -> Optional[str]:
+    def _get_identifier(metadata: dict) -> str | None:
         """Given a metadata record, determine identifier"""
         # ATM since we have dichotomy in dandiset metadata schema from drafts
         # and from published versions, we will just test both locations
