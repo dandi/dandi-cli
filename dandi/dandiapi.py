@@ -438,7 +438,7 @@ class DandiAPIClient(RESTFullAPIClient):
         instance: str | DandiInstance,
         token: str | None = None,
         authenticate: bool = False,
-    ) -> "DandiAPIClient":
+    ) -> DandiAPIClient:
         """
         Construct a client instance for the server identified by ``instance``
         (either the name of a registered Dandi Archive instance or a
@@ -530,7 +530,7 @@ class DandiAPIClient(RESTFullAPIClient):
 
     def get_dandiset(
         self, dandiset_id: str, version_id: str | None = None, lazy: bool = True
-    ) -> "RemoteDandiset":
+    ) -> RemoteDandiset:
         """
         Fetches the Dandiset with the given ``dandiset_id``.  If ``version_id``
         is not specified, the `RemoteDandiset`'s version is set to the most
@@ -556,7 +556,7 @@ class DandiAPIClient(RESTFullAPIClient):
                     return d.for_version(version_id)
             return d
 
-    def get_dandisets(self) -> Iterator["RemoteDandiset"]:
+    def get_dandisets(self) -> Iterator[RemoteDandiset]:
         """
         Returns a generator of all Dandisets on the server.  For each Dandiset,
         the `RemoteDandiset`'s version is set to the most recent published
@@ -565,7 +565,7 @@ class DandiAPIClient(RESTFullAPIClient):
         for data in self.paginate("/dandisets/"):
             yield RemoteDandiset.from_data(self, data)
 
-    def create_dandiset(self, name: str, metadata: dict[str, Any]) -> "RemoteDandiset":
+    def create_dandiset(self, name: str, metadata: dict[str, Any]) -> RemoteDandiset:
         """Creates a Dandiset with the given name & metadata"""
         return RemoteDandiset.from_data(
             self, self.post("/dandisets/", json={"name": name, "metadata": metadata})
@@ -596,7 +596,7 @@ class DandiAPIClient(RESTFullAPIClient):
                 " upgrade dandi and/or dandischema."
             )
 
-    def get_asset(self, asset_id: str) -> "BaseRemoteAsset":
+    def get_asset(self, asset_id: str) -> BaseRemoteAsset:
         """
         Fetch the asset with the given asset ID.  If the given asset does not
         exist, a `NotFoundError` is raised.
@@ -1026,7 +1026,7 @@ class RemoteDandiset:
             f"Dandiset {self.identifier} is {v.status.value}: {json.dumps(about, indent=4)}"
         )
 
-    def publish(self, max_time: float = 120) -> "RemoteDandiset":
+    def publish(self, max_time: float = 120) -> RemoteDandiset:
         """
         Publish the draft version of the Dandiset and wait at most ``max_time``
         seconds for the publication operation to complete.  If the operation
@@ -1073,7 +1073,7 @@ class RemoteDandiset:
                 f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
             )
 
-    def get_asset(self, asset_id: str) -> "RemoteAsset":
+    def get_asset(self, asset_id: str) -> RemoteAsset:
         """
         Fetch the asset in this version of the Dandiset with the given asset
         ID.  If the given asset does not exist, a `NotFoundError` is raised.
@@ -1133,7 +1133,7 @@ class RemoteDandiset:
                 f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
             )
 
-    def get_asset_by_path(self, path: str) -> "RemoteAsset":
+    def get_asset_by_path(self, path: str) -> RemoteAsset:
         """
         Fetch the asset in this version of the Dandiset whose
         `~RemoteAsset.path` equals ``path``.  If the given asset does not
@@ -1264,7 +1264,7 @@ class BaseRemoteAsset(ABC, APIBase):
 
     #: The `DandiAPIClient` instance that returned this `BaseRemoteAsset`
     #: and which the latter will use for API requests
-    client: "DandiAPIClient"
+    client: DandiAPIClient
     #: The asset identifier
     identifier: str = Field(alias="asset_id")
     #: The asset's (forward-slash-separated) path
@@ -1611,9 +1611,7 @@ class BaseRemoteZarrAsset(BaseRemoteAsset):
         else:
             return entry
 
-    def rmfiles(
-        self, files: Iterable["RemoteZarrEntry"], reingest: bool = True
-    ) -> None:
+    def rmfiles(self, files: Iterable[RemoteZarrEntry], reingest: bool = True) -> None:
         """
         Delete one or more files from the Zarr.
 

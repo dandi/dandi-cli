@@ -435,7 +435,7 @@ def docker_compose_setup() -> Iterator[dict[str, str]]:
             ],
             cwd=str(LOCAL_DOCKER_DIR),
             env=env,
-            universal_newlines=True,
+            text=True,
         )
         m = re.search(r"^Generated token (\w+) for user admin@nil.nil$", r, flags=re.M)
         if not m:

@@ -54,7 +54,7 @@ def summary_dates(values):
 
 
 def counts(values):
-    return ["{:d} {}".format(v, k) for k, v in Counter(values).items()]
+    return [f"{v:d} {k}" for k, v in Counter(values).items()]
 
 
 # class mapped_counts(object):
@@ -148,9 +148,7 @@ def get_style(hide_if_missing=True):
         "errors": dict(
             align="center",
             color=dict(interval=[[0, 1, "green"], [1, None, "red"]]),
-            aggregate=lambda x: (
-                "{} with errors".format(sum(map(bool, x))) if any(x) else ""
-            ),
+            aggregate=lambda x: (f"{sum(map(bool, x))} with errors" if any(x) else ""),
         ),
         "status": dict(
             color=dict(lookup={"skipped": "yellow", "done": "green", "error": "red"}),

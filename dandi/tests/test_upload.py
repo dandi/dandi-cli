@@ -28,9 +28,9 @@ def test_upload_download(
 ) -> None:
     d = new_dandiset.dandiset
     dspath = new_dandiset.dspath
-    (nwb_file,) = [
+    (nwb_file,) = (
         p for p in list_paths(organized_nwb_dir) if p.name != dandiset_metadata_file
-    ]
+    )
     assert nwb_file.suffix == ".nwb"
     parent, name = nwb_file.relative_to(organized_nwb_dir).parts
     (dspath / parent).mkdir()
@@ -299,7 +299,7 @@ def test_upload_bids_zarr(bids_zarr_dandiset: SampleDandiset) -> None:
     bids_zarr_dandiset.upload()
     assets = list(bids_zarr_dandiset.dandiset.get_assets())
     assert len(assets) > 10  # it is a bigish dataset
-    (asset,) = [a for a in assets if a.path.endswith(".zarr")]
+    (asset,) = (a for a in assets if a.path.endswith(".zarr"))
     assert isinstance(asset, RemoteZarrAsset)
     assert asset.asset_type is AssetType.ZARR
     assert asset.path.endswith(".zarr")
