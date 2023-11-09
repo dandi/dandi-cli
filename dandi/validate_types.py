@@ -13,7 +13,6 @@ class ValidationOrigin:
 
 
 class Severity(Enum):
-    _order_ = "HINT WARNING ERROR"
     HINT = 1
     WARNING = 2
     ERROR = 3
