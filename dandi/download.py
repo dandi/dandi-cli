@@ -17,7 +17,7 @@ import sys
 from threading import Lock
 import time
 from types import TracebackType
-from typing import IO, Any, Literal, Protocol
+from typing import IO, Any, Literal
 
 from dandischema.models import DigestType
 from fasteners import InterProcessLock
@@ -36,6 +36,7 @@ from .support.digests import get_digest, get_zarr_checksum
 from .support.iterators import IteratorWithAggregation
 from .support.pyout import naturalsize
 from .utils import (
+    Hasher,
     abbrev_prompt,
     ensure_datetime,
     exclude_from_zarr,
@@ -486,14 +487,6 @@ def _populate_dandiset_yaml(
         "status": "done",
         "message": "updated" if metadata != old_metadata else "same",
     }
-
-
-class Hasher(Protocol):
-    def update(self, data: bytes) -> None:
-        ...
-
-    def hexdigest(self) -> str:
-        ...
 
 
 def _download_file(

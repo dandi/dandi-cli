@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass, field
 import hashlib
 import logging
 import os.path
@@ -21,12 +23,12 @@ from fscacher import PersistentCache
 from zarr_checksum import ZarrChecksumTree
 
 from .threaded_walk import threaded_walk
-from ..utils import auto_repr, exclude_from_zarr
+from ..utils import Hasher, exclude_from_zarr
 
 lgr = logging.getLogger("dandi.support.digests")
 
 
-@auto_repr
+@dataclass
 class Digester:
     """Helper to compute multiple digests in one pass for a file"""
 
@@ -36,28 +38,18 @@ class Digester:
     # Ideally we should find an efficient way to parallelize this but
     # atm this one is sufficiently speedy
 
-    DEFAULT_DIGESTS = ["md5", "sha1", "sha256", "sha512"]
+    #: List of any supported algorithm labels, such as md5, sha1, etc.
+    digests: list[str] = field(
+        default_factory=lambda: ["md5", "sha1", "sha256", "sha512"]
+    )
 
-    def __init__(
-        self, digests: list[str] | None = None, blocksize: int = 1 << 16
-    ) -> None:
-        """
-        Parameters
-        ----------
-        digests : list or None
-          List of any supported algorithm labels, such as md5, sha1, etc.
-          If None, a default set of hashes will be computed (md5, sha1,
-          sha256, sha512).
-        blocksize : int
-          Chunk size (in bytes) by which to consume a file.
-        """
-        self._digests = digests or self.DEFAULT_DIGESTS
-        self._digest_funcs = [getattr(hashlib, digest) for digest in self._digests]
-        self.blocksize = blocksize
+    #: Chunk size (in bytes) by which to consume a file.
+    blocksize: int = 1 << 16
 
-    @property
-    def digests(self) -> list[str]:
-        return self._digests
+    digest_funcs: list[Callable[[], Hasher]] = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self.digest_funcs = [getattr(hashlib, digest) for digest in self.digests]
 
     def __call__(self, fpath: str | Path) -> dict[str, str]:
         """
@@ -70,14 +62,14 @@ class Digester:
           Keys are algorithm labels, and values are checksum strings
         """
         lgr.debug("Estimating digests for %s" % fpath)
-        digests = [x() for x in self._digest_funcs]
+        digests = [x() for x in self.digest_funcs]
         with open(fpath, "rb") as f:
             while True:
                 block = f.read(self.blocksize)
                 if not block:
                     break
-                [d.update(block) for d in digests]
-
+                for d in digests:
+                    d.update(block)
         return {n: d.hexdigest() for n, d in zip(self.digests, digests)}
 
 
