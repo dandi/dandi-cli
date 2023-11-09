@@ -30,6 +30,9 @@ def test_sanitize_value() -> None:
     assert _sanitize_value("_.ext", "extension") == "-.ext"
     assert _sanitize_value("_.ext", "unrelated") == "--ext"
     assert _sanitize_value("A;B", "unrelated") == "A-B"
+    # no spaces or tabs please
+    assert _sanitize_value("A B\t C", "unrelated") == "A-B--C"
+    assert _sanitize_value("A;B,C", "unrelated") == "A-B-C"
     assert _sanitize_value("A\\/B", "unrelated") == "A--B"
     assert _sanitize_value("A\"'B", "unrelated") == "A--B"
 
