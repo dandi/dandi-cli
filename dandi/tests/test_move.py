@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from .fixtures import SampleDandiset
 from ..dandiapi import RemoteAsset
 from ..exceptions import NotFoundError
-from ..move import AssetMismatchError, move
+from ..move import AssetMismatchError, MoveExisting, MoveWorkOn, move
 
 
 @pytest.fixture()
@@ -35,14 +36,14 @@ def moving_dandiset(new_dandiset: SampleDandiset) -> SampleDandiset:
 def check_assets(
     sample_dandiset: SampleDandiset,
     starting_assets: list[RemoteAsset],
-    work_on: str,
+    work_on: MoveWorkOn,
     remapping: dict[str, str | None],
 ) -> None:
     for asset in starting_assets:
         if asset.path in remapping and remapping[asset.path] is None:
             # Asset was overwritten
             continue
-        if work_on in ("local", "both") and asset.path in remapping:
+        if work_on in (MoveWorkOn.LOCAL, MoveWorkOn.BOTH) and asset.path in remapping:
             assert not (sample_dandiset.dspath / asset.path).exists()
             remapped = remapping[asset.path]
             assert isinstance(remapped, str)
@@ -51,7 +52,7 @@ def check_assets(
             assert (
                 sample_dandiset.dspath / asset.path
             ).read_text() == f"{asset.path}\n"
-        if work_on in ("remote", "both") and asset.path in remapping:
+        if work_on in (MoveWorkOn.REMOTE, MoveWorkOn.BOTH) and asset.path in remapping:
             remapped = remapping[asset.path]
             assert isinstance(remapped, str)
             with pytest.raises(NotFoundError):
@@ -157,7 +158,9 @@ def check_assets(
         ),
     ],
 )
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move(
     monkeypatch: pytest.MonkeyPatch,
     moving_dandiset: SampleDandiset,
@@ -165,7 +168,7 @@ def test_move(
     dest: str,
     regex: bool,
     remapping: dict[str, str | None],
-    work_on: str,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
@@ -181,9 +184,13 @@ def test_move(
     check_assets(moving_dandiset, starting_assets, work_on, remapping)
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move_skip(
-    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
@@ -193,7 +200,7 @@ def test_move_skip(
         "subdir4/foo.json",
         dest="subdir5",
         work_on=work_on,
-        existing="skip",
+        existing=MoveExisting.SKIP,
         dandi_instance=moving_dandiset.api.instance_id,
         devel_debug=True,
     )
@@ -202,13 +209,15 @@ def test_move_skip(
     )
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
-@pytest.mark.parametrize("kwargs", [{"existing": "error"}, {}])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
+@pytest.mark.parametrize("kwargs", [{"existing": MoveExisting.ERROR}, {}])
 def test_move_error(
     monkeypatch: pytest.MonkeyPatch,
     moving_dandiset: SampleDandiset,
-    work_on: str,
-    kwargs: dict[str, str],
+    work_on: MoveWorkOn,
+    kwargs: dict[str, Any],
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
@@ -224,14 +233,18 @@ def test_move_error(
         )
     assert (
         str(excinfo.value) == "Cannot move 'subdir4/foo.json' to 'subdir5/foo.json', as"
-        f" {'remote' if work_on == 'remote' else 'local'} destination already exists"
+        f" {'remote' if work_on is MoveWorkOn.REMOTE else 'local'} destination already exists"
     )
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move_overwrite(
-    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
@@ -241,7 +254,7 @@ def test_move_overwrite(
         "subdir4/foo.json",
         dest="subdir5",
         work_on=work_on,
-        existing="overwrite",
+        existing=MoveExisting.OVERWRITE,
         devel_debug=True,
         dandi_instance=moving_dandiset.api.instance_id,
     )
@@ -266,11 +279,11 @@ def test_move_no_srcs(
     with pytest.raises(ValueError) as excinfo:
         move(
             dest="nowhere",
-            work_on="both",
+            work_on=MoveWorkOn.BOTH,
             dandi_instance=moving_dandiset.api.instance_id,
         )
     assert str(excinfo.value) == "No source paths given"
-    check_assets(moving_dandiset, starting_assets, "both", {})
+    check_assets(moving_dandiset, starting_assets, MoveWorkOn.BOTH, {})
 
 
 def test_move_regex_multisrcs(
@@ -285,18 +298,22 @@ def test_move_regex_multisrcs(
             r"\.dat",
             dest=".blob",
             regex=True,
-            work_on="both",
+            work_on=MoveWorkOn.BOTH,
             dandi_instance=moving_dandiset.api.instance_id,
         )
     assert (
         str(excinfo.value) == "Cannot take multiple source paths when `regex` is True"
     )
-    check_assets(moving_dandiset, starting_assets, "both", {})
+    check_assets(moving_dandiset, starting_assets, MoveWorkOn.BOTH, {})
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move_multisrcs_file_dest(
-    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
@@ -316,9 +333,13 @@ def test_move_multisrcs_file_dest(
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move_folder_src_file_dest(
-    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
@@ -334,9 +355,13 @@ def test_move_folder_src_file_dest(
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move_nonexistent_src(
-    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
@@ -356,9 +381,13 @@ def test_move_nonexistent_src(
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move_file_slash_src(
-    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
@@ -378,9 +407,13 @@ def test_move_file_slash_src(
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move_file_slash_dest(
-    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
@@ -410,14 +443,14 @@ def test_move_regex_no_match(
             "no-match",
             dest="nowhere",
             regex=True,
-            work_on="both",
+            work_on=MoveWorkOn.BOTH,
             dandi_instance=moving_dandiset.api.instance_id,
         )
     assert (
         str(excinfo.value)
         == "Regular expression 'no-match' did not match any local paths"
     )
-    check_assets(moving_dandiset, starting_assets, "both", {})
+    check_assets(moving_dandiset, starting_assets, MoveWorkOn.BOTH, {})
 
 
 def test_move_regex_collision(
@@ -431,7 +464,7 @@ def test_move_regex_collision(
             r"^\w+/foo\.json$",
             dest="data/data.json",
             regex=True,
-            work_on="both",
+            work_on=MoveWorkOn.BOTH,
             dandi_instance=moving_dandiset.api.instance_id,
         )
     assert (
@@ -439,15 +472,17 @@ def test_move_regex_collision(
         == "Local assets 'subdir4/foo.json' and 'subdir5/foo.json' would both"
         " be moved to 'data/data.json'"
     )
-    check_assets(moving_dandiset, starting_assets, "both", {})
+    check_assets(moving_dandiset, starting_assets, MoveWorkOn.BOTH, {})
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move_regex_some_to_self(
     caplog: pytest.LogCaptureFixture,
     monkeypatch: pytest.MonkeyPatch,
     moving_dandiset: SampleDandiset,
-    work_on: str,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
@@ -461,7 +496,11 @@ def test_move_regex_some_to_self(
         devel_debug=True,
     )
     for path in ["subdir3/red.dat", "subdir3/green.dat", "subdir3/blue.dat"]:
-        for where in ["local", "remote"] if work_on == "both" else [work_on]:
+        for where in (
+            [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE]
+            if work_on is MoveWorkOn.BOTH
+            else [work_on]
+        ):
             assert (
                 "dandi",
                 logging.DEBUG,
@@ -479,9 +518,13 @@ def test_move_regex_some_to_self(
     )
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move_from_subdir(
-    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
@@ -505,9 +548,13 @@ def test_move_from_subdir(
     )
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move_in_subdir(
-    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
@@ -527,9 +574,13 @@ def test_move_in_subdir(
     )
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move_from_subdir_abspaths(
-    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
@@ -549,9 +600,13 @@ def test_move_from_subdir_abspaths(
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move_from_subdir_as_dot(
-    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
@@ -568,9 +623,13 @@ def test_move_from_subdir_as_dot(
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move_from_subdir_regex(
-    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
@@ -591,12 +650,14 @@ def test_move_from_subdir_regex(
     )
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move_from_subdir_regex_no_changes(
     caplog: pytest.LogCaptureFixture,
     monkeypatch: pytest.MonkeyPatch,
     moving_dandiset: SampleDandiset,
-    work_on: str,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath / "subdir1")
@@ -613,12 +674,14 @@ def test_move_from_subdir_regex_no_changes(
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move_dandiset_path(
     monkeypatch: pytest.MonkeyPatch,
     moving_dandiset: SampleDandiset,
     tmp_path: Path,
-    work_on: str,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(tmp_path)
@@ -643,12 +706,12 @@ def test_move_dandiset_path(
     )
 
 
-@pytest.mark.parametrize("work_on", ["auto", "remote"])
+@pytest.mark.parametrize("work_on", [MoveWorkOn.AUTO, MoveWorkOn.REMOTE])
 def test_move_dandiset_url(
     monkeypatch: pytest.MonkeyPatch,
     moving_dandiset: SampleDandiset,
     tmp_path: Path,
-    work_on: str,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(tmp_path)
@@ -664,7 +727,7 @@ def test_move_dandiset_url(
     check_assets(
         moving_dandiset,
         starting_assets,
-        "remote",
+        MoveWorkOn.REMOTE,
         {
             "file.txt": "subdir1/file.txt",
             "subdir2/banana.txt": "subdir1/banana.txt",
@@ -682,14 +745,14 @@ def test_move_work_on_auto(
         "file.txt",
         "subdir2/banana.txt",
         dest="subdir1",
-        work_on="auto",
+        work_on=MoveWorkOn.AUTO,
         dandi_instance=moving_dandiset.api.instance_id,
         devel_debug=True,
     )
     check_assets(
         moving_dandiset,
         starting_assets,
-        "both",
+        MoveWorkOn.BOTH,
         {
             "file.txt": "subdir1/file.txt",
             "subdir2/banana.txt": "subdir1/banana.txt",
@@ -697,9 +760,11 @@ def test_move_work_on_auto(
     )
 
 
-@pytest.mark.parametrize("work_on", ["auto", "both", "local", "remote"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.AUTO, MoveWorkOn.BOTH, MoveWorkOn.LOCAL, MoveWorkOn.REMOTE]
+)
 def test_move_not_dandiset(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, work_on: str
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, work_on: MoveWorkOn
 ) -> None:
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ValueError) as excinfo:
@@ -718,13 +783,13 @@ def test_move_local_delete_empty_dirs(
         "../subdir2/banana.txt",
         "foo.json",
         dest="../subdir3",
-        work_on="local",
+        work_on=MoveWorkOn.LOCAL,
         devel_debug=True,
     )
     check_assets(
         moving_dandiset,
         starting_assets,
-        "local",
+        MoveWorkOn.LOCAL,
         {
             "subdir1/apple.txt": "subdir3/apple.txt",
             "subdir2/banana.txt": "subdir3/banana.txt",
@@ -747,7 +812,7 @@ def test_move_both_src_path_not_in_local(
         move(
             "subdir2",
             dest="subdir3",
-            work_on="both",
+            work_on=MoveWorkOn.BOTH,
             dandi_instance=moving_dandiset.api.instance_id,
             devel_debug=True,
         )
@@ -756,7 +821,9 @@ def test_move_both_src_path_not_in_local(
         "- Asset 'subdir2/banana.txt' only exists remotely\n"
         "- Asset 'subdir2/coconut.txt' only exists remotely"
     )
-    check_assets(moving_dandiset, starting_assets, "both", {"subdir2/banana.txt": None})
+    check_assets(
+        moving_dandiset, starting_assets, MoveWorkOn.BOTH, {"subdir2/banana.txt": None}
+    )
 
 
 def test_move_both_src_path_not_in_remote(
@@ -770,7 +837,7 @@ def test_move_both_src_path_not_in_remote(
         move(
             "subdir2",
             dest="subdir3",
-            work_on="both",
+            work_on=MoveWorkOn.BOTH,
             dandi_instance=moving_dandiset.api.instance_id,
             devel_debug=True,
         )
@@ -778,12 +845,14 @@ def test_move_both_src_path_not_in_remote(
         str(excinfo.value) == "Mismatch between local and remote Dandisets:\n"
         "- Asset 'subdir2/mango.txt' only exists locally"
     )
-    check_assets(moving_dandiset, starting_assets, "both", {})
+    check_assets(moving_dandiset, starting_assets, MoveWorkOn.BOTH, {})
 
 
-@pytest.mark.parametrize("existing", ["skip", "overwrite"])
+@pytest.mark.parametrize("existing", [MoveExisting.SKIP, MoveExisting.OVERWRITE])
 def test_move_both_dest_path_not_in_remote(
-    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, existing: str
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    existing: MoveExisting,
 ) -> None:
     (moving_dandiset.dspath / "subdir2" / "file.txt").write_text("This is a file.\n")
     starting_assets = list(moving_dandiset.dandiset.get_assets())
@@ -793,7 +862,7 @@ def test_move_both_dest_path_not_in_remote(
         move(
             "file.txt",
             dest="subdir2",
-            work_on="both",
+            work_on=MoveWorkOn.BOTH,
             existing=existing,
             dandi_instance=moving_dandiset.api.instance_id,
             devel_debug=True,
@@ -803,12 +872,14 @@ def test_move_both_dest_path_not_in_remote(
         "- Asset 'file.txt' would be moved to 'subdir2/file.txt', which exists"
         " locally but not remotely"
     )
-    check_assets(moving_dandiset, starting_assets, "both", {})
+    check_assets(moving_dandiset, starting_assets, MoveWorkOn.BOTH, {})
 
 
-@pytest.mark.parametrize("existing", ["skip", "overwrite"])
+@pytest.mark.parametrize("existing", [MoveExisting.SKIP, MoveExisting.OVERWRITE])
 def test_move_both_dest_path_not_in_local(
-    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, existing: str
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    existing: MoveExisting,
 ) -> None:
     (moving_dandiset.dspath / "subdir2" / "banana.txt").unlink()
     starting_assets = list(moving_dandiset.dandiset.get_assets())
@@ -818,7 +889,7 @@ def test_move_both_dest_path_not_in_local(
         move(
             "file.txt",
             dest="subdir2/banana.txt",
-            work_on="both",
+            work_on=MoveWorkOn.BOTH,
             existing=existing,
             dandi_instance=moving_dandiset.api.instance_id,
             devel_debug=True,
@@ -829,7 +900,9 @@ def test_move_both_dest_path_not_in_local(
         " would be moved to 'subdir2/banana.txt', which exists remotely but"
         " not locally"
     )
-    check_assets(moving_dandiset, starting_assets, "both", {"subdir2/banana.txt": None})
+    check_assets(
+        moving_dandiset, starting_assets, MoveWorkOn.BOTH, {"subdir2/banana.txt": None}
+    )
 
 
 def test_move_both_dest_mismatch(
@@ -845,8 +918,8 @@ def test_move_both_dest_mismatch(
         move(
             "file.txt",
             dest="subdir1/apple.txt",
-            work_on="both",
-            existing="overwrite",
+            work_on=MoveWorkOn.BOTH,
+            existing=MoveExisting.OVERWRITE,
             dandi_instance=moving_dandiset.api.instance_id,
             devel_debug=True,
         )
@@ -855,12 +928,18 @@ def test_move_both_dest_mismatch(
         "- Asset 'file.txt' would be moved to 'subdir1/apple.txt/file.txt'"
         " locally but to 'subdir1/apple.txt' remotely"
     )
-    check_assets(moving_dandiset, starting_assets, "both", {"subdir1/apple.txt": None})
+    check_assets(
+        moving_dandiset, starting_assets, MoveWorkOn.BOTH, {"subdir1/apple.txt": None}
+    )
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move_pyout(
-    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
@@ -870,7 +949,7 @@ def test_move_pyout(
         "subdir4/foo.json",
         dest="subdir5",
         work_on=work_on,
-        existing="overwrite",
+        existing=MoveExisting.OVERWRITE,
         devel_debug=False,
         dandi_instance=moving_dandiset.api.instance_id,
     )
@@ -886,9 +965,13 @@ def test_move_pyout(
     )
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move_pyout_dry_run(
-    monkeypatch: pytest.MonkeyPatch, moving_dandiset: SampleDandiset, work_on: str
+    monkeypatch: pytest.MonkeyPatch,
+    moving_dandiset: SampleDandiset,
+    work_on: MoveWorkOn,
 ) -> None:
     starting_assets = list(moving_dandiset.dandiset.get_assets())
     monkeypatch.chdir(moving_dandiset.dspath)
@@ -898,7 +981,7 @@ def test_move_pyout_dry_run(
         "subdir4/foo.json",
         dest="subdir5",
         work_on=work_on,
-        existing="overwrite",
+        existing=MoveExisting.OVERWRITE,
         devel_debug=False,
         dry_run=True,
         dandi_instance=moving_dandiset.api.instance_id,
@@ -906,12 +989,14 @@ def test_move_pyout_dry_run(
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
 
-@pytest.mark.parametrize("work_on", ["local", "remote", "both"])
+@pytest.mark.parametrize(
+    "work_on", [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE, MoveWorkOn.BOTH]
+)
 def test_move_path_to_self(
     caplog: pytest.LogCaptureFixture,
     monkeypatch: pytest.MonkeyPatch,
     moving_dandiset: SampleDandiset,
-    work_on: str,
+    work_on: MoveWorkOn,
 ) -> None:
     (moving_dandiset.dspath / "newdir").mkdir()
     starting_assets = list(moving_dandiset.dandiset.get_assets())
@@ -924,7 +1009,11 @@ def test_move_path_to_self(
         devel_debug=True,
         dandi_instance=moving_dandiset.api.instance_id,
     )
-    for where in ["local", "remote"] if work_on == "both" else [work_on]:
+    for where in (
+        [MoveWorkOn.LOCAL, MoveWorkOn.REMOTE]
+        if work_on is MoveWorkOn.BOTH
+        else [work_on]
+    ):
         assert (
             "dandi",
             logging.DEBUG,
@@ -944,11 +1033,13 @@ def test_move_remote_dest_is_local_dir_sans_slash(
     move(
         "file.txt",
         dest="newdir",
-        work_on="remote",
+        work_on=MoveWorkOn.REMOTE,
         devel_debug=True,
         dandi_instance=moving_dandiset.api.instance_id,
     )
-    check_assets(moving_dandiset, starting_assets, "remote", {"file.txt": "newdir"})
+    check_assets(
+        moving_dandiset, starting_assets, MoveWorkOn.REMOTE, {"file.txt": "newdir"}
+    )
 
 
 def test_move_both_dest_is_local_dir_sans_slash(
@@ -961,10 +1052,13 @@ def test_move_both_dest_is_local_dir_sans_slash(
     move(
         "file.txt",
         dest="newdir",
-        work_on="both",
+        work_on=MoveWorkOn.BOTH,
         devel_debug=True,
         dandi_instance=moving_dandiset.api.instance_id,
     )
     check_assets(
-        moving_dandiset, starting_assets, "both", {"file.txt": "newdir/file.txt"}
+        moving_dandiset,
+        starting_assets,
+        MoveWorkOn.BOTH,
+        {"file.txt": "newdir/file.txt"},
     )

@@ -11,8 +11,10 @@ import pytest
 import ruamel.yaml
 
 from ..cli.cmd_organize import organize
-from ..consts import dandiset_metadata_file, file_operation_modes
+from ..consts import dandiset_metadata_file
 from ..organize import (
+    CopyMode,
+    FileOperationMode,
     _sanitize_value,
     create_dataset_yml_template,
     create_unique_filenames_from_metadata,
@@ -104,8 +106,8 @@ def test_populate_dataset_yml(tmp_path: Path) -> None:
 
 # do not test 'move' - would need  a dedicated handling since it would
 # really move data away and break testing of other modes
-no_move_modes = file_operation_modes[:]
-no_move_modes.remove("move")
+no_move_modes: list[FileOperationMode | str] = list(FileOperationMode)
+no_move_modes.remove(FileOperationMode.MOVE)
 if not on_windows:
     # github workflows start whining about cross-drives links
     no_move_modes.append("symlink-relative")
@@ -115,7 +117,7 @@ if not on_windows:
 @pytest.mark.parametrize("mode", no_move_modes)
 @pytest.mark.parametrize("jobs", (1, -1))
 def test_organize_nwb_test_data(
-    nwb_test_data: Path, tmp_path: Path, mode: str, jobs: int
+    nwb_test_data: Path, tmp_path: Path, mode: FileOperationMode | str, jobs: int
 ) -> None:
     outdir = tmp_path / "organized"
 
@@ -123,13 +125,15 @@ def test_organize_nwb_test_data(
     if mode == "symlink-relative":
         # Force relative paths, as if e.g. user did provide
         relative = True
-        mode = "symlink"
+        mode = FileOperationMode.SYMLINK
         # all paths will be relative to the curdir, which should cause
         # organize also organize using relative paths in case of 'symlink'
         # mode
         cwd = os.getcwd()
         nwb_test_data = Path(op.relpath(nwb_test_data, cwd))
         outdir = Path(op.relpath(outdir, cwd))
+
+    assert isinstance(mode, FileOperationMode)
 
     src = tmp_path / "src"
     src.touch()
@@ -140,10 +144,7 @@ def test_organize_nwb_test_data(
         symlinks_work = False
     else:
         symlinks_work = True
-    try:
-        dest.unlink()
-    except FileNotFoundError:
-        pass
+    dest.unlink(missing_ok=True)
     try:
         os.link(src, dest)
     except OSError:
@@ -151,9 +152,12 @@ def test_organize_nwb_test_data(
     else:
         hardlinks_work = True
 
-    if mode in ("simulate", "symlink") and not symlinks_work:
+    if (
+        mode in (FileOperationMode.SIMULATE, FileOperationMode.SYMLINK)
+        and not symlinks_work
+    ):
         pytest.skip("Symlinks not supported")
-    elif mode == "hardlink" and not hardlinks_work:
+    elif mode is FileOperationMode.HARDLINK and not hardlinks_work:
         pytest.skip("Hard links not supported")
 
     input_files = nwb_test_data / "v2.0.1"
@@ -162,7 +166,7 @@ def test_organize_nwb_test_data(
         "-d",
         str(outdir),
         "--files-mode",
-        mode,
+        str(mode),
         str(input_files),
         "--jobs",
         str(jobs),
@@ -182,7 +186,7 @@ def test_organize_nwb_test_data(
     produced_paths = sorted(find_files(".*", paths=outdir))
     produced_nwb_paths = sorted(find_files(r"\.nwb\Z", paths=outdir))
     produced_relpaths = [op.relpath(p, outdir) for p in produced_paths]
-    if mode == "dry":
+    if mode is FileOperationMode.DRY:
         assert produced_relpaths == []
     else:
         assert produced_relpaths == [
@@ -192,9 +196,11 @@ def test_organize_nwb_test_data(
         # symlinks)
         assert all(map(op.exists, produced_paths))
 
-    if mode == "simulate":
+    if mode is FileOperationMode.SIMULATE:
         assert all((op.isabs(p) != relative) for p in produced_paths)
-    elif mode == "symlink" or (mode == "auto" and symlinks_work):
+    elif mode is FileOperationMode.SYMLINK or (
+        mode is FileOperationMode.AUTO and symlinks_work
+    ):
         assert all(op.islink(p) for p in produced_nwb_paths)
     else:
         assert not any(op.islink(p) for p in produced_paths)
@@ -295,16 +301,18 @@ def test_detect_link_type(
     assert detect_link_type(p, tmp_path) == result
 
 
-@pytest.mark.parametrize("mode", ["copy", "move"])
-@pytest.mark.parametrize("video_mode", ["copy", "move", "symlink", "hardlink"])
-def test_video_organize(video_mode, mode, nwbfiles_video_unique):
+@pytest.mark.parametrize("mode", [FileOperationMode.COPY, FileOperationMode.MOVE])
+@pytest.mark.parametrize("video_mode", list(CopyMode))
+def test_video_organize(
+    video_mode: CopyMode, mode: FileOperationMode, nwbfiles_video_unique: Path
+) -> None:
     dandi_organize_path = nwbfiles_video_unique.parent / "dandi_organized"
     cmd = [
         "--files-mode",
-        mode,
+        str(mode),
         "--update-external-file-paths",
         "--media-files-mode",
-        video_mode,
+        str(video_mode),
         "-d",
         str(dandi_organize_path),
         str(nwbfiles_video_unique),
@@ -334,26 +342,23 @@ def test_video_organize(video_mode, mode, nwbfiles_video_unique):
     assert len(video_files_list) == len(video_files_organized)
 
 
-@pytest.mark.parametrize("video_mode", ["copy", "move"])
-def test_video_organize_common(video_mode, nwbfiles_video_common):
+@pytest.mark.parametrize("video_mode,rc", [(CopyMode.COPY, 0), (CopyMode.MOVE, 1)])
+def test_video_organize_common(
+    video_mode: CopyMode, rc: int, nwbfiles_video_common: Path
+) -> None:
     dandi_organize_path = nwbfiles_video_common.parent / "dandi_organized"
     cmd = [
         "--files-mode",
         "move",
         "--update-external-file-paths",
         "--media-files-mode",
-        video_mode,
+        str(video_mode),
         "-d",
         str(dandi_organize_path),
         str(nwbfiles_video_common),
     ]
     r = CliRunner().invoke(organize, cmd)
-    if video_mode == "move":
-        assert r.exit_code == 1
-        print(r.exception)
-    else:
-        assert r.exit_code == 0
-        print(r.stdout)
+    assert r.exit_code == rc
 
 
 @pytest.mark.parametrize(

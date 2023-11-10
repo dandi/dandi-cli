@@ -20,7 +20,15 @@ from .skip import mark
 from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
-from ..download import Downloader, ProgressCombiner, PYOUTHelper, download
+from ..download import (
+    Downloader,
+    DownloadExisting,
+    DownloadFormat,
+    PathType,
+    ProgressCombiner,
+    PYOUTHelper,
+    download,
+)
 from ..exceptions import NotFoundError
 from ..utils import list_paths
 
@@ -57,16 +65,20 @@ def test_download_000027(
     # redownload - since already exist there should be an exception if we are
     # not using pyout
     with pytest.raises(FileExistsError):
-        download(url, tmp_path, format="debug")
+        download(url, tmp_path, format=DownloadFormat.DEBUG)
     assert "FileExistsError" not in capsys.readouterr().out
     # but  no exception is raised, and rather it gets output to pyout otherwise
     download(url, tmp_path)
     assert "FileExistsError" in capsys.readouterr().out
 
     # TODO: somehow get that status report about what was downloaded and what not
-    download(url, tmp_path, existing="skip")  # TODO: check that skipped
-    download(url, tmp_path, existing="overwrite")  # TODO: check that redownloaded
-    download(url, tmp_path, existing="refresh")  # TODO: check that skipped (the same)
+    download(url, tmp_path, existing=DownloadExisting.SKIP)  # TODO: check that skipped
+    download(
+        url, tmp_path, existing=DownloadExisting.OVERWRITE
+    )  # TODO: check that redownloaded
+    download(
+        url, tmp_path, existing=DownloadExisting.REFRESH
+    )  # TODO: check that skipped (the same)
 
 
 @mark.skipif_no_network
@@ -88,7 +100,7 @@ def test_download_000027_metadata_only(url: str, tmp_path: Path) -> None:
 @mark.skipif_no_network
 @pytest.mark.parametrize(
     "url",
-    [  # Should go through API
+    [  # Should go through AP
         "https://dandiarchive.org/dandiset/000027/0.210831.2033",
         # Drafts do not go through API ATM, but that should not be visible to user
         "https://dandiarchive.org/dandiset/000027/draft",
@@ -211,7 +223,7 @@ def test_download_sync(
     download(
         f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}",
         tmp_path,
-        existing="overwrite",
+        existing=DownloadExisting.OVERWRITE,
         sync=True,
     )
     confirm_mock.assert_called_with("Delete 1 local asset?", "yes", "no", "list")
@@ -230,7 +242,7 @@ def test_download_sync_folder(
     download(
         f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}/subdir2/",
         text_dandiset.dspath,
-        existing="overwrite",
+        existing=DownloadExisting.OVERWRITE,
         sync=True,
     )
     confirm_mock.assert_called_with("Delete 1 local asset?", "yes", "no", "list")
@@ -251,7 +263,7 @@ def test_download_sync_list(
     download(
         f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}",
         tmp_path,
-        existing="overwrite",
+        existing=DownloadExisting.OVERWRITE,
         sync=True,
     )
     assert not (dspath / "file.txt").exists()
@@ -272,7 +284,7 @@ def test_download_sync_zarr(
     download(
         zarr_dandiset.dandiset.version_api_url,
         tmp_path,
-        existing="overwrite",
+        existing=DownloadExisting.OVERWRITE,
         sync=True,
     )
     confirm_mock.assert_called_with("Delete 1 local asset?", "yes", "no", "list")
@@ -306,7 +318,7 @@ def test_download_metadata404(text_dandiset: SampleDandiset, tmp_path: Path) -> 
                 version_id=text_dandiset.dandiset.version_id,
             ),
             output_dir=tmp_path,
-            existing="error",
+            existing=DownloadExisting.ERROR,
             get_metadata=True,
             get_assets=True,
             jobs_per_zarr=None,
@@ -344,7 +356,9 @@ def test_download_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) 
     dd.mkdir()
     zarr.save(dd / "sample.zarr", np.eye(5))
     download(
-        zarr_dandiset.dandiset.version_api_url, tmp_path, existing="overwrite-different"
+        zarr_dandiset.dandiset.version_api_url,
+        tmp_path,
+        existing=DownloadExisting.OVERWRITE_DIFFERENT,
     )
     assert_dirtrees_eq(
         zarr_dandiset.dspath / "sample.zarr",
@@ -367,7 +381,9 @@ def test_download_different_zarr_onto_excluded_dotfiles(
     (zarr_path / "arr_0").mkdir()
     (zarr_path / "arr_0" / ".gitmodules").touch()
     download(
-        zarr_dandiset.dandiset.version_api_url, tmp_path, existing="overwrite-different"
+        zarr_dandiset.dandiset.version_api_url,
+        tmp_path,
+        existing=DownloadExisting.OVERWRITE_DIFFERENT,
     )
     assert list_paths(zarr_path, dirs=True, exclude_vcs=False) == [
         zarr_path / ".dandi",
@@ -398,7 +414,7 @@ def test_download_different_zarr_delete_dir(
     dd.mkdir(parents=True, exist_ok=True)
     zarr.save(dd / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
     assert any(p.is_dir() for p in (dd / "sample.zarr").iterdir())
-    download(d.version_api_url, tmp_path, existing="overwrite-different")
+    download(d.version_api_url, tmp_path, existing=DownloadExisting.OVERWRITE_DIFFERENT)
     assert_dirtrees_eq(dspath / "sample.zarr", dd / "sample.zarr")
 
 
@@ -409,7 +425,9 @@ def test_download_zarr_to_nonzarr_path(
     dd.mkdir()
     (dd / "sample.zarr").write_text("This is not a Zarr.\n")
     download(
-        zarr_dandiset.dandiset.version_api_url, tmp_path, existing="overwrite-different"
+        zarr_dandiset.dandiset.version_api_url,
+        tmp_path,
+        existing=DownloadExisting.OVERWRITE_DIFFERENT,
     )
     assert_dirtrees_eq(
         zarr_dandiset.dspath / "sample.zarr",
@@ -426,7 +444,7 @@ def test_download_nonzarr_to_zarr_path(
     dd = tmp_path / d.identifier
     dd.mkdir(parents=True, exist_ok=True)
     zarr.save(dd / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
-    download(d.version_api_url, tmp_path, existing="overwrite-different")
+    download(d.version_api_url, tmp_path, existing=DownloadExisting.OVERWRITE_DIFFERENT)
     assert (dd / "sample.zarr").is_file()
     assert (dd / "sample.zarr").read_text() == "This is not a Zarr.\n"
 
@@ -805,7 +823,7 @@ def test_download_glob_option(text_dandiset: SampleDandiset, tmp_path: Path) -> 
     download(
         f"dandi://{text_dandiset.api.instance_id}/{dandiset_id}/s*.Txt",
         tmp_path,
-        path_type="glob",
+        path_type=PathType.GLOB,
     )
     assert list_paths(tmp_path, dirs=True) == [
         tmp_path / "subdir1",
@@ -842,7 +860,7 @@ def test_download_sync_glob(
     download(
         f"{text_dandiset.dandiset.version_api_url}assets/?glob=s*.Txt",
         text_dandiset.dspath,
-        existing="overwrite",
+        existing=DownloadExisting.OVERWRITE,
         sync=True,
     )
     confirm_mock.assert_called_with("Delete 1 local asset?", "yes", "no", "list")

@@ -1,9 +1,13 @@
+from __future__ import annotations
+
+from collections.abc import Sequence
 import os
 
 import click
 
 from .base import ChoiceList, IntColonInt, instance_option, map_to_click_exceptions
 from ..dandiarchive import _dandi_url_parser, parse_dandi_url
+from ..download import DownloadExisting, DownloadFormat, PathType
 from ..utils import get_instance
 
 
@@ -28,9 +32,8 @@ Download files or entire folders from DANDI.
 @click.option(
     "-e",
     "--existing",
-    type=click.Choice(
-        ["error", "skip", "overwrite", "overwrite-different", "refresh"]
-    ),  # TODO: verify-reupload (to become default)
+    type=click.Choice(list(DownloadExisting)),
+    # TODO: verify-reupload (to become default)
     help="What to do if a file found existing locally. 'refresh': verify "
     "that according to the size and mtime, it is the same file, if not - "
     "download and overwrite.",
@@ -41,12 +44,12 @@ Download files or entire folders from DANDI.
     "-f",
     "--format",
     help="Choose the format/frontend for output. TODO: support all of the ls",
-    type=click.Choice(["pyout", "debug"]),
+    type=click.Choice(list(DownloadFormat)),
     default="pyout",
 )
 @click.option(
     "--path-type",
-    type=click.Choice(["exact", "glob"]),
+    type=click.Choice(list(PathType)),
     default="exact",
     help="Whether to interpret asset paths in URLs as exact matches or glob patterns",
     show_default=True,
@@ -96,16 +99,16 @@ Download files or entire folders from DANDI.
 @click.argument("url", nargs=-1)
 @map_to_click_exceptions
 def download(
-    url,
-    output_dir,
-    existing,
-    jobs,
-    format,
-    download_types,
-    sync,
-    dandi_instance,
-    path_type,
-):
+    url: Sequence[str],
+    output_dir: str,
+    existing: DownloadExisting,
+    jobs: tuple[int, int],
+    format: DownloadFormat,
+    download_types: set[str],
+    sync: bool,
+    dandi_instance: str,
+    path_type: PathType,
+) -> None:
     # We need to import the download module rather than the download function
     # so that the tests can properly patch the function with a mock.
     from .. import download

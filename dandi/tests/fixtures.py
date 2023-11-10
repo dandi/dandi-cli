@@ -660,9 +660,9 @@ def video_files(tmp_path: Path) -> list[tuple[Path, Path]]:
     video_paths = []
     video_path = tmp_path / "video_files"
     video_path.mkdir()
-    for no in range(2):
-        movie_file1 = video_path / f"test1_{no}.avi"
-        movie_file2 = video_path / f"test2_{no}.avi"
+    for i in range(2):
+        movie_file1 = video_path / f"test1_{i}.avi"
+        movie_file2 = video_path / f"test2_{i}.avi"
         (nf, nx, ny) = (2, 2, 2)
         writer1 = cv2.VideoWriter(
             filename=str(movie_file1),
@@ -687,25 +687,25 @@ def video_files(tmp_path: Path) -> list[tuple[Path, Path]]:
     return video_paths
 
 
-def _create_nwb_files(video_list):
+def _create_nwb_files(video_list: list[tuple[Path, Path]]) -> Path:
     base_path = video_list[0][0].parent.parent
     base_nwb_path = base_path / "nwbfiles"
     base_nwb_path.mkdir(parents=True, exist_ok=True)
-    for no, vid_loc in enumerate(video_list):
+    for i, vid_loc in enumerate(video_list):
         vid_1 = vid_loc[0]
         vid_2 = vid_loc[1]
-        subject_id = f"mouse{no}"
-        session_id = f"sessionid{no}"
+        subject_id = f"mouse{i}"
+        session_id = f"sessionid{i}"
         subject = Subject(
             subject_id=subject_id,
             species="Mus musculus",
             sex="M",
             description="lab mouse ",
         )
-        device = Device(f"imaging_device_{no}")
-        name = f"{vid_1.stem}_{no}"
+        device = Device(f"imaging_device_{i}")
+        name = f"{vid_1.stem}_{i}"
         nwbfile = NWBFile(
-            f"{name}{no}",
+            f"{name}{i}",
             "desc: contains movie for dandi .mp4 storage as external",
             datetime.now(tzlocal()),
             experimenter="Experimenter name",
@@ -715,7 +715,7 @@ def _create_nwb_files(video_list):
         )
 
         image_series = ImageSeries(
-            name=f"MouseWhiskers{no}",
+            name=f"MouseWhiskers{i}",
             format="external",
             external_file=[str(vid_1), str(vid_2)],
             starting_frame=[0, 2],
@@ -731,13 +731,13 @@ def _create_nwb_files(video_list):
 
 
 @pytest.fixture()
-def nwbfiles_video_unique(video_files):
+def nwbfiles_video_unique(video_files: list[tuple[Path, Path]]) -> Path:
     """Create nwbfiles linked with unique set of videos."""
     return _create_nwb_files(video_files)
 
 
 @pytest.fixture()
-def nwbfiles_video_common(video_files):
+def nwbfiles_video_common(video_files: list[tuple[Path, Path]]) -> Path:
     """Create nwbfiles sharing video files."""
     video_list = [video_files[0], video_files[0]]
     return _create_nwb_files(video_list)
