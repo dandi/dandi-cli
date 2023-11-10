@@ -27,7 +27,6 @@ import dandi
 from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
-from dandi.support.digests import get_dandietag, get_digest
 from dandi.utils import yaml_load
 from dandi.validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
@@ -300,6 +299,8 @@ class LocalFileAsset(LocalAsset):
 
     def get_digest(self) -> Digest:
         """Calculate a dandi-etag digest for the asset"""
+        from dandi.support.digests import get_digest
+
         value = get_digest(self.filepath, digest="dandi-etag")
         return Digest.dandi_etag(value)
 
@@ -330,6 +331,8 @@ class LocalFileAsset(LocalAsset):
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
+        from dandi.support.digests import get_dandietag
+
         asset_path = metadata.setdefault("path", self.path)
         client = dandiset.client
         yield {"status": "calculating etag"}

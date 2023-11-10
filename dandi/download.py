@@ -31,7 +31,6 @@ from .dandiarchive import DandisetURL, ParsedDandiURL, SingleAssetURL, parse_dan
 from .dandiset import Dandiset
 from .exceptions import NotFoundError
 from .files import LocalAsset, find_dandi_files
-from .support.digests import get_digest, get_zarr_checksum
 from .support.iterators import IteratorWithAggregation
 from .support.pyout import naturalsize
 from .utils import (
@@ -552,6 +551,8 @@ def _download_file(
       possible checksums or other digests provided for the file. Only one
       will be used to verify download
     """
+    from .support.digests import get_digest
+
     if op.lexists(path):
         annex_path = op.join(toplevel_path, ".git", "annex")
         if existing is DownloadExisting.ERROR:
@@ -854,6 +855,8 @@ def _download_zarr(
     lock: Lock,
     jobs: int | None = None,
 ) -> Iterator[dict]:
+    from .support.digests import get_zarr_checksum
+
     download_gens = {}
     entries = list(asset.iterfiles())
     digests = {}
