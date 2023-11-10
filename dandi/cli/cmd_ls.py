@@ -331,7 +331,7 @@ def get_metadata_ls(
     path, keys, errors, flatten=False, schema=None, use_fake_digest=False
 ):
     from ..dandiset import Dandiset
-    from ..metadata import get_metadata, nwb2asset
+    from ..metadata.nwb import get_metadata, nwb2asset
     from ..pynwb_utils import get_nwb_version, ignore_benign_pynwb_warnings
     from ..support.digests import get_digest
 

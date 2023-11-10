@@ -43,7 +43,7 @@ def get_metadata(
     dict
     """
 
-    from .files import bids, dandi_file, find_bids_dataset_description
+    from ..files import bids, dandi_file, find_bids_dataset_description
 
     # when we run in parallel, these annoying warnings appear
     ignore_benign_pynwb_warnings()
