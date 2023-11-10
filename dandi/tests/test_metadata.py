@@ -35,15 +35,14 @@ from .skip import mark
 from .. import __version__
 from ..consts import metadata_nwb_subject_fields
 from ..dandiapi import RemoteBlobAsset
-from ..metadata import (
+from ..metadata.core import prepare_metadata
+from ..metadata.nwb import get_metadata, nwb2asset
+from ..metadata.util import (
     extract_age,
     extract_cellLine,
     extract_species,
-    get_metadata,
-    nwb2asset,
     parse_age,
     parse_purlobourl,
-    prepare_metadata,
     process_ndtypes,
     species_map,
     timedelta2duration,

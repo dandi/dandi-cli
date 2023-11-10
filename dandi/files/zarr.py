@@ -32,7 +32,7 @@ from dandi.dandiapi import (
     RemoteZarrEntry,
     RESTFullAPIClient,
 )
-from dandi.metadata import get_default_metadata
+from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ZARR_CHECKSUM, BasePath, Digest
 from dandi.support.digests import get_digest, get_zarr_checksum, md5file_nocache
 from dandi.utils import chunked, exclude_from_zarr, pluralize

@@ -25,7 +25,7 @@ import requests
 
 import dandi
 from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
-from dandi.metadata import get_default_metadata, nwb2asset
+from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
 from dandi.support.digests import get_dandietag, get_digest
 from dandi.utils import yaml_load
@@ -466,6 +466,8 @@ class NWBAsset(LocalFileAsset):
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
+        from dandi.metadata.nwb import nwb2asset
+
         try:
             metadata = nwb2asset(self.filepath, digest=digest)
         except Exception as e:

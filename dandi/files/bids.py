@@ -13,7 +13,7 @@ from dandischema.models import BareAsset
 from .bases import GenericAsset, LocalFileAsset, NWBAsset
 from .zarr import ZarrAsset
 from ..consts import ZARR_MIME_TYPE
-from ..metadata import add_common_metadata, prepare_metadata
+from ..metadata.core import add_common_metadata, prepare_metadata
 from ..misctypes import Digest
 from ..validate_types import ValidationResult
 

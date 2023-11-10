@@ -47,7 +47,7 @@ def reextract_metadata(url: str, diff: bool, when: str) -> None:
     Running this command requires the fsspec library to be installed with the
     `http` extra (e.g., `pip install "fsspec[http]"`).
     """
-    from ..metadata import nwb2asset  # Avoid heavy import at top level
+    from ..metadata.nwb import nwb2asset  # Avoid heavy import at top level
 
     parsed_url = parse_dandi_url(url)
     if parsed_url.dandiset_id is None:

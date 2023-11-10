@@ -19,7 +19,6 @@ from . import __version__, get_logger
 from .consts import dandi_layout_fields
 from .dandiset import Dandiset
 from .exceptions import OrganizeImpossibleError
-from .metadata import get_metadata
 from .utils import (
     AnyPath,
     Parallel,
@@ -841,6 +840,8 @@ def organize(
         failed = []
 
         def _get_metadata(path):
+            from .metadata.nwb import get_metadata
+
             try:
                 meta = get_metadata(path)
             except Exception as exc:
