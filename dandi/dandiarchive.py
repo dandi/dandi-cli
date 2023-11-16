@@ -30,13 +30,14 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 import posixpath
 import re
 from time import sleep
-from typing import Any, Union
+from typing import Any
 from urllib.parse import unquote as urlunquote
 
-from pydantic import AnyHttpUrl, BaseModel, parse_obj_as
+from pydantic import AnyHttpUrl, parse_obj_as
 import requests
 
 from . import get_logger
@@ -55,7 +56,8 @@ from .utils import get_instance
 lgr = get_logger()
 
 
-class ParsedDandiURL(ABC, BaseModel):
+@dataclass
+class ParsedDandiURL(ABC):
     """
     Parsed representation of a URL pointing to a Dandi Archive resource
     (Dandiset or asset(s)).  Subclasses must implement `get_assets()`.
@@ -70,11 +72,11 @@ class ParsedDandiURL(ABC, BaseModel):
     #: The Dandi Archive instance that the URL points to
     instance: DandiInstance
     #: The ID of the Dandiset given in the URL
-    dandiset_id: Union[str, None]
+    dandiset_id: str | None
     #: The version of the Dandiset, if specified.  If this is not set, the
     #: version will be defaulted using the rules described under
     #: `DandiAPIClient.get_dandiset()`.
-    version_id: Union[str, None] = None
+    version_id: str | None
 
     @property
     def api_url(self) -> AnyHttpUrl:
@@ -215,6 +217,7 @@ class ParsedDandiURL(ABC, BaseModel):
         ...
 
 
+@dataclass
 class DandisetURL(ParsedDandiURL):
     """
     Parsed from a URL that only refers to a Dandiset (possibly with a version)
@@ -236,6 +239,7 @@ class DandisetURL(ParsedDandiURL):
         return True
 
 
+@dataclass
 class SingleAssetURL(ParsedDandiURL):
     """Superclass for parsed URLs that refer to a single asset"""
 
@@ -248,6 +252,7 @@ class SingleAssetURL(ParsedDandiURL):
         )
 
 
+@dataclass
 class MultiAssetURL(ParsedDandiURL):
     """Superclass for parsed URLs that refer to multiple assets"""
 
@@ -264,12 +269,15 @@ class MultiAssetURL(ParsedDandiURL):
             return path.startswith(self.path)
 
 
+@dataclass
 class BaseAssetIDURL(SingleAssetURL):
     """
     Parsed from a URL that refers to an asset by ID and does not include the
     Dandiset ID
     """
 
+    dandiset_id: None = field(init=False, default=None)
+    version_id: None = field(init=False, default=None)
     asset_id: str
 
     def get_assets(
@@ -313,6 +321,7 @@ class BaseAssetIDURL(SingleAssetURL):
             yield (client, dandiset, assets)
 
 
+@dataclass
 class AssetIDURL(SingleAssetURL):
     """
     Parsed from a URL that refers to an asset by ID and includes the Dandiset ID
@@ -338,6 +347,7 @@ class AssetIDURL(SingleAssetURL):
         yield self.asset_id
 
 
+@dataclass
 class AssetPathPrefixURL(MultiAssetURL):
     """
     Parsed from a URL that refers to a collection of assets by path prefix
@@ -366,6 +376,7 @@ class AssetPathPrefixURL(MultiAssetURL):
             raise NotFoundError(f"No assets found with path prefix {self.path!r}")
 
 
+@dataclass
 class AssetItemURL(SingleAssetURL):
     """Parsed from a URL that refers to a specific asset by path"""
 
@@ -414,6 +425,7 @@ class AssetItemURL(SingleAssetURL):
                 )
 
 
+@dataclass
 class AssetFolderURL(MultiAssetURL):
     """
     Parsed from a URL that refers to a collection of assets by folder path
@@ -446,6 +458,7 @@ class AssetFolderURL(MultiAssetURL):
             raise NotFoundError(f"No assets found under folder {path!r}")
 
 
+@dataclass
 class AssetGlobURL(MultiAssetURL):
     """
     .. versionadded:: 0.54.0
