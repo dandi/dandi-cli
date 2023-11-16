@@ -474,7 +474,7 @@ species_map = [
         "Homo sapiens - Human",
     ),
     (
-        ["norvegicus"],
+        ["rat", "norvegicus"],
         None,
         "http://purl.obolibrary.org/obo/NCBITaxon_10116",
         "Rattus norvegicus - Norway rat",
@@ -484,12 +484,6 @@ species_map = [
         None,
         "http://purl.obolibrary.org/obo/NCBITaxon_10117",
         "Rattus rattus - Black rat",
-    ),
-    (
-        ["rat"],
-        None,
-        "http://purl.obolibrary.org/obo/NCBITaxon_10116",
-        "Rattus norvegicus - Norway rat",
     ),
     (
         ["mulatta", "rhesus"],
