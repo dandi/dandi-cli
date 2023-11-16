@@ -246,11 +246,7 @@ def load_jsonl(filename: AnyPath) -> list:
         return list(map(json.loads, f))
 
 
-_encoded_dirsep = re.escape(os.sep)
-_VCS_REGEX = (
-    rf"{_encoded_dirsep}\.(?:git|gitattributes|svn|bzr|hg)(?:{_encoded_dirsep}|$)"
-)
-_DATALAD_REGEX = rf"{_encoded_dirsep}\.(?:datalad)(?:{_encoded_dirsep}|$)"
+_VCS_NAMES = {".git", ".gitattributes", ".svn", ".bzr", ".hg"}
 
 
 def find_files(
@@ -293,9 +289,10 @@ def find_files(
         path = path.rstrip(op.sep)
         if exclude and re.search(exclude, path):
             return True
-        if exclude_vcs and re.search(_VCS_REGEX, path):
+        parts = Path(path).parts
+        if exclude_vcs and any(p in _VCS_NAMES for p in parts):
             return True
-        if exclude_datalad and re.search(_DATALAD_REGEX, path):
+        if exclude_datalad and any(p == ".datalad" for p in parts):
             return True
         return False
 
