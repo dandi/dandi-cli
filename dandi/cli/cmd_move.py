@@ -44,7 +44,7 @@ from .base import devel_debug_option, instance_option, map_to_click_exceptions
 @devel_debug_option()
 @map_to_click_exceptions
 def move(
-    paths: tuple[str],
+    paths: tuple[str, ...],
     dandiset: str | None,
     dry_run: bool,
     existing: str,
