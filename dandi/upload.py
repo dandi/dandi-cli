@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import ExitStack
+from enum import Enum
 from functools import reduce
 import os.path
 from pathlib import Path
@@ -40,10 +41,30 @@ class Uploaded(TypedDict):
     errors: list[str]
 
 
+class UploadExisting(str, Enum):
+    ERROR = "error"
+    SKIP = "skip"
+    FORCE = "force"
+    OVERWRITE = "overwrite"
+    REFRESH = "refresh"
+
+    def __str__(self) -> str:
+        return self.value
+
+
+class UploadValidation(str, Enum):
+    REQUIRE = "require"
+    SKIP = "skip"
+    IGNORE = "ignore"
+
+    def __str__(self) -> str:
+        return self.value
+
+
 def upload(
-    paths: list[str | Path] | None = None,
-    existing: str = "refresh",
-    validation: str = "require",
+    paths: Sequence[str | Path] | None = None,
+    existing: UploadExisting = UploadExisting.REFRESH,
+    validation: UploadValidation = UploadValidation.REQUIRE,
     dandi_instance: str | DandiInstance = "dandi",
     allow_any_path: bool = False,
     upload_dandiset_metadata: bool = False,
@@ -165,7 +186,10 @@ def upload(
                 # Validate first, so we do not bother server at all if not kosher
                 #
                 # TODO: enable back validation of dandiset.yaml
-                if isinstance(dfile, LocalAsset) and validation != "skip":
+                if (
+                    isinstance(dfile, LocalAsset)
+                    and validation != UploadValidation.SKIP
+                ):
                     yield {"status": "pre-validating"}
                     validation_statuses = dfile.get_validation_errors()
                     validation_errors = [
@@ -174,7 +198,7 @@ def upload(
                     yield {"errors": len(validation_errors)}
                     # TODO: split for dandi, pynwb errors
                     if validation_errors:
-                        if validation == "require":
+                        if validation is UploadValidation.REQUIRE:
                             lgr.warning(
                                 "%r had %d validation errors preventing its upload:",
                                 strpath,
@@ -387,7 +411,7 @@ def upload(
 def check_replace_asset(
     local_asset: LocalAsset,
     remote_asset: RemoteAsset,
-    existing: str,
+    existing: UploadExisting,
     local_etag: Digest | None,
 ) -> tuple[bool, dict[str, str]]:
     # Returns a (replace asset, message to yield) tuple
@@ -414,24 +438,24 @@ def check_replace_asset(
         remote_mtime = None
         remote_file_status = "no mtime"
     exists_msg = f"exists ({remote_file_status})"
-    if existing == "error":
+    if existing is UploadExisting.ERROR:
         # as promised -- not gentle at all!
         raise FileExistsError(exists_msg)
-    if existing == "skip":
+    if existing is UploadExisting.SKIP:
         return (False, skip_file(exists_msg))
     # Logic below only for overwrite and reupload
-    if existing == "overwrite":
+    if existing is UploadExisting.OVERWRITE:
         if remote_etag == local_etag.value:
             return (False, skip_file(exists_msg))
-    elif existing == "refresh":
+    elif existing is UploadExisting.REFRESH:
         if remote_etag == local_etag.value:
             return (False, skip_file("file exists"))
         elif remote_mtime is not None and remote_mtime >= local_mtime:
             return (False, skip_file(exists_msg))
-    elif existing == "force":
+    elif existing is UploadExisting.FORCE:
         pass
     else:
-        raise ValueError(f"invalid value for 'existing': {existing!r}")
+        raise AssertionError(f"Unhandled UploadExisting member: {existing!r}")
     return (True, {"message": f"{exists_msg} - reuploading"})
 
 

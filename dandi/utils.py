@@ -251,7 +251,7 @@ _VCS_NAMES = {".git", ".gitattributes", ".svn", ".bzr", ".hg"}
 
 def find_files(
     regex: str,
-    paths: list[AnyPath] | tuple[AnyPath, ...] | set[AnyPath] | AnyPath = os.curdir,
+    paths: AnyPath | Iterable[AnyPath] = os.curdir,
     exclude: str | None = None,
     exclude_dotfiles: bool = True,
     exclude_dotdirs: bool = True,
@@ -299,7 +299,7 @@ def find_files(
     def good_file(path: str) -> bool:
         return bool(re.search(regex, path)) and not exclude_path(path)
 
-    if isinstance(paths, (list, tuple, set)):
+    if not isinstance(paths, (str, Path)):
         for path in paths:
             if op.isdir(path):
                 yield from find_files(

@@ -3,147 +3,17 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta
 from functools import lru_cache
-import os
-import os.path
-from pathlib import Path
 import re
 from typing import Any, TypedDict, TypeVar
 from uuid import uuid4
 from xml.dom.minidom import parseString
 
 from dandischema import models
-from pydantic import ByteSize, parse_obj_as
 import requests
 import tenacity
 
-from . import __version__, get_logger
-from .consts import metadata_all_fields
-from .misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, Readable
-from .pynwb_utils import (
-    _get_pynwb_metadata,
-    get_neurodata_types,
-    get_nwb_version,
-    ignore_benign_pynwb_warnings,
-    metadata_cache,
-    nwb_has_external_links,
-)
-from .utils import (
-    ensure_datetime,
-    find_parent_directory_containing,
-    get_mime_type,
-    get_utcnow_datetime,
-)
-
-lgr = get_logger()
-
-
-# Disable this for clean hacking
-@metadata_cache.memoize_path
-def get_metadata(
-    path: str | Path | Readable, digest: Digest | None = None
-) -> dict | None:
-    """
-    Get "flatdata" from a .nwb file
-
-    Parameters
-    ----------
-    path: str, Path, or Readable
-
-    Returns
-    -------
-    dict
-    """
-
-    from .files import bids, dandi_file, find_bids_dataset_description
-
-    # when we run in parallel, these annoying warnings appear
-    ignore_benign_pynwb_warnings()
-
-    if isinstance(path, Readable):
-        r = path
-    else:
-        r = LocalReadableFile(os.path.abspath(path))
-
-    meta: dict[str, Any] = {}
-
-    if isinstance(r, LocalReadableFile):
-        # Is the data BIDS (as defined by the presence of a BIDS dataset descriptor)
-        bids_dataset_description = find_bids_dataset_description(r.filepath)
-        if bids_dataset_description:
-            dandiset_path = find_parent_directory_containing(
-                "dandiset.yaml", r.filepath
-            )
-            df = dandi_file(
-                r.filepath,
-                dandiset_path,
-                bids_dataset_description=bids_dataset_description,
-            )
-            assert isinstance(df, bids.BIDSAsset)
-            if not digest:
-                digest = DUMMY_DANDI_ETAG
-            path_metadata = df.get_metadata(digest=digest)
-            meta["bids_version"] = df.get_validation_bids_version()
-            # there might be a more elegant way to do this:
-            if path_metadata.wasAttributedTo is not None:
-                attributed = path_metadata.wasAttributedTo[0]
-                for key in metadata_all_fields:
-                    try:
-                        value = getattr(attributed, key)
-                    except AttributeError:
-                        pass
-                    else:
-                        meta[key] = value
-
-    if r.get_filename().endswith((".NWB", ".nwb")):
-        if nwb_has_external_links(r):
-            raise NotImplementedError(
-                f"NWB files with external links are not supported: {r}"
-            )
-
-        # First read out possibly available versions of specifications for NWB(:N)
-        meta["nwb_version"] = get_nwb_version(r)
-
-        # PyNWB might fail to load because of missing extensions.
-        # There is a new initiative of establishing registry of such extensions.
-        # Not yet sure if PyNWB is going to provide "native" support for needed
-        # functionality: https://github.com/NeurodataWithoutBorders/pynwb/issues/1143
-        # So meanwhile, hard-coded workaround for data types we care about
-        ndtypes_registry = {
-            "AIBS_ecephys": "allensdk.brain_observatory.ecephys.nwb",
-            "ndx-labmetadata-abf": "ndx_dandi_icephys",
-        }
-        tried_imports = set()
-        while True:
-            try:
-                meta.update(_get_pynwb_metadata(r))
-                break
-            except KeyError as exc:  # ATM there is
-                lgr.debug("Failed to read %s: %s", r, exc)
-                res = re.match(r"^['\"\\]+(\S+). not a namespace", str(exc))
-                if not res:
-                    raise
-                ndtype = res.groups()[0]
-                if ndtype not in ndtypes_registry:
-                    raise ValueError(
-                        "We do not know which extension provides %s. "
-                        "Original exception was: %s. " % (ndtype, exc)
-                    )
-                import_mod = ndtypes_registry[ndtype]
-                lgr.debug("Importing %r which should provide %r", import_mod, ndtype)
-                if import_mod in tried_imports:
-                    raise RuntimeError(
-                        "We already tried importing %s to provide %s, but it seems it didn't help"
-                        % (import_mod, ndtype)
-                    )
-                tried_imports.add(import_mod)
-                __import__(import_mod)
-
-        meta["nd_types"] = get_neurodata_types(r)
-    if not meta:
-        raise RuntimeError(
-            f"Unable to get metadata from non-BIDS, non-NWB asset: `{path}`."
-        )
-    return meta
+from .. import __version__
+from ..utils import ensure_datetime
 
 
 def _parse_iso8601(age: str) -> list[str]:
@@ -945,80 +815,6 @@ def process_ndtypes(metadata: models.BareAsset, nd_types: Iterable[str]) -> None
     metadata.variableMeasured = [models.PropertyValue(value=val) for val in variables]
 
 
-def nwb2asset(
-    nwb_path: str | Path | Readable,
-    digest: Digest | None = None,
-    schema_version: str | None = None,
-) -> models.BareAsset:
-    if schema_version is not None:
-        current_version = models.get_schema_version()
-        if schema_version != current_version:
-            raise ValueError(
-                f"Unsupported schema version: {schema_version}; expected {current_version}"
-            )
-    start_time = datetime.now().astimezone()
-    metadata = get_metadata(nwb_path)
-    asset_md = prepare_metadata(metadata)
-    process_ndtypes(asset_md, metadata["nd_types"])
-    end_time = datetime.now().astimezone()
-    add_common_metadata(asset_md, nwb_path, start_time, end_time, digest)
-    asset_md.encodingFormat = "application/x-nwb"
-    # This gets overwritten with a better value by the caller:
-    if isinstance(nwb_path, Readable):
-        asset_md.path = nwb_path.get_filename()
-    else:
-        asset_md.path = str(nwb_path)
-    return asset_md
-
-
-def get_default_metadata(
-    path: str | Path | Readable, digest: Digest | None = None
-) -> models.BareAsset:
-    metadata = models.BareAsset.unvalidated()
-    start_time = end_time = datetime.now().astimezone()
-    add_common_metadata(metadata, path, start_time, end_time, digest)
-    return metadata
-
-
-def add_common_metadata(
-    metadata: models.BareAsset,
-    path: str | Path | Readable,
-    start_time: datetime,
-    end_time: datetime,
-    digest: Digest | None = None,
-) -> None:
-    """
-    Update a `dict` of raw "schemadata" with the fields that are common to both
-    NWB assets and non-NWB assets
-    """
-    if digest is not None:
-        metadata.digest = digest.asdict()
-    else:
-        metadata.digest = {}
-    metadata.dateModified = get_utcnow_datetime()
-    if isinstance(path, Readable):
-        r = path
-    else:
-        r = LocalReadableFile(path)
-    mtime = r.get_mtime()
-    if mtime is not None:
-        metadata.blobDateModified = mtime
-        if mtime > metadata.dateModified:
-            lgr.warning("mtime %s of %s is in the future", mtime, r)
-    size = r.get_size()
-    if digest is not None and digest.algorithm is models.DigestType.dandi_zarr_checksum:
-        m = re.fullmatch(
-            r"(?P<hash>[0-9a-f]{32})-(?P<files>[0-9]+)--(?P<size>[0-9]+)", digest.value
-        )
-        if m:
-            size = int(m["size"])
-    metadata.contentSize = parse_obj_as(ByteSize, size)
-    if metadata.wasGeneratedBy is None:
-        metadata.wasGeneratedBy = []
-    metadata.wasGeneratedBy.append(get_generator(start_time, end_time))
-    metadata.encodingFormat = get_mime_type(r.get_filename())
-
-
 def get_generator(start_time: datetime, end_time: datetime) -> models.Activity:
     return models.Activity(
         id=uuid4().urn,
@@ -1036,16 +832,3 @@ def get_generator(start_time: datetime, end_time: datetime) -> models.Activity:
         startDate=start_time,
         endDate=end_time,
     )
-
-
-def prepare_metadata(metadata: dict) -> models.BareAsset:
-    """
-    Convert "flatdata" [1]_ for an asset into "schemadata" [2]_ as a
-    `BareAsset`
-
-    .. [1] a flat `dict` mapping strings to strings & other primitive types;
-       returned by `get_metadata()`
-
-    .. [2] metadata in the form used by the ``dandischema`` library
-    """
-    return extract_model(models.BareAsset, metadata)

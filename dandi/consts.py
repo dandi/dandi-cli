@@ -138,17 +138,6 @@ known_instances_rev = {
     vv: k for k, v in known_instances.items() for vv in v.urls() if vv
 }
 
-file_operation_modes = [
-    "dry",
-    "simulate",
-    "copy",
-    "move",
-    "hardlink",
-    "symlink",
-    "auto",
-]
-
-
 # Download (upload?) specific constants
 
 #: Chunk size when iterating a download (and upload) body. Taken from girder-cli

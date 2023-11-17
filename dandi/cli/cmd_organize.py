@@ -3,7 +3,8 @@ from __future__ import annotations
 import click
 
 from .base import dandiset_path_option, devel_debug_option, map_to_click_exceptions
-from ..consts import dandi_layout_fields, file_operation_modes
+from ..consts import dandi_layout_fields
+from ..organize import CopyMode, FileOperationMode, OrganizeInvalid
 
 
 @click.command()
@@ -16,7 +17,7 @@ from ..consts import dandi_layout_fields, file_operation_modes
 @click.option(
     "--invalid",
     help="What to do if files without sufficient metadata are encountered.",
-    type=click.Choice(["fail", "warn"]),
+    type=click.Choice(list(OrganizeInvalid)),
     default="fail",
     show_default=True,
 )
@@ -29,7 +30,7 @@ from ..consts import dandi_layout_fields, file_operation_modes
     "If 'auto' - whichever of symlink, hardlink, copy is allowed by system. "
     "The other modes (copy, move, symlink, hardlink) define how data files "
     "should be made available.",
-    type=click.Choice(file_operation_modes),
+    type=click.Choice(list(FileOperationMode)),
     default="auto",
     show_default=True,
 )
@@ -44,7 +45,7 @@ from ..consts import dandi_layout_fields, file_operation_modes
 )
 @click.option(
     "--media-files-mode",
-    type=click.Choice(["copy", "move", "symlink", "hardlink"]),
+    type=click.Choice(list(CopyMode)),
     default=None,
     help="How to relocate video files referenced by NWB files",
 )
@@ -63,16 +64,16 @@ from ..consts import dandi_layout_fields, file_operation_modes
 @devel_debug_option()
 @map_to_click_exceptions
 def organize(
-    paths,
-    required_fields,
-    dandiset_path=None,
-    invalid="fail",
-    files_mode="auto",
-    devel_debug=False,
-    update_external_file_paths=False,
-    media_files_mode=None,
-    jobs=None,
-):
+    paths: tuple[str, ...],
+    required_fields: tuple[str, ...],
+    dandiset_path: str | None,
+    invalid: OrganizeInvalid,
+    files_mode: FileOperationMode,
+    media_files_mode: CopyMode | None,
+    update_external_file_paths: bool,
+    jobs: int | None,
+    devel_debug: bool = False,
+) -> None:
     """(Re)organize files according to the metadata.
 
     The purpose of this command is to take advantage of metadata contained in

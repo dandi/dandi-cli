@@ -19,18 +19,14 @@ from dandischema.models import BareAsset, CommonModel
 from dandischema.models import Dandiset as DandisetMeta
 from dandischema.models import get_schema_version
 from etelemetry import get_project
-from nwbinspector import Importance, inspect_nwbfile, load_config
-from nwbinspector.utils import get_package_version
 from packaging.version import Version
 from pydantic import ValidationError
 import requests
 
 import dandi
 from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
-from dandi.metadata import get_default_metadata, nwb2asset
+from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
-from dandi.pynwb_utils import validate as pynwb_validate
-from dandi.support.digests import get_dandietag, get_digest
 from dandi.utils import yaml_load
 from dandi.validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
@@ -40,7 +36,7 @@ lgr = dandi.get_logger()
 _required_dandiset_metadata_fields = ["identifier", "name", "description"]
 
 
-NWBI_IMPORTANCE_TO_DANDI_SEVERITY: dict[Importance.name, Severity] = {
+NWBI_IMPORTANCE_TO_DANDI_SEVERITY: dict[str, Severity] = {
     "ERROR": Severity.ERROR,
     "PYNWB_VALIDATION": Severity.ERROR,
     "CRITICAL": Severity.ERROR,  # when using --config dandi
@@ -303,6 +299,8 @@ class LocalFileAsset(LocalAsset):
 
     def get_digest(self) -> Digest:
         """Calculate a dandi-etag digest for the asset"""
+        from dandi.support.digests import get_digest
+
         value = get_digest(self.filepath, digest="dandi-etag")
         return Digest.dandi_etag(value)
 
@@ -333,6 +331,8 @@ class LocalFileAsset(LocalAsset):
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
+        from dandi.support.digests import get_dandietag
+
         asset_path = metadata.setdefault("path", self.path)
         client = dandiset.client
         yield {"status": "calculating etag"}
@@ -469,6 +469,8 @@ class NWBAsset(LocalFileAsset):
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
+        from dandi.metadata.nwb import nwb2asset
+
         try:
             metadata = nwb2asset(self.filepath, digest=digest)
         except Exception as e:
@@ -497,6 +499,10 @@ class NWBAsset(LocalFileAsset):
         If ``schema_version`` was provided, we only validate basic metadata,
         and completely skip validation using nwbinspector.inspect_nwbfile
         """
+        from nwbinspector import Importance, inspect_nwbfile, load_config
+
+        from dandi.pynwb_utils import validate as pynwb_validate
+
         errors: list[ValidationResult] = pynwb_validate(
             self.filepath, devel_debug=devel_debug
         )
@@ -710,6 +716,8 @@ _current_nwbinspector_version: str = ""
 
 
 def _get_nwb_inspector_version():
+    from nwbinspector.utils import get_package_version
+
     global _current_nwbinspector_version
     if _current_nwbinspector_version is not None:
         return _current_nwbinspector_version

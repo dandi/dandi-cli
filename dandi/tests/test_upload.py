@@ -20,6 +20,7 @@ from ..download import download
 from ..exceptions import NotFoundError, UploadError
 from ..files import LocalFileAsset
 from ..pynwb_utils import make_nwb_file
+from ..upload import UploadExisting, UploadValidation
 from ..utils import list_paths, yaml_dump
 
 
@@ -66,7 +67,7 @@ def test_upload_extant_existing(
 ) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     with pytest.raises(FileExistsError):
-        text_dandiset.upload(existing="error")
+        text_dandiset.upload(existing=UploadExisting.ERROR)
     iter_upload_spy.assert_not_called()
 
 
@@ -74,22 +75,25 @@ def test_upload_extant_skip(
     mocker: MockerFixture, text_dandiset: SampleDandiset
 ) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
-    text_dandiset.upload(existing="skip")
+    text_dandiset.upload(existing=UploadExisting.SKIP)
     iter_upload_spy.assert_not_called()
 
 
-@pytest.mark.parametrize("existing", ["overwrite", "refresh"])
+@pytest.mark.parametrize("existing", [UploadExisting.OVERWRITE, UploadExisting.REFRESH])
 def test_upload_extant_eq_overwrite(
-    existing: str, mocker: MockerFixture, text_dandiset: SampleDandiset
+    existing: UploadExisting, mocker: MockerFixture, text_dandiset: SampleDandiset
 ) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     text_dandiset.upload(existing=existing)
     iter_upload_spy.assert_not_called()
 
 
-@pytest.mark.parametrize("existing", ["overwrite", "refresh"])
+@pytest.mark.parametrize("existing", [UploadExisting.OVERWRITE, UploadExisting.REFRESH])
 def test_upload_extant_neq_overwrite(
-    existing: str, mocker: MockerFixture, text_dandiset: SampleDandiset, tmp_path: Path
+    existing: UploadExisting,
+    mocker: MockerFixture,
+    text_dandiset: SampleDandiset,
+    tmp_path: Path,
 ) -> None:
     (text_dandiset.dspath / "file.txt").write_text("This is different text.\n")
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
@@ -107,7 +111,7 @@ def test_upload_extant_old_refresh(
     (text_dandiset.dspath / "file.txt").write_text("This is different text.\n")
     os.utime(text_dandiset.dspath / "file.txt", times=(0, 0))
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
-    text_dandiset.upload(existing="refresh")
+    text_dandiset.upload(existing=UploadExisting.REFRESH)
     iter_upload_spy.assert_not_called()
 
 
@@ -115,17 +119,8 @@ def test_upload_extant_force(
     mocker: MockerFixture, text_dandiset: SampleDandiset
 ) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
-    text_dandiset.upload(existing="force")
+    text_dandiset.upload(existing=UploadExisting.FORCE)
     iter_upload_spy.assert_called()
-
-
-def test_upload_extant_bad_existing(
-    mocker: MockerFixture, text_dandiset: SampleDandiset
-) -> None:
-    iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
-    with pytest.raises(ValueError):
-        text_dandiset.upload(existing="foobar")
-    iter_upload_spy.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -189,10 +184,12 @@ def test_upload_bids_invalid(
 ) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     with pytest.raises(UploadError):
-        bids_dandiset_invalid.upload(existing="force")
+        bids_dandiset_invalid.upload(existing=UploadExisting.FORCE)
     iter_upload_spy.assert_not_called()
     # Does validation ignoring work?
-    bids_dandiset_invalid.upload(existing="force", validation="ignore")
+    bids_dandiset_invalid.upload(
+        existing=UploadExisting.FORCE, validation=UploadValidation.IGNORE
+    )
     iter_upload_spy.assert_called()
     # Check existence of assets:
     dandiset = bids_dandiset_invalid.dandiset
@@ -203,7 +200,9 @@ def test_upload_bids_validation_ignore(
     mocker: MockerFixture, bids_dandiset: SampleDandiset
 ) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
-    bids_dandiset.upload(existing="force", validation="ignore")
+    bids_dandiset.upload(
+        existing=UploadExisting.FORCE, validation=UploadValidation.IGNORE
+    )
     # Check whether upload was run
     iter_upload_spy.assert_called()
     # Check existence of assets:
@@ -219,7 +218,7 @@ def test_upload_bids_validation_ignore(
 def test_upload_bids_metadata(
     mocker: MockerFixture, bids_dandiset: SampleDandiset
 ) -> None:
-    bids_dandiset.upload(existing="force")
+    bids_dandiset.upload(existing=UploadExisting.FORCE)
     dandiset = bids_dandiset.dandiset
     # Automatically check all files, heuristic should remain very BIDS-stable
     for asset in dandiset.get_assets(order="path"):
@@ -233,7 +232,7 @@ def test_upload_bids_metadata(
 
 def test_upload_bids(mocker: MockerFixture, bids_dandiset: SampleDandiset) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
-    bids_dandiset.upload(existing="force")
+    bids_dandiset.upload(existing=UploadExisting.FORCE)
     # Check whether upload was run
     iter_upload_spy.assert_called()
     # Check existence of assets:
@@ -352,14 +351,14 @@ def test_upload_different_zarr_entry_conflicts(
     (zf / "changed-size.txt").write_text("This is a test.\n")
     (zf / "changed-type").mkdir()
     (zf / "changed-type" / "file.txt").write_text("This is test text.\n")
-    new_dandiset.upload(validation="skip")
+    new_dandiset.upload(validation=UploadValidation.SKIP)
     rmtree(zf)
     zf.mkdir()
     (zf / "unchanged.txt").write_text("This is will not change.\n")
     (zf / "changed-contents.txt").write_text("This is text version #2.\n")
     (zf / "changed-size.txt").write_text("This is a test of the upload code.\n")
     (zf / "changed-type").write_text("This is now a file.\n")
-    new_dandiset.upload(validation="skip")
+    new_dandiset.upload(validation=UploadValidation.SKIP)
     download(new_dandiset.dandiset.version_api_url, tmp_path)
     assert_dirtrees_eq(zf, tmp_path / new_dandiset.dandiset_id / "sample.zarr")
 
@@ -370,12 +369,12 @@ def test_upload_different_zarr_file_to_parent_dir(
     zf = new_dandiset.dspath / "sample.zarr"
     zf.mkdir()
     (zf / "foo").write_text("This is a file.\n")
-    new_dandiset.upload(validation="skip")
+    new_dandiset.upload(validation=UploadValidation.SKIP)
     rmtree(zf)
     zf.mkdir()
     (zf / "foo").mkdir()
     (zf / "foo" / "bar").write_text("This is under what used to be a file.\n")
-    new_dandiset.upload(validation="skip")
+    new_dandiset.upload(validation=UploadValidation.SKIP)
     download(new_dandiset.dandiset.version_api_url, tmp_path)
     assert_dirtrees_eq(zf, tmp_path / new_dandiset.dandiset_id / "sample.zarr")
 

@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from contextlib import ExitStack
 from dataclasses import dataclass, field
+from enum import Enum
 from itertools import zip_longest
 import os.path
 from pathlib import Path, PurePosixPath
@@ -20,6 +21,26 @@ from .exceptions import NotFoundError
 from .files import DandisetMetadataFile, LocalAsset, find_dandi_files
 
 lgr = get_logger()
+
+
+class MoveExisting(str, Enum):
+    ERROR = "error"
+    SKIP = "skip"
+    OVERWRITE = "overwrite"
+
+    def __str__(self) -> str:
+        return self.value
+
+
+class MoveWorkOn(str, Enum):
+    AUTO = "auto"
+    BOTH = "both"
+    LOCAL = "local"
+    REMOTE = "remote"
+
+    def __str__(self) -> str:
+        return self.value
+
 
 #: A /-separated path to an asset, relative to the root of the Dandiset
 AssetPath = NewType("AssetPath", str)
@@ -84,7 +105,9 @@ class Mover(ABC):
         ...
 
     @abstractmethod
-    def calculate_moves(self, *srcs: str, dest: str, existing: str) -> list[Movement]:
+    def calculate_moves(
+        self, *srcs: str, dest: str, existing: MoveExisting
+    ) -> list[Movement]:
         """
         Given a sequence of input source paths and a destination path, return a
         sorted list of all assets that will be moved/renamed
@@ -93,7 +116,7 @@ class Mover(ABC):
 
     @abstractmethod
     def calculate_moves_by_regex(
-        self, find: str, replace: str, existing: str
+        self, find: str, replace: str, existing: MoveExisting
     ) -> list[Movement]:
         """
         Given a regular expression and a replacement string, return a sorted
@@ -212,7 +235,9 @@ class LocalizedMover(Mover):
             raise ValueError(f"{path!r} is outside of Dandiset")
         return (AssetPath(str(p)), path.endswith("/"))
 
-    def calculate_moves(self, *srcs: str, dest: str, existing: str) -> list[Movement]:
+    def calculate_moves(
+        self, *srcs: str, dest: str, existing: MoveExisting
+    ) -> list[Movement]:
         """
         Given a sequence of input source paths and a destination path, return a
         sorted list of all assets that will be moved/renamed
@@ -285,7 +310,7 @@ class LocalizedMover(Mover):
         return self.compile_moves(moves, existing)
 
     def calculate_moves_by_regex(
-        self, find: str, replace: str, existing: str
+        self, find: str, replace: str, existing: MoveExisting
     ) -> list[Movement]:
         """
         Given a regular expression and a replacement string, return a sorted
@@ -327,7 +352,7 @@ class LocalizedMover(Mover):
         return self.compile_moves(moves, existing)
 
     def compile_moves(
-        self, moves: dict[AssetPath, AssetPath], existing: str
+        self, moves: dict[AssetPath, AssetPath], existing: MoveExisting
     ) -> list[Movement]:
         """
         Given a `dict` mapping source paths to destination paths, produce a
@@ -341,9 +366,9 @@ class LocalizedMover(Mover):
                     " destination is a directory"
                 )
             elif self.is_file(dest):
-                if existing == "overwrite":
+                if existing is MoveExisting.OVERWRITE:
                     motions.append(Movement(src, dest, delete=True))
-                elif existing == "skip":
+                elif existing is MoveExisting.SKIP:
                     motions.append(Movement(src, dest, skip=True))
                 else:
                     raise ValueError(
@@ -685,7 +710,9 @@ class LocalRemoteMover(Mover):
         """
         return "both"
 
-    def calculate_moves(self, *srcs: str, dest: str, existing: str) -> list[Movement]:
+    def calculate_moves(
+        self, *srcs: str, dest: str, existing: MoveExisting
+    ) -> list[Movement]:
         """
         Given a sequence of input source paths and a destination path, return a
         sorted list of all assets that will be moved/renamed
@@ -696,7 +723,7 @@ class LocalRemoteMover(Mover):
         return local_moves
 
     def calculate_moves_by_regex(
-        self, find: str, replace: str, existing: str
+        self, find: str, replace: str, existing: MoveExisting
     ) -> list[Movement]:
         """
         Given a regular expression and a replacement string, return a sorted
@@ -760,10 +787,10 @@ def move(
     *srcs: str,
     dest: str,
     regex: bool = False,
-    existing: str = "error",
+    existing: MoveExisting = MoveExisting.ERROR,
     dandi_instance: str | DandiInstance = "dandi",
     dandiset: Path | str | None = None,
-    work_on: str = "auto",
+    work_on: MoveWorkOn = MoveWorkOn.AUTO,
     devel_debug: bool = False,
     jobs: int | None = None,
     dry_run: bool = False,
@@ -775,9 +802,11 @@ def move(
     with ExitStack() as stack:
         mover: Mover
         client: DandiAPIClient | None = None
-        if work_on == "auto":
-            work_on = "remote" if isinstance(dandiset, str) else "both"
-        if work_on == "both":
+        if work_on is MoveWorkOn.AUTO:
+            work_on = (
+                MoveWorkOn.REMOTE if isinstance(dandiset, str) else MoveWorkOn.BOTH
+            )
+        if work_on is MoveWorkOn.BOTH:
             if isinstance(dandiset, str):
                 raise TypeError("`dandiset` must be a Path when work_on='both'")
             local_ds, subpath = find_dandiset_and_subpath(dandiset)
@@ -797,7 +826,7 @@ def move(
                     local_dandiset_path=Path(local_ds.path),
                 ),
             )
-        elif work_on == "remote":
+        elif work_on is MoveWorkOn.REMOTE:
             if isinstance(dandiset, str):
                 url = parse_dandi_url(dandiset)
                 if not isinstance(url, DandisetURL):
@@ -816,13 +845,13 @@ def move(
                     local_ds.identifier, version_id="draft", lazy=False
                 )
             mover = RemoteMover(dandiset=remote_ds, subpath=subpath)
-        elif work_on == "local":
+        elif work_on is MoveWorkOn.LOCAL:
             if isinstance(dandiset, str):
                 raise TypeError("`dandiset` must be a Path when work_on='both'")
             local_ds, subpath = find_dandiset_and_subpath(dandiset)
             mover = LocalMover(dandiset_path=Path(local_ds.path), subpath=subpath)
         else:
-            raise ValueError(f"Invalid work_on value: {work_on!r}")
+            raise AssertionError(f"Unexpected value for 'work_on': {work_on!r}")
         if regex:
             try:
                 (find,) = srcs

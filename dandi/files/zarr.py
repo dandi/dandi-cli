@@ -15,8 +15,6 @@ from typing import Any
 from dandischema.digests.zarr import get_checksum
 from dandischema.models import BareAsset, DigestType
 import requests
-import zarr
-from zarr_checksum import ZarrChecksumTree
 
 from dandi import get_logger
 from dandi.consts import (
@@ -32,9 +30,8 @@ from dandi.dandiapi import (
     RemoteZarrEntry,
     RESTFullAPIClient,
 )
-from dandi.metadata import get_default_metadata
+from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ZARR_CHECKSUM, BasePath, Digest
-from dandi.support.digests import get_digest, get_zarr_checksum, md5file_nocache
 from dandi.utils import chunked, exclude_from_zarr, pluralize
 
 from .bases import LocalDirectoryAsset
@@ -95,6 +92,9 @@ class LocalZarrEntry(BasePath):
         directory, the algorithm will be the Dandi Zarr checksum algorithm; if
         it is a file, it will be MD5.
         """
+
+        from dandi.support.digests import get_digest, get_zarr_checksum
+
         if self.is_dir():
             return Digest.dandi_zarr(get_zarr_checksum(self.filepath))
         else:
@@ -151,6 +151,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         """Return various details about the Zarr asset"""
 
         def dirstat(dirpath: LocalZarrEntry) -> ZarrStat:
+            from dandi.support.digests import md5file_nocache
+
             size = 0
             dir_md5s = {}
             file_md5s = {}
@@ -175,6 +177,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 
     def get_digest(self) -> Digest:
         """Calculate a dandi-zarr-checksum digest for the asset"""
+        from dandi.support.digests import get_zarr_checksum
+
         return Digest.dandi_zarr(get_zarr_checksum(self.filepath))
 
     def get_metadata(
@@ -192,6 +196,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
+        import zarr
+
         errors: list[ValidationResult] = []
         try:
             data = zarr.open(str(self.filepath))
@@ -281,6 +287,10 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
+        # Importing zarr_checksum leads to importing numpy, which we want to
+        # avoid unless necessary
+        from zarr_checksum import ZarrChecksumTree
+
         # So that older clients don't get away with doing the wrong thing once
         # Zarr upload to embargoed Dandisets is implemented in the API:
         if dandiset.embargo_status is EmbargoStatus.EMBARGOED:
@@ -584,6 +594,8 @@ class EntryUploadTracker:
 
     @staticmethod
     def _mkitem(e: LocalZarrEntry) -> UploadItem:
+        from dandi.support.digests import md5file_nocache
+
         digest = md5file_nocache(e.filepath)
         return UploadItem.from_entry(e, digest)
 
@@ -634,6 +646,8 @@ class UploadItem:
 def _cmp_digests(
     asset_path: str, local_entry: LocalZarrEntry, remote_digest: str
 ) -> tuple[LocalZarrEntry, str, bool]:
+    from dandi.support.digests import md5file_nocache
+
     local_digest = md5file_nocache(local_entry.filepath)
     if local_digest != remote_digest:
         lgr.debug(

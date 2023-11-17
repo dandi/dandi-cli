@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import click
 
 from .base import map_to_click_exceptions
@@ -18,7 +20,7 @@ from .base import map_to_click_exceptions
 )
 @click.argument("paths", nargs=-1, type=click.Path(exists=True))
 @map_to_click_exceptions
-def digest(paths, digest_alg):
+def digest(paths: tuple[str, ...], digest_alg: str) -> None:
     """Calculate file digests"""
     from ..support.digests import get_digest
 
