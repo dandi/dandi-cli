@@ -492,7 +492,7 @@ class AssetGlobURL(MultiAssetURL):
         return asset.path.lstrip("/")
 
     def is_under_download_path(self, path: str) -> bool:
-        # cf. <https://github.com/dandi/dandi-archive/blob/185a583b505bcb0ca990758b26210cd09228e81b/dandiapi/api/views/asset.py#L403-L409>
+        # cf. <https://github.com/dandi/dandi-archive/blob/185a583b505bcb0ca990758b26210cd09228e81b/dandiapi/api/views/asset.py#L403-L409>  # noqa: E501
         return bool(
             re.fullmatch(re.escape(self.path).replace(r"\*", ".*"), path, flags=re.I)
         )
@@ -587,7 +587,8 @@ class _dandi_url_parser:
                 flags=re.I,
             ),
             {"handle_redirect": "pass"},
-            "https://identifiers.org/DANDI:<dandiset id>[/<version id>] (<version id> cannot be 'draft')",
+            "https://identifiers.org/DANDI:<dandiset id>[/<version id>]"
+            " (<version id> cannot be 'draft')",
         ),
         (
             re.compile(
