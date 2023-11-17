@@ -100,7 +100,7 @@ def test_download_000027_metadata_only(url: str, tmp_path: Path) -> None:
 @mark.skipif_no_network
 @pytest.mark.parametrize(
     "url",
-    [  # Should go through AP
+    [  # Should go through API
         "https://dandiarchive.org/dandiset/000027/0.210831.2033",
         # Drafts do not go through API ATM, but that should not be visible to user
         "https://dandiarchive.org/dandiset/000027/draft",
