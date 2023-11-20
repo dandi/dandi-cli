@@ -116,11 +116,13 @@ class DandiInstance:
 # to test against instance running outside of current environment
 instancehost = os.environ.get("DANDI_INSTANCEHOST", "localhost")
 
+# TODO: Aaron: Abstract as env variables that domains can be sent as
+# TODO: Also add docs for what each of these values should map to
 known_instances = {
     "dandi": DandiInstance(
         "dandi",
-        "https://dandiarchive.org",
-        "https://api.dandiarchive.org/api",
+        "https://lincbrain.org",
+        "https://api.lincbrain.org/api",
     ),
     "dandi-staging": DandiInstance(
         "dandi-staging",
@@ -133,6 +135,7 @@ known_instances = {
         f"http://{instancehost}:8000/api",
     ),
 }
+
 # to map back url: name
 known_instances_rev = {
     vv: k for k, v in known_instances.items() for vv in v.urls() if vv
