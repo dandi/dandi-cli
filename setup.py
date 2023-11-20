@@ -31,7 +31,7 @@ try:
     cmdclass = versioneer.get_cmdclass()
 except ImportError:
     print("WARNING: failed to import versioneer, falling back to no version for now")
-    version_config = "0.1.0"  # Fallback version
+    version_config = "0.4.0"  # Fallback version
     cmdclass = {}
 
 # Ensure the version is PEP 440 compliant
@@ -41,6 +41,6 @@ if '+' in version_config:
 if __name__ == "__main__":
     setup(
         name="lincbrain",
-        version="0.1.0",
+        version=version_config,
         cmdclass=cmdclass,
     )
