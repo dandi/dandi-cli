@@ -27,15 +27,20 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 try:
     import versioneer
-
-    setup_kw = {
-        "version": versioneer.get_version(),
-        "cmdclass": versioneer.get_cmdclass(),
-    }
+    version_config = versioneer.get_version()
+    cmdclass = versioneer.get_cmdclass()
 except ImportError:
-    # see https://github.com/warner/python-versioneer/issues/192
     print("WARNING: failed to import versioneer, falling back to no version for now")
-    setup_kw = {}
+    version_config = "0.1.0"  # Fallback version
+    cmdclass = {}
+
+# Ensure the version is PEP 440 compliant
+if '+' in version_config:
+    version_config = version_config.split('+')[0]
 
 if __name__ == "__main__":
-    setup(name="lincbrain", **setup_kw)
+    setup(
+        name="lincbrain",
+        version="0.1.0",
+        cmdclass=cmdclass,
+    )
