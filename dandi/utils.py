@@ -115,7 +115,7 @@ def get_utcnow_datetime(microseconds: bool = True) -> datetime.datetime:
 
     If string representation is desired, just "apply" .isoformat()
     """
-    ret = datetime.datetime.now(datetime.UTC).astimezone()
+    ret = datetime.datetime.now(datetime.timezone.utc).astimezone()
     if microseconds:
         return ret
     else:
