@@ -31,6 +31,7 @@ from .dandiarchive import DandisetURL, ParsedDandiURL, SingleAssetURL, parse_dan
 from .dandiset import Dandiset
 from .exceptions import NotFoundError
 from .files import LocalAsset, find_dandi_files
+from .support.digests import check_digests
 from .support.iterators import IteratorWithAggregation
 from .support.pyout import naturalsize
 from .utils import (
@@ -585,19 +586,7 @@ def _download_file(
                         "%s is in git-annex, and hash does not match hash on server; redownloading",
                         path,
                     )
-            elif (
-                digests is not None
-                and "dandi-etag" in digests
-                and get_digest(path, "dandi-etag") == digests["dandi-etag"]
-            ):
-                yield _skip_file("already exists")
-                return
-            elif (
-                digests is not None
-                and "dandi-etag" not in digests
-                and "md5" in digests
-                and get_digest(path, "md5") == digests["md5"]
-            ):
+            elif digests is not None and check_digests(path, digests):
                 yield _skip_file("already exists")
                 return
             else:
@@ -607,24 +596,33 @@ def _download_file(
         elif existing is DownloadExisting.REFRESH:
             if op.lexists(annex_path):
                 raise RuntimeError("Not refreshing path in git annex repository")
-            if mtime is None:
-                lgr.warning(
-                    f"{path!r} - no mtime or ctime in the record, redownloading"
-                )
-            else:
-                stat = os.stat(op.realpath(path))
-                same = []
-                if is_same_time(stat.st_mtime, mtime):
-                    same.append("mtime")
-                if size is not None and stat.st_size == size:
-                    same.append("size")
-                # TODO: use digests if available? or if e.g. size is identical
-                # but mtime is different
-                if same == ["mtime", "size"]:
-                    # TODO: add recording and handling of .nwb object_id
-                    yield _skip_file("same time and size")
+
+            # if we have digests, check those, skipping mtime and size check if it fails
+            # (if the hash fails, mtime and size checking is by definition a false positive)
+            if digests is not None and len(digests) > 0:
+                if check_digests(path, digests):
+                    yield _skip_file("already exists")
                     return
-                lgr.debug(f"{path!r} - same attributes: {same}.  Redownloading")
+                lgr.debug(f"{path!r} - hashes dont match. Redownloading")
+
+            # otherwise, compare using mtime and size
+            else:
+                if mtime is None:
+                    lgr.warning(
+                        f"{path!r} - no mtime or ctime in the record, redownloading"
+                    )
+                else:
+                    stat = os.stat(op.realpath(path))
+                    same = []
+                    if is_same_time(stat.st_mtime, mtime):
+                        same.append("mtime")
+                    if size is not None and stat.st_size == size:
+                        same.append("size")
+                    if same == ["mtime", "size"]:
+                        # TODO: add recording and handling of .nwb object_id
+                        yield _skip_file("same time and size")
+                        return
+                    lgr.debug(f"{path!r} - same attributes: {same}.  Redownloading")
 
     if size is not None:
         yield {"size": size}

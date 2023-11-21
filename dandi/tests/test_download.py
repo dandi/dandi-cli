@@ -31,6 +31,7 @@ from ..download import (
 )
 from ..exceptions import NotFoundError
 from ..utils import list_paths
+from ..support.digests import check_digests
 
 
 # both urls point to 000027 (lean test dataset), and both draft and "released"
@@ -145,6 +146,51 @@ def test_download_000027_resume(
     ]
     assert nwb.stat().st_size == size
     assert digester(str(nwb)) == digests
+
+
+@mark.skipif_no_network
+@pytest.mark.parametrize(
+    "dlmode", (DownloadExisting.OVERWRITE_DIFFERENT, DownloadExisting.REFRESH)
+)
+def test_download_000027_digest(tmp_path: Path, dlmode):
+    from ..support.digests import Digester
+
+    # Should redownload if size and mtime match but content doesn't match
+    digester = Digester()
+    url = f"https://dandiarchive.org/dandiset/000027/0.210831.2033"
+    download(url, tmp_path, get_metadata=False)
+    dsdir = tmp_path / "000027"
+    nwb = dsdir / "sub-RAT123" / "sub-RAT123.nwb"
+    digests = digester(str(nwb))
+
+    # should pass if we just downloaded
+    assert check_digests(nwb, digests)
+
+    size = nwb.stat().st_size
+    mtime = nwb.stat().st_mtime
+
+    # write all-zeros with same size and same mtime
+    with open(nwb, "wb") as nwbfile:
+        nwbfile.write(b"\0" * size)
+    os.utime(nwb, (time.time(), mtime))
+
+    assert nwb.stat().st_size == size
+    assert nwb.stat().st_mtime == mtime
+
+    # now should fail
+    zero_digests = digester(str(nwb))
+    for dtype in zero_digests.keys():
+        assert zero_digests[dtype] != digests[dtype]
+    assert not check_digests(nwb, digester(str(nwb)))
+
+    # should redownload even if the size and mtime match
+    download(url, tmp_path, existing=dlmode)
+
+    # should pass again
+    redownload_digests = digester(str(nwb))
+    for dtype in redownload_digests.keys():
+        assert redownload_digests[dtype] == digest[dtype]
+    assert check_digests(nwb, redownload_digests)
 
 
 def test_download_newest_version(text_dandiset: SampleDandiset, tmp_path: Path) -> None:

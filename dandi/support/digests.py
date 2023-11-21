@@ -137,3 +137,41 @@ def md5file_nocache(filepath: str | Path) -> str:
     present in Zarrs
     """
     return Digester(["md5"])(filepath)["md5"]
+
+
+DIGEST_PRIORITY = ("dandi-etag", "zarr-checksum", "sha512", "sha256", "sha1", "md5")
+"""
+Default order to check file digests against.
+"""
+
+
+def check_digests(
+    filepath: str | Path,
+    digests: dict[str, str],
+    priority: tuple[str, ...] = DIGEST_PRIORITY,
+) -> bool:
+    """
+    Given some set of digests from DANDI metadata, eg that given by
+    :meth:`~dandi.download.Downloader.download_generator` to ``_download_file`` ,
+    check that a file matches.
+
+    Only check the first digest that is present in ``digests`` , rather than
+    checking all and returning if any are ``True`` - save compute time and
+    honor the notion of priority - some hash algos are better than others.
+    """
+
+    # find the digest type to use
+    digest_type = None
+    digest = None
+    for dtype in priority:
+        if dtype in digests.keys():
+            digest_type = dtype
+            digest = digests[dtype]
+            break
+    if digest_type is None:
+        raise RuntimeError(
+            f"No digest found matching those in priority list. Got {digests.keys()} digests with priority list {priority}"
+        )
+
+    # return simple comparison
+    return get_digest(filepath, digest_type) == digest

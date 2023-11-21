@@ -9,10 +9,11 @@
 
 from pathlib import Path
 
+import pytest
 from pytest_mock import MockerFixture
 
 from .. import digests
-from ..digests import Digester, get_zarr_checksum
+from ..digests import Digester, get_zarr_checksum, check_digests
 
 
 def test_digester(tmp_path):
@@ -50,6 +51,40 @@ def test_digester(tmp_path):
         "35e1d405ff1dc2763e433d69b8f299b3f4da500663b813ce176a43e29ffc"
         "c31b0159",
     }
+
+
+def test_check_digests(tmp_path: Path):
+    # we should return True if the highest matching priority digest matches
+    # the file digest, and false otherwise.
+    f = tmp_path / "long.txt"
+    f.write_bytes(b"123abz\n" * 1000000)
+
+    # all hashes correct
+    hashes = {
+        "md5": "81b196e3d8a1db4dd2e89faa39614396",
+        "sha1": "5273ac6247322c3c7b4735a6d19fd4a5366e812f",
+        "sha256": "80028815b3557e30d7cbef1d8dbc30af0ec0858eff34b960d2839fd88ad08871",
+        "sha512": "684d23393eee455f44c13ab00d062980937a5d040259d69c6b291c983bf6"
+        "35e1d405ff1dc2763e433d69b8f299b3f4da500663b813ce176a43e29ffc"
+        "c31b0159",
+    }
+    assert check_digests(f, hashes)
+
+    # all hashes incorrect
+    assert not check_digests(
+        f, {"sha512": "notreal", "sha256": "notreal", "md5": "notreal"}
+    )
+
+    # lower priority hash incorrect should still pass
+    hashes["md5"] = "wronghash"
+    assert check_digests(f, hashes)
+
+    # putting incorrect hash at higher priority fails
+    assert not check_digests(f, hashes, priority=("md5", "sha512"))
+
+    # if we don't have any matching digests, raise
+    with pytest.raises(RuntimeError):
+        check_digests(f, hashes, priority=("notreal", "fakehashtype"))
 
 
 def test_get_zarr_checksum(mocker: MockerFixture, tmp_path: Path) -> None:
