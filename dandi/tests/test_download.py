@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import json
+import logging
 import os
 import os.path
 from pathlib import Path
@@ -30,8 +31,8 @@ from ..download import (
     download,
 )
 from ..exceptions import NotFoundError
-from ..utils import list_paths
 from ..support.digests import check_digests
+from ..utils import list_paths
 
 
 # both urls point to 000027 (lean test dataset), and both draft and "released"
@@ -152,12 +153,15 @@ def test_download_000027_resume(
 @pytest.mark.parametrize(
     "dlmode", (DownloadExisting.OVERWRITE_DIFFERENT, DownloadExisting.REFRESH)
 )
-def test_download_000027_digest(tmp_path: Path, dlmode):
+def test_download_000027_digest(tmp_path: Path, dlmode, caplog):
     from ..support.digests import Digester
+
+    # capture logs to test whether downloads happen
+    caplog.set_level(logging.DEBUG, logger="dandi")
 
     # Should redownload if size and mtime match but content doesn't match
     digester = Digester()
-    url = f"https://dandiarchive.org/dandiset/000027/0.210831.2033"
+    url = "https://dandiarchive.org/dandiset/000027/0.210831.2033"
     download(url, tmp_path, get_metadata=False)
     dsdir = tmp_path / "000027"
     nwb = dsdir / "sub-RAT123" / "sub-RAT123.nwb"
@@ -174,23 +178,36 @@ def test_download_000027_digest(tmp_path: Path, dlmode):
         nwbfile.write(b"\0" * size)
     os.utime(nwb, (time.time(), mtime))
 
-    assert nwb.stat().st_size == size
-    assert nwb.stat().st_mtime == mtime
-
-    # now should fail
+    # now original digests should fail since it's a bunch of zeros
     zero_digests = digester(str(nwb))
     for dtype in zero_digests.keys():
         assert zero_digests[dtype] != digests[dtype]
-    assert not check_digests(nwb, digester(str(nwb)))
+    assert not check_digests(nwb, digests)
+    assert check_digests(nwb, zero_digests)
 
     # should redownload even if the size and mtime match
+    assert nwb.stat().st_size == size
+    assert nwb.stat().st_mtime == mtime
     download(url, tmp_path, existing=dlmode)
+    # this is a super fragile test, but can't think of a better way to
+    # unambiguously test for a download since access time should be modified by
+    # checking digests and creation time is apparently unreliable across platforms
+    #
+    # get the last 5 log messages and check for signs of redownloading
+    last_5 = " ".join([entry[-1] for entry in caplog.record_tuples[-5:]])
+    assert "redownloading" in last_5.lower()
+    assert "successfully downloaded" in last_5.lower()
 
     # should pass again
     redownload_digests = digester(str(nwb))
     for dtype in redownload_digests.keys():
-        assert redownload_digests[dtype] == digest[dtype]
-    assert check_digests(nwb, redownload_digests)
+        assert redownload_digests[dtype] == digests[dtype]
+    assert check_digests(nwb, digests)
+
+    # shouldn't download again since the file hasn't changed
+    download(url, tmp_path, existing=dlmode)
+    last_5 = " ".join([entry[-1] for entry in caplog.record_tuples[-5:]])
+    assert "already exists" in last_5.lower()
 
 
 def test_download_newest_version(text_dandiset: SampleDandiset, tmp_path: Path) -> None:

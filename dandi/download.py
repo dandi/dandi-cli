@@ -31,7 +31,6 @@ from .dandiarchive import DandisetURL, ParsedDandiURL, SingleAssetURL, parse_dan
 from .dandiset import Dandiset
 from .exceptions import NotFoundError
 from .files import LocalAsset, find_dandi_files
-from .support.digests import check_digests
 from .support.iterators import IteratorWithAggregation
 from .support.pyout import naturalsize
 from .utils import (
@@ -552,7 +551,12 @@ def _download_file(
       possible checksums or other digests provided for the file. Only one
       will be used to verify download
     """
-    from .support.digests import get_digest
+    from .support.digests import check_digests
+
+    # passing empty digests is the same as not passing them,
+    # simplify later checks
+    if digests is not None and len(digests) == 0:
+        digests = None
 
     if op.lexists(path):
         annex_path = op.join(toplevel_path, ".git", "annex")
@@ -579,6 +583,7 @@ def _download_file(
                 and "sha256" in digests
             ):
                 if key_parts[-1].partition(".")[0] == digests["sha256"]:
+                    lgr.debug("already exists - matching digest in filename")
                     yield _skip_file("already exists")
                     return
                 else:
@@ -587,6 +592,7 @@ def _download_file(
                         path,
                     )
             elif digests is not None and check_digests(path, digests):
+                lgr.debug("already exists - matching digest")
                 yield _skip_file("already exists")
                 return
             else:
@@ -597,31 +603,52 @@ def _download_file(
             if op.lexists(annex_path):
                 raise RuntimeError("Not refreshing path in git annex repository")
 
-            # if we have digests, check those, skipping mtime and size check if it fails
-            # (if the hash fails, mtime and size checking is by definition a false positive)
-            if digests is not None and len(digests) > 0:
-                if check_digests(path, digests):
+            # If we have no expected mtime, warn and check file digests if present
+            if mtime is None:
+                if digests is not None and check_digests(path, digests):
+                    lgr.debug("already exists - matching digest")
                     yield _skip_file("already exists")
                     return
-                lgr.debug(f"{path!r} - hashes dont match. Redownloading")
-
-            # otherwise, compare using mtime and size
-            else:
-                if mtime is None:
-                    lgr.warning(
-                        f"{path!r} - no mtime or ctime in the record, redownloading"
-                    )
                 else:
-                    stat = os.stat(op.realpath(path))
-                    same = []
-                    if is_same_time(stat.st_mtime, mtime):
-                        same.append("mtime")
-                    if size is not None and stat.st_size == size:
-                        same.append("size")
-                    if same == ["mtime", "size"]:
-                        # TODO: add recording and handling of .nwb object_id
-                        yield _skip_file("same time and size")
+                    lgr.warning(
+                        f"{path!r} - no mtime or ctime in the record and digests don't match, "
+                        f"redownloading"
+                    )
+
+            # Otherwise, first check against size and mtime because that's fast.
+            # if they don't match, always redownload.
+            # If they do match, only redownload if we have digests and they don't match
+            else:
+                stat = os.stat(op.realpath(path))
+                same = []
+                if is_same_time(stat.st_mtime, mtime):
+                    same.append("mtime")
+                if size is not None and stat.st_size == size:
+                    same.append("size")
+                if same == ["mtime", "size"]:
+                    # TODO: add recording and handling of .nwb object_id
+                    # if we have digests, check those before deciding not to redownload
+                    if digests is not None and check_digests(path, digests):
+                        lgr.debug("already exists - same time, size, and digest")
+                        yield _skip_file("already exists - same time, size, and digest")
                         return
+
+                    # if we don't have digests but size and mtime match, don't redownload
+                    elif digests is None or len(digests) == 0:
+                        lgr.debug(
+                            "already exists - same time and size, but missing digests"
+                        )
+                        yield _skip_file(
+                            "already exists - same time and size, but missing digests"
+                        )
+                        return
+
+                    # otherwise we're redownloading
+                    else:
+                        lgr.debug(
+                            f"{path!r} - same time and size, but hashes dont match. Redownloading"
+                        )
+                else:
                     lgr.debug(f"{path!r} - same attributes: {same}.  Redownloading")
 
     if size is not None:
