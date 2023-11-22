@@ -25,22 +25,22 @@ if sys.version_info < (3,):
 # therein for more information.
 sys.path.insert(0, os.path.dirname(__file__))
 
-try:
-    import versioneer
-    version_config = versioneer.get_version()
-    cmdclass = versioneer.get_cmdclass()
-except ImportError:
-    print("WARNING: failed to import versioneer, falling back to no version for now")
-    version_config = "0.4.0"  # Fallback version
-    cmdclass = {}
+# try:
+#     import versioneer
+#     version_config = versioneer.get_version()
+#     cmdclass = versioneer.get_cmdclass()
+# except ImportError:
+#     print("WARNING: failed to import versioneer, falling back to no version for now")
+#     version_config = "0.4.0"  # Fallback version
+#     cmdclass = {}
 
 # Ensure the version is PEP 440 compliant
-if '+' in version_config:
-    version_config = version_config.split('+')[0]
+# if '+' in version_config:
+#     version_config = version_config.split('+')[0]
 
 if __name__ == "__main__":
     setup(
         name="lincbrain",
-        version=version_config,
-        cmdclass=cmdclass,
+        version="0.6.0",
+        cmdclass={},
     )

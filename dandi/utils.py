@@ -610,10 +610,10 @@ def _get_instance(
             f" please contact that server's administrators: {e}"
         )
     our_version = Version(__version__)
-    if our_version < minversion:
-        raise CliVersionTooOldError(our_version, minversion, bad_versions)
-    if our_version in bad_versions:
-        raise BadCliVersionError(our_version, minversion, bad_versions)
+#     if our_version < minversion:
+#         raise CliVersionTooOldError(our_version, minversion, bad_versions)
+#     if our_version in bad_versions:
+#         raise BadCliVersionError(our_version, minversion, bad_versions)
     api_url = server_info.services.api.url
     if dandi_id is None:
         dandi_id = api_url.host
