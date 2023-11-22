@@ -170,8 +170,9 @@ def check_digests(
             break
     if digest_type is None:
         raise RuntimeError(
-            f"No digest found matching those in priority list. Got {digests.keys()} digests with priority list {priority}"
+            f"No digest found matching those in priority list. "
+            f"Got {digests.keys()} digests with priority list {priority}"
         )
 
     # return simple comparison
-    return get_digest(filepath, digest_type) == digest
+    return bool(get_digest(filepath, digest_type) == digest)

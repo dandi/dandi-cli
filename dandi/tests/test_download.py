@@ -153,7 +153,9 @@ def test_download_000027_resume(
 @pytest.mark.parametrize(
     "dlmode", (DownloadExisting.OVERWRITE_DIFFERENT, DownloadExisting.REFRESH)
 )
-def test_download_000027_digest(tmp_path: Path, dlmode, caplog):
+def test_download_000027_digest(
+    tmp_path: Path, dlmode: DownloadExisting, caplog: pytest.LogCaptureFixture
+) -> None:
     from ..support.digests import Digester
 
     # capture logs to test whether downloads happen

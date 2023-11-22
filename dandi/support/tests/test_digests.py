@@ -13,7 +13,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from .. import digests
-from ..digests import Digester, get_zarr_checksum, check_digests
+from ..digests import Digester, check_digests, get_zarr_checksum
 
 
 def test_digester(tmp_path):
@@ -53,7 +53,7 @@ def test_digester(tmp_path):
     }
 
 
-def test_check_digests(tmp_path: Path):
+def test_check_digests(tmp_path: Path) -> None:
     # we should return True if the highest matching priority digest matches
     # the file digest, and false otherwise.
     f = tmp_path / "long.txt"
