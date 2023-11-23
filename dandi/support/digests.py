@@ -139,10 +139,8 @@ def md5file_nocache(filepath: str | Path) -> str:
     return Digester(["md5"])(filepath)["md5"]
 
 
+#: Default order to prioritize digest types for :func:`.check_digests`
 DIGEST_PRIORITY = ("dandi-etag", "sha512", "sha256", "sha1", "md5")
-"""
-Default order to prioritize digest types for :func:`.check_digests`
-"""
 
 
 def check_digests(
