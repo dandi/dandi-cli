@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import json
-import logging
 import os
 import os.path
 from pathlib import Path
@@ -31,7 +30,7 @@ from ..download import (
     download,
 )
 from ..exceptions import NotFoundError
-from ..support.digests import check_digests
+from ..support.digests import Digester, check_digests
 from ..utils import list_paths
 
 
@@ -156,11 +155,6 @@ def test_download_000027_resume(
 def test_download_000027_digest(
     tmp_path: Path, dlmode: DownloadExisting, caplog: pytest.LogCaptureFixture
 ) -> None:
-    from ..support.digests import Digester
-
-    # capture logs to test whether downloads happen
-    caplog.set_level(logging.DEBUG, logger="dandi")
-
     # Should redownload if size and mtime match but content doesn't match
     digester = Digester()
     url = "https://dandiarchive.org/dandiset/000027/0.210831.2033"

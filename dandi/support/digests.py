@@ -139,9 +139,9 @@ def md5file_nocache(filepath: str | Path) -> str:
     return Digester(["md5"])(filepath)["md5"]
 
 
-DIGEST_PRIORITY = ("dandi-etag", "zarr-checksum", "sha512", "sha256", "sha1", "md5")
+DIGEST_PRIORITY = ("dandi-etag", "sha512", "sha256", "sha1", "md5")
 """
-Default order to check file digests against.
+Default order to prioritize digest types for :func:`.check_digests`
 """
 
 
@@ -151,28 +151,29 @@ def check_digests(
     priority: tuple[str, ...] = DIGEST_PRIORITY,
 ) -> bool:
     """
-    Given some set of digests from DANDI metadata, eg that given by
+    Given some set of digests from DANDI metadata, e.g., that given by
     :meth:`~dandi.download.Downloader.download_generator` to ``_download_file`` ,
-    check that a file matches.
+    check that a file matches the highest priority digest.
 
-    Only check the first digest that is present in ``digests`` , rather than
-    checking all and returning if any are ``True`` - save compute time and
-    honor the notion of priority - some hash algos are better than others.
+    Parameters
+    ----------
+    filepath : str, :class:`pathlib.Path`
+        File to checksum
+    digests : dict
+        Digest hashes to check against, with keys matching entries in ``priority``
+    priority : list(str), tuple(str)
+        Order of hashes to check, highest priority first. Default :const:`.DIGEST_PRIORITY`
     """
 
     # find the digest type to use
-    digest_type = None
-    digest = None
-    for dtype in priority:
-        if dtype in digests.keys():
-            digest_type = dtype
-            digest = digests[dtype]
-            break
-    if digest_type is None:
+    try:
+        digest_type = next(dtype for dtype in priority if dtype in digests)
+    except StopIteration:
         raise RuntimeError(
-            f"No digest found matching those in priority list. "
-            f"Got {digests.keys()} digests with priority list {priority}"
+            f"No digest found matching those in priority list."
+            f"\ndigests: {', '.join(digests.keys())}"
+            f"\npriority: {', '.join(priority)}"
         )
+    digest = digests[digest_type]
 
-    # return simple comparison
     return bool(get_digest(filepath, digest_type) == digest)
