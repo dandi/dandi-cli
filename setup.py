@@ -41,6 +41,6 @@ sys.path.insert(0, os.path.dirname(__file__))
 if __name__ == "__main__":
     setup(
         name="lincbrain",
-        version="0.6.0",
+        version="0.9.0",
         cmdclass={},
     )

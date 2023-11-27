@@ -17,15 +17,15 @@
 
 # -- Project information -----------------------------------------------------
 
-import dandi
+import lincbrain
 
-project = "dandi"
+project = "lincbrain"
 copyright = "2021-2023, DANDI Team"
 author = "DANDI Team"
 
 # The full version, including alpha/beta/rc tags
-version = dandi.__version__
-release = dandi.__version__
+version = lincbrain.__version__
+release = lincbrain.__version__
 
 
 # -- General configuration ---------------------------------------------------
