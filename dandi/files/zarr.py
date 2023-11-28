@@ -15,6 +15,7 @@ from typing import Any
 from dandischema.digests.zarr import get_checksum
 from dandischema.models import BareAsset, DigestType
 import requests
+from zarr_checksum.tree import ZarrChecksumTree
 
 from dandi import get_logger
 from dandi.consts import (
@@ -287,10 +288,6 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
-        # Importing zarr_checksum leads to importing numpy, which we want to
-        # avoid unless necessary
-        from zarr_checksum import ZarrChecksumTree
-
         # So that older clients don't get away with doing the wrong thing once
         # Zarr upload to embargoed Dandisets is implemented in the API:
         if dandiset.embargo_status is EmbargoStatus.EMBARGOED:

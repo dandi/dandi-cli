@@ -1,3 +1,43 @@
+# 0.58.1 (Mon Nov 27 2023)
+
+#### 🐛 Bug Fix
+
+- Add Python 3.12 to supported versions and test against on GitHub Actions; upgrade versioneer [#1330](https://github.com/dandi/dandi-cli/pull/1330) ([@yarikoptic](https://github.com/yarikoptic))
+- Minor fix for an occasional typo in a comment introduced recently [#1357](https://github.com/dandi/dandi-cli/pull/1357) ([@yarikoptic](https://github.com/yarikoptic))
+- Replace magic string arguments with enums [#1357](https://github.com/dandi/dandi-cli/pull/1357) ([@jwodder](https://github.com/jwodder))
+- Merge duplicate entries in species_map [#1358](https://github.com/dandi/dandi-cli/pull/1358) ([@garrettmflynn](https://github.com/garrettmflynn))
+- Sanitize spaces and ,s in organized filenames [#1351](https://github.com/dandi/dandi-cli/pull/1351) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Remove unused configuration settings [#1346](https://github.com/dandi/dandi-cli/pull/1346) ([@jwodder](https://github.com/jwodder))
+- find_files: Simplify check for VCS and DataLad paths [#1355](https://github.com/dandi/dandi-cli/pull/1355) ([@jwodder](https://github.com/jwodder))
+- Convert dandiarchive URL classes from pydantic models to dataclasses [#1356](https://github.com/dandi/dandi-cli/pull/1356) ([@jwodder](https://github.com/jwodder))
+- Replace `_pytest` imports with modern `pytest` imports [#1347](https://github.com/dandi/dandi-cli/pull/1347) ([@jwodder](https://github.com/jwodder))
+- Remove `_order_` attribute from `Severity` enum [#1348](https://github.com/dandi/dandi-cli/pull/1348) ([@jwodder](https://github.com/jwodder))
+- Use dataclass instead of `auto_repr` [#1349](https://github.com/dandi/dandi-cli/pull/1349) ([@jwodder](https://github.com/jwodder))
+- Run `pyupgrade --py38-plus` on source [#1350](https://github.com/dandi/dandi-cli/pull/1350) ([@jwodder](https://github.com/jwodder))
+- Modernize type annotations and improve mypy config [#1343](https://github.com/dandi/dandi-cli/pull/1343) ([@jwodder](https://github.com/jwodder))
+- Move words ignored by codespell from `.codespellignore` to `setup.cfg` [#1344](https://github.com/dandi/dandi-cli/pull/1344) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Install also hdmf from git in the dev-deps CI run [#1320](https://github.com/dandi/dandi-cli/pull/1320) ([@yarikoptic](https://github.com/yarikoptic))
+- Fix typing error [#1359](https://github.com/dandi/dandi-cli/pull/1359) ([@jwodder](https://github.com/jwodder))
+
+#### 🔩 Dependency Updates
+
+- Update for `zarr_checksum` 0.2.12 [#1365](https://github.com/dandi/dandi-cli/pull/1365) ([@jwodder](https://github.com/jwodder))
+- Replace appdirs with platformdirs [#1345](https://github.com/dandi/dandi-cli/pull/1345) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 3
+
+- Garrett Michael Flynn ([@garrettmflynn](https://github.com/garrettmflynn))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.58.0 (Wed Nov 08 2023)
 
 #### 🚀 Enhancement

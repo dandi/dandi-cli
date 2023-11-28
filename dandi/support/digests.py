@@ -24,6 +24,7 @@ from pathlib import Path
 
 from dandischema.digests.dandietag import DandiETag
 from fscacher import PersistentCache
+from zarr_checksum.tree import ZarrChecksumTree
 
 from .threaded_walk import threaded_walk
 from ..utils import Hasher, exclude_from_zarr
@@ -104,10 +105,6 @@ def get_zarr_checksum(path: Path, known: dict[str, str] | None = None) -> str:
     passed in the ``known`` argument, which must be a `dict` mapping
     slash-separated paths relative to the root of the Zarr to hex digests.
     """
-    # Importing zarr_checksum leads to importing numpy, which we want to avoid
-    # unless necessary
-    from zarr_checksum import ZarrChecksumTree
-
     if path.is_file():
         s = get_digest(path, "md5")
         assert isinstance(s, str)
