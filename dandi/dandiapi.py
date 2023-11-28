@@ -24,6 +24,7 @@ import tenacity
 
 from . import get_logger
 from .consts import (
+    DOWNLOAD_TIMEOUT,
     DRAFT,
     MAX_CHUNK_SIZE,
     REQUEST_RETRIES,
@@ -1472,7 +1473,9 @@ class BaseRemoteAsset(ABC, APIBase):
             headers = None
             if start_at > 0:
                 headers = {"Range": f"bytes={start_at}-"}
-            result = self.client.session.get(url, stream=True, headers=headers)
+            result = self.client.session.get(
+                url, stream=True, headers=headers, timeout=DOWNLOAD_TIMEOUT
+            )
             # TODO: apparently we might need retries here as well etc
             # if result.status_code not in (200, 201):
             result.raise_for_status()
@@ -1902,7 +1905,9 @@ class RemoteZarrEntry:
             headers = None
             if start_at > 0:
                 headers = {"Range": f"bytes={start_at}-"}
-            result = self.client.session.get(url, stream=True, headers=headers)
+            result = self.client.session.get(
+                url, stream=True, headers=headers, timeout=DOWNLOAD_TIMEOUT
+            )
             # TODO: apparently we might need retries here as well etc
             # if result.status_code not in (200, 201):
             result.raise_for_status()

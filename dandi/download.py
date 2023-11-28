@@ -702,9 +702,16 @@ def _download_file(
                     yield out
                     dldir.append(block)
             break
-        except requests.exceptions.HTTPError as exc:
-            # TODO: actually we should probably retry only on selected codes, and also
-            # respect Retry-After
+        except ValueError:
+            # When `requests` raises a ValueError, it's because the caller
+            # provided invalid parameters (e.g., an invalid URL), and so
+            # retrying won't change anything.
+            raise
+        # Catching RequestException lets us retry on timeout & connection
+        # errors (among others) in addition to HTTP status errors.
+        except requests.RequestException as exc:
+            # TODO: actually we should probably retry only on selected codes,
+            # and also respect Retry-After
             if attempt >= 2 or (
                 exc.response is not None
                 and exc.response.status_code
@@ -721,7 +728,7 @@ def _download_file(
             #     raise
             # sleep a little and retry
             lgr.debug(
-                "Failed to download on attempt#%d: %s, will sleep a bit and retry",
+                "Failed to download on attempt #%d: %s, will sleep a bit and retry",
                 attempt,
                 exc,
             )
