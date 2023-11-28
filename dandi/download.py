@@ -749,9 +749,9 @@ def _download_file(
         }
 
     # TODO: dissolve attrs and pass specific mtime?
-    if mtime:
+    if mtime is not None:
         yield {"status": "setting mtime"}
-        os.utime(path, (time.time(), ensure_datetime(mtime).timestamp()))
+        os.utime(path, (time.time(), mtime.timestamp()))
 
     yield {"status": "done"}
 
