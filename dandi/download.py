@@ -18,6 +18,7 @@ import time
 from types import TracebackType
 from typing import IO, Any, Literal
 
+from dandischema.digests.dandietag import ETagHashlike
 from dandischema.models import DigestType
 from fasteners import InterProcessLock
 import humanize
@@ -31,6 +32,7 @@ from .dandiarchive import DandisetURL, ParsedDandiURL, SingleAssetURL, parse_dan
 from .dandiset import Dandiset
 from .exceptions import NotFoundError
 from .files import LocalAsset, find_dandi_files
+from .support import pyout as pyouts
 from .support.iterators import IteratorWithAggregation
 from .support.pyout import naturalsize
 from .utils import (
@@ -91,8 +93,6 @@ def download(
     # TODO: unduplicate with upload. For now stole from that one
     # We will again use pyout to provide a neat table summarizing our progress
     # with upload etc
-    from .support import pyout as pyouts
-
     urls = flattened([urls])
     if not urls:
         # if no paths provided etc, we will download dandiset path
@@ -551,6 +551,7 @@ def _download_file(
       possible checksums or other digests provided for the file. Only one
       will be used to verify download
     """
+    # Avoid heavy import by importing within function:
     from .support.digests import get_digest
 
     if op.lexists(path):
@@ -650,8 +651,6 @@ def _download_file(
         # TODO: reuse that sorting based on speed
         for algo, digest in digests.items():
             if algo == "dandi-etag" and size is not None:
-                from dandischema.digests.dandietag import ETagHashlike
-
                 # Instantiate outside the lambda so that mypy is assured that
                 # `size` is not None:
                 hasher = ETagHashlike(size)
@@ -855,6 +854,7 @@ def _download_zarr(
     lock: Lock,
     jobs: int | None = None,
 ) -> Iterator[dict]:
+    # Avoid heavy import by importing within function:
     from .support.digests import get_zarr_checksum
 
     download_gens = {}

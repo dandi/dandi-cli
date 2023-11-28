@@ -10,7 +10,9 @@ import click
 from .consts import DRAFT, ZARR_EXTENSIONS, DandiInstance, dandiset_metadata_file
 from .dandiapi import DandiAPIClient, RemoteAsset, RemoteDandiset
 from .dandiarchive import BaseAssetIDURL, DandisetURL, ParsedDandiURL, parse_dandi_url
+from .dandiset import Dandiset
 from .exceptions import NotFoundError
+from .support import pyout as pyouts
 from .utils import get_instance, is_url
 
 
@@ -214,8 +216,6 @@ def delete(
                 for r in gen:
                     print(r, flush=True)
         else:
-            from .support import pyout as pyouts
-
             pyout_style = pyouts.get_style(hide_if_missing=False)
             rec_fields = ("path", "status", "message")
             out = pyouts.LogSafeTabular(
@@ -232,8 +232,6 @@ def find_local_asset(filepath: str) -> tuple[str, str]:
     located and the path to the file relative to the root of said Dandiset.  If
     the file is a directory, the path will end with a trailing slash.
     """
-    from .dandiset import Dandiset
-
     path = Path(filepath).absolute()
     dandiset = Dandiset.find(path.parent)
     if dandiset is None:

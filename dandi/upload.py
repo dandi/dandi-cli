@@ -22,7 +22,8 @@ from .consts import (
     dandiset_identifier_regex,
     dandiset_metadata_file,
 )
-from .dandiapi import RemoteAsset
+from .dandiapi import DandiAPIClient, RemoteAsset
+from .dandiset import Dandiset
 from .exceptions import NotFoundError, UploadError
 from .files import (
     DandiFile,
@@ -32,7 +33,9 @@ from .files import (
     ZarrAsset,
 )
 from .misctypes import Digest
-from .utils import ensure_datetime, pluralize
+from .support import pyout as pyouts
+from .support.pyout import naturalsize
+from .utils import ensure_datetime, path_is_subpath, pluralize
 from .validate_types import Severity
 
 
@@ -73,9 +76,6 @@ def upload(
     jobs_per_file: int | None = None,
     sync: bool = False,
 ) -> None:
-    from .dandiapi import DandiAPIClient
-    from .dandiset import Dandiset
-
     if paths:
         paths = [Path(p).absolute() for p in paths]
         dandiset = Dandiset.find(os.path.commonpath(paths))
@@ -121,9 +121,8 @@ def upload(
                 f"convention {dandiset_identifier_regex!r}."
             )
 
+        # Avoid heavy import by importing within function:
         from .pynwb_utils import ignore_benign_pynwb_warnings
-        from .support.pyout import naturalsize
-        from .utils import path_is_subpath
 
         ignore_benign_pynwb_warnings()  # so validate doesn't whine
 
@@ -316,7 +315,6 @@ def upload(
 
         # We will again use pyout to provide a neat table summarizing our progress
         # with upload etc
-        from .support import pyout as pyouts
 
         # for the upload speeds we need to provide a custom  aggregate
         t0 = time.time()

@@ -93,7 +93,7 @@ class LocalZarrEntry(BasePath):
         directory, the algorithm will be the Dandi Zarr checksum algorithm; if
         it is a file, it will be MD5.
         """
-
+        # Avoid heavy import by importing within function:
         from dandi.support.digests import get_digest, get_zarr_checksum
 
         if self.is_dir():
@@ -152,6 +152,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         """Return various details about the Zarr asset"""
 
         def dirstat(dirpath: LocalZarrEntry) -> ZarrStat:
+            # Avoid heavy import by importing within function:
             from dandi.support.digests import md5file_nocache
 
             size = 0
@@ -178,6 +179,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 
     def get_digest(self) -> Digest:
         """Calculate a dandi-zarr-checksum digest for the asset"""
+        # Avoid heavy import by importing within function:
         from dandi.support.digests import get_zarr_checksum
 
         return Digest.dandi_zarr(get_zarr_checksum(self.filepath))
@@ -197,6 +199,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
+        # Avoid heavy import by importing within function:
         import zarr
 
         errors: list[ValidationResult] = []
@@ -591,6 +594,7 @@ class EntryUploadTracker:
 
     @staticmethod
     def _mkitem(e: LocalZarrEntry) -> UploadItem:
+        # Avoid heavy import by importing within function:
         from dandi.support.digests import md5file_nocache
 
         digest = md5file_nocache(e.filepath)
@@ -643,6 +647,7 @@ class UploadItem:
 def _cmp_digests(
     asset_path: str, local_entry: LocalZarrEntry, remote_digest: str
 ) -> tuple[LocalZarrEntry, str, bool]:
+    # Avoid heavy import by importing within function:
     from dandi.support.digests import md5file_nocache
 
     local_digest = md5file_nocache(local_entry.filepath)

@@ -655,6 +655,7 @@ def bids_dandiset_invalid(
 
 @pytest.fixture()
 def video_files(tmp_path: Path) -> list[tuple[Path, Path]]:
+    # Avoid heavy import by importing within function:
     import cv2
 
     video_paths = []
