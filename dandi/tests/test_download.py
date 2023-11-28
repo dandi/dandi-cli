@@ -30,6 +30,7 @@ from ..download import (
     download,
 )
 from ..exceptions import NotFoundError
+from ..support.digests import Digester
 from ..utils import list_paths
 
 
@@ -56,8 +57,6 @@ def test_download_000027(
         dsdir / "sub-RAT123" / "sub-RAT123.nwb",
     ]
     # and checksum should be correct as well
-    from ..support.digests import Digester
-
     assert (
         Digester(["md5"])(dsdir / "sub-RAT123" / "sub-RAT123.nwb")["md5"]
         == "33318fd510094e4304868b4a481d4a5a"
@@ -122,8 +121,6 @@ def test_download_000027_assets_only(url: str, tmp_path: Path) -> None:
 def test_download_000027_resume(
     tmp_path: Path, resizer: Callable[[int], int], version: str
 ) -> None:
-    from ..support.digests import Digester
-
     url = f"https://dandiarchive.org/dandiset/000027/{version}"
     digester = Digester()
     download(url, tmp_path, get_metadata=False)

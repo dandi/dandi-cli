@@ -13,11 +13,13 @@ from mimetypes import guess_type
 import os
 import os.path as op
 from pathlib import Path, PurePath, PurePosixPath
+import pdb
 import platform
 import re
 import shutil
 import subprocess
 import sys
+import traceback
 import types
 from typing import IO, Any, List, Optional, Protocol, TypeVar, Union
 from urllib.parse import parse_qs, urlparse, urlunparse
@@ -87,13 +89,9 @@ def setup_exceptionhook(ipython: bool = False) -> None:
         value: BaseException,
         tb: types.TracebackType | None,
     ) -> None:
-        import traceback
-
         traceback.print_exception(exc_type, value, tb)
         print()
         if is_interactive():
-            import pdb
-
             pdb.post_mortem(tb)
 
     if ipython:

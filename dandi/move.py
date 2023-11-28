@@ -19,6 +19,7 @@ from .dandiarchive import DandisetURL, parse_dandi_url
 from .dandiset import Dandiset
 from .exceptions import NotFoundError
 from .files import DandisetMetadataFile, LocalAsset, find_dandi_files
+from .support import pyout as pyouts
 
 lgr = get_logger()
 
@@ -872,8 +873,6 @@ def move(
                 for r in gen:
                     print(r, flush=True)
         else:
-            from .support import pyout as pyouts
-
             pyout_style = pyouts.get_style(hide_if_missing=False)
             out = pyouts.LogSafeTabular(
                 style=pyout_style, columns=mover.columns, max_workers=jobs

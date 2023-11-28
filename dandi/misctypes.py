@@ -342,6 +342,7 @@ class RemoteReadableAsset(Readable):
     name: str
 
     def open(self) -> IO[bytes]:
+        # Optional dependency:
         import fsspec
 
         return cast(IO[bytes], fsspec.open(self.url, mode="rb"))

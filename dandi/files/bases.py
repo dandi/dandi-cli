@@ -299,6 +299,7 @@ class LocalFileAsset(LocalAsset):
 
     def get_digest(self) -> Digest:
         """Calculate a dandi-etag digest for the asset"""
+        # Avoid heavy import by importing within function:
         from dandi.support.digests import get_digest
 
         value = get_digest(self.filepath, digest="dandi-etag")
@@ -331,6 +332,7 @@ class LocalFileAsset(LocalAsset):
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
+        # Avoid heavy import by importing within function:
         from dandi.support.digests import get_dandietag
 
         asset_path = metadata.setdefault("path", self.path)
@@ -469,6 +471,7 @@ class NWBAsset(LocalFileAsset):
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
+        # Avoid heavy import by importing within function:
         from dandi.metadata.nwb import nwb2asset
 
         try:
@@ -499,8 +502,10 @@ class NWBAsset(LocalFileAsset):
         If ``schema_version`` was provided, we only validate basic metadata,
         and completely skip validation using nwbinspector.inspect_nwbfile
         """
+        # Avoid heavy import by importing within function:
         from nwbinspector import Importance, inspect_nwbfile, load_config
 
+        # Avoid heavy import by importing within function:
         from dandi.pynwb_utils import validate as pynwb_validate
 
         errors: list[ValidationResult] = pynwb_validate(
@@ -559,9 +564,9 @@ class NWBAsset(LocalFileAsset):
                     [e], self.filepath, scope=Scope.FILE
                 )
 
-        from dandi.organize import validate_organized_path
-
+        # Avoid circular imports by importing within function:
         from .bids import NWBBIDSAsset
+        from ..organize import validate_organized_path
 
         if not isinstance(self, NWBBIDSAsset) and self.dandiset_path is not None:
             errors.extend(
@@ -716,6 +721,7 @@ _current_nwbinspector_version: str = ""
 
 
 def _get_nwb_inspector_version():
+    # Avoid heavy import by importing within function:
     from nwbinspector.utils import get_package_version
 
     global _current_nwbinspector_version

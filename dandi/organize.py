@@ -15,6 +15,8 @@ from pathlib import Path, PurePosixPath
 import re
 import uuid
 
+import ruamel.yaml
+
 from . import __version__, get_logger
 from .consts import dandi_layout_fields
 from .dandiset import Dandiset
@@ -302,6 +304,7 @@ def organize_external_files(
 
 
 def _assign_obj_id(metadata, non_unique):
+    # Avoid heavy import by importing within function:
     from .pynwb_utils import get_object_id
 
     msg = "%d out of %d paths are not unique" % (len(non_unique), len(metadata))
@@ -371,6 +374,7 @@ def _get_unique_values_among_non_unique(metadata, non_unique_paths, field):
 
 def get_obj_id(object_id):
     """Given full object_id, get its shortened version"""
+    # Avoid heavy import by importing within function:
     import numpy as np
 
     return np.base_repr(binascii.crc32(object_id.encode("ascii")), 36).lower()
@@ -435,6 +439,7 @@ def _sanitize_value(value, field):
 
 
 def _populate_modalities(metadata):
+    # Avoid heavy import by importing within function:
     from .pynwb_utils import get_neurodata_types_to_modalities_map
 
     ndtypes_to_modalities = get_neurodata_types_to_modalities_map()
@@ -593,8 +598,6 @@ number_of_cells: RECOMMENDED
 
 def populate_dataset_yml(filepath, metadata):
     # To preserve comments, let's use ruamel
-    import ruamel.yaml
-
     yaml = ruamel.yaml.YAML()  # defaults to round-trip if no parameters given
     if not op.lexists(filepath):
         # Create an empty one, which we would populate with information
@@ -801,6 +804,7 @@ def organize(
                 % dandiset_path
             )
 
+    # Avoid heavy import by importing within function:
     from .pynwb_utils import ignore_benign_pynwb_warnings
 
     ignore_benign_pynwb_warnings()
@@ -840,6 +844,7 @@ def organize(
         failed = []
 
         def _get_metadata(path):
+            # Avoid heavy import by importing within function:
             from .metadata.nwb import get_metadata
 
             try:
@@ -1041,6 +1046,7 @@ def organize(
 
     # create video file name and re write nwb file external files:
     if update_external_file_paths:
+        # Avoid heavy import by importing within function:
         from .pynwb_utils import rename_nwb_external_files
 
         rename_nwb_external_files(metadata, dandiset_path)

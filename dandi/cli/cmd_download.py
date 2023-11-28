@@ -7,6 +7,7 @@ import click
 
 from .base import ChoiceList, IntColonInt, instance_option, map_to_click_exceptions
 from ..dandiarchive import _dandi_url_parser, parse_dandi_url
+from ..dandiset import Dandiset
 from ..download import DownloadExisting, DownloadFormat, PathType
 from ..utils import get_instance
 
@@ -123,8 +124,6 @@ def download(
                         f"{u} does not point to {dandi_instance!r} instance"
                     )
         else:
-            from ..dandiset import Dandiset
-
             try:
                 dandiset_id = Dandiset(os.curdir).identifier
             except ValueError:

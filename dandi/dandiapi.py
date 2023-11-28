@@ -1194,6 +1194,7 @@ class RemoteDandiset:
         :param RemoteAsset replace_asset: If set, replace the given asset,
             which must have the same path as the new asset
         """
+        # Avoid circular import by importing within function:
         from .files import LocalAsset, dandi_file
 
         df = dandi_file(filepath)
@@ -1235,6 +1236,7 @@ class RemoteDandiset:
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
+        # Avoid circular import by importing within function:
         from .files import LocalAsset, dandi_file
 
         df = dandi_file(filepath)
