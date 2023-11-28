@@ -583,7 +583,7 @@ def _download_file(
                 and "sha256" in digests
             ):
                 if key_parts[-1].partition(".")[0] == digests["sha256"]:
-                    lgr.debug(f"{path!r} already exists - matching digest in filename")
+                    lgr.debug("%s already exists - matching digest in filename", path)
                     yield _skip_file("already exists")
                     return
                 else:
@@ -592,7 +592,7 @@ def _download_file(
                         path,
                     )
             elif digests is not None and check_digests(path, digests):
-                lgr.debug(f"{path!r} already exists - matching digest")
+                lgr.debug("%s already exists - matching digest", path)
                 yield _skip_file("matching digest")
                 yield {"checksum": "ok"}
                 return
@@ -607,14 +607,15 @@ def _download_file(
             # If we have no expected mtime, warn and check file digests if present
             if mtime is None:
                 if digests is not None and check_digests(path, digests):
-                    lgr.debug(f"{path!r} already exists - matching digest")
+                    lgr.debug("%s already exists - matching digest", path)
                     yield _skip_file("matching digest")
                     yield {"checksum": "ok"}
                     return
                 else:
                     lgr.warning(
-                        f"{path!r} - no mtime or ctime in the record and digests don't match, "
-                        f"redownloading"
+                        "%s - no mtime or ctime in the record and digests don't match, "
+                        "redownloading",
+                        path,
                     )
 
             # Otherwise, first check against size and mtime because that's fast.
@@ -632,7 +633,7 @@ def _download_file(
                     # if we have digests, check those before deciding not to redownload
                     if digests is not None and check_digests(path, digests):
                         lgr.debug(
-                            f"{path!r} already exists - same time, size, and digest"
+                            "%s already exists - same time, size, and digest", path
                         )
                         yield _skip_file("same time, size, and digest")
                         yield {"checksum": "ok"}
@@ -641,7 +642,8 @@ def _download_file(
                     # if we don't have digests but size and mtime match, don't redownload
                     elif digests is None:
                         lgr.debug(
-                            f"{path!r} already exists - same time and size, but missing digests"
+                            "%s already exists - same time and size, but missing digests",
+                            path,
                         )
                         yield _skip_file("same time and size, missing digests")
                         return
@@ -649,12 +651,15 @@ def _download_file(
                     # otherwise we're redownloading
                     else:
                         lgr.debug(
-                            f"{path!r} - same time and size, but hashes dont match. Redownloading"
+                            "%s - same time and size, but hashes dont match. Redownloading",
+                            path,
                         )
                 else:
                     differing = {"mtime", "size"} - set(same)
                     lgr.debug(
-                        f"{path!r} - {', '.join(differing)} doesn't match.  Redownloading"
+                        "%s - %s doesn't match.  Redownloading",
+                        path,
+                        ", ".join(differing),
                     )
 
     if size is not None:
