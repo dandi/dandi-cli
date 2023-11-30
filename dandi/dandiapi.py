@@ -1247,7 +1247,12 @@ class RemoteDandiset:
                 "'data_standard' must be an RRID (of form 'RRID:XXX_NNNNNNN`) or one "
                 f"of the following values: {', '.join(DATA_STANDARD_MAP.keys())}"
             )
-        assets_summary = self.get_raw_metadata()["assetsSummary"]
+        assets_summary = self.get_raw_metadata().get("assetsSummary")
+        if assets_summary is None:
+            warnings.warn(
+                f"The raw metadata of RemoteDandiset {self.identifier} does not contain 'assetsSummary'. "
+                f"Assuming that it does not contain {data_standard}.")
+            return False
         if "dataStandard" not in assets_summary:
             return False
         return any(x["identifier"] == rrid for x in assets_summary["dataStandard"])
