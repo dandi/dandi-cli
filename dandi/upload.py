@@ -5,11 +5,13 @@ from collections.abc import Iterator, Sequence
 from contextlib import ExitStack
 from enum import Enum
 from functools import reduce
+import io
 import os.path
 from pathlib import Path
 import re
 import time
-from typing import Any, TypedDict
+from time import sleep
+from typing import Any, TypedDict, cast
 from unittest.mock import patch
 
 import click
@@ -98,7 +100,67 @@ def upload(
         if os.environ.get("DANDI_DEVEL_INSTRUMENT_REQUESTS_SUPERLEN"):
             from requests.utils import super_len
 
-            def new_super_len(o):
+            def check_len(obj: io.IOBase, name: Any) -> None:
+                first = True
+                for i in range(10):
+                    if first:
+                        first = False
+                    else:
+                        lgr.debug("- Will sleep and then stat %r again", name)
+                        sleep(1)
+                    try:
+                        st = os.stat(name)
+                    except OSError as e:
+                        lgr.debug(
+                            "- Attempt to stat %r failed with %s: %s",
+                            name,
+                            type(e).__name__,
+                            e,
+                        )
+                        stat_size = None
+                    else:
+                        lgr.debug("- stat(%r) = %r", name, st)
+                        stat_size = st.st_size
+                    try:
+                        fileno = obj.fileno()
+                    except Exception:
+                        lgr.debug(
+                            "- I/O object for %r has no fileno; cannot fstat", name
+                        )
+                        fstat_size = None
+                    else:
+                        try:
+                            st = os.fstat(fileno)
+                        except OSError as e:
+                            lgr.debug(
+                                "- Attempt to fstat %r failed with %s: %s",
+                                name,
+                                type(e).__name__,
+                                e,
+                            )
+                            fstat_size = None
+                        else:
+                            lgr.debug("- fstat(%r) = %r", name, st)
+                            fstat_size = st.st_size
+                    if stat_size not in (None, 0):
+                        raise RuntimeError(
+                            f"requests.utils.super_len() reported size of 0 for"
+                            f" {name!r}, but os.stat() reported size"
+                            f" {stat_size} bytes {i+1} tries later"
+                        )
+                    if fstat_size not in (None, 0):
+                        raise RuntimeError(
+                            f"requests.utils.super_len() reported size of 0 for"
+                            f" {name!r}, but os.fstat() reported size"
+                            f" {fstat_size} bytes {i+1} tries later"
+                        )
+                lgr.debug(
+                    "- Size of %r still appears to be 0 after 10 rounds of"
+                    " stat'ing; returning size 0",
+                    name,
+                )
+
+            def new_super_len(o: Any) -> int:
                 try:
                     n = super_len(o)
                 except Exception:
@@ -108,7 +170,16 @@ def upload(
                     raise
                 else:
                     lgr.debug("requests.utils.super_len() reported %d for %r", n, o)
-                    return n
+                    if (
+                        n == 0
+                        and isinstance(o, io.IOBase)
+                        and (name := getattr(o, "name", None)) not in (None, "")
+                    ):
+                        lgr.debug(
+                            "- Size of 0 is suspicious; double-checking that NFS isn't lying"
+                        )
+                        check_len(o, name)
+                    return cast(int, n)
 
             stack.enter_context(patch("requests.models.super_len", new_super_len))
 
