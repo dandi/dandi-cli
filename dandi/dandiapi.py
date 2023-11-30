@@ -52,6 +52,11 @@ if TYPE_CHECKING:
 
 lgr = get_logger()
 
+DATA_STANDARD_MAP = dict(
+    NWB="RRID:SCR_015242",
+    BIDS="RRID:SCR_016124",
+)
+
 
 class AssetType(Enum):
     """
@@ -1246,6 +1251,35 @@ class RemoteDandiset:
         return df.iter_upload(
             self, metadata=asset_metadata, jobs=jobs, replacing=replace_asset
         )
+
+    def has_data_standard(self, data_standard: str) -> bool:
+        """
+        Returns True if the Dandiset contains one or more files of the indicated
+        standard. Otherwise, returns False. This is determined by checking for
+        the RRID of the standard  in the "dataStandard" field of the assetsSummary of
+        the dandiset.
+
+        :param data_standard: can be "NWB", "BIDS", or an RRID of a standard.
+        :type data_standard: str
+        """
+        if data_standard in DATA_STANDARD_MAP:
+            rrid = DATA_STANDARD_MAP[data_standard]
+        elif data_standard.startswith("RRID:"):
+            rrid = data_standard
+        else:
+            raise ValueError(
+                "'data_standard' must be an RRID (of form 'RRID:XXX_NNNNNNN`) or one "
+                f"of the following values: {', '.join(DATA_STANDARD_MAP.keys())}"
+            )
+        assets_summary = self.get_raw_metadata().get("assetsSummary")
+        if assets_summary is None:
+            warnings.warn(
+                f"The raw metadata of RemoteDandiset {self.identifier} does not contain 'assetsSummary'. "
+                f"Assuming that it does not contain {data_standard}.")
+            return False
+        if "dataStandard" not in assets_summary:
+            return False
+        return any(x["identifier"] == rrid for x in assets_summary["dataStandard"])
 
 
 class BaseRemoteAsset(ABC, APIBase):
