@@ -12,7 +12,6 @@ from pathlib import Path
 from time import sleep
 from typing import Any
 
-from dandischema.digests.zarr import get_checksum
 from dandischema.models import BareAsset, DigestType
 import requests
 from zarr_checksum.tree import ZarrChecksumTree
@@ -153,25 +152,25 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 
         def dirstat(dirpath: LocalZarrEntry) -> ZarrStat:
             # Avoid heavy import by importing within function:
-            from dandi.support.digests import md5file_nocache
+            from dandi.support.digests import checksum_zarr_dir, md5file_nocache
 
             size = 0
-            dir_md5s = {}
-            file_md5s = {}
+            dir_info = {}
+            file_info = {}
             files = []
             for p in dirpath.iterdir():
                 if p.is_dir():
                     st = dirstat(p)
                     size += st.size
-                    dir_md5s[p.name] = (st.digest.value, st.size)
+                    dir_info[p.name] = (st.digest.value, st.size)
                     files.extend(st.files)
                 else:
                     size += p.size
-                    file_md5s[p.name] = (md5file_nocache(p.filepath), p.size)
+                    file_info[p.name] = (md5file_nocache(p.filepath), p.size)
                     files.append(p)
             return ZarrStat(
                 size=size,
-                digest=Digest.dandi_zarr(get_checksum(file_md5s, dir_md5s)),
+                digest=Digest.dandi_zarr(checksum_zarr_dir(file_info, dir_info)),
                 files=files,
             )
 

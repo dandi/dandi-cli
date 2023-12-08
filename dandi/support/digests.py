@@ -24,6 +24,7 @@ from pathlib import Path
 
 from dandischema.digests.dandietag import DandiETag
 from fscacher import PersistentCache
+from zarr_checksum.checksum import ZarrChecksum, ZarrChecksumManifest
 from zarr_checksum.tree import ZarrChecksumTree
 
 from .threaded_walk import threaded_walk
@@ -134,3 +135,31 @@ def md5file_nocache(filepath: str | Path) -> str:
     present in Zarrs
     """
     return Digester(["md5"])(filepath)["md5"]
+
+
+def checksum_zarr_dir(
+    files: dict[str, tuple[str, int]], directories: dict[str, tuple[str, int]]
+) -> str:
+    """
+    Calculate the Zarr checksum of a directory only from information about the
+    files and subdirectories immediately within it.
+
+    :param files:
+        A mapping from names of files in the directory to pairs of their MD5
+        digests and sizes
+    :param directories:
+        A mapping from names of subdirectories in the directory to pairs of
+        their Zarr checksums and the sum of the sizes of all files recursively
+        within them
+    """
+    manifest = ZarrChecksumManifest(
+        files=[
+            ZarrChecksum(digest=digest, name=name, size=size)
+            for name, (digest, size) in files.items()
+        ],
+        directories=[
+            ZarrChecksum(digest=digest, name=name, size=size)
+            for name, (digest, size) in directories.items()
+        ],
+    )
+    return manifest.generate_digest().digest

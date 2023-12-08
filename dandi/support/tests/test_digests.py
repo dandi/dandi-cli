@@ -7,12 +7,15 @@
 #
 # ## ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ##
 
+from __future__ import annotations
+
 from pathlib import Path
 
+import pytest
 from pytest_mock import MockerFixture
 
 from .. import digests
-from ..digests import Digester, get_zarr_checksum
+from ..digests import Digester, checksum_zarr_dir, get_zarr_checksum
 
 
 def test_digester(tmp_path):
@@ -101,3 +104,56 @@ def test_get_zarr_checksum(mocker: MockerFixture, tmp_path: Path) -> None:
         == "f77f4c5b277575f781c19ba91422f0c5-8--197"
     )
     spy.assert_called_once_with(sub2 / "file7.txt")
+
+
+@pytest.mark.parametrize(
+    "files,directories,checksum",
+    [
+        ({}, {}, "481a2f77ab786a0f45aafd5db0971caa-0--0"),
+        (
+            {"bar": ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 1)},
+            {},
+            "f21b9b4bf53d7ce1167bcfae76371e59-1--1",
+        ),
+        (
+            {},
+            {"bar": ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-1--1", 1)},
+            "ea8b8290b69b96422a3ed1cca0390f21-1--1",
+        ),
+        (
+            {
+                "bar": ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 1),
+                "baz": ("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 2),
+            },
+            {},
+            "4e67de4393d14c1e9c472438f0f1f8b1-2--3",
+        ),
+        (
+            {},
+            {
+                "bar": ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-1--1", 1),
+                "baz": ("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-1--2", 2),
+            },
+            "859ca1926affe9c7d0424030f26fbd89-2--3",
+        ),
+        (
+            {},
+            {
+                "baz": ("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-1--1", 1),
+                "bar": ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-1--2", 2),
+            },
+            "8f8361a286c9a7c3fbfd464e33989037-2--3",
+        ),
+        (
+            {"baz": ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 1)},
+            {"bar": ("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-1--2", 2)},
+            "3cb139f47d3a3580388f41956c15f55e-2--3",
+        ),
+    ],
+)
+def test_checksum_zarr_dir(
+    files: dict[str, tuple[str, int]],
+    directories: dict[str, tuple[str, int]],
+    checksum: str,
+) -> None:
+    assert checksum_zarr_dir(files=files, directories=directories) == checksum
