@@ -19,6 +19,7 @@ import re
 import shutil
 import subprocess
 import sys
+from time import sleep
 import traceback
 import types
 from typing import IO, Any, List, Optional, Protocol, TypeVar, Union
@@ -834,3 +835,32 @@ def _prepare_path_parts(paths: Iterable[str | PurePath]) -> list[tuple[str, ...]
 
 def _starts_with(t: tuple[str, ...], prefix: tuple[str, ...]) -> bool:
     return t[: len(prefix)] == prefix
+
+
+def pre_upload_size_check(path: Path) -> int:
+    # If the filesystem reports a size of zero for a file we're about to
+    # upload, double-check the size in case we're on a flaky NFS system.
+    for naptime in [0] + [0.1] * 19:
+        sleep(naptime)
+        size = path.stat().st_size
+        if size != 0:
+            return size
+    return size
+
+
+def post_upload_size_check(path: Path, pre_check_size: int, erroring: bool) -> None:
+    # More checks for NFS flakiness
+    size = path.stat().st_size
+    if size != pre_check_size:
+        if erroring:
+            lgr.error(
+                "Size of %s was %d at start of upload but is now %d after upload",
+                path,
+                pre_check_size,
+                size,
+            )
+        else:
+            raise RuntimeError(
+                f"Size of {path} was {pre_check_size} at start of upload but is"
+                f" now {size} after upload"
+            )
