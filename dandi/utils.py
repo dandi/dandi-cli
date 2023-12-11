@@ -852,15 +852,11 @@ def post_upload_size_check(path: Path, pre_check_size: int, erroring: bool) -> N
     # More checks for NFS flakiness
     size = path.stat().st_size
     if size != pre_check_size:
+        msg = (
+            f"Size of {path} was {pre_check_size} at start of upload but is"
+            f" now {size} after upload"
+        )
         if erroring:
-            lgr.error(
-                "Size of %s was %d at start of upload but is now %d after upload",
-                path,
-                pre_check_size,
-                size,
-            )
+            lgr.error(msg)
         else:
-            raise RuntimeError(
-                f"Size of {path} was {pre_check_size} at start of upload but is"
-                f" now {size} after upload"
-            )
+            raise RuntimeError(msg)
