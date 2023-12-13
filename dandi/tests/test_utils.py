@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 import inspect
+import logging
 import os.path as op
 from pathlib import Path
 import time
@@ -29,6 +30,7 @@ from ..utils import (
     is_page2_url,
     is_same_time,
     on_windows,
+    post_upload_size_check,
     under_paths,
 )
 
@@ -561,3 +563,29 @@ def test_under_paths(
     paths: list[str], filter_paths: list[str], results: list[str]
 ) -> None:
     assert list(map(str, under_paths(paths, filter_paths))) == results
+
+
+def test_post_upload_size_check_not_erroring(tmp_path: Path) -> None:
+    p = tmp_path / "file.txt"
+    # Write bytes so the size is the same on Unix and Windows:
+    p.write_bytes(b"This is test text.\n")
+    with pytest.raises(RuntimeError) as excinfo:
+        post_upload_size_check(p, 42, False)
+    assert (
+        str(excinfo.value)
+        == f"Size of {p} was 42 at start of upload but is now 19 after upload"
+    )
+
+
+def test_post_upload_size_check_erroring(
+    caplog: pytest.LogCaptureFixture, tmp_path: Path
+) -> None:
+    p = tmp_path / "file.txt"
+    # Write bytes so the size is the same on Unix and Windows:
+    p.write_bytes(b"This is test text.\n")
+    post_upload_size_check(p, 42, True)
+    assert (
+        "dandi",
+        logging.ERROR,
+        f"Size of {p} was 42 at start of upload but is now 19 after upload",
+    ) in caplog.record_tuples
