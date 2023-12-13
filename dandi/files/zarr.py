@@ -33,7 +33,13 @@ from dandi.dandiapi import (
 )
 from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ZARR_CHECKSUM, BasePath, Digest
-from dandi.utils import chunked, exclude_from_zarr, pluralize
+from dandi.utils import (
+    chunked,
+    exclude_from_zarr,
+    pluralize,
+    post_upload_size_check,
+    pre_upload_size_check,
+)
 
 from .bases import LocalDirectoryAsset
 from ..validate_types import Scope, Severity, ValidationOrigin, ValidationResult
@@ -551,15 +557,21 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 def _upload_zarr_file(
     storage_session: RESTFullAPIClient, upload_url: str, item: UploadItem
 ) -> int:
-    with item.filepath.open("rb") as fp:
-        storage_session.put(
-            upload_url,
-            data=fp,
-            json_resp=False,
-            retry_if=_retry_zarr_file,
-            headers={"Content-MD5": item.base64_digest},
-        )
-    return item.size
+    try:
+        with item.filepath.open("rb") as fp:
+            storage_session.put(
+                upload_url,
+                data=fp,
+                json_resp=False,
+                retry_if=_retry_zarr_file,
+                headers={"Content-MD5": item.base64_digest},
+            )
+    except Exception:
+        post_upload_size_check(item.filepath, item.size, True)
+        raise
+    else:
+        post_upload_size_check(item.filepath, item.size, False)
+        return item.size
 
 
 def _retry_zarr_file(r: requests.Response) -> bool:
@@ -634,7 +646,12 @@ class UploadItem:
 
     @classmethod
     def from_entry(cls, e: LocalZarrEntry, digest: str) -> UploadItem:
-        return cls(entry_path=str(e), filepath=e.filepath, digest=digest, size=e.size)
+        return cls(
+            entry_path=str(e),
+            filepath=e.filepath,
+            digest=digest,
+            size=pre_upload_size_check(e.filepath),
+        )
 
     @property
     def base64_digest(self) -> str:
