@@ -71,7 +71,7 @@ Commands:
   organize          (Re)organize files according to the metadata.
   shell-completion  Emit shell script for enabling command completion.
   upload            Upload Dandiset files to DANDI Archive.
-  validate          Validate files for NWB and DANDI compliance.
+  validate          Validate files for DANDI, and BIDS and/or NWB compliance.
   validate-bids     Validate BIDS paths.
 ```
 Run `dandi --help` or `dandi <subcommand> --help` (e.g. `dandi upload --help`) to see manual pages.
