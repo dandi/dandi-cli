@@ -1,3 +1,24 @@
+# 0.58.2 (Wed Dec 13 2023)
+
+#### 🐛 Bug Fix
+
+- Properly open filehandles for `RemoteReadableAsset`s [#1376](https://github.com/dandi/dandi-cli/pull/1376) ([@jwodder](https://github.com/jwodder))
+- Repeatedly double-check return values of zero when spying on `super_len()` [#1370](https://github.com/dandi/dandi-cli/pull/1370) ([@jwodder](https://github.com/jwodder))
+- Set 30-second connect & read timeout when downloading files [#1369](https://github.com/dandi/dandi-cli/pull/1369) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- [gh-actions](deps): Bump actions/setup-python from 4 to 5 [#1372](https://github.com/dandi/dandi-cli/pull/1372) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Remove redundant `ensure_datetime()` call [#1367](https://github.com/dandi/dandi-cli/pull/1367) ([@jwodder](https://github.com/jwodder))
+- Move imports in functions to top level or annotate why they can't be moved [#1368](https://github.com/dandi/dandi-cli/pull/1368) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.58.1 (Mon Nov 27 2023)
 
 #### 🐛 Bug Fix
