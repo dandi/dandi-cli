@@ -5,7 +5,7 @@
 
     dandi [<global options>] validate [<path> ...]
 
-Validate files for DANDI, and BIDS and/or NWB compliance.
+Validate files for data standards compliance.
 
 Exits with non-zero exit code if any file is not compliant.
 
