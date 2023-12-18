@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 
 from dandischema import models
-from pydantic import ByteSize, parse_obj_as
+from pydantic import ByteSize
 
 from .util import extract_model, get_generator
 from .. import get_logger
@@ -18,7 +18,7 @@ lgr = get_logger()
 def get_default_metadata(
     path: str | Path | Readable, digest: Digest | None = None
 ) -> models.BareAsset:
-    metadata = models.BareAsset.unvalidated()
+    metadata = models.BareAsset.model_construct()  # type: ignore[call-arg]
     start_time = end_time = datetime.now().astimezone()
     add_common_metadata(metadata, path, start_time, end_time, digest)
     return metadata
@@ -56,7 +56,7 @@ def add_common_metadata(
         )
         if m:
             size = int(m["size"])
-    metadata.contentSize = parse_obj_as(ByteSize, size)
+    metadata.contentSize = ByteSize(size)
     if metadata.wasGeneratedBy is None:
         metadata.wasGeneratedBy = []
     metadata.wasGeneratedBy.append(get_generator(start_time, end_time))

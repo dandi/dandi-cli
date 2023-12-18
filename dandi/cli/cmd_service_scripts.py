@@ -104,7 +104,7 @@ def reextract_metadata(url: str, diff: bool, when: str) -> None:
                 lgr.info("Extracting new metadata for asset")
                 metadata = nwb2asset(asset.as_readable(), digest=digest)
                 metadata.path = asset.path
-                mddict = metadata.json_dict()
+                mddict = metadata.model_dump(mode="json", exclude_none=True)
                 if diff:
                     oldmd = asset.get_raw_metadata()
                     oldmd_str = yaml_dump(oldmd)

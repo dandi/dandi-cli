@@ -498,13 +498,13 @@ M = TypeVar("M", bound=models.DandiBaseModel)
 
 
 def extract_model(modelcls: type[M], metadata: dict, **kwargs: Any) -> M:
-    m = modelcls.unvalidated()
-    for field in m.__fields__.keys():
+    m = modelcls.model_construct()
+    for field in m.model_fields.keys():
         value = kwargs.get(field, extract_field(field, metadata))
         if value is not None:
             setattr(m, field, value)
-    # return modelcls(**m.dict())
-    return m
+    # I can't figure out why mypy doesn't like this line:
+    return m  # type: ignore[return-value]
 
 
 def extract_model_list(
@@ -514,7 +514,7 @@ def extract_model_list(
         m = extract_model(
             modelcls, metadata, **{id_field: metadata.get(id_source)}, **kwargs
         )
-        if all(v is None for k, v in m.dict().items() if k != "schemaKey"):
+        if all(v is None for k, v in m.model_dump().items() if k != "schemaKey"):
             return []
         else:
             return [m]

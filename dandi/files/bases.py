@@ -97,7 +97,7 @@ class DandisetMetadataFile(DandiFile):
         """Return the Dandiset metadata inside the file"""
         with open(self.filepath) as f:
             meta = yaml_load(f, typ="safe")
-        return DandisetMeta.unvalidated(**meta)
+        return DandisetMeta.model_construct(**meta)
 
     # TODO: @validate_cache.memoize_path
     def get_validation_errors(
@@ -183,7 +183,7 @@ class LocalAsset(DandiFile):
             )
         try:
             asset = self.get_metadata(digest=self._DUMMY_DIGEST)
-            BareAsset(**asset.dict())
+            BareAsset(**asset.model_dump())
         except ValidationError as e:
             if devel_debug:
                 raise

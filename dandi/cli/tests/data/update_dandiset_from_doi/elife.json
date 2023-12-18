@@ -105,7 +105,7 @@
             "includeInCitation": true
         }
     ],
-    "dateCreated": "2023-04-25T16:28:30.453019+00:00",
+    "dateCreated": "2023-04-25T16:28:30.453019Z",
     "description": "<jats:p>Proprioception, the sense of body position, movement, and associated forces, remains poorly understood, despite its critical role in movement. Most studies of area 2, a proprioceptive area of somatosensory cortex, have simply compared neurons\u2019 activities to the movement of the hand through space. Using motion tracking, we sought to elaborate this relationship by characterizing how area 2 activity relates to whole arm movements. We found that a whole-arm model, unlike classic models, successfully predicted how features of neural activity changed as monkeys reached to targets in two workspaces. However, when we then evaluated this whole-arm model across active and passive movements, we found that many neurons did not consistently represent the whole arm over both conditions. These results suggest that 1) neural activity in area 2 includes representation of the whole arm during reaching and 2) many of these neurons represented limb state differently during active and passive movements.</jats:p>",
     "assetsSummary": {
         "schemaKey": "AssetsSummary",

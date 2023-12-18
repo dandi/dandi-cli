@@ -345,7 +345,7 @@ def upload(
                 try:
                     metadata = dfile.get_metadata(
                         digest=file_etag, ignore_errors=allow_any_path
-                    ).json_dict()
+                    ).model_dump(mode="json", exclude_none=True)
                 except Exception as e:
                     raise UploadError("failed to extract metadata: %s" % str(e))
 
