@@ -74,7 +74,7 @@ def organize(
     jobs: int | None,
     devel_debug: bool = False,
 ) -> None:
-    """(Re)organize files according to the metadata.
+    """(Re)organize NWB files according to their metadata.
 
     The purpose of this command is to take advantage of metadata contained in
     .nwb files to provide datasets with consistently-named files whose names

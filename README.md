@@ -68,7 +68,7 @@ Commands:
   instances         List known Dandi Archive instances that the CLI can...
   ls                List .nwb files and dandisets metadata.
   move              Move or rename assets in a local Dandiset and/or on...
-  organize          (Re)organize files according to the metadata.
+  organize          (Re)organize NWB files according to their metadata.
   shell-completion  Emit shell script for enabling command completion.
   upload            Upload Dandiset files to DANDI Archive.
   validate          Validate files for data standards compliance.
