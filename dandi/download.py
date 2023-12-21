@@ -28,7 +28,13 @@ import requests
 from . import get_logger
 from .consts import RETRY_STATUSES, dandiset_metadata_file
 from .dandiapi import AssetType, BaseRemoteZarrAsset, RemoteDandiset
-from .dandiarchive import DandisetURL, ParsedDandiURL, SingleAssetURL, parse_dandi_url
+from .dandiarchive import (
+    AssetItemURL,
+    DandisetURL,
+    ParsedDandiURL,
+    SingleAssetURL,
+    parse_dandi_url,
+)
 from .dandiset import Dandiset
 from .exceptions import NotFoundError
 from .files import LocalAsset, find_dandi_files
@@ -227,7 +233,13 @@ class Downloader:
         """
 
         with self.url.navigate(strict=True) as (client, dandiset, assets):
-            if isinstance(self.url, DandisetURL) and self.get_metadata:
+            if (
+                isinstance(self.url, DandisetURL)
+                or (
+                    isinstance(self.url, AssetItemURL)
+                    and self.url.path == "dandiset.yaml"
+                )
+            ) and self.get_metadata:
                 assert dandiset is not None
                 for resp in _populate_dandiset_yaml(
                     self.output_path, dandiset, self.existing
@@ -236,6 +248,8 @@ class Downloader:
                         "path": str(self.output_prefix / dandiset_metadata_file),
                         **resp,
                     }
+                if isinstance(self.url, AssetItemURL):
+                    return
 
             # TODO: do analysis of assets for early detection of needed renames
             # etc to avoid any need for late treatment of existing and also for
