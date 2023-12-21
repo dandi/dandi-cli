@@ -31,7 +31,7 @@ from ..download import (
 )
 from ..exceptions import NotFoundError
 from ..support.digests import Digester
-from ..utils import list_paths
+from ..utils import list_paths, yaml_load
 
 
 # both urls point to 000027 (lean test dataset), and both draft and "released"
@@ -180,6 +180,18 @@ def test_download_item(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     )
     assert list_paths(tmp_path, dirs=True) == [tmp_path / "coconut.txt"]
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
+
+
+def test_download_dandiset_yaml(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
+    dandiset_id = text_dandiset.dandiset_id
+    download(
+        f"dandi://{text_dandiset.api.instance_id}/{dandiset_id}/dandiset.yaml",
+        tmp_path,
+    )
+    assert list_paths(tmp_path, dirs=True) == [tmp_path / dandiset_metadata_file]
+    with (tmp_path / dandiset_metadata_file).open(encoding="utf-8") as fp:
+        metadata = yaml_load(fp)
+    assert metadata["id"] == f"DANDI:{dandiset_id}/draft"
 
 
 def test_download_asset_id(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
