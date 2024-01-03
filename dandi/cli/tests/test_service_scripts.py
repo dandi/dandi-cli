@@ -116,9 +116,18 @@ def test_update_dandiset_from_doi(
     expected["manifestLocation"][
         0
     ] = f"{new_dandiset.api.api_url}/dandisets/{dandiset_id}/versions/draft/assets/"
-    expected["citation"] = re.sub(
+    citation = re.sub(
         r"\S+\Z",
         f"{repository}/dandiset/{dandiset_id}/draft",
         expected["citation"],
     )
+    if m := re.search(r"\(\d{4}\)", citation):
+        citation_rgx = (
+            re.escape(citation[: m.start()])
+            + r"\(\d{4}\)"
+            + re.escape(citation[m.end() :])
+        )
+        expected["citation"] = anys.AnyFullmatch(citation_rgx)
+    else:
+        expected["citation"] = citation
     assert metadata == expected
