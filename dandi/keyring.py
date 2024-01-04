@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 import os.path as op
 from pathlib import Path
-from typing import Optional, TypeVar
+from typing import TypeVar
 
 import click
 from keyring.backend import KeyringBackend, get_all_keyring
@@ -21,7 +21,7 @@ T = TypeVar("T")
 
 def keyring_lookup(
     service_name: str, username: str
-) -> tuple[KeyringBackend, Optional[str]]:
+) -> tuple[KeyringBackend, str | None]:
     """
     Returns an appropriate keyring backend and the password it holds (if any)
     for the given service and username.
@@ -44,9 +44,7 @@ def keyring_save(service_name: str, username: str, password: str) -> None:
         save(kb)
 
 
-def keyring_op(
-    func: Callable[[KeyringBackend], T]
-) -> tuple[KeyringBackend, Optional[T]]:
+def keyring_op(func: Callable[[KeyringBackend], T]) -> tuple[KeyringBackend, T | None]:
     """
     Determine a keyring backend to use for storing & retrieving credentials,
     perform an operation on the backend, and return the backend and the results
@@ -110,6 +108,7 @@ def keyring_op(
             len(kbs) == 1
         ), "EncryptedKeyring not available; is pycryptodomex installed?"
         kb = kbs[0]
+        assert isinstance(kb, EncryptedKeyring)
         if op.exists(kb.file_path):
             lgr.info("EncryptedKeyring file exists; using as keyring backend")
             return (kb, func(kb))

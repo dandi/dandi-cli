@@ -36,6 +36,7 @@ jobs:
           - 3.9
           - '3.10'  # Needs quotes so YAML doesn't think it's 3.1
           - '3.11'
+          - '3.12'
         mode:
           - normal
         include:
@@ -51,14 +52,14 @@ jobs:
 
     steps:
     - name: Set up environment
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         # Fetch all commits so that versioneer will return something compatible
         # with semantic-version
         fetch-depth: 0
 
     - name: Set up Python ${{ matrix.python }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python }}
 
@@ -73,6 +74,7 @@ jobs:
         pip install git+https://github.com/jaraco/keyring
         pip install git+https://github.com/NeurodataWithoutBorders/nwbinspector
         pip install git+https://github.com/NeurodataWithoutBorders/pynwb
+        pip install git+https://github.com/hdmf-dev/hdmf
 
     - name: Create NFS filesystem
       if: matrix.mode == 'nfs'

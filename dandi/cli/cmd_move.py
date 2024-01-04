@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from typing import Optional
-
 import click
 
 from .base import devel_debug_option, instance_option, map_to_click_exceptions
+from ..move import MoveExisting, MoveWorkOn
 
 
 @click.command()
@@ -17,7 +16,7 @@ from .base import devel_debug_option, instance_option, map_to_click_exceptions
 @click.option(
     "-e",
     "--existing",
-    type=click.Choice(["error", "skip", "overwrite"]),
+    type=click.Choice(list(MoveExisting)),
     default="error",
     help="How to handle assets that would be moved to a destination that already exists",
     show_default=True,
@@ -31,7 +30,7 @@ from .base import devel_debug_option, instance_option, map_to_click_exceptions
 @click.option(
     "-w",
     "--work-on",
-    type=click.Choice(["auto", "both", "local", "remote"]),
+    type=click.Choice(list(MoveWorkOn)),
     default="auto",
     help=(
         "Whether to operate on the local Dandiset, remote Dandiset, or both;"
@@ -46,13 +45,13 @@ from .base import devel_debug_option, instance_option, map_to_click_exceptions
 @devel_debug_option()
 @map_to_click_exceptions
 def move(
-    paths: tuple[str],
-    dandiset: Optional[str],
+    paths: tuple[str, ...],
+    dandiset: str | None,
     dry_run: bool,
-    existing: str,
-    jobs: Optional[int],
+    existing: MoveExisting,
+    jobs: int | None,
     regex: bool,
-    work_on: str,
+    work_on: MoveWorkOn,
     dandi_instance: str,
     devel_debug: bool = False,
 ) -> None:

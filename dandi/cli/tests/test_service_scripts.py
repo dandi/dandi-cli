@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import re
+import sys
 
 import anys
 from click.testing import CliRunner
@@ -15,7 +16,7 @@ import vcr
 from dandi import __version__
 from dandi.tests.fixtures import SampleDandiset
 
-from ..command import service_scripts
+from ..cmd_service_scripts import service_scripts
 
 DATA_DIR = Path(__file__).with_name("data")
 
@@ -48,6 +49,10 @@ def record_only_doi_requests(request):
         return None
 
 
+@pytest.mark.xfail(
+    sys.version_info < (3, 10),
+    reason="Some difference in VCR tape: https://github.com/dandi/dandi-cli/pull/1337",
+)
 @pytest.mark.parametrize(
     "doi,name",
     [
@@ -111,9 +116,18 @@ def test_update_dandiset_from_doi(
     expected["manifestLocation"][
         0
     ] = f"{new_dandiset.api.api_url}/dandisets/{dandiset_id}/versions/draft/assets/"
-    expected["citation"] = re.sub(
+    citation = re.sub(
         r"\S+\Z",
         f"{repository}/dandiset/{dandiset_id}/draft",
         expected["citation"],
     )
+    if m := re.search(r"\(\d{4}\)", citation):
+        citation_rgx = (
+            re.escape(citation[: m.start()])
+            + r"\(\d{4}\)"
+            + re.escape(citation[m.end() :])
+        )
+        expected["citation"] = anys.AnyFullmatch(citation_rgx)
+    else:
+        expected["citation"] = citation
     assert metadata == expected

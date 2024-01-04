@@ -5,8 +5,9 @@ import click
 from click.testing import CliRunner
 import pytest
 
-from ..command import download
+from ..cmd_download import download
 from ...consts import dandiset_metadata_file, known_instances
+from ...download import DownloadExisting, DownloadFormat, PathType
 
 
 def test_download_defaults(mocker):
@@ -16,14 +17,14 @@ def test_download_defaults(mocker):
     mock_download.assert_called_once_with(
         (),
         os.curdir,
-        existing="error",
-        format="pyout",
+        existing=DownloadExisting.ERROR,
+        format=DownloadFormat.PYOUT,
         jobs=6,
         jobs_per_zarr=None,
         get_metadata=True,
         get_assets=True,
         sync=False,
-        path_type="exact",
+        path_type=PathType.EXACT,
     )
 
 
@@ -34,14 +35,14 @@ def test_download_all_types(mocker):
     mock_download.assert_called_once_with(
         (),
         os.curdir,
-        existing="error",
-        format="pyout",
+        existing=DownloadExisting.ERROR,
+        format=DownloadFormat.PYOUT,
         jobs=6,
         jobs_per_zarr=None,
         get_metadata=True,
         get_assets=True,
         sync=False,
-        path_type="exact",
+        path_type=PathType.EXACT,
     )
 
 
@@ -52,14 +53,14 @@ def test_download_metadata_only(mocker):
     mock_download.assert_called_once_with(
         (),
         os.curdir,
-        existing="error",
-        format="pyout",
+        existing=DownloadExisting.ERROR,
+        format=DownloadFormat.PYOUT,
         jobs=6,
         jobs_per_zarr=None,
         get_metadata=True,
         get_assets=False,
         sync=False,
-        path_type="exact",
+        path_type=PathType.EXACT,
     )
 
 
@@ -70,14 +71,14 @@ def test_download_assets_only(mocker):
     mock_download.assert_called_once_with(
         (),
         os.curdir,
-        existing="error",
-        format="pyout",
+        existing=DownloadExisting.ERROR,
+        format=DownloadFormat.PYOUT,
         jobs=6,
         jobs_per_zarr=None,
         get_metadata=False,
         get_assets=True,
         sync=False,
-        path_type="exact",
+        path_type=PathType.EXACT,
     )
 
 
@@ -103,14 +104,14 @@ def test_download_gui_instance_in_dandiset(mocker):
     mock_download.assert_called_once_with(
         ["https://dandiarchive.org/#/dandiset/123456/draft"],
         os.curdir,
-        existing="error",
-        format="pyout",
+        existing=DownloadExisting.ERROR,
+        format=DownloadFormat.PYOUT,
         jobs=6,
         jobs_per_zarr=None,
         get_metadata=True,
         get_assets=True,
         sync=False,
-        path_type="exact",
+        path_type=PathType.EXACT,
     )
 
 
@@ -128,14 +129,14 @@ def test_download_api_instance_in_dandiset(mocker):
     mock_download.assert_called_once_with(
         ["http://localhost:8000/api/dandisets/123456/"],
         os.curdir,
-        existing="error",
-        format="pyout",
+        existing=DownloadExisting.ERROR,
+        format=DownloadFormat.PYOUT,
         jobs=6,
         jobs_per_zarr=None,
         get_metadata=True,
         get_assets=True,
         sync=False,
-        path_type="exact",
+        path_type=PathType.EXACT,
     )
 
 
@@ -153,14 +154,14 @@ def test_download_url_instance_match(mocker):
     mock_download.assert_called_once_with(
         ("http://localhost:8000/api/dandisets/123456/",),
         os.curdir,
-        existing="error",
-        format="pyout",
+        existing=DownloadExisting.ERROR,
+        format=DownloadFormat.PYOUT,
         jobs=6,
         jobs_per_zarr=None,
         get_metadata=True,
         get_assets=True,
         sync=False,
-        path_type="exact",
+        path_type=PathType.EXACT,
     )
 
 

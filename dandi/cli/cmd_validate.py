@@ -4,13 +4,14 @@ from collections.abc import Iterable
 import logging
 import os
 import re
-from typing import List, Optional, cast
+from typing import cast
 import warnings
 
 import click
 
 from .base import devel_debug_option, devel_option, map_to_click_exceptions
 from ..utils import pluralize
+from ..validate import validate as validate_
 from ..validate_types import Severity, ValidationResult
 
 
@@ -90,19 +91,19 @@ def validate_bids(
 @map_to_click_exceptions
 def validate(
     paths: tuple[str, ...],
-    ignore: Optional[str],
+    ignore: str | None,
     grouping: str,
     min_severity: str,
-    schema: Optional[str] = None,
+    schema: str | None = None,
     devel_debug: bool = False,
     allow_any_path: bool = False,
 ) -> None:
-    """Validate files for DANDI and BIDS and/or NWB compliance.
+    """Validate files for data standards compliance.
 
     Exits with non-0 exit code if any file is not compliant.
     """
+    # Avoid heavy import by importing within function:
     from ..pynwb_utils import ignore_benign_pynwb_warnings
-    from ..validate import validate as validate_
 
     # Don't log validation warnings, as this command reports them to the user
     # anyway:
@@ -139,7 +140,7 @@ def validate(
 def _process_issues(
     validator_result: Iterable[ValidationResult],
     grouping: str,
-    ignore: Optional[str] = None,
+    ignore: str | None = None,
 ) -> None:
     issues = [i for i in validator_result if i.severity is not None]
     if ignore is not None:
@@ -149,7 +150,7 @@ def _process_issues(
         display_errors(
             purviews,
             [i.id for i in issues],
-            cast(List[Severity], [i.severity for i in issues]),
+            cast("list[Severity]", [i.severity for i in issues]),
             [i.message for i in issues],
         )
     elif grouping == "path":
@@ -161,7 +162,7 @@ def _process_issues(
             display_errors(
                 [purview],
                 [i.id for i in applies_to],
-                cast(List[Severity], [i.severity for i in applies_to]),
+                cast("list[Severity]", [i.severity for i in applies_to]),
                 [i.message for i in applies_to],
             )
     else:
@@ -185,10 +186,10 @@ def _get_severity_color(severities: list[Severity]) -> str:
 
 
 def display_errors(
-    purviews: list[Optional[str]],
+    purviews: list[str | None],
     errors: list[str],
     severities: list[Severity],
-    messages: list[Optional[str]],
+    messages: list[str | None],
 ) -> None:
     """
     Unified error display for validation CLI, which auto-resolves grouping

@@ -1,35 +1,28 @@
 from __future__ import annotations
 
 from bisect import bisect
+from collections.abc import Iterable, Iterator
 import datetime
 from functools import lru_cache
 from importlib.metadata import version as importlib_version
 import inspect
 import io
 import itertools
+import json
 from mimetypes import guess_type
 import os
 import os.path as op
 from pathlib import Path, PurePath, PurePosixPath
+import pdb
 import platform
 import re
 import shutil
 import subprocess
 import sys
+from time import sleep
+import traceback
 import types
-from typing import (
-    Any,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Set,
-    TextIO,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import IO, Any, List, Optional, Protocol, TypeVar, Union
 from urllib.parse import parse_qs, urlparse, urlunparse
 
 import dateutil.parser
@@ -41,6 +34,9 @@ from semantic_version import Version
 from . import __version__, get_logger
 from .consts import DandiInstance, known_instances, known_instances_rev
 from .exceptions import BadCliVersionError, CliVersionTooOldError
+
+AnyPath = Union[str, Path]
+
 
 lgr = get_logger()
 
@@ -67,6 +63,14 @@ USER_AGENT = "dandi/{} requests/{} {}/{}".format(
 )
 
 
+class Hasher(Protocol):
+    def update(self, data: bytes) -> None:
+        ...
+
+    def hexdigest(self) -> str:
+        ...
+
+
 def is_interactive() -> bool:
     """Return True if all in/outs are tty"""
     # TODO: check on windows if hasattr check would work correctly and add value:
@@ -82,21 +86,17 @@ def setup_exceptionhook(ipython: bool = False) -> None:
     """
 
     def _pdb_excepthook(
-        type: Type[BaseException],
+        exc_type: type[BaseException],
         value: BaseException,
-        tb: Optional[types.TracebackType],
+        tb: types.TracebackType | None,
     ) -> None:
-        import traceback
-
-        traceback.print_exception(type, value, tb)
+        traceback.print_exception(exc_type, value, tb)
         print()
         if is_interactive():
-            import pdb
-
             pdb.post_mortem(tb)
 
     if ipython:
-        from IPython.core import ultratb
+        from IPython.core import ultratb  # type: ignore[import]
 
         sys.excepthook = ultratb.FormattedTB(
             mode="Verbose",
@@ -114,7 +114,7 @@ def get_utcnow_datetime(microseconds: bool = True) -> datetime.datetime:
 
     If string representation is desired, just "apply" .isoformat()
     """
-    ret = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc).astimezone()
+    ret = datetime.datetime.now(datetime.timezone.utc).astimezone()
     if microseconds:
         return ret
     else:
@@ -122,7 +122,7 @@ def get_utcnow_datetime(microseconds: bool = True) -> datetime.datetime:
 
 
 def is_same_time(
-    *times: Union[datetime.datetime, int, float, str],
+    *times: datetime.datetime | int | float | str,
     tolerance: float = 1e-6,
     strip_tzinfo: bool = False,
 ) -> bool:
@@ -155,7 +155,7 @@ def is_same_time(
 
 
 def ensure_strtime(
-    t: Union[str, int, float, datetime.datetime], isoformat: bool = True
+    t: str | int | float | datetime.datetime, isoformat: bool = True
 ) -> str:
     """Ensures that time is a string in iso format
 
@@ -189,9 +189,9 @@ def fromisoformat(t: str) -> datetime.datetime:
 
 
 def ensure_datetime(
-    t: Union[datetime.datetime, int, float, str],
+    t: datetime.datetime | int | float | str,
     strip_tzinfo: bool = False,
-    tz: Optional[datetime.tzinfo] = None,
+    tz: datetime.tzinfo | None = None,
 ) -> datetime.datetime:
     """Ensures that time is a datetime
 
@@ -239,35 +239,25 @@ def flattened(it: Iterable) -> list:
 #
 
 
-def load_jsonl(filename: Union[str, Path]) -> list:
+def load_jsonl(filename: AnyPath) -> list:
     """Load json lines formatted file"""
-    import json
-
-    with open(filename, "r") as f:
+    with open(filename) as f:
         return list(map(json.loads, f))
 
 
-_encoded_dirsep = r"\\" if on_windows else r"/"
-_VCS_REGEX = r"%s\.(?:git|gitattributes|svn|bzr|hg)(?:%s|$)" % (
-    _encoded_dirsep,
-    _encoded_dirsep,
-)
-_DATALAD_REGEX = r"%s\.(?:datalad)(?:%s|$)" % (_encoded_dirsep, _encoded_dirsep)
-
-
-AnyPath = Union[str, Path]
+_VCS_NAMES = {".git", ".gitattributes", ".svn", ".bzr", ".hg"}
 
 
 def find_files(
     regex: str,
-    paths: Union[List[AnyPath], Tuple[AnyPath, ...], Set[AnyPath], AnyPath] = os.curdir,
-    exclude: Optional[str] = None,
+    paths: AnyPath | Iterable[AnyPath] = os.curdir,
+    exclude: str | None = None,
     exclude_dotfiles: bool = True,
     exclude_dotdirs: bool = True,
     exclude_vcs: bool = True,
     exclude_datalad: bool = False,
     dirs: bool = False,
-    dirs_avoid: Optional[str] = None,
+    dirs_avoid: str | None = None,
 ) -> Iterator[str]:
     """Generator to find files matching regex
 
@@ -298,16 +288,17 @@ def find_files(
         path = path.rstrip(op.sep)
         if exclude and re.search(exclude, path):
             return True
-        if exclude_vcs and re.search(_VCS_REGEX, path):
+        parts = Path(path).parts
+        if exclude_vcs and any(p in _VCS_NAMES for p in parts):
             return True
-        if exclude_datalad and re.search(_DATALAD_REGEX, path):
+        if exclude_datalad and any(p == ".datalad" for p in parts):
             return True
         return False
 
     def good_file(path: str) -> bool:
         return bool(re.search(regex, path)) and not exclude_path(path)
 
-    if isinstance(paths, (list, tuple, set)):
+    if not isinstance(paths, (str, Path)):
         for path in paths:
             if op.isdir(path):
                 yield from find_files(
@@ -358,8 +349,8 @@ def find_files(
 
 
 def list_paths(
-    dirpath: Union[str, Path], dirs: bool = False, exclude_vcs: bool = True
-) -> List[Path]:
+    dirpath: AnyPath, dirs: bool = False, exclude_vcs: bool = True
+) -> list[Path]:
     return sorted(
         map(
             Path,
@@ -375,10 +366,10 @@ def list_paths(
     )
 
 
-_cp_supports_reflink: Optional[bool] = False if on_windows else None
+_cp_supports_reflink: bool | None = False if on_windows else None
 
 
-def copy_file(src: Union[str, Path], dst: Union[str, Path]) -> None:
+def copy_file(src: AnyPath, dst: AnyPath) -> None:
     """Copy file from src to dst"""
     global _cp_supports_reflink
     if _cp_supports_reflink is None:
@@ -386,7 +377,7 @@ def copy_file(src: Union[str, Path], dst: Union[str, Path]) -> None:
             ["cp", "--help"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            universal_newlines=True,
+            text=True,
         )
         # Ignore command failures (e.g., if cp doesn't support --help), as the
         # command will still likely output its usage info.
@@ -399,14 +390,14 @@ def copy_file(src: Union[str, Path], dst: Union[str, Path]) -> None:
         shutil.copy2(src, dst)
 
 
-def move_file(src: Union[str, Path], dst: Union[str, Path]) -> Any:
+def move_file(src: AnyPath, dst: AnyPath) -> Any:
     """Move file from src to dst"""
     return shutil.move(str(src), str(dst))
 
 
 def find_parent_directory_containing(
-    filename: Union[str, Path], path: Union[str, Path, None] = None
-) -> Optional[Path]:
+    filename: AnyPath, path: AnyPath | None = None
+) -> Path | None:
     """Find a directory, on the path to 'path' containing filename
 
     if no 'path' - path from cwd. If 'path' is not absolute, absolute path
@@ -445,7 +436,7 @@ def yaml_dump(rec: Any) -> str:
     return out.getvalue()
 
 
-def yaml_load(f: Union[str, TextIO], typ: Optional[str] = None) -> Any:
+def yaml_load(f: str | IO[str], typ: str | None = None) -> Any:
     """
     Load YAML source from a file or string.
 
@@ -475,7 +466,7 @@ def with_pathsep(path: str) -> str:
     return path + op.sep if not path.endswith(op.sep) else path
 
 
-def _get_normalized_paths(path: str, prefix: str) -> Tuple[str, str]:
+def _get_normalized_paths(path: str, prefix: str) -> tuple[str, str]:
     if op.isabs(path) != op.isabs(prefix):
         raise ValueError(
             "Both paths must either be absolute or relative. "
@@ -523,42 +514,6 @@ def shortened_repr(value: Any, length: int = 30) -> str:
     return value_repr
 
 
-def __auto_repr__(obj: Any) -> str:
-    attr_names: Tuple[str, ...] = ()
-    if hasattr(obj, "__dict__"):
-        attr_names += tuple(obj.__dict__.keys())
-    if hasattr(obj, "__slots__"):
-        attr_names += tuple(obj.__slots__)
-
-    items = []
-    for attr in sorted(set(attr_names)):
-        if attr.startswith("_"):
-            continue
-        value = getattr(obj, attr)
-        # TODO:  should we add this feature to minimize some talktative reprs
-        # such as of URL?
-        # if value is None:
-        #    continue
-        items.append("%s=%s" % (attr, shortened_repr(value)))
-
-    return "%s(%s)" % (obj.__class__.__name__, ", ".join(items))
-
-
-TT = TypeVar("TT", bound=type)
-
-
-def auto_repr(cls: TT) -> TT:
-    """Decorator for a class to assign it an automagic quick and dirty __repr__
-
-    It uses public class attributes to prepare repr of a class
-
-    Original idea: http://stackoverflow.com/a/27799004/1265472
-    """
-
-    cls.__repr__ = __auto_repr__  # type: ignore[assignment]
-    return cls
-
-
 def Parallel(**kwargs: Any) -> Any:  # TODO: disable lint complaint
     """Adapter for joblib.Parallel so we could if desired, centralize control"""
     # ATM just a straight invocation
@@ -596,6 +551,7 @@ class ServerInfo(BaseModel):
 
 def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
     dandi_id = None
+    is_api = True
     redirector_url = None
     if isinstance(dandi_instance_id, DandiInstance):
         instance = dandi_instance_id
@@ -605,8 +561,10 @@ def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
         dandi_id = known_instances_rev.get(redirector_url.rstrip("/"))
         if dandi_id is not None:
             instance = known_instances[dandi_id]
+            is_api = instance.api.rstrip("/") == redirector_url.rstrip("/")
         else:
             instance = None
+            is_api = False
             bits = urlparse(redirector_url)
             redirector_url = urlunparse((bits[0], bits[1], "", "", "", ""))
     else:
@@ -616,12 +574,12 @@ def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
         assert instance is not None
         return _get_instance(instance.api.rstrip("/"), True, instance, dandi_id)
     else:
-        return _get_instance(redirector_url.rstrip("/"), False, instance, dandi_id)
+        return _get_instance(redirector_url.rstrip("/"), is_api, instance, dandi_id)
 
 
 @lru_cache
 def _get_instance(
-    url: str, is_api: bool, instance: Optional[DandiInstance], dandi_id: Optional[str]
+    url: str, is_api: bool, instance: DandiInstance | None, dandi_id: str | None
 ) -> DandiInstance:
     try:
         if is_api:
@@ -681,7 +639,7 @@ def is_url(s: str) -> bool:
     # Slashes are not required after "dandi:" so as to support "DANDI:<id>"
 
 
-def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
+def get_module_version(module: str | types.ModuleType) -> str | None:
     """Return version of the module
 
     Return module's `__version__` if present, or use importlib
@@ -691,7 +649,7 @@ def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
     -------
     object
     """
-    modobj: Optional[types.ModuleType]
+    modobj: types.ModuleType | None
     if isinstance(module, str):
         modobj = sys.modules.get(module)
         mod_name = module
@@ -713,7 +671,7 @@ def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
     return version
 
 
-def pluralize(n: int, word: str, plural: Optional[str] = None) -> str:
+def pluralize(n: int, word: str, plural: str | None = None) -> str:
     if n == 1:
         return f"{n} {word}"
     else:
@@ -802,7 +760,7 @@ def check_dandi_version() -> None:
 T = TypeVar("T")
 
 
-def chunked(iterable: Iterable[T], size: int) -> Iterator[List[T]]:
+def chunked(iterable: Iterable[T], size: int) -> Iterator[list[T]]:
     # cf. chunked() from more-itertools
     i = iter(iterable)
     while True:
@@ -877,3 +835,28 @@ def _prepare_path_parts(paths: Iterable[str | PurePath]) -> list[tuple[str, ...]
 
 def _starts_with(t: tuple[str, ...], prefix: tuple[str, ...]) -> bool:
     return t[: len(prefix)] == prefix
+
+
+def pre_upload_size_check(path: Path) -> int:
+    # If the filesystem reports a size of zero for a file we're about to
+    # upload, double-check the size in case we're on a flaky NFS system.
+    for naptime in [0] + [0.1] * 19:
+        sleep(naptime)
+        size = path.stat().st_size
+        if size != 0:
+            return size
+    return size
+
+
+def post_upload_size_check(path: Path, pre_check_size: int, erroring: bool) -> None:
+    # More checks for NFS flakiness
+    size = path.stat().st_size
+    if size != pre_check_size:
+        msg = (
+            f"Size of {path} was {pre_check_size} at start of upload but is"
+            f" now {size} after upload"
+        )
+        if erroring:
+            lgr.error(msg)
+        else:
+            raise RuntimeError(msg)

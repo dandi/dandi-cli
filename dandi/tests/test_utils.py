@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 import inspect
+import logging
 import os.path as op
 from pathlib import Path
 import time
-from typing import Iterable, List
 
 import pytest
 import requests
@@ -29,6 +30,7 @@ from ..utils import (
     is_page2_url,
     is_same_time,
     on_windows,
+    post_upload_size_check,
     under_paths,
 )
 
@@ -73,7 +75,7 @@ def test_find_files_dotfiles(tmp_path: Path) -> None:
     (tmp_path / ".git" / "config").touch()
     (tmpsubdir / ".git").touch()  # a ".git" link file
 
-    def relpaths(paths: Iterable[str]) -> List[str]:
+    def relpaths(paths: Iterable[str]) -> list[str]:
         return sorted(op.relpath(p, tmp_path) for p in paths)
 
     regular = ["regular", op.join("subdir", "regular")]
@@ -394,14 +396,13 @@ def test_get_instance_arbitrary_api_url() -> None:
     )
 
 
-@pytest.mark.xfail(reason="https://github.com/dandi/dandi-archive/issues/1045")
 @mark.skipif_no_network
 def test_server_info() -> None:
     r = requests.get("https://dandiarchive.org/server-info")
     r.raise_for_status()
     data = r.json()
     assert "version" in data
-    assert Version(data["version"]) >= Version("1.2.0")
+    assert Version(data["version"]) >= Version("0.2.18")
     assert "cli-minimal-version" in data
     assert "cli-bad-versions" in data
     assert "services" in data
@@ -562,3 +563,29 @@ def test_under_paths(
     paths: list[str], filter_paths: list[str], results: list[str]
 ) -> None:
     assert list(map(str, under_paths(paths, filter_paths))) == results
+
+
+def test_post_upload_size_check_not_erroring(tmp_path: Path) -> None:
+    p = tmp_path / "file.txt"
+    # Write bytes so the size is the same on Unix and Windows:
+    p.write_bytes(b"This is test text.\n")
+    with pytest.raises(RuntimeError) as excinfo:
+        post_upload_size_check(p, 42, False)
+    assert (
+        str(excinfo.value)
+        == f"Size of {p} was 42 at start of upload but is now 19 after upload"
+    )
+
+
+def test_post_upload_size_check_erroring(
+    caplog: pytest.LogCaptureFixture, tmp_path: Path
+) -> None:
+    p = tmp_path / "file.txt"
+    # Write bytes so the size is the same on Unix and Windows:
+    p.write_bytes(b"This is test text.\n")
+    post_upload_size_check(p, 42, True)
+    assert (
+        "dandi",
+        logging.ERROR,
+        f"Size of {p} was 42 at start of upload but is now 19 after upload",
+    ) in caplog.record_tuples

@@ -1,10 +1,13 @@
+from __future__ import annotations
+
+from collections.abc import Callable
 import json
 import os
 import os.path
 from pathlib import Path
 import re
 from shutil import rmtree
-from typing import Callable, List, Tuple
+import time
 
 import numpy as np
 import pytest
@@ -17,9 +20,18 @@ from .skip import mark
 from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
-from ..download import Downloader, ProgressCombiner, download
+from ..download import (
+    Downloader,
+    DownloadExisting,
+    DownloadFormat,
+    PathType,
+    ProgressCombiner,
+    PYOUTHelper,
+    download,
+)
 from ..exceptions import NotFoundError
-from ..utils import list_paths
+from ..support.digests import Digester
+from ..utils import list_paths, yaml_load
 
 
 # both urls point to 000027 (lean test dataset), and both draft and "released"
@@ -45,8 +57,6 @@ def test_download_000027(
         dsdir / "sub-RAT123" / "sub-RAT123.nwb",
     ]
     # and checksum should be correct as well
-    from ..support.digests import Digester
-
     assert (
         Digester(["md5"])(dsdir / "sub-RAT123" / "sub-RAT123.nwb")["md5"]
         == "33318fd510094e4304868b4a481d4a5a"
@@ -54,16 +64,20 @@ def test_download_000027(
     # redownload - since already exist there should be an exception if we are
     # not using pyout
     with pytest.raises(FileExistsError):
-        download(url, tmp_path, format="debug")
+        download(url, tmp_path, format=DownloadFormat.DEBUG)
     assert "FileExistsError" not in capsys.readouterr().out
     # but  no exception is raised, and rather it gets output to pyout otherwise
     download(url, tmp_path)
     assert "FileExistsError" in capsys.readouterr().out
 
     # TODO: somehow get that status report about what was downloaded and what not
-    download(url, tmp_path, existing="skip")  # TODO: check that skipped
-    download(url, tmp_path, existing="overwrite")  # TODO: check that redownloaded
-    download(url, tmp_path, existing="refresh")  # TODO: check that skipped (the same)
+    download(url, tmp_path, existing=DownloadExisting.SKIP)  # TODO: check that skipped
+    download(
+        url, tmp_path, existing=DownloadExisting.OVERWRITE
+    )  # TODO: check that redownloaded
+    download(
+        url, tmp_path, existing=DownloadExisting.REFRESH
+    )  # TODO: check that skipped (the same)
 
 
 @mark.skipif_no_network
@@ -107,8 +121,6 @@ def test_download_000027_assets_only(url: str, tmp_path: Path) -> None:
 def test_download_000027_resume(
     tmp_path: Path, resizer: Callable[[int], int], version: str
 ) -> None:
-    from ..support.digests import Digester
-
     url = f"https://dandiarchive.org/dandiset/000027/{version}"
     digester = Digester()
     download(url, tmp_path, get_metadata=False)
@@ -170,6 +182,18 @@ def test_download_item(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
 
 
+def test_download_dandiset_yaml(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
+    dandiset_id = text_dandiset.dandiset_id
+    download(
+        f"dandi://{text_dandiset.api.instance_id}/{dandiset_id}/dandiset.yaml",
+        tmp_path,
+    )
+    assert list_paths(tmp_path, dirs=True) == [tmp_path / dandiset_metadata_file]
+    with (tmp_path / dandiset_metadata_file).open(encoding="utf-8") as fp:
+        metadata = yaml_load(fp)
+    assert metadata["id"] == f"DANDI:{dandiset_id}/draft"
+
+
 def test_download_asset_id(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     asset = text_dandiset.dandiset.get_asset_by_path("subdir2/coconut.txt")
     download(asset.download_url, tmp_path)
@@ -208,7 +232,7 @@ def test_download_sync(
     download(
         f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}",
         tmp_path,
-        existing="overwrite",
+        existing=DownloadExisting.OVERWRITE,
         sync=True,
     )
     confirm_mock.assert_called_with("Delete 1 local asset?", "yes", "no", "list")
@@ -227,7 +251,7 @@ def test_download_sync_folder(
     download(
         f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}/subdir2/",
         text_dandiset.dspath,
-        existing="overwrite",
+        existing=DownloadExisting.OVERWRITE,
         sync=True,
     )
     confirm_mock.assert_called_with("Delete 1 local asset?", "yes", "no", "list")
@@ -248,7 +272,7 @@ def test_download_sync_list(
     download(
         f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}",
         tmp_path,
-        existing="overwrite",
+        existing=DownloadExisting.OVERWRITE,
         sync=True,
     )
     assert not (dspath / "file.txt").exists()
@@ -269,7 +293,7 @@ def test_download_sync_zarr(
     download(
         zarr_dandiset.dandiset.version_api_url,
         tmp_path,
-        existing="overwrite",
+        existing=DownloadExisting.OVERWRITE,
         sync=True,
     )
     confirm_mock.assert_called_with("Delete 1 local asset?", "yes", "no", "list")
@@ -303,7 +327,7 @@ def test_download_metadata404(text_dandiset: SampleDandiset, tmp_path: Path) -> 
                 version_id=text_dandiset.dandiset.version_id,
             ),
             output_dir=tmp_path,
-            existing="error",
+            existing=DownloadExisting.ERROR,
             get_metadata=True,
             get_assets=True,
             jobs_per_zarr=None,
@@ -341,7 +365,9 @@ def test_download_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) 
     dd.mkdir()
     zarr.save(dd / "sample.zarr", np.eye(5))
     download(
-        zarr_dandiset.dandiset.version_api_url, tmp_path, existing="overwrite-different"
+        zarr_dandiset.dandiset.version_api_url,
+        tmp_path,
+        existing=DownloadExisting.OVERWRITE_DIFFERENT,
     )
     assert_dirtrees_eq(
         zarr_dandiset.dspath / "sample.zarr",
@@ -364,7 +390,9 @@ def test_download_different_zarr_onto_excluded_dotfiles(
     (zarr_path / "arr_0").mkdir()
     (zarr_path / "arr_0" / ".gitmodules").touch()
     download(
-        zarr_dandiset.dandiset.version_api_url, tmp_path, existing="overwrite-different"
+        zarr_dandiset.dandiset.version_api_url,
+        tmp_path,
+        existing=DownloadExisting.OVERWRITE_DIFFERENT,
     )
     assert list_paths(zarr_path, dirs=True, exclude_vcs=False) == [
         zarr_path / ".dandi",
@@ -395,7 +423,7 @@ def test_download_different_zarr_delete_dir(
     dd.mkdir(parents=True, exist_ok=True)
     zarr.save(dd / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
     assert any(p.is_dir() for p in (dd / "sample.zarr").iterdir())
-    download(d.version_api_url, tmp_path, existing="overwrite-different")
+    download(d.version_api_url, tmp_path, existing=DownloadExisting.OVERWRITE_DIFFERENT)
     assert_dirtrees_eq(dspath / "sample.zarr", dd / "sample.zarr")
 
 
@@ -406,7 +434,9 @@ def test_download_zarr_to_nonzarr_path(
     dd.mkdir()
     (dd / "sample.zarr").write_text("This is not a Zarr.\n")
     download(
-        zarr_dandiset.dandiset.version_api_url, tmp_path, existing="overwrite-different"
+        zarr_dandiset.dandiset.version_api_url,
+        tmp_path,
+        existing=DownloadExisting.OVERWRITE_DIFFERENT,
     )
     assert_dirtrees_eq(
         zarr_dandiset.dspath / "sample.zarr",
@@ -423,7 +453,7 @@ def test_download_nonzarr_to_zarr_path(
     dd = tmp_path / d.identifier
     dd.mkdir(parents=True, exist_ok=True)
     zarr.save(dd / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
-    download(d.version_api_url, tmp_path, existing="overwrite-different")
+    download(d.version_api_url, tmp_path, existing=DownloadExisting.OVERWRITE_DIFFERENT)
     assert (dd / "sample.zarr").is_file()
     assert (dd / "sample.zarr").read_text() == "This is not a Zarr.\n"
 
@@ -753,10 +783,10 @@ def test_download_zarr_subdir_has_only_subdirs(
     ],
 )
 def test_progress_combiner(
-    file_qty: int, inputs: List[Tuple[str, dict]], expected: List[dict]
+    file_qty: int, inputs: list[tuple[str, dict]], expected: list[dict]
 ) -> None:
     pc = ProgressCombiner(zarr_size=69105, file_qty=file_qty)
-    outputs: List[dict] = []
+    outputs: list[dict] = []
     for path, status in inputs:
         outputs.extend(pc.feed(path, status))
     assert outputs == expected
@@ -802,7 +832,7 @@ def test_download_glob_option(text_dandiset: SampleDandiset, tmp_path: Path) -> 
     download(
         f"dandi://{text_dandiset.api.instance_id}/{dandiset_id}/s*.Txt",
         tmp_path,
-        path_type="glob",
+        path_type=PathType.GLOB,
     )
     assert list_paths(tmp_path, dirs=True) == [
         tmp_path / "subdir1",
@@ -839,7 +869,7 @@ def test_download_sync_glob(
     download(
         f"{text_dandiset.dandiset.version_api_url}assets/?glob=s*.Txt",
         text_dandiset.dspath,
-        existing="overwrite",
+        existing=DownloadExisting.OVERWRITE,
         sync=True,
     )
     confirm_mock.assert_called_with("Delete 1 local asset?", "yes", "no", "list")
@@ -899,3 +929,43 @@ def test_download_empty_dandiset_and_nonexistent_multiasset(
         tmp_path / empty_dandiset.dandiset_id,
         tmp_path / empty_dandiset.dandiset_id / "dandiset.yaml",
     ]
+
+
+def test_pyouthelper_time_remaining_1339():
+    """
+    Ensure that time remaining goes down!
+    https://github.com/dandi/dandi-cli/issues/1339
+
+    Since time.now() is called inside the agg methods, we
+    simulate time elapsing by changing t0
+
+    Assume downloading files totaling 100 arbitrary units at rates to trigger
+    a few hours, then countdown to 0.
+    check that ETA goes down like we want it to
+    """
+
+    helper = PYOUTHelper()
+    helper.items_summary.size = 100
+
+    # first check hours
+    # 5 hours remaining = 50% done in 60*60*5
+    helper.items_summary.t0 = time.time() - (60 * 60 * 5)
+    done = helper.agg_done(iter([50]))
+    assert done[-1] == "ETA: 5 hours<"
+
+    # 5 minutes remaining = 50% done in 60 * 5
+    helper.items_summary.t0 = time.time() - (5 * 60)
+    done = helper.agg_done(iter([50]))
+    assert done[-1] == "ETA: 5 minutes<"
+
+    # countdown the last 10 seconds!
+    for i in range(11):
+        helper.items_summary.t0 = time.time() - (100 - (10 - i))
+        done = helper.agg_done(iter([100 - (10 - i)]))
+        if i == 9:
+            assert done[-1] == "ETA: a second<"
+        elif i == 10:
+            # once done, dont print ETA
+            assert len(done) == 2
+        else:
+            assert done[-1] == f"ETA: {10-i} seconds<"

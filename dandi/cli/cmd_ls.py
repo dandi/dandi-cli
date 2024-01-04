@@ -3,12 +3,16 @@ import os
 import os.path as op
 
 import click
+from dandischema import models
 
 from .base import devel_option, lgr, map_to_click_exceptions
+from .formatter import JSONFormatter, JSONLinesFormatter, PYOUTFormatter, YAMLFormatter
 from ..consts import ZARR_EXTENSIONS, metadata_all_fields
 from ..dandiarchive import DandisetURL, _dandi_url_parser, parse_dandi_url
+from ..dandiset import Dandiset
 from ..misctypes import Digest
-from ..utils import is_url
+from ..support.pyout import PYOUT_SHORT_NAMES, PYOUT_SHORT_NAMES_rev
+from ..utils import find_files, is_url
 
 # TODO: all the recursion options etc
 
@@ -87,21 +91,8 @@ def ls(
     """List .nwb files and dandisets metadata."""
 
     # TODO: more logical ordering in case of fields = None
-    from .formatter import (
-        JSONFormatter,
-        JSONLinesFormatter,
-        PYOUTFormatter,
-        YAMLFormatter,
-    )
-
-    # TODO: avoid
-    from ..support.pyout import PYOUT_SHORT_NAMES_rev
-    from ..utils import find_files
-
     common_fields = ("path", "size")
     if schema is not None:
-        from dandischema import models
-
         all_fields = tuple(
             sorted(
                 set(common_fields)
@@ -249,8 +240,6 @@ def _add_exc_error(asset, rec, errors, exc):
 
 
 def display_known_fields(all_fields):
-    from ..support.pyout import PYOUT_SHORT_NAMES
-
     # Display all known fields
     click.secho("Known fields:")
     for field in all_fields:
@@ -298,7 +287,7 @@ def flatten_meta_to_pyout_v1(meta):
             continue
         if isinstance(v, dict):
             for vf, vv in flatten_meta_to_pyout_v1(v).items():
-                out["%s_%s" % (f, vf)] = flatten_v(vv)
+                out[f"{f}_{vf}"] = flatten_v(vv)
         else:
             out[f] = flatten_v(v)
     return out
@@ -330,8 +319,8 @@ def flatten_meta_to_pyout(meta):
 def get_metadata_ls(
     path, keys, errors, flatten=False, schema=None, use_fake_digest=False
 ):
-    from ..dandiset import Dandiset
-    from ..metadata import get_metadata, nwb2asset
+    # Avoid heavy import by importing within function:
+    from ..metadata.nwb import get_metadata, nwb2asset
     from ..pynwb_utils import get_nwb_version, ignore_benign_pynwb_warnings
     from ..support.digests import get_digest
 

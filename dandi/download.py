@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter, deque
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import InitVar, dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -12,25 +13,12 @@ import os.path as op
 from pathlib import Path
 import random
 from shutil import rmtree
-import sys
 from threading import Lock
 import time
 from types import TracebackType
-from typing import (
-    IO,
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
-)
+from typing import IO, Any, Literal
 
+from dandischema.digests.dandietag import ETagHashlike
 from dandischema.models import DigestType
 from fasteners import InterProcessLock
 import humanize
@@ -40,15 +28,21 @@ import requests
 from . import get_logger
 from .consts import RETRY_STATUSES, dandiset_metadata_file
 from .dandiapi import AssetType, BaseRemoteZarrAsset, RemoteDandiset
-from .dandiarchive import DandisetURL, ParsedDandiURL, SingleAssetURL, parse_dandi_url
+from .dandiarchive import (
+    AssetItemURL,
+    DandisetURL,
+    ParsedDandiURL,
+    SingleAssetURL,
+    parse_dandi_url,
+)
 from .dandiset import Dandiset
 from .exceptions import NotFoundError
 from .files import LocalAsset, find_dandi_files
-from .support.digests import get_digest, get_zarr_checksum
+from .support import pyout as pyouts
 from .support.iterators import IteratorWithAggregation
 from .support.pyout import naturalsize
-from .support.typing import Literal, Protocol
 from .utils import (
+    Hasher,
     abbrev_prompt,
     ensure_datetime,
     exclude_from_zarr,
@@ -62,24 +56,49 @@ from .utils import (
 lgr = get_logger()
 
 
+class DownloadExisting(str, Enum):
+    ERROR = "error"
+    SKIP = "skip"
+    OVERWRITE = "overwrite"
+    OVERWRITE_DIFFERENT = "overwrite-different"
+    REFRESH = "refresh"
+
+    def __str__(self) -> str:
+        return self.value
+
+
+class DownloadFormat(str, Enum):
+    PYOUT = "pyout"
+    DEBUG = "debug"
+
+    def __str__(self) -> str:
+        return self.value
+
+
+class PathType(str, Enum):
+    EXACT = "exact"
+    GLOB = "glob"
+
+    def __str__(self) -> str:
+        return self.value
+
+
 def download(
-    urls: Union[str, Sequence[str]],
-    output_dir: Union[str, Path],
+    urls: str | Sequence[str],
+    output_dir: str | Path,
     *,
-    format: str = "pyout",
-    existing: str = "error",
+    format: DownloadFormat = DownloadFormat.PYOUT,
+    existing: DownloadExisting = DownloadExisting.ERROR,
     jobs: int = 1,
-    jobs_per_zarr: Optional[int] = None,
+    jobs_per_zarr: int | None = None,
     get_metadata: bool = True,
     get_assets: bool = True,
     sync: bool = False,
-    path_type: str = "exact",
+    path_type: PathType = PathType.EXACT,
 ) -> None:
     # TODO: unduplicate with upload. For now stole from that one
     # We will again use pyout to provide a neat table summarizing our progress
     # with upload etc
-    from .support import pyout as pyouts
-
     urls = flattened([urls])
     if not urls:
         # if no paths provided etc, we will download dandiset path
@@ -87,7 +106,7 @@ def download(
         # on which instance it exists!  Thus ATM we would do nothing but crash
         raise NotImplementedError("No URLs were provided.  Cannot download anything")
 
-    parsed_urls = [parse_dandi_url(u, glob=path_type == "glob") for u in urls]
+    parsed_urls = [parse_dandi_url(u, glob=path_type is PathType.GLOB) for u in urls]
 
     # dandi.cli.formatters are used in cmd_ls to provide switchable
     pyout_style = pyouts.get_style(hide_if_missing=False)
@@ -105,14 +124,14 @@ def download(
     # TODO: redo
     kw = dict(assets_it=out_helper.it)
     if jobs > 1:
-        if format == "pyout":
+        if format is DownloadFormat.PYOUT:
             # It could handle delegated to generator downloads
             kw["yield_generator_for_fields"] = rec_fields[1:]  # all but path
         else:
             lgr.warning(
                 "Parallel downloads are not yet implemented for non-pyout format=%r. "
                 "Download will proceed serially.",
-                format,
+                str(format),
             )
 
     downloaders = [
@@ -123,7 +142,7 @@ def download(
             get_metadata=get_metadata,
             get_assets=get_assets,
             jobs_per_zarr=jobs_per_zarr,
-            on_error="yield" if format == "pyout" else "raise",
+            on_error="yield" if format is DownloadFormat.PYOUT else "raise",
             **kw,
         )
         for purl in parsed_urls
@@ -137,16 +156,15 @@ def download(
     #    has failed to download.  If any was: exception should probably be
     #    raised.  API discussion for Python side of API:
     #
-    if format == "debug":
+    if format is DownloadFormat.DEBUG:
         for rec in gen_:
-            print(rec)
-            sys.stdout.flush()
-    elif format == "pyout":
+            print(rec, flush=True)
+    elif format is DownloadFormat.PYOUT:
         with out:
             for rec in gen_:
                 out(rec)
     else:
-        raise ValueError(format)
+        raise AssertionError(f"Unhandled DownloadFormat member: {format!r}")
 
     if sync:
         to_delete = [p for dl in downloaders for p in dl.delete_for_sync()]
@@ -180,16 +198,16 @@ class Downloader:
     output_dir: InitVar[str | Path]
     output_prefix: Path = field(init=False)
     output_path: Path = field(init=False)
-    existing: str
+    existing: DownloadExisting
     get_metadata: bool
     get_assets: bool
-    jobs_per_zarr: Optional[int]
+    jobs_per_zarr: int | None
     on_error: Literal["raise", "yield"]
     #: which will be set .gen to assets.  Purpose is to make it possible to get
     #: summary statistics while already downloading.  TODO: reimplement
     #: properly!
-    assets_it: Optional[IteratorWithAggregation] = None
-    yield_generator_for_fields: Optional[tuple[str, ...]] = None
+    assets_it: IteratorWithAggregation | None = None
+    yield_generator_for_fields: tuple[str, ...] | None = None
     asset_download_paths: set[str] = field(init=False, default_factory=set)
 
     def __post_init__(self, output_dir: str | Path) -> None:
@@ -215,7 +233,13 @@ class Downloader:
         """
 
         with self.url.navigate(strict=True) as (client, dandiset, assets):
-            if isinstance(self.url, DandisetURL) and self.get_metadata:
+            if (
+                isinstance(self.url, DandisetURL)
+                or (
+                    isinstance(self.url, AssetItemURL)
+                    and self.url.path == "dandiset.yaml"
+                )
+            ) and self.get_metadata:
                 assert dandiset is not None
                 for resp in _populate_dandiset_yaml(
                     self.output_path, dandiset, self.existing
@@ -224,6 +248,8 @@ class Downloader:
                         "path": str(self.output_prefix / dandiset_metadata_file),
                         **resp,
                     }
+                if isinstance(self.url, AssetItemURL):
+                    return
 
             # TODO: do analysis of assets for early detection of needed renames
             # etc to avoid any need for late treatment of existing and also for
@@ -349,7 +375,7 @@ class ItemsSummary:
     def __init__(self) -> None:
         self.files = 0
         # TODO: get rid of needing it
-        self.t0: Optional[float] = None  # when first record is seen
+        self.t0: float | None = None  # when first record is seen
         self.size = 0
         self.has_unknown_sizes = False
 
@@ -361,7 +387,7 @@ class ItemsSummary:
         }
 
     # TODO: Determine the proper annotation for `rec`
-    def __call__(self, rec: Any, prior: Optional[ItemsSummary] = None) -> ItemsSummary:
+    def __call__(self, rec: Any, prior: ItemsSummary | None = None) -> ItemsSummary:
         assert prior in (None, self)
         if not self.files:
             self.t0 = time.time()
@@ -396,7 +422,7 @@ class PYOUTHelper:
             ret += "+"
         return ret
 
-    def agg_size(self, sizes: Iterable[int]) -> Union[str, List[str]]:
+    def agg_size(self, sizes: Iterable[int]) -> str | list[str]:
         """Formatter for "size" column where it would show
 
         how much is "active" (or done)
@@ -421,7 +447,7 @@ class PYOUTHelper:
                 v.append(extra_str)
         return v
 
-    def agg_done(self, done_sizes: Iterator[int]) -> List[str]:
+    def agg_done(self, done_sizes: Iterator[int]) -> list[str]:
         """Formatter for "DONE" column"""
         done = sum(done_sizes)
         if self.it.finished and done == 0 and self.items_summary.size == 0:
@@ -436,7 +462,7 @@ class PYOUTHelper:
             pref += "<"
         if self.items_summary.has_unknown_sizes:
             pref += "?"
-        v = [naturalsize(done), "%s%.2f%%" % (pref, 100 * r)]
+        v = [naturalsize(done), f"{pref}{100 * r:.2f}%"]
         if (
             done
             and self.items_summary.t0 is not None
@@ -444,7 +470,7 @@ class PYOUTHelper:
             and self.items_summary.size != 0
         ):
             dt = time.time() - self.items_summary.t0
-            more_time = dt / r if r != 1 else 0
+            more_time = (dt / r) - dt if r != 1 else 0
             more_time_str = humanize.naturaldelta(more_time)
             if not self.it.finished:
                 more_time_str += "<"
@@ -460,7 +486,7 @@ def _skip_file(msg: Any) -> dict:
 
 
 def _populate_dandiset_yaml(
-    dandiset_path: Union[str, Path], dandiset: RemoteDandiset, existing: str
+    dandiset_path: str | Path, dandiset: RemoteDandiset, existing: DownloadExisting
 ) -> Iterator[dict]:
     metadata = dandiset.get_raw_metadata()
     if not metadata:
@@ -477,15 +503,15 @@ def _populate_dandiset_yaml(
             if yaml_load(fp, typ="safe") == metadata:
                 yield _skip_file("no change")
                 return
-        if existing == "error":
+        if existing is DownloadExisting.ERROR:
             yield {"status": "error", "message": "already exists"}
             return
-        elif existing == "refresh" and op.lexists(
+        elif existing is DownloadExisting.REFRESH and op.lexists(
             op.join(dandiset_path, ".git", "annex")
         ):
             raise RuntimeError("Not refreshing path in git annex repository")
-        elif existing == "skip" or (
-            existing == "refresh"
+        elif existing is DownloadExisting.SKIP or (
+            existing is DownloadExisting.REFRESH
             and os.lstat(dandiset_yaml).st_mtime >= mtime.timestamp()
         ):
             yield _skip_file("already exists")
@@ -501,24 +527,16 @@ def _populate_dandiset_yaml(
     }
 
 
-class Hasher(Protocol):
-    def update(self, data: bytes) -> None:
-        ...
-
-    def hexdigest(self) -> str:
-        ...
-
-
 def _download_file(
     downloader: Callable[[int], Iterator[bytes]],
     path: Path,
-    toplevel_path: Union[str, Path],
+    toplevel_path: str | Path,
     lock: Lock,
-    size: Optional[int] = None,
-    mtime: Optional[datetime] = None,
-    existing: str = "error",
-    digests: Optional[Dict[str, str]] = None,
-    digest_callback: Optional[Callable[[str, str], Any]] = None,
+    size: int | None = None,
+    mtime: datetime | None = None,
+    existing: DownloadExisting = DownloadExisting.ERROR,
+    digests: dict[str, str] | None = None,
+    digest_callback: Callable[[str, str], Any] | None = None,
 ) -> Iterator[dict]:
     """
     Common logic for downloading a single file.
@@ -547,16 +565,19 @@ def _download_file(
       possible checksums or other digests provided for the file. Only one
       will be used to verify download
     """
+    # Avoid heavy import by importing within function:
+    from .support.digests import get_digest
+
     if op.lexists(path):
         annex_path = op.join(toplevel_path, ".git", "annex")
-        if existing == "error":
+        if existing is DownloadExisting.ERROR:
             raise FileExistsError(f"File {path!r} already exists")
-        elif existing == "skip":
+        elif existing is DownloadExisting.SKIP:
             yield _skip_file("already exists")
             return
-        elif existing == "overwrite":
+        elif existing is DownloadExisting.OVERWRITE:
             pass
-        elif existing == "overwrite-different":
+        elif existing is DownloadExisting.OVERWRITE_DIFFERENT:
             realpath = op.realpath(path)
             key_parts = op.basename(realpath).split("-")
             if size is not None and os.stat(realpath).st_size != size:
@@ -598,7 +619,7 @@ def _download_file(
                 lgr.debug(
                     "Etag of %s does not match etag on server; redownloading", path
                 )
-        elif existing == "refresh":
+        elif existing is DownloadExisting.REFRESH:
             if op.lexists(annex_path):
                 raise RuntimeError("Not refreshing path in git annex repository")
             if mtime is None:
@@ -635,17 +656,15 @@ def _download_file(
 
     yield {"status": "downloading"}
 
-    algo: Optional[str] = None
-    digester: Optional[Callable[[], Hasher]] = None
-    digest: Optional[str] = None
-    downloaded_digest: Optional[Hasher] = None
+    algo: str | None = None
+    digester: Callable[[], Hasher] | None = None
+    digest: str | None = None
+    downloaded_digest: Hasher | None = None
     if digests:
         # choose first available for now.
         # TODO: reuse that sorting based on speed
         for algo, digest in digests.items():
             if algo == "dandi-etag" and size is not None:
-                from dandischema.digests.dandietag import ETagHashlike
-
                 # Instantiate outside the lambda so that mypy is assured that
                 # `size` is not None:
                 hasher = ETagHashlike(size)
@@ -682,7 +701,7 @@ def _download_file(
                         downloaded_digest.update(block)
                     downloaded += len(block)
                     # TODO: yield progress etc
-                    out: Dict[str, Any] = {"done": downloaded}
+                    out: dict[str, Any] = {"done": downloaded}
                     if size:
                         if downloaded > size and not warned:
                             warned = True
@@ -697,13 +716,24 @@ def _download_file(
                     yield out
                     dldir.append(block)
             break
-        except requests.exceptions.HTTPError as exc:
-            # TODO: actually we should probably retry only on selected codes, and also
-            # respect Retry-After
-            if attempt >= 2 or exc.response.status_code not in (
-                400,  # Bad Request, but happened with gider:
-                # https://github.com/dandi/dandi-cli/issues/87
-                *RETRY_STATUSES,
+        except ValueError:
+            # When `requests` raises a ValueError, it's because the caller
+            # provided invalid parameters (e.g., an invalid URL), and so
+            # retrying won't change anything.
+            raise
+        # Catching RequestException lets us retry on timeout & connection
+        # errors (among others) in addition to HTTP status errors.
+        except requests.RequestException as exc:
+            # TODO: actually we should probably retry only on selected codes,
+            # and also respect Retry-After
+            if attempt >= 2 or (
+                exc.response is not None
+                and exc.response.status_code
+                not in (
+                    400,  # Bad Request, but happened with gider:
+                    # https://github.com/dandi/dandi-cli/issues/87
+                    *RETRY_STATUSES,
+                )
             ):
                 lgr.debug("Download failed: %s", exc)
                 yield {"status": "error", "message": str(exc)}
@@ -712,7 +742,7 @@ def _download_file(
             #     raise
             # sleep a little and retry
             lgr.debug(
-                "Failed to download on attempt#%d: %s, will sleep a bit and retry",
+                "Failed to download on attempt #%d: %s, will sleep a bit and retry",
                 attempt,
                 exc,
             )
@@ -740,15 +770,15 @@ def _download_file(
         }
 
     # TODO: dissolve attrs and pass specific mtime?
-    if mtime:
+    if mtime is not None:
         yield {"status": "setting mtime"}
-        os.utime(path, (time.time(), ensure_datetime(mtime).timestamp()))
+        os.utime(path, (time.time(), mtime.timestamp()))
 
     yield {"status": "done"}
 
 
 class DownloadDirectory:
-    def __init__(self, filepath: Union[str, Path], digests: Dict[str, str]) -> None:
+    def __init__(self, filepath: str | Path, digests: dict[str, str]) -> None:
         #: The path to which to save the file after downloading
         self.filepath = Path(filepath)
         #: Expected hashes of the downloaded data, as a mapping from algorithm
@@ -761,11 +791,11 @@ class DownloadDirectory:
         #: received
         self.writefile = self.dirpath / "file"
         #: A `fasteners.InterProcessLock` on `dirpath`
-        self.lock: Optional[InterProcessLock] = None
+        self.lock: InterProcessLock | None = None
         #: An open filehandle to `writefile`
-        self.fp: Optional[IO[bytes]] = None
+        self.fp: IO[bytes] | None = None
         #: How much of the data has been downloaded so far
-        self.offset: Optional[int] = None
+        self.offset: int | None = None
 
     def __enter__(self) -> DownloadDirectory:
         self.dirpath.mkdir(parents=True, exist_ok=True)
@@ -807,9 +837,9 @@ class DownloadDirectory:
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         assert self.fp is not None
         self.fp.close()
@@ -840,11 +870,14 @@ class DownloadDirectory:
 def _download_zarr(
     asset: BaseRemoteZarrAsset,
     download_path: Path,
-    toplevel_path: Union[str, Path],
-    existing: str,
+    toplevel_path: str | Path,
+    existing: DownloadExisting,
     lock: Lock,
-    jobs: Optional[int] = None,
+    jobs: int | None = None,
 ) -> Iterator[dict]:
+    # Avoid heavy import by importing within function:
+    from .support.digests import get_zarr_checksum
+
     download_gens = {}
     entries = list(asset.iterfiles())
     digests = {}
@@ -869,7 +902,7 @@ def _download_zarr(
         )
 
     pc = ProgressCombiner(zarr_size=asset.size, file_qty=len(download_gens))
-    final_out: Optional[dict] = None
+    final_out: dict | None = None
     with interleave(
         [pairing(p, gen) for p, gen in download_gens.items()],
         onerror=FINISH_CURRENT,
@@ -937,7 +970,7 @@ def _download_zarr(
     yield {"status": "done"}
 
 
-def pairing(p: str, gen: Iterator[dict]) -> Iterator[Tuple[str, dict]]:
+def pairing(p: str, gen: Iterator[dict]) -> Iterator[tuple[str, dict]]:
     for d in gen:
         yield (p, d)
 
@@ -949,14 +982,14 @@ DLState = Enum("DLState", "STARTING DOWNLOADING SKIPPED ERROR CHECKSUM_ERROR DON
 class DownloadProgress:
     state: DLState = DLState.STARTING
     downloaded: int = 0
-    size: Optional[int] = None
+    size: int | None = None
 
 
 @dataclass
 class ProgressCombiner:
     zarr_size: int
     file_qty: int
-    files: Dict[str, DownloadProgress] = field(default_factory=dict)
+    files: dict[str, DownloadProgress] = field(default_factory=dict)
     #: Total size of all files that were not skipped and did not error out
     #: during download
     maxsize: int = 0

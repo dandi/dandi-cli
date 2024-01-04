@@ -4,7 +4,6 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import Enum
 import os
-from typing import Optional
 
 #: A list of metadata fields which dandi extracts from .nwb files.
 #: Additional fields (such as ``number_of_*``) might be added by
@@ -99,7 +98,7 @@ dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
 @dataclass(frozen=True)
 class DandiInstance:
     name: str
-    gui: Optional[str]
+    gui: str | None
     api: str
 
     @property
@@ -138,17 +137,6 @@ known_instances = {
 known_instances_rev = {
     vv: k for k, v in known_instances.items() for vv in v.urls() if vv
 }
-
-file_operation_modes = [
-    "dry",
-    "simulate",
-    "copy",
-    "move",
-    "hardlink",
-    "symlink",
-    "auto",
-]
-
 
 # Download (upload?) specific constants
 
@@ -194,6 +182,7 @@ dandi_layout_fields = {
     "slice_id": {"format": "_slice-{}"},
     "cell_id": {"format": "_cell-{}"},
     # disambiguation ones
+    "description": {"format": "_desc-{}", "type": "disambiguation"},
     "probe_ids": {"format": "_probe-{}", "type": "disambiguation"},
     "obj_id": {
         "format": "_obj-{}",
@@ -212,3 +201,5 @@ assert {v.get("type", "additional") for v in dandi_layout_fields.values()} == {
 }
 
 REQUEST_RETRIES = 12
+
+DOWNLOAD_TIMEOUT = 30

@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 import re
 from threading import Lock
-from typing import Any, BinaryIO, Generic, Optional, cast
+from typing import IO, Any, Generic
 from xml.etree.ElementTree import fromstring
 
 import dandischema
@@ -19,19 +19,15 @@ from dandischema.models import BareAsset, CommonModel
 from dandischema.models import Dandiset as DandisetMeta
 from dandischema.models import get_schema_version
 from etelemetry import get_project
-from nwbinspector import Importance, inspect_nwbfile, load_config
-from nwbinspector.utils import get_package_version
 from packaging.version import Version
 from pydantic import ValidationError
 import requests
 
 import dandi
 from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
-from dandi.metadata import get_default_metadata, nwb2asset
+from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
-from dandi.pynwb_utils import validate as pynwb_validate
-from dandi.support.digests import get_dandietag, get_digest
-from dandi.utils import yaml_load
+from dandi.utils import post_upload_size_check, pre_upload_size_check, yaml_load
 from dandi.validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
 lgr = dandi.get_logger()
@@ -40,7 +36,7 @@ lgr = dandi.get_logger()
 _required_dandiset_metadata_fields = ["identifier", "name", "description"]
 
 
-NWBI_IMPORTANCE_TO_DANDI_SEVERITY: dict[Importance.name, Severity] = {
+NWBI_IMPORTANCE_TO_DANDI_SEVERITY: dict[str, Severity] = {
     "ERROR": Severity.ERROR,
     "PYNWB_VALIDATION": Severity.ERROR,
     "CRITICAL": Severity.ERROR,  # when using --config dandi
@@ -57,7 +53,7 @@ class DandiFile(ABC):
     filepath: Path
 
     #: The path to the root of the Dandiset, if there is one
-    dandiset_path: Optional[Path]
+    dandiset_path: Path | None
 
     @property
     def size(self) -> int:
@@ -73,7 +69,7 @@ class DandiFile(ABC):
     @abstractmethod
     def get_metadata(
         self,
-        digest: Optional[Digest] = None,
+        digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> CommonModel:
         """Return the Dandi metadata for the file"""
@@ -82,7 +78,7 @@ class DandiFile(ABC):
     @abstractmethod
     def get_validation_errors(
         self,
-        schema_version: Optional[str] = None,
+        schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
         """
@@ -96,7 +92,7 @@ class DandisetMetadataFile(DandiFile):
 
     def get_metadata(
         self,
-        digest: Optional[Digest] = None,
+        digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> DandisetMeta:
         """Return the Dandiset metadata inside the file"""
@@ -107,7 +103,7 @@ class DandisetMetadataFile(DandiFile):
     # TODO: @validate_cache.memoize_path
     def get_validation_errors(
         self,
-        schema_version: Optional[str] = None,
+        schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
         with open(self.filepath) as f:
@@ -167,7 +163,7 @@ class LocalAsset(DandiFile):
     @abstractmethod
     def get_metadata(
         self,
-        digest: Optional[Digest] = None,
+        digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
         """Return the Dandi metadata for the asset"""
@@ -176,7 +172,7 @@ class LocalAsset(DandiFile):
     # TODO: @validate_cache.memoize_path
     def get_validation_errors(
         self,
-        schema_version: Optional[str] = None,
+        schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
         current_version = get_schema_version()
@@ -226,8 +222,8 @@ class LocalAsset(DandiFile):
         self,
         dandiset: RemoteDandiset,
         metadata: dict[str, Any],
-        jobs: Optional[int] = None,
-        replacing: Optional[RemoteAsset] = None,
+        jobs: int | None = None,
+        replacing: RemoteAsset | None = None,
     ) -> RemoteAsset:
         """
         Upload the file as an asset with the given metadata to the given
@@ -260,8 +256,8 @@ class LocalAsset(DandiFile):
         self,
         dandiset: RemoteDandiset,
         metadata: dict[str, Any],
-        jobs: Optional[int] = None,
-        replacing: Optional[RemoteAsset] = None,
+        jobs: int | None = None,
+        replacing: RemoteAsset | None = None,
     ) -> Iterator[dict]:
         """
         Upload the asset with the given metadata to the given Dandiset,
@@ -294,7 +290,7 @@ class LocalFileAsset(LocalAsset):
 
     def get_metadata(
         self,
-        digest: Optional[Digest] = None,
+        digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
         metadata = get_default_metadata(self.filepath, digest=digest)
@@ -303,6 +299,9 @@ class LocalFileAsset(LocalAsset):
 
     def get_digest(self) -> Digest:
         """Calculate a dandi-etag digest for the asset"""
+        # Avoid heavy import by importing within function:
+        from dandi.support.digests import get_digest
+
         value = get_digest(self.filepath, digest="dandi-etag")
         return Digest.dandi_etag(value)
 
@@ -310,8 +309,8 @@ class LocalFileAsset(LocalAsset):
         self,
         dandiset: RemoteDandiset,
         metadata: dict[str, Any],
-        jobs: Optional[int] = None,
-        replacing: Optional[RemoteAsset] = None,
+        jobs: int | None = None,
+        replacing: RemoteAsset | None = None,
     ) -> Iterator[dict]:
         """
         Upload the file as an asset with the given metadata to the given
@@ -333,6 +332,9 @@ class LocalFileAsset(LocalAsset):
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
+        # Avoid heavy import by importing within function:
+        from dandi.support.digests import get_dandietag
+
         asset_path = metadata.setdefault("path", self.path)
         client = dandiset.client
         yield {"status": "calculating etag"}
@@ -348,7 +350,7 @@ class LocalFileAsset(LocalAsset):
                 )
         yield {"status": "initiating upload"}
         lgr.debug("%s: Beginning upload", asset_path)
-        total_size = self.size
+        total_size = pre_upload_size_check(self.filepath)
         try:
             resp = client.post(
                 "/uploads/initialize/",
@@ -362,79 +364,86 @@ class LocalFileAsset(LocalAsset):
                 },
             )
         except requests.HTTPError as e:
-            if e.response.status_code == 409:
+            if e.response is not None and e.response.status_code == 409:
                 lgr.debug("%s: Blob already exists on server", asset_path)
                 blob_id = e.response.headers["Location"]
             else:
                 raise
         else:
-            upload_id = resp["upload_id"]
-            parts = resp["parts"]
-            if len(parts) != etagger.part_qty:
-                raise RuntimeError(
-                    f"Server and client disagree on number of parts for upload;"
-                    f" server says {len(parts)}, client says {etagger.part_qty}"
-                )
-            parts_out = []
-            bytes_uploaded = 0
-            lgr.debug("Uploading %s in %d parts", self.filepath, len(parts))
-            with RESTFullAPIClient("http://nil.nil") as storage:
-                with self.filepath.open("rb") as fp:
-                    with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
-                        lock = Lock()
-                        futures = [
-                            executor.submit(
-                                _upload_blob_part,
-                                storage_session=storage,
-                                fp=fp,
-                                lock=lock,
-                                etagger=etagger,
-                                asset_path=asset_path,
-                                part=part,
+            try:
+                upload_id = resp["upload_id"]
+                parts = resp["parts"]
+                if len(parts) != etagger.part_qty:
+                    raise RuntimeError(
+                        f"Server and client disagree on number of parts for upload;"
+                        f" server says {len(parts)}, client says {etagger.part_qty}"
+                    )
+                parts_out = []
+                bytes_uploaded = 0
+                lgr.debug("Uploading %s in %d parts", self.filepath, len(parts))
+                with RESTFullAPIClient("http://nil.nil") as storage:
+                    with self.filepath.open("rb") as fp:
+                        with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
+                            lock = Lock()
+                            futures = [
+                                executor.submit(
+                                    _upload_blob_part,
+                                    storage_session=storage,
+                                    fp=fp,
+                                    lock=lock,
+                                    etagger=etagger,
+                                    asset_path=asset_path,
+                                    part=part,
+                                )
+                                for part in parts
+                            ]
+                            for fut in as_completed(futures):
+                                out_part = fut.result()
+                                bytes_uploaded += out_part["size"]
+                                yield {
+                                    "status": "uploading",
+                                    "upload": 100 * bytes_uploaded / total_size,
+                                    "current": bytes_uploaded,
+                                }
+                                parts_out.append(out_part)
+                    lgr.debug("%s: Completing upload", asset_path)
+                    resp = client.post(
+                        f"/uploads/{upload_id}/complete/",
+                        json={"parts": parts_out},
+                    )
+                    lgr.debug(
+                        "%s: Announcing completion to %s",
+                        asset_path,
+                        resp["complete_url"],
+                    )
+                    r = storage.post(
+                        resp["complete_url"], data=resp["body"], json_resp=False
+                    )
+                    lgr.debug(
+                        "%s: Upload completed. Response content: %s",
+                        asset_path,
+                        r.content,
+                    )
+                    rxml = fromstring(r.text)
+                    m = re.match(r"\{.+?\}", rxml.tag)
+                    ns = m.group(0) if m else ""
+                    final_etag = rxml.findtext(f"{ns}ETag")
+                    if final_etag is not None:
+                        final_etag = final_etag.strip('"')
+                        if final_etag != filetag:
+                            raise RuntimeError(
+                                "Server and client disagree on final ETag of"
+                                f" uploaded file; server says {final_etag},"
+                                f" client says {filetag}"
                             )
-                            for part in parts
-                        ]
-                        for fut in as_completed(futures):
-                            out_part = fut.result()
-                            bytes_uploaded += out_part["size"]
-                            yield {
-                                "status": "uploading",
-                                "upload": 100 * bytes_uploaded / total_size,
-                                "current": bytes_uploaded,
-                            }
-                            parts_out.append(out_part)
-                lgr.debug("%s: Completing upload", asset_path)
-                resp = client.post(
-                    f"/uploads/{upload_id}/complete/",
-                    json={"parts": parts_out},
-                )
-                lgr.debug(
-                    "%s: Announcing completion to %s",
-                    asset_path,
-                    resp["complete_url"],
-                )
-                r = storage.post(
-                    resp["complete_url"], data=resp["body"], json_resp=False
-                )
-                lgr.debug(
-                    "%s: Upload completed. Response content: %s",
-                    asset_path,
-                    r.content,
-                )
-                rxml = fromstring(r.text)
-                m = re.match(r"\{.+?\}", rxml.tag)
-                ns = m.group(0) if m else ""
-                final_etag = rxml.findtext(f"{ns}ETag")
-                if final_etag is not None:
-                    final_etag = final_etag.strip('"')
-                    if final_etag != filetag:
-                        raise RuntimeError(
-                            "Server and client disagree on final ETag of uploaded file;"
-                            f" server says {final_etag}, client says {filetag}"
-                        )
-                # else: Error? Warning?
-                resp = client.post(f"/uploads/{upload_id}/validate/")
-                blob_id = resp["blob_id"]
+                    # else: Error? Warning?
+                    resp = client.post(f"/uploads/{upload_id}/validate/")
+                    blob_id = resp["blob_id"]
+            except Exception:
+                post_upload_size_check(self.filepath, total_size, True)
+                raise
+            else:
+                post_upload_size_check(self.filepath, total_size, False)
         lgr.debug("%s: Assigning asset blob to dandiset & version", asset_path)
         yield {"status": "producing asset"}
         if replacing is not None:
@@ -466,9 +475,12 @@ class NWBAsset(LocalFileAsset):
 
     def get_metadata(
         self,
-        digest: Optional[Digest] = None,
+        digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
+        # Avoid heavy import by importing within function:
+        from dandi.metadata.nwb import nwb2asset
+
         try:
             metadata = nwb2asset(self.filepath, digest=digest)
         except Exception as e:
@@ -488,7 +500,7 @@ class NWBAsset(LocalFileAsset):
     # TODO: @validate_cache.memoize_path
     def get_validation_errors(
         self,
-        schema_version: Optional[str] = None,
+        schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
         """
@@ -497,6 +509,12 @@ class NWBAsset(LocalFileAsset):
         If ``schema_version`` was provided, we only validate basic metadata,
         and completely skip validation using nwbinspector.inspect_nwbfile
         """
+        # Avoid heavy import by importing within function:
+        from nwbinspector import Importance, inspect_nwbfile, load_config
+
+        # Avoid heavy import by importing within function:
+        from dandi.pynwb_utils import validate as pynwb_validate
+
         errors: list[ValidationResult] = pynwb_validate(
             self.filepath, devel_debug=devel_debug
         )
@@ -553,9 +571,9 @@ class NWBAsset(LocalFileAsset):
                     [e], self.filepath, scope=Scope.FILE
                 )
 
-        from dandi.organize import validate_organized_path
-
+        # Avoid circular imports by importing within function:
         from .bids import NWBBIDSAsset
+        from ..organize import validate_organized_path
 
         if not isinstance(self, NWBBIDSAsset) and self.dandiset_path is not None:
             errors.extend(
@@ -612,7 +630,7 @@ class LocalDirectoryAsset(LocalAsset, Generic[P]):
 
 def _upload_blob_part(
     storage_session: RESTFullAPIClient,
-    fp: BinaryIO,
+    fp: IO[bytes],
     lock: Lock,
     etagger: DandiETag,
     asset_path: str,
@@ -679,7 +697,7 @@ def _check_required_fields(
                 ValidationResult(
                     origin=ValidationOrigin(
                         name="dandischema",
-                        version=dandischema.__version__,
+                        version=dandischema.__version__,  # type: ignore[attr-defined]
                     ),
                     severity=Severity.ERROR,
                     id="dandischema.requred_field",
@@ -694,7 +712,7 @@ def _check_required_fields(
                 ValidationResult(
                     origin=ValidationOrigin(
                         name="dandischema",
-                        version=dandischema.__version__,
+                        version=dandischema.__version__,  # type: ignore[attr-defined]
                     ),
                     severity=Severity.WARNING,
                     id="dandischema.placeholder_value",
@@ -710,6 +728,9 @@ _current_nwbinspector_version: str = ""
 
 
 def _get_nwb_inspector_version():
+    # Avoid heavy import by importing within function:
+    from nwbinspector.utils import get_package_version
+
     global _current_nwbinspector_version
     if _current_nwbinspector_version is not None:
         return _current_nwbinspector_version
@@ -746,14 +767,18 @@ def _pydantic_errors_to_validation_results(
 ) -> list[ValidationResult]:
     """Convert list of dict from pydantic into our custom object."""
     out = []
-    for e in (
-        errors.errors() if isinstance(errors, ValidationError) else cast(list, errors)
-    ):
+    errorlist: list
+    if isinstance(errors, ValidationError):
+        errorlist = errors.errors()
+    else:
+        errorlist = errors
+    for e in errorlist:
         if isinstance(e, Exception):
             message = getattr(e, "message", str(e))
             id = "exception"
             scope = Scope.FILE
         else:
+            assert isinstance(e, dict)
             id = ".".join(
                 filter(
                     bool,
@@ -769,7 +794,7 @@ def _pydantic_errors_to_validation_results(
             ValidationResult(
                 origin=ValidationOrigin(
                     name="dandischema",
-                    version=dandischema.__version__,
+                    version=dandischema.__version__,  # type: ignore[attr-defined]
                 ),
                 severity=Severity.ERROR,
                 id=id,

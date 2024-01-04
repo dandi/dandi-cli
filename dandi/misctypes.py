@@ -13,7 +13,7 @@ from datetime import datetime
 from fnmatch import fnmatchcase
 import os.path
 from pathlib import Path
-from typing import IO, Optional, TypeVar, cast
+from typing import IO, TypeVar, cast
 
 from dandischema.models import DigestType
 
@@ -270,7 +270,7 @@ class Readable(ABC):
         ...
 
     @abstractmethod
-    def get_mtime(self) -> Optional[datetime]:
+    def get_mtime(self) -> datetime | None:
         """
         Returns the time at which the resource's contents were last modified,
         if it can be determined
@@ -336,20 +336,24 @@ class RemoteReadableAsset(Readable):
     size: int
 
     #: :meta private:
-    mtime: Optional[datetime]
+    mtime: datetime | None
 
     #: :meta private:
     name: str
 
     def open(self) -> IO[bytes]:
+        # Optional dependency:
         import fsspec
 
-        return cast(IO[bytes], fsspec.open(self.url, mode="rb"))
+        # We need to call open() on the return value of fsspec.open() because
+        # otherwise the filehandle will only be opened when used to enter a
+        # context manager.
+        return cast(IO[bytes], fsspec.open(self.url, mode="rb").open())
 
     def get_size(self) -> int:
         return self.size
 
-    def get_mtime(self) -> Optional[datetime]:
+    def get_mtime(self) -> datetime | None:
         return self.mtime
 
     def get_filename(self) -> str:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import builtins
 from datetime import datetime, timezone
 import logging
@@ -5,7 +7,6 @@ from pathlib import Path
 import random
 import re
 from shutil import rmtree
-from typing import List, Union
 
 import anys
 import click
@@ -24,7 +25,13 @@ from ..consts import (
     dandiset_identifier_regex,
     dandiset_metadata_file,
 )
-from ..dandiapi import DandiAPIClient, RemoteAsset, RemoteZarrAsset, Version
+from ..dandiapi import (
+    DandiAPIClient,
+    RemoteAsset,
+    RemoteBlobAsset,
+    RemoteZarrAsset,
+    Version,
+)
 from ..download import download
 from ..exceptions import NotFoundError, SchemaVersionError
 from ..files import GenericAsset, dandi_file
@@ -535,7 +542,7 @@ def test_set_dandiset_metadata(text_dandiset: SampleDandiset) -> None:
     ],
 )
 def test_get_raw_digest(
-    digest_type: Union[str, DigestType, None],
+    digest_type: str | DigestType | None,
     digest_regex: str,
     text_dandiset: SampleDandiset,
 ) -> None:
@@ -687,7 +694,7 @@ def test_get_many_pages_of_assets(
 ) -> None:
     new_dandiset.client.page_size = 4
     get_spy = mocker.spy(new_dandiset.client, "get")
-    paths: List[str] = []
+    paths: list[str] = []
     for i in range(26):
         p = new_dandiset.dspath / f"{i:04}.txt"
         paths.append(p.name)
@@ -744,3 +751,21 @@ def test_rename_type_mismatch(text_dandiset: SampleDandiset, dest: str) -> None:
     assert asset1a.get_raw_metadata()["path"] == "file.txt"
     with pytest.raises(NotFoundError):
         text_dandiset.dandiset.get_asset_by_path(dest)
+
+
+def test_asset_as_readable_open(new_dandiset: SampleDandiset, tmp_path: Path) -> None:
+    p = tmp_path / "foo.txt"
+    # Write bytes so that the LF doesn't get converted on Windows:
+    p.write_bytes(b"This is test text.\n")
+    d = new_dandiset.dandiset
+    d.upload_raw_asset(p, {"path": "foo.txt"})
+    (asset,) = d.get_assets()
+    assert isinstance(asset, RemoteBlobAsset)
+    # The purpose of this test is to check that RemoteReadableAsset.open()
+    # returns a filehandle that can immediately be used, so don't use a `with`
+    # block here, as that opens fsspec file objects.
+    fp = asset.as_readable().open()
+    try:
+        assert fp.read() == b"This is test text.\n"
+    finally:
+        fp.close()

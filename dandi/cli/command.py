@@ -2,20 +2,20 @@
 Commands definition for DANDI command line interface
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import os
 import os.path
 import sys
 from types import SimpleNamespace
 
-import appdirs
 import click
 from click_didyoumean import DYMGroup
+import platformdirs
 
 from .base import lgr, map_to_click_exceptions
 from .. import __version__, set_logger_level
-from ..utils import get_module_version
+from ..utils import check_dandi_version, get_module_version, setup_exceptionhook
 
 # Delay imports leading to import of heavy modules such as pynwb and h5py
 # Import at the point of use
@@ -97,9 +97,9 @@ def main(ctx, log_level, pdb=False):
         h.addFilter(lambda r: not getattr(r, "file_only", False))
         set_logger_level(h, log_level)
 
-    logdir = appdirs.user_log_dir("dandi-cli", "dandi")
+    logdir = platformdirs.user_log_dir("dandi-cli", "dandi")
     logfile = os.path.join(
-        logdir, "{:%Y%m%d%H%M%SZ}-{}.log".format(datetime.utcnow(), os.getpid())
+        logdir, f"{datetime.now(timezone.utc):%Y%m%d%H%M%SZ}-{os.getpid()}.log"
     )
     os.makedirs(logdir, exist_ok=True)
     handler = logging.FileHandler(logfile, encoding="utf-8")
@@ -130,11 +130,7 @@ def main(ctx, log_level, pdb=False):
 
     if pdb:
         map_to_click_exceptions._do_map = False
-        from ..utils import setup_exceptionhook
-
         setup_exceptionhook()
-
-    from ..utils import check_dandi_version
 
     check_dandi_version()
 

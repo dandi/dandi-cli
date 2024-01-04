@@ -1,164 +1,22 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta
 from functools import lru_cache
-import os
-import os.path
-from pathlib import Path
 import re
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import Any, TypedDict, TypeVar
 from uuid import uuid4
 from xml.dom.minidom import parseString
 
 from dandischema import models
-from pydantic import ByteSize, parse_obj_as
 import requests
 import tenacity
 
-from . import __version__, get_logger
-from .consts import metadata_all_fields
-from .misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, Readable
-from .pynwb_utils import (
-    _get_pynwb_metadata,
-    get_neurodata_types,
-    get_nwb_version,
-    ignore_benign_pynwb_warnings,
-    metadata_cache,
-    nwb_has_external_links,
-)
-from .utils import (
-    ensure_datetime,
-    find_parent_directory_containing,
-    get_mime_type,
-    get_utcnow_datetime,
-)
-
-lgr = get_logger()
+from .. import __version__
+from ..utils import ensure_datetime
 
 
-# Disable this for clean hacking
-@metadata_cache.memoize_path
-def get_metadata(
-    path: str | Path | Readable,
-    digest: Optional[Digest] = None,
-) -> Optional[dict]:
-    """
-    Get "flatdata" from a .nwb file
-
-    Parameters
-    ----------
-    path: str, Path, or Readable
-
-    Returns
-    -------
-    dict
-    """
-
-    from .files import bids, dandi_file, find_bids_dataset_description
-
-    # when we run in parallel, these annoying warnings appear
-    ignore_benign_pynwb_warnings()
-
-    if isinstance(path, Readable):
-        r = path
-    else:
-        r = LocalReadableFile(os.path.abspath(path))
-
-    meta: dict[str, Any] = {}
-
-    if isinstance(r, LocalReadableFile):
-        # Is the data BIDS (as defined by the presence of a BIDS dataset descriptor)
-        bids_dataset_description = find_bids_dataset_description(r.filepath)
-        if bids_dataset_description:
-            dandiset_path = find_parent_directory_containing(
-                "dandiset.yaml", r.filepath
-            )
-            df = dandi_file(
-                r.filepath,
-                dandiset_path,
-                bids_dataset_description=bids_dataset_description,
-            )
-            assert isinstance(df, bids.BIDSAsset)
-            if not digest:
-                digest = DUMMY_DANDI_ETAG
-            path_metadata = df.get_metadata(digest=digest)
-            meta["bids_version"] = df.get_validation_bids_version()
-            # there might be a more elegant way to do this:
-            if path_metadata.wasAttributedTo is not None:
-                attributed = path_metadata.wasAttributedTo[0]
-                for key in metadata_all_fields:
-                    try:
-                        value = getattr(attributed, key)
-                    except AttributeError:
-                        pass
-                    else:
-                        meta[key] = value
-
-    if r.get_filename().endswith((".NWB", ".nwb")):
-        if nwb_has_external_links(r):
-            raise NotImplementedError(
-                f"NWB files with external links are not supported: {r}"
-            )
-
-        # First read out possibly available versions of specifications for NWB(:N)
-        meta["nwb_version"] = get_nwb_version(r)
-
-        # PyNWB might fail to load because of missing extensions.
-        # There is a new initiative of establishing registry of such extensions.
-        # Not yet sure if PyNWB is going to provide "native" support for needed
-        # functionality: https://github.com/NeurodataWithoutBorders/pynwb/issues/1143
-        # So meanwhile, hard-coded workaround for data types we care about
-        ndtypes_registry = {
-            "AIBS_ecephys": "allensdk.brain_observatory.ecephys.nwb",
-            "ndx-labmetadata-abf": "ndx_dandi_icephys",
-        }
-        tried_imports = set()
-        while True:
-            try:
-                meta.update(_get_pynwb_metadata(r))
-                break
-            except KeyError as exc:  # ATM there is
-                lgr.debug("Failed to read %s: %s", r, exc)
-                res = re.match(r"^['\"\\]+(\S+). not a namespace", str(exc))
-                if not res:
-                    raise
-                ndtype = res.groups()[0]
-                if ndtype not in ndtypes_registry:
-                    raise ValueError(
-                        "We do not know which extension provides %s. "
-                        "Original exception was: %s. " % (ndtype, exc)
-                    )
-                import_mod = ndtypes_registry[ndtype]
-                lgr.debug("Importing %r which should provide %r", import_mod, ndtype)
-                if import_mod in tried_imports:
-                    raise RuntimeError(
-                        "We already tried importing %s to provide %s, but it seems it didn't help"
-                        % (import_mod, ndtype)
-                    )
-                tried_imports.add(import_mod)
-                __import__(import_mod)
-
-        meta["nd_types"] = get_neurodata_types(r)
-    if not meta:
-        raise RuntimeError(
-            f"Unable to get metadata from non-BIDS, non-NWB asset: `{path}`."
-        )
-    return meta
-
-
-def _parse_iso8601(age: str) -> List[str]:
+def _parse_iso8601(age: str) -> list[str]:
     """checking if age is proper iso8601, additional formatting"""
     # allowing for comma instead of ., e.g. P1,5D
     age = age.replace(",", ".")
@@ -188,7 +46,7 @@ def _parse_iso8601(age: str) -> List[str]:
         raise ValueError(f"ISO 8601 expected, but {age!r} was received")
 
 
-def _parse_age_re(age: str, unit: str, tp: str = "date") -> Tuple[str, Optional[str]]:
+def _parse_age_re(age: str, unit: str, tp: str = "date") -> tuple[str, str | None]:
     """finding parts that have <value> <unit> in various forms"""
 
     if unit == "Y":
@@ -229,7 +87,7 @@ def _parse_age_re(age: str, unit: str, tp: str = "date") -> Tuple[str, Optional[
     return (age[: m.start()] + age[m.end() :]).strip(), f"{qty}{unit}"
 
 
-def _parse_hours_format(age: str) -> Tuple[str, List[str]]:
+def _parse_hours_format(age: str) -> tuple[str, list[str]]:
     """parsing format 0:30:10"""
     m = re.match(r"\s*(\d\d?):(\d\d):(\d\d)", age)
     if m:
@@ -239,7 +97,7 @@ def _parse_hours_format(age: str) -> Tuple[str, List[str]]:
         return age, []
 
 
-def _check_decimal_parts(age_parts: List[str]) -> None:
+def _check_decimal_parts(age_parts: list[str]) -> None:
     """checking if decimal parts are only in the lowest order component"""
     # if the last part is the T component I have to separate the parts
     decim_part = ["." in el for el in age_parts]
@@ -247,7 +105,7 @@ def _check_decimal_parts(age_parts: List[str]) -> None:
         raise ValueError("Decimal fraction allowed in the lowest order part only.")
 
 
-def _check_range_limits(limits: List[List[str]]) -> None:
+def _check_range_limits(limits: list[list[str]]) -> None:
     """checking if the upper limit is bigger than the lower limit"""
     ok = True
     units_t = dict(zip(["S", "M", "H"], range(3)))
@@ -289,7 +147,7 @@ def _check_range_limits(limits: List[List[str]]) -> None:
         )
 
 
-def parse_age(age: Optional[str]) -> Tuple[str, str]:
+def parse_age(age: str | None) -> tuple[str, str]:
     """
     Parsing age field and converting into an ISO 8601 duration
 
@@ -299,7 +157,7 @@ def parse_age(age: Optional[str]) -> Tuple[str, str]:
 
     Returns
     -------
-    Tuple[str, str]
+    tuple[str, str]
     """
 
     if not age:
@@ -342,7 +200,7 @@ def parse_age(age: Optional[str]) -> Tuple[str, str]:
         if not age:
             raise ValueError("Age doesn't have any information")
 
-        date_f: List[str] = []
+        date_f: list[str] = []
         for unit in ["Y", "M", "W", "D"]:
             if not age:
                 break
@@ -353,7 +211,7 @@ def parse_age(age: Optional[str]) -> Tuple[str, str]:
                 date_f = ["P", part_f]
 
         if ref == "Birth":
-            time_f: List[str] = []
+            time_f: list[str] = []
             for un in ["H", "M", "S"]:
                 if not age:
                     break
@@ -380,7 +238,7 @@ def parse_age(age: Optional[str]) -> Tuple[str, str]:
     return "".join(age_f), ref
 
 
-def extract_age(metadata: dict) -> Optional[models.PropertyValue]:
+def extract_age(metadata: dict) -> models.PropertyValue | None:
     try:
         dob = ensure_datetime(metadata["date_of_birth"])
         start = ensure_datetime(metadata["session_start_time"])
@@ -416,7 +274,7 @@ def timedelta2duration(delta: timedelta) -> str:
     if delta.days:
         s += f"{delta.days}D"
     if delta.seconds or delta.microseconds:
-        sec: Union[int, float] = delta.seconds
+        sec: int | float = delta.seconds
         if delta.microseconds:
             # Don't add when microseconds is 0, so that sec will be an int then
             sec += delta.microseconds / 1e6
@@ -426,7 +284,7 @@ def timedelta2duration(delta: timedelta) -> str:
     return s
 
 
-def extract_sex(metadata: dict) -> Optional[models.SexType]:
+def extract_sex(metadata: dict) -> models.SexType | None:
     value = metadata.get("sex", None)
     if value is not None and value != "":
         value = value.lower()
@@ -452,7 +310,7 @@ def extract_sex(metadata: dict) -> Optional[models.SexType]:
         return None
 
 
-def extract_strain(metadata: dict) -> Optional[models.StrainType]:
+def extract_strain(metadata: dict) -> models.StrainType | None:
     value = metadata.get("strain", None)
     if value:
         # Don't assign cell lines to strain
@@ -463,7 +321,7 @@ def extract_strain(metadata: dict) -> Optional[models.StrainType]:
         return None
 
 
-def extract_cellLine(metadata: dict) -> Optional[str]:
+def extract_cellLine(metadata: dict) -> str | None:
     value: str = metadata.get("strain", "")
     if value and value.lower().startswith("cellline:"):
         return value.split(":", 1)[1].strip()
@@ -471,6 +329,7 @@ def extract_cellLine(metadata: dict) -> Optional[str]:
         return None
 
 
+# common_names, prefix, uri, name
 species_map = [
     (
         ["mouse"],
@@ -485,7 +344,7 @@ species_map = [
         "Homo sapiens - Human",
     ),
     (
-        ["norvegicus"],
+        ["rat", "norvegicus"],
         None,
         "http://purl.obolibrary.org/obo/NCBITaxon_10116",
         "Rattus norvegicus - Norway rat",
@@ -495,12 +354,6 @@ species_map = [
         None,
         "http://purl.obolibrary.org/obo/NCBITaxon_10117",
         "Rattus rattus - Black rat",
-    ),
-    (
-        ["rat"],
-        None,
-        "http://purl.obolibrary.org/obo/NCBITaxon_10116",
-        "Rattus norvegicus - Norway rat",
     ),
     (
         ["mulatta", "rhesus"],
@@ -532,6 +385,12 @@ species_map = [
         "http://purl.obolibrary.org/obo/NCBITaxon_6239",
         "Caenorhabditis elegans",
     ),
+    (
+        ["pig-tailed macaque", "pigtail monkey", "pigtail macaque"],
+        None,
+        "http://purl.obolibrary.org/obo/NCBITaxon_9545",
+        "Macaca nemestrina",
+    ),
 ]
 
 
@@ -542,8 +401,8 @@ species_map = [
     wait=tenacity.wait_exponential(exp_base=1.25, multiplier=1.25),
 )
 def parse_purlobourl(
-    url: str, lookup: Optional[Tuple[str, ...]] = None
-) -> Optional[Dict[str, str]]:
+    url: str, lookup: tuple[str, ...] | None = None
+) -> dict[str, str] | None:
     """Parse an Ontobee URL to return properties of a Class node
 
     :param url: Ontobee URL
@@ -571,7 +430,7 @@ def parse_purlobourl(
     return values
 
 
-def extract_species(metadata: dict) -> Optional[models.SpeciesType]:
+def extract_species(metadata: dict) -> models.SpeciesType | None:
     value_orig = metadata.get("species", None)
     value_id = None
     if value_orig is not None and value_orig != "":
@@ -586,7 +445,7 @@ def extract_species(metadata: dict) -> Optional[models.SpeciesType]:
                 value_id = value_orig
                 lookup = ("rdfs:label", "oboInOwl:hasExactSynonym")
                 try:
-                    result: Optional[Dict[str, str]] = parse_purlobourl(
+                    result: dict[str, str] | None = parse_purlobourl(
                         value_orig, lookup=lookup
                     )
                 except ConnectionError:
@@ -621,14 +480,14 @@ def extract_species(metadata: dict) -> Optional[models.SpeciesType]:
         return None
 
 
-def extract_assay_type(metadata: dict) -> Optional[List[models.AssayType]]:
+def extract_assay_type(metadata: dict) -> list[models.AssayType] | None:
     if "assayType" in metadata:
         return [models.AssayType(identifier="assayType", name=metadata["assayType"])]
     else:
         return None
 
 
-def extract_anatomy(metadata: dict) -> Optional[List[models.Anatomy]]:
+def extract_anatomy(metadata: dict) -> list[models.Anatomy] | None:
     if "anatomy" in metadata:
         return [models.Anatomy(identifier="anatomy", name=metadata["anatomy"])]
     else:
@@ -638,7 +497,7 @@ def extract_anatomy(metadata: dict) -> Optional[List[models.Anatomy]]:
 M = TypeVar("M", bound=models.DandiBaseModel)
 
 
-def extract_model(modelcls: Type[M], metadata: dict, **kwargs: Any) -> M:
+def extract_model(modelcls: type[M], metadata: dict, **kwargs: Any) -> M:
     m = modelcls.unvalidated()
     for field in m.__fields__.keys():
         value = kwargs.get(field, extract_field(field, metadata))
@@ -649,9 +508,9 @@ def extract_model(modelcls: Type[M], metadata: dict, **kwargs: Any) -> M:
 
 
 def extract_model_list(
-    modelcls: Type[M], id_field: str, id_source: str, **kwargs: Any
-) -> Callable[[dict], List[M]]:
-    def func(metadata: dict) -> List[M]:
+    modelcls: type[M], id_field: str, id_source: str, **kwargs: Any
+) -> Callable[[dict], list[M]]:
+    def func(metadata: dict) -> list[M]:
         m = extract_model(
             modelcls, metadata, **{id_field: metadata.get(id_source)}, **kwargs
         )
@@ -663,8 +522,8 @@ def extract_model_list(
     return func
 
 
-def extract_wasDerivedFrom(metadata: dict) -> Optional[List[models.BioSample]]:
-    derived_from: Optional[List[models.BioSample]] = None
+def extract_wasDerivedFrom(metadata: dict) -> list[models.BioSample] | None:
+    derived_from: list[models.BioSample] | None = None
     for field, sample_name in [
         ("tissue_sample_id", "tissuesample"),
         ("slice_id", "slice"),
@@ -686,7 +545,7 @@ extract_wasAttributedTo = extract_model_list(
 )
 
 
-def extract_session(metadata: dict) -> Optional[List[models.Session]]:
+def extract_session(metadata: dict) -> list[models.Session] | None:
     probe_ids = metadata.get("probe_ids", [])
     if isinstance(probe_ids, str):
         probe_ids = [probe_ids]
@@ -710,14 +569,14 @@ def extract_session(metadata: dict) -> Optional[List[models.Session]]:
     ]
 
 
-def extract_digest(metadata: dict) -> Optional[Dict[models.DigestType, str]]:
+def extract_digest(metadata: dict) -> dict[models.DigestType, str] | None:
     if "digest" in metadata:
         return {models.DigestType[metadata["digest_type"]]: metadata["digest"]}
     else:
         return None
 
 
-FIELD_EXTRACTORS: Dict[str, Callable[[dict], Any]] = {
+FIELD_EXTRACTORS: dict[str, Callable[[dict], Any]] = {
     "wasDerivedFrom": extract_wasDerivedFrom,
     "wasAttributedTo": extract_wasAttributedTo,
     "wasGeneratedBy": extract_session,
@@ -739,17 +598,14 @@ def extract_field(field: str, metadata: dict) -> Any:
         return metadata.get(field)
 
 
-if TYPE_CHECKING:
-    from .support.typing import TypedDict
-
-    class Neurodatum(TypedDict):
-        module: str
-        neurodata_type: str
-        technique: Optional[str]
-        approach: Optional[str]
+class Neurodatum(TypedDict):
+    module: str
+    neurodata_type: str
+    technique: str | None
+    approach: str | None
 
 
-neurodata_typemap: Dict[str, Neurodatum] = {
+neurodata_typemap: dict[str, Neurodatum] = {
     "ElectricalSeries": {
         "module": "ecephys",
         "neurodata_type": "ElectricalSeries",
@@ -959,80 +815,6 @@ def process_ndtypes(metadata: models.BareAsset, nd_types: Iterable[str]) -> None
     metadata.variableMeasured = [models.PropertyValue(value=val) for val in variables]
 
 
-def nwb2asset(
-    nwb_path: str | Path | Readable,
-    digest: Optional[Digest] = None,
-    schema_version: Optional[str] = None,
-) -> models.BareAsset:
-    if schema_version is not None:
-        current_version = models.get_schema_version()
-        if schema_version != current_version:
-            raise ValueError(
-                f"Unsupported schema version: {schema_version}; expected {current_version}"
-            )
-    start_time = datetime.now().astimezone()
-    metadata = get_metadata(nwb_path)
-    asset_md = prepare_metadata(metadata)
-    process_ndtypes(asset_md, metadata["nd_types"])
-    end_time = datetime.now().astimezone()
-    add_common_metadata(asset_md, nwb_path, start_time, end_time, digest)
-    asset_md.encodingFormat = "application/x-nwb"
-    # This gets overwritten with a better value by the caller:
-    if isinstance(nwb_path, Readable):
-        asset_md.path = nwb_path.get_filename()
-    else:
-        asset_md.path = str(nwb_path)
-    return asset_md
-
-
-def get_default_metadata(
-    path: str | Path | Readable, digest: Optional[Digest] = None
-) -> models.BareAsset:
-    metadata = models.BareAsset.unvalidated()
-    start_time = end_time = datetime.now().astimezone()
-    add_common_metadata(metadata, path, start_time, end_time, digest)
-    return metadata
-
-
-def add_common_metadata(
-    metadata: models.BareAsset,
-    path: str | Path | Readable,
-    start_time: datetime,
-    end_time: datetime,
-    digest: Optional[Digest] = None,
-) -> None:
-    """
-    Update a `dict` of raw "schemadata" with the fields that are common to both
-    NWB assets and non-NWB assets
-    """
-    if digest is not None:
-        metadata.digest = digest.asdict()
-    else:
-        metadata.digest = {}
-    metadata.dateModified = get_utcnow_datetime()
-    if isinstance(path, Readable):
-        r = path
-    else:
-        r = LocalReadableFile(path)
-    mtime = r.get_mtime()
-    if mtime is not None:
-        metadata.blobDateModified = mtime
-        if mtime > metadata.dateModified:
-            lgr.warning("mtime %s of %s is in the future", mtime, r)
-    size = r.get_size()
-    if digest is not None and digest.algorithm is models.DigestType.dandi_zarr_checksum:
-        m = re.fullmatch(
-            r"(?P<hash>[0-9a-f]{32})-(?P<files>[0-9]+)--(?P<size>[0-9]+)", digest.value
-        )
-        if m:
-            size = int(m["size"])
-    metadata.contentSize = parse_obj_as(ByteSize, size)
-    if metadata.wasGeneratedBy is None:
-        metadata.wasGeneratedBy = []
-    metadata.wasGeneratedBy.append(get_generator(start_time, end_time))
-    metadata.encodingFormat = get_mime_type(r.get_filename())
-
-
 def get_generator(start_time: datetime, end_time: datetime) -> models.Activity:
     return models.Activity(
         id=uuid4().urn,
@@ -1050,16 +832,3 @@ def get_generator(start_time: datetime, end_time: datetime) -> models.Activity:
         startDate=start_time,
         endDate=end_time,
     )
-
-
-def prepare_metadata(metadata: dict) -> models.BareAsset:
-    """
-    Convert "flatdata" [1]_ for an asset into "schemadata" [2]_ as a
-    `BareAsset`
-
-    .. [1] a flat `dict` mapping strings to strings & other primitive types;
-       returned by `get_metadata()`
-
-    .. [2] metadata in the form used by the ``dandischema`` library
-    """
-    return extract_model(models.BareAsset, metadata)

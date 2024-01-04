@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Callable
+import inspect
 import os
 import os.path as op
 from pathlib import Path
 import re
-from typing import IO, Any, Dict, List, Literal, Optional, Tuple, TypeVar, Union, cast
+from typing import IO, Any, TypeVar, cast, Literal
 import warnings
 
 import dandischema
@@ -54,7 +55,7 @@ validate_cache = PersistentCache(
 def _sanitize_nwb_version(
     v: Any,
     filename: str | Path | None = None,
-    log: Optional[Callable[[str], Any]] = None,
+    log: Callable[[str], Any] | None = None,
 ) -> str:
     """Helper to sanitize the value of nwb_version where possible
 
@@ -92,7 +93,7 @@ def _sanitize_nwb_version(
 
 def get_nwb_version(
     filepath: str | Path | Readable, sanitize: bool = False
-) -> Optional[str]:
+) -> str | None:
     """Return a version of the NWB standard used by a file
 
     Parameters
@@ -131,16 +132,14 @@ def get_nwb_version(
     return None
 
 
-def get_neurodata_types_to_modalities_map() -> Dict[str, str]:
+def get_neurodata_types_to_modalities_map() -> dict[str, str]:
     """Return a dict to map neurodata types known to pynwb to "modalities"
 
     It is an ugly hack, largely to check feasibility.
     It would base modality on the filename within pynwb providing that neural
     data type
     """
-    import inspect
-
-    ndtypes: Dict[str, str] = {}
+    ndtypes: dict[str, str] = {}
 
     # TODO: if there are extensions, they might have types subclassed from the base
     # types.  There might be a map within pynwb (pynwb.get_type_map?) to return
@@ -158,7 +157,7 @@ def get_neurodata_types_to_modalities_map() -> Dict[str, str]:
 
                 v_split = v_.__module__.split(".")
                 if len(v_split) != 2:
-                    print("Skipping %s coming from %s" % (v_, v_.__module__))
+                    print(f"Skipping {v_} coming from {v_.__module__}")
                     continue
                 modality = v_split[1]  # so smth like ecephys
 
@@ -193,7 +192,7 @@ def get_neurodata_types(filepath: str | Path | Readable) -> list[str]:
     return out
 
 
-def _scan_neurodata_types(grp: h5py.File) -> List[Tuple[Any, Any]]:
+def _scan_neurodata_types(grp: h5py.File) -> list[tuple[Any, Any]]:
     out = []
     if "neurodata_type" in grp.attrs:
         out.append((grp.attrs["neurodata_type"], grp.attrs.get("description", None)))
@@ -248,7 +247,7 @@ def _get_pynwb_metadata(path: str | Path | Readable) -> dict[str, Any]:
                 continue
             if not f.startswith("number_of_"):
                 raise NotImplementedError(
-                    "ATM can only compute number_of_ fields. Got {}".format(f)
+                    f"ATM can only compute number_of_ fields. Got {f}"
                 )
             key = f[len("number_of_") :]
             out[f] = len(getattr(nwb, key, []) or [])
@@ -259,7 +258,7 @@ def _get_pynwb_metadata(path: str | Path | Readable) -> dict[str, Any]:
     return out
 
 
-def _get_image_series(nwb: pynwb.NWBFile) -> List[dict]:
+def _get_image_series(nwb: pynwb.NWBFile) -> list[dict]:
     """Retrieves all ImageSeries related metadata from an open nwb file.
 
     Specifically it pulls out the ImageSeries uuid, name and all the
@@ -271,7 +270,7 @@ def _get_image_series(nwb: pynwb.NWBFile) -> List[dict]:
 
     Returns
     -------
-    out: List[dict]
+    out: list[dict]
         list of dicts : [{id: <ImageSeries uuid>, name: <IMageSeries name>,
         external_files=[ImageSeries.external_file]}]
         if no ImageSeries found in the given modules to check, then it returns an empty list.
@@ -295,7 +294,7 @@ def _get_image_series(nwb: pynwb.NWBFile) -> List[dict]:
     return out
 
 
-def rename_nwb_external_files(metadata: List[dict], dandiset_path: str) -> None:
+def rename_nwb_external_files(metadata: list[dict], dandiset_path: str) -> None:
     """Renames the external_file attribute in an ImageSeries datatype in an open nwb file.
 
     It pulls information about the ImageSeries objects from metadata:
@@ -303,7 +302,7 @@ def rename_nwb_external_files(metadata: List[dict], dandiset_path: str) -> None:
 
     Parameters
     ----------
-    metadata: List[dict]
+    metadata: list[dict]
         list of dictionaries containing the metadata gathered from the nwbfile
     dandiset_path: str
         base path of dandiset
@@ -341,9 +340,7 @@ def rename_nwb_external_files(metadata: List[dict], dandiset_path: str) -> None:
 
 
 @validate_cache.memoize_path
-def validate(
-    path: Union[str, Path], devel_debug: bool = False
-) -> List[ValidationResult]:
+def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResult]:
     """Run validation on a file and return errors
 
     In case of an exception being thrown, an error message added to the
@@ -354,7 +351,7 @@ def validate(
     path: str or Path
     """
     path = str(path)  # Might come in as pathlib's PATH
-    errors: List[ValidationResult] = []
+    errors: list[ValidationResult] = []
     try:
         if Version(pynwb.__version__) >= Version(
             "2.2.0"
@@ -500,7 +497,7 @@ def make_nwb_file(
     return filename
 
 
-def copy_nwb_file(src: Union[str, Path], dest: Union[str, Path]) -> str:
+def copy_nwb_file(src: str | Path, dest: str | Path) -> str:
     """ "Copy" .nwb file by opening and saving into a new path.
 
     New file (`dest`) then should have new `object_id` attribute, and thus be

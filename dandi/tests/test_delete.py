@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from pathlib import Path
-from typing import List
 
 import pytest
 from pytest_mock import MockerFixture
@@ -62,8 +63,8 @@ def test_delete_paths(
     monkeypatch: pytest.MonkeyPatch,
     text_dandiset: SampleDandiset,
     tmp_path: Path,
-    paths: List[str],
-    remainder: List[Path],
+    paths: list[str],
+    remainder: list[Path],
 ) -> None:
     monkeypatch.chdir(text_dandiset.dspath)
     monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
@@ -139,7 +140,7 @@ def test_delete_dandiset(
     mocker: MockerFixture,
     monkeypatch: pytest.MonkeyPatch,
     text_dandiset: SampleDandiset,
-    paths: List[str],
+    paths: list[str],
 ) -> None:
     monkeypatch.chdir(text_dandiset.dspath)
     monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)

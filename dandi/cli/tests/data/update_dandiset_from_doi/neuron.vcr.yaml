@@ -7,7 +7,7 @@ interactions:
       Connection:
       - keep-alive
       User-Agent:
-      - dandi/0.53.0+17.gc2f268f.dirty requests/2.28.2 CPython/3.11.3
+      - dandi/0.56.2+5.ga0199fce.dirty requests/2.31.0 CPython/3.11.6
       accept:
       - application/json
     method: GET
@@ -21,7 +21,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7bd8e4cd2b67586c-IAD
+      - 8172769f4bf141e9-EWR
       Connection:
       - keep-alive
       Content-Length:
@@ -29,19 +29,19 @@ interactions:
       Content-Type:
       - text/html;charset=utf-8
       Date:
-      - Tue, 25 Apr 2023 19:11:46 GMT
+      - Mon, 16 Oct 2023 18:46:13 GMT
       NEL:
       - '{"success_fraction":0,"report_to":"cf-nel","max_age":604800}'
       Report-To:
-      - '{"endpoints":[{"url":"https:\/\/a.nel.cloudflare.com\/report\/v3?s=4ujOeD%2Bo27RrsYGsqq8qitn9T1NwBi8IfxVk4DAS5CAFKL6CV9ZoAxgbtPmce6wpqIfu5oMDV3FwIyND3wja%2FDo1sbKCNlQo136o2tZMK1MyKjokgXXPyo6yp1UnZsXuHNViCsc%3D"}],"group":"cf-nel","max_age":604800}'
+      - '{"endpoints":[{"url":"https:\/\/a.nel.cloudflare.com\/report\/v3?s=oMaESedfgox6sztDGRLRnf4k%2FlMOpQdL8gWy8qgcvw%2B%2Fo8sKFzOPd%2Bshy4pKl4SVfIEmcJDf0YExoEqk0ZkIX9CCWpDo131GZjHrKYlTVs%2FIiDjIM%2FChY8E%3D"}],"group":"cf-nel","max_age":604800}'
       Server:
       - cloudflare
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       alt-svc:
-      - h3=":443"; ma=86400, h3-29=":443"; ma=86400
+      - h3=":443"; ma=86400
       expires:
-      - Tue, 25 Apr 2023 19:32:12 GMT
+      - Mon, 16 Oct 2023 19:27:25 GMT
       link:
       - <https://dul.usage.elsevier.com/doi/>; rel=dul
       - <https://dul.usage.elsevier.com/doi/>; rel=dul
@@ -62,169 +62,222 @@ interactions:
       Connection:
       - keep-alive
       User-Agent:
-      - dandi/0.53.0+17.gc2f268f.dirty requests/2.28.2 CPython/3.11.3
+      - dandi/0.56.2+5.ga0199fce.dirty requests/2.31.0 CPython/3.11.6
       accept:
       - application/json
     method: GET
     uri: https://api.crossref.org/v1/works/10.1016%2Fj.neuron.2019.10.012/transform
   response:
     body:
-      string: !!binary |
-        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
+      string: '{"indexed":{"date-parts":[[2023,9,27]],"date-time":"2023-09-27T21:31:39Z","timestamp":1695850299681},"reference-count":107,"publisher":"Elsevier
+        BV","issue":"1","license":[{"start":{"date-parts":[[2020,1,1]],"date-time":"2020-01-01T00:00:00Z","timestamp":1577836800000},"content-version":"tdm","delay-in-days":0,"URL":"https:\/\/www.elsevier.com\/tdm\/userlicense\/1.0\/"},{"start":{"date-parts":[[2021,1,8]],"date-time":"2021-01-08T00:00:00Z","timestamp":1610064000000},"content-version":"vor","delay-in-days":373,"URL":"http:\/\/www.elsevier.com\/open-access\/userlicense\/1.0\/"}],"funder":[{"DOI":"10.13039\/100000002","name":"NIH","doi-asserted-by":"publisher","award":["MH54671","MH107396","U19
+        NS107616","U19 NS104590","NS090583"]},{"name":"NSF","award":["1545858"]},{"DOI":"10.13039\/100000893","name":"Simons
+        Foundation","doi-asserted-by":"publisher","award":["351109"]}],"content-domain":{"domain":["cell.com","elsevier.com","sciencedirect.com"],"crossmark-restriction":true},"published-print":{"date-parts":[[2020,1]]},"DOI":"10.1016\/j.neuron.2019.10.012","type":"journal-article","created":{"date-parts":[[2019,11,26]],"date-time":"2019-11-26T15:49:05Z","timestamp":1574783345000},"page":"138-149.e5","update-policy":"http:\/\/dx.doi.org\/10.1016\/elsevier_cm_policy","source":"Crossref","is-referenced-by-count":33,"title":"Routing
+        of Hippocampal Ripples to Subcortical Structures via the Lateral Septum","prefix":"10.1016","volume":"105","author":[{"given":"David","family":"Tingley","sequence":"first","affiliation":[]},{"given":"Gy\u00f6rgy","family":"Buzs\u00e1ki","sequence":"additional","affiliation":[]}],"member":"78","reference":[{"key":"10.1016\/j.neuron.2019.10.012_bib1","doi-asserted-by":"crossref","first-page":"522","DOI":"10.1016\/j.cell.2013.12.040","article-title":"Control
+        of stress-induced persistent anxiety by an extra-amygdala septohypothalamic
+        circuit","volume":"156","author":"Anthony","year":"2014","journal-title":"Cell"},{"key":"10.1016\/j.neuron.2019.10.012_bib2","article-title":"Lateral
+        septum neurotensin neurons link stress and anorexia","author":"Azevedo","year":"2019","journal-title":"bioArxiv"},{"key":"10.1016\/j.neuron.2019.10.012_bib3","first-page":"1","article-title":"CircStat:
+        a MATLAB toolbox for circular statistics","volume":"31","author":"Berens","year":"2009","journal-title":"J.\u00a0Stat.
+        Softw."},{"key":"10.1016\/j.neuron.2019.10.012_bib4","doi-asserted-by":"crossref","first-page":"436","DOI":"10.1038\/s41593-018-0330-y","article-title":"Dorsolateral
+        septum somatostatin interneurons gate mobility to calibrate context-specific
+        behavioral fear responses","volume":"22","author":"Besnard","year":"2019","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib5","doi-asserted-by":"crossref","first-page":"339","DOI":"10.1037\/h0059531","article-title":"Subcortical
+        mechanisms in emotional behavior: affective changes following septal forebrain
+        lesions in the albino rat","volume":"46","author":"Brady","year":"1953","journal-title":"J.\u00a0Comp.
+        Physiol. Psychol."},{"key":"10.1016\/j.neuron.2019.10.012_bib6","doi-asserted-by":"crossref","first-page":"1621","DOI":"10.1162\/089976699300016179","article-title":"Fast
+        global oscillations in networks of integrate-and-fire neurons with low firing
+        rates","volume":"11","author":"Brunel","year":"1999","journal-title":"Neural
+        Comput."},{"key":"10.1016\/j.neuron.2019.10.012_bib7","doi-asserted-by":"crossref","first-page":"415","DOI":"10.1152\/jn.01095.2002","article-title":"What
+        determines the frequency of fast network oscillations with irregular neural
+        discharges? I. Synaptic dynamics and excitation-inhibition balance","volume":"90","author":"Brunel","year":"2003","journal-title":"J.\u00a0Neurophysiol."},{"key":"10.1016\/j.neuron.2019.10.012_bib8","doi-asserted-by":"crossref","first-page":"1073","DOI":"10.1002\/hipo.22488","article-title":"Hippocampal
+        sharp wave-ripple: a cognitive biomarker for episodic memory and planning","volume":"25","author":"Buzs\u00e1ki","year":"2015","journal-title":"Hippocampus"},{"key":"10.1016\/j.neuron.2019.10.012_bib9","series-title":"The
+        Brain from Inside Out","author":"Buzs\u00e1ki","year":"2019"},{"key":"10.1016\/j.neuron.2019.10.012_bib10","doi-asserted-by":"crossref","first-page":"139","DOI":"10.1016\/0165-0173(83)90037-1","article-title":"Cellular
+        bases of hippocampal EEG in the behaving rat","volume":"287","author":"Buzs\u00e1ki","year":"1983","journal-title":"Brain
+        Res."},{"key":"10.1016\/j.neuron.2019.10.012_bib11","doi-asserted-by":"crossref","first-page":"147","DOI":"10.1038\/nn.2732","article-title":"Hippocampal
+        replay in the awake state: a potential substrate for memory consolidation
+        and retrieval","volume":"14","author":"Carr","year":"2011","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib12","doi-asserted-by":"crossref","first-page":"232","DOI":"10.1038\/nature21066","article-title":"Gamma
+        oscillations organize top-down signalling to hypothalamus and enable food
+        seeking","volume":"542","author":"Carus-Cadavieco","year":"2017","journal-title":"Nature"},{"key":"10.1016\/j.neuron.2019.10.012_bib13","doi-asserted-by":"crossref","first-page":"66","DOI":"10.1016\/j.physbeh.2013.03.016","article-title":"The
+        histaminergic H1, H2, and H3 receptors of the lateral septum differentially
+        mediate the anxiolytic-like effects of histamine on rats\u2019 defensive behaviors
+        in the elevated plus maze and novelty-induced suppression of feeding paradigm","volume":"116-117","author":"Chee","year":"2013","journal-title":"Physiol.
+        Behav."},{"key":"10.1016\/j.neuron.2019.10.012_bib14","doi-asserted-by":"crossref","first-page":"303","DOI":"10.1016\/j.neuron.2007.11.035","article-title":"New
+        experiences enhance coordinated neural activity in the hippocampus","volume":"57","author":"Cheng","year":"2008","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib15","doi-asserted-by":"crossref","first-page":"81","DOI":"10.1016\/j.neuroimage.2019.05.048","article-title":"A
+        better way to define and describe Morlet wavelets for time-frequency analysis","volume":"199","author":"Cohen","year":"2019","journal-title":"NeuroImage"},{"key":"10.1016\/j.neuron.2019.10.012_bib16","doi-asserted-by":"crossref","first-page":"100","DOI":"10.1016\/j.neuroscience.2012.01.004","article-title":"Regional
+        c-Fos and FosB\/\u0394FosB expression associated with chronic methamphetamine
+        self-administration and methamphetamine-seeking behavior in rats","volume":"206","author":"Cornish","year":"2012","journal-title":"Neuroscience"},{"key":"10.1016\/j.neuron.2019.10.012_bib17","doi-asserted-by":"crossref","first-page":"RC20","DOI":"10.1523\/JNEUROSCI.19-16-j0001.1999","article-title":"Fast
+        network oscillations in the hippocampal CA1 region of the behaving rat","volume":"19","author":"Csicsvari","year":"1999","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib18","doi-asserted-by":"crossref","first-page":"497","DOI":"10.1016\/j.neuron.2009.07.027","article-title":"Hippocampal
+        replay of extended experience","volume":"63","author":"Davidson","year":"2009","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib19","first-page":"11","article-title":"PyNN:
+        A common interface for neuronal network simulators","volume":"2","author":"Davison","year":"2009","journal-title":"Front.
+        Neuroinform."},{"key":"10.1016\/j.neuron.2019.10.012_bib20","doi-asserted-by":"crossref","first-page":"802","DOI":"10.1038\/nature06028","article-title":"Correlation
+        between neural spike trains increases with firing rate","volume":"448","author":"de
+        la Rocha","year":"2007","journal-title":"Nature"},{"key":"10.1016\/j.neuron.2019.10.012_bib21","series-title":"The
+        Hypothalamus-Pituitary-Adrenal Axis","author":"del Rey","year":"2007"},{"key":"10.1016\/j.neuron.2019.10.012_bib22","doi-asserted-by":"crossref","first-page":"1241","DOI":"10.1038\/nn1961","article-title":"Forward
+        and reverse hippocampal place-cell sequences during ripples","volume":"10","author":"Diba","year":"2007","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib23","doi-asserted-by":"crossref","first-page":"1743","DOI":"10.1038\/nn.4430","article-title":"A
+        viral strategy for targeting and manipulating interneurons across vertebrate
+        species","volume":"19","author":"Dimidschstein","year":"2016","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib24","doi-asserted-by":"crossref","first-page":"397","DOI":"10.1038\/nature09633","article-title":"Preplay
+        of future place cell sequences by hippocampal cellular assemblies","volume":"469","author":"Dragoi","year":"2011","journal-title":"Nature"},{"key":"10.1016\/j.neuron.2019.10.012_bib25","doi-asserted-by":"crossref","first-page":"6191","DOI":"10.1523\/JNEUROSCI.19-14-06191.1999","article-title":"Interactions
+        between hippocampus and medial septum during sharp waves and theta oscillation
+        in the behaving rat","volume":"19","author":"Dragoi","year":"1999","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib26","doi-asserted-by":"crossref","first-page":"145","DOI":"10.1016\/j.neuron.2006.02.023","article-title":"Temporal
+        encoding of place sequences by hippocampal cell assemblies","volume":"50","author":"Dragoi","year":"2006","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib27","doi-asserted-by":"crossref","first-page":"581","DOI":"10.1146\/annurev-neuro-072116-031538","article-title":"Replay
+        comes of age","volume":"40","author":"Foster","year":"2017","journal-title":"Annu.
+        Rev. Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib28","doi-asserted-by":"crossref","first-page":"680","DOI":"10.1038\/nature04587","article-title":"Reverse
+        replay of behavioural sequences in hippocampal place cells during the awake
+        state","volume":"440","author":"Foster","year":"2006","journal-title":"Nature"},{"key":"10.1016\/j.neuron.2019.10.012_bib29","doi-asserted-by":"crossref","first-page":"4344","DOI":"10.1152\/jn.00510.2004","article-title":"Contributions
+        of intrinsic membrane dynamics to fast network oscillations with irregular
+        neuronal discharges","volume":"94","author":"Geisler","year":"2005","journal-title":"J.\u00a0Neurophysiol."},{"key":"10.1016\/j.neuron.2019.10.012_bib30","doi-asserted-by":"crossref","first-page":"1634","DOI":"10.1038\/nn.4637","article-title":"Reactivations
+        of emotional memory in the hippocampus-amygdala system during sleep","volume":"20","author":"Girardeau","year":"2017","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib31","doi-asserted-by":"crossref","first-page":"866","DOI":"10.1523\/JNEUROSCI.1950-18.2018","article-title":"Hippocampal
+        reactivation extends for several hours following novel experience","volume":"39","author":"Giri","year":"2019","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib32","doi-asserted-by":"crossref","first-page":"1","DOI":"10.7554\/eLife.05360","article-title":"VTA
+        neurons coordinate with the hippocampal reactivation of spatial experience","volume":"4","author":"Gomperts","year":"2015","journal-title":"eLife"},{"key":"10.1016\/j.neuron.2019.10.012_bib33","doi-asserted-by":"crossref","first-page":"275","DOI":"10.1016\/j.ygcen.2013.09.022","article-title":"Involvements
+        of the lateral hypothalamic area in gastric motility and its regulation by
+        the lateral septum","volume":"194","author":"Gong","year":"2013","journal-title":"Gen.
+        Comp. Endocrinol."},{"key":"10.1016\/j.neuron.2019.10.012_bib34","doi-asserted-by":"crossref","first-page":"1440","DOI":"10.1126\/science.aad1935","article-title":"Diversity
+        in neural firing dynamics supports both rigid and learned hippocampal sequences","volume":"351","author":"Grosmark","year":"2016","journal-title":"Science"},{"key":"10.1016\/j.neuron.2019.10.012_bib35","doi-asserted-by":"crossref","first-page":"695","DOI":"10.1016\/j.neuron.2010.01.034","article-title":"Hippocampal
+        replay is not a simple function of experience","volume":"65","author":"Gupta","year":"2010","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib36","doi-asserted-by":"crossref","first-page":"110","DOI":"10.1152\/jn.00107.2014","article-title":"High-frequency
+        oscillations are prominent in the extended amygdala","volume":"112","author":"Haufler","year":"2014","journal-title":"J.\u00a0Neurophysiol."},{"key":"10.1016\/j.neuron.2019.10.012_bib37","doi-asserted-by":"crossref","first-page":"571","DOI":"10.1176\/ajp.120.6.571","article-title":"Electrical
+        self-stimulation of the brain in man","volume":"120","author":"Heath","year":"1963","journal-title":"Am.
+        J. Psychiatry"},{"key":"10.1016\/j.neuron.2019.10.012_bib38","doi-asserted-by":"crossref","first-page":"1179","DOI":"10.1162\/neco.1997.9.6.1179","article-title":"The
+        neuron simulation environment","volume":"9","author":"Hines","year":"1997","journal-title":"Neural
+        Comput."},{"key":"10.1016\/j.neuron.2019.10.012_bib39","doi-asserted-by":"crossref","first-page":"792","DOI":"10.1038\/nn.2328","article-title":"Sparse
+        temporal coding of elementary tactile features during active whisker sensation","volume":"12","author":"Jadhav","year":"2009","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib40","doi-asserted-by":"crossref","first-page":"339","DOI":"10.1016\/S0928-4257(97)87915-6","article-title":"Long-term
+        potentiation and long-term depression in the lateral septum in spatial working
+        and reference memory","volume":"90","author":"Jaffard","year":"1996","journal-title":"J.\u00a0Physiol.
+        Paris"},{"key":"10.1016\/j.neuron.2019.10.012_bib41","doi-asserted-by":"crossref","first-page":"7715","DOI":"10.1523\/JNEUROSCI.5136-13.2014","article-title":"Modeling
+        inheritance of phase precession in the hippocampal formation","volume":"34","author":"Jaramillo","year":"2014","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib42","doi-asserted-by":"crossref","first-page":"9","DOI":"10.1016\/0163-1047(93)90664-4","article-title":"On
+        the role of the hippocampus in learning and memory in the rat","volume":"60","author":"Jarrard","year":"1993","journal-title":"Behav.
+        Neural Biol."},{"key":"10.1016\/j.neuron.2019.10.012_bib43","doi-asserted-by":"crossref","first-page":"100","DOI":"10.1038\/nn1825","article-title":"Coordinated
+        memory replay in the visual cortex and hippocampus during sleep","volume":"10","author":"Ji","year":"2007","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib103","doi-asserted-by":"crossref","first-page":"2379","DOI":"10.1162\/NECO_a_00661","article-title":"High-dimensional
+        cluster analysis with the masked EM algorithm","volume":"26","author":"Kadir","year":"2014","journal-title":"Neural
+        Comput."},{"key":"10.1016\/j.neuron.2019.10.012_bib44","doi-asserted-by":"crossref","first-page":"913","DOI":"10.1038\/nn.2344","article-title":"Awake
+        replay of remote experiences in the hippocampus","volume":"12","author":"Karlsson","year":"2009","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib45","doi-asserted-by":"crossref","first-page":"4090","DOI":"10.1523\/JNEUROSCI.19-10-04090.1999","article-title":"Reactivation
+        of hippocampal cell assemblies: effects of behavioral state, experience, and
+        EEG dynamics","volume":"19","author":"Kudrimoti","year":"1999","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib46","doi-asserted-by":"crossref","first-page":"e1000173","DOI":"10.1371\/journal.pbio.1000173","article-title":"Hippocampus
+        leads ventral striatum in replay of place-reward information","volume":"7","author":"Lansink","year":"2009","journal-title":"PLoS
+        Biol."},{"key":"10.1016\/j.neuron.2019.10.012_bib47","doi-asserted-by":"crossref","first-page":"203","DOI":"10.1016\/j.bbr.2007.03.014","article-title":"Morphine
+        self-administration into the lateral septum depends on dopaminergic mechanisms:
+        Evidence from pharmacology and Fos neuroimaging","volume":"180","author":"Le
+        Merrer","year":"2007","journal-title":"Behav. Brain Res."},{"key":"10.1016\/j.neuron.2019.10.012_bib48","doi-asserted-by":"crossref","first-page":"213","DOI":"10.1038\/s41586-018-0772-0","article-title":"A
+        circuit from hippocampal CA2 to lateral septum disinhibits social aggression","volume":"564","author":"Leroy","year":"2018","journal-title":"Nature"},{"key":"10.1016\/j.neuron.2019.10.012_bib49","doi-asserted-by":"crossref","first-page":"655","DOI":"10.1016\/S0306-4522(02)00101-X","article-title":"Context-specific
+        spatial representations by lateral septal cells","volume":"112","author":"Leutgeb","year":"2002","journal-title":"Neuroscience"},{"key":"10.1016\/j.neuron.2019.10.012_bib50","doi-asserted-by":"crossref","first-page":"2478","DOI":"10.1038\/s41467-019-10327-5","article-title":"NREM
+        sleep in the rodent neocortex and hippocampus reflects excitable dynamics","volume":"10","author":"Levenstein","year":"2019","journal-title":"Nat.
+        Commun."},{"key":"10.1016\/j.neuron.2019.10.012_bib51","doi-asserted-by":"crossref","first-page":"36","DOI":"10.1016\/j.brs.2014.09.003","article-title":"Cortical
+        network switching: possible role of the lateral septum and cholinergic arousal","volume":"8","author":"Li","year":"2015","journal-title":"Brain
+        Stimul."},{"key":"10.1016\/j.neuron.2019.10.012_bib52","doi-asserted-by":"crossref","first-page":"547","DOI":"10.1038\/nature11618","article-title":"Hippocampal-cortical
+        interaction during periods of subcortical silence","volume":"491","author":"Logothetis","year":"2012","journal-title":"Nature"},{"key":"10.1016\/j.neuron.2019.10.012_bib53","doi-asserted-by":"crossref","first-page":"916","DOI":"10.1016\/j.psyneuen.2012.09.018","article-title":"Oxytocin
+        mediates rodent social memory within the lateral septum and the medial amygdala
+        depending on the relevance of the social stimulus: male juvenile versus female
+        adult conspecifics","volume":"38","author":"Lukas","year":"2013","journal-title":"Psychoneuroendocrinology"},{"key":"10.1016\/j.neuron.2019.10.012_bib54","doi-asserted-by":"crossref","first-page":"353","DOI":"10.1126\/science.1204622","article-title":"Linking
+        context with reward: a functional circuit from hippocampal CA3 to ventral
+        tegmental area","volume":"333","author":"Luo","year":"2011","journal-title":"Science"},{"key":"10.1016\/j.neuron.2019.10.012_bib55","doi-asserted-by":"crossref","first-page":"1","DOI":"10.7554\/eLife.38471","article-title":"Unsupervised
+        discovery of temporal sequences in high-dimensional datasets, with applications
+        to neuroscience","volume":"8","author":"Mackevicius","year":"2019","journal-title":"eLife"},{"key":"10.1016\/j.neuron.2019.10.012_bib56","doi-asserted-by":"crossref","first-page":"987","DOI":"10.1038\/npp.2017.144","article-title":"Dorsal
+        hippocampus drives context-induced cocaine seeking via inputs to Lateral Septum","volume":"43","author":"McGlinchey","year":"2018","journal-title":"Neuropsychopharmacology"},{"key":"10.1016\/j.neuron.2019.10.012_bib104","doi-asserted-by":"crossref","first-page":"8","DOI":"10.3389\/fninf.2013.00008","article-title":"The
+        neural decoding toolbox","volume":"7","author":"Meyers","year":"2013","journal-title":"Front
+        Neuroinform"},{"key":"10.1016\/j.neuron.2019.10.012_bib57","doi-asserted-by":"crossref","first-page":"1436","DOI":"10.1016\/j.cub.2019.03.048","article-title":"Post-learning
+        hippocampal replay selectively reinforces spatial memory for highly rewarded
+        locations","volume":"29","author":"Michon","year":"2019","journal-title":"Curr.
+        Biol."},{"key":"10.1016\/j.neuron.2019.10.012_bib58","doi-asserted-by":"crossref","first-page":"1174","DOI":"10.1038\/nn.2894","article-title":"Hippocampal
+        CA1 pyramidal cells form functionally distinct sublayers","volume":"14","author":"Mizuseki","year":"2011","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib59","doi-asserted-by":"crossref","first-page":"792","DOI":"10.1038\/nn.4291","article-title":"Coordinated
+        grid and place cell replay during rest","volume":"19","author":"\u00d3lafsd\u00f3ttir","year":"2016","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib60","doi-asserted-by":"crossref","first-page":"419","DOI":"10.1037\/h0058775","article-title":"Positive
+        reinforcement produced by electrical stimulation of septal area and other
+        regions of rat brain","volume":"47","author":"Olds","year":"1954","journal-title":"J.\u00a0Comp.
+        Physiol. Psychol."},{"key":"10.1016\/j.neuron.2019.10.012_bib61","doi-asserted-by":"crossref","first-page":"975","DOI":"10.1016\/j.neuron.2016.10.028","article-title":"Interplay
+        between hippocampal sharp-wave-ripple events and vicarious trial and error
+        behaviors in decision making","volume":"92","author":"Papale","year":"2016","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib62","doi-asserted-by":"crossref","first-page":"1715","DOI":"10.1038\/npp.2017.56","article-title":"Bidirectional
+        control of anxiety-related behaviors in mice: role of inputs arising from
+        the ventral hippocampus to the lateral septum and medial prefrontal cortex","volume":"42","author":"Parfitt","year":"2017","journal-title":"Neuropsychopharmacology"},{"key":"10.1016\/j.neuron.2019.10.012_bib63","doi-asserted-by":"crossref","first-page":"2907","DOI":"10.1523\/JNEUROSCI.09-08-02907.1989","article-title":"Influences
+        of hippocampal place cell firing in the awake state on the activity of these
+        cells during subsequent sleep episodes","volume":"9","author":"Pavlides","year":"1989","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib64","doi-asserted-by":"crossref","first-page":"6446","DOI":"10.1523\/JNEUROSCI.0575-04.2004","article-title":"The
+        ventral striatum in off-line processing: ensemble reactivation during sleep
+        and modulation by hippocampal ripples","volume":"24","author":"Pennartz","year":"2004","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib65","doi-asserted-by":"crossref","first-page":"919","DOI":"10.1038\/nn.2337","article-title":"Replay
+        of rule-learning related neural patterns in the prefrontal cortex during sleep","volume":"12","author":"Peyrache","year":"2009","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib66","article-title":"The
+        content of hippocampal \u201creplay\u201d","author":"Pfeiffer","year":"2017","journal-title":"Hippocampus"},{"key":"10.1016\/j.neuron.2019.10.012_bib67","doi-asserted-by":"crossref","first-page":"180","DOI":"10.1126\/science.aaa9633","article-title":"Place
+        cells. Autoassociative dynamics in the generation of sequences of hippocampal
+        place cells","volume":"349","author":"Pfeiffer","year":"2015","journal-title":"Science"},{"key":"10.1016\/j.neuron.2019.10.012_bib68","doi-asserted-by":"crossref","first-page":"115","DOI":"10.1016\/S0165-0173(97)00009-X","article-title":"Connections
+        of the rat lateral septal complex","volume":"24","author":"Risold","year":"1997","journal-title":"Brain
+        Res. Brain Res. Rev."},{"key":"10.1016\/j.neuron.2019.10.012_bib105","doi-asserted-by":"crossref","first-page":"634","DOI":"10.1038\/nn.4268","article-title":"Spike
+        sorting for large, dense electrode arrays","volume":"19","author":"Rossant","year":"2016","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib69","doi-asserted-by":"crossref","first-page":"251","DOI":"10.1038\/nn.4457","article-title":"A
+        cortical-hippocampal-cortical loop of information processing during memory
+        consolidation","volume":"20","author":"Rothschild","year":"2017","journal-title":"Nat.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib70","doi-asserted-by":"crossref","first-page":"4623","DOI":"10.1523\/JNEUROSCI.4561-11.2012","article-title":"A
+        septal-hypothalamic pathway drives orexin neurons, which is necessary for
+        conditioned cocaine preference","volume":"32","author":"Sartor","year":"2012","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib106","doi-asserted-by":"crossref","first-page":"11798","DOI":"10.1523\/JNEUROSCI.0656-12.2012","article-title":"The
+        spiking component of oscillatory extracellular potentials in the rat hippocampus","volume":"32","author":"Schomburg","year":"2012","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib71","doi-asserted-by":"crossref","first-page":"470","DOI":"10.1016\/j.neuron.2014.08.051","article-title":"Theta
+        phase segregation of input-specific gamma patterns in entorhinal-hippocampal
+        networks","volume":"84","author":"Schomburg","year":"2014","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib72","doi-asserted-by":"crossref","first-page":"752","DOI":"10.1038\/bjp.2008.295","article-title":"\u03b1(1)-adrenoceptors
+        in the lateral septal area modulate food intake behaviour in rats","volume":"155","author":"Scopinho","year":"2008","journal-title":"Br.
+        J. Pharmacol."},{"key":"10.1016\/j.neuron.2019.10.012_bib73","doi-asserted-by":"crossref","first-page":"185","DOI":"10.1002\/dmr.5610030109","article-title":"Neuronal
+        regulation of hepatic glucose metabolism in mammals","volume":"3","author":"Shimazu","year":"1987","journal-title":"Diabetes
+        Metab. Rev."},{"key":"10.1016\/j.neuron.2019.10.012_bib74","doi-asserted-by":"crossref","first-page":"195","DOI":"10.1016\/j.neuron.2017.11.040","article-title":"Drd3
+        signaling in the lateral septum mediates early life stress-induced social
+        dysfunction","volume":"97","author":"Shin","year":"2018","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib75","doi-asserted-by":"crossref","first-page":"7","DOI":"10.1016\/0166-4328(86)90042-2","article-title":"Deficits
+        in spatial-memory tasks following lesions of septal dopaminergic terminals
+        in the rat","volume":"19","author":"Simon","year":"1986","journal-title":"Behav.
+        Brain Res."},{"key":"10.1016\/j.neuron.2019.10.012_bib76","doi-asserted-by":"crossref","first-page":"2065","DOI":"10.1073\/pnas.0437938100","article-title":"Communication
+        between neocortex and hippocampus during sleep in rodents","volume":"100","author":"Sirota","year":"2003","journal-title":"Proc.
+        Natl. Acad. Sci. USA"},{"key":"10.1016\/j.neuron.2019.10.012_bib77","doi-asserted-by":"crossref","first-page":"2065","DOI":"10.1073\/pnas.0437938100","article-title":"Communication
+        between neocortex and hippocampus during sleep in rodents","volume":"100","author":"Sirota","year":"2003","journal-title":"Proc.
+        Natl. Acad. Sci. USA"},{"key":"10.1016\/j.neuron.2019.10.012_bib78","doi-asserted-by":"crossref","first-page":"926","DOI":"10.1016\/j.neuron.2018.04.015","article-title":"Cocaine
+        place conditioning strengthens location-specific hippocampal coupling to the
+        nucleus accumbens","volume":"98","author":"Sjulson","year":"2018","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib79","doi-asserted-by":"crossref","first-page":"1870","DOI":"10.1126\/science.271.5257.1870","article-title":"Replay
+        of neuronal firing sequences in rat hippocampus during sleep following spatial
+        experience","volume":"271","author":"Skaggs","year":"1996","journal-title":"Science"},{"key":"10.1016\/j.neuron.2019.10.012_bib80","doi-asserted-by":"crossref","first-page":"538","DOI":"10.1152\/jn.1940.3.6.538","article-title":"Forebrain
+        and rage reactions","volume":"3","author":"Spiegel","year":"1940","journal-title":"J.\u00a0Neurophysiol."},{"key":"10.1016\/j.neuron.2019.10.012_bib81","doi-asserted-by":"crossref","first-page":"450","DOI":"10.1016\/j.neuron.2019.01.052","article-title":"Hippocampal
+        reactivation of random trajectories resembling brownian diffusion","volume":"102","author":"Stella","year":"2019","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib82","doi-asserted-by":"crossref","first-page":"303","DOI":"10.1126\/science.49928","article-title":"Hippocampo-hypothalamic
+        connections: origin in subicular cortex, not Ammon\u2019s horn","volume":"189","author":"Swanson","year":"1975","journal-title":"Science"},{"key":"10.1016\/j.neuron.2019.10.012_bib83","doi-asserted-by":"crossref","first-page":"621","DOI":"10.1002\/cne.901860408","article-title":"The
+        connections of the septal region in the rat","volume":"186","author":"Swanson","year":"1979","journal-title":"J.\u00a0Comp.
+        Neurol."},{"key":"10.1016\/j.neuron.2019.10.012_bib84","doi-asserted-by":"crossref","first-page":"548","DOI":"10.1523\/JNEUROSCI.01-05-00548.1981","article-title":"Evidence
+        for collateral projections by neurons in Ammon\u2019s horn, the dentate gyrus,
+        and the subiculum: a multiple retrograde labeling study in the rat","volume":"1","author":"Swanson","year":"1981","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib85","doi-asserted-by":"crossref","first-page":"10188","DOI":"10.1038\/ncomms10188","article-title":"An
+        excitatory ventral hippocampus to lateral septum circuit that suppresses feeding","volume":"6","author":"Sweeney","year":"2015","journal-title":"Nat.
+        Commun."},{"key":"10.1016\/j.neuron.2019.10.012_bib86","doi-asserted-by":"crossref","first-page":"11185","DOI":"10.1523\/JNEUROSCI.2042-16.2016","article-title":"An
+        inhibitory septum to lateral hypothalamus circuit that suppresses feeding","volume":"36","author":"Sweeney","year":"2016","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib87","doi-asserted-by":"crossref","first-page":"11789","DOI":"10.1523\/JNEUROSCI.2291-17.2017","article-title":"Hippocampal-prefrontal
+        reactivation during learning is stronger in awake compared with sleep states","volume":"37","author":"Tang","year":"2017","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib88","doi-asserted-by":"crossref","first-page":"R124","DOI":"10.1152\/ajpregu.00460.2015","article-title":"Role
+        of lateral septum glucagon-like peptide 1 receptors in food intake","volume":"311","author":"Terrill","year":"2016","journal-title":"Am.
+        J. Physiol. Regul. Integr. Comp. Physiol."},{"key":"10.1016\/j.neuron.2019.10.012_bib89","doi-asserted-by":"crossref","first-page":"1229","DOI":"10.1016\/j.neuron.2018.04.028","article-title":"Transformation
+        of a spatial map across the hippocampal-lateral septal circuit","volume":"98","author":"Tingley","year":"2018","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib107","article-title":"On
+        the methods for reactivation and replay analysis","author":"Tingley","year":"2019","journal-title":"Philos.
+        Trans. R. Soc. B Biol. Sci."},{"key":"10.1016\/j.neuron.2019.10.012_bib90","series-title":"The
+        Radon Transform - Theory and Implementation","author":"Toft","year":"1996"},{"key":"10.1016\/j.neuron.2019.10.012_bib91","doi-asserted-by":"crossref","first-page":"299","DOI":"10.3389\/fnins.2014.00299","article-title":"Neuroanatomy
+        and sex differences of the lordosis-inhibiting system in the lateral septum","volume":"8","author":"Tsukahara","year":"2014","journal-title":"Front.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib92","doi-asserted-by":"crossref","first-page":"156","DOI":"10.1159\/000122562","article-title":"Pituitary
+        adrenal function after small and large lesions in the lateral septal area
+        in food-deprived rats","volume":"16","author":"Usher","year":"1974","journal-title":"Neuroendocrinology"},{"key":"10.1016\/j.neuron.2019.10.012_bib93","doi-asserted-by":"crossref","first-page":"2554","DOI":"10.1016\/j.psyneuen.2013.06.002","article-title":"Sex-specific
+        modulation of juvenile social play by vasopressin","volume":"38","author":"Veenema","year":"2013","journal-title":"Psychoneuroendocrinology"},{"key":"10.1016\/j.neuron.2019.10.012_bib94","doi-asserted-by":"crossref","first-page":"112","DOI":"10.1016\/j.neuroimage.2010.01.073","article-title":"The
+        pairwise phase consistency: a bias-free measure of rhythmic neuronal synchronization","volume":"51","author":"Vinck","year":"2010","journal-title":"Neuroimage"},{"key":"10.1016\/j.neuron.2019.10.012_bib95","doi-asserted-by":"crossref","first-page":"875","DOI":"10.1037\/0735-7044.112.4.875","article-title":"Opposite
+        effects of lateral septal LTP and lateral septal lesions on contextual fear
+        conditioning in mice","volume":"112","author":"Vouimba","year":"1998","journal-title":"Behav.
+        Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib96","doi-asserted-by":"crossref","first-page":"10663","DOI":"10.1523\/JNEUROSCI.1042-16.2016","article-title":"Coordinated
+        interaction between hippocampal sharp-wave ripples and anterior cingulate
+        unit activity","volume":"36","author":"Wang","year":"2016","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib97","doi-asserted-by":"crossref","first-page":"839","DOI":"10.1016\/j.neuron.2016.03.036","article-title":"Network
+        homeostasis and state dynamics of neocortical sleep","volume":"90","author":"Watson","year":"2016","journal-title":"Neuron"},{"key":"10.1016\/j.neuron.2019.10.012_bib98","doi-asserted-by":"crossref","first-page":"593","DOI":"10.1016\/j.cub.2015.12.065","article-title":"Effective
+        modulation of male aggression through lateral septum to medial hypothalamus
+        projection","volume":"26","author":"Wong","year":"2016","journal-title":"Curr.
+        Biol."},{"key":"10.1016\/j.neuron.2019.10.012_bib99","doi-asserted-by":"crossref","first-page":"6459","DOI":"10.1523\/JNEUROSCI.3414-13.2014","article-title":"Hippocampal
+        replay captures the unique topological structure of a novel environment","volume":"34","author":"Wu","year":"2014","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib100","doi-asserted-by":"crossref","first-page":"883","DOI":"10.1016\/0031-9384(95)02184-1","article-title":"Stimulation
+        of the lateral septum attenuates immobilization-induced stress ulcers","volume":"59","author":"Yadin","year":"1996","journal-title":"Physiol.
+        Behav."},{"key":"10.1016\/j.neuron.2019.10.012_bib101","doi-asserted-by":"crossref","first-page":"30","DOI":"10.1523\/JNEUROSCI.15-01-00030.1995","article-title":"Sharp
+        wave-associated high-frequency oscillation (200\u00a0Hz) in the intact hippocampus:
+        network and intracellular mechanisms","volume":"15","author":"Ylinen","year":"1995","journal-title":"J.\u00a0Neurosci."},{"key":"10.1016\/j.neuron.2019.10.012_bib102","doi-asserted-by":"crossref","first-page":"445","DOI":"10.1038\/npp.2009.149","article-title":"Fos
+        after single and repeated self-administration of cocaine and saline in the
+        rat: emphasis on the Basal forebrain and recalibration of expression","volume":"35","author":"Zahm","year":"2010","journal-title":"Neuropsychopharmacology"}],"container-title":"Neuron","original-title":[],"language":"en","link":[{"URL":"https:\/\/api.elsevier.com\/content\/article\/PII:S0896627319308852?httpAccept=text\/xml","content-type":"text\/xml","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/api.elsevier.com\/content\/article\/PII:S0896627319308852?httpAccept=text\/plain","content-type":"text\/plain","content-version":"vor","intended-application":"text-mining"}],"deposited":{"date-parts":[[2021,1,10]],"date-time":"2021-01-10T21:01:55Z","timestamp":1610312515000},"score":1,"resource":{"primary":{"URL":"https:\/\/linkinghub.elsevier.com\/retrieve\/pii\/S0896627319308852"}},"subtitle":[],"short-title":[],"issued":{"date-parts":[[2020,1]]},"references-count":107,"journal-issue":{"issue":"1","published-print":{"date-parts":[[2020,1]]}},"alternative-id":["S0896627319308852"],"URL":"http:\/\/dx.doi.org\/10.1016\/j.neuron.2019.10.012","relation":{},"ISSN":["0896-6273"],"subject":["General
+        Neuroscience"],"container-title-short":"Neuron","published":{"date-parts":[[2020,1]]},"assertion":[{"value":"Elsevier","name":"publisher","label":"This
+        article is maintained by"},{"value":"Routing of Hippocampal Ripples to Subcortical
+        Structures via the Lateral Septum","name":"articletitle","label":"Article
+        Title"},{"value":"Neuron","name":"journaltitle","label":"Journal Title"},{"value":"https:\/\/doi.org\/10.1016\/j.neuron.2019.10.012","name":"articlelink","label":"CrossRef
+        DOI link to publisher maintained version"},{"value":"article","name":"content_type","label":"Content
+        Type"},{"value":"\u00a9 2019 Elsevier Inc.","name":"copyright","label":"Copyright"}]}'
     headers:
       access-control-allow-headers:
       - X-Requested-With, Accept, Accept-Encoding, Accept-Charset, Accept-Language,
@@ -238,11 +291,11 @@ interactions:
       content-encoding:
       - gzip
       content-length:
-      - '8831'
+      - '8830'
       content-type:
       - application/json
       date:
-      - Tue, 25 Apr 2023 19:11:46 GMT
+      - Mon, 16 Oct 2023 18:46:13 GMT
       link:
       - <http://dx.doi.org/10.1016/j.neuron.2019.10.012>; rel="canonical", <https://api.elsevier.com/content/article/PII:S0896627319308852?httpAccept=text/xml>;
         version="vor"; type="text/xml"; rel="item", <https://api.elsevier.com/content/article/PII:S0896627319308852?httpAccept=text/plain>;

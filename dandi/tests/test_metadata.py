@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 import json
 from pathlib import Path
 import shutil
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any
 
 from anys import ANY_AWARE_DATETIME, AnyFullmatch, AnyIn
 from dandischema.consts import DANDI_SCHEMA_VERSION
@@ -31,28 +33,27 @@ from semantic_version import Version
 from .fixtures import SampleDandiset
 from .skip import mark
 from .. import __version__
+from ..consts import metadata_nwb_subject_fields
 from ..dandiapi import RemoteBlobAsset
-from ..metadata import (
+from ..metadata.core import prepare_metadata
+from ..metadata.nwb import get_metadata, nwb2asset
+from ..metadata.util import (
     extract_age,
     extract_cellLine,
     extract_species,
-    get_metadata,
-    nwb2asset,
     parse_age,
     parse_purlobourl,
-    prepare_metadata,
     process_ndtypes,
     species_map,
     timedelta2duration,
 )
 from ..misctypes import DUMMY_DANDI_ETAG
-from ..pynwb_utils import metadata_nwb_subject_fields
 from ..utils import ensure_datetime
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
 
 
-def test_get_metadata(simple1_nwb: Path, simple1_nwb_metadata: Dict[str, Any]) -> None:
+def test_get_metadata(simple1_nwb: Path, simple1_nwb_metadata: dict[str, Any]) -> None:
     target_metadata = simple1_nwb_metadata.copy()
     # we will also get some counts
     target_metadata["number_of_electrodes"] = 0
@@ -150,7 +151,7 @@ def test_bids_nwb_metadata_integration(bids_examples: Path, tmp_path: Path) -> N
         ("/", "/"),
     ],
 )
-def test_parse_age(age: str, duration: Union[str, Tuple[str, str]]) -> None:
+def test_parse_age(age: str, duration: str | tuple[str, str]) -> None:
     if isinstance(duration, tuple):
         duration, ref = duration
     else:  # birth will be a default ref
@@ -213,7 +214,7 @@ def test_extract_cellLine(s, t):
         ),
     ],
 )
-def test_parse_error(age: Optional[str], errmsg: str) -> None:
+def test_parse_error(age: str | None, errmsg: str) -> None:
     with pytest.raises(ValueError) as excinfo:
         parse_age(age)
     assert str(excinfo.value) == errmsg
@@ -395,7 +396,7 @@ def test_timedelta2duration(td: timedelta, duration: str) -> None:
         ),
     ],
 )
-def test_prepare_metadata(filename: str, metadata: Dict[str, Any]) -> None:
+def test_prepare_metadata(filename: str, metadata: dict[str, Any]) -> None:
     data = prepare_metadata(metadata).json_dict()
     with (METADATA_DIR / filename).open() as fp:
         data_as_dict = json.load(fp)

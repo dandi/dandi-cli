@@ -1,4 +1,4 @@
-from typing import List
+from __future__ import annotations
 
 import requests
 from semantic_version import Version
@@ -41,7 +41,7 @@ class CliVersionError(RuntimeError):
     """Base class for `CliVersionTooOldError` and `BadCliVersionError`"""
 
     def __init__(
-        self, our_version: Version, minversion: Version, bad_versions: List[Version]
+        self, our_version: Version, minversion: Version, bad_versions: list[Version]
     ) -> None:
         self.our_version = our_version
         self.minversion = minversion

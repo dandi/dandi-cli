@@ -9,25 +9,31 @@
 """Provides helper to compute digests (md5 etc) on files
 """
 
+# Importing this module imports fscacher, which imports joblib, which imports
+# numpy, which is a "heavy" import, so avoid importing this module at the top
+# level of a module.
+
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass, field
 import hashlib
 import logging
 import os.path
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union, cast
 
 from dandischema.digests.dandietag import DandiETag
 from fscacher import PersistentCache
-from zarr_checksum import ZarrChecksumTree
+from zarr_checksum.checksum import ZarrChecksum, ZarrChecksumManifest
+from zarr_checksum.tree import ZarrChecksumTree
 
 from .threaded_walk import threaded_walk
-from ..utils import auto_repr, exclude_from_zarr
+from ..utils import Hasher, exclude_from_zarr
 
 lgr = logging.getLogger("dandi.support.digests")
 
 
-@auto_repr
+@dataclass
 class Digester:
     """Helper to compute multiple digests in one pass for a file"""
 
@@ -37,30 +43,20 @@ class Digester:
     # Ideally we should find an efficient way to parallelize this but
     # atm this one is sufficiently speedy
 
-    DEFAULT_DIGESTS = ["md5", "sha1", "sha256", "sha512"]
+    #: List of any supported algorithm labels, such as md5, sha1, etc.
+    digests: list[str] = field(
+        default_factory=lambda: ["md5", "sha1", "sha256", "sha512"]
+    )
 
-    def __init__(
-        self, digests: Optional[List[str]] = None, blocksize: int = 1 << 16
-    ) -> None:
-        """
-        Parameters
-        ----------
-        digests : list or None
-          List of any supported algorithm labels, such as md5, sha1, etc.
-          If None, a default set of hashes will be computed (md5, sha1,
-          sha256, sha512).
-        blocksize : int
-          Chunk size (in bytes) by which to consume a file.
-        """
-        self._digests = digests or self.DEFAULT_DIGESTS
-        self._digest_funcs = [getattr(hashlib, digest) for digest in self._digests]
-        self.blocksize = blocksize
+    #: Chunk size (in bytes) by which to consume a file.
+    blocksize: int = 1 << 16
 
-    @property
-    def digests(self) -> List[str]:
-        return self._digests
+    digest_funcs: list[Callable[[], Hasher]] = field(init=False, repr=False)
 
-    def __call__(self, fpath: Union[str, Path]) -> Dict[str, str]:
+    def __post_init__(self) -> None:
+        self.digest_funcs = [getattr(hashlib, digest) for digest in self.digests]
+
+    def __call__(self, fpath: str | Path) -> dict[str, str]:
         """
         fpath : str
           File path for which a checksum shall be computed.
@@ -71,14 +67,14 @@ class Digester:
           Keys are algorithm labels, and values are checksum strings
         """
         lgr.debug("Estimating digests for %s" % fpath)
-        digests = [x() for x in self._digest_funcs]
+        digests = [x() for x in self.digest_funcs]
         with open(fpath, "rb") as f:
             while True:
                 block = f.read(self.blocksize)
                 if not block:
                     break
-                [d.update(block) for d in digests]
-
+                for d in digests:
+                    d.update(block)
         return {n: d.hexdigest() for n, d in zip(self.digests, digests)}
 
 
@@ -86,9 +82,11 @@ checksums = PersistentCache(name="dandi-checksums", envvar="DANDI_CACHE")
 
 
 @checksums.memoize_path
-def get_digest(filepath: Union[str, Path], digest: str = "sha256") -> str:
+def get_digest(filepath: str | Path, digest: str = "sha256") -> str:
     if digest == "dandi-etag":
-        return cast(str, get_dandietag(filepath).as_str())
+        s = get_dandietag(filepath).as_str()
+        assert isinstance(s, str)
+        return s
     elif digest == "zarr-checksum":
         return get_zarr_checksum(Path(filepath))
     else:
@@ -96,11 +94,11 @@ def get_digest(filepath: Union[str, Path], digest: str = "sha256") -> str:
 
 
 @checksums.memoize_path
-def get_dandietag(filepath: Union[str, Path]) -> DandiETag:
+def get_dandietag(filepath: str | Path) -> DandiETag:
     return DandiETag.from_file(filepath)
 
 
-def get_zarr_checksum(path: Path, known: Optional[Dict[str, str]] = None) -> str:
+def get_zarr_checksum(path: Path, known: dict[str, str] | None = None) -> str:
     """
     Compute the Zarr checksum for a file or directory tree.
 
@@ -109,11 +107,13 @@ def get_zarr_checksum(path: Path, known: Optional[Dict[str, str]] = None) -> str
     slash-separated paths relative to the root of the Zarr to hex digests.
     """
     if path.is_file():
-        return cast(str, get_digest(path, "md5"))
+        s = get_digest(path, "md5")
+        assert isinstance(s, str)
+        return s
     if known is None:
         known = {}
 
-    def digest_file(f: Path) -> Tuple[Path, str, int]:
+    def digest_file(f: Path) -> tuple[Path, str, int]:
         assert known is not None
         relpath = f.relative_to(path).as_posix()
         try:
@@ -128,10 +128,38 @@ def get_zarr_checksum(path: Path, known: Optional[Dict[str, str]] = None) -> str
     return str(zcc.process())
 
 
-def md5file_nocache(filepath: Union[str, Path]) -> str:
+def md5file_nocache(filepath: str | Path) -> str:
     """
     Compute the MD5 digest of a file without caching with fscacher, which has
     been shown to slow things down for the large numbers of files typically
     present in Zarrs
     """
     return Digester(["md5"])(filepath)["md5"]
+
+
+def checksum_zarr_dir(
+    files: dict[str, tuple[str, int]], directories: dict[str, tuple[str, int]]
+) -> str:
+    """
+    Calculate the Zarr checksum of a directory only from information about the
+    files and subdirectories immediately within it.
+
+    :param files:
+        A mapping from names of files in the directory to pairs of their MD5
+        digests and sizes
+    :param directories:
+        A mapping from names of subdirectories in the directory to pairs of
+        their Zarr checksums and the sum of the sizes of all files recursively
+        within them
+    """
+    manifest = ZarrChecksumManifest(
+        files=[
+            ZarrChecksum(digest=digest, name=name, size=size)
+            for name, (digest, size) in files.items()
+        ],
+        directories=[
+            ZarrChecksum(digest=digest, name=name, size=size)
+            for name, (digest, size) in directories.items()
+        ],
+    )
+    return manifest.generate_digest().digest
