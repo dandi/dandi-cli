@@ -167,7 +167,7 @@ RETRY_STATUSES = (500, 502, 503, 504)
 VIDEO_FILE_EXTENSIONS = [".mp4", ".avi", ".wmv", ".mov", ".flv", ".mkv"]
 VIDEO_FILE_MODULES = ["processing", "acquisition"]
 
-ZARR_EXTENSIONS = [".ngff", ".zarr", ".nwb"]
+ZARR_EXTENSIONS = [".ngff", ".zarr"]
 
 #: Maximum allowed depth of a Zarr directory tree
 MAX_ZARR_DEPTH = 7
