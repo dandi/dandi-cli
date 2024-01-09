@@ -88,7 +88,7 @@
 
 #### 🏠 Internal
 
-- typing: Account for the fact that requests.HTTPError .response migth be None now [#1336](https://github.com/dandi/dandi-cli/pull/1336) ([@yarikoptic](https://github.com/yarikoptic))
+- typing: Account for the fact that requests.HTTPError .response might be None now [#1336](https://github.com/dandi/dandi-cli/pull/1336) ([@yarikoptic](https://github.com/yarikoptic))
 - [gh-actions](deps): Bump actions/checkout from 3 to 4 [#1326](https://github.com/dandi/dandi-cli/pull/1326) ([@dependabot[bot]](https://github.com/dependabot[bot]))
 - codespell: tuneup of config and some new typos detected fixes [#1334](https://github.com/dandi/dandi-cli/pull/1334) ([@yarikoptic](https://github.com/yarikoptic))
 
