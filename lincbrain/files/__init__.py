@@ -16,9 +16,9 @@ from collections.abc import Iterator
 import os.path
 from pathlib import Path
 
-from dandi import get_logger
-from dandi.consts import BIDS_DATASET_DESCRIPTION, dandiset_metadata_file
-from dandi.exceptions import UnknownAssetError
+from lincbrain import get_logger
+from lincbrain.consts import BIDS_DATASET_DESCRIPTION, dandiset_metadata_file
+from lincbrain.exceptions import UnknownAssetError
 
 from ._private import BIDSFileFactory, DandiFileFactory
 from .bases import (

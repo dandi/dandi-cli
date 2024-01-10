@@ -66,7 +66,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         with self._lock:
             if self._dataset_errors is None:
                 # Import here to avoid circular import
-                from dandi.validate import validate_bids
+                from lincbrain.validate import validate_bids
 
                 bids_paths = [str(self.filepath)] + [
                     str(asset.filepath) for asset in self.dataset_files

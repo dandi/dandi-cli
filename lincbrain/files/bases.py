@@ -23,14 +23,14 @@ from packaging.version import Version
 from pydantic import ValidationError
 import requests
 
-import dandi
-from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
-from dandi.metadata.core import get_default_metadata
-from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
-from dandi.utils import yaml_load
-from dandi.validate_types import Scope, Severity, ValidationOrigin, ValidationResult
+import lincbrain
+from lincbrain.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
+from lincbrain.metadata.core import get_default_metadata
+from lincbrain.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
+from lincbrain.utils import yaml_load
+from lincbrain.validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
-lgr = dandi.get_logger()
+lgr = lincbrain.get_logger()
 
 # TODO -- should come from schema.  This is just a simplistic example for now
 _required_dandiset_metadata_fields = ["identifier", "name", "description"]
@@ -204,7 +204,7 @@ class LocalAsset(DandiFile):
                 ValidationResult(
                     origin=ValidationOrigin(
                         name="dandi",
-                        version=dandi.__version__,
+                        version=lincbrain.__version__,
                     ),
                     severity=Severity.ERROR,
                     id="dandi.SOFTWARE_ERROR",
@@ -299,7 +299,7 @@ class LocalFileAsset(LocalAsset):
 
     def get_digest(self) -> Digest:
         """Calculate a dandi-etag digest for the asset"""
-        from dandi.support.digests import get_digest
+        from lincbrain.support.digests import get_digest
 
         value = get_digest(self.filepath, digest="dandi-etag")
         return Digest.dandi_etag(value)
@@ -331,7 +331,7 @@ class LocalFileAsset(LocalAsset):
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
-        from dandi.support.digests import get_dandietag
+        from lincbrain.support.digests import get_dandietag
 
         asset_path = metadata.setdefault("path", self.path)
         client = dandiset.client
@@ -469,7 +469,7 @@ class NWBAsset(LocalFileAsset):
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
-        from dandi.metadata.nwb import nwb2asset
+        from lincbrain.metadata.nwb import nwb2asset
 
         try:
             metadata = nwb2asset(self.filepath, digest=digest)
@@ -501,7 +501,7 @@ class NWBAsset(LocalFileAsset):
         """
         from nwbinspector import Importance, inspect_nwbfile, load_config
 
-        from dandi.pynwb_utils import validate as pynwb_validate
+        from lincbrain.pynwb_utils import validate as pynwb_validate
 
         errors: list[ValidationResult] = pynwb_validate(
             self.filepath, devel_debug=devel_debug
@@ -559,7 +559,7 @@ class NWBAsset(LocalFileAsset):
                     [e], self.filepath, scope=Scope.FILE
                 )
 
-        from dandi.organize import validate_organized_path
+        from lincbrain.organize import validate_organized_path
 
         from .bids import NWBBIDSAsset
 

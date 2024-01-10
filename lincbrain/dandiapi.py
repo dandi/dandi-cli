@@ -1684,6 +1684,7 @@ class RemoteAsset(BaseRemoteAsset):
                 raise ValueError("Asset data contains both `blob` and `zarr`'")
         else:
             raise ValueError("Asset data contains neither `blob` nor `zarr`")
+        # TODO: Aaron -- validation starts here...
         return klass(  # type: ignore[call-arg]
             client=dandiset.client,
             dandiset_id=dandiset.identifier,

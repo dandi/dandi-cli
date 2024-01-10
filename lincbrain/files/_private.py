@@ -7,12 +7,12 @@ from pathlib import Path
 from typing import ClassVar
 import weakref
 
-from dandi.consts import (
+from lincbrain.consts import (
     BIDS_DATASET_DESCRIPTION,
     VIDEO_FILE_EXTENSIONS,
     ZARR_EXTENSIONS,
 )
-from dandi.exceptions import UnknownAssetError
+from lincbrain.exceptions import UnknownAssetError
 
 from .bases import DandiFile, GenericAsset, LocalAsset, NWBAsset, VideoAsset
 from .bids import (

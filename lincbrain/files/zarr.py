@@ -93,7 +93,7 @@ class LocalZarrEntry(BasePath):
         it is a file, it will be MD5.
         """
 
-        from dandi.support.digests import get_digest, get_zarr_checksum
+        from lincbrain.support.digests import get_digest, get_zarr_checksum
 
         if self.is_dir():
             return Digest.dandi_zarr(get_zarr_checksum(self.filepath))
@@ -151,7 +151,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         """Return various details about the Zarr asset"""
 
         def dirstat(dirpath: LocalZarrEntry) -> ZarrStat:
-            from dandi.support.digests import md5file_nocache
+            from lincbrain.support.digests import md5file_nocache
 
             size = 0
             dir_md5s = {}
@@ -177,7 +177,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 
     def get_digest(self) -> Digest:
         """Calculate a dandi-zarr-checksum digest for the asset"""
-        from dandi.support.digests import get_zarr_checksum
+        from lincbrain.support.digests import get_zarr_checksum
 
         return Digest.dandi_zarr(get_zarr_checksum(self.filepath))
 
@@ -594,7 +594,7 @@ class EntryUploadTracker:
 
     @staticmethod
     def _mkitem(e: LocalZarrEntry) -> UploadItem:
-        from dandi.support.digests import md5file_nocache
+        from lincbrain.support.digests import md5file_nocache
 
         digest = md5file_nocache(e.filepath)
         return UploadItem.from_entry(e, digest)
@@ -646,7 +646,7 @@ class UploadItem:
 def _cmp_digests(
     asset_path: str, local_entry: LocalZarrEntry, remote_digest: str
 ) -> tuple[LocalZarrEntry, str, bool]:
-    from dandi.support.digests import md5file_nocache
+    from lincbrain.support.digests import md5file_nocache
 
     local_digest = md5file_nocache(local_entry.filepath)
     if local_digest != remote_digest:
