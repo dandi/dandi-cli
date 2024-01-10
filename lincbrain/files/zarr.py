@@ -16,23 +16,23 @@ from dandischema.digests.zarr import get_checksum
 from dandischema.models import BareAsset, DigestType
 import requests
 
-from dandi import get_logger
-from dandi.consts import (
+from lincbrain import get_logger
+from lincbrain.consts import (
     MAX_ZARR_DEPTH,
     ZARR_MIME_TYPE,
     ZARR_UPLOAD_BATCH_SIZE,
     EmbargoStatus,
 )
-from dandi.dandiapi import (
+from lincbrain.dandiapi import (
     RemoteAsset,
     RemoteDandiset,
     RemoteZarrAsset,
     RemoteZarrEntry,
     RESTFullAPIClient,
 )
-from dandi.metadata.core import get_default_metadata
-from dandi.misctypes import DUMMY_DANDI_ZARR_CHECKSUM, BasePath, Digest
-from dandi.utils import chunked, exclude_from_zarr, pluralize
+from lincbrain.metadata.core import get_default_metadata
+from lincbrain.misctypes import DUMMY_DANDI_ZARR_CHECKSUM, BasePath, Digest
+from lincbrain.utils import chunked, exclude_from_zarr, pluralize
 
 from .bases import LocalDirectoryAsset
 from ..validate_types import Scope, Severity, ValidationOrigin, ValidationResult
