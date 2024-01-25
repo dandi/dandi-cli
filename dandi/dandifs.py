@@ -218,7 +218,10 @@ class RemoteDandiFileSystem(AbstractFileSystem):
             dandiset = kwargs.pop('dandiset', None)
             if not dandiset:
                 dandiset, path = self.get_dandiset(path)
-            assets = dandiset.get_assets_with_path_prefix(path)
+            try:
+                assets = [dandiset.get_asset_by_path(path)]
+            except NotFoundError:
+                assets = dandiset.get_assets_with_path_prefix(path + '/')
 
         entries = []
         full_dirs = set()
@@ -232,7 +235,6 @@ class RemoteDandiFileSystem(AbstractFileSystem):
             size = getattr(asset, 'size', None)
             created = getdate(asset, 'created')
             modified = getdate(asset, 'modified')
-            identifier = getattr(asset, 'identifer', None)
             asset = getattr(asset, 'path', asset)
             # 1) is the input path exactly this asset?
             asset = asset[len(path):].strip('/')
@@ -242,7 +244,6 @@ class RemoteDandiFileSystem(AbstractFileSystem):
                     'size': size,
                     'created': created,
                     'modified': modified,
-                    'identifier': identifier,
                     'type': 'file',
                 })
                 continue
@@ -256,7 +257,6 @@ class RemoteDandiFileSystem(AbstractFileSystem):
                     'size': size,
                     'created': created,
                     'modified': modified,
-                    'identifier': identifier,
                     'type': 'file',
                 })
                 continue
@@ -266,7 +266,7 @@ class RemoteDandiFileSystem(AbstractFileSystem):
                 if fullpath not in full_dirs:
                     entries.append({
                         'name': fullpath,
-                        'size': None,
+                        'size': 0,
                         'type': 'directory',
                     })
                     full_dirs.add(fullpath)
@@ -281,10 +281,21 @@ class RemoteDandiFileSystem(AbstractFileSystem):
         # we override fsspec's default implementation when path is a
         # directory (since in this case there is no created/modified date)
         dandiset = kwargs.pop('dandiset', None)
+        fs = self
         if not dandiset:
             dandiset, path = self.get_dandiset(path)
+            fs = type(self)(dandiset)
+        try:
+            # check if it is a file
+            asset = dandiset.get_asset_by_path(path)
+            return int(tokenize(fs.info(asset)), 16)
+        except NotFoundError:
+            pass
+        # it is a directory
+        if not path.endswith('/'):
+            path = path + '/'
         assets = dandiset.get_assets_with_path_prefix(path)
-        return tokenize(assets)
+        return int(tokenize([fs.info(asset.path) for asset in assets]), 16)
 
     def glob(self, path, order=None, **kwargs):
         # we override fsspec's default implementation (which uses find)
