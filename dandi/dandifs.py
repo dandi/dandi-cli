@@ -190,7 +190,7 @@ class RemoteDandiFileSystem(AbstractFileSystem):
         dandiset, asset = self.get_dandiset(path)
         if not isinstance(asset, RemoteAsset):
             asset = dandiset.get_asset_by_path(asset)
-        info = requests.request(url=asset.api_path_url, method='get').json()
+        info = requests.request(url=asset.api_url, method='get').json()
         url = ''
         for url in info['contentUrl']:
             if url.startswith('https://dandiarchive.s3.amazonaws.com'):
@@ -324,7 +324,18 @@ class RemoteDandiFileSystem(AbstractFileSystem):
             return False
 
     def open(self, path, *args, **kwargs):
+        # If call was triggered from `fsspec.open("dandi://...")`, then
+        # "dandi://" is not stripped. But we can recognize this case
+        # because the FileSystem instance should have no linked
+        # dandiset, and "dandiset" should not be present in its path,
+        # which will have the form
+        #       <instance name>/<dandiset id>[@<version>][/<path>]
+        is_uri = path.startswith(('http://', 'https://', 'dandi://', 'DANDI:'))
+        if not is_uri and "dandiset" not in path:
+            return self.open("dandi://" + path, *args, **kwargs)
+        # otherwise, we get the S3 url of the asset
         s3url = self._maybe_to_s3(path)
+        # and we open it with the HTTP file system
         return self._httpfs.open(s3url, *args, **kwargs)
 
 
