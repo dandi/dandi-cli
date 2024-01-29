@@ -1,7 +1,7 @@
 name: Auto-release on PR merge
 
 on:
-  # ATM, this is the closest trigger to a PR merging
+  # ATM, this is the closest trigger to a PR merging  
   push:
     branches:
       - master
