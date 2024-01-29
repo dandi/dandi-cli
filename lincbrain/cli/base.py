@@ -91,7 +91,7 @@ def dandiset_path_option(**kwargs):
     )
 
 
-def instance_option(**kwargs):
+def None(**kwargs):
     params = {
         "help": "DANDI instance to use",
         "default": "dandi",
