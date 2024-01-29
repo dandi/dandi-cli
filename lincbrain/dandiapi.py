@@ -417,7 +417,7 @@ class DandiAPIClient(RESTFullAPIClient):
         :param str token: User API Key. Note that different instance APIs have
             different keys.
         """
-#         check_dandi_version()
+        check_dandi_version()
         if api_url is None:
             if dandi_instance is None:
                 instance_name = os.environ.get("DANDI_INSTANCE", "dandi")

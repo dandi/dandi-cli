@@ -59,5 +59,6 @@ def set_logger_level(lgr, level):
 lgr = get_logger()
 set_logger_level(lgr, os.environ.get("DANDI_LOG_LEVEL", logging.INFO))
 
-from . import _version
-__version__ = _version.get_versions()['version']
+from . import _version   # noqa: E402
+
+__version__ = _version.get_versions()["version"]
