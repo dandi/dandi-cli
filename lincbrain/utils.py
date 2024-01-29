@@ -610,10 +610,10 @@ def _get_instance(
             f" please contact that server's administrators: {e}"
         )
     our_version = Version(__version__)
-#     if our_version < minversion:
-#         raise CliVersionTooOldError(our_version, minversion, bad_versions)
-#     if our_version in bad_versions:
-#         raise BadCliVersionError(our_version, minversion, bad_versions)
+    if our_version < minversion:
+        raise CliVersionTooOldError(our_version, minversion, bad_versions)
+    if our_version in bad_versions:
+        raise BadCliVersionError(our_version, minversion, bad_versions)
     api_url = server_info.services.api.url
     if dandi_id is None:
         dandi_id = api_url.host
@@ -737,7 +737,7 @@ def check_dandi_version() -> None:
 
         try:
             etelemetry.check_available_version(
-                "dandi/dandi-cli", __version__, lgr=lgr, raise_exception=True
+                "linc/linc-cli", __version__, lgr=lgr, raise_exception=True
             )
         except etelemetry.client.BadVersionError:
             # note: SystemExit is based of BaseException, so is not Exception

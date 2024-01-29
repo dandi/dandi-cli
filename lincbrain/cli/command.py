@@ -136,7 +136,7 @@ def main(ctx, log_level, pdb=False):
 
     from ..utils import check_dandi_version
 
-#     check_dandi_version()
+    check_dandi_version()
 
 
 #
