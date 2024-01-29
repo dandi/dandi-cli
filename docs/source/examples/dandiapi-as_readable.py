@@ -1,4 +1,4 @@
-from dandi.dandiapi import DandiAPIClient
+from lincbrain.dandiapi import DandiAPIClient
 
 dandiset_id = "000006"  # ephys dataset from the Svoboda Lab
 filepath = "sub-anm372795/sub-anm372795_ses-20170718.nwb"  # 450 kB file

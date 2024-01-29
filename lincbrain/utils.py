@@ -737,7 +737,7 @@ def check_dandi_version() -> None:
 
         try:
             etelemetry.check_available_version(
-                "dandi/dandi-cli", __version__, lgr=lgr, raise_exception=True
+                "linc/linc-cli", __version__, lgr=lgr, raise_exception=True
             )
         except etelemetry.client.BadVersionError:
             # note: SystemExit is based of BaseException, so is not Exception

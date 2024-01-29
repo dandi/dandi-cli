@@ -1,6 +1,6 @@
 import json
 
-from dandi.dandiapi import DandiAPIClient
+from lincbrain.dandiapi import DandiAPIClient
 
 with DandiAPIClient.for_dandi_instance("dandi") as client:
     for dandiset in client.get_dandisets():

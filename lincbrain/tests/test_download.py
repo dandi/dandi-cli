@@ -959,4 +959,4 @@ def test_pyouthelper_time_remaining_1339():
             # once done, dont print ETA
             assert len(done) == 2
         else:
-            assert done[-1] == f"ETA: {10-i} seconds<"
+            assert done[-1] == f"ETA: {10-i} seconds<"  # noqa: E226

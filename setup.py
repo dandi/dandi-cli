@@ -16,7 +16,7 @@ from setuptools import setup
 
 if sys.version_info < (3,):
     raise RuntimeError(
-        "linc-cli's setup.py requires python 3 or later. "
+        "dandi-cli's setup.py requires python 3 or later. "
         "You are using %s" % sys.version
     )
 
@@ -27,20 +27,15 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 try:
     import versioneer
-    version_config = versioneer.get_version()
-    cmdclass = versioneer.get_cmdclass()
-except ImportError:
-    print("WARNING: failed to import versioneer, falling back to no version for now")
-    version_config = "0.1.0"  # Fallback version
-    cmdclass = {}
 
-# Ensure the version is PEP 440 compliant
-if '+' in version_config:
-    version_config = version_config.split('+')[0]
+    setup_kw = {
+        "version": versioneer.get_version(),
+        "cmdclass": versioneer.get_cmdclass(),
+    }
+except ImportError:
+    # see https://github.com/warner/python-versioneer/issues/192
+    print("WARNING: failed to import versioneer, falling back to no version for now")
+    setup_kw = {}
 
 if __name__ == "__main__":
-    setup(
-        name="lincbrain",
-        version="0.1.0",
-        cmdclass=cmdclass,
-    )
+    setup(name="lincbrain", **setup_kw)

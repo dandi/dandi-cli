@@ -14,7 +14,7 @@ import pytest
 import vcr
 
 from dandi import __version__
-from dandi.tests.fixtures import SampleDandiset
+from lincbrain.tests.fixtures import SampleDandiset
 
 from ..cmd_service_scripts import service_scripts
 

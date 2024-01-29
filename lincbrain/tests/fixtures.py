@@ -290,7 +290,6 @@ def get_gitrepo_fixture(
     scope: Scope = "session",
     make_subdirs_dandisets: bool = False,
 ) -> Callable[[pytest.TempPathFactory], Path]:
-
     if committish:
         raise NotImplementedError()
 

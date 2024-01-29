@@ -1,7 +1,7 @@
 {
     "onlyPublishWithReleaseLabel": true,
     "baseBranch": "master",
-    "author": "DANDI Bot <team@dandiarchive.org>",
+    "author": "LINC Bot <team@lincbrain.org>",
     "noVersionPrefix": true,
     "plugins": [
         "git-tag",
@@ -12,5 +12,5 @@
             }
         ],
         "released"
-    ]
+    ]``
 }

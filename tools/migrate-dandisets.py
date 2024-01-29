@@ -2,8 +2,8 @@
 import click
 import requests
 
-from dandi.dandiapi import DandiAPIClient
-from dandi.dandiset import APIDandiset
+from lincbrain.dandiapi import DandiAPIClient
+from lincbrain.dandiset import APIDandiset
 
 
 @click.command()
