@@ -29,7 +29,7 @@ try:
     import versioneer
 
     setup_kw = {
-        "version": f"{versioneer.get_version()}.post1",
+        "version": versioneer.get_version(),
         "cmdclass": versioneer.get_cmdclass(),
     }
 except ImportError:
