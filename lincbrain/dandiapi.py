@@ -353,6 +353,7 @@ class RESTFullAPIClient:
                 params = {}
             params["page_size"] = page_size
 
+
         resp = self.get(path, params=params, json_resp=False)
         r = resp.json()
         if r["next"] is not None:
