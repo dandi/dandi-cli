@@ -2,6 +2,20 @@
 
 #### 🚀 Enhancement
 
+- More trivial change for new git tag [#24](https://github.com/lincbrain/linc-cli/pull/24) (aaronkanzer@dhcp-10-29-194-155.dyn.MIT.EDU [@aaronkanzer](https://github.com/aaronkanzer))
+- Use lincbrain release equivalent with dandi [#23](https://github.com/lincbrain/linc-cli/pull/23) (aaronkanzer@dhcp-10-29-194-155.dyn.MIT.EDU [@aaronkanzer](https://github.com/aaronkanzer))
+
+#### Authors: 2
+
+- [@aaronkanzer](https://github.com/aaronkanzer)
+- Aaron Kanzer (aaronkanzer@dhcp-10-29-194-155.dyn.MIT.EDU)
+
+---
+
+# 0.60.0 (Tue Jan 30 2024)
+
+#### 🚀 Enhancement
+
 - Use lincbrain release equivalent with dandi [#23](https://github.com/lincbrain/linc-cli/pull/23) (aaronkanzer@dhcp-10-29-194-155.dyn.MIT.EDU [@aaronkanzer](https://github.com/aaronkanzer))
 
 #### Authors: 2
