@@ -19,7 +19,7 @@ def rename_files_in_dist():
             suffix = match.group(6)  # The file extension and any other suffix
 
             # Construct the new filename with the .linc suffix before the file extension
-            new_filename = f"{prefix}{version}.linc{suffix}"
+            new_filename = f"{prefix}{version}.post2{suffix}"
             new_path = os.path.join(dist_dir, new_filename)
 
             # Construct the old file path
