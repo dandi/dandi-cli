@@ -38,4 +38,4 @@ except ImportError:
     setup_kw = {}
 
 if __name__ == "__main__":
-    setup(name="lincbrain", **setup_kw)
+    setup(name="lincbrain-cli", **setup_kw)
