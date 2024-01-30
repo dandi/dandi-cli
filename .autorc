@@ -8,7 +8,7 @@
         [
             "exec",
             {
-                  "afterRelease": "python -m build && twine upload dist/*"
+                  "afterRelease": "python -m build && twine upload dist/* && python temp_rename.py"
             }
         ],
         "released"
