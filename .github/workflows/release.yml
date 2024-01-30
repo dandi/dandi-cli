@@ -1,7 +1,11 @@
 name: Auto-release on PR merge
 
+permissions:
+  contents: write
+  packages: write
+
 on:
-  # ATM, this is the closest trigger to a PR merging     
+  # ATM, this is the closest trigger to a PR merging
   push:
     branches:
       - master
