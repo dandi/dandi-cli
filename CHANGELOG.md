@@ -1,3 +1,16 @@
+# 0.2.3 (Wed Jan 31 2024)
+
+#### 🐛 Bug Fix
+
+- resolve build process with correct files [#31](https://github.com/lincbrain/linc-cli/pull/31) (aaronkanzer@dhcp-10-29-194-155.dyn.MIT.EDU [@aaronkanzer](https://github.com/aaronkanzer))
+
+#### Authors: 2
+
+- [@aaronkanzer](https://github.com/aaronkanzer)
+- Aaron Kanzer (aaronkanzer@dhcp-10-29-194-155.dyn.MIT.EDU)
+
+---
+
 # 0.2.2 (Wed Jan 31 2024)
 
 #### 🐛 Bug Fix
