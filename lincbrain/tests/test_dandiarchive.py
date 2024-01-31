@@ -3,8 +3,8 @@ import re
 import pytest
 import responses
 
-from dandi.consts import DandiInstance, known_instances
-from dandi.dandiarchive import (
+from lincbrain.consts import DandiInstance, known_instances
+from lincbrain.dandiarchive import (
     AssetFolderURL,
     AssetGlobURL,
     AssetIDURL,
@@ -17,8 +17,8 @@ from dandi.dandiarchive import (
     multiasset_target,
     parse_dandi_url,
 )
-from dandi.exceptions import NotFoundError, UnknownURLError
-from dandi.tests.skip import mark
+from lincbrain.exceptions import NotFoundError, UnknownURLError
+from lincbrain.tests.skip import mark
 
 from .fixtures import DandiAPI, SampleDandiset
 

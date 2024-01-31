@@ -110,20 +110,20 @@ jobs:
     - name: Run Dandi API tests only
       if: matrix.mode == 'dandi-api'
       run: |
-        python -m pytest -s -v --cov=dandi --cov-report=xml --dandi-api dandi
+        python -m pytest -s -v --cov=dandi --cov-report=xml --dandi-api lincbrain
 
     - name: Dump Docker Compose logs
       if: failure() && startsWith(matrix.os, 'ubuntu')
       run: |
         docker-compose \
-          -f dandi/tests/data/dandiarchive-docker/docker-compose.yml \
+          -f lincbrain/tests/data/dandiarchive-docker/docker-compose.yml \
           logs --timestamps
 
     - name: Shut down Docker Compose
       if: startsWith(matrix.os, 'ubuntu')
       run: |
         docker-compose \
-          -f dandi/tests/data/dandiarchive-docker/docker-compose.yml \
+          -f lincbrain/tests/data/dandiarchive-docker/docker-compose.yml \
           down -v
 
     - name: Upload coverage to Codecov
