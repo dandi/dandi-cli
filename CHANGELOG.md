@@ -1,3 +1,18 @@
+# 0.2.1 (Wed Jan 31 2024)
+
+#### 🐛 Bug Fix
+
+- Alter imports for linc-archive <> CLI integration tests [#29](https://github.com/lincbrain/linc-cli/pull/29) (aaronkanzer@dhcp-10-29-194-155.dyn.mit.edu [@aaronkanzer](https://github.com/aaronkanzer))
+- Update readme for instructions, correct links [#28](https://github.com/lincbrain/linc-cli/pull/28) (aaronkanzer@dhcp-10-29-194-155.dyn.mit.edu [@aaronkanzer](https://github.com/aaronkanzer))
+
+#### Authors: 3
+
+- [@aaronkanzer](https://github.com/aaronkanzer)
+- Aaron Kanzer (aaronkanzer@dhcp-10-29-194-155.dyn.mit.edu)
+- Aaron Kanzer (aaronkanzer@dhcp-10-29-194-155.dyn.MIT.EDU)
+
+---
+
 # 0.2.0 (Tue Jan 30 2024)
 
 #### 🚀 Enhancement
