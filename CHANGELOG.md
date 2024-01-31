@@ -1,3 +1,16 @@
+# 0.2.2 (Wed Jan 31 2024)
+
+#### 🐛 Bug Fix
+
+- Resolve one other test import for CLI integration tests [#30](https://github.com/lincbrain/linc-cli/pull/30) (aaronkanzer@dhcp-10-29-194-155.dyn.MIT.EDU [@aaronkanzer](https://github.com/aaronkanzer))
+
+#### Authors: 2
+
+- [@aaronkanzer](https://github.com/aaronkanzer)
+- Aaron Kanzer (aaronkanzer@dhcp-10-29-194-155.dyn.MIT.EDU)
+
+---
+
 # 0.2.1 (Wed Jan 31 2024)
 
 #### 🐛 Bug Fix
