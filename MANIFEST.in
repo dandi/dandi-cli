@@ -3,6 +3,6 @@
 include versioneer.py
 include CHANGELOG.md tox.ini
 
-graft dandi
+graft lincbrain
 
 global-exclude *.py[cod]
