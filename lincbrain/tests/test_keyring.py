@@ -32,7 +32,7 @@ def test_dandi_authenticate_no_env_var(
     monkeypatch.delenv("DANDI_API_KEY", raising=False)
     monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyring.backends.null.Keyring")
     inputmock = mocker.patch(
-        "dandi.dandiapi.input", return_value=local_dandi_api.api_key
+        "lincbrain.dandiapi.input", return_value=local_dandi_api.api_key
     )
     DandiAPIClient(local_dandi_api.api_url).dandi_authenticate()
     inputmock.assert_called_once_with(
@@ -145,7 +145,7 @@ def test_keyring_lookup_default_no_password(
 ) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     kb0 = null.Keyring()
-    get_keyring = mocker.patch("dandi.keyring.get_keyring", return_value=kb0)
+    get_keyring = mocker.patch("lincbrain.keyring.get_keyring", return_value=kb0)
     kb, password = keyring_lookup("testservice", "testusername")
     assert kb is kb0
     assert password is None
@@ -159,7 +159,7 @@ def test_keyring_lookup_default_password(
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     kb0 = keyfile.PlaintextKeyring()
     kb0.set_password("testservice", "testusername", "testpassword")
-    get_keyring = mocker.patch("dandi.keyring.get_keyring", return_value=kb0)
+    get_keyring = mocker.patch("lincbrain.keyring.get_keyring", return_value=kb0)
     kb, password = keyring_lookup("testservice", "testusername")
     assert kb is kb0
     assert password == "testpassword"
@@ -176,7 +176,7 @@ def test_keyring_lookup_fail_default_encrypted(
 ) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     get_keyring = mocker.patch(
-        "dandi.keyring.get_keyring", return_value=EncryptedFailure()
+        "lincbrain.keyring.get_keyring", return_value=EncryptedFailure()
     )
     with pytest.raises(KeyringError):
         keyring_lookup("testservice", "testusername")

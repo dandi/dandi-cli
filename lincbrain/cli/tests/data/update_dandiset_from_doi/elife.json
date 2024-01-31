@@ -13,7 +13,7 @@
     ],
     "version": "draft",
     "@context": "https://raw.githubusercontent.com/dandi/schema/master/releases/0.6.4/context.json",
-    "citation": "Chowdhury, Raeed H; Glaser, Joshua I; Miller, Lee E (2023) Area 2 of primary somatosensory cortex encodes kinematics of the whole arm (Version draft) [Data set]. DANDI archive. http://localhost:8085/dandiset/000004/draft",
+    "citation": "Chowdhury, Raeed H; Glaser, Joshua I; Miller, Lee E (2024) Area 2 of primary somatosensory cortex encodes kinematics of the whole arm (Version draft) [Data set]. DANDI archive. http://localhost:8085/dandiset/000004/draft",
     "schemaKey": "Dandiset",
     "identifier": "DANDI:000004",
     "repository": "http://localhost:8085",

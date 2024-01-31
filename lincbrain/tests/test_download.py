@@ -218,7 +218,7 @@ def test_download_sync(
     dspath = tmp_path / text_dandiset.dandiset_id
     os.rename(text_dandiset.dspath, dspath)
     confirm_mock = mocker.patch(
-        "dandi.download.abbrev_prompt", return_value="yes" if confirm else "no"
+        "lincbrain.download.abbrev_prompt", return_value="yes" if confirm else "no"
     )
     download(
         f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}",
@@ -238,7 +238,7 @@ def test_download_sync_folder(
 ) -> None:
     text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
     text_dandiset.dandiset.get_asset_by_path("subdir2/banana.txt").delete()
-    confirm_mock = mocker.patch("dandi.download.abbrev_prompt", return_value="yes")
+    confirm_mock = mocker.patch("lincbrain.download.abbrev_prompt", return_value="yes")
     download(
         f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}/subdir2/",
         text_dandiset.dspath,
@@ -259,7 +259,7 @@ def test_download_sync_list(
     text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
     dspath = tmp_path / text_dandiset.dandiset_id
     os.rename(text_dandiset.dspath, dspath)
-    input_mock = mocker.patch("dandi.utils.input", side_effect=["list", "yes"])
+    input_mock = mocker.patch("lincbrain.utils.input", side_effect=["list", "yes"])
     download(
         f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}",
         tmp_path,
@@ -280,7 +280,7 @@ def test_download_sync_zarr(
     zarr_dandiset.dandiset.get_asset_by_path("sample.zarr").delete()
     dspath = tmp_path / zarr_dandiset.dandiset_id
     os.rename(zarr_dandiset.dspath, dspath)
-    confirm_mock = mocker.patch("dandi.download.abbrev_prompt", return_value="yes")
+    confirm_mock = mocker.patch("lincbrain.download.abbrev_prompt", return_value="yes")
     download(
         zarr_dandiset.dandiset.version_api_url,
         tmp_path,
@@ -856,7 +856,7 @@ def test_download_sync_glob(
 ) -> None:
     text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
     text_dandiset.dandiset.get_asset_by_path("subdir2/banana.txt").delete()
-    confirm_mock = mocker.patch("dandi.download.abbrev_prompt", return_value="yes")
+    confirm_mock = mocker.patch("lincbrain.download.abbrev_prompt", return_value="yes")
     download(
         f"{text_dandiset.dandiset.version_api_url}assets/?glob=s*.Txt",
         text_dandiset.dspath,

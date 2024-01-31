@@ -123,11 +123,11 @@ def test_authenticate_bad_key_good_key_input(
 
     backend_mock = mocker.Mock(spec=["set_password"])
     keyring_lookup_mock = mocker.patch(
-        "dandi.dandiapi.keyring_lookup", return_value=(backend_mock, None)
+        "lincbrain.dandiapi.keyring_lookup", return_value=(backend_mock, None)
     )
-    input_mock = mocker.patch("dandi.dandiapi.input", side_effect=[bad_key, good_key])
+    input_mock = mocker.patch("lincbrain.dandiapi.input", side_effect=[bad_key, good_key])
     is_interactive_mock = mocker.patch(
-        "dandi.dandiapi.is_interactive", return_value=True
+        "lincbrain.dandiapi.is_interactive", return_value=True
     )
     confirm_mock = mocker.patch("click.confirm", return_value=True)
 
@@ -156,7 +156,7 @@ def test_authenticate_good_key_keyring(
 
     backend_mock = mocker.Mock(spec=["set_password"])
     keyring_lookup_mock = mocker.patch(
-        "dandi.dandiapi.keyring_lookup", return_value=(backend_mock, good_key)
+        "lincbrain.dandiapi.keyring_lookup", return_value=(backend_mock, good_key)
     )
     input_spy = mocker.spy(builtins, "input")
     is_interactive_spy = mocker.spy(dandiapi, "is_interactive")
@@ -186,11 +186,11 @@ def test_authenticate_bad_key_keyring_good_key_input(
 
     backend_mock = mocker.Mock(spec=["set_password"])
     keyring_lookup_mock = mocker.patch(
-        "dandi.dandiapi.keyring_lookup", return_value=(backend_mock, bad_key)
+        "lincbrain.dandiapi.keyring_lookup", return_value=(backend_mock, bad_key)
     )
-    input_mock = mocker.patch("dandi.dandiapi.input", return_value=good_key)
+    input_mock = mocker.patch("lincbrain.dandiapi.input", return_value=good_key)
     is_interactive_mock = mocker.patch(
-        "dandi.dandiapi.is_interactive", return_value=True
+        "lincbrain.dandiapi.is_interactive", return_value=True
     )
     confirm_mock = mocker.patch("click.confirm", return_value=True)
 
