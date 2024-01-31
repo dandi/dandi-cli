@@ -13,7 +13,7 @@ from dandischema.consts import DANDI_SCHEMA_VERSION
 import pytest
 import vcr
 
-from dandi import __version__
+from lincbrain import __version__
 from lincbrain.tests.fixtures import SampleDandiset
 
 from ..cmd_service_scripts import service_scripts
