@@ -16,10 +16,10 @@ import click
 from dandischema.consts import DANDI_SCHEMA_VERSION
 import requests
 
-from dandi.dandiapi import DandiAPIClient
-from dandi.metadata import get_default_metadata, nwb2asset
-from dandi.misctypes import Digest
-from dandi.support.digests import get_digest
+from lincbrain.dandiapi import DandiAPIClient
+from lincbrain.metadata import get_default_metadata, nwb2asset
+from lincbrain.misctypes import Digest
+from lincbrain.support.digests import get_digest
 
 logging.basicConfig(
     stream=sys.stdout,

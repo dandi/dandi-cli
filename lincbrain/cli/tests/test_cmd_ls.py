@@ -9,7 +9,7 @@ from click.testing import CliRunner
 from dandischema.consts import DANDI_SCHEMA_VERSION
 import pytest
 
-from dandi.tests.skip import mark
+from lincbrain.tests.skip import mark
 
 from ..cmd_ls import ls
 from ...utils import yaml_load
