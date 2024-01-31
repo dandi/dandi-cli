@@ -18,7 +18,7 @@ from urllib.parse import quote_plus, urlparse, urlunparse
 
 import click
 from dandischema import models
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr, ValidationError
 import requests
 import tenacity
 
@@ -971,8 +971,22 @@ class RemoteDandiset:
         """
         Fetch the metadata for this version of the Dandiset as a
         `dandischema.models.Dandiset` instance
+
+        .. note::
+
+            Only published Dandiset versions can be expected to have valid
+            metadata.  Consider using `get_raw_metadata()` instead in order to
+            fetch unstructured, possibly-invalid metadata.
         """
-        return models.Dandiset.parse_obj(self.get_raw_metadata())
+        try:
+            return models.Dandiset.parse_obj(self.get_raw_metadata())
+        except ValidationError as e:
+            raise ValueError(
+                f"{type(e).__name__}: {e}\n\nNote: Only metadata for published"
+                " Dandiset versions can be expected to be valid.  Use"
+                " get_raw_metadata() instead to get unstructured,"
+                " possibly-invalid metadata."
+            )
 
     def get_raw_metadata(self) -> dict[str, Any]:
         """
@@ -1347,8 +1361,22 @@ class BaseRemoteAsset(ABC, APIBase):
         """
         Fetch the metadata for the asset as a `dandischema.models.Asset`
         instance
+
+        .. note::
+
+            Only assets in published Dandiset versions can be expected to have
+            valid metadata.  Consider using `get_raw_metadata()` instead in
+            order to fetch unstructured, possibly-invalid metadata.
         """
-        return models.Asset.parse_obj(self.get_raw_metadata())
+        try:
+            return models.Asset.parse_obj(self.get_raw_metadata())
+        except ValidationError as e:
+            raise ValueError(
+                f"{type(e).__name__}: {e}\n\nNote: Only metadata for assets in"
+                " published Dandiset versions can be expected to be valid.  Use"
+                " get_raw_metadata() instead to get unstructured,"
+                " possibly-invalid metadata."
+            )
 
     def get_raw_metadata(self) -> dict[str, Any]:
         """Fetch the metadata for the asset as an unprocessed `dict`"""
