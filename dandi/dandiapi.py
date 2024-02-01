@@ -971,6 +971,12 @@ class RemoteDandiset:
         """
         Fetch the metadata for this version of the Dandiset as a
         `dandischema.models.Dandiset` instance
+
+        .. note::
+
+            Only published Dandiset versions can be expected to have valid
+            metadata.  Consider using `get_raw_metadata()` instead in order to
+            fetch unstructured, possibly-invalid metadata.
         """
         return models.Dandiset.parse_obj(self.get_raw_metadata())
 
@@ -1347,6 +1353,12 @@ class BaseRemoteAsset(ABC, APIBase):
         """
         Fetch the metadata for the asset as a `dandischema.models.Asset`
         instance
+
+        .. note::
+
+            Only assets in published Dandiset versions can be expected to have
+            valid metadata.  Consider using `get_raw_metadata()` instead in
+            order to fetch unstructured, possibly-invalid metadata.
         """
         return models.Asset.parse_obj(self.get_raw_metadata())
 
