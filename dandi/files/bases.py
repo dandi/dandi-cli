@@ -18,7 +18,6 @@ from dandischema.digests.dandietag import DandiETag
 from dandischema.models import BareAsset, CommonModel
 from dandischema.models import Dandiset as DandisetMeta
 from dandischema.models import get_schema_version
-from etelemetry import get_project
 from packaging.version import Version
 from pydantic import ValidationError
 import requests
@@ -737,6 +736,8 @@ def _get_nwb_inspector_version():
     _current_nwbinspector_version = get_package_version(name="nwbinspector")
     # Ensure latest version of NWB Inspector is installed and used client-side
     try:
+        from etelemetry import get_project
+
         max_version = Version(
             get_project(repo="NeurodataWithoutBorders/nwbinspector")["version"]
         )
