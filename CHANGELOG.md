@@ -1,3 +1,31 @@
+# 0.59.1 (Fri Feb 02 2024)
+
+#### 🏠 Internal
+
+- Failsafe etelemetry import [#1399](https://github.com/dandi/dandi-cli/pull/1399) ([@TheChymera](https://github.com/TheChymera))
+
+#### 📝 Documentation
+
+- Add notes to docs about `get_metadata()` vs. `get_raw_metadata()` [#1398](https://github.com/dandi/dandi-cli/pull/1398) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Ignore irrelevant deprecation warning from pandas [#1391](https://github.com/dandi/dandi-cli/pull/1391) ([@jwodder](https://github.com/jwodder))
+
+#### 🔩 Dependency Updates
+
+- Blacklist buggy nwbinspector 0.4.32 [#1401](https://github.com/dandi/dandi-cli/pull/1401) ([@yarikoptic](https://github.com/yarikoptic))
+- Update zarr_checksum dependency to `~= 0.4.0` [#1393](https://github.com/dandi/dandi-cli/pull/1393) ([@jwodder](https://github.com/jwodder))
+- Update zarr_checksum dependency to `~= 0.3.2` [#1392](https://github.com/dandi/dandi-cli/pull/1392) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 3
+
+- Horea Christian ([@TheChymera](https://github.com/TheChymera))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.59.0 (Tue Jan 09 2024)
 
 #### 🚀 Enhancement
