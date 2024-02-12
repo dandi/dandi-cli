@@ -505,7 +505,7 @@ class SampleDandiset:
 
     def upload(self, paths: list[str | Path] | None = None, **kwargs: Any) -> None:
         with pytest.MonkeyPatch().context() as m:
-            m.setenv("DANDI_API_KEY", self.api.api_key)
+            m.setenv("LINCBRAIN_API_KEY", self.api.api_key)
             upload(
                 paths=paths or [self.dspath],
                 dandi_instance=self.api.instance_id,

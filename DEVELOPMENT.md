@@ -55,7 +55,7 @@ development command line options.
   otherwise be hidden from the user-visible (`--help`) interface, unless this
   env variable is set to a non-empty value
 
-- `DANDI_API_KEY` -- avoids using keyrings, thus making it possible to
+- `LINCBRAIN_API_KEY` -- avoids using keyrings, thus making it possible to
   "temporarily" use another account etc for the "API" version of the server.
 
 - `DANDI_LOG_LEVEL` -- set log level. By default `INFO`, should be an int (`10` - `DEBUG`).
