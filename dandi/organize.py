@@ -87,6 +87,7 @@ class OrganizeInvalid(str, Enum):
 
 
 dandi_path = op.join("sub-{subject_id}", "{dandi_filename}")
+bids_path = op.join("sub-{subject_id}", "ses-{session_id}", "{bids_filename}")
 
 
 def filter_invalid_metadata_rows(metadata_rows):
@@ -108,7 +109,9 @@ def filter_invalid_metadata_rows(metadata_rows):
 
 
 def create_unique_filenames_from_metadata(
-    metadata: list[dict], required_fields: Sequence[str] | None = None
+    metadata: list[dict],
+    required_fields: Sequence[str] | None = None,
+    style: str | None = None,
 ) -> list[dict]:
     """Create unique filenames given metadata
 
@@ -206,7 +209,12 @@ def create_unique_filenames_from_metadata(
                     for r in metadata:
                         if r["dandi_path"] == conflicting_path:
                             r.setdefault("_required_if_not_empty", []).append(field)
-                _assign_dandi_names(metadata)
+                if style is None or style == "dandi":
+                    _assign_dandi_names(metadata)
+                elif style == "bids":
+                    _assign_bids_names(metadata)
+                else:
+                    lgr.error("“%s” is not a valid `dandi organize` style. ", style)
             non_unique = _get_non_unique_paths(metadata)
             if not non_unique:
                 break
@@ -383,6 +391,38 @@ def get_obj_id(object_id):
 def is_undefined(value):
     """Return True if None or an empty container"""
     return value is None or (hasattr(value, "__len__") and not len(value))
+
+
+def _assign_bids_names(metadata):
+    unique_values = _get_unique_values(metadata, dandi_layout_fields)
+    # unless it is required, we would not include the fields with more than a
+    # single unique field
+    for r in metadata:
+        bids_filename = ""
+        for field, field_rec in dandi_layout_fields.items():
+            field_format = field_rec["format"]
+            field_type = field_rec.get("type", "additional")
+            if (
+                (field_type == "required")
+                or (field_type == "additional" and len(unique_values[field]) > 1)
+                or (
+                    field_type == "required_if_not_empty"
+                    or (field in r.get("_required_if_not_empty", []))
+                )
+            ):
+                value = r.get(field, None)
+                if is_undefined(value):
+                    # skip empty things
+                    continue
+                if isinstance(value, (list, tuple)):
+                    value = "+".join(map(str, value))
+                # sanitize value to avoid undesired characters
+                value = _sanitize_value(value, field)
+                # Format _key-value according to the "schema"
+                formatted_value = field_format.format(value)
+                bids_filename += formatted_value
+        r["bids_filename"] = bids_filename
+        r["bids_path"] = bids_path.format(**r)
 
 
 def _assign_dandi_names(metadata):
@@ -750,6 +790,7 @@ def detect_link_type(srcfile: AnyPath, destdir: AnyPath) -> FileOperationMode:
 def organize(
     paths: Sequence[str],
     dandiset_path: str | None = None,
+    style: str | None = None,
     invalid: OrganizeInvalid = OrganizeInvalid.FAIL,
     files_mode: FileOperationMode = FileOperationMode.AUTO,
     devel_debug: bool = False,
@@ -903,7 +944,9 @@ def organize(
         files_mode = detect_link_type(link_test_file, dandiset_path)
 
     metadata = create_unique_filenames_from_metadata(
-        metadata, required_fields=required_fields
+        metadata,
+        required_fields=required_fields,
+        style=style,
     )
 
     # update metadata with external_file information:
