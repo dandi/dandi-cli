@@ -11,7 +11,7 @@ from ...download import DownloadExisting, DownloadFormat, PathType
 
 
 def test_download_defaults(mocker):
-    mock_download = mocker.patch("dandi.download.download")
+    mock_download = mocker.patch("lincbrain.download.download")
     r = CliRunner().invoke(download)
     assert r.exit_code == 0
     mock_download.assert_called_once_with(
@@ -29,7 +29,7 @@ def test_download_defaults(mocker):
 
 
 def test_download_all_types(mocker):
-    mock_download = mocker.patch("dandi.download.download")
+    mock_download = mocker.patch("lincbrain.download.download")
     r = CliRunner().invoke(download, ["--download", "all"])
     assert r.exit_code == 0
     mock_download.assert_called_once_with(
@@ -47,7 +47,7 @@ def test_download_all_types(mocker):
 
 
 def test_download_metadata_only(mocker):
-    mock_download = mocker.patch("dandi.download.download")
+    mock_download = mocker.patch("lincbrain.download.download")
     r = CliRunner().invoke(download, ["--download", "dandiset.yaml"])
     assert r.exit_code == 0
     mock_download.assert_called_once_with(
@@ -65,7 +65,7 @@ def test_download_metadata_only(mocker):
 
 
 def test_download_assets_only(mocker):
-    mock_download = mocker.patch("dandi.download.download")
+    mock_download = mocker.patch("lincbrain.download.download")
     r = CliRunner().invoke(download, ["--download", "assets"])
     assert r.exit_code == 0
     mock_download.assert_called_once_with(
@@ -83,7 +83,7 @@ def test_download_assets_only(mocker):
 
 
 def test_download_bad_type(mocker):
-    mock_download = mocker.patch("dandi.download.download")
+    mock_download = mocker.patch("lincbrain.download.download")
     r = CliRunner().invoke(download, ["--download", "foo"], standalone_mode=False)
     assert r.exit_code != 0
     assert isinstance(r.exception, click.UsageError)
@@ -95,7 +95,7 @@ def test_download_bad_type(mocker):
 
 
 def test_download_gui_instance_in_dandiset(mocker):
-    mock_download = mocker.patch("dandi.download.download")
+    mock_download = mocker.patch("lincbrain.download.download")
     runner = CliRunner()
     with runner.isolated_filesystem():
         Path(dandiset_metadata_file).write_text("identifier: '123456'\n")
@@ -120,7 +120,7 @@ def test_download_gui_instance_in_dandiset(mocker):
     reason="this instance now has GUI URL",
 )
 def test_download_api_instance_in_dandiset(mocker):
-    mock_download = mocker.patch("dandi.download.download")
+    mock_download = mocker.patch("lincbrain.download.download")
     runner = CliRunner()
     with runner.isolated_filesystem():
         Path(dandiset_metadata_file).write_text("identifier: '123456'\n")
@@ -141,7 +141,7 @@ def test_download_api_instance_in_dandiset(mocker):
 
 
 def test_download_url_instance_match(mocker):
-    mock_download = mocker.patch("dandi.download.download")
+    mock_download = mocker.patch("lincbrain.download.download")
     r = CliRunner().invoke(
         download,
         [
@@ -166,7 +166,7 @@ def test_download_url_instance_match(mocker):
 
 
 def test_download_url_instance_conflict(mocker):
-    mock_download = mocker.patch("dandi.download.download")
+    mock_download = mocker.patch("lincbrain.download.download")
     r = CliRunner().invoke(
         download,
         ["-i", "dandi", "http://localhost:8000/api/dandisets/123456/"],

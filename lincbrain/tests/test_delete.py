@@ -67,7 +67,7 @@ def test_delete_paths(
     remainder: list[Path],
 ) -> None:
     monkeypatch.chdir(text_dandiset.dspath)
-    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    monkeypatch.setenv("LINCBRAIN_API_KEY", text_dandiset.api.api_key)
     instance = text_dandiset.api.instance_id
     dandiset_id = text_dandiset.dandiset_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
@@ -92,7 +92,7 @@ def test_delete_path_confirm(
     text_dandiset: SampleDandiset,
 ) -> None:
     monkeypatch.chdir(text_dandiset.dspath)
-    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    monkeypatch.setenv("LINCBRAIN_API_KEY", text_dandiset.api.api_key)
     instance = text_dandiset.api.instance_id
     dandiset_id = text_dandiset.dandiset_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
@@ -113,7 +113,7 @@ def test_delete_path_pyout(
     text_dandiset: SampleDandiset,
 ) -> None:
     monkeypatch.chdir(text_dandiset.dspath)
-    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    monkeypatch.setenv("LINCBRAIN_API_KEY", text_dandiset.api.api_key)
     instance = text_dandiset.api.instance_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     delete(["subdir2/coconut.txt"], dandi_instance=instance, force=True)
@@ -143,7 +143,7 @@ def test_delete_dandiset(
     paths: list[str],
 ) -> None:
     monkeypatch.chdir(text_dandiset.dspath)
-    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    monkeypatch.setenv("LINCBRAIN_API_KEY", text_dandiset.api.api_key)
     instance = text_dandiset.api.instance_id
     dandiset_id = text_dandiset.dandiset_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
@@ -166,7 +166,7 @@ def test_delete_dandiset_confirm(
     text_dandiset: SampleDandiset,
 ) -> None:
     monkeypatch.chdir(text_dandiset.dspath)
-    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    monkeypatch.setenv("LINCBRAIN_API_KEY", text_dandiset.api.api_key)
     instance = text_dandiset.api.instance_id
     dandiset_id = text_dandiset.dandiset_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
@@ -187,7 +187,7 @@ def test_delete_dandiset_mismatch(
     text_dandiset: SampleDandiset,
 ) -> None:
     monkeypatch.chdir(text_dandiset.dspath)
-    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    monkeypatch.setenv("LINCBRAIN_API_KEY", text_dandiset.api.api_key)
     instance = text_dandiset.api.instance_id
     dandiset_id = text_dandiset.dandiset_id
     not_dandiset = str(int(dandiset_id) - 1).zfill(6)
@@ -216,7 +216,7 @@ def test_delete_instance_mismatch(
     text_dandiset: SampleDandiset,
 ) -> None:
     monkeypatch.chdir(text_dandiset.dspath)
-    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    monkeypatch.setenv("LINCBRAIN_API_KEY", text_dandiset.api.api_key)
     instance = text_dandiset.api.instance_id
     dandiset_id = text_dandiset.dandiset_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
@@ -242,7 +242,7 @@ def test_delete_instance_mismatch(
 def test_delete_nonexistent_dandiset(
     local_dandi_api: DandiAPI, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
+    monkeypatch.setenv("LINCBRAIN_API_KEY", local_dandi_api.api_key)
     instance = local_dandi_api.instance_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     with pytest.raises(NotFoundError) as excinfo:
@@ -259,7 +259,7 @@ def test_delete_nonexistent_dandiset(
 def test_delete_nonexistent_dandiset_skip_missing(
     local_dandi_api: DandiAPI, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
+    monkeypatch.setenv("LINCBRAIN_API_KEY", local_dandi_api.api_key)
     instance = local_dandi_api.instance_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     delete(
@@ -277,7 +277,7 @@ def test_delete_nonexistent_asset(
     monkeypatch: pytest.MonkeyPatch,
     text_dandiset: SampleDandiset,
 ) -> None:
-    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    monkeypatch.setenv("LINCBRAIN_API_KEY", text_dandiset.api.api_key)
     instance = text_dandiset.api.instance_id
     dandiset_id = text_dandiset.dandiset_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
@@ -304,7 +304,7 @@ def test_delete_nonexistent_asset_skip_missing(
     text_dandiset: SampleDandiset,
     tmp_path: Path,
 ) -> None:
-    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    monkeypatch.setenv("LINCBRAIN_API_KEY", text_dandiset.api.api_key)
     instance = text_dandiset.api.instance_id
     dandiset_id = text_dandiset.dandiset_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
@@ -333,7 +333,7 @@ def test_delete_nonexistent_asset_folder(
     monkeypatch: pytest.MonkeyPatch,
     text_dandiset: SampleDandiset,
 ) -> None:
-    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    monkeypatch.setenv("LINCBRAIN_API_KEY", text_dandiset.api.api_key)
     instance = text_dandiset.api.instance_id
     dandiset_id = text_dandiset.dandiset_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
@@ -360,7 +360,7 @@ def test_delete_nonexistent_asset_folder_skip_missing(
     text_dandiset: SampleDandiset,
     tmp_path: Path,
 ) -> None:
-    monkeypatch.setenv("DANDI_API_KEY", text_dandiset.api.api_key)
+    monkeypatch.setenv("LINCBRAIN_API_KEY", text_dandiset.api.api_key)
     instance = text_dandiset.api.instance_id
     dandiset_id = text_dandiset.dandiset_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
@@ -387,7 +387,7 @@ def test_delete_nonexistent_asset_folder_skip_missing(
 def test_delete_version(
     local_dandi_api: DandiAPI, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("DANDI_API_KEY", local_dandi_api.api_key)
+    monkeypatch.setenv("LINCBRAIN_API_KEY", local_dandi_api.api_key)
     instance = local_dandi_api.instance_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     with pytest.raises(NotImplementedError) as excinfo:
@@ -430,7 +430,7 @@ def test_delete_zarr_path(
     tmp_path: Path,
 ) -> None:
     monkeypatch.chdir(zarr_dandiset.dspath)
-    monkeypatch.setenv("DANDI_API_KEY", zarr_dandiset.api.api_key)
+    monkeypatch.setenv("LINCBRAIN_API_KEY", zarr_dandiset.api.api_key)
     instance = zarr_dandiset.api.instance_id
     delete_spy = mocker.spy(RESTFullAPIClient, "delete")
     delete(["sample.zarr"], dandi_instance=instance, devel_debug=True, force=True)

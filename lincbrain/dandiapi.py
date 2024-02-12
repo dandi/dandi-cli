@@ -477,7 +477,7 @@ class DandiAPIClient(RESTFullAPIClient):
     def dandi_authenticate(self) -> None:
         """
         Acquire and set the authentication token/API key used by the
-        `DandiAPIClient`.  If the :envvar:`DANDI_API_KEY` environment variable
+        `DandiAPIClient`.  If the :envvar:`LINCBRAIN_API_KEY` environment variable
         is set, its value is used as the token.  Otherwise, the token is looked
         up in the user's keyring under the service
         ":samp:`dandi-api-{INSTANCE_NAME}`" [#auth]_ and username "``key``".
@@ -488,9 +488,9 @@ class DandiAPIClient(RESTFullAPIClient):
                    "``dandi-api-dandi-staging``" for the staging server
         """
         # Shortcut for advanced folks
-        api_key = os.environ.get("DANDI_API_KEY", None)
+        api_key = os.environ.get("LINCBRAIN_API_KEY", None)
         if api_key:
-            lgr.debug("Using api key from DANDI_API_KEY environment variable")
+            lgr.debug("Using api key from LINCBRAIN_API_KEY environment variable")
             self.authenticate(api_key)
             return
         client_name, app_id = self._get_keyring_ids()

@@ -76,14 +76,14 @@ from ..cmd_move import move
 def test_move_command(
     mocker: MockerFixture, cmdline: list[str], srcs: list[str], kwargs: dict[str, Any]
 ) -> None:
-    mock_move = mocker.patch("dandi.move.move")
+    mock_move = mocker.patch("lincbrain.move.move")
     r = CliRunner().invoke(move, cmdline)
     assert r.exit_code == 0
     mock_move.assert_called_once_with(*srcs, **kwargs)
 
 
 def test_move_command_too_few_paths(mocker: MockerFixture) -> None:
-    mock_move = mocker.patch("dandi.move.move")
+    mock_move = mocker.patch("lincbrain.move.move")
     r = CliRunner().invoke(move, ["foo"], standalone_mode=False)
     assert r.exit_code != 0
     # This is a ClickException when map_to_click_exceptions is in effect and a

@@ -59,7 +59,7 @@ def get_meta(path, digest=None):
     "-a",
     "--api_key",
     type=str,
-    default=os.environ.get("DANDI_API_KEY", ""),
+    default=os.environ.get("LINCBRAIN_API_KEY", ""),
     help="API key to use",
 )
 def process_dandiset(dandiset, update, api_key):

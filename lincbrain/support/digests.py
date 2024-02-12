@@ -28,7 +28,7 @@ from fscacher import PersistentCache
 from .threaded_walk import threaded_walk
 from ..utils import Hasher, exclude_from_zarr
 
-lgr = logging.getLogger("dandi.support.digests")
+lgr = logging.getLogger("lincbrain.support.digests")
 
 
 @dataclass
