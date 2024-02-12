@@ -1,3 +1,21 @@
+# 0.3.0 (Mon Feb 12 2024)
+
+#### 🚀 Enhancement
+
+- Update DANDI_API_KEY to LINCBRAIN_API_KEY [#33](https://github.com/lincbrain/linc-cli/pull/33) (aaronkanzer@dhcp-10-29-194-155.dyn.MIT.EDU [@aaronkanzer](https://github.com/aaronkanzer))
+
+#### 🐛 Bug Fix
+
+- More test fixes for patching in test suite [#32](https://github.com/lincbrain/linc-cli/pull/32) (aaronkanzer@dhcp-10-29-194-155.dyn.MIT.EDU)
+
+#### Authors: 3
+
+- [@aaronkanzer](https://github.com/aaronkanzer)
+- Aaron Kanzer (aaronkanzer@Aarons-MacBook-Pro.local)
+- Aaron Kanzer (aaronkanzer@dhcp-10-29-194-155.dyn.MIT.EDU)
+
+---
+
 # 0.2.3 (Wed Jan 31 2024)
 
 #### 🐛 Bug Fix
