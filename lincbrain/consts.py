@@ -125,9 +125,9 @@ known_instances = {
         "https://lincbrain.org",
         "https://api.lincbrain.org/api",
     ),
-    "dandi-staging": DandiInstance(
-        "dandi-staging",
-        "https://staging--gui-staging-lincbrain-org.netlify.app",
+    "lincbrain-staging": DandiInstance(
+        "lincbrain-staging",
+        "https://staging--lincbrain-org.netlify.app",
         "https://staging-api.lincbrain.org/api",
     ),
     "dandi-api-local-docker-tests": DandiInstance(
