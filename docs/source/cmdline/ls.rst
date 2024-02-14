@@ -1,9 +1,9 @@
-:program:`dandi ls`
+:program:`lincbrain ls`
 ===================
 
 ::
 
-    dandi [<global options>] ls [<options>] [<path|url> ...]
+    lincbrain [<global options>] ls [<options>] [<path|url> ...]
 
 List :file:`*.nwb` files' and Dandisets' metadata.
 

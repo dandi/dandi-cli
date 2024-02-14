@@ -1,9 +1,9 @@
-:program:`dandi`
+:program:`lincbrain`
 ================
 
 ::
 
-    dandi [<global options>] <subcommand> [<arguments>]
+    lincbrain [<global options>] <subcommand> [<arguments>]
 
 A command-line client for interacting with the `DANDI Archive
 <http://dandiarchive.org>`_.

@@ -1,11 +1,11 @@
 .. _dandi_organize:
 
-:program:`dandi organize`
+:program:`lincbrain organize`
 =========================
 
 ::
 
-    dandi [<global options>] organize [<options>] [<path> ...]
+    lincbrain [<global options>] organize [<options>] [<path> ...]
 
 (Re)organize files according to their metadata.
 

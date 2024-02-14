@@ -11,7 +11,7 @@ from ..consts import known_instances
 @click.command()
 @map_to_click_exceptions
 def instances():
-    """List known Dandi Archive instances that the CLI can interact with"""
+    """List known LINC Archive instances that the CLI can interact with"""
     yaml = ruamel.yaml.YAML(typ="safe")
     yaml.default_flow_style = False
     instances = {}

@@ -1,9 +1,9 @@
-:program:`dandi instances`
+:program:`lincbrain instances`
 ==========================
 
 ::
 
-    dandi [<global options>] instances
+    lincbrain [<global options>] instances
 
 List known Dandi Archive instances that can be passed to the
 ``-i``/``--dandi-instance`` option of other subcommands for the CLI to

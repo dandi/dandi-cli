@@ -1,9 +1,9 @@
-:program:`dandi download`
+:program:`lincbrain download`
 =========================
 
 ::
 
-    dandi [<global options>] download [<options>] <url> ...
+    lincbrain [<global options>] download [<options>] <url> ...
 
 Download one or more Dandisets, assets, or folders of assets from DANDI.
 

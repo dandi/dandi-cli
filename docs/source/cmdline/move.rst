@@ -1,21 +1,21 @@
-:program:`dandi move`
+:program:`lincbrain move`
 =====================
 
 ::
 
-    dandi [<global options>] move [<options>] <src-path> ... <dest-path>
-    dandi [<global options>] move --regex [<options>] <pattern> <replacement>
+    lincbrain [<global options>] move [<options>] <src-path> ... <dest-path>
+    lincbrain [<global options>] move --regex [<options>] <pattern> <replacement>
 
-Move or rename assets in a local Dandiset and/or on the server.  The
-:program:`dandi move` command takes one of more source paths of the assets to
+Move or rename assets in a local dataset and/or on the server.  The
+:program:`lincbrain move` command takes one of more source paths of the assets to
 move, followed by a destination path indicating where to move them to.  Paths
 given on the command line must use forward slashes (``/``) as path separators,
 even on Windows.  In addition, when running the command inside a subdirectory
-of a Dandiset, all paths must be relative to the subdirectory, even if only
-operating on the remote Dandiset.  (The exception is when the ``--dandiset``
-option is given in order to operate on an arbitrary remote Dandiset, in which
-case any local Dandiset is ignored and paths are interpreted relative to the
-root of the remote Dandiset.)
+of a dataset, all paths must be relative to the subdirectory, even if only
+operating on the remote dataset.  (The exception is when the ``--dandiset``
+option is given in order to operate on an arbitrary remote dataset, in which
+case any local dataset is ignored and paths are interpreted relative to the
+root of the remote dataset.)
 
 If there is more than one source path, or if the destination path either names
 an existing directory or ends in a trailing forward slash (``/``), then the
@@ -39,13 +39,13 @@ Options
 
 .. option:: -i, --dandi-instance <instance>
 
-    DANDI instance (either a base URL or a known instance name) containing the
-    remote Dandiset corresponding to the local Dandiset in the current
-    directory [default: ``dandi``]
+    LINC instance (either a base URL or a known instance name) containing the
+    remote dataset corresponding to the local dataset in the current
+    directory [default: ``lincbrain``]
 
 .. option:: -d, --dandiset <URL>
 
-    A :ref:`resource identifier <resource_ids>` pointing to a Dandiset on a
+    A :ref:`resource identifier <resource_ids>` pointing to a dataset on a
     remote instance whose assets you wish to move/rename
 
 .. option:: --dry-run
@@ -74,8 +74,8 @@ Options
 
 .. option:: -w, --work-on [auto|both|local|remote]
 
-    Whether to operate on the local Dandiset in the current directory, a remote
-    Dandiset (either one specified by the ``--dandiset`` option or else the one
+    Whether to operate on the local dataset in the current directory, a remote
+    dataset (either one specified by the ``--dandiset`` option or else the one
     corresponding to the local Dandiset), or both at once.  If ``auto`` (the
     default) is given, it is treated the same as ``remote`` if a ``--dandiset``
     option is given and as ``both`` otherwise.
@@ -96,29 +96,29 @@ set to a nonempty value.
 Examples
 --------
 
-- When working in a local clone of a Dandiset, a file
+- When working in a local clone of a dataset, a file
   :file:`sub-01/sub-01_blah.nii.gz` can be renamed to
   :file:`sub-02/sub-02_useful.nii.gz` in both the local clone and on the server
   with::
 
-    dandi move sub-01/sub-01_blah.nii.gz sub-02/sub-02_useful.nii.gz
+    lincbrain move sub-01/sub-01_blah.nii.gz sub-02/sub-02_useful.nii.gz
 
   To rename the file only in the local or remote instance, insert ``--work-on
   local`` or ``--work-on remote`` after ``move``.
 
 - When not working in a local clone of a Dandiset, a file can be renamed in a
-  remote Dandiset on a server by providing a resource identifier for the
-  Dandiset to the ``--dandiset`` option.  For example, in order to operate on
-  Dandiset 123456 on the main ``dandi`` instance, use::
+  remote dataset on a server by providing a resource identifier for the
+  dataset to the ``--dandiset`` option.  For example, in order to operate on
+  dataset 123456 on the main ``lincbrain`` instance, use::
 
-    dandi move --dandiset DANDI:123456 sub-01/sub-01_blah.nii.gz sub-02/sub-02_useful.nii.gz
+    lincbrain move --dandiset DANDI:123456 sub-01/sub-01_blah.nii.gz sub-02/sub-02_useful.nii.gz
 
-  To operate on Dandiset 123456 on ``dandi-staging``, you can use::
+  To operate on dataset 123456 on ``lincbrain-staging``, you can use (this command needs to be updated)::
 
-    dandi move --dandiset https://gui-staging.dandiarchive.org/dandiset/123456 sub-01/sub-01_blah.nii.gz sub-02/sub-02_useful.nii.gz
+    lincbrain move --dandiset https://gui-staging.dandiarchive.org/dandiset/123456 sub-01/sub-01_blah.nii.gz sub-02/sub-02_useful.nii.gz
 
 - To move the contents of a folder :file:`rawdata/` to the top level of a
-  Dandiset, you can use the ``--regex`` option to strip the ``rawdata/`` prefix
+  dataset, you can use the ``--regex`` option to strip the ``rawdata/`` prefix
   from the beginning of all matching asset paths::
 
-    dandi move --regex "^rawdata/" ""
+    lincbrain move --regex "^rawdata/" ""

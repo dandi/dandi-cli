@@ -1,9 +1,9 @@
-:program:`dandi digest`
+:program:`lincbrain digest`
 =======================
 
 ::
 
-    dandi [<global options>] digest [<options>] [<path> ...]
+    lincbrain [<global options>] digest [<options>] [<path> ...]
 
 Calculate file digests
 

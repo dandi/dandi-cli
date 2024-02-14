@@ -16,7 +16,7 @@ from ..utils import get_instance
 # click doesn't use it unless we explicitly assign it to `help`:
 @click.command(
     help=f"""\
-Download files or entire folders from DANDI.
+Download files or entire folders from LINC.
 
 \b
 {_dandi_url_parser.known_patterns}
@@ -77,9 +77,9 @@ Download files or entire folders from DANDI.
 @instance_option(
     default=None,
     help=(
-        "DANDI Archive instance to download from. If any URLs are provided,"
+        "LINC Archive instance to download from. If any URLs are provided,"
         " they must point to the given instance. If no URL is provided, and"
-        " there is a local dandiset.yaml file, the Dandiset with the identifier"
+        " there is a local dandiset.yaml file, the datasets with the identifier"
         " given in the file will be downloaded from the given instance."
     ),
 )
