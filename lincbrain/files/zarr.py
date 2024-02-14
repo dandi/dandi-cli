@@ -657,6 +657,7 @@ class UploadItem:
         return {"path": self.entry_path, "base64md5": self.base64_digest}
 
 
+
 def _cmp_digests(
     asset_path: str, local_entry: LocalZarrEntry, remote_digest: str
 ) -> tuple[LocalZarrEntry, str, bool]:
