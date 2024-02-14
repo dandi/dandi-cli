@@ -1,3 +1,16 @@
+# 0.6.1 (Wed Feb 14 2024)
+
+#### 🐛 Bug Fix
+
+- Change naming conventions in CLI tool to match LINC [#37](https://github.com/lincbrain/linc-cli/pull/37) (aaronkanzer@Aarons-MacBook-Pro.local [@aaronkanzer](https://github.com/aaronkanzer))
+
+#### Authors: 2
+
+- [@aaronkanzer](https://github.com/aaronkanzer)
+- Aaron Kanzer (aaronkanzer@Aarons-MacBook-Pro.local)
+
+---
+
 # 0.6.0 (Wed Feb 14 2024)
 
 #### 🚀 Enhancement
