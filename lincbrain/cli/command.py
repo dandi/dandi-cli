@@ -97,7 +97,7 @@ def main(ctx, log_level, pdb=False):
         h.addFilter(lambda r: not getattr(r, "file_only", False))
         set_logger_level(h, log_level)
 
-    logdir = platformdirs.user_log_dir("dandi-cli", "dandi")
+    logdir = platformdirs.user_log_dir("lincbrain-cli", "lincbrain")
     logfile = os.path.join(
         logdir, f"{datetime.utcnow():%Y%m%d%H%M%SZ}-{os.getpid()}.log"
     )
@@ -116,7 +116,7 @@ def main(ctx, log_level, pdb=False):
     root.addHandler(handler)
 
     lgr.info(
-        "dandi v%s, hdmf v%s, pynwb v%s, h5py v%s",
+        "lincbrain v%s, hdmf v%s, pynwb v%s, h5py v%s",
         __version__,
         get_module_version("hdmf"),
         get_module_version("pynwb"),

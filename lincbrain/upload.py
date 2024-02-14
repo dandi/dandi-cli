@@ -376,14 +376,14 @@ def upload(
             try:
                 import etelemetry
 
-                latest_version = etelemetry.get_project("dandi/dandi-cli")["version"]
+                latest_version = etelemetry.get_project("lincbrain/linc-cli")["version"]
             except Exception:
                 pass
             else:
                 if Version(latest_version) > Version(__version__):
                     lgr.warning(
                         "Upload failed, and you are not using the latest"
-                        " version of dandi.  We suggest upgrading dandi to v%s"
+                        " version of lincbrain-cli.  We suggest upgrading lincbrain-cli to v%s"
                         " and trying again.",
                         latest_version,
                     )
