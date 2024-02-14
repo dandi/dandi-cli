@@ -1,3 +1,16 @@
+# 0.5.0 (Wed Feb 14 2024)
+
+#### 🚀 Enhancement
+
+- Update messaging and root directory for lincbrain logs [#35](https://github.com/lincbrain/linc-cli/pull/35) (aaronkanzer@Aarons-MacBook-Pro.local [@aaronkanzer](https://github.com/aaronkanzer))
+
+#### Authors: 2
+
+- [@aaronkanzer](https://github.com/aaronkanzer)
+- Aaron Kanzer (aaronkanzer@Aarons-MacBook-Pro.local)
+
+---
+
 # 0.4.0 (Mon Feb 12 2024)
 
 #### 🚀 Enhancement
