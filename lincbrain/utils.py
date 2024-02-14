@@ -13,11 +13,14 @@ from mimetypes import guess_type
 import os
 import os.path as op
 from pathlib import Path, PurePath, PurePosixPath
+import pdb
 import platform
 import re
 import shutil
 import subprocess
 import sys
+from time import sleep
+import traceback
 import types
 from typing import IO, Any, List, Optional, Protocol, TypeVar, Union
 from urllib.parse import parse_qs, urlparse, urlunparse
@@ -87,13 +90,9 @@ def setup_exceptionhook(ipython: bool = False) -> None:
         value: BaseException,
         tb: types.TracebackType | None,
     ) -> None:
-        import traceback
-
         traceback.print_exception(exc_type, value, tb)
         print()
         if is_interactive():
-            import pdb
-
             pdb.post_mortem(tb)
 
     if ipython:
@@ -115,7 +114,7 @@ def get_utcnow_datetime(microseconds: bool = True) -> datetime.datetime:
 
     If string representation is desired, just "apply" .isoformat()
     """
-    ret = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc).astimezone()
+    ret = datetime.datetime.now(datetime.timezone.utc).astimezone()
     if microseconds:
         return ret
     else:
@@ -836,3 +835,28 @@ def _prepare_path_parts(paths: Iterable[str | PurePath]) -> list[tuple[str, ...]
 
 def _starts_with(t: tuple[str, ...], prefix: tuple[str, ...]) -> bool:
     return t[: len(prefix)] == prefix
+
+
+def pre_upload_size_check(path: Path) -> int:
+    # If the filesystem reports a size of zero for a file we're about to
+    # upload, double-check the size in case we're on a flaky NFS system.
+    for naptime in [0] + [0.1] * 19:
+        sleep(naptime)
+        size = path.stat().st_size
+        if size != 0:
+            return size
+    return size
+
+
+def post_upload_size_check(path: Path, pre_check_size: int, erroring: bool) -> None:
+    # More checks for NFS flakiness
+    size = path.stat().st_size
+    if size != pre_check_size:
+        msg = (
+            f"Size of {path} was {pre_check_size} at start of upload but is"
+            f" now {size} after upload"
+        )
+        if erroring:
+            lgr.error(msg)
+        else:
+            raise RuntimeError(msg)

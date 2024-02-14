@@ -18,6 +18,7 @@ import time
 from types import TracebackType
 from typing import IO, Any, Literal
 
+from dandischema.digests.dandietag import ETagHashlike
 from dandischema.models import DigestType
 from fasteners import InterProcessLock
 import humanize
@@ -27,10 +28,17 @@ import requests
 from . import get_logger
 from .consts import RETRY_STATUSES, dandiset_metadata_file
 from .dandiapi import AssetType, BaseRemoteZarrAsset, RemoteDandiset
-from .dandiarchive import DandisetURL, ParsedDandiURL, SingleAssetURL, parse_dandi_url
+from .dandiarchive import (
+    AssetItemURL,
+    DandisetURL,
+    ParsedDandiURL,
+    SingleAssetURL,
+    parse_dandi_url,
+)
 from .dandiset import Dandiset
 from .exceptions import NotFoundError
 from .files import LocalAsset, find_dandi_files
+from .support import pyout as pyouts
 from .support.iterators import IteratorWithAggregation
 from .support.pyout import naturalsize
 from .utils import (
@@ -91,8 +99,6 @@ def download(
     # TODO: unduplicate with upload. For now stole from that one
     # We will again use pyout to provide a neat table summarizing our progress
     # with upload etc
-    from .support import pyout as pyouts
-
     urls = flattened([urls])
     if not urls:
         # if no paths provided etc, we will download dandiset path
@@ -227,7 +233,13 @@ class Downloader:
         """
 
         with self.url.navigate(strict=True) as (client, dandiset, assets):
-            if isinstance(self.url, DandisetURL) and self.get_metadata:
+            if (
+                isinstance(self.url, DandisetURL)
+                or (
+                    isinstance(self.url, AssetItemURL)
+                    and self.url.path == "dandiset.yaml"
+                )
+            ) and self.get_metadata:
                 assert dandiset is not None
                 for resp in _populate_dandiset_yaml(
                     self.output_path, dandiset, self.existing
@@ -236,6 +248,8 @@ class Downloader:
                         "path": str(self.output_prefix / dandiset_metadata_file),
                         **resp,
                     }
+                if isinstance(self.url, AssetItemURL):
+                    return
 
             # TODO: do analysis of assets for early detection of needed renames
             # etc to avoid any need for late treatment of existing and also for
@@ -551,6 +565,7 @@ def _download_file(
       possible checksums or other digests provided for the file. Only one
       will be used to verify download
     """
+    # Avoid heavy import by importing within function:
     from .support.digests import get_digest
 
     if op.lexists(path):
@@ -650,8 +665,6 @@ def _download_file(
         # TODO: reuse that sorting based on speed
         for algo, digest in digests.items():
             if algo == "dandi-etag" and size is not None:
-                from dandischema.digests.dandietag import ETagHashlike
-
                 # Instantiate outside the lambda so that mypy is assured that
                 # `size` is not None:
                 hasher = ETagHashlike(size)
@@ -703,9 +716,16 @@ def _download_file(
                     yield out
                     dldir.append(block)
             break
-        except requests.exceptions.HTTPError as exc:
-            # TODO: actually we should probably retry only on selected codes, and also
-            # respect Retry-After
+        except ValueError:
+            # When `requests` raises a ValueError, it's because the caller
+            # provided invalid parameters (e.g., an invalid URL), and so
+            # retrying won't change anything.
+            raise
+        # Catching RequestException lets us retry on timeout & connection
+        # errors (among others) in addition to HTTP status errors.
+        except requests.RequestException as exc:
+            # TODO: actually we should probably retry only on selected codes,
+            # and also respect Retry-After
             if attempt >= 2 or (
                 exc.response is not None
                 and exc.response.status_code
@@ -722,7 +742,7 @@ def _download_file(
             #     raise
             # sleep a little and retry
             lgr.debug(
-                "Failed to download on attempt#%d: %s, will sleep a bit and retry",
+                "Failed to download on attempt #%d: %s, will sleep a bit and retry",
                 attempt,
                 exc,
             )
@@ -750,9 +770,9 @@ def _download_file(
         }
 
     # TODO: dissolve attrs and pass specific mtime?
-    if mtime:
+    if mtime is not None:
         yield {"status": "setting mtime"}
-        os.utime(path, (time.time(), ensure_datetime(mtime).timestamp()))
+        os.utime(path, (time.time(), mtime.timestamp()))
 
     yield {"status": "done"}
 
@@ -855,6 +875,7 @@ def _download_zarr(
     lock: Lock,
     jobs: int | None = None,
 ) -> Iterator[dict]:
+    # Avoid heavy import by importing within function:
     from .support.digests import get_zarr_checksum
 
     download_gens = {}

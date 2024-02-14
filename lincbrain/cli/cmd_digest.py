@@ -22,6 +22,7 @@ from .base import map_to_click_exceptions
 @map_to_click_exceptions
 def digest(paths: tuple[str, ...], digest_alg: str) -> None:
     """Calculate file digests"""
+    # Avoid heavy import by importing within function:
     from ..support.digests import get_digest
 
     for p in paths:

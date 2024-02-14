@@ -4,8 +4,9 @@ from pathlib import Path
 from click.testing import CliRunner
 import pytest
 
-from ..cmd_validate import validate
+from ..cmd_validate import _process_issues, validate
 from ...tests.fixtures import BIDS_ERROR_TESTDATA_SELECTION
+from ...validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
 
 @pytest.mark.parametrize("dataset", BIDS_ERROR_TESTDATA_SELECTION)
@@ -67,11 +68,6 @@ def test_validate_nwb_path_grouping(organized_nwb_dir4: Path) -> None:
 
 
 def test_process_issues(capsys):
-    from pathlib import Path
-
-    from ..cmd_validate import _process_issues
-    from ...validate_types import Scope, Severity, ValidationOrigin, ValidationResult
-
     issues = [
         ValidationResult(
             id="NWBI.check_data_orientation",

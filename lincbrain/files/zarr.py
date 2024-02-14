@@ -12,9 +12,9 @@ from pathlib import Path
 from time import sleep
 from typing import Any
 
-from dandischema.digests.zarr import get_checksum
 from dandischema.models import BareAsset, DigestType
 import requests
+from zarr_checksum.tree import ZarrChecksumTree
 
 from lincbrain import get_logger
 from lincbrain.consts import (
@@ -32,7 +32,14 @@ from lincbrain.dandiapi import (
 )
 from lincbrain.metadata.core import get_default_metadata
 from lincbrain.misctypes import DUMMY_DANDI_ZARR_CHECKSUM, BasePath, Digest
-from lincbrain.utils import chunked, exclude_from_zarr, pluralize
+
+from lincbrain.utils import (
+    chunked,
+    exclude_from_zarr,
+    pluralize,
+    post_upload_size_check,
+    pre_upload_size_check,
+)
 
 from .bases import LocalDirectoryAsset
 from ..validate_types import Scope, Severity, ValidationOrigin, ValidationResult
@@ -92,7 +99,6 @@ class LocalZarrEntry(BasePath):
         directory, the algorithm will be the Dandi Zarr checksum algorithm; if
         it is a file, it will be MD5.
         """
-
         from lincbrain.support.digests import get_digest, get_zarr_checksum
 
         if self.is_dir():
@@ -151,25 +157,25 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         """Return various details about the Zarr asset"""
 
         def dirstat(dirpath: LocalZarrEntry) -> ZarrStat:
-            from lincbrain.support.digests import md5file_nocache
+            from lincbrain.support.digests import checksum_zarr_dir, md5file_nocache
 
             size = 0
-            dir_md5s = {}
-            file_md5s = {}
+            dir_info = {}
+            file_info = {}
             files = []
             for p in dirpath.iterdir():
                 if p.is_dir():
                     st = dirstat(p)
                     size += st.size
-                    dir_md5s[p.name] = (st.digest.value, st.size)
+                    dir_info[p.name] = (st.digest.value, st.size)
                     files.extend(st.files)
                 else:
                     size += p.size
-                    file_md5s[p.name] = (md5file_nocache(p.filepath), p.size)
+                    file_info[p.name] = (md5file_nocache(p.filepath), p.size)
                     files.append(p)
             return ZarrStat(
                 size=size,
-                digest=Digest.dandi_zarr(get_checksum(file_md5s, dir_md5s)),
+                digest=Digest.dandi_zarr(checksum_zarr_dir(file_info, dir_info)),
                 files=files,
             )
 
@@ -196,6 +202,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
+        # Avoid heavy import by importing within function:
         import zarr
 
         errors: list[ValidationResult] = []
@@ -287,10 +294,6 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
-        # Importing zarr_checksum leads to importing numpy, which we want to
-        # avoid unless necessary
-        from zarr_checksum import ZarrChecksumTree
-
         # So that older clients don't get away with doing the wrong thing once
         # Zarr upload to embargoed Dandisets is implemented in the API:
         if dandiset.embargo_status is EmbargoStatus.EMBARGOED:
@@ -551,15 +554,21 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 def _upload_zarr_file(
     storage_session: RESTFullAPIClient, upload_url: str, item: UploadItem
 ) -> int:
-    with item.filepath.open("rb") as fp:
-        storage_session.put(
-            upload_url,
-            data=fp,
-            json_resp=False,
-            retry_if=_retry_zarr_file,
-            headers={"Content-MD5": item.base64_digest},
-        )
-    return item.size
+    try:
+        with item.filepath.open("rb") as fp:
+            storage_session.put(
+                upload_url,
+                data=fp,
+                json_resp=False,
+                retry_if=_retry_zarr_file,
+                headers={"Content-MD5": item.base64_digest},
+            )
+    except Exception:
+        post_upload_size_check(item.filepath, item.size, True)
+        raise
+    else:
+        post_upload_size_check(item.filepath, item.size, False)
+        return item.size
 
 
 def _retry_zarr_file(r: requests.Response) -> bool:
@@ -633,7 +642,12 @@ class UploadItem:
 
     @classmethod
     def from_entry(cls, e: LocalZarrEntry, digest: str) -> UploadItem:
-        return cls(entry_path=str(e), filepath=e.filepath, digest=digest, size=e.size)
+        return cls(
+            entry_path=str(e),
+            filepath=e.filepath,
+            digest=digest,
+            size=pre_upload_size_check(e.filepath),
+        )
 
     @property
     def base64_digest(self) -> str:

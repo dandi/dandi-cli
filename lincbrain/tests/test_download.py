@@ -30,7 +30,8 @@ from ..download import (
     download,
 )
 from ..exceptions import NotFoundError
-from ..utils import list_paths
+from ..support.digests import Digester
+from ..utils import list_paths, yaml_load
 
 
 # both urls point to 000027 (lean test dataset), and both draft and "released"
@@ -56,8 +57,6 @@ def test_download_000027(
         dsdir / "sub-RAT123" / "sub-RAT123.nwb",
     ]
     # and checksum should be correct as well
-    from ..support.digests import Digester
-
     assert (
         Digester(["md5"])(dsdir / "sub-RAT123" / "sub-RAT123.nwb")["md5"]
         == "33318fd510094e4304868b4a481d4a5a"
@@ -122,8 +121,6 @@ def test_download_000027_assets_only(url: str, tmp_path: Path) -> None:
 def test_download_000027_resume(
     tmp_path: Path, resizer: Callable[[int], int], version: str
 ) -> None:
-    from ..support.digests import Digester
-
     url = f"https://dandiarchive.org/dandiset/000027/{version}"
     digester = Digester()
     download(url, tmp_path, get_metadata=False)
@@ -183,6 +180,18 @@ def test_download_item(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     )
     assert list_paths(tmp_path, dirs=True) == [tmp_path / "coconut.txt"]
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
+
+
+def test_download_dandiset_yaml(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
+    dandiset_id = text_dandiset.dandiset_id
+    download(
+        f"dandi://{text_dandiset.api.instance_id}/{dandiset_id}/dandiset.yaml",
+        tmp_path,
+    )
+    assert list_paths(tmp_path, dirs=True) == [tmp_path / dandiset_metadata_file]
+    with (tmp_path / dandiset_metadata_file).open(encoding="utf-8") as fp:
+        metadata = yaml_load(fp)
+    assert metadata["id"] == f"DANDI:{dandiset_id}/draft"
 
 
 def test_download_asset_id(text_dandiset: SampleDandiset, tmp_path: Path) -> None:

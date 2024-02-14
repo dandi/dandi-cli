@@ -12,6 +12,7 @@ from .core import add_common_metadata, prepare_metadata
 from .util import process_ndtypes
 from .. import get_logger
 from ..consts import metadata_all_fields
+from ..files import bids, dandi_file, find_bids_dataset_description
 from ..misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, Readable
 from ..pynwb_utils import (
     _get_pynwb_metadata,
@@ -42,8 +43,6 @@ def get_metadata(
     -------
     dict
     """
-
-    from ..files import bids, dandi_file, find_bids_dataset_description
 
     # when we run in parallel, these annoying warnings appear
     ignore_benign_pynwb_warnings()

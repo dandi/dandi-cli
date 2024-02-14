@@ -11,6 +11,7 @@ import click
 
 from .base import devel_debug_option, devel_option, map_to_click_exceptions
 from ..utils import pluralize
+from ..validate import validate as validate_
 from ..validate_types import Severity, ValidationResult
 
 
@@ -97,12 +98,12 @@ def validate(
     devel_debug: bool = False,
     allow_any_path: bool = False,
 ) -> None:
-    """Validate files for DANDI and BIDS and/or NWB compliance.
+    """Validate files for data standards compliance.
 
     Exits with non-0 exit code if any file is not compliant.
     """
+    # Avoid heavy import by importing within function:
     from ..pynwb_utils import ignore_benign_pynwb_warnings
-    from ..validate import validate as validate_
 
     # Don't log validation warnings, as this command reports them to the user
     # anyway:

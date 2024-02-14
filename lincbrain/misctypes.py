@@ -342,9 +342,13 @@ class RemoteReadableAsset(Readable):
     name: str
 
     def open(self) -> IO[bytes]:
+        # Optional dependency:
         import fsspec
 
-        return cast(IO[bytes], fsspec.open(self.url, mode="rb"))
+        # We need to call open() on the return value of fsspec.open() because
+        # otherwise the filehandle will only be opened when used to enter a
+        # context manager.
+        return cast(IO[bytes], fsspec.open(self.url, mode="rb").open())
 
     def get_size(self) -> int:
         return self.size

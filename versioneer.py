@@ -1,4 +1,3 @@
-
 # Version: 0.29
 
 """The Versioneer - like a rocketeer, but for versions.
@@ -11,6 +10,7 @@ The Versioneer
 * Brian Warner
 * License: Public Domain (Unlicense)
 * Compatible with: Python 3.7, 3.8, 3.9, 3.10, 3.11 and pypy3
+* Experimental support for Python 3.12.
 * [![Latest Version][pypi-image]][pypi-url]
 * [![Build Status][travis-image]][travis-url]
 
@@ -1282,7 +1282,8 @@ def git_versions_from_keywords(
     # no suitable tags, so version is "0+unknown", but full hex is still there
     if verbose:
         print("no suitable tags, using unknown + full revision id")
-    return {"version": "1.0.4",
+
+    return {"version": "0+unknown",
             "full-revisionid": keywords["full"].strip(),
             "dirty": False, "error": "no suitable tags", "date": None}
 

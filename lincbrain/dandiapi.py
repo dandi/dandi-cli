@@ -24,6 +24,7 @@ import tenacity
 
 from . import get_logger
 from .consts import (
+    DOWNLOAD_TIMEOUT,
     DRAFT,
     MAX_CHUNK_SIZE,
     REQUEST_RETRIES,
@@ -970,6 +971,12 @@ class RemoteDandiset:
         """
         Fetch the metadata for this version of the Dandiset as a
         `dandischema.models.Dandiset` instance
+
+        .. note::
+
+            Only published Dandiset versions can be expected to have valid
+            metadata.  Consider using `get_raw_metadata()` instead in order to
+            fetch unstructured, possibly-invalid metadata.
         """
         return models.Dandiset.parse_obj(self.get_raw_metadata())
 
@@ -1194,6 +1201,7 @@ class RemoteDandiset:
         :param RemoteAsset replace_asset: If set, replace the given asset,
             which must have the same path as the new asset
         """
+        # Avoid circular import by importing within function:
         from .files import LocalAsset, dandi_file
 
         df = dandi_file(filepath)
@@ -1235,6 +1243,7 @@ class RemoteDandiset:
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
+        # Avoid circular import by importing within function:
         from .files import LocalAsset, dandi_file
 
         df = dandi_file(filepath)
@@ -1344,6 +1353,12 @@ class BaseRemoteAsset(ABC, APIBase):
         """
         Fetch the metadata for the asset as a `dandischema.models.Asset`
         instance
+
+        .. note::
+
+            Only assets in published Dandiset versions can be expected to have
+            valid metadata.  Consider using `get_raw_metadata()` instead in
+            order to fetch unstructured, possibly-invalid metadata.
         """
         return models.Asset.parse_obj(self.get_raw_metadata())
 
@@ -1470,7 +1485,9 @@ class BaseRemoteAsset(ABC, APIBase):
             headers = None
             if start_at > 0:
                 headers = {"Range": f"bytes={start_at}-"}
-            result = self.client.session.get(url, stream=True, headers=headers)
+            result = self.client.session.get(
+                url, stream=True, headers=headers, timeout=DOWNLOAD_TIMEOUT
+            )
             # TODO: apparently we might need retries here as well etc
             # if result.status_code not in (200, 201):
             result.raise_for_status()
@@ -1901,7 +1918,9 @@ class RemoteZarrEntry:
             headers = None
             if start_at > 0:
                 headers = {"Range": f"bytes={start_at}-"}
-            result = self.client.session.get(url, stream=True, headers=headers)
+            result = self.client.session.get(
+                url, stream=True, headers=headers, timeout=DOWNLOAD_TIMEOUT
+            )
             # TODO: apparently we might need retries here as well etc
             # if result.status_code not in (200, 201):
             result.raise_for_status()

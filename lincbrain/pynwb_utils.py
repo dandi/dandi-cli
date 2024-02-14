@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Callable
+import inspect
 import os
 import os.path as op
 from pathlib import Path
@@ -137,8 +138,6 @@ def get_neurodata_types_to_modalities_map() -> dict[str, str]:
     It would base modality on the filename within pynwb providing that neural
     data type
     """
-    import inspect
-
     ndtypes: dict[str, str] = {}
 
     # TODO: if there are extensions, they might have types subclassed from the base

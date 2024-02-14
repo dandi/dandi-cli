@@ -24,6 +24,8 @@ from pathlib import Path
 
 from dandischema.digests.dandietag import DandiETag
 from fscacher import PersistentCache
+from zarr_checksum.checksum import ZarrChecksum, ZarrChecksumManifest
+from zarr_checksum.tree import ZarrChecksumTree
 
 from .threaded_walk import threaded_walk
 from ..utils import Hasher, exclude_from_zarr
@@ -104,10 +106,6 @@ def get_zarr_checksum(path: Path, known: dict[str, str] | None = None) -> str:
     passed in the ``known`` argument, which must be a `dict` mapping
     slash-separated paths relative to the root of the Zarr to hex digests.
     """
-    # Importing zarr_checksum leads to importing numpy, which we want to avoid
-    # unless necessary
-    from zarr_checksum import ZarrChecksumTree
-
     if path.is_file():
         s = get_digest(path, "md5")
         assert isinstance(s, str)
@@ -137,3 +135,31 @@ def md5file_nocache(filepath: str | Path) -> str:
     present in Zarrs
     """
     return Digester(["md5"])(filepath)["md5"]
+
+
+def checksum_zarr_dir(
+    files: dict[str, tuple[str, int]], directories: dict[str, tuple[str, int]]
+) -> str:
+    """
+    Calculate the Zarr checksum of a directory only from information about the
+    files and subdirectories immediately within it.
+
+    :param files:
+        A mapping from names of files in the directory to pairs of their MD5
+        digests and sizes
+    :param directories:
+        A mapping from names of subdirectories in the directory to pairs of
+        their Zarr checksums and the sum of the sizes of all files recursively
+        within them
+    """
+    manifest = ZarrChecksumManifest(
+        files=[
+            ZarrChecksum(digest=digest, name=name, size=size)
+            for name, (digest, size) in files.items()
+        ],
+        directories=[
+            ZarrChecksum(digest=digest, name=name, size=size)
+            for name, (digest, size) in directories.items()
+        ],
+    )
+    return manifest.generate_digest().digest

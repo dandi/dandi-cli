@@ -91,6 +91,7 @@ def upload(
     directories starting with a period) will be considered for the upload.  You
     can point to specific files you would like to validate and have uploaded.
     """
+    # Avoid heavy imports by importing with function:
     from ..upload import upload
 
     if jobs_pair is None:
