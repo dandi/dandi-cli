@@ -1,14 +1,14 @@
-:program:`dandi delete`
+:program:`lincbrain delete`
 =======================
 
 ::
 
-    dandi [<global options>] delete [<options>] [<paths> ...]
+    lincbrain [<global options>] delete [<options>] [<paths> ...]
 
-Delete Dandisets and assets from the server.
+Delete datasets and assets from the server.
 
 Each argument must be either a file path pointing to an asset file or directory
-in a local Dandiset (in which case the corresponding assets are deleted on the
+in a local datasets (in which case the corresponding assets are deleted on the
 remote server) or a :ref:`resource identifier <resource_ids>` pointing to a
 remote asset, directory, or entire Dandiset.
 
@@ -21,8 +21,8 @@ Options
 
 .. option:: -i, --dandi-instance <instance>
 
-    DANDI instance (either a base URL or a known instance name) to delete
-    assets & Dandisets from  [default: ``dandi``]
+    LINC instance (either a base URL or a known instance name) to delete
+    assets & datasets from  [default: ``lincbrain``]
 
 .. option:: --skip-missing
 

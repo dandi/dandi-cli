@@ -77,9 +77,9 @@ def upload(
     devel_debug: bool = False,
 ) -> None:
     """
-    Upload Dandiset files to DANDI Archive.
+    Upload datasets files to LINC Archive.
 
-    The target Dandiset to upload to must already be registered in the archive,
+    The target datasets to upload to must already be registered in the archive,
     and a `dandiset.yaml` file must exist in the common ancestor of the given
     paths (or the current directory, if no paths are specified) or a parent
     directory thereof.

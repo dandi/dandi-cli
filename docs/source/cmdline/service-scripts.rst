@@ -1,9 +1,9 @@
-:program:`dandi service-scripts`
+:program:`lincbrain service-scripts`
 ================================
 
 ::
 
-    dandi [<global options>] service-scripts [<command>]
+    lincbrain [<global options>] service-scripts [<command>]
 
 :program:`dandi service-scripts` is a collection of subcommands for various
 utility operations.

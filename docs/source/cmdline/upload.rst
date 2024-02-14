@@ -1,22 +1,22 @@
-:program:`dandi upload`
+:program:`lincbrain upload`
 =======================
 
 ::
 
-    dandi [<global options>] upload [<options>] [<path> ...]
+    lincbrain [<global options>] upload [<options>] [<path> ...]
 
-Upload Dandiset files to DANDI Archive.
+Upload dataset files to LINC Archive.
 
-The target Dandiset to upload to must already be registered in the archive, and
+The target dataset to upload to must already be registered in the archive, and
 a :file:`dandiset.yaml` file must exist in the common ancestor of the given
 paths (or the current directory, if no paths are specified) or a parent
 directory thereof.
 
-Local Dandisets should pass validation.  For that, the assets should first be
+Local datasets should pass validation.  For that, the assets should first be
 organized using the :ref:`dandi_organize` command.
 
 By default, all :file:`*.nwb`, :file:`*.zarr`, and :file:`*.ngff` assets in the
-Dandiset (ignoring directories starting with a period) will be considered for
+dataset (ignoring directories starting with a period) will be considered for
 the upload.  You can point to specific files you would like to validate and
 have uploaded.
 
@@ -37,7 +37,7 @@ Options
 .. option:: -i, --dandi-instance <instance>
 
     DANDI instance (either a base URL or a known instance name) to upload to
-    [default: ``dandi``]
+    [default: ``lincbrain``]
 
 .. option:: -J, --jobs N[:M]
 

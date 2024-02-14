@@ -1,4 +1,4 @@
-:program:`dandi shell-completion`
+:program:`lincbrain shell-completion`
 =================================
 
 ::

@@ -197,7 +197,7 @@ def delete(
     force: bool = False,
     skip_missing: bool = False,
 ) -> None:
-    """Delete dandisets and assets from the server.
+    """Delete datasets and assets from the server.
 
     PATH could be a local path or a URL to an asset, directory, or an entire
     dandiset.
