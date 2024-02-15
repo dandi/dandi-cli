@@ -18,7 +18,7 @@ import uuid
 import ruamel.yaml
 
 from . import __version__, get_logger
-from .consts import dandi_layout_fields
+from .consts import bids_layout_fields, dandi_layout_fields
 from .dandiset import Dandiset
 from .exceptions import OrganizeImpossibleError
 from .utils import (
@@ -37,6 +37,9 @@ from .utils import (
 from .validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
 lgr = get_logger()
+
+DANDI_PATH = op.join("sub-{subject_id}", "{organized_filename}")
+BIDS_PATH = op.join("sub-{subject_id}", "ses-{session_id}", "{organized_filename}")
 
 
 class FileOperationMode(str, Enum):
@@ -86,10 +89,6 @@ class OrganizeInvalid(str, Enum):
         return self.value
 
 
-dandi_path = op.join("sub-{subject_id}", "{dandi_filename}")
-bids_path = op.join("sub-{subject_id}", "ses-{session_id}", "{bids_filename}")
-
-
 def filter_invalid_metadata_rows(metadata_rows):
     """Split into two lists - valid and invalid entries"""
     valid, invalid = [], []
@@ -111,7 +110,7 @@ def filter_invalid_metadata_rows(metadata_rows):
 def create_unique_filenames_from_metadata(
     metadata: list[dict],
     required_fields: Sequence[str] | None = None,
-    style: str | None = None,
+    style: str | None = "dandi",
 ) -> list[dict]:
     """Create unique filenames given metadata
 
@@ -166,7 +165,7 @@ def create_unique_filenames_from_metadata(
     for r in metadata:
         # extract File name extension and place them into the records
         r["extension"] = op.splitext(r["path"])[1]
-        # since those might be used in dandi_path
+        # since those might be used in path_format
         for field in "subject_id", "session_id":
             value = r.get(field, None)
             if value:
@@ -177,9 +176,12 @@ def create_unique_filenames_from_metadata(
         if required_fields:
             r.setdefault("_required_if_not_empty", []).extend(required_fields)
 
-    _assign_dandi_names(metadata)
+    if style is None or style == "dandi":
+        _assign_dandi_names(metadata)
+    elif style == "bids":
+        _assign_bids_names(metadata)
 
-    non_unique = _get_non_unique_paths(metadata)
+    non_unique = _get_non_unique_paths(metadata, style)
 
     additional_nonunique = []
 
@@ -207,7 +209,7 @@ def create_unique_filenames_from_metadata(
                 if values:  # helps disambiguation, but might still be non-unique
                     # add to all files in the group
                     for r in metadata:
-                        if r["dandi_path"] == conflicting_path:
+                        if r["organized_path"] == conflicting_path:
                             r.setdefault("_required_if_not_empty", []).append(field)
                 if style is None or style == "dandi":
                     _assign_dandi_names(metadata)
@@ -215,7 +217,7 @@ def create_unique_filenames_from_metadata(
                     _assign_bids_names(metadata)
                 else:
                     lgr.error("“%s” is not a valid `dandi organize` style. ", style)
-            non_unique = _get_non_unique_paths(metadata)
+            non_unique = _get_non_unique_paths(metadata, style)
             if not non_unique:
                 break
 
@@ -262,9 +264,9 @@ def _create_external_file_names(metadata: list[dict]) -> list[dict]:
     """
     metadata = deepcopy(metadata)
     for meta in metadata:
-        if "dandi_path" not in meta or "external_file_objects" not in meta:
+        if "organized_path" not in meta or "external_file_objects" not in meta:
             continue
-        nwb_folder_name = op.splitext(op.basename(meta["dandi_path"]))[0]
+        nwb_folder_name = op.splitext(op.basename(meta["organized_path"]))[0]
         for ext_file_dict in meta["external_file_objects"]:
             renamed_path_list = []
             uuid_str = ext_file_dict.get("id", str(uuid.uuid4()))
@@ -300,7 +302,9 @@ def organize_external_files(
             ):
                 if is_url(str(name_old)):
                     continue
-                new_path = op.join(dandiset_path, op.dirname(e["dandi_path"]), name_new)
+                new_path = op.join(
+                    dandiset_path, op.dirname(e["organized_path"]), name_new
+                )
                 name_old_str = str(name_old)
                 if not op.isabs(name_old_str):
                     name_old_str = op.join(op.dirname(e["path"]), name_old_str)
@@ -322,7 +326,7 @@ def _assign_obj_id(metadata, non_unique):
     seen_object_ids = {}  # object_id: path
     recent_nwb_msg = "NWB>=2.1.0 standard (supported by pynwb>=1.1.0)."
     for r in metadata:
-        if r["dandi_path"] in non_unique:
+        if r["organized_path"] in non_unique:
             try:
                 object_id = get_object_id(r["path"])
             except KeyError:
@@ -394,12 +398,12 @@ def is_undefined(value):
 
 
 def _assign_bids_names(metadata):
-    unique_values = _get_unique_values(metadata, dandi_layout_fields)
+    unique_values = _get_unique_values(metadata, bids_layout_fields)
     # unless it is required, we would not include the fields with more than a
     # single unique field
     for r in metadata:
         bids_filename = ""
-        for field, field_rec in dandi_layout_fields.items():
+        for field, field_rec in bids_layout_fields.items():
             field_format = field_rec["format"]
             field_type = field_rec.get("type", "additional")
             if (
@@ -416,13 +420,18 @@ def _assign_bids_names(metadata):
                     continue
                 if isinstance(value, (list, tuple)):
                     value = "+".join(map(str, value))
+                remap = field_rec.get("remap", None)
+                if remap:
+                    for i in remap:
+                        if value == i[0]:
+                            value = i[1]
                 # sanitize value to avoid undesired characters
                 value = _sanitize_value(value, field)
                 # Format _key-value according to the "schema"
                 formatted_value = field_format.format(value)
                 bids_filename += formatted_value
-        r["bids_filename"] = bids_filename
-        r["bids_path"] = bids_path.format(**r)
+        r["organized_filename"] = bids_filename
+        r["organized_path"] = BIDS_PATH.format(**r)
 
 
 def _assign_dandi_names(metadata):
@@ -453,8 +462,8 @@ def _assign_dandi_names(metadata):
                 # Format _key-value according to the "schema"
                 formatted_value = field_format.format(value)
                 dandi_filename += formatted_value
-        r["dandi_filename"] = dandi_filename
-        r["dandi_path"] = dandi_path.format(**r)
+        r["organized_filename"] = dandi_filename
+        r["organized_path"] = DANDI_PATH.format(**r)
 
 
 def _get_unique_values(metadata, fields, filter_=False):
@@ -727,7 +736,7 @@ def populate_dataset_yml(filepath, metadata):
         yaml.dump(rec, f)
 
 
-def _get_non_unique_paths(metadata):
+def _get_non_unique_paths(metadata, style):
     """Identify non-unique paths after mapping
 
     Parameters
@@ -737,10 +746,10 @@ def _get_non_unique_paths(metadata):
     Returns
     -------
     dict:
-       of dandi_path: list(orig paths)
+       of organized_path: list(orig paths)
     """
     # Verify that we got unique paths
-    all_paths = [m["dandi_path"] for m in metadata]
+    all_paths = [m["organized_path"] for m in metadata]
     all_paths_unique = set(all_paths)
     non_unique = {}
     if not len(all_paths) == len(all_paths_unique):
@@ -750,7 +759,7 @@ def _get_non_unique_paths(metadata):
         for p in non_unique:
             orig_paths = []
             for e in metadata:
-                if e["dandi_path"] == p:
+                if e["organized_path"] == p:
                     orig_paths.append(e["path"])
             non_unique[p] = orig_paths  # overload with the list instead of count
     return non_unique
@@ -997,12 +1006,12 @@ def organize(
     # duplicate but shouldn't hurt
     existing = []
     for e in metadata:
-        dandi_fullpath = op.join(dandiset_path, e["dandi_path"])
+        dandi_fullpath = op.join(dandiset_path, e["organized_path"])
         if op.lexists(dandi_fullpath):
             # It might be the same file, then we would not complain
             if not (
                 op.realpath(e["path"])
-                == op.realpath(op.join(dandiset_path, e["dandi_path"]))
+                == op.realpath(op.join(dandiset_path, e["organized_path"]))
             ):
                 existing.append(dandi_fullpath)
             # TODO: it might happen that with "move" we are renaming files
@@ -1027,8 +1036,8 @@ def organize(
     skip_same = []
     acted_upon = []
     for e in metadata:
-        dandi_path = e["dandi_path"]
-        dandi_fullpath = op.join(dandiset_path, dandi_path)
+        organized_path = e["organized_path"]
+        dandi_fullpath = op.join(dandiset_path, organized_path)
         dandi_abs_fullpath = (
             op.abspath(dandi_fullpath)
             if not op.isabs(dandi_fullpath)
@@ -1065,7 +1074,7 @@ def organize(
         if (
             files_mode is FileOperationMode.DRY
         ):  # TODO: this is actually a files_mode on top of modes!!!?
-            dry_print(f"{e_path} -> {dandi_path}")
+            dry_print(f"{e_path} -> {organized_path}")
         else:
             if not op.lexists(dandi_dirpath):
                 os.makedirs(dandi_dirpath)
