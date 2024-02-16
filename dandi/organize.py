@@ -39,7 +39,9 @@ from .validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 lgr = get_logger()
 
 DANDI_PATH = op.join("sub-{subject_id}", "{organized_filename}")
-BIDS_PATH = op.join("sub-{subject_id}", "ses-{session_id}", "{organized_filename}")
+BIDS_PATH = op.join(
+    "sub-{subject_id}", "ses-{session_id}", "{datatype}", "{organized_filename}"
+)
 
 
 class FileOperationMode(str, Enum):
@@ -425,11 +427,14 @@ def _assign_bids_names(metadata):
                     for i in remap:
                         if value == i[0]:
                             value = i[1]
+                            r[field] = value
                 # sanitize value to avoid undesired characters
                 value = _sanitize_value(value, field)
                 # Format _key-value according to the "schema"
                 formatted_value = field_format.format(value)
                 bids_filename += formatted_value
+        # This does not generalize to other datatypes:
+        r["datatype"] = r["modalities"]
         r["organized_filename"] = bids_filename
         r["organized_path"] = BIDS_PATH.format(**r)
 
