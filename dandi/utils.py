@@ -630,9 +630,11 @@ def _get_instance(
             dandi_id = api_url
     return DandiInstance(
         name=dandi_id,
-        gui=server_info.services.webui.url
-        if server_info.services.webui is not None
-        else None,
+        gui=(
+            server_info.services.webui.url
+            if server_info.services.webui is not None
+            else None
+        ),
         api=api_url,
     )
 
@@ -871,11 +873,14 @@ def post_upload_size_check(path: Path, pre_check_size: int, erroring: bool) -> N
 
 def joinurl(base: str, path: str) -> str:
     """
-    Append a slash-separated ``path`` to a base URL ``base``.  The two
+    Append a slash-separated ``path`` to a base HTTP(S) URL ``base``.  The two
     components are separated by a single slash, removing any excess slashes
     that would be present after naïve concatenation.
 
-    If ``path`` is already an absolute URL, it is returned unchanged.
+    If ``path`` is already an absolute HTTP(S) URL, it is returned unchanged.
+
+    Note that this function differs from `urllib.parse.urljoin()` when the path
+    portion of ``base`` is nonempty and does not end in a slash.
     """
     if path.lower().startswith(("http://", "https://")):
         return path
