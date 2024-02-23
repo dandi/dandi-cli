@@ -37,7 +37,7 @@ from time import sleep
 from typing import Any
 from urllib.parse import unquote as urlunquote
 
-from pydantic import AnyHttpUrl, parse_obj_as
+from pydantic import AnyHttpUrl, TypeAdapter
 import requests
 
 from . import get_logger
@@ -82,9 +82,8 @@ class ParsedDandiURL(ABC):
     def api_url(self) -> AnyHttpUrl:
         """The base URL of the Dandi API service, without a trailing slash"""
         # Kept for backwards compatibility
-        r = parse_obj_as(AnyHttpUrl, self.instance.api.rstrip("/"))
-        assert isinstance(r, AnyHttpUrl)
-        return r  # type: ignore[no-any-return]
+        adapter = TypeAdapter(AnyHttpUrl)
+        return adapter.validate_python(self.instance.api.rstrip("/"))
 
     def get_client(self) -> DandiAPIClient:
         """

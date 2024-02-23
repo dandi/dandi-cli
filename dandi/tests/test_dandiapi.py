@@ -496,7 +496,7 @@ def test_set_asset_metadata(text_dandiset: SampleDandiset) -> None:
     md = asset.get_metadata()
     md.blobDateModified = datetime(2038, 1, 19, 3, 14, 7, tzinfo=timezone.utc)
     asset.set_metadata(md)
-    assert asset.get_raw_metadata()["blobDateModified"] == "2038-01-19T03:14:07+00:00"
+    assert asset.get_raw_metadata()["blobDateModified"] == "2038-01-19T03:14:07Z"
 
 
 def test_remote_dandiset_json_dict(text_dandiset: SampleDandiset) -> None:

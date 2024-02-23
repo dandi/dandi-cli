@@ -18,7 +18,7 @@
       "identifier": "session_id1",
       "name": "session_id1",
       "description": "session_description1",
-      "startDate": "2017-04-15T12:00:00+00:00"
+      "startDate": "2017-04-15T12:00:00Z"
     }
   ],
   "contentSize": 69105,
