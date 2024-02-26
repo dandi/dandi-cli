@@ -401,7 +401,7 @@ class LocalFileAsset(LocalAsset):
                                 bytes_uploaded += out_part["size"]
                                 yield {
                                     "status": "uploading",
-                                    "upload": 100 * bytes_uploaded / total_size,
+                                    "progress": 100 * bytes_uploaded / total_size,
                                     "current": bytes_uploaded,
                                 }
                                 parts_out.append(out_part)

@@ -497,7 +497,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                 bytes_uploaded += size
                                 yield {
                                     "status": "uploading",
-                                    "upload": 100
+                                    "progress": 100
                                     * bytes_uploaded
                                     / to_upload.total_size,
                                     "current": bytes_uploaded,

@@ -160,7 +160,7 @@ def get_style(hide_if_missing=True):
             ),
             aggregate=counts,
         ),
-        "upload": progress_style,
+        "progress": progress_style,
         "done%": progress_style,
         "checksum": dict(
             align="center",
