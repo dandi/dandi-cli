@@ -1,3 +1,21 @@
+# 0.60.0 (Thu Feb 29 2024)
+
+#### 🚀 Enhancement
+
+- Report progress in deleting Zarr entries during upload [#1412](https://github.com/dandi/dandi-cli/pull/1412) ([@jwodder](https://github.com/jwodder))
+- Update for Pydantic v2 [#1381](https://github.com/dandi/dandi-cli/pull/1381) ([@jwodder](https://github.com/jwodder))
+
+#### 🏠 Internal
+
+- [gh-actions](deps): Bump codecov/codecov-action from 3 to 4 [#1402](https://github.com/dandi/dandi-cli/pull/1402) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### Authors: 2
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.59.1 (Fri Feb 02 2024)
 
 #### 🏠 Internal
