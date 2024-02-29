@@ -613,10 +613,24 @@ class DandiAPIClient(RESTFullAPIClient):
         ):
             yield RemoteDandiset.from_data(self, data)
 
-    def create_dandiset(self, name: str, metadata: dict[str, Any]) -> RemoteDandiset:
-        """Creates a Dandiset with the given name & metadata"""
+    def create_dandiset(
+        self, name: str, metadata: dict[str, Any], *, embargo: bool = False
+    ) -> RemoteDandiset:
+        """
+        Creates a Dandiset with the given name & metadata.  If ``embargo`` is
+        `True`, the resulting Dandiset will be embargoed.
+
+        .. versionchanged:: 0.61.0
+
+            ``embargo`` argument added
+        """
         return RemoteDandiset.from_data(
-            self, self.post("/dandisets/", json={"name": name, "metadata": metadata})
+            self,
+            self.post(
+                "/dandisets/",
+                json={"name": name, "metadata": metadata},
+                params={"embargo": "true" if embargo else "false"},
+            ),
         )
 
     def check_schema_version(self, schema_version: str | None = None) -> None:
