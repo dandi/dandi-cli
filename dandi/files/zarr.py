@@ -19,6 +19,7 @@ from zarr_checksum.tree import ZarrChecksumTree
 from dandi import get_logger
 from dandi.consts import (
     MAX_ZARR_DEPTH,
+    ZARR_DELETE_BATCH_SIZE,
     ZARR_MIME_TYPE,
     ZARR_UPLOAD_BATCH_SIZE,
     EmbargoStatus,
@@ -442,7 +443,11 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                     local_digest,
                                 )
                 if to_delete:
-                    a.rmfiles(to_delete, reingest=False)
+                    yield from _rmfiles(
+                        asset=a,
+                        entries=to_delete,
+                        status="deleting conflicting remote files",
+                    )
             else:
                 yield {"status": "traversing local Zarr"}
                 for local_entry in self.iterfiles():
@@ -497,7 +502,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                 bytes_uploaded += size
                                 yield {
                                     "status": "uploading",
-                                    "upload": 100
+                                    "progress": 100
                                     * bytes_uploaded
                                     / to_upload.total_size,
                                     "current": bytes_uploaded,
@@ -506,13 +511,16 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             lgr.debug("%s: All files uploaded", asset_path)
             old_zarr_files = list(old_zarr_entries.values())
             if old_zarr_files:
-                yield {"status": "deleting extra remote files"}
                 lgr.debug(
                     "%s: Deleting %s in remote Zarr not present locally",
                     asset_path,
                     pluralize(len(old_zarr_files), "file"),
                 )
-                a.rmfiles(old_zarr_files, reingest=False)
+                yield from _rmfiles(
+                    asset=a,
+                    entries=old_zarr_files,
+                    status="deleting extra remote files",
+                )
                 changed = True
             if changed:
                 lgr.debug(
@@ -533,9 +541,9 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                             lgr.info(
                                 "%s: Asset checksum mismatch (local: %s;"
                                 " server: %s); redoing upload",
+                                asset_path,
                                 our_checksum,
                                 server_checksum,
-                                asset_path,
                             )
                             yield {"status": "Checksum mismatch"}
                         break
@@ -677,3 +685,24 @@ def _cmp_digests(
     else:
         lgr.debug("%s: File %s already on server; skipping", asset_path, local_entry)
         return (local_entry, local_digest, False)
+
+
+def _rmfiles(
+    asset: RemoteZarrAsset, entries: list[RemoteZarrEntry], status: str
+) -> Iterator[dict]:
+    # Do the batching outside of the rmfiles() method so that we can report
+    # progress on the completion of each batch
+    yield {
+        "status": status,
+        "progress": 0,
+        "current": 0,
+    }
+    deleted = 0
+    for ents in chunked(entries, ZARR_DELETE_BATCH_SIZE):
+        asset.rmfiles(ents, reingest=False)
+        deleted += len(ents)
+        yield {
+            "status": status,
+            "progress": deleted / len(entries) * 100,
+            "current": deleted,
+        }

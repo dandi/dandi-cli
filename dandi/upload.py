@@ -146,13 +146,13 @@ def upload(
                         raise RuntimeError(
                             f"requests.utils.super_len() reported size of 0 for"
                             f" {name!r}, but os.stat() reported size"
-                            f" {stat_size} bytes {i+1} tries later"
+                            f" {stat_size} bytes {i + 1} tries later"
                         )
                     if fstat_size not in (None, 0):
                         raise RuntimeError(
                             f"requests.utils.super_len() reported size of 0 for"
                             f" {name!r}, but os.fstat() reported size"
-                            f" {fstat_size} bytes {i+1} tries later"
+                            f" {fstat_size} bytes {i + 1} tries later"
                         )
                 lgr.debug(
                     "- Size of %r still appears to be 0 after 10 rounds of"
@@ -403,9 +403,9 @@ def upload(
             return "%s/s" % naturalsize(speed)
 
         pyout_style = pyouts.get_style(hide_if_missing=False)
-        pyout_style["upload"]["aggregate"] = upload_agg
+        pyout_style["progress"]["aggregate"] = upload_agg
 
-        rec_fields = ["path", "size", "errors", "upload", "status", "message"]
+        rec_fields = ["path", "size", "errors", "progress", "status", "message"]
         out = pyouts.LogSafeTabular(
             style=pyout_style, columns=rec_fields, max_workers=jobs or 5
         )
