@@ -554,19 +554,83 @@ class DandiAPIClient(RESTFullAPIClient):
                     return d.for_version(version_id)
             return d
 
-    def get_dandisets(self) -> Iterator[RemoteDandiset]:
+    def get_dandisets(
+        self,
+        *,
+        draft: bool | None = None,
+        embargoed: bool | None = None,
+        empty: bool | None = None,
+        mine: bool | None = None,
+        order: str | None = None,
+        search: str | None = None,
+    ) -> Iterator[RemoteDandiset]:
         """
         Returns a generator of all Dandisets on the server.  For each Dandiset,
         the `RemoteDandiset`'s version is set to the most recent published
         version if there is one, otherwise to the draft version.
+
+        .. versionchanged:: 0.61.0
+
+            ``draft``, ``embargoed``, ``empty``, ``mine``, ``order``, and
+            ``search`` parameters added
+
+        :param draft:
+            If true, Dandisets that have only draft versions (i.e., that
+            haven't yet been published) will be included in the results
+            (default true)
+
+        :param embargoed:
+            If true, embargoed Dandisets will be included in the results
+            (default false)
+
+        :param empty:
+            If true, empty Dandisets will be included in the results (default
+            true)
+
+        :param mine:
+            If true, only Dandisets owned by the authenticated user will be
+            retrieved (default false)
+
+        :param order:
+            The field to sort the results by.  The accepted field names are
+            ``"id"``, ``"name"``, ``"modified"``, and ``"size"``.  Prepend a
+            hyphen to the field name to reverse the sort order.
+
+        :param search:
+            A search string to filter the returned Dandisets by.  The string is
+            searched for in the metadata of Dandiset versions.
         """
-        for data in self.paginate("/dandisets/"):
+        for data in self.paginate(
+            "/dandisets/",
+            params={
+                "draft": draft,
+                "embargoed": embargoed,
+                "empty": empty,
+                "ordering": order,
+                "search": search,
+                "user": "me" if mine else None,
+            },
+        ):
             yield RemoteDandiset.from_data(self, data)
 
-    def create_dandiset(self, name: str, metadata: dict[str, Any]) -> RemoteDandiset:
-        """Creates a Dandiset with the given name & metadata"""
+    def create_dandiset(
+        self, name: str, metadata: dict[str, Any], *, embargo: bool = False
+    ) -> RemoteDandiset:
+        """
+        Creates a Dandiset with the given name & metadata.  If ``embargo`` is
+        `True`, the resulting Dandiset will be embargoed.
+
+        .. versionchanged:: 0.61.0
+
+            ``embargo`` argument added
+        """
         return RemoteDandiset.from_data(
-            self, self.post("/dandisets/", json={"name": name, "metadata": metadata})
+            self,
+            self.post(
+                "/dandisets/",
+                json={"name": name, "metadata": metadata},
+                params={"embargo": "true" if embargo else "false"},
+            ),
         )
 
     def check_schema_version(self, schema_version: str | None = None) -> None:

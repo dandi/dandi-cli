@@ -520,7 +520,7 @@ class SampleDandisetFactory:
     local_dandi_api: DandiAPI
     tmp_path_factory: pytest.TempPathFactory
 
-    def mkdandiset(self, name: str) -> SampleDandiset:
+    def mkdandiset(self, name: str, embargo: bool = False) -> SampleDandiset:
         d = self.local_dandi_api.client.create_dandiset(
             name,
             # Minimal metadata needed to create a publishable Dandiset:
@@ -539,6 +539,7 @@ class SampleDandisetFactory:
                     }
                 ],
             },
+            embargo=embargo,
         )
         dspath = self.tmp_path_factory.mktemp("dandiset")
         (dspath / dandiset_metadata_file).write_text(f"identifier: '{d.identifier}'\n")
