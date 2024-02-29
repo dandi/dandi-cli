@@ -16,7 +16,7 @@ from pytest_mock import MockerFixture
 import requests
 import responses
 
-from .fixtures import DandiAPI, SampleDandiset
+from .fixtures import DandiAPI, SampleDandiset, SampleDandisetFactory
 from .skip import mark
 from .. import dandiapi
 from ..consts import (
@@ -329,7 +329,47 @@ def test_check_schema_version_mismatch() -> None:
 
 def test_get_dandisets(text_dandiset: SampleDandiset) -> None:
     dandisets = list(text_dandiset.client.get_dandisets())
-    assert sum(1 for d in dandisets if d.identifier == text_dandiset.dandiset_id) == 1
+    assert text_dandiset.dandiset_id in [d.identifier for d in dandisets]
+
+
+def test_get_embargoed_dandisets(
+    sample_dandiset_factory: SampleDandisetFactory,
+) -> None:
+    ds = sample_dandiset_factory.mkdandiset("Embargoed Dandiset", embargo=True)
+    dandisets = list(ds.client.get_dandisets(embargoed=True))
+    assert ds.dandiset_id in [d.identifier for d in dandisets]
+    dandisets = list(ds.client.get_dandisets(embargoed=False))
+    assert ds.dandiset_id not in [d.identifier for d in dandisets]
+    dandisets = list(ds.client.get_dandisets(embargoed=None))
+    assert ds.dandiset_id not in [d.identifier for d in dandisets]
+
+
+def test_get_draft_dandisets(new_dandiset: SampleDandiset) -> None:
+    dandisets = list(new_dandiset.client.get_dandisets(draft=True))
+    assert new_dandiset.dandiset_id in [d.identifier for d in dandisets]
+    dandisets = list(new_dandiset.client.get_dandisets(draft=False))
+    assert new_dandiset.dandiset_id not in [d.identifier for d in dandisets]
+    dandisets = list(new_dandiset.client.get_dandisets(draft=None))
+    assert new_dandiset.dandiset_id in [d.identifier for d in dandisets]
+
+
+def test_get_empty_dandisets(new_dandiset: SampleDandiset) -> None:
+    dandisets = list(new_dandiset.client.get_dandisets(empty=True))
+    assert new_dandiset.dandiset_id in [d.identifier for d in dandisets]
+    dandisets = list(new_dandiset.client.get_dandisets(empty=False))
+    assert new_dandiset.dandiset_id not in [d.identifier for d in dandisets]
+    dandisets = list(new_dandiset.client.get_dandisets(empty=None))
+    assert new_dandiset.dandiset_id in [d.identifier for d in dandisets]
+
+
+def test_search_get_dandisets(
+    sample_dandiset_factory: SampleDandisetFactory,
+) -> None:
+    ds = sample_dandiset_factory.mkdandiset("Unicorn Dandiset")
+    dandisets = list(ds.client.get_dandisets(search="Unicorn"))
+    assert ds.dandiset_id in [d.identifier for d in dandisets]
+    dandisets = list(ds.client.get_dandisets(search="Dragon"))
+    assert ds.dandiset_id not in [d.identifier for d in dandisets]
 
 
 def test_get_dandiset_lazy(
