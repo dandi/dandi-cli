@@ -14,13 +14,13 @@ import re
 from time import sleep, time
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
-from urllib.parse import quote_plus, urlparse, urlunparse
 
 import click
 from dandischema import models
 from pydantic import BaseModel, Field, PrivateAttr
 import requests
 import tenacity
+from yarl import URL
 
 from . import get_logger
 from .consts import (
@@ -1521,7 +1521,7 @@ class BaseRemoteAsset(ABC, APIBase):
             else:
                 raise  # reraise since we need to figure out how to handle such a case
         if strip_query:
-            url = urlunparse(urlparse(url)._replace(query=""))
+            url = str(URL(url).with_query(None))
         return url
 
     def get_download_file_iter(
@@ -1970,9 +1970,10 @@ class RemoteZarrEntry:
         Returns a function that when called (optionally with an offset into the
         file to start downloading at) returns a generator of chunks of the file
         """
-        prefix = quote_plus(str(self))
-        url = self.client.get_url(
-            f"/zarr/{self.zarr_id}/files?prefix={prefix}&download=true"
+        url = str(
+            URL(self.client.get_url(f"/zarr/{self.zarr_id}/files/")).with_query(
+                {"prefix": str(self), "download": "true"}
+            )
         )
 
         def downloader(start_at: int = 0) -> Iterator[bytes]:
