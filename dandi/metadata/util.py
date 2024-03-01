@@ -329,68 +329,68 @@ def extract_cellLine(metadata: dict) -> str | None:
         return None
 
 
-SPECIES_URI_TEMPLATE = "http://purl.obolibrary.org/obo/NCBITaxon_{}"
+NCBITAXON_URI_TEMPLATE = "http://purl.obolibrary.org/obo/NCBITaxon_{}"
 
 # common_names, prefix, uri, name
 species_map = [
     (
         ["mouse"],
         "mus",
-        SPECIES_URI_TEMPLATE.format("10090"),
+        NCBITAXON_URI_TEMPLATE.format("10090"),
         "Mus musculus - House mouse",
     ),
     (
         ["human"],
         "homo",
-        SPECIES_URI_TEMPLATE.format("9606"),
+        NCBITAXON_URI_TEMPLATE.format("9606"),
         "Homo sapiens - Human",
     ),
     (
         ["rat", "norvegicus"],
         None,
-        SPECIES_URI_TEMPLATE.format("10116"),
+        NCBITAXON_URI_TEMPLATE.format("10116"),
         "Rattus norvegicus - Norway rat",
     ),
     (
         ["rattus rattus"],
         None,
-        SPECIES_URI_TEMPLATE.format("10117"),
+        NCBITAXON_URI_TEMPLATE.format("10117"),
         "Rattus rattus - Black rat",
     ),
     (
         ["mulatta", "rhesus"],
         None,
-        SPECIES_URI_TEMPLATE.format("9544"),
+        NCBITAXON_URI_TEMPLATE.format("9544"),
         "Macaca mulatta - Rhesus monkey",
     ),
     (
         ["jacchus"],
         None,
-        SPECIES_URI_TEMPLATE.format("9483"),
+        NCBITAXON_URI_TEMPLATE.format("9483"),
         "Callithrix jacchus - Common marmoset",
     ),
     (
         ["melanogaster", "fruit fly"],
         None,
-        SPECIES_URI_TEMPLATE.format("7227"),
+        NCBITAXON_URI_TEMPLATE.format("7227"),
         "Drosophila melanogaster - Fruit fly",
     ),
     (
         ["danio", "zebrafish", "zebra fish"],
         None,
-        SPECIES_URI_TEMPLATE.format("7955"),
+        NCBITAXON_URI_TEMPLATE.format("7955"),
         "Danio rerio - Zebra fish",
     ),
     (
         ["c. elegans", "caenorhabditis elegans"],
         "caenorhabditis",
-        SPECIES_URI_TEMPLATE.format("6239"),
+        NCBITAXON_URI_TEMPLATE.format("6239"),
         "Caenorhabditis elegans",
     ),
     (
         ["pig-tailed macaque", "pigtail monkey", "pigtail macaque"],
         None,
-        SPECIES_URI_TEMPLATE.format("9545"),
+        NCBITAXON_URI_TEMPLATE.format("9545"),
         "Macaca nemestrina",
     ),
 ]
@@ -441,7 +441,7 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
             value_orig,
             flags=re.I,
         ):
-            normed_value = SPECIES_URI_TEMPLATE.format(m[1])
+            normed_value = NCBITAXON_URI_TEMPLATE.format(m[1])
             for _common_names, _prefix, uri, name in species_map:
                 if uri == normed_value:
                     value_id = uri
