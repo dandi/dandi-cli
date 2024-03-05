@@ -8,7 +8,7 @@ from pytest_mock import MockerFixture
 from .fixtures import DandiAPI, SampleDandiset
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiapi import RESTFullAPIClient
-from ..delete import delete
+from ..delete import delete, is_same_url
 from ..download import download
 from ..exceptions import NotFoundError
 from ..utils import list_paths
@@ -439,3 +439,16 @@ def test_delete_zarr_path(
     assert list_paths(tmp_path) == [
         tmp_path / zarr_dandiset.dandiset_id / "dandiset.yaml"
     ]
+
+
+@pytest.mark.parametrize(
+    "url1,url2,r",
+    [
+        ("https://example.com/api", "https://example.com/api/", True),
+        ("https://example.com/api", "http://example.com/api", False),
+        ("https://example.com/api", "HTTPS://EXAMPLE.COM/api", True),
+        ("https://example.珠宝/api", "https://example.xn--pbt977c/api", True),
+    ],
+)
+def test_is_same_url(url1: str, url2: str, r: bool) -> None:
+    assert is_same_url(url1, url2) is r
