@@ -329,66 +329,68 @@ def extract_cellLine(metadata: dict) -> str | None:
         return None
 
 
+NCBITAXON_URI_TEMPLATE = "http://purl.obolibrary.org/obo/NCBITaxon_{}"
+
 # common_names, prefix, uri, name
 species_map = [
     (
         ["mouse"],
         "mus",
-        "http://purl.obolibrary.org/obo/NCBITaxon_10090",
+        NCBITAXON_URI_TEMPLATE.format("10090"),
         "Mus musculus - House mouse",
     ),
     (
         ["human"],
         "homo",
-        "http://purl.obolibrary.org/obo/NCBITaxon_9606",
+        NCBITAXON_URI_TEMPLATE.format("9606"),
         "Homo sapiens - Human",
     ),
     (
         ["rat", "norvegicus"],
         None,
-        "http://purl.obolibrary.org/obo/NCBITaxon_10116",
+        NCBITAXON_URI_TEMPLATE.format("10116"),
         "Rattus norvegicus - Norway rat",
     ),
     (
         ["rattus rattus"],
         None,
-        "http://purl.obolibrary.org/obo/NCBITaxon_10117",
+        NCBITAXON_URI_TEMPLATE.format("10117"),
         "Rattus rattus - Black rat",
     ),
     (
         ["mulatta", "rhesus"],
         None,
-        "http://purl.obolibrary.org/obo/NCBITaxon_9544",
+        NCBITAXON_URI_TEMPLATE.format("9544"),
         "Macaca mulatta - Rhesus monkey",
     ),
     (
         ["jacchus"],
         None,
-        "http://purl.obolibrary.org/obo/NCBITaxon_9483",
+        NCBITAXON_URI_TEMPLATE.format("9483"),
         "Callithrix jacchus - Common marmoset",
     ),
     (
         ["melanogaster", "fruit fly"],
         None,
-        "http://purl.obolibrary.org/obo/NCBITaxon_7227",
+        NCBITAXON_URI_TEMPLATE.format("7227"),
         "Drosophila melanogaster - Fruit fly",
     ),
     (
         ["danio", "zebrafish", "zebra fish"],
         None,
-        "http://purl.obolibrary.org/obo/NCBITaxon_7955",
+        NCBITAXON_URI_TEMPLATE.format("7955"),
         "Danio rerio - Zebra fish",
     ),
     (
         ["c. elegans", "caenorhabditis elegans"],
         "caenorhabditis",
-        "http://purl.obolibrary.org/obo/NCBITaxon_6239",
+        NCBITAXON_URI_TEMPLATE.format("6239"),
         "Caenorhabditis elegans",
     ),
     (
         ["pig-tailed macaque", "pigtail monkey", "pigtail macaque"],
         None,
-        "http://purl.obolibrary.org/obo/NCBITaxon_9545",
+        NCBITAXON_URI_TEMPLATE.format("9545"),
         "Macaca nemestrina",
     ),
 ]
@@ -434,14 +436,18 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
     value_orig = metadata.get("species", None)
     value_id = None
     if value_orig is not None and value_orig != "":
-        value = value_orig.lower().rstrip("/")
-        if value.startswith("http://purl.obolibrary.org/obo/NCBITaxon_".lower()):
-            for common_names, prefix, uri, name in species_map:
-                if value.split("//")[1] == uri.lower().rstrip("/").split("//")[1]:
+        if m := re.fullmatch(
+            r"https?://purl\.obolibrary\.org/obo/NCBITaxon_([0-9]+)/?",
+            value_orig,
+            flags=re.I,
+        ):
+            normed_value = NCBITAXON_URI_TEMPLATE.format(m[1])
+            for _common_names, _prefix, uri, name in species_map:
+                if uri == normed_value:
                     value_id = uri
                     value = name
                     break
-            if value_id is None:
+            else:
                 value_id = value_orig
                 lookup = ("rdfs:label", "oboInOwl:hasExactSynonym")
                 try:
@@ -457,9 +463,10 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
                             [result[key] for key in lookup if key in result]
                         )
         else:
+            lower_value = value_orig.lower()
             for common_names, prefix, uri, name in species_map:
-                if any(key in value for key in common_names) or (
-                    prefix and value.startswith(prefix)
+                if any(key in lower_value for key in common_names) or (
+                    prefix is not None and lower_value.startswith(prefix)
                 ):
                     value_id = uri
                     value = name
