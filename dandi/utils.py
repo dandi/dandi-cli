@@ -23,13 +23,14 @@ from time import sleep
 import traceback
 import types
 from typing import IO, Any, List, Optional, Protocol, TypeVar, Union
-from urllib.parse import parse_qs, urlparse, urlunparse
 
 import dateutil.parser
+from multidict import MultiDict  # dependency of yarl
 from pydantic import BaseModel, Field
 import requests
 import ruamel.yaml
 from semantic_version import Version
+from yarl import URL
 
 from . import __version__, get_logger
 from .consts import DandiInstance, known_instances, known_instances_rev
@@ -567,8 +568,9 @@ def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
         else:
             instance = None
             is_api = False
-            bits = urlparse(redirector_url)
-            redirector_url = urlunparse((bits[0], bits[1], "", "", "", ""))
+            redirector_url = str(
+                URL(redirector_url).with_path("").with_query(None).with_fragment(None)
+            )
     else:
         dandi_id = dandi_instance_id
         instance = known_instances[dandi_id]
@@ -619,13 +621,13 @@ def _get_instance(
     if dandi_id is None:
         # Don't use pydantic.AnyHttpUrl, as that sets the `port` attribute even
         # if it's not present in the string.
-        bits = urlparse(api_url)
-        if bits.hostname is not None:
-            dandi_id = bits.hostname
-            if bits.port is not None:
+        u = URL(api_url)
+        if u.host is not None:
+            dandi_id = u.host
+            if (port := u.explicit_port) is not None:
                 if ":" in dandi_id:
                     dandi_id = f"[{dandi_id}]"
-                dandi_id += f":{bits.port}"
+                dandi_id += f":{port}"
         else:
             dandi_id = api_url
     return DandiInstance(
@@ -790,12 +792,14 @@ def is_page2_url(page1: str, page2: str) -> bool:
     Tests whether the URL ``page2`` is the same as ``page1`` but with the
     ``page`` query parameter set to ``2``
     """
-    bits1 = urlparse(page1)
-    params1 = parse_qs(bits1.query)
-    params1["page"] = ["2"]
-    bits2 = urlparse(page2)
-    params2 = parse_qs(bits2.query)
-    return (bits1[:3], params1, bits1.fragment) == (bits2[:3], params2, bits2.fragment)
+    url1 = URL(page1)
+    params1 = MultiDict(url1.query)
+    params1["page"] = "2"
+    url1 = url1.with_query(None)
+    url2 = URL(page2)
+    params2 = url2.query
+    url2 = url2.with_query(None)
+    return (url1, sorted(params1.items())) == (url2, sorted(params2.items()))
 
 
 def exclude_from_zarr(path: Path) -> bool:
