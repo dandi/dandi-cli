@@ -11,6 +11,7 @@ from xml.dom.minidom import parseString
 from dandischema import models
 import requests
 import tenacity
+from yarl import URL
 
 from .. import __version__
 from ..utils import ensure_datetime
@@ -583,6 +584,29 @@ def extract_digest(metadata: dict) -> dict[models.DigestType, str] | None:
         return None
 
 
+def extract_related_resource(metadata: dict) -> list[models.Resource] | None:
+    pubs = metadata.get("related_publications")
+    if not isinstance(pubs, (list, tuple)):
+        return None
+    related = []
+    for v in pubs:
+        if not isinstance(v, str):
+            continue
+        try:
+            u = URL(v)
+        except ValueError:
+            continue
+        if u.scheme not in ("http", "https") or u.host != "doi.org":
+            continue
+        related.append(
+            models.Resource(
+                identifier=v,
+                relation=models.RelationType.IsDescribedBy,
+            )
+        )
+    return related
+
+
 FIELD_EXTRACTORS: dict[str, Callable[[dict], Any]] = {
     "wasDerivedFrom": extract_wasDerivedFrom,
     "wasAttributedTo": extract_wasAttributedTo,
@@ -595,6 +619,7 @@ FIELD_EXTRACTORS: dict[str, Callable[[dict], Any]] = {
     "anatomy": extract_anatomy,
     "digest": extract_digest,
     "species": extract_species,
+    "relatedResource": extract_related_resource,
 }
 
 

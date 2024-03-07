@@ -323,7 +323,9 @@ def test_timedelta2duration(td: timedelta, duration: str) -> None:
                 "institution": "University College",
                 "keywords": ["test", "sample", "example", "test-case"],
                 "lab": "Retriever Laboratory",
-                "related_publications": "A Brief History of Test Cases",
+                "related_publications": [
+                    "https://doi.org/10.48324/dandi.000027/0.210831.2033"
+                ],
                 "session_description": "Some test data",
                 "session_id": "XYZ789",
                 "session_start_time": "2020-08-31T15:58:28-04:00",
@@ -860,6 +862,7 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
         variableMeasured=[],
         measurementTechnique=[],
         approach=[],
+        relatedResource=[],
     )
 
 
@@ -939,4 +942,5 @@ def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
         variableMeasured=[],
         measurementTechnique=[],
         approach=[],
+        relatedResource=[],
     )
