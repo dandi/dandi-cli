@@ -1,3 +1,16 @@
+# 0.9.0 (Wed Mar 13 2024)
+
+#### 🚀 Enhancement
+
+- Include new token for PyPI push [#40](https://github.com/lincbrain/linc-cli/pull/40) (aaronkanzer@Aarons-MacBook-Pro.local [@aaronkanzer](https://github.com/aaronkanzer))
+
+#### Authors: 2
+
+- [@aaronkanzer](https://github.com/aaronkanzer)
+- Aaron Kanzer (aaronkanzer@Aarons-MacBook-Pro.local)
+
+---
+
 # 0.8.0 (Wed Mar 13 2024)
 
 #### 🚀 Enhancement
