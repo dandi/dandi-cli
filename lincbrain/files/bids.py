@@ -94,7 +94,9 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 )
                 # Don't apply eta-reduction to the lambda, as mypy needs to be
                 # assured that defaultdict's argument takes no parameters.
-                self._asset_metadata = defaultdict(lambda: BareAsset.unvalidated())
+                self._asset_metadata = defaultdict(
+                    lambda: BareAsset.model_construct()  # type: ignore[call-arg]
+                )
                 for result in results:
                     if result.id in BIDS_ASSET_ERRORS:
                         assert result.path
@@ -230,7 +232,10 @@ class NWBBIDSAsset(BIDSAsset, NWBAsset):
         bids_metadata = BIDSAsset.get_metadata(self, digest, ignore_errors)
         nwb_metadata = NWBAsset.get_metadata(self, digest, ignore_errors)
         return BareAsset(
-            **{**bids_metadata.dict(), **nwb_metadata.dict(exclude_none=True)}
+            **{
+                **bids_metadata.model_dump(),
+                **nwb_metadata.model_dump(exclude_none=True),
+            }
         )
 
 

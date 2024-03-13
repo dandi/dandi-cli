@@ -9,7 +9,7 @@ from .base import ChoiceList, IntColonInt, instance_option, map_to_click_excepti
 from ..dandiarchive import _dandi_url_parser, parse_dandi_url
 from ..dandiset import Dandiset
 from ..download import DownloadExisting, DownloadFormat, PathType
-from ..utils import get_instance
+from ..utils import get_instance, joinurl
 
 
 # The use of f-strings apparently makes this not a proper docstring, and so
@@ -131,9 +131,9 @@ def download(
                 pass
             else:
                 if instance.gui is not None:
-                    url = [f"{instance.gui}/#/dandiset/{dandiset_id}/draft"]
+                    url = [joinurl(instance.gui, f"/#/dandiset/{dandiset_id}/draft")]
                 else:
-                    url = [f"{instance.api}/dandisets/{dandiset_id}/"]
+                    url = [joinurl(instance.api, f"/dandisets/{dandiset_id}/")]
 
     return download.download(
         url,

@@ -96,8 +96,8 @@ def ls(
         all_fields = tuple(
             sorted(
                 set(common_fields)
-                | models.Dandiset.__fields__.keys()
-                | models.Asset.__fields__.keys()
+                | models.Dandiset.model_fields.keys()
+                | models.Asset.model_fields.keys()
             )
         )
     else:
@@ -345,7 +345,7 @@ def get_metadata_ls(
                             path,
                             schema_version=schema,
                             digest=Digest.dandi_etag(digest),
-                        ).json_dict()
+                        ).model_dump(mode="json", exclude_none=True)
                 else:
                     if path.endswith(tuple(ZARR_EXTENSIONS)):
                         if use_fake_digest:

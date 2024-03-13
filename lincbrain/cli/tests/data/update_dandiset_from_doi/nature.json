@@ -46,7 +46,7 @@
             "includeInCitation": true
         }
     ],
-    "dateCreated": "2023-04-25T16:28:31.601155+00:00",
+    "dateCreated": "2023-04-25T16:28:31.601155Z",
     "description": "<jats:title>Abstract</jats:title><jats:p>Spatial cognition depends on an accurate representation of orientation within an environment. Head direction cells in distributed brain regions receive a range of sensory inputs, but visual input is particularly important for aligning their responses to environmental landmarks. To investigate how population-level heading responses are aligned to visual input, we recorded from retrosplenial cortex (RSC) of head-fixed mice in a moving environment using two-photon calcium imaging. We show that RSC neurons are tuned to the animal\u2019s relative orientation in the environment, even in the absence of head movement. Next, we found that RSC receives functionally distinct projections from visual and thalamic areas and contains several functional classes of neurons. While some functional classes mirror RSC inputs, a newly discovered class coregisters visual and thalamic signals. Finally, decoding analyses reveal unique contributions to heading from each class. Our results suggest an RSC circuit for anchoring heading representations to environmental visual landmarks.</jats:p>",
     "assetsSummary": {
         "schemaKey": "AssetsSummary",

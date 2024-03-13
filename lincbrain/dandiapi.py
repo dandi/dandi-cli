@@ -13,14 +13,14 @@ from pathlib import Path, PurePosixPath
 import re
 from time import sleep, time
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, FrozenSet, List, Optional
-from urllib.parse import quote_plus, urlparse, urlunparse
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import click
 from dandischema import models
 from pydantic import BaseModel, Field, PrivateAttr
 import requests
 import tenacity
+from yarl import URL
 
 from . import get_logger
 from .consts import (
@@ -44,6 +44,7 @@ from .utils import (
     get_instance,
     is_interactive,
     is_page2_url,
+    joinurl,
 )
 
 if TYPE_CHECKING:
@@ -285,16 +286,12 @@ class RESTFullAPIClient:
     def get_url(self, path: str) -> str:
         """
         Append a slash-separated ``path`` to the instance's base URL.  The two
-        components are separated by a single slash, and any trailing slashes
-        are removed.
+        components are separated by a single slash, removing any excess slashes
+        that would be present after naïve concatenation.
 
         If ``path`` is already an absolute URL, it is returned unchanged.
         """
-        # Construct the url
-        if path.lower().startswith(("http://", "https://")):
-            return path
-        else:
-            return self.api_url.rstrip("/") + "/" + path.lstrip("/")
+        return joinurl(self.api_url, path)
 
     def get(self, path: str, **kwargs: Any) -> Any:
         """
@@ -557,19 +554,83 @@ class DandiAPIClient(RESTFullAPIClient):
                     return d.for_version(version_id)
             return d
 
-    def get_dandisets(self) -> Iterator[RemoteDandiset]:
+    def get_dandisets(
+        self,
+        *,
+        draft: bool | None = None,
+        embargoed: bool | None = None,
+        empty: bool | None = None,
+        mine: bool | None = None,
+        order: str | None = None,
+        search: str | None = None,
+    ) -> Iterator[RemoteDandiset]:
         """
         Returns a generator of all Dandisets on the server.  For each Dandiset,
         the `RemoteDandiset`'s version is set to the most recent published
         version if there is one, otherwise to the draft version.
+
+        .. versionchanged:: 0.61.0
+
+            ``draft``, ``embargoed``, ``empty``, ``mine``, ``order``, and
+            ``search`` parameters added
+
+        :param draft:
+            If true, Dandisets that have only draft versions (i.e., that
+            haven't yet been published) will be included in the results
+            (default true)
+
+        :param embargoed:
+            If true, embargoed Dandisets will be included in the results
+            (default false)
+
+        :param empty:
+            If true, empty Dandisets will be included in the results (default
+            true)
+
+        :param mine:
+            If true, only Dandisets owned by the authenticated user will be
+            retrieved (default false)
+
+        :param order:
+            The field to sort the results by.  The accepted field names are
+            ``"id"``, ``"name"``, ``"modified"``, and ``"size"``.  Prepend a
+            hyphen to the field name to reverse the sort order.
+
+        :param search:
+            A search string to filter the returned Dandisets by.  The string is
+            searched for in the metadata of Dandiset versions.
         """
-        for data in self.paginate("/dandisets/"):
+        for data in self.paginate(
+            "/dandisets/",
+            params={
+                "draft": draft,
+                "embargoed": embargoed,
+                "empty": empty,
+                "ordering": order,
+                "search": search,
+                "user": "me" if mine else None,
+            },
+        ):
             yield RemoteDandiset.from_data(self, data)
 
-    def create_dandiset(self, name: str, metadata: dict[str, Any]) -> RemoteDandiset:
-        """Creates a Dandiset with the given name & metadata"""
+    def create_dandiset(
+        self, name: str, metadata: dict[str, Any], *, embargo: bool = False
+    ) -> RemoteDandiset:
+        """
+        Creates a Dandiset with the given name & metadata.  If ``embargo`` is
+        `True`, the resulting Dandiset will be embargoed.
+
+        .. versionchanged:: 0.61.0
+
+            ``embargo`` argument added
+        """
         return RemoteDandiset.from_data(
-            self, self.post("/dandisets/", json={"name": name, "metadata": metadata})
+            self,
+            self.post(
+                "/dandisets/",
+                json={"name": name, "metadata": metadata},
+                params={"embargo": "true" if embargo else "false"},
+            ),
         )
 
     def check_schema_version(self, schema_version: str | None = None) -> None:
@@ -614,7 +675,8 @@ class DandiAPIClient(RESTFullAPIClient):
         return BaseRemoteAsset.from_base_data(self, info, metadata)
 
 
-class APIBase(BaseModel):
+# `arbitrary_types_allowed` is needed for `client: DandiAPIClient`
+class APIBase(BaseModel, populate_by_name=True, arbitrary_types_allowed=True):
     """
     Base class for API objects implemented in pydantic.
 
@@ -622,21 +684,12 @@ class APIBase(BaseModel):
     detail; do not rely on it.
     """
 
-    JSON_EXCLUDE: ClassVar[FrozenSet[str]] = frozenset(["client"])
-
     def json_dict(self) -> dict[str, Any]:
         """
         Convert to a JSONable `dict`, omitting the ``client`` attribute and
         using the same field names as in the API
         """
-        data = json.loads(self.json(exclude=self.JSON_EXCLUDE, by_alias=True))
-        assert isinstance(data, dict)
-        return data
-
-    class Config:
-        allow_population_by_field_name = True
-        # To allow `client: Session`:
-        arbitrary_types_allowed = True
+        return self.model_dump(mode="json", by_alias=True)
 
 
 class Version(APIBase):
@@ -710,7 +763,7 @@ class RemoteDandisetData(APIBase):
     modified: datetime
     contact_person: str
     embargo_status: EmbargoStatus
-    most_recent_published_version: Optional[Version]
+    most_recent_published_version: Optional[Version] = None
     draft_version: Version
 
 
@@ -752,7 +805,7 @@ class RemoteDandiset:
             self._version = version
         self._data: RemoteDandisetData | None
         if data is not None:
-            self._data = RemoteDandisetData.parse_obj(data)
+            self._data = RemoteDandisetData.model_validate(data)
         else:
             self._data = None
 
@@ -762,7 +815,7 @@ class RemoteDandiset:
     def _get_data(self) -> RemoteDandisetData:
         if self._data is None:
             try:
-                self._data = RemoteDandisetData.parse_obj(
+                self._data = RemoteDandisetData.model_validate(
                     self.client.get(f"/dandisets/{self.identifier}/")
                 )
             except HTTP404Error:
@@ -875,9 +928,9 @@ class RemoteDandiset:
         when acquiring data using means outside of this library.
         """
         if data.get("most_recent_published_version") is not None:
-            version = Version.parse_obj(data["most_recent_published_version"])
+            version = Version.model_validate(data["most_recent_published_version"])
         else:
-            version = Version.parse_obj(data["draft_version"])
+            version = Version.model_validate(data["draft_version"])
         return cls(
             client=client, identifier=data["identifier"], version=version, data=data
         )
@@ -917,7 +970,7 @@ class RemoteDandiset:
             for v in self.client.paginate(
                 f"{self.api_path}versions/", params={"order": order}
             ):
-                yield Version.parse_obj(v)
+                yield Version.model_validate(v)
         except HTTP404Error:
             raise NotFoundError(f"No such Dandiset: {self.identifier!r}")
 
@@ -932,7 +985,7 @@ class RemoteDandiset:
             `Version`.
         """
         try:
-            return VersionInfo.parse_obj(
+            return VersionInfo.model_validate(
                 self.client.get(
                     f"/dandisets/{self.identifier}/versions/{version_id}/info/"
                 )
@@ -978,7 +1031,7 @@ class RemoteDandiset:
             metadata.  Consider using `get_raw_metadata()` instead in order to
             fetch unstructured, possibly-invalid metadata.
         """
-        return models.Dandiset.parse_obj(self.get_raw_metadata())
+        return models.Dandiset.model_validate(self.get_raw_metadata())
 
     def get_raw_metadata(self) -> dict[str, Any]:
         """
@@ -996,7 +1049,7 @@ class RemoteDandiset:
         """
         Set the metadata for this version of the Dandiset to the given value
         """
-        self.set_raw_metadata(metadata.json_dict())
+        self.set_raw_metadata(metadata.model_dump(mode="json", exclude_none=True))
 
     def set_raw_metadata(self, metadata: dict[str, Any]) -> None:
         """
@@ -1049,7 +1102,7 @@ class RemoteDandiset:
         )
         start = time()
         while time() - start < max_time:
-            v = Version.parse_obj(self.client.get(f"{draft_api_path}info/"))
+            v = Version.model_validate(self.client.get(f"{draft_api_path}info/"))
             if v.status is VersionStatus.PUBLISHED:
                 break
             sleep(0.5)
@@ -1273,7 +1326,7 @@ class BaseRemoteAsset(ABC, APIBase):
 
     #: The `DandiAPIClient` instance that returned this `BaseRemoteAsset`
     #: and which the latter will use for API requests
-    client: DandiAPIClient
+    client: DandiAPIClient = Field(exclude=True)
     #: The asset identifier
     identifier: str = Field(alias="asset_id")
     #: The asset's (forward-slash-separated) path
@@ -1293,6 +1346,15 @@ class BaseRemoteAsset(ABC, APIBase):
         # Pydantic insists on not initializing any attributes that start with
         # underscores, so we have to do it ourselves.
         self._metadata = data.get("metadata", data.get("_metadata"))
+
+    def __eq__(self, other: Any) -> bool:
+        if type(self) is type(other):
+            # dict() includes fields with `exclude=True` (which are absent from
+            # the return value of `model_dump()`) but not private fields.  We
+            # want to compare the former but not the latter.
+            return dict(self) == dict(other)
+        else:
+            return NotImplemented
 
     def __str__(self) -> str:
         return f"{self.client._instance_id}:assets/{self.identifier}"
@@ -1360,7 +1422,7 @@ class BaseRemoteAsset(ABC, APIBase):
             valid metadata.  Consider using `get_raw_metadata()` instead in
             order to fetch unstructured, possibly-invalid metadata.
         """
-        return models.Asset.parse_obj(self.get_raw_metadata())
+        return models.Asset.model_validate(self.get_raw_metadata())
 
     def get_raw_metadata(self) -> dict[str, Any]:
         """Fetch the metadata for the asset as an unprocessed `dict`"""
@@ -1459,7 +1521,7 @@ class BaseRemoteAsset(ABC, APIBase):
             else:
                 raise  # reraise since we need to figure out how to handle such a case
         if strip_query:
-            url = urlunparse(urlparse(url)._replace(query=""))
+            url = str(URL(url).with_query(None))
         return url
 
     def get_download_file_iter(
@@ -1610,7 +1672,7 @@ class BaseRemoteZarrAsset(BaseRemoteAsset):
         for r in self.client.paginate(
             f"{self.client.api_url}/zarr/{self.zarr}/files", params={"prefix": prefix}
         ):
-            data = ZarrEntryServerData.parse_obj(r)
+            data = ZarrEntryServerData.model_validate(r)
             yield RemoteZarrEntry.from_server_data(self, data)
 
     def get_entry_by_path(self, path: str) -> RemoteZarrEntry:
@@ -1667,13 +1729,12 @@ class RemoteAsset(BaseRemoteAsset):
     `RemoteDandiset`.
     """
 
-    JSON_EXCLUDE = frozenset(["client", "dandiset_id", "version_id"])
-
     #: The identifier for the Dandiset to which the asset belongs
-    dandiset_id: str
+    dandiset_id: str = Field(exclude=True)
+
     #: The identifier for the version of the Dandiset to which the asset
     #: belongs
-    version_id: str
+    version_id: str = Field(exclude=True)
 
     @classmethod
     def from_data(
@@ -1739,7 +1800,9 @@ class RemoteAsset(BaseRemoteAsset):
         Set the metadata for the asset to the given value and update the
         `RemoteAsset` in place.
         """
-        return self.set_raw_metadata(metadata.json_dict())
+        return self.set_raw_metadata(
+            metadata.model_dump(mode="json", exclude_none=True)
+        )
 
     @abstractmethod
     def set_raw_metadata(self, metadata: dict[str, Any]) -> None:
@@ -1908,9 +1971,10 @@ class RemoteZarrEntry:
         Returns a function that when called (optionally with an offset into the
         file to start downloading at) returns a generator of chunks of the file
         """
-        prefix = quote_plus(str(self))
-        url = self.client.get_url(
-            f"/zarr/{self.zarr_id}/files?prefix={prefix}&download=true"
+        url = str(
+            URL(self.client.get_url(f"/zarr/{self.zarr_id}/files/")).with_query(
+                {"prefix": str(self), "download": "true"}
+            )
         )
 
         def downloader(start_at: int = 0) -> Iterator[bytes]:

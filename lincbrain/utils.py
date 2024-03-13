@@ -23,13 +23,14 @@ from time import sleep
 import traceback
 import types
 from typing import IO, Any, List, Optional, Protocol, TypeVar, Union
-from urllib.parse import parse_qs, urlparse, urlunparse
 
 import dateutil.parser
-from pydantic import AnyHttpUrl, BaseModel, Field
+from multidict import MultiDict  # dependency of yarl
+from pydantic import BaseModel, Field
 import requests
 import ruamel.yaml
 from semantic_version import Version
+from yarl import URL
 
 from . import __version__, get_logger
 from .consts import DandiInstance, known_instances, known_instances_rev
@@ -531,7 +532,9 @@ def delayed(*args, **kwargs):
 
 
 class ServiceURL(BaseModel):
-    url: AnyHttpUrl
+    # Don't use pydantic.AnyHttpUrl, as that adds a trailing slash, and so URLs
+    # retrieved for known instances won't match the known values
+    url: str
 
 
 class ServerServices(BaseModel):
@@ -557,16 +560,17 @@ def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
         instance = dandi_instance_id
         dandi_id = instance.name
     elif dandi_instance_id.lower().startswith(("http://", "https://")):
-        redirector_url = dandi_instance_id
-        dandi_id = known_instances_rev.get(redirector_url.rstrip("/"))
+        redirector_url = dandi_instance_id.rstrip("/")
+        dandi_id = known_instances_rev.get(redirector_url)
         if dandi_id is not None:
             instance = known_instances[dandi_id]
-            is_api = instance.api.rstrip("/") == redirector_url.rstrip("/")
+            is_api = instance.api.rstrip("/") == redirector_url
         else:
             instance = None
             is_api = False
-            bits = urlparse(redirector_url)
-            redirector_url = urlunparse((bits[0], bits[1], "", "", "", ""))
+            redirector_url = str(
+                URL(redirector_url).with_path("").with_query(None).with_fragment(None)
+            )
     else:
         dandi_id = dandi_instance_id
         instance = known_instances[dandi_id]
@@ -574,7 +578,7 @@ def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
         assert instance is not None
         return _get_instance(instance.api.rstrip("/"), True, instance, dandi_id)
     else:
-        return _get_instance(redirector_url.rstrip("/"), is_api, instance, dandi_id)
+        return _get_instance(redirector_url, is_api, instance, dandi_id)
 
 
 @lru_cache
@@ -583,13 +587,13 @@ def _get_instance(
 ) -> DandiInstance:
     try:
         if is_api:
-            r = requests.get(f"{url}/info/")
+            r = requests.get(joinurl(url, "/info/"))
         else:
-            r = requests.get(f"{url}/server-info")
+            r = requests.get(joinurl(url, "/server-info"))
             if r.status_code == 404:
-                r = requests.get(f"{url}/api/info/")
+                r = requests.get(joinurl(url, "/api/info/"))
         r.raise_for_status()
-        server_info = ServerInfo.parse_obj(r.json())
+        server_info = ServerInfo.model_validate(r.json())
     except Exception as e:
         lgr.warning("Request to %s failed (%s)", url, str(e))
         if instance is not None:
@@ -615,18 +619,25 @@ def _get_instance(
         raise BadCliVersionError(our_version, minversion, bad_versions)
     api_url = server_info.services.api.url
     if dandi_id is None:
-        dandi_id = api_url.host
-        assert dandi_id is not None
-        if api_url.port is not None:
-            if ":" in dandi_id:
-                dandi_id = f"[{dandi_id}]"
-            dandi_id += f":{api_url.port}"
+        # Don't use pydantic.AnyHttpUrl, as that sets the `port` attribute even
+        # if it's not present in the string.
+        u = URL(api_url)
+        if u.host is not None:
+            dandi_id = u.host
+            if (port := u.explicit_port) is not None:
+                if ":" in dandi_id:
+                    dandi_id = f"[{dandi_id}]"
+                dandi_id += f":{port}"
+        else:
+            dandi_id = api_url
     return DandiInstance(
         name=dandi_id,
-        gui=str(server_info.services.webui.url)
-        if server_info.services.webui is not None
-        else None,
-        api=str(api_url),
+        gui=(
+            server_info.services.webui.url
+            if server_info.services.webui is not None
+            else None
+        ),
+        api=api_url,
     )
 
 
@@ -781,12 +792,14 @@ def is_page2_url(page1: str, page2: str) -> bool:
     Tests whether the URL ``page2`` is the same as ``page1`` but with the
     ``page`` query parameter set to ``2``
     """
-    bits1 = urlparse(page1)
-    params1 = parse_qs(bits1.query)
-    params1["page"] = ["2"]
-    bits2 = urlparse(page2)
-    params2 = parse_qs(bits2.query)
-    return (bits1[:3], params1, bits1.fragment) == (bits2[:3], params2, bits2.fragment)
+    url1 = URL(page1)
+    params1 = MultiDict(url1.query)
+    params1["page"] = "2"
+    url1 = url1.with_query(None)
+    url2 = URL(page2)
+    params2 = url2.query
+    url2 = url2.with_query(None)
+    return (url1, sorted(params1.items())) == (url2, sorted(params2.items()))
 
 
 def exclude_from_zarr(path: Path) -> bool:
@@ -860,3 +873,20 @@ def post_upload_size_check(path: Path, pre_check_size: int, erroring: bool) -> N
             lgr.error(msg)
         else:
             raise RuntimeError(msg)
+
+
+def joinurl(base: str, path: str) -> str:
+    """
+    Append a slash-separated ``path`` to a base HTTP(S) URL ``base``.  The two
+    components are separated by a single slash, removing any excess slashes
+    that would be present after naïve concatenation.
+
+    If ``path`` is already an absolute HTTP(S) URL, it is returned unchanged.
+
+    Note that this function differs from `urllib.parse.urljoin()` when the path
+    portion of ``base`` is nonempty and does not end in a slash.
+    """
+    if path.lower().startswith(("http://", "https://")):
+        return path
+    else:
+        return base.rstrip("/") + "/" + path.lstrip("/")

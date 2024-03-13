@@ -6,6 +6,7 @@ from operator import attrgetter
 from pathlib import Path
 
 import click
+from yarl import URL
 
 from .consts import DRAFT, ZARR_EXTENSIONS, DandiInstance, dandiset_metadata_file
 from .dandiapi import DandiAPIClient, RemoteAsset, RemoteDandiset
@@ -246,5 +247,8 @@ def find_local_asset(filepath: str) -> tuple[str, str]:
 
 
 def is_same_url(url1: str, url2: str) -> bool:
-    # TODO: Use a real URL library like furl, purl, or yarl
-    return url1.rstrip("/") == url2.rstrip("/")
+    u1 = URL(url1)
+    u1 = u1.with_path(u1.path.rstrip("/"))
+    u2 = URL(url2)
+    u2 = u2.with_path(u2.path.rstrip("/"))
+    return u1 == u2
