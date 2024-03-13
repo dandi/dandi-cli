@@ -1,3 +1,16 @@
+# 0.8.0 (Wed Mar 13 2024)
+
+#### 🚀 Enhancement
+
+- Refresh permissions on pypi [#39](https://github.com/lincbrain/linc-cli/pull/39) (aaronkanzer@Aarons-MacBook-Pro.local [@aaronkanzer](https://github.com/aaronkanzer))
+
+#### Authors: 2
+
+- [@aaronkanzer](https://github.com/aaronkanzer)
+- Aaron Kanzer (aaronkanzer@Aarons-MacBook-Pro.local)
+
+---
+
 # 0.7.0 (Wed Mar 13 2024)
 
 #### 🚀 Enhancement
