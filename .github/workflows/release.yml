@@ -39,7 +39,7 @@ jobs:
         run: ~/auto shipit -vv
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+          TWINE_USERNAME: linc-
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN_NEW }}
 
 # vim:set sts=2:
