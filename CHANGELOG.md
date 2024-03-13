@@ -1,3 +1,37 @@
+# 0.7.0 (Wed Mar 13 2024)
+
+#### 🚀 Enhancement
+
+- Trivial change to bump linc-cli to include pydantic 2 updates [#38](https://github.com/lincbrain/linc-cli/pull/38) (aaronkanzer@Aarons-MacBook-Pro.local [@aaronkanzer](https://github.com/aaronkanzer))
+
+#### ⚠️ Pushed to `master`
+
+- Merge upstream changes from dandi-cli for pydantic 2.0 (aaronkanzer@Aarons-MacBook-Pro.local)
+- Add tests for `is_same_url()` ([@jwodder](https://github.com/jwodder))
+- [DATALAD RUNCMD] Rename SPECIES_URI_TEMPLATE into NCBITAXON_URI_TEMPLATE ([@yarikoptic](https://github.com/yarikoptic))
+- Clean up URL parsing in `extract_species()` ([@jwodder](https://github.com/jwodder))
+- Use yarl in `is_same_url()` ([@jwodder](https://github.com/jwodder))
+- Replace most uses of urllib with yarl ([@jwodder](https://github.com/jwodder))
+- Add tests ([@jwodder](https://github.com/jwodder))
+- Add `embargo` option to `create_dandiset()` ([@jwodder](https://github.com/jwodder))
+- Add arguments for API query parameters when fetching all Dandisets ([@jwodder](https://github.com/jwodder))
+- Report progress in deleting Zarr entries during upload ([@jwodder](https://github.com/jwodder))
+- upload: Rename "upload" pyout column to "progress" ([@jwodder](https://github.com/jwodder))
+- Adjust joinurl() docs ([@jwodder](https://github.com/jwodder))
+- Accept both dandischema 0.9.x and 0.10.x ([@jwodder](https://github.com/jwodder))
+- Update for Pydantic v2 ([@jwodder](https://github.com/jwodder))
+- Update pydantic requirement to ~= 2.0 ([@jwodder](https://github.com/jwodder))
+- Use dandischema 0.9 ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 4
+
+- [@aaronkanzer](https://github.com/aaronkanzer)
+- Aaron Kanzer (aaronkanzer@Aarons-MacBook-Pro.local)
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.6.1 (Wed Feb 14 2024)
 
 #### 🐛 Bug Fix
