@@ -21,6 +21,7 @@ import functools
 
 
 
+
 def get_keywords() -> Dict[str, str]:
     """Get the keywords needed to look up the version information."""
     # these strings will be replaced by git during git-archive.
