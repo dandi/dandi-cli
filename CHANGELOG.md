@@ -1,3 +1,28 @@
+# 0.61.0 (Tue Mar 19 2024)
+
+#### 🚀 Enhancement
+
+- Add arguments for API query parameters when fetching all Dandisets; support creating embargoed Dandisets [#1414](https://github.com/dandi/dandi-cli/pull/1414) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Do not allow dandischema 0.10.1 - new schema not yet supported by dandi-archive [#1419](https://github.com/dandi/dandi-cli/pull/1419) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Clean up URL parsing in `extract_species()` [#1416](https://github.com/dandi/dandi-cli/pull/1416) ([@jwodder](https://github.com/jwodder) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🔩 Dependency Updates
+
+- Use `yarl` to clean up some code [#1415](https://github.com/dandi/dandi-cli/pull/1415) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.60.0 (Thu Feb 29 2024)
 
 #### 🚀 Enhancement
