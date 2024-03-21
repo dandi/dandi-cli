@@ -1,3 +1,15 @@
+# 0.61.1 (Thu Mar 21 2024)
+
+#### 🐛 Bug Fix
+
+- Revert "Do not allow dandischema 0.10.1 - new schema not yet supporteed by dandi-archive" [#1420](https://github.com/dandi/dandi-cli/pull/1420) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.61.0 (Tue Mar 19 2024)
 
 #### 🚀 Enhancement
