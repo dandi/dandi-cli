@@ -89,6 +89,10 @@ jobs:
         echo HOME=/tmp/nfsmount/home >> "$GITHUB_ENV"
         echo DANDI_DEVEL_INSTRUMENT_REQUESTS_SUPERLEN=1 >> "$GITHUB_ENV"
 
+    - name: Use scheduled test configuration
+      if: github.event_name == 'schedule'
+      run: echo PYTEST_ADDOPTS=--schedule >> "$GITHUB_ENV"
+
     - name: Run all tests
       if: matrix.mode != 'dandi-api'
       run: |

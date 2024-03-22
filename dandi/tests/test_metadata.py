@@ -29,6 +29,7 @@ from dandischema.models import Dandiset as DandisetMeta
 from dateutil.tz import tzutc
 from pydantic import ByteSize
 import pytest
+import requests
 from semantic_version import Version
 
 from .fixtures import SampleDandiset
@@ -234,6 +235,12 @@ def test_timedelta2duration(td: timedelta, duration: str) -> None:
     assert timedelta2duration(td) == duration
 
 
+@pytest.mark.xfail(
+    condition="not config.getoption('--scheduled')",
+    reason="Flaky ontobee site",
+    strict=False,
+    raises=requests.RequestException,
+)
 @mark.skipif_no_network
 @pytest.mark.parametrize(
     "filename, metadata",
@@ -459,6 +466,12 @@ def test_time_extract_gest() -> None:
     )
 
 
+@pytest.mark.xfail(
+    condition="not config.getoption('--scheduled')",
+    reason="Flaky ontobee site",
+    strict=False,
+    raises=requests.RequestException,
+)
 @mark.skipif_no_network
 @pytest.mark.obolibrary
 @pytest.mark.parametrize(
@@ -489,6 +502,12 @@ def test_parseobourl(url, value):
     assert parse_purlobourl(url) == value
 
 
+@pytest.mark.xfail(
+    condition="not config.getoption('--scheduled')",
+    reason="Flaky ontobee site",
+    strict=False,
+    raises=requests.RequestException,
+)
 @pytest.mark.obolibrary
 @mark.skipif_no_network
 def test_species():
