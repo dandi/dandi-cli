@@ -407,6 +407,19 @@ def docker_compose_setup() -> Iterator[dict[str, str]]:
                     "docker-compose",
                     "run",
                     "--rm",
+                    "django",
+                    "./manage.py",
+                    "createcachetable",
+                ],
+                cwd=str(LOCAL_DOCKER_DIR),
+                env=env,
+                check=True,
+            )
+            run(
+                [
+                    "docker-compose",
+                    "run",
+                    "--rm",
                     "-e",
                     "DJANGO_SUPERUSER_PASSWORD=nsNc48DBiS",
                     "django",
