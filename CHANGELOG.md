@@ -1,3 +1,15 @@
+# 0.61.2 (Fri Mar 22 2024)
+
+#### 🧪 Tests
+
+- Add missing command to `dandi-archive` docker compose fixture [#1421](https://github.com/dandi/dandi-cli/pull/1421) ([@mvandenburgh](https://github.com/mvandenburgh))
+
+#### Authors: 1
+
+- Mike VanDenburgh ([@mvandenburgh](https://github.com/mvandenburgh))
+
+---
+
 # 0.61.1 (Thu Mar 21 2024)
 
 #### 🐛 Bug Fix
