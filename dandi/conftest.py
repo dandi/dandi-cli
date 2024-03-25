@@ -12,6 +12,12 @@ def pytest_addoption(parser: Parser) -> None:
         default=False,
         help="Only run tests of the new Django Dandi API",
     )
+    parser.addoption(
+        "--scheduled",
+        action="store_true",
+        default=False,
+        help="Use configuration for a scheduled daily test run",
+    )
 
 
 def pytest_collection_modifyitems(items: list[Item], config: Config) -> None:
