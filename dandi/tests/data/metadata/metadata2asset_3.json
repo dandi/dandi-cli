@@ -92,5 +92,12 @@
         "name": "Cyperus bulbosus"
       }
     }
+  ],
+  "relatedResource": [
+    {
+      "schemaKey": "Resource",
+      "identifier": "https://doi.org/10.48324/dandi.000027/0.210831.2033",
+      "relation": "dcite:IsDescribedBy"
+    }
   ]
 }

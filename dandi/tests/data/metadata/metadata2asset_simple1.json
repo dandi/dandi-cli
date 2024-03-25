@@ -42,5 +42,6 @@
       "schemaKey": "Participant",
       "identifier": "sub-01"
     }
-  ]
+  ],
+  "relatedResource": []
 }
