@@ -815,9 +815,6 @@ def move(
             if isinstance(dandiset, str):
                 raise TypeError("`dandiset` must be a Path when work_on='both'")
             local_ds, subpath = find_dandiset_and_subpath(dandiset)
-            # client = DandiAPIClient.for_dandi_instance(dandi_instance, authenticate=True)
-            # client.dandi_authenticate()
-            # stack.enter_context(client)
             remote_ds = client.get_dandiset(
                 local_ds.identifier, version_id="draft", lazy=False
             )
@@ -846,9 +843,6 @@ def move(
                 subpath = Path()
             else:
                 local_ds, subpath = find_dandiset_and_subpath(dandiset)
-                # client = DandiAPIClient.for_dandi_instance(dandi_instance, authenticate=True)
-                # client.dandi_authenticate()
-                # stack.enter_context(client)
                 remote_ds = client.get_dandiset(
                     local_ds.identifier, version_id="draft", lazy=False
                 )
@@ -873,8 +867,8 @@ def move(
         if not plan:
             lgr.info("Nothing to move")
             return
-        # if not dry_run and client is not None:
-        #     client.dandi_authenticate()
+        if not dry_run and client is not None:
+            client.dandi_authenticate()
         if devel_debug:
             for gen in mover.process_moves_debug(plan, dry_run):
                 for r in gen:
