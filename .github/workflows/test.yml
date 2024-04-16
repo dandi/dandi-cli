@@ -91,7 +91,7 @@ jobs:
 
     - name: Use scheduled test configuration
       if: github.event_name == 'schedule'
-      run: echo PYTEST_ADDOPTS=--schedule >> "$GITHUB_ENV"
+      run: echo PYTEST_ADDOPTS=--scheduled >> "$GITHUB_ENV"
 
     - name: Run all tests
       if: matrix.mode != 'dandi-api'
