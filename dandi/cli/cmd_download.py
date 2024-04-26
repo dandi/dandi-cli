@@ -19,6 +19,8 @@ from ..utils import get_instance, joinurl
 Download files or entire folders from DANDI.
 
 \b
+{_dandi_url_parser.resource_identifier_primer}
+\b
 {_dandi_url_parser.known_patterns}
     """
 )
