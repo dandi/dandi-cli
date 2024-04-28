@@ -24,6 +24,9 @@ dandi download --download assets DANDI:000027
 
 # Download all from a specific version \n
 dandi download DANDI:000027/0.210831.2033
+
+# Download a specific file or directory \n
+dandi download dandi://DANDI/000027@0.210831.2033/sub-RAT123/sub-RAT123.nwb
 """
 
 
