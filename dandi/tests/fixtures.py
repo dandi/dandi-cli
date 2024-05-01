@@ -548,6 +548,7 @@ class SampleDandisetFactory:
                     {
                         "schemaKey": "Person",
                         "name": "Tests, Dandi-Cli",
+                        "email": "nemo@example.com",
                         "roleName": ["dcite:Author", "dcite:ContactPerson"],
                     }
                 ],
