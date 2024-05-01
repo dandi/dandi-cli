@@ -11,6 +11,27 @@ from ..dandiset import Dandiset
 from ..download import DownloadExisting, DownloadFormat, PathType
 from ..utils import get_instance, joinurl
 
+_examples = """
+EXAMPLES:\n
+# Download only the dandiset.yaml\n
+dandi download --download dandiset.yaml DANDI:000027\n
+
+# Download only dandiset.yaml if there is a newer version\n
+dandi download https://identifiers.org/DANDI:000027 --existing refresh
+
+# Download only the assets\n
+dandi download --download assets DANDI:000027
+
+# Download all from a specific version\n
+dandi download DANDI:000027/0.210831.2033
+
+# Download a specific directory\n
+dandi download dandi://DANDI/000027@0.210831.2033/sub-RAT123/
+
+# Download a specific file\n
+dandi download dandi://DANDI/000027@0.210831.2033/sub-RAT123/sub-RAT123.nwb
+"""
+
 
 # The use of f-strings apparently makes this not a proper docstring, and so
 # click doesn't use it unless we explicitly assign it to `help`:
@@ -19,8 +40,15 @@ from ..utils import get_instance, joinurl
 Download files or entire folders from DANDI.
 
 \b
+{_dandi_url_parser.resource_identifier_primer}
+
+\b
 {_dandi_url_parser.known_patterns}
-    """
+
+\b
+{_examples}
+
+"""
 )
 @click.option(
     "-o",

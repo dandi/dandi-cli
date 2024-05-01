@@ -27,6 +27,8 @@ The arguments may be either resource identifiers or paths to local
 files/directories.
 
 \b
+{_dandi_url_parser.resource_identifier_primer}
+\b
 {_dandi_url_parser.known_patterns}
 """
 )
