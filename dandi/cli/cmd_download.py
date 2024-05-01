@@ -12,20 +12,23 @@ from ..download import DownloadExisting, DownloadFormat, PathType
 from ..utils import get_instance, joinurl
 
 _examples = """
-EXAMPLES: \n
-# Download only the dandiset.yaml \n
-dandi download --download dandiset.yaml DANDI:000027 \n
+EXAMPLES:\n
+# Download only the dandiset.yaml\n
+dandi download --download dandiset.yaml DANDI:000027\n
 
-# Download only dandiset.yaml if there is a newer version \n
+# Download only dandiset.yaml if there is a newer version\n
 dandi download https://identifiers.org/DANDI:000027 --existing refresh
 
-# Download only the assets \n
+# Download only the assets\n
 dandi download --download assets DANDI:000027
 
-# Download all from a specific version \n
+# Download all from a specific version\n
 dandi download DANDI:000027/0.210831.2033
 
-# Download a specific file or directory \n
+# Download a specific directory\n
+dandi download dandi://DANDI/000027@0.210831.2033/sub-RAT123/
+
+# Download a specific file\n
 dandi download dandi://DANDI/000027@0.210831.2033/sub-RAT123/sub-RAT123.nwb
 """
 
