@@ -1,3 +1,30 @@
+# 0.62.0 (Fri May 03 2024)
+
+#### 🚀 Enhancement
+
+- Convert DOI URLs in `related_publications` to related resources [#1417](https://github.com/dandi/dandi-cli/pull/1417) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Adjust tests for the added email requirement for contact person [#1438](https://github.com/dandi/dandi-cli/pull/1438) ([@candleindark](https://github.com/candleindark) [@yarikoptic](https://github.com/yarikoptic))
+- Add DJANGO_DANDI_DEV_EMAIL env var to archive tests [#1436](https://github.com/dandi/dandi-cli/pull/1436) ([@jjnesbitt](https://github.com/jjnesbitt))
+- clarify resource identifier docs [#1437](https://github.com/dandi/dandi-cli/pull/1437) ([@asmacdo](https://github.com/asmacdo))
+
+#### 🧪 Tests
+
+- Fix spelling of `--scheduled` option used in scheduled tests [#1428](https://github.com/dandi/dandi-cli/pull/1428) ([@jwodder](https://github.com/jwodder))
+- Xfail flaky ontobee tests, unless running daily tests [#1423](https://github.com/dandi/dandi-cli/pull/1423) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 5
+
+- Austin Macdonald ([@asmacdo](https://github.com/asmacdo))
+- Isaac To ([@candleindark](https://github.com/candleindark))
+- Jacob Nesbitt ([@jjnesbitt](https://github.com/jjnesbitt))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.61.2 (Fri Mar 22 2024)
 
 #### 🧪 Tests
