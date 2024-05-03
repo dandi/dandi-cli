@@ -2141,7 +2141,7 @@
 - Fixes [#330](https://github.com/dandi/dandi-cli/pull/330) ([@jwodder](https://github.com/jwodder))
 - Rename DANDI_API_KEY to DANDI_GIRDER_API_KEY [#330](https://github.com/dandi/dandi-cli/pull/330) ([@jwodder](https://github.com/jwodder))
 - Test of uploading & downloading via new API [#330](https://github.com/dandi/dandi-cli/pull/330) ([@jwodder](https://github.com/jwodder))
-- RF+ENH: support mapping for direct API urls, and use netflify insstance instead of api+ prefix [#330](https://github.com/dandi/dandi-cli/pull/330) ([@yarikoptic](https://github.com/yarikoptic))
+- RF+ENH: support mapping for direct API urls, and use netlify instance instead of api+ prefix [#330](https://github.com/dandi/dandi-cli/pull/330) ([@yarikoptic](https://github.com/yarikoptic))
 - Delint [#330](https://github.com/dandi/dandi-cli/pull/330) ([@jwodder](https://github.com/jwodder))
 - RF: account for web UI URL changes/dropped features, remove support for girder URLs [#330](https://github.com/dandi/dandi-cli/pull/330) ([@yarikoptic](https://github.com/yarikoptic))
 - Handle uploading already-extant assets [#330](https://github.com/dandi/dandi-cli/pull/330) ([@jwodder](https://github.com/jwodder))

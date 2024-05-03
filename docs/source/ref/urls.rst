@@ -22,7 +22,7 @@ has one, and its draft version will be used otherwise.
   `parse_dandi_url()` converts this format to a `DandisetURL`.
 
 - Any ``https://gui.dandiarchive.org/`` or
-  ``https://*dandiarchive-org.netflify.app/`` URL which redirects to
+  ``https://*dandiarchive-org.netlify.app/`` URL which redirects to
   one of the other URL formats
 
 - :samp:`https://{server}[/api]/[#/]dandiset/{dandiset-id}[/{version}][/files]`
