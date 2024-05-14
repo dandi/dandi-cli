@@ -878,33 +878,40 @@ def _download_zarr(
     # Avoid heavy import by importing within function:
     from .support.digests import get_zarr_checksum
 
-    download_gens = {}
-    entries = list(asset.iterfiles())
+    # we will collect them all while starting the download
+    # with the first page of entries received from the server.
+    entries = []
     digests = {}
+    pc = ProgressCombiner(zarr_size=asset.size)
 
     def digest_callback(path: str, algoname: str, d: str) -> None:
         if algoname == "md5":
             digests[path] = d
 
-    for entry in entries:
-        etag = entry.digest
-        assert etag.algorithm is DigestType.md5
-        download_gens[str(entry)] = _download_file(
-            entry.get_download_file_iter(),
-            download_path / str(entry),
-            toplevel_path=toplevel_path,
-            size=entry.size,
-            mtime=entry.modified,
-            existing=existing,
-            digests={"md5": etag.value},
-            lock=lock,
-            digest_callback=partial(digest_callback, str(entry)),
-        )
+    def downloads_gen():
+        for entry in asset.iterfiles():
+            entries.append(entry)
+            etag = entry.digest
+            assert etag.algorithm is DigestType.md5
+            yield pairing(
+                str(entry),
+                _download_file(
+                    entry.get_download_file_iter(),
+                    download_path / str(entry),
+                    toplevel_path=toplevel_path,
+                    size=entry.size,
+                    mtime=entry.modified,
+                    existing=existing,
+                    digests={"md5": etag.value},
+                    lock=lock,
+                    digest_callback=partial(digest_callback, str(entry)),
+                ),
+            )
+        pc.file_qty = len(entries)
 
-    pc = ProgressCombiner(zarr_size=asset.size, file_qty=len(download_gens))
     final_out: dict | None = None
     with interleave(
-        [pairing(p, gen) for p, gen in download_gens.items()],
+        downloads_gen(),
         onerror=FINISH_CURRENT,
         max_workers=jobs or 4,
     ) as it:
@@ -988,7 +995,7 @@ class DownloadProgress:
 @dataclass
 class ProgressCombiner:
     zarr_size: int
-    file_qty: int
+    file_qty: int = -1  # set to specific known value whenever full sweep is complete
     files: dict[str, DownloadProgress] = field(default_factory=dict)
     #: Total size of all files that were not skipped and did not error out
     #: during download
@@ -1032,7 +1039,8 @@ class ProgressCombiner:
         state_qtys = Counter(s.state for s in self.files.values())
         total = len(self.files)
         if (
-            total == self.file_qty
+            self.file_qty >= 0  # if already known
+            and total == self.file_qty
             and state_qtys[DLState.STARTING] == state_qtys[DLState.DOWNLOADING] == 0
         ):
             # All files have finished
