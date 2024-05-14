@@ -1038,7 +1038,7 @@ class ProgressCombiner:
         )
         return {
             "done": total_downloaded,
-            "done%": total_downloaded / self.zarr_size * 100,
+            "done%": total_downloaded / self.zarr_size * 100 if self.zarr_size else 0,
         }
 
     def set_status(self, statusdict: dict) -> None:
@@ -1082,7 +1082,8 @@ class ProgressCombiner:
                 self.maxsize += size
             self.set_status(out)
             yield out
-            yield self.get_done()
+            if self.zarr_size:
+                yield self.get_done()
         elif keys == ["size"]:
             self.files[path].size = size
             self.maxsize += status["size"]
