@@ -482,7 +482,7 @@ class PYOUTHelper:
 
 
 def _skip_file(msg: Any, **kwargs: Any) -> dict:
-    return dict(**kwargs, status="skipped", message=str(msg))
+    return {"status": "skipped", "message": str(msg), **kwargs}
 
 
 def _populate_dandiset_yaml(
@@ -995,7 +995,7 @@ class DownloadProgress:
 @dataclass
 class ProgressCombiner:
     zarr_size: int
-    file_qty: int = -1  # set to specific known value whenever full sweep is complete
+    file_qty: int | None = None  # set to specific known value whenever full sweep is complete
     files: dict[str, DownloadProgress] = field(default_factory=dict)
     #: Total size of all files that were not skipped and did not error out
     #: during download
@@ -1045,7 +1045,7 @@ class ProgressCombiner:
         state_qtys = Counter(s.state for s in self.files.values())
         total = len(self.files)
         if (
-            self.file_qty >= 0  # if already known
+            self.file_qty is not None  # if already known
             and total == self.file_qty
             and state_qtys[DLState.STARTING] == state_qtys[DLState.DOWNLOADING] == 0
         ):
