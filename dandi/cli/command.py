@@ -99,7 +99,7 @@ def main(ctx, log_level, pdb=False):
 
     logdir = platformdirs.user_log_dir("dandi-cli", "dandi")
     logfile = os.path.join(
-        logdir, f"{datetime.now(timezone.utc):%Y.%m.%d.%H.%M.%SZ}-{os.getpid()}.log"
+        logdir, f"{datetime.now(timezone.utc):%Y.%m.%d-%H.%M.%SZ}-{os.getpid()}.log"
     )
     os.makedirs(logdir, exist_ok=True)
     handler = logging.FileHandler(logfile, encoding="utf-8")
