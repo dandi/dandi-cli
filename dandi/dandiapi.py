@@ -233,6 +233,8 @@ class RESTFullAPIClient:
                                 url,
                                 result.text,
                             )
+                            if data is not None and hasattr(data, "seek"):
+                                data.seek(0)
                         result.raise_for_status()
         except Exception as e:
             if isinstance(e, requests.HTTPError):
