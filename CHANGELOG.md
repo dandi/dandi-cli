@@ -1,3 +1,27 @@
+# 0.62.1 (Thu May 23 2024)
+
+#### 🐛 Bug Fix
+
+- Rewind filehandle request bodies before retrying requests [#1444](https://github.com/dandi/dandi-cli/pull/1444) ([@jwodder](https://github.com/jwodder))
+- Slight tune up to formatting of examples etc to harmonize appearance/make shorter [#1439](https://github.com/dandi/dandi-cli/pull/1439) ([@yarikoptic](https://github.com/yarikoptic))
+- Fix spelling of netlify and insstance [#1433](https://github.com/dandi/dandi-cli/pull/1433) ([@rly](https://github.com/rly) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- ENH: add/use codespell-project/codespell-problem-matcher to annotate PRs on where typos added [#1429](https://github.com/dandi/dandi-cli/pull/1429) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- ENH: add timeout of 300 (5 minutes) to any test running [#1440](https://github.com/dandi/dandi-cli/pull/1440) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 3
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Ryan Ly ([@rly](https://github.com/rly))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.62.0 (Fri May 03 2024)
 
 #### 🚀 Enhancement
