@@ -481,8 +481,8 @@ class PYOUTHelper:
         return v
 
 
-def _skip_file(msg: Any) -> dict:
-    return {"status": "skipped", "message": str(msg)}
+def _skip_file(msg: Any, **kwargs: Any) -> dict:
+    return {"status": "skipped", "message": str(msg), **kwargs}
 
 
 def _populate_dandiset_yaml(
@@ -514,7 +514,7 @@ def _populate_dandiset_yaml(
             existing is DownloadExisting.REFRESH
             and os.lstat(dandiset_yaml).st_mtime >= mtime.timestamp()
         ):
-            yield _skip_file("already exists")
+            yield _skip_file("already exists", size=os.lstat(dandiset_yaml).st_mtime)
             return
     ds = Dandiset(dandiset_path, allow_empty=True)
     ds.path_obj.mkdir(exist_ok=True)  # exist_ok in case of parallel race
@@ -637,7 +637,7 @@ def _download_file(
                 # but mtime is different
                 if same == ["mtime", "size"]:
                     # TODO: add recording and handling of .nwb object_id
-                    yield _skip_file("same time and size")
+                    yield _skip_file("same time and size", size=size)
                     return
                 lgr.debug(f"{path!r} - same attributes: {same}.  Redownloading")
 
@@ -878,33 +878,40 @@ def _download_zarr(
     # Avoid heavy import by importing within function:
     from .support.digests import get_zarr_checksum
 
-    download_gens = {}
-    entries = list(asset.iterfiles())
+    # we will collect them all while starting the download
+    # with the first page of entries received from the server.
+    entries = []
     digests = {}
+    pc = ProgressCombiner(zarr_size=asset.size)
 
     def digest_callback(path: str, algoname: str, d: str) -> None:
         if algoname == "md5":
             digests[path] = d
 
-    for entry in entries:
-        etag = entry.digest
-        assert etag.algorithm is DigestType.md5
-        download_gens[str(entry)] = _download_file(
-            entry.get_download_file_iter(),
-            download_path / str(entry),
-            toplevel_path=toplevel_path,
-            size=entry.size,
-            mtime=entry.modified,
-            existing=existing,
-            digests={"md5": etag.value},
-            lock=lock,
-            digest_callback=partial(digest_callback, str(entry)),
-        )
+    def downloads_gen():
+        for entry in asset.iterfiles():
+            entries.append(entry)
+            etag = entry.digest
+            assert etag.algorithm is DigestType.md5
+            yield pairing(
+                str(entry),
+                _download_file(
+                    entry.get_download_file_iter(),
+                    download_path / str(entry),
+                    toplevel_path=toplevel_path,
+                    size=entry.size,
+                    mtime=entry.modified,
+                    existing=existing,
+                    digests={"md5": etag.value},
+                    lock=lock,
+                    digest_callback=partial(digest_callback, str(entry)),
+                ),
+            )
+        pc.file_qty = len(entries)
 
-    pc = ProgressCombiner(zarr_size=asset.size, file_qty=len(download_gens))
     final_out: dict | None = None
     with interleave(
-        [pairing(p, gen) for p, gen in download_gens.items()],
+        downloads_gen(),
         onerror=FINISH_CURRENT,
         max_workers=jobs or 4,
     ) as it:
@@ -988,7 +995,7 @@ class DownloadProgress:
 @dataclass
 class ProgressCombiner:
     zarr_size: int
-    file_qty: int
+    file_qty: int | None = None  # set to specific known value whenever full sweep is complete
     files: dict[str, DownloadProgress] = field(default_factory=dict)
     #: Total size of all files that were not skipped and did not error out
     #: during download
@@ -1021,18 +1028,25 @@ class ProgressCombiner:
         total_downloaded = sum(
             s.downloaded
             for s in self.files.values()
-            if s.state in (DLState.DOWNLOADING, DLState.CHECKSUM_ERROR, DLState.DONE)
+            if s.state
+            in (
+                DLState.DOWNLOADING,
+                DLState.CHECKSUM_ERROR,
+                DLState.SKIPPED,
+                DLState.DONE,
+            )
         )
         return {
             "done": total_downloaded,
-            "done%": total_downloaded / self.maxsize * 100,
+            "done%": total_downloaded / self.zarr_size * 100 if self.zarr_size else 0,
         }
 
     def set_status(self, statusdict: dict) -> None:
         state_qtys = Counter(s.state for s in self.files.values())
         total = len(self.files)
         if (
-            total == self.file_qty
+            self.file_qty is not None  # if already known
+            and total == self.file_qty
             and state_qtys[DLState.STARTING] == state_qtys[DLState.DOWNLOADING] == 0
         ):
             # All files have finished
@@ -1053,16 +1067,25 @@ class ProgressCombiner:
     def feed(self, path: str, status: dict) -> Iterator[dict]:
         keys = list(status.keys())
         self.files.setdefault(path, DownloadProgress())
+        size = status.get("size")
+        if size is not None:
+            if not self.yielded_size:
+                # this thread will yield
+                self.yielded_size = True
+                yield {"size": self.zarr_size}
         if status.get("status") == "skipped":
             self.files[path].state = DLState.SKIPPED
             out = {"message": self.message}
+            # Treat skipped as "downloaded" for the matter of accounting
+            if size is not None:
+                self.files[path].downloaded = size
+                self.maxsize += size
             self.set_status(out)
             yield out
+            if self.zarr_size:
+                yield self.get_done()
         elif keys == ["size"]:
-            if not self.yielded_size:
-                yield {"size": self.zarr_size}
-                self.yielded_size = True
-            self.files[path].size = status["size"]
+            self.files[path].size = size
             self.maxsize += status["size"]
             if any(s.state is DLState.DOWNLOADING for s in self.files.values()):
                 yield self.get_done()

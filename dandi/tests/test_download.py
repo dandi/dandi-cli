@@ -485,9 +485,10 @@ def test_download_zarr_subdir_has_only_subdirs(
 
 
 @pytest.mark.parametrize(
-    "file_qty,inputs,expected",
+    "zarr_size,file_qty,inputs,expected",
     [
-        (
+        (  # 0
+            42,
             1,
             [
                 ("lonely.txt", {"size": 42}),
@@ -501,7 +502,7 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("lonely.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 42},
                 {"status": "downloading"},
                 {"done": 0, "done%": 0.0},
                 {"done": 20, "done%": 20 / 42 * 100},
@@ -510,7 +511,8 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"status": "done", "message": "1 done"},
             ],
         ),
-        (
+        (  # 1
+            169,
             2,
             [
                 ("apple.txt", {"size": 42}),
@@ -534,7 +536,7 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("banana.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 169},
                 {"status": "downloading"},
                 {"done": 0, "done%": 0.0},
                 {"done": 0, "done%": 0.0},
@@ -549,7 +551,8 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"status": "done", "message": "2 done"},
             ],
         ),
-        (
+        (  # 2
+            169,
             2,
             [
                 ("apple.txt", {"size": 42}),
@@ -573,10 +576,10 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("banana.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 169},
                 {"status": "downloading"},
                 {"done": 0, "done%": 0.0},
-                {"done": 20, "done%": 20 / 42 * 100},
+                {"done": 20, "done%": 20 / 169 * 100},
                 {"done": 20, "done%": 20 / 169 * 100},
                 {"done": 40, "done%": 40 / 169 * 100},
                 {"done": 42, "done%": 42 / 169 * 100},
@@ -589,7 +592,8 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"status": "done", "message": "2 done"},
             ],
         ),
-        (
+        (  # 3
+            169,
             2,
             [
                 ("apple.txt", {"size": 42}),
@@ -613,12 +617,12 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("banana.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 169},
                 {"status": "downloading"},
                 {"done": 0, "done%": 0.0},
-                {"done": 20, "done%": 20 / 42 * 100},
-                {"done": 40, "done%": 40 / 42 * 100},
-                {"done": 42, "done%": 42 / 42 * 100},
+                {"done": 20, "done%": 20 / 169 * 100},
+                {"done": 40, "done%": 40 / 169 * 100},
+                {"done": 42, "done%": 42 / 169 * 100},
                 {"message": "1 done"},
                 {"done": 42, "done%": 42 / 169 * 100},
                 {"done": 82, "done%": 82 / 169 * 100},
@@ -628,7 +632,8 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"status": "done", "message": "2 done"},
             ],
         ),
-        (
+        (  # 4
+            169,
             2,
             [
                 ("apple.txt", {"size": 42}),
@@ -647,7 +652,7 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("apple.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 169},
                 {"status": "downloading"},
                 {"done": 0, "done%": 0.0},
                 {"done": 0, "done%": 0.0},
@@ -655,21 +660,26 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"done": 60, "done%": 60 / 169 * 100},
                 {"done": 80, "done%": 80 / 169 * 100},
                 {"message": "1 errored"},
-                {"done": 40, "done%": 40 / 42 * 100},
-                {"done": 42, "done%": 100.0},
+                {"done": 40, "done%": 40 / 169 * 100},
+                {"done": 42, "done%": 42 / 169 * 100},
                 {"status": "error", "message": "1 done, 1 errored"},
             ],
         ),
-        (
+        (  # 5
+            0,
             1,
             [("lonely.txt", {"status": "skipped", "message": "already exists"})],
             [{"status": "skipped", "message": "1 skipped"}],
         ),
-        (
+        (  # 6
+            169,
             2,
             [
                 ("apple.txt", {"size": 42}),
-                ("banana.txt", {"status": "skipped", "message": "already exists"}),
+                (
+                    "banana.txt",
+                    {"size": 127, "status": "skipped", "message": "already exists"},
+                ),
                 ("apple.txt", {"status": "downloading"}),
                 ("apple.txt", {"done": 0, "done%": 0.0}),
                 ("apple.txt", {"done": 20, "done%": 20 / 42 * 100}),
@@ -680,17 +690,19 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("apple.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 169},
                 {"message": "1 skipped"},
+                {"done": 127, "done%": (127 + 0) / 169 * 100},
                 {"status": "downloading"},
-                {"done": 0, "done%": 0.0},
-                {"done": 20, "done%": 20 / 42 * 100},
-                {"done": 40, "done%": 40 / 42 * 100},
-                {"done": 42, "done%": 100.0},
+                {"done": 127 + 0, "done%": (127 + 0) / 169 * 100},
+                {"done": 127 + 20, "done%": (127 + 20) / 169 * 100},
+                {"done": 127 + 40, "done%": (127 + 40) / 169 * 100},
+                {"done": 127 + 42, "done%": 100.0},
                 {"status": "done", "message": "1 done, 1 skipped"},
             ],
         ),
-        (
+        (  # 7
+            169,
             2,
             [
                 ("apple.txt", {"size": 42}),
@@ -719,7 +731,7 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("apple.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 169},
                 {"status": "downloading"},
                 {"done": 0, "done%": 0.0},
                 {"done": 0, "done%": 0.0},
@@ -734,14 +746,18 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"status": "error", "message": "1 done, 1 errored"},
             ],
         ),
-        (
+        (  # 8
+            179,
             3,
             [
                 ("apple.txt", {"size": 42}),
                 ("banana.txt", {"size": 127}),
                 ("apple.txt", {"status": "downloading"}),
                 ("banana.txt", {"status": "downloading"}),
-                ("coconut", {"status": "skipped", "message": "already exists"}),
+                (
+                    "coconut",
+                    {"size": 10, "status": "skipped", "message": "already exists"},
+                ),
                 ("apple.txt", {"done": 0, "done%": 0.0}),
                 ("banana.txt", {"done": 0, "done%": 0.0}),
                 ("apple.txt", {"done": 20, "done%": 20 / 42 * 100}),
@@ -764,28 +780,29 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("banana.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 179},
                 {"status": "downloading"},
                 {"message": "1 skipped"},
-                {"done": 0, "done%": 0.0},
-                {"done": 0, "done%": 0.0},
-                {"done": 20, "done%": 20 / 169 * 100},
-                {"done": 60, "done%": 60 / 169 * 100},
-                {"done": 80, "done%": 80 / 169 * 100},
-                {"done": 120, "done%": 120 / 169 * 100},
-                {"done": 122, "done%": 122 / 169 * 100},
+                {"done": 10, "done%": 10 / 179 * 100},
+                {"done": 10, "done%": 10 / 179 * 100},
+                {"done": 10, "done%": 10 / 179 * 100},
+                {"done": 10 + 20, "done%": (10 + 20) / 179 * 100},
+                {"done": 10 + 60, "done%": (10 + 60) / 179 * 100},
+                {"done": 10 + 80, "done%": (10 + 80) / 179 * 100},
+                {"done": 10 + 120, "done%": (10 + 120) / 179 * 100},
+                {"done": 10 + 122, "done%": (10 + 122) / 179 * 100},
                 {"message": "1 errored, 1 skipped"},
-                {"done": 162, "done%": 162 / 169 * 100},
-                {"done": 169, "done%": 100.0},
+                {"done": 10 + 162, "done%": (10 + 162) / 179 * 100},
+                {"done": 179, "done%": 100.0},
                 {"status": "error", "message": "1 done, 1 errored, 1 skipped"},
             ],
         ),
     ],
 )
 def test_progress_combiner(
-    file_qty: int, inputs: list[tuple[str, dict]], expected: list[dict]
+    zarr_size: int, file_qty: int, inputs: list[tuple[str, dict]], expected: list[dict]
 ) -> None:
-    pc = ProgressCombiner(zarr_size=69105, file_qty=file_qty)
+    pc = ProgressCombiner(zarr_size=zarr_size, file_qty=file_qty)
     outputs: list[dict] = []
     for path, status in inputs:
         outputs.extend(pc.feed(path, status))
