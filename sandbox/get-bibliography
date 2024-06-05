@@ -3,13 +3,14 @@
 import argparse
 import json
 import logging
+import os
 import sys
 
 import requests
 
 # Configure the logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     stream=sys.stderr,
 )
@@ -55,15 +56,27 @@ def fetch_dandisets(me, results=None):
                 doi_headers = {"Accept": "application/x-bibtex; charset=utf-8"}
                 doi_response = requests.get(doi_url, headers=doi_headers)
                 bibtex = doi_response.text
+                if not bibtex.startswith("@"):
+                    lgr.error(
+                        "Did not get a valid BibTeX for %s version %s",
+                        identifier,
+                        version_id,
+                    )
+                    continue
                 results[identifier][version_id] = bibtex.replace(
                     "@misc{https://doi.org/10.48324/", "@misc{"
                 )
         # The default to be cited -- ATM we do not have DOI for it, use latest version
         v = dandiset["most_recent_published_version"]["version"]
         # TODO: might want to robustify using `re` etc.
-        results[identifier][None] = results[identifier][v].replace(
-            f"@misc{{dandi.{identifier}/{v},", f"@misc{{dandi.{identifier},"
-        )
+        if v not in results[identifier]:
+            lgr.error(
+                "Got no record for the most recent version %s of %s", v, identifier
+            )
+        else:
+            results[identifier][None] = results[identifier][v].replace(
+                f"@misc{{dandi.{identifier}/{v},", f"@misc{{dandi.{identifier},"
+            )
 
     return results
 
@@ -85,13 +98,15 @@ def main():
     args = parser.parse_args()
 
     results = None
-    if args.results:
+    if args.results and os.path.lexists(args.results):
         with open(args.results, "r") as f:
             results = json.load(f)
 
     results = fetch_dandisets(args.me, results)
 
     if args.results:
+        if os.path.lexists(args.results):
+            os.unlink(args.results)
         with open(args.results, "w") as f:
             json.dump(results, f, indent=2)
         lgr.info("Updated results have been saved to %s", args.results)
