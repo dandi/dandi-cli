@@ -1,0 +1,110 @@
+#!/usr/bin/env python
+
+import argparse
+import json
+import logging
+import sys
+
+import requests
+
+# Configure the logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stderr,
+)
+
+lgr = logging.getLogger(__name__)
+
+
+def fetch_dandisets(me, results=None):
+    if results is None:
+        results = {}
+
+    # Construct the query URL
+    url = (
+        f"https://api.dandiarchive.org/api/dandisets/?draft=false&empty=false"
+        f"&embargoed=false{'&user=me' if me else ''}"
+    )
+    lgr.info(f"Fetching {url}")
+    headers = {"accept": "application/json"}
+
+    # Fetch the dandisets
+    response = requests.get(url, headers=headers)
+    dandisets = response.json()["results"]
+    lgr.info(f"Got {len(dandisets)} dandisets listed")
+    # for dandiset in [{'identifier': '000027', 'most_recent_published_version':
+    #                 {'version': '0.210831.2033'}}]:
+    for dandiset in dandisets:
+        identifier = dandiset["identifier"]
+        # Fetch versions for each dandiset
+        versions_url = (
+            f"https://api.dandiarchive.org/api/dandisets/{identifier}/versions/"
+            "?page_size=1000"
+        )
+        versions_response = requests.get(versions_url, headers=headers)
+        versions = versions_response.json()["results"]
+        for version in versions:
+            version_id = version["version"]
+            if version_id == "draft":
+                continue
+            if identifier not in results:
+                results[identifier] = {}
+            if version_id not in results[identifier]:
+                doi_url = f"https://doi.org/10.48324/dandi.{identifier}/{version_id}"
+                doi_headers = {"Accept": "application/x-bibtex; charset=utf-8"}
+                doi_response = requests.get(doi_url, headers=doi_headers)
+                bibtex = doi_response.text
+                results[identifier][version_id] = bibtex.replace(
+                    "@misc{https://doi.org/10.48324/", "@misc{"
+                )
+        # The default to be cited -- ATM we do not have DOI for it, use latest version
+        v = dandiset["most_recent_published_version"]["version"]
+        # TODO: might want to robustify using `re` etc.
+        results[identifier][None] = results[identifier][v].replace(
+            f"@misc{{dandi.{identifier}/{v},", f"@misc{{dandi.{identifier},"
+        )
+
+    return results
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Fetch bibliography collection")
+    # TODO: for --me to function, would need to bolt on the authorization to work
+    parser.add_argument("--me", action="store_true", help="Fetch only my dandisets")
+    parser.add_argument(
+        "--results",
+        type=str,
+        help="Path to prior results JSON file, or where to save/cache results JSON",
+        default=None,
+    )
+    # TODO:
+    # - add options for requested format (currently bibtex but probably others supported)
+    # - add option to do it only for specific datasets. Orthogonal to --me
+
+    args = parser.parse_args()
+
+    results = None
+    if args.results:
+        with open(args.results, "r") as f:
+            results = json.load(f)
+
+    results = fetch_dandisets(args.me, results)
+
+    if args.results:
+        with open(args.results, "w") as f:
+            json.dump(results, f, indent=2)
+        lgr.info("Updated results have been saved to %s", args.results)
+
+    # OUTPUT BibTeX
+    for dataset, versions in results.items():
+        print(f"# DANDISET {dataset}")
+        for version, rec in versions.items():
+            if version is None:
+                print("# Take latest as the default")
+            print(rec)
+            print()
+
+
+if __name__ == "__main__":
+    main()
