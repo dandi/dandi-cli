@@ -174,6 +174,25 @@ BIDS_DATASET_DESCRIPTION = "dataset_description.json"
 # Fields which would be used to compose organized filenames
 # TODO: add full description into command --help etc
 # Order matters!
+
+# Once BST includes BEP032 this should be dynamically parsed from there.
+bids_layout_fields = {
+    # NWB files can be either ieeg or ephys, datatype probably inferable from:
+    # metadata["acquisition"]
+    "acquisition": {"format": "{}", "type": "required"},
+    "subject_id": {"format": "sub-{}", "type": "required"},
+    "session_id": {"format": "_ses-{}", "type": "required"},
+    "slice_id": {"format": "_sample-{}"},
+    # "session_description"
+    "modalities": {
+        "format": "_{}",
+        "type": "required_if_not_empty",
+        "remap": [
+            ["ecephys", "ephys"],
+        ],
+    },
+    "extension": {"format": "{}", "type": "required"},
+}
 dandi_layout_fields = {
     # "type" - if not defined, additional
     "subject_id": {"format": "sub-{}", "type": "required"},
