@@ -1258,6 +1258,9 @@ class RemoteDandiset:
         """
         if assets_dirpath and not assets_dirpath.endswith("/"):
             assets_dirpath += "/"
+        # need to normalize explicitly since we do use it below also
+        # to deduce portion of the path to strip off.
+        assets_dirpath = self._normalize_path(assets_dirpath)
         assets = list(self.get_assets_with_path_prefix(assets_dirpath))
         for a in assets:
             filepath = Path(dirpath, a.path[len(assets_dirpath) :])
