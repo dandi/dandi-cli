@@ -10,6 +10,7 @@ from fnmatch import fnmatchcase
 import json
 import os.path
 from pathlib import Path, PurePosixPath
+import posixpath
 import re
 from time import sleep, time
 from types import TracebackType
@@ -937,6 +938,29 @@ class RemoteDandiset:
             client=client, identifier=data["identifier"], version=version, data=data
         )
 
+    @staticmethod
+    def _normalize_path(path: str) -> str:
+        """
+        Helper to normalize path before passing it to the server.
+
+        We and API call it "path" but it is really a "prefix" with inherent
+        semantics of containing directory divider '/' and referring to a
+        directory when terminated with '/'.
+        """
+        # Server (now) expects path to be a proper prefix, so to account for user
+        # possibly specifying ./ or some other relative paths etc, let's normalize
+        # the path.
+        # Ref: https://github.com/dandi/dandi-cli/issues/1452
+        path_normed = posixpath.normpath(path)
+        if path_normed == ".":
+            path_normed = ""
+        elif path.endswith("/"):
+            # we need to make sure that we have a trailing slash if we had it before
+            path_normed += "/"
+        if path_normed != path:
+            lgr.debug("Normalized path %r to %r", path, path_normed)
+        return path_normed
+
     def json_dict(self) -> dict[str, Any]:
         """
         Convert to a JSONable `dict`, omitting the ``client`` attribute and
@@ -1154,6 +1178,9 @@ class RemoteDandiset:
         Returns an iterator of all assets in this version of the Dandiset whose
         `~RemoteAsset.path` attributes start with ``path``
 
+        ``path`` is normalized first to possibly remove leading ``./`` or relative
+        paths (e.g., ``../``) within it.
+
         Assets can be sorted by a given field by passing the name of that field
         as the ``order`` parameter.  The accepted field names are
         ``"created"``, ``"modified"``, and ``"path"``.  Prepend a hyphen to the
@@ -1162,7 +1189,7 @@ class RemoteDandiset:
         try:
             for a in self.client.paginate(
                 f"{self.version_api_path}assets/",
-                params={"path": path, "order": order},
+                params={"path": self._normalize_path(path), "order": order},
             ):
                 yield RemoteAsset.from_data(self, a)
         except HTTP404Error:
@@ -1200,7 +1227,11 @@ class RemoteDandiset:
         Fetch the asset in this version of the Dandiset whose
         `~RemoteAsset.path` equals ``path``.  If the given asset does not
         exist, a `NotFoundError` is raised.
+
+        ``path`` is normalized first to possibly remove leading ``./`` or relative
+        paths (e.g., ``../``) within it.
         """
+        path = self._normalize_path(path)
         try:
             # Weed out any assets that happen to have the given path as a
             # proper prefix:
@@ -1221,9 +1252,15 @@ class RemoteDandiset:
         """
         Download all assets under the virtual directory ``assets_dirpath`` to
         the directory ``dirpath``.  Downloads are synchronous.
+
+        ``path`` is normalized first to possibly remove leading ``./`` or relative
+        paths (e.g., ``../``) within it.
         """
         if assets_dirpath and not assets_dirpath.endswith("/"):
             assets_dirpath += "/"
+        # need to normalize explicitly since we do use it below also
+        # to deduce portion of the path to strip off.
+        assets_dirpath = self._normalize_path(assets_dirpath)
         assets = list(self.get_assets_with_path_prefix(assets_dirpath))
         for a in assets:
             filepath = Path(dirpath, a.path[len(assets_dirpath) :])
