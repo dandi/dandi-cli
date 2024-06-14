@@ -10,6 +10,7 @@ from fnmatch import fnmatchcase
 import json
 import os.path
 from pathlib import Path, PurePosixPath
+import posixpath
 import re
 from time import sleep, time
 from types import TracebackType
@@ -943,14 +944,14 @@ class RemoteDandiset:
         Helper to normalize path before passing it to the server.
 
         We and API call it "path" but it is really a "prefix" with inherent
-        semantics of containing directory divider '/' and emphasizing with
-        trailing '/' to point to a directory.
+        semantics of containing directory divider '/' and referring to a
+        directory when terminated with '/'.
         """
         # Server (now) expects path to be a proper prefix, so to account for user
         # possibly specifying ./ or some other relative paths etc, let's normalize
         # the path.
         # Ref: https://github.com/dandi/dandi-cli/issues/1452
-        path_normed = os.path.normpath(path)
+        path_normed = posixpath.normpath(path)
         if path_normed == ".":
             path_normed = ""
         elif path.endswith("/"):
@@ -1177,8 +1178,9 @@ class RemoteDandiset:
         Returns an iterator of all assets in this version of the Dandiset whose
         `~RemoteAsset.path` attributes start with ``path``
 
-        ``path`` is normalized first to possibly remove leading `./` or relative
-        paths (e.g., `../`) within it.
+        ``path`` is normalized first to possibly remove leading ``./`` or relative
+        paths (e.g., ``../``) within it.
+
         Assets can be sorted by a given field by passing the name of that field
         as the ``order`` parameter.  The accepted field names are
         ``"created"``, ``"modified"``, and ``"path"``.  Prepend a hyphen to the
@@ -1225,7 +1227,11 @@ class RemoteDandiset:
         Fetch the asset in this version of the Dandiset whose
         `~RemoteAsset.path` equals ``path``.  If the given asset does not
         exist, a `NotFoundError` is raised.
+
+        ``path`` is normalized first to possibly remove leading ``./`` or relative
+        paths (e.g., ``../``) within it.
         """
+        path = self._normalize_path(path)
         try:
             # Weed out any assets that happen to have the given path as a
             # proper prefix:
@@ -1246,6 +1252,9 @@ class RemoteDandiset:
         """
         Download all assets under the virtual directory ``assets_dirpath`` to
         the directory ``dirpath``.  Downloads are synchronous.
+
+        ``path`` is normalized first to possibly remove leading ``./`` or relative
+        paths (e.g., ``../``) within it.
         """
         if assets_dirpath and not assets_dirpath.endswith("/"):
             assets_dirpath += "/"
