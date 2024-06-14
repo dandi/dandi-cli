@@ -1,3 +1,18 @@
+# 0.62.2 (Fri Jun 14 2024)
+
+#### 🐛 Bug Fix
+
+- Normalize path while requesting list of assets from the server [#1454](https://github.com/dandi/dandi-cli/pull/1454) ([@yarikoptic](https://github.com/yarikoptic))
+- OPT+RF of zarr downloads: do not wait for full files listing + compute %done from total zarr size [#1443](https://github.com/dandi/dandi-cli/pull/1443) ([@yarikoptic](https://github.com/yarikoptic))
+- Separate datetime components in logfile names with punctuation [#1445](https://github.com/dandi/dandi-cli/pull/1445) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.62.1 (Thu May 23 2024)
 
 #### 🐛 Bug Fix
