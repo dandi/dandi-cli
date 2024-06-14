@@ -7,6 +7,7 @@ from pathlib import Path
 import random
 import re
 from shutil import rmtree
+from typing import Any
 
 import anys
 import click
@@ -46,7 +47,7 @@ def test_upload(
     d.upload_raw_asset(simple1_nwb, {"path": "testing/simple1.nwb"})
     (asset,) = d.get_assets()
     assert asset.path == "testing/simple1.nwb"
-    d.download_directory("", tmp_path)
+    d.download_directory("./", tmp_path)
     paths = list_paths(tmp_path)
     assert paths == [tmp_path / "testing" / "simple1.nwb"]
     assert paths[0].stat().st_size == simple1_nwb.stat().st_size
@@ -678,26 +679,33 @@ def test_get_assets_order(text_dandiset: SampleDandiset) -> None:
 
 
 def test_get_assets_with_path_prefix(text_dandiset: SampleDandiset) -> None:
-    assert sorted(
-        asset.path
-        for asset in text_dandiset.dandiset.get_assets_with_path_prefix("subdir")
-    ) == ["subdir1/apple.txt", "subdir2/banana.txt", "subdir2/coconut.txt"]
-    assert sorted(
-        asset.path
-        for asset in text_dandiset.dandiset.get_assets_with_path_prefix("subdir2")
-    ) == ["subdir2/banana.txt", "subdir2/coconut.txt"]
-    assert [
-        asset.path
-        for asset in text_dandiset.dandiset.get_assets_with_path_prefix(
-            "subdir", order="path"
-        )
-    ] == ["subdir1/apple.txt", "subdir2/banana.txt", "subdir2/coconut.txt"]
-    assert [
-        asset.path
-        for asset in text_dandiset.dandiset.get_assets_with_path_prefix(
-            "subdir", order="-path"
-        )
-    ] == ["subdir2/coconut.txt", "subdir2/banana.txt", "subdir1/apple.txt"]
+    def _get_assets_with_path_prefix(prefix: str, **kw: Any) -> list[str]:
+        return [
+            asset.path
+            for asset in text_dandiset.dandiset.get_assets_with_path_prefix(
+                prefix, **kw
+            )
+        ]
+
+    assert sorted(_get_assets_with_path_prefix("subdir")) == [
+        "subdir1/apple.txt",
+        "subdir2/banana.txt",
+        "subdir2/coconut.txt",
+    ]
+    assert sorted(_get_assets_with_path_prefix("subdir2")) == [
+        "subdir2/banana.txt",
+        "subdir2/coconut.txt",
+    ]
+    assert _get_assets_with_path_prefix("subdir", order="path") == [
+        "subdir1/apple.txt",
+        "subdir2/banana.txt",
+        "subdir2/coconut.txt",
+    ]
+    assert _get_assets_with_path_prefix("subdir", order="-path") == [
+        "subdir2/coconut.txt",
+        "subdir2/banana.txt",
+        "subdir1/apple.txt",
+    ]
 
 
 def test_get_assets_by_glob(text_dandiset: SampleDandiset) -> None:
