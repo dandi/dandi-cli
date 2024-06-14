@@ -687,15 +687,31 @@ def test_get_assets_with_path_prefix(text_dandiset: SampleDandiset) -> None:
             )
         ]
 
-    assert sorted(_get_assets_with_path_prefix("subdir")) == [
-        "subdir1/apple.txt",
-        "subdir2/banana.txt",
-        "subdir2/coconut.txt",
-    ]
-    assert sorted(_get_assets_with_path_prefix("subdir2")) == [
-        "subdir2/banana.txt",
-        "subdir2/coconut.txt",
-    ]
+    assert (
+        sorted(_get_assets_with_path_prefix("subdir"))
+        == sorted(_get_assets_with_path_prefix("./subdir"))
+        == sorted(_get_assets_with_path_prefix("./subdir2/../sub"))
+        == [
+            "subdir1/apple.txt",
+            "subdir2/banana.txt",
+            "subdir2/coconut.txt",
+        ]
+    )
+    assert (
+        _get_assets_with_path_prefix("subdir/")
+        == _get_assets_with_path_prefix("./subdir/")
+        == _get_assets_with_path_prefix("../subdir1/")
+        == []
+    )
+    assert (
+        sorted(_get_assets_with_path_prefix("subdir2"))
+        == sorted(_get_assets_with_path_prefix("a/../subdir2"))
+        == sorted(_get_assets_with_path_prefix("./subdir2"))
+        == [
+            "subdir2/banana.txt",
+            "subdir2/coconut.txt",
+        ]
+    )
     assert _get_assets_with_path_prefix("subdir", order="path") == [
         "subdir1/apple.txt",
         "subdir2/banana.txt",

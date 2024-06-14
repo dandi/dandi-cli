@@ -937,6 +937,29 @@ class RemoteDandiset:
             client=client, identifier=data["identifier"], version=version, data=data
         )
 
+    @staticmethod
+    def _normalize_path(path: str) -> str:
+        """
+        Helper to normalize path before passing it to the server.
+
+        We and API call it "path" but it is really a "prefix" with inherent
+        semantics of containing directory divider '/' and emphasizing with
+        trailing '/' to point to a directory.
+        """
+        # Server (now) expects path to be a proper prefix, so to account for user
+        # possibly specifying ./ or some other relative paths etc, let's normalize
+        # the path.
+        # Ref: https://github.com/dandi/dandi-cli/issues/1452
+        path_normed = os.path.normpath(path)
+        if path_normed == ".":
+            path_normed = ""
+        elif path.endswith("/"):
+            # we need to make sure that we have a trailing slash if we had it before
+            path_normed += "/"
+        if path_normed != path:
+            lgr.debug("Normalized path %r to %r", path, path_normed)
+        return path_normed
+
     def json_dict(self) -> dict[str, Any]:
         """
         Convert to a JSONable `dict`, omitting the ``client`` attribute and
@@ -1154,6 +1177,8 @@ class RemoteDandiset:
         Returns an iterator of all assets in this version of the Dandiset whose
         `~RemoteAsset.path` attributes start with ``path``
 
+        ``path`` is normalized first to possibly remove leading `./` or relative
+        paths (e.g., `../`) within it.
         Assets can be sorted by a given field by passing the name of that field
         as the ``order`` parameter.  The accepted field names are
         ``"created"``, ``"modified"``, and ``"path"``.  Prepend a hyphen to the
@@ -1162,7 +1187,7 @@ class RemoteDandiset:
         try:
             for a in self.client.paginate(
                 f"{self.version_api_path}assets/",
-                params={"path": path, "order": order},
+                params={"path": self._normalize_path(path), "order": order},
             ):
                 yield RemoteAsset.from_data(self, a)
         except HTTP404Error:
