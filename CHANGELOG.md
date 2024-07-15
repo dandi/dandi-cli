@@ -1,3 +1,15 @@
+# 0.62.4 (Mon Jul 15 2024)
+
+#### 🔩 Dependency Updates
+
+- Revert "Temporarily restrict dandischema requirement to `< 0.10.2`" [#1459](https://github.com/dandi/dandi-cli/pull/1459) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 1
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+
+---
+
 # 0.62.3 (Fri Jul 12 2024)
 
 #### 🔩 Dependency Updates
