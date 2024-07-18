@@ -94,7 +94,7 @@ def upload(
         # session gets properly closed.  Otherwise, pytest sometimes complains
         # under obscure conditions.
         client = stack.enter_context(DandiAPIClient.for_dandi_instance(dandi_instance))
-        client.check_schema_version()  # Aaron
+        client.check_schema_version()
         client.dandi_authenticate()
 
         if os.environ.get("DANDI_DEVEL_INSTRUMENT_REQUESTS_SUPERLEN"):

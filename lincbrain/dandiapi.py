@@ -644,7 +644,7 @@ class DandiAPIClient(RESTFullAPIClient):
         """
         if schema_version is None:
             schema_version = models.get_schema_version()
-        server_info = self.get("/info/")  # 0.6.7
+        server_info = self.get("/info/")
         server_schema_version = server_info.get("schema_version")
         if not server_schema_version:
             raise RuntimeError(
