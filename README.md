@@ -19,16 +19,10 @@ The [LINC Brain Python client](https://pypi.org/project/lincbrain-cli/) allows y
 
 ## Installation
 
-LINC Brain Client releases are [available from PyPI](https://pypi.org/project/lincbrain-cli)
-and [conda-forge](https://anaconda.org/conda-forge/lincbrain-cli).  Install them in your Python (native, virtualenv, or
-conda) environment via
+LINC Brain client releases are available from [PyPI](https://pypi.org/project/lincbrain-cli).
+Install them in your Python (native, virtualenv, or conda) environment via
 
     pip install lincbrain-cli
-
-or
-
-    conda install -c conda-forge lincbrain-cli
-
 
 ## CLI Tool
 
