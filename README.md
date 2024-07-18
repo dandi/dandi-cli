@@ -1,12 +1,8 @@
 # LINC Brain Client
 
 [![Tests](https://github.com/lincbrain/linc-cli/workflows/Tests/badge.svg)](https://github.com/lincbrain/linc-cli/actions?query=workflow%3ATests)
-[![codecov.io](https://codecov.io/github/lincbrain/linc-cli/coverage.svg?branch=master)](https://codecov.io/github/lincbrain/linc-cli?branch=master)
-[![Conda](https://anaconda.org/conda-forge/dandi/badges/version.svg)](https://anaconda.org/conda-forge/dandi)
-[![Gentoo (::science)](https://repology.org/badge/version-for-repo/gentoo_ovl_science/dandi-cli.svg?header=Gentoo%20%28%3A%3Ascience%29)](https://repology.org/project/dandi-cli/versions)
-[![GitHub release](https://img.shields.io/github/release/dandi/dandi-cli.svg)](https://GitHub.com/dandi/dandi-cli/releases/)
-[![PyPI version fury.io](https://badge.fury.io/py/dandi.svg)](https://pypi.python.org/pypi/dandi/)
-[![Documentation Status](https://readthedocs.org/projects/dandi/badge/?version=latest)](https://dandi.readthedocs.io/en/latest/?badge=latest)
+[![GitHub release](https://img.shields.io/github/release/lincbrain/linc-cli.svg)](https://GitHub.com/lincbrain/linc-cli/releases/)
+[![PyPI version fury.io](https://badge.fury.io/py/lincbrain-cli.svg)](https://pypi.python.org/pypi/lincbrain-cli/)
 
 The [LINC Brain Python client](https://pypi.org/project/lincbrain-cli/) allows you to:
 
@@ -82,14 +78,13 @@ The LINC Brain ecosystem is forked from the [DANDI Archive project](https://gith
 you towards common questions encountered within the LINC Brain project.
 
 * To learn how to interact with the LINC Brain Archive (e.g. a forked DANDI archive) and for examples on how to use the DANDI Client in various use cases,
-see [the handbook](https://www.dandiarchive.org/handbook/)
+see [the DANDI handbook](https://www.dandiarchive.org/handbook/)
   (specifically the sections on using the CLI to
 [download](https://www.dandiarchive.org/handbook/12_download/) and
 [upload](https://www.dandiarchive.org/handbook/13_upload/) `Dandisets`).
 
 * To get help:
-  - ask a question: https://github.com/dandi/helpdesk/discussions
-  - file a feature request or bug report: https://github.com/dandi/helpdesk/issues/new/choose
-  - contact the DANDI team: help@dandiarchive.org
+  - file a feature request or bug report: https://github.com/lincbrain/linc-archive/issues/new
+  - contact the LINC team: kabi@mit.edu or akanzer@mit.edu
 
-* To understand how to contribute to the dandi-cli repository, see the [DEVELOPMENT.md](./DEVELOPMENT.md) file.
+* To understand how to contribute to the linc-cli repository, see the [DEVELOPMENT.md](./DEVELOPMENT.md) file.
