@@ -10,37 +10,31 @@ The [LINC Brain Python client](https://pypi.org/project/lincbrain-cli/) allows y
 * Validate data to locally conform to standards
 * Organize your data locally before upload
 * Upload `Datasets`
-* Interact with the LINC Brain archive's web API from Python
-* Delete data in the LINC Brain archive
-* Perform other auxiliary operations with data or the LINC Brain archive
+* Interact with the LINC Data Platform's web API from Python
+* Delete data in the LINC Data Platform
+* Perform other auxiliary operations with data or the LINC Data Platform
 
 **Note**: This project is under heavy development. See [the issues log](https://github.com/linc/linc-cli/issues) or
 [Work-in-Progress (WiP)](https://github.com/linc/linc-cli/pulls).
 
 ## Installation
 
-LINC Brain Client releases are [available from PyPI](https://pypi.org/project/lincbrain-cli)
-and [conda-forge](https://anaconda.org/conda-forge/lincbrain-cli).  Install them in your Python (native, virtualenv, or
-conda) environment via
+LINC Brain client releases are available from [PyPI](https://pypi.org/project/lincbrain-cli).
+Install them in your Python (native, virtualenv, or conda) environment via
 
     pip install lincbrain-cli
-
-or
-
-    conda install -c conda-forge lincbrain-cli
-
 
 ## CLI Tool
 
 This package provides a command line utility with a basic interface
-to help you prepare and upload your data to, or obtain data from, the [LINC Brain archive](http://lincbrain.org).
+to help you prepare and upload your data to, or obtain data from, the [LINC Data Platform](http://lincbrain.org).
 
 
 ```bash
 $> lincbrain
 Usage: lincbrain [OPTIONS] COMMAND [ARGS]...
 
-  A client to support interactions with LINC Brain archive
+  A client to support interactions with the LINC Data Platform
   (https://lincbrain.org).
 
   To see help for a specific command, run
@@ -60,13 +54,13 @@ Options:
 Commands:
   delete            Delete datasets and assets from the server.
   digest            Calculate file digests
-  download          Download a file or entire folder from LINC Brain Archive.
-  instances         List known LINC Brain Archive instances that the CLI can...
+  download          Download a file or entire folder from the LINC Data Platform.
+  instances         List known LINC Data Platform instances that the CLI can...
   ls                List .nwb files and datasets metadata.
   move              Move or rename assets in a local Dataset and/or on...
   organize          (Re)organize files according to the metadata.
   shell-completion  Emit shell script for enabling command completion.
-  upload            Upload Dataset files to LINC Brain Archive.
+  upload            Upload dataset files to the LINC Data Platform.
   validate          Validate files for NWB and LINC Brain compliance.
   validate-bids     Validate BIDS paths.
 ```
@@ -77,7 +71,7 @@ Run `lincbrain --help` or `lincbrain <subcommand> --help` (e.g. `lincbrain uploa
 The LINC Brain ecosystem is forked from the [DANDI Archive project](https://github.com/dandi). Resources there should point
 you towards common questions encountered within the LINC Brain project.
 
-* To learn how to interact with the LINC Brain Archive (e.g. a forked DANDI archive) and for examples on how to use the DANDI Client in various use cases,
+* To learn how to interact with the LINC Data Platform (e.g. a forked DANDI archive) and for examples on how to use the DANDI Client in various use cases,
 see [the DANDI handbook](https://www.dandiarchive.org/handbook/)
   (specifically the sections on using the CLI to
 [download](https://www.dandiarchive.org/handbook/12_download/) and
