@@ -1,3 +1,24 @@
+# 0.10.0 (Fri Jul 19 2024)
+
+#### 🚀 Enhancement
+
+- Update readme [#50](https://github.com/lincbrain/linc-cli/pull/50) ([@kabilar](https://github.com/kabilar))
+- Attempt to resolve versioneer compatibility issues [#51](https://github.com/lincbrain/linc-cli/pull/51) (aaronkanzer@Aarons-MacBook-Pro.local [@aaronkanzer](https://github.com/aaronkanzer))
+
+#### 🐛 Bug Fix
+
+- Update readme links and fix spelling [#46](https://github.com/lincbrain/linc-cli/pull/46) ([@kabilar](https://github.com/kabilar))
+- Pin dandischema to 0.10.1 to resolve API /info schema version match [#49](https://github.com/lincbrain/linc-cli/pull/49) (aaronkanzer@Aarons-MacBook-Pro.local [@aaronkanzer](https://github.com/aaronkanzer))
+- Include logic to properly authenticate a user upon the move command, pin dandischema to 0.10.0 [#42](https://github.com/lincbrain/linc-cli/pull/42) (aaronkanzer@Aarons-MacBook-Pro.local [@aaronkanzer](https://github.com/aaronkanzer))
+
+#### Authors: 3
+
+- [@aaronkanzer](https://github.com/aaronkanzer)
+- Aaron Kanzer (aaronkanzer@Aarons-MacBook-Pro.local)
+- Kabilar Gunalan ([@kabilar](https://github.com/kabilar))
+
+---
+
 # 0.9.0 (Wed Mar 13 2024)
 
 #### 🚀 Enhancement
