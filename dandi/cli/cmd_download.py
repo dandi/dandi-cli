@@ -101,6 +101,15 @@ Download files or entire folders from DANDI.
     show_default=True,
 )
 @click.option(
+    "--preserve-tree",
+    is_flag=True,
+    help=(
+        "When downloading only part of a Dandiset, also download"
+        " `dandiset.yaml` and do not strip leading directories from asset"
+        " paths.  Implies `--download all`."
+    ),
+)
+@click.option(
     "--sync", is_flag=True, help="Delete local assets that do not exist on the server"
 )
 @instance_option(
@@ -138,6 +147,7 @@ def download(
     sync: bool,
     dandi_instance: str,
     path_type: PathType,
+    preserve_tree: bool,
 ) -> None:
     # We need to import the download module rather than the download function
     # so that the tests can properly patch the function with a mock.
@@ -171,8 +181,9 @@ def download(
         format=format,
         jobs=jobs[0],
         jobs_per_zarr=jobs[1],
-        get_metadata="dandiset.yaml" in download_types,
-        get_assets="assets" in download_types,
+        get_metadata="dandiset.yaml" in download_types or preserve_tree,
+        get_assets="assets" in download_types or preserve_tree,
+        preserve_tree=preserve_tree,
         sync=sync,
         path_type=path_type,
         # develop_debug=develop_debug

@@ -93,6 +93,7 @@ def download(
     jobs_per_zarr: int | None = None,
     get_metadata: bool = True,
     get_assets: bool = True,
+    preserve_tree: bool = False,
     sync: bool = False,
     path_type: PathType = PathType.EXACT,
 ) -> None:
@@ -141,6 +142,7 @@ def download(
             existing=existing,
             get_metadata=get_metadata,
             get_assets=get_assets,
+            preserve_tree=preserve_tree,
             jobs_per_zarr=jobs_per_zarr,
             on_error="yield" if format is DownloadFormat.PYOUT else "raise",
             **kw,
@@ -201,6 +203,7 @@ class Downloader:
     existing: DownloadExisting
     get_metadata: bool
     get_assets: bool
+    preserve_tree: bool
     jobs_per_zarr: int | None
     on_error: Literal["raise", "yield"]
     #: which will be set .gen to assets.  Purpose is to make it possible to get
@@ -214,19 +217,24 @@ class Downloader:
         # TODO: if we are ALREADY in a dandiset - we can validate that it is
         # the same dandiset and use that dandiset path as the one to download
         # under
-        if isinstance(self.url, DandisetURL):
+        if isinstance(self.url, DandisetURL) or (
+            self.preserve_tree and self.url.dandiset_id is not None
+        ):
             assert self.url.dandiset_id is not None
             self.output_prefix = Path(self.url.dandiset_id)
         else:
             self.output_prefix = Path()
         self.output_path = Path(output_dir, self.output_prefix)
 
+    def is_dandiset_yaml(self) -> bool:
+        return isinstance(self.url, AssetItemURL) and self.url.path == "dandiset.yaml"
+
     def download_generator(self) -> Iterator[dict]:
         """
         A generator for downloads of files, folders, or entire dandiset from
         DANDI (as identified by URL)
 
-        This function is a generator which would yield records on ongoing
+        This function is a generator which yields records on ongoing
         activities.  Activities include traversal of the remote resource (DANDI
         archive), download of individual assets while yielding records (TODO:
         schema) while validating their checksums "on the fly", etc.
@@ -235,10 +243,8 @@ class Downloader:
         with self.url.navigate(strict=True) as (client, dandiset, assets):
             if (
                 isinstance(self.url, DandisetURL)
-                or (
-                    isinstance(self.url, AssetItemURL)
-                    and self.url.path == "dandiset.yaml"
-                )
+                or self.is_dandiset_yaml()
+                or self.preserve_tree
             ) and self.get_metadata:
                 assert dandiset is not None
                 for resp in _populate_dandiset_yaml(
@@ -248,7 +254,7 @@ class Downloader:
                         "path": str(self.output_prefix / dandiset_metadata_file),
                         **resp,
                     }
-                if isinstance(self.url, AssetItemURL):
+                if self.is_dandiset_yaml():
                     return
 
             # TODO: do analysis of assets for early detection of needed renames
@@ -262,7 +268,9 @@ class Downloader:
                 assets = self.assets_it.feed(assets)
             lock = Lock()
             for asset in assets:
-                path = self.url.get_asset_download_path(asset)
+                path = self.url.get_asset_download_path(
+                    asset, preserve_tree=self.preserve_tree
+                )
                 self.asset_download_paths.add(path)
                 download_path = Path(self.output_path, path)
                 path = str(self.output_prefix / path)
@@ -995,7 +1003,9 @@ class DownloadProgress:
 @dataclass
 class ProgressCombiner:
     zarr_size: int
-    file_qty: int | None = None  # set to specific known value whenever full sweep is complete
+    file_qty: int | None = (
+        None  # set to specific known value whenever full sweep is complete
+    )
     files: dict[str, DownloadProgress] = field(default_factory=dict)
     #: Total size of all files that were not skipped and did not error out
     #: during download
