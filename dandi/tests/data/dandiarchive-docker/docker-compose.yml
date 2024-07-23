@@ -39,7 +39,7 @@ services:
       DJANGO_DANDI_DEV_EMAIL: "test@example.com"
       DANDI_ALLOW_LOCALHOST_URLS: "1"
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
 
   celery:
     image: dandiarchive/dandiarchive-api
@@ -89,7 +89,7 @@ services:
     tty: true
     command: ["server", "/data"]
     ports:
-      - "9000:9000"
+      - "127.0.0.1:9000:9000"
     environment:
       MINIO_ACCESS_KEY: minioAccessKey
       MINIO_SECRET_KEY: minioSecretKey
@@ -104,8 +104,8 @@ services:
       POSTGRES_DB: django
       POSTGRES_PASSWORD: postgres
     image: postgres
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres"]
       interval: 7s
@@ -114,5 +114,5 @@ services:
 
   rabbitmq:
     image: rabbitmq:management
-    ports:
-      - "5672:5672"
+    expose:
+      - "5672"
