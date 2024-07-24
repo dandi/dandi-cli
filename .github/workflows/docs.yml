@@ -3,7 +3,7 @@ name: Build Docs
 on:
   push:
     branches:
-      - master
+      - ak-link
   pull_request:
 
 jobs:
@@ -14,9 +14,9 @@ jobs:
       matrix:
         python:
           - 3.8
-          #- 3.9
-          #- 3.10
-          #- 3.11
+          - 3.9
+          - 3.10
+          - 3.11
     steps:
     - name: Check out repository
       uses: actions/checkout@v4

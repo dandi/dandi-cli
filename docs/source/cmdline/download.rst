@@ -5,7 +5,7 @@
 
     lincbrain [<global options>] download [<options>] <url> ...
 
-Download one or more Dandisets, assets, or folders of assets from DANDI.
+Download one or more datasets, assets, or folders of assets from LINC.
 
 See :ref:`resource_ids` for allowed URL formats.
 

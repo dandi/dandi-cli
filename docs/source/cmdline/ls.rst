@@ -5,7 +5,7 @@
 
     lincbrain [<global options>] ls [<options>] [<path|url> ...]
 
-List :file:`*.nwb` files' and Dandisets' metadata.
+List :file:`*.nwb` files' and datasets' metadata.
 
 The arguments may be either :ref:`resource identifiers <resource_ids>` or paths
 to local files/directories.
@@ -42,7 +42,7 @@ Options
 
 .. option:: -r, --recursive
 
-    Recurse into Dandisets/directories.  Only :file:`*.nwb` files will be
+    Recurse into datasets/directories.  Only :file:`*.nwb` files will be
     considered.
 
 .. option:: --schema <version>

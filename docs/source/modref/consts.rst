@@ -1,5 +1,5 @@
-``dandi.consts``
-================
+``lincbrain.consts``
+====================
 
 .. automodule:: lincbrain.consts
 

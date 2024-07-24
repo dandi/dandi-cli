@@ -1,5 +1,5 @@
-``dandi.dandiarchive``
-======================
+``lincbrain.dandiarchive``
+==========================
 
 .. automodule:: lincbrain.dandiarchive
     :member-order: bysource

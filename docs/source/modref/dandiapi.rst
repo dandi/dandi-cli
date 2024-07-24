@@ -1,15 +1,15 @@
 .. module:: lincbrain.dandiapi
 
-``dandi.dandiapi``
-==================
+``lincbrain.dandiapi``
+======================
 
 This module provides functionality for interacting with a LINC Data Platform server
 via the REST API.  Interaction begins with the creation of a `DandiAPIClient`
 instance, which can be used to retrieve `RemoteDandiset` objects (representing
-Dandisets on the server) and `BaseRemoteAsset` objects (representing assets
+dataset on the server) and `BaseRemoteAsset` objects (representing assets
 without any data associating them with their Dandisets).  `RemoteDandiset`
 objects can, in turn, be used to retrieve `RemoteAsset` objects (representing
-assets associated with Dandisets).  Aside from `DandiAPIClient`, none of these
+assets associated with datasets).  Aside from `DandiAPIClient`, none of these
 classes should be instantiated directly by the user.
 
 All operations that merely fetch data from the server can be done without
@@ -21,7 +21,7 @@ method.
 
 Example code for printing the metadata of all assets with "two-photon" in their
 ``metadata.measurementTechnique[].name`` for the latest published version of
-every Dandiset:
+every dataset:
 
 .. literalinclude:: /examples/dandiapi-example.py
     :language: python
@@ -33,7 +33,7 @@ be passed to functions of pynwb etc.
 .. literalinclude:: /examples/dandiapi-as_readable.py
     :language: python
 
-You can see more usages of DANDI API to assist with data streaming at
+You can see more usages of LINC API to assist with data streaming at
 `PyNWB: Streaming NWB files <https://pynwb.readthedocs.io/en/stable/tutorials/advanced_io/streaming.html>`_.
 
 Client
@@ -44,8 +44,8 @@ Client
 .. autoclass:: DandiAPIClient
     :show-inheritance:
 
-Dandisets
----------
+Datasets
+--------
 
 .. autoclass:: RemoteDandiset()
 

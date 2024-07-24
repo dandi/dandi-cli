@@ -7,5 +7,5 @@ Command-Line Interface
 .. toctree::
     :glob:
 
-    lincbrain
+    dandi
     *
