@@ -4,8 +4,6 @@
 # <https://github.com/dandi/dandi-api/blob/master/docker-compose.override.yml>,
 # but using images uploaded to Docker Hub instead of building them locally.
 
-version: '2.1'
-
 services:
   django:
     image: dandiarchive/dandiarchive-api
