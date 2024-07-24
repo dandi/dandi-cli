@@ -1,7 +1,7 @@
 ``dandi.consts``
 ================
 
-.. automodule:: dandi.consts
+.. automodule:: lincbrain.consts
 
     .. NOTE: Due to <https://github.com/sphinx-doc/sphinx/issues/1063>, only
        data values with doc comments are included by automodule::, even with

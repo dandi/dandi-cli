@@ -1,7 +1,7 @@
 .. -*- mode: rst -*-
 .. vi: set ft=rst sts=4 ts=4 sw=4 et tw=79:
 
-.. currentmodule:: dandi
+.. currentmodule:: lincbrain
 
 .. _chap_modref:
 

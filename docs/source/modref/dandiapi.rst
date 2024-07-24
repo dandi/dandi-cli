@@ -1,9 +1,9 @@
-.. module:: dandi.dandiapi
+.. module:: lincbrain.dandiapi
 
 ``dandi.dandiapi``
 ==================
 
-This module provides functionality for interacting with a Dandi Archive server
+This module provides functionality for interacting with a LINC Data Platform server
 via the REST API.  Interaction begins with the creation of a `DandiAPIClient`
 instance, which can be used to retrieve `RemoteDandiset` objects (representing
 Dandisets on the server) and `BaseRemoteAsset` objects (representing assets

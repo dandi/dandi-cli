@@ -1,11 +1,11 @@
 :program:`lincbrain instances`
-==========================
+==============================
 
 ::
 
     lincbrain [<global options>] instances
 
-List known Dandi Archive instances that can be passed to the
+List known LINC Archive instances that can be passed to the
 ``-i``/``--dandi-instance`` option of other subcommands for the CLI to
 interact with.  Output is in YAML.
 

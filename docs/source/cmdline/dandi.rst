@@ -1,12 +1,12 @@
 :program:`lincbrain`
-================
+====================
 
 ::
 
     lincbrain [<global options>] <subcommand> [<arguments>]
 
-A command-line client for interacting with the `DANDI Archive
-<http://dandiarchive.org>`_.
+A command-line client for interacting with the `LINC Data Platform
+<http://lincbrain.org>`_.
 
 Global Options
 --------------

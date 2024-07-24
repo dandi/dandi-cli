@@ -1,4 +1,4 @@
 ``dandi.misctypes``
 ===================
 
-.. automodule:: dandi.misctypes
+.. automodule:: lincbrain.misctypes

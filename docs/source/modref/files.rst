@@ -1,5 +1,5 @@
 ``dandi.files``
 ===============
 
-.. automodule:: dandi.files
+.. automodule:: lincbrain.files
     :show-inheritance:

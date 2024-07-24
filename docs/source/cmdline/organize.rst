@@ -1,7 +1,7 @@
 .. _dandi_organize:
 
 :program:`lincbrain organize`
-=========================
+=============================
 
 ::
 
