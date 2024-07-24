@@ -1,7 +1,7 @@
 Welcome to the lincbrain documentation
 ======================================
 
-The `lincbrain <https://github.com/linc/linc-cli>`_ library provides both a
+The `lincbrain <https://github.com/lincbrain/linc-cli>`_ library provides both a
 command line interface (CLI) and a Python API for interacting with `LINC Data
 Platform <https://lincbrain.org>`_.
 
