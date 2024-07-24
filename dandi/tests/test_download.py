@@ -172,6 +172,28 @@ def test_download_folder(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     assert (tmp_path / "subdir2" / "coconut.txt").read_text() == "Coconut\n"
 
 
+def test_download_folder_preserve_tree(
+    text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    dandiset_id = text_dandiset.dandiset_id
+    download(
+        f"dandi://{text_dandiset.api.instance_id}/{dandiset_id}/subdir2/",
+        tmp_path,
+        preserve_tree=True,
+    )
+    assert list_paths(tmp_path, dirs=True) == [
+        tmp_path / dandiset_id,
+        tmp_path / dandiset_id / "dandiset.yaml",
+        tmp_path / dandiset_id / "subdir2",
+        tmp_path / dandiset_id / "subdir2" / "banana.txt",
+        tmp_path / dandiset_id / "subdir2" / "coconut.txt",
+    ]
+    assert (tmp_path / dandiset_id / "subdir2" / "banana.txt").read_text() == "Banana\n"
+    assert (
+        tmp_path / dandiset_id / "subdir2" / "coconut.txt"
+    ).read_text() == "Coconut\n"
+
+
 def test_download_item(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     dandiset_id = text_dandiset.dandiset_id
     download(
@@ -180,6 +202,26 @@ def test_download_item(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     )
     assert list_paths(tmp_path, dirs=True) == [tmp_path / "coconut.txt"]
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
+
+
+def test_download_item_preserve_tree(
+    text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    dandiset_id = text_dandiset.dandiset_id
+    download(
+        f"dandi://{text_dandiset.api.instance_id}/{dandiset_id}/subdir2/coconut.txt",
+        tmp_path,
+        preserve_tree=True,
+    )
+    assert list_paths(tmp_path, dirs=True) == [
+        tmp_path / dandiset_id,
+        tmp_path / dandiset_id / "dandiset.yaml",
+        tmp_path / dandiset_id / "subdir2",
+        tmp_path / dandiset_id / "subdir2" / "coconut.txt",
+    ]
+    assert (
+        tmp_path / dandiset_id / "subdir2" / "coconut.txt"
+    ).read_text() == "Coconut\n"
 
 
 def test_download_dandiset_yaml(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
@@ -330,6 +372,7 @@ def test_download_metadata404(text_dandiset: SampleDandiset, tmp_path: Path) -> 
             existing=DownloadExisting.ERROR,
             get_metadata=True,
             get_assets=True,
+            preserve_tree=False,
             jobs_per_zarr=None,
             on_error="raise",
         ).download_generator()
@@ -985,4 +1028,4 @@ def test_pyouthelper_time_remaining_1339():
             # once done, dont print ETA
             assert len(done) == 2
         else:
-            assert done[-1] == f"ETA: {10-i} seconds<"
+            assert done[-1] == f"ETA: {10 - i} seconds<"
