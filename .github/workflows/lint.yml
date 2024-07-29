@@ -12,27 +12,16 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.8'
-
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         python -m pip install --upgrade tox
-
     # Annotate codespell within PR
     - uses: codespell-project/codespell-problem-matcher@v1
-
-    # <https://github.com/kevin1024/vcrpy/issues/855>
-    # <https://github.com/pypa/setuptools/issues/4519>
-    - name: Unbreak vcrpy install
-      run: |
-        echo 'setuptools<72' > /tmp/pip-constraint.txt
-        echo PIP_CONSTRAINT=/tmp/pip-constraint.txt >> "$GITHUB_ENV"
-
     - name: Run linters
       run: |
         tox -e lint
