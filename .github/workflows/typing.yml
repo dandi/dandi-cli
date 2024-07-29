@@ -23,5 +23,12 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --upgrade tox
 
+      # <https://github.com/kevin1024/vcrpy/issues/855>
+      # <https://github.com/pypa/setuptools/issues/4519>
+      - name: Unbreak vcrpy install
+        run: |
+          echo 'setuptools<72' > /tmp/pip-constraint.txt
+          echo PIP_CONSTRAINT=/tmp/pip-constraint.txt >> "$GITHUB_ENV"
+
       - name: Run type checker
         run: tox -e typing
