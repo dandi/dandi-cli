@@ -46,6 +46,12 @@ Options
 
     Whether to interpret asset paths in URLs as exact matches or glob patterns
 
+.. option:: --preserve-tree
+
+    When downloading only part of a Dandiset, also download
+    :file:`dandiset.yaml` and do not strip leading directories from asset
+    paths.  Implies ``--download all``.
+
 .. option:: --sync
 
     Delete local assets that do not exist on the server after downloading

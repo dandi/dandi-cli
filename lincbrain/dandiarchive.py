@@ -183,11 +183,17 @@ class ParsedDandiURL(ABC):
             yield (client, dandiset, assets)
 
     @abstractmethod
-    def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
+    def get_asset_download_path(
+        self, asset: BaseRemoteAsset, preserve_tree: bool
+    ) -> str:
         """
         Returns the path (relative to the base download directory) at which the
         asset ``asset`` (assumed to have been returned by this object's
-        `get_assets()` method) should be downloaded
+        `get_assets()` method) should be downloaded.
+
+        If ``preserve_tree`` is `True`, then the download is being performed
+        with ``--download tree`` option, and the method's return value should
+        be adjusted accordingly.
 
         :meta private:
         """
@@ -231,7 +237,9 @@ class DandisetURL(ParsedDandiURL):
             assert d is not None
             yield from d.get_assets(order=order)
 
-    def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
+    def get_asset_download_path(
+        self, asset: BaseRemoteAsset, preserve_tree: bool
+    ) -> str:
         return asset.path.lstrip("/")
 
     def is_under_download_path(self, path: str) -> bool:
@@ -242,13 +250,17 @@ class DandisetURL(ParsedDandiURL):
 class SingleAssetURL(ParsedDandiURL):
     """Superclass for parsed URLs that refer to a single asset"""
 
-    def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
-        return posixpath.basename(asset.path.lstrip("/"))
+    def get_asset_download_path(
+        self, asset: BaseRemoteAsset, preserve_tree: bool
+    ) -> str:
+        path = asset.path.lstrip("/")
+        if preserve_tree:
+            return path
+        else:
+            return posixpath.basename(path)
 
     def is_under_download_path(self, path: str) -> bool:
-        raise TypeError(
-            f"{type(self).__name__}.is_under_download_path() should not be called"
-        )
+        return False
 
 
 @dataclass
@@ -257,8 +269,14 @@ class MultiAssetURL(ParsedDandiURL):
 
     path: str
 
-    def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
-        return multiasset_target(self.path, asset.path.lstrip("/"))
+    def get_asset_download_path(
+        self, asset: BaseRemoteAsset, preserve_tree: bool
+    ) -> str:
+        path = asset.path.lstrip("/")
+        if preserve_tree:
+            return path
+        else:
+            return multiasset_target(self.path, path)
 
     def is_under_download_path(self, path: str) -> bool:
         prefix = posixpath.dirname(self.path.strip("/"))
@@ -487,7 +505,9 @@ class AssetGlobURL(MultiAssetURL):
         if strict and not any_assets:
             raise NotFoundError(f"No assets found matching glob {self.path!r}")
 
-    def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
+    def get_asset_download_path(
+        self, asset: BaseRemoteAsset, preserve_tree: bool
+    ) -> str:
         return asset.path.lstrip("/")
 
     def is_under_download_path(self, path: str) -> bool:
@@ -675,6 +695,16 @@ class _dandi_url_parser:
             "https://<server>/...",
         ),
     ]
+    resource_identifier_primer = """RESOURCE ID/URLS:\n
+ dandi commands accept URLs and URL-like identifiers called <resource
+ ids> in the following formats for identifying Dandisets, assets, and
+ asset collections.
+
+ Text in [brackets] is optional.  A server field is a base API or GUI URL
+ for a DANDI Archive instance.  If an optional ``version`` field is
+ omitted from a URL, the given Dandiset's most recent published version
+ will be used if it has one, and its draft version will be used otherwise.
+    """
     known_patterns = "Accepted resource identifier patterns:" + "\n - ".join(
         [""] + [display for _, _, display in known_urls]
     )

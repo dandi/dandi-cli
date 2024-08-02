@@ -394,16 +394,41 @@ def docker_compose_setup() -> Iterator[dict[str, str]]:
     try:
         if create:
             if os.environ.get("DANDI_TESTS_PULL_DOCKER_COMPOSE", "1") not in ("", "0"):
-                run(["docker-compose", "pull"], cwd=str(LOCAL_DOCKER_DIR), check=True)
+                run(
+                    ["docker", "compose", "pull"], cwd=str(LOCAL_DOCKER_DIR), check=True
+                )
             run(
-                ["docker-compose", "run", "--rm", "django", "./manage.py", "migrate"],
+                [
+                    "docker",
+                    "compose",
+                    "run",
+                    "--rm",
+                    "django",
+                    "./manage.py",
+                    "migrate",
+                ],
                 cwd=str(LOCAL_DOCKER_DIR),
                 env=env,
                 check=True,
             )
             run(
                 [
-                    "docker-compose",
+                    "docker",
+                    "compose",
+                    "run",
+                    "--rm",
+                    "django",
+                    "./manage.py",
+                    "createcachetable",
+                ],
+                cwd=str(LOCAL_DOCKER_DIR),
+                env=env,
+                check=True,
+            )
+            run(
+                [
+                    "docker",
+                    "compose",
                     "run",
                     "--rm",
                     "-e",
@@ -422,7 +447,8 @@ def docker_compose_setup() -> Iterator[dict[str, str]]:
 
         r = check_output(
             [
-                "docker-compose",
+                "docker",
+                "compose",
                 "run",
                 "--rm",
                 "-T",
@@ -444,7 +470,7 @@ def docker_compose_setup() -> Iterator[dict[str, str]]:
 
         if create:
             run(
-                ["docker-compose", "up", "-d", "django", "celery"],
+                ["docker", "compose", "up", "-d", "django", "celery"],
                 cwd=str(LOCAL_DOCKER_DIR),
                 env=env,
                 check=True,
@@ -462,7 +488,11 @@ def docker_compose_setup() -> Iterator[dict[str, str]]:
         yield {"django_api_key": django_api_key}
     finally:
         if persist in (None, "0"):
-            run(["docker-compose", "down", "-v"], cwd=str(LOCAL_DOCKER_DIR), check=True)
+            run(
+                ["docker", "compose", "down", "-v"],
+                cwd=str(LOCAL_DOCKER_DIR),
+                check=True,
+            )
 
 
 @dataclass
@@ -534,6 +564,7 @@ class SampleDandisetFactory:
                     {
                         "schemaKey": "Person",
                         "name": "Tests, Dandi-Cli",
+                        "email": "nemo@example.com",
                         "roleName": ["dcite:Author", "dcite:ContactPerson"],
                     }
                 ],

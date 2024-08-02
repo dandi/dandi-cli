@@ -172,6 +172,28 @@ def test_download_folder(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     assert (tmp_path / "subdir2" / "coconut.txt").read_text() == "Coconut\n"
 
 
+def test_download_folder_preserve_tree(
+    text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    dandiset_id = text_dandiset.dandiset_id
+    download(
+        f"dandi://{text_dandiset.api.instance_id}/{dandiset_id}/subdir2/",
+        tmp_path,
+        preserve_tree=True,
+    )
+    assert list_paths(tmp_path, dirs=True) == [
+        tmp_path / dandiset_id,
+        tmp_path / dandiset_id / "dandiset.yaml",
+        tmp_path / dandiset_id / "subdir2",
+        tmp_path / dandiset_id / "subdir2" / "banana.txt",
+        tmp_path / dandiset_id / "subdir2" / "coconut.txt",
+    ]
+    assert (tmp_path / dandiset_id / "subdir2" / "banana.txt").read_text() == "Banana\n"
+    assert (
+        tmp_path / dandiset_id / "subdir2" / "coconut.txt"
+    ).read_text() == "Coconut\n"
+
+
 def test_download_item(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     dandiset_id = text_dandiset.dandiset_id
     download(
@@ -180,6 +202,26 @@ def test_download_item(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     )
     assert list_paths(tmp_path, dirs=True) == [tmp_path / "coconut.txt"]
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
+
+
+def test_download_item_preserve_tree(
+    text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    dandiset_id = text_dandiset.dandiset_id
+    download(
+        f"dandi://{text_dandiset.api.instance_id}/{dandiset_id}/subdir2/coconut.txt",
+        tmp_path,
+        preserve_tree=True,
+    )
+    assert list_paths(tmp_path, dirs=True) == [
+        tmp_path / dandiset_id,
+        tmp_path / dandiset_id / "dandiset.yaml",
+        tmp_path / dandiset_id / "subdir2",
+        tmp_path / dandiset_id / "subdir2" / "coconut.txt",
+    ]
+    assert (
+        tmp_path / dandiset_id / "subdir2" / "coconut.txt"
+    ).read_text() == "Coconut\n"
 
 
 def test_download_dandiset_yaml(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
@@ -227,7 +269,7 @@ def test_download_sync(
     dspath = tmp_path / text_dandiset.dandiset_id
     os.rename(text_dandiset.dspath, dspath)
     confirm_mock = mocker.patch(
-        "lincbrain.download.abbrev_prompt", return_value="yes" if confirm else "no"
+        "dandi.download.abbrev_prompt", return_value="yes" if confirm else "no"
     )
     download(
         f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}",
@@ -247,7 +289,7 @@ def test_download_sync_folder(
 ) -> None:
     text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
     text_dandiset.dandiset.get_asset_by_path("subdir2/banana.txt").delete()
-    confirm_mock = mocker.patch("lincbrain.download.abbrev_prompt", return_value="yes")
+    confirm_mock = mocker.patch("dandi.download.abbrev_prompt", return_value="yes")
     download(
         f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}/subdir2/",
         text_dandiset.dspath,
@@ -268,7 +310,7 @@ def test_download_sync_list(
     text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
     dspath = tmp_path / text_dandiset.dandiset_id
     os.rename(text_dandiset.dspath, dspath)
-    input_mock = mocker.patch("lincbrain.utils.input", side_effect=["list", "yes"])
+    input_mock = mocker.patch("dandi.utils.input", side_effect=["list", "yes"])
     download(
         f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}",
         tmp_path,
@@ -289,7 +331,7 @@ def test_download_sync_zarr(
     zarr_dandiset.dandiset.get_asset_by_path("sample.zarr").delete()
     dspath = tmp_path / zarr_dandiset.dandiset_id
     os.rename(zarr_dandiset.dspath, dspath)
-    confirm_mock = mocker.patch("lincbrain.download.abbrev_prompt", return_value="yes")
+    confirm_mock = mocker.patch("dandi.download.abbrev_prompt", return_value="yes")
     download(
         zarr_dandiset.dandiset.version_api_url,
         tmp_path,
@@ -330,6 +372,7 @@ def test_download_metadata404(text_dandiset: SampleDandiset, tmp_path: Path) -> 
             existing=DownloadExisting.ERROR,
             get_metadata=True,
             get_assets=True,
+            preserve_tree=False,
             jobs_per_zarr=None,
             on_error="raise",
         ).download_generator()
@@ -485,9 +528,10 @@ def test_download_zarr_subdir_has_only_subdirs(
 
 
 @pytest.mark.parametrize(
-    "file_qty,inputs,expected",
+    "zarr_size,file_qty,inputs,expected",
     [
-        (
+        (  # 0
+            42,
             1,
             [
                 ("lonely.txt", {"size": 42}),
@@ -501,7 +545,7 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("lonely.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 42},
                 {"status": "downloading"},
                 {"done": 0, "done%": 0.0},
                 {"done": 20, "done%": 20 / 42 * 100},
@@ -510,7 +554,8 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"status": "done", "message": "1 done"},
             ],
         ),
-        (
+        (  # 1
+            169,
             2,
             [
                 ("apple.txt", {"size": 42}),
@@ -534,7 +579,7 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("banana.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 169},
                 {"status": "downloading"},
                 {"done": 0, "done%": 0.0},
                 {"done": 0, "done%": 0.0},
@@ -549,7 +594,8 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"status": "done", "message": "2 done"},
             ],
         ),
-        (
+        (  # 2
+            169,
             2,
             [
                 ("apple.txt", {"size": 42}),
@@ -573,10 +619,10 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("banana.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 169},
                 {"status": "downloading"},
                 {"done": 0, "done%": 0.0},
-                {"done": 20, "done%": 20 / 42 * 100},
+                {"done": 20, "done%": 20 / 169 * 100},
                 {"done": 20, "done%": 20 / 169 * 100},
                 {"done": 40, "done%": 40 / 169 * 100},
                 {"done": 42, "done%": 42 / 169 * 100},
@@ -589,7 +635,8 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"status": "done", "message": "2 done"},
             ],
         ),
-        (
+        (  # 3
+            169,
             2,
             [
                 ("apple.txt", {"size": 42}),
@@ -613,12 +660,12 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("banana.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 169},
                 {"status": "downloading"},
                 {"done": 0, "done%": 0.0},
-                {"done": 20, "done%": 20 / 42 * 100},
-                {"done": 40, "done%": 40 / 42 * 100},
-                {"done": 42, "done%": 42 / 42 * 100},
+                {"done": 20, "done%": 20 / 169 * 100},
+                {"done": 40, "done%": 40 / 169 * 100},
+                {"done": 42, "done%": 42 / 169 * 100},
                 {"message": "1 done"},
                 {"done": 42, "done%": 42 / 169 * 100},
                 {"done": 82, "done%": 82 / 169 * 100},
@@ -628,7 +675,8 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"status": "done", "message": "2 done"},
             ],
         ),
-        (
+        (  # 4
+            169,
             2,
             [
                 ("apple.txt", {"size": 42}),
@@ -647,7 +695,7 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("apple.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 169},
                 {"status": "downloading"},
                 {"done": 0, "done%": 0.0},
                 {"done": 0, "done%": 0.0},
@@ -655,21 +703,26 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"done": 60, "done%": 60 / 169 * 100},
                 {"done": 80, "done%": 80 / 169 * 100},
                 {"message": "1 errored"},
-                {"done": 40, "done%": 40 / 42 * 100},
-                {"done": 42, "done%": 100.0},
+                {"done": 40, "done%": 40 / 169 * 100},
+                {"done": 42, "done%": 42 / 169 * 100},
                 {"status": "error", "message": "1 done, 1 errored"},
             ],
         ),
-        (
+        (  # 5
+            0,
             1,
             [("lonely.txt", {"status": "skipped", "message": "already exists"})],
             [{"status": "skipped", "message": "1 skipped"}],
         ),
-        (
+        (  # 6
+            169,
             2,
             [
                 ("apple.txt", {"size": 42}),
-                ("banana.txt", {"status": "skipped", "message": "already exists"}),
+                (
+                    "banana.txt",
+                    {"size": 127, "status": "skipped", "message": "already exists"},
+                ),
                 ("apple.txt", {"status": "downloading"}),
                 ("apple.txt", {"done": 0, "done%": 0.0}),
                 ("apple.txt", {"done": 20, "done%": 20 / 42 * 100}),
@@ -680,17 +733,19 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("apple.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 169},
                 {"message": "1 skipped"},
+                {"done": 127, "done%": (127 + 0) / 169 * 100},
                 {"status": "downloading"},
-                {"done": 0, "done%": 0.0},
-                {"done": 20, "done%": 20 / 42 * 100},
-                {"done": 40, "done%": 40 / 42 * 100},
-                {"done": 42, "done%": 100.0},
+                {"done": 127 + 0, "done%": (127 + 0) / 169 * 100},
+                {"done": 127 + 20, "done%": (127 + 20) / 169 * 100},
+                {"done": 127 + 40, "done%": (127 + 40) / 169 * 100},
+                {"done": 127 + 42, "done%": 100.0},
                 {"status": "done", "message": "1 done, 1 skipped"},
             ],
         ),
-        (
+        (  # 7
+            169,
             2,
             [
                 ("apple.txt", {"size": 42}),
@@ -719,7 +774,7 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("apple.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 169},
                 {"status": "downloading"},
                 {"done": 0, "done%": 0.0},
                 {"done": 0, "done%": 0.0},
@@ -734,14 +789,18 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"status": "error", "message": "1 done, 1 errored"},
             ],
         ),
-        (
+        (  # 8
+            179,
             3,
             [
                 ("apple.txt", {"size": 42}),
                 ("banana.txt", {"size": 127}),
                 ("apple.txt", {"status": "downloading"}),
                 ("banana.txt", {"status": "downloading"}),
-                ("coconut", {"status": "skipped", "message": "already exists"}),
+                (
+                    "coconut",
+                    {"size": 10, "status": "skipped", "message": "already exists"},
+                ),
                 ("apple.txt", {"done": 0, "done%": 0.0}),
                 ("banana.txt", {"done": 0, "done%": 0.0}),
                 ("apple.txt", {"done": 20, "done%": 20 / 42 * 100}),
@@ -764,28 +823,29 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("banana.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 179},
                 {"status": "downloading"},
                 {"message": "1 skipped"},
-                {"done": 0, "done%": 0.0},
-                {"done": 0, "done%": 0.0},
-                {"done": 20, "done%": 20 / 169 * 100},
-                {"done": 60, "done%": 60 / 169 * 100},
-                {"done": 80, "done%": 80 / 169 * 100},
-                {"done": 120, "done%": 120 / 169 * 100},
-                {"done": 122, "done%": 122 / 169 * 100},
+                {"done": 10, "done%": 10 / 179 * 100},
+                {"done": 10, "done%": 10 / 179 * 100},
+                {"done": 10, "done%": 10 / 179 * 100},
+                {"done": 10 + 20, "done%": (10 + 20) / 179 * 100},
+                {"done": 10 + 60, "done%": (10 + 60) / 179 * 100},
+                {"done": 10 + 80, "done%": (10 + 80) / 179 * 100},
+                {"done": 10 + 120, "done%": (10 + 120) / 179 * 100},
+                {"done": 10 + 122, "done%": (10 + 122) / 179 * 100},
                 {"message": "1 errored, 1 skipped"},
-                {"done": 162, "done%": 162 / 169 * 100},
-                {"done": 169, "done%": 100.0},
+                {"done": 10 + 162, "done%": (10 + 162) / 179 * 100},
+                {"done": 179, "done%": 100.0},
                 {"status": "error", "message": "1 done, 1 errored, 1 skipped"},
             ],
         ),
     ],
 )
 def test_progress_combiner(
-    file_qty: int, inputs: list[tuple[str, dict]], expected: list[dict]
+    zarr_size: int, file_qty: int, inputs: list[tuple[str, dict]], expected: list[dict]
 ) -> None:
-    pc = ProgressCombiner(zarr_size=69105, file_qty=file_qty)
+    pc = ProgressCombiner(zarr_size=zarr_size, file_qty=file_qty)
     outputs: list[dict] = []
     for path, status in inputs:
         outputs.extend(pc.feed(path, status))
@@ -865,7 +925,7 @@ def test_download_sync_glob(
 ) -> None:
     text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
     text_dandiset.dandiset.get_asset_by_path("subdir2/banana.txt").delete()
-    confirm_mock = mocker.patch("lincbrain.download.abbrev_prompt", return_value="yes")
+    confirm_mock = mocker.patch("dandi.download.abbrev_prompt", return_value="yes")
     download(
         f"{text_dandiset.dandiset.version_api_url}assets/?glob=s*.Txt",
         text_dandiset.dspath,
@@ -968,4 +1028,4 @@ def test_pyouthelper_time_remaining_1339():
             # once done, dont print ETA
             assert len(done) == 2
         else:
-            assert done[-1] == f"ETA: {10-i} seconds<"  # noqa: E226
+            assert done[-1] == f"ETA: {10 - i} seconds<"
