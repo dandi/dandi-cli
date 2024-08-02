@@ -1,3 +1,30 @@
+# 0.11.0 (Fri Aug 02 2024)
+
+#### 🚀 Enhancement
+
+- trivial change to invoke deployment of 0.11.0 [#56](https://github.com/lincbrain/linc-cli/pull/56) (aaronkanzer@Aarons-MacBook-Pro.local [@aaronkanzer](https://github.com/aaronkanzer))
+
+#### 🐛 Bug Fix
+
+- Merge updates for zarr completion & doi completion upstream in dandi cli [#55](https://github.com/lincbrain/linc-cli/pull/55) ([@jwodder](https://github.com/jwodder) [@yarikoptic](https://github.com/yarikoptic) team@dandiarchive.org [@mvandenburgh](https://github.com/mvandenburgh) [@rly](https://github.com/rly) [@jjnesbitt](https://github.com/jjnesbitt) [@asmacdo](https://github.com/asmacdo) [@candleindark](https://github.com/candleindark) aaronkanzer@Aarons-MacBook-Pro.local [@aaronkanzer](https://github.com/aaronkanzer))
+- Edit and deploy readthedocs for LINC CLI [#54](https://github.com/lincbrain/linc-cli/pull/54) (aaronkanzer@Aarons-MacBook-Pro.local [@aaronkanzer](https://github.com/aaronkanzer))
+- Replace Netlify staging url with staging.lincbrain.org url in CLI [#53](https://github.com/lincbrain/linc-cli/pull/53) (aaronkanzer@Aarons-MacBook-Pro.local [@aaronkanzer](https://github.com/aaronkanzer))
+
+#### Authors: 10
+
+- [@aaronkanzer](https://github.com/aaronkanzer)
+- Aaron Kanzer (aaronkanzer@Aarons-MacBook-Pro.local)
+- Austin Macdonald ([@asmacdo](https://github.com/asmacdo))
+- DANDI Bot (team@dandiarchive.org)
+- Isaac To ([@candleindark](https://github.com/candleindark))
+- Jacob Nesbitt ([@jjnesbitt](https://github.com/jjnesbitt))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Mike VanDenburgh ([@mvandenburgh](https://github.com/mvandenburgh))
+- Ryan Ly ([@rly](https://github.com/rly))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.10.0 (Fri Jul 19 2024)
 
 #### 🚀 Enhancement
