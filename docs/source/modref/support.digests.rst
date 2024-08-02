@@ -1,4 +1,4 @@
-``dandi.support.digests``
-=========================
+``lincbrain.support.digests``
+=============================
 
-.. automodule:: dandi.support.digests
+.. automodule:: lincbrain.support.digests

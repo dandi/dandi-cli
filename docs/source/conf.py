@@ -20,8 +20,8 @@
 import lincbrain
 
 project = "lincbrain"
-copyright = "2021-2023, DANDI Team"
-author = "DANDI Team"
+copyright = "2023-2024, LINC Team"
+author = "LINC Team"
 
 # The full version, including alpha/beta/rc tags
 version = lincbrain.__version__

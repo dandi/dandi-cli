@@ -1,6 +1,6 @@
-``dandi.dandiarchive``
-======================
+``lincbrain.dandiarchive``
+==========================
 
-.. automodule:: dandi.dandiarchive
+.. automodule:: lincbrain.dandiarchive
     :member-order: bysource
     :show-inheritance:

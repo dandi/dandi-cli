@@ -1,7 +1,7 @@
 .. -*- mode: rst -*-
 .. vi: set ft=rst sts=4 ts=4 sw=4 et tw=79:
 
-.. currentmodule:: dandi
+.. currentmodule:: lincbrain
 
 .. _chap_modref:
 
@@ -27,7 +27,7 @@ Such interfaces mirror :ref:`Command-Line Interfaces <chap_cmdline>`.
 Mid-level user interfaces
 ==========================
 
-These interfaces provide object-oriented interfaces to manipulate Dandisets and assets in the
+These interfaces provide object-oriented interfaces to manipulate datasets and assets in the
 archive.
 
 .. toctree::

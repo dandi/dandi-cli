@@ -1,5 +1,5 @@
 :program:`lincbrain service-scripts`
-================================
+====================================
 
 ::
 
@@ -17,8 +17,8 @@ utility operations.
 
 Recompute & update the metadata for NWB assets on a remote server.
 
-``<url>`` must point to a draft Dandiset or one or more assets inside a draft
-Dandiset.  See :ref:`resource_ids` for allowed URL formats.
+``<url>`` must point to a draft dataset or one or more assets inside a draft
+dataset.  See :ref:`resource_ids` for allowed URL formats.
 
 Running this command requires the fsspec_ library to be installed with the
 ``http`` extra (e.g., ``pip install "fsspec[http]"``).
@@ -38,7 +38,7 @@ Options
 
     - ``newer-schema-version`` (default) — when the ``schemaVersion`` in the
       asset's current metadata is missing or older than the schema version
-      currently in use by DANDI
+      currently in use by LINC
 
     - ``always`` — always
 
@@ -58,12 +58,12 @@ Options
 
 .. option:: -d, --dandiset <DANDISET ID>
 
-    Specify the ID of the Dandiset to operate on.  This option is required.
+    Specify the ID of the dataset to operate on.  This option is required.
 
 .. option:: -i, --dandi-instance <instance>
 
-    DANDI instance (either a base URL or a known instance name) where the
-    Dandiset is located [default: ``dandi``]
+    LINC Data Platform instance (either a base URL or a known instance name) where the
+    dataset is located [default: ``lincbrain``]
 
 .. option:: -e, --existing [ask|overwrite|skip]
 

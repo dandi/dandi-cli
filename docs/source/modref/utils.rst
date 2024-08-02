@@ -1,4 +1,4 @@
-``dandi.utils``
-===============
+``lincbrain.utils``
+===================
 
-.. automodule:: dandi.utils
+.. automodule:: lincbrain.utils

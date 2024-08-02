@@ -1,9 +1,9 @@
 :program:`lincbrain shell-completion`
-=================================
+=====================================
 
 ::
 
-    dandi [<global options>] shell-completion [<options>]
+    lincbrain [<global options>] shell-completion [<options>]
 
 Emit a shell script for enabling command completion.
 
@@ -12,8 +12,8 @@ completion.
 
 Example::
 
-    $ source <(dandi shell-completion)
-    $ dandi --<PRESS TAB to display available option>
+    $ source <(lincbrain shell-completion)
+    $ lincbrain --<PRESS TAB to display available option>
 
 Options
 -------

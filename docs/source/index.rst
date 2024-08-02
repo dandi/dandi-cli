@@ -1,9 +1,13 @@
-Welcome to the dandi documentation
-==================================
+Welcome to the lincbrain documentation
+======================================
 
-The `dandi <https://github.com/dandi/dandi-cli>`_ library provides both a
-command line interface (CLI) and a Python API for interacting with `DANDI
-Archive <https://dandiarchive.org>`_.
+The `lincbrain <https://github.com/lincbrain/linc-cli>`_ library provides both a
+command line interface (CLI) and a Python API for interacting with `LINC Data
+Platform <https://lincbrain.org>`_.
+
+The `lincbrain` CLI tool is a fork of the `dandi` CLI tool -- https://github.com/dandi/dandi-cli thus, there are a
+handful of references to `dandi` and `Dandisets` throughout these docs. Nevertheless, these docs (and the subsequent
+instructions alongside), should be reflected as accurate.
 
 .. toctree::
    :maxdepth: 2
