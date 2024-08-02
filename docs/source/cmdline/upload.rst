@@ -1,5 +1,5 @@
 :program:`lincbrain upload`
-=======================
+===========================
 
 ::
 
@@ -13,7 +13,7 @@ paths (or the current directory, if no paths are specified) or a parent
 directory thereof.
 
 Local datasets should pass validation.  For that, the assets should first be
-organized using the :ref:`dandi_organize` command.
+organized using the :ref:`lincbrain_organize` command.
 
 By default, all :file:`*.nwb`, :file:`*.zarr`, and :file:`*.ngff` assets in the
 dataset (ignoring directories starting with a period) will be considered for
@@ -78,4 +78,4 @@ set to a nonempty value.
 
 .. option:: --upload-dandiset-metadata
 
-    Update Dandiset metadata based on the local :file:`dandiset.yaml` file
+    Update dataset metadata based on the local :file:`dandiset.yaml` file

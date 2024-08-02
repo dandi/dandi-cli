@@ -1,5 +1,5 @@
 :program:`lincbrain delete`
-=======================
+===========================
 
 ::
 
@@ -10,7 +10,7 @@ Delete datasets and assets from the server.
 Each argument must be either a file path pointing to an asset file or directory
 in a local datasets (in which case the corresponding assets are deleted on the
 remote server) or a :ref:`resource identifier <resource_ids>` pointing to a
-remote asset, directory, or entire Dandiset.
+remote asset, directory, or entire dataset.
 
 Options
 -------

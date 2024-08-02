@@ -1,7 +1,7 @@
-.. _dandi_organize:
+.. _lincbrain_organize:
 
 :program:`lincbrain organize`
-=========================
+=============================
 
 ::
 
@@ -35,17 +35,17 @@ In addition, an "obj" key with a value corresponding to the crc32 checksum of
 "object_id" is added if the aforementioned keys and the list of modalities are
 not sufficient to disambiguate different files.
 
-You can visit https://dandiarchive.org for a growing collection of
-(re)organized dandisets.
+You can visit https://lincbrain.org for a growing collection of
+(re)organized datasets.
 
 Options
 -------
 
 .. option:: -d, --dandiset-path <dir>
 
-    The root directory of the Dandiset to organize files under.  If not
-    specified, the Dandiset under the current directory is assumed.  For
-    'simulate' mode, the target Dandiset/directory must not exist.
+    The root directory of the dataset to organize files under.  If not
+    specified, the dataset under the current directory is assumed.  For
+    'simulate' mode, the target dataset/directory must not exist.
 
 .. option:: -f, --files-mode [dry|simulate|copy|move|hardlink|symlink|auto]
 

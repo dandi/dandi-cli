@@ -1,16 +1,16 @@
-.. currentmodule:: dandi.dandiarchive
+.. currentmodule:: lincbrain.dandiarchive
 
 .. _resource_ids:
 
 Resource Identifiers
 ====================
 
-``dandi`` commands and Python functions accept URLs and URL-like identifiers in
-the following formats for identifying Dandisets, assets, and asset collections.
+``lincbrain`` commands and Python functions accept URLs and URL-like identifiers in
+the following formats for identifying datasets, assets, and asset collections.
 
 Text in [brackets] is optional.  A ``server`` field is a base API or GUI URL
-for a DANDI Archive instance.  If an optional ``version`` field is omitted from
-a URL, the given Dandiset's most recent published version will be used if it
+for a LINC Data platform instance.  If an optional ``version`` field is omitted from
+a URL, the given dataset's most recent published version will be used if it
 has one, and its draft version will be used otherwise.
 
 - :samp:`https://identifiers.org/DANDI:{dandiset-id}[/{version}]`
@@ -18,11 +18,11 @@ has one, and its draft version will be used otherwise.
   to one of the other URL formats
 
 - :samp:`DANDI:{dandiset-id}[/{version}]` (case insensitive)
-  — Refers to a Dandiset on the main archive instance named "dandi".
+  — Refers to a dataset on the main archive instance named "lincbrain".
   `parse_dandi_url()` converts this format to a `DandisetURL`.
 
-- Any ``https://gui.dandiarchive.org/`` or
-  ``https://*dandiarchive-org.netlify.app/`` URL which redirects to
+- Any ``https://staging.lincbrain.org/`` or
+  ``https://staging--lincbrain-org.netlify.app/`` URL which redirects to
   one of the other URL formats
 
 - :samp:`https://{server}[/api]/[#/]dandiset/{dandiset-id}[/{version}][/files]`
@@ -52,22 +52,22 @@ has one, and its draft version will be used otherwise.
   format to an `AssetIDURL`.
 
 - :samp:`https://{server}[/api]/dandisets/{dandiset-id}/versions/{version}/assets/?path={path}`
-  — Refers to all assets in the given Dandiset whose paths begin with the
+  — Refers to all assets in the given dataset whose paths begin with the
   prefix ``path``.  `parse_dandi_url()` converts this format to an
   `AssetPathPrefixURL`.
 
 - :samp:`https://{server}[/api]/dandisets/{dandiset-id}/versions/{version}/assets/?glob={path}`
-  — Refers to all assets in the given Dandiset whose paths match the glob
+  — Refers to all assets in the given dataset whose paths match the glob
   pattern ``path``.  `parse_dandi_url()` converts this format to an
   `AssetGlobURL`.
 
 - :samp:`dandi://{instance-name}/{dandiset-id}[@{version}]` (where
-  ``instance-name`` is the name of a registered Dandi Archive instance) —
-  Refers to a Dandiset.  `parse_dandi_url()` converts this format to a
+  ``instance-name`` is the name of a registered LINC Data Platform instance) —
+  Refers to a dataset.  `parse_dandi_url()` converts this format to a
   `DandisetURL`.
 
 - :samp:`dandi://{instance-name}/{dandiset-id}[@{version}]/{path}` (where
-  ``instance-name`` is the name of a registered Dandi Archive instance)
+  ``instance-name`` is the name of a registered LINC Data Platform instance)
 
   - If the ``glob``/``--path-type glob`` option is in effect, the URL refers to
     a collection of assets whose paths match the glob pattern ``path``, and

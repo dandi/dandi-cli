@@ -1,5 +1,5 @@
-:program:`dandi validate`
-=========================
+:program:`lincbrain validate`
+=============================
 
 ::
 

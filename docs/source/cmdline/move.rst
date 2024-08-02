@@ -1,5 +1,5 @@
 :program:`lincbrain move`
-=====================
+=========================
 
 ::
 
@@ -24,10 +24,10 @@ single source path is renamed to the given destination path.
 
 Alternatively, if the ``--regex`` option is given, then there must be exactly
 two arguments on the command line: a `Python regular expression`_ and a
-replacement string, possibly containing regex backreferences.  :program:`dandi
+replacement string, possibly containing regex backreferences.  :program:`lincbrain
 move` will then apply the regular expression to the path of every asset in the
 current directory recursively (using paths relative to the current directory,
-if in a subdirectory of a Dandiset); if a path matches, the matching portion is
+if in a subdirectory of a dataset); if a path matches, the matching portion is
 replaced with the replacement string, after expanding any backreferences.
 
 .. _Python regular expression: https://docs.python.org/3/library/re.html
@@ -76,7 +76,7 @@ Options
 
     Whether to operate on the local dataset in the current directory, a remote
     dataset (either one specified by the ``--dandiset`` option or else the one
-    corresponding to the local Dandiset), or both at once.  If ``auto`` (the
+    corresponding to the local dataset), or both at once.  If ``auto`` (the
     default) is given, it is treated the same as ``remote`` if a ``--dandiset``
     option is given and as ``both`` otherwise.
 
@@ -106,7 +106,7 @@ Examples
   To rename the file only in the local or remote instance, insert ``--work-on
   local`` or ``--work-on remote`` after ``move``.
 
-- When not working in a local clone of a Dandiset, a file can be renamed in a
+- When not working in a local clone of a dataset, a file can be renamed in a
   remote dataset on a server by providing a resource identifier for the
   dataset to the ``--dandiset`` option.  For example, in order to operate on
   dataset 123456 on the main ``lincbrain`` instance, use::
