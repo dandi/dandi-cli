@@ -11,6 +11,29 @@ from ..dandiset import Dandiset
 from ..download import DownloadExisting, DownloadFormat, PathType
 from ..utils import get_instance, joinurl
 
+_examples = """
+EXAMPLES:
+
+\b
+ - Download only the dandiset.yaml
+   dandi download --download dandiset.yaml DANDI:000027
+\b
+ - Download only dandiset.yaml if there is a newer version
+   dandi download https://identifiers.org/DANDI:000027 --existing refresh
+\b
+ - Download only the assets
+   dandi download --download assets DANDI:000027
+\b
+ - Download all from a specific version
+   dandi download DANDI:000027/0.210831.2033
+\b
+ - Download a specific directory
+   dandi download dandi://DANDI/000027@0.210831.2033/sub-RAT123/
+\b
+ - Download a specific file
+   dandi download dandi://DANDI/000027@0.210831.2033/sub-RAT123/sub-RAT123.nwb
+"""
+
 
 # The use of f-strings apparently makes this not a proper docstring, and so
 # click doesn't use it unless we explicitly assign it to `help`:
@@ -19,8 +42,14 @@ from ..utils import get_instance, joinurl
 Download files or entire folders from LINC.
 
 \b
+{_dandi_url_parser.resource_identifier_primer}
+
+\b
 {_dandi_url_parser.known_patterns}
-    """
+
+{_examples}
+
+"""
 )
 @click.option(
     "-o",
@@ -72,6 +101,15 @@ Download files or entire folders from LINC.
     show_default=True,
 )
 @click.option(
+    "--preserve-tree",
+    is_flag=True,
+    help=(
+        "When downloading only part of a Dandiset, also download"
+        " `dandiset.yaml` and do not strip leading directories from asset"
+        " paths.  Implies `--download all`."
+    ),
+)
+@click.option(
     "--sync", is_flag=True, help="Delete local assets that do not exist on the server"
 )
 @instance_option(
@@ -109,6 +147,7 @@ def download(
     sync: bool,
     dandi_instance: str,
     path_type: PathType,
+    preserve_tree: bool,
 ) -> None:
     # We need to import the download module rather than the download function
     # so that the tests can properly patch the function with a mock.
@@ -142,8 +181,9 @@ def download(
         format=format,
         jobs=jobs[0],
         jobs_per_zarr=jobs[1],
-        get_metadata="dandiset.yaml" in download_types,
-        get_assets="assets" in download_types,
+        get_metadata="dandiset.yaml" in download_types or preserve_tree,
+        get_assets="assets" in download_types or preserve_tree,
+        preserve_tree=preserve_tree,
         sync=sync,
         path_type=path_type,
         # develop_debug=develop_debug

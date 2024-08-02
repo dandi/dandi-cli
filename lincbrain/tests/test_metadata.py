@@ -29,6 +29,7 @@ from dandischema.models import Dandiset as DandisetMeta
 from dateutil.tz import tzutc
 from pydantic import ByteSize
 import pytest
+import requests
 from semantic_version import Version
 
 from .fixtures import SampleDandiset
@@ -52,6 +53,13 @@ from ..misctypes import DUMMY_DANDI_ETAG
 from ..utils import ensure_datetime
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
+
+mark_xfail_ontobee = pytest.mark.xfail(
+    condition="not config.getoption('--scheduled')",
+    reason="Flaky ontobee site",
+    strict=False,
+    raises=requests.RequestException,
+)
 
 
 def test_get_metadata(simple1_nwb: Path, simple1_nwb_metadata: dict[str, Any]) -> None:
@@ -234,6 +242,7 @@ def test_timedelta2duration(td: timedelta, duration: str) -> None:
     assert timedelta2duration(td) == duration
 
 
+@mark_xfail_ontobee
 @mark.skipif_no_network
 @pytest.mark.parametrize(
     "filename, metadata",
@@ -323,7 +332,9 @@ def test_timedelta2duration(td: timedelta, duration: str) -> None:
                 "institution": "University College",
                 "keywords": ["test", "sample", "example", "test-case"],
                 "lab": "Retriever Laboratory",
-                "related_publications": "A Brief History of Test Cases",
+                "related_publications": [
+                    "https://doi.org/10.48324/dandi.000027/0.210831.2033"
+                ],
                 "session_description": "Some test data",
                 "session_id": "XYZ789",
                 "session_start_time": "2020-08-31T15:58:28-04:00",
@@ -459,6 +470,7 @@ def test_time_extract_gest() -> None:
     )
 
 
+@mark_xfail_ontobee
 @mark.skipif_no_network
 @pytest.mark.obolibrary
 @pytest.mark.parametrize(
@@ -489,6 +501,7 @@ def test_parseobourl(url, value):
     assert parse_purlobourl(url) == value
 
 
+@mark_xfail_ontobee
 @pytest.mark.obolibrary
 @mark.skipif_no_network
 def test_species():
@@ -860,6 +873,7 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
         variableMeasured=[],
         measurementTechnique=[],
         approach=[],
+        relatedResource=[],
     )
 
 
@@ -939,4 +953,5 @@ def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
         variableMeasured=[],
         measurementTechnique=[],
         approach=[],
+        relatedResource=[],
     )
