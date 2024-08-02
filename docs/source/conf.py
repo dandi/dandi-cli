@@ -20,7 +20,7 @@
 import lincbrain
 
 project = "lincbrain"
-copyright = "2021-2024, LINC Team"
+copyright = "2023-2024, LINC Team"
 author = "LINC Team"
 
 # The full version, including alpha/beta/rc tags

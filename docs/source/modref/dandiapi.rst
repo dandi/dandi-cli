@@ -6,7 +6,7 @@
 This module provides functionality for interacting with a LINC Data Platform server
 via the REST API.  Interaction begins with the creation of a `DandiAPIClient`
 instance, which can be used to retrieve `RemoteDandiset` objects (representing
-dataset on the server) and `BaseRemoteAsset` objects (representing assets
+datasets on the server) and `BaseRemoteAsset` objects (representing assets
 without any data associating them with their Dandisets).  `RemoteDandiset`
 objects can, in turn, be used to retrieve `RemoteAsset` objects (representing
 assets associated with datasets).  Aside from `DandiAPIClient`, none of these
