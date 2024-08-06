@@ -49,7 +49,8 @@ Options
 .. option:: --preserve-tree
 
     When downloading only part of a Dandiset, also download
-    :file:`dandiset.yaml` and do not strip leading directories from asset
+    :file:`dandiset.yaml` (unless downloading an asset URL that does not
+    include a Dandiset ID) and do not strip leading directories from asset
     paths.  Implies ``--download all``.
 
 .. option:: --sync
