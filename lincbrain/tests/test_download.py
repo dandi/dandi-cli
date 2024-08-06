@@ -250,6 +250,15 @@ def test_download_asset_id_only(text_dandiset: SampleDandiset, tmp_path: Path) -
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
 
 
+def test_download_asset_id_only_preserve_tree(
+    text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    asset = text_dandiset.dandiset.get_asset_by_path("subdir2/coconut.txt")
+    download(asset.base_download_url, tmp_path, preserve_tree=True)
+    assert list_paths(tmp_path, dirs=False) == [tmp_path / "subdir2" / "coconut.txt"]
+    assert (tmp_path / "subdir2" / "coconut.txt").read_text() == "Coconut\n"
+
+
 def test_download_asset_by_equal_prefix(
     text_dandiset: SampleDandiset, tmp_path: Path
 ) -> None:
