@@ -105,7 +105,8 @@ Download files or entire folders from LINC.
     is_flag=True,
     help=(
         "When downloading only part of a Dandiset, also download"
-        " `dandiset.yaml` and do not strip leading directories from asset"
+        " `dandiset.yaml` (unless downloading an asset URL that does not"
+        " include a Dandiset ID) and do not strip leading directories from asset"
         " paths.  Implies `--download all`."
     ),
 )

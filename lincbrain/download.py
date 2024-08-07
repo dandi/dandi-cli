@@ -242,11 +242,14 @@ class Downloader:
 
         with self.url.navigate(strict=True) as (client, dandiset, assets):
             if (
-                isinstance(self.url, DandisetURL)
-                or self.is_dandiset_yaml()
-                or self.preserve_tree
-            ) and self.get_metadata:
-                assert dandiset is not None
+                (
+                    isinstance(self.url, DandisetURL)
+                    or self.is_dandiset_yaml()
+                    or self.preserve_tree
+                )
+                and self.get_metadata
+                and dandiset is not None
+            ):
                 for resp in _populate_dandiset_yaml(
                     self.output_path, dandiset, self.existing
                 ):
