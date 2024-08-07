@@ -1,3 +1,18 @@
+# 0.11.1 (Wed Aug 07 2024)
+
+#### 🐛 Bug Fix
+
+- Update lincbrain --preserve-tree flag from upstream dandi, resolve etelemetry error [#60](https://github.com/lincbrain/linc-cli/pull/60) ([@jwodder](https://github.com/jwodder) [@yarikoptic](https://github.com/yarikoptic) aaronkanzer@Aarons-MacBook-Pro.local [@aaronkanzer](https://github.com/aaronkanzer))
+
+#### Authors: 4
+
+- [@aaronkanzer](https://github.com/aaronkanzer)
+- Aaron Kanzer (aaronkanzer@Aarons-MacBook-Pro.local)
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.11.0 (Fri Aug 02 2024)
 
 #### 🚀 Enhancement
