@@ -1,3 +1,32 @@
+# 0.63.0 (Thu Aug 08 2024)
+
+#### 🚀 Enhancement
+
+- Add `--preserve-tree` option to `dandi download` [#1467](https://github.com/dandi/dandi-cli/pull/1467) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Fix handling of `--preserve-tree` for asset ID-only URLs [#1476](https://github.com/dandi/dandi-cli/pull/1476) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Fix one insignificant typo in CHANGELOG [#1477](https://github.com/dandi/dandi-cli/pull/1477) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Revert "Unbreak vcrpy install" [#1472](https://github.com/dandi/dandi-cli/pull/1472) ([@jwodder](https://github.com/jwodder))
+- Unbreak vcrpy install [#1471](https://github.com/dandi/dandi-cli/pull/1471) ([@jwodder](https://github.com/jwodder))
+- Further improvements to `docker-compose.yml` [#1470](https://github.com/dandi/dandi-cli/pull/1470) ([@jwodder](https://github.com/jwodder))
+- Assorted Docker Compose improvements [#1465](https://github.com/dandi/dandi-cli/pull/1465) ([@jwodder](https://github.com/jwodder))
+- Do not use mypy 1.11.0 [#1466](https://github.com/dandi/dandi-cli/pull/1466) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.62.4 (Mon Jul 15 2024)
 
 #### 🔩 Dependency Updates
