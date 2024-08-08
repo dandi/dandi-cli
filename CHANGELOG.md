@@ -43,7 +43,7 @@
 
 - Rewind filehandle request bodies before retrying requests [#1444](https://github.com/dandi/dandi-cli/pull/1444) ([@jwodder](https://github.com/jwodder))
 - Slight tune up to formatting of examples etc to harmonize appearance/make shorter [#1439](https://github.com/dandi/dandi-cli/pull/1439) ([@yarikoptic](https://github.com/yarikoptic))
-- Fix spelling of netlify and insstance [#1433](https://github.com/dandi/dandi-cli/pull/1433) ([@rly](https://github.com/rly) [@yarikoptic](https://github.com/yarikoptic))
+- Fix spelling of netlify and instance [#1433](https://github.com/dandi/dandi-cli/pull/1433) ([@rly](https://github.com/rly) [@yarikoptic](https://github.com/yarikoptic))
 
 #### 🏠 Internal
 
