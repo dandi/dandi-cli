@@ -474,7 +474,7 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
                     break
         if value_id is None:
             raise ValueError(
-                f"Cannot interpret species field: {value}. Please "
+                f"Cannot interpret species field: {value_orig}. Please "
                 "contact help@dandiarchive.org to add your species. "
                 "You can also put the entire url from NCBITaxon "
                 "(http://www.ontobee.org/ontology/NCBITaxon) into "
