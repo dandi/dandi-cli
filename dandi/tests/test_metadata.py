@@ -516,7 +516,7 @@ def test_species():
 def test_extract_unknown_species():
     with pytest.raises(ValueError) as excinfo:
         extract_species({"species": "mumba-jumba"})
-    assert str(excinfo.value).startswith("Cannot interpret")
+    assert str(excinfo.value).startswith("Cannot interpret species field: mumba-jumba")
 
 
 def test_species_map():
