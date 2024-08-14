@@ -488,6 +488,27 @@ def docker_compose_setup() -> Iterator[dict[str, str]]:
                 raise RuntimeError("Django container did not start up in time")
         yield {"django_api_key": django_api_key}
     finally:
+        if auditfile := os.environ.get("DANDI_TESTS_AUDIT_CSV", ""):
+            with open(auditfile, "wb") as fp:
+                run(
+                    [
+                        "docker",
+                        "compose",
+                        "exec",
+                        "postgres",
+                        "psql",
+                        "-U",
+                        "postgres",
+                        "-d",
+                        "django",
+                        "--csv",
+                        "-c",
+                        "SELECT * FROM api_auditrecord;",
+                    ],
+                    stdout=fp,
+                    cwd=str(LOCAL_DOCKER_DIR),
+                    check=True,
+                )
         if persist in (None, "0"):
             run(
                 ["docker", "compose", "down", "-v"],
