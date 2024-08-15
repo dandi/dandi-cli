@@ -110,7 +110,17 @@ jobs:
     - name: Run Dandi API tests only
       if: matrix.mode == 'dandi-api'
       run: |
+        export DANDI_TESTS_AUDIT_CSV=/tmp/audit.csv
         python -m pytest -s -v --cov=dandi --cov-report=xml --dandi-api dandi
+        if [ ! -e /tmp/audit.csv ]
+        then echo Audit file not created
+             exit 1
+        fi
+        lines="$(wc -l /tmp/audit.csv | awk '{print $1}')"
+        if [ "$lines" -lt 100 ]
+        then echo Audit file shorter than expected - only "$lines" lines
+             exit 1
+        fi
 
     - name: Dump Docker Compose logs
       if: failure() && startsWith(matrix.os, 'ubuntu')
