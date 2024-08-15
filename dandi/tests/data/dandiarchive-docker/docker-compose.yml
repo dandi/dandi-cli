@@ -29,6 +29,10 @@ services:
       DJANGO_MINIO_STORAGE_ENDPOINT: minio:9000
       DJANGO_MINIO_STORAGE_SECRET_KEY: minioSecretKey
       DJANGO_STORAGE_BUCKET_NAME: django-storage
+      # The Minio URL needs to use 127.0.0.1 instead of localhost so that blob
+      # assets' "S3 URLs" will use 127.0.0.1, and thus tests that try to open
+      # these URLs via fsspec will not fail on systems where localhost is both
+      # 127.0.0.1 and ::1.
       DJANGO_MINIO_STORAGE_MEDIA_URL: http://127.0.0.1:9000/django-storage
       DJANGO_DANDI_SCHEMA_VERSION: ~
       DJANGO_DANDI_WEB_APP_URL: http://localhost:8085
