@@ -9,6 +9,7 @@ from collections import Counter
 from collections.abc import Sequence
 from copy import deepcopy
 from enum import Enum
+import logging
 import os
 import os.path as op
 from pathlib import Path, PurePosixPath
@@ -307,9 +308,28 @@ def _assign_obj_id(metadata, non_unique):
     # Avoid heavy import by importing within function:
     from .pynwb_utils import get_object_id
 
-    msg = "%d out of %d paths are not unique" % (len(non_unique), len(metadata))
+    msg = "%d out of %d paths are not unique." % (len(non_unique), len(metadata))
+    non_unique_paths = sorted(non_unique)
 
-    lgr.info(msg + ". We will try adding _obj- based on crc32 of object_id")
+    # provide more information to the user
+    def get_msg(path, indent="  "):
+        in_paths = non_unique[path]
+        return (
+            f"{len(in_paths)} paths 'compete' for the path {path!r}:"
+            + f"\n{indent}".join([""] + in_paths)
+        )
+
+    msg += "\n " + get_msg(non_unique_paths[0])
+    if len(non_unique) > 1:
+        if not lgr.isEnabledFor(logging.DEBUG):
+            msg += (
+                " Rerun with logging at DEBUG level '-l debug' "
+                "to see {len(non_unique) - 1} more cases."
+            )
+        else:
+            for ex_path in non_unique_paths[1:]:
+                msg += "\n " + get_msg(ex_path)
+    lgr.info(msg + "\n We will try adding _obj- based on crc32 of object_id")
     seen_obj_ids = {}  # obj_id: object_id
     seen_object_ids = {}  # object_id: path
     recent_nwb_msg = "NWB>=2.1.0 standard (supported by pynwb>=1.1.0)."
