@@ -308,7 +308,7 @@ def _assign_obj_id(metadata, non_unique):
     # Avoid heavy import by importing within function:
     from .pynwb_utils import get_object_id
 
-    msg = "%d out of %d paths are not unique." % (len(non_unique), len(metadata))
+    msg = f"{len(non_unique)} out of {len(metadata)} paths are not unique."
     non_unique_paths = sorted(non_unique)
 
     # provide more information to the user
@@ -329,7 +329,7 @@ def _assign_obj_id(metadata, non_unique):
         else:
             for ex_path in non_unique_paths[1:]:
                 msg += "\n " + get_msg(ex_path)
-    lgr.info(msg + "\n We will try adding _obj- based on crc32 of object_id")
+    lgr.info("%s\n We will try adding _obj- based on crc32 of object_id", msg)
     seen_obj_ids = {}  # obj_id: object_id
     seen_object_ids = {}  # object_id: path
     recent_nwb_msg = "NWB>=2.1.0 standard (supported by pynwb>=1.1.0)."
