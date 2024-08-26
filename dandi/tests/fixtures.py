@@ -234,6 +234,17 @@ def organized_nwb_dir2(
         ),
         **simple1_nwb_metadata,
     )
+    make_nwb_file(
+        tmp_path / "simple1_zarr.nwb",
+        backend="zarr",
+        subject=pynwb.file.Subject(
+            subject_id="lizard001",
+            date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
+            sex="F",
+            species="Gekko gecko",
+        ),
+        **simple1_nwb_metadata,
+    )
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
     r = CliRunner().invoke(organize, ["-f", "move", "--dandiset-path", str(tmp_path)])
     assert r.exit_code == 0, r.stdout

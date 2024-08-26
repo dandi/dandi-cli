@@ -7,13 +7,14 @@ import os
 import os.path as op
 from pathlib import Path
 import re
-from typing import IO, Any, TypeVar, cast
+from typing import IO, Any, TypeVar, cast, Literal
 import warnings
 
 import dandischema
 from fscacher import PersistentCache
 import h5py
 import hdmf
+import hdmf_zarr
 from packaging.version import Version
 import pynwb
 from pynwb import NWBHDF5IO
@@ -479,14 +480,19 @@ StrPath = TypeVar("StrPath", str, Path)
 
 
 def make_nwb_file(
-    filename: StrPath, *args: Any, cache_spec: bool = False, **kwargs: Any
+    filename: StrPath,
+    *args: Any,
+    cache_spec: bool = False,
+    backend: Literal["hdf5", "zarr"] = "hdf5",
+    **kwargs: Any,
 ) -> StrPath:
     """A little helper to produce an .nwb file in the path using NWBFile
 
     Note: it doesn't cache_spec by default
     """
+    backends = dict(hdf5=pynwb.NWBHDF5IO, zarr=hdmf_zarr.NWBZarrIO)
     nwbfile = pynwb.NWBFile(*args, **kwargs)
-    with pynwb.NWBHDF5IO(filename, "w") as io:
+    with backends[backend](filename, "w") as io:
         io.write(nwbfile, cache_spec=cache_spec)
     return filename
 
