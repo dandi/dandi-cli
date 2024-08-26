@@ -1,3 +1,16 @@
+# 0.11.2 (Mon Aug 26 2024)
+
+#### 🐛 Bug Fix
+
+- Include reference to appropriate docker test container [#62](https://github.com/lincbrain/linc-cli/pull/62) (aaronkanzer@Aarons-MacBook-Pro.local [@aaronkanzer](https://github.com/aaronkanzer))
+
+#### Authors: 2
+
+- [@aaronkanzer](https://github.com/aaronkanzer)
+- Aaron Kanzer (aaronkanzer@Aarons-MacBook-Pro.local)
+
+---
+
 # 0.11.1 (Wed Aug 07 2024)
 
 #### 🐛 Bug Fix
