@@ -6,7 +6,7 @@
 
 services:
   django:
-    image: dandiarchive/dandiarchive-api
+    image: lincbrain/dandiarchive-api
     command: ["./manage.py", "runserver", "--nothreading", "0.0.0.0:8000"]
     # Log printing via Rich is enhanced by a TTY
     tty: true
@@ -33,14 +33,14 @@ services:
       DJANGO_DANDI_SCHEMA_VERSION: ~
       DJANGO_DANDI_WEB_APP_URL: http://localhost:8085
       DJANGO_DANDI_API_URL: http://localhost:8000
-      DJANGO_DANDI_JUPYTERHUB_URL: https://hub.dandiarchive.org
+      DJANGO_DANDI_JUPYTERHUB_URL: https://hub.lincbrain.org
       DJANGO_DANDI_DEV_EMAIL: "test@example.com"
       DANDI_ALLOW_LOCALHOST_URLS: "1"
     ports:
       - "127.0.0.1:8000:8000"
 
   celery:
-    image: dandiarchive/dandiarchive-api
+    image: lincbrain/dandiarchive-api
     command: [
       "celery",
       "--app", "dandiapi.celery",
