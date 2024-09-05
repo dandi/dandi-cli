@@ -859,7 +859,7 @@ def organize(
             return meta
 
         if (
-            not devel_debug and jobs != 1
+            not devel_debug and jobs != 1 and not len(paths) == 1
         ):  # Do not use joblib at all if number_of_jobs=1
             # Note: It is Python (pynwb) intensive, not IO, so ATM there is little
             # to no benefit from Parallel without using multiproc!  But that would
