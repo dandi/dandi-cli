@@ -13,6 +13,7 @@ import os
 import os.path as op
 from pathlib import Path, PurePosixPath
 import re
+import traceback
 import uuid
 
 import ruamel.yaml
@@ -841,22 +842,25 @@ def organize(
         # react to those
         # Doesn't play nice with Parallel
         # with tqdm.tqdm(desc="Files", total=len(paths), unit="file", unit_scale=False) as pbar:
-        failed = []
 
         def _get_metadata(path):
             # Avoid heavy import by importing within function:
             from .metadata.nwb import get_metadata
 
+            meta, exc = {}, None
             try:
                 meta = get_metadata(path)
-            except Exception as exc:
-                meta = {}
-                failed.append(path)
-                # pbar.desc = "Files (%d failed)" % len(failed)
-                lgr.debug("Failed to get metadata for %s: %s", path, exc)
+            except Exception as e:
+                exc = (
+                    e.__class__,
+                    str(e),
+                    traceback.TracebackException.from_exception(e),
+                )
+                # meta = {}
+                # lgr.debug("Failed to get metadata for %s: %s", path, exc)
             # pbar.update(1)
             meta["path"] = path
-            return meta
+            return meta, exc
 
         if (
             not devel_debug and jobs != 1 and not len(paths) == 1
@@ -864,21 +868,33 @@ def organize(
             # Note: It is Python (pynwb) intensive, not IO, so ATM there is little
             # to no benefit from Parallel without using multiproc!  But that would
             # complicate progress bar indication... TODO
-            metadata = list(
+            metadata_excs = list(
                 Parallel(n_jobs=jobs, verbose=10)(
                     delayed(_get_metadata)(path) for path in paths
                 )
             )
         else:
-            metadata = list(map(_get_metadata, paths))
-        if failed:
+            metadata_excs = list(map(_get_metadata, paths))
+        exceptions = [e for _, e in metadata_excs if e]
+        if exceptions:
             lgr.warning(
-                "Failed to load metadata for %d out of %d files",
-                len(failed),
+                "Failed to load metadata for %d out of %d files "
+                "due to following types of exceptions: %s. "
+                "Details of the exceptions will be shown at DEBUG level",
+                len(exceptions),
                 len(paths),
+                ", ".join(e[0].__name__ for e in exceptions),
             )
+            for m, e in metadata_excs:
+                if not e:
+                    continue
+                lgr.debug(
+                    "Loading metadata for path %s resulted in following exception:\n%s",
+                    m["path"],
+                    "\n".join(e[-1].format()),
+                )
 
-    metadata, skip_invalid = filter_invalid_metadata_rows(metadata)
+    metadata, skip_invalid = filter_invalid_metadata_rows([m for m, e in metadata_excs])
     if skip_invalid:
         msg = (
             "%d out of %d files were found not containing all necessary "
