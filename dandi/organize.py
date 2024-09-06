@@ -856,8 +856,6 @@ def organize(
                     str(e),
                     traceback.TracebackException.from_exception(e),
                 )
-                # meta = {}
-                # lgr.debug("Failed to get metadata for %s: %s", path, exc)
             # pbar.update(1)
             meta["path"] = path
             return meta, exc
@@ -894,7 +892,7 @@ def organize(
                     "\n".join(e[-1].format()),
                 )
 
-    metadata, skip_invalid = filter_invalid_metadata_rows([m for m, e in metadata_excs])
+    metadata, skip_invalid = filter_invalid_metadata_rows([m for m, _ in metadata_excs])
     if skip_invalid:
         msg = (
             "%d out of %d files were found not containing all necessary "
