@@ -518,7 +518,16 @@ def copy_nwb_file(src: str | Path, dest: str | Path) -> str:
     with pynwb.NWBHDF5IO(src, "r") as ior, pynwb.NWBHDF5IO(dest, "w") as iow:
         data = ior.read()
         data.generate_new_id()
-        iow.export(ior, nwbfile=data)
+        iow.export(
+            ior,
+            nwbfile=data,
+            # do not export spec since
+            **(
+                {"cache_spec": False}
+                if Version(pynwb.__version__) > Version("2.8.2.dev11")
+                else {}
+            ),
+        )
     return str(dest)
 
 
