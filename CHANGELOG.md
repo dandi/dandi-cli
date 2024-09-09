@@ -1,3 +1,23 @@
+# 0.63.1 (Mon Sep 09 2024)
+
+#### 🐛 Bug Fix
+
+- Disallow hdmf 3.14.4, make organize to not parallelize for a single file, log information about all exceptions while reading metadata for organize [#1496](https://github.com/dandi/dandi-cli/pull/1496) ([@yarikoptic](https://github.com/yarikoptic))
+- BF: use correct variable in exception upon unknown how to handle value of "species" [#1482](https://github.com/dandi/dandi-cli/pull/1482) ([@yarikoptic](https://github.com/yarikoptic))
+- move: Immediately authenticate client after creation [#1480](https://github.com/dandi/dandi-cli/pull/1480) ([@jwodder](https://github.com/jwodder))
+
+#### 🧪 Tests
+
+- Dump audit table to file specified by `DANDI_TESTS_AUDIT_CSV` envvar [#1486](https://github.com/dandi/dandi-cli/pull/1486) ([@jwodder](https://github.com/jwodder))
+- Fix host used in minio URLs [#1487](https://github.com/dandi/dandi-cli/pull/1487) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.63.0 (Thu Aug 08 2024)
 
 #### 🚀 Enhancement
