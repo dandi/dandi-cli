@@ -703,6 +703,11 @@ def _download_file(
                 downloaded = dldir.offset
                 resuming = downloaded > 0
                 if size is not None and downloaded == size:
+                    lgr.debug(
+                        "%s - downloaded size matches target size of %d, exiting the loop",
+                        path,
+                        size,
+                    )
                     # Exit early when downloaded == size, as making a Range
                     # request in such a case results in a 416 error from S3.
                     # Problems will result if `size` is None but we've already
@@ -829,16 +834,22 @@ class DownloadDirectory:
         ):
             # Pick up where we left off, writing to the end of the file
             lgr.debug(
-                "Download directory exists and has matching checksum; resuming download"
+                "%s - download directory exists and has matching checksum(s) %s; resuming download",
+                self.dirpath,
+                matching_algs,
             )
             self.fp = self.writefile.open("ab")
         else:
             # Delete the file (if it even exists) and start anew
             if not chkpath.exists():
-                lgr.debug("Starting new download in new download directory")
+                lgr.debug(
+                    "%s - starting new download in new download directory", self.dirpath
+                )
             else:
                 lgr.debug(
-                    "Download directory found, but digests do not match; starting new download"
+                    "%s - download directory found, but digests do not match;"
+                    " starting new download",
+                    self.dirpath,
                 )
             try:
                 self.writefile.unlink()
@@ -856,6 +867,22 @@ class DownloadDirectory:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
+        if exc_type is not None or exc_val is not None or exc_tb is not None:
+            lgr.debug(
+                "%s - entered __exit__ with current position %d with exception: "
+                "%s, %s, %s",
+                self.dirpath,
+                self.fp.tell(),
+                exc_type,
+                exc_val,
+                exc_tb,
+            )
+        else:
+            lgr.debug(
+                "%s - entered __exit__ with current position %d without any exception",
+                self.dirpath,
+                self.fp.tell(),
+            )
         assert self.fp is not None
         self.fp.close()
         try:
@@ -863,6 +890,10 @@ class DownloadDirectory:
                 try:
                     self.writefile.replace(self.filepath)
                 except IsADirectoryError:
+                    lgr.debug(
+                        "Destination path %s is a directory; removing it and retrying",
+                        self.filepath,
+                    )
                     rmtree(self.filepath)
                     self.writefile.replace(self.filepath)
         finally:
