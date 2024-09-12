@@ -116,8 +116,9 @@ def main(ctx, log_level, pdb=False):
     root.addHandler(handler)
 
     lgr.info(
-        "dandi v%s, hdmf v%s, pynwb v%s, h5py v%s",
+        "dandi v%s, dandischema v%s, hdmf v%s, pynwb v%s, h5py v%s",
         __version__,
+        get_module_version("dandischema"),
         get_module_version("hdmf"),
         get_module_version("pynwb"),
         get_module_version("h5py"),

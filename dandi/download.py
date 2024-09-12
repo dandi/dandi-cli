@@ -685,7 +685,9 @@ def _download_file(
             if digester is not None:
                 break
         if digester is None:
-            lgr.warning("Found no digests in hashlib for any of %s", str(digests))
+            lgr.warning(
+                "%s - found no digests in hashlib for any of %s", path, str(digests)
+            )
 
     # TODO: how do we discover the total size????
     # TODO: do not do it in-place, but rather into some "hidden" file
@@ -718,7 +720,8 @@ def _download_file(
                             warned = True
                             # Yield ERROR?
                             lgr.warning(
-                                "Downloaded %d bytes although size was told to be just %d",
+                                "%s - downloaded %d bytes although size was told to be just %d",
+                                path,
                                 downloaded,
                                 size,
                             )
@@ -746,14 +749,15 @@ def _download_file(
                     *RETRY_STATUSES,
                 )
             ):
-                lgr.debug("Download failed: %s", exc)
+                lgr.debug("%s - download failed: %s", path, exc)
                 yield {"status": "error", "message": str(exc)}
                 return
             # if is_access_denied(exc) or attempt >= 2:
             #     raise
             # sleep a little and retry
             lgr.debug(
-                "Failed to download on attempt #%d: %s, will sleep a bit and retry",
+                "%s - failed to download on attempt #%d: %s, will sleep a bit and retry",
+                path,
                 attempt,
                 exc,
             )
@@ -768,11 +772,11 @@ def _download_file(
         if digest != final_digest:
             msg = f"{algo}: downloaded {final_digest} != {digest}"
             yield {"checksum": "differs", "status": "error", "message": msg}
-            lgr.debug("%s is different: %s.", path, msg)
+            lgr.debug("%s - is different: %s.", path, msg)
             return
         else:
             yield {"checksum": "ok"}
-            lgr.debug("Verified that %s has correct %s %s", path, algo, digest)
+            lgr.debug("%s - verified that has correct %s %s", path, algo, digest)
     else:
         # shouldn't happen with more recent metadata etc
         yield {
