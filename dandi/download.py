@@ -867,10 +867,10 @@ class DownloadDirectory:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
+        assert self.fp is not None
         if exc_type is not None or exc_val is not None or exc_tb is not None:
             lgr.debug(
-                "%s - entered __exit__ with current position %d with exception: "
-                "%s, %s, %s",
+                "%s - entered __exit__ with position %d with exception: " "%s, %s, %s",
                 self.dirpath,
                 self.fp.tell(),
                 exc_type,
@@ -879,11 +879,10 @@ class DownloadDirectory:
             )
         else:
             lgr.debug(
-                "%s - entered __exit__ with current position %d without any exception",
+                "%s - entered __exit__ with position %d without any exception",
                 self.dirpath,
                 self.fp.tell(),
             )
-        assert self.fp is not None
         self.fp.close()
         try:
             if exc_type is None:
