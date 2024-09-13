@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from glob import glob
 import json
+import logging
+from multiprocessing import Manager, Process
 import os
 import os.path
 from pathlib import Path
@@ -21,6 +24,7 @@ from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
 from ..download import (
+    DownloadDirectory,
     Downloader,
     DownloadExisting,
     DownloadFormat,
@@ -1038,3 +1042,81 @@ def test_pyouthelper_time_remaining_1339():
             assert len(done) == 2
         else:
             assert done[-1] == f"ETA: {10 - i} seconds<"
+
+
+def test_DownloadDirectory_basic(tmp_path: Path) -> None:
+    with DownloadDirectory(tmp_path, digests={}) as dl:
+        assert dl.dirpath.exists()
+        assert dl.writefile.exists()
+        assert dl.writefile.stat().st_size == 0
+        assert dl.offset == 0
+
+        dl.append(b"123")
+        assert dl.fp is not None
+        dl.fp.flush()  # appends are not flushed automatically
+        assert dl.writefile.stat().st_size == 3
+        assert dl.offset == 0  # doesn't change
+
+        dl.append(b"456")
+    # but after we are done - should be a full file!
+    assert tmp_path.stat().st_size == 6
+    assert tmp_path.read_bytes() == b"123456"
+
+    # no problem with overwriting with new content
+    with DownloadDirectory(tmp_path, digests={}) as dl:
+        dl.append(b"789")
+    assert tmp_path.read_bytes() == b"789"
+
+    # even if path is a directory which we "overwrite"
+    tmp_path.unlink()
+    tmp_path.mkdir()
+    (tmp_path / "somedata.dat").write_text("content")
+    with DownloadDirectory(tmp_path, digests={}) as dl:
+        assert set(glob(f"{tmp_path}*")) == {str(tmp_path), str(dl.dirpath)}
+        dl.append(b"123")
+    assert tmp_path.read_bytes() == b"123"
+
+    # no temp .dandidownload folder is left behind
+    assert set(glob(f"{tmp_path}*")) == {str(tmp_path)}
+
+    # test locking
+    def subproc(path, results):
+        try:
+            with DownloadDirectory(path, digests={}):
+                results.append("re-entered fine")
+        except Exception as exc:
+            results.append(str(exc))
+
+    with Manager() as manager:
+        results = manager.list()
+        with DownloadDirectory(tmp_path, digests={}) as dl:
+            dl.append(b"123")
+            p1 = Process(target=subproc, args=(tmp_path, results))
+            p1.start()
+            p1.join()
+        assert len(results) == 1
+        assert results[0] == f"Could not acquire download lock for {tmp_path}"
+    assert tmp_path.read_bytes() == b"123"
+
+
+def test_DownloadDirectory_exc(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG, logger="dandi")
+    # and now let's exit with exception
+    with pytest.raises(RuntimeError):
+        with DownloadDirectory(tmp_path, digests={}) as dl:
+            dl.append(b"456")
+            raise RuntimeError("Boom")
+    assert (
+        "dandi",
+        10,
+        f"{dl.dirpath} - entered __exit__ with position 3 with exception: "
+        "<class 'RuntimeError'>, Boom",
+    ) == caplog.record_tuples[-1]
+    # and we left without cleanup but closed things up after ourselves
+    assert tmp_path.exists()
+    assert tmp_path.is_dir()
+    assert dl.dirpath.exists()
+    assert dl.fp is None
+    assert dl.writefile.read_bytes() == b"456"

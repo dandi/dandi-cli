@@ -870,12 +870,11 @@ class DownloadDirectory:
         assert self.fp is not None
         if exc_type is not None or exc_val is not None or exc_tb is not None:
             lgr.debug(
-                "%s - entered __exit__ with position %d with exception: " "%s, %s, %s",
+                "%s - entered __exit__ with position %d with exception: %s, %s",
                 self.dirpath,
                 self.fp.tell(),
                 exc_type,
                 exc_val,
-                exc_tb,
             )
         else:
             lgr.debug(
