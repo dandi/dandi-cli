@@ -1085,23 +1085,25 @@ def test_DownloadDirectory_basic(tmp_path: Path) -> None:
     assert set(glob(f"{tmp_path}*")) == {str(tmp_path)}
 
     # test locking
-    def subproc(path, results):
-        try:
-            with DownloadDirectory(path, digests={}):
-                results.append("re-entered fine")
-        except Exception as exc:
-            results.append(str(exc))
-
     with Manager() as manager:
         results = manager.list()
         with DownloadDirectory(tmp_path, digests={}) as dl:
             dl.append(b"123")
-            p1 = Process(target=subproc, args=(tmp_path, results))
+            p1 = Process(target=_download_directory_subproc, args=(tmp_path, results))
             p1.start()
             p1.join()
         assert len(results) == 1
         assert results[0] == f"Could not acquire download lock for {tmp_path}"
     assert tmp_path.read_bytes() == b"123"
+
+
+# needs to be a top-level function for pickling
+def _download_directory_subproc(path, results):
+    try:
+        with DownloadDirectory(path, digests={}):
+            results.append("re-entered fine")
+    except Exception as exc:
+        results.append(str(exc))
 
 
 def test_DownloadDirectory_exc(
