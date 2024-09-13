@@ -515,18 +515,18 @@ def copy_nwb_file(src: str | Path, dest: str | Path) -> str:
         dest = op.join(dest, op.basename(src))
     else:
         os.makedirs(op.dirname(dest), exist_ok=True)
+    kws = {}
+    if Version(pynwb.__version__) >= Version("2.8.2"):
+        # we might make it leaner by not caching the spec if original
+        # file did not have it.  Possible only since 2.8.2.dev11
+        kws["cache_spec"] = bool(pynwb.NWBHDF5IO.get_namespaces(src))
     with pynwb.NWBHDF5IO(src, "r") as ior, pynwb.NWBHDF5IO(dest, "w") as iow:
         data = ior.read()
         data.generate_new_id()
         iow.export(
             ior,
             nwbfile=data,
-            # do not export spec since
-            **(
-                {"cache_spec": False}
-                if Version(pynwb.__version__) > Version("2.8.2")
-                else {}
-            ),
+            **kws,
         )
     return str(dest)
 
