@@ -1058,9 +1058,14 @@ def test_DownloadDirectory_basic(tmp_path: Path) -> None:
         assert dl.offset == 0  # doesn't change
 
         dl.append(b"456")
+        inode_number = dl.writefile.stat().st_ino
+        assert inode_number != tmp_path.stat().st_ino
+
     # but after we are done - should be a full file!
     assert tmp_path.stat().st_size == 6
     assert tmp_path.read_bytes() == b"123456"
+    # we moved the file, didn't copy (expensive)
+    assert inode_number == tmp_path.stat().st_ino
 
     # no problem with overwriting with new content
     with DownloadDirectory(tmp_path, digests={}) as dl:
