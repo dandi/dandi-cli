@@ -13,6 +13,7 @@ import os.path as op
 from pathlib import Path
 import random
 from shutil import rmtree
+import sys
 from threading import Lock
 import time
 from types import TracebackType
@@ -887,7 +888,12 @@ class DownloadDirectory:
             if exc_type is None:
                 try:
                     self.writefile.replace(self.filepath)
-                except IsADirectoryError:
+                except (IsADirectoryError, PermissionError) as exc:
+                    if isinstance(exc, PermissionError):
+                        if not (
+                            sys.platform.startswith("win") and self.filepath.is_dir()
+                        ):
+                            raise
                     lgr.debug(
                         "Destination path %s is a directory; removing it and retrying",
                         self.filepath,
