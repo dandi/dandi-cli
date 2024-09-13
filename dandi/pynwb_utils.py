@@ -524,7 +524,7 @@ def copy_nwb_file(src: str | Path, dest: str | Path) -> str:
             # do not export spec since
             **(
                 {"cache_spec": False}
-                if Version(pynwb.__version__) > Version("2.8.2.dev11")
+                if Version(pynwb.__version__) > Version("2.8.2")
                 else {}
             ),
         )
