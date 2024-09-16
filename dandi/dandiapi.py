@@ -1592,10 +1592,23 @@ class BaseRemoteAsset(ABC, APIBase):
             # TODO: apparently we might need retries here as well etc
             # if result.status_code not in (200, 201):
             result.raise_for_status()
+            nbytes, nchunks = 0, 0
             for chunk in result.iter_content(chunk_size=chunk_size):
+                nchunks += 1
                 if chunk:  # could be some "keep alive"?
+                    nbytes += len(chunk)
                     yield chunk
-            lgr.info("Asset %s successfully downloaded", self.identifier)
+                else:
+                    lgr.debug("'Empty' chunk downloaded for %s", url)
+            lgr.info(
+                "Asset %s (%d bytes in %d chunks starting from %d) successfully "
+                "downloaded from %s",
+                self.identifier,
+                nbytes,
+                nchunks,
+                start_at,
+                url,
+            )
 
         return downloader
 
