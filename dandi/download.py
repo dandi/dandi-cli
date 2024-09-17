@@ -844,7 +844,7 @@ class DownloadDirectory:
             # Delete the file (if it even exists) and start anew
             if not chkpath.exists():
                 lgr.debug(
-                    "%s - starting new download in new download directory", self.dirpath
+                    "%s - no prior digests found; starting new download", self.dirpath
                 )
             else:
                 lgr.debug(
