@@ -124,8 +124,9 @@ def main(ctx, log_level, pdb=False):
     )
 
     lgr.info(
-        "dandi %s, "
+        "python %s, dandi %s, "
         + ", ".join("%s %s" % (e, get_module_version(e)) for e in sorted(exts)),
+        sys.version.split()[0],
         __version__,
         extra={"file_only": True},
     )
