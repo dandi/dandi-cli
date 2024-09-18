@@ -119,9 +119,11 @@ def main(ctx, log_level, pdb=False):
         "dandi v%s, dandischema v%s, hdmf v%s, pynwb v%s, h5py v%s",
         __version__,
         get_module_version("dandischema"),
+        get_module_version("h5py"),
         get_module_version("hdmf"),
         get_module_version("pynwb"),
-        get_module_version("h5py"),
+        get_module_version("requests"),
+        get_module_version("urllib3"),
         extra={"file_only": True},
     )
     lgr.info("sys.argv = %r", sys.argv, extra={"file_only": True})
