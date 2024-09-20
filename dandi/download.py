@@ -693,7 +693,10 @@ def _download_file(
     # TODO: how do we discover the total size????
     # TODO: do not do it in-place, but rather into some "hidden" file
     resuming = False
-    for attempt in range(3):
+    attempt = 0
+    nattempts = 3  # number to do, could be incremented if we downloaded a little
+    while attempt <= nattempts:
+        attempt += 1
         try:
             if digester:
                 downloaded_digest = digester()  # start empty
@@ -701,6 +704,7 @@ def _download_file(
             # I wonder if we could make writing async with downloader
             with DownloadDirectory(path, digests or {}) as dldir:
                 assert dldir.offset is not None
+                downloaded_in_attempt = 0
                 downloaded = dldir.offset
                 resuming = downloaded > 0
                 if size is not None and downloaded == size:
@@ -719,6 +723,7 @@ def _download_file(
                         assert downloaded_digest is not None
                         downloaded_digest.update(block)
                     downloaded += len(block)
+                    downloaded_in_attempt += len(block)
                     # TODO: yield progress etc
                     out: dict[str, Any] = {"done": downloaded}
                     if size:
@@ -744,30 +749,83 @@ def _download_file(
         # Catching RequestException lets us retry on timeout & connection
         # errors (among others) in addition to HTTP status errors.
         except requests.RequestException as exc:
+            sleep_amount = random.random() * 5 * attempt
+            if os.environ.get("DANDI_DEVEL_AGGRESSIVE_RETRY"):
+                # in such a case if we downloaded a little more --
+                # consider it a successful attempt
+                if downloaded_in_attempt > 0:
+                    lgr.debug(
+                        "%s - download failed on attempt #%d: %s, "
+                        "but did download %d bytes, so considering "
+                        "it a success and incrementing number of allowed attempts.",
+                        path,
+                        attempt,
+                        exc,
+                        downloaded_in_attempt,
+                    )
+                    nattempts += 1
             # TODO: actually we should probably retry only on selected codes,
-            # and also respect Retry-After
-            if attempt >= 2 or (
-                exc.response is not None
-                and exc.response.status_code
-                not in (
+            if exc.response is not None:
+                if exc.response.status_code not in (
                     400,  # Bad Request, but happened with gider:
                     # https://github.com/dandi/dandi-cli/issues/87
                     *RETRY_STATUSES,
+                ):
+                    lgr.debug(
+                        "%s - download failed due to response %d: %s",
+                        path,
+                        exc.response.status_code,
+                        exc,
+                    )
+                    yield {"status": "error", "message": str(exc)}
+                    return
+                elif retry_after := exc.response.headers.get("Retry-After"):
+                    # playing safe
+                    if not str(retry_after).isdigit():
+                        # our code is wrong, do not crash but issue warning so
+                        # we might get report/fix it up
+                        lgr.warning(
+                            "%s - download failed due to response %d with non-integer"
+                            " Retry-After=%r: %s",
+                            path,
+                            exc.response.status_code,
+                            retry_after,
+                            exc,
+                        )
+                        yield {"status": "error", "message": str(exc)}
+                        return
+                    sleep_amount = int(retry_after)
+                    lgr.debug(
+                        "%s - download failed due to response %d with "
+                        "Retry-After=%d: %s, will sleep and retry",
+                        path,
+                        exc.response.status_code,
+                        sleep_amount,
+                        exc,
+                    )
+                else:
+                    lgr.debug("%s - download failed: %s", path, exc)
+                    yield {"status": "error", "message": str(exc)}
+                    return
+            elif attempt >= nattempts:
+                lgr.debug(
+                    "%s - download failed after %d attempts: %s", path, attempt, exc
                 )
-            ):
-                lgr.debug("%s - download failed: %s", path, exc)
                 yield {"status": "error", "message": str(exc)}
                 return
             # if is_access_denied(exc) or attempt >= 2:
             #     raise
             # sleep a little and retry
-            lgr.debug(
-                "%s - failed to download on attempt #%d: %s, will sleep a bit and retry",
-                path,
-                attempt,
-                exc,
-            )
-            time.sleep(random.random() * 5)
+            else:
+                lgr.debug(
+                    "%s - download failed on attempt #%d: %s, will sleep a bit and retry",
+                    path,
+                    attempt,
+                    exc,
+                )
+            time.sleep(sleep_amount)
+    else:
+        lgr.warning("downloader logic: We should not be here!")
 
     if downloaded_digest and not resuming:
         assert downloaded_digest is not None
