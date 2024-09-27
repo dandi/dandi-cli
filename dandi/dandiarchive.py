@@ -704,7 +704,7 @@ class _dandi_url_parser:
  for a DANDI Archive instance.  If an optional ``version`` field is
  omitted from a URL, the given Dandiset's most recent published version
  will be used if it has one, and its draft version will be used otherwise.
-    """
+"""
     known_patterns = "Accepted resource identifier patterns:" + "\n - ".join(
         [""] + [display for _, _, display in known_urls]
     )
