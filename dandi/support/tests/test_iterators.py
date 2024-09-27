@@ -2,6 +2,8 @@ from time import sleep
 
 import pytest
 
+from dandi.utils import on_windows
+
 from ..iterators import IteratorWithAggregation
 
 
@@ -31,6 +33,7 @@ def sleeping_range(n, secs=0.01, thr=None):
             raise ValueError(i)
 
 
+@pytest.mark.xfail(on_windows, reason="https://github.com/dandi/dandi-cli/issues/1510")
 def test_IteratorWithAggregation():
     def sumup(v, t=0):
         return v + t
