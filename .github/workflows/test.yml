@@ -44,7 +44,7 @@ jobs:
             python: 3.8
             mode: dandi-api
           - os: ubuntu-latest
-            python: 3.8
+            python: 3.9
             mode: dev-deps
           - os: ubuntu-latest
             python: 3.8
