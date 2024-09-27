@@ -883,6 +883,7 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
     )
 
 
+@pytest.mark.xfail(reason="https://github.com/dandi/dandi-cli/issues/1450")
 def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
     pytest.importorskip("fsspec")
     asset = nwb_dandiset.dandiset.get_asset_by_path("sub-mouse001/sub-mouse001.nwb")
