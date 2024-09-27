@@ -7,6 +7,13 @@ on:
   pull_request:
   schedule:
     - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      debug_enabled:
+        type: boolean
+        description: 'Run the build with tmate debugging enabled (https://github.com/marketplace/actions/debugging-with-tmate)'
+        required: false
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref_name }}
@@ -92,6 +99,10 @@ jobs:
     - name: Use scheduled test configuration
       if: github.event_name == 'schedule'
       run: echo PYTEST_ADDOPTS=--scheduled >> "$GITHUB_ENV"
+
+    - name: "(debug mode) Setup tmate session"
+      uses: mxschmitt/action-tmate@v3
+      if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
 
     - name: Run all tests
       if: matrix.mode != 'dandi-api'
