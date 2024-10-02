@@ -21,6 +21,10 @@ from ..cmd_service_scripts import service_scripts
 DATA_DIR = Path(__file__).with_name("data")
 
 
+@pytest.mark.xfail(
+    "nfsmount" in os.environ.get("TMPDIR", ""),
+    reason="https://github.com/dandi/dandi-cli/issues/1507",
+)
 def test_reextract_metadata(
     monkeypatch: pytest.MonkeyPatch, nwb_dandiset: SampleDandiset
 ) -> None:
