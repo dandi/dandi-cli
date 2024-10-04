@@ -360,18 +360,19 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
         else:  # Fallback if an older version
             with pynwb.NWBHDF5IO(path=path, mode="r", load_namespaces=True) as reader:
                 error_outputs = pynwb.validate(io=reader)
-        for error_output in error_outputs:
+        for error in error_outputs:
             errors.append(
                 ValidationResult(
                     origin=ValidationOrigin(
                         name="pynwb",
                         version=pynwb.__version__,
                     ),
-                    severity=Severity.WARNING,
-                    id=f"pywnb.{error_output}",
+                    severity=Severity.ERROR,
+                    id=f"pynwb.{error}",
                     scope=Scope.FILE,
                     path=Path(path),
-                    message="Failed to validate.",
+                    message=f"Failed to validate. {error.reason}",
+                    within_asset_paths={path: error.location},
                 )
             )
     except Exception as exc:
@@ -384,7 +385,7 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
                     version=pynwb.__version__,
                 ),
                 severity=Severity.ERROR,
-                id="pywnb.GENERIC",
+                id="pynwb.GENERIC",
                 scope=Scope.FILE,
                 path=Path(path),
                 message=f"{exc}",
@@ -416,7 +417,7 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
                             version=pynwb.__version__,
                         ),
                         severity=Severity.ERROR,
-                        id="pywnb.GENERIC",
+                        id="pynwb.GENERIC",
                         scope=Scope.FILE,
                         path=Path(path),
                         message=e,
