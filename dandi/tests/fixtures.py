@@ -165,7 +165,7 @@ def simple4_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
 def simple5_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """
     With subject, subject_id, species, but including data orientation ambiguity, and missing
-    the `pywnb.Timeseries` `unit` attribute.
+    the `pynwb.Timeseries` `unit` attribute.
 
     Notes
     -----
