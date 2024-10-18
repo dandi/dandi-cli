@@ -14,6 +14,7 @@ from typing import IO, Any, Generic
 from xml.etree.ElementTree import fromstring
 
 import dandischema
+from dandischema.consts import DANDI_SCHEMA_VERSION
 from dandischema.digests.dandietag import DandiETag
 from dandischema.models import BareAsset, CommonModel
 from dandischema.models import Dandiset as DandisetMeta
@@ -27,7 +28,15 @@ from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
 from dandi.utils import post_upload_size_check, pre_upload_size_check, yaml_load
-from dandi.validate_types import Scope, Severity, ValidationOrigin, ValidationResult
+from dandi.validate_types import (
+    Origin,
+    OriginType,
+    Scope,
+    Severity,
+    Standard,
+    ValidationResult,
+    Validator,
+)
 
 lgr = dandi.get_logger()
 
@@ -201,13 +210,15 @@ class LocalAsset(DandiFile):
             )
             return [
                 ValidationResult(
-                    origin=ValidationOrigin(
-                        name="dandi",
-                        version=dandi.__version__,
+                    origin=Origin(
+                        type=OriginType.INTERNAL,
+                        validator=Validator.dandi,
+                        validator_version=dandi.__version__,
                     ),
                     severity=Severity.ERROR,
                     id="dandi.SOFTWARE_ERROR",
                     scope=Scope.FILE,
+                    origin_result=e,
                     # metadata=metadata,
                     path=self.filepath,  # note that it is not relative .path
                     message=f"Failed to read metadata: {e}",
@@ -526,9 +537,10 @@ class NWBAsset(LocalFileAsset):
         else:
             # make sure that we have some basic metadata fields we require
             try:
-                origin = ValidationOrigin(
-                    name="nwbinspector",
-                    version=str(_get_nwb_inspector_version()),
+                origin = Origin(
+                    type=OriginType.VALIDATION,
+                    validator=Validator.nwbinspector,
+                    validator_version=str(_get_nwb_inspector_version()),
                 )
 
                 for error in inspect_nwbfile(
@@ -553,6 +565,7 @@ class NWBAsset(LocalFileAsset):
                             severity=severity,
                             id=f"NWBI.{error.check_function_name}",
                             scope=Scope.FILE,
+                            origin_result=error,
                             path=Path(error.file_path),
                             message=error.message,
                             # Assuming multiple sessions per multiple subjects,
@@ -694,9 +707,10 @@ def _check_required_fields(
             message = f"Required field {f!r} has no value"
             errors.append(
                 ValidationResult(
-                    origin=ValidationOrigin(
-                        name="dandischema",
-                        version=dandischema.__version__,  # type: ignore[attr-defined]
+                    origin=Origin(
+                        type=OriginType.VALIDATION,
+                        validator=Validator.dandi,
+                        validator_version=dandi.__version__,
                     ),
                     severity=Severity.ERROR,
                     id="dandischema.requred_field",
@@ -709,9 +723,10 @@ def _check_required_fields(
             message = f"Required field {f!r} has value {v!r}"
             errors.append(
                 ValidationResult(
-                    origin=ValidationOrigin(
-                        name="dandischema",
-                        version=dandischema.__version__,  # type: ignore[attr-defined]
+                    origin=Origin(
+                        type=OriginType.VALIDATION,
+                        validator=Validator.dandi,
+                        validator_version=dandi.__version__,
                     ),
                     severity=Severity.WARNING,
                     id="dandischema.placeholder_value",
@@ -793,13 +808,17 @@ def _pydantic_errors_to_validation_results(
             message = e.get("message", e.get("msg", None))
         out.append(
             ValidationResult(
-                origin=ValidationOrigin(
-                    name="dandischema",
-                    version=dandischema.__version__,  # type: ignore[attr-defined]
+                origin=Origin(
+                    type=OriginType.VALIDATION,
+                    validator=Validator.dandischema,
+                    validator_version=dandischema.__version__,  # type: ignore[attr-defined]
+                    standard=Standard.DANDI_SCHEMA,
+                    standard_version=DANDI_SCHEMA_VERSION,
                 ),
                 severity=Severity.ERROR,
                 id=id,
                 scope=scope,
+                origin_result=e,
                 path=file_path,
                 message=message,
                 # TODO? dataset_path=dataset_path,

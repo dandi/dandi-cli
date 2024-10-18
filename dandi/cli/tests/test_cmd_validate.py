@@ -6,7 +6,14 @@ import pytest
 
 from ..cmd_validate import _process_issues, validate
 from ...tests.fixtures import BIDS_ERROR_TESTDATA_SELECTION
-from ...validate_types import Scope, Severity, ValidationOrigin, ValidationResult
+from ...validate_types import (
+    Origin,
+    OriginType,
+    Scope,
+    Severity,
+    ValidationResult,
+    Validator,
+)
 
 
 @pytest.mark.parametrize("dataset", BIDS_ERROR_TESTDATA_SELECTION)
@@ -71,9 +78,10 @@ def test_process_issues(capsys):
     issues = [
         ValidationResult(
             id="NWBI.check_data_orientation",
-            origin=ValidationOrigin(
-                name="nwbinspector",
-                version="",
+            origin=Origin(
+                type=OriginType.VALIDATION,
+                validator=Validator.nwbinspector,
+                validator_version="",
             ),
             scope=Scope.FILE,
             message="Data may be in the wrong orientation.",
@@ -82,9 +90,10 @@ def test_process_issues(capsys):
         ),
         ValidationResult(
             id="NWBI.check_data_orientation",
-            origin=ValidationOrigin(
-                name="nwbinspector",
-                version="",
+            origin=Origin(
+                type=OriginType.VALIDATION,
+                validator=Validator.nwbinspector,
+                validator_version="",
             ),
             scope=Scope.FILE,
             message="Data may be in the wrong orientation.",
@@ -93,9 +102,10 @@ def test_process_issues(capsys):
         ),
         ValidationResult(
             id="NWBI.check_missing_unit",
-            origin=ValidationOrigin(
-                name="nwbinspector",
-                version="",
+            origin=Origin(
+                type=OriginType.VALIDATION,
+                validator=Validator.nwbinspector,
+                validator_version="",
             ),
             scope=Scope.FILE,
             message="Missing text for attribute 'unit'.",

@@ -1,21 +1,101 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, IntEnum, auto, unique
 from pathlib import Path
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+from dandi.utils import StrEnum
 
 
-@dataclass
-class ValidationOrigin:
-    name: str
-    version: str
-    bids_version: str | None = None
+@unique
+class Standard(StrEnum):
+    """Standards to validate against"""
+
+    BIDS = auto()
+    DANDI_LAYOUT = "DANDI-LAYOUT"
+    DANDI_SCHEMA = "DANDI-SCHEMA"
+    HED = auto()
+    NWB = auto()
+    OME_ZARR = "OME-ZARR"
+    ZARR = auto()
+
+    # File formats (For denoting validation failures in file format level)
+    JSON = auto()
+    TSV = auto()
+    YAML = auto()
 
 
-class Severity(Enum):
-    HINT = 1
-    WARNING = 2
-    ERROR = 3
+@unique
+class Validator(StrEnum):
+    """Validators that are used to do validation"""
+
+    bids_validator_deno = "bids-validator-deno"
+    bidsschematools = auto()
+    dandi = auto()
+    dandi_zarr = "dandi.zarr"
+    dandischema = auto()
+    hed_python_validator = "hed-python-validator"
+    nwbinspector = auto()
+    pynwb = auto()
+    zarr = auto()
+
+
+class OriginType(StrEnum):
+    """Types of validation result origins"""
+
+    INTERNAL = auto()
+    """
+    Validation result is originated from the validator but not necessarily relating
+    to validation of the data"""
+
+    VALIDATION = auto()
+    """Validation result is originated from validation of the data"""
+
+
+class Origin(BaseModel):
+    """
+    Origin of the validation result
+    """
+
+    type: OriginType
+
+    validator: Validator
+    """The validator conducting the validation"""
+
+    validator_version: str
+    """The version of the validator"""
+
+    standard: Standard | None = None
+    """Standard being validated against"""
+
+    standard_version: str | None = None
+    """Version of the standard"""
+
+
+class Severity(IntEnum):
+    """Severity levels for validation results"""
+
+    INFO = 10
+    """Not an indication of problem but information of status or confirmation"""
+
+    HINT = 20
+    """Data is valid but could be improved"""
+
+    WARNING = 30
+    """Data is not recognized as valid. Changes are needed to ensure validity"""
+
+    ERROR = 40
+    """Data is recognized as invalid"""
+
+    CRITICAL = 50
+    """
+    A serious invalidity in data.
+    E.g., an invalidity that prevents validation of other aspects of the data such
+    as when validating against the BIDS standard, the data is without a `BIDSVersion`
+    field or has an invalid `BIDSVersion` field.
+    """
 
 
 class Scope(Enum):
@@ -25,11 +105,20 @@ class Scope(Enum):
     DATASET = "dataset"
 
 
-@dataclass
-class ValidationResult:
+class ValidationResult(BaseModel):
     id: str
-    origin: ValidationOrigin
+
+    origin: Origin
+    """Origin of the validation result as validator and standard used in producing it"""
+
     scope: Scope
+
+    origin_result: Any | None = Field(None, exclude=True)
+    """
+    The representation of the validation result produced by the used validator,
+    `self.origin.validator`, unchanged
+    """
+
     severity: Severity | None = None
     # asset_paths, if not populated, assumes [.path], but could be smth like
     # {"path": "task-broken_bold.json",

@@ -29,7 +29,15 @@ from .consts import (
 )
 from .misctypes import Readable
 from .utils import get_module_version, is_url
-from .validate_types import Scope, Severity, ValidationOrigin, ValidationResult
+from .validate_types import (
+    Origin,
+    OriginType,
+    Scope,
+    Severity,
+    Standard,
+    ValidationResult,
+    Validator,
+)
 
 lgr = get_logger()
 
@@ -351,48 +359,6 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
     """
     path = str(path)  # Might come in as pathlib's PATH
     errors: list[ValidationResult] = []
-    try:
-        if Version(pynwb.__version__) >= Version("3.0.0"):
-            error_outputs = pynwb.validate(path=path)
-        elif Version(pynwb.__version__) >= Version(
-            "2.2.0"
-        ):  # Use cached namespace feature
-            # argument get_cached_namespaces is True by default
-            error_outputs, _ = pynwb.validate(paths=[path])
-        else:  # Fallback if an older version
-            with pynwb.NWBHDF5IO(path=path, mode="r", load_namespaces=True) as reader:
-                error_outputs = pynwb.validate(io=reader)
-        for error in error_outputs:
-            errors.append(
-                ValidationResult(
-                    origin=ValidationOrigin(
-                        name="pynwb",
-                        version=pynwb.__version__,
-                    ),
-                    severity=Severity.ERROR,
-                    id=f"pynwb.{error}",
-                    scope=Scope.FILE,
-                    path=Path(path),
-                    message=f"Failed to validate. {error.reason}",
-                    within_asset_paths={path: error.location},
-                )
-            )
-    except Exception as exc:
-        if devel_debug:
-            raise
-        errors.append(
-            ValidationResult(
-                origin=ValidationOrigin(
-                    name="pynwb",
-                    version=pynwb.__version__,
-                ),
-                severity=Severity.ERROR,
-                id="pynwb.GENERIC",
-                scope=Scope.FILE,
-                path=Path(path),
-                message=f"{exc}",
-            )
-        )
 
     # To overcome
     #   https://github.com/NeurodataWithoutBorders/pynwb/issues/1090
@@ -401,6 +367,7 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
         r"general/(experimenter|related_publications)\): "
         r"incorrect shape - expected an array of shape .\[None\]."
     )
+    version = None
     try:
         version = get_nwb_version(path, sanitize=False)
     except Exception:
@@ -414,13 +381,15 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
             for e in nwb_errors:
                 errors.append(
                     ValidationResult(
-                        origin=ValidationOrigin(
-                            name="pynwb",
-                            version=pynwb.__version__,
+                        origin=Origin(
+                            type=OriginType.VALIDATION,
+                            validator=Validator.dandi,
+                            validator_version=__version__,
                         ),
                         severity=Severity.ERROR,
                         id="pynwb.GENERIC",
                         scope=Scope.FILE,
+                        origin_result=e,
                         path=Path(path),
                         message=e,
                     )
@@ -444,6 +413,56 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
                         len(errors_) - len(errors),
                         path,
                     )
+
+    try:
+        if Version(pynwb.__version__) >= Version("3.0.0"):
+            error_outputs = pynwb.validate(path=path)
+        elif Version(pynwb.__version__) >= Version(
+            "2.2.0"
+        ):  # Use cached namespace feature
+            # argument get_cached_namespaces is True by default
+            error_outputs, _ = pynwb.validate(paths=[path])
+        else:  # Fallback if an older version
+            with pynwb.NWBHDF5IO(path=path, mode="r", load_namespaces=True) as reader:
+                error_outputs = pynwb.validate(io=reader)
+        for error in error_outputs:
+            errors.append(
+                ValidationResult(
+                    origin=Origin(
+                        type=OriginType.VALIDATION,
+                        validator=Validator.pynwb,
+                        validator_version=pynwb.__version__,
+                        standard=Standard.NWB,
+                        standard_version=version,
+                    ),
+                    severity=Severity.ERROR,
+                    id=f"pynwb.{error}",
+                    scope=Scope.FILE,
+                    origin_result=error,
+                    path=Path(path),
+                    message=f"Failed to validate. {error.reason}",
+                    within_asset_paths={path: error.location},
+                )
+            )
+    except Exception as exc:
+        if devel_debug:
+            raise
+        errors.append(
+            ValidationResult(
+                origin=Origin(
+                    type=OriginType.INTERNAL,
+                    validator=Validator.pynwb,
+                    validator_version=pynwb.__version__,
+                ),
+                severity=Severity.ERROR,
+                id="pynwb.GENERIC",
+                scope=Scope.FILE,
+                origin_result=exc,
+                path=Path(path),
+                message=f"{exc}",
+            )
+        )
+
     return errors
 
 

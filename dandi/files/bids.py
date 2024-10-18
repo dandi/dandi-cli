@@ -111,7 +111,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                         self._asset_metadata[bids_path] = prepare_metadata(
                             result.metadata
                         )
-                        self._bids_version = result.origin.bids_version
+                        self._bids_version = result.origin.standard_version
 
     def get_asset_errors(self, asset: BIDSAsset) -> list[ValidationResult]:
         """:meta private:"""
