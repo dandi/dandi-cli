@@ -85,6 +85,10 @@ development command line options.
   function will patch `requests` to log the results of calls to
   `requests.utils.super_len()`
 
+- `DANDI_DOWNLOAD_AGGRESSIVE_RETRY` -- When set, would make `download()` retry
+  very aggressively - it would keep trying if at least some bytes are downloaded
+  on each attempt.  Typically is not needed and could be a sign of network issues.
+
 ## Sourcegraph
 
 The [Sourcegraph](https://sourcegraph.com) browser extension can be used to

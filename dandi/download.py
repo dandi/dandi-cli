@@ -750,7 +750,7 @@ def _download_file(
         # errors (among others) in addition to HTTP status errors.
         except requests.RequestException as exc:
             sleep_amount = random.random() * 5 * attempt
-            if os.environ.get("DANDI_DEVEL_AGGRESSIVE_RETRY"):
+            if os.environ.get("DANDI_DOWNLOAD_AGGRESSIVE_RETRY"):
                 # in such a case if we downloaded a little more --
                 # consider it a successful attempt
                 if downloaded_in_attempt > 0:
