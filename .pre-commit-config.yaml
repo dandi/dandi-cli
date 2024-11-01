@@ -22,7 +22,7 @@ repos:
     rev: v2.0.0
     hooks:
     -   id: codespell
-        exclude: ^(dandi/_version\.py|dandi/due\.py|versioneer\.py)$
+        exclude: ^(dandi/_version\.py|dandi/due\.py|versioneer\.py|sandbox/dandi_.*\.json|sandbox/dandi.bib)$
 -   repo: https://github.com/PyCQA/flake8
     rev: 7.0.0
     hooks:
