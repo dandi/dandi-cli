@@ -20,13 +20,9 @@ logging.basicConfig(
 lgr = logging.getLogger(__name__)
 
 
-def fetch_dandisets(me, results=None, metadata=None, datacite=None):
-    if results is None:
-        results = {}
-    if datacite:
-        from dandischema.datacite import to_datacite, validate_datacite
-        from jsonschema import ValidationError as JSONValidationError
-        from pydantic import ValidationError
+def fetch_dandisets(me, bibtex_results=None, get_metadata=False):
+    if bibtex_results is None:
+        bibtex_results = {}
     # Construct the query URL
     url = (
         f"https://api.dandiarchive.org/api/dandisets/?draft=false&empty=false"
@@ -61,9 +57,9 @@ def fetch_dandisets(me, results=None, metadata=None, datacite=None):
                 version_id = version["version"]
                 if version_id == "draft":
                     continue
-                if identifier not in results:
-                    results[identifier] = {}
-                if version_id not in results[identifier]:
+                if identifier not in bibtex_results:
+                    bibtex_results[identifier] = {}
+                if version_id not in bibtex_results[identifier]:
                     doi_url = (
                         f"https://doi.org/10.48324/dandi.{identifier}/{version_id}"
                     )
@@ -76,11 +72,15 @@ def fetch_dandisets(me, results=None, metadata=None, datacite=None):
                             identifier,
                             version_id,
                         )
+                        bibtex_results[identifier][version_id] = (
+                            f"# No valid BibTeX for {identifier}/{version_id}. "
+                            f"Starts with {bibtex.splitlines()[0][:20]}"
+                        )
                     else:
-                        results[identifier][version_id] = bibtex.replace(
+                        bibtex_results[identifier][version_id] = bibtex.replace(
                             "@misc{https://doi.org/10.48324/", "@misc{"
                         )
-                    if metadata or datacite:
+                    if get_metadata:
                         # fetch metadata record
                         metadata_response = requests.get(
                             f"https://api.dandiarchive.org/api/dandisets/"
@@ -91,24 +91,99 @@ def fetch_dandisets(me, results=None, metadata=None, datacite=None):
             # The default to be cited -- ATM we do not have DOI for it, use latest version
             v = dandiset["most_recent_published_version"]["version"]
             # TODO: might want to robustify using `re` etc.
-            if v not in results[identifier]:
+            if v not in bibtex_results[identifier]:
                 lgr.error(
                     "Got no record for the most recent version %s of %s", v, identifier
                 )
             else:
-                results[identifier][None] = results[identifier][v].replace(
+                bibtex_results[identifier][None] = bibtex_results[identifier][
+                    v
+                ].replace(
                     f"@misc{{dandi.{identifier}/{v},", f"@misc{{dandi.{identifier},"
                 )
         if not url:
             lgr.info("No further URL, exiting")
             break
 
-    if metadata_records:
+    return bibtex_results, metadata_records
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Fetch bibliography collection")
+    # TODO: for --me to function, would need to bolt on the authorization to work
+    parser.add_argument("--me", action="store_true", help="Fetch only my dandisets")
+    parser.add_argument(
+        "--metadata",
+        type=str,
+        help="Fetch also metadata records and store in the file",
+        default=None,
+    )
+    parser.add_argument(
+        "--datacite",
+        type=str,
+        help="Fetch metadata records and convert to datacite and store in the file",
+        default=None,
+    )
+    parser.add_argument(
+        "--results",
+        type=str,
+        help="Path to prior BibTeX results JSON file, or where to save/cache results JSON "
+        "(only for bibtex)",
+        default=None,
+    )
+    parser.add_argument(
+        "--bibtex",
+        type=str,
+        help="Path to the BibTeX file to save the results to. If not provided -- stdout",
+        default=None,
+    )
+    # TODO:
+    # - add options for requested format (currently bibtex but probably others supported)
+    # - add option to do it only for specific datasets. Orthogonal to --me
+
+    args = parser.parse_args()
+
+    if args.datacite:
+        from dandischema.datacite import to_datacite, validate_datacite
+        from jsonschema import ValidationError as JSONValidationError
+        from pydantic import ValidationError
+
+    bibtex_results = None
+    if args.results and os.path.lexists(args.results):
+        with open(args.results, "r") as f:
+            bibtex_results = json.load(f)
+
+    bibtex_results, metadata_records = fetch_dandisets(
+        args.me, bibtex_results, args.metadata or args.datacite
+    )
+
+    if args.results:
+        if os.path.lexists(args.results):
+            os.unlink(args.results)
+        with open(args.results, "w") as f:
+            json.dump(bibtex_results, f, indent=2)
+        lgr.info("Updated results have been saved to %s", args.results)
+
+    # OUTPUT BibTeX
+    try:
+        out = open(args.bibtex, "w") if args.bibtex else sys.stdout
+        for dataset, versions in bibtex_results.items():
+            out.write(f"# DANDISET {dataset}\n")
+            for version, rec in versions.items():
+                if version is None:
+                    out.write("# Take latest as the default\n")
+                out.write(f"{rec}\n\n")
+    finally:
+        if args.bibtex:
+            out.close()
+
+    # Metadata and datacite
+    if metadata_records is not None:
         lgr.info("Got %d metadata records", len(metadata_records))
-        if metadata:
-            with open(metadata, "w") as f:
+        if args.metadata:
+            with open(args.metadata, "w") as f:
                 json.dump(metadata_records, f, indent=True)
-        if datacite:
+        if args.datacite:
             meta_errors = defaultdict(list)
             datacite_errors = defaultdict(list)
             datacite_records = []
@@ -136,69 +211,14 @@ def fetch_dandisets(me, results=None, metadata=None, datacite=None):
                         errors_filtered.append(error)
                     meta_errors[m["identifier"]].extend(errors_filtered)
 
-            Path(datacite).with_suffix(".meta-errors.json").write_text(
+            datacite_path = Path(args.datacite)
+            datacite_path.with_suffix(".meta-errors.json").write_text(
                 json.dumps(meta_errors, indent=True)
             )
-            Path(datacite).with_suffix(".datacite-errors.json").write_text(
+            datacite_path.with_suffix(".datacite-errors.json").write_text(
                 json.dumps(datacite_errors, indent=True)
             )
-
-            Path(datacite).write_text(json.dumps(datacite_records, indent=True))
-
-    return results
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Fetch bibliography collection")
-    # TODO: for --me to function, would need to bolt on the authorization to work
-    parser.add_argument("--me", action="store_true", help="Fetch only my dandisets")
-    parser.add_argument(
-        "--metadata",
-        type=str,
-        help="Fetch also metadata records and store in the file",
-        default=None,
-    )
-    parser.add_argument(
-        "--datacite",
-        type=str,
-        help="Fetch metadata records and convert to datacite and store in the file",
-        default=None,
-    )
-    parser.add_argument(
-        "--results",
-        type=str,
-        help="Path to prior results JSON file, or where to save/cache results JSON "
-        "(only for bibtex)",
-        default=None,
-    )
-    # TODO:
-    # - add options for requested format (currently bibtex but probably others supported)
-    # - add option to do it only for specific datasets. Orthogonal to --me
-
-    args = parser.parse_args()
-
-    results = None
-    if args.results and os.path.lexists(args.results):
-        with open(args.results, "r") as f:
-            results = json.load(f)
-
-    results = fetch_dandisets(args.me, results, args.metadata, args.datacite)
-
-    if args.results:
-        if os.path.lexists(args.results):
-            os.unlink(args.results)
-        with open(args.results, "w") as f:
-            json.dump(results, f, indent=2)
-        lgr.info("Updated results have been saved to %s", args.results)
-
-    # OUTPUT BibTeX
-    for dataset, versions in results.items():
-        print(f"# DANDISET {dataset}")
-        for version, rec in versions.items():
-            if version is None:
-                print("# Take latest as the default")
-            print(rec)
-            print()
+            datacite_path.write_text(json.dumps(datacite_records, indent=True))
 
 
 if __name__ == "__main__":
