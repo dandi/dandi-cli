@@ -400,235 +400,6 @@
 
 
 # DANDISET 000029
-<!DOCTYPE html>
-<html lang="en-us">
-<head>
-
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Error: DOI Not Found</title>
-
-
-
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
-          rel="stylesheet"
-          integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC"
-          crossorigin="anonymous">
-    <script
-            src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
-            crossorigin="anonymous">
-    </script>
-
-    <script src="https://kit.fontawesome.com/731b8140c4.js" crossorigin="anonymous"></script>
-
-    <link rel="stylesheet" href="/static/css/style.css" integrity="">
-
-    <style>
-        @import url("https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Roboto:wght@100&display=swap");
-    </style>
-
-    <link rel="icon" sizes="48x48" href="/static/images/favicons/favicon.ico">
-    <link rel="icon" sizes="32x32" href="/static/images/favicons/favicon-32x32.png">
-    <link rel="icon" sizes="16x16" href="/static/images/favicons/favicon-16x16.png">
-    <link rel="apple-touch-icon-precomposed" href="/static/images/favicons/apple-touch-icon.png">
-    <link rel="apple-touch-icon-precomposed" sizes="192x192" href="/static/images/favicons/android-chrome-192x192.png">
-    <link rel="apple-touch-icon-precomposed" sizes="512x512" href="/static/images/favicons/android-chrome-512x512.png">
-
-</head>
-<body class="generic-page">
-<header>
-    <div class="row">
-        <div class="col logo">
-            <a href="https://www.doi.org"><img class="header-logo" src="/static/images/logos/header_logo_cropped.svg" /></a>
-        </div>
-        <div class="col home-link">
-            <div class="link-alt">
-                <a href="https://www.doi.org">
-                    <span>VISIT DOI.ORG</span>
-                    <i class="fa-solid fa-arrow-right-long hover-move-right"></i>
-                </a>
-            </div>
-        </div>
-    </div>
-
-</header>
-
-
-<main aria-role="main">
-    <header class="homepage-header">
-    </header>
-    <div class="homepage-content">
-
-        <section class="single-top">
-            <div class="row short"></div>
-        </section>
-
-        <div class="page-content">
-            <article>
-                <div>
-                    <h2>DOI Not Found</h2>
-
-
-
-                    <h3>10.48324/dandi.000029/0.210712.1903</h3>
-
-
-
-
-                    <p>This DOI cannot be found in the DOI System.  Possible reasons are:</p>
-
-
-                    <ul>
-                        <li style="padding-bottom: .5em;">The DOI is incorrect in your source. Search for the item by name, title, or other metadata using a search engine.</li>
-                        <li style="padding-bottom: .5em;">The DOI was copied incorrectly. Check to see that the string includes all the characters before and after the slash and no sentence punctuation marks.</li>
-                        <li style="padding-bottom: .5em;">The DOI has not been activated yet. Please try again later, and report the problem if the error continues.</li>
-                    </ul>
-
-
-                </div>
-            </article>
-        </div>
-
-        <section class="home-infos">
-            <div class="row">
-                <div class="col ">
-                    <h2 class="title">WHAT CAN I DO NEXT?</h2>
-                    <ul>
-                        <li>If you believe this DOI is valid, you may <strong>report this error</strong> to the responsible DOI Registration Agency using the form here.</li>
-                        <li>If your organization is the steward of this DOI prefix, please make sure you have completed registration of this DOI with your Registration Agency.</li>
-                        <li>You can try to search again from <a href="https://www.doi.org">DOI.ORG homepage</a></li>
-                    </ul>
-                </div>
-                <div class="col form">
-                    <h2 class="title"><img src="/static/images/exclamation.svg">REPORT AN ERROR</h2>
-                    <form action="/notfound" method="post" enctype="application/x-www-form-urlencoded" name="notFoundForm" onsubmit="return submitDoiNotFound(event);">
-                        <div class="row">
-                            <div class="col"><label for="missingHandle">DOI:</label></div>
-                            <div class="col"><input id="missingHandle" name="missingHandle" value="10.48324/dandi.000029/0.210712.1903" type="text" readonly="readonly"></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"><label for="referringPage">URL of Web Page Listing the DOI:</label></div>
-                            <div class="col"><input id="referringPage" name="referringPage" type="text" ></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"><label for="userEmailAddress">Your Email Address:</label></div>
-                            <div class="col"><input id="userEmailAddress" name="userEmailAddress" type="text" /></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"><label for="comments">Additional Information About the Error:</label></div>
-                            <div class="col"><textarea id="comments" name="comments"></textarea></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"></div>
-                            <div class="col"><input class="submit" type="submit" value="Submit Error Report"></div>
-                        </div>
-                        <div class="row">
-                            <p id="invalidDoi" style="display: none; background:#F5B7B1; border-radius: 5px;">The DOI entered is not a valid DOI: it should start with 10 followed by a dot, and contain a slash with no preceding whitespace.</p>
-                            <p id="invalidEmail" style="display: none; background:#F5B7B1; border-radius: 5px;">The email address entered is invalid.</p>
-                            <p id="fallback" style="display: none;">Please <a href="mailto:doi-help@doi.org?subject=DOI%20Not%20Found">contact us</a> if you wish to report this anyway.</p>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-        </section>
-    </div>
-
-
-</main>
-
-<footer>
-    <div class="row">
-        <div class="col footer-left">
-            <a href="https://www.doi.org"><img class="footer-logo" src="/static/images/logos/footer_logo_cropped.svg" /></a>
-        </div>
-        <div class="col footer-right">
-            <div class="row more-info-heading">
-                <div class="col">
-                    <h2>More information on DOI resolution:</h2>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col">
-                    <ul>
-                        <li><a href="https://www.doi.org/the-identifier/resources/factsheets/doi-resolution-documentation">DOI Resolution Factsheet</a></li>
-                    </ul>
-                </div>
-                <div class="col">
-                    <ul>
-                        <li><a href="https://www.doi.org/the-identifier/resources/handbook">The DOI Handbook</a></li>
-                    </ul>
-                </div>
-                <div class="col">
-                    <ul>
-                        <li><a href="https://www.doi.org/privacy-policy/">Privacy Policy</a></li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-    </div>
-    <div class="row">
-        <div class="col copyright">
-            <p>Copyright © 2023 DOI Foundation. <i class="fa-brands fa-fw fa-creative-commons"></i><i class="fa-brands fa-fw fa-creative-commons-by"></i> The content of this site is licensed under a <a href="https://creativecommons.org/licenses/by/4.0/" title="Creative Commons" target="_blank">Creative Commons Attribution 4.0 International License</a>.</p><p>DOI&reg;, DOI.ORG&reg;, and shortDOI&reg; are trademarks of the DOI Foundation.</p>
-        </div>
-        <div class="col socials">
-            <ul class="socials-footer">
-
-                <li><a href="https://twitter.com/DOI_Foundation"><i class="fa-brands fa-fw fa-twitter"></i></a></li>
-
-                <li><a href="https://www.linkedin.com/company/doi-foundation-inc/"><i class="fa-brands fa-fw fa-linkedin"></i></a></li>
-
-                <li><a href="mailto:info@doi.org"><i class="fa-solid fa-fw fa-envelope"></i></a></li>
-
-            </ul>
-        </div>
-    </div>
-</footer>
-
-<script type="text/javascript">
-    function submitDoiNotFound(event) {
-        try {
-            document.getElementById("invalidEmail").style.display = "none";
-            document.getElementById("invalidDoi").style.display = "none";
-            document.getElementById("fallback").style.display = "none";
-
-            const missingHandle = document.getElementById('missingHandle').value.trim();
-            const userEmailAddress = document.getElementById('userEmailAddress').value.trim();
-
-            if (!validateDoi(missingHandle)) {
-                event.preventDefault();
-                document.getElementById("invalidDoi").style.display = "block";
-                document.getElementById("fallback").style.display = "block";
-                return false;
-            }
-            if (!validateEmail(userEmailAddress)) {
-                event.preventDefault();
-                document.getElementById("invalidEmail").style.display = "block";
-                return false;
-            }
-        } catch (error) {
-            // ignore
-        }
-    }
-
-    function validateEmail(email) {
-        const regEx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return regEx.test(email);
-    }
-
-    function validateDoi(doi) {
-        const regEx = /^10(?:\.[^\s\/]+)?\//;
-        return regEx.test(doi);
-    }
-</script>
-
-</body>
-</html>
-
-
 @misc{dandi.000029/0.210730.1538,
   doi = {10.48324/DANDI.000029/0.210730.1538},
   url = {https://dandiarchive.org/dandiset/000029/0.210730.1538},
@@ -704,693 +475,6 @@
   publisher = {DANDI Archive},
   year = {2023}
 }
-
-
-<!DOCTYPE html>
-<html lang="en-us">
-<head>
-
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Error: DOI Not Found</title>
-
-
-
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
-          rel="stylesheet"
-          integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC"
-          crossorigin="anonymous">
-    <script
-            src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
-            crossorigin="anonymous">
-    </script>
-
-    <script src="https://kit.fontawesome.com/731b8140c4.js" crossorigin="anonymous"></script>
-
-    <link rel="stylesheet" href="/static/css/style.css" integrity="">
-
-    <style>
-        @import url("https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Roboto:wght@100&display=swap");
-    </style>
-
-    <link rel="icon" sizes="48x48" href="/static/images/favicons/favicon.ico">
-    <link rel="icon" sizes="32x32" href="/static/images/favicons/favicon-32x32.png">
-    <link rel="icon" sizes="16x16" href="/static/images/favicons/favicon-16x16.png">
-    <link rel="apple-touch-icon-precomposed" href="/static/images/favicons/apple-touch-icon.png">
-    <link rel="apple-touch-icon-precomposed" sizes="192x192" href="/static/images/favicons/android-chrome-192x192.png">
-    <link rel="apple-touch-icon-precomposed" sizes="512x512" href="/static/images/favicons/android-chrome-512x512.png">
-
-</head>
-<body class="generic-page">
-<header>
-    <div class="row">
-        <div class="col logo">
-            <a href="https://www.doi.org"><img class="header-logo" src="/static/images/logos/header_logo_cropped.svg" /></a>
-        </div>
-        <div class="col home-link">
-            <div class="link-alt">
-                <a href="https://www.doi.org">
-                    <span>VISIT DOI.ORG</span>
-                    <i class="fa-solid fa-arrow-right-long hover-move-right"></i>
-                </a>
-            </div>
-        </div>
-    </div>
-
-</header>
-
-
-<main aria-role="main">
-    <header class="homepage-header">
-    </header>
-    <div class="homepage-content">
-
-        <section class="single-top">
-            <div class="row short"></div>
-        </section>
-
-        <div class="page-content">
-            <article>
-                <div>
-                    <h2>DOI Not Found</h2>
-
-
-
-                    <h3>10.48324/dandi.000029/0.230317.1553</h3>
-
-
-
-
-                    <p>This DOI cannot be found in the DOI System.  Possible reasons are:</p>
-
-
-                    <ul>
-                        <li style="padding-bottom: .5em;">The DOI is incorrect in your source. Search for the item by name, title, or other metadata using a search engine.</li>
-                        <li style="padding-bottom: .5em;">The DOI was copied incorrectly. Check to see that the string includes all the characters before and after the slash and no sentence punctuation marks.</li>
-                        <li style="padding-bottom: .5em;">The DOI has not been activated yet. Please try again later, and report the problem if the error continues.</li>
-                    </ul>
-
-
-                </div>
-            </article>
-        </div>
-
-        <section class="home-infos">
-            <div class="row">
-                <div class="col ">
-                    <h2 class="title">WHAT CAN I DO NEXT?</h2>
-                    <ul>
-                        <li>If you believe this DOI is valid, you may <strong>report this error</strong> to the responsible DOI Registration Agency using the form here.</li>
-                        <li>If your organization is the steward of this DOI prefix, please make sure you have completed registration of this DOI with your Registration Agency.</li>
-                        <li>You can try to search again from <a href="https://www.doi.org">DOI.ORG homepage</a></li>
-                    </ul>
-                </div>
-                <div class="col form">
-                    <h2 class="title"><img src="/static/images/exclamation.svg">REPORT AN ERROR</h2>
-                    <form action="/notfound" method="post" enctype="application/x-www-form-urlencoded" name="notFoundForm" onsubmit="return submitDoiNotFound(event);">
-                        <div class="row">
-                            <div class="col"><label for="missingHandle">DOI:</label></div>
-                            <div class="col"><input id="missingHandle" name="missingHandle" value="10.48324/dandi.000029/0.230317.1553" type="text" readonly="readonly"></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"><label for="referringPage">URL of Web Page Listing the DOI:</label></div>
-                            <div class="col"><input id="referringPage" name="referringPage" type="text" ></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"><label for="userEmailAddress">Your Email Address:</label></div>
-                            <div class="col"><input id="userEmailAddress" name="userEmailAddress" type="text" /></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"><label for="comments">Additional Information About the Error:</label></div>
-                            <div class="col"><textarea id="comments" name="comments"></textarea></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"></div>
-                            <div class="col"><input class="submit" type="submit" value="Submit Error Report"></div>
-                        </div>
-                        <div class="row">
-                            <p id="invalidDoi" style="display: none; background:#F5B7B1; border-radius: 5px;">The DOI entered is not a valid DOI: it should start with 10 followed by a dot, and contain a slash with no preceding whitespace.</p>
-                            <p id="invalidEmail" style="display: none; background:#F5B7B1; border-radius: 5px;">The email address entered is invalid.</p>
-                            <p id="fallback" style="display: none;">Please <a href="mailto:doi-help@doi.org?subject=DOI%20Not%20Found">contact us</a> if you wish to report this anyway.</p>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-        </section>
-    </div>
-
-
-</main>
-
-<footer>
-    <div class="row">
-        <div class="col footer-left">
-            <a href="https://www.doi.org"><img class="footer-logo" src="/static/images/logos/footer_logo_cropped.svg" /></a>
-        </div>
-        <div class="col footer-right">
-            <div class="row more-info-heading">
-                <div class="col">
-                    <h2>More information on DOI resolution:</h2>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col">
-                    <ul>
-                        <li><a href="https://www.doi.org/the-identifier/resources/factsheets/doi-resolution-documentation">DOI Resolution Factsheet</a></li>
-                    </ul>
-                </div>
-                <div class="col">
-                    <ul>
-                        <li><a href="https://www.doi.org/the-identifier/resources/handbook">The DOI Handbook</a></li>
-                    </ul>
-                </div>
-                <div class="col">
-                    <ul>
-                        <li><a href="https://www.doi.org/privacy-policy/">Privacy Policy</a></li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-    </div>
-    <div class="row">
-        <div class="col copyright">
-            <p>Copyright © 2023 DOI Foundation. <i class="fa-brands fa-fw fa-creative-commons"></i><i class="fa-brands fa-fw fa-creative-commons-by"></i> The content of this site is licensed under a <a href="https://creativecommons.org/licenses/by/4.0/" title="Creative Commons" target="_blank">Creative Commons Attribution 4.0 International License</a>.</p><p>DOI&reg;, DOI.ORG&reg;, and shortDOI&reg; are trademarks of the DOI Foundation.</p>
-        </div>
-        <div class="col socials">
-            <ul class="socials-footer">
-
-                <li><a href="https://twitter.com/DOI_Foundation"><i class="fa-brands fa-fw fa-twitter"></i></a></li>
-
-                <li><a href="https://www.linkedin.com/company/doi-foundation-inc/"><i class="fa-brands fa-fw fa-linkedin"></i></a></li>
-
-                <li><a href="mailto:info@doi.org"><i class="fa-solid fa-fw fa-envelope"></i></a></li>
-
-            </ul>
-        </div>
-    </div>
-</footer>
-
-<script type="text/javascript">
-    function submitDoiNotFound(event) {
-        try {
-            document.getElementById("invalidEmail").style.display = "none";
-            document.getElementById("invalidDoi").style.display = "none";
-            document.getElementById("fallback").style.display = "none";
-
-            const missingHandle = document.getElementById('missingHandle').value.trim();
-            const userEmailAddress = document.getElementById('userEmailAddress').value.trim();
-
-            if (!validateDoi(missingHandle)) {
-                event.preventDefault();
-                document.getElementById("invalidDoi").style.display = "block";
-                document.getElementById("fallback").style.display = "block";
-                return false;
-            }
-            if (!validateEmail(userEmailAddress)) {
-                event.preventDefault();
-                document.getElementById("invalidEmail").style.display = "block";
-                return false;
-            }
-        } catch (error) {
-            // ignore
-        }
-    }
-
-    function validateEmail(email) {
-        const regEx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return regEx.test(email);
-    }
-
-    function validateDoi(doi) {
-        const regEx = /^10(?:\.[^\s\/]+)?\//;
-        return regEx.test(doi);
-    }
-</script>
-
-</body>
-</html>
-
-
-<!DOCTYPE html>
-<html lang="en-us">
-<head>
-
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Error: DOI Not Found</title>
-
-
-
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
-          rel="stylesheet"
-          integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC"
-          crossorigin="anonymous">
-    <script
-            src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
-            crossorigin="anonymous">
-    </script>
-
-    <script src="https://kit.fontawesome.com/731b8140c4.js" crossorigin="anonymous"></script>
-
-    <link rel="stylesheet" href="/static/css/style.css" integrity="">
-
-    <style>
-        @import url("https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Roboto:wght@100&display=swap");
-    </style>
-
-    <link rel="icon" sizes="48x48" href="/static/images/favicons/favicon.ico">
-    <link rel="icon" sizes="32x32" href="/static/images/favicons/favicon-32x32.png">
-    <link rel="icon" sizes="16x16" href="/static/images/favicons/favicon-16x16.png">
-    <link rel="apple-touch-icon-precomposed" href="/static/images/favicons/apple-touch-icon.png">
-    <link rel="apple-touch-icon-precomposed" sizes="192x192" href="/static/images/favicons/android-chrome-192x192.png">
-    <link rel="apple-touch-icon-precomposed" sizes="512x512" href="/static/images/favicons/android-chrome-512x512.png">
-
-</head>
-<body class="generic-page">
-<header>
-    <div class="row">
-        <div class="col logo">
-            <a href="https://www.doi.org"><img class="header-logo" src="/static/images/logos/header_logo_cropped.svg" /></a>
-        </div>
-        <div class="col home-link">
-            <div class="link-alt">
-                <a href="https://www.doi.org">
-                    <span>VISIT DOI.ORG</span>
-                    <i class="fa-solid fa-arrow-right-long hover-move-right"></i>
-                </a>
-            </div>
-        </div>
-    </div>
-
-</header>
-
-
-<main aria-role="main">
-    <header class="homepage-header">
-    </header>
-    <div class="homepage-content">
-
-        <section class="single-top">
-            <div class="row short"></div>
-        </section>
-
-        <div class="page-content">
-            <article>
-                <div>
-                    <h2>DOI Not Found</h2>
-
-
-
-                    <h3>10.48324/dandi.000029/0.231017.1955</h3>
-
-
-
-
-                    <p>This DOI cannot be found in the DOI System.  Possible reasons are:</p>
-
-
-                    <ul>
-                        <li style="padding-bottom: .5em;">The DOI is incorrect in your source. Search for the item by name, title, or other metadata using a search engine.</li>
-                        <li style="padding-bottom: .5em;">The DOI was copied incorrectly. Check to see that the string includes all the characters before and after the slash and no sentence punctuation marks.</li>
-                        <li style="padding-bottom: .5em;">The DOI has not been activated yet. Please try again later, and report the problem if the error continues.</li>
-                    </ul>
-
-
-                </div>
-            </article>
-        </div>
-
-        <section class="home-infos">
-            <div class="row">
-                <div class="col ">
-                    <h2 class="title">WHAT CAN I DO NEXT?</h2>
-                    <ul>
-                        <li>If you believe this DOI is valid, you may <strong>report this error</strong> to the responsible DOI Registration Agency using the form here.</li>
-                        <li>If your organization is the steward of this DOI prefix, please make sure you have completed registration of this DOI with your Registration Agency.</li>
-                        <li>You can try to search again from <a href="https://www.doi.org">DOI.ORG homepage</a></li>
-                    </ul>
-                </div>
-                <div class="col form">
-                    <h2 class="title"><img src="/static/images/exclamation.svg">REPORT AN ERROR</h2>
-                    <form action="/notfound" method="post" enctype="application/x-www-form-urlencoded" name="notFoundForm" onsubmit="return submitDoiNotFound(event);">
-                        <div class="row">
-                            <div class="col"><label for="missingHandle">DOI:</label></div>
-                            <div class="col"><input id="missingHandle" name="missingHandle" value="10.48324/dandi.000029/0.231017.1955" type="text" readonly="readonly"></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"><label for="referringPage">URL of Web Page Listing the DOI:</label></div>
-                            <div class="col"><input id="referringPage" name="referringPage" type="text" ></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"><label for="userEmailAddress">Your Email Address:</label></div>
-                            <div class="col"><input id="userEmailAddress" name="userEmailAddress" type="text" /></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"><label for="comments">Additional Information About the Error:</label></div>
-                            <div class="col"><textarea id="comments" name="comments"></textarea></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"></div>
-                            <div class="col"><input class="submit" type="submit" value="Submit Error Report"></div>
-                        </div>
-                        <div class="row">
-                            <p id="invalidDoi" style="display: none; background:#F5B7B1; border-radius: 5px;">The DOI entered is not a valid DOI: it should start with 10 followed by a dot, and contain a slash with no preceding whitespace.</p>
-                            <p id="invalidEmail" style="display: none; background:#F5B7B1; border-radius: 5px;">The email address entered is invalid.</p>
-                            <p id="fallback" style="display: none;">Please <a href="mailto:doi-help@doi.org?subject=DOI%20Not%20Found">contact us</a> if you wish to report this anyway.</p>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-        </section>
-    </div>
-
-
-</main>
-
-<footer>
-    <div class="row">
-        <div class="col footer-left">
-            <a href="https://www.doi.org"><img class="footer-logo" src="/static/images/logos/footer_logo_cropped.svg" /></a>
-        </div>
-        <div class="col footer-right">
-            <div class="row more-info-heading">
-                <div class="col">
-                    <h2>More information on DOI resolution:</h2>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col">
-                    <ul>
-                        <li><a href="https://www.doi.org/the-identifier/resources/factsheets/doi-resolution-documentation">DOI Resolution Factsheet</a></li>
-                    </ul>
-                </div>
-                <div class="col">
-                    <ul>
-                        <li><a href="https://www.doi.org/the-identifier/resources/handbook">The DOI Handbook</a></li>
-                    </ul>
-                </div>
-                <div class="col">
-                    <ul>
-                        <li><a href="https://www.doi.org/privacy-policy/">Privacy Policy</a></li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-    </div>
-    <div class="row">
-        <div class="col copyright">
-            <p>Copyright © 2023 DOI Foundation. <i class="fa-brands fa-fw fa-creative-commons"></i><i class="fa-brands fa-fw fa-creative-commons-by"></i> The content of this site is licensed under a <a href="https://creativecommons.org/licenses/by/4.0/" title="Creative Commons" target="_blank">Creative Commons Attribution 4.0 International License</a>.</p><p>DOI&reg;, DOI.ORG&reg;, and shortDOI&reg; are trademarks of the DOI Foundation.</p>
-        </div>
-        <div class="col socials">
-            <ul class="socials-footer">
-
-                <li><a href="https://twitter.com/DOI_Foundation"><i class="fa-brands fa-fw fa-twitter"></i></a></li>
-
-                <li><a href="https://www.linkedin.com/company/doi-foundation-inc/"><i class="fa-brands fa-fw fa-linkedin"></i></a></li>
-
-                <li><a href="mailto:info@doi.org"><i class="fa-solid fa-fw fa-envelope"></i></a></li>
-
-            </ul>
-        </div>
-    </div>
-</footer>
-
-<script type="text/javascript">
-    function submitDoiNotFound(event) {
-        try {
-            document.getElementById("invalidEmail").style.display = "none";
-            document.getElementById("invalidDoi").style.display = "none";
-            document.getElementById("fallback").style.display = "none";
-
-            const missingHandle = document.getElementById('missingHandle').value.trim();
-            const userEmailAddress = document.getElementById('userEmailAddress').value.trim();
-
-            if (!validateDoi(missingHandle)) {
-                event.preventDefault();
-                document.getElementById("invalidDoi").style.display = "block";
-                document.getElementById("fallback").style.display = "block";
-                return false;
-            }
-            if (!validateEmail(userEmailAddress)) {
-                event.preventDefault();
-                document.getElementById("invalidEmail").style.display = "block";
-                return false;
-            }
-        } catch (error) {
-            // ignore
-        }
-    }
-
-    function validateEmail(email) {
-        const regEx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return regEx.test(email);
-    }
-
-    function validateDoi(doi) {
-        const regEx = /^10(?:\.[^\s\/]+)?\//;
-        return regEx.test(doi);
-    }
-</script>
-
-</body>
-</html>
-
-
-<!DOCTYPE html>
-<html lang="en-us">
-<head>
-
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Error: DOI Not Found</title>
-
-
-
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
-          rel="stylesheet"
-          integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC"
-          crossorigin="anonymous">
-    <script
-            src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
-            crossorigin="anonymous">
-    </script>
-
-    <script src="https://kit.fontawesome.com/731b8140c4.js" crossorigin="anonymous"></script>
-
-    <link rel="stylesheet" href="/static/css/style.css" integrity="">
-
-    <style>
-        @import url("https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Roboto:wght@100&display=swap");
-    </style>
-
-    <link rel="icon" sizes="48x48" href="/static/images/favicons/favicon.ico">
-    <link rel="icon" sizes="32x32" href="/static/images/favicons/favicon-32x32.png">
-    <link rel="icon" sizes="16x16" href="/static/images/favicons/favicon-16x16.png">
-    <link rel="apple-touch-icon-precomposed" href="/static/images/favicons/apple-touch-icon.png">
-    <link rel="apple-touch-icon-precomposed" sizes="192x192" href="/static/images/favicons/android-chrome-192x192.png">
-    <link rel="apple-touch-icon-precomposed" sizes="512x512" href="/static/images/favicons/android-chrome-512x512.png">
-
-</head>
-<body class="generic-page">
-<header>
-    <div class="row">
-        <div class="col logo">
-            <a href="https://www.doi.org"><img class="header-logo" src="/static/images/logos/header_logo_cropped.svg" /></a>
-        </div>
-        <div class="col home-link">
-            <div class="link-alt">
-                <a href="https://www.doi.org">
-                    <span>VISIT DOI.ORG</span>
-                    <i class="fa-solid fa-arrow-right-long hover-move-right"></i>
-                </a>
-            </div>
-        </div>
-    </div>
-
-</header>
-
-
-<main aria-role="main">
-    <header class="homepage-header">
-    </header>
-    <div class="homepage-content">
-
-        <section class="single-top">
-            <div class="row short"></div>
-        </section>
-
-        <div class="page-content">
-            <article>
-                <div>
-                    <h2>DOI Not Found</h2>
-
-
-
-                    <h3>10.48324/dandi.000029/0.231017.1959</h3>
-
-
-
-
-                    <p>This DOI cannot be found in the DOI System.  Possible reasons are:</p>
-
-
-                    <ul>
-                        <li style="padding-bottom: .5em;">The DOI is incorrect in your source. Search for the item by name, title, or other metadata using a search engine.</li>
-                        <li style="padding-bottom: .5em;">The DOI was copied incorrectly. Check to see that the string includes all the characters before and after the slash and no sentence punctuation marks.</li>
-                        <li style="padding-bottom: .5em;">The DOI has not been activated yet. Please try again later, and report the problem if the error continues.</li>
-                    </ul>
-
-
-                </div>
-            </article>
-        </div>
-
-        <section class="home-infos">
-            <div class="row">
-                <div class="col ">
-                    <h2 class="title">WHAT CAN I DO NEXT?</h2>
-                    <ul>
-                        <li>If you believe this DOI is valid, you may <strong>report this error</strong> to the responsible DOI Registration Agency using the form here.</li>
-                        <li>If your organization is the steward of this DOI prefix, please make sure you have completed registration of this DOI with your Registration Agency.</li>
-                        <li>You can try to search again from <a href="https://www.doi.org">DOI.ORG homepage</a></li>
-                    </ul>
-                </div>
-                <div class="col form">
-                    <h2 class="title"><img src="/static/images/exclamation.svg">REPORT AN ERROR</h2>
-                    <form action="/notfound" method="post" enctype="application/x-www-form-urlencoded" name="notFoundForm" onsubmit="return submitDoiNotFound(event);">
-                        <div class="row">
-                            <div class="col"><label for="missingHandle">DOI:</label></div>
-                            <div class="col"><input id="missingHandle" name="missingHandle" value="10.48324/dandi.000029/0.231017.1959" type="text" readonly="readonly"></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"><label for="referringPage">URL of Web Page Listing the DOI:</label></div>
-                            <div class="col"><input id="referringPage" name="referringPage" type="text" ></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"><label for="userEmailAddress">Your Email Address:</label></div>
-                            <div class="col"><input id="userEmailAddress" name="userEmailAddress" type="text" /></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"><label for="comments">Additional Information About the Error:</label></div>
-                            <div class="col"><textarea id="comments" name="comments"></textarea></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"></div>
-                            <div class="col"><input class="submit" type="submit" value="Submit Error Report"></div>
-                        </div>
-                        <div class="row">
-                            <p id="invalidDoi" style="display: none; background:#F5B7B1; border-radius: 5px;">The DOI entered is not a valid DOI: it should start with 10 followed by a dot, and contain a slash with no preceding whitespace.</p>
-                            <p id="invalidEmail" style="display: none; background:#F5B7B1; border-radius: 5px;">The email address entered is invalid.</p>
-                            <p id="fallback" style="display: none;">Please <a href="mailto:doi-help@doi.org?subject=DOI%20Not%20Found">contact us</a> if you wish to report this anyway.</p>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-        </section>
-    </div>
-
-
-</main>
-
-<footer>
-    <div class="row">
-        <div class="col footer-left">
-            <a href="https://www.doi.org"><img class="footer-logo" src="/static/images/logos/footer_logo_cropped.svg" /></a>
-        </div>
-        <div class="col footer-right">
-            <div class="row more-info-heading">
-                <div class="col">
-                    <h2>More information on DOI resolution:</h2>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col">
-                    <ul>
-                        <li><a href="https://www.doi.org/the-identifier/resources/factsheets/doi-resolution-documentation">DOI Resolution Factsheet</a></li>
-                    </ul>
-                </div>
-                <div class="col">
-                    <ul>
-                        <li><a href="https://www.doi.org/the-identifier/resources/handbook">The DOI Handbook</a></li>
-                    </ul>
-                </div>
-                <div class="col">
-                    <ul>
-                        <li><a href="https://www.doi.org/privacy-policy/">Privacy Policy</a></li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-    </div>
-    <div class="row">
-        <div class="col copyright">
-            <p>Copyright © 2023 DOI Foundation. <i class="fa-brands fa-fw fa-creative-commons"></i><i class="fa-brands fa-fw fa-creative-commons-by"></i> The content of this site is licensed under a <a href="https://creativecommons.org/licenses/by/4.0/" title="Creative Commons" target="_blank">Creative Commons Attribution 4.0 International License</a>.</p><p>DOI&reg;, DOI.ORG&reg;, and shortDOI&reg; are trademarks of the DOI Foundation.</p>
-        </div>
-        <div class="col socials">
-            <ul class="socials-footer">
-
-                <li><a href="https://twitter.com/DOI_Foundation"><i class="fa-brands fa-fw fa-twitter"></i></a></li>
-
-                <li><a href="https://www.linkedin.com/company/doi-foundation-inc/"><i class="fa-brands fa-fw fa-linkedin"></i></a></li>
-
-                <li><a href="mailto:info@doi.org"><i class="fa-solid fa-fw fa-envelope"></i></a></li>
-
-            </ul>
-        </div>
-    </div>
-</footer>
-
-<script type="text/javascript">
-    function submitDoiNotFound(event) {
-        try {
-            document.getElementById("invalidEmail").style.display = "none";
-            document.getElementById("invalidDoi").style.display = "none";
-            document.getElementById("fallback").style.display = "none";
-
-            const missingHandle = document.getElementById('missingHandle').value.trim();
-            const userEmailAddress = document.getElementById('userEmailAddress').value.trim();
-
-            if (!validateDoi(missingHandle)) {
-                event.preventDefault();
-                document.getElementById("invalidDoi").style.display = "block";
-                document.getElementById("fallback").style.display = "block";
-                return false;
-            }
-            if (!validateEmail(userEmailAddress)) {
-                event.preventDefault();
-                document.getElementById("invalidEmail").style.display = "block";
-                return false;
-            }
-        } catch (error) {
-            // ignore
-        }
-    }
-
-    function validateEmail(email) {
-        const regEx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return regEx.test(email);
-    }
-
-    function validateDoi(doi) {
-        const regEx = /^10(?:\.[^\s\/]+)?\//;
-        return regEx.test(doi);
-    }
-</script>
-
-</body>
-</html>
 
 
 @misc{dandi.000029/0.231017.2004,
@@ -1943,6 +1027,38 @@
 }
 
 
+# DANDISET 000121
+@misc{dandi.000121/0.210815.0703,
+  doi = {10.48324/DANDI.000121/0.210815.0703},
+  url = {https://dandiarchive.org/dandiset/000121/0.210815.0703},
+  author = {Even-Chen, Nir and Sheffer, Blue and Vyas, Saurabh and Ryu, Stephen and Shenoy, Krishna},
+  title = {Structure and variability of delay activity in premotor cortex},
+  publisher = {DANDI Archive},
+  year = {2021}
+}
+
+
+@misc{dandi.000121/0.220124.2156,
+  doi = {10.48324/DANDI.000121/0.220124.2156},
+  url = {https://dandiarchive.org/dandiset/000121/0.220124.2156},
+  author = {Even-Chen, Nir and Sheffer, Blue and Vyas, Saurabh and Ryu, Stephen and Shenoy, Krishna},
+  title = {Structure and variability of delay activity in premotor cortex},
+  publisher = {DANDI Archive},
+  year = {2022}
+}
+
+
+# Take latest as the default
+@misc{dandi.000121,
+  doi = {10.48324/DANDI.000121/0.220124.2156},
+  url = {https://dandiarchive.org/dandiset/000121/0.220124.2156},
+  author = {Even-Chen, Nir and Sheffer, Blue and Vyas, Saurabh and Ryu, Stephen and Shenoy, Krishna},
+  title = {Structure and variability of delay activity in premotor cortex},
+  publisher = {DANDI Archive},
+  year = {2022}
+}
+
+
 # DANDISET 000126
 @misc{dandi.000126/0.210813.0327,
   doi = {10.48324/DANDI.000126/0.210813.0327},
@@ -2013,6 +1129,30 @@
 }
 
 
+# DANDISET 000129
+@misc{dandi.000129/0.241017.1444,
+  doi = {10.48324/DANDI.000129/0.241017.1444},
+  url = {https://dandiarchive.org/dandiset/000129/0.241017.1444},
+  author = {O'Doherty, Joseph},
+  keywords = {Neural Latents Benchmark, NLB},
+  title = {MC_RTT: macaque motor cortex spiking activity during self-paced reaching},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000129,
+  doi = {10.48324/DANDI.000129/0.241017.1444},
+  url = {https://dandiarchive.org/dandiset/000129/0.241017.1444},
+  author = {O'Doherty, Joseph},
+  keywords = {Neural Latents Benchmark, NLB},
+  title = {MC_RTT: macaque motor cortex spiking activity during self-paced reaching},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
 # DANDISET 000130
 @misc{dandi.000130/0.220113.0407,
   doi = {10.48324/DANDI.000130/0.220113.0407},
@@ -2025,15 +1165,26 @@
 }
 
 
-# Take latest as the default
-@misc{dandi.000130,
-  doi = {10.48324/DANDI.000130/0.220113.0407},
-  url = {https://dandiarchive.org/dandiset/000130/0.220113.0407},
+@misc{dandi.000130/0.241017.1448,
+  doi = {10.48324/DANDI.000130/0.241017.1448},
+  url = {https://dandiarchive.org/dandiset/000130/0.241017.1448},
   author = {Sohn, Hansem and Jazayeri, Mehrdad},
   keywords = {Neural Latents Benchmark, NLB},
   title = {DMFC_RSG: macaque dorsomedial frontal cortex spiking activity during time interval reproduction task},
   publisher = {DANDI Archive},
-  year = {2022}
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000130,
+  doi = {10.48324/DANDI.000130/0.241017.1448},
+  url = {https://dandiarchive.org/dandiset/000130/0.241017.1448},
+  author = {Sohn, Hansem and Jazayeri, Mehrdad},
+  keywords = {Neural Latents Benchmark, NLB},
+  title = {DMFC_RSG: macaque dorsomedial frontal cortex spiking activity during time interval reproduction task},
+  publisher = {DANDI Archive},
+  year = {2024}
 }
 
 
@@ -2817,465 +1968,6 @@
 
 
 # DANDISET 000252
-<!DOCTYPE html>
-<html lang="en-us">
-<head>
-
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Error: DOI Not Found</title>
-
-
-
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
-          rel="stylesheet"
-          integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC"
-          crossorigin="anonymous">
-    <script
-            src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
-            crossorigin="anonymous">
-    </script>
-
-    <script src="https://kit.fontawesome.com/731b8140c4.js" crossorigin="anonymous"></script>
-
-    <link rel="stylesheet" href="/static/css/style.css" integrity="">
-
-    <style>
-        @import url("https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Roboto:wght@100&display=swap");
-    </style>
-
-    <link rel="icon" sizes="48x48" href="/static/images/favicons/favicon.ico">
-    <link rel="icon" sizes="32x32" href="/static/images/favicons/favicon-32x32.png">
-    <link rel="icon" sizes="16x16" href="/static/images/favicons/favicon-16x16.png">
-    <link rel="apple-touch-icon-precomposed" href="/static/images/favicons/apple-touch-icon.png">
-    <link rel="apple-touch-icon-precomposed" sizes="192x192" href="/static/images/favicons/android-chrome-192x192.png">
-    <link rel="apple-touch-icon-precomposed" sizes="512x512" href="/static/images/favicons/android-chrome-512x512.png">
-
-</head>
-<body class="generic-page">
-<header>
-    <div class="row">
-        <div class="col logo">
-            <a href="https://www.doi.org"><img class="header-logo" src="/static/images/logos/header_logo_cropped.svg" /></a>
-        </div>
-        <div class="col home-link">
-            <div class="link-alt">
-                <a href="https://www.doi.org">
-                    <span>VISIT DOI.ORG</span>
-                    <i class="fa-solid fa-arrow-right-long hover-move-right"></i>
-                </a>
-            </div>
-        </div>
-    </div>
-
-</header>
-
-
-<main aria-role="main">
-    <header class="homepage-header">
-    </header>
-    <div class="homepage-content">
-
-        <section class="single-top">
-            <div class="row short"></div>
-        </section>
-
-        <div class="page-content">
-            <article>
-                <div>
-                    <h2>DOI Not Found</h2>
-
-
-
-                    <h3>10.48324/dandi.000252/0.230408.2207</h3>
-
-
-
-
-                    <p>This DOI cannot be found in the DOI System.  Possible reasons are:</p>
-
-
-                    <ul>
-                        <li style="padding-bottom: .5em;">The DOI is incorrect in your source. Search for the item by name, title, or other metadata using a search engine.</li>
-                        <li style="padding-bottom: .5em;">The DOI was copied incorrectly. Check to see that the string includes all the characters before and after the slash and no sentence punctuation marks.</li>
-                        <li style="padding-bottom: .5em;">The DOI has not been activated yet. Please try again later, and report the problem if the error continues.</li>
-                    </ul>
-
-
-                </div>
-            </article>
-        </div>
-
-        <section class="home-infos">
-            <div class="row">
-                <div class="col ">
-                    <h2 class="title">WHAT CAN I DO NEXT?</h2>
-                    <ul>
-                        <li>If you believe this DOI is valid, you may <strong>report this error</strong> to the responsible DOI Registration Agency using the form here.</li>
-                        <li>If your organization is the steward of this DOI prefix, please make sure you have completed registration of this DOI with your Registration Agency.</li>
-                        <li>You can try to search again from <a href="https://www.doi.org">DOI.ORG homepage</a></li>
-                    </ul>
-                </div>
-                <div class="col form">
-                    <h2 class="title"><img src="/static/images/exclamation.svg">REPORT AN ERROR</h2>
-                    <form action="/notfound" method="post" enctype="application/x-www-form-urlencoded" name="notFoundForm" onsubmit="return submitDoiNotFound(event);">
-                        <div class="row">
-                            <div class="col"><label for="missingHandle">DOI:</label></div>
-                            <div class="col"><input id="missingHandle" name="missingHandle" value="10.48324/dandi.000252/0.230408.2207" type="text" readonly="readonly"></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"><label for="referringPage">URL of Web Page Listing the DOI:</label></div>
-                            <div class="col"><input id="referringPage" name="referringPage" type="text" ></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"><label for="userEmailAddress">Your Email Address:</label></div>
-                            <div class="col"><input id="userEmailAddress" name="userEmailAddress" type="text" /></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"><label for="comments">Additional Information About the Error:</label></div>
-                            <div class="col"><textarea id="comments" name="comments"></textarea></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"></div>
-                            <div class="col"><input class="submit" type="submit" value="Submit Error Report"></div>
-                        </div>
-                        <div class="row">
-                            <p id="invalidDoi" style="display: none; background:#F5B7B1; border-radius: 5px;">The DOI entered is not a valid DOI: it should start with 10 followed by a dot, and contain a slash with no preceding whitespace.</p>
-                            <p id="invalidEmail" style="display: none; background:#F5B7B1; border-radius: 5px;">The email address entered is invalid.</p>
-                            <p id="fallback" style="display: none;">Please <a href="mailto:doi-help@doi.org?subject=DOI%20Not%20Found">contact us</a> if you wish to report this anyway.</p>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-        </section>
-    </div>
-
-
-</main>
-
-<footer>
-    <div class="row">
-        <div class="col footer-left">
-            <a href="https://www.doi.org"><img class="footer-logo" src="/static/images/logos/footer_logo_cropped.svg" /></a>
-        </div>
-        <div class="col footer-right">
-            <div class="row more-info-heading">
-                <div class="col">
-                    <h2>More information on DOI resolution:</h2>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col">
-                    <ul>
-                        <li><a href="https://www.doi.org/the-identifier/resources/factsheets/doi-resolution-documentation">DOI Resolution Factsheet</a></li>
-                    </ul>
-                </div>
-                <div class="col">
-                    <ul>
-                        <li><a href="https://www.doi.org/the-identifier/resources/handbook">The DOI Handbook</a></li>
-                    </ul>
-                </div>
-                <div class="col">
-                    <ul>
-                        <li><a href="https://www.doi.org/privacy-policy/">Privacy Policy</a></li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-    </div>
-    <div class="row">
-        <div class="col copyright">
-            <p>Copyright © 2023 DOI Foundation. <i class="fa-brands fa-fw fa-creative-commons"></i><i class="fa-brands fa-fw fa-creative-commons-by"></i> The content of this site is licensed under a <a href="https://creativecommons.org/licenses/by/4.0/" title="Creative Commons" target="_blank">Creative Commons Attribution 4.0 International License</a>.</p><p>DOI&reg;, DOI.ORG&reg;, and shortDOI&reg; are trademarks of the DOI Foundation.</p>
-        </div>
-        <div class="col socials">
-            <ul class="socials-footer">
-
-                <li><a href="https://twitter.com/DOI_Foundation"><i class="fa-brands fa-fw fa-twitter"></i></a></li>
-
-                <li><a href="https://www.linkedin.com/company/doi-foundation-inc/"><i class="fa-brands fa-fw fa-linkedin"></i></a></li>
-
-                <li><a href="mailto:info@doi.org"><i class="fa-solid fa-fw fa-envelope"></i></a></li>
-
-            </ul>
-        </div>
-    </div>
-</footer>
-
-<script type="text/javascript">
-    function submitDoiNotFound(event) {
-        try {
-            document.getElementById("invalidEmail").style.display = "none";
-            document.getElementById("invalidDoi").style.display = "none";
-            document.getElementById("fallback").style.display = "none";
-
-            const missingHandle = document.getElementById('missingHandle').value.trim();
-            const userEmailAddress = document.getElementById('userEmailAddress').value.trim();
-
-            if (!validateDoi(missingHandle)) {
-                event.preventDefault();
-                document.getElementById("invalidDoi").style.display = "block";
-                document.getElementById("fallback").style.display = "block";
-                return false;
-            }
-            if (!validateEmail(userEmailAddress)) {
-                event.preventDefault();
-                document.getElementById("invalidEmail").style.display = "block";
-                return false;
-            }
-        } catch (error) {
-            // ignore
-        }
-    }
-
-    function validateEmail(email) {
-        const regEx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return regEx.test(email);
-    }
-
-    function validateDoi(doi) {
-        const regEx = /^10(?:\.[^\s\/]+)?\//;
-        return regEx.test(doi);
-    }
-</script>
-
-</body>
-</html>
-
-
-# Take latest as the default
-<!DOCTYPE html>
-<html lang="en-us">
-<head>
-
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Error: DOI Not Found</title>
-
-
-
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
-          rel="stylesheet"
-          integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC"
-          crossorigin="anonymous">
-    <script
-            src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
-            crossorigin="anonymous">
-    </script>
-
-    <script src="https://kit.fontawesome.com/731b8140c4.js" crossorigin="anonymous"></script>
-
-    <link rel="stylesheet" href="/static/css/style.css" integrity="">
-
-    <style>
-        @import url("https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Roboto:wght@100&display=swap");
-    </style>
-
-    <link rel="icon" sizes="48x48" href="/static/images/favicons/favicon.ico">
-    <link rel="icon" sizes="32x32" href="/static/images/favicons/favicon-32x32.png">
-    <link rel="icon" sizes="16x16" href="/static/images/favicons/favicon-16x16.png">
-    <link rel="apple-touch-icon-precomposed" href="/static/images/favicons/apple-touch-icon.png">
-    <link rel="apple-touch-icon-precomposed" sizes="192x192" href="/static/images/favicons/android-chrome-192x192.png">
-    <link rel="apple-touch-icon-precomposed" sizes="512x512" href="/static/images/favicons/android-chrome-512x512.png">
-
-</head>
-<body class="generic-page">
-<header>
-    <div class="row">
-        <div class="col logo">
-            <a href="https://www.doi.org"><img class="header-logo" src="/static/images/logos/header_logo_cropped.svg" /></a>
-        </div>
-        <div class="col home-link">
-            <div class="link-alt">
-                <a href="https://www.doi.org">
-                    <span>VISIT DOI.ORG</span>
-                    <i class="fa-solid fa-arrow-right-long hover-move-right"></i>
-                </a>
-            </div>
-        </div>
-    </div>
-
-</header>
-
-
-<main aria-role="main">
-    <header class="homepage-header">
-    </header>
-    <div class="homepage-content">
-
-        <section class="single-top">
-            <div class="row short"></div>
-        </section>
-
-        <div class="page-content">
-            <article>
-                <div>
-                    <h2>DOI Not Found</h2>
-
-
-
-                    <h3>10.48324/dandi.000252/0.230408.2207</h3>
-
-
-
-
-                    <p>This DOI cannot be found in the DOI System.  Possible reasons are:</p>
-
-
-                    <ul>
-                        <li style="padding-bottom: .5em;">The DOI is incorrect in your source. Search for the item by name, title, or other metadata using a search engine.</li>
-                        <li style="padding-bottom: .5em;">The DOI was copied incorrectly. Check to see that the string includes all the characters before and after the slash and no sentence punctuation marks.</li>
-                        <li style="padding-bottom: .5em;">The DOI has not been activated yet. Please try again later, and report the problem if the error continues.</li>
-                    </ul>
-
-
-                </div>
-            </article>
-        </div>
-
-        <section class="home-infos">
-            <div class="row">
-                <div class="col ">
-                    <h2 class="title">WHAT CAN I DO NEXT?</h2>
-                    <ul>
-                        <li>If you believe this DOI is valid, you may <strong>report this error</strong> to the responsible DOI Registration Agency using the form here.</li>
-                        <li>If your organization is the steward of this DOI prefix, please make sure you have completed registration of this DOI with your Registration Agency.</li>
-                        <li>You can try to search again from <a href="https://www.doi.org">DOI.ORG homepage</a></li>
-                    </ul>
-                </div>
-                <div class="col form">
-                    <h2 class="title"><img src="/static/images/exclamation.svg">REPORT AN ERROR</h2>
-                    <form action="/notfound" method="post" enctype="application/x-www-form-urlencoded" name="notFoundForm" onsubmit="return submitDoiNotFound(event);">
-                        <div class="row">
-                            <div class="col"><label for="missingHandle">DOI:</label></div>
-                            <div class="col"><input id="missingHandle" name="missingHandle" value="10.48324/dandi.000252/0.230408.2207" type="text" readonly="readonly"></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"><label for="referringPage">URL of Web Page Listing the DOI:</label></div>
-                            <div class="col"><input id="referringPage" name="referringPage" type="text" ></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"><label for="userEmailAddress">Your Email Address:</label></div>
-                            <div class="col"><input id="userEmailAddress" name="userEmailAddress" type="text" /></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"><label for="comments">Additional Information About the Error:</label></div>
-                            <div class="col"><textarea id="comments" name="comments"></textarea></div>
-                        </div>
-                        <div class="row">
-                            <div class="col"></div>
-                            <div class="col"><input class="submit" type="submit" value="Submit Error Report"></div>
-                        </div>
-                        <div class="row">
-                            <p id="invalidDoi" style="display: none; background:#F5B7B1; border-radius: 5px;">The DOI entered is not a valid DOI: it should start with 10 followed by a dot, and contain a slash with no preceding whitespace.</p>
-                            <p id="invalidEmail" style="display: none; background:#F5B7B1; border-radius: 5px;">The email address entered is invalid.</p>
-                            <p id="fallback" style="display: none;">Please <a href="mailto:doi-help@doi.org?subject=DOI%20Not%20Found">contact us</a> if you wish to report this anyway.</p>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-        </section>
-    </div>
-
-
-</main>
-
-<footer>
-    <div class="row">
-        <div class="col footer-left">
-            <a href="https://www.doi.org"><img class="footer-logo" src="/static/images/logos/footer_logo_cropped.svg" /></a>
-        </div>
-        <div class="col footer-right">
-            <div class="row more-info-heading">
-                <div class="col">
-                    <h2>More information on DOI resolution:</h2>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col">
-                    <ul>
-                        <li><a href="https://www.doi.org/the-identifier/resources/factsheets/doi-resolution-documentation">DOI Resolution Factsheet</a></li>
-                    </ul>
-                </div>
-                <div class="col">
-                    <ul>
-                        <li><a href="https://www.doi.org/the-identifier/resources/handbook">The DOI Handbook</a></li>
-                    </ul>
-                </div>
-                <div class="col">
-                    <ul>
-                        <li><a href="https://www.doi.org/privacy-policy/">Privacy Policy</a></li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-    </div>
-    <div class="row">
-        <div class="col copyright">
-            <p>Copyright © 2023 DOI Foundation. <i class="fa-brands fa-fw fa-creative-commons"></i><i class="fa-brands fa-fw fa-creative-commons-by"></i> The content of this site is licensed under a <a href="https://creativecommons.org/licenses/by/4.0/" title="Creative Commons" target="_blank">Creative Commons Attribution 4.0 International License</a>.</p><p>DOI&reg;, DOI.ORG&reg;, and shortDOI&reg; are trademarks of the DOI Foundation.</p>
-        </div>
-        <div class="col socials">
-            <ul class="socials-footer">
-
-                <li><a href="https://twitter.com/DOI_Foundation"><i class="fa-brands fa-fw fa-twitter"></i></a></li>
-
-                <li><a href="https://www.linkedin.com/company/doi-foundation-inc/"><i class="fa-brands fa-fw fa-linkedin"></i></a></li>
-
-                <li><a href="mailto:info@doi.org"><i class="fa-solid fa-fw fa-envelope"></i></a></li>
-
-            </ul>
-        </div>
-    </div>
-</footer>
-
-<script type="text/javascript">
-    function submitDoiNotFound(event) {
-        try {
-            document.getElementById("invalidEmail").style.display = "none";
-            document.getElementById("invalidDoi").style.display = "none";
-            document.getElementById("fallback").style.display = "none";
-
-            const missingHandle = document.getElementById('missingHandle').value.trim();
-            const userEmailAddress = document.getElementById('userEmailAddress').value.trim();
-
-            if (!validateDoi(missingHandle)) {
-                event.preventDefault();
-                document.getElementById("invalidDoi").style.display = "block";
-                document.getElementById("fallback").style.display = "block";
-                return false;
-            }
-            if (!validateEmail(userEmailAddress)) {
-                event.preventDefault();
-                document.getElementById("invalidEmail").style.display = "block";
-                return false;
-            }
-        } catch (error) {
-            // ignore
-        }
-    }
-
-    function validateEmail(email) {
-        const regEx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return regEx.test(email);
-    }
-
-    function validateDoi(doi) {
-        const regEx = /^10(?:\.[^\s\/]+)?\//;
-        return regEx.test(doi);
-    }
-</script>
-
-</body>
-</html>
-
-
 # DANDISET 000253
 @misc{dandi.000253/0.240503.0114,
   doi = {10.48324/DANDI.000253/0.240503.0114},
@@ -3299,13 +1991,48 @@
 }
 
 
-# Take latest as the default
-@misc{dandi.000253,
-  doi = {10.48324/DANDI.000253/0.240503.0152},
-  url = {https://dandiarchive.org/dandiset/000253/0.240503.0152},
+@misc{dandi.000253/0.240923.1441,
+  doi = {10.48324/DANDI.000253/0.240923.1441},
+  url = {https://dandiarchive.org/dandiset/000253/0.240923.1441},
   author = {Maier, Alex and Bastos, Andre},
   keywords = {neocortex, predictive coding, optogenetics, neuropixels, mouse, inhibitory},
   title = {Allen Institute Openscope - Global/Local Oddball project},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000253,
+  doi = {10.48324/DANDI.000253/0.240923.1441},
+  url = {https://dandiarchive.org/dandiset/000253/0.240923.1441},
+  author = {Maier, Alex and Bastos, Andre},
+  keywords = {neocortex, predictive coding, optogenetics, neuropixels, mouse, inhibitory},
+  title = {Allen Institute Openscope - Global/Local Oddball project},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000289
+@misc{dandi.000289/0.240801.1040,
+  doi = {10.48324/DANDI.000289/0.240801.1040},
+  url = {https://dandiarchive.org/dandiset/000289/0.240801.1040},
+  author = {Basnak, Melanie Ailin and Wilson, Rachel},
+  keywords = {navigation, central complex, drosophila, uncertainty, learning, ring attractor},
+  title = {Two-photon calcium imaging of EPG cells in Drosophila Melanogaster presented with cues of varying reliability},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000289,
+  doi = {10.48324/DANDI.000289/0.240801.1040},
+  url = {https://dandiarchive.org/dandiset/000289/0.240801.1040},
+  author = {Basnak, Melanie Ailin and Wilson, Rachel},
+  keywords = {navigation, central complex, drosophila, uncertainty, learning, ring attractor},
+  title = {Two-photon calcium imaging of EPG cells in Drosophila Melanogaster presented with cues of varying reliability},
   publisher = {DANDI Archive},
   year = {2024}
 }
@@ -3415,15 +2142,26 @@
 }
 
 
-# Take latest as the default
-@misc{dandi.000350,
-  doi = {10.48324/DANDI.000350/0.221219.1506},
-  url = {https://dandiarchive.org/dandiset/000350/0.221219.1506},
-  author = {Mu, Yu and Bennett, Davis V. and Rubinov, Mikail and Narayan, Sujatha and Yang, Chao-Tsung and Tanimoto, Masashi and Mensh, Brett D.  and Looger, Loren L. and Ahrens, Misha B.},
+@misc{dandi.000350/0.240822.1759,
+  doi = {10.48324/DANDI.000350/0.240822.1759},
+  url = {https://dandiarchive.org/dandiset/000350/0.240822.1759},
+  author = {Mu, Yu and Bennett, Davis V. and Rubinov, Mikail and Yang, Chao-Tsung and Tanimoto, Masashi and Mensh, Brett D.  and Looger, Loren L. and Narayan, Sujatha and Ahrens, Misha B.},
   keywords = {neuroscience, glia, astrocytes, norepinephrine, noradrenaline, learned helplessness, neuromodulation, behavioral states, evidence accumulation, zebrafish},
   title = {Glia Accumulate Evidence that Actions Are Futile and Suppress Unsuccessful Behavior},
   publisher = {DANDI Archive},
-  year = {2022}
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000350,
+  doi = {10.48324/DANDI.000350/0.240822.1759},
+  url = {https://dandiarchive.org/dandiset/000350/0.240822.1759},
+  author = {Mu, Yu and Bennett, Davis V. and Rubinov, Mikail and Yang, Chao-Tsung and Tanimoto, Masashi and Mensh, Brett D.  and Looger, Loren L. and Narayan, Sujatha and Ahrens, Misha B.},
+  keywords = {neuroscience, glia, astrocytes, norepinephrine, noradrenaline, learned helplessness, neuromodulation, behavioral states, evidence accumulation, zebrafish},
+  title = {Glia Accumulate Evidence that Actions Are Futile and Suppress Unsuccessful Behavior},
+  publisher = {DANDI Archive},
+  year = {2024}
 }
 
 
@@ -3785,11 +2523,51 @@
 }
 
 
+@misc{dandi.000472/0.240625.0450,
+  doi = {10.48324/DANDI.000472/0.240625.0450},
+  url = {https://dandiarchive.org/dandiset/000472/0.240625.0450},
+  author = {Sprague, Daniel},
+  title = {NeuroPAL volumetric images},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000472/0.240625.0454,
+  doi = {10.48324/DANDI.000472/0.240625.0454},
+  url = {https://dandiarchive.org/dandiset/000472/0.240625.0454},
+  author = {Sprague, Daniel},
+  title = {NeuroPAL volumetric images},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000472/0.241009.1501,
+  doi = {10.48324/DANDI.000472/0.241009.1501},
+  url = {https://dandiarchive.org/dandiset/000472/0.241009.1501},
+  author = {Sprague, Daniel},
+  title = {NeuroPAL volumetric images},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000472/0.241009.1502,
+  doi = {10.48324/DANDI.000472/0.241009.1502},
+  url = {https://dandiarchive.org/dandiset/000472/0.241009.1502},
+  author = {Dunn, Raymond},
+  title = {NeuroPAL volumetric images},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
 # Take latest as the default
 @misc{dandi.000472,
-  doi = {10.48324/DANDI.000472/0.240402.2117},
-  url = {https://dandiarchive.org/dandiset/000472/0.240402.2117},
-  author = {Sprague, Daniel},
+  doi = {10.48324/DANDI.000472/0.241009.1502},
+  url = {https://dandiarchive.org/dandiset/000472/0.241009.1502},
+  author = {Dunn, Raymond},
   title = {NeuroPAL volumetric images},
   publisher = {DANDI Archive},
   year = {2024}
@@ -3863,6 +2641,50 @@
   title = {Dataset for "Coregistration of heading to visual cues in retrosplenial cortex"},
   publisher = {DANDI Archive},
   year = {2023}
+}
+
+
+# DANDISET 000485
+@misc{dandi.000485/0.241014.2127,
+  doi = {10.48324/DANDI.000485/0.241014.2127},
+  url = {https://dandiarchive.org/dandiset/000485/0.241014.2127},
+  author = {Haesemeyer, Martin},
+  title = {Thermal Plaid Experiments},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000485,
+  doi = {10.48324/DANDI.000485/0.241014.2127},
+  url = {https://dandiarchive.org/dandiset/000485/0.241014.2127},
+  author = {Haesemeyer, Martin},
+  title = {Thermal Plaid Experiments},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000486
+@misc{dandi.000486/0.241014.2127,
+  doi = {10.48324/DANDI.000486/0.241014.2127},
+  url = {https://dandiarchive.org/dandiset/000486/0.241014.2127},
+  author = {Haesemeyer, Martin},
+  title = {Thermal Plaid Replay Experiments},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000486,
+  doi = {10.48324/DANDI.000486/0.241014.2127},
+  url = {https://dandiarchive.org/dandiset/000486/0.241014.2127},
+  author = {Haesemeyer, Martin},
+  title = {Thermal Plaid Replay Experiments},
+  publisher = {DANDI Archive},
+  year = {2024}
 }
 
 
@@ -3992,6 +2814,48 @@
 }
 
 
+# DANDISET 000541
+@misc{dandi.000541/0.240611.1947,
+  doi = {10.48324/DANDI.000541/0.240611.1947},
+  url = {https://dandiarchive.org/dandiset/000541/0.240611.1947},
+  author = {Sprague, Daniel},
+  title = {NeuroPAL Microfluidic Chip Images and GCaMP activity},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000541/0.240625.0452,
+  doi = {10.48324/DANDI.000541/0.240625.0452},
+  url = {https://dandiarchive.org/dandiset/000541/0.240625.0452},
+  author = {Yemini, Ev},
+  title = {NeuroPAL Microfluidic Chip Images and GCaMP activity},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000541/0.241009.1457,
+  doi = {10.48324/DANDI.000541/0.241009.1457},
+  url = {https://dandiarchive.org/dandiset/000541/0.241009.1457},
+  author = {Yemini, Ev},
+  title = {NeuroPAL Microfluidic Chip Images and GCaMP activity},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000541,
+  doi = {10.48324/DANDI.000541/0.241009.1457},
+  url = {https://dandiarchive.org/dandiset/000541/0.241009.1457},
+  author = {Yemini, Ev},
+  title = {NeuroPAL Microfluidic Chip Images and GCaMP activity},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
 # DANDISET 000544
 @misc{dandi.000544/0.230514.1148,
   doi = {10.48324/DANDI.000544/0.230514.1148},
@@ -4055,4 +2919,2452 @@
   title = {Effect of the number of pulses on electroporation by unipolar and 50 % bipolar pulses},
   publisher = {DANDI Archive},
   year = {2023}
+}
+
+
+# DANDISET 000549
+@misc{dandi.000549/0.230519.2043,
+  doi = {10.48324/DANDI.000549/0.230519.2043},
+  url = {https://dandiarchive.org/dandiset/000549/0.230519.2043},
+  author = {Silkuniene, Giedre},
+  title = {Effect of the pulse duration on electroporation by unipolar and 50% bipolar pulses},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000549,
+  doi = {10.48324/DANDI.000549/0.230519.2043},
+  url = {https://dandiarchive.org/dandiset/000549/0.230519.2043},
+  author = {Silkuniene, Giedre},
+  title = {Effect of the pulse duration on electroporation by unipolar and 50% bipolar pulses},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000550
+@misc{dandi.000550/0.230520.1609,
+  doi = {10.48324/DANDI.000550/0.230520.1609},
+  url = {https://dandiarchive.org/dandiset/000550/0.230520.1609},
+  author = {Silkuniene, Giedre},
+  title = {Pulse repetition rate},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000550,
+  doi = {10.48324/DANDI.000550/0.230520.1609},
+  url = {https://dandiarchive.org/dandiset/000550/0.230520.1609},
+  author = {Silkuniene, Giedre},
+  title = {Pulse repetition rate},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000552
+@misc{dandi.000552/0.230630.2304,
+  doi = {10.48324/DANDI.000552/0.230630.2304},
+  url = {https://dandiarchive.org/dandiset/000552/0.230630.2304},
+  author = {Huszár, Roman and Zhang, Yunchang and Blockus, Heike and Buzsáki, György},
+  keywords = {Hippocampus, Neural circuits, Development of the nervous system},
+  title = {Preconfigured dynamics in the hippocampus are guided by embryonic birthdate and rate of neurogenesis},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000552,
+  doi = {10.48324/DANDI.000552/0.230630.2304},
+  url = {https://dandiarchive.org/dandiset/000552/0.230630.2304},
+  author = {Huszár, Roman and Zhang, Yunchang and Blockus, Heike and Buzsáki, György},
+  keywords = {Hippocampus, Neural circuits, Development of the nervous system},
+  title = {Preconfigured dynamics in the hippocampus are guided by embryonic birthdate and rate of neurogenesis},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000554
+@misc{dandi.000554/0.230531.1237,
+  doi = {10.48324/DANDI.000554/0.230531.1237},
+  url = {https://dandiarchive.org/dandiset/000554/0.230531.1237},
+  author = {Tchoe, Youngbin},
+  title = {Human brain mapping with multithousand-channel PtNRGrids resolves spatiotemporal dynamics},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000554,
+  doi = {10.48324/DANDI.000554/0.230531.1237},
+  url = {https://dandiarchive.org/dandiset/000554/0.230531.1237},
+  author = {Tchoe, Youngbin},
+  title = {Human brain mapping with multithousand-channel PtNRGrids resolves spatiotemporal dynamics},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000559
+@misc{dandi.000559/0.240502.0456,
+  doi = {10.48324/DANDI.000559/0.240502.0456},
+  url = {https://dandiarchive.org/dandiset/000559/0.240502.0456},
+  author = {Markowitz, Jeffrey E. and Gillis, Winthrop and Jay, Maya and Wood, Jeffrey and Harris, Ryley W. and Cieszkowski, Robert and Scott, Rebecca and Brann, David and Koveal, Dorothy and Kula, Tomasz and Weinreb, Caleb and Osman, Mohammed Abdal Monium  and Pinto, Sandra Romero  and Uchida, Naoshige  and Linderman, Scott W. and Sabatini, Bernardo and Datta, Sandeep Robert },
+  keywords = {Basal Ganglia, Neural circuits, Reward},
+  title = {Spontaneous behaviour is structured by reinforcement without explicit reward},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000559,
+  doi = {10.48324/DANDI.000559/0.240502.0456},
+  url = {https://dandiarchive.org/dandiset/000559/0.240502.0456},
+  author = {Markowitz, Jeffrey E. and Gillis, Winthrop and Jay, Maya and Wood, Jeffrey and Harris, Ryley W. and Cieszkowski, Robert and Scott, Rebecca and Brann, David and Koveal, Dorothy and Kula, Tomasz and Weinreb, Caleb and Osman, Mohammed Abdal Monium  and Pinto, Sandra Romero  and Uchida, Naoshige  and Linderman, Scott W. and Sabatini, Bernardo and Datta, Sandeep Robert },
+  keywords = {Basal Ganglia, Neural circuits, Reward},
+  title = {Spontaneous behaviour is structured by reinforcement without explicit reward},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000565
+@misc{dandi.000565/0.240611.1955,
+  doi = {10.48324/DANDI.000565/0.240611.1955},
+  url = {https://dandiarchive.org/dandiset/000565/0.240611.1955},
+  author = {Sprague, Daniel},
+  title = {C. elegans whole-brain neuroPAL and immobilized calcium imaging},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000565/0.240625.0439,
+  doi = {10.48324/DANDI.000565/0.240625.0439},
+  url = {https://dandiarchive.org/dandiset/000565/0.240625.0439},
+  author = {Dunn, Raymond},
+  title = {C. elegans whole-brain neuroPAL and immobilized calcium imaging},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000565/0.241009.1504,
+  doi = {10.48324/DANDI.000565/0.241009.1504},
+  url = {https://dandiarchive.org/dandiset/000565/0.241009.1504},
+  author = {Dunn, Raymond},
+  title = {C. elegans whole-brain neuroPAL and immobilized calcium imaging},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000565,
+  doi = {10.48324/DANDI.000565/0.241009.1504},
+  url = {https://dandiarchive.org/dandiset/000565/0.241009.1504},
+  author = {Dunn, Raymond},
+  title = {C. elegans whole-brain neuroPAL and immobilized calcium imaging},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000568
+@misc{dandi.000568/0.230705.1633,
+  doi = {10.48324/DANDI.000568/0.230705.1633},
+  url = {https://dandiarchive.org/dandiset/000568/0.230705.1633},
+  author = {Valero, Manuel and  Zutshi, Ipshita and Yoon, Euisik and Buzsáki, György},
+  title = {Probing subthreshold dynamics of hippocampal neurons by pulsed optogenetics},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000568,
+  doi = {10.48324/DANDI.000568/0.230705.1633},
+  url = {https://dandiarchive.org/dandiset/000568/0.230705.1633},
+  author = {Valero, Manuel and  Zutshi, Ipshita and Yoon, Euisik and Buzsáki, György},
+  title = {Probing subthreshold dynamics of hippocampal neurons by pulsed optogenetics},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000569
+@misc{dandi.000569/0.230706.1630,
+  doi = {10.48324/DANDI.000569/0.230706.1630},
+  url = {https://dandiarchive.org/dandiset/000569/0.230706.1630},
+  author = {Mei, Nicholas},
+  keywords = {Patch-seq, non-human primate, multimodal},
+  title = {20230630_AIBS_Patchseq_nonhuman_primate},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000569,
+  doi = {10.48324/DANDI.000569/0.230706.1630},
+  url = {https://dandiarchive.org/dandiset/000569/0.230706.1630},
+  author = {Mei, Nicholas},
+  keywords = {Patch-seq, non-human primate, multimodal},
+  title = {20230630_AIBS_Patchseq_nonhuman_primate},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000570
+@misc{dandi.000570/0.230706.1630,
+  doi = {10.48324/DANDI.000570/0.230706.1630},
+  url = {https://dandiarchive.org/dandiset/000570/0.230706.1630},
+  author = {Mei, Nicholas},
+  keywords = {Patch-seq, human, multimodal},
+  title = {20230630_AIBS_Patchseq_human},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000570,
+  doi = {10.48324/DANDI.000570/0.230706.1630},
+  url = {https://dandiarchive.org/dandiset/000570/0.230706.1630},
+  author = {Mei, Nicholas},
+  keywords = {Patch-seq, human, multimodal},
+  title = {20230630_AIBS_Patchseq_human},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000572
+@misc{dandi.000572/0.230826.0140,
+  doi = {10.48324/DANDI.000572/0.230826.0140},
+  url = {https://dandiarchive.org/dandiset/000572/0.230826.0140},
+  author = {li, nuo},
+  title = {Activity map of a cortico-cerebellar loop underlying motor planning},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000572,
+  doi = {10.48324/DANDI.000572/0.230826.0140},
+  url = {https://dandiarchive.org/dandiset/000572/0.230826.0140},
+  author = {li, nuo},
+  title = {Activity map of a cortico-cerebellar loop underlying motor planning},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000574
+@misc{dandi.000574/0.231010.1809,
+  doi = {10.48324/DANDI.000574/0.231010.1809},
+  url = {https://dandiarchive.org/dandiset/000574/0.231010.1809},
+  author = {Sarnthein, Johannes},
+  keywords = {Electrophysiology, Human, Awake, Local field potential, Neuronal action potential, Spikes, Medial temporal lobe, Hippocampus, Entorhinal cortex, Amygdala, Scalp EEG, Intracranial EEG, Cognitive task, Verbal working memory, Epilepsy},
+  title = {Dataset of human medial temporal lobe neurons, scalp and intracranial EEG during a verbal working memory task},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000574,
+  doi = {10.48324/DANDI.000574/0.231010.1809},
+  url = {https://dandiarchive.org/dandiset/000574/0.231010.1809},
+  author = {Sarnthein, Johannes},
+  keywords = {Electrophysiology, Human, Awake, Local field potential, Neuronal action potential, Spikes, Medial temporal lobe, Hippocampus, Entorhinal cortex, Amygdala, Scalp EEG, Intracranial EEG, Cognitive task, Verbal working memory, Epilepsy},
+  title = {Dataset of human medial temporal lobe neurons, scalp and intracranial EEG during a verbal working memory task},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000575
+@misc{dandi.000575/0.231010.1811,
+  doi = {10.48324/DANDI.000575/0.231010.1811},
+  url = {https://dandiarchive.org/dandiset/000575/0.231010.1811},
+  author = {Klaver, Peter and Sarnthein, Johannes },
+  title = {Dataset of human medial temporal lobe neurons during a visual working memory task},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000575,
+  doi = {10.48324/DANDI.000575/0.231010.1811},
+  url = {https://dandiarchive.org/dandiset/000575/0.231010.1811},
+  author = {Klaver, Peter and Sarnthein, Johannes },
+  title = {Dataset of human medial temporal lobe neurons during a visual working memory task},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000576
+@misc{dandi.000576/0.231010.1811,
+  doi = {10.48324/DANDI.000576/0.231010.1811},
+  url = {https://dandiarchive.org/dandiset/000576/0.231010.1811},
+  author = {Fedele, Tommaso and Sarnthein, Johannes },
+  title = {Dataset of neurons and intracranial EEG from human amygdala during aversive dynamic visual stimulation},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000576,
+  doi = {10.48324/DANDI.000576/0.231010.1811},
+  url = {https://dandiarchive.org/dandiset/000576/0.231010.1811},
+  author = {Fedele, Tommaso and Sarnthein, Johannes },
+  title = {Dataset of neurons and intracranial EEG from human amygdala during aversive dynamic visual stimulation},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000579
+@misc{dandi.000579/0.230728.1727,
+  doi = {10.48324/DANDI.000579/0.230728.1727},
+  url = {https://dandiarchive.org/dandiset/000579/0.230728.1727},
+  author = {Tseng, Shih-Yi and Chettih, Selmaan},
+  keywords = {mouse, cortex, decision-making, navigation, virtual reality, two-photon imaging, posterior cortex, posterior parietal cortex, retrosplenial cortex, visual cortex, rule-switching, flexible decisions, retrograde labeling},
+  title = {Two-photon calcium imaging of mouse posterior cortical areas during dynamic navigation decisions (Tseng et al., 2022, Neuron)},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000579,
+  doi = {10.48324/DANDI.000579/0.230728.1727},
+  url = {https://dandiarchive.org/dandiset/000579/0.230728.1727},
+  author = {Tseng, Shih-Yi and Chettih, Selmaan},
+  keywords = {mouse, cortex, decision-making, navigation, virtual reality, two-photon imaging, posterior cortex, posterior parietal cortex, retrosplenial cortex, visual cortex, rule-switching, flexible decisions, retrograde labeling},
+  title = {Two-photon calcium imaging of mouse posterior cortical areas during dynamic navigation decisions (Tseng et al., 2022, Neuron)},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000623
+@misc{dandi.000623/0.240121.2058,
+  doi = {10.48324/DANDI.000623/0.240121.2058},
+  url = {https://dandiarchive.org/dandiset/000623/0.240121.2058},
+  author = {Keles, Umit and Dubois, Julien and Le, Kevin J. M. and Kahn, David A. and Reed, Chrystal M. and Chung, Jeffrey M.  and Mamelak, Adam N. and Adolphs, Ralph and Rutishauser, Ueli},
+  keywords = {movie watching, recognition memory, single-neuron, iEEG},
+  title = {Data for: Multimodal brain responses during movie watching: single-neuron, intracranial EEG, and fMRI in human patients},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000623/0.240130.2108,
+  doi = {10.48324/DANDI.000623/0.240130.2108},
+  url = {https://dandiarchive.org/dandiset/000623/0.240130.2108},
+  author = {Keles, Umit and Dubois, Julien and Le, Kevin J. M. and Kahn, David A. and Reed, Chrystal M. and Chung, Jeffrey M.  and Mamelak, Adam N. and Adolphs, Ralph and Rutishauser, Ueli},
+  keywords = {movie watching, recognition memory, single-neuron, iEEG},
+  title = {Data for: Multimodal single-neuron, intracranial EEG, and fMRI brain responses during movie watching in human patients},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000623/0.240227.2023,
+  doi = {10.48324/DANDI.000623/0.240227.2023},
+  url = {https://dandiarchive.org/dandiset/000623/0.240227.2023},
+  author = {Keles, Umit and Dubois, Julien and Le, Kevin J. M. and Kahn, David A. and Reed, Chrystal M. and Chung, Jeffrey M.  and Mamelak, Adam N. and Adolphs, Ralph and Rutishauser, Ueli},
+  keywords = {movie watching, recognition memory, single-neuron, iEEG},
+  title = {Data for: Multimodal single-neuron, intracranial EEG, and fMRI brain responses during movie watching in human patients},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000623,
+  doi = {10.48324/DANDI.000623/0.240227.2023},
+  url = {https://dandiarchive.org/dandiset/000623/0.240227.2023},
+  author = {Keles, Umit and Dubois, Julien and Le, Kevin J. M. and Kahn, David A. and Reed, Chrystal M. and Chung, Jeffrey M.  and Mamelak, Adam N. and Adolphs, Ralph and Rutishauser, Ueli},
+  keywords = {movie watching, recognition memory, single-neuron, iEEG},
+  title = {Data for: Multimodal single-neuron, intracranial EEG, and fMRI brain responses during movie watching in human patients},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000625
+@misc{dandi.000625/0.231114.0017,
+  doi = {10.48324/DANDI.000625/0.231114.0017},
+  url = {https://dandiarchive.org/dandiset/000625/0.231114.0017},
+  author = {Geiller, Tristan},
+  keywords = {2-photon calcium imaging, interneuron, hippocampus, ca1, mouse, head-fixed, treadmill, Losonczy Lab, Columbia University},
+  title = {Molecularly Identified CA1 Interneuron Dynamics},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+@misc{dandi.000625/0.231114.0019,
+  doi = {10.48324/DANDI.000625/0.231114.0019},
+  url = {https://dandiarchive.org/dandiset/000625/0.231114.0019},
+  author = {Geiller, Tristan},
+  keywords = {2-photon calcium imaging, interneuron, hippocampus, ca1, mouse, head-fixed, treadmill, Losonczy Lab, Columbia University},
+  title = {Molecularly Identified CA1 Interneuron Dynamics},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000625,
+  doi = {10.48324/DANDI.000625/0.231114.0019},
+  url = {https://dandiarchive.org/dandiset/000625/0.231114.0019},
+  author = {Geiller, Tristan},
+  keywords = {2-photon calcium imaging, interneuron, hippocampus, ca1, mouse, head-fixed, treadmill, Losonczy Lab, Columbia University},
+  title = {Molecularly Identified CA1 Interneuron Dynamics},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000628
+@misc{dandi.000628/0.230912.0201,
+  doi = {10.48324/DANDI.000628/0.230912.0201},
+  url = {https://dandiarchive.org/dandiset/000628/0.230912.0201},
+  author = {Xiao, Will and Sharma, Saloni and Kreiman, Gabriel and Livingstone, Margaret},
+  keywords = {Macaque, Ventral stream, Free viewing, Natural images, Extracellular electrophysiology},
+  title = {Extracellular recording along macaque ventral stream during natural image free viewing},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+@misc{dandi.000628/0.230922.1642,
+  doi = {10.48324/DANDI.000628/0.230922.1642},
+  url = {https://dandiarchive.org/dandiset/000628/0.230922.1642},
+  author = {Xiao, Will and Sharma, Saloni and Kreiman, Gabriel and Livingstone, Margaret},
+  keywords = {Macaque, Ventral stream, Free viewing, Natural images, Extracellular electrophysiology},
+  title = {Extracellular recording along macaque ventral stream during natural image free viewing},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+@misc{dandi.000628/0.240428.2041,
+  doi = {10.48324/DANDI.000628/0.240428.2041},
+  url = {https://dandiarchive.org/dandiset/000628/0.240428.2041},
+  author = {Xiao, Will and Sharma, Saloni and Kreiman, Gabriel and Livingstone, Margaret},
+  keywords = {Macaque, Ventral stream, Free viewing, Natural images, Extracellular electrophysiology},
+  title = {Extracellular recording along macaque ventral visual pathway during natural image free viewing},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000628/0.240501.1912,
+  doi = {10.48324/DANDI.000628/0.240501.1912},
+  url = {https://dandiarchive.org/dandiset/000628/0.240501.1912},
+  author = {Xiao, Will and Sharma, Saloni and Kreiman, Gabriel and Livingstone, Margaret},
+  keywords = {Macaque, Ventral stream, Free viewing, Natural images, Extracellular electrophysiology},
+  title = {Extracellular recording along macaque ventral visual pathway during natural image free viewing},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000628,
+  doi = {10.48324/DANDI.000628/0.240501.1912},
+  url = {https://dandiarchive.org/dandiset/000628/0.240501.1912},
+  author = {Xiao, Will and Sharma, Saloni and Kreiman, Gabriel and Livingstone, Margaret},
+  keywords = {Macaque, Ventral stream, Free viewing, Natural images, Extracellular electrophysiology},
+  title = {Extracellular recording along macaque ventral visual pathway during natural image free viewing},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000629
+@misc{dandi.000629/0.240627.0646,
+  doi = {10.48324/DANDI.000629/0.240627.0646},
+  url = {https://dandiarchive.org/dandiset/000629/0.240627.0646},
+  author = {Gillespie, Anna and Astudillo Maya, Daniela and Denovellis, Eric and Desse, Sachi and Frank, Loren},
+  keywords = {hippocampus, replay, neurofeedback, sharp-wave ripples, electrophysiology},
+  title = {Gillespie et al (2024) Neurofeedback training can modulate task-relevant memory replay rate in rats},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000629,
+  doi = {10.48324/DANDI.000629/0.240627.0646},
+  url = {https://dandiarchive.org/dandiset/000629/0.240627.0646},
+  author = {Gillespie, Anna and Astudillo Maya, Daniela and Denovellis, Eric and Desse, Sachi and Frank, Loren},
+  keywords = {hippocampus, replay, neurofeedback, sharp-wave ripples, electrophysiology},
+  title = {Gillespie et al (2024) Neurofeedback training can modulate task-relevant memory replay rate in rats},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000630
+@misc{dandi.000630/0.230915.2257,
+  doi = {10.48324/DANDI.000630/0.230915.2257},
+  url = {https://dandiarchive.org/dandiset/000630/0.230915.2257},
+  author = {Chartrand, Thomas},
+  keywords = {human, multimodal, patch-seq, neocortex},
+  title = {Human L1 patch-seq electrophysiology},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000630,
+  doi = {10.48324/DANDI.000630/0.230915.2257},
+  url = {https://dandiarchive.org/dandiset/000630/0.230915.2257},
+  author = {Chartrand, Thomas},
+  keywords = {human, multimodal, patch-seq, neocortex},
+  title = {Human L1 patch-seq electrophysiology},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000631
+@misc{dandi.000631/0.231012.1508,
+  doi = {10.48324/DANDI.000631/0.231012.1508},
+  url = {https://dandiarchive.org/dandiset/000631/0.231012.1508},
+  author = {Kim, Vitalii},
+  title = {Effect of the electric field vector change on the electroporation efficiency of paired-pulse trains compared to single-pulse trains},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000631,
+  doi = {10.48324/DANDI.000631/0.231012.1508},
+  url = {https://dandiarchive.org/dandiset/000631/0.231012.1508},
+  author = {Kim, Vitalii},
+  title = {Effect of the electric field vector change on the electroporation efficiency of paired-pulse trains compared to single-pulse trains},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000632
+@misc{dandi.000632/0.231012.1930,
+  doi = {10.48324/DANDI.000632/0.231012.1930},
+  url = {https://dandiarchive.org/dandiset/000632/0.231012.1930},
+  author = {Silkuniene, Giedre},
+  title = {Electroporation efficiency of co-directional and cross-directional paired pulses},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000632,
+  doi = {10.48324/DANDI.000632/0.231012.1930},
+  url = {https://dandiarchive.org/dandiset/000632/0.231012.1930},
+  author = {Silkuniene, Giedre},
+  title = {Electroporation efficiency of co-directional and cross-directional paired pulses},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000633
+@misc{dandi.000633/0.231013.2226,
+  doi = {10.48324/DANDI.000633/0.231013.2226},
+  url = {https://dandiarchive.org/dandiset/000633/0.231013.2226},
+  author = {Silkuniene, Giedre},
+  title = {The difference in electroporation patterns produced by a train of single pulses and a train of paired pulses},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000633,
+  doi = {10.48324/DANDI.000633/0.231013.2226},
+  url = {https://dandiarchive.org/dandiset/000633/0.231013.2226},
+  author = {Silkuniene, Giedre},
+  title = {The difference in electroporation patterns produced by a train of single pulses and a train of paired pulses},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000634
+@misc{dandi.000634/0.231005.1820,
+  doi = {10.48324/DANDI.000634/0.231005.1820},
+  url = {https://dandiarchive.org/dandiset/000634/0.231005.1820},
+  author = {Silkuniene, Giedre},
+  title = {Cell Membrane Charging by Co- and Counter-Directional ns electrical pulses (nsEP)},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000634,
+  doi = {10.48324/DANDI.000634/0.231005.1820},
+  url = {https://dandiarchive.org/dandiset/000634/0.231005.1820},
+  author = {Silkuniene, Giedre},
+  title = {Cell Membrane Charging by Co- and Counter-Directional ns electrical pulses (nsEP)},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000635
+@misc{dandi.000635/0.230921.1734,
+  doi = {10.48324/DANDI.000635/0.230921.1734},
+  url = {https://dandiarchive.org/dandiset/000635/0.230921.1734},
+  author = {Soliman, Sherif},
+  keywords = {Patch-seq, non-human primate, multimodal},
+  title = {20230930_AIBS_Patchseq_nonhuman_primate},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000635,
+  doi = {10.48324/DANDI.000635/0.230921.1734},
+  url = {https://dandiarchive.org/dandiset/000635/0.230921.1734},
+  author = {Soliman, Sherif},
+  keywords = {Patch-seq, non-human primate, multimodal},
+  title = {20230930_AIBS_Patchseq_nonhuman_primate},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000640
+@misc{dandi.000640/0.231108.1843,
+  doi = {10.48324/DANDI.000640/0.231108.1843},
+  url = {https://dandiarchive.org/dandiset/000640/0.231108.1843},
+  author = {Koloski, Miranda },
+  keywords = {electrophysiology, rodent behavior, reversal learning, traumatic brain injury},
+  title = {32-CH Local Field Potential Data During Probabilistic Reversal Learning Task},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000640,
+  doi = {10.48324/DANDI.000640/0.231108.1843},
+  url = {https://dandiarchive.org/dandiset/000640/0.231108.1843},
+  author = {Koloski, Miranda },
+  keywords = {electrophysiology, rodent behavior, reversal learning, traumatic brain injury},
+  title = {32-CH Local Field Potential Data During Probabilistic Reversal Learning Task},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000673
+@misc{dandi.000673/0.240118.2135,
+  doi = {10.48324/DANDI.000673/0.240118.2135},
+  url = {https://dandiarchive.org/dandiset/000673/0.240118.2135},
+  author = {Daume, Jonathan and Kaminski, Jan and Schjetnan, Andrea G. P.  and Salimpour, Yousef and Khan, Umais and Kyzar, Michael and Reed, Chrystal M. and Anderson, William S. and Valiante, Taufik A. and Mamelak, Adam N. and Rutishauser, Ueli},
+  keywords = {cognitive neuroscience, data standardization, working memory, neurophysiology, neurosurgery, NWB, open source, single-neurons, phase-amplitude coupling},
+  title = {Data for: Control of working memory maintenance by theta-gamma phase amplitude coupling of human hippocampal neurons},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000673/0.240524.1751,
+  doi = {10.48324/DANDI.000673/0.240524.1751},
+  url = {https://dandiarchive.org/dandiset/000673/0.240524.1751},
+  author = {Daume, Jonathan and Kaminski, Jan and Schjetnan, Andrea G. P.  and Salimpour, Yousef and Khan, Umais and Kyzar, Michael and Reed, Chrystal M. and Anderson, William S. and Valiante, Taufik A. and Mamelak, Adam N. and Rutishauser, Ueli},
+  keywords = {cognitive neuroscience, data standardization, working memory, neurophysiology, neurosurgery, NWB, open source, single-neurons, phase-amplitude coupling},
+  title = {Data for: Control of working memory by phase–amplitude coupling of human hippocampal neurons},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000673/0.240524.1758,
+  doi = {10.48324/DANDI.000673/0.240524.1758},
+  url = {https://dandiarchive.org/dandiset/000673/0.240524.1758},
+  author = {Daume, Jonathan and Kaminski, Jan and Schjetnan, Andrea G. P.  and Salimpour, Yousef and Khan, Umais and Kyzar, Michael and Reed, Chrystal M. and Anderson, William S. and Valiante, Taufik A. and Mamelak, Adam N. and Rutishauser, Ueli},
+  keywords = {cognitive neuroscience, data standardization, working memory, neurophysiology, neurosurgery, NWB, open source, single-neurons, phase-amplitude coupling},
+  title = {Data for: Control of working memory by phase–amplitude coupling of human hippocampal neurons},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000673,
+  doi = {10.48324/DANDI.000673/0.240524.1758},
+  url = {https://dandiarchive.org/dandiset/000673/0.240524.1758},
+  author = {Daume, Jonathan and Kaminski, Jan and Schjetnan, Andrea G. P.  and Salimpour, Yousef and Khan, Umais and Kyzar, Michael and Reed, Chrystal M. and Anderson, William S. and Valiante, Taufik A. and Mamelak, Adam N. and Rutishauser, Ueli},
+  keywords = {cognitive neuroscience, data standardization, working memory, neurophysiology, neurosurgery, NWB, open source, single-neurons, phase-amplitude coupling},
+  title = {Data for: Control of working memory by phase–amplitude coupling of human hippocampal neurons},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000678
+@misc{dandi.000678/0.231004.2146,
+  doi = {10.48324/DANDI.000678/0.231004.2146},
+  url = {https://dandiarchive.org/dandiset/000678/0.231004.2146},
+  author = {Hulsey, Daniel and Zumwalt, Kevin and Mazzucato, Luca and McCormick, David A. and Jaramillo, Santiago},
+  title = {Pupil and movement measurements during mouse auditory and visual discrimination},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000678,
+  doi = {10.48324/DANDI.000678/0.231004.2146},
+  url = {https://dandiarchive.org/dandiset/000678/0.231004.2146},
+  author = {Hulsey, Daniel and Zumwalt, Kevin and Mazzucato, Luca and McCormick, David A. and Jaramillo, Santiago},
+  title = {Pupil and movement measurements during mouse auditory and visual discrimination},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000686
+@misc{dandi.000686/0.240515.1909,
+  doi = {10.48324/DANDI.000686/0.240515.1909},
+  url = {https://dandiarchive.org/dandiset/000686/0.240515.1909},
+  author = {Silkuniene, Giedre and Pakhomov, Andrei},
+  title = {Focusing electroporation to the center of a quadrupole electrode array by interference of unipolar pulses (NextGeneration-CANCAN)},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000686,
+  doi = {10.48324/DANDI.000686/0.240515.1909},
+  url = {https://dandiarchive.org/dandiset/000686/0.240515.1909},
+  author = {Silkuniene, Giedre and Pakhomov, Andrei},
+  title = {Focusing electroporation to the center of a quadrupole electrode array by interference of unipolar pulses (NextGeneration-CANCAN)},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000689
+@misc{dandi.000689/0.240524.2012,
+  doi = {10.48324/DANDI.000689/0.240524.2012},
+  url = {https://dandiarchive.org/dandiset/000689/0.240524.2012},
+  author = {Li, Hao and Namburi, Praneeth and Tye, Kay M. },
+  keywords = {in vivo electrophysiology, mouse, Pavlovian discrimination, deeplabcut, basolateral amygdala (BLA), paraventricular nucleus of the thalamus (PVT), neutotensin, valence assignment},
+  title = {Data supporting Neurotensin orchestrates valence  assignment in the amygdala},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000689/0.240530.1923,
+  doi = {10.48324/DANDI.000689/0.240530.1923},
+  url = {https://dandiarchive.org/dandiset/000689/0.240530.1923},
+  author = {Li, Hao and Namburi, Praneeth and Tye, Kay M. },
+  keywords = {in vivo electrophysiology, mouse, Pavlovian discrimination, deeplabcut, basolateral amygdala (BLA), paraventricular nucleus of the thalamus (PVT), neutotensin, valence assignment},
+  title = {Data supporting Neurotensin orchestrates valence  assignment in the amygdala},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000689,
+  doi = {10.48324/DANDI.000689/0.240530.1923},
+  url = {https://dandiarchive.org/dandiset/000689/0.240530.1923},
+  author = {Li, Hao and Namburi, Praneeth and Tye, Kay M. },
+  keywords = {in vivo electrophysiology, mouse, Pavlovian discrimination, deeplabcut, basolateral amygdala (BLA), paraventricular nucleus of the thalamus (PVT), neutotensin, valence assignment},
+  title = {Data supporting Neurotensin orchestrates valence  assignment in the amygdala},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000692
+@misc{dandi.000692/0.240402.2118,
+  doi = {10.48324/DANDI.000692/0.240402.2118},
+  url = {https://dandiarchive.org/dandiset/000692/0.240402.2118},
+  author = {Suzuki, Ryoga and Wen, Chentao and Onami, Shuichi and Kimura, Koutarou D},
+  title = {Whole-brain spontaneous GCaMP activity with NeuroPAL cell ID information of semi-restricted worms},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000692,
+  doi = {10.48324/DANDI.000692/0.240402.2118},
+  url = {https://dandiarchive.org/dandiset/000692/0.240402.2118},
+  author = {Suzuki, Ryoga and Wen, Chentao and Onami, Shuichi and Kimura, Koutarou D},
+  title = {Whole-brain spontaneous GCaMP activity with NeuroPAL cell ID information of semi-restricted worms},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000711
+@misc{dandi.000711/0.231121.0201,
+  doi = {10.48324/DANDI.000711/0.231121.0201},
+  url = {https://dandiarchive.org/dandiset/000711/0.231121.0201},
+  author = {Olsen, Shawn},
+  keywords = {mouse, visual cortex, 2-photon microscopy, calcium imaging, excitatory neurons, inhibitory neurons, novelty, task engagement, behavior, learning, change detection, disinhibition},
+  title = {Allen Institute - Visual Behavior - Optical Physiology},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+@misc{dandi.000711/0.231121.1730,
+  doi = {10.48324/DANDI.000711/0.231121.1730},
+  url = {https://dandiarchive.org/dandiset/000711/0.231121.1730},
+  author = {Olsen, Shawn},
+  keywords = {mouse, visual cortex, 2-photon microscopy, calcium imaging, excitatory neurons, inhibitory neurons, novelty, task engagement, behavior, learning, change detection, disinhibition},
+  title = {Allen Institute - Visual Behavior - Optical Physiology},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000711,
+  doi = {10.48324/DANDI.000711/0.231121.1730},
+  url = {https://dandiarchive.org/dandiset/000711/0.231121.1730},
+  author = {Olsen, Shawn},
+  keywords = {mouse, visual cortex, 2-photon microscopy, calcium imaging, excitatory neurons, inhibitory neurons, novelty, task engagement, behavior, learning, change detection, disinhibition},
+  title = {Allen Institute - Visual Behavior - Optical Physiology},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000713
+@misc{dandi.000713/0.240702.1725,
+  doi = {10.48324/DANDI.000713/0.240702.1725},
+  url = {https://dandiarchive.org/dandiset/000713/0.240702.1725},
+  author = {Morrison, Christopher},
+  title = {Allen Institute - Visual Behavior - Neuropixels},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000713,
+  doi = {10.48324/DANDI.000713/0.240702.1725},
+  url = {https://dandiarchive.org/dandiset/000713/0.240702.1725},
+  author = {Morrison, Christopher},
+  title = {Allen Institute - Visual Behavior - Neuropixels},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000714
+@misc{dandi.000714/0.240402.2115,
+  doi = {10.48324/DANDI.000714/0.240402.2115},
+  url = {https://dandiarchive.org/dandiset/000714/0.240402.2115},
+  author = {Chaudhary, Shivesh},
+  title = {Segmented and labeled NeuroPAL structural images},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000714/0.240611.1954,
+  doi = {10.48324/DANDI.000714/0.240611.1954},
+  url = {https://dandiarchive.org/dandiset/000714/0.240611.1954},
+  author = {Chaudhary, Shivesh},
+  title = {Segmented and labeled NeuroPAL structural images},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000714/0.241009.1516,
+  doi = {10.48324/DANDI.000714/0.241009.1516},
+  url = {https://dandiarchive.org/dandiset/000714/0.241009.1516},
+  author = {Chaudhary, Shivesh},
+  title = {Segmented and labeled NeuroPAL structural images},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000714,
+  doi = {10.48324/DANDI.000714/0.241009.1516},
+  url = {https://dandiarchive.org/dandiset/000714/0.241009.1516},
+  author = {Chaudhary, Shivesh},
+  title = {Segmented and labeled NeuroPAL structural images},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000715
+@misc{dandi.000715/0.240424.1847,
+  doi = {10.48324/DANDI.000715/0.240424.1847},
+  url = {https://dandiarchive.org/dandiset/000715/0.240424.1847},
+  author = {Yemini, Eviatar and Sprague, Daniel},
+  title = {NeuroPAL: Atlas of C. elegans neuron locations and colors in NeuroPAL worm},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000715/0.240611.1953,
+  doi = {10.48324/DANDI.000715/0.240611.1953},
+  url = {https://dandiarchive.org/dandiset/000715/0.240611.1953},
+  author = {Yemini, Eviatar and Sprague, Daniel},
+  title = {NeuroPAL: Atlas of C. elegans neuron locations and colors in NeuroPAL worm},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000715/0.240614.1942,
+  doi = {10.48324/DANDI.000715/0.240614.1942},
+  url = {https://dandiarchive.org/dandiset/000715/0.240614.1942},
+  author = {Yemini, Eviatar and Sprague, Daniel},
+  title = {NeuroPAL: Atlas of C. elegans neuron locations and colors in NeuroPAL worm},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000715/0.241009.1514,
+  doi = {10.48324/DANDI.000715/0.241009.1514},
+  url = {https://dandiarchive.org/dandiset/000715/0.241009.1514},
+  author = {Yemini, Eviatar},
+  title = {NeuroPAL: Atlas of C. elegans neuron locations and colors in NeuroPAL worm},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000715,
+  doi = {10.48324/DANDI.000715/0.241009.1514},
+  url = {https://dandiarchive.org/dandiset/000715/0.241009.1514},
+  author = {Yemini, Eviatar},
+  title = {NeuroPAL: Atlas of C. elegans neuron locations and colors in NeuroPAL worm},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000723
+@misc{dandi.000723/0.240716.1414,
+  doi = {10.48324/DANDI.000723/0.240716.1414},
+  url = {https://dandiarchive.org/dandiset/000723/0.240716.1414},
+  author = {Reimer, Marike},
+  title = {VR-SASE Virtual Reality Dendritic Spine Analysis},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000723,
+  doi = {10.48324/DANDI.000723/0.240716.1414},
+  url = {https://dandiarchive.org/dandiset/000723/0.240716.1414},
+  author = {Reimer, Marike},
+  title = {VR-SASE Virtual Reality Dendritic Spine Analysis},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000727
+@misc{dandi.000727/0.240106.0043,
+  doi = {10.48324/DANDI.000727/0.240106.0043},
+  url = {https://dandiarchive.org/dandiset/000727/0.240106.0043},
+  author = {Brezovec, Luke and Berger, Andrew and Druckmann, Shaul  and Clandinin, Thomas},
+  title = {Mapping the Neural Dynamics of Locomotion across the Drosophila Brain},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000727,
+  doi = {10.48324/DANDI.000727/0.240106.0043},
+  url = {https://dandiarchive.org/dandiset/000727/0.240106.0043},
+  author = {Brezovec, Luke and Berger, Andrew and Druckmann, Shaul  and Clandinin, Thomas},
+  title = {Mapping the Neural Dynamics of Locomotion across the Drosophila Brain},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000728
+@misc{dandi.000728/0.240822.1754,
+  doi = {10.48324/DANDI.000728/0.240822.1754},
+  url = {https://dandiarchive.org/dandiset/000728/0.240822.1754},
+  author = {Baker, Cody},
+  title = {Allen Institute - Visual Coding - Optical Physiology},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000728/0.240827.1809,
+  doi = {10.48324/DANDI.000728/0.240827.1809},
+  url = {https://dandiarchive.org/dandiset/000728/0.240827.1809},
+  author = {Baker, Cody},
+  title = {Allen Institute - Visual Coding - Optical Physiology},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000728,
+  doi = {10.48324/DANDI.000728/0.240827.1809},
+  url = {https://dandiarchive.org/dandiset/000728/0.240827.1809},
+  author = {Baker, Cody},
+  title = {Allen Institute - Visual Coding - Optical Physiology},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000768
+@misc{dandi.000768/0.231221.2138,
+  doi = {10.48324/DANDI.000768/0.231221.2138},
+  url = {https://dandiarchive.org/dandiset/000768/0.231221.2138},
+  author = {Soliman, Sherif},
+  keywords = {Patch-seq, non-human primate, multimodal},
+  title = {20231222_AIBS_Patchseq_nonhuman_primate},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000768,
+  doi = {10.48324/DANDI.000768/0.231221.2138},
+  url = {https://dandiarchive.org/dandiset/000768/0.231221.2138},
+  author = {Soliman, Sherif},
+  keywords = {Patch-seq, non-human primate, multimodal},
+  title = {20231222_AIBS_Patchseq_nonhuman_primate},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000769
+@misc{dandi.000769/0.231221.2138,
+  doi = {10.48324/DANDI.000769/0.231221.2138},
+  url = {https://dandiarchive.org/dandiset/000769/0.231221.2138},
+  author = {Soliman, Sherif},
+  keywords = {Patch-seq, human, multimodal},
+  title = {20231222_AIBS_Patchseq_human},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# Take latest as the default
+@misc{dandi.000769,
+  doi = {10.48324/DANDI.000769/0.231221.2138},
+  url = {https://dandiarchive.org/dandiset/000769/0.231221.2138},
+  author = {Soliman, Sherif},
+  keywords = {Patch-seq, human, multimodal},
+  title = {20231222_AIBS_Patchseq_human},
+  publisher = {DANDI Archive},
+  year = {2023}
+}
+
+
+# DANDISET 000776
+@misc{dandi.000776/0.240625.0015,
+  doi = {10.48324/DANDI.000776/0.240625.0015},
+  url = {https://dandiarchive.org/dandiset/000776/0.240625.0015},
+  author = {Wan, Flossie},
+  title = {Brain-wide representations of behavior spanning multiple timescales and states in C. elegans},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000776/0.240625.0022,
+  doi = {10.48324/DANDI.000776/0.240625.0022},
+  url = {https://dandiarchive.org/dandiset/000776/0.240625.0022},
+  author = {Atanas, Adam},
+  title = {Brain-wide representations of behavior spanning multiple timescales and states in C. elegans},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000776/0.241009.1509,
+  doi = {10.48324/DANDI.000776/0.241009.1509},
+  url = {https://dandiarchive.org/dandiset/000776/0.241009.1509},
+  author = {Atanas, Adam},
+  title = {Brain-wide representations of behavior spanning multiple timescales and states in C. elegans},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000776,
+  doi = {10.48324/DANDI.000776/0.241009.1509},
+  url = {https://dandiarchive.org/dandiset/000776/0.241009.1509},
+  author = {Atanas, Adam},
+  title = {Brain-wide representations of behavior spanning multiple timescales and states in C. elegans},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000875
+@misc{dandi.000875/0.240515.1925,
+  doi = {10.48324/DANDI.000875/0.240515.1925},
+  url = {https://dandiarchive.org/dandiset/000875/0.240515.1925},
+  author = {Pakhomov, Andrei},
+  title = {Influence of unipolar pulse packet quantity on centering the electroporation effect within a quadrupole electrode array.},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000875,
+  doi = {10.48324/DANDI.000875/0.240515.1925},
+  url = {https://dandiarchive.org/dandiset/000875/0.240515.1925},
+  author = {Pakhomov, Andrei},
+  title = {Influence of unipolar pulse packet quantity on centering the electroporation effect within a quadrupole electrode array.},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000888
+@misc{dandi.000888/0.241014.2127,
+  doi = {10.48324/DANDI.000888/0.241014.2127},
+  url = {https://dandiarchive.org/dandiset/000888/0.241014.2127},
+  author = {Anderson, Lindsay},
+  title = {Thermal Plaid Experiments - steep gradients},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000888,
+  doi = {10.48324/DANDI.000888/0.241014.2127},
+  url = {https://dandiarchive.org/dandiset/000888/0.241014.2127},
+  author = {Anderson, Lindsay},
+  title = {Thermal Plaid Experiments - steep gradients},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000889
+@misc{dandi.000889/0.241014.2127,
+  doi = {10.48324/DANDI.000889/0.241014.2127},
+  url = {https://dandiarchive.org/dandiset/000889/0.241014.2127},
+  author = {Anderson, Lindsay},
+  title = {Thermal Plaid Replay Experiments - steep gradients},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000889,
+  doi = {10.48324/DANDI.000889/0.241014.2127},
+  url = {https://dandiarchive.org/dandiset/000889/0.241014.2127},
+  author = {Anderson, Lindsay},
+  title = {Thermal Plaid Replay Experiments - steep gradients},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000891
+@misc{dandi.000891/0.240215.0831,
+  doi = {10.48324/DANDI.000891/0.240215.0831},
+  url = {https://dandiarchive.org/dandiset/000891/0.240215.0831},
+  author = {Beinlich, Felix R.M. and Nedergaard, Maiken},
+  title = {Oxygen Imaging of Hypoxic Pockets in the Mouse Cerebral Cortex},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000891,
+  doi = {10.48324/DANDI.000891/0.240215.0831},
+  url = {https://dandiarchive.org/dandiset/000891/0.240215.0831},
+  author = {Beinlich, Felix R.M. and Nedergaard, Maiken},
+  title = {Oxygen Imaging of Hypoxic Pockets in the Mouse Cerebral Cortex},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000897
+@misc{dandi.000897/0.240605.1710,
+  doi = {10.48324/DANDI.000897/0.240605.1710},
+  url = {https://dandiarchive.org/dandiset/000897/0.240605.1710},
+  author = {Neupane, Sujaya and Fiete, Ila and Jazayeri, Mehrdad},
+  keywords = {entorhinal cortex, cognitive map, mental navigation,},
+  title = {Neupane_Fiete_Jazayeri_Mental navigation_NHP_EntorhinalCortex},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000897,
+  doi = {10.48324/DANDI.000897/0.240605.1710},
+  url = {https://dandiarchive.org/dandiset/000897/0.240605.1710},
+  author = {Neupane, Sujaya and Fiete, Ila and Jazayeri, Mehrdad},
+  keywords = {entorhinal cortex, cognitive map, mental navigation,},
+  title = {Neupane_Fiete_Jazayeri_Mental navigation_NHP_EntorhinalCortex},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000931
+@misc{dandi.000931/0.240305.0939,
+  doi = {10.48324/DANDI.000931/0.240305.0939},
+  url = {https://dandiarchive.org/dandiset/000931/0.240305.0939},
+  author = {A. Dehaquani, Alireza and Michelon, Filippo and Patella, Paola and Petrucco, Luigi and Piasini, Eugenio and Iurilli, Giuliano},
+  title = {A mechanosensory feedback that uncouples external and self-generated sensory responses in the olfactory cortex},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000931/0.240305.0945,
+  doi = {10.48324/DANDI.000931/0.240305.0945},
+  url = {https://dandiarchive.org/dandiset/000931/0.240305.0945},
+  author = {A. Dehaqani, Alireza and Michelon, Filippo and Patella, Paola and Petrucco, Luigi and Piasini, Eugenio and Iurilli, Giuliano},
+  title = {A mechanosensory feedback that uncouples external and self-generated sensory responses in the olfactory cortex},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000931,
+  doi = {10.48324/DANDI.000931/0.240305.0945},
+  url = {https://dandiarchive.org/dandiset/000931/0.240305.0945},
+  author = {A. Dehaqani, Alireza and Michelon, Filippo and Patella, Paola and Petrucco, Luigi and Piasini, Eugenio and Iurilli, Giuliano},
+  title = {A mechanosensory feedback that uncouples external and self-generated sensory responses in the olfactory cortex},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000932
+@misc{dandi.000932/0.240317.0101,
+  doi = {10.48324/DANDI.000932/0.240317.0101},
+  url = {https://dandiarchive.org/dandiset/000932/0.240317.0101},
+  author = {Tchoe, Youngbin},
+  title = {An electroencephalogram microdisplay to visualize neuronal activity on the brain surface},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000932,
+  doi = {10.48324/DANDI.000932/0.240317.0101},
+  url = {https://dandiarchive.org/dandiset/000932/0.240317.0101},
+  author = {Tchoe, Youngbin},
+  title = {An electroencephalogram microdisplay to visualize neuronal activity on the brain surface},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000933
+@misc{dandi.000933/0.240315.1758,
+  doi = {10.48324/DANDI.000933/0.240315.1758},
+  url = {https://dandiarchive.org/dandiset/000933/0.240315.1758},
+  author = {Soliman, Sherif},
+  keywords = {Patch-seq, human, multimodal},
+  title = {20240331_AIBS_Patchseq_human},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000933,
+  doi = {10.48324/DANDI.000933/0.240315.1758},
+  url = {https://dandiarchive.org/dandiset/000933/0.240315.1758},
+  author = {Soliman, Sherif},
+  keywords = {Patch-seq, human, multimodal},
+  title = {20240331_AIBS_Patchseq_human},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000934
+@misc{dandi.000934/0.240315.1754,
+  doi = {10.48324/DANDI.000934/0.240315.1754},
+  url = {https://dandiarchive.org/dandiset/000934/0.240315.1754},
+  author = {Soliman, Sherif},
+  keywords = {Patch-seq, non-human primate, multimodal},
+  title = {20240331_AIBS_Patchseq_nonhuman_primate},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000934,
+  doi = {10.48324/DANDI.000934/0.240315.1754},
+  url = {https://dandiarchive.org/dandiset/000934/0.240315.1754},
+  author = {Soliman, Sherif},
+  keywords = {Patch-seq, non-human primate, multimodal},
+  title = {20240331_AIBS_Patchseq_nonhuman_primate},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000935
+@misc{dandi.000935/0.240319.2026,
+  doi = {10.48324/DANDI.000935/0.240319.2026},
+  url = {https://dandiarchive.org/dandiset/000935/0.240319.2026},
+  author = {Prakash, Mansi},
+  keywords = {Bioluminescence, Luminopsins, Parvalbumin, gamma rhythms},
+  title = {Interluminescence:  Selective Control of Synaptically-Connected Circuit Elements using bioluminescence},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000935,
+  doi = {10.48324/DANDI.000935/0.240319.2026},
+  url = {https://dandiarchive.org/dandiset/000935/0.240319.2026},
+  author = {Prakash, Mansi},
+  keywords = {Bioluminescence, Luminopsins, Parvalbumin, gamma rhythms},
+  title = {Interluminescence:  Selective Control of Synaptically-Connected Circuit Elements using bioluminescence},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000938
+@misc{dandi.000938/0.240511.1846,
+  doi = {10.48324/DANDI.000938/0.240511.1846},
+  url = {https://dandiarchive.org/dandiset/000938/0.240511.1846},
+  author = {Silkunas, Mantas},
+  title = {Visualization and characterization of membrane lesions},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000938,
+  doi = {10.48324/DANDI.000938/0.240511.1846},
+  url = {https://dandiarchive.org/dandiset/000938/0.240511.1846},
+  author = {Silkunas, Mantas},
+  title = {Visualization and characterization of membrane lesions},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000939
+@misc{dandi.000939/0.240315.0450,
+  doi = {10.48324/DANDI.000939/0.240315.0450},
+  url = {https://dandiarchive.org/dandiset/000939/0.240315.0450},
+  author = {Duszkiewicz, Adrian},
+  keywords = {head-direction, postsubiculum, electrophysiology, freely-moving, mouse, probe, extracellular},
+  title = {Duszkiewicz et al (2024) Large-scale recordings of head-direction cells in mouse postsubiculum},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000939/0.240315.0451,
+  doi = {10.48324/DANDI.000939/0.240315.0451},
+  url = {https://dandiarchive.org/dandiset/000939/0.240315.0451},
+  author = {Duszkiewicz, Adrian},
+  keywords = {head-direction, postsubiculum, electrophysiology, freely-moving, mouse, probe, extracellular},
+  title = {Duszkiewicz et al. (2024) Large-scale recordings of head-direction cells in mouse postsubiculum},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000939/0.240318.0150,
+  doi = {10.48324/DANDI.000939/0.240318.0150},
+  url = {https://dandiarchive.org/dandiset/000939/0.240318.0150},
+  author = {Duszkiewicz, Adrian},
+  keywords = {head-direction, postsubiculum, electrophysiology, freely-moving, mouse, probe, extracellular},
+  title = {Duszkiewicz et al. (2024) Large-scale recordings of head-direction cells in mouse postsubiculum},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000939/0.240318.1020,
+  doi = {10.48324/DANDI.000939/0.240318.1020},
+  url = {https://dandiarchive.org/dandiset/000939/0.240318.1020},
+  author = {Duszkiewicz, Adrian},
+  keywords = {head-direction, postsubiculum, electrophysiology, freely-moving, mouse, probe, extracellular},
+  title = {Large-scale recordings of head-direction cells in mouse postsubiculum},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000939/0.240318.1555,
+  doi = {10.48324/DANDI.000939/0.240318.1555},
+  url = {https://dandiarchive.org/dandiset/000939/0.240318.1555},
+  author = {Duszkiewicz, Adrian},
+  keywords = {head-direction, postsubiculum, electrophysiology, freely-moving, mouse, probe, extracellular},
+  title = {Large-scale recordings of head-direction cells in mouse postsubiculum},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000939/0.240327.1911,
+  doi = {10.48324/DANDI.000939/0.240327.1911},
+  url = {https://dandiarchive.org/dandiset/000939/0.240327.1911},
+  author = {Duszkiewicz, Adrian},
+  keywords = {head-direction, postsubiculum, electrophysiology, freely-moving, mouse, probe, extracellular},
+  title = {Large-scale recordings of head-direction cells in mouse postsubiculum},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000939/0.240327.2229,
+  doi = {10.48324/DANDI.000939/0.240327.2229},
+  url = {https://dandiarchive.org/dandiset/000939/0.240327.2229},
+  author = {Duszkiewicz, Adrian},
+  keywords = {head-direction, postsubiculum, electrophysiology, freely-moving, mouse, probe, extracellular},
+  title = {Large-scale recordings of head-direction cells in mouse postsubiculum},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000939/0.240528.1542,
+  doi = {10.48324/DANDI.000939/0.240528.1542},
+  url = {https://dandiarchive.org/dandiset/000939/0.240528.1542},
+  author = {Duszkiewicz, Adrian},
+  keywords = {head-direction, postsubiculum, electrophysiology, freely-moving, mouse, probe, extracellular},
+  title = {Large-scale recordings of head-direction cells in mouse postsubiculum},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000939,
+  doi = {10.48324/DANDI.000939/0.240528.1542},
+  url = {https://dandiarchive.org/dandiset/000939/0.240528.1542},
+  author = {Duszkiewicz, Adrian},
+  keywords = {head-direction, postsubiculum, electrophysiology, freely-moving, mouse, probe, extracellular},
+  title = {Large-scale recordings of head-direction cells in mouse postsubiculum},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000941
+@misc{dandi.000941/0.241029.1405,
+  doi = {10.48324/DANDI.000941/0.241029.1405},
+  url = {https://dandiarchive.org/dandiset/000941/0.241029.1405},
+  author = {Rouse, Adam G and Schieber, Marc H},
+  title = {FALCON Benchmark M1-A: primary motor cortex recordings in primate during reach-to-grasp task},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000941,
+  doi = {10.48324/DANDI.000941/0.241029.1405},
+  url = {https://dandiarchive.org/dandiset/000941/0.241029.1405},
+  author = {Rouse, Adam G and Schieber, Marc H},
+  title = {FALCON Benchmark M1-A: primary motor cortex recordings in primate during reach-to-grasp task},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000943
+@misc{dandi.000943/0.240614.0754,
+  doi = {10.48324/DANDI.000943/0.240614.0754},
+  url = {https://dandiarchive.org/dandiset/000943/0.240614.0754},
+  author = {Clark, Harry},
+  title = {Clark and Nolan (2024) Task-anchored grid cell firing is selectively associated with successful path integration-dependent behaviour},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000943,
+  doi = {10.48324/DANDI.000943/0.240614.0754},
+  url = {https://dandiarchive.org/dandiset/000943/0.240614.0754},
+  author = {Clark, Harry},
+  title = {Clark and Nolan (2024) Task-anchored grid cell firing is selectively associated with successful path integration-dependent behaviour},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000947
+@misc{dandi.000947/0.240510.2211,
+  doi = {10.48324/DANDI.000947/0.240510.2211},
+  url = {https://dandiarchive.org/dandiset/000947/0.240510.2211},
+  author = {Kase, Daisuke and Zimnik, Andrew and Cox, Karin and Turner, Robert},
+  keywords = {extracellular electrophysiology, single-unit activity, globus pallidus-internus, macaque, reaching, Parkinson's disease, ventrolateral thalamus, primary motor cortex},
+  title = {Reach-related Single Unit Activity in the Parkinsonian Macaque},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000947,
+  doi = {10.48324/DANDI.000947/0.240510.2211},
+  url = {https://dandiarchive.org/dandiset/000947/0.240510.2211},
+  author = {Kase, Daisuke and Zimnik, Andrew and Cox, Karin and Turner, Robert},
+  keywords = {extracellular electrophysiology, single-unit activity, globus pallidus-internus, macaque, reaching, Parkinson's disease, ventrolateral thalamus, primary motor cortex},
+  title = {Reach-related Single Unit Activity in the Parkinsonian Macaque},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000950
+@misc{dandi.000950/0.241029.1403,
+  doi = {10.48324/DANDI.000950/0.241029.1403},
+  url = {https://dandiarchive.org/dandiset/000950/0.241029.1403},
+  author = {Fan, Chaofei and Hahn, Nick and Kamdar, Foram and Avansino, Donald and Wilson, Guy and Hochberg, Leigh and Shenoy, Krishna V and Henderson, Jaime and Willett, Frank},
+  title = {FALCON Benchmark H2: Human Handwriting iBCI},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000950,
+  doi = {10.48324/DANDI.000950/0.241029.1403},
+  url = {https://dandiarchive.org/dandiset/000950/0.241029.1403},
+  author = {Fan, Chaofei and Hahn, Nick and Kamdar, Foram and Avansino, Donald and Wilson, Guy and Hochberg, Leigh and Shenoy, Krishna V and Henderson, Jaime and Willett, Frank},
+  title = {FALCON Benchmark H2: Human Handwriting iBCI},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000951
+@misc{dandi.000951/0.240418.2218,
+  doi = {10.48324/DANDI.000951/0.240418.2218},
+  url = {https://dandiarchive.org/dandiset/000951/0.240418.2218},
+  author = {Calhoun, Adam and Rangarajan, Nivedita and Ireland, Elise and Pillow, Jonathan and Murthy, Mala},
+  keywords = {Drosophila, fruit fly, courtship, social behavior, genetic silencing, knockout, behavior, visual projection neuron, LC neuron, optic glomeruli, calcium imaging},
+  title = {Dataset for Mapping model units to visual neurons reveals population code for social behavior},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000951,
+  doi = {10.48324/DANDI.000951/0.240418.2218},
+  url = {https://dandiarchive.org/dandiset/000951/0.240418.2218},
+  author = {Calhoun, Adam and Rangarajan, Nivedita and Ireland, Elise and Pillow, Jonathan and Murthy, Mala},
+  keywords = {Drosophila, fruit fly, courtship, social behavior, genetic silencing, knockout, behavior, visual projection neuron, LC neuron, optic glomeruli, calcium imaging},
+  title = {Dataset for Mapping model units to visual neurons reveals population code for social behavior},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000952
+@misc{dandi.000952/0.240731.1609,
+  doi = {10.48324/DANDI.000952/0.240731.1609},
+  url = {https://dandiarchive.org/dandiset/000952/0.240731.1609},
+  author = {Koloski, Miranda },
+  title = {32 CH local field potential recording of rodents performing a temporal discounting task},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000952,
+  doi = {10.48324/DANDI.000952/0.240731.1609},
+  url = {https://dandiarchive.org/dandiset/000952/0.240731.1609},
+  author = {Koloski, Miranda },
+  title = {32 CH local field potential recording of rodents performing a temporal discounting task},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000957
+@misc{dandi.000957/0.240404.0339,
+  doi = {10.48324/DANDI.000957/0.240404.0339},
+  url = {https://dandiarchive.org/dandiset/000957/0.240404.0339},
+  author = {Ye, Zhiwen},
+  keywords = {Neuropixels ultra, imposed motion, V1},
+  title = {Neuropixels Ultra Probe Imposed Motion Dataset},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000957/0.240404.0750,
+  doi = {10.48324/DANDI.000957/0.240404.0750},
+  url = {https://dandiarchive.org/dandiset/000957/0.240404.0750},
+  author = {Ye, Zhiwen},
+  keywords = {Neuropixels ultra, imposed motion, V1},
+  title = {Neuropixels Ultra Probe Imposed Motion Dataset},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000957/0.240405.0847,
+  doi = {10.48324/DANDI.000957/0.240405.0847},
+  url = {https://dandiarchive.org/dandiset/000957/0.240405.0847},
+  author = {Ye, Zhiwen},
+  keywords = {Neuropixels ultra, imposed motion, V1},
+  title = {Neuropixels Ultra Probe Imposed Motion Dataset},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000957/0.240406.0737,
+  doi = {10.48324/DANDI.000957/0.240406.0737},
+  url = {https://dandiarchive.org/dandiset/000957/0.240406.0737},
+  author = {Ye, Zhiwen},
+  keywords = {Neuropixels ultra, imposed motion, V1},
+  title = {Neuropixels Ultra Probe Imposed Motion Dataset},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000957/0.240406.2355,
+  doi = {10.48324/DANDI.000957/0.240406.2355},
+  url = {https://dandiarchive.org/dandiset/000957/0.240406.2355},
+  author = {Ye, Zhiwen},
+  keywords = {Neuropixels ultra, imposed motion, V1},
+  title = {Neuropixels Ultra Probe Imposed Motion Dataset},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000957/0.240407.0142,
+  doi = {10.48324/DANDI.000957/0.240407.0142},
+  url = {https://dandiarchive.org/dandiset/000957/0.240407.0142},
+  author = {Ye, Zhiwen},
+  keywords = {Neuropixels ultra, imposed motion, V1},
+  title = {Neuropixels Ultra Probe Imposed Motion Dataset},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000957/0.240731.0249,
+  doi = {10.48324/DANDI.000957/0.240731.0249},
+  url = {https://dandiarchive.org/dandiset/000957/0.240731.0249},
+  author = {Ye, Zhiwen},
+  keywords = {Neuropixels ultra, imposed motion, V1},
+  title = {Neuropixels Ultra Probe Imposed Motion Dataset},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000957,
+  doi = {10.48324/DANDI.000957/0.240731.0249},
+  url = {https://dandiarchive.org/dandiset/000957/0.240731.0249},
+  author = {Ye, Zhiwen},
+  keywords = {Neuropixels ultra, imposed motion, V1},
+  title = {Neuropixels Ultra Probe Imposed Motion Dataset},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000971
+@misc{dandi.000971/0.240802.2004,
+  doi = {10.48324/DANDI.000971/0.240802.2004},
+  url = {https://dandiarchive.org/dandiset/000971/0.240802.2004},
+  author = {Seiler, Jillian L. and Cosme, Caitlin V. and Sherathiya, Venus N. and Schaid, Michael D. and Bianco, Joseph M. and Bridgemohan, Abigael S. and Lerner, Talia N.},
+  keywords = {dorsal striatum, dopamine, substantia nigra, reward learning, habit formation, compulsive behavior, punishment-resistant reward seeking, fiber photometry, optogenetics},
+  title = {Dopamine signaling in the dorsomedial striatum promotes compulsive behavior},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000971,
+  doi = {10.48324/DANDI.000971/0.240802.2004},
+  url = {https://dandiarchive.org/dandiset/000971/0.240802.2004},
+  author = {Seiler, Jillian L. and Cosme, Caitlin V. and Sherathiya, Venus N. and Schaid, Michael D. and Bianco, Joseph M. and Bridgemohan, Abigael S. and Lerner, Talia N.},
+  keywords = {dorsal striatum, dopamine, substantia nigra, reward learning, habit formation, compulsive behavior, punishment-resistant reward seeking, fiber photometry, optogenetics},
+  title = {Dopamine signaling in the dorsomedial striatum promotes compulsive behavior},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 000978
+@misc{dandi.000978/0.240511.0247,
+  doi = {10.48324/DANDI.000978/0.240511.0247},
+  url = {https://dandiarchive.org/dandiset/000978/0.240511.0247},
+  author = {Shin, Justin},
+  title = {Single Day W-Track Learning},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000978/0.240511.0304,
+  doi = {10.48324/DANDI.000978/0.240511.0304},
+  url = {https://dandiarchive.org/dandiset/000978/0.240511.0304},
+  author = {Jadhav, Shantanu},
+  title = {Single Day W-Track Learning},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.000978/0.240511.0307,
+  doi = {10.48324/DANDI.000978/0.240511.0307},
+  url = {https://dandiarchive.org/dandiset/000978/0.240511.0307},
+  author = {Jadhav, Shantanu},
+  keywords = {Hippocampus, Prefrontal cortex, Learning, Sleep, Electrophysiology},
+  title = {Single Day W-Track Learning},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.000978,
+  doi = {10.48324/DANDI.000978/0.240511.0307},
+  url = {https://dandiarchive.org/dandiset/000978/0.240511.0307},
+  author = {Jadhav, Shantanu},
+  keywords = {Hippocampus, Prefrontal cortex, Learning, Sleep, Electrophysiology},
+  title = {Single Day W-Track Learning},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001025
+@misc{dandi.001025/0.240605.1826,
+  doi = {10.48324/DANDI.001025/0.240605.1826},
+  url = {https://dandiarchive.org/dandiset/001025/0.240605.1826},
+  author = {Gudvangen, Emily and Semenov, Iurii and Pakhomov, Andrei},
+  title = {The impact of voltage on CANCAN focusing of electroporation using four-electrode arrays of varying sizes},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001025,
+  doi = {10.48324/DANDI.001025/0.240605.1826},
+  url = {https://dandiarchive.org/dandiset/001025/0.240605.1826},
+  author = {Gudvangen, Emily and Semenov, Iurii and Pakhomov, Andrei},
+  title = {The impact of voltage on CANCAN focusing of electroporation using four-electrode arrays of varying sizes},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001027
+@misc{dandi.001027/0.240605.1859,
+  doi = {10.48324/DANDI.001027/0.240605.1859},
+  url = {https://dandiarchive.org/dandiset/001027/0.240605.1859},
+  author = {Gudvangen, Emily and Mangalanathan, Uma and Semenov, Iurii and Pakhomov, Andrei},
+  title = {CANCAN focusing of electroporation in a quadrupole array by different pulsing protocols},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001027,
+  doi = {10.48324/DANDI.001027/0.240605.1859},
+  url = {https://dandiarchive.org/dandiset/001027/0.240605.1859},
+  author = {Gudvangen, Emily and Mangalanathan, Uma and Semenov, Iurii and Pakhomov, Andrei},
+  title = {CANCAN focusing of electroporation in a quadrupole array by different pulsing protocols},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001028
+@misc{dandi.001028/0.240605.1954,
+  doi = {10.48324/DANDI.001028/0.240605.1954},
+  url = {https://dandiarchive.org/dandiset/001028/0.240605.1954},
+  author = {Gudvangen, Emily and Mangalanathan, Uma and Semenov, Iurii and Pakhomov, Andrei},
+  title = {CANCAN focusing of electroporation in 3D},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001028,
+  doi = {10.48324/DANDI.001028/0.240605.1954},
+  url = {https://dandiarchive.org/dandiset/001028/0.240605.1954},
+  author = {Gudvangen, Emily and Mangalanathan, Uma and Semenov, Iurii and Pakhomov, Andrei},
+  title = {CANCAN focusing of electroporation in 3D},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001030
+@misc{dandi.001030/0.240520.1924,
+  doi = {10.48324/DANDI.001030/0.240520.1924},
+  url = {https://dandiarchive.org/dandiset/001030/0.240520.1924},
+  author = {Kim, Vitalii},
+  title = {High-frequency (2 kHz) sine wave  stimulation of individual hippocampal neurons: the effect of electric field},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001030,
+  doi = {10.48324/DANDI.001030/0.240520.1924},
+  url = {https://dandiarchive.org/dandiset/001030/0.240520.1924},
+  author = {Kim, Vitalii},
+  title = {High-frequency (2 kHz) sine wave  stimulation of individual hippocampal neurons: the effect of electric field},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001031
+@misc{dandi.001031/0.240520.1924,
+  doi = {10.48324/DANDI.001031/0.240520.1924},
+  url = {https://dandiarchive.org/dandiset/001031/0.240520.1924},
+  author = {Silkuniene, Giedre},
+  title = {High-frequency (100 kHz) rectangular bipolar pulses stimulation of individual hippocampal neurons: the effect of electric field},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001031,
+  doi = {10.48324/DANDI.001031/0.240520.1924},
+  url = {https://dandiarchive.org/dandiset/001031/0.240520.1924},
+  author = {Silkuniene, Giedre},
+  title = {High-frequency (100 kHz) rectangular bipolar pulses stimulation of individual hippocampal neurons: the effect of electric field},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001032
+@misc{dandi.001032/0.240527.1432,
+  doi = {10.48324/DANDI.001032/0.240527.1432},
+  url = {https://dandiarchive.org/dandiset/001032/0.240527.1432},
+  author = {Silkuniene, Giedre},
+  title = {Characterization of Neuron Action Potential Triggering Using Sine Wave Electrostimulation at Varying Frequencies_part1},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001032,
+  doi = {10.48324/DANDI.001032/0.240527.1432},
+  url = {https://dandiarchive.org/dandiset/001032/0.240527.1432},
+  author = {Silkuniene, Giedre},
+  title = {Characterization of Neuron Action Potential Triggering Using Sine Wave Electrostimulation at Varying Frequencies_part1},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001033
+@misc{dandi.001033/0.240527.1432,
+  doi = {10.48324/DANDI.001033/0.240527.1432},
+  url = {https://dandiarchive.org/dandiset/001033/0.240527.1432},
+  author = {Silkuniene, Giedre},
+  title = {Characterization of Neuron Action Potential Triggering Using Sine Wave Electrostimulation at Varying Frequencies_part2},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001033,
+  doi = {10.48324/DANDI.001033/0.240527.1432},
+  url = {https://dandiarchive.org/dandiset/001033/0.240527.1432},
+  author = {Silkuniene, Giedre},
+  title = {Characterization of Neuron Action Potential Triggering Using Sine Wave Electrostimulation at Varying Frequencies_part2},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001034
+@misc{dandi.001034/0.240527.1431,
+  doi = {10.48324/DANDI.001034/0.240527.1431},
+  url = {https://dandiarchive.org/dandiset/001034/0.240527.1431},
+  author = {Silkuniene, Giedre},
+  title = {Characterization of Neuron Action Potential Triggering Using Sine Wave Electrostimulation at Varying Frequencies_part3},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001034,
+  doi = {10.48324/DANDI.001034/0.240527.1431},
+  url = {https://dandiarchive.org/dandiset/001034/0.240527.1431},
+  author = {Silkuniene, Giedre},
+  title = {Characterization of Neuron Action Potential Triggering Using Sine Wave Electrostimulation at Varying Frequencies_part3},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001035
+@misc{dandi.001035/0.240527.1432,
+  doi = {10.48324/DANDI.001035/0.240527.1432},
+  url = {https://dandiarchive.org/dandiset/001035/0.240527.1432},
+  author = {Silkuniene, Giedre},
+  title = {Characterization of Neuron Action Potential Triggering Using Sine Wave Electrostimulation at Varying Frequencies_part4},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001035,
+  doi = {10.48324/DANDI.001035/0.240527.1432},
+  url = {https://dandiarchive.org/dandiset/001035/0.240527.1432},
+  author = {Silkuniene, Giedre},
+  title = {Characterization of Neuron Action Potential Triggering Using Sine Wave Electrostimulation at Varying Frequencies_part4},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001037
+@misc{dandi.001037/0.240816.1841,
+  doi = {10.48324/DANDI.001037/0.240816.1841},
+  url = {https://dandiarchive.org/dandiset/001037/0.240816.1841},
+  author = {Nair, Aditya},
+  title = {Causal evidence of a line attractor encoding an affective state},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001037,
+  doi = {10.48324/DANDI.001037/0.240816.1841},
+  url = {https://dandiarchive.org/dandiset/001037/0.240816.1841},
+  author = {Nair, Aditya},
+  title = {Causal evidence of a line attractor encoding an affective state},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001044
+@misc{dandi.001044/0.240905.0159,
+  doi = {10.48324/DANDI.001044/0.240905.0159},
+  url = {https://dandiarchive.org/dandiset/001044/0.240905.0159},
+  author = {Haoqi, Ni and Yufang, Yang},
+  keywords = {neurophysiology, neurosurgery, local field potential, spontaneous seizure, multi-site, NWB, temporal lobe epilepsy},
+  title = {Dataset of long-term multi-site LFP activity with spontaneous chronic seizures recorded in temporal lobe epilepsy rats.},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001044,
+  doi = {10.48324/DANDI.001044/0.240905.0159},
+  url = {https://dandiarchive.org/dandiset/001044/0.240905.0159},
+  author = {Haoqi, Ni and Yufang, Yang},
+  keywords = {neurophysiology, neurosurgery, local field potential, spontaneous seizure, multi-site, NWB, temporal lobe epilepsy},
+  title = {Dataset of long-term multi-site LFP activity with spontaneous chronic seizures recorded in temporal lobe epilepsy rats.},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001047
+@misc{dandi.001047/0.240610.2022,
+  doi = {10.48324/DANDI.001047/0.240610.2022},
+  url = {https://dandiarchive.org/dandiset/001047/0.240610.2022},
+  author = {Silkuniene, Giedre},
+  title = {Use of MHz Compression ns Electric Pulse NG-CanCan Protocols to Minimize Near Electrode Ablation},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001047,
+  doi = {10.48324/DANDI.001047/0.240610.2022},
+  url = {https://dandiarchive.org/dandiset/001047/0.240610.2022},
+  author = {Silkuniene, Giedre},
+  title = {Use of MHz Compression ns Electric Pulse NG-CanCan Protocols to Minimize Near Electrode Ablation},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001052
+@misc{dandi.001052/0.240610.1814,
+  doi = {10.48324/DANDI.001052/0.240610.1814},
+  url = {https://dandiarchive.org/dandiset/001052/0.240610.1814},
+  author = {Cowen, Stephen},
+  keywords = {nucleus accumbens, ensemble},
+  title = {Acute Random and FixedBurst stim in MFB and mPFC using Neuropixels in NAc},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001052,
+  doi = {10.48324/DANDI.001052/0.240610.1814},
+  url = {https://dandiarchive.org/dandiset/001052/0.240610.1814},
+  author = {Cowen, Stephen},
+  keywords = {nucleus accumbens, ensemble},
+  title = {Acute Random and FixedBurst stim in MFB and mPFC using Neuropixels in NAc},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001054
+@misc{dandi.001054/0.240701.1903,
+  doi = {10.48324/DANDI.001054/0.240701.1903},
+  url = {https://dandiarchive.org/dandiset/001054/0.240701.1903},
+  author = {Devergnas, Annaelle},
+  keywords = {temporal lobe seizure, asynchronous stimulation, hippocampal stimulation},
+  title = {Hippocampal stimulation during temporal lobe seizure},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001054,
+  doi = {10.48324/DANDI.001054/0.240701.1903},
+  url = {https://dandiarchive.org/dandiset/001054/0.240701.1903},
+  author = {Devergnas, Annaelle},
+  keywords = {temporal lobe seizure, asynchronous stimulation, hippocampal stimulation},
+  title = {Hippocampal stimulation during temporal lobe seizure},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001065
+@misc{dandi.001065/0.241028.1559,
+  doi = {10.48324/DANDI.001065/0.241028.1559},
+  url = {https://dandiarchive.org/dandiset/001065/0.241028.1559},
+  author = {Sawchuk, Scott and Kalmbach, Brian},
+  title = {Areal specializations in the morpho-electric and transcriptomic properties of layer 5 extratelencephalic-projecting neurons in the primate neocortex},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001065,
+  doi = {10.48324/DANDI.001065/0.241028.1559},
+  url = {https://dandiarchive.org/dandiset/001065/0.241028.1559},
+  author = {Sawchuk, Scott and Kalmbach, Brian},
+  title = {Areal specializations in the morpho-electric and transcriptomic properties of layer 5 extratelencephalic-projecting neurons in the primate neocortex},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001069
+@misc{dandi.001069/0.240621.2139,
+  doi = {10.48324/DANDI.001069/0.240621.2139},
+  url = {https://dandiarchive.org/dandiset/001069/0.240621.2139},
+  author = {Devergnas, Annaelle},
+  keywords = {basal ganglia, SNr, SN, TLE, temporal lobe seizure, Non-human primate, seizure onset, penicillin},
+  title = {SN recording during Temporal lobe seizures},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001069,
+  doi = {10.48324/DANDI.001069/0.240621.2139},
+  url = {https://dandiarchive.org/dandiset/001069/0.240621.2139},
+  author = {Devergnas, Annaelle},
+  keywords = {basal ganglia, SNr, SN, TLE, temporal lobe seizure, Non-human primate, seizure onset, penicillin},
+  title = {SN recording during Temporal lobe seizures},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001075
+@misc{dandi.001075/0.240920.1434,
+  doi = {10.48324/DANDI.001075/0.240920.1434},
+  url = {https://dandiarchive.org/dandiset/001075/0.240920.1434},
+  author = {Randi, Francesco and Sharma, Anuj and Dvali, Sophie and Leifer, Andrew M.},
+  keywords = {C elegans, optogenetics, functional connectivity},
+  title = {Neural signal propagation atlas of Caenorhabditis elegans},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.001075/0.240930.1859,
+  doi = {10.48324/DANDI.001075/0.240930.1859},
+  url = {https://dandiarchive.org/dandiset/001075/0.240930.1859},
+  author = {Randi, Francesco and Sharma, Anuj and Dvali, Sophie and Leifer, Andrew M.},
+  keywords = {C elegans, optogenetics, functional connectivity},
+  title = {Neural signal propagation atlas of Caenorhabditis elegans},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001075,
+  doi = {10.48324/DANDI.001075/0.240930.1859},
+  url = {https://dandiarchive.org/dandiset/001075/0.240930.1859},
+  author = {Randi, Francesco and Sharma, Anuj and Dvali, Sophie and Leifer, Andrew M.},
+  keywords = {C elegans, optogenetics, functional connectivity},
+  title = {Neural signal propagation atlas of Caenorhabditis elegans},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001084
+@misc{dandi.001084/0.241023.2011,
+  doi = {10.48324/DANDI.001084/0.241023.2011},
+  url = {https://dandiarchive.org/dandiset/001084/0.241023.2011},
+  author = {Vu, Mai-Anh T. and Brown, Eleanor H. and Wen, Michelle J. and Noggle, Christian A. and Zhang, Zicheng and Monk, Kevin J. and Bouabid, Safa and Mroz, Lydia and Graham, Benjamin M. and Zhuo, Yizhou and Li, Yulong and Otchy, Timothy M. and Tian, Lin and Davison, Ian G. and Boas, David A. and Howe, Mark W.},
+  keywords = {multi-site photometry, behaving mice, freely moving mice, striatum, dopamine, neuromodulation},
+  title = {Targeted micro-fiber arrays for measuring and manipulating localized multi-scale neural dynamics over large, deep brain volumes during behavior},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001084,
+  doi = {10.48324/DANDI.001084/0.241023.2011},
+  url = {https://dandiarchive.org/dandiset/001084/0.241023.2011},
+  author = {Vu, Mai-Anh T. and Brown, Eleanor H. and Wen, Michelle J. and Noggle, Christian A. and Zhang, Zicheng and Monk, Kevin J. and Bouabid, Safa and Mroz, Lydia and Graham, Benjamin M. and Zhuo, Yizhou and Li, Yulong and Otchy, Timothy M. and Tian, Lin and Davison, Ian G. and Boas, David A. and Howe, Mark W.},
+  keywords = {multi-site photometry, behaving mice, freely moving mice, striatum, dopamine, neuromodulation},
+  title = {Targeted micro-fiber arrays for measuring and manipulating localized multi-scale neural dynamics over large, deep brain volumes during behavior},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001097
+@misc{dandi.001097/0.240814.1849,
+  doi = {10.48324/DANDI.001097/0.240814.1849},
+  url = {https://dandiarchive.org/dandiset/001097/0.240814.1849},
+  author = {Nair, Aditya},
+  title = {Encoding of female mating dynamics by a hypothalamic line attractor},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001097,
+  doi = {10.48324/DANDI.001097/0.240814.1849},
+  url = {https://dandiarchive.org/dandiset/001097/0.240814.1849},
+  author = {Nair, Aditya},
+  title = {Encoding of female mating dynamics by a hypothalamic line attractor},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001131
+@misc{dandi.001131/0.240826.1647,
+  doi = {10.48324/DANDI.001131/0.240826.1647},
+  url = {https://dandiarchive.org/dandiset/001131/0.240826.1647},
+  author = {Nair, Aditya},
+  title = {A line attractor encoding a persistent internal state requires neuropeptide signaling},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001131,
+  doi = {10.48324/DANDI.001131/0.240826.1647},
+  url = {https://dandiarchive.org/dandiset/001131/0.240826.1647},
+  author = {Nair, Aditya},
+  title = {A line attractor encoding a persistent internal state requires neuropeptide signaling},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001171
+@misc{dandi.001171/0.240905.2128,
+  doi = {10.48324/DANDI.001171/0.240905.2128},
+  url = {https://dandiarchive.org/dandiset/001171/0.240905.2128},
+  author = {Lakhani, Alishah},
+  title = {Data for: Homeostatic capacity of L5/6 neurons in Fmr1 KO mice following unilateral whisker deprivation},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.001171/0.240907.1930,
+  doi = {10.48324/DANDI.001171/0.240907.1930},
+  url = {https://dandiarchive.org/dandiset/001171/0.240907.1930},
+  author = {Lakhani, Alishah},
+  title = {Data for: Whisker deprivation triggers a distinct form of cortical homeostatic plasticity that is impaired in the Fmr1 KO},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+@misc{dandi.001171/0.240917.1434,
+  doi = {10.48324/DANDI.001171/0.240917.1434},
+  url = {https://dandiarchive.org/dandiset/001171/0.240917.1434},
+  author = {Lakhani, Alishah},
+  title = {Data for: Whisker deprivation triggers a distinct form of cortical homeostatic plasticity that is impaired in the Fmr1 KO},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001171,
+  doi = {10.48324/DANDI.001171/0.240917.1434},
+  url = {https://dandiarchive.org/dandiset/001171/0.240917.1434},
+  author = {Lakhani, Alishah},
+  title = {Data for: Whisker deprivation triggers a distinct form of cortical homeostatic plasticity that is impaired in the Fmr1 KO},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001182
+@misc{dandi.001182/0.240827.1656,
+  doi = {10.48324/DANDI.001182/0.240827.1656},
+  url = {https://dandiarchive.org/dandiset/001182/0.240827.1656},
+  author = {Kennedy, Ann},
+  title = {Stimulus-specific hypothalamic encoding of a persistent defensive state},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001182,
+  doi = {10.48324/DANDI.001182/0.240827.1656},
+  url = {https://dandiarchive.org/dandiset/001182/0.240827.1656},
+  author = {Kennedy, Ann},
+  title = {Stimulus-specific hypothalamic encoding of a persistent defensive state},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001184
+@misc{dandi.001184/0.240829.1458,
+  doi = {10.48324/DANDI.001184/0.240829.1458},
+  url = {https://dandiarchive.org/dandiset/001184/0.240829.1458},
+  author = {Heiser, Hendrik and Wahl, Anna-Sophia},
+  keywords = {two-photon imaging, hippocampus, ca1, virtual reality, spatial navigation, microlesions, stroke},
+  title = {Brain-wide microstrokes affect the stability of memory circuits in the hippocampus},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001184,
+  doi = {10.48324/DANDI.001184/0.240829.1458},
+  url = {https://dandiarchive.org/dandiset/001184/0.240829.1458},
+  author = {Heiser, Hendrik and Wahl, Anna-Sophia},
+  keywords = {two-photon imaging, hippocampus, ca1, virtual reality, spatial navigation, microlesions, stroke},
+  title = {Brain-wide microstrokes affect the stability of memory circuits in the hippocampus},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001187
+@misc{dandi.001187/0.240904.2347,
+  doi = {10.48324/DANDI.001187/0.240904.2347},
+  url = {https://dandiarchive.org/dandiset/001187/0.240904.2347},
+  author = {Daume, Jonathan and Kaminski, Jan and Salimpour, Yousef and Schjetnan, Andrea G. P. and Anderson, William S. and Valiante, Taufik A. and Mamelak, Adam N. and Rutishauser, Ueli},
+  keywords = {cognitive neuroscience, single units, human electrophysiology, working memory, long-term memory, open source, NWB},
+  title = {Data for: Daume et al. (2024) "Persistent activity during working memory maintenance predicts long-term memory formation in the human hippocampus"},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001187,
+  doi = {10.48324/DANDI.001187/0.240904.2347},
+  url = {https://dandiarchive.org/dandiset/001187/0.240904.2347},
+  author = {Daume, Jonathan and Kaminski, Jan and Salimpour, Yousef and Schjetnan, Andrea G. P. and Anderson, William S. and Valiante, Taufik A. and Mamelak, Adam N. and Rutishauser, Ueli},
+  keywords = {cognitive neuroscience, single units, human electrophysiology, working memory, long-term memory, open source, NWB},
+  title = {Data for: Daume et al. (2024) "Persistent activity during working memory maintenance predicts long-term memory formation in the human hippocampus"},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001188
+@misc{dandi.001188/0.240912.1925,
+  doi = {10.48324/DANDI.001188/0.240912.1925},
+  url = {https://dandiarchive.org/dandiset/001188/0.240912.1925},
+  author = {Li, Nuo},
+  title = {A combinatorial neural code for long-term motor memory.},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001188,
+  doi = {10.48324/DANDI.001188/0.240912.1925},
+  url = {https://dandiarchive.org/dandiset/001188/0.240912.1925},
+  author = {Li, Nuo},
+  title = {A combinatorial neural code for long-term motor memory.},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001190
+@misc{dandi.001190/0.241018.1634,
+  doi = {10.48324/DANDI.001190/0.241018.1634},
+  url = {https://dandiarchive.org/dandiset/001190/0.241018.1634},
+  author = {Fitting, Sylvia },
+  keywords = {In vivo calcium imaging, endocannabinoids, HIV-1, Tat},
+  title = {In vivo Calcium Imaging: Genotype Data: NOR},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001190,
+  doi = {10.48324/DANDI.001190/0.241018.1634},
+  url = {https://dandiarchive.org/dandiset/001190/0.241018.1634},
+  author = {Fitting, Sylvia },
+  keywords = {In vivo calcium imaging, endocannabinoids, HIV-1, Tat},
+  title = {In vivo Calcium Imaging: Genotype Data: NOR},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001193
+@misc{dandi.001193/0.240921.1006,
+  doi = {10.48324/DANDI.001193/0.240921.1006},
+  url = {https://dandiarchive.org/dandiset/001193/0.240921.1006},
+  author = {Shao, TongZe},
+  title = {Data for: Distinct spatiotemporal patterns of syntactic and semantic processing in human inferior frontal gyrus},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001193,
+  doi = {10.48324/DANDI.001193/0.240921.1006},
+  url = {https://dandiarchive.org/dandiset/001193/0.240921.1006},
+  author = {Shao, TongZe},
+  title = {Data for: Distinct spatiotemporal patterns of syntactic and semantic processing in human inferior frontal gyrus},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# DANDISET 001212
+@misc{dandi.001212/0.241023.0931,
+  doi = {10.48324/DANDI.001212/0.241023.0931},
+  url = {https://dandiarchive.org/dandiset/001212/0.241023.0931},
+  author = {Yufang, Yang},
+  keywords = {neurophysiology, neurosurgery, local field potential, spontaneous seizures, multi-site, NWB, temporal lobe epilepsy},
+  title = {Individualized Target Selection of Closed-loop Electrical Stimulation for the Treatment of Spontaneous Temporal Lobe Epilepsy.},
+  publisher = {DANDI Archive},
+  year = {2024}
+}
+
+
+# Take latest as the default
+@misc{dandi.001212,
+  doi = {10.48324/DANDI.001212/0.241023.0931},
+  url = {https://dandiarchive.org/dandiset/001212/0.241023.0931},
+  author = {Yufang, Yang},
+  keywords = {neurophysiology, neurosurgery, local field potential, spontaneous seizures, multi-site, NWB, temporal lobe epilepsy},
+  title = {Individualized Target Selection of Closed-loop Electrical Stimulation for the Treatment of Spontaneous Temporal Lobe Epilepsy.},
+  publisher = {DANDI Archive},
+  year = {2024}
 }

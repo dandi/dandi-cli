@@ -1,0 +1,2070 @@
+{
+ "DANDI:000003": [
+  {
+   "identifier": "DANDI:000003",
+   "version": "0.230629.1955",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000008": [
+  {
+   "identifier": "DANDI:000008",
+   "version": "0.211014.0808",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000008",
+   "version": "0.211014.0809",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000023": [
+  {
+   "identifier": "DANDI:000023",
+   "version": "0.210914.1900",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000029": [
+  {
+   "identifier": "DANDI:000029",
+   "version": "0.231017.2004",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000035": [
+  {
+   "identifier": "DANDI:000035",
+   "version": "0.211014.0808",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000037": [
+  {
+   "identifier": "DANDI:000037",
+   "version": "0.230426.0054",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000037",
+   "version": "0.240209.1623",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000059": [
+  {
+   "identifier": "DANDI:000059",
+   "version": "0.230907.2101",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000109": [
+  {
+   "identifier": "DANDI:000109",
+   "version": "0.210914.1904",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000114": [
+  {
+   "identifier": "DANDI:000114",
+   "version": "0.230602.1643",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000165": [
+  {
+   "identifier": "DANDI:000165",
+   "version": "0.211118.1526",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000166": [
+  {
+   "identifier": "DANDI:000166",
+   "version": "0.220116.2037",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000207": [
+  {
+   "identifier": "DANDI:000207",
+   "version": "0.220216.0323",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000207",
+   "version": "0.220721.1915",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000207",
+   "version": "0.230530.1822",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000213": [
+  {
+   "identifier": "DANDI:000213",
+   "version": "0.220127.1738",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000218": [
+  {
+   "identifier": "DANDI:000218",
+   "version": "0.220131.1608",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000226": [
+  {
+   "identifier": "DANDI:000226",
+   "version": "0.230607.1747",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000230": [
+  {
+   "identifier": "DANDI:000230",
+   "version": "0.220506.1516",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000231": [
+  {
+   "identifier": "DANDI:000231",
+   "version": "0.220904.1554",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000232": [
+  {
+   "identifier": "DANDI:000232",
+   "version": "0.240510.2038",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000233": [
+  {
+   "identifier": "DANDI:000233",
+   "version": "0.230223.0815",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000239": [
+  {
+   "identifier": "DANDI:000239",
+   "version": "0.230607.1752",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000248": [
+  {
+   "identifier": "DANDI:000248",
+   "version": "0.240502.2344",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    1,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000249": [
+  {
+   "identifier": "DANDI:000249",
+   "version": "0.230423.1416",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000252": [
+  {
+   "identifier": "DANDI:000252",
+   "version": "0.230408.2207",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000350": [
+  {
+   "identifier": "DANDI:000350",
+   "version": "0.221219.1506",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000350",
+   "version": "0.240822.1759",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000398": [
+  {
+   "identifier": "DANDI:000398",
+   "version": "0.221208.1803",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000402": [
+  {
+   "identifier": "DANDI:000402",
+   "version": "0.230307.2132",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    3,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000404": [
+  {
+   "identifier": "DANDI:000404",
+   "version": "0.230605.2024",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000447": [
+  {
+   "identifier": "DANDI:000447",
+   "version": "0.230316.2133",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000448": [
+  {
+   "identifier": "DANDI:000448",
+   "version": "0.230421.1844",
+   "message": "'IsPublishedIn' is not one of ['IsCitedBy', 'Cites', 'IsSupplementTo', 'IsSupplementedBy', 'IsContinuedBy', 'Continues', 'IsDescribedBy', 'Describes', 'HasMetadata', 'IsMetadataFor', 'HasVersion', 'IsVersionOf', 'IsNewVersionOf', 'IsPreviousVersionOf', 'IsPartOf', 'HasPart', 'IsReferencedBy', 'References', 'IsDocumentedBy', 'Documents', 'IsCompiledBy', 'Compiles', 'IsVariantFormOf', 'IsOriginalFormOf', 'IsIdenticalTo', 'IsReviewedBy', 'Reviews', 'IsDerivedFrom', 'IsSourceOf', 'IsRequiredBy', 'Requires', 'IsObsoletedBy', 'Obsoletes']",
+   "path": [
+    "relatedIdentifiers",
+    0,
+    "relationType"
+   ],
+   "schema_path": [
+    "properties",
+    "relatedIdentifiers",
+    "items",
+    "properties",
+    "relationType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000454": [
+  {
+   "identifier": "DANDI:000454",
+   "version": "0.230302.2331",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000458": [
+  {
+   "identifier": "DANDI:000458",
+   "version": "0.230317.0039",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    1,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000483": [
+  {
+   "identifier": "DANDI:000483",
+   "version": "0.230421.2321",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000488": [
+  {
+   "identifier": "DANDI:000488",
+   "version": "0.230602.2022",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000489": [
+  {
+   "identifier": "DANDI:000489",
+   "version": "0.230518.1811",
+   "message": "'IsPublishedIn' is not one of ['IsCitedBy', 'Cites', 'IsSupplementTo', 'IsSupplementedBy', 'IsContinuedBy', 'Continues', 'IsDescribedBy', 'Describes', 'HasMetadata', 'IsMetadataFor', 'HasVersion', 'IsVersionOf', 'IsNewVersionOf', 'IsPreviousVersionOf', 'IsPartOf', 'HasPart', 'IsReferencedBy', 'References', 'IsDocumentedBy', 'Documents', 'IsCompiledBy', 'Compiles', 'IsVariantFormOf', 'IsOriginalFormOf', 'IsIdenticalTo', 'IsReviewedBy', 'Reviews', 'IsDerivedFrom', 'IsSourceOf', 'IsRequiredBy', 'Requires', 'IsObsoletedBy', 'Obsoletes']",
+   "path": [
+    "relatedIdentifiers",
+    0,
+    "relationType"
+   ],
+   "schema_path": [
+    "properties",
+    "relatedIdentifiers",
+    "items",
+    "properties",
+    "relationType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000491": [
+  {
+   "identifier": "DANDI:000491",
+   "version": "0.230427.1809",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000491",
+   "version": "0.230602.1307",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000540": [
+  {
+   "identifier": "DANDI:000540",
+   "version": "0.230515.0530",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000547": [
+  {
+   "identifier": "DANDI:000547",
+   "version": "0.230822.1616",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000548": [
+  {
+   "identifier": "DANDI:000548",
+   "version": "0.230519.1825",
+   "message": "'IsPublishedIn' is not one of ['IsCitedBy', 'Cites', 'IsSupplementTo', 'IsSupplementedBy', 'IsContinuedBy', 'Continues', 'IsDescribedBy', 'Describes', 'HasMetadata', 'IsMetadataFor', 'HasVersion', 'IsVersionOf', 'IsNewVersionOf', 'IsPreviousVersionOf', 'IsPartOf', 'HasPart', 'IsReferencedBy', 'References', 'IsDocumentedBy', 'Documents', 'IsCompiledBy', 'Compiles', 'IsVariantFormOf', 'IsOriginalFormOf', 'IsIdenticalTo', 'IsReviewedBy', 'Reviews', 'IsDerivedFrom', 'IsSourceOf', 'IsRequiredBy', 'Requires', 'IsObsoletedBy', 'Obsoletes']",
+   "path": [
+    "relatedIdentifiers",
+    0,
+    "relationType"
+   ],
+   "schema_path": [
+    "properties",
+    "relatedIdentifiers",
+    "items",
+    "properties",
+    "relationType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000549": [
+  {
+   "identifier": "DANDI:000549",
+   "version": "0.230519.2043",
+   "message": "'IsPublishedIn' is not one of ['IsCitedBy', 'Cites', 'IsSupplementTo', 'IsSupplementedBy', 'IsContinuedBy', 'Continues', 'IsDescribedBy', 'Describes', 'HasMetadata', 'IsMetadataFor', 'HasVersion', 'IsVersionOf', 'IsNewVersionOf', 'IsPreviousVersionOf', 'IsPartOf', 'HasPart', 'IsReferencedBy', 'References', 'IsDocumentedBy', 'Documents', 'IsCompiledBy', 'Compiles', 'IsVariantFormOf', 'IsOriginalFormOf', 'IsIdenticalTo', 'IsReviewedBy', 'Reviews', 'IsDerivedFrom', 'IsSourceOf', 'IsRequiredBy', 'Requires', 'IsObsoletedBy', 'Obsoletes']",
+   "path": [
+    "relatedIdentifiers",
+    0,
+    "relationType"
+   ],
+   "schema_path": [
+    "properties",
+    "relatedIdentifiers",
+    "items",
+    "properties",
+    "relationType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000550": [
+  {
+   "identifier": "DANDI:000550",
+   "version": "0.230520.1609",
+   "message": "'IsPublishedIn' is not one of ['IsCitedBy', 'Cites', 'IsSupplementTo', 'IsSupplementedBy', 'IsContinuedBy', 'Continues', 'IsDescribedBy', 'Describes', 'HasMetadata', 'IsMetadataFor', 'HasVersion', 'IsVersionOf', 'IsNewVersionOf', 'IsPreviousVersionOf', 'IsPartOf', 'HasPart', 'IsReferencedBy', 'References', 'IsDocumentedBy', 'Documents', 'IsCompiledBy', 'Compiles', 'IsVariantFormOf', 'IsOriginalFormOf', 'IsIdenticalTo', 'IsReviewedBy', 'Reviews', 'IsDerivedFrom', 'IsSourceOf', 'IsRequiredBy', 'Requires', 'IsObsoletedBy', 'Obsoletes']",
+   "path": [
+    "relatedIdentifiers",
+    0,
+    "relationType"
+   ],
+   "schema_path": [
+    "properties",
+    "relatedIdentifiers",
+    "items",
+    "properties",
+    "relationType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000552": [
+  {
+   "identifier": "DANDI:000552",
+   "version": "0.230630.2304",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000559": [
+  {
+   "identifier": "DANDI:000559",
+   "version": "0.240502.0456",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000568": [
+  {
+   "identifier": "DANDI:000568",
+   "version": "0.230705.1633",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000569": [
+  {
+   "identifier": "DANDI:000569",
+   "version": "0.230706.1630",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000570": [
+  {
+   "identifier": "DANDI:000570",
+   "version": "0.230706.1630",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000574": [
+  {
+   "identifier": "DANDI:000574",
+   "version": "0.231010.1809",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000575": [
+  {
+   "identifier": "DANDI:000575",
+   "version": "0.231010.1811",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000576": [
+  {
+   "identifier": "DANDI:000576",
+   "version": "0.231010.1811",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000579": [
+  {
+   "identifier": "DANDI:000579",
+   "version": "0.230728.1727",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000625": [
+  {
+   "identifier": "DANDI:000625",
+   "version": "0.231114.0017",
+   "message": "'IsPublishedIn' is not one of ['IsCitedBy', 'Cites', 'IsSupplementTo', 'IsSupplementedBy', 'IsContinuedBy', 'Continues', 'IsDescribedBy', 'Describes', 'HasMetadata', 'IsMetadataFor', 'HasVersion', 'IsVersionOf', 'IsNewVersionOf', 'IsPreviousVersionOf', 'IsPartOf', 'HasPart', 'IsReferencedBy', 'References', 'IsDocumentedBy', 'Documents', 'IsCompiledBy', 'Compiles', 'IsVariantFormOf', 'IsOriginalFormOf', 'IsIdenticalTo', 'IsReviewedBy', 'Reviews', 'IsDerivedFrom', 'IsSourceOf', 'IsRequiredBy', 'Requires', 'IsObsoletedBy', 'Obsoletes']",
+   "path": [
+    "relatedIdentifiers",
+    0,
+    "relationType"
+   ],
+   "schema_path": [
+    "properties",
+    "relatedIdentifiers",
+    "items",
+    "properties",
+    "relationType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000625",
+   "version": "0.231114.0019",
+   "message": "'IsPublishedIn' is not one of ['IsCitedBy', 'Cites', 'IsSupplementTo', 'IsSupplementedBy', 'IsContinuedBy', 'Continues', 'IsDescribedBy', 'Describes', 'HasMetadata', 'IsMetadataFor', 'HasVersion', 'IsVersionOf', 'IsNewVersionOf', 'IsPreviousVersionOf', 'IsPartOf', 'HasPart', 'IsReferencedBy', 'References', 'IsDocumentedBy', 'Documents', 'IsCompiledBy', 'Compiles', 'IsVariantFormOf', 'IsOriginalFormOf', 'IsIdenticalTo', 'IsReviewedBy', 'Reviews', 'IsDerivedFrom', 'IsSourceOf', 'IsRequiredBy', 'Requires', 'IsObsoletedBy', 'Obsoletes']",
+   "path": [
+    "relatedIdentifiers",
+    0,
+    "relationType"
+   ],
+   "schema_path": [
+    "properties",
+    "relatedIdentifiers",
+    "items",
+    "properties",
+    "relationType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000628": [
+  {
+   "identifier": "DANDI:000628",
+   "version": "0.240428.2041",
+   "message": "'IsPublishedIn' is not one of ['IsCitedBy', 'Cites', 'IsSupplementTo', 'IsSupplementedBy', 'IsContinuedBy', 'Continues', 'IsDescribedBy', 'Describes', 'HasMetadata', 'IsMetadataFor', 'HasVersion', 'IsVersionOf', 'IsNewVersionOf', 'IsPreviousVersionOf', 'IsPartOf', 'HasPart', 'IsReferencedBy', 'References', 'IsDocumentedBy', 'Documents', 'IsCompiledBy', 'Compiles', 'IsVariantFormOf', 'IsOriginalFormOf', 'IsIdenticalTo', 'IsReviewedBy', 'Reviews', 'IsDerivedFrom', 'IsSourceOf', 'IsRequiredBy', 'Requires', 'IsObsoletedBy', 'Obsoletes']",
+   "path": [
+    "relatedIdentifiers",
+    0,
+    "relationType"
+   ],
+   "schema_path": [
+    "properties",
+    "relatedIdentifiers",
+    "items",
+    "properties",
+    "relationType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000628",
+   "version": "0.240501.1912",
+   "message": "'IsPublishedIn' is not one of ['IsCitedBy', 'Cites', 'IsSupplementTo', 'IsSupplementedBy', 'IsContinuedBy', 'Continues', 'IsDescribedBy', 'Describes', 'HasMetadata', 'IsMetadataFor', 'HasVersion', 'IsVersionOf', 'IsNewVersionOf', 'IsPreviousVersionOf', 'IsPartOf', 'HasPart', 'IsReferencedBy', 'References', 'IsDocumentedBy', 'Documents', 'IsCompiledBy', 'Compiles', 'IsVariantFormOf', 'IsOriginalFormOf', 'IsIdenticalTo', 'IsReviewedBy', 'Reviews', 'IsDerivedFrom', 'IsSourceOf', 'IsRequiredBy', 'Requires', 'IsObsoletedBy', 'Obsoletes']",
+   "path": [
+    "relatedIdentifiers",
+    0,
+    "relationType"
+   ],
+   "schema_path": [
+    "properties",
+    "relatedIdentifiers",
+    "items",
+    "properties",
+    "relationType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000630": [
+  {
+   "identifier": "DANDI:000630",
+   "version": "0.230915.2257",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000631": [
+  {
+   "identifier": "DANDI:000631",
+   "version": "0.231012.1508",
+   "message": "'IsPublishedIn' is not one of ['IsCitedBy', 'Cites', 'IsSupplementTo', 'IsSupplementedBy', 'IsContinuedBy', 'Continues', 'IsDescribedBy', 'Describes', 'HasMetadata', 'IsMetadataFor', 'HasVersion', 'IsVersionOf', 'IsNewVersionOf', 'IsPreviousVersionOf', 'IsPartOf', 'HasPart', 'IsReferencedBy', 'References', 'IsDocumentedBy', 'Documents', 'IsCompiledBy', 'Compiles', 'IsVariantFormOf', 'IsOriginalFormOf', 'IsIdenticalTo', 'IsReviewedBy', 'Reviews', 'IsDerivedFrom', 'IsSourceOf', 'IsRequiredBy', 'Requires', 'IsObsoletedBy', 'Obsoletes']",
+   "path": [
+    "relatedIdentifiers",
+    0,
+    "relationType"
+   ],
+   "schema_path": [
+    "properties",
+    "relatedIdentifiers",
+    "items",
+    "properties",
+    "relationType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000632": [
+  {
+   "identifier": "DANDI:000632",
+   "version": "0.231012.1930",
+   "message": "'IsPublishedIn' is not one of ['IsCitedBy', 'Cites', 'IsSupplementTo', 'IsSupplementedBy', 'IsContinuedBy', 'Continues', 'IsDescribedBy', 'Describes', 'HasMetadata', 'IsMetadataFor', 'HasVersion', 'IsVersionOf', 'IsNewVersionOf', 'IsPreviousVersionOf', 'IsPartOf', 'HasPart', 'IsReferencedBy', 'References', 'IsDocumentedBy', 'Documents', 'IsCompiledBy', 'Compiles', 'IsVariantFormOf', 'IsOriginalFormOf', 'IsIdenticalTo', 'IsReviewedBy', 'Reviews', 'IsDerivedFrom', 'IsSourceOf', 'IsRequiredBy', 'Requires', 'IsObsoletedBy', 'Obsoletes']",
+   "path": [
+    "relatedIdentifiers",
+    0,
+    "relationType"
+   ],
+   "schema_path": [
+    "properties",
+    "relatedIdentifiers",
+    "items",
+    "properties",
+    "relationType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000633": [
+  {
+   "identifier": "DANDI:000633",
+   "version": "0.231013.2226",
+   "message": "'IsPublishedIn' is not one of ['IsCitedBy', 'Cites', 'IsSupplementTo', 'IsSupplementedBy', 'IsContinuedBy', 'Continues', 'IsDescribedBy', 'Describes', 'HasMetadata', 'IsMetadataFor', 'HasVersion', 'IsVersionOf', 'IsNewVersionOf', 'IsPreviousVersionOf', 'IsPartOf', 'HasPart', 'IsReferencedBy', 'References', 'IsDocumentedBy', 'Documents', 'IsCompiledBy', 'Compiles', 'IsVariantFormOf', 'IsOriginalFormOf', 'IsIdenticalTo', 'IsReviewedBy', 'Reviews', 'IsDerivedFrom', 'IsSourceOf', 'IsRequiredBy', 'Requires', 'IsObsoletedBy', 'Obsoletes']",
+   "path": [
+    "relatedIdentifiers",
+    0,
+    "relationType"
+   ],
+   "schema_path": [
+    "properties",
+    "relatedIdentifiers",
+    "items",
+    "properties",
+    "relationType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000634": [
+  {
+   "identifier": "DANDI:000634",
+   "version": "0.231005.1820",
+   "message": "'IsPublishedIn' is not one of ['IsCitedBy', 'Cites', 'IsSupplementTo', 'IsSupplementedBy', 'IsContinuedBy', 'Continues', 'IsDescribedBy', 'Describes', 'HasMetadata', 'IsMetadataFor', 'HasVersion', 'IsVersionOf', 'IsNewVersionOf', 'IsPreviousVersionOf', 'IsPartOf', 'HasPart', 'IsReferencedBy', 'References', 'IsDocumentedBy', 'Documents', 'IsCompiledBy', 'Compiles', 'IsVariantFormOf', 'IsOriginalFormOf', 'IsIdenticalTo', 'IsReviewedBy', 'Reviews', 'IsDerivedFrom', 'IsSourceOf', 'IsRequiredBy', 'Requires', 'IsObsoletedBy', 'Obsoletes']",
+   "path": [
+    "relatedIdentifiers",
+    0,
+    "relationType"
+   ],
+   "schema_path": [
+    "properties",
+    "relatedIdentifiers",
+    "items",
+    "properties",
+    "relationType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000635": [
+  {
+   "identifier": "DANDI:000635",
+   "version": "0.230921.1734",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000673": [
+  {
+   "identifier": "DANDI:000673",
+   "version": "0.240118.2135",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000673",
+   "version": "0.240524.1751",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000673",
+   "version": "0.240524.1758",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000678": [
+  {
+   "identifier": "DANDI:000678",
+   "version": "0.231004.2146",
+   "message": "'IsPublishedIn' is not one of ['IsCitedBy', 'Cites', 'IsSupplementTo', 'IsSupplementedBy', 'IsContinuedBy', 'Continues', 'IsDescribedBy', 'Describes', 'HasMetadata', 'IsMetadataFor', 'HasVersion', 'IsVersionOf', 'IsNewVersionOf', 'IsPreviousVersionOf', 'IsPartOf', 'HasPart', 'IsReferencedBy', 'References', 'IsDocumentedBy', 'Documents', 'IsCompiledBy', 'Compiles', 'IsVariantFormOf', 'IsOriginalFormOf', 'IsIdenticalTo', 'IsReviewedBy', 'Reviews', 'IsDerivedFrom', 'IsSourceOf', 'IsRequiredBy', 'Requires', 'IsObsoletedBy', 'Obsoletes']",
+   "path": [
+    "relatedIdentifiers",
+    1,
+    "relationType"
+   ],
+   "schema_path": [
+    "properties",
+    "relatedIdentifiers",
+    "items",
+    "properties",
+    "relationType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000711": [
+  {
+   "identifier": "DANDI:000711",
+   "version": "0.231121.0201",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000711",
+   "version": "0.231121.1730",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000728": [
+  {
+   "identifier": "DANDI:000728",
+   "version": "0.240822.1754",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000728",
+   "version": "0.240827.1809",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000768": [
+  {
+   "identifier": "DANDI:000768",
+   "version": "0.231221.2138",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000769": [
+  {
+   "identifier": "DANDI:000769",
+   "version": "0.231221.2138",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000891": [
+  {
+   "identifier": "DANDI:000891",
+   "version": "0.240215.0831",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000897": [
+  {
+   "identifier": "DANDI:000897",
+   "version": "0.240605.1710",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000933": [
+  {
+   "identifier": "DANDI:000933",
+   "version": "0.240315.1758",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000934": [
+  {
+   "identifier": "DANDI:000934",
+   "version": "0.240315.1754",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000939": [
+  {
+   "identifier": "DANDI:000939",
+   "version": "0.240315.0450",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000939",
+   "version": "0.240315.0451",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000939",
+   "version": "0.240318.0150",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000939",
+   "version": "0.240318.1020",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000939",
+   "version": "0.240318.1555",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000939",
+   "version": "0.240327.1911",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000939",
+   "version": "0.240327.2229",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000939",
+   "version": "0.240528.1542",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000947": [
+  {
+   "identifier": "DANDI:000947",
+   "version": "0.240510.2211",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000957": [
+  {
+   "identifier": "DANDI:000957",
+   "version": "0.240404.0339",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000957",
+   "version": "0.240404.0750",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000957",
+   "version": "0.240405.0847",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000957",
+   "version": "0.240406.0737",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000957",
+   "version": "0.240406.2355",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000957",
+   "version": "0.240407.0142",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:000957",
+   "version": "0.240731.0249",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:000971": [
+  {
+   "identifier": "DANDI:000971",
+   "version": "0.240802.2004",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:001027": [
+  {
+   "identifier": "DANDI:001027",
+   "version": "0.240605.1859",
+   "message": "'IsPublishedIn' is not one of ['IsCitedBy', 'Cites', 'IsSupplementTo', 'IsSupplementedBy', 'IsContinuedBy', 'Continues', 'IsDescribedBy', 'Describes', 'HasMetadata', 'IsMetadataFor', 'HasVersion', 'IsVersionOf', 'IsNewVersionOf', 'IsPreviousVersionOf', 'IsPartOf', 'HasPart', 'IsReferencedBy', 'References', 'IsDocumentedBy', 'Documents', 'IsCompiledBy', 'Compiles', 'IsVariantFormOf', 'IsOriginalFormOf', 'IsIdenticalTo', 'IsReviewedBy', 'Reviews', 'IsDerivedFrom', 'IsSourceOf', 'IsRequiredBy', 'Requires', 'IsObsoletedBy', 'Obsoletes']",
+   "path": [
+    "relatedIdentifiers",
+    0,
+    "relationType"
+   ],
+   "schema_path": [
+    "properties",
+    "relatedIdentifiers",
+    "items",
+    "properties",
+    "relationType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:001028": [
+  {
+   "identifier": "DANDI:001028",
+   "version": "0.240605.1954",
+   "message": "'IsPublishedIn' is not one of ['IsCitedBy', 'Cites', 'IsSupplementTo', 'IsSupplementedBy', 'IsContinuedBy', 'Continues', 'IsDescribedBy', 'Describes', 'HasMetadata', 'IsMetadataFor', 'HasVersion', 'IsVersionOf', 'IsNewVersionOf', 'IsPreviousVersionOf', 'IsPartOf', 'HasPart', 'IsReferencedBy', 'References', 'IsDocumentedBy', 'Documents', 'IsCompiledBy', 'Compiles', 'IsVariantFormOf', 'IsOriginalFormOf', 'IsIdenticalTo', 'IsReviewedBy', 'Reviews', 'IsDerivedFrom', 'IsSourceOf', 'IsRequiredBy', 'Requires', 'IsObsoletedBy', 'Obsoletes']",
+   "path": [
+    "relatedIdentifiers",
+    0,
+    "relationType"
+   ],
+   "schema_path": [
+    "properties",
+    "relatedIdentifiers",
+    "items",
+    "properties",
+    "relationType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:001037": [
+  {
+   "identifier": "DANDI:001037",
+   "version": "0.240816.1841",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:001052": [
+  {
+   "identifier": "DANDI:001052",
+   "version": "0.240610.1814",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:001075": [
+  {
+   "identifier": "DANDI:001075",
+   "version": "0.240920.1434",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  },
+  {
+   "identifier": "DANDI:001075",
+   "version": "0.240930.1859",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:001084": [
+  {
+   "identifier": "DANDI:001084",
+   "version": "0.241023.2011",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:001097": [
+  {
+   "identifier": "DANDI:001097",
+   "version": "0.240814.1849",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:001131": [
+  {
+   "identifier": "DANDI:001131",
+   "version": "0.240826.1647",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ],
+ "DANDI:001182": [
+  {
+   "identifier": "DANDI:001182",
+   "version": "0.240827.1656",
+   "message": "'ROR' is not one of ['ISNI', 'GRID', 'Crossref Funder ID', 'Other']",
+   "path": [
+    "fundingReferences",
+    0,
+    "funderIdentifierType"
+   ],
+   "schema_path": [
+    "properties",
+    "fundingReferences",
+    "items",
+    "properties",
+    "funderIdentifierType",
+    "enum"
+   ]
+  }
+ ]
+}

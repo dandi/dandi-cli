@@ -1,0 +1,288 @@
+{
+ "DANDI:000029": [
+  {
+   "type": "missing",
+   "loc": [
+    "doi"
+   ],
+   "msg": "Field required",
+   "url": "https://errors.pydantic.dev/2.9/v/missing",
+   "identifier": "DANDI:000029",
+   "version": "0.230317.1553"
+  },
+  {
+   "type": "missing",
+   "loc": [
+    "doi"
+   ],
+   "msg": "Field required",
+   "url": "https://errors.pydantic.dev/2.9/v/missing",
+   "identifier": "DANDI:000029",
+   "version": "0.231017.1955"
+  },
+  {
+   "type": "missing",
+   "loc": [
+    "doi"
+   ],
+   "msg": "Field required",
+   "url": "https://errors.pydantic.dev/2.9/v/missing",
+   "identifier": "DANDI:000029",
+   "version": "0.231017.1959"
+  }
+ ],
+ "DANDI:000623": [
+  {
+   "type": "missing",
+   "loc": [
+    "doi"
+   ],
+   "msg": "Field required",
+   "url": "https://errors.pydantic.dev/2.9/v/missing",
+   "identifier": "DANDI:000623",
+   "version": "0.240227.2023"
+  }
+ ],
+ "DANDI:000727": [
+  {
+   "type": "literal_error",
+   "loc": [
+    "about",
+    1,
+    "Disorder",
+    "schemaKey"
+   ],
+   "msg": "Input should be 'Disorder'",
+   "ctx": {
+    "expected": "'Disorder'"
+   },
+   "url": "https://errors.pydantic.dev/2.9/v/literal_error",
+   "identifier": "DANDI:000727",
+   "version": "0.240106.0043"
+  },
+  {
+   "type": "string_pattern_mismatch",
+   "loc": [
+    "about",
+    1,
+    "Disorder",
+    "identifier"
+   ],
+   "msg": "String should match pattern '^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$'",
+   "ctx": {
+    "pattern": "^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$"
+   },
+   "url": "https://errors.pydantic.dev/2.9/v/string_pattern_mismatch",
+   "identifier": "DANDI:000727",
+   "version": "0.240106.0043"
+  },
+  {
+   "type": "literal_error",
+   "loc": [
+    "about",
+    1,
+    "Anatomy",
+    "schemaKey"
+   ],
+   "msg": "Input should be 'Anatomy'",
+   "ctx": {
+    "expected": "'Anatomy'"
+   },
+   "url": "https://errors.pydantic.dev/2.9/v/literal_error",
+   "identifier": "DANDI:000727",
+   "version": "0.240106.0043"
+  },
+  {
+   "type": "string_pattern_mismatch",
+   "loc": [
+    "about",
+    1,
+    "Anatomy",
+    "identifier"
+   ],
+   "msg": "String should match pattern '^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$'",
+   "ctx": {
+    "pattern": "^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$"
+   },
+   "url": "https://errors.pydantic.dev/2.9/v/string_pattern_mismatch",
+   "identifier": "DANDI:000727",
+   "version": "0.240106.0043"
+  },
+  {
+   "type": "string_pattern_mismatch",
+   "loc": [
+    "about",
+    1,
+    "GenericType",
+    "identifier"
+   ],
+   "msg": "String should match pattern '^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$'",
+   "ctx": {
+    "pattern": "^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$"
+   },
+   "url": "https://errors.pydantic.dev/2.9/v/string_pattern_mismatch",
+   "identifier": "DANDI:000727",
+   "version": "0.240106.0043"
+  },
+  {
+   "type": "literal_error",
+   "loc": [
+    "about",
+    2,
+    "Disorder",
+    "schemaKey"
+   ],
+   "msg": "Input should be 'Disorder'",
+   "ctx": {
+    "expected": "'Disorder'"
+   },
+   "url": "https://errors.pydantic.dev/2.9/v/literal_error",
+   "identifier": "DANDI:000727",
+   "version": "0.240106.0043"
+  },
+  {
+   "type": "string_pattern_mismatch",
+   "loc": [
+    "about",
+    2,
+    "Disorder",
+    "identifier"
+   ],
+   "msg": "String should match pattern '^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$'",
+   "ctx": {
+    "pattern": "^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$"
+   },
+   "url": "https://errors.pydantic.dev/2.9/v/string_pattern_mismatch",
+   "identifier": "DANDI:000727",
+   "version": "0.240106.0043"
+  },
+  {
+   "type": "literal_error",
+   "loc": [
+    "about",
+    2,
+    "Anatomy",
+    "schemaKey"
+   ],
+   "msg": "Input should be 'Anatomy'",
+   "ctx": {
+    "expected": "'Anatomy'"
+   },
+   "url": "https://errors.pydantic.dev/2.9/v/literal_error",
+   "identifier": "DANDI:000727",
+   "version": "0.240106.0043"
+  },
+  {
+   "type": "string_pattern_mismatch",
+   "loc": [
+    "about",
+    2,
+    "Anatomy",
+    "identifier"
+   ],
+   "msg": "String should match pattern '^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$'",
+   "ctx": {
+    "pattern": "^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$"
+   },
+   "url": "https://errors.pydantic.dev/2.9/v/string_pattern_mismatch",
+   "identifier": "DANDI:000727",
+   "version": "0.240106.0043"
+  },
+  {
+   "type": "string_pattern_mismatch",
+   "loc": [
+    "about",
+    2,
+    "GenericType",
+    "identifier"
+   ],
+   "msg": "String should match pattern '^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$'",
+   "ctx": {
+    "pattern": "^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$"
+   },
+   "url": "https://errors.pydantic.dev/2.9/v/string_pattern_mismatch",
+   "identifier": "DANDI:000727",
+   "version": "0.240106.0043"
+  },
+  {
+   "type": "literal_error",
+   "loc": [
+    "about",
+    4,
+    "Disorder",
+    "schemaKey"
+   ],
+   "msg": "Input should be 'Disorder'",
+   "ctx": {
+    "expected": "'Disorder'"
+   },
+   "url": "https://errors.pydantic.dev/2.9/v/literal_error",
+   "identifier": "DANDI:000727",
+   "version": "0.240106.0043"
+  },
+  {
+   "type": "string_pattern_mismatch",
+   "loc": [
+    "about",
+    4,
+    "Disorder",
+    "identifier"
+   ],
+   "msg": "String should match pattern '^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$'",
+   "ctx": {
+    "pattern": "^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$"
+   },
+   "url": "https://errors.pydantic.dev/2.9/v/string_pattern_mismatch",
+   "identifier": "DANDI:000727",
+   "version": "0.240106.0043"
+  },
+  {
+   "type": "literal_error",
+   "loc": [
+    "about",
+    4,
+    "Anatomy",
+    "schemaKey"
+   ],
+   "msg": "Input should be 'Anatomy'",
+   "ctx": {
+    "expected": "'Anatomy'"
+   },
+   "url": "https://errors.pydantic.dev/2.9/v/literal_error",
+   "identifier": "DANDI:000727",
+   "version": "0.240106.0043"
+  },
+  {
+   "type": "string_pattern_mismatch",
+   "loc": [
+    "about",
+    4,
+    "Anatomy",
+    "identifier"
+   ],
+   "msg": "String should match pattern '^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$'",
+   "ctx": {
+    "pattern": "^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$"
+   },
+   "url": "https://errors.pydantic.dev/2.9/v/string_pattern_mismatch",
+   "identifier": "DANDI:000727",
+   "version": "0.240106.0043"
+  },
+  {
+   "type": "string_pattern_mismatch",
+   "loc": [
+    "about",
+    4,
+    "GenericType",
+    "identifier"
+   ],
+   "msg": "String should match pattern '^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$'",
+   "ctx": {
+    "pattern": "^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$"
+   },
+   "url": "https://errors.pydantic.dev/2.9/v/string_pattern_mismatch",
+   "identifier": "DANDI:000727",
+   "version": "0.240106.0043"
+  }
+ ]
+}
