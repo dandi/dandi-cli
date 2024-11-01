@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
 import argparse
+from collections import defaultdict
 import json
 import logging
 import os
+from pathlib import Path
 import sys
 
 import requests
@@ -22,12 +24,16 @@ def fetch_dandisets(me, results=None, metadata=None, datacite=None):
     if results is None:
         results = {}
     if datacite:
-        from dandischema.datacite import to_datacite
-
+        from dandischema.datacite import to_datacite, validate_datacite
+        from jsonschema import ValidationError as JSONValidationError
+        from pydantic import ValidationError
     # Construct the query URL
     url = (
         f"https://api.dandiarchive.org/api/dandisets/?draft=false&empty=false"
         f"&embargoed=false{'&user=me' if me else ''}"
+        # f"&search=000003"  # datacite error in 4.3 schema due to use of ROR
+        # f"&search=000029"  # no BibTex
+        # f"&search=000623"  # no DOI
         # f"&page_size=2"
     )
     headers = {"accept": "application/json"}
@@ -70,10 +76,10 @@ def fetch_dandisets(me, results=None, metadata=None, datacite=None):
                             identifier,
                             version_id,
                         )
-                        continue
-                    results[identifier][version_id] = bibtex.replace(
-                        "@misc{https://doi.org/10.48324/", "@misc{"
-                    )
+                    else:
+                        results[identifier][version_id] = bibtex.replace(
+                            "@misc{https://doi.org/10.48324/", "@misc{"
+                        )
                     if metadata or datacite:
                         # fetch metadata record
                         metadata_response = requests.get(
@@ -103,15 +109,41 @@ def fetch_dandisets(me, results=None, metadata=None, datacite=None):
             with open(metadata, "w") as f:
                 json.dump(metadata_records, f, indent=True)
         if datacite:
-            datacite_records = [
-                to_datacite(
-                    m
-                    # , validate=True
-                )
-                for m in metadata_records
-            ]
-            with open(datacite, "w") as f:
-                json.dump(datacite_records, f, indent=True)
+            meta_errors = defaultdict(list)
+            datacite_errors = defaultdict(list)
+            datacite_records = []
+            for m in metadata_records:
+                try:
+                    datacite_record = to_datacite(m)
+                    try:
+                        validate_datacite(datacite_record)
+                    except JSONValidationError as exc:
+                        error_rec = {
+                            "identifier": m["identifier"],
+                            "version": m["version"],
+                            "message": exc.message,
+                            "path": list(exc.path),
+                            "schema_path": list(exc.schema_path),
+                        }
+                        datacite_errors[m["identifier"]].append(error_rec)
+                except ValidationError as exc:
+                    errors_filtered = []
+                    # filter out the "input" field from errors
+                    for error in exc.errors():
+                        error.pop("input")
+                        error["identifier"] = m["identifier"]
+                        error["version"] = m["version"]
+                        errors_filtered.append(error)
+                    meta_errors[m["identifier"]].extend(errors_filtered)
+
+            Path(datacite).with_suffix(".meta-errors.json").write_text(
+                json.dumps(meta_errors, indent=True)
+            )
+            Path(datacite).with_suffix(".datacite-errors.json").write_text(
+                json.dumps(datacite_errors, indent=True)
+            )
+
+            Path(datacite).write_text(json.dumps(datacite_records, indent=True))
 
     return results
 
