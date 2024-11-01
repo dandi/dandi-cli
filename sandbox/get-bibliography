@@ -27,56 +27,64 @@ def fetch_dandisets(me, results=None):
         f"https://api.dandiarchive.org/api/dandisets/?draft=false&empty=false"
         f"&embargoed=false{'&user=me' if me else ''}"
     )
-    lgr.info(f"Fetching {url}")
     headers = {"accept": "application/json"}
 
-    # Fetch the dandisets
-    response = requests.get(url, headers=headers)
-    dandisets = response.json()["results"]
-    lgr.info(f"Got {len(dandisets)} dandisets listed")
-    # for dandiset in [{'identifier': '000027', 'most_recent_published_version':
-    #                 {'version': '0.210831.2033'}}]:
-    for dandiset in dandisets:
-        identifier = dandiset["identifier"]
-        # Fetch versions for each dandiset
-        versions_url = (
-            f"https://api.dandiarchive.org/api/dandisets/{identifier}/versions/"
-            "?page_size=1000"
-        )
-        versions_response = requests.get(versions_url, headers=headers)
-        versions = versions_response.json()["results"]
-        for version in versions:
-            version_id = version["version"]
-            if version_id == "draft":
-                continue
-            if identifier not in results:
-                results[identifier] = {}
-            if version_id not in results[identifier]:
-                doi_url = f"https://doi.org/10.48324/dandi.{identifier}/{version_id}"
-                doi_headers = {"Accept": "application/x-bibtex; charset=utf-8"}
-                doi_response = requests.get(doi_url, headers=doi_headers)
-                bibtex = doi_response.text
-                if not bibtex.startswith("@"):
-                    lgr.error(
-                        "Did not get a valid BibTeX for %s version %s",
-                        identifier,
-                        version_id,
-                    )
+    while True:
+        # Fetch the dandisets
+        lgr.info(f"Fetching {url}")
+        response = requests.get(url, headers=headers)
+        j = response.json()
+        dandisets = j["results"]
+        url = j.get("next")
+        lgr.info(f"Got {len(dandisets)} dandisets listed")
+        # for dandiset in [{'identifier': '000027', 'most_recent_published_version':
+        #                 {'version': '0.210831.2033'}}]:
+        for dandiset in dandisets:
+            identifier = dandiset["identifier"]
+            # Fetch versions for each dandiset
+            versions_url = (
+                f"https://api.dandiarchive.org/api/dandisets/{identifier}/versions/"
+                "?page_size=1000"
+            )
+            versions_response = requests.get(versions_url, headers=headers)
+            versions = versions_response.json()["results"]
+            for version in versions:
+                version_id = version["version"]
+                if version_id == "draft":
                     continue
-                results[identifier][version_id] = bibtex.replace(
-                    "@misc{https://doi.org/10.48324/", "@misc{"
+                if identifier not in results:
+                    results[identifier] = {}
+                if version_id not in results[identifier]:
+                    doi_url = (
+                        f"https://doi.org/10.48324/dandi.{identifier}/{version_id}"
+                    )
+                    doi_headers = {"Accept": "application/x-bibtex; charset=utf-8"}
+                    doi_response = requests.get(doi_url, headers=doi_headers)
+                    bibtex = doi_response.text
+                    if not bibtex.startswith("@"):
+                        lgr.error(
+                            "Did not get a valid BibTeX for %s version %s",
+                            identifier,
+                            version_id,
+                        )
+                        continue
+                    results[identifier][version_id] = bibtex.replace(
+                        "@misc{https://doi.org/10.48324/", "@misc{"
+                    )
+            # The default to be cited -- ATM we do not have DOI for it, use latest version
+            v = dandiset["most_recent_published_version"]["version"]
+            # TODO: might want to robustify using `re` etc.
+            if v not in results[identifier]:
+                lgr.error(
+                    "Got no record for the most recent version %s of %s", v, identifier
                 )
-        # The default to be cited -- ATM we do not have DOI for it, use latest version
-        v = dandiset["most_recent_published_version"]["version"]
-        # TODO: might want to robustify using `re` etc.
-        if v not in results[identifier]:
-            lgr.error(
-                "Got no record for the most recent version %s of %s", v, identifier
-            )
-        else:
-            results[identifier][None] = results[identifier][v].replace(
-                f"@misc{{dandi.{identifier}/{v},", f"@misc{{dandi.{identifier},"
-            )
+            else:
+                results[identifier][None] = results[identifier][v].replace(
+                    f"@misc{{dandi.{identifier}/{v},", f"@misc{{dandi.{identifier},"
+                )
+        if not url:
+            lgr.info("No further URL, exiting")
+            break
 
     return results
 
