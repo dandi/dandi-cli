@@ -100,6 +100,7 @@ class DandiInstance:
     name: str
     gui: str | None
     api: str
+    is_private: bool = False
 
     @property
     def redirector(self) -> None:
@@ -132,6 +133,18 @@ known_instances = {
         f"http://{instancehost}:8085",
         f"http://{instancehost}:8000/api",
     ),
+    "linc": DandiInstance(
+        "linc",
+        "https://lincbrain.org",
+        "https://api.lincbrain.org/api",
+        is_private=True
+    ),
+    "linc-staging": DandiInstance(
+        "linc",
+        "https://staging.lincbrain.org",
+        "https://staging-api.lincbrain.org/api",
+        is_private=True
+    )
 }
 # to map back url: name
 known_instances_rev = {
