@@ -441,7 +441,7 @@ def test_parse_dandi_url_unknown_instance() -> None:
         parse_dandi_url("dandi://not-an-instance/000001")
     assert str(excinfo.value) == (
         "Unknown instance 'not-an-instance'.  Valid instances: dandi,"
-        " dandi-api-local-docker-tests, dandi-staging"
+        " dandi-api-local-docker-tests, dandi-staging, linc, linc-staging"
     )
 
 
