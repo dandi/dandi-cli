@@ -439,10 +439,11 @@ def test_known_instances() -> None:
 def test_parse_dandi_url_unknown_instance() -> None:
     with pytest.raises(UnknownURLError) as excinfo:
         parse_dandi_url("dandi://not-an-instance/000001")
-    assert str(excinfo.value) == (
-        "Unknown instance 'not-an-instance'.  Valid instances: dandi,"
-        " dandi-api-local-docker-tests, dandi-staging, linc, linc-staging"
-    )
+
+    valid_instances = ", ".join(sorted(known_instances.keys()))
+    expected_message = f"Unknown instance 'not-an-instance'.  Valid instances: {valid_instances}"
+
+    assert str(excinfo.value) == expected_message
 
 
 @mark.skipif_no_network

@@ -5,8 +5,6 @@ from dataclasses import dataclass
 from enum import Enum
 import os
 
-from typing import Optional
-
 #: A list of metadata fields which dandi extracts from .nwb files.
 #: Additional fields (such as ``number_of_*``) might be added by
 #: `get_metadata()`
