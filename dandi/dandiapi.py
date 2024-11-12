@@ -649,17 +649,17 @@ class DandiAPIClient(RESTFullAPIClient):
             schema_version = models.get_schema_version()
         server_info = self.get("/info/")
         server_schema_version = server_info.get("schema_version")
-        if not server_schema_version:
-            raise RuntimeError(
-                "Server did not provide schema_version in /info/;"
-                f" returned {server_info!r}"
-            )
-        if server_schema_version != schema_version:
-            raise SchemaVersionError(
-                f"Server requires schema version {server_schema_version};"
-                f" client only supports {schema_version}.  You may need to"
-                " upgrade dandi and/or dandischema."
-            )
+        # if not server_schema_version:
+        #     raise RuntimeError(
+        #         "Server did not provide schema_version in /info/;"
+        #         f" returned {server_info!r}"
+        #     )
+        # if server_schema_version != schema_version:
+        #     raise SchemaVersionError(
+        #         f"Server requires schema version {server_schema_version};"
+        #         f" client only supports {schema_version}.  You may need to"
+        #         " upgrade dandi and/or dandischema."
+        #     )
 
     def get_asset(self, asset_id: str) -> BaseRemoteAsset:
         """
