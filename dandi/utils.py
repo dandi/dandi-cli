@@ -642,7 +642,7 @@ def _get_instance(
 
 
 def is_url(s: str) -> bool:
-    """Very primitive url detection for now
+    """Very primitive url detection
 
     TODO: redo
     """
