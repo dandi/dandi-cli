@@ -1044,6 +1044,7 @@ def test_pyouthelper_time_remaining_1339():
             assert done[-1] == f"ETA: {10 - i} seconds<"
 
 
+@mark.skipif_on_windows  # https://github.com/pytest-dev/pytest/issues/12964
 def test_DownloadDirectory_basic(tmp_path: Path) -> None:
     with DownloadDirectory(tmp_path, digests={}) as dl:
         assert dl.dirpath.exists()
