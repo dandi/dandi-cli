@@ -604,19 +604,19 @@ def _get_instance(
                 f"Could not retrieve server info from {url},"
                 " and client does not recognize URL"
             )
-    # try:
-    #     minversion = Version(server_info.cli_minimal_version)
-    #     bad_versions = [Version(v) for v in server_info.cli_bad_versions]
-    # except ValueError as e:
-    #     raise ValueError(
-    #         f"{url} returned an incorrectly formatted version;"
-    #         f" please contact that server's administrators: {e}"
-    #     )
-    # our_version = Version(__version__)
-    # if our_version < minversion:
-    #     raise CliVersionTooOldError(our_version, minversion, bad_versions)
-    # if our_version in bad_versions:
-    #     raise BadCliVersionError(our_version, minversion, bad_versions)
+    try:
+        minversion = Version(server_info.cli_minimal_version)
+        bad_versions = [Version(v) for v in server_info.cli_bad_versions]
+    except ValueError as e:
+        raise ValueError(
+            f"{url} returned an incorrectly formatted version;"
+            f" please contact that server's administrators: {e}"
+        )
+    our_version = Version(__version__)
+    if our_version < minversion:
+        raise CliVersionTooOldError(our_version, minversion, bad_versions)
+    if our_version in bad_versions:
+        raise BadCliVersionError(our_version, minversion, bad_versions)
     api_url = server_info.services.api.url
     if dandi_id is None:
         # Don't use pydantic.AnyHttpUrl, as that sets the `port` attribute even
@@ -642,7 +642,7 @@ def _get_instance(
 
 
 def is_url(s: str) -> bool:
-    """Very primitive url detection
+    """Very primitive url detection for now
 
     TODO: redo
     """
