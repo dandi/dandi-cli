@@ -13,6 +13,7 @@ import os.path as op
 from pathlib import Path
 import random
 from shutil import rmtree
+import sys
 from threading import Lock
 import time
 from types import TracebackType
@@ -692,7 +693,10 @@ def _download_file(
     # TODO: how do we discover the total size????
     # TODO: do not do it in-place, but rather into some "hidden" file
     resuming = False
-    for attempt in range(3):
+    attempt = 0
+    nattempts = 3  # number to do, could be incremented if we downloaded a little
+    while attempt <= nattempts:
+        attempt += 1
         try:
             if digester:
                 downloaded_digest = digester()  # start empty
@@ -700,9 +704,15 @@ def _download_file(
             # I wonder if we could make writing async with downloader
             with DownloadDirectory(path, digests or {}) as dldir:
                 assert dldir.offset is not None
+                downloaded_in_attempt = 0
                 downloaded = dldir.offset
                 resuming = downloaded > 0
                 if size is not None and downloaded == size:
+                    lgr.debug(
+                        "%s - downloaded size matches target size of %d, exiting the loop",
+                        path,
+                        size,
+                    )
                     # Exit early when downloaded == size, as making a Range
                     # request in such a case results in a 416 error from S3.
                     # Problems will result if `size` is None but we've already
@@ -713,6 +723,7 @@ def _download_file(
                         assert downloaded_digest is not None
                         downloaded_digest.update(block)
                     downloaded += len(block)
+                    downloaded_in_attempt += len(block)
                     # TODO: yield progress etc
                     out: dict[str, Any] = {"done": downloaded}
                     if size:
@@ -738,30 +749,83 @@ def _download_file(
         # Catching RequestException lets us retry on timeout & connection
         # errors (among others) in addition to HTTP status errors.
         except requests.RequestException as exc:
+            sleep_amount = random.random() * 5 * attempt
+            if os.environ.get("DANDI_DOWNLOAD_AGGRESSIVE_RETRY"):
+                # in such a case if we downloaded a little more --
+                # consider it a successful attempt
+                if downloaded_in_attempt > 0:
+                    lgr.debug(
+                        "%s - download failed on attempt #%d: %s, "
+                        "but did download %d bytes, so considering "
+                        "it a success and incrementing number of allowed attempts.",
+                        path,
+                        attempt,
+                        exc,
+                        downloaded_in_attempt,
+                    )
+                    nattempts += 1
             # TODO: actually we should probably retry only on selected codes,
-            # and also respect Retry-After
-            if attempt >= 2 or (
-                exc.response is not None
-                and exc.response.status_code
-                not in (
+            if exc.response is not None:
+                if exc.response.status_code not in (
                     400,  # Bad Request, but happened with gider:
                     # https://github.com/dandi/dandi-cli/issues/87
                     *RETRY_STATUSES,
+                ):
+                    lgr.debug(
+                        "%s - download failed due to response %d: %s",
+                        path,
+                        exc.response.status_code,
+                        exc,
+                    )
+                    yield {"status": "error", "message": str(exc)}
+                    return
+                elif retry_after := exc.response.headers.get("Retry-After"):
+                    # playing safe
+                    if not str(retry_after).isdigit():
+                        # our code is wrong, do not crash but issue warning so
+                        # we might get report/fix it up
+                        lgr.warning(
+                            "%s - download failed due to response %d with non-integer"
+                            " Retry-After=%r: %s",
+                            path,
+                            exc.response.status_code,
+                            retry_after,
+                            exc,
+                        )
+                        yield {"status": "error", "message": str(exc)}
+                        return
+                    sleep_amount = int(retry_after)
+                    lgr.debug(
+                        "%s - download failed due to response %d with "
+                        "Retry-After=%d: %s, will sleep and retry",
+                        path,
+                        exc.response.status_code,
+                        sleep_amount,
+                        exc,
+                    )
+                else:
+                    lgr.debug("%s - download failed: %s", path, exc)
+                    yield {"status": "error", "message": str(exc)}
+                    return
+            elif attempt >= nattempts:
+                lgr.debug(
+                    "%s - download failed after %d attempts: %s", path, attempt, exc
                 )
-            ):
-                lgr.debug("%s - download failed: %s", path, exc)
                 yield {"status": "error", "message": str(exc)}
                 return
             # if is_access_denied(exc) or attempt >= 2:
             #     raise
             # sleep a little and retry
-            lgr.debug(
-                "%s - failed to download on attempt #%d: %s, will sleep a bit and retry",
-                path,
-                attempt,
-                exc,
-            )
-            time.sleep(random.random() * 5)
+            else:
+                lgr.debug(
+                    "%s - download failed on attempt #%d: %s, will sleep a bit and retry",
+                    path,
+                    attempt,
+                    exc,
+                )
+            time.sleep(sleep_amount)
+    else:
+        lgr.warning("downloader logic: We should not be here!")
 
     if downloaded_digest and not resuming:
         assert downloaded_digest is not None
@@ -829,16 +893,22 @@ class DownloadDirectory:
         ):
             # Pick up where we left off, writing to the end of the file
             lgr.debug(
-                "Download directory exists and has matching checksum; resuming download"
+                "%s - download directory exists and has matching checksum(s) %s; resuming download",
+                self.dirpath,
+                matching_algs,
             )
             self.fp = self.writefile.open("ab")
         else:
             # Delete the file (if it even exists) and start anew
             if not chkpath.exists():
-                lgr.debug("Starting new download in new download directory")
+                lgr.debug(
+                    "%s - no prior digests found; starting new download", self.dirpath
+                )
             else:
                 lgr.debug(
-                    "Download directory found, but digests do not match; starting new download"
+                    "%s - download directory found, but digests do not match;"
+                    " starting new download",
+                    self.dirpath,
                 )
             try:
                 self.writefile.unlink()
@@ -857,12 +927,35 @@ class DownloadDirectory:
         exc_tb: TracebackType | None,
     ) -> None:
         assert self.fp is not None
+        if exc_type is not None or exc_val is not None or exc_tb is not None:
+            lgr.debug(
+                "%s - entered __exit__ with position %d with exception: %s, %s",
+                self.dirpath,
+                self.fp.tell(),
+                exc_type,
+                exc_val,
+            )
+        else:
+            lgr.debug(
+                "%s - entered __exit__ with position %d without any exception",
+                self.dirpath,
+                self.fp.tell(),
+            )
         self.fp.close()
         try:
             if exc_type is None:
                 try:
                     self.writefile.replace(self.filepath)
-                except IsADirectoryError:
+                except (IsADirectoryError, PermissionError) as exc:
+                    if isinstance(exc, PermissionError):
+                        if not (
+                            sys.platform.startswith("win") and self.filepath.is_dir()
+                        ):
+                            raise
+                    lgr.debug(
+                        "Destination path %s is a directory; removing it and retrying",
+                        self.filepath,
+                    )
                     rmtree(self.filepath)
                     self.writefile.replace(self.filepath)
         finally:
