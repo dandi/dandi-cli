@@ -132,6 +132,16 @@ known_instances = {
         f"http://{instancehost}:8085",
         f"http://{instancehost}:8000/api",
     ),
+    "linc": DandiInstance(
+        "linc",
+        "https://lincbrain.org",
+        "https://api.lincbrain.org/api",
+    ),
+    "linc-staging": DandiInstance(
+        "linc-staging",
+        "https://staging.lincbrain.org",
+        "https://staging-api.lincbrain.org/api",
+    )
 }
 # to map back url: name
 known_instances_rev = {

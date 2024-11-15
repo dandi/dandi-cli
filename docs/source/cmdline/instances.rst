@@ -22,3 +22,9 @@ Example output:
     dandi-staging:
       api: https://api-staging.dandiarchive.org/api
       gui: https://gui-staging.dandiarchive.org
+    linc-staging:
+      api: https://staging-api.lincbrain.org/api
+      gui: https://staging.lincbrain.org
+    linc:
+      api: https://api.lincbrain.org/api
+      gui: https://lincbrain.org
