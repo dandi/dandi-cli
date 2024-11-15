@@ -1,3 +1,41 @@
+# 0.64.0 (Fri Nov 15 2024)
+
+#### 🚀 Enhancement
+
+- download: more consistent and exhaustive logging, new `DANDI_DEVEL_AGGRESSIVE_RETRY` mode, respect (?) Retry-After [#1509](https://github.com/dandi/dandi-cli/pull/1509) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🐛 Bug Fix
+
+- Include LINC API as a supported instance type for DANDI CLI [#1527](https://github.com/dandi/dandi-cli/pull/1527) (aaronkanzer@Aarons-MacBook-Pro.local [@aaronkanzer](https://github.com/aaronkanzer))
+- Enhance pynwb validation parsing to report the path within the file, fix pynwb typo [#1513](https://github.com/dandi/dandi-cli/pull/1513) ([@rly](https://github.com/rly))
+- Drop claiming support and testing against EOL Python 3.8 [#1504](https://github.com/dandi/dandi-cli/pull/1504) ([@asmacdo](https://github.com/asmacdo))
+- ENH: log dandischema version and ensure we log (consistently) path for log messages in download [#1499](https://github.com/dandi/dandi-cli/pull/1499) ([@yarikoptic](https://github.com/yarikoptic))
+- Fixup URI scheme rendering in --help output [#1502](https://github.com/dandi/dandi-cli/pull/1502) ([@asmacdo](https://github.com/asmacdo))
+- Adjust copyright year in documentation config [#1504](https://github.com/dandi/dandi-cli/pull/1504) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Use "cache_spec:False" in our copy_nwb_file helper while exporting NWB copy [#1497](https://github.com/dandi/dandi-cli/pull/1497) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 📝 Documentation
+
+- fix: replace dandi-api link with dandi-archive [#1524](https://github.com/dandi/dandi-cli/pull/1524) ([@asmacdo](https://github.com/asmacdo))
+
+#### 🧪 Tests
+
+- Add xfail marks for some tests: test_nwb2asset_remote_asset, test_reextract_metadata, test_IteratorWithAggregation [#1512](https://github.com/dandi/dandi-cli/pull/1512) ([@yarikoptic](https://github.com/yarikoptic))
+- Switch to python 3.9 in dev-deps CI matrix run since dev deps are now beginning to drop Python 3.8 which is EOL soon [#1506](https://github.com/dandi/dandi-cli/pull/1506) ([@asmacdo](https://github.com/asmacdo))
+
+#### Authors: 5
+
+- [@aaronkanzer](https://github.com/aaronkanzer)
+- Aaron Kanzer (aaronkanzer@Aarons-MacBook-Pro.local)
+- Austin Macdonald ([@asmacdo](https://github.com/asmacdo))
+- Ryan Ly ([@rly](https://github.com/rly))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.63.1 (Mon Sep 09 2024)
 
 #### 🐛 Bug Fix
