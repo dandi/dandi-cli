@@ -67,6 +67,11 @@ services:
     environment:
       << : *django_env
       DJANGO_DANDI_VALIDATION_JOB_INTERVAL: "5"
+    ulimits:
+      # https://github.com/celery/billiard/pull/417
+      nofile:
+        soft: 1000
+        hard: 3000
 
   minio:
     image: minio/minio:RELEASE.2022-04-12T06-55-35Z
