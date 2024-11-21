@@ -716,6 +716,12 @@ neurodata_typemap: dict[str, Neurodatum] = {
         "technique": "two-photon microscopy technique",
         "approach": "microscopy approach; cell population imaging",
     },
+    "OnePhotonSeries": {
+        "module": "ophys",
+        "neurodata_type": "OnePhotonSeries",
+        "technique": "one-photon microscopy technique",
+        "approach": "microscopy approach; cell population imaging",
+    },
     "OpticalChannel": {
         "module": "ophys",
         "neurodata_type": "OpticalChannel",
