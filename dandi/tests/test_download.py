@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import nullcontext
 from glob import glob
 import json
 import logging
@@ -70,8 +71,9 @@ def test_download_000027(
     with pytest.raises(FileExistsError):
         download(url, tmp_path, format=DownloadFormat.DEBUG)
     assert "FileExistsError" not in capsys.readouterr().out
-    # but  no exception is raised, and rather it gets output to pyout otherwise
-    download(url, tmp_path)
+    # Generic error should be raised if we are using pyout/parallelization
+    with pytest.raises(RuntimeError):
+        download(url, tmp_path)
     assert "FileExistsError" in capsys.readouterr().out
 
     # TODO: somehow get that status report about what was downloaded and what not
@@ -147,7 +149,8 @@ def test_download_000027_resume(
     with (dldir / "checksum").open("w") as fp:
         json.dump(digests, fp)
 
-    download(url, tmp_path, get_metadata=False)
+    with pytest.raises(RuntimeError) if break_download else nullcontext():
+        download(url, tmp_path, get_metadata=False)
     assert list_paths(dsdir, dirs=True) == [
         dsdir / "sub-RAT123",
         dsdir / "sub-RAT123" / "sub-RAT123.nwb",

@@ -153,6 +153,13 @@ def download(
 
     gen_ = (r for dl in downloaders for r in dl.download_generator())
 
+    errors = []
+
+    def p4e(out):
+        if out.get("status") == "error":
+            errors.append(out)
+        return out
+
     # TODOs:
     #  - redo frontends similarly to how command_ls did it
     #  - have a single loop with analysis of `rec` to either any file
@@ -161,11 +168,11 @@ def download(
     #
     if format is DownloadFormat.DEBUG:
         for rec in gen_:
-            print(rec, flush=True)
+            print(p4e(rec), flush=True)
     elif format is DownloadFormat.PYOUT:
         with out:
             for rec in gen_:
-                out(rec)
+                out(p4e(rec))
     else:
         raise AssertionError(f"Unhandled DownloadFormat member: {format!r}")
 
@@ -191,6 +198,8 @@ def download(
                     break
                 else:
                     break
+    if errors:
+        raise RuntimeError(f"Encountered {len(errors)} errors while downloading.")
 
 
 @dataclass
