@@ -758,9 +758,20 @@ def _download_file(
     else:
         lgr.warning("downloader logic: We should not be here!")
 
+    final_digest = None
     if downloaded_digest and not resuming:
         assert downloaded_digest is not None
         final_digest = downloaded_digest.hexdigest()  # we care only about hex
+    elif resuming:
+        if resuming:
+            lgr.debug("%s - resumed download. Need to check full checksum.", path)
+        else:
+            assert not downloaded_digest
+            lgr.debug(
+                "%s - no digest was checked online. Need to check full checksum", path
+            )
+        final_digest = get_digest(path, algo)
+    if final_digest:
         if digest_callback is not None:
             assert isinstance(algo, str)
             digest_callback(algo, final_digest)
@@ -773,6 +784,7 @@ def _download_file(
             yield {"checksum": "ok"}
             lgr.debug("%s - verified that has correct %s %s", path, algo, digest)
     else:
+        lgr.debug("%s - no digests were provided", path)
         # shouldn't happen with more recent metadata etc
         yield {
             "checksum": "-",
