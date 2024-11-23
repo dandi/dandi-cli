@@ -74,15 +74,15 @@ services:
         hard: 3000
 
   minio:
-    image: minio/minio:RELEASE.2022-04-12T06-55-35Z
+    image: minio/minio:latest
     # When run with a TTY, minio prints credentials on startup
     tty: true
     command: ["server", "/data"]
     ports:
       - "127.0.0.1:9000:9000"
     environment:
-      MINIO_ACCESS_KEY: minioAccessKey
-      MINIO_SECRET_KEY: minioSecretKey
+      MINIO_ROOT_USER: minioAccessKey
+      MINIO_ROOT_PASSWORD: minioSecretKey
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 7s
@@ -94,6 +94,7 @@ services:
       POSTGRES_DB: django
       POSTGRES_PASSWORD: postgres
     image: postgres
+    command: postgres -c log_lock_waits=on -c log_min_duration_statement=100
     expose:
       - "5432"
     healthcheck:
