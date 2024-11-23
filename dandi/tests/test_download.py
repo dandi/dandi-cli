@@ -122,8 +122,9 @@ def test_download_000027_assets_only(url: str, tmp_path: Path) -> None:
 @mark.skipif_no_network
 @pytest.mark.parametrize("resizer", [lambda sz: 0, lambda sz: sz // 2, lambda sz: sz])
 @pytest.mark.parametrize("version", ["0.210831.2033", DRAFT])
+@pytest.mark.parametrize("break_download", [False, True])
 def test_download_000027_resume(
-    tmp_path: Path, resizer: Callable[[int], int], version: str
+    tmp_path: Path, resizer: Callable[[int], int], version: str, break_download: bool
 ) -> None:
     url = f"https://dandiarchive.org/dandiset/000027/{version}"
     digester = Digester()
@@ -137,15 +138,25 @@ def test_download_000027_resume(
     nwb.rename(dlfile)
     size = dlfile.stat().st_size
     os.truncate(dlfile, resizer(size))
+    if break_download:
+        bad_load = b"bad"
+        if resizer(size) == size:  # no truncation
+            os.truncate(dlfile, size - len(bad_load))
+        with open(dlfile, "ab") as f:
+            f.write(bad_load)
     with (dldir / "checksum").open("w") as fp:
         json.dump(digests, fp)
+
     download(url, tmp_path, get_metadata=False)
     assert list_paths(dsdir, dirs=True) == [
         dsdir / "sub-RAT123",
         dsdir / "sub-RAT123" / "sub-RAT123.nwb",
     ]
     assert nwb.stat().st_size == size
-    assert digester(str(nwb)) == digests
+    if break_download:
+        assert digester(str(nwb)) != digests
+    else:
+        assert digester(str(nwb)) == digests
 
 
 def test_download_newest_version(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
