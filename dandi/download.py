@@ -762,7 +762,7 @@ def _download_file(
     if downloaded_digest and not resuming:
         assert downloaded_digest is not None
         final_digest = downloaded_digest.hexdigest()  # we care only about hex
-    elif resuming:
+    elif digests:
         if resuming:
             lgr.debug("%s - resumed download. Need to check full checksum.", path)
         else:
