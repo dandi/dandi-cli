@@ -1378,7 +1378,7 @@ class BaseRemoteAsset(ABC, APIBase):
     modified: datetime
     #: Metadata supplied at initialization; returned when metadata is requested
     #: instead of performing an API call
-    _metadata: Optional[Dict[str, Any]] = PrivateAttr(default_factory=None)
+    _metadata: Optional[Dict[str, Any]] = PrivateAttr(default=None)
 
     def __init__(self, **data: Any) -> None:  # type: ignore[no-redef]
         super().__init__(**data)
