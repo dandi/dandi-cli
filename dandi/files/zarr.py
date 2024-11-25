@@ -22,7 +22,6 @@ from dandi.consts import (
     ZARR_DELETE_BATCH_SIZE,
     ZARR_MIME_TYPE,
     ZARR_UPLOAD_BATCH_SIZE,
-    EmbargoStatus,
 )
 from dandi.dandiapi import (
     RemoteAsset,
