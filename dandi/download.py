@@ -692,7 +692,9 @@ def _download_file(
 
     resuming = False
     attempt = 0
-    attempts_allowed = 3  # number to do, could be incremented if we downloaded a little
+    attempts_allowed: int = (
+        3  # number to do, could be incremented if we downloaded a little
+    )
     while attempt <= attempts_allowed:
         attempt += 1
         try:
@@ -745,7 +747,7 @@ def _download_file(
         # Catching RequestException lets us retry on timeout & connection
         # errors (among others) in addition to HTTP status errors.
         except requests.RequestException as exc:
-            attempts_allowed = _check_if_more_attempts_allowed(
+            attempts_allowed_or_not = _check_if_more_attempts_allowed(
                 path=path,
                 exc=exc,
                 attempt=attempt,
@@ -755,6 +757,9 @@ def _download_file(
             if not attempts_allowed:
                 yield {"status": "error", "message": str(exc)}
                 return
+            # for clear(er) typing, here we get only with int
+            assert isinstance(attempts_allowed_or_not, int)
+            attempts_allowed = attempts_allowed_or_not
     else:
         lgr.warning("downloader logic: We should not be here!")
 
@@ -1064,7 +1069,7 @@ def _check_if_more_attempts_allowed(
                 exc.response.status_code,
                 exc,
             )
-            return
+            return None
         elif retry_after := exc.response.headers.get("Retry-After"):
             # playing safe
             if not str(retry_after).isdigit():
@@ -1078,7 +1083,7 @@ def _check_if_more_attempts_allowed(
                     retry_after,
                     exc,
                 )
-                return
+                return None
             sleep_amount = int(retry_after)
             lgr.debug(
                 "%s - download failed due to response %d with "
@@ -1090,10 +1095,10 @@ def _check_if_more_attempts_allowed(
             )
         else:
             lgr.debug("%s - download failed: %s", path, exc)
-            return
+            return None
     elif attempt >= attempts_allowed:
         lgr.debug("%s - download failed after %d attempts: %s", path, attempt, exc)
-        return
+        return None
     # if is_access_denied(exc) or attempt >= 2:
     #     raise
     # sleep a little and retry
