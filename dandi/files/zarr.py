@@ -297,12 +297,6 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
-        # So that older clients don't get away with doing the wrong thing once
-        # Zarr upload to embargoed Dandisets is implemented in the API:
-        if dandiset.embargo_status is EmbargoStatus.EMBARGOED:
-            raise NotImplementedError(
-                "Uploading Zarr assets to embargoed Dandisets is currently not implemented"
-            )
         asset_path = metadata.setdefault("path", self.path)
         client = dandiset.client
         lgr.debug("%s: Producing asset", asset_path)
