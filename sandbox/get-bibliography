@@ -20,9 +20,15 @@ logging.basicConfig(
 lgr = logging.getLogger(__name__)
 
 
-def fetch_dandisets(me, bibtex_results=None, get_metadata=False):
-    if bibtex_results is None:
-        bibtex_results = {}
+def fetch_dandisets(me, bibliography=None, bibtype="bibtex", get_metadata=False):
+    if bibliography is None:
+        bibliography = {}
+    doi_req_headers = {
+        "Accept": "application/x-{}; charset=utf-8".format(
+            {"bibtex": "bibtex", "ris": "research-info-systems"}[bibtype.lower()]
+        )
+    }
+
     # Construct the query URL
     url = (
         f"https://api.dandiarchive.org/api/dandisets/?draft=false&empty=false"
@@ -57,29 +63,39 @@ def fetch_dandisets(me, bibtex_results=None, get_metadata=False):
                 version_id = version["version"]
                 if version_id == "draft":
                     continue
-                if identifier not in bibtex_results:
-                    bibtex_results[identifier] = {}
-                if version_id not in bibtex_results[identifier]:
+                if identifier not in bibliography:
+                    bibliography[identifier] = {}
+                if version_id not in bibliography[identifier]:
                     doi_url = (
                         f"https://doi.org/10.48324/dandi.{identifier}/{version_id}"
                     )
-                    doi_headers = {"Accept": "application/x-bibtex; charset=utf-8"}
-                    doi_response = requests.get(doi_url, headers=doi_headers)
-                    bibtex = doi_response.text
-                    if not bibtex.startswith("@"):
+                    doi_response = requests.get(doi_url, headers=doi_req_headers)
+                    bibentry = doi_response.text
+                    if not bibentry.strip():
                         lgr.error(
-                            "Did not get a valid BibTeX for %s version %s",
+                            "Got no bibliography record for %s version %s",
                             identifier,
                             version_id,
                         )
-                        bibtex_results[identifier][version_id] = (
-                            f"# No valid BibTeX for {identifier}/{version_id}. "
-                            f"Starts with {bibtex.splitlines()[0][:20]}"
-                        )
+                    if bibtype == "bibtex":
+                        if not bibentry.startswith("@"):
+                            lgr.error(
+                                "Did not get a valid BibTeX for %s version %s",
+                                identifier,
+                                version_id,
+                            )
+                            bibliography[identifier][version_id] = (
+                                f"# No valid BibTeX for {identifier}/{version_id}. "
+                                f"Starts with {bibentry.splitlines()[0][:20]}"
+                            )
+                        else:
+                            bibliography[identifier][version_id] = bibentry.replace(
+                                "@misc{https://doi.org/10.48324/", "@misc{"
+                            )
+                    elif bibtype == "ris":
+                        bibliography[identifier][version_id] = bibentry
                     else:
-                        bibtex_results[identifier][version_id] = bibtex.replace(
-                            "@misc{https://doi.org/10.48324/", "@misc{"
-                        )
+                        raise ValueError(bibtype)
                     if get_metadata:
                         # fetch metadata record
                         metadata_response = requests.get(
@@ -91,21 +107,21 @@ def fetch_dandisets(me, bibtex_results=None, get_metadata=False):
             # The default to be cited -- ATM we do not have DOI for it, use latest version
             v = dandiset["most_recent_published_version"]["version"]
             # TODO: might want to robustify using `re` etc.
-            if v not in bibtex_results[identifier]:
+            if v not in bibliography[identifier]:
                 lgr.error(
                     "Got no record for the most recent version %s of %s", v, identifier
                 )
-            else:
-                bibtex_results[identifier][None] = bibtex_results[identifier][
-                    v
-                ].replace(
+            elif bibtype == "bibtex":
+                bibliography[identifier][None] = bibliography[identifier][v].replace(
                     f"@misc{{dandi.{identifier}/{v},", f"@misc{{dandi.{identifier},"
                 )
+                # in RIS there is no record name/identifier per se so makes
+                # little sense to fabricate one here
         if not url:
             lgr.info("No further URL, exiting")
             break
 
-    return bibtex_results, metadata_records
+    return bibliography, metadata_records
 
 
 def main():
@@ -132,9 +148,17 @@ def main():
         default=None,
     )
     parser.add_argument(
-        "--bibtex",
+        "--bibtype",
         type=str,
-        help="Path to the BibTeX file to save the results to. If not provided -- stdout",
+        default="bibtex",
+        choices=["bibtex", "ris"],
+        help="Type of bibliography to fetch. RIS seems to contain more metadata (abstract) "
+        "but lacks way to specify record 'identifier'",
+    )
+    parser.add_argument(
+        "--bibfile",
+        type=str,
+        help="Path to the bibliography file to save the results to. If not provided -- stdout",
         default=None,
     )
     # TODO:
@@ -148,33 +172,37 @@ def main():
         from jsonschema import ValidationError as JSONValidationError
         from pydantic import ValidationError
 
-    bibtex_results = None
+    bibliography = None
     if args.results and os.path.lexists(args.results):
         with open(args.results, "r") as f:
-            bibtex_results = json.load(f)
+            bibliography = json.load(f)
 
-    bibtex_results, metadata_records = fetch_dandisets(
-        args.me, bibtex_results, args.metadata or args.datacite
+    bibliography, metadata_records = fetch_dandisets(
+        args.me,
+        bibliography,
+        bibtype=args.bibtype,
+        get_metadata=args.metadata or args.datacite,
     )
 
     if args.results:
         if os.path.lexists(args.results):
             os.unlink(args.results)
         with open(args.results, "w") as f:
-            json.dump(bibtex_results, f, indent=2)
+            json.dump(bibliography, f, indent=2)
         lgr.info("Updated results have been saved to %s", args.results)
 
-    # OUTPUT BibTeX
+    # OUTPUT Bibliography
     try:
-        out = open(args.bibtex, "w") if args.bibtex else sys.stdout
-        for dataset, versions in bibtex_results.items():
-            out.write(f"# DANDISET {dataset}\n")
+        out = open(args.bibfile, "w") if args.bibfile else sys.stdout
+        for dataset, versions in bibliography.items():
+            if args.bibtype == "bibtex":
+                out.write(f"# DANDISET {dataset}\n")
             for version, rec in versions.items():
                 if version is None:
                     out.write("# Take latest as the default\n")
                 out.write(f"{rec}\n\n")
     finally:
-        if args.bibtex:
+        if args.bibfile:
             out.close()
 
     # Metadata and datacite
