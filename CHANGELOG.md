@@ -1,3 +1,31 @@
+# 0.65.0 (Tue Nov 26 2024)
+
+#### 🚀 Enhancement
+
+- Refactor some download code for readability + ensure that we checksum resumed downloads [#1535](https://github.com/dandi/dandi-cli/pull/1535) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🐛 Bug Fix
+
+- Fix `PrivateAttr` usage [#1538](https://github.com/dandi/dandi-cli/pull/1538) ([@jwodder](https://github.com/jwodder))
+- add one photon to metadata dict [#1532](https://github.com/dandi/dandi-cli/pull/1532) ([@bendichter](https://github.com/bendichter))
+
+#### 🧪 Tests
+
+- Ignore some type-checking errors under Python 3.13 [#1539](https://github.com/dandi/dandi-cli/pull/1539) ([@jwodder](https://github.com/jwodder))
+- tests: update tests docker-compose with few changes from dandi-archive [#1531](https://github.com/dandi/dandi-cli/pull/1531) ([@yarikoptic](https://github.com/yarikoptic))
+- Specify custom ulimit on nofiles to prevent infinite loop by billiard [#1533](https://github.com/dandi/dandi-cli/pull/1533) ([@yarikoptic](https://github.com/yarikoptic))
+- Rename `file` key to codecov-action to `files` [#1530](https://github.com/dandi/dandi-cli/pull/1530) ([@jwodder](https://github.com/jwodder))
+- [gh-actions](deps): Bump codecov/codecov-action from 4 to 5 [#1529](https://github.com/dandi/dandi-cli/pull/1529) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### Authors: 4
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.64.0 (Fri Nov 15 2024)
 
 #### 🚀 Enhancement
