@@ -287,7 +287,10 @@ class MultiAssetURL(ParsedDandiURL):
 
 
 @dataclass
-class BaseAssetIDURL(SingleAssetURL):
+# The below `type: ignore[override]` prevents mypy under Python 3.13+ from
+# complaining about problems caused by overriding the types of `dandiset_id`
+# and `version_id` from what they are in ParsedDandiURL.
+class BaseAssetIDURL(SingleAssetURL):  # type: ignore[override]
     """
     Parsed from a URL that refers to an asset by ID and does not include the
     Dandiset ID
