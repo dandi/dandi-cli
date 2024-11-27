@@ -46,6 +46,9 @@ jobs:
             python: 3.9
             mode: dev-deps
           - os: ubuntu-latest
+            python: 3.12
+            mode: dev-deps
+          - os: ubuntu-latest
             python: 3.9
             mode: nfs
 
