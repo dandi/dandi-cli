@@ -151,9 +151,10 @@ def test_upload_download_small_file(
     assert (tmp_path / dandiset_id / "file.txt").read_bytes() == contents
 
 
+@sweep_embargo
 @pytest.mark.parametrize("confirm", [True, False])
 def test_upload_sync(
-    confirm: bool, mocker: MockerFixture, text_dandiset: SampleDandiset
+    confirm: bool, mocker: MockerFixture, text_dandiset: SampleDandiset, embargo: bool
 ) -> None:
     (text_dandiset.dspath / "file.txt").unlink()
     confirm_mock = mocker.patch("click.confirm", return_value=confirm)
