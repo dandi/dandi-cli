@@ -252,7 +252,9 @@ def test_upload_bids_non_nwb_file(bids_dandiset: SampleDandiset) -> None:
 
 
 @sweep_embargo
-def test_upload_sync_zarr(mocker, zarr_dandiset: SampleDandiset, embargo: bool) -> None:
+def test_upload_sync_zarr(
+    mocker: MockerFixture, zarr_dandiset: SampleDandiset, embargo: bool
+) -> None:
     assert zarr_dandiset.dandiset.embargo_status == (
         EmbargoStatus.EMBARGOED if embargo else EmbargoStatus.OPEN
     )
