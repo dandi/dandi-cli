@@ -72,8 +72,9 @@ jobs:
       run: |
         pip install git+https://github.com/jaraco/keyring
         pip install git+https://github.com/NeurodataWithoutBorders/nwbinspector
-        pip install git+https://github.com/NeurodataWithoutBorders/pynwb
-        pip install git+https://github.com/hdmf-dev/hdmf
+        pip install git+https://github.com/NeurodataWithoutBorders/pynwb \
+            git+https://github.com/hdmf-dev/hdmf \
+            git+https://github.com/hdmf-dev/hdmf-zarr
 
     - name: Create NFS filesystem
       if: matrix.mode == 'nfs'
