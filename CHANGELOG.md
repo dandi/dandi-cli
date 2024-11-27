@@ -1,3 +1,16 @@
+# 0.65.1 (Wed Nov 27 2024)
+
+#### 🐛 Bug Fix
+
+- Remove `NotImplementedError` to allow for uploading Zarr assets to embargoed Dandisets [#1540](https://github.com/dandi/dandi-cli/pull/1540) ([@kabilar](https://github.com/kabilar) [@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 2
+
+- Kabilar Gunalan ([@kabilar](https://github.com/kabilar))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.65.0 (Tue Nov 26 2024)
 
 #### 🚀 Enhancement
