@@ -395,7 +395,7 @@ species_map = [
         "Macaca nemestrina",
     ),
     (
-        ["Mongolian gerbil", "Mongolian jird"],
+        ["mongolian gerbil", "mongolian jird"],
         None,
         NCBITAXON_URI_TEMPLATE.format("10047"),
         "Meriones unguiculatus",
