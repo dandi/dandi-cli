@@ -1,3 +1,25 @@
+# 0.66.0 (Mon Dec 02 2024)
+
+#### 🚀 Enhancement
+
+- Do fail (raise Exception, CLI has non-0 exit) download if any of downloads fail [#1536](https://github.com/dandi/dandi-cli/pull/1536) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🐛 Bug Fix
+
+- Add Meriones unguiculatus to species list [#1546](https://github.com/dandi/dandi-cli/pull/1546) ([@kabilar](https://github.com/kabilar) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Test dev-deps against latest supported by us version of Python (3.12 ATM) [#1543](https://github.com/dandi/dandi-cli/pull/1543) ([@yarikoptic](https://github.com/yarikoptic))
+- Add hdmf-zarr git repo into our dev build testing [#1542](https://github.com/dandi/dandi-cli/pull/1542) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 2
+
+- Kabilar Gunalan ([@kabilar](https://github.com/kabilar))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.65.1 (Wed Nov 27 2024)
 
 #### 🐛 Bug Fix
