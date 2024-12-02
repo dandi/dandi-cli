@@ -7,6 +7,7 @@ from datetime import datetime
 from enum import Enum
 from functools import partial
 import hashlib
+import inspect
 import json
 import os
 import os.path as op
@@ -153,6 +154,26 @@ def download(
 
     gen_ = (r for dl in downloaders for r in dl.download_generator())
 
+    # Constructs to capture errors and handle them at the end
+    errors = []
+
+    def p4e_gen(callback):
+        for v in callback:
+            yield p4e(v)
+
+    def p4e(out):
+        if out.get("status") == "error":
+            if out not in errors:
+                errors.append(out)
+        else:
+            # If generator was yielded, we need to wrap it also with
+            # our handling
+            for k, v in out.items():
+                if inspect.isgenerator(v):
+                    rec[k] = p4e_gen(v)
+
+        return out
+
     # TODOs:
     #  - redo frontends similarly to how command_ls did it
     #  - have a single loop with analysis of `rec` to either any file
@@ -161,11 +182,11 @@ def download(
     #
     if format is DownloadFormat.DEBUG:
         for rec in gen_:
-            print(rec, flush=True)
+            print(p4e(rec), flush=True)
     elif format is DownloadFormat.PYOUT:
         with out:
             for rec in gen_:
-                out(rec)
+                out(p4e(rec))
     else:
         raise AssertionError(f"Unhandled DownloadFormat member: {format!r}")
 
@@ -191,6 +212,10 @@ def download(
                     break
                 else:
                     break
+    if errors:
+        raise RuntimeError(
+            f"Encountered {pluralize(len(errors), 'error')} while downloading."
+        )
 
 
 @dataclass
