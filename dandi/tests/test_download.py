@@ -72,9 +72,10 @@ def test_download_000027(
         download(url, tmp_path, format=DownloadFormat.DEBUG)
     assert "FileExistsError" not in capsys.readouterr().out
     # Generic error should be raised if we are using pyout/parallelization
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError) as exc:
         download(url, tmp_path)
     assert "FileExistsError" in capsys.readouterr().out
+    assert "Encountered 1 error while downloading" in str(exc)
 
     # TODO: somehow get that status report about what was downloaded and what not
     download(url, tmp_path, existing=DownloadExisting.SKIP)  # TODO: check that skipped
