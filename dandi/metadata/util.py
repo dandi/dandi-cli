@@ -472,8 +472,10 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
         else:
             lower_value = value_orig.lower()
             for common_names, prefix, uri, name in species_map:
-                if any(key in lower_value for key in common_names) or (
-                    prefix is not None and lower_value.startswith(prefix)
+                if (
+                    lower_value == name.lower()
+                    or any(key in lower_value for key in common_names)
+                    or (prefix is not None and lower_value.startswith(prefix))
                 ):
                     value_id = uri
                     value = name
