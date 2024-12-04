@@ -1,3 +1,15 @@
+# 0.66.1 (Wed Dec 04 2024)
+
+#### 🐛 Bug Fix
+
+- BF: do allow for user to specify a proper full name for "species" in metadata [#1547](https://github.com/dandi/dandi-cli/pull/1547) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.66.0 (Mon Dec 02 2024)
 
 #### 🚀 Enhancement
