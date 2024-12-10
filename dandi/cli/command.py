@@ -70,7 +70,7 @@ def print_version(ctx, param, value):
 @click.option("--pdb", help="Fall into pdb if errors out", is_flag=True)
 @click.pass_context
 def main(ctx, log_level, pdb=False):
-    """A client to support interactions with a DANDI instance, such as the DANDI Archive (http://dandiarchive.org).
+    """A client to support interactions with DANDI instances, such as the DANDI Archive (http://dandiarchive.org).
 
     To see help for a specific command, run
 

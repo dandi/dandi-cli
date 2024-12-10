@@ -889,7 +889,7 @@ class RemoteDandiset:
     @property
     def api_path(self) -> str:
         """
-        The path (relative to the base endpoint for a DANDI API) at
+        The path (relative to the base endpoint for the DANDI API) at
         which API requests for interacting with the Dandiset itself are made
         """
         return f"/dandisets/{self.identifier}/"
@@ -905,7 +905,7 @@ class RemoteDandiset:
     @property
     def version_api_path(self) -> str:
         """
-        The path (relative to the base endpoint for a DANDI instance API) at
+        The path (relative to the base endpoint for the DANDI API) at
         which API requests for interacting with the version in question of the
         Dandiset are made
         """
@@ -1429,7 +1429,7 @@ class BaseRemoteAsset(ABC, APIBase):
     @property
     def api_path(self) -> str:
         """
-        The path (relative to the base endpoint for the DANDI instance API) at
+        The path (relative to the base endpoint for the DANDI API) at
         which API requests for interacting with the asset itself are made
         """
         return f"/assets/{self.identifier}/"
@@ -1639,7 +1639,7 @@ class BaseRemoteAsset(ABC, APIBase):
         """
         .. versionadded:: 0.36.0
 
-        The primary digest algorithm used by the DANDI instance for the asset,
+        The primary digest algorithm used by DANDI for the asset,
         determined based on its underlying data: dandi-etag for blob resources,
         dandi-zarr-checksum for Zarr resources
         """
@@ -1825,7 +1825,7 @@ class RemoteAsset(BaseRemoteAsset):
     @property
     def api_path(self) -> str:
         """
-        The path (relative to the base endpoint for a DANDI instance API) at
+        The path (relative to the base endpoint for the DANDI API) at
         which API requests for interacting with the asset itself are made
         """
         return f"/dandisets/{self.dandiset_id}/versions/{self.version_id}/assets/{self.identifier}/"

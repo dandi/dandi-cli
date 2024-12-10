@@ -1,6 +1,6 @@
 """
 This module provides functionality for parsing URLs and other resource
-identifiers for Dandisets & assets on DANDI instance servers and for fetching
+identifiers for Dandisets & assets on DANDI instances and for fetching
 the objects to which the URLs refer.  See :ref:`resource_ids` for a list of
 accepted URL formats.
 
@@ -59,7 +59,7 @@ lgr = get_logger()
 @dataclass
 class ParsedDandiURL(ABC):
     """
-    Parsed representation of a URL pointing to a DANDI instance resource
+    Parsed representation of a URL pointing to a DANDI resource
     (Dandiset or asset(s)).  Subclasses must implement `get_assets()`.
 
     Most methods take a ``client: DandiAPIClient`` argument, which must be a

@@ -27,7 +27,7 @@ Such interfaces mirror :ref:`Command-Line Interfaces <chap_cmdline>`.
 Mid-level user interfaces
 ==========================
 
-These interfaces provide object-oriented interfaces to manipulate Dandisets and assets on a DANDI instance.
+Object-oriented interfaces to manipulate Dandisets and assets on a DANDI instance.
 
 .. toctree::
 
@@ -36,7 +36,7 @@ These interfaces provide object-oriented interfaces to manipulate Dandisets and 
 Low-level user interfaces
 =========================
 
-Low level interfaces to e.g. interact with the DANDI instance REST API and files directly.
+Low level interfaces to e.g. interact with the DANDI REST API and files directly.
 
 .. toctree::
 
