@@ -71,7 +71,7 @@ class DandiFile(ABC):
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> CommonModel:
-        """Return the Dandi metadata for the file"""
+        """Return the DANDI metadata for the file"""
         ...
 
     @abstractmethod
@@ -165,7 +165,7 @@ class LocalAsset(DandiFile):
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
-        """Return the Dandi metadata for the asset"""
+        """Return the DANDI metadata for the asset"""
         ...
 
     # TODO: @validate_cache.memoize_path

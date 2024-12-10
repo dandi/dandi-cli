@@ -18,7 +18,7 @@ has one, and its draft version will be used otherwise.
   to one of the other URL formats
 
 - :samp:`DANDI:{dandiset-id}[/{version}]` (case insensitive)
-  — Refers to a Dandiset on the main archive instance named "dandi".
+  — Refers to a Dandiset on the main DANDI Archive instance named "dandi".
   `parse_dandi_url()` converts this format to a `DandisetURL`.
 
 - Any ``https://gui.dandiarchive.org/`` or
@@ -62,12 +62,12 @@ has one, and its draft version will be used otherwise.
   `AssetGlobURL`.
 
 - :samp:`dandi://{instance-name}/{dandiset-id}[@{version}]` (where
-  ``instance-name`` is the name of a registered Dandi Archive instance) —
+  ``instance-name`` is the name of a registered DANDI instance) —
   Refers to a Dandiset.  `parse_dandi_url()` converts this format to a
   `DandisetURL`.
 
 - :samp:`dandi://{instance-name}/{dandiset-id}[@{version}]/{path}` (where
-  ``instance-name`` is the name of a registered Dandi Archive instance)
+  ``instance-name`` is the name of a registered DANDI instance)
 
   - If the ``glob``/``--path-type glob`` option is in effect, the URL refers to
     a collection of assets whose paths match the glob pattern ``path``, and

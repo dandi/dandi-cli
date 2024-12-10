@@ -1123,7 +1123,7 @@ def validate_organized_path(
                 severity=Severity.ERROR,
                 scope=Scope.FILE,
                 path=filepath,
-                message="Filename does not conform to Dandi standard",
+                message="Filename does not conform to DANDI standard",
                 path_regex=ORGANIZED_FILENAME_REGEX,
                 dandiset_path=dandiset_path,
             )

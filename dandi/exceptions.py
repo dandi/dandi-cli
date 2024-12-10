@@ -14,7 +14,7 @@ class OrganizeImpossibleError(ValueError):
 
 
 class UnknownURLError(ValueError):
-    """Given url is not known to correspond to DANDI archive schema(s)"""
+    """Given url is not known to correspond to DANDI Archive schema(s)"""
 
     pass
 

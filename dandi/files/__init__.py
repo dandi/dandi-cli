@@ -183,7 +183,7 @@ def dandi_file(
         dandiset_path = Path(dandiset_path)
         path = filepath.relative_to(dandiset_path).as_posix()
         if path == ".":
-            raise ValueError("Dandi file path cannot equal Dandiset path")
+            raise ValueError("DANDI file path cannot equal Dandiset path")
     else:
         path = filepath.name
     if filepath.is_file() and path == dandiset_metadata_file:
