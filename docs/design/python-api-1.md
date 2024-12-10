@@ -27,7 +27,7 @@ Designs for an improved Python API
     * Rename the `send_request()` method to `request()` to parallel `requests.Session.request()`
     * Rename the `parameters` argument to the HTTP methods to `params` to match `requests`
     * The `api_url` argument to `DandiAPIClient`'s constructor should default to the URL for the official Dandiarchive instance (which should also be available as a constant)
-    * Give `DandiAPIClient` a classmethod `for_dandi_instance(cls, instance: Union[str, dandi_instance], token=None, authenticate=True)` (Rethink name) that takes either the name of a Dandi instance or an actual `dandi_instance`, fetches a token from the environment, keychain, and/or user if one is not given and `authenticate` is true, and returns a `DandiAPIClient` instance
+    * Give `DandiAPIClient` a classmethod `for_dandi_instance(cls, instance: Union[str, dandi_instance], token=None, authenticate=True)` (Rethink name) that takes either the name of a DANDI instance or an actual `dandi_instance`, fetches a token from the environment, keychain, and/or user if one is not given and `authenticate` is true, and returns a `DandiAPIClient` instance
     * Most interaction with API resources should be via new `RemoteDandiset`, `Version`, and `RemoteAsset` classes and their methods
         * These classes (except `Version`?) will all contain a private `_client` attribute referring back to the associated `DandiAPIClient` instance.
     * Changes to `DandiAPIClient` methods:

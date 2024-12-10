@@ -110,7 +110,7 @@ jobs:
         do python "$f"
         done
 
-    - name: Run Dandi API tests only
+    - name: Run DANDI API tests only
       if: matrix.mode == 'dandi-api'
       run: |
         export DANDI_TESTS_AUDIT_CSV=/tmp/audit.csv

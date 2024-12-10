@@ -126,7 +126,7 @@ class Deleter:
         if isinstance(parsed_url, DandisetURL):
             if parsed_url.version_id is not None:
                 raise NotImplementedError(
-                    "Dandi API server does not support deletion of individual"
+                    "DANDI API server does not support deletion of individual"
                     " versions of a dandiset"
                 )
             assert parsed_url.dandiset_id is not None
