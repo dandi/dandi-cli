@@ -783,7 +783,10 @@ def _download_file(
                 yield {"status": "error", "message": str(exc)}
                 return
             # for clear(er) typing, here we get only with int
-            assert isinstance(attempts_allowed_or_not, int)
+            assert isinstance(attempts_allowed_or_not, int), (
+                f"attempts_allowed_or_not is {attempts_allowed_or_not!r} "
+                f"of type {type(attempts_allowed_or_not)}"
+            )
             attempts_allowed = attempts_allowed_or_not
     else:
         lgr.warning("downloader logic: We should not be here!")
