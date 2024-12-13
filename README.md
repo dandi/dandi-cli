@@ -65,7 +65,7 @@ Commands:
   delete            Delete dandisets and assets from the server.
   digest            Calculate file digests
   download          Download a file or entire folder from DANDI.
-  instances         List known DANDI instances that the CLI can...
+  instances         List known DANDI instances that the CLI can interact
   ls                List .nwb files and dandisets metadata.
   move              Move or rename assets in a local Dandiset and/or on...
   organize          (Re)organize NWB files according to their metadata.
