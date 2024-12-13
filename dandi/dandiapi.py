@@ -397,7 +397,7 @@ class RESTFullAPIClient:
 
 
 class DandiAPIClient(RESTFullAPIClient):
-    """A client for interacting with a DANDI server"""
+    """A client for interacting with a DANDI API server"""
 
     def __init__(
         self,
