@@ -1291,18 +1291,15 @@ class ProgressCombiner:
         elif status.get("status") == "error":
             if "checksum" in status:
                 self.files[path].state = DLState.CHECKSUM_ERROR
-                out = {"message": self.message}
-                self.set_status(out)
-                yield out
             else:
                 self.files[path].state = DLState.ERROR
-                out = {"message": self.message}
-                self.set_status(out)
                 sz = self.files[path].size
                 if sz is not None:
                     self.maxsize -= sz
-                    out.update(self.get_done())
-                yield out
+            out = {"message": self.message}
+            self.set_status(out)
+            out.update(self.get_done())
+            yield out
         elif keys == ["checksum"]:
             pass
         elif status == {"status": "setting mtime"}:
