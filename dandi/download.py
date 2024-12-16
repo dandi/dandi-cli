@@ -358,13 +358,37 @@ class Downloader:
                         lock=lock,
                     )
 
+                def _progress_filter(gen):
+                    """To reduce load on pyout etc, make progress reports only if enough time
+                    from prior report has passed (over 2 seconds) or we are done (got 100%).
+
+                    Note that it requires "awareness" from the code below to issue other messages
+                    with bundling with done% reporting if reporting on progress of some kind (e.g.,
+                    adjusting "message").
+                    """
+                    prior_time = 0
+                    warned = False
+                    for rec in gen:
+                        current_time = time.time()
+                        if done_perc := rec.get("done%", 0):
+                            if isinstance(done_perc, (int, float)):
+                                if current_time - prior_time < 2 and done_perc != 100:
+                                    continue
+                            elif not warned:
+                                warned = True
+                                lgr.warning(
+                                    "Received non numeric done%%: %r", done_perc
+                                )
+                        prior_time = current_time
+                        yield rec
+
                 # If exception is raised we might just raise it, or yield
                 # an error record
                 gen = {
                     "raise": _download_generator,
                     "yield": _download_generator_guard(path, _download_generator),
                 }[self.on_error]
-
+                gen = _progress_filter(gen)
                 if self.yield_generator_for_fields:
                     yield {"path": path, self.yield_generator_for_fields: gen}
                 else:
@@ -1247,9 +1271,9 @@ class ProgressCombiner:
                 self.files[path].downloaded = size
                 self.maxsize += size
             self.set_status(out)
-            yield out
             if self.zarr_size:
-                yield self.get_done()
+                out.update(self.get_done())
+            yield out
         elif keys == ["size"]:
             self.files[path].size = size
             self.maxsize += status["size"]
@@ -1274,11 +1298,11 @@ class ProgressCombiner:
                 self.files[path].state = DLState.ERROR
                 out = {"message": self.message}
                 self.set_status(out)
-                yield out
                 sz = self.files[path].size
                 if sz is not None:
                     self.maxsize -= sz
-                    yield self.get_done()
+                    out.update(self.get_done())
+                yield out
         elif keys == ["checksum"]:
             pass
         elif status == {"status": "setting mtime"}:
@@ -1287,6 +1311,7 @@ class ProgressCombiner:
             self.files[path].state = DLState.DONE
             out = {"message": self.message}
             self.set_status(out)
+            out.update(self.get_done())
             yield out
         else:
             lgr.warning(
