@@ -10,7 +10,7 @@ def pytest_addoption(parser: Parser) -> None:
         "--dandi-api",
         action="store_true",
         default=False,
-        help="Only run tests of the new Django Dandi API",
+        help="Only run tests of the new Django DANDI API",
     )
     parser.addoption(
         "--scheduled",

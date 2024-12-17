@@ -397,7 +397,7 @@ class RESTFullAPIClient:
 
 
 class DandiAPIClient(RESTFullAPIClient):
-    """A client for interacting with a Dandi Archive server"""
+    """A client for interacting with a DANDI API server"""
 
     def __init__(
         self,
@@ -406,7 +406,7 @@ class DandiAPIClient(RESTFullAPIClient):
         dandi_instance: DandiInstance | None = None,
     ) -> None:
         """
-        Construct a client instance for the given API URL or Dandi instance
+        Construct a client instance for the given API URL or DANDI instance
         (mutually exclusive options).  If no URL or instance is supplied, the
         instance specified by the :envvar:`DANDI_INSTANCE` environment variable
         (default value: ``"dandi"``) is used.
@@ -442,7 +442,7 @@ class DandiAPIClient(RESTFullAPIClient):
     ) -> DandiAPIClient:
         """
         Construct a client instance for the server identified by ``instance``
-        (either the name of a registered Dandi Archive instance or a
+        (either the name of a registered DANDI instance or a
         `DandiInstance` instance) and an optional authentication token/API key.
         If no token is supplied and ``authenticate`` is true,
         `dandi_authenticate()` is called on the instance before returning it.
@@ -638,7 +638,7 @@ class DandiAPIClient(RESTFullAPIClient):
 
     def check_schema_version(self, schema_version: str | None = None) -> None:
         """
-        Confirms that the server is using the same version of the Dandi schema
+        Confirms that the server is using the same version of the DANDI schema
         as the client.  If it is not, a `SchemaVersionError` is raised.
 
         :param schema_version: the schema version to confirm that the server
@@ -889,7 +889,7 @@ class RemoteDandiset:
     @property
     def api_path(self) -> str:
         """
-        The path (relative to the base endpoint for a Dandi Archive API) at
+        The path (relative to the base endpoint for the DANDI API) at
         which API requests for interacting with the Dandiset itself are made
         """
         return f"/dandisets/{self.identifier}/"
@@ -905,7 +905,7 @@ class RemoteDandiset:
     @property
     def version_api_path(self) -> str:
         """
-        The path (relative to the base endpoint for a Dandi Archive API) at
+        The path (relative to the base endpoint for the DANDI API) at
         which API requests for interacting with the version in question of the
         Dandiset are made
         """
@@ -1429,7 +1429,7 @@ class BaseRemoteAsset(ABC, APIBase):
     @property
     def api_path(self) -> str:
         """
-        The path (relative to the base endpoint for a Dandi Archive API) at
+        The path (relative to the base endpoint for the DANDI API) at
         which API requests for interacting with the asset itself are made
         """
         return f"/assets/{self.identifier}/"
@@ -1639,7 +1639,7 @@ class BaseRemoteAsset(ABC, APIBase):
         """
         .. versionadded:: 0.36.0
 
-        The primary digest algorithm used by Dandi Archive for the asset,
+        The primary digest algorithm used by DANDI for the asset,
         determined based on its underlying data: dandi-etag for blob resources,
         dandi-zarr-checksum for Zarr resources
         """
@@ -1825,7 +1825,7 @@ class RemoteAsset(BaseRemoteAsset):
     @property
     def api_path(self) -> str:
         """
-        The path (relative to the base endpoint for a Dandi Archive API) at
+        The path (relative to the base endpoint for the DANDI API) at
         which API requests for interacting with the asset itself are made
         """
         return f"/dandisets/{self.dandiset_id}/versions/{self.version_id}/assets/{self.identifier}/"

@@ -398,7 +398,7 @@ def test_delete_version(
             force=True,
         )
     assert str(excinfo.value) == (
-        "Dandi API server does not support deletion of individual versions of a"
+        "DANDI API server does not support deletion of individual versions of a"
         " dandiset"
     )
     delete_spy.assert_not_called()

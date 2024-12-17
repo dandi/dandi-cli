@@ -262,7 +262,7 @@ class Downloader:
 
         This function is a generator which yields records on ongoing
         activities.  Activities include traversal of the remote resource (DANDI
-        archive), download of individual assets while yielding records (TODO:
+        Archive), download of individual assets while yielding records (TODO:
         schema) while validating their checksums "on the fly", etc.
         """
 
