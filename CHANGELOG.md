@@ -1,3 +1,23 @@
+# 0.66.2 (Tue Dec 17 2024)
+
+#### 🐛 Bug Fix
+
+- enh: log exception info (at debug) when we catch an exception in map_to_click handler [#1552](https://github.com/dandi/dandi-cli/pull/1552) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏎 Performance
+
+- Reduce messaging to pyout on progress of downloads [#1554](https://github.com/dandi/dandi-cli/pull/1554) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- download: provide description for an assertion error on attempts_allowed_or_not [#1550](https://github.com/dandi/dandi-cli/pull/1550) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.66.1 (Wed Dec 04 2024)
 
 #### 🐛 Bug Fix
