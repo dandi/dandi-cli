@@ -358,13 +358,37 @@ class Downloader:
                         lock=lock,
                     )
 
+                def _progress_filter(gen):
+                    """To reduce load on pyout etc, make progress reports only if enough time
+                    from prior report has passed (over 2 seconds) or we are done (got 100%).
+
+                    Note that it requires "awareness" from the code below to issue other messages
+                    with bundling with done% reporting if reporting on progress of some kind (e.g.,
+                    adjusting "message").
+                    """
+                    prior_time = 0
+                    warned = False
+                    for rec in gen:
+                        current_time = time.time()
+                        if done_perc := rec.get("done%", 0):
+                            if isinstance(done_perc, (int, float)):
+                                if current_time - prior_time < 2 and done_perc != 100:
+                                    continue
+                            elif not warned:
+                                warned = True
+                                lgr.warning(
+                                    "Received non numeric done%%: %r", done_perc
+                                )
+                        prior_time = current_time
+                        yield rec
+
                 # If exception is raised we might just raise it, or yield
                 # an error record
                 gen = {
                     "raise": _download_generator,
                     "yield": _download_generator_guard(path, _download_generator),
                 }[self.on_error]
-
+                gen = _progress_filter(gen)
                 if self.yield_generator_for_fields:
                     yield {"path": path, self.yield_generator_for_fields: gen}
                 else:
@@ -779,14 +803,9 @@ def _download_file(
                 attempts_allowed=attempts_allowed,
                 downloaded_in_attempt=downloaded_in_attempt,
             )
-            if not attempts_allowed:
+            if not isinstance(attempts_allowed_or_not, int) or not attempts_allowed:
                 yield {"status": "error", "message": str(exc)}
                 return
-            # for clear(er) typing, here we get only with int
-            assert isinstance(attempts_allowed_or_not, int), (
-                f"attempts_allowed_or_not is {attempts_allowed_or_not!r} "
-                f"of type {type(attempts_allowed_or_not)}"
-            )
             attempts_allowed = attempts_allowed_or_not
     else:
         lgr.warning("downloader logic: We should not be here!")
@@ -1169,27 +1188,6 @@ class ProgressCombiner:
     prev_status: str = ""
     yielded_size: bool = False
 
-    @property
-    def message(self) -> str:
-        done = 0
-        errored = 0
-        skipped = 0
-        for s in self.files.values():
-            if s.state is DLState.DONE:
-                done += 1
-            elif s.state in (DLState.ERROR, DLState.CHECKSUM_ERROR):
-                errored += 1
-            elif s.state is DLState.SKIPPED:
-                skipped += 1
-        parts = []
-        if done:
-            parts.append(f"{done} done")
-        if errored:
-            parts.append(f"{errored} errored")
-        if skipped:
-            parts.append(f"{skipped} skipped")
-        return ", ".join(parts)
-
     def get_done(self) -> dict:
         total_downloaded = sum(
             s.downloaded
@@ -1207,7 +1205,8 @@ class ProgressCombiner:
             "done%": total_downloaded / self.zarr_size * 100 if self.zarr_size else 0,
         }
 
-    def set_status(self, statusdict: dict) -> None:
+    def get_status(self, report_done: bool = True) -> dict:
+
         state_qtys = Counter(s.state for s in self.files.values())
         total = len(self.files)
         if (
@@ -1226,9 +1225,28 @@ class ProgressCombiner:
             new_status = "downloading"
         else:
             new_status = ""
+
+        statusdict = {}
+
+        if report_done:
+            msg_comps = []
+            for msg_label, states in {
+                "done": (DLState.DONE,),
+                "errored": (DLState.ERROR, DLState.CHECKSUM_ERROR),
+                "skipped": (DLState.SKIPPED,),
+            }.items():
+                if count := sum(state_qtys.get(state, 0) for state in states):
+                    msg_comps.append(f"{count} {msg_label}")
+            if msg_comps:
+                statusdict["message"] = ", ".join(msg_comps)
+
         if new_status != self.prev_status:
-            statusdict["status"] = new_status
-            self.prev_status = new_status
+            self.prev_status = statusdict["status"] = new_status
+
+        if report_done and self.zarr_size:
+            statusdict.update(self.get_done())
+
+        return statusdict
 
     def feed(self, path: str, status: dict) -> Iterator[dict]:
         keys = list(status.keys())
@@ -1241,15 +1259,11 @@ class ProgressCombiner:
                 yield {"size": self.zarr_size}
         if status.get("status") == "skipped":
             self.files[path].state = DLState.SKIPPED
-            out = {"message": self.message}
             # Treat skipped as "downloaded" for the matter of accounting
             if size is not None:
                 self.files[path].downloaded = size
                 self.maxsize += size
-            self.set_status(out)
-            yield out
-            if self.zarr_size:
-                yield self.get_done()
+            yield self.get_status()
         elif keys == ["size"]:
             self.files[path].size = size
             self.maxsize += status["size"]
@@ -1257,9 +1271,7 @@ class ProgressCombiner:
                 yield self.get_done()
         elif status == {"status": "downloading"}:
             self.files[path].state = DLState.DOWNLOADING
-            out = {}
-            self.set_status(out)
-            if out:
+            if out := self.get_status(report_done=False):
                 yield out
         elif "done" in status:
             self.files[path].downloaded = status["done"]
@@ -1267,27 +1279,19 @@ class ProgressCombiner:
         elif status.get("status") == "error":
             if "checksum" in status:
                 self.files[path].state = DLState.CHECKSUM_ERROR
-                out = {"message": self.message}
-                self.set_status(out)
-                yield out
             else:
                 self.files[path].state = DLState.ERROR
-                out = {"message": self.message}
-                self.set_status(out)
-                yield out
                 sz = self.files[path].size
                 if sz is not None:
                     self.maxsize -= sz
-                    yield self.get_done()
+            yield self.get_status()
         elif keys == ["checksum"]:
             pass
         elif status == {"status": "setting mtime"}:
             pass
         elif status == {"status": "done"}:
             self.files[path].state = DLState.DONE
-            out = {"message": self.message}
-            self.set_status(out)
-            yield out
+            yield self.get_status()
         else:
             lgr.warning(
                 "Unexpected download status dict for %r received: %r", path, status
