@@ -95,7 +95,7 @@ class LocalZarrEntry(BasePath):
     def get_digest(self) -> Digest:
         """
         Calculate the DANDI etag digest for the entry.  If the entry is a
-        directory, the algorithm will be the Dandi Zarr checksum algorithm; if
+        directory, the algorithm will be the DANDI Zarr checksum algorithm; if
         it is a file, it will be MD5.
         """
         # Avoid heavy import by importing within function:
@@ -132,7 +132,7 @@ class ZarrStat:
 
     #: The total size of the asset
     size: int
-    #: The Dandi Zarr checksum of the asset
+    #: The DANDI Zarr checksum of the asset
     digest: Digest
     #: A list of all files in the asset in unspecified order
     files: list[LocalZarrEntry]
