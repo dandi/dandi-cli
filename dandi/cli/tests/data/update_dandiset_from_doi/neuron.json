@@ -13,7 +13,7 @@
     ],
     "version": "draft",
     "@context": "https://raw.githubusercontent.com/dandi/schema/master/releases/0.6.4/context.json",
-    "citation": "Tingley, David; Buzs\u00e1ki, Gy\u00f6rgy (2023) Routing of Hippocampal Ripples to Subcortical Structures via the Lateral Septum (Version draft) [Data set]. DANDI archive. http://localhost:8085/dandiset/000003/draft",
+    "citation": "Tingley, David; Buzs\u00e1ki, Gy\u00f6rgy (2023) Routing of Hippocampal Ripples to Subcortical Structures via the Lateral Septum (Version draft) [Data set]. DANDI Archive. http://localhost:8085/dandiset/000003/draft",
     "schemaKey": "Dandiset",
     "identifier": "DANDI:000003",
     "repository": "http://localhost:8085",
