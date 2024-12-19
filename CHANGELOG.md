@@ -1,3 +1,15 @@
+# 0.66.3 (Thu Dec 19 2024)
+
+#### 🏠 Internal
+
+- Update docs to generalize from `DANDI Archive` to `DANDI instance` [#1548](https://github.com/dandi/dandi-cli/pull/1548) ([@kabilar](https://github.com/kabilar))
+
+#### Authors: 1
+
+- Kabilar Gunalan ([@kabilar](https://github.com/kabilar))
+
+---
+
 # 0.66.2 (Tue Dec 17 2024)
 
 #### 🐛 Bug Fix
