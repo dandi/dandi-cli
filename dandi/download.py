@@ -1141,8 +1141,12 @@ def _check_if_more_attempts_allowed(
                 exc,
             )
         else:
-            lgr.debug("%s - download failed: %s", path, exc)
-            return None
+            lgr.debug(
+                "%s - download failed on attempt #%d: %s, will sleep a bit and retry",
+                path,
+                attempt,
+                exc,
+            )
     elif attempt >= attempts_allowed:
         lgr.debug("%s - download failed after %d attempts: %s", path, attempt, exc)
         return None
