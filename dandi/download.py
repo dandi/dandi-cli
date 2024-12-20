@@ -1103,8 +1103,11 @@ def _check_if_more_attempts_allowed(
                 downloaded_in_attempt,
             )
             attempts_allowed += 1
+    if attempt >= attempts_allowed:
+        lgr.debug("%s - download failed after %d attempts: %s", path, attempt, exc)
+        return None
     # TODO: actually we should probably retry only on selected codes,
-    if exc.response is not None:
+    elif exc.response is not None:
         if exc.response.status_code not in (
             400,  # Bad Request, but happened with gider:
             # https://github.com/dandi/dandi-cli/issues/87
@@ -1141,11 +1144,12 @@ def _check_if_more_attempts_allowed(
                 exc,
             )
         else:
-            lgr.debug("%s - download failed: %s", path, exc)
-            return None
-    elif attempt >= attempts_allowed:
-        lgr.debug("%s - download failed after %d attempts: %s", path, attempt, exc)
-        return None
+            lgr.debug(
+                "%s - download failed on attempt #%d: %s, will sleep a bit and retry",
+                path,
+                attempt,
+                exc,
+            )
     # if is_access_denied(exc) or attempt >= 2:
     #     raise
     # sleep a little and retry
