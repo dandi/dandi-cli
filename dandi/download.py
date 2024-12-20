@@ -1088,7 +1088,7 @@ def _check_if_more_attempts_allowed(
     downloaded_in_attempt: int,
 ) -> int | None:
     """Check if we should retry the download, return potentially adjusted 'attempts_allowed'"""
-    sleep_amount = random.random() * 5 * attempt
+    sleep_amount: float = -1.0
     if os.environ.get("DANDI_DOWNLOAD_AGGRESSIVE_RETRY"):
         # in such a case if we downloaded a little more --
         # consider it a successful attempt
@@ -1143,17 +1143,9 @@ def _check_if_more_attempts_allowed(
                 sleep_amount,
                 exc,
             )
-        else:
-            lgr.debug(
-                "%s - download failed on attempt #%d: %s, will sleep a bit and retry",
-                path,
-                attempt,
-                exc,
-            )
-    # if is_access_denied(exc) or attempt >= 2:
-    #     raise
-    # sleep a little and retry
-    else:
+    if sleep_amount < 0:
+        # it was not Retry-after set, so we come up with random duration to sleep
+        sleep_amount = random.random() * 5 * attempt
         lgr.debug(
             "%s - download failed on attempt #%d: %s, will sleep a bit and retry",
             path,
