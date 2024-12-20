@@ -141,7 +141,7 @@ known_instances = {
         "linc-staging",
         "https://staging.lincbrain.org",
         "https://staging-api.lincbrain.org/api",
-    )
+    ),
 }
 # to map back url: name
 known_instances_rev = {
@@ -160,7 +160,7 @@ DRAFT = "draft"
 
 #: HTTP response status codes that should always be retried (until we run out
 #: of retries)
-RETRY_STATUSES = (500, 502, 503, 504)
+RETRY_STATUSES = (429, 500, 502, 503, 504)
 
 VIDEO_FILE_EXTENSIONS = [".mp4", ".avi", ".wmv", ".mov", ".flv", ".mkv"]
 VIDEO_FILE_MODULES = ["processing", "acquisition"]
