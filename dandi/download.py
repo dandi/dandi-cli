@@ -3,7 +3,8 @@ from __future__ import annotations
 from collections import Counter, deque
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import InitVar, dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from enum import Enum
 from functools import partial
 import hashlib
@@ -1085,7 +1086,7 @@ def _check_if_more_attempts_allowed(
     exc: requests.RequestException,
     attempt: int,
     attempts_allowed: int,
-    downloaded_in_attempt: int,
+    downloaded_in_attempt: int = 0,
 ) -> int | None:
     """Check if we should retry the download, return potentially adjusted 'attempts_allowed'"""
     sleep_amount: float = -1.0
@@ -1121,20 +1122,35 @@ def _check_if_more_attempts_allowed(
             )
             return None
         elif retry_after := exc.response.headers.get("Retry-After"):
-            # playing safe
-            if not str(retry_after).isdigit():
-                # our code is wrong, do not crash but issue warning so
-                # we might get report/fix it up
-                lgr.warning(
-                    "%s - download failed due to response %d with non-integer"
-                    " Retry-After=%r: %s",
-                    path,
-                    exc.response.status_code,
-                    retry_after,
-                    exc,
-                )
-                return None
-            sleep_amount = int(retry_after)
+            if retry_after.isdigit():
+                sleep_amount = int(retry_after)
+            else:
+                # else if it is a datestamp like "Wed, 21 Oct 2015 07:28:00 GMT"
+                # we could parse it and calculate how long to sleep
+                try:
+                    retry_after_date = parsedate_to_datetime(retry_after)
+                    current_date = datetime.now(UTC)
+                    difference = retry_after_date - current_date
+                    sleep_amount = int(difference.total_seconds())
+                    if sleep_amount < 0:
+                        lgr.warning(
+                            "%s - date in Retry-After=%r is in the past (current is %r)",
+                            path,
+                            retry_after,
+                            current_date,
+                        )
+                except ValueError as exc_ve:
+                    # our code or response is wrong, do not crash but issue warning
+                    # and continue with "default" sleep logic
+                    lgr.warning(
+                        "%s - download failed due to response %d with non-integer or future date"
+                        " Retry-After=%r: %s with %s upon converting assuming it is a date",
+                        path,
+                        exc.response.status_code,
+                        retry_after,
+                        exc,
+                        exc_ve,
+                    )
             lgr.debug(
                 "%s - download failed due to response %d with "
                 "Retry-After=%d: %s, will sleep and retry",
