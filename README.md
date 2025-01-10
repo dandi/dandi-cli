@@ -78,10 +78,10 @@ Run `dandi --help` or `dandi <subcommand> --help` (e.g. `dandi upload --help`) t
 ## Resources
 
 * To learn how to interact with the DANDI Archive and for examples on how to use the DANDI Client in various use cases,
-see [the handbook](https://www.dandiarchive.org/handbook/)
+see the [DANDI Docs](https://docs.dandiarchive.org)
   (specifically the sections on using the CLI to
-[download](https://www.dandiarchive.org/handbook/12_download/) and
-[upload](https://www.dandiarchive.org/handbook/13_upload/) `Dandisets`).
+[download](https://docs.dandiarchive.org/12_download/) and
+[upload](https://docs.dandiarchive.org/13_upload/) `Dandisets`).
 
 * To get help:
   - ask a question: https://github.com/dandi/helpdesk/discussions
