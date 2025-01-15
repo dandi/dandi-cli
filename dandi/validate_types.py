@@ -1,35 +1,51 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, IntEnum
 from pathlib import Path
+from typing import Any
 
 
 @dataclass
 class ValidationOrigin:
     name: str
     version: str
-    bids_version: str | None = None
+    standard: str | None = None  # TODO: Enum for the standards??
+    standard_version: str | None = None
 
 
-class Severity(Enum):
+# TODO: decide on the naming consistency -- either prepend all with Validation or not
+class Severity(IntEnum):
     HINT = 1
-    WARNING = 2
-    ERROR = 3
+    INFO = 2  # new/unused, available in linkml
+    WARNING = 3
+    ERROR = 4
+    CRITICAL = 5  # new/unused, linkml has FATAL
 
 
 class Scope(Enum):
     FILE = "file"
     FOLDER = "folder"
+    # Isaac: make it/add "dandiset-metadata" to signal specific relation to metadata
     DANDISET = "dandiset"
     DATASET = "dataset"
+
+
+# new/unused, may be should be gone
+class ValidationObject(Enum):
+    METADATA = "metadata"
+    DATA = "data"  # e.g. actual data contained in files, not metadata (e.g. as in
+    # nwb or nifti header)
+    FILE = "file"  # e.g. file itself, e.g. truncated file or file not matching checksum
 
 
 @dataclass
 class ValidationResult:
     id: str
-    origin: ValidationOrigin
+    origin: ValidationOrigin  # metadata about underlying validator and standard
     scope: Scope
+    origin_result: Any | None = None  # original validation result from "origin"
+    object: ValidationObject | None = None
     severity: Severity | None = None
     # asset_paths, if not populated, assumes [.path], but could be smth like
     # {"path": "task-broken_bold.json",
