@@ -25,4 +25,10 @@ def test_cmd_instances(monkeypatch):
         "linc-staging:\n"
         "  api: https://staging-api.lincbrain.org/api\n"
         "  gui: https://staging.lincbrain.org\n"
+        "ember:\n"
+        "  api: https://api.ember-archive.org/api\n"
+        "  gui: https://ember-archive.org\n"
+        "ember-staging:\n"
+        "  api: https://staging-api.ember-archive.org/api\n"
+        "  gui: https://staging.ember-archive.org\n"
     )

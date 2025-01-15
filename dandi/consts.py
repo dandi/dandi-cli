@@ -141,7 +141,17 @@ known_instances = {
         "linc-staging",
         "https://staging.lincbrain.org",
         "https://staging-api.lincbrain.org/api",
-    )
+    ),
+    "ember": DandiInstance(
+        "ember",
+        "https://ember-archive.org",
+        "https://api.ember-archive.org/api",
+    ),
+    "ember-staging": DandiInstance(
+        "ember-staging",
+        "https://staging.ember-archive.org",
+        "https://staging-api.ember-archive.org/api",
+    ),
 }
 # to map back url: name
 known_instances_rev = {
