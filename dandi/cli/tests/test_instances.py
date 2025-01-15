@@ -28,7 +28,7 @@ def test_cmd_instances(monkeypatch):
         "ember:\n"
         "  api: https://api.ember-archive.org/api\n"
         "  gui: https://ember-archive.org\n"
-        "ember-staging:\n"
-        "  api: https://staging-api.ember-archive.org/api\n"
-        "  gui: https://staging.ember-archive.org\n"
+        "ember-sandbox:\n"
+        "  api: https://sandbox-api.ember-archive.org/api\n"
+        "  gui: https://sandbox.ember-archive.org\n"
     )

@@ -28,9 +28,9 @@ Example output:
     linc:
       api: https://api.lincbrain.org/api
       gui: https://lincbrain.org
-    ember-staging:
-      api: https://staging-api.ember-archive.org/api
-      gui: https://staging.ember-archive.org
+    ember-sandbox:
+      api: https://sandbox-api.ember-archive.org/api
+      gui: https://sandbox.ember-archive.org
     ember:
       api: https://api.ember-archive.org/api
       gui: https://ember-archive.org
