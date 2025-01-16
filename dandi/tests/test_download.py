@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from contextlib import nullcontext
+from email.utils import parsedate_to_datetime
+from functools import partial
 from glob import glob
 import json
 import logging
@@ -12,10 +14,13 @@ from pathlib import Path
 import re
 from shutil import rmtree
 import time
+from unittest import mock
 
 import numpy as np
 import pytest
 from pytest_mock import MockerFixture
+import requests
+from requests.exceptions import HTTPError
 import responses
 import zarr
 
@@ -32,6 +37,7 @@ from ..download import (
     PathType,
     ProgressCombiner,
     PYOUTHelper,
+    _check_if_more_attempts_allowed,
     download,
 )
 from ..exceptions import NotFoundError
@@ -1169,3 +1175,91 @@ def test_DownloadDirectory_exc(
     assert dl.dirpath.exists()
     assert dl.fp is None
     assert dl.writefile.read_bytes() == b"456"
+
+
+def test__check_if_more_attempts_allowed():
+    f = partial(_check_if_more_attempts_allowed, "some/path")
+
+    response403 = requests.Response()
+    response403.status_code = 403  # no retry
+
+    response500 = requests.Response()
+    response500.status_code = 500
+
+    # we do retry if cause is unknown (no response)
+    with mock.patch("time.sleep") as mock_sleep:
+        assert f(HTTPError(), attempt=1, attempts_allowed=2) == 2
+        mock_sleep.assert_called_once()
+        assert mock_sleep.call_args.args[0] >= 0
+
+    # or if some 500
+    with mock.patch("time.sleep") as mock_sleep:
+        assert f(HTTPError(response=response500), attempt=1, attempts_allowed=2) == 2
+        mock_sleep.assert_called_once()
+        assert mock_sleep.call_args.args[0] >= 0
+
+    # do not bother if already at limit
+    with mock.patch("time.sleep") as mock_sleep:
+        assert f(HTTPError(), attempt=2, attempts_allowed=2) is None
+        mock_sleep.assert_not_called()
+
+    # do not bother if 403
+    with mock.patch("time.sleep") as mock_sleep:
+        assert f(HTTPError(response=response403), attempt=1, attempts_allowed=2) is None
+        mock_sleep.assert_not_called()
+
+    # And in case of "Aggressive setting" when DANDI_DOWNLOAD_AGGRESSIVE_RETRY
+    # env var is set to 1, we retry if there was extra content downloaded
+    # patch env var DANDI_DOWNLOAD_AGGRESSIVE_RETRY
+    with mock.patch.dict(os.environ, {"DANDI_DOWNLOAD_AGGRESSIVE_RETRY": "1"}):
+        with mock.patch("time.sleep") as mock_sleep:
+            assert (
+                f(HTTPError(), attempt=2, attempts_allowed=2, downloaded_in_attempt=0)
+                is None
+            )
+            mock_sleep.assert_not_called()
+
+            assert (
+                f(HTTPError(), attempt=2, attempts_allowed=2, downloaded_in_attempt=1)
+                == 3
+            )
+            mock_sleep.assert_called_once()
+            assert mock_sleep.call_args.args[0] >= 0
+
+
+@pytest.mark.parametrize("status_code", [429, 503])
+def test__check_if_more_attempts_allowed_retries(status_code):
+    f = partial(_check_if_more_attempts_allowed, "some/path")
+
+    response = requests.Response()
+    response.status_code = status_code
+
+    response.headers["Retry-After"] = "10"
+    with mock.patch("time.sleep") as mock_sleep:
+        assert f(HTTPError(response=response), attempt=1, attempts_allowed=2) == 2
+        mock_sleep.assert_called_once()
+        assert mock_sleep.call_args.args[0] == 10
+
+    response.headers["Retry-After"] = "Wed, 21 Oct 2015 07:28:00 GMT"
+    with mock.patch("time.sleep") as mock_sleep, mock.patch(
+        "dandi.download.datetime"
+    ) as mock_datetime:
+        # shifted by 2 minutes
+        mock_datetime.now.return_value = parsedate_to_datetime(
+            "Wed, 21 Oct 2015 07:26:00 GMT"
+        )
+        assert f(HTTPError(response=response), attempt=1, attempts_allowed=2) == 2
+        mock_sleep.assert_called_once()
+        assert mock_sleep.call_args.args[0] == 120
+
+    # we would still sleep some time if Retry-After is not decypherable
+    response.headers["Retry-After"] = "nondecypherable"
+    with mock.patch("time.sleep") as mock_sleep:
+        assert (
+            _check_if_more_attempts_allowed(
+                "some/path", HTTPError(response=response), attempt=1, attempts_allowed=2
+            )
+            == 2
+        )
+        mock_sleep.assert_called_once()
+        assert mock_sleep.call_args.args[0] > 0
