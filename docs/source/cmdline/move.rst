@@ -7,7 +7,7 @@
     dandi [<global options>] move --regex [<options>] <pattern> <replacement>
 
 Move or rename assets in a local Dandiset and/or on the server.  The
-:program:`dandi move` command takes one of more source paths of the assets to
+:program:`dandi move` command takes one or more source paths of the assets to
 move, followed by a destination path indicating where to move them to.  Paths
 given on the command line must use forward slashes (``/``) as path separators,
 even on Windows.  In addition, when running the command inside a subdirectory
