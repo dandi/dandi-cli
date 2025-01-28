@@ -24,7 +24,7 @@ from dandischema.digests.dandietag import ETagHashlike
 from dandischema.models import DigestType
 from fasteners import InterProcessLock
 import humanize
-from interleave import FINISH_CURRENT, interleave
+from interleave import FINISH_CURRENT, lazy_interleave
 import requests
 
 from . import get_logger
@@ -1013,7 +1013,7 @@ def _download_zarr(
         pc.file_qty = len(entries)
 
     final_out: dict | None = None
-    with interleave(
+    with lazy_interleave(
         downloads_gen(),
         onerror=FINISH_CURRENT,
         max_workers=jobs or 4,
@@ -1210,7 +1210,6 @@ class ProgressCombiner:
         }
 
     def get_status(self, report_done: bool = True) -> dict:
-
         state_qtys = Counter(s.state for s in self.files.values())
         total = len(self.files)
         if (
