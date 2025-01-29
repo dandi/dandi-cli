@@ -1242,10 +1242,10 @@ def test__check_if_more_attempts_allowed_retries(status_code):
 
     response.headers["Retry-After"] = "Wed, 21 Oct 2015 07:28:00 GMT"
     with mock.patch("time.sleep") as mock_sleep, mock.patch(
-        "dandi.download.datetime"
+        "dandi.utils.datetime"
     ) as mock_datetime:
         # shifted by 2 minutes
-        mock_datetime.now.return_value = parsedate_to_datetime(
+        mock_datetime.datetime.now.return_value = parsedate_to_datetime(
             "Wed, 21 Oct 2015 07:26:00 GMT"
         )
         assert f(HTTPError(response=response), attempt=1, attempts_allowed=2) == 2

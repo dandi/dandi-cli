@@ -3,8 +3,7 @@ from __future__ import annotations
 from collections import Counter, deque
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import InitVar, dataclass, field
-from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
+from datetime import datetime
 from enum import Enum
 from functools import partial
 import hashlib
@@ -50,6 +49,7 @@ from .utils import (
     ensure_datetime,
     exclude_from_zarr,
     flattened,
+    get_retry_after,
     is_same_time,
     path_is_subpath,
     pluralize,
@@ -1121,44 +1121,17 @@ def _check_if_more_attempts_allowed(
                 exc,
             )
             return None
-        elif retry_after := exc.response.headers.get("Retry-After"):
-            if retry_after.isdigit():
-                sleep_amount = int(retry_after)
-            else:
-                # else if it is a datestamp like "Wed, 21 Oct 2015 07:28:00 GMT"
-                # we could parse it and calculate how long to sleep
-                try:
-                    retry_after_date = parsedate_to_datetime(retry_after)
-                    current_date = datetime.now(timezone.utc)
-                    difference = retry_after_date - current_date
-                    sleep_amount = int(difference.total_seconds())
-                    if sleep_amount < 0:
-                        lgr.warning(
-                            "%s - date in Retry-After=%r is in the past (current is %r)",
-                            path,
-                            retry_after,
-                            current_date,
-                        )
-                except ValueError as exc_ve:
-                    # our code or response is wrong, do not crash but issue warning
-                    # and continue with "default" sleep logic
-                    lgr.warning(
-                        "%s - download failed due to response %d with non-integer or future date"
-                        " Retry-After=%r: %s with %s upon converting assuming it is a date",
-                        path,
-                        exc.response.status_code,
-                        retry_after,
-                        exc,
-                        exc_ve,
-                    )
-            lgr.debug(
-                "%s - download failed due to response %d with "
-                "Retry-After=%d: %s, will sleep and retry",
-                path,
-                exc.response.status_code,
-                sleep_amount,
-                exc,
-            )
+        elif sleep_amount_ := get_retry_after(exc.response):
+            if sleep_amount_ is not None:  # could be 0
+                sleep_amount = sleep_amount_
+                lgr.debug(
+                    "%s - download failed due to response %d with "
+                    "Retry-After=%d: %s, will sleep and retry",
+                    path,
+                    exc.response.status_code,
+                    sleep_amount,
+                    exc,
+                )
     if sleep_amount < 0:
         # it was not Retry-after set, so we come up with random duration to sleep
         sleep_amount = random.random() * 5 * attempt
