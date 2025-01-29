@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter, deque
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import InitVar, dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from enum import Enum
 from functools import partial
@@ -1129,7 +1129,7 @@ def _check_if_more_attempts_allowed(
                 # we could parse it and calculate how long to sleep
                 try:
                     retry_after_date = parsedate_to_datetime(retry_after)
-                    current_date = datetime.now(UTC)
+                    current_date = datetime.now(timezone.utc)
                     difference = retry_after_date - current_date
                     sleep_amount = int(difference.total_seconds())
                     if sleep_amount < 0:
