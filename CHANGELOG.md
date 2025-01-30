@@ -1,3 +1,24 @@
+# 0.66.5 (Thu Jan 30 2025)
+
+#### 🐛 Bug Fix
+
+- Start Zarr download as soon as first page of entries is obtained [#1569](https://github.com/dandi/dandi-cli/pull/1569) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Use Python 3.10 to build docs [#1567](https://github.com/dandi/dandi-cli/pull/1567) ([@jwodder](https://github.com/jwodder))
+
+#### 🔩 Dependency Updates
+
+- Pin `dandischema` to require the latest `schema` version [#1570](https://github.com/dandi/dandi-cli/pull/1570) ([@kabilar](https://github.com/kabilar))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Kabilar Gunalan ([@kabilar](https://github.com/kabilar))
+
+---
+
 # 0.66.4 (Thu Jan 23 2025)
 
 #### 🐛 Bug Fix
