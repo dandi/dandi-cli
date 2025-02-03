@@ -907,9 +907,9 @@ def get_retry_after(response: requests.Response) -> Optional[int]:
     if retry_after is None:
         return None
     sleep_amount: int | None
-    if retry_after.isdecimal():
+    try:
         sleep_amount = int(retry_after)
-    else:
+    except ValueError:
         # else if it is a datestamp like "Wed, 21 Oct 2015 07:28:00 GMT"
         # we could parse it and calculate how long to sleep
         current_date = datetime.datetime.now(datetime.timezone.utc)
