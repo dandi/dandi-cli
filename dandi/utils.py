@@ -902,55 +902,54 @@ def get_retry_after(response: requests.Response) -> Optional[int]:
     since either too far in the past (over 2 seconds) or in the future
     (over a week), would return None.
     """
-    if_unparsable = None
     retry_after = response.headers.get("Retry-After")
     if retry_after is None:
         return None
     sleep_amount: int | None
+    current_date = datetime.datetime.now(datetime.timezone.utc)
     try:
         sleep_amount = int(retry_after)
     except ValueError:
         # else if it is a datestamp like "Wed, 21 Oct 2015 07:28:00 GMT"
         # we could parse it and calculate how long to sleep
-        current_date = datetime.datetime.now(datetime.timezone.utc)
         try:
             retry_after_date = parsedate_to_datetime(retry_after)
         except (ValueError, TypeError) as exc_ve:
             # our code or response is wrong, do not crash but issue warning
             # and continue with "if_unparsable" sleep logic
+            sleep_amount = None
             lgr.warning(
                 "response %d has incorrect date in Retry-After=%r: %s. " "Returning %r",
                 response.status_code,
                 retry_after,
                 exc_ve,
-                if_unparsable,
+                sleep_amount,
             )
-            sleep_amount = if_unparsable
         else:
             difference = retry_after_date - current_date
             sleep_amount = int(difference.total_seconds())
 
-        if sleep_amount:
-            if -2 < sleep_amount < 0:
-                # allow for up to a few seconds delay in us receiving/parsing etc
-                # but otherwise assume abnormality and just return if_unparsable
-                sleep_amount = 0
-            elif sleep_amount < 0:
-                lgr.warning(
-                    "date in Retry-After=%r is in the past (current is %r). "
-                    "Returning %r",
-                    retry_after,
-                    current_date,
-                    if_unparsable,
-                )
-                sleep_amount = if_unparsable
-            elif sleep_amount > 7 * 24 * 60 * 60:  # week
-                lgr.warning(
-                    "date in Retry-After=%r is over a week in the future (current is %r). "
-                    "Returning %r",
-                    retry_after,
-                    current_date,
-                    if_unparsable,
-                )
-                sleep_amount = if_unparsable
+    if sleep_amount:
+        if -2 < sleep_amount < 0:
+            # allow for up to a few seconds delay in us receiving/parsing etc
+            # but otherwise assume abnormality and just return if_unparsable
+            sleep_amount = 0
+        elif sleep_amount < 0:
+            sleep_amount = None
+            lgr.warning(
+                "date in Retry-After=%r is in the past (current is %r). "
+                "Returning %r",
+                retry_after,
+                current_date,
+                sleep_amount,
+            )
+        elif sleep_amount > 7 * 24 * 60 * 60:  # week
+            sleep_amount = None
+            lgr.warning(
+                "date in Retry-After=%r is over a week in the future (current is %r). "
+                "Returning %r",
+                retry_after,
+                current_date,
+                sleep_amount,
+            )
     return sleep_amount
