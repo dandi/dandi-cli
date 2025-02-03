@@ -1107,10 +1107,9 @@ def _check_if_more_attempts_allowed(
     if attempt >= attempts_allowed:
         lgr.debug("%s - download failed after %d attempts: %s", path, attempt, exc)
         return None
-    # TODO: actually we should probably retry only on selected codes,
     elif exc.response is not None:
         if exc.response.status_code not in (
-            400,  # Bad Request, but happened with gider:
+            400,  # Bad Request, but happened with girder:
             # https://github.com/dandi/dandi-cli/issues/87
             *RETRY_STATUSES,
         ):
@@ -1136,10 +1135,11 @@ def _check_if_more_attempts_allowed(
         # it was not Retry-after set, so we come up with random duration to sleep
         sleep_amount = random.random() * 5 * attempt
         lgr.debug(
-            "%s - download failed on attempt #%d: %s, will sleep a bit and retry",
+            "%s - download failed on attempt #%d: %s, will sleep %f and retry",
             path,
             attempt,
             exc,
+            sleep_amount,
         )
     time.sleep(sleep_amount)
     return attempts_allowed
