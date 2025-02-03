@@ -1178,7 +1178,7 @@ def test_DownloadDirectory_exc(
 
 
 def test__check_attempts_and_sleep() -> None:
-    f = partial(_check_attempts_and_sleep, "some/path")
+    f = partial(_check_attempts_and_sleep, Path("some/path"))
 
     response403 = requests.Response()
     response403.status_code = 403  # no retry
@@ -1229,7 +1229,7 @@ def test__check_attempts_and_sleep() -> None:
 
 @pytest.mark.parametrize("status_code", [429, 503])
 def test__check_attempts_and_sleep_retries(status_code: int) -> None:
-    f = partial(_check_attempts_and_sleep, "some/path")
+    f = partial(_check_attempts_and_sleep, Path("some/path"))
 
     response = requests.Response()
     response.status_code = status_code
@@ -1257,7 +1257,10 @@ def test__check_attempts_and_sleep_retries(status_code: int) -> None:
     with mock.patch("time.sleep") as mock_sleep:
         assert (
             _check_attempts_and_sleep(
-                "some/path", HTTPError(response=response), attempt=1, attempts_allowed=2
+                Path("some/path"),
+                HTTPError(response=response),
+                attempt=1,
+                attempts_allowed=2,
             )
             == 2
         )
