@@ -1122,17 +1122,15 @@ def _check_attempts_and_sleep(
                 exc,
             )
             return None
-        elif sleep_amount_ := get_retry_after(exc.response):
-            if sleep_amount_ is not None:  # could be 0
-                sleep_amount = sleep_amount_
-                lgr.debug(
-                    "%s - download failed due to response %d with "
-                    "Retry-After=%d: %s, will sleep and retry",
-                    path,
-                    exc.response.status_code,
-                    sleep_amount,
-                    exc,
-                )
+        elif (sleep_amount := get_retry_after(exc.response)) is not None:
+            lgr.debug(
+                "%s - download failed due to response %d with "
+                "Retry-After=%d: %s, will sleep and retry",
+                path,
+                exc.response.status_code,
+                sleep_amount,
+                exc,
+            )
     if sleep_amount is None:
         # it was not Retry-after set, so we come up with random duration to sleep
         sleep_amount = random.random() * 5 * attempt
