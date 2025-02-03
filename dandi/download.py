@@ -1122,7 +1122,7 @@ def _check_attempts_and_sleep(
                 exc,
             )
             return None
-        elif (sleep_amount := get_retry_after(exc.response)) is not None:
+        if (sleep_amount := get_retry_after(exc.response)) is not None:
             lgr.debug(
                 "%s - download failed due to response %d with "
                 "Retry-After=%d: %s, will sleep and retry",
