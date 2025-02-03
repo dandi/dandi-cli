@@ -1266,3 +1266,29 @@ def test__check_attempts_and_sleep_retries(status_code: int) -> None:
         )
         mock_sleep.assert_called_once()
         assert mock_sleep.call_args.args[0] > 0
+
+    # shifted by 1 year! (too long)
+    response.headers["Retry-After"] = "Wed, 21 Oct 2016 07:28:00 GMT"
+    with mock.patch("time.sleep") as mock_sleep, mock.patch(
+        "dandi.utils.datetime"
+    ) as mock_datetime:
+        mock_datetime.datetime.now.return_value = parsedate_to_datetime(
+            "Wed, 21 Oct 2015 07:28:00 GMT"
+        )
+        assert f(HTTPError(response=response), attempt=1, attempts_allowed=2) == 2
+        mock_sleep.assert_called_once()
+        # and we do sleep some time
+        assert mock_sleep.call_args.args[0] > 0
+
+    # in the past second (too quick)
+    response.headers["Retry-After"] = "Wed, 21 Oct 2015 07:27:59 GMT"
+    with mock.patch("time.sleep") as mock_sleep, mock.patch(
+        "dandi.utils.datetime"
+    ) as mock_datetime:
+        mock_datetime.datetime.now.return_value = parsedate_to_datetime(
+            "Wed, 21 Oct 2015 07:28:00 GMT"
+        )
+        assert f(HTTPError(response=response), attempt=1, attempts_allowed=2) == 2
+        mock_sleep.assert_called_once()
+        # and we do not sleep really
+        assert not mock_sleep.call_args.args[0]
