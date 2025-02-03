@@ -1,3 +1,50 @@
+# 0.66.5 (Thu Jan 30 2025)
+
+#### 🐛 Bug Fix
+
+- Start Zarr download as soon as first page of entries is obtained [#1569](https://github.com/dandi/dandi-cli/pull/1569) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Use Python 3.10 to build docs [#1567](https://github.com/dandi/dandi-cli/pull/1567) ([@jwodder](https://github.com/jwodder))
+
+#### 🔩 Dependency Updates
+
+- Pin `dandischema` to require the latest `schema` version [#1570](https://github.com/dandi/dandi-cli/pull/1570) ([@kabilar](https://github.com/kabilar))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Kabilar Gunalan ([@kabilar](https://github.com/kabilar))
+
+---
+
+# 0.66.4 (Thu Jan 23 2025)
+
+#### 🐛 Bug Fix
+
+- Continue retrying downloads on retriable statuses [#1558](https://github.com/dandi/dandi-cli/pull/1558) ([@jwodder](https://github.com/jwodder))
+
+#### 📝 Documentation
+
+- Fix typo in `dandi move` docstring [#1566](https://github.com/dandi/dandi-cli/pull/1566) ([@kabilar](https://github.com/kabilar))
+- Update URL for DANDI Docs [#1561](https://github.com/dandi/dandi-cli/pull/1561) ([@kabilar](https://github.com/kabilar))
+
+#### 🧪 Tests
+
+- Don't use version 0.25.5 of `responses` [#1562](https://github.com/dandi/dandi-cli/pull/1562) ([@jwodder](https://github.com/jwodder))
+
+#### 🔩 Dependency Updates
+
+- Support dandischema v0.11.0 [#1560](https://github.com/dandi/dandi-cli/pull/1560) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Kabilar Gunalan ([@kabilar](https://github.com/kabilar))
+
+---
+
 # 0.66.3 (Thu Dec 19 2024)
 
 #### 🏠 Internal
