@@ -1177,7 +1177,7 @@ def test_DownloadDirectory_exc(
     assert dl.writefile.read_bytes() == b"456"
 
 
-def test__check_if_more_attempts_allowed():
+def test__check_attempts_and_sleep() -> None:
     f = partial(_check_attempts_and_sleep, "some/path")
 
     response403 = requests.Response()
@@ -1228,7 +1228,7 @@ def test__check_if_more_attempts_allowed():
 
 
 @pytest.mark.parametrize("status_code", [429, 503])
-def test__check_if_more_attempts_allowed_retries(status_code):
+def test__check_attempts_and_sleep_retries(status_code: int) -> None:
     f = partial(_check_attempts_and_sleep, "some/path")
 
     response = requests.Response()
@@ -1253,7 +1253,7 @@ def test__check_if_more_attempts_allowed_retries(status_code):
         assert mock_sleep.call_args.args[0] == 120
 
     # we would still sleep some time if Retry-After is not decypherable
-    response.headers["Retry-After"] = "nondecypherable"
+    response.headers["Retry-After"] = "indecipherable"
     with mock.patch("time.sleep") as mock_sleep:
         assert (
             _check_attempts_and_sleep(
