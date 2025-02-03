@@ -797,7 +797,7 @@ def _download_file(
         # Catching RequestException lets us retry on timeout & connection
         # errors (among others) in addition to HTTP status errors.
         except requests.RequestException as exc:
-            attempts_allowed_or_not = _check_if_more_attempts_allowed(
+            attempts_allowed_or_not = _check_attempts_and_sleep(
                 path=path,
                 exc=exc,
                 attempt=attempt,
@@ -1081,14 +1081,16 @@ def _download_zarr(
     yield {"status": "done"}
 
 
-def _check_if_more_attempts_allowed(
+def _check_attempts_and_sleep(
     path: Path,
     exc: requests.RequestException,
     attempt: int,
     attempts_allowed: int,
     downloaded_in_attempt: int = 0,
 ) -> int | None:
-    """Check if we should retry the download, return potentially adjusted 'attempts_allowed'"""
+    """Check if we should retry the download, sleep if still allowed,
+    and return potentially adjusted 'attempts_allowed'
+    """
     sleep_amount: float = -1.0
     if os.environ.get("DANDI_DOWNLOAD_AGGRESSIVE_RETRY"):
         # in such a case if we downloaded a little more --

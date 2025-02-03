@@ -37,7 +37,7 @@ from ..download import (
     PathType,
     ProgressCombiner,
     PYOUTHelper,
-    _check_if_more_attempts_allowed,
+    _check_attempts_and_sleep,
     download,
 )
 from ..exceptions import NotFoundError
@@ -1178,7 +1178,7 @@ def test_DownloadDirectory_exc(
 
 
 def test__check_if_more_attempts_allowed():
-    f = partial(_check_if_more_attempts_allowed, "some/path")
+    f = partial(_check_attempts_and_sleep, "some/path")
 
     response403 = requests.Response()
     response403.status_code = 403  # no retry
@@ -1229,7 +1229,7 @@ def test__check_if_more_attempts_allowed():
 
 @pytest.mark.parametrize("status_code", [429, 503])
 def test__check_if_more_attempts_allowed_retries(status_code):
-    f = partial(_check_if_more_attempts_allowed, "some/path")
+    f = partial(_check_attempts_and_sleep, "some/path")
 
     response = requests.Response()
     response.status_code = status_code
@@ -1256,7 +1256,7 @@ def test__check_if_more_attempts_allowed_retries(status_code):
     response.headers["Retry-After"] = "nondecypherable"
     with mock.patch("time.sleep") as mock_sleep:
         assert (
-            _check_if_more_attempts_allowed(
+            _check_attempts_and_sleep(
                 "some/path", HTTPError(response=response), attempt=1, attempts_allowed=2
             )
             == 2
