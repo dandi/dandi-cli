@@ -413,8 +413,8 @@ class DandiAPIClient(RESTFullAPIClient):
 
         :param str api_url: Base API URL of the server to interact with.
             - For DANDI production, use  ``"https://api.dandiarchive.org/api"``
-            - For DANDI staging, use
-              ``"https://api-staging.dandiarchive.org/api"``
+            - For DANDI sandbox, use
+              ``"https://api-sandbox.dandiarchive.org/api"``
         :param str token: User API Key. Note that different instance APIs have
             different keys.
         """
@@ -486,7 +486,7 @@ class DandiAPIClient(RESTFullAPIClient):
         it proves to be valid, it is stored in the user's keyring.
 
         .. [#auth] E.g., "``dandi-api-dandi``" for the production server or
-                   "``dandi-api-dandi-staging``" for the staging server
+                   "``dandi-api-dandi-sandbox``" for the sandbox server
         """
         # Shortcut for advanced folks
         api_key = os.environ.get("DANDI_API_KEY", None)
