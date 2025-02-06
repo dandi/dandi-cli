@@ -29,8 +29,8 @@ Example output:
       api: https://api.lincbrain.org/api
       gui: https://lincbrain.org
     ember-sandbox:
-      api: https://sandbox-api.ember-archive.org/api
-      gui: https://sandbox.ember-archive.org
+      api: https://api-dandi-staging.emberarchive.org/api
+      gui: https://dandi-staging.emberarchive.org
     ember:
-      api: https://api.ember-archive.org/api
-      gui: https://ember-archive.org
+      api: https://api-dandi.emberarchive.org/api
+      gui: https://dandi.emberarchive.org

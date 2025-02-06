@@ -26,9 +26,9 @@ def test_cmd_instances(monkeypatch):
         "  api: https://staging-api.lincbrain.org/api\n"
         "  gui: https://staging.lincbrain.org\n"
         "ember:\n"
-        "  api: https://api.ember-archive.org/api\n"
-        "  gui: https://ember-archive.org\n"
+        "  api: https://api-dandi.emberarchive.org/api\n"
+        "  gui: https://dandi.emberarchive.org\n"
         "ember-sandbox:\n"
-        "  api: https://sandbox-api.ember-archive.org/api\n"
-        "  gui: https://sandbox.ember-archive.org\n"
+        "  api: https://api-dandi-staging.emberarchive.org/api\n"
+        "  gui: https://dandi-staging.emberarchive.org\n"
     )
