@@ -919,7 +919,7 @@ def get_retry_after(response: requests.Response) -> Optional[int]:
             # and continue with "if_unparsable" sleep logic
             sleep_amount = None
             lgr.warning(
-                "response %d has incorrect date in Retry-After=%r: %s. " "Returning %r",
+                "response %d has incorrect date in Retry-After=%s: %s. Returning %r",
                 response.status_code,
                 retry_after,
                 exc_ve,
@@ -937,7 +937,7 @@ def get_retry_after(response: requests.Response) -> Optional[int]:
         elif sleep_amount < 0:
             sleep_amount = None
             lgr.warning(
-                "date in Retry-After=%r is in the past (current is %r). "
+                "date in Retry-After=%s is in the past (current is %r). "
                 "Returning %r",
                 retry_after,
                 current_date,
@@ -946,7 +946,7 @@ def get_retry_after(response: requests.Response) -> Optional[int]:
         elif sleep_amount > 7 * 24 * 60 * 60:  # week
             sleep_amount = None
             lgr.warning(
-                "date in Retry-After=%r is over a week in the future (current is %r). "
+                "date in Retry-After=%s is over a week in the future (current is %r). "
                 "Returning %r",
                 retry_after,
                 current_date,

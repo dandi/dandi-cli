@@ -1088,8 +1088,20 @@ def _check_attempts_and_sleep(
     attempts_allowed: int,
     downloaded_in_attempt: int = 0,
 ) -> int | None:
-    """Check if we should retry the download, sleep if still allowed,
+    """
+    Check if we should retry the download, sleep if still allowed,
     and return potentially adjusted 'attempts_allowed'
+
+    :param path: Destination of the download
+    :param exc: Exception raised during the last download attempt
+    :param attempt: The index of the last download attempt
+    :param attempts_allowed: The number of download attempts currently allowed
+    :param downloaded_in_attempt: The number of bytes downloaded in the last attempt
+
+    :returns: The number of download attempts allowed, potentially adjusted, if download
+        should be retried. None if download should not be retried.
+        Note: If download should be retried, this function sleeps before returning.
+        otherwise, it returns immediately.
     """
     sleep_amount: float | None = None
     if os.environ.get("DANDI_DOWNLOAD_AGGRESSIVE_RETRY"):
@@ -1107,7 +1119,7 @@ def _check_attempts_and_sleep(
             )
             attempts_allowed += 1
     if attempt >= attempts_allowed:
-        lgr.debug("%s - download failed after %d attempts: %s", path, attempt, exc)
+        lgr.debug("%s - download failed after %d attempts: %s", path, attempt + 1, exc)
         return None
     if exc.response is not None:
         if exc.response.status_code not in (
