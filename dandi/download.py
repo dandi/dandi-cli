@@ -1138,13 +1138,13 @@ def _check_attempts_and_sleep(
     if sleep_amount is None:
         # it was not Retry-after set, so we come up with random duration to sleep
         sleep_amount = random.random() * 5 * attempt
-        lgr.debug(
-            "%s - download failed on attempt #%d: %s, will sleep %f and retry",
-            path,
-            attempt,
-            exc,
-            sleep_amount,
-        )
+    lgr.debug(
+        "%s - download failed on attempt #%d: %s, will sleep %f and retry",
+        path,
+        attempt,
+        exc,
+        sleep_amount,
+    )
     time.sleep(sleep_amount)
     return attempts_allowed
 
