@@ -1,3 +1,15 @@
+# 0.66.7 (Wed Feb 12 2025)
+
+#### 🐛 Bug Fix
+
+- Improve retrying downloads code and testing [#1559](https://github.com/dandi/dandi-cli/pull/1559) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.66.6 (Wed Feb 12 2025)
 
 #### 🐛 Bug Fix
