@@ -18,7 +18,7 @@ The [DANDI Python client](https://pypi.org/project/dandi/) allows you to:
 * Delete data in the DANDI instance
 * Perform other auxiliary operations with data on the DANDI instance
 
-**Note**: This project is under heavy development. See [the issues log](https://github.com/dandi/dandi-cli/issues) or
+**Note**: This project is under active development. See [the issues log](https://github.com/dandi/dandi-cli/issues) or
 [Work-in-Progress (WiP)](https://github.com/dandi/dandi-cli/pulls).
 
 ## Installation
