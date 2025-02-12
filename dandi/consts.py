@@ -147,10 +147,10 @@ known_instances = {
         "https://dandi.emberarchive.org",
         "https://api-dandi.emberarchive.org/api",
     ),
-    "ember-sandbox": DandiInstance(
-        "ember-sandbox",
-        "https://dandi-sandbox.emberarchive.org",
-        "https://api-dandi-sandbox.emberarchive.org/api",
+    "ember-staging": DandiInstance(
+        "ember-staging",
+        "https://dandi-staging.emberarchive.org",
+        "https://api-dandi-staging.emberarchive.org/api",
     ),
 }
 # to map back url: name
