@@ -1,3 +1,16 @@
+# 0.66.6 (Wed Feb 12 2025)
+
+#### 🐛 Bug Fix
+
+- Trivial word change so we can cut a release for EMBER [#1578](https://github.com/dandi/dandi-cli/pull/1578) ([@asmacdo](https://github.com/asmacdo))
+- Add Ember instance types for DANDI CLI [#1565](https://github.com/dandi/dandi-cli/pull/1565) ([@asmacdo](https://github.com/asmacdo))
+
+#### Authors: 1
+
+- Austin Macdonald ([@asmacdo](https://github.com/asmacdo))
+
+---
+
 # 0.66.5 (Thu Jan 30 2025)
 
 #### 🐛 Bug Fix
