@@ -49,6 +49,7 @@ from .utils import (
     ensure_datetime,
     exclude_from_zarr,
     flattened,
+    get_retry_after,
     is_same_time,
     path_is_subpath,
     pluralize,
@@ -796,7 +797,7 @@ def _download_file(
         # Catching RequestException lets us retry on timeout & connection
         # errors (among others) in addition to HTTP status errors.
         except requests.RequestException as exc:
-            attempts_allowed_or_not = _check_if_more_attempts_allowed(
+            attempts_allowed_or_not = _check_attempts_and_sleep(
                 path=path,
                 exc=exc,
                 attempt=attempt,
@@ -1080,15 +1081,29 @@ def _download_zarr(
     yield {"status": "done"}
 
 
-def _check_if_more_attempts_allowed(
+def _check_attempts_and_sleep(
     path: Path,
     exc: requests.RequestException,
     attempt: int,
     attempts_allowed: int,
-    downloaded_in_attempt: int,
+    downloaded_in_attempt: int = 0,
 ) -> int | None:
-    """Check if we should retry the download, return potentially adjusted 'attempts_allowed'"""
-    sleep_amount = random.random() * 5 * attempt
+    """
+    Check if we should retry the download, sleep if still allowed,
+    and return potentially adjusted 'attempts_allowed'
+
+    :param path: Destination of the download
+    :param exc: Exception raised during the last download attempt
+    :param attempt: The index of the last download attempt
+    :param attempts_allowed: The number of download attempts currently allowed
+    :param downloaded_in_attempt: The number of bytes downloaded in the last attempt
+
+    :returns: The number of download attempts allowed, potentially adjusted, if download
+        should be retried. None if download should not be retried.
+        Note: If download should be retried, this function sleeps before returning.
+        otherwise, it returns immediately.
+    """
+    sleep_amount: float | None = None
     if os.environ.get("DANDI_DOWNLOAD_AGGRESSIVE_RETRY"):
         # in such a case if we downloaded a little more --
         # consider it a successful attempt
@@ -1104,12 +1119,11 @@ def _check_if_more_attempts_allowed(
             )
             attempts_allowed += 1
     if attempt >= attempts_allowed:
-        lgr.debug("%s - download failed after %d attempts: %s", path, attempt, exc)
+        lgr.debug("%s - download failed after %d attempts: %s", path, attempt + 1, exc)
         return None
-    # TODO: actually we should probably retry only on selected codes,
-    elif exc.response is not None:
+    if exc.response is not None:
         if exc.response.status_code not in (
-            400,  # Bad Request, but happened with gider:
+            400,  # Bad Request, but happened with girder:
             # https://github.com/dandi/dandi-cli/issues/87
             *RETRY_STATUSES,
         ):
@@ -1120,46 +1134,17 @@ def _check_if_more_attempts_allowed(
                 exc,
             )
             return None
-        elif retry_after := exc.response.headers.get("Retry-After"):
-            # playing safe
-            if not str(retry_after).isdigit():
-                # our code is wrong, do not crash but issue warning so
-                # we might get report/fix it up
-                lgr.warning(
-                    "%s - download failed due to response %d with non-integer"
-                    " Retry-After=%r: %s",
-                    path,
-                    exc.response.status_code,
-                    retry_after,
-                    exc,
-                )
-                return None
-            sleep_amount = int(retry_after)
-            lgr.debug(
-                "%s - download failed due to response %d with "
-                "Retry-After=%d: %s, will sleep and retry",
-                path,
-                exc.response.status_code,
-                sleep_amount,
-                exc,
-            )
-        else:
-            lgr.debug(
-                "%s - download failed on attempt #%d: %s, will sleep a bit and retry",
-                path,
-                attempt,
-                exc,
-            )
-    # if is_access_denied(exc) or attempt >= 2:
-    #     raise
-    # sleep a little and retry
-    else:
-        lgr.debug(
-            "%s - download failed on attempt #%d: %s, will sleep a bit and retry",
-            path,
-            attempt,
-            exc,
-        )
+        sleep_amount = get_retry_after(exc.response)
+    if sleep_amount is None:
+        # it was not Retry-after set, so we come up with random duration to sleep
+        sleep_amount = random.random() * 5 * attempt
+    lgr.debug(
+        "%s - download failed on attempt #%d: %s, will sleep %f and retry",
+        path,
+        attempt,
+        exc,
+        sleep_amount,
+    )
     time.sleep(sleep_amount)
     return attempts_allowed
 

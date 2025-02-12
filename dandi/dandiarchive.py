@@ -51,7 +51,7 @@ from .consts import (
 )
 from .dandiapi import BaseRemoteAsset, DandiAPIClient, RemoteDandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
-from .utils import get_instance
+from .utils import get_instance, get_retry_after
 
 lgr = get_logger()
 
@@ -893,14 +893,26 @@ class _dandi_url_parser:
         while True:
             r = requests.head(url, allow_redirects=True)
             if r.status_code in RETRY_STATUSES and i < 4:
-                delay = 0.1 * 10**i
-                lgr.warning(
-                    "HEAD request to %s returned %d; sleeping for %f seconds and then retrying...",
-                    url,
-                    r.status_code,
-                    delay,
-                )
-                sleep(delay)
+                retry_after = get_retry_after(r)
+                if retry_after is not None:
+                    delay = retry_after
+                else:
+                    delay = 0.1 * 10**i
+                if delay:
+                    lgr.warning(
+                        "HEAD request to %s returned %d; "
+                        "sleeping for %f seconds and then retrying...",
+                        url,
+                        r.status_code,
+                        delay,
+                    )
+                    sleep(delay)
+                else:
+                    lgr.warning(
+                        "HEAD request to %s returned %d; retrying...",
+                        url,
+                        r.status_code,
+                    )
                 i += 1
                 continue
             elif r.status_code == 404:

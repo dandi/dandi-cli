@@ -43,6 +43,7 @@ from .utils import (
     chunked,
     ensure_datetime,
     get_instance,
+    get_retry_after,
     is_interactive,
     is_page2_url,
     joinurl,
@@ -236,6 +237,13 @@ class RESTFullAPIClient:
                             )
                             if data is not None and hasattr(data, "seek"):
                                 data.seek(0)
+                        if retry_after := get_retry_after(result):
+                            lgr.debug(
+                                "Sleeping for %d seconds as instructed in response "
+                                "(in addition to tenacity imposed)",
+                                retry_after,
+                            )
+                            sleep(retry_after)
                         result.raise_for_status()
         except Exception as e:
             if isinstance(e, requests.HTTPError):
