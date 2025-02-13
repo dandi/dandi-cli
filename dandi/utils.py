@@ -1,46 +1,44 @@
 from __future__ import annotations
 
 from bisect import bisect
+from collections.abc import Iterable, Iterator
 import datetime
+from email.utils import parsedate_to_datetime
 from functools import lru_cache
 from importlib.metadata import version as importlib_version
 import inspect
 import io
 import itertools
+import json
 from mimetypes import guess_type
 import os
 import os.path as op
 from pathlib import Path, PurePath, PurePosixPath
+import pdb
 import platform
 import re
 import shutil
 import subprocess
 import sys
+from time import sleep
+import traceback
 import types
-from typing import (
-    Any,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Set,
-    TextIO,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-)
-from urllib.parse import parse_qs, urlparse, urlunparse
+from typing import IO, Any, List, Optional, Protocol, TypeVar, Union
 
 import dateutil.parser
-from pydantic import AnyHttpUrl, BaseModel, Field
+from multidict import MultiDict  # dependency of yarl
+from pydantic import BaseModel, Field
 import requests
 import ruamel.yaml
 from semantic_version import Version
+from yarl import URL
 
 from . import __version__, get_logger
 from .consts import DandiInstance, known_instances, known_instances_rev
 from .exceptions import BadCliVersionError, CliVersionTooOldError
+
+AnyPath = Union[str, Path]
+
 
 lgr = get_logger()
 
@@ -67,6 +65,14 @@ USER_AGENT = "dandi/{} requests/{} {}/{}".format(
 )
 
 
+class Hasher(Protocol):
+    def update(self, data: bytes) -> None:
+        ...
+
+    def hexdigest(self) -> str:
+        ...
+
+
 def is_interactive() -> bool:
     """Return True if all in/outs are tty"""
     # TODO: check on windows if hasattr check would work correctly and add value:
@@ -82,21 +88,17 @@ def setup_exceptionhook(ipython: bool = False) -> None:
     """
 
     def _pdb_excepthook(
-        type: Type[BaseException],
+        exc_type: type[BaseException],
         value: BaseException,
-        tb: Optional[types.TracebackType],
+        tb: types.TracebackType | None,
     ) -> None:
-        import traceback
-
-        traceback.print_exception(type, value, tb)
+        traceback.print_exception(exc_type, value, tb)
         print()
         if is_interactive():
-            import pdb
-
             pdb.post_mortem(tb)
 
     if ipython:
-        from IPython.core import ultratb
+        from IPython.core import ultratb  # type: ignore[import]
 
         sys.excepthook = ultratb.FormattedTB(
             mode="Verbose",
@@ -114,7 +116,7 @@ def get_utcnow_datetime(microseconds: bool = True) -> datetime.datetime:
 
     If string representation is desired, just "apply" .isoformat()
     """
-    ret = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc).astimezone()
+    ret = datetime.datetime.now(datetime.timezone.utc).astimezone()
     if microseconds:
         return ret
     else:
@@ -122,7 +124,7 @@ def get_utcnow_datetime(microseconds: bool = True) -> datetime.datetime:
 
 
 def is_same_time(
-    *times: Union[datetime.datetime, int, float, str],
+    *times: datetime.datetime | int | float | str,
     tolerance: float = 1e-6,
     strip_tzinfo: bool = False,
 ) -> bool:
@@ -155,7 +157,7 @@ def is_same_time(
 
 
 def ensure_strtime(
-    t: Union[str, int, float, datetime.datetime], isoformat: bool = True
+    t: str | int | float | datetime.datetime, isoformat: bool = True
 ) -> str:
     """Ensures that time is a string in iso format
 
@@ -189,9 +191,9 @@ def fromisoformat(t: str) -> datetime.datetime:
 
 
 def ensure_datetime(
-    t: Union[datetime.datetime, int, float, str],
+    t: datetime.datetime | int | float | str,
     strip_tzinfo: bool = False,
-    tz: Optional[datetime.tzinfo] = None,
+    tz: datetime.tzinfo | None = None,
 ) -> datetime.datetime:
     """Ensures that time is a datetime
 
@@ -239,35 +241,25 @@ def flattened(it: Iterable) -> list:
 #
 
 
-def load_jsonl(filename: Union[str, Path]) -> list:
+def load_jsonl(filename: AnyPath) -> list:
     """Load json lines formatted file"""
-    import json
-
-    with open(filename, "r") as f:
+    with open(filename) as f:
         return list(map(json.loads, f))
 
 
-_encoded_dirsep = r"\\" if on_windows else r"/"
-_VCS_REGEX = r"%s\.(?:git|gitattributes|svn|bzr|hg)(?:%s|$)" % (
-    _encoded_dirsep,
-    _encoded_dirsep,
-)
-_DATALAD_REGEX = r"%s\.(?:datalad)(?:%s|$)" % (_encoded_dirsep, _encoded_dirsep)
-
-
-AnyPath = Union[str, Path]
+_VCS_NAMES = {".git", ".gitattributes", ".svn", ".bzr", ".hg"}
 
 
 def find_files(
     regex: str,
-    paths: Union[List[AnyPath], Tuple[AnyPath, ...], Set[AnyPath], AnyPath] = os.curdir,
-    exclude: Optional[str] = None,
+    paths: AnyPath | Iterable[AnyPath] = os.curdir,
+    exclude: str | None = None,
     exclude_dotfiles: bool = True,
     exclude_dotdirs: bool = True,
     exclude_vcs: bool = True,
     exclude_datalad: bool = False,
     dirs: bool = False,
-    dirs_avoid: Optional[str] = None,
+    dirs_avoid: str | None = None,
 ) -> Iterator[str]:
     """Generator to find files matching regex
 
@@ -298,16 +290,17 @@ def find_files(
         path = path.rstrip(op.sep)
         if exclude and re.search(exclude, path):
             return True
-        if exclude_vcs and re.search(_VCS_REGEX, path):
+        parts = Path(path).parts
+        if exclude_vcs and any(p in _VCS_NAMES for p in parts):
             return True
-        if exclude_datalad and re.search(_DATALAD_REGEX, path):
+        if exclude_datalad and any(p == ".datalad" for p in parts):
             return True
         return False
 
     def good_file(path: str) -> bool:
         return bool(re.search(regex, path)) and not exclude_path(path)
 
-    if isinstance(paths, (list, tuple, set)):
+    if not isinstance(paths, (str, Path)):
         for path in paths:
             if op.isdir(path):
                 yield from find_files(
@@ -358,8 +351,8 @@ def find_files(
 
 
 def list_paths(
-    dirpath: Union[str, Path], dirs: bool = False, exclude_vcs: bool = True
-) -> List[Path]:
+    dirpath: AnyPath, dirs: bool = False, exclude_vcs: bool = True
+) -> list[Path]:
     return sorted(
         map(
             Path,
@@ -375,10 +368,10 @@ def list_paths(
     )
 
 
-_cp_supports_reflink: Optional[bool] = False if on_windows else None
+_cp_supports_reflink: bool | None = False if on_windows else None
 
 
-def copy_file(src: Union[str, Path], dst: Union[str, Path]) -> None:
+def copy_file(src: AnyPath, dst: AnyPath) -> None:
     """Copy file from src to dst"""
     global _cp_supports_reflink
     if _cp_supports_reflink is None:
@@ -386,7 +379,7 @@ def copy_file(src: Union[str, Path], dst: Union[str, Path]) -> None:
             ["cp", "--help"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            universal_newlines=True,
+            text=True,
         )
         # Ignore command failures (e.g., if cp doesn't support --help), as the
         # command will still likely output its usage info.
@@ -399,14 +392,14 @@ def copy_file(src: Union[str, Path], dst: Union[str, Path]) -> None:
         shutil.copy2(src, dst)
 
 
-def move_file(src: Union[str, Path], dst: Union[str, Path]) -> Any:
+def move_file(src: AnyPath, dst: AnyPath) -> Any:
     """Move file from src to dst"""
     return shutil.move(str(src), str(dst))
 
 
 def find_parent_directory_containing(
-    filename: Union[str, Path], path: Union[str, Path, None] = None
-) -> Optional[Path]:
+    filename: AnyPath, path: AnyPath | None = None
+) -> Path | None:
     """Find a directory, on the path to 'path' containing filename
 
     if no 'path' - path from cwd. If 'path' is not absolute, absolute path
@@ -445,7 +438,7 @@ def yaml_dump(rec: Any) -> str:
     return out.getvalue()
 
 
-def yaml_load(f: Union[str, TextIO], typ: Optional[str] = None) -> Any:
+def yaml_load(f: str | IO[str], typ: str | None = None) -> Any:
     """
     Load YAML source from a file or string.
 
@@ -475,7 +468,7 @@ def with_pathsep(path: str) -> str:
     return path + op.sep if not path.endswith(op.sep) else path
 
 
-def _get_normalized_paths(path: str, prefix: str) -> Tuple[str, str]:
+def _get_normalized_paths(path: str, prefix: str) -> tuple[str, str]:
     if op.isabs(path) != op.isabs(prefix):
         raise ValueError(
             "Both paths must either be absolute or relative. "
@@ -523,42 +516,6 @@ def shortened_repr(value: Any, length: int = 30) -> str:
     return value_repr
 
 
-def __auto_repr__(obj: Any) -> str:
-    attr_names: Tuple[str, ...] = ()
-    if hasattr(obj, "__dict__"):
-        attr_names += tuple(obj.__dict__.keys())
-    if hasattr(obj, "__slots__"):
-        attr_names += tuple(obj.__slots__)
-
-    items = []
-    for attr in sorted(set(attr_names)):
-        if attr.startswith("_"):
-            continue
-        value = getattr(obj, attr)
-        # TODO:  should we add this feature to minimize some talktative reprs
-        # such as of URL?
-        # if value is None:
-        #    continue
-        items.append("%s=%s" % (attr, shortened_repr(value)))
-
-    return "%s(%s)" % (obj.__class__.__name__, ", ".join(items))
-
-
-TT = TypeVar("TT", bound=type)
-
-
-def auto_repr(cls: TT) -> TT:
-    """Decorator for a class to assign it an automagic quick and dirty __repr__
-
-    It uses public class attributes to prepare repr of a class
-
-    Original idea: http://stackoverflow.com/a/27799004/1265472
-    """
-
-    cls.__repr__ = __auto_repr__  # type: ignore[assignment]
-    return cls
-
-
 def Parallel(**kwargs: Any) -> Any:  # TODO: disable lint complaint
     """Adapter for joblib.Parallel so we could if desired, centralize control"""
     # ATM just a straight invocation
@@ -576,7 +533,9 @@ def delayed(*args, **kwargs):
 
 
 class ServiceURL(BaseModel):
-    url: AnyHttpUrl
+    # Don't use pydantic.AnyHttpUrl, as that adds a trailing slash, and so URLs
+    # retrieved for known instances won't match the known values
+    url: str
 
 
 class ServerServices(BaseModel):
@@ -596,19 +555,23 @@ class ServerInfo(BaseModel):
 
 def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
     dandi_id = None
+    is_api = True
     redirector_url = None
     if isinstance(dandi_instance_id, DandiInstance):
         instance = dandi_instance_id
         dandi_id = instance.name
     elif dandi_instance_id.lower().startswith(("http://", "https://")):
-        redirector_url = dandi_instance_id
-        dandi_id = known_instances_rev.get(redirector_url.rstrip("/"))
+        redirector_url = dandi_instance_id.rstrip("/")
+        dandi_id = known_instances_rev.get(redirector_url)
         if dandi_id is not None:
             instance = known_instances[dandi_id]
+            is_api = instance.api.rstrip("/") == redirector_url
         else:
             instance = None
-            bits = urlparse(redirector_url)
-            redirector_url = urlunparse((bits[0], bits[1], "", "", "", ""))
+            is_api = False
+            redirector_url = str(
+                URL(redirector_url).with_path("").with_query(None).with_fragment(None)
+            )
     else:
         dandi_id = dandi_instance_id
         instance = known_instances[dandi_id]
@@ -616,22 +579,22 @@ def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
         assert instance is not None
         return _get_instance(instance.api.rstrip("/"), True, instance, dandi_id)
     else:
-        return _get_instance(redirector_url.rstrip("/"), False, instance, dandi_id)
+        return _get_instance(redirector_url, is_api, instance, dandi_id)
 
 
 @lru_cache
 def _get_instance(
-    url: str, is_api: bool, instance: Optional[DandiInstance], dandi_id: Optional[str]
+    url: str, is_api: bool, instance: DandiInstance | None, dandi_id: str | None
 ) -> DandiInstance:
     try:
         if is_api:
-            r = requests.get(f"{url}/info/")
+            r = requests.get(joinurl(url, "/info/"))
         else:
-            r = requests.get(f"{url}/server-info")
+            r = requests.get(joinurl(url, "/server-info"))
             if r.status_code == 404:
-                r = requests.get(f"{url}/api/info/")
+                r = requests.get(joinurl(url, "/api/info/"))
         r.raise_for_status()
-        server_info = ServerInfo.parse_obj(r.json())
+        server_info = ServerInfo.model_validate(r.json())
     except Exception as e:
         lgr.warning("Request to %s failed (%s)", url, str(e))
         if instance is not None:
@@ -657,18 +620,25 @@ def _get_instance(
         raise BadCliVersionError(our_version, minversion, bad_versions)
     api_url = server_info.services.api.url
     if dandi_id is None:
-        dandi_id = api_url.host
-        assert dandi_id is not None
-        if api_url.port is not None:
-            if ":" in dandi_id:
-                dandi_id = f"[{dandi_id}]"
-            dandi_id += f":{api_url.port}"
+        # Don't use pydantic.AnyHttpUrl, as that sets the `port` attribute even
+        # if it's not present in the string.
+        u = URL(api_url)
+        if u.host is not None:
+            dandi_id = u.host
+            if (port := u.explicit_port) is not None:
+                if ":" in dandi_id:
+                    dandi_id = f"[{dandi_id}]"
+                dandi_id += f":{port}"
+        else:
+            dandi_id = api_url
     return DandiInstance(
         name=dandi_id,
-        gui=str(server_info.services.webui.url)
-        if server_info.services.webui is not None
-        else None,
-        api=str(api_url),
+        gui=(
+            server_info.services.webui.url
+            if server_info.services.webui is not None
+            else None
+        ),
+        api=api_url,
     )
 
 
@@ -681,7 +651,7 @@ def is_url(s: str) -> bool:
     # Slashes are not required after "dandi:" so as to support "DANDI:<id>"
 
 
-def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
+def get_module_version(module: str | types.ModuleType) -> str | None:
     """Return version of the module
 
     Return module's `__version__` if present, or use importlib
@@ -691,7 +661,7 @@ def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
     -------
     object
     """
-    modobj: Optional[types.ModuleType]
+    modobj: types.ModuleType | None
     if isinstance(module, str):
         modobj = sys.modules.get(module)
         mod_name = module
@@ -713,7 +683,7 @@ def get_module_version(module: Union[str, types.ModuleType]) -> Optional[str]:
     return version
 
 
-def pluralize(n: int, word: str, plural: Optional[str] = None) -> str:
+def pluralize(n: int, word: str, plural: str | None = None) -> str:
     if n == 1:
         return f"{n} {word}"
     else:
@@ -802,7 +772,7 @@ def check_dandi_version() -> None:
 T = TypeVar("T")
 
 
-def chunked(iterable: Iterable[T], size: int) -> Iterator[List[T]]:
+def chunked(iterable: Iterable[T], size: int) -> Iterator[list[T]]:
     # cf. chunked() from more-itertools
     i = iter(iterable)
     while True:
@@ -823,12 +793,14 @@ def is_page2_url(page1: str, page2: str) -> bool:
     Tests whether the URL ``page2`` is the same as ``page1`` but with the
     ``page`` query parameter set to ``2``
     """
-    bits1 = urlparse(page1)
-    params1 = parse_qs(bits1.query)
-    params1["page"] = ["2"]
-    bits2 = urlparse(page2)
-    params2 = parse_qs(bits2.query)
-    return (bits1[:3], params1, bits1.fragment) == (bits2[:3], params2, bits2.fragment)
+    url1 = URL(page1)
+    params1 = MultiDict(url1.query)
+    params1["page"] = "2"
+    url1 = url1.with_query(None)
+    url2 = URL(page2)
+    params2 = url2.query
+    url2 = url2.with_query(None)
+    return (url1, sorted(params1.items())) == (url2, sorted(params2.items()))
 
 
 def exclude_from_zarr(path: Path) -> bool:
@@ -877,3 +849,107 @@ def _prepare_path_parts(paths: Iterable[str | PurePath]) -> list[tuple[str, ...]
 
 def _starts_with(t: tuple[str, ...], prefix: tuple[str, ...]) -> bool:
     return t[: len(prefix)] == prefix
+
+
+def pre_upload_size_check(path: Path) -> int:
+    # If the filesystem reports a size of zero for a file we're about to
+    # upload, double-check the size in case we're on a flaky NFS system.
+    for naptime in [0] + [0.1] * 19:
+        sleep(naptime)
+        size = path.stat().st_size
+        if size != 0:
+            return size
+    return size
+
+
+def post_upload_size_check(path: Path, pre_check_size: int, erroring: bool) -> None:
+    # More checks for NFS flakiness
+    size = path.stat().st_size
+    if size != pre_check_size:
+        msg = (
+            f"Size of {path} was {pre_check_size} at start of upload but is"
+            f" now {size} after upload"
+        )
+        if erroring:
+            lgr.error(msg)
+        else:
+            raise RuntimeError(msg)
+
+
+def joinurl(base: str, path: str) -> str:
+    """
+    Append a slash-separated ``path`` to a base HTTP(S) URL ``base``.  The two
+    components are separated by a single slash, removing any excess slashes
+    that would be present after naïve concatenation.
+
+    If ``path`` is already an absolute HTTP(S) URL, it is returned unchanged.
+
+    Note that this function differs from `urllib.parse.urljoin()` when the path
+    portion of ``base`` is nonempty and does not end in a slash.
+    """
+    if path.lower().startswith(("http://", "https://")):
+        return path
+    else:
+        return base.rstrip("/") + "/" + path.lstrip("/")
+
+
+def get_retry_after(response: requests.Response) -> Optional[int]:
+    """If provided and parsed ok, returns duration in seconds to sleep before retry.
+
+    If not provided in the response header `Retry-After`, would
+    return None.
+    If parsing fails, or provided date/sleep does not make sense
+    since either too far in the past (over 2 seconds) or in the future
+    (over a week), would return None.
+    """
+    retry_after = response.headers.get("Retry-After")
+    if retry_after is None:
+        return None
+    sleep_amount: int | None
+    current_date = datetime.datetime.now(datetime.timezone.utc)
+    try:
+        sleep_amount = int(retry_after)
+    except ValueError:
+        # else if it is a datestamp like "Wed, 21 Oct 2015 07:28:00 GMT"
+        # we could parse it and calculate how long to sleep
+        try:
+            retry_after_date = parsedate_to_datetime(retry_after)
+        except (ValueError, TypeError) as exc_ve:
+            # our code or response is wrong, do not crash but issue warning
+            # and continue with "if_unparsable" sleep logic
+            sleep_amount = None
+            lgr.warning(
+                "response %d has incorrect date in Retry-After=%s: %s. Returning %r",
+                response.status_code,
+                retry_after,
+                exc_ve,
+                sleep_amount,
+            )
+        else:
+            difference = retry_after_date - current_date
+            sleep_amount = int(difference.total_seconds())
+
+    if sleep_amount:
+        if -2 < sleep_amount < 0:
+            # allow for up to a few seconds delay in us receiving/parsing etc
+            # but otherwise assume abnormality and just return if_unparsable
+            sleep_amount = 0
+        elif sleep_amount < 0:
+            sleep_amount = None
+            lgr.warning(
+                "date in Retry-After=%s is in the past (current is %r). "
+                "Returning %r",
+                retry_after,
+                current_date,
+                sleep_amount,
+            )
+        elif sleep_amount > 7 * 24 * 60 * 60:  # week
+            sleep_amount = None
+            lgr.warning(
+                "date in Retry-After=%s is over a week in the future (current is %r). "
+                "Returning %r",
+                retry_after,
+                current_date,
+                sleep_amount,
+            )
+    return sleep_amount

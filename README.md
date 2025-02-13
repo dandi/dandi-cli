@@ -14,11 +14,11 @@ The [DANDI Python client](https://pypi.org/project/dandi/) allows you to:
 * Validate data to locally conform to standards
 * Organize your data locally before upload
 * Upload `Dandisets`
-* Interact with the DANDI archive's web API from Python
-* Delete data in the DANDI archive
-* Perform other auxiliary operations with data or the DANDI archive
+* Interact with the DANDI instance's web API from Python
+* Delete data in the DANDI instance
+* Perform other auxiliary operations with data on the DANDI instance
 
-**Note**: This project is under heavy development. See [the issues log](https://github.com/dandi/dandi-cli/issues) or
+**Note**: This project is under active development. See [the issues log](https://github.com/dandi/dandi-cli/issues) or
 [Work-in-Progress (WiP)](https://github.com/dandi/dandi-cli/pulls).
 
 ## Installation
@@ -37,14 +37,14 @@ or
 ## CLI Tool
 
 This package provides a command line utility with a basic interface
-to help you prepare and upload your data to, or obtain data from, the [DANDI archive](http://dandiarchive.org).
+to help you prepare and upload your data to, or obtain data from, a DANDI instance such as the [DANDI Archive](http://dandiarchive.org).
 
 
 ```bash
 $> dandi
 Usage: dandi [OPTIONS] COMMAND [ARGS]...
 
-  A client to support interactions with DANDI archive
+  A client to support interactions with a DANDI instance, such as the DANDI Archive
   (http://dandiarchive.org).
 
   To see help for a specific command, run
@@ -65,24 +65,23 @@ Commands:
   delete            Delete dandisets and assets from the server.
   digest            Calculate file digests
   download          Download a file or entire folder from DANDI.
-  instances         List known Dandi Archive instances that the CLI can...
+  instances         List known DANDI instances that the CLI can interact
   ls                List .nwb files and dandisets metadata.
   move              Move or rename assets in a local Dandiset and/or on...
-  organize          (Re)organize files according to the metadata.
+  organize          (Re)organize NWB files according to their metadata.
   shell-completion  Emit shell script for enabling command completion.
   upload            Upload Dandiset files to DANDI Archive.
-  validate          Validate files for NWB and DANDI compliance.
-  validate-bids     Validate BIDS paths.
+  validate          Validate files for data standards compliance.
 ```
 Run `dandi --help` or `dandi <subcommand> --help` (e.g. `dandi upload --help`) to see manual pages.
 
 ## Resources
 
-* To learn how to interact with the DANDI archive and for examples on how to use the DANDI Client in various use cases,
-see [the handbook](https://www.dandiarchive.org/handbook/)
+* To learn how to interact with the DANDI Archive and for examples on how to use the DANDI Client in various use cases,
+see the [DANDI Docs](https://docs.dandiarchive.org)
   (specifically the sections on using the CLI to
-[download](https://www.dandiarchive.org/handbook/12_download/) and
-[upload](https://www.dandiarchive.org/handbook/13_upload/) `Dandisets`).
+[download](https://docs.dandiarchive.org/12_download/) and
+[upload](https://docs.dandiarchive.org/13_upload/) `Dandisets`).
 
 * To get help:
   - ask a question: https://github.com/dandi/helpdesk/discussions

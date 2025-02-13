@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import click
 
 from .base import (
@@ -7,13 +9,14 @@ from .base import (
     instance_option,
     map_to_click_exceptions,
 )
+from ..upload import UploadExisting, UploadValidation
 
 
 @click.command()
 @click.option(
     "-e",
     "--existing",
-    type=click.Choice(["error", "skip", "force", "overwrite", "refresh"]),
+    type=click.Choice(list(UploadExisting)),
     help="What to do if a file found existing on the server. 'skip' would skip"
     "the file, 'force' - force reupload, 'overwrite' - force upload if "
     "either size or modification time differs; 'refresh' - upload only if "
@@ -24,6 +27,7 @@ from .base import (
 @click.option(
     "-J",
     "--jobs",
+    "jobs_pair",
     type=IntColonInt(),
     help=(
         "Number of assets to upload in parallel and, optionally, number of"
@@ -36,7 +40,7 @@ from .base import (
 @click.option(
     "--validation",
     help="Data must pass validation before the upload.  Use of this option is highly discouraged.",
-    type=click.Choice(["require", "skip", "ignore"]),
+    type=click.Choice(list(UploadValidation)),
     default="require",
     show_default=True,
 )
@@ -61,17 +65,17 @@ from .base import (
 @devel_debug_option()
 @map_to_click_exceptions
 def upload(
-    paths,
-    jobs,
-    sync,
-    dandi_instance,
-    existing="refresh",
-    validation="require",
+    paths: tuple[str, ...],
+    jobs_pair: tuple[int, int] | None,
+    sync: bool,
+    dandi_instance: str,
+    existing: UploadExisting,
+    validation: UploadValidation,
     # Development options should come as kwargs
-    allow_any_path=False,
-    upload_dandiset_metadata=False,
-    devel_debug=False,
-):
+    allow_any_path: bool = False,
+    upload_dandiset_metadata: bool = False,
+    devel_debug: bool = False,
+) -> None:
     """
     Upload Dandiset files to DANDI Archive.
 
@@ -87,13 +91,14 @@ def upload(
     directories starting with a period) will be considered for the upload.  You
     can point to specific files you would like to validate and have uploaded.
     """
+    # Avoid heavy imports by importing with function:
     from ..upload import upload
 
-    if jobs is None:
+    if jobs_pair is None:
         jobs = None
         jobs_per_file = None
     else:
-        jobs, jobs_per_file = jobs
+        jobs, jobs_per_file = jobs_pair
 
     upload(
         paths,

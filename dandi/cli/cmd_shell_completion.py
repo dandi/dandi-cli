@@ -48,6 +48,7 @@ def shell_completion(shell):
         varfmt = "{shell}_source"
     os.environ["_DANDI_COMPLETE"] = varfmt.format(shell=shell)
 
+    # Avoid circular import by importing within function:
     from .command import main
 
     main.main(args=[])

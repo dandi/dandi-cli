@@ -1,5 +1,9 @@
 import datetime
+import json
 import sys
+from textwrap import indent
+
+import ruamel.yaml
 
 from .. import get_logger
 from ..support import pyout as pyouts
@@ -7,7 +11,7 @@ from ..support import pyout as pyouts
 lgr = get_logger()
 
 
-class Formatter(object):
+class Formatter:
     def __enter__(self):
         pass
 
@@ -39,9 +43,6 @@ class JSONFormatter(Formatter):
         print("]", file=self.out)
 
     def __call__(self, rec):
-        import json
-        from textwrap import indent
-
         if self.first:
             print(file=self.out)
             self.first = False
@@ -66,8 +67,6 @@ class JSONLinesFormatter(Formatter):
         return o
 
     def __call__(self, rec):
-        import json
-
         print(
             json.dumps(
                 rec, indent=self.indent, sort_keys=True, default=self._serializer
@@ -82,8 +81,6 @@ class YAMLFormatter(Formatter):
         self.records = []
 
     def __exit__(self, exc_type, exc_value, traceback):
-        import ruamel.yaml
-
         yaml = ruamel.yaml.YAML(typ="safe")
         yaml.default_flow_style = False
         yaml.dump(self.records, self.out)

@@ -47,7 +47,7 @@ def reextract_metadata(url: str, diff: bool, when: str) -> None:
     Running this command requires the fsspec library to be installed with the
     `http` extra (e.g., `pip install "fsspec[http]"`).
     """
-    from ..metadata import nwb2asset  # Avoid heavy import at top level
+    from ..metadata.nwb import nwb2asset  # Avoid heavy import at top level
 
     parsed_url = parse_dandi_url(url)
     if parsed_url.dandiset_id is None:
@@ -104,7 +104,7 @@ def reextract_metadata(url: str, diff: bool, when: str) -> None:
                 lgr.info("Extracting new metadata for asset")
                 metadata = nwb2asset(asset.as_readable(), digest=digest)
                 metadata.path = asset.path
-                mddict = metadata.json_dict()
+                mddict = metadata.model_dump(mode="json", exclude_none=True)
                 if diff:
                     oldmd = asset.get_raw_metadata()
                     oldmd_str = yaml_dump(oldmd)

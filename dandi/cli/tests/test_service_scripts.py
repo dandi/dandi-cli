@@ -5,21 +5,25 @@ import json
 import os
 from pathlib import Path
 import re
+import sys
 
 import anys
 from click.testing import CliRunner
 from dandischema.consts import DANDI_SCHEMA_VERSION
 import pytest
-import vcr
 
 from dandi import __version__
 from dandi.tests.fixtures import SampleDandiset
 
-from ..command import service_scripts
+from ..cmd_service_scripts import service_scripts
 
 DATA_DIR = Path(__file__).with_name("data")
 
 
+@pytest.mark.xfail(
+    "nfsmount" in os.environ.get("TMPDIR", ""),
+    reason="https://github.com/dandi/dandi-cli/issues/1507",
+)
 def test_reextract_metadata(
     monkeypatch: pytest.MonkeyPatch, nwb_dandiset: SampleDandiset
 ) -> None:
@@ -48,6 +52,10 @@ def record_only_doi_requests(request):
         return None
 
 
+@pytest.mark.xfail(
+    sys.version_info < (3, 10),
+    reason="Some difference in VCR tape: https://github.com/dandi/dandi-cli/pull/1337",
+)
 @pytest.mark.parametrize(
     "doi,name",
     [
@@ -67,9 +75,14 @@ def test_update_dandiset_from_doi(
     dandiset_id = new_dandiset.dandiset_id
     repository = new_dandiset.api.instance.gui
     monkeypatch.setenv("DANDI_API_KEY", new_dandiset.api.api_key)
-    if os.environ.get("DANDI_TESTS_NO_VCR", ""):
+    if os.environ.get("DANDI_TESTS_NO_VCR", "") or sys.version_info <= (3, 10):
+        # Older vcrpy has an issue with Python 3.9 and newer urllib2 >= 2
+        # But we require newer urllib2 for more correct operation, and
+        # do still support 3.9.  Remove when 3.9 support is dropped
         ctx = nullcontext()
     else:
+        import vcr
+
         ctx = vcr.use_cassette(
             str(DATA_DIR / "update_dandiset_from_doi" / f"{name}.vcr.yaml"),
             before_record_request=record_only_doi_requests,
@@ -111,9 +124,18 @@ def test_update_dandiset_from_doi(
     expected["manifestLocation"][
         0
     ] = f"{new_dandiset.api.api_url}/dandisets/{dandiset_id}/versions/draft/assets/"
-    expected["citation"] = re.sub(
+    citation = re.sub(
         r"\S+\Z",
         f"{repository}/dandiset/{dandiset_id}/draft",
         expected["citation"],
     )
+    if m := re.search(r"\(\d{4}\)", citation):
+        citation_rgx = (
+            re.escape(citation[: m.start()])
+            + r"\(\d{4}\)"
+            + re.escape(citation[m.end() :])
+        )
+        expected["citation"] = anys.AnyFullmatch(citation_rgx)
+    else:
+        expected["citation"] = citation
     assert metadata == expected

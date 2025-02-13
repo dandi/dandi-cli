@@ -1,14 +1,26 @@
+from __future__ import annotations
+
+from collections.abc import Callable
+from contextlib import nullcontext
+from email.utils import parsedate_to_datetime
+from functools import partial
+from glob import glob
 import json
+import logging
+from multiprocessing import Manager, Process
 import os
 import os.path
 from pathlib import Path
 import re
 from shutil import rmtree
-from typing import Callable, List, Tuple
+import time
+from unittest import mock
 
 import numpy as np
 import pytest
 from pytest_mock import MockerFixture
+import requests
+from requests.exceptions import HTTPError
 import responses
 import zarr
 
@@ -17,9 +29,20 @@ from .skip import mark
 from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
-from ..download import Downloader, ProgressCombiner, download
+from ..download import (
+    DownloadDirectory,
+    Downloader,
+    DownloadExisting,
+    DownloadFormat,
+    PathType,
+    ProgressCombiner,
+    PYOUTHelper,
+    _check_attempts_and_sleep,
+    download,
+)
 from ..exceptions import NotFoundError
-from ..utils import list_paths
+from ..support.digests import Digester
+from ..utils import list_paths, yaml_load
 
 
 # both urls point to 000027 (lean test dataset), and both draft and "released"
@@ -45,8 +68,6 @@ def test_download_000027(
         dsdir / "sub-RAT123" / "sub-RAT123.nwb",
     ]
     # and checksum should be correct as well
-    from ..support.digests import Digester
-
     assert (
         Digester(["md5"])(dsdir / "sub-RAT123" / "sub-RAT123.nwb")["md5"]
         == "33318fd510094e4304868b4a481d4a5a"
@@ -54,16 +75,22 @@ def test_download_000027(
     # redownload - since already exist there should be an exception if we are
     # not using pyout
     with pytest.raises(FileExistsError):
-        download(url, tmp_path, format="debug")
+        download(url, tmp_path, format=DownloadFormat.DEBUG)
     assert "FileExistsError" not in capsys.readouterr().out
-    # but  no exception is raised, and rather it gets output to pyout otherwise
-    download(url, tmp_path)
+    # Generic error should be raised if we are using pyout/parallelization
+    with pytest.raises(RuntimeError) as exc:
+        download(url, tmp_path)
     assert "FileExistsError" in capsys.readouterr().out
+    assert "Encountered 1 error while downloading" in str(exc)
 
     # TODO: somehow get that status report about what was downloaded and what not
-    download(url, tmp_path, existing="skip")  # TODO: check that skipped
-    download(url, tmp_path, existing="overwrite")  # TODO: check that redownloaded
-    download(url, tmp_path, existing="refresh")  # TODO: check that skipped (the same)
+    download(url, tmp_path, existing=DownloadExisting.SKIP)  # TODO: check that skipped
+    download(
+        url, tmp_path, existing=DownloadExisting.OVERWRITE
+    )  # TODO: check that redownloaded
+    download(
+        url, tmp_path, existing=DownloadExisting.REFRESH
+    )  # TODO: check that skipped (the same)
 
 
 @mark.skipif_no_network
@@ -104,11 +131,10 @@ def test_download_000027_assets_only(url: str, tmp_path: Path) -> None:
 @mark.skipif_no_network
 @pytest.mark.parametrize("resizer", [lambda sz: 0, lambda sz: sz // 2, lambda sz: sz])
 @pytest.mark.parametrize("version", ["0.210831.2033", DRAFT])
+@pytest.mark.parametrize("break_download", [False, True])
 def test_download_000027_resume(
-    tmp_path: Path, resizer: Callable[[int], int], version: str
+    tmp_path: Path, resizer: Callable[[int], int], version: str, break_download: bool
 ) -> None:
-    from ..support.digests import Digester
-
     url = f"https://dandiarchive.org/dandiset/000027/{version}"
     digester = Digester()
     download(url, tmp_path, get_metadata=False)
@@ -121,15 +147,26 @@ def test_download_000027_resume(
     nwb.rename(dlfile)
     size = dlfile.stat().st_size
     os.truncate(dlfile, resizer(size))
+    if break_download:
+        bad_load = b"bad"
+        if resizer(size) == size:  # no truncation
+            os.truncate(dlfile, size - len(bad_load))
+        with open(dlfile, "ab") as f:
+            f.write(bad_load)
     with (dldir / "checksum").open("w") as fp:
         json.dump(digests, fp)
-    download(url, tmp_path, get_metadata=False)
+
+    with pytest.raises(RuntimeError) if break_download else nullcontext():
+        download(url, tmp_path, get_metadata=False)
     assert list_paths(dsdir, dirs=True) == [
         dsdir / "sub-RAT123",
         dsdir / "sub-RAT123" / "sub-RAT123.nwb",
     ]
     assert nwb.stat().st_size == size
-    assert digester(str(nwb)) == digests
+    if break_download:
+        assert digester(str(nwb)) != digests
+    else:
+        assert digester(str(nwb)) == digests
 
 
 def test_download_newest_version(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
@@ -160,6 +197,28 @@ def test_download_folder(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     assert (tmp_path / "subdir2" / "coconut.txt").read_text() == "Coconut\n"
 
 
+def test_download_folder_preserve_tree(
+    text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    dandiset_id = text_dandiset.dandiset_id
+    download(
+        f"dandi://{text_dandiset.api.instance_id}/{dandiset_id}/subdir2/",
+        tmp_path,
+        preserve_tree=True,
+    )
+    assert list_paths(tmp_path, dirs=True) == [
+        tmp_path / dandiset_id,
+        tmp_path / dandiset_id / "dandiset.yaml",
+        tmp_path / dandiset_id / "subdir2",
+        tmp_path / dandiset_id / "subdir2" / "banana.txt",
+        tmp_path / dandiset_id / "subdir2" / "coconut.txt",
+    ]
+    assert (tmp_path / dandiset_id / "subdir2" / "banana.txt").read_text() == "Banana\n"
+    assert (
+        tmp_path / dandiset_id / "subdir2" / "coconut.txt"
+    ).read_text() == "Coconut\n"
+
+
 def test_download_item(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     dandiset_id = text_dandiset.dandiset_id
     download(
@@ -168,6 +227,38 @@ def test_download_item(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
     )
     assert list_paths(tmp_path, dirs=True) == [tmp_path / "coconut.txt"]
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
+
+
+def test_download_item_preserve_tree(
+    text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    dandiset_id = text_dandiset.dandiset_id
+    download(
+        f"dandi://{text_dandiset.api.instance_id}/{dandiset_id}/subdir2/coconut.txt",
+        tmp_path,
+        preserve_tree=True,
+    )
+    assert list_paths(tmp_path, dirs=True) == [
+        tmp_path / dandiset_id,
+        tmp_path / dandiset_id / "dandiset.yaml",
+        tmp_path / dandiset_id / "subdir2",
+        tmp_path / dandiset_id / "subdir2" / "coconut.txt",
+    ]
+    assert (
+        tmp_path / dandiset_id / "subdir2" / "coconut.txt"
+    ).read_text() == "Coconut\n"
+
+
+def test_download_dandiset_yaml(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
+    dandiset_id = text_dandiset.dandiset_id
+    download(
+        f"dandi://{text_dandiset.api.instance_id}/{dandiset_id}/dandiset.yaml",
+        tmp_path,
+    )
+    assert list_paths(tmp_path, dirs=True) == [tmp_path / dandiset_metadata_file]
+    with (tmp_path / dandiset_metadata_file).open(encoding="utf-8") as fp:
+        metadata = yaml_load(fp)
+    assert metadata["id"] == f"DANDI:{dandiset_id}/draft"
 
 
 def test_download_asset_id(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
@@ -182,6 +273,15 @@ def test_download_asset_id_only(text_dandiset: SampleDandiset, tmp_path: Path) -
     download(asset.base_download_url, tmp_path)
     assert list_paths(tmp_path, dirs=True) == [tmp_path / "coconut.txt"]
     assert (tmp_path / "coconut.txt").read_text() == "Coconut\n"
+
+
+def test_download_asset_id_only_preserve_tree(
+    text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    asset = text_dandiset.dandiset.get_asset_by_path("subdir2/coconut.txt")
+    download(asset.base_download_url, tmp_path, preserve_tree=True)
+    assert list_paths(tmp_path, dirs=False) == [tmp_path / "subdir2" / "coconut.txt"]
+    assert (tmp_path / "subdir2" / "coconut.txt").read_text() == "Coconut\n"
 
 
 def test_download_asset_by_equal_prefix(
@@ -208,7 +308,7 @@ def test_download_sync(
     download(
         f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}",
         tmp_path,
-        existing="overwrite",
+        existing=DownloadExisting.OVERWRITE,
         sync=True,
     )
     confirm_mock.assert_called_with("Delete 1 local asset?", "yes", "no", "list")
@@ -227,7 +327,7 @@ def test_download_sync_folder(
     download(
         f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}/subdir2/",
         text_dandiset.dspath,
-        existing="overwrite",
+        existing=DownloadExisting.OVERWRITE,
         sync=True,
     )
     confirm_mock.assert_called_with("Delete 1 local asset?", "yes", "no", "list")
@@ -248,7 +348,7 @@ def test_download_sync_list(
     download(
         f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}",
         tmp_path,
-        existing="overwrite",
+        existing=DownloadExisting.OVERWRITE,
         sync=True,
     )
     assert not (dspath / "file.txt").exists()
@@ -269,7 +369,7 @@ def test_download_sync_zarr(
     download(
         zarr_dandiset.dandiset.version_api_url,
         tmp_path,
-        existing="overwrite",
+        existing=DownloadExisting.OVERWRITE,
         sync=True,
     )
     confirm_mock.assert_called_with("Delete 1 local asset?", "yes", "no", "list")
@@ -303,9 +403,10 @@ def test_download_metadata404(text_dandiset: SampleDandiset, tmp_path: Path) -> 
                 version_id=text_dandiset.dandiset.version_id,
             ),
             output_dir=tmp_path,
-            existing="error",
+            existing=DownloadExisting.ERROR,
             get_metadata=True,
             get_assets=True,
+            preserve_tree=False,
             jobs_per_zarr=None,
             on_error="raise",
         ).download_generator()
@@ -341,7 +442,9 @@ def test_download_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) 
     dd.mkdir()
     zarr.save(dd / "sample.zarr", np.eye(5))
     download(
-        zarr_dandiset.dandiset.version_api_url, tmp_path, existing="overwrite-different"
+        zarr_dandiset.dandiset.version_api_url,
+        tmp_path,
+        existing=DownloadExisting.OVERWRITE_DIFFERENT,
     )
     assert_dirtrees_eq(
         zarr_dandiset.dspath / "sample.zarr",
@@ -364,7 +467,9 @@ def test_download_different_zarr_onto_excluded_dotfiles(
     (zarr_path / "arr_0").mkdir()
     (zarr_path / "arr_0" / ".gitmodules").touch()
     download(
-        zarr_dandiset.dandiset.version_api_url, tmp_path, existing="overwrite-different"
+        zarr_dandiset.dandiset.version_api_url,
+        tmp_path,
+        existing=DownloadExisting.OVERWRITE_DIFFERENT,
     )
     assert list_paths(zarr_path, dirs=True, exclude_vcs=False) == [
         zarr_path / ".dandi",
@@ -395,7 +500,7 @@ def test_download_different_zarr_delete_dir(
     dd.mkdir(parents=True, exist_ok=True)
     zarr.save(dd / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
     assert any(p.is_dir() for p in (dd / "sample.zarr").iterdir())
-    download(d.version_api_url, tmp_path, existing="overwrite-different")
+    download(d.version_api_url, tmp_path, existing=DownloadExisting.OVERWRITE_DIFFERENT)
     assert_dirtrees_eq(dspath / "sample.zarr", dd / "sample.zarr")
 
 
@@ -406,7 +511,9 @@ def test_download_zarr_to_nonzarr_path(
     dd.mkdir()
     (dd / "sample.zarr").write_text("This is not a Zarr.\n")
     download(
-        zarr_dandiset.dandiset.version_api_url, tmp_path, existing="overwrite-different"
+        zarr_dandiset.dandiset.version_api_url,
+        tmp_path,
+        existing=DownloadExisting.OVERWRITE_DIFFERENT,
     )
     assert_dirtrees_eq(
         zarr_dandiset.dspath / "sample.zarr",
@@ -423,7 +530,7 @@ def test_download_nonzarr_to_zarr_path(
     dd = tmp_path / d.identifier
     dd.mkdir(parents=True, exist_ok=True)
     zarr.save(dd / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1))
-    download(d.version_api_url, tmp_path, existing="overwrite-different")
+    download(d.version_api_url, tmp_path, existing=DownloadExisting.OVERWRITE_DIFFERENT)
     assert (dd / "sample.zarr").is_file()
     assert (dd / "sample.zarr").read_text() == "This is not a Zarr.\n"
 
@@ -455,9 +562,10 @@ def test_download_zarr_subdir_has_only_subdirs(
 
 
 @pytest.mark.parametrize(
-    "file_qty,inputs,expected",
+    "zarr_size,file_qty,inputs,expected",
     [
-        (
+        (  # 0
+            42,
             1,
             [
                 ("lonely.txt", {"size": 42}),
@@ -471,16 +579,17 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("lonely.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 42},
                 {"status": "downloading"},
                 {"done": 0, "done%": 0.0},
                 {"done": 20, "done%": 20 / 42 * 100},
                 {"done": 40, "done%": 40 / 42 * 100},
                 {"done": 42, "done%": 100.0},
-                {"status": "done", "message": "1 done"},
+                {"done": 42, "done%": 100.0, "status": "done", "message": "1 done"},
             ],
         ),
-        (
+        (  # 1
+            169,
             2,
             [
                 ("apple.txt", {"size": 42}),
@@ -504,7 +613,7 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("banana.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 169},
                 {"status": "downloading"},
                 {"done": 0, "done%": 0.0},
                 {"done": 0, "done%": 0.0},
@@ -515,11 +624,12 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"done": 122, "done%": 122 / 169 * 100},
                 {"done": 162, "done%": 162 / 169 * 100},
                 {"done": 169, "done%": 100.0},
-                {"message": "1 done"},
-                {"status": "done", "message": "2 done"},
+                {"done": 169, "done%": 100.0, "message": "1 done"},
+                {"done": 169, "done%": 100.0, "status": "done", "message": "2 done"},
             ],
         ),
-        (
+        (  # 2
+            169,
             2,
             [
                 ("apple.txt", {"size": 42}),
@@ -543,23 +653,29 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("banana.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 169},
                 {"status": "downloading"},
                 {"done": 0, "done%": 0.0},
-                {"done": 20, "done%": 20 / 42 * 100},
+                {"done": 20, "done%": 20 / 169 * 100},
                 {"done": 20, "done%": 20 / 169 * 100},
                 {"done": 40, "done%": 40 / 169 * 100},
                 {"done": 42, "done%": 42 / 169 * 100},
                 {"done": 42, "done%": 42 / 169 * 100},
                 {"done": 82, "done%": 82 / 169 * 100},
                 {"done": 122, "done%": 122 / 169 * 100},
-                {"message": "1 done"},
+                {"done": 122, "done%": 122 / 169 * 100, "message": "1 done"},
                 {"done": 162, "done%": 162 / 169 * 100},
                 {"done": 169, "done%": 169 / 169 * 100},
-                {"status": "done", "message": "2 done"},
+                {
+                    "done": 169,
+                    "done%": 169 / 169 * 100,
+                    "status": "done",
+                    "message": "2 done",
+                },
             ],
         ),
-        (
+        (  # 3
+            169,
             2,
             [
                 ("apple.txt", {"size": 42}),
@@ -583,22 +699,23 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("banana.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 169},
                 {"status": "downloading"},
                 {"done": 0, "done%": 0.0},
-                {"done": 20, "done%": 20 / 42 * 100},
-                {"done": 40, "done%": 40 / 42 * 100},
-                {"done": 42, "done%": 42 / 42 * 100},
-                {"message": "1 done"},
+                {"done": 20, "done%": 20 / 169 * 100},
+                {"done": 40, "done%": 40 / 169 * 100},
+                {"done": 42, "done%": 42 / 169 * 100},
+                {"done": 42, "done%": 42 / 169 * 100, "message": "1 done"},
                 {"done": 42, "done%": 42 / 169 * 100},
                 {"done": 82, "done%": 82 / 169 * 100},
                 {"done": 122, "done%": 122 / 169 * 100},
                 {"done": 162, "done%": 162 / 169 * 100},
                 {"done": 169, "done%": 100.0},
-                {"status": "done", "message": "2 done"},
+                {"done": 169, "done%": 100.0, "status": "done", "message": "2 done"},
             ],
         ),
-        (
+        (  # 4
+            169,
             2,
             [
                 ("apple.txt", {"size": 42}),
@@ -617,29 +734,38 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("apple.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 169},
                 {"status": "downloading"},
                 {"done": 0, "done%": 0.0},
                 {"done": 0, "done%": 0.0},
                 {"done": 20, "done%": 20 / 169 * 100},
                 {"done": 60, "done%": 60 / 169 * 100},
                 {"done": 80, "done%": 80 / 169 * 100},
-                {"message": "1 errored"},
-                {"done": 40, "done%": 40 / 42 * 100},
-                {"done": 42, "done%": 100.0},
-                {"status": "error", "message": "1 done, 1 errored"},
+                {"done": 40, "done%": 40 / 169 * 100, "message": "1 errored"},
+                {"done": 42, "done%": 42 / 169 * 100},
+                {
+                    "done": 42,
+                    "done%": 42 / 169 * 100,
+                    "status": "error",
+                    "message": "1 done, 1 errored",
+                },
             ],
         ),
-        (
+        (  # 5
+            0,
             1,
             [("lonely.txt", {"status": "skipped", "message": "already exists"})],
             [{"status": "skipped", "message": "1 skipped"}],
         ),
-        (
+        (  # 6
+            169,
             2,
             [
                 ("apple.txt", {"size": 42}),
-                ("banana.txt", {"status": "skipped", "message": "already exists"}),
+                (
+                    "banana.txt",
+                    {"size": 127, "status": "skipped", "message": "already exists"},
+                ),
                 ("apple.txt", {"status": "downloading"}),
                 ("apple.txt", {"done": 0, "done%": 0.0}),
                 ("apple.txt", {"done": 20, "done%": 20 / 42 * 100}),
@@ -650,17 +776,23 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("apple.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
-                {"message": "1 skipped"},
+                {"size": 169},
+                {"done": 127, "done%": (127 + 0) / 169 * 100, "message": "1 skipped"},
                 {"status": "downloading"},
-                {"done": 0, "done%": 0.0},
-                {"done": 20, "done%": 20 / 42 * 100},
-                {"done": 40, "done%": 40 / 42 * 100},
-                {"done": 42, "done%": 100.0},
-                {"status": "done", "message": "1 done, 1 skipped"},
+                {"done": 127 + 0, "done%": (127 + 0) / 169 * 100},
+                {"done": 127 + 20, "done%": (127 + 20) / 169 * 100},
+                {"done": 127 + 40, "done%": (127 + 40) / 169 * 100},
+                {"done": 127 + 42, "done%": 100.0},
+                {
+                    "done": 127 + 42,
+                    "done%": 100.0,
+                    "status": "done",
+                    "message": "1 done, 1 skipped",
+                },
             ],
         ),
-        (
+        (  # 7
+            169,
             2,
             [
                 ("apple.txt", {"size": 42}),
@@ -689,7 +821,7 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("apple.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 169},
                 {"status": "downloading"},
                 {"done": 0, "done%": 0.0},
                 {"done": 0, "done%": 0.0},
@@ -700,18 +832,27 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"done": 122, "done%": 122 / 169 * 100},
                 {"done": 162, "done%": 162 / 169 * 100},
                 {"done": 169, "done%": 100.0},
-                {"message": "1 errored"},
-                {"status": "error", "message": "1 done, 1 errored"},
+                {"done": 169, "done%": 100.0, "message": "1 errored"},
+                {
+                    "done": 169,
+                    "done%": 100.0,
+                    "status": "error",
+                    "message": "1 done, 1 errored",
+                },
             ],
         ),
-        (
+        (  # 8
+            179,
             3,
             [
                 ("apple.txt", {"size": 42}),
                 ("banana.txt", {"size": 127}),
                 ("apple.txt", {"status": "downloading"}),
                 ("banana.txt", {"status": "downloading"}),
-                ("coconut", {"status": "skipped", "message": "already exists"}),
+                (
+                    "coconut",
+                    {"size": 10, "status": "skipped", "message": "already exists"},
+                ),
                 ("apple.txt", {"done": 0, "done%": 0.0}),
                 ("banana.txt", {"done": 0, "done%": 0.0}),
                 ("apple.txt", {"done": 20, "done%": 20 / 42 * 100}),
@@ -734,29 +875,38 @@ def test_download_zarr_subdir_has_only_subdirs(
                 ("banana.txt", {"status": "done"}),
             ],
             [
-                {"size": 69105},
+                {"size": 179},
                 {"status": "downloading"},
-                {"message": "1 skipped"},
-                {"done": 0, "done%": 0.0},
-                {"done": 0, "done%": 0.0},
-                {"done": 20, "done%": 20 / 169 * 100},
-                {"done": 60, "done%": 60 / 169 * 100},
-                {"done": 80, "done%": 80 / 169 * 100},
-                {"done": 120, "done%": 120 / 169 * 100},
-                {"done": 122, "done%": 122 / 169 * 100},
-                {"message": "1 errored, 1 skipped"},
-                {"done": 162, "done%": 162 / 169 * 100},
-                {"done": 169, "done%": 100.0},
-                {"status": "error", "message": "1 done, 1 errored, 1 skipped"},
+                {"done": 10, "done%": 10 / 179 * 100, "message": "1 skipped"},
+                {"done": 10, "done%": 10 / 179 * 100},
+                {"done": 10, "done%": 10 / 179 * 100},
+                {"done": 10 + 20, "done%": (10 + 20) / 179 * 100},
+                {"done": 10 + 60, "done%": (10 + 60) / 179 * 100},
+                {"done": 10 + 80, "done%": (10 + 80) / 179 * 100},
+                {"done": 10 + 120, "done%": (10 + 120) / 179 * 100},
+                {"done": 10 + 122, "done%": (10 + 122) / 179 * 100},
+                {
+                    "done": 10 + 122,
+                    "done%": (10 + 122) / 179 * 100,
+                    "message": "1 errored, 1 skipped",
+                },
+                {"done": 10 + 162, "done%": (10 + 162) / 179 * 100},
+                {"done": 179, "done%": 100.0},
+                {
+                    "done": 179,
+                    "done%": 100.0,
+                    "status": "error",
+                    "message": "1 done, 1 errored, 1 skipped",
+                },
             ],
         ),
     ],
 )
 def test_progress_combiner(
-    file_qty: int, inputs: List[Tuple[str, dict]], expected: List[dict]
+    zarr_size: int, file_qty: int, inputs: list[tuple[str, dict]], expected: list[dict]
 ) -> None:
-    pc = ProgressCombiner(zarr_size=69105, file_qty=file_qty)
-    outputs: List[dict] = []
+    pc = ProgressCombiner(zarr_size=zarr_size, file_qty=file_qty)
+    outputs: list[dict] = []
     for path, status in inputs:
         outputs.extend(pc.feed(path, status))
     assert outputs == expected
@@ -802,7 +952,7 @@ def test_download_glob_option(text_dandiset: SampleDandiset, tmp_path: Path) -> 
     download(
         f"dandi://{text_dandiset.api.instance_id}/{dandiset_id}/s*.Txt",
         tmp_path,
-        path_type="glob",
+        path_type=PathType.GLOB,
     )
     assert list_paths(tmp_path, dirs=True) == [
         tmp_path / "subdir1",
@@ -839,7 +989,7 @@ def test_download_sync_glob(
     download(
         f"{text_dandiset.dandiset.version_api_url}assets/?glob=s*.Txt",
         text_dandiset.dspath,
-        existing="overwrite",
+        existing=DownloadExisting.OVERWRITE,
         sync=True,
     )
     confirm_mock.assert_called_with("Delete 1 local asset?", "yes", "no", "list")
@@ -899,3 +1049,246 @@ def test_download_empty_dandiset_and_nonexistent_multiasset(
         tmp_path / empty_dandiset.dandiset_id,
         tmp_path / empty_dandiset.dandiset_id / "dandiset.yaml",
     ]
+
+
+def test_pyouthelper_time_remaining_1339():
+    """
+    Ensure that time remaining goes down!
+    https://github.com/dandi/dandi-cli/issues/1339
+
+    Since time.now() is called inside the agg methods, we
+    simulate time elapsing by changing t0
+
+    Assume downloading files totaling 100 arbitrary units at rates to trigger
+    a few hours, then countdown to 0.
+    check that ETA goes down like we want it to
+    """
+
+    helper = PYOUTHelper()
+    helper.items_summary.size = 100
+
+    # first check hours
+    # 5 hours remaining = 50% done in 60*60*5
+    helper.items_summary.t0 = time.time() - (60 * 60 * 5)
+    done = helper.agg_done(iter([50]))
+    assert done[-1] == "ETA: 5 hours<"
+
+    # 5 minutes remaining = 50% done in 60 * 5
+    helper.items_summary.t0 = time.time() - (5 * 60)
+    done = helper.agg_done(iter([50]))
+    assert done[-1] == "ETA: 5 minutes<"
+
+    # countdown the last 10 seconds!
+    for i in range(11):
+        helper.items_summary.t0 = time.time() - (100 - (10 - i))
+        done = helper.agg_done(iter([100 - (10 - i)]))
+        if i == 9:
+            assert done[-1] == "ETA: a second<"
+        elif i == 10:
+            # once done, dont print ETA
+            assert len(done) == 2
+        else:
+            assert done[-1] == f"ETA: {10 - i} seconds<"
+
+
+@mark.skipif_on_windows  # https://github.com/pytest-dev/pytest/issues/12964
+def test_DownloadDirectory_basic(tmp_path: Path) -> None:
+    with DownloadDirectory(tmp_path, digests={}) as dl:
+        assert dl.dirpath.exists()
+        assert dl.writefile.exists()
+        assert dl.writefile.stat().st_size == 0
+        assert dl.offset == 0
+
+        dl.append(b"123")
+        assert dl.fp is not None
+        dl.fp.flush()  # appends are not flushed automatically
+        assert dl.writefile.stat().st_size == 3
+        assert dl.offset == 0  # doesn't change
+
+        dl.append(b"456")
+        inode_number = dl.writefile.stat().st_ino
+        assert inode_number != tmp_path.stat().st_ino
+
+    # but after we are done - should be a full file!
+    assert tmp_path.stat().st_size == 6
+    assert tmp_path.read_bytes() == b"123456"
+    # we moved the file, didn't copy (expensive)
+    assert inode_number == tmp_path.stat().st_ino
+
+    # no problem with overwriting with new content
+    with DownloadDirectory(tmp_path, digests={}) as dl:
+        dl.append(b"789")
+    assert tmp_path.read_bytes() == b"789"
+
+    # even if path is a directory which we "overwrite"
+    tmp_path.unlink()
+    tmp_path.mkdir()
+    (tmp_path / "somedata.dat").write_text("content")
+    with DownloadDirectory(tmp_path, digests={}) as dl:
+        assert set(glob(f"{tmp_path}*")) == {str(tmp_path), str(dl.dirpath)}
+        dl.append(b"123")
+    assert tmp_path.read_bytes() == b"123"
+
+    # no temp .dandidownload folder is left behind
+    assert set(glob(f"{tmp_path}*")) == {str(tmp_path)}
+
+    # test locking
+    with Manager() as manager:
+        results = manager.list()
+        with DownloadDirectory(tmp_path, digests={}) as dl:
+            dl.append(b"123")
+            p1 = Process(target=_download_directory_subproc, args=(tmp_path, results))
+            p1.start()
+            p1.join()
+        assert len(results) == 1
+        assert results[0] == f"Could not acquire download lock for {tmp_path}"
+    assert tmp_path.read_bytes() == b"123"
+
+
+# needs to be a top-level function for pickling
+def _download_directory_subproc(path, results):
+    try:
+        with DownloadDirectory(path, digests={}):
+            results.append("re-entered fine")
+    except Exception as exc:
+        results.append(str(exc))
+
+
+def test_DownloadDirectory_exc(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG, logger="dandi")
+    # and now let's exit with exception
+    with pytest.raises(RuntimeError):
+        with DownloadDirectory(tmp_path, digests={}) as dl:
+            dl.append(b"456")
+            raise RuntimeError("Boom")
+    assert (
+        "dandi",
+        10,
+        f"{dl.dirpath} - entered __exit__ with position 3 with exception: "
+        "<class 'RuntimeError'>, Boom",
+    ) == caplog.record_tuples[-1]
+    # and we left without cleanup but closed things up after ourselves
+    assert tmp_path.exists()
+    assert tmp_path.is_dir()
+    assert dl.dirpath.exists()
+    assert dl.fp is None
+    assert dl.writefile.read_bytes() == b"456"
+
+
+def test__check_attempts_and_sleep() -> None:
+    f = partial(_check_attempts_and_sleep, Path("some/path"))
+
+    response403 = requests.Response()
+    response403.status_code = 403  # no retry
+
+    response500 = requests.Response()
+    response500.status_code = 500
+
+    # we do retry if cause is unknown (no response)
+    with mock.patch("time.sleep") as mock_sleep:
+        assert f(HTTPError(), attempt=1, attempts_allowed=2) == 2
+        mock_sleep.assert_called_once()
+        assert mock_sleep.call_args.args[0] >= 0
+
+    # or if some 500
+    with mock.patch("time.sleep") as mock_sleep:
+        assert f(HTTPError(response=response500), attempt=1, attempts_allowed=2) == 2
+        mock_sleep.assert_called_once()
+        assert mock_sleep.call_args.args[0] >= 0
+
+    # do not bother if already at limit
+    with mock.patch("time.sleep") as mock_sleep:
+        assert f(HTTPError(), attempt=2, attempts_allowed=2) is None
+        mock_sleep.assert_not_called()
+
+    # do not bother if 403
+    with mock.patch("time.sleep") as mock_sleep:
+        assert f(HTTPError(response=response403), attempt=1, attempts_allowed=2) is None
+        mock_sleep.assert_not_called()
+
+    # And in case of "Aggressive setting" when DANDI_DOWNLOAD_AGGRESSIVE_RETRY
+    # env var is set to 1, we retry if there was extra content downloaded
+    # patch env var DANDI_DOWNLOAD_AGGRESSIVE_RETRY
+    with mock.patch.dict(os.environ, {"DANDI_DOWNLOAD_AGGRESSIVE_RETRY": "1"}):
+        with mock.patch("time.sleep") as mock_sleep:
+            assert (
+                f(HTTPError(), attempt=2, attempts_allowed=2, downloaded_in_attempt=0)
+                is None
+            )
+            mock_sleep.assert_not_called()
+
+            assert (
+                f(HTTPError(), attempt=2, attempts_allowed=2, downloaded_in_attempt=1)
+                == 3
+            )
+            mock_sleep.assert_called_once()
+            assert mock_sleep.call_args.args[0] >= 0
+
+
+@pytest.mark.parametrize("status_code", [429, 503])
+def test__check_attempts_and_sleep_retries(status_code: int) -> None:
+    f = partial(_check_attempts_and_sleep, Path("some/path"))
+
+    response = requests.Response()
+    response.status_code = status_code
+
+    response.headers["Retry-After"] = "10"
+    with mock.patch("time.sleep") as mock_sleep:
+        assert f(HTTPError(response=response), attempt=1, attempts_allowed=2) == 2
+        mock_sleep.assert_called_once()
+        assert mock_sleep.call_args.args[0] == 10
+
+    response.headers["Retry-After"] = "Wed, 21 Oct 2015 07:28:00 GMT"
+    with mock.patch("time.sleep") as mock_sleep, mock.patch(
+        "dandi.utils.datetime"
+    ) as mock_datetime:
+        # shifted by 2 minutes
+        mock_datetime.datetime.now.return_value = parsedate_to_datetime(
+            "Wed, 21 Oct 2015 07:26:00 GMT"
+        )
+        assert f(HTTPError(response=response), attempt=1, attempts_allowed=2) == 2
+        mock_sleep.assert_called_once()
+        assert mock_sleep.call_args.args[0] == 120
+
+    # we would still sleep some time if Retry-After is not decypherable
+    response.headers["Retry-After"] = "indecipherable"
+    with mock.patch("time.sleep") as mock_sleep:
+        assert (
+            _check_attempts_and_sleep(
+                Path("some/path"),
+                HTTPError(response=response),
+                attempt=1,
+                attempts_allowed=2,
+            )
+            == 2
+        )
+        mock_sleep.assert_called_once()
+        assert mock_sleep.call_args.args[0] > 0
+
+    # shifted by 1 year! (too long)
+    response.headers["Retry-After"] = "Wed, 21 Oct 2016 07:28:00 GMT"
+    with mock.patch("time.sleep") as mock_sleep, mock.patch(
+        "dandi.utils.datetime"
+    ) as mock_datetime:
+        mock_datetime.datetime.now.return_value = parsedate_to_datetime(
+            "Wed, 21 Oct 2015 07:28:00 GMT"
+        )
+        assert f(HTTPError(response=response), attempt=1, attempts_allowed=2) == 2
+        mock_sleep.assert_called_once()
+        # and we do sleep some time
+        assert mock_sleep.call_args.args[0] > 0
+
+    # in the past second (too quick)
+    response.headers["Retry-After"] = "Wed, 21 Oct 2015 07:27:59 GMT"
+    with mock.patch("time.sleep") as mock_sleep, mock.patch(
+        "dandi.utils.datetime"
+    ) as mock_datetime:
+        mock_datetime.datetime.now.return_value = parsedate_to_datetime(
+            "Wed, 21 Oct 2015 07:28:00 GMT"
+        )
+        assert f(HTTPError(response=response), attempt=1, attempts_allowed=2) == 2
+        mock_sleep.assert_called_once()
+        # and we do not sleep really
+        assert not mock_sleep.call_args.args[0]

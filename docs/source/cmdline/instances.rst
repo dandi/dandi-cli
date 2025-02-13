@@ -5,7 +5,7 @@
 
     dandi [<global options>] instances
 
-List known Dandi Archive instances that can be passed to the
+List known DANDI instances that can be passed to the
 ``-i``/``--dandi-instance`` option of other subcommands for the CLI to
 interact with.  Output is in YAML.
 
@@ -22,3 +22,15 @@ Example output:
     dandi-staging:
       api: https://api-staging.dandiarchive.org/api
       gui: https://gui-staging.dandiarchive.org
+    linc-staging:
+      api: https://staging-api.lincbrain.org/api
+      gui: https://staging.lincbrain.org
+    linc:
+      api: https://api.lincbrain.org/api
+      gui: https://lincbrain.org
+    ember-staging:
+      api: https://api-dandi-staging.emberarchive.org/api
+      gui: https://dandi-staging.emberarchive.org
+    ember:
+      api: https://api-dandi.emberarchive.org/api
+      gui: https://dandi.emberarchive.org

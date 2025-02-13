@@ -1,6 +1,6 @@
 """
 This module provides functionality for parsing URLs and other resource
-identifiers for Dandisets & assets on Dandi Archive servers and for fetching
+identifiers for Dandisets & assets on DANDI instances and for fetching
 the objects to which the URLs refer.  See :ref:`resource_ids` for a list of
 accepted URL formats.
 
@@ -9,7 +9,7 @@ acquire a `ParsedDandiURL` instance, which can then be used to obtain the
 Dandiset and/or assets specified in the URL.  Call an instance's
 `~ParsedDandiURL.get_dandiset()` and/or `~ParsedDandiURL.get_assets()` to get
 the assets, passing in a `~dandi.dandiapi.DandiAPIClient` for the appropriate
-Dandi Archive API instance; an unauthenticated client pointing to the correct
+DANDI API instance; an unauthenticated client pointing to the correct
 instance can be acquired via the `~ParsedDandiURL.get_client()` method.  As a
 convenience, one can acquire a client, the Dandiset, and an iterator of all
 assets by using the `~ParsedDandiAPI.navigate()` context manager like so:
@@ -28,14 +28,16 @@ using the `navigate_url()` function.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 import posixpath
 import re
 from time import sleep
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, cast
+from typing import Any
 from urllib.parse import unquote as urlunquote
 
-from pydantic import AnyHttpUrl, BaseModel, parse_obj_as
+from pydantic import AnyHttpUrl, TypeAdapter
 import requests
 
 from . import get_logger
@@ -49,14 +51,15 @@ from .consts import (
 )
 from .dandiapi import BaseRemoteAsset, DandiAPIClient, RemoteDandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
-from .utils import get_instance
+from .utils import get_instance, get_retry_after
 
 lgr = get_logger()
 
 
-class ParsedDandiURL(ABC, BaseModel):
+@dataclass
+class ParsedDandiURL(ABC):
     """
-    Parsed representation of a URL pointing to a Dandi Archive resource
+    Parsed representation of a URL pointing to a DANDI resource
     (Dandiset or asset(s)).  Subclasses must implement `get_assets()`.
 
     Most methods take a ``client: DandiAPIClient`` argument, which must be a
@@ -66,20 +69,21 @@ class ParsedDandiURL(ABC, BaseModel):
     passed instead.
     """
 
-    #: The Dandi Archive instance that the URL points to
+    #: The DANDI instance that the URL points to
     instance: DandiInstance
     #: The ID of the Dandiset given in the URL
-    dandiset_id: Optional[str]
+    dandiset_id: str | None
     #: The version of the Dandiset, if specified.  If this is not set, the
     #: version will be defaulted using the rules described under
     #: `DandiAPIClient.get_dandiset()`.
-    version_id: Optional[str] = None
+    version_id: str | None
 
     @property
     def api_url(self) -> AnyHttpUrl:
-        """The base URL of the Dandi API service, without a trailing slash"""
+        """The base URL of the DANDI API service, without a trailing slash"""
         # Kept for backwards compatibility
-        return cast(AnyHttpUrl, parse_obj_as(AnyHttpUrl, self.instance.api.rstrip("/")))
+        adapter = TypeAdapter(AnyHttpUrl)
+        return adapter.validate_python(self.instance.api.rstrip("/"))
 
     def get_client(self) -> DandiAPIClient:
         """
@@ -90,7 +94,7 @@ class ParsedDandiURL(ABC, BaseModel):
 
     def get_dandiset(
         self, client: DandiAPIClient, lazy: bool = True
-    ) -> Optional[RemoteDandiset]:
+    ) -> RemoteDandiset | None:
         """
         Returns information about the specified (or default) version of the
         specified Dandiset.  Returns `None` if the URL did not contain a
@@ -106,7 +110,7 @@ class ParsedDandiURL(ABC, BaseModel):
 
     @abstractmethod
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
+        self, client: DandiAPIClient, order: str | None = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
         Returns an iterator of asset structures for the assets referred to by
@@ -136,9 +140,9 @@ class ParsedDandiURL(ABC, BaseModel):
 
     @contextmanager
     def navigate(
-        self, *, strict: bool = False, authenticate: Optional[bool] = None
+        self, *, strict: bool = False, authenticate: bool | None = None
     ) -> Iterator[
-        Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterable[BaseRemoteAsset]]
+        tuple[DandiAPIClient, RemoteDandiset | None, Iterable[BaseRemoteAsset]]
     ]:
         """
         A context manager that returns a triple of a
@@ -165,7 +169,11 @@ class ParsedDandiURL(ABC, BaseModel):
             try:
                 dandiset = self.get_dandiset(client, lazy=not strict)
             except requests.HTTPError as e:
-                if e.response.status_code == 401 and authenticate is not False:
+                if (
+                    e.response is not None
+                    and e.response.status_code == 401
+                    and authenticate is not False
+                ):
                     lgr.info("Resource requires authentication; authenticating ...")
                     client.dandi_authenticate()
                     dandiset = self.get_dandiset(client, lazy=not strict)
@@ -175,11 +183,17 @@ class ParsedDandiURL(ABC, BaseModel):
             yield (client, dandiset, assets)
 
     @abstractmethod
-    def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
+    def get_asset_download_path(
+        self, asset: BaseRemoteAsset, preserve_tree: bool
+    ) -> str:
         """
         Returns the path (relative to the base download directory) at which the
         asset ``asset`` (assumed to have been returned by this object's
-        `get_assets()` method) should be downloaded
+        `get_assets()` method) should be downloaded.
+
+        If ``preserve_tree`` is `True`, then the download is being performed
+        with ``--download tree`` option, and the method's return value should
+        be adjusted accordingly.
 
         :meta private:
         """
@@ -208,13 +222,14 @@ class ParsedDandiURL(ABC, BaseModel):
         ...
 
 
+@dataclass
 class DandisetURL(ParsedDandiURL):
     """
     Parsed from a URL that only refers to a Dandiset (possibly with a version)
     """
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
+        self, client: DandiAPIClient, order: str | None = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """Returns all assets in the Dandiset"""
         with _maybe_strict(strict):
@@ -222,32 +237,46 @@ class DandisetURL(ParsedDandiURL):
             assert d is not None
             yield from d.get_assets(order=order)
 
-    def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
+    def get_asset_download_path(
+        self, asset: BaseRemoteAsset, preserve_tree: bool
+    ) -> str:
         return asset.path.lstrip("/")
 
     def is_under_download_path(self, path: str) -> bool:
         return True
 
 
+@dataclass
 class SingleAssetURL(ParsedDandiURL):
     """Superclass for parsed URLs that refer to a single asset"""
 
-    def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
-        return posixpath.basename(asset.path.lstrip("/"))
+    def get_asset_download_path(
+        self, asset: BaseRemoteAsset, preserve_tree: bool
+    ) -> str:
+        path = asset.path.lstrip("/")
+        if preserve_tree:
+            return path
+        else:
+            return posixpath.basename(path)
 
     def is_under_download_path(self, path: str) -> bool:
-        raise TypeError(
-            f"{type(self).__name__}.is_under_download_path() should not be called"
-        )
+        return False
 
 
+@dataclass
 class MultiAssetURL(ParsedDandiURL):
     """Superclass for parsed URLs that refer to multiple assets"""
 
     path: str
 
-    def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
-        return multiasset_target(self.path, asset.path.lstrip("/"))
+    def get_asset_download_path(
+        self, asset: BaseRemoteAsset, preserve_tree: bool
+    ) -> str:
+        path = asset.path.lstrip("/")
+        if preserve_tree:
+            return path
+        else:
+            return multiasset_target(self.path, path)
 
     def is_under_download_path(self, path: str) -> bool:
         prefix = posixpath.dirname(self.path.strip("/"))
@@ -257,16 +286,22 @@ class MultiAssetURL(ParsedDandiURL):
             return path.startswith(self.path)
 
 
-class BaseAssetIDURL(SingleAssetURL):
+@dataclass
+# The below `type: ignore[override]` prevents mypy under Python 3.13+ from
+# complaining about problems caused by overriding the types of `dandiset_id`
+# and `version_id` from what they are in ParsedDandiURL.
+class BaseAssetIDURL(SingleAssetURL):  # type: ignore[override]
     """
     Parsed from a URL that refers to an asset by ID and does not include the
     Dandiset ID
     """
 
+    dandiset_id: None = field(init=False, default=None)
+    version_id: None = field(init=False, default=None)
     asset_id: str
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
+        self, client: DandiAPIClient, order: str | None = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
         Yields the asset with the given ID.  If the asset does not exist, then
@@ -282,9 +317,9 @@ class BaseAssetIDURL(SingleAssetURL):
 
     @contextmanager
     def navigate(
-        self, *, strict: bool = False, authenticate: Optional[bool] = None
+        self, *, strict: bool = False, authenticate: bool | None = None
     ) -> Iterator[
-        Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterable[BaseRemoteAsset]]
+        tuple[DandiAPIClient, RemoteDandiset | None, Iterable[BaseRemoteAsset]]
     ]:
         with self.get_client() as client:
             if authenticate:
@@ -293,7 +328,11 @@ class BaseAssetIDURL(SingleAssetURL):
             try:
                 assets = list(self.get_assets(client, strict=strict))
             except requests.HTTPError as e:
-                if e.response.status_code == 401 and authenticate is not False:
+                if (
+                    e.response is not None
+                    and e.response.status_code == 401
+                    and authenticate is not False
+                ):
                     lgr.info("Resource requires authentication; authenticating ...")
                     client.dandi_authenticate()
                     assets = list(self.get_assets(client, strict=strict))
@@ -302,6 +341,7 @@ class BaseAssetIDURL(SingleAssetURL):
             yield (client, dandiset, assets)
 
 
+@dataclass
 class AssetIDURL(SingleAssetURL):
     """
     Parsed from a URL that refers to an asset by ID and includes the Dandiset ID
@@ -310,7 +350,7 @@ class AssetIDURL(SingleAssetURL):
     asset_id: str
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
+        self, client: DandiAPIClient, order: str | None = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
         Yields the asset with the given ID.  If the Dandiset or asset does not
@@ -327,13 +367,14 @@ class AssetIDURL(SingleAssetURL):
         yield self.asset_id
 
 
+@dataclass
 class AssetPathPrefixURL(MultiAssetURL):
     """
     Parsed from a URL that refers to a collection of assets by path prefix
     """
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
+        self, client: DandiAPIClient, order: str | None = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
         Returns the assets whose paths start with `path`.  If `strict` is true
@@ -355,13 +396,14 @@ class AssetPathPrefixURL(MultiAssetURL):
             raise NotFoundError(f"No assets found with path prefix {self.path!r}")
 
 
+@dataclass
 class AssetItemURL(SingleAssetURL):
     """Parsed from a URL that refers to a specific asset by path"""
 
     path: str
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
+        self, client: DandiAPIClient, order: str | None = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
         Yields the asset whose path equals `path`.  If there is no such asset:
@@ -403,13 +445,14 @@ class AssetItemURL(SingleAssetURL):
                 )
 
 
+@dataclass
 class AssetFolderURL(MultiAssetURL):
     """
     Parsed from a URL that refers to a collection of assets by folder path
     """
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
+        self, client: DandiAPIClient, order: str | None = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
         Returns all assets under the folder at `path`.  If the folder does not
@@ -435,6 +478,7 @@ class AssetFolderURL(MultiAssetURL):
             raise NotFoundError(f"No assets found under folder {path!r}")
 
 
+@dataclass
 class AssetGlobURL(MultiAssetURL):
     """
     .. versionadded:: 0.54.0
@@ -443,7 +487,7 @@ class AssetGlobURL(MultiAssetURL):
     """
 
     def get_assets(
-        self, client: DandiAPIClient, order: Optional[str] = None, strict: bool = False
+        self, client: DandiAPIClient, order: str | None = None, strict: bool = False
     ) -> Iterator[BaseRemoteAsset]:
         """
         Returns all assets whose paths match the glob pattern `path`.  If
@@ -464,11 +508,13 @@ class AssetGlobURL(MultiAssetURL):
         if strict and not any_assets:
             raise NotFoundError(f"No assets found matching glob {self.path!r}")
 
-    def get_asset_download_path(self, asset: BaseRemoteAsset) -> str:
+    def get_asset_download_path(
+        self, asset: BaseRemoteAsset, preserve_tree: bool
+    ) -> str:
         return asset.path.lstrip("/")
 
     def is_under_download_path(self, path: str) -> bool:
-        # cf. <https://github.com/dandi/dandi-archive/blob/185a583b505bcb0ca990758b26210cd09228e81b/dandiapi/api/views/asset.py#L403-L409>
+        # cf. <https://github.com/dandi/dandi-archive/blob/185a583b505bcb0ca990758b26210cd09228e81b/dandiapi/api/views/asset.py#L403-L409>  # noqa: E501
         return bool(
             re.fullmatch(re.escape(self.path).replace(r"\*", ".*"), path, flags=re.I)
         )
@@ -485,10 +531,8 @@ def _maybe_strict(strict: bool) -> Iterator[None]:
 
 @contextmanager
 def navigate_url(
-    url: str, *, strict: bool = False, authenticate: Optional[bool] = None
-) -> Iterator[
-    Tuple[DandiAPIClient, Optional[RemoteDandiset], Iterable[BaseRemoteAsset]]
-]:
+    url: str, *, strict: bool = False, authenticate: bool | None = None
+) -> Iterator[tuple[DandiAPIClient, RemoteDandiset | None, Iterable[BaseRemoteAsset]]]:
     """
     A context manager that takes a URL pointing to a DANDI Archive and
     returns a triple of a `~dandi.dandiapi.DandiAPIClient` (with an open
@@ -504,7 +548,7 @@ def navigate_url(
         If true, then `get_dandiset()` is called with ``lazy=False`` and
         `get_assets()` is called with ``strict=True``; if false, the opposite
         occurs.
-    :param Optional[bool] authenticate:
+    :param authenticate:
         If true, then `~dandi.dandiapi.DandiAPIClient.dandi_authenticate()`
         will be called on the client before returning it.  If `None` (the
         default), the method will only be called if the URL requires
@@ -529,7 +573,7 @@ class _dandi_url_parser:
     dandiset_id_grp = f"(?P<dandiset_id>{DANDISET_ID_REGEX})"
     # Should absorb port and "api/":
     server_grp = "(?P<server>(?P<protocol>https?)://(?P<hostname>[^/]+)/(api/)?)"
-    known_urls: List[Tuple[re.Pattern[str], Dict[str, Any], str]] = [
+    known_urls: list[tuple[re.Pattern[str], dict[str, Any], str]] = [
         # List of (regex, settings, display string) triples
         #
         # Settings:
@@ -565,13 +609,14 @@ class _dandi_url_parser:
                 flags=re.I,
             ),
             {"handle_redirect": "pass"},
-            "https://identifiers.org/DANDI:<dandiset id>[/<version id>] (<version id> cannot be 'draft')",
+            "https://identifiers.org/DANDI:<dandiset id>[/<version id>]"
+            " (<version id> cannot be 'draft')",
         ),
         (
             re.compile(
                 rf"{server_grp}(#/)?(?P<asset_type>dandiset)/{dandiset_id_grp}"
                 rf"(/(?P<version>{VERSION_REGEX}))?"
-                r"(/(files(\?location=(?P<location>.*)?)?)?)?"
+                r"(/(files(\?location=(?P<location_folder>.*)?)?)?)?"
             ),
             {},
             "https://<server>[/api]/[#/]dandiset/<dandiset id>[/<version>]"
@@ -582,7 +627,7 @@ class _dandi_url_parser:
         (
             re.compile(r"https?://[^/]*dandiarchive-org\.netlify\.app/.*"),
             {"map_instance": "dandi"},
-            "https://*dandiarchive-org.netflify.app/...",
+            "https://*dandiarchive-org.netlify.app/...",
         ),
         # Direct urls to our new API
         (
@@ -653,6 +698,16 @@ class _dandi_url_parser:
             "https://<server>/...",
         ),
     ]
+    resource_identifier_primer = """RESOURCE ID/URLS:\n
+ dandi commands accept URLs and URL-like identifiers called <resource
+ ids> in the following formats for identifying Dandisets, assets, and
+ asset collections.
+
+ Text in [brackets] is optional.  A server field is a base API or GUI URL
+ for a DANDI Archive instance.  If an optional ``version`` field is
+ omitted from a URL, the given Dandiset's most recent published version
+ will be used if it has one, and its draft version will be used otherwise.
+"""
     known_patterns = "Accepted resource identifier patterns:" + "\n - ".join(
         [""] + [display for _, _, display in known_urls]
     )
@@ -662,7 +717,7 @@ class _dandi_url_parser:
         cls, url: str, *, map_instance: bool = True, glob: bool = False
     ) -> ParsedDandiURL:
         """
-        Parse a Dandi Archive URL and return a `ParsedDandiURL` instance.  See
+        Parse a DANDI instance URL and return a `ParsedDandiURL` instance.  See
         :ref:`resource_ids` for the supported URL formats.
 
         .. versionadded:: 0.54.0
@@ -694,12 +749,12 @@ class _dandi_url_parser:
                 assert not handle_redirect
                 assert not settings.get("map_instance")
                 new_url = rewrite(url)
-                return cls.parse(new_url)
+                return cls.parse(new_url, map_instance=map_instance, glob=glob)
             elif handle_redirect:
                 assert handle_redirect in ("pass", "only")
                 new_url = cls.follow_redirect(url)
                 if new_url != url:
-                    return cls.parse(new_url)
+                    return cls.parse(new_url, map_instance=map_instance, glob=glob)
                 if handle_redirect == "pass":
                     # We used to issue warning in such cases, but may be it got implemented
                     # now via reverse proxy and we had added a new regex? let's just
@@ -712,7 +767,7 @@ class _dandi_url_parser:
                     )
             elif settings.get("map_instance"):
                 if map_instance:
-                    parsed_url = cls.parse(url, map_instance=False)
+                    parsed_url = cls.parse(url, map_instance=False, glob=glob)
                     if settings["map_instance"] not in known_instances:
                         raise ValueError(
                             "Unknown instance {}. Known are: {}".format(
@@ -754,12 +809,18 @@ class _dandi_url_parser:
         # asset_type = groups.get("asset_type")
         dandiset_id = groups.get("dandiset_id")
         version_id = groups.get("version")
-        location = groups.get("location")
+        location: str
+        if groups.get("location_folder") is not None:
+            assert "location" not in groups
+            location = urlunquote(groups["location_folder"])
+            if not location.endswith("/") and not glob:
+                location += "/"
+        else:
+            location = urlunquote(groups.get("location") or "")
         asset_id = groups.get("asset_id")
         path = groups.get("path")
         glob_param = groups.get("glob")
         if location:
-            location = urlunquote(location)
             # ATM carries leading '/' which IMHO is not needed/misguiding
             # somewhat, so I will just strip it
             location = location.lstrip("/")
@@ -832,14 +893,26 @@ class _dandi_url_parser:
         while True:
             r = requests.head(url, allow_redirects=True)
             if r.status_code in RETRY_STATUSES and i < 4:
-                delay = 0.1 * 10**i
-                lgr.warning(
-                    "HEAD request to %s returned %d; sleeping for %f seconds and then retrying...",
-                    url,
-                    r.status_code,
-                    delay,
-                )
-                sleep(delay)
+                retry_after = get_retry_after(r)
+                if retry_after is not None:
+                    delay = retry_after
+                else:
+                    delay = 0.1 * 10**i
+                if delay:
+                    lgr.warning(
+                        "HEAD request to %s returned %d; "
+                        "sleeping for %f seconds and then retrying...",
+                        url,
+                        r.status_code,
+                        delay,
+                    )
+                    sleep(delay)
+                else:
+                    lgr.warning(
+                        "HEAD request to %s returned %d; retrying...",
+                        url,
+                        r.status_code,
+                    )
                 i += 1
                 continue
             elif r.status_code == 404:

@@ -2,7 +2,7 @@ import os
 
 from click.testing import CliRunner
 
-from ..command import instances
+from ..cmd_instances import instances
 
 
 def test_cmd_instances(monkeypatch):
@@ -19,4 +19,16 @@ def test_cmd_instances(monkeypatch):
         "dandi-staging:\n"
         "  api: https://api-staging.dandiarchive.org/api\n"
         "  gui: https://gui-staging.dandiarchive.org\n"
+        "ember:\n"
+        "  api: https://api-dandi.emberarchive.org/api\n"
+        "  gui: https://dandi.emberarchive.org\n"
+        "ember-staging:\n"
+        "  api: https://api-dandi-staging.emberarchive.org/api\n"
+        "  gui: https://dandi-staging.emberarchive.org\n"
+        "linc:\n"
+        "  api: https://api.lincbrain.org/api\n"
+        "  gui: https://lincbrain.org\n"
+        "linc-staging:\n"
+        "  api: https://staging-api.lincbrain.org/api\n"
+        "  gui: https://staging.lincbrain.org\n"
     )

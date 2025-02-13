@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Iterator, Sequence
 from contextlib import ExitStack
+from enum import Enum
 from functools import reduce
+import io
 import os.path
 from pathlib import Path
 import re
 import time
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Tuple, Union
+from time import sleep
+from typing import Any, TypedDict, cast
 from unittest.mock import patch
 
 import click
@@ -20,7 +24,8 @@ from .consts import (
     dandiset_identifier_regex,
     dandiset_metadata_file,
 )
-from .dandiapi import RemoteAsset
+from .dandiapi import DandiAPIClient, RemoteAsset
+from .dandiset import Dandiset
 from .exceptions import NotFoundError, UploadError
 from .files import (
     DandiFile,
@@ -30,32 +35,49 @@ from .files import (
     ZarrAsset,
 )
 from .misctypes import Digest
-from .utils import ensure_datetime, pluralize
+from .support import pyout as pyouts
+from .support.pyout import naturalsize
+from .utils import ensure_datetime, path_is_subpath, pluralize
 from .validate_types import Severity
 
-if TYPE_CHECKING:
-    from .support.typing import TypedDict
 
-    class Uploaded(TypedDict):
-        size: int
-        errors: List[str]
+class Uploaded(TypedDict):
+    size: int
+    errors: list[str]
+
+
+class UploadExisting(str, Enum):
+    ERROR = "error"
+    SKIP = "skip"
+    FORCE = "force"
+    OVERWRITE = "overwrite"
+    REFRESH = "refresh"
+
+    def __str__(self) -> str:
+        return self.value
+
+
+class UploadValidation(str, Enum):
+    REQUIRE = "require"
+    SKIP = "skip"
+    IGNORE = "ignore"
+
+    def __str__(self) -> str:
+        return self.value
 
 
 def upload(
-    paths: Optional[List[Union[str, Path]]] = None,
-    existing: str = "refresh",
-    validation: str = "require",
+    paths: Sequence[str | Path] | None = None,
+    existing: UploadExisting = UploadExisting.REFRESH,
+    validation: UploadValidation = UploadValidation.REQUIRE,
     dandi_instance: str | DandiInstance = "dandi",
     allow_any_path: bool = False,
     upload_dandiset_metadata: bool = False,
     devel_debug: bool = False,
-    jobs: Optional[int] = None,
-    jobs_per_file: Optional[int] = None,
+    jobs: int | None = None,
+    jobs_per_file: int | None = None,
     sync: bool = False,
 ) -> None:
-    from .dandiapi import DandiAPIClient
-    from .dandiset import Dandiset
-
     if paths:
         paths = [Path(p).absolute() for p in paths]
         dandiset = Dandiset.find(os.path.commonpath(paths))
@@ -78,7 +100,67 @@ def upload(
         if os.environ.get("DANDI_DEVEL_INSTRUMENT_REQUESTS_SUPERLEN"):
             from requests.utils import super_len
 
-            def new_super_len(o):
+            def check_len(obj: io.IOBase, name: Any) -> None:
+                first = True
+                for i in range(10):
+                    if first:
+                        first = False
+                    else:
+                        lgr.debug("- Will sleep and then stat %r again", name)
+                        sleep(1)
+                    try:
+                        st = os.stat(name)
+                    except OSError as e:
+                        lgr.debug(
+                            "- Attempt to stat %r failed with %s: %s",
+                            name,
+                            type(e).__name__,
+                            e,
+                        )
+                        stat_size = None
+                    else:
+                        lgr.debug("- stat(%r) = %r", name, st)
+                        stat_size = st.st_size
+                    try:
+                        fileno = obj.fileno()
+                    except Exception:
+                        lgr.debug(
+                            "- I/O object for %r has no fileno; cannot fstat", name
+                        )
+                        fstat_size = None
+                    else:
+                        try:
+                            st = os.fstat(fileno)
+                        except OSError as e:
+                            lgr.debug(
+                                "- Attempt to fstat %r failed with %s: %s",
+                                name,
+                                type(e).__name__,
+                                e,
+                            )
+                            fstat_size = None
+                        else:
+                            lgr.debug("- fstat(%r) = %r", name, st)
+                            fstat_size = st.st_size
+                    if stat_size not in (None, 0):
+                        raise RuntimeError(
+                            f"requests.utils.super_len() reported size of 0 for"
+                            f" {name!r}, but os.stat() reported size"
+                            f" {stat_size} bytes {i + 1} tries later"
+                        )
+                    if fstat_size not in (None, 0):
+                        raise RuntimeError(
+                            f"requests.utils.super_len() reported size of 0 for"
+                            f" {name!r}, but os.fstat() reported size"
+                            f" {fstat_size} bytes {i + 1} tries later"
+                        )
+                lgr.debug(
+                    "- Size of %r still appears to be 0 after 10 rounds of"
+                    " stat'ing; returning size 0",
+                    name,
+                )
+
+            def new_super_len(o: Any) -> int:
                 try:
                     n = super_len(o)
                 except Exception:
@@ -88,7 +170,16 @@ def upload(
                     raise
                 else:
                     lgr.debug("requests.utils.super_len() reported %d for %r", n, o)
-                    return n
+                    if (
+                        n == 0
+                        and isinstance(o, io.IOBase)
+                        and (name := getattr(o, "name", None)) not in (None, "")
+                    ):
+                        lgr.debug(
+                            "- Size of 0 is suspicious; double-checking that NFS isn't lying"
+                        )
+                        check_len(o, name)
+                    return cast(int, n)
 
             stack.enter_context(patch("requests.models.super_len", new_super_len))
 
@@ -101,9 +192,8 @@ def upload(
                 f"convention {dandiset_identifier_regex!r}."
             )
 
+        # Avoid heavy import by importing within function:
         from .pynwb_utils import ignore_benign_pynwb_warnings
-        from .support.pyout import naturalsize
-        from .utils import path_is_subpath
 
         ignore_benign_pynwb_warnings()  # so validate doesn't whine
 
@@ -127,13 +217,13 @@ def upload(
         # we could limit the number of them until
         #   https://github.com/pyout/pyout/issues/87
         # properly addressed
-        process_paths: Set[str] = set()
+        process_paths: set[str] = set()
 
-        uploaded_paths: Dict[str, Uploaded] = defaultdict(
+        uploaded_paths: dict[str, Uploaded] = defaultdict(
             lambda: {"size": 0, "errors": []}
         )
 
-        upload_err: Optional[Exception] = None
+        upload_err: Exception | None = None
         validate_ok = True
 
         # TODO: we might want to always yield a full record so no field is not
@@ -166,7 +256,10 @@ def upload(
                 # Validate first, so we do not bother server at all if not kosher
                 #
                 # TODO: enable back validation of dandiset.yaml
-                if isinstance(dfile, LocalAsset) and validation != "skip":
+                if (
+                    isinstance(dfile, LocalAsset)
+                    and validation != UploadValidation.SKIP
+                ):
                     yield {"status": "pre-validating"}
                     validation_statuses = dfile.get_validation_errors()
                     validation_errors = [
@@ -175,7 +268,7 @@ def upload(
                     yield {"errors": len(validation_errors)}
                     # TODO: split for dandi, pynwb errors
                     if validation_errors:
-                        if validation == "require":
+                        if validation is UploadValidation.REQUIRE:
                             lgr.warning(
                                 "%r had %d validation errors preventing its upload:",
                                 strpath,
@@ -215,7 +308,7 @@ def upload(
                 #
                 # Compute checksums
                 #
-                file_etag: Optional[Digest]
+                file_etag: Digest | None
                 if isinstance(dfile, ZarrAsset):
                     file_etag = None
                 else:
@@ -252,7 +345,7 @@ def upload(
                 try:
                     metadata = dfile.get_metadata(
                         digest=file_etag, ignore_errors=allow_any_path
-                    ).json_dict()
+                    ).model_dump(mode="json", exclude_none=True)
                 except Exception as e:
                     raise UploadError("failed to extract metadata: %s" % str(e))
 
@@ -293,7 +386,6 @@ def upload(
 
         # We will again use pyout to provide a neat table summarizing our progress
         # with upload etc
-        from .support import pyout as pyouts
 
         # for the upload speeds we need to provide a custom  aggregate
         t0 = time.time()
@@ -311,9 +403,9 @@ def upload(
             return "%s/s" % naturalsize(speed)
 
         pyout_style = pyouts.get_style(hide_if_missing=False)
-        pyout_style["upload"]["aggregate"] = upload_agg
+        pyout_style["progress"]["aggregate"] = upload_agg
 
-        rec_fields = ["path", "size", "errors", "upload", "status", "message"]
+        rec_fields = ["path", "size", "errors", "progress", "status", "message"]
         out = pyouts.LogSafeTabular(
             style=pyout_style, columns=rec_fields, max_workers=jobs or 5
         )
@@ -326,7 +418,7 @@ def upload(
 
                 process_paths.add(str(dfile.filepath))
 
-                rec: Dict[Any, Any]
+                rec: dict[Any, Any]
                 if isinstance(dfile, DandisetMetadataFile):
                     rec = {"path": dandiset_metadata_file}
                 else:
@@ -367,7 +459,7 @@ def upload(
             raise upload_err
 
         if sync:
-            relpaths: List[str] = []
+            relpaths: list[str] = []
             for p in paths:
                 rp = os.path.relpath(p, dandiset.path)
                 relpaths.append("" if rp == "." else rp)
@@ -388,9 +480,9 @@ def upload(
 def check_replace_asset(
     local_asset: LocalAsset,
     remote_asset: RemoteAsset,
-    existing: str,
-    local_etag: Optional[Digest],
-) -> Tuple[bool, Dict[str, str]]:
+    existing: UploadExisting,
+    local_etag: Digest | None,
+) -> tuple[bool, dict[str, str]]:
     # Returns a (replace asset, message to yield) tuple
     if isinstance(local_asset, ZarrAsset):
         return (True, {"message": "exists - reuploading"})
@@ -415,30 +507,30 @@ def check_replace_asset(
         remote_mtime = None
         remote_file_status = "no mtime"
     exists_msg = f"exists ({remote_file_status})"
-    if existing == "error":
+    if existing is UploadExisting.ERROR:
         # as promised -- not gentle at all!
         raise FileExistsError(exists_msg)
-    if existing == "skip":
+    if existing is UploadExisting.SKIP:
         return (False, skip_file(exists_msg))
     # Logic below only for overwrite and reupload
-    if existing == "overwrite":
+    if existing is UploadExisting.OVERWRITE:
         if remote_etag == local_etag.value:
             return (False, skip_file(exists_msg))
-    elif existing == "refresh":
+    elif existing is UploadExisting.REFRESH:
         if remote_etag == local_etag.value:
             return (False, skip_file("file exists"))
         elif remote_mtime is not None and remote_mtime >= local_mtime:
             return (False, skip_file(exists_msg))
-    elif existing == "force":
+    elif existing is UploadExisting.FORCE:
         pass
     else:
-        raise ValueError(f"invalid value for 'existing': {existing!r}")
+        raise AssertionError(f"Unhandled UploadExisting member: {existing!r}")
     return (True, {"message": f"{exists_msg} - reuploading"})
 
 
-def skip_file(msg: Any) -> Dict[str, str]:
+def skip_file(msg: Any) -> dict[str, str]:
     return {"status": "skipped", "message": str(msg)}
 
 
-def error_file(msg: Any) -> Dict[str, str]:
+def error_file(msg: Any) -> dict[str, str]:
     return {"status": "ERROR", "message": str(msg)}

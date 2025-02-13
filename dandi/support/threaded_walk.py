@@ -15,20 +15,23 @@
 # limitations under the License.
 # ==============================================================================
 
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable
 import logging
 import os.path
 from pathlib import Path
 import threading
-from typing import Any, Callable, Iterable, Optional, Union
+from typing import Any
 
 log = logging.getLogger(__name__)
 
 
 def threaded_walk(
-    dirpath: Union[str, Path],
-    func: Optional[Callable[[Path], Any]] = None,
+    dirpath: str | Path,
+    func: Callable[[Path], Any] | None = None,
     threads: int = 60,
-    exclude: Optional[Callable[[Path], Any]] = None,
+    exclude: Callable[[Path], Any] | None = None,
 ) -> Iterable[Any]:
     if not os.path.isdir(dirpath):
         return

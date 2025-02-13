@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 import json
 from pathlib import Path
 import shutil
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any
 
 from anys import ANY_AWARE_DATETIME, AnyFullmatch, AnyIn
 from dandischema.consts import DANDI_SCHEMA_VERSION
@@ -25,34 +27,42 @@ from dandischema.models import (
 )
 from dandischema.models import Dandiset as DandisetMeta
 from dateutil.tz import tzutc
+from pydantic import ByteSize
 import pytest
+import requests
 from semantic_version import Version
 
 from .fixtures import SampleDandiset
 from .skip import mark
 from .. import __version__
+from ..consts import metadata_nwb_subject_fields
 from ..dandiapi import RemoteBlobAsset
-from ..metadata import (
+from ..metadata.core import prepare_metadata
+from ..metadata.nwb import get_metadata, nwb2asset
+from ..metadata.util import (
     extract_age,
     extract_cellLine,
     extract_species,
-    get_metadata,
-    nwb2asset,
     parse_age,
     parse_purlobourl,
-    prepare_metadata,
     process_ndtypes,
     species_map,
     timedelta2duration,
 )
 from ..misctypes import DUMMY_DANDI_ETAG
-from ..pynwb_utils import metadata_nwb_subject_fields
 from ..utils import ensure_datetime
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
 
+mark_xfail_ontobee = pytest.mark.xfail(
+    condition="not config.getoption('--scheduled')",
+    reason="Flaky ontobee site",
+    strict=False,
+    raises=requests.RequestException,
+)
 
-def test_get_metadata(simple1_nwb: Path, simple1_nwb_metadata: Dict[str, Any]) -> None:
+
+def test_get_metadata(simple1_nwb: Path, simple1_nwb_metadata: dict[str, Any]) -> None:
     target_metadata = simple1_nwb_metadata.copy()
     # we will also get some counts
     target_metadata["number_of_electrodes"] = 0
@@ -150,7 +160,7 @@ def test_bids_nwb_metadata_integration(bids_examples: Path, tmp_path: Path) -> N
         ("/", "/"),
     ],
 )
-def test_parse_age(age: str, duration: Union[str, Tuple[str, str]]) -> None:
+def test_parse_age(age: str, duration: str | tuple[str, str]) -> None:
     if isinstance(duration, tuple):
         duration, ref = duration
     else:  # birth will be a default ref
@@ -213,7 +223,7 @@ def test_extract_cellLine(s, t):
         ),
     ],
 )
-def test_parse_error(age: Optional[str], errmsg: str) -> None:
+def test_parse_error(age: str | None, errmsg: str) -> None:
     with pytest.raises(ValueError) as excinfo:
         parse_age(age)
     assert str(excinfo.value) == errmsg
@@ -232,6 +242,7 @@ def test_timedelta2duration(td: timedelta, duration: str) -> None:
     assert timedelta2duration(td) == duration
 
 
+@mark_xfail_ontobee
 @mark.skipif_no_network
 @pytest.mark.parametrize(
     "filename, metadata",
@@ -321,7 +332,9 @@ def test_timedelta2duration(td: timedelta, duration: str) -> None:
                 "institution": "University College",
                 "keywords": ["test", "sample", "example", "test-case"],
                 "lab": "Retriever Laboratory",
-                "related_publications": "A Brief History of Test Cases",
+                "related_publications": [
+                    "https://doi.org/10.48324/dandi.000027/0.210831.2033"
+                ],
                 "session_description": "Some test data",
                 "session_id": "XYZ789",
                 "session_start_time": "2020-08-31T15:58:28-04:00",
@@ -395,8 +408,8 @@ def test_timedelta2duration(td: timedelta, duration: str) -> None:
         ),
     ],
 )
-def test_prepare_metadata(filename: str, metadata: Dict[str, Any]) -> None:
-    data = prepare_metadata(metadata).json_dict()
+def test_prepare_metadata(filename: str, metadata: dict[str, Any]) -> None:
+    data = prepare_metadata(metadata).model_dump(mode="json", exclude_none=True)
     with (METADATA_DIR / filename).open() as fp:
         data_as_dict = json.load(fp)
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
@@ -457,6 +470,7 @@ def test_time_extract_gest() -> None:
     )
 
 
+@mark_xfail_ontobee
 @mark.skipif_no_network
 @pytest.mark.obolibrary
 @pytest.mark.parametrize(
@@ -487,15 +501,46 @@ def test_parseobourl(url, value):
     assert parse_purlobourl(url) == value
 
 
+@mark_xfail_ontobee
 @pytest.mark.obolibrary
 @mark.skipif_no_network
 def test_species():
     m = {"species": "http://purl.obolibrary.org/obo/NCBITaxon_28584"}
-    assert extract_species(m).json_dict() == {
+    assert extract_species(m).model_dump(mode="json", exclude_none=True) == {
         "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_28584",
         "schemaKey": "SpeciesType",
         "name": "Drosophila suzukii",
     }
+
+
+# all of them should match the same record
+# There should be no network access -- just matching records
+@pytest.mark.parametrize(
+    "species",
+    [
+        "mongolian gerbil",
+        "mongolian jird",
+        "Mongolian jird",
+        "http://purl.obolibrary.org/obo/NCBITaxon_10047",
+        "Meriones unguiculatus",
+        "Meriones Unguiculatus",
+        "meriones Unguiculatus",
+    ],
+)
+def test_species_all_possible(species: str) -> None:
+    species_rec = extract_species({"species": species})
+    assert species_rec
+    assert species_rec.model_dump(mode="json", exclude_none=True) == {
+        "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_10047",
+        "schemaKey": "SpeciesType",
+        "name": "Meriones unguiculatus",
+    }
+
+
+def test_extract_unknown_species():
+    with pytest.raises(ValueError) as excinfo:
+        extract_species({"species": "mumba-jumba"})
+    assert str(excinfo.value).startswith("Cannot interpret species field: mumba-jumba")
 
 
 def test_species_map():
@@ -771,7 +816,7 @@ def test_species_map():
     ],
 )
 def test_ndtypes(ndtypes, asset_dict):
-    metadata = BareAsset.unvalidated(
+    metadata = BareAsset(
         contentSize=1,
         encodingFormat="application/x-nwb",
         digest={DigestType.dandi_etag: "0" * 32 + "-1"},
@@ -789,24 +834,26 @@ def test_ndtypes(ndtypes, asset_dict):
 
 @mark.skipif_no_network
 def test_nwb2asset(simple2_nwb: Path) -> None:
-    assert nwb2asset(simple2_nwb, digest=DUMMY_DANDI_ETAG) == BareAsset.unvalidated(
+    # Classes with ANY_AWARE_DATETIME fields need to be constructed with
+    # model_construct()
+    assert nwb2asset(simple2_nwb, digest=DUMMY_DANDI_ETAG) == BareAsset.model_construct(
         schemaKey="Asset",
         schemaVersion=DANDI_SCHEMA_VERSION,
         keywords=["keyword1", "keyword 2"],
         access=[
-            AccessRequirements.unvalidated(
+            AccessRequirements(
                 schemaKey="AccessRequirements", status=AccessType.OpenAccess
             )
         ],
         wasGeneratedBy=[
-            Session.unvalidated(
+            Session.model_construct(
                 schemaKey="Session",
                 identifier="session_id1",
                 name="session_id1",
                 description="session_description1",
                 startDate=ANY_AWARE_DATETIME,
             ),
-            Activity.unvalidated(
+            Activity.model_construct(
                 id=AnyFullmatch(
                     r"urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
                 ),
@@ -816,7 +863,7 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
                 startDate=ANY_AWARE_DATETIME,
                 endDate=ANY_AWARE_DATETIME,
                 wasAssociatedWith=[
-                    Software.unvalidated(
+                    Software(
                         schemaKey="Software",
                         identifier="RRID:SCR_019009",
                         name="DANDI Command Line Interface",
@@ -826,27 +873,27 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
                 ],
             ),
         ],
-        contentSize=19664,
+        contentSize=ByteSize(19664),
         encodingFormat="application/x-nwb",
         digest={DigestType.dandi_etag: "dddddddddddddddddddddddddddddddd-1"},
         path=str(simple2_nwb),
         dateModified=ANY_AWARE_DATETIME,
         blobDateModified=ANY_AWARE_DATETIME,
         wasAttributedTo=[
-            Participant.unvalidated(
+            Participant(
                 identifier="mouse001",
                 schemaKey="Participant",
-                age=PropertyValue.unvalidated(
+                age=PropertyValue(
                     schemaKey="PropertyValue",
                     unitText="ISO-8601 duration",
                     value="P135DT43200S",
-                    valueReference=PropertyValue.unvalidated(
+                    valueReference=PropertyValue(
                         schemaKey="PropertyValue",
                         value=AgeReferenceType.BirthReference,
                     ),
                 ),
-                sex=SexType.unvalidated(schemaKey="SexType", name="Unknown"),
-                species=SpeciesType.unvalidated(
+                sex=SexType(schemaKey="SexType", name="Unknown"),
+                species=SpeciesType(
                     schemaKey="SpeciesType",
                     identifier="http://purl.obolibrary.org/obo/NCBITaxon_10090",
                     name="Mus musculus - House mouse",
@@ -856,9 +903,11 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
         variableMeasured=[],
         measurementTechnique=[],
         approach=[],
+        relatedResource=[],
     )
 
 
+@pytest.mark.xfail(reason="https://github.com/dandi/dandi-cli/issues/1450")
 def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
     pytest.importorskip("fsspec")
     asset = nwb_dandiset.dandiset.get_asset_by_path("sub-mouse001/sub-mouse001.nwb")
@@ -866,24 +915,26 @@ def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
     mtime = ensure_datetime(asset.get_raw_metadata()["blobDateModified"])
     assert isinstance(asset, RemoteBlobAsset)
     r = asset.as_readable()
-    assert nwb2asset(r, digest=digest) == BareAsset.unvalidated(
+    # Classes with ANY_AWARE_DATETIME fields need to be constructed with
+    # model_construct()
+    assert nwb2asset(r, digest=digest) == BareAsset.model_construct(
         schemaKey="Asset",
         schemaVersion=DANDI_SCHEMA_VERSION,
         keywords=["keyword1", "keyword 2"],
         access=[
-            AccessRequirements.unvalidated(
+            AccessRequirements(
                 schemaKey="AccessRequirements", status=AccessType.OpenAccess
             )
         ],
         wasGeneratedBy=[
-            Session.unvalidated(
+            Session.model_construct(
                 schemaKey="Session",
                 identifier="session_id1",
                 name="session_id1",
                 description="session_description1",
                 startDate=ANY_AWARE_DATETIME,
             ),
-            Activity.unvalidated(
+            Activity.model_construct(
                 id=AnyFullmatch(
                     r"urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
                 ),
@@ -893,7 +944,7 @@ def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
                 startDate=ANY_AWARE_DATETIME,
                 endDate=ANY_AWARE_DATETIME,
                 wasAssociatedWith=[
-                    Software.unvalidated(
+                    Software(
                         schemaKey="Software",
                         identifier="RRID:SCR_019009",
                         name="DANDI Command Line Interface",
@@ -903,27 +954,27 @@ def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
                 ],
             ),
         ],
-        contentSize=asset.size,
+        contentSize=ByteSize(asset.size),
         encodingFormat="application/x-nwb",
         digest={DigestType.dandi_etag: digest.value},
         path="sub-mouse001.nwb",
         dateModified=ANY_AWARE_DATETIME,
         blobDateModified=mtime,
         wasAttributedTo=[
-            Participant.unvalidated(
+            Participant(
                 identifier="mouse001",
                 schemaKey="Participant",
-                age=PropertyValue.unvalidated(
+                age=PropertyValue(
                     schemaKey="PropertyValue",
                     unitText="ISO-8601 duration",
                     value="P135DT43200S",
-                    valueReference=PropertyValue.unvalidated(
+                    valueReference=PropertyValue(
                         schemaKey="PropertyValue",
                         value=AgeReferenceType.BirthReference,
                     ),
                 ),
-                sex=SexType.unvalidated(schemaKey="SexType", name="Unknown"),
-                species=SpeciesType.unvalidated(
+                sex=SexType(schemaKey="SexType", name="Unknown"),
+                species=SpeciesType(
                     schemaKey="SpeciesType",
                     identifier="http://purl.obolibrary.org/obo/NCBITaxon_10090",
                     name="Mus musculus - House mouse",
@@ -933,4 +984,5 @@ def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
         variableMeasured=[],
         measurementTechnique=[],
         approach=[],
+        relatedResource=[],
     )

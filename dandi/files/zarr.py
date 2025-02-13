@@ -6,24 +6,23 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import closing
 from dataclasses import dataclass, field, replace
 from datetime import datetime
+import json
 import os
 import os.path
 from pathlib import Path
 from time import sleep
-from typing import Any, Optional
+from typing import Any
 
-from dandischema.digests.zarr import get_checksum
 from dandischema.models import BareAsset, DigestType
 import requests
-import zarr
-from zarr_checksum import ZarrChecksumTree
+from zarr_checksum.tree import ZarrChecksumTree
 
 from dandi import get_logger
 from dandi.consts import (
     MAX_ZARR_DEPTH,
+    ZARR_DELETE_BATCH_SIZE,
     ZARR_MIME_TYPE,
     ZARR_UPLOAD_BATCH_SIZE,
-    EmbargoStatus,
 )
 from dandi.dandiapi import (
     RemoteAsset,
@@ -32,10 +31,15 @@ from dandi.dandiapi import (
     RemoteZarrEntry,
     RESTFullAPIClient,
 )
-from dandi.metadata import get_default_metadata
+from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ZARR_CHECKSUM, BasePath, Digest
-from dandi.support.digests import get_digest, get_zarr_checksum, md5file_nocache
-from dandi.utils import chunked, exclude_from_zarr, pluralize
+from dandi.utils import (
+    chunked,
+    exclude_from_zarr,
+    pluralize,
+    post_upload_size_check,
+    pre_upload_size_check,
+)
 
 from .bases import LocalDirectoryAsset
 from ..validate_types import Scope, Severity, ValidationOrigin, ValidationResult
@@ -92,9 +96,12 @@ class LocalZarrEntry(BasePath):
     def get_digest(self) -> Digest:
         """
         Calculate the DANDI etag digest for the entry.  If the entry is a
-        directory, the algorithm will be the Dandi Zarr checksum algorithm; if
+        directory, the algorithm will be the DANDI Zarr checksum algorithm; if
         it is a file, it will be MD5.
         """
+        # Avoid heavy import by importing within function:
+        from dandi.support.digests import get_digest, get_zarr_checksum
+
         if self.is_dir():
             return Digest.dandi_zarr(get_zarr_checksum(self.filepath))
         else:
@@ -126,7 +133,7 @@ class ZarrStat:
 
     #: The total size of the asset
     size: int
-    #: The Dandi Zarr checksum of the asset
+    #: The DANDI Zarr checksum of the asset
     digest: Digest
     #: A list of all files in the asset in unspecified order
     files: list[LocalZarrEntry]
@@ -151,23 +158,26 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         """Return various details about the Zarr asset"""
 
         def dirstat(dirpath: LocalZarrEntry) -> ZarrStat:
+            # Avoid heavy import by importing within function:
+            from dandi.support.digests import checksum_zarr_dir, md5file_nocache
+
             size = 0
-            dir_md5s = {}
-            file_md5s = {}
+            dir_info = {}
+            file_info = {}
             files = []
             for p in dirpath.iterdir():
                 if p.is_dir():
                     st = dirstat(p)
                     size += st.size
-                    dir_md5s[p.name] = (st.digest.value, st.size)
+                    dir_info[p.name] = (st.digest.value, st.size)
                     files.extend(st.files)
                 else:
                     size += p.size
-                    file_md5s[p.name] = (md5file_nocache(p.filepath), p.size)
+                    file_info[p.name] = (md5file_nocache(p.filepath), p.size)
                     files.append(p)
             return ZarrStat(
                 size=size,
-                digest=Digest.dandi_zarr(get_checksum(file_md5s, dir_md5s)),
+                digest=Digest.dandi_zarr(checksum_zarr_dir(file_info, dir_info)),
                 files=files,
             )
 
@@ -175,11 +185,14 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 
     def get_digest(self) -> Digest:
         """Calculate a dandi-zarr-checksum digest for the asset"""
+        # Avoid heavy import by importing within function:
+        from dandi.support.digests import get_zarr_checksum
+
         return Digest.dandi_zarr(get_zarr_checksum(self.filepath))
 
     def get_metadata(
         self,
-        digest: Optional[Digest] = None,
+        digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
         metadata = get_default_metadata(self.filepath, digest=digest)
@@ -189,9 +202,12 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 
     def get_validation_errors(
         self,
-        schema_version: Optional[str] = None,
+        schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
+        # Avoid heavy import by importing within function:
+        import zarr
+
         errors: list[ValidationResult] = []
         try:
             data = zarr.open(str(self.filepath))
@@ -257,8 +273,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         self,
         dandiset: RemoteDandiset,
         metadata: dict[str, Any],
-        jobs: Optional[int] = None,
-        replacing: Optional[RemoteAsset] = None,
+        jobs: int | None = None,
+        replacing: RemoteAsset | None = None,
     ) -> Iterator[dict]:
         """
         Upload the Zarr directory as an asset with the given metadata to the
@@ -281,12 +297,6 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
-        # So that older clients don't get away with doing the wrong thing once
-        # Zarr upload to embargoed Dandisets is implemented in the API:
-        if dandiset.embargo_status is EmbargoStatus.EMBARGOED:
-            raise NotImplementedError(
-                "Uploading Zarr assets to embargoed Dandisets is currently not implemented"
-            )
         asset_path = metadata.setdefault("path", self.path)
         client = dandiset.client
         lgr.debug("%s: Producing asset", asset_path)
@@ -299,7 +309,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     json={"name": asset_path, "dandiset": dandiset.identifier},
                 )
             except requests.HTTPError as e:
-                if "Zarr already exists" in e.response.text:
+                if e.response is not None and "Zarr already exists" in e.response.text:
                     lgr.warning(
                         "%s: Found pre-existing Zarr at same path not"
                         " associated with any asset; reusing",
@@ -427,7 +437,11 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                     local_digest,
                                 )
                 if to_delete:
-                    a.rmfiles(to_delete, reingest=False)
+                    yield from _rmfiles(
+                        asset=a,
+                        entries=to_delete,
+                        status="deleting conflicting remote files",
+                    )
             else:
                 yield {"status": "traversing local Zarr"}
                 for local_entry in self.iterfiles():
@@ -482,7 +496,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                 bytes_uploaded += size
                                 yield {
                                     "status": "uploading",
-                                    "upload": 100
+                                    "progress": 100
                                     * bytes_uploaded
                                     / to_upload.total_size,
                                     "current": bytes_uploaded,
@@ -491,13 +505,16 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             lgr.debug("%s: All files uploaded", asset_path)
             old_zarr_files = list(old_zarr_entries.values())
             if old_zarr_files:
-                yield {"status": "deleting extra remote files"}
                 lgr.debug(
                     "%s: Deleting %s in remote Zarr not present locally",
                     asset_path,
                     pluralize(len(old_zarr_files), "file"),
                 )
-                a.rmfiles(old_zarr_files, reingest=False)
+                yield from _rmfiles(
+                    asset=a,
+                    entries=old_zarr_files,
+                    status="deleting extra remote files",
+                )
                 changed = True
             if changed:
                 lgr.debug(
@@ -518,9 +535,9 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                             lgr.info(
                                 "%s: Asset checksum mismatch (local: %s;"
                                 " server: %s); redoing upload",
+                                asset_path,
                                 our_checksum,
                                 server_checksum,
-                                asset_path,
                             )
                             yield {"status": "Checksum mismatch"}
                         break
@@ -541,15 +558,24 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 def _upload_zarr_file(
     storage_session: RESTFullAPIClient, upload_url: str, item: UploadItem
 ) -> int:
-    with item.filepath.open("rb") as fp:
-        storage_session.put(
-            upload_url,
-            data=fp,
-            json_resp=False,
-            retry_if=_retry_zarr_file,
-            headers={"Content-MD5": item.base64_digest},
-        )
-    return item.size
+    try:
+        headers = {"Content-MD5": item.base64_digest}
+        if item.content_type is not None:
+            headers["Content-Type"] = item.content_type
+        with item.filepath.open("rb") as fp:
+            storage_session.put(
+                upload_url,
+                data=fp,
+                json_resp=False,
+                retry_if=_retry_zarr_file,
+                headers=headers,
+            )
+    except Exception:
+        post_upload_size_check(item.filepath, item.size, True)
+        raise
+    else:
+        post_upload_size_check(item.filepath, item.size, False)
+        return item.size
 
 
 def _retry_zarr_file(r: requests.Response) -> bool:
@@ -575,7 +601,7 @@ class EntryUploadTracker:
     digested_entries: list[UploadItem] = field(default_factory=list)
     fresh_entries: list[LocalZarrEntry] = field(default_factory=list)
 
-    def register(self, e: LocalZarrEntry, digest: Optional[str] = None) -> None:
+    def register(self, e: LocalZarrEntry, digest: str | None = None) -> None:
         if digest is not None:
             self.digested_entries.append(UploadItem.from_entry(e, digest))
         else:
@@ -584,6 +610,9 @@ class EntryUploadTracker:
 
     @staticmethod
     def _mkitem(e: LocalZarrEntry) -> UploadItem:
+        # Avoid heavy import by importing within function:
+        from dandi.support.digests import md5file_nocache
+
         digest = md5file_nocache(e.filepath)
         return UploadItem.from_entry(e, digest)
 
@@ -618,22 +647,42 @@ class UploadItem:
     filepath: Path
     digest: str
     size: int
+    content_type: str | None
 
     @classmethod
     def from_entry(cls, e: LocalZarrEntry, digest: str) -> UploadItem:
-        return cls(entry_path=str(e), filepath=e.filepath, digest=digest, size=e.size)
+        if e.name in {".zarray", ".zattrs", ".zgroup", ".zmetadata"}:
+            try:
+                with e.filepath.open("rb") as fp:
+                    json.load(fp)
+            except Exception:
+                content_type = None
+            else:
+                content_type = "application/json"
+        else:
+            content_type = None
+        return cls(
+            entry_path=str(e),
+            filepath=e.filepath,
+            digest=digest,
+            size=pre_upload_size_check(e.filepath),
+            content_type=content_type,
+        )
 
     @property
     def base64_digest(self) -> str:
         return b64encode(bytes.fromhex(self.digest)).decode("us-ascii")
 
-    def upload_request(self) -> dict[str, str]:
+    def upload_request(self) -> dict[str, str | None]:
         return {"path": self.entry_path, "base64md5": self.base64_digest}
 
 
 def _cmp_digests(
     asset_path: str, local_entry: LocalZarrEntry, remote_digest: str
 ) -> tuple[LocalZarrEntry, str, bool]:
+    # Avoid heavy import by importing within function:
+    from dandi.support.digests import md5file_nocache
+
     local_digest = md5file_nocache(local_entry.filepath)
     if local_digest != remote_digest:
         lgr.debug(
@@ -645,3 +694,24 @@ def _cmp_digests(
     else:
         lgr.debug("%s: File %s already on server; skipping", asset_path, local_entry)
         return (local_entry, local_digest, False)
+
+
+def _rmfiles(
+    asset: RemoteZarrAsset, entries: list[RemoteZarrEntry], status: str
+) -> Iterator[dict]:
+    # Do the batching outside of the rmfiles() method so that we can report
+    # progress on the completion of each batch
+    yield {
+        "status": status,
+        "progress": 0,
+        "current": 0,
+    }
+    deleted = 0
+    for ents in chunked(entries, ZARR_DELETE_BATCH_SIZE):
+        asset.rmfiles(ents, reingest=False)
+        deleted += len(ents)
+        yield {
+            "status": status,
+            "progress": deleted / len(entries) * 100,
+            "current": deleted,
+        }

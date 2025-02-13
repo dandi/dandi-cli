@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import logging
@@ -9,10 +10,9 @@ import re
 import shutil
 from subprocess import DEVNULL, check_output, run
 from time import sleep
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union
+from typing import Any, Literal
 from uuid import uuid4
 
-from _pytest.fixtures import FixtureRequest
 from click.testing import CliRunner
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dateutil.tz import tzlocal, tzutc
@@ -29,10 +29,15 @@ import zarr
 
 from .skip import skipif
 from .. import get_logger
-from ..cli.command import organize
-from ..consts import DandiInstance, dandiset_metadata_file, known_instances
+from ..cli.cmd_organize import organize
+from ..consts import (
+    DandiInstance,
+    dandiset_metadata_file,
+    known_instances,
+    metadata_nwb_file_fields,
+)
 from ..dandiapi import DandiAPIClient, RemoteDandiset
-from ..pynwb_utils import make_nwb_file, metadata_nwb_file_fields
+from ..pynwb_utils import make_nwb_file
 from ..upload import upload
 
 lgr = get_logger()
@@ -63,9 +68,9 @@ def capture_all_logs(caplog: pytest.LogCaptureFixture) -> None:
 # TODO: move into some common fixtures.  We might produce a number of files
 #       and also carry some small ones directly in git for regression testing
 @pytest.fixture(scope="session")
-def simple1_nwb_metadata() -> Dict[str, Any]:
+def simple1_nwb_metadata() -> dict[str, Any]:
     # very simple assignment with the same values as the key with 1 as suffix
-    metadata: Dict[str, Any] = {f: f"{f}1" for f in metadata_nwb_file_fields}
+    metadata: dict[str, Any] = {f: f"{f}1" for f in metadata_nwb_file_fields}
     metadata["identifier"] = uuid4().hex
     # subject_fields
 
@@ -85,7 +90,7 @@ def simple1_nwb_metadata() -> Dict[str, Any]:
 
 @pytest.fixture(scope="session")
 def simple1_nwb(
-    simple1_nwb_metadata: Dict[str, Any], tmp_path_factory: pytest.TempPathFactory
+    simple1_nwb_metadata: dict[str, Any], tmp_path_factory: pytest.TempPathFactory
 ) -> Path:
     return make_nwb_file(
         tmp_path_factory.mktemp("simple1") / "simple1.nwb",
@@ -95,7 +100,7 @@ def simple1_nwb(
 
 @pytest.fixture(scope="session")
 def simple2_nwb(
-    simple1_nwb_metadata: Dict[str, Any], tmp_path_factory: pytest.TempPathFactory
+    simple1_nwb_metadata: dict[str, Any], tmp_path_factory: pytest.TempPathFactory
 ) -> Path:
     """With a subject"""
     return make_nwb_file(
@@ -112,7 +117,7 @@ def simple2_nwb(
 
 @pytest.fixture(scope="session")
 def simple3_nwb(
-    simple1_nwb_metadata: Dict[str, Any], tmp_path_factory: pytest.TempPathFactory
+    simple1_nwb_metadata: dict[str, Any], tmp_path_factory: pytest.TempPathFactory
 ) -> Path:
     """With a subject, but no subject_id."""
     return make_nwb_file(
@@ -160,7 +165,7 @@ def simple4_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
 def simple5_nwb(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """
     With subject, subject_id, species, but including data orientation ambiguity, and missing
-    the `pywnb.Timeseries` `unit` attribute.
+    the `pynwb.Timeseries` `unit` attribute.
 
     Notes
     -----
@@ -210,7 +215,7 @@ def organized_nwb_dir(
 
 @pytest.fixture(scope="session")
 def organized_nwb_dir2(
-    simple1_nwb_metadata: Dict[str, Any],
+    simple1_nwb_metadata: dict[str, Any],
     simple2_nwb: Path,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Path:
@@ -276,21 +281,12 @@ def organized_nwb_dir4(
     return tmp_path
 
 
-if TYPE_CHECKING:
-    from ..support.typing import Literal
-
-    Scope = Union[
-        Literal["session"],
-        Literal["package"],
-        Literal["module"],
-        Literal["class"],
-        Literal["function"],
-    ]
+Scope = Literal["session", "package", "module", "class", "function"]
 
 
 def get_gitrepo_fixture(
     url: str,
-    committish: Optional[str] = None,
+    committish: str | None = None,
     scope: Scope = "session",
     make_subdirs_dandisets: bool = False,
 ) -> Callable[[pytest.TempPathFactory], Path]:
@@ -314,8 +310,8 @@ def get_gitrepo_fixture(
 
 def get_filtered_gitrepo_fixture(
     url: str,
-    whitelist: List[str],
-    make_subdirs_dandisets: Optional[bool] = False,
+    whitelist: list[str],
+    make_subdirs_dandisets: bool | None = False,
 ) -> Callable[[pytest.TempPathFactory], Iterator[Path]]:
     @pytest.fixture(scope="session")
     def fixture(
@@ -374,7 +370,7 @@ LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name
 
 
 @pytest.fixture(scope="session")
-def docker_compose_setup() -> Iterator[Dict[str, str]]:
+def docker_compose_setup() -> Iterator[dict[str, str]]:
     skipif.no_network()
     skipif.no_docker_engine()
 
@@ -399,16 +395,41 @@ def docker_compose_setup() -> Iterator[Dict[str, str]]:
     try:
         if create:
             if os.environ.get("DANDI_TESTS_PULL_DOCKER_COMPOSE", "1") not in ("", "0"):
-                run(["docker-compose", "pull"], cwd=str(LOCAL_DOCKER_DIR), check=True)
+                run(
+                    ["docker", "compose", "pull"], cwd=str(LOCAL_DOCKER_DIR), check=True
+                )
             run(
-                ["docker-compose", "run", "--rm", "django", "./manage.py", "migrate"],
+                [
+                    "docker",
+                    "compose",
+                    "run",
+                    "--rm",
+                    "django",
+                    "./manage.py",
+                    "migrate",
+                ],
                 cwd=str(LOCAL_DOCKER_DIR),
                 env=env,
                 check=True,
             )
             run(
                 [
-                    "docker-compose",
+                    "docker",
+                    "compose",
+                    "run",
+                    "--rm",
+                    "django",
+                    "./manage.py",
+                    "createcachetable",
+                ],
+                cwd=str(LOCAL_DOCKER_DIR),
+                env=env,
+                check=True,
+            )
+            run(
+                [
+                    "docker",
+                    "compose",
                     "run",
                     "--rm",
                     "-e",
@@ -427,7 +448,8 @@ def docker_compose_setup() -> Iterator[Dict[str, str]]:
 
         r = check_output(
             [
-                "docker-compose",
+                "docker",
+                "compose",
                 "run",
                 "--rm",
                 "-T",
@@ -438,7 +460,7 @@ def docker_compose_setup() -> Iterator[Dict[str, str]]:
             ],
             cwd=str(LOCAL_DOCKER_DIR),
             env=env,
-            universal_newlines=True,
+            text=True,
         )
         m = re.search(r"^Generated token (\w+) for user admin@nil.nil$", r, flags=re.M)
         if not m:
@@ -449,7 +471,7 @@ def docker_compose_setup() -> Iterator[Dict[str, str]]:
 
         if create:
             run(
-                ["docker-compose", "up", "-d", "django", "celery"],
+                ["docker", "compose", "up", "-d", "django", "celery"],
                 cwd=str(LOCAL_DOCKER_DIR),
                 env=env,
                 check=True,
@@ -466,8 +488,33 @@ def docker_compose_setup() -> Iterator[Dict[str, str]]:
                 raise RuntimeError("Django container did not start up in time")
         yield {"django_api_key": django_api_key}
     finally:
+        if auditfile := os.environ.get("DANDI_TESTS_AUDIT_CSV", ""):
+            with open(auditfile, "wb") as fp:
+                run(
+                    [
+                        "docker",
+                        "compose",
+                        "exec",
+                        "postgres",
+                        "psql",
+                        "-U",
+                        "postgres",
+                        "-d",
+                        "django",
+                        "--csv",
+                        "-c",
+                        "SELECT * FROM api_auditrecord;",
+                    ],
+                    stdout=fp,
+                    cwd=str(LOCAL_DOCKER_DIR),
+                    check=True,
+                )
         if persist in (None, "0"):
-            run(["docker-compose", "down", "-v"], cwd=str(LOCAL_DOCKER_DIR), check=True)
+            run(
+                ["docker", "compose", "down", "-v"],
+                cwd=str(LOCAL_DOCKER_DIR),
+                check=True,
+            )
 
 
 @dataclass
@@ -489,7 +536,7 @@ class DandiAPI:
 
 
 @pytest.fixture(scope="session")
-def local_dandi_api(docker_compose_setup: Dict[str, str]) -> Iterator[DandiAPI]:
+def local_dandi_api(docker_compose_setup: dict[str, str]) -> Iterator[DandiAPI]:
     instance = known_instances["dandi-api-local-docker-tests"]
     api_key = docker_compose_setup["django_api_key"]
     with DandiAPIClient.for_dandi_instance(instance, token=api_key) as client:
@@ -502,15 +549,13 @@ class SampleDandiset:
     dspath: Path
     dandiset: RemoteDandiset
     dandiset_id: str
-    upload_kwargs: Dict[str, Any] = field(default_factory=dict)
+    upload_kwargs: dict[str, Any] = field(default_factory=dict)
 
     @property
     def client(self) -> DandiAPIClient:
         return self.api.client
 
-    def upload(
-        self, paths: Optional[List[Union[str, Path]]] = None, **kwargs: Any
-    ) -> None:
+    def upload(self, paths: list[str | Path] | None = None, **kwargs: Any) -> None:
         with pytest.MonkeyPatch().context() as m:
             m.setenv("DANDI_API_KEY", self.api.api_key)
             upload(
@@ -526,7 +571,7 @@ class SampleDandisetFactory:
     local_dandi_api: DandiAPI
     tmp_path_factory: pytest.TempPathFactory
 
-    def mkdandiset(self, name: str) -> SampleDandiset:
+    def mkdandiset(self, name: str, embargo: bool = False) -> SampleDandiset:
         d = self.local_dandi_api.client.create_dandiset(
             name,
             # Minimal metadata needed to create a publishable Dandiset:
@@ -540,11 +585,13 @@ class SampleDandisetFactory:
                 "contributor": [
                     {
                         "schemaKey": "Person",
-                        "name": "Tests, Dandi-Cli",
+                        "name": "Tests, DANDI-Cli",
+                        "email": "nemo@example.com",
                         "roleName": ["dcite:Author", "dcite:ContactPerson"],
                     }
                 ],
             },
+            embargo=embargo,
         )
         dspath = self.tmp_path_factory.mktemp("dandiset")
         (dspath / dandiset_metadata_file).write_text(f"identifier: '{d.identifier}'\n")
@@ -563,12 +610,23 @@ def sample_dandiset_factory(
     return SampleDandisetFactory(local_dandi_api, tmp_path_factory)
 
 
+# @sweep_embargo can be used along with `new_dandiset` fixture to
+# run the test against both embargoed and non-embargoed Dandisets.
+# "embargo: bool" argument should be added to the test function.
+sweep_embargo = pytest.mark.parametrize("embargo", [True, False])
+
+
 @pytest.fixture()
 def new_dandiset(
-    request: FixtureRequest, sample_dandiset_factory: SampleDandisetFactory
+    request: pytest.FixtureRequest, sample_dandiset_factory: SampleDandisetFactory
 ) -> SampleDandiset:
+    kws = {}
+    if "embargo" in request.node.fixturenames:
+        kws["embargo"] = request.node.callspec.params["embargo"]
     return sample_dandiset_factory.mkdandiset(
-        f"Sample Dandiset for {request.node.name}"
+        f"Sample {'Embargoed' if kws.get('embargo') else 'Public'} "
+        f"Dandiset for {request.node.name}",
+        **kws,
     )
 
 
@@ -628,6 +686,22 @@ def bids_nwb_dandiset(
     return new_dandiset
 
 
+# TODO: refactor: avoid duplication and come up with some fixture helper which would
+# just need specify bids example name
+@pytest.fixture()
+def bids_zarr_dandiset(
+    new_dandiset: SampleDandiset, bids_examples: Path
+) -> SampleDandiset:
+    shutil.copytree(
+        bids_examples / "micr_SEMzarr",
+        new_dandiset.dspath,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns(dandiset_metadata_file),
+    )
+    (new_dandiset.dspath / "CHANGES").write_text("0.1.0 2014-11-03\n")
+    return new_dandiset
+
+
 @pytest.fixture()
 def bids_dandiset_invalid(
     new_dandiset: SampleDandiset, bids_error_examples: Path
@@ -645,30 +719,29 @@ def bids_dandiset_invalid(
 
 @pytest.fixture()
 def video_files(tmp_path: Path) -> list[tuple[Path, Path]]:
+    # Avoid heavy import by importing within function:
     import cv2
 
     video_paths = []
     video_path = tmp_path / "video_files"
     video_path.mkdir()
-    for no in range(2):
-        movie_file1 = video_path / f"test1_{no}.avi"
-        movie_file2 = video_path / f"test2_{no}.avi"
+    for i in range(2):
+        movie_file1 = video_path / f"test1_{i}.avi"
+        movie_file2 = video_path / f"test2_{i}.avi"
         (nf, nx, ny) = (2, 2, 2)
         writer1 = cv2.VideoWriter(
             filename=str(movie_file1),
-            apiPreference=None,
-            fourcc=cv2.VideoWriter_fourcc(*"DIVX"),
-            fps=25,
+            apiPreference=0,
+            fourcc=cv2.VideoWriter.fourcc(*"DIVX"),
+            fps=25.0,
             frameSize=(ny, nx),
-            params=None,
         )
         writer2 = cv2.VideoWriter(
             filename=str(movie_file2),
-            apiPreference=None,
-            fourcc=cv2.VideoWriter_fourcc(*"DIVX"),
+            apiPreference=0,
+            fourcc=cv2.VideoWriter.fourcc(*"DIVX"),
             fps=25,
             frameSize=(ny, nx),
-            params=None,
         )
         for k in range(nf):
             writer1.write(np.random.randint(0, 255, (nx, ny, 3)).astype("uint8"))
@@ -679,25 +752,25 @@ def video_files(tmp_path: Path) -> list[tuple[Path, Path]]:
     return video_paths
 
 
-def _create_nwb_files(video_list):
+def _create_nwb_files(video_list: list[tuple[Path, Path]]) -> Path:
     base_path = video_list[0][0].parent.parent
     base_nwb_path = base_path / "nwbfiles"
     base_nwb_path.mkdir(parents=True, exist_ok=True)
-    for no, vid_loc in enumerate(video_list):
+    for i, vid_loc in enumerate(video_list):
         vid_1 = vid_loc[0]
         vid_2 = vid_loc[1]
-        subject_id = f"mouse{no}"
-        session_id = f"sessionid{no}"
+        subject_id = f"mouse{i}"
+        session_id = f"sessionid{i}"
         subject = Subject(
             subject_id=subject_id,
             species="Mus musculus",
             sex="M",
             description="lab mouse ",
         )
-        device = Device(f"imaging_device_{no}")
-        name = f"{vid_1.stem}_{no}"
+        device = Device(f"imaging_device_{i}")
+        name = f"{vid_1.stem}_{i}"
         nwbfile = NWBFile(
-            f"{name}{no}",
+            f"{name}{i}",
             "desc: contains movie for dandi .mp4 storage as external",
             datetime.now(tzlocal()),
             experimenter="Experimenter name",
@@ -707,7 +780,7 @@ def _create_nwb_files(video_list):
         )
 
         image_series = ImageSeries(
-            name=f"MouseWhiskers{no}",
+            name=f"MouseWhiskers{i}",
             format="external",
             external_file=[str(vid_1), str(vid_2)],
             starting_frame=[0, 2],
@@ -723,13 +796,13 @@ def _create_nwb_files(video_list):
 
 
 @pytest.fixture()
-def nwbfiles_video_unique(video_files):
+def nwbfiles_video_unique(video_files: list[tuple[Path, Path]]) -> Path:
     """Create nwbfiles linked with unique set of videos."""
     return _create_nwb_files(video_files)
 
 
 @pytest.fixture()
-def nwbfiles_video_common(video_files):
+def nwbfiles_video_common(video_files: list[tuple[Path, Path]]) -> Path:
     """Create nwbfiles sharing video files."""
     video_list = [video_files[0], video_files[0]]
     return _create_nwb_files(video_list)

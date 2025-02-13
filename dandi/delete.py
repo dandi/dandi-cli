@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from operator import attrgetter
 from pathlib import Path
-from typing import Iterable, Iterator, List, Optional, Tuple
 
 import click
+from yarl import URL
 
 from .consts import DRAFT, ZARR_EXTENSIONS, DandiInstance, dandiset_metadata_file
 from .dandiapi import DandiAPIClient, RemoteAsset, RemoteDandiset
 from .dandiarchive import BaseAssetIDURL, DandisetURL, ParsedDandiURL, parse_dandi_url
+from .dandiset import Dandiset
 from .exceptions import NotFoundError
+from .support import pyout as pyouts
 from .utils import get_instance, is_url
 
 
@@ -20,12 +23,12 @@ class Deleter:
     Class for registering assets & Dandisets to delete and then deleting them
     """
 
-    client: Optional[DandiAPIClient] = None
-    dandiset: Optional[RemoteDandiset] = None
+    client: DandiAPIClient | None = None
+    dandiset: RemoteDandiset | None = None
     #: Whether we are deleting an entire Dandiset (true) or just assets (false)
     deleting_dandiset: bool = False
     skip_missing: bool = False
-    remote_assets: List[RemoteAsset] = field(default_factory=list)
+    remote_assets: list[RemoteAsset] = field(default_factory=list)
 
     def __bool__(self) -> bool:
         return self.deleting_dandiset or bool(self.remote_assets)
@@ -123,7 +126,7 @@ class Deleter:
         if isinstance(parsed_url, DandisetURL):
             if parsed_url.version_id is not None:
                 raise NotImplementedError(
-                    "Dandi API server does not support deletion of individual"
+                    "DANDI API server does not support deletion of individual"
                     " versions of a dandiset"
                 )
             assert parsed_url.dandiset_id is not None
@@ -191,7 +194,7 @@ def delete(
     paths: Iterable[str],
     dandi_instance: str | DandiInstance = "dandi",
     devel_debug: bool = False,
-    jobs: Optional[int] = None,
+    jobs: int | None = None,
     force: bool = False,
     skip_missing: bool = False,
 ) -> None:
@@ -214,8 +217,6 @@ def delete(
                 for r in gen:
                     print(r, flush=True)
         else:
-            from .support import pyout as pyouts
-
             pyout_style = pyouts.get_style(hide_if_missing=False)
             rec_fields = ("path", "status", "message")
             out = pyouts.LogSafeTabular(
@@ -226,14 +227,12 @@ def delete(
                     out(r)
 
 
-def find_local_asset(filepath: str) -> Tuple[str, str]:
+def find_local_asset(filepath: str) -> tuple[str, str]:
     """
     Given a path to a local file, return the ID of the Dandiset in which it is
     located and the path to the file relative to the root of said Dandiset.  If
     the file is a directory, the path will end with a trailing slash.
     """
-    from .dandiset import Dandiset
-
     path = Path(filepath).absolute()
     dandiset = Dandiset.find(path.parent)
     if dandiset is None:
@@ -248,5 +247,8 @@ def find_local_asset(filepath: str) -> Tuple[str, str]:
 
 
 def is_same_url(url1: str, url2: str) -> bool:
-    # TODO: Use a real URL library like furl, purl, or yarl
-    return url1.rstrip("/") == url2.rstrip("/")
+    u1 = URL(url1)
+    u1 = u1.with_path(u1.path.rstrip("/"))
+    u2 = URL(url2)
+    u2 = u2.with_path(u2.path.rstrip("/"))
+    return u1 == u2

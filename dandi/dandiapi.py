@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
@@ -9,35 +10,22 @@ from fnmatch import fnmatchcase
 import json
 import os.path
 from pathlib import Path, PurePosixPath
+import posixpath
 import re
 from time import sleep, time
 from types import TracebackType
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Dict,
-    FrozenSet,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Sequence,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-)
-from urllib.parse import quote_plus, urlparse, urlunparse
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import click
 from dandischema import models
 from pydantic import BaseModel, Field, PrivateAttr
 import requests
 import tenacity
+from yarl import URL
 
 from . import get_logger
 from .consts import (
+    DOWNLOAD_TIMEOUT,
     DRAFT,
     MAX_CHUNK_SIZE,
     REQUEST_RETRIES,
@@ -55,13 +43,17 @@ from .utils import (
     chunked,
     ensure_datetime,
     get_instance,
+    get_retry_after,
     is_interactive,
     is_page2_url,
+    joinurl,
 )
 
-lgr = get_logger()
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
-T = TypeVar("T")
+
+lgr = get_logger()
 
 
 class AssetType(Enum):
@@ -105,8 +97,8 @@ class RESTFullAPIClient:
     def __init__(
         self,
         api_url: str,
-        session: Optional[requests.Session] = None,
-        headers: Optional[dict] = None,
+        session: requests.Session | None = None,
+        headers: dict | None = None,
     ) -> None:
         """
         :param str api_url: The base HTTP(S) URL to prepend to request paths
@@ -123,18 +115,18 @@ class RESTFullAPIClient:
         self.session = session
         #: Default number of items to request per page when paginating (`None`
         #: means to use the server's default)
-        self.page_size: Optional[int] = None
+        self.page_size: int | None = None
         #: How many pages to fetch at once when parallelizing pagination
         self.page_workers: int = 5
 
-    def __enter__(self: T) -> T:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         self.session.close()
 
@@ -142,14 +134,14 @@ class RESTFullAPIClient:
         self,
         method: str,
         path: str,
-        params: Optional[dict] = None,
+        params: dict | None = None,
         data: Any = None,
-        files: Optional[dict] = None,
+        files: dict | None = None,
         json: Any = None,
-        headers: Optional[dict] = None,
+        headers: dict | None = None,
         json_resp: bool = True,
         retry_statuses: Sequence[int] = (),
-        retry_if: Optional[Callable[[requests.Response], Any]] = None,
+        retry_if: Callable[[requests.Response], Any] | None = None,
         **kwargs: Any,
     ) -> Any:
         """
@@ -243,15 +235,24 @@ class RESTFullAPIClient:
                                 url,
                                 result.text,
                             )
+                            if data is not None and hasattr(data, "seek"):
+                                data.seek(0)
+                        if retry_after := get_retry_after(result):
+                            lgr.debug(
+                                "Sleeping for %d seconds as instructed in response "
+                                "(in addition to tenacity imposed)",
+                                retry_after,
+                            )
+                            sleep(retry_after)
                         result.raise_for_status()
         except Exception as e:
             if isinstance(e, requests.HTTPError):
                 lgr.error(
                     "HTTP request failed repeatedly: Error %d while sending %s request to %s: %s",
-                    e.response.status_code,
+                    e.response.status_code if e.response is not None else "?",
                     method,
                     url,
-                    e.response.text,
+                    e.response.text if e.response is not None else "?",
                 )
             else:
                 lgr.exception("HTTP connection failed")
@@ -296,16 +297,12 @@ class RESTFullAPIClient:
     def get_url(self, path: str) -> str:
         """
         Append a slash-separated ``path`` to the instance's base URL.  The two
-        components are separated by a single slash, and any trailing slashes
-        are removed.
+        components are separated by a single slash, removing any excess slashes
+        that would be present after naïve concatenation.
 
         If ``path`` is already an absolute URL, it is returned unchanged.
         """
-        # Construct the url
-        if path.lower().startswith(("http://", "https://")):
-            return path
-        else:
-            return self.api_url.rstrip("/") + "/" + path.lstrip("/")
+        return joinurl(self.api_url, path)
 
     def get(self, path: str, **kwargs: Any) -> Any:
         """
@@ -340,8 +337,8 @@ class RESTFullAPIClient:
     def paginate(
         self,
         path: str,
-        page_size: Optional[int] = None,
-        params: Optional[dict] = None,
+        page_size: int | None = None,
+        params: dict | None = None,
     ) -> Iterator:
         """
         Paginate through the resources at the given path: GET the path, yield
@@ -354,7 +351,7 @@ class RESTFullAPIClient:
         (default 5) at a time.  This behavior requires the initial response to
         contain a ``"count"`` key giving the number of items across all pages.
 
-        :param Optional[int] page_size:
+        :param page_size:
             If non-`None`, overrides the client's `page_size` attribute for
             this sequence of pages
         """
@@ -408,16 +405,16 @@ class RESTFullAPIClient:
 
 
 class DandiAPIClient(RESTFullAPIClient):
-    """A client for interacting with a Dandi Archive server"""
+    """A client for interacting with a DANDI API server"""
 
     def __init__(
         self,
-        api_url: Optional[str] = None,
-        token: Optional[str] = None,
-        dandi_instance: Optional[DandiInstance] = None,
+        api_url: str | None = None,
+        token: str | None = None,
+        dandi_instance: DandiInstance | None = None,
     ) -> None:
         """
-        Construct a client instance for the given API URL or Dandi instance
+        Construct a client instance for the given API URL or DANDI instance
         (mutually exclusive options).  If no URL or instance is supplied, the
         instance specified by the :envvar:`DANDI_INSTANCE` environment variable
         (default value: ``"dandi"``) is used.
@@ -447,13 +444,13 @@ class DandiAPIClient(RESTFullAPIClient):
     @classmethod
     def for_dandi_instance(
         cls,
-        instance: Union[str, DandiInstance],
-        token: Optional[str] = None,
+        instance: str | DandiInstance,
+        token: str | None = None,
         authenticate: bool = False,
-    ) -> "DandiAPIClient":
+    ) -> DandiAPIClient:
         """
         Construct a client instance for the server identified by ``instance``
-        (either the name of a registered Dandi Archive instance or a
+        (either the name of a registered DANDI instance or a
         `DandiInstance` instance) and an optional authentication token/API key.
         If no token is supplied and ``authenticate`` is true,
         `dandi_authenticate()` is called on the instance before returning it.
@@ -541,8 +538,8 @@ class DandiAPIClient(RESTFullAPIClient):
         return self.dandi_instance.name.upper()
 
     def get_dandiset(
-        self, dandiset_id: str, version_id: Optional[str] = None, lazy: bool = True
-    ) -> "RemoteDandiset":
+        self, dandiset_id: str, version_id: str | None = None, lazy: bool = True
+    ) -> RemoteDandiset:
         """
         Fetches the Dandiset with the given ``dandiset_id``.  If ``version_id``
         is not specified, the `RemoteDandiset`'s version is set to the most
@@ -568,24 +565,88 @@ class DandiAPIClient(RESTFullAPIClient):
                     return d.for_version(version_id)
             return d
 
-    def get_dandisets(self) -> Iterator["RemoteDandiset"]:
+    def get_dandisets(
+        self,
+        *,
+        draft: bool | None = None,
+        embargoed: bool | None = None,
+        empty: bool | None = None,
+        mine: bool | None = None,
+        order: str | None = None,
+        search: str | None = None,
+    ) -> Iterator[RemoteDandiset]:
         """
         Returns a generator of all Dandisets on the server.  For each Dandiset,
         the `RemoteDandiset`'s version is set to the most recent published
         version if there is one, otherwise to the draft version.
+
+        .. versionchanged:: 0.61.0
+
+            ``draft``, ``embargoed``, ``empty``, ``mine``, ``order``, and
+            ``search`` parameters added
+
+        :param draft:
+            If true, Dandisets that have only draft versions (i.e., that
+            haven't yet been published) will be included in the results
+            (default true)
+
+        :param embargoed:
+            If true, embargoed Dandisets will be included in the results
+            (default false)
+
+        :param empty:
+            If true, empty Dandisets will be included in the results (default
+            true)
+
+        :param mine:
+            If true, only Dandisets owned by the authenticated user will be
+            retrieved (default false)
+
+        :param order:
+            The field to sort the results by.  The accepted field names are
+            ``"id"``, ``"name"``, ``"modified"``, and ``"size"``.  Prepend a
+            hyphen to the field name to reverse the sort order.
+
+        :param search:
+            A search string to filter the returned Dandisets by.  The string is
+            searched for in the metadata of Dandiset versions.
         """
-        for data in self.paginate("/dandisets/"):
+        for data in self.paginate(
+            "/dandisets/",
+            params={
+                "draft": draft,
+                "embargoed": embargoed,
+                "empty": empty,
+                "ordering": order,
+                "search": search,
+                "user": "me" if mine else None,
+            },
+        ):
             yield RemoteDandiset.from_data(self, data)
 
-    def create_dandiset(self, name: str, metadata: Dict[str, Any]) -> "RemoteDandiset":
-        """Creates a Dandiset with the given name & metadata"""
+    def create_dandiset(
+        self, name: str, metadata: dict[str, Any], *, embargo: bool = False
+    ) -> RemoteDandiset:
+        """
+        Creates a Dandiset with the given name & metadata.  If ``embargo`` is
+        `True`, the resulting Dandiset will be embargoed.
+
+        .. versionchanged:: 0.61.0
+
+            ``embargo`` argument added
+        """
         return RemoteDandiset.from_data(
-            self, self.post("/dandisets/", json={"name": name, "metadata": metadata})
+            self,
+            self.post(
+                "/dandisets/",
+                json={"name": name, "metadata": metadata},
+                params={"embargo": "true" if embargo else "false"},
+            ),
         )
 
-    def check_schema_version(self, schema_version: Optional[str] = None) -> None:
+    def check_schema_version(self, schema_version: str | None = None) -> None:
         """
-        Confirms that the server is using the same version of the Dandi schema
+        Confirms that the server is using the same version of the DANDI schema
         as the client.  If it is not, a `SchemaVersionError` is raised.
 
         :param schema_version: the schema version to confirm that the server
@@ -608,7 +669,7 @@ class DandiAPIClient(RESTFullAPIClient):
                 " upgrade dandi and/or dandischema."
             )
 
-    def get_asset(self, asset_id: str) -> "BaseRemoteAsset":
+    def get_asset(self, asset_id: str) -> BaseRemoteAsset:
         """
         Fetch the asset with the given asset ID.  If the given asset does not
         exist, a `NotFoundError` is raised.
@@ -625,7 +686,8 @@ class DandiAPIClient(RESTFullAPIClient):
         return BaseRemoteAsset.from_base_data(self, info, metadata)
 
 
-class APIBase(BaseModel):
+# `arbitrary_types_allowed` is needed for `client: DandiAPIClient`
+class APIBase(BaseModel, populate_by_name=True, arbitrary_types_allowed=True):
     """
     Base class for API objects implemented in pydantic.
 
@@ -633,22 +695,12 @@ class APIBase(BaseModel):
     detail; do not rely on it.
     """
 
-    JSON_EXCLUDE: ClassVar[FrozenSet[str]] = frozenset(["client"])
-
-    def json_dict(self) -> Dict[str, Any]:
+    def json_dict(self) -> dict[str, Any]:
         """
         Convert to a JSONable `dict`, omitting the ``client`` attribute and
         using the same field names as in the API
         """
-        return cast(
-            Dict[str, Any],
-            json.loads(self.json(exclude=self.JSON_EXCLUDE, by_alias=True)),
-        )
-
-    class Config:
-        allow_population_by_field_name = True
-        # To allow `client: Session`:
-        arbitrary_types_allowed = True
+        return self.model_dump(mode="json", by_alias=True)
 
 
 class Version(APIBase):
@@ -693,6 +745,10 @@ class RemoteValidationError(APIBase):
     message: str
 
 
+class RemoteAssetValidationError(RemoteValidationError):
+    path: Optional[str] = None
+
+
 class VersionInfo(Version):
     """
     .. versionadded:: 0.49.0
@@ -701,7 +757,7 @@ class VersionInfo(Version):
     errors
     """
 
-    asset_validation_errors: List[RemoteValidationError]
+    asset_validation_errors: List[RemoteAssetValidationError]
     version_validation_errors: List[RemoteValidationError]
 
 
@@ -718,7 +774,7 @@ class RemoteDandisetData(APIBase):
     modified: datetime
     contact_person: str
     embargo_status: EmbargoStatus
-    most_recent_published_version: Optional[Version]
+    most_recent_published_version: Optional[Version] = None
     draft_version: Version
 
 
@@ -739,16 +795,16 @@ class RemoteDandiset:
         self,
         client: DandiAPIClient,
         identifier: str,
-        version: Union[str, Version, None] = None,
-        data: Union[Dict[str, Any], RemoteDandisetData, None] = None,
+        version: str | Version | None = None,
+        data: dict[str, Any] | RemoteDandisetData | None = None,
     ) -> None:
         #: The `DandiAPIClient` instance that returned this `RemoteDandiset`
         #: and which the latter will use for API requests
         self.client: DandiAPIClient = client
         #: The Dandiset identifier
         self.identifier: str = identifier
-        self._version_id: Optional[str]
-        self._version: Optional[Version]
+        self._version_id: str | None
+        self._version: Version | None
         if version is None:
             self._version_id = None
             self._version = None
@@ -758,9 +814,9 @@ class RemoteDandiset:
         else:
             self._version_id = version.identifier
             self._version = version
-        self._data: Optional[RemoteDandisetData]
+        self._data: RemoteDandisetData | None
         if data is not None:
-            self._data = RemoteDandisetData.parse_obj(data)
+            self._data = RemoteDandisetData.model_validate(data)
         else:
             self._data = None
 
@@ -770,7 +826,7 @@ class RemoteDandiset:
     def _get_data(self) -> RemoteDandisetData:
         if self._data is None:
             try:
-                self._data = RemoteDandisetData.parse_obj(
+                self._data = RemoteDandisetData.model_validate(
                     self.client.get(f"/dandisets/{self.identifier}/")
                 )
             except HTTP404Error:
@@ -826,7 +882,7 @@ class RemoteDandiset:
         return self._get_data().embargo_status
 
     @property
-    def most_recent_published_version(self) -> Optional[Version]:
+    def most_recent_published_version(self) -> Version | None:
         """
         The most recent published (non-draft) version of the Dandiset, or
         `None` if no versions have been published
@@ -841,7 +897,7 @@ class RemoteDandiset:
     @property
     def api_path(self) -> str:
         """
-        The path (relative to the base endpoint for a Dandi Archive API) at
+        The path (relative to the base endpoint for the DANDI API) at
         which API requests for interacting with the Dandiset itself are made
         """
         return f"/dandisets/{self.identifier}/"
@@ -857,7 +913,7 @@ class RemoteDandiset:
     @property
     def version_api_path(self) -> str:
         """
-        The path (relative to the base endpoint for a Dandi Archive API) at
+        The path (relative to the base endpoint for the DANDI API) at
         which API requests for interacting with the version in question of the
         Dandiset are made
         """
@@ -872,9 +928,7 @@ class RemoteDandiset:
         return self.client.get_url(self.version_api_path)
 
     @classmethod
-    def from_data(
-        cls, client: "DandiAPIClient", data: Dict[str, Any]
-    ) -> "RemoteDandiset":
+    def from_data(cls, client: DandiAPIClient, data: dict[str, Any]) -> RemoteDandiset:
         """
         Construct a `RemoteDandiset` instance from a `DandiAPIClient` and a
         `dict` of raw string fields in the same format as returned by the API.
@@ -885,14 +939,37 @@ class RemoteDandiset:
         when acquiring data using means outside of this library.
         """
         if data.get("most_recent_published_version") is not None:
-            version = Version.parse_obj(data["most_recent_published_version"])
+            version = Version.model_validate(data["most_recent_published_version"])
         else:
-            version = Version.parse_obj(data["draft_version"])
+            version = Version.model_validate(data["draft_version"])
         return cls(
             client=client, identifier=data["identifier"], version=version, data=data
         )
 
-    def json_dict(self) -> Dict[str, Any]:
+    @staticmethod
+    def _normalize_path(path: str) -> str:
+        """
+        Helper to normalize path before passing it to the server.
+
+        We and API call it "path" but it is really a "prefix" with inherent
+        semantics of containing directory divider '/' and referring to a
+        directory when terminated with '/'.
+        """
+        # Server (now) expects path to be a proper prefix, so to account for user
+        # possibly specifying ./ or some other relative paths etc, let's normalize
+        # the path.
+        # Ref: https://github.com/dandi/dandi-cli/issues/1452
+        path_normed = posixpath.normpath(path)
+        if path_normed == ".":
+            path_normed = ""
+        elif path.endswith("/"):
+            # we need to make sure that we have a trailing slash if we had it before
+            path_normed += "/"
+        if path_normed != path:
+            lgr.debug("Normalized path %r to %r", path, path_normed)
+        return path_normed
+
+    def json_dict(self) -> dict[str, Any]:
         """
         Convert to a JSONable `dict`, omitting the ``client`` attribute and
         using the same field names as in the API
@@ -914,7 +991,7 @@ class RemoteDandiset:
         # Clear _version so it will be refetched the next time it is accessed
         self._version = None
 
-    def get_versions(self, order: Optional[str] = None) -> Iterator[Version]:
+    def get_versions(self, order: str | None = None) -> Iterator[Version]:
         """
         Returns an iterator of all available `Version`\\s for the Dandiset
 
@@ -927,7 +1004,7 @@ class RemoteDandiset:
             for v in self.client.paginate(
                 f"{self.api_path}versions/", params={"order": order}
             ):
-                yield Version.parse_obj(v)
+                yield Version.model_validate(v)
         except HTTP404Error:
             raise NotFoundError(f"No such Dandiset: {self.identifier!r}")
 
@@ -942,7 +1019,7 @@ class RemoteDandiset:
             `Version`.
         """
         try:
-            return VersionInfo.parse_obj(
+            return VersionInfo.model_validate(
                 self.client.get(
                     f"/dandisets/{self.identifier}/versions/{version_id}/info/"
                 )
@@ -952,7 +1029,7 @@ class RemoteDandiset:
                 f"No such version: {version_id!r} of Dandiset {self.identifier}"
             )
 
-    def for_version(self, version_id: Union[str, Version]) -> "RemoteDandiset":
+    def for_version(self, version_id: str | Version) -> RemoteDandiset:
         """
         Returns a copy of the `RemoteDandiset` with the `version` attribute set
         to the given `Version` object or the `Version` with the given version
@@ -981,16 +1058,24 @@ class RemoteDandiset:
         """
         Fetch the metadata for this version of the Dandiset as a
         `dandischema.models.Dandiset` instance
-        """
-        return models.Dandiset.parse_obj(self.get_raw_metadata())
 
-    def get_raw_metadata(self) -> Dict[str, Any]:
+        .. note::
+
+            Only published Dandiset versions can be expected to have valid
+            metadata.  Consider using `get_raw_metadata()` instead in order to
+            fetch unstructured, possibly-invalid metadata.
+        """
+        return models.Dandiset.model_validate(self.get_raw_metadata())
+
+    def get_raw_metadata(self) -> dict[str, Any]:
         """
         Fetch the metadata for this version of the Dandiset as an unprocessed
         `dict`
         """
         try:
-            return cast(Dict[str, Any], self.client.get(self.version_api_path))
+            data = self.client.get(self.version_api_path)
+            assert isinstance(data, dict)
+            return data
         except HTTP404Error:
             raise NotFoundError(f"No such asset: {self}")
 
@@ -998,9 +1083,9 @@ class RemoteDandiset:
         """
         Set the metadata for this version of the Dandiset to the given value
         """
-        self.set_raw_metadata(metadata.json_dict())
+        self.set_raw_metadata(metadata.model_dump(mode="json", exclude_none=True))
 
-    def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
+    def set_raw_metadata(self, metadata: dict[str, Any]) -> None:
         """
         Set the metadata for this version of the Dandiset to the given value
         """
@@ -1019,7 +1104,7 @@ class RemoteDandiset:
         start = time()
         while time() - start < max_time:
             v = self.get_version(self.version_id)
-            if v.status is VersionStatus.VALID:
+            if v.status is VersionStatus.VALID and not v.asset_validation_errors:
                 return
             sleep(0.5)
         # TODO: Improve the presentation of the error messages
@@ -1035,7 +1120,7 @@ class RemoteDandiset:
             f"Dandiset {self.identifier} is {v.status.value}: {json.dumps(about, indent=4)}"
         )
 
-    def publish(self, max_time: float = 120) -> "RemoteDandiset":
+    def publish(self, max_time: float = 120) -> RemoteDandiset:
         """
         Publish the draft version of the Dandiset and wait at most ``max_time``
         seconds for the publication operation to complete.  If the operation
@@ -1051,7 +1136,7 @@ class RemoteDandiset:
         )
         start = time()
         while time() - start < max_time:
-            v = Version.parse_obj(self.client.get(f"{draft_api_path}info/"))
+            v = Version.model_validate(self.client.get(f"{draft_api_path}info/"))
             if v.status is VersionStatus.PUBLISHED:
                 break
             sleep(0.5)
@@ -1063,7 +1148,7 @@ class RemoteDandiset:
             f"No published versions found for Dandiset {self.identifier}"
         )
 
-    def get_assets(self, order: Optional[str] = None) -> Iterator["RemoteAsset"]:
+    def get_assets(self, order: str | None = None) -> Iterator[RemoteAsset]:
         """
         Returns an iterator of all assets in this version of the Dandiset.
 
@@ -1082,7 +1167,7 @@ class RemoteDandiset:
                 f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
             )
 
-    def get_asset(self, asset_id: str) -> "RemoteAsset":
+    def get_asset(self, asset_id: str) -> RemoteAsset:
         """
         Fetch the asset in this version of the Dandiset with the given asset
         ID.  If the given asset does not exist, a `NotFoundError` is raised.
@@ -1095,11 +1180,14 @@ class RemoteDandiset:
         return RemoteAsset.from_data(self, info, metadata)
 
     def get_assets_with_path_prefix(
-        self, path: str, order: Optional[str] = None
-    ) -> Iterator["RemoteAsset"]:
+        self, path: str, order: str | None = None
+    ) -> Iterator[RemoteAsset]:
         """
         Returns an iterator of all assets in this version of the Dandiset whose
         `~RemoteAsset.path` attributes start with ``path``
+
+        ``path`` is normalized first to possibly remove leading ``./`` or relative
+        paths (e.g., ``../``) within it.
 
         Assets can be sorted by a given field by passing the name of that field
         as the ``order`` parameter.  The accepted field names are
@@ -1109,7 +1197,7 @@ class RemoteDandiset:
         try:
             for a in self.client.paginate(
                 f"{self.version_api_path}assets/",
-                params={"path": path, "order": order},
+                params={"path": self._normalize_path(path), "order": order},
             ):
                 yield RemoteAsset.from_data(self, a)
         except HTTP404Error:
@@ -1118,8 +1206,8 @@ class RemoteDandiset:
             )
 
     def get_assets_by_glob(
-        self, pattern: str, order: Optional[str] = None
-    ) -> Iterator["RemoteAsset"]:
+        self, pattern: str, order: str | None = None
+    ) -> Iterator[RemoteAsset]:
         """
         .. versionadded:: 0.44.0
 
@@ -1142,12 +1230,16 @@ class RemoteDandiset:
                 f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
             )
 
-    def get_asset_by_path(self, path: str) -> "RemoteAsset":
+    def get_asset_by_path(self, path: str) -> RemoteAsset:
         """
         Fetch the asset in this version of the Dandiset whose
         `~RemoteAsset.path` equals ``path``.  If the given asset does not
         exist, a `NotFoundError` is raised.
+
+        ``path`` is normalized first to possibly remove leading ``./`` or relative
+        paths (e.g., ``../``) within it.
         """
+        path = self._normalize_path(path)
         try:
             # Weed out any assets that happen to have the given path as a
             # proper prefix:
@@ -1162,15 +1254,21 @@ class RemoteDandiset:
     def download_directory(
         self,
         assets_dirpath: str,
-        dirpath: Union[str, Path],
+        dirpath: str | Path,
         chunk_size: int = MAX_CHUNK_SIZE,
     ) -> None:
         """
         Download all assets under the virtual directory ``assets_dirpath`` to
         the directory ``dirpath``.  Downloads are synchronous.
+
+        ``path`` is normalized first to possibly remove leading ``./`` or relative
+        paths (e.g., ``../``) within it.
         """
         if assets_dirpath and not assets_dirpath.endswith("/"):
             assets_dirpath += "/"
+        # need to normalize explicitly since we do use it below also
+        # to deduce portion of the path to strip off.
+        assets_dirpath = self._normalize_path(assets_dirpath)
         assets = list(self.get_assets_with_path_prefix(assets_dirpath))
         for a in assets:
             filepath = Path(dirpath, a.path[len(assets_dirpath) :])
@@ -1179,11 +1277,11 @@ class RemoteDandiset:
 
     def upload_raw_asset(
         self,
-        filepath: Union[str, Path],
-        asset_metadata: Dict[str, Any],
-        jobs: Optional[int] = None,
-        replace_asset: Optional["RemoteAsset"] = None,
-    ) -> "RemoteAsset":
+        filepath: str | Path,
+        asset_metadata: dict[str, Any],
+        jobs: int | None = None,
+        replace_asset: RemoteAsset | None = None,
+    ) -> RemoteAsset:
         """
         Upload the file at ``filepath`` with metadata ``asset_metadata`` to
         this version of the Dandiset and return the resulting asset.  Blocks
@@ -1203,6 +1301,7 @@ class RemoteDandiset:
         :param RemoteAsset replace_asset: If set, replace the given asset,
             which must have the same path as the new asset
         """
+        # Avoid circular import by importing within function:
         from .files import LocalAsset, dandi_file
 
         df = dandi_file(filepath)
@@ -1214,10 +1313,10 @@ class RemoteDandiset:
 
     def iter_upload_raw_asset(
         self,
-        filepath: Union[str, Path],
-        asset_metadata: Dict[str, Any],
-        jobs: Optional[int] = None,
-        replace_asset: Optional["RemoteAsset"] = None,
+        filepath: str | Path,
+        asset_metadata: dict[str, Any],
+        jobs: int | None = None,
+        replace_asset: RemoteAsset | None = None,
     ) -> Iterator[dict]:
         """
         Upload the file at ``filepath`` with metadata ``asset_metadata`` to
@@ -1244,6 +1343,7 @@ class RemoteDandiset:
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
+        # Avoid circular import by importing within function:
         from .files import LocalAsset, dandi_file
 
         df = dandi_file(filepath)
@@ -1273,7 +1373,7 @@ class BaseRemoteAsset(ABC, APIBase):
 
     #: The `DandiAPIClient` instance that returned this `BaseRemoteAsset`
     #: and which the latter will use for API requests
-    client: "DandiAPIClient"
+    client: DandiAPIClient = Field(exclude=True)
     #: The asset identifier
     identifier: str = Field(alias="asset_id")
     #: The asset's (forward-slash-separated) path
@@ -1286,7 +1386,7 @@ class BaseRemoteAsset(ABC, APIBase):
     modified: datetime
     #: Metadata supplied at initialization; returned when metadata is requested
     #: instead of performing an API call
-    _metadata: Optional[Dict[str, Any]] = PrivateAttr(default_factory=None)
+    _metadata: Optional[Dict[str, Any]] = PrivateAttr(default=None)
 
     def __init__(self, **data: Any) -> None:  # type: ignore[no-redef]
         super().__init__(**data)
@@ -1294,16 +1394,25 @@ class BaseRemoteAsset(ABC, APIBase):
         # underscores, so we have to do it ourselves.
         self._metadata = data.get("metadata", data.get("_metadata"))
 
+    def __eq__(self, other: Any) -> bool:
+        if type(self) is type(other):
+            # dict() includes fields with `exclude=True` (which are absent from
+            # the return value of `model_dump()`) but not private fields.  We
+            # want to compare the former but not the latter.
+            return dict(self) == dict(other)
+        else:
+            return NotImplemented
+
     def __str__(self) -> str:
         return f"{self.client._instance_id}:assets/{self.identifier}"
 
     @classmethod
     def from_base_data(
         cls,
-        client: "DandiAPIClient",
-        data: Dict[str, Any],
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> "BaseRemoteAsset":
+        client: DandiAPIClient,
+        data: dict[str, Any],
+        metadata: dict[str, Any] | None = None,
+    ) -> BaseRemoteAsset:
         """
         Construct a `BaseRemoteAsset` instance from a `DandiAPIClient`, a
         `dict` of raw data in the same format as returned by the API's
@@ -1312,7 +1421,7 @@ class BaseRemoteAsset(ABC, APIBase):
         This is a low-level method that non-developers would normally only use
         when acquiring data using means outside of this library.
         """
-        klass: Type[BaseRemoteAsset]
+        klass: type[BaseRemoteAsset]
         if data.get("blob") is not None:
             klass = BaseRemoteBlobAsset
             if data.pop("zarr", None) is not None:
@@ -1328,7 +1437,7 @@ class BaseRemoteAsset(ABC, APIBase):
     @property
     def api_path(self) -> str:
         """
-        The path (relative to the base endpoint for a Dandi Archive API) at
+        The path (relative to the base endpoint for the DANDI API) at
         which API requests for interacting with the asset itself are made
         """
         return f"/assets/{self.identifier}/"
@@ -1353,22 +1462,28 @@ class BaseRemoteAsset(ABC, APIBase):
         """
         Fetch the metadata for the asset as a `dandischema.models.Asset`
         instance
-        """
-        return models.Asset.parse_obj(self.get_raw_metadata())
 
-    def get_raw_metadata(self) -> Dict[str, Any]:
+        .. note::
+
+            Only assets in published Dandiset versions can be expected to have
+            valid metadata.  Consider using `get_raw_metadata()` instead in
+            order to fetch unstructured, possibly-invalid metadata.
+        """
+        return models.Asset.model_validate(self.get_raw_metadata())
+
+    def get_raw_metadata(self) -> dict[str, Any]:
         """Fetch the metadata for the asset as an unprocessed `dict`"""
         if self._metadata is not None:
             return self._metadata
         else:
             try:
-                return cast(Dict[str, Any], self.client.get(self.api_path))
+                data = self.client.get(self.api_path)
+                assert isinstance(data, dict)
+                return data
             except HTTP404Error:
                 raise NotFoundError(f"No such asset: {self}")
 
-    def get_raw_digest(
-        self, digest_type: Union[str, models.DigestType, None] = None
-    ) -> str:
+    def get_raw_digest(self, digest_type: str | models.DigestType | None = None) -> str:
         """
         Retrieves the value of the given type of digest from the asset's
         metadata.  Raises `NotFoundError` if there is no entry for the given
@@ -1386,9 +1501,11 @@ class BaseRemoteAsset(ABC, APIBase):
             digest_type = digest_type.value
         metadata = self.get_raw_metadata()
         try:
-            return cast(str, metadata["digest"][digest_type])
+            digest = metadata["digest"][digest_type]
         except KeyError:
             raise NotFoundError(f"No {digest_type} digest found in metadata")
+        assert isinstance(digest, str)
+        return digest
 
     def get_digest(self) -> Digest:
         """
@@ -1406,7 +1523,7 @@ class BaseRemoteAsset(ABC, APIBase):
     def get_content_url(
         self,
         regex: str = r".*",
-        follow_redirects: Union[bool, int] = False,
+        follow_redirects: bool | int = False,
         strip_query: bool = False,
     ) -> str:
         """
@@ -1446,9 +1563,12 @@ class BaseRemoteAsset(ABC, APIBase):
                     else:
                         break
         except requests.HTTPError as e:
-            url = e.request.url
+            if e.request is not None and isinstance(e.request.url, str):
+                url = e.request.url
+            else:
+                raise  # reraise since we need to figure out how to handle such a case
         if strip_query:
-            url = urlunparse(urlparse(url)._replace(query=""))
+            url = str(URL(url).with_query(None))
         return url
 
     def get_download_file_iter(
@@ -1474,20 +1594,33 @@ class BaseRemoteAsset(ABC, APIBase):
             headers = None
             if start_at > 0:
                 headers = {"Range": f"bytes={start_at}-"}
-            result = self.client.session.get(url, stream=True, headers=headers)
+            result = self.client.session.get(
+                url, stream=True, headers=headers, timeout=DOWNLOAD_TIMEOUT
+            )
             # TODO: apparently we might need retries here as well etc
             # if result.status_code not in (200, 201):
             result.raise_for_status()
+            nbytes, nchunks = 0, 0
             for chunk in result.iter_content(chunk_size=chunk_size):
+                nchunks += 1
                 if chunk:  # could be some "keep alive"?
+                    nbytes += len(chunk)
                     yield chunk
-            lgr.info("Asset %s successfully downloaded", self.identifier)
+                else:
+                    lgr.debug("'Empty' chunk downloaded for %s", url)
+            lgr.info(
+                "Asset %s (%d bytes in %d chunks starting from %d) successfully "
+                "downloaded from %s",
+                self.identifier,
+                nbytes,
+                nchunks,
+                start_at,
+                url,
+            )
 
         return downloader
 
-    def download(
-        self, filepath: Union[str, Path], chunk_size: int = MAX_CHUNK_SIZE
-    ) -> None:
+    def download(self, filepath: str | Path, chunk_size: int = MAX_CHUNK_SIZE) -> None:
         """
         Download the asset to ``filepath``.  Blocks until the download is
         complete.
@@ -1514,7 +1647,7 @@ class BaseRemoteAsset(ABC, APIBase):
         """
         .. versionadded:: 0.36.0
 
-        The primary digest algorithm used by Dandi Archive for the asset,
+        The primary digest algorithm used by DANDI for the asset,
         determined based on its underlying data: dandi-etag for blob resources,
         dandi-zarr-checksum for Zarr resources
         """
@@ -1562,7 +1695,7 @@ class BaseRemoteBlobAsset(BaseRemoteAsset):
                     r = requests.head(url)
                     r.raise_for_status()
                     size = int(r.headers["Content-Length"])
-                mtime: Optional[datetime]
+                mtime: datetime | None
                 try:
                     mtime = ensure_datetime(md["blobDateModified"])
                 except (KeyError, TypeError, ValueError):
@@ -1591,7 +1724,7 @@ class BaseRemoteZarrAsset(BaseRemoteAsset):
         """
         return AssetType.ZARR
 
-    def iterfiles(self, prefix: Optional[str] = None) -> Iterator[RemoteZarrEntry]:
+    def iterfiles(self, prefix: str | None = None) -> Iterator[RemoteZarrEntry]:
         """
         Returns a generator of all `RemoteZarrEntry`\\s within the Zarr,
         optionally limited to those whose path starts with the given prefix
@@ -1599,7 +1732,7 @@ class BaseRemoteZarrAsset(BaseRemoteAsset):
         for r in self.client.paginate(
             f"{self.client.api_url}/zarr/{self.zarr}/files", params={"prefix": prefix}
         ):
-            data = ZarrEntryServerData.parse_obj(r)
+            data = ZarrEntryServerData.model_validate(r)
             yield RemoteZarrEntry.from_server_data(self, data)
 
     def get_entry_by_path(self, path: str) -> RemoteZarrEntry:
@@ -1617,9 +1750,7 @@ class BaseRemoteZarrAsset(BaseRemoteAsset):
         else:
             return entry
 
-    def rmfiles(
-        self, files: Iterable["RemoteZarrEntry"], reingest: bool = True
-    ) -> None:
+    def rmfiles(self, files: Iterable[RemoteZarrEntry], reingest: bool = True) -> None:
         """
         Delete one or more files from the Zarr.
 
@@ -1658,21 +1789,20 @@ class RemoteAsset(BaseRemoteAsset):
     `RemoteDandiset`.
     """
 
-    JSON_EXCLUDE = frozenset(["client", "dandiset_id", "version_id"])
-
     #: The identifier for the Dandiset to which the asset belongs
-    dandiset_id: str
+    dandiset_id: str = Field(exclude=True)
+
     #: The identifier for the version of the Dandiset to which the asset
     #: belongs
-    version_id: str
+    version_id: str = Field(exclude=True)
 
     @classmethod
     def from_data(
         cls,
         dandiset: RemoteDandiset,
-        data: Dict[str, Any],
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> "RemoteAsset":
+        data: dict[str, Any],
+        metadata: dict[str, Any] | None = None,
+    ) -> RemoteAsset:
         """
         Construct a `RemoteAsset` instance from a `RemoteDandiset`, a `dict` of
         raw data in the same format as returned by the API's pagination
@@ -1681,7 +1811,7 @@ class RemoteAsset(BaseRemoteAsset):
         This is a low-level method that non-developers would normally only use
         when acquiring data using means outside of this library.
         """
-        klass: Type[RemoteAsset]
+        klass: type[RemoteAsset]
         if data.get("blob") is not None:
             klass = RemoteBlobAsset
             if data.pop("zarr", None) is not None:
@@ -1703,7 +1833,7 @@ class RemoteAsset(BaseRemoteAsset):
     @property
     def api_path(self) -> str:
         """
-        The path (relative to the base endpoint for a Dandi Archive API) at
+        The path (relative to the base endpoint for the DANDI API) at
         which API requests for interacting with the asset itself are made
         """
         return f"/dandisets/{self.dandiset_id}/versions/{self.version_id}/assets/{self.identifier}/"
@@ -1729,10 +1859,12 @@ class RemoteAsset(BaseRemoteAsset):
         Set the metadata for the asset to the given value and update the
         `RemoteAsset` in place.
         """
-        return self.set_raw_metadata(metadata.json_dict())
+        return self.set_raw_metadata(
+            metadata.model_dump(mode="json", exclude_none=True)
+        )
 
     @abstractmethod
-    def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
+    def set_raw_metadata(self, metadata: dict[str, Any]) -> None:
         """
         Set the metadata for the asset on the server to the given value and
         update the `RemoteAsset` in place.
@@ -1763,7 +1895,7 @@ class RemoteBlobAsset(RemoteAsset, BaseRemoteBlobAsset):
     A `RemoteAsset` whose actual data is a blob resource
     """
 
-    def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
+    def set_raw_metadata(self, metadata: dict[str, Any]) -> None:
         """
         Set the metadata for the asset on the server to the given value and
         update the `RemoteBlobAsset` in place.
@@ -1786,7 +1918,7 @@ class RemoteZarrAsset(RemoteAsset, BaseRemoteZarrAsset):
     A `RemoteAsset` whose actual data is a Zarr resource
     """
 
-    def set_raw_metadata(self, metadata: Dict[str, Any]) -> None:
+    def set_raw_metadata(self, metadata: dict[str, Any]) -> None:
         """
         Set the metadata for the asset on the server to the given value and
         update the `RemoteZarrAsset` in place.
@@ -1861,7 +1993,7 @@ class RemoteZarrEntry:
             return ""
 
     @property
-    def suffixes(self) -> List[str]:
+    def suffixes(self) -> list[str]:
         """A list of the basename's file extensions"""
         if self.name.endswith("."):
             return []
@@ -1891,6 +2023,19 @@ class RemoteZarrEntry:
                 return False
         return True
 
+    @property
+    def download_url(self) -> str:
+        """
+        .. versionadded:: 0.67.0
+
+        The URL from which the entry can be downloaded
+        """
+        return str(
+            URL(self.client.get_url(f"/zarr/{self.zarr_id}/files/")).with_query(
+                {"prefix": str(self), "download": "true"}
+            )
+        )
+
     def get_download_file_iter(
         self, chunk_size: int = MAX_CHUNK_SIZE
     ) -> Callable[[int], Iterator[bytes]]:
@@ -1898,17 +2043,16 @@ class RemoteZarrEntry:
         Returns a function that when called (optionally with an offset into the
         file to start downloading at) returns a generator of chunks of the file
         """
-        prefix = quote_plus(str(self))
-        url = self.client.get_url(
-            f"/zarr/{self.zarr_id}/files?prefix={prefix}&download=true"
-        )
+        url = self.download_url
 
         def downloader(start_at: int = 0) -> Iterator[bytes]:
             lgr.debug("Starting download from %s", url)
             headers = None
             if start_at > 0:
                 headers = {"Range": f"bytes={start_at}-"}
-            result = self.client.session.get(url, stream=True, headers=headers)
+            result = self.client.session.get(
+                url, stream=True, headers=headers, timeout=DOWNLOAD_TIMEOUT
+            )
             # TODO: apparently we might need retries here as well etc
             # if result.status_code not in (200, 201):
             result.raise_for_status()

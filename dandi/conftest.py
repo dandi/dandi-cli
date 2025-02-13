@@ -1,8 +1,6 @@
-from typing import List
+from __future__ import annotations
 
-from _pytest.config import Config
-from _pytest.config.argparsing import Parser
-from _pytest.nodes import Item
+from pytest import Config, Item, Parser
 
 from .tests.fixtures import *  # noqa: F401, F403  # lgtm [py/polluting-import]
 
@@ -12,11 +10,17 @@ def pytest_addoption(parser: Parser) -> None:
         "--dandi-api",
         action="store_true",
         default=False,
-        help="Only run tests of the new Django Dandi API",
+        help="Only run tests of the new Django DANDI API",
+    )
+    parser.addoption(
+        "--scheduled",
+        action="store_true",
+        default=False,
+        help="Use configuration for a scheduled daily test run",
     )
 
 
-def pytest_collection_modifyitems(items: List[Item], config: Config) -> None:
+def pytest_collection_modifyitems(items: list[Item], config: Config) -> None:
     # Based on <https://pythontesting.net/framework/pytest/pytest-run-tests
     # -using-particular-fixture/>
     if config.getoption("--dandi-api"):

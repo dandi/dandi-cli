@@ -1,10 +1,38 @@
+from __future__ import annotations
+
+from collections.abc import Sequence
 import os
 
 import click
 
 from .base import ChoiceList, IntColonInt, instance_option, map_to_click_exceptions
 from ..dandiarchive import _dandi_url_parser, parse_dandi_url
-from ..utils import get_instance
+from ..dandiset import Dandiset
+from ..download import DownloadExisting, DownloadFormat, PathType
+from ..utils import get_instance, joinurl
+
+_examples = """
+EXAMPLES:
+
+\b
+ - Download only the dandiset.yaml
+   dandi download --download dandiset.yaml DANDI:000027
+\b
+ - Download only dandiset.yaml if there is a newer version
+   dandi download https://identifiers.org/DANDI:000027 --existing refresh
+\b
+ - Download only the assets
+   dandi download --download assets DANDI:000027
+\b
+ - Download all from a specific version
+   dandi download DANDI:000027/0.210831.2033
+\b
+ - Download a specific directory
+   dandi download dandi://DANDI/000027@0.210831.2033/sub-RAT123/
+\b
+ - Download a specific file
+   dandi download dandi://DANDI/000027@0.210831.2033/sub-RAT123/sub-RAT123.nwb
+"""
 
 
 # The use of f-strings apparently makes this not a proper docstring, and so
@@ -14,8 +42,14 @@ from ..utils import get_instance
 Download files or entire folders from DANDI.
 
 \b
+{_dandi_url_parser.resource_identifier_primer}
+
+\b
 {_dandi_url_parser.known_patterns}
-    """
+
+{_examples}
+
+"""
 )
 @click.option(
     "-o",
@@ -28,9 +62,8 @@ Download files or entire folders from DANDI.
 @click.option(
     "-e",
     "--existing",
-    type=click.Choice(
-        ["error", "skip", "overwrite", "overwrite-different", "refresh"]
-    ),  # TODO: verify-reupload (to become default)
+    type=click.Choice(list(DownloadExisting)),
+    # TODO: verify-reupload (to become default)
     help="What to do if a file found existing locally. 'refresh': verify "
     "that according to the size and mtime, it is the same file, if not - "
     "download and overwrite.",
@@ -41,12 +74,12 @@ Download files or entire folders from DANDI.
     "-f",
     "--format",
     help="Choose the format/frontend for output. TODO: support all of the ls",
-    type=click.Choice(["pyout", "debug"]),
+    type=click.Choice(list(DownloadFormat)),
     default="pyout",
 )
 @click.option(
     "--path-type",
-    type=click.Choice(["exact", "glob"]),
+    type=click.Choice(list(PathType)),
     default="exact",
     help="Whether to interpret asset paths in URLs as exact matches or glob patterns",
     show_default=True,
@@ -66,6 +99,16 @@ Download files or entire folders from DANDI.
     help="Comma-separated list of elements to download",
     default="all",
     show_default=True,
+)
+@click.option(
+    "--preserve-tree",
+    is_flag=True,
+    help=(
+        "When downloading only part of a Dandiset, also download"
+        " `dandiset.yaml` (unless downloading an asset URL that does not"
+        " include a Dandiset ID) and do not strip leading directories from asset"
+        " paths.  Implies `--download all`."
+    ),
 )
 @click.option(
     "--sync", is_flag=True, help="Delete local assets that do not exist on the server"
@@ -96,16 +139,17 @@ Download files or entire folders from DANDI.
 @click.argument("url", nargs=-1)
 @map_to_click_exceptions
 def download(
-    url,
-    output_dir,
-    existing,
-    jobs,
-    format,
-    download_types,
-    sync,
-    dandi_instance,
-    path_type,
-):
+    url: Sequence[str],
+    output_dir: str,
+    existing: DownloadExisting,
+    jobs: tuple[int, int],
+    format: DownloadFormat,
+    download_types: set[str],
+    sync: bool,
+    dandi_instance: str,
+    path_type: PathType,
+    preserve_tree: bool,
+) -> None:
     # We need to import the download module rather than the download function
     # so that the tests can properly patch the function with a mock.
     from .. import download
@@ -120,8 +164,6 @@ def download(
                         f"{u} does not point to {dandi_instance!r} instance"
                     )
         else:
-            from ..dandiset import Dandiset
-
             try:
                 dandiset_id = Dandiset(os.curdir).identifier
             except ValueError:
@@ -129,9 +171,9 @@ def download(
                 pass
             else:
                 if instance.gui is not None:
-                    url = [f"{instance.gui}/#/dandiset/{dandiset_id}/draft"]
+                    url = [joinurl(instance.gui, f"/#/dandiset/{dandiset_id}/draft")]
                 else:
-                    url = [f"{instance.api}/dandisets/{dandiset_id}/"]
+                    url = [joinurl(instance.api, f"/dandisets/{dandiset_id}/")]
 
     return download.download(
         url,
@@ -140,8 +182,9 @@ def download(
         format=format,
         jobs=jobs[0],
         jobs_per_zarr=jobs[1],
-        get_metadata="dandiset.yaml" in download_types,
-        get_assets="assets" in download_types,
+        get_metadata="dandiset.yaml" in download_types or preserve_tree,
+        get_assets="assets" in download_types or preserve_tree,
+        preserve_tree=preserve_tree,
         sync=sync,
         path_type=path_type,
         # develop_debug=develop_debug

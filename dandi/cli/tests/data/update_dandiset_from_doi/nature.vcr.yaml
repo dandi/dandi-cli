@@ -7,7 +7,7 @@ interactions:
       Connection:
       - keep-alive
       User-Agent:
-      - dandi/0.53.0+17.gc2f268f.dirty requests/2.28.2 CPython/3.11.3
+      - dandi/0.56.2+5.ga0199fce.dirty requests/2.31.0 CPython/3.11.6
       accept:
       - application/json
     method: GET
@@ -21,7 +21,7 @@ interactions:
       CF-Cache-Status:
       - DYNAMIC
       CF-RAY:
-      - 7bd8e4d52b9a7fdc-IAD
+      - 817276a5ba8c43ed-EWR
       Connection:
       - keep-alive
       Content-Length:
@@ -29,19 +29,19 @@ interactions:
       Content-Type:
       - text/html;charset=utf-8
       Date:
-      - Tue, 25 Apr 2023 19:11:48 GMT
+      - Mon, 16 Oct 2023 18:46:14 GMT
       NEL:
       - '{"success_fraction":0,"report_to":"cf-nel","max_age":604800}'
       Report-To:
-      - '{"endpoints":[{"url":"https:\/\/a.nel.cloudflare.com\/report\/v3?s=g57RxkcPlTXeGvDYW3InUXNmiqoPJyXIlbjCZ%2FIdXOIXOt1hxI7ZubtdYz8bwERZsrc4YUqX5Wv5UWuQt4lL6I296qFTKp%2BUiaK5pSCxqcicJo8WNqtWOjzPi3tgxaA9rXtzGJ0%3D"}],"group":"cf-nel","max_age":604800}'
+      - '{"endpoints":[{"url":"https:\/\/a.nel.cloudflare.com\/report\/v3?s=3%2BhI7P8ArzKiVCpx8e0K6RQ3HTAengJaftxhPQgCP8POs6mSIgCe%2B9acLsRO8rhvgsF6yKEakDTDq2UEcUrcGWI6DTSCtrk4J5Gd8JdoNwB%2FWLoHAIblDbM%3D"}],"group":"cf-nel","max_age":604800}'
       Server:
       - cloudflare
       Strict-Transport-Security:
       - max-age=31536000; includeSubDomains; preload
       alt-svc:
-      - h3=":443"; ma=86400, h3-29=":443"; ma=86400
+      - h3=":443"; ma=86400
       expires:
-      - Tue, 25 Apr 2023 19:31:35 GMT
+      - Mon, 16 Oct 2023 19:01:13 GMT
       location:
       - https://api.crossref.org/v1/works/10.1038%2Fs41467-023-37704-5/transform
       permissions-policy:
@@ -59,195 +59,329 @@ interactions:
       Connection:
       - keep-alive
       User-Agent:
-      - dandi/0.53.0+17.gc2f268f.dirty requests/2.28.2 CPython/3.11.3
+      - dandi/0.56.2+5.ga0199fce.dirty requests/2.31.0 CPython/3.11.6
       accept:
       - application/json
     method: GET
     uri: https://api.crossref.org/v1/works/10.1038%2Fs41467-023-37704-5/transform
   response:
     body:
-      string: !!binary |
-        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
-        jAAA
+      string: '{"indexed":{"date-parts":[[2023,10,10]],"date-time":"2023-10-10T16:23:04Z","timestamp":1696954984679},"reference-count":86,"publisher":"Springer
+        Science and Business Media LLC","issue":"1","license":[{"start":{"date-parts":[[2023,4,8]],"date-time":"2023-04-08T00:00:00Z","timestamp":1680912000000},"content-version":"tdm","delay-in-days":0,"URL":"https:\/\/creativecommons.org\/licenses\/by\/4.0"},{"start":{"date-parts":[[2023,4,8]],"date-time":"2023-04-08T00:00:00Z","timestamp":1680912000000},"content-version":"vor","delay-in-days":0,"URL":"https:\/\/creativecommons.org\/licenses\/by\/4.0"}],"funder":[{"DOI":"10.13039\/100000153","name":"NSF
+        | BIO | Division of Biological Infrastructure","doi-asserted-by":"publisher","award":["1934288"]},{"DOI":"10.13039\/100001391","name":"Whitehall
+        Foundation","doi-asserted-by":"publisher"},{"DOI":"10.13039\/100000065","name":"U.S.
+        Department of Health & Human Services | NIH | National Institute of Neurological
+        Disorders and Stroke","doi-asserted-by":"publisher","award":["R01NS121919"]}],"content-domain":{"domain":["link.springer.com"],"crossmark-restriction":false},"abstract":"<jats:title>Abstract<\/jats:title><jats:p>Spatial
+        cognition depends on an accurate representation of orientation within an environment.
+        Head direction cells in distributed brain regions receive a range of sensory
+        inputs, but visual input is particularly important for aligning their responses
+        to environmental landmarks. To investigate how population-level heading responses
+        are aligned to visual input, we recorded from retrosplenial cortex (RSC) of
+        head-fixed mice in a moving environment using two-photon calcium imaging.
+        We show that RSC neurons are tuned to the animal\u2019s relative orientation
+        in the environment, even in the absence of head movement. Next, we found that
+        RSC receives functionally distinct projections from visual and thalamic areas
+        and contains several functional classes of neurons. While some functional
+        classes mirror RSC inputs, a newly discovered class coregisters visual and
+        thalamic signals. Finally, decoding analyses reveal unique contributions to
+        heading from each class. Our results suggest an RSC circuit for anchoring
+        heading representations to environmental visual landmarks.<\/jats:p>","DOI":"10.1038\/s41467-023-37704-5","type":"journal-article","created":{"date-parts":[[2023,4,8]],"date-time":"2023-04-08T14:02:45Z","timestamp":1680962565000},"update-policy":"http:\/\/dx.doi.org\/10.1007\/springer_crossmark_policy","source":"Crossref","is-referenced-by-count":3,"title":"Coregistration
+        of heading to visual cues in retrosplenial cortex","prefix":"10.1038","volume":"14","author":[{"given":"Kevin
+        K.","family":"Sit","sequence":"first","affiliation":[]},{"ORCID":"http:\/\/orcid.org\/0000-0002-5366-8501","authenticated-orcid":false,"given":"Michael
+        J.","family":"Goard","sequence":"additional","affiliation":[]}],"member":"297","published-online":{"date-parts":[[2023,4,8]]},"reference":[{"key":"37704_CR1","doi-asserted-by":"publisher","first-page":"849","DOI":"10.1126\/science.aal4835","volume":"356","author":"SS
+        Kim","year":"2017","unstructured":"Kim, S. S., Rouault, H., Druckmann, S.
+        & Jayaraman, V. Ring attractor dynamics in the Drosophila central brain. Science
+        356, 849\u2013853 (2017).","journal-title":"Science"},{"key":"37704_CR2","doi-asserted-by":"publisher","first-page":"186","DOI":"10.1038\/nature14446","volume":"521","author":"JD
+        Seelig","year":"2015","unstructured":"Seelig, J. D. & Jayaraman, V. Neural
+        dynamics for landmark orientation and angular path integration. Nature 521,
+        186\u2013191 (2015).","journal-title":"Nature"},{"key":"37704_CR3","doi-asserted-by":"publisher","first-page":"338","DOI":"10.1016\/j.cub.2021.11.009","volume":"32","author":"MJ
+        Beetz","year":"2022","unstructured":"Beetz, M. J. et al. Flight-induced compass
+        representation in the monarch butterfly heading network. Curr. Biol. 32, 338\u2013349.e5
+        (2022).","journal-title":"Curr. Biol."},{"key":"37704_CR4","doi-asserted-by":"publisher","first-page":"70","DOI":"10.1523\/JNEUROSCI.15-01-00070.1995","volume":"15","author":"JS
+        Taube","year":"1995","unstructured":"Taube, J. S. Head direction cells recorded
+        in the anterior thalamic nuclei of freely moving rats. J. Neurosci. 15, 70\u201386
+        (1995).","journal-title":"J. Neurosci."},{"key":"37704_CR5","doi-asserted-by":"publisher","first-page":"11","DOI":"10.1016\/S0306-4522(00)00258-X","volume":"100","author":"S
+        Leutgeb","year":"2000","unstructured":"Leutgeb, S., Ragozzino, K. E. & Mizumori,
+        S. J. Convergence of head direction and place information in the CA1 region
+        of hippocampus. Neuroscience 100, 11\u201319 (2000).","journal-title":"Neuroscience"},{"key":"37704_CR6","doi-asserted-by":"publisher","first-page":"3","DOI":"10.1037\/0735-7044.115.1.3","volume":"115","author":"J
+        Cho","year":"2001","unstructured":"Cho, J. & Sharp, P. E. Head direction,
+        place, and movement correlates for cells in the rat retrosplenial cortex.
+        Behav. Neurosci. 115, 3\u201325 (2001).","journal-title":"Behav. Neurosci."},{"key":"37704_CR7","doi-asserted-by":"publisher","first-page":"8","DOI":"10.1007\/BF00243212","volume":"101","author":"LL
+        Chen","year":"1994","unstructured":"Chen, L. L., Lin, L. H., Green, E. J.,
+        Barnes, C. A. & McNaughton, B. L. Head-direction cells in the rat posterior
+        cortex - I. anatomical distribution and behavioral modulation. Exp. Brain
+        Res. 101, 8\u201323 (1994).","journal-title":"Exp. Brain Res."},{"key":"37704_CR8","doi-asserted-by":"publisher","first-page":"9020","DOI":"10.1523\/JNEUROSCI.18-21-09020.1998","volume":"18","author":"RW
+        Stackman","year":"1998","unstructured":"Stackman, R. W. & Taube, J. S. Firing
+        properties of rat lateral mammillary single units: Head direction, head pitch,
+        and angular head velocity. J. Neurosci. 18, 9020\u20139037 (1998).","journal-title":"J.
+        Neurosci."},{"key":"37704_CR9","doi-asserted-by":"publisher","first-page":"420","DOI":"10.1523\/JNEUROSCI.10-02-00420.1990","volume":"10","author":"JS
+        Taube","year":"1990","unstructured":"Taube, J. S., Muller, R. U. & Ranck,
+        J. B. Head-direction cells recorded from the postsubiculum in freely moving
+        rats. I. Description and quantitative analysis. J. Neurosci. 10, 420\u2013435
+        (1990).","journal-title":"J. Neurosci."},{"key":"37704_CR10","doi-asserted-by":"publisher","first-page":"436","DOI":"10.1523\/JNEUROSCI.10-02-00436.1990","volume":"10","author":"JS
+        Taube","year":"1990","unstructured":"Taube, J. S., Muller, R. U. & Ranck,
+        J. B. Head-direction cells recorded from the postsubiculum in freely moving
+        rats. II. Effects of environmental manipulations. J. Neurosci. 10, 436\u2013447
+        (1990).","journal-title":"J. Neurosci."},{"key":"37704_CR11","doi-asserted-by":"publisher","first-page":"1648","DOI":"10.1523\/JNEUROSCI.15-03-01648.1995","volume":"15","author":"JJ
+        Knierim","year":"1995","unstructured":"Knierim, J. J., Kudrimoti, H. S. &
+        McNaughton, B. L. Place cells, head direction cells, and the learning of landmark
+        stability. J. Neurosci. 15, 1648\u20131659 (1995).","journal-title":"J. Neurosci."},{"key":"37704_CR12","doi-asserted-by":"publisher","first-page":"6260","DOI":"10.1523\/JNEUROSCI.15-09-06260.1995","volume":"15","author":"HT
+        Blair","year":"1995","unstructured":"Blair, H. T. & Sharp, P. E. Anticipatory
+        head direction signals in anterior thalamus: evidence for a thalamocortical
+        circuit that integrates angular head motion to compute head direction. J.
+        Neurosci. 15, 6260\u20136270 (1995).","journal-title":"J. Neurosci."},{"key":"37704_CR13","doi-asserted-by":"publisher","first-page":"87","DOI":"10.1002\/(SICI)1098-1063(1998)8:2<87::AID-HIPO1>3.0.CO;2-4","volume":"8","author":"JS
+        Taube","year":"1998","unstructured":"Taube, J. S. & Muller, R. U. Comparisons
+        of head direction cell activity in the postsubiculum and anterior thalamus
+        of freely moving rats. Hippocampus 8, 87\u2013108 (1998).","journal-title":"Hippocampus"},{"key":"37704_CR14","doi-asserted-by":"publisher","first-page":"1162","DOI":"10.1093\/cercor\/bhg102","volume":"13","author":"JS
+        Taube","year":"2003","unstructured":"Taube, J. S. & Bassett, J. P. Persistent
+        neural activity in head direction cells. Cereb. Cortex 13, 1162\u20131172
+        (2003).","journal-title":"Cereb. Cortex"},{"key":"37704_CR15","doi-asserted-by":"publisher","first-page":"4349","DOI":"10.1523\/JNEUROSCI.17-11-04349.1997","volume":"17","author":"RW
+        Stackman","year":"1997","unstructured":"Stackman, R. W. & Taube, J. S. Firing
+        properties of head direction cells in the rat anterior thalamic nucleus: dependence
+        on vestibular input. J. Neurosci. 17, 4349\u20134358 (1997).","journal-title":"J.
+        Neurosci."},{"key":"37704_CR16","doi-asserted-by":"publisher","first-page":"291","DOI":"10.1002\/hipo.1112","volume":"12","author":"RW
+        Stackman","year":"2002","unstructured":"Stackman, R. W., Clark, A. S. & Taube,
+        J. S. Hippocampal spatial representations require vestibular input. Hippocampus
+        12, 291\u2013303 (2002).","journal-title":"Hippocampus"},{"key":"37704_CR17","doi-asserted-by":"publisher","first-page":"14521","DOI":"10.1523\/JNEUROSCI.3450-09.2009","volume":"29","author":"GM
+        Muir","year":"2009","unstructured":"Muir, G. M. et al. Disruption of the head
+        direction cell signal after occlusion of the semicircular canals in the freely
+        moving chinchilla. J. Neurosci. 29, 14521\u201314533 (2009).","journal-title":"J.
+        Neurosci."},{"key":"37704_CR18","doi-asserted-by":"publisher","first-page":"1387","DOI":"10.1016\/S0896-6273(00)80657-1","volume":"21","author":"HT
+        Blair","year":"1998","unstructured":"Blair, H. T., Cho, J. & Sharp, P. E.
+        Role of the lateral mammillary nucleus in the rat head direction circuit:
+        A combined single unit recording and lesion study. Neuron 21, 1387\u20131397
+        (1998).","journal-title":"Neuron"},{"key":"37704_CR19","doi-asserted-by":"publisher","first-page":"135","DOI":"10.1037\/0735-7044.120.1.135","volume":"120","author":"RJ
+        Frohardt","year":"2006","unstructured":"Frohardt, R. J., Bassett, J. P. &
+        Taube, J. S. Path integration and lesions within the head direction cell circuit:
+        Comparison between the roles of the anterodorsal thalamus and dorsal tegmental
+        nucleus. Behav. Neurosci. 120, 135\u2013149 (2006).","journal-title":"Behav.
+        Neurosci."},{"key":"37704_CR20","doi-asserted-by":"publisher","first-page":"442","DOI":"10.1016\/j.neuron.2014.08.042","volume":"84","author":"D
+        Aronov","year":"2014","unstructured":"Aronov, D. & Tank, D. W. Engagement
+        of neural circuits underlying 2D spatial navigation in a rodent virtual reality
+        system. Neuron 84, 442\u2013456 (2014).","journal-title":"Neuron"},{"key":"37704_CR21","doi-asserted-by":"publisher","first-page":"16790","DOI":"10.1523\/JNEUROSCI.2698-13.2013","volume":"33","author":"A
+        Arleo","year":"2013","unstructured":"Arleo, A. et al. Optic flow stimuli update
+        anterodorsal thalamus head direction neuronal activity in rats. J. Neurosci.
+        33, 16790\u201316795 (2013).","journal-title":"J. Neurosci."},{"key":"37704_CR22","first-page":"E3305","volume":"115","author":"X
+        Chen","year":"2018","unstructured":"Chen, X., DeAngelis, G. C. & Angelaki,
+        D. E. Flexible egocentric and allocentric representations of heading signals
+        in parietal cortex. Proc. Natl Acad. Sci. USA 115, E3305\u2013E3312 (2018).","journal-title":"Proc.
+        Natl Acad. Sci. USA"},{"key":"37704_CR23","doi-asserted-by":"publisher","first-page":"197","DOI":"10.1016\/j.cell.2015.12.015","volume":"164","author":"L
+        Acharya","year":"2016","unstructured":"Acharya, L., Aghajan, Z. M., Vuong,
+        C., Moore, J. J. & Mehta, M. R. Causal influence of visual cues on hippocampal
+        directional selectivity. Cell 164, 197\u2013207 (2016).","journal-title":"Cell"},{"key":"37704_CR24","doi-asserted-by":"publisher","first-page":"RC154","DOI":"10.1523\/JNEUROSCI.21-14-j0001.2001","volume":"21","author":"MB
+        Zugaro","year":"2001","unstructured":"Zugaro, M. B., Berthoz, A. & Wiener,
+        S. I. Background, but not foreground, spatial cues are taken as references
+        for head direction responses by rat anterodorsal thalamus neurons. J. Neurosci.
+        21, RC154 (2001).","journal-title":"J. Neurosci."},{"key":"37704_CR25","doi-asserted-by":"publisher","first-page":"1304","DOI":"10.1152\/jn.00490.2004","volume":"93","author":"JP
+        Bassett","year":"2005","unstructured":"Bassett, J. P. et al. Passive movements
+        of the head do not abolish anticipatory firing properties of head direction
+        cells. J. Neurophysiol. 93, 1304\u20131316 (2005).","journal-title":"J. Neurophysiol."},{"key":"37704_CR26","doi-asserted-by":"publisher","first-page":"788","DOI":"10.1152\/jn.01098.2010","volume":"106","author":"ME
+        Shinder","year":"2011","unstructured":"Shinder, M. E. & Taube, J. S. Active
+        and passive movement are encoded equally by head direction cells in the anterodorsal
+        thalamus. J. Neurophysiol. 106, 788\u2013800 (2011).","journal-title":"J.
+        Neurophysiol."},{"key":"37704_CR27","doi-asserted-by":"publisher","first-page":"749","DOI":"10.1037\/0735-7044.112.4.749","volume":"112","author":"JP
+        Goodridge","year":"1998","unstructured":"Goodridge, J. P., Dudchenko, P. A.,
+        Worboys, K. A., Golob, E. J. & Taube, J. S. Cue control and head direction
+        cells. Behav. Neurosci. 112, 749\u2013761 (1998).","journal-title":"Behav.
+        Neurosci."},{"key":"37704_CR28","doi-asserted-by":"publisher","first-page":"3478","DOI":"10.1523\/JNEUROSCI.23-08-03478.2003","volume":"23","author":"MB
+        Zugaro","year":"2003","unstructured":"Zugaro, M. B., Arleo, A., Berthoz, A.
+        & Wiener, S. I. Rapid spatial reorientation and head direction cells. J. Neurosci.
+        23, 3478\u20133482 (2003).","journal-title":"J. Neurosci."},{"key":"37704_CR29","doi-asserted-by":"publisher","first-page":"10009","DOI":"10.1523\/JNEUROSCI.22-22-10009.2002","volume":"22","author":"DG
+        Wallace","year":"2002","unstructured":"Wallace, D. G., Hines, D. J., Pellis,
+        S. M. & Whishaw, I. Q. Vestibular information is required for dead reckoning
+        in the rat. J. Neurosci. 22, 10009\u201310017 (2002).","journal-title":"J.
+        Neurosci."},{"key":"37704_CR30","doi-asserted-by":"publisher","first-page":"480","DOI":"10.1002\/hipo.20533","volume":"19","author":"Y
+        Zheng","year":"2009","unstructured":"Zheng, Y., Goddard, M., Darlington, C.
+        L. & Smith, P. F. Long-term deficits on a foraging task after bilateral vestibular
+        deafferentation in rats. Hippocampus 19, 480\u2013486 (2009).","journal-title":"Hippocampus"},{"key":"37704_CR31","doi-asserted-by":"publisher","first-page":"126","DOI":"10.1038\/s41586-019-1767-1","volume":"576","author":"SS
+        Kim","year":"2019","unstructured":"Kim, S. S., Hermundstad, A. M., Romani,
+        S., Abbott, L. F. & Jayaraman, V. Generation of stable heading representations
+        in diverse visual scenes. Nature 576, 126\u2013131 (2019).","journal-title":"Nature"},{"key":"37704_CR32","doi-asserted-by":"publisher","first-page":"583","DOI":"10.1038\/360583a0","volume":"360","author":"CS
+        Royden","year":"1992","unstructured":"Royden, C. S., Banks, M. S. & Crowell,
+        J. A. The perception of heading during eye movements. Nature 360, 583\u2013585
+        (1992).","journal-title":"Nature"},{"key":"37704_CR33","doi-asserted-by":"publisher","first-page":"895","DOI":"10.3389\/fnhum.2014.00895","volume":"8","author":"VE
+        Pettorossi","year":"2014","unstructured":"Pettorossi, V. E. & Schieppati,
+        M. Neck proprioception shapes body orientation and perception of motion. Front.
+        Hum. Neurosci. 8, 895 (2014).","journal-title":"Front. Hum. Neurosci."},{"key":"37704_CR34","doi-asserted-by":"publisher","first-page":"445","DOI":"10.1016\/0361-9230(94)90288-7","volume":"33","author":"A
+        Gasbarri","year":"1994","unstructured":"Gasbarri, A., Packard, M. G., Campana,
+        E. & Pacitti, C. Anterograde and retrograde tracing of projections from the
+        ventral tegmental area to the hippocampal formation in the rat. Brain Res.
+        Bull. 33, 445\u2013452 (1994).","journal-title":"Brain Res. Bull."},{"key":"37704_CR35","doi-asserted-by":"crossref","unstructured":"Asumbisa,
+        K., Peyrache, A. & Trenholm, S. Flexible cue anchoring strategies enable stable
+        head direction coding in both sighted and blind animals. Nat. Commun. 13,
+        1\u201315 (2022).","DOI":"10.1038\/s41467-022-33204-0"},{"key":"37704_CR36","doi-asserted-by":"publisher","first-page":"1682","DOI":"10.1037\/0735-7044.119.6.1682","volume":"119","author":"SD
+        Vann","year":"2005","unstructured":"Vann, S. D. & Aggleton, J. P. Selective
+        dysgranular retrosplenial cortex lesions in rats disrupt allocentric performance
+        of the radial-arm maze task. Behav. Neurosci. 119, 1682\u20131686 (2005).","journal-title":"Behav.
+        Neurosci."},{"key":"37704_CR37","doi-asserted-by":"publisher","first-page":"5289","DOI":"10.1523\/JNEUROSCI.3380-09.2010","volume":"30","author":"BJ
+        Clark","year":"2010","unstructured":"Clark, B. J., Bassett, J. P., Wang, S.
+        S. & Taube, J. S. Impaired head direction cell representation in the anterodorsal
+        thalamus after lesions of the retrosplenial cortex. J. Neurosci. 30, 5289\u20135302
+        (2010).","journal-title":"J. Neurosci."},{"key":"37704_CR38","doi-asserted-by":"publisher","first-page":"593","DOI":"10.1002\/cne.903000412","volume":"300","author":"T
+        Van Groen","year":"1990","unstructured":"Van Groen, T. & Wyss, J. M. Connections
+        of the retrosplenial granular a cortex in the rat. J. Comp. Neurol. 300, 593\u2013606
+        (1990).","journal-title":"J. Comp. Neurol."},{"key":"37704_CR39","doi-asserted-by":"publisher","first-page":"249","DOI":"10.1002\/cne.10757","volume":"463","author":"T
+        Van Groen","year":"2003","unstructured":"Van Groen, T. & Wyss, J. M. Connections
+        of the retrosplenial granular b cortex in the rat. J. Comp. Neurol. 463, 249\u2013263
+        (2003).","journal-title":"J. Comp. Neurol."},{"key":"37704_CR40","doi-asserted-by":"publisher","first-page":"200","DOI":"10.1002\/cne.903150207","volume":"315","author":"T
+        Van Groen","year":"1992","unstructured":"Van Groen, T. & Wyss, J. M. Connections
+        of the retrosplenial dysgranular cortex in the rat. J. Comp. Neurol. 315,
+        200\u2013216 (1992).","journal-title":"J. Comp. Neurol."},{"key":"37704_CR41","doi-asserted-by":"publisher","first-page":"533","DOI":"10.1002\/cne.903300409","volume":"330","author":"H
+        Shibata","year":"1993","unstructured":"Shibata, H. Efferent projections from
+        the anterior thalamic nuclei to the cingulate cortex in the rat. J. Comp.
+        Neurol. 330, 533\u2013542 (1993).","journal-title":"J. Comp. Neurol."},{"key":"37704_CR42","doi-asserted-by":"publisher","first-page":"569","DOI":"10.1038\/nn.3968","volume":"18","author":"A
+        Peyrache","year":"2015","unstructured":"Peyrache, A., Lacroix, M. M., Petersen,
+        P. C. & Buzs\u00e1ki, G. Internally organized mechanisms of the head direction
+        sense. Nat. Neurosci. 18, 569\u2013575 (2015).","journal-title":"Nat. Neurosci."},{"key":"37704_CR43","doi-asserted-by":"publisher","first-page":"e51458","DOI":"10.7554\/eLife.51458","volume":"9","author":"LF
+        Fischer","year":"2020","unstructured":"Fischer, L. F., Soto-Albors, R. M.,
+        Buck, F. & Harnett, M. T. Representation of visual landmarks in retrosplenial
+        cortex. eLife 9, e51458 (2020).","journal-title":"eLife"},{"key":"37704_CR44","doi-asserted-by":"publisher","first-page":"1143","DOI":"10.1038\/nn.4058","volume":"18","author":"AS
+        Alexander","year":"2015","unstructured":"Alexander, A. S. & Nitz, D. A. Retrosplenial
+        cortex maps the conjunction of internal and external spaces. Nat. Neurosci.
+        18, 1143\u20131151 (2015).","journal-title":"Nat. Neurosci."},{"key":"37704_CR45","doi-asserted-by":"publisher","first-page":"191","DOI":"10.3389\/fncel.2018.00191","volume":"12","author":"HJ
+        Page","year":"2018","unstructured":"Page, H. J. & Jeffery, K. J. Landmark-based
+        updating of the head direction system by retrosplenial cortex: a computational
+        model. Front. Cell. Neurosci. 12, 191 (2018).","journal-title":"Front. Cell.
+        Neurosci."},{"key":"37704_CR46","doi-asserted-by":"publisher","first-page":"173","DOI":"10.1038\/nn.4465","volume":"20","author":"PY
+        Jacob","year":"2017","unstructured":"Jacob, P. Y. et al. An independent, landmark
+        dominated head-direction signal in dysgranular retrosplenial cortex. Nat.
+        Neurosci. 20, 173\u2013175 (2017).","journal-title":"Nat. Neurosci."},{"key":"37704_CR47","doi-asserted-by":"publisher","first-page":"e43620","DOI":"10.1371\/journal.pone.0043620","volume":"7","author":"SD
+        Auger","year":"2012","unstructured":"Auger, S. D., Mullally, S. L. & Maguire,
+        E. A. Retrosplenial cortex codes for permanent landmarks. PLoS ONE 7, e43620
+        (2012).","journal-title":"PLoS ONE"},{"key":"37704_CR48","doi-asserted-by":"publisher","first-page":"eabf9815","DOI":"10.1126\/sciadv.abf9815","volume":"7","author":"LM
+        Franco","year":"2021","unstructured":"Franco, L. M. & Goard, M. J. A distributed
+        circuit for associating environmental context with motor choice in retrosplenial
+        cortex. Sci. Adv. 7, eabf9815 (2021).","journal-title":"Sci. Adv."},{"key":"37704_CR49","doi-asserted-by":"publisher","first-page":"625","DOI":"10.1097\/00001756-199902250-00033","volume":"10","author":"BG
+        Cooper","year":"1999","unstructured":"Cooper, B. G. & Mizumori, S. J. Retrosplenial
+        cortex inactivation selectivity impairs navigation in darkness. NeuroReport
+        10, 625\u2013630 (1999).","journal-title":"NeuroReport"},{"key":"37704_CR50","doi-asserted-by":"publisher","first-page":"67","DOI":"10.1016\/S0166-4328(00)00312-0","volume":"118","author":"IQ
+        Whishaw","year":"2001","unstructured":"Whishaw, I. Q., Maaswinkel, H., Gonzalez,
+        C. L. & Kolb, B. Deficits in allothetic and idiothetic spatial behavior in
+        rats with posterior cingulate cortex lesions. Behav. Brain Res. 118, 67\u201376
+        (2001).","journal-title":"Behav. Brain Res."},{"key":"37704_CR51","doi-asserted-by":"publisher","first-page":"532","DOI":"10.1016\/j.neuron.2021.10.031","volume":"110","author":"S
+        Keshavarzi","year":"2022","unstructured":"Keshavarzi, S. et al. Multisensory
+        coding of angular head velocity in the retrosplenial cortex. Neuron 110, 532\u2013543.e9
+        (2022).","journal-title":"Neuron"},{"key":"37704_CR52","doi-asserted-by":"crossref","unstructured":"Zhang,
+        N., Grieves, R. M. & Jeffery, K. J. Environment symmetry drives a multidirectional
+        code in rat retrosplenial cortex. J. Neurosci. 42, 9227\u20139241 (2022).","DOI":"10.1523\/JNEUROSCI.0619-22.2022"},{"key":"37704_CR53","doi-asserted-by":"publisher","first-page":"62","DOI":"10.1038\/nature10918","volume":"484","author":"CD
+        Harvey","year":"2012","unstructured":"Harvey, C. D., Coen, P. & Tank, D. W.
+        Choice-specific sequences in parietal cortex during a virtualnavigation decision
+        task. Nature 484, 62\u201368 (2012).","journal-title":"Nature"},{"key":"37704_CR54","doi-asserted-by":"publisher","first-page":"124","DOI":"10.1038\/s41586-018-0516-1","volume":"562","author":"AB
+        Saleem","year":"2018","unstructured":"Saleem, A. B., Diamanti, E. M., Fournier,
+        J., Harris, K. D. & Carandini, M. Coherent encoding of subjective spatial
+        position in visual cortex and hippocampus. Nature 562, 124\u2013127 (2018).","journal-title":"Nature"},{"key":"37704_CR55","doi-asserted-by":"publisher","first-page":"9537","DOI":"10.1523\/JNEUROSCI.0712-14.2014","volume":"34","author":"NJ
+        Sofroniew","year":"2014","unstructured":"Sofroniew, N. J., Cohen, J. D., Lee,
+        A. K. & Svoboda, K. Natural whisker-guided behavior by head-fixed mice in
+        tactile virtual reality. J. Neurosci. 34, 9537\u20139550 (2014).","journal-title":"J.
+        Neurosci."},{"key":"37704_CR56","first-page":"e51869","volume":"29","author":"M
+        Kislin","year":"2014","unstructured":"Kislin, M. et al. Flat-floored air-lifted
+        platform: a new method for combining behavior with microscopy or electrophysiology
+        on awake freely moving rodents. J. Vis. Exp. 29, e51869 (2014).","journal-title":"J.
+        Vis. Exp."},{"key":"37704_CR57","doi-asserted-by":"publisher","first-page":"4424","DOI":"10.1093\/cercor\/bhaa030","volume":"30","author":"A
+        Powell","year":"2020","unstructured":"Powell, A. et al. Stable encoding of
+        visual cues in the mouse retrosplenial cortex. Cereb. Cortex 30, 4424\u20134437
+        (2020).","journal-title":"Cereb. Cortex"},{"key":"37704_CR58","doi-asserted-by":"publisher","first-page":"32","DOI":"10.3389\/fnint.2014.00032","volume":"8","author":"RM
+        Yoder","year":"2014","unstructured":"Yoder, R. M. & Taube, J. S. The vestibular
+        contribution to the head direction signal and navigation. Front. Integr. Neurosci.
+        8, 32 (2014).","journal-title":"Front. Integr. Neurosci."},{"key":"37704_CR59","doi-asserted-by":"publisher","first-page":"622","DOI":"10.1523\/JNEUROSCI.3885-05.2006","volume":"26","author":"D
+        Yoganarasimha","year":"2006","unstructured":"Yoganarasimha, D., Yu, X. & Knierim,
+        J. J. Head direction cell representations maintain internal coherence during
+        conflicting proximal and distal cue rotations: comparison with hippocampal
+        place cells. J. Neurosci. 26, 622\u2013631 (2006).","journal-title":"J. Neurosci."},{"key":"37704_CR60","doi-asserted-by":"publisher","first-page":"4386","DOI":"10.1523\/JNEUROSCI.6063-11.2012","volume":"32","author":"Q
+        Wang","year":"2012","unstructured":"Wang, Q., Sporns, O. & Burkhalter, A.
+        Network analysis of corticocortical connections reveals ventral and dorsal
+        processing streams in mouse visual cortex. J. Neurosci. 32, 4386\u20134399
+        (2012).","journal-title":"J. Neurosci."},{"key":"37704_CR61","doi-asserted-by":"publisher","first-page":"1","DOI":"10.1038\/s41467-020-17283-5","volume":"11","author":"KK
+        Sit","year":"2020","unstructured":"Sit, K. K. & Goard, M. J. Distributed and
+        retinotopically asymmetric processing of coherent motion in mouse visual cortex.
+        Nat. Commun. 11, 1\u201314 (2020).","journal-title":"Nat. Commun."},{"key":"37704_CR62","doi-asserted-by":"publisher","first-page":"171","DOI":"10.1016\/S0959-4388(99)80023-3","volume":"9","author":"EA
+        Maguire","year":"1999","unstructured":"Maguire, E. A., Burgess, N. & O\u2019Keefe,
+        J. Human spatial navigation: cognitive maps, sexual dimorphism, and neural
+        substrates. Curr. Opin. Neurobiol. 9, 171\u2013177 (1999).","journal-title":"Curr.
+        Opin. Neurobiol."},{"key":"37704_CR63","doi-asserted-by":"publisher","first-page":"184","DOI":"10.1038\/nature01964","volume":"425","author":"AD
+        Ekstrom","year":"2003","unstructured":"Ekstrom, A. D. et al. Cellular networks
+        underlying human spatial navigation. Nature 425, 184\u2013187 (2003).","journal-title":"Nature"},{"key":"37704_CR64","doi-asserted-by":"publisher","first-page":"3333","DOI":"10.1523\/JNEUROSCI.4705-04.2005","volume":"25","author":"T
+        Wolbers","year":"2005","unstructured":"Wolbers, T. & B\u00fcchel, C. Dissociable
+        retrosplenial and hippocampal contributions to successful formation of survey
+        representations. J. Neurosci. 25, 3333\u20133340 (2005).","journal-title":"J.
+        Neurosci."},{"key":"37704_CR65","doi-asserted-by":"publisher","first-page":"692","DOI":"10.1177\/0956797620979185","volume":"32","author":"S
+        Yu","year":"2021","unstructured":"Yu, S. et al. Age-related changes in spatial
+        navigation are evident by midlife and differ by sex. Psychol. Sci. 32, 692\u2013704
+        (2021).","journal-title":"Psychol. Sci."},{"key":"37704_CR66","doi-asserted-by":"publisher","first-page":"237","DOI":"10.1016\/j.neuron.2019.10.016","volume":"105","author":"J
+        Voigts","year":"2020","unstructured":"Voigts, J. & Harnett, M. T. Somatic
+        and dendritic encoding of spatial variables in retrosplenial cortex differs
+        during 2D navigation. Neuron 105, 237\u2013245.e4 (2020).","journal-title":"Neuron"},{"key":"37704_CR67","doi-asserted-by":"publisher","first-page":"110134","DOI":"10.1016\/j.celrep.2021.110134","volume":"37","author":"E
+        Hennestad","year":"2021","unstructured":"Hennestad, E., Witoelar, A., Chambers,
+        A. R. & Vervaeke, K. Mapping vestibular and visual contributions to angular
+        head velocity tuning in the cortex. Cell Rep. 37, 110134 (2021).","journal-title":"Cell
+        Rep."},{"key":"37704_CR68","doi-asserted-by":"publisher","first-page":"643","DOI":"10.1037\/0735-7044.110.4.643","volume":"110","author":"HT
+        Blair","year":"1996","unstructured":"Blair, H. T. & Sharp, P. E. Visual and
+        vestibular influences on head-direction cells in the anterior thalamus of
+        the rat. Behav. Neurosci. 110, 643\u2013660 (1996).","journal-title":"Behav.
+        Neurosci."},{"key":"37704_CR69","doi-asserted-by":"publisher","first-page":"8404","DOI":"10.1126\/sciadv.abg8404","volume":"8","author":"PA
+        LaChance","year":"2022","unstructured":"LaChance, P. A., Graham, J., Shapiro,
+        B. L., Morris, A. J. & Taube, J. S. Landmark-modulated directional coding
+        in postrhinal cortex. Sci. Adv. 8, 8404 (2022).","journal-title":"Sci. Adv."},{"key":"37704_CR70","doi-asserted-by":"publisher","first-page":"e1009434","DOI":"10.1371\/journal.pcbi.1009434","volume":"17","author":"Y
+        Yan","year":"2021","unstructured":"Yan, Y., Burgess, N. & Bicanski, A. A model
+        of head direction and landmark coding in complex environments. PLoS Comput.17,
+        e1009434 (2021).","journal-title":"PLoS Comput."},{"key":"37704_CR71","doi-asserted-by":"publisher","first-page":"11601","DOI":"10.1523\/JNEUROSCI.0516-16.2016","volume":"36","author":"A
+        Bicanski","year":"2016","unstructured":"Bicanski, A. & Burgess, N. Environmental
+        anchoring of head direction in a computational model of retrosplenial cortex.
+        J. Neurosci. 36, 11601\u201311618 (2016).","journal-title":"J. Neurosci."},{"key":"37704_CR72","doi-asserted-by":"publisher","first-page":"239821281772185","DOI":"10.1177\/2398212817721859","volume":"1","author":"YR
+        Lozano","year":"2017","unstructured":"Lozano, Y. R. et al. Retrosplenial and
+        postsubicular head direction cells compared during visual landmark discrimination.
+        Brain Neurosci. Adv. 1, 239821281772185 (2017).","journal-title":"Brain Neurosci.
+        Adv."},{"key":"37704_CR73","doi-asserted-by":"publisher","first-page":"181","DOI":"10.1146\/annurev.neuro.29.051605.112854","volume":"30","author":"JS
+        Taube","year":"2007","unstructured":"Taube, J. S. The head direction signal:
+        origins and sensory-motor integration. Annu. Rev. Neurosci. 30, 181\u2013207
+        (2007).","journal-title":"Annu. Rev. Neurosci."},{"key":"37704_CR74","doi-asserted-by":"publisher","first-page":"136","DOI":"10.1016\/j.conb.2019.12.002","volume":"60","author":"DE
+        Angelaki","year":"2020","unstructured":"Angelaki, D. E. & Laurens, J. The
+        head direction cell network: attractor dynamics, integration within the navigation
+        system, and three-dimensional properties. Curr. Opin. Neurobiol. 60, 136\u2013144
+        (2020).","journal-title":"Curr. Opin. Neurobiol."},{"key":"37704_CR75","doi-asserted-by":"publisher","first-page":"9315","DOI":"10.1523\/JNEUROSCI.17-23-09315.1997","volume":"17","author":"JP
+        Goodridge","year":"1997","unstructured":"Goodridge, J. P. & Taube, J. S. Interaction
+        between the postsubiculum and anterior thalamus in the generation of head
+        direction cell activity. J. Neurosci. 17, 9315\u20139330 (1997).","journal-title":"J.
+        Neurosci."},{"key":"37704_CR76","doi-asserted-by":"publisher","first-page":"e35949","DOI":"10.7554\/eLife.35949","volume":"7","author":"O
+        Kornienko","year":"2018","unstructured":"Kornienko, O., Latuske, P., Bassler,
+        M., Kohler, L. & Allen, K. Non-rhythmic head-direction cells in the parahippocampal
+        region are not constrained by attractor network dynamics. eLife 7, e35949
+        (2018).","journal-title":"eLife"},{"key":"37704_CR77","doi-asserted-by":"crossref","first-page":"1","DOI":"10.7554\/eLife.59816","volume":"9","author":"JB
+        Van Wijngaarden","year":"2020","unstructured":"Van Wijngaarden, J. B., Babl,
+        S. S. & Ito, H. T. Entorhinal-retrosplenial circuits for allocentricegocentric
+        transformation of boundary coding. eLife 9, 1\u201325 (2020).","journal-title":"eLife"},{"key":"37704_CR78","doi-asserted-by":"crossref","unstructured":"Bubb,
+        E. J., Metzler-Baddeley, C. & Aggleton, J. P. The Cingulum Bundle: Anatomy,
+        Function, and Dysfunction (2018).","DOI":"10.1016\/j.neubiorev.2018.05.008"},{"key":"37704_CR79","doi-asserted-by":"publisher","first-page":"719","DOI":"10.1038\/nature21692","volume":"543","author":"D
+        Aronov","year":"2017","unstructured":"Aronov, D., Nevers, R. & Tank, D. W.
+        Mapping of a non-spatial dimension by the hippocampalentorhinal circuit. Nature
+        543, 719\u2013722 (2017).","journal-title":"Nature"},{"key":"37704_CR80","doi-asserted-by":"publisher","first-page":"1","DOI":"10.1038\/s41467-022-28057-6","volume":"13","author":"B
+        Shahbaba","year":"2022","unstructured":"Shahbaba, B. et al. Hippocampal ensembles
+        represent sequential relationships among an extended sequence of nonspatial
+        events. Nat. Commun. 13, 1\u201317 (2022).","journal-title":"Nat. Commun."},{"key":"37704_CR81","doi-asserted-by":"crossref","unstructured":"Eichenbaum,
+        H. Time Cells in the Hippocampus: A New Dimension for Mapping Memories (2014).","DOI":"10.1038\/nrn3827"},{"key":"37704_CR82","doi-asserted-by":"publisher","first-page":"1","DOI":"10.1038\/ncomms16032","volume":"8","author":"J
+        Simonnet","year":"2017","unstructured":"Simonnet, J. et al. Activity dependent
+        feedback inhibition may maintain head direction signals in mouse presubiculum.
+        Nat. Commun. 8, 1\u201314 (2017).","journal-title":"Nat. Commun."},{"key":"37704_CR83","doi-asserted-by":"publisher","unstructured":"Pachitariu,
+        M. et al. Suite2p: beyond 10,000 neurons with standard two-photon microscopy.
+        Preprint at bioRxiv https:\/\/doi.org\/10.1101\/061507 (2016).","DOI":"10.1101\/061507"},{"key":"37704_CR84","doi-asserted-by":"publisher","first-page":"22","DOI":"10.1016\/j.conb.2018.11.005","volume":"55","author":"C
+        Stringer","year":"2019","unstructured":"Stringer, C. & Pachitariu, M. Computational
+        processing of neural recordings from calcium imaging data. Curr. Opin. Neurobiol.
+        55, 22\u201331 (2019).","journal-title":"Curr. Opin. Neurobiol."},{"key":"37704_CR85","doi-asserted-by":"publisher","first-page":"e1005423","DOI":"10.1371\/journal.pcbi.1005423","volume":"13","author":"J
+        Friedrich","year":"2017","unstructured":"Friedrich, J., Zhou, P. & Paninski,
+        L. Fast online deconvolution of calcium imaging data. PLoS Comput. Biol. 13,
+        e1005423 (2017). arXiv: 1609.00639.","journal-title":"PLoS Comput. Biol."},{"key":"37704_CR86","doi-asserted-by":"publisher","first-page":"19","DOI":"10.3389\/fncir.2020.00019","volume":"14","author":"G
+        Etter","year":"2020","unstructured":"Etter, G., Manseau, F. & Williams, S.
+        A probabilistic framework for decoding behavior from in vivo calcium imaging
+        data. Front. Neural Circuits 14, 19 (2020).","journal-title":"Front. Neural
+        Circuits"}],"container-title":"Nature Communications","original-title":[],"language":"en","link":[{"URL":"https:\/\/www.nature.com\/articles\/s41467-023-37704-5.pdf","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/www.nature.com\/articles\/s41467-023-37704-5","content-type":"text\/html","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/www.nature.com\/articles\/s41467-023-37704-5.pdf","content-type":"application\/pdf","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,4,8]],"date-time":"2023-04-08T15:02:59Z","timestamp":1680966179000},"score":1,"resource":{"primary":{"URL":"https:\/\/www.nature.com\/articles\/s41467-023-37704-5"}},"subtitle":[],"short-title":[],"issued":{"date-parts":[[2023,4,8]]},"references-count":86,"journal-issue":{"issue":"1","published-online":{"date-parts":[[2023,12]]}},"alternative-id":["37704"],"URL":"http:\/\/dx.doi.org\/10.1038\/s41467-023-37704-5","relation":{},"ISSN":["2041-1723"],"subject":["General
+        Physics and Astronomy","General Biochemistry, Genetics and Molecular Biology","General
+        Chemistry","Multidisciplinary"],"container-title-short":"Nat Commun","published":{"date-parts":[[2023,4,8]]},"assertion":[{"value":"22
+        April 2022","order":1,"name":"received","label":"Received","group":{"name":"ArticleHistory","label":"Article
+        History"}},{"value":"28 March 2023","order":2,"name":"accepted","label":"Accepted","group":{"name":"ArticleHistory","label":"Article
+        History"}},{"value":"8 April 2023","order":3,"name":"first_online","label":"First
+        Online","group":{"name":"ArticleHistory","label":"Article History"}},{"value":"The
+        authors declare no competing interests.","order":1,"name":"Ethics","group":{"name":"EthicsHeading","label":"Competing
+        interests"}}],"article-number":"1992"}'
     headers:
       access-control-allow-headers:
       - X-Requested-With, Accept, Accept-Encoding, Accept-Charset, Accept-Language,
@@ -261,11 +395,11 @@ interactions:
       content-encoding:
       - gzip
       content-length:
-      - '10263'
+      - '10269'
       content-type:
       - application/json
       date:
-      - Tue, 25 Apr 2023 19:11:48 GMT
+      - Mon, 16 Oct 2023 18:46:14 GMT
       link:
       - <http://dx.doi.org/10.1038/s41467-023-37704-5>; rel="canonical", <https://www.nature.com/articles/s41467-023-37704-5.pdf>;
         version="vor"; type="application/pdf"; rel="item", <https://www.nature.com/articles/s41467-023-37704-5>;

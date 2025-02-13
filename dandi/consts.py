@@ -4,7 +4,6 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import Enum
 import os
-from typing import Optional
 
 #: A list of metadata fields which dandi extracts from .nwb files.
 #: Additional fields (such as ``number_of_*``) might be added by
@@ -99,7 +98,7 @@ dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
 @dataclass(frozen=True)
 class DandiInstance:
     name: str
-    gui: Optional[str]
+    gui: str | None
     api: str
 
     @property
@@ -133,22 +132,31 @@ known_instances = {
         f"http://{instancehost}:8085",
         f"http://{instancehost}:8000/api",
     ),
+    "linc": DandiInstance(
+        "linc",
+        "https://lincbrain.org",
+        "https://api.lincbrain.org/api",
+    ),
+    "linc-staging": DandiInstance(
+        "linc-staging",
+        "https://staging.lincbrain.org",
+        "https://staging-api.lincbrain.org/api",
+    ),
+    "ember": DandiInstance(
+        "ember",
+        "https://dandi.emberarchive.org",
+        "https://api-dandi.emberarchive.org/api",
+    ),
+    "ember-staging": DandiInstance(
+        "ember-staging",
+        "https://dandi-staging.emberarchive.org",
+        "https://api-dandi-staging.emberarchive.org/api",
+    ),
 }
 # to map back url: name
 known_instances_rev = {
     vv: k for k, v in known_instances.items() for vv in v.urls() if vv
 }
-
-file_operation_modes = [
-    "dry",
-    "simulate",
-    "copy",
-    "move",
-    "hardlink",
-    "symlink",
-    "auto",
-]
-
 
 # Download (upload?) specific constants
 
@@ -162,7 +170,7 @@ DRAFT = "draft"
 
 #: HTTP response status codes that should always be retried (until we run out
 #: of retries)
-RETRY_STATUSES = (500, 502, 503, 504)
+RETRY_STATUSES = (429, 500, 502, 503, 504)
 
 VIDEO_FILE_EXTENSIONS = [".mp4", ".avi", ".wmv", ".mov", ".flv", ".mkv"]
 VIDEO_FILE_MODULES = ["processing", "acquisition"]
@@ -194,6 +202,7 @@ dandi_layout_fields = {
     "slice_id": {"format": "_slice-{}"},
     "cell_id": {"format": "_cell-{}"},
     # disambiguation ones
+    "description": {"format": "_desc-{}", "type": "disambiguation"},
     "probe_ids": {"format": "_probe-{}", "type": "disambiguation"},
     "obj_id": {
         "format": "_obj-{}",
@@ -212,3 +221,5 @@ assert {v.get("type", "additional") for v in dandi_layout_fields.values()} == {
 }
 
 REQUEST_RETRIES = 12
+
+DOWNLOAD_TIMEOUT = 30

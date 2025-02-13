@@ -18,11 +18,11 @@ has one, and its draft version will be used otherwise.
   to one of the other URL formats
 
 - :samp:`DANDI:{dandiset-id}[/{version}]` (case insensitive)
-  — Refers to a Dandiset on the main archive instance named "dandi".
+  — Refers to a Dandiset on the main DANDI Archive instance named "dandi".
   `parse_dandi_url()` converts this format to a `DandisetURL`.
 
 - Any ``https://gui.dandiarchive.org/`` or
-  ``https://*dandiarchive-org.netflify.app/`` URL which redirects to
+  ``https://*dandiarchive-org.netlify.app/`` URL which redirects to
   one of the other URL formats
 
 - :samp:`https://{server}[/api]/[#/]dandiset/{dandiset-id}[/{version}][/files]`
@@ -35,13 +35,9 @@ has one, and its draft version will be used otherwise.
     a collection of assets whose paths match the glob pattern ``path``, and
     `parse_dandi_url()` will convert the URL to an `AssetGlobURL`.
 
-  - If the ``glob``/``--path-type glob`` option is not in effect and ``path``
-    ends with a trailing slash, the URL refers to an asset folder by path, and
-    `parse_dandi_url()` will convert the URL to an `AssetFolderURL`.
-
-  - If the ``glob``/``--path-type glob`` option is not in effect and ``path``
-    does not end with a trailing slash, the URL refers to a single asset by
-    path, and `parse_dandi_url()` will convert the URL to an `AssetItemURL`.
+  - If the ``glob``/``--path-type glob`` option is not in effect, the URL
+    refers to an asset folder by path, and `parse_dandi_url()` will convert the
+    URL to an `AssetFolderURL`.
 
 - :samp:`https://{server}[/api]/dandisets/{dandiset-id}[/versions[/{version}]]`
   — Refers to a Dandiset.  `parse_dandi_url()` converts this format to a
@@ -66,12 +62,12 @@ has one, and its draft version will be used otherwise.
   `AssetGlobURL`.
 
 - :samp:`dandi://{instance-name}/{dandiset-id}[@{version}]` (where
-  ``instance-name`` is the name of a registered Dandi Archive instance) —
+  ``instance-name`` is the name of a registered DANDI instance) —
   Refers to a Dandiset.  `parse_dandi_url()` converts this format to a
   `DandisetURL`.
 
 - :samp:`dandi://{instance-name}/{dandiset-id}[@{version}]/{path}` (where
-  ``instance-name`` is the name of a registered Dandi Archive instance)
+  ``instance-name`` is the name of a registered DANDI instance)
 
   - If the ``glob``/``--path-type glob`` option is in effect, the URL refers to
     a collection of assets whose paths match the glob pattern ``path``, and

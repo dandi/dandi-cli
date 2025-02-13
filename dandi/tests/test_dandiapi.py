@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import builtins
 from datetime import datetime, timezone
 import logging
@@ -5,7 +7,7 @@ from pathlib import Path
 import random
 import re
 from shutil import rmtree
-from typing import List, Union
+from typing import Any
 
 import anys
 import click
@@ -15,7 +17,7 @@ from pytest_mock import MockerFixture
 import requests
 import responses
 
-from .fixtures import DandiAPI, SampleDandiset
+from .fixtures import DandiAPI, SampleDandiset, SampleDandisetFactory
 from .skip import mark
 from .. import dandiapi
 from ..consts import (
@@ -24,7 +26,13 @@ from ..consts import (
     dandiset_identifier_regex,
     dandiset_metadata_file,
 )
-from ..dandiapi import DandiAPIClient, RemoteAsset, RemoteZarrAsset, Version
+from ..dandiapi import (
+    DandiAPIClient,
+    RemoteAsset,
+    RemoteBlobAsset,
+    RemoteZarrAsset,
+    Version,
+)
 from ..download import download
 from ..exceptions import NotFoundError, SchemaVersionError
 from ..files import GenericAsset, dandi_file
@@ -39,7 +47,7 @@ def test_upload(
     d.upload_raw_asset(simple1_nwb, {"path": "testing/simple1.nwb"})
     (asset,) = d.get_assets()
     assert asset.path == "testing/simple1.nwb"
-    d.download_directory("", tmp_path)
+    d.download_directory("./", tmp_path)
     paths = list_paths(tmp_path)
     assert paths == [tmp_path / "testing" / "simple1.nwb"]
     assert paths[0].stat().st_size == simple1_nwb.stat().st_size
@@ -322,7 +330,47 @@ def test_check_schema_version_mismatch() -> None:
 
 def test_get_dandisets(text_dandiset: SampleDandiset) -> None:
     dandisets = list(text_dandiset.client.get_dandisets())
-    assert sum(1 for d in dandisets if d.identifier == text_dandiset.dandiset_id) == 1
+    assert text_dandiset.dandiset_id in [d.identifier for d in dandisets]
+
+
+def test_get_embargoed_dandisets(
+    sample_dandiset_factory: SampleDandisetFactory,
+) -> None:
+    ds = sample_dandiset_factory.mkdandiset("Embargoed Dandiset", embargo=True)
+    dandisets = list(ds.client.get_dandisets(embargoed=True))
+    assert ds.dandiset_id in [d.identifier for d in dandisets]
+    dandisets = list(ds.client.get_dandisets(embargoed=False))
+    assert ds.dandiset_id not in [d.identifier for d in dandisets]
+    dandisets = list(ds.client.get_dandisets(embargoed=None))
+    assert ds.dandiset_id not in [d.identifier for d in dandisets]
+
+
+def test_get_draft_dandisets(new_dandiset: SampleDandiset) -> None:
+    dandisets = list(new_dandiset.client.get_dandisets(draft=True))
+    assert new_dandiset.dandiset_id in [d.identifier for d in dandisets]
+    dandisets = list(new_dandiset.client.get_dandisets(draft=False))
+    assert new_dandiset.dandiset_id not in [d.identifier for d in dandisets]
+    dandisets = list(new_dandiset.client.get_dandisets(draft=None))
+    assert new_dandiset.dandiset_id in [d.identifier for d in dandisets]
+
+
+def test_get_empty_dandisets(new_dandiset: SampleDandiset) -> None:
+    dandisets = list(new_dandiset.client.get_dandisets(empty=True))
+    assert new_dandiset.dandiset_id in [d.identifier for d in dandisets]
+    dandisets = list(new_dandiset.client.get_dandisets(empty=False))
+    assert new_dandiset.dandiset_id not in [d.identifier for d in dandisets]
+    dandisets = list(new_dandiset.client.get_dandisets(empty=None))
+    assert new_dandiset.dandiset_id in [d.identifier for d in dandisets]
+
+
+def test_search_get_dandisets(
+    sample_dandiset_factory: SampleDandisetFactory,
+) -> None:
+    ds = sample_dandiset_factory.mkdandiset("Unicorn Dandiset")
+    dandisets = list(ds.client.get_dandisets(search="Unicorn"))
+    assert ds.dandiset_id in [d.identifier for d in dandisets]
+    dandisets = list(ds.client.get_dandisets(search="Dragon"))
+    assert ds.dandiset_id not in [d.identifier for d in dandisets]
 
 
 def test_get_dandiset_lazy(
@@ -489,7 +537,7 @@ def test_set_asset_metadata(text_dandiset: SampleDandiset) -> None:
     md = asset.get_metadata()
     md.blobDateModified = datetime(2038, 1, 19, 3, 14, 7, tzinfo=timezone.utc)
     asset.set_metadata(md)
-    assert asset.get_raw_metadata()["blobDateModified"] == "2038-01-19T03:14:07+00:00"
+    assert asset.get_raw_metadata()["blobDateModified"] == "2038-01-19T03:14:07Z"
 
 
 def test_remote_dandiset_json_dict(text_dandiset: SampleDandiset) -> None:
@@ -535,7 +583,7 @@ def test_set_dandiset_metadata(text_dandiset: SampleDandiset) -> None:
     ],
 )
 def test_get_raw_digest(
-    digest_type: Union[str, DigestType, None],
+    digest_type: str | DigestType | None,
     digest_regex: str,
     text_dandiset: SampleDandiset,
 ) -> None:
@@ -631,26 +679,49 @@ def test_get_assets_order(text_dandiset: SampleDandiset) -> None:
 
 
 def test_get_assets_with_path_prefix(text_dandiset: SampleDandiset) -> None:
-    assert sorted(
-        asset.path
-        for asset in text_dandiset.dandiset.get_assets_with_path_prefix("subdir")
-    ) == ["subdir1/apple.txt", "subdir2/banana.txt", "subdir2/coconut.txt"]
-    assert sorted(
-        asset.path
-        for asset in text_dandiset.dandiset.get_assets_with_path_prefix("subdir2")
-    ) == ["subdir2/banana.txt", "subdir2/coconut.txt"]
-    assert [
-        asset.path
-        for asset in text_dandiset.dandiset.get_assets_with_path_prefix(
-            "subdir", order="path"
-        )
-    ] == ["subdir1/apple.txt", "subdir2/banana.txt", "subdir2/coconut.txt"]
-    assert [
-        asset.path
-        for asset in text_dandiset.dandiset.get_assets_with_path_prefix(
-            "subdir", order="-path"
-        )
-    ] == ["subdir2/coconut.txt", "subdir2/banana.txt", "subdir1/apple.txt"]
+    def _get_assets_with_path_prefix(prefix: str, **kw: Any) -> list[str]:
+        return [
+            asset.path
+            for asset in text_dandiset.dandiset.get_assets_with_path_prefix(
+                prefix, **kw
+            )
+        ]
+
+    assert (
+        sorted(_get_assets_with_path_prefix("subdir"))
+        == sorted(_get_assets_with_path_prefix("./subdir"))
+        == sorted(_get_assets_with_path_prefix("./subdir2/../sub"))
+        == [
+            "subdir1/apple.txt",
+            "subdir2/banana.txt",
+            "subdir2/coconut.txt",
+        ]
+    )
+    assert (
+        _get_assets_with_path_prefix("subdir/")
+        == _get_assets_with_path_prefix("./subdir/")
+        == _get_assets_with_path_prefix("../subdir1/")
+        == []
+    )
+    assert (
+        sorted(_get_assets_with_path_prefix("subdir2"))
+        == sorted(_get_assets_with_path_prefix("a/../subdir2"))
+        == sorted(_get_assets_with_path_prefix("./subdir2"))
+        == [
+            "subdir2/banana.txt",
+            "subdir2/coconut.txt",
+        ]
+    )
+    assert _get_assets_with_path_prefix("subdir", order="path") == [
+        "subdir1/apple.txt",
+        "subdir2/banana.txt",
+        "subdir2/coconut.txt",
+    ]
+    assert _get_assets_with_path_prefix("subdir", order="-path") == [
+        "subdir2/coconut.txt",
+        "subdir2/banana.txt",
+        "subdir1/apple.txt",
+    ]
 
 
 def test_get_assets_by_glob(text_dandiset: SampleDandiset) -> None:
@@ -687,7 +758,7 @@ def test_get_many_pages_of_assets(
 ) -> None:
     new_dandiset.client.page_size = 4
     get_spy = mocker.spy(new_dandiset.client, "get")
-    paths: List[str] = []
+    paths: list[str] = []
     for i in range(26):
         p = new_dandiset.dspath / f"{i:04}.txt"
         paths.append(p.name)
@@ -744,3 +815,21 @@ def test_rename_type_mismatch(text_dandiset: SampleDandiset, dest: str) -> None:
     assert asset1a.get_raw_metadata()["path"] == "file.txt"
     with pytest.raises(NotFoundError):
         text_dandiset.dandiset.get_asset_by_path(dest)
+
+
+def test_asset_as_readable_open(new_dandiset: SampleDandiset, tmp_path: Path) -> None:
+    p = tmp_path / "foo.txt"
+    # Write bytes so that the LF doesn't get converted on Windows:
+    p.write_bytes(b"This is test text.\n")
+    d = new_dandiset.dandiset
+    d.upload_raw_asset(p, {"path": "foo.txt"})
+    (asset,) = d.get_assets()
+    assert isinstance(asset, RemoteBlobAsset)
+    # The purpose of this test is to check that RemoteReadableAsset.open()
+    # returns a filehandle that can immediately be used, so don't use a `with`
+    # block here, as that opens fsspec file objects.
+    fp = asset.as_readable().open()
+    try:
+        assert fp.read() == b"This is test text.\n"
+    finally:
+        fp.close()

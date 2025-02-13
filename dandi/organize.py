@@ -1,5 +1,5 @@
 """
-ATM primarily a sandbox for some functionality for  dandi organize
+ATM primarily a sandbox for some functionality for dandi organize
 """
 
 from __future__ import annotations
@@ -8,27 +8,22 @@ import binascii
 from collections import Counter
 from collections.abc import Sequence
 from copy import deepcopy
+from enum import Enum
 import os
 import os.path as op
 from pathlib import Path, PurePosixPath
 import re
-from typing import List, Optional
+import traceback
 import uuid
 
-import numpy as np
+import ruamel.yaml
 
 from . import __version__, get_logger
 from .consts import dandi_layout_fields
 from .dandiset import Dandiset
 from .exceptions import OrganizeImpossibleError
-from .metadata import get_metadata
-from .pynwb_utils import (
-    get_neurodata_types_to_modalities_map,
-    get_object_id,
-    ignore_benign_pynwb_warnings,
-    rename_nwb_external_files,
-)
 from .utils import (
+    AnyPath,
     Parallel,
     copy_file,
     delayed,
@@ -43,6 +38,54 @@ from .utils import (
 from .validate_types import Scope, Severity, ValidationOrigin, ValidationResult
 
 lgr = get_logger()
+
+
+class FileOperationMode(str, Enum):
+    DRY = "dry"
+    SIMULATE = "simulate"
+    COPY = "copy"
+    MOVE = "move"
+    HARDLINK = "hardlink"
+    SYMLINK = "symlink"
+    AUTO = "auto"
+
+    def __str__(self) -> str:
+        return self.value
+
+    def as_copy_mode(self) -> CopyMode:
+        # Raises ValueError if the mode can't be mapped to a CopyMode
+        return CopyMode(self.value)
+
+
+class CopyMode(str, Enum):
+    SYMLINK = "symlink"
+    COPY = "copy"
+    MOVE = "move"
+    HARDLINK = "hardlink"
+
+    def __str__(self) -> str:
+        return self.value
+
+    def copy(self, old_path: AnyPath, new_path: AnyPath) -> None:
+        if self is CopyMode.SYMLINK:
+            os.symlink(old_path, new_path)
+        elif self is CopyMode.HARDLINK:
+            os.link(old_path, new_path)
+        elif self is CopyMode.COPY:
+            copy_file(old_path, new_path)
+        elif self is CopyMode.MOVE:
+            move_file(old_path, new_path)
+        else:
+            raise AssertionError(f"Unhandled CopyMode member: {self!r}")
+
+
+class OrganizeInvalid(str, Enum):
+    FAIL = "fail"
+    WARN = "warn"
+
+    def __str__(self) -> str:
+        return self.value
+
 
 dandi_path = op.join("sub-{subject_id}", "{dandi_filename}")
 
@@ -66,7 +109,7 @@ def filter_invalid_metadata_rows(metadata_rows):
 
 
 def create_unique_filenames_from_metadata(
-    metadata: list[dict], required_fields: Optional[Sequence[str]] = None
+    metadata: list[dict], required_fields: Sequence[str] | None = None
 ) -> list[dict]:
     """Create unique filenames given metadata
 
@@ -187,7 +230,7 @@ def create_unique_filenames_from_metadata(
     return metadata
 
 
-def _create_external_file_names(metadata: List[dict]) -> List[dict]:
+def _create_external_file_names(metadata: list[dict]) -> list[dict]:
     """Updates the metadata dict with renamed external files.
 
     Renames the external_file attribute in an ImageSeries according to the rule:
@@ -228,7 +271,7 @@ def _create_external_file_names(metadata: List[dict]) -> List[dict]:
 
 
 def organize_external_files(
-    metadata: List[dict], dandiset_path: str, files_mode: str
+    metadata: list[dict], dandiset_path: str, copy_mode: CopyMode
 ) -> None:
     """Organizes the external_files into the new Dandiset folder structure.
 
@@ -238,9 +281,7 @@ def organize_external_files(
         list of metadata dictionaries created during the call to pynwb_utils._get_pynwb_metadata
     dandiset_path: str
         full path of the main dandiset folder.
-    files_mode: str
-        one of "symlink", "copy", "move", "hardlink"
-
+    copy_mode: CopyMode
     """
     for e in metadata:
         for ext_file_dict in e["external_file_objects"]:
@@ -260,19 +301,13 @@ def organize_external_files(
                     lgr.error("%s does not exist", name_old_str)
                     raise FileNotFoundError(f"{name_old_str} does not exist")
                 os.makedirs(op.dirname(new_path), exist_ok=True)
-                if files_mode == "symlink":
-                    os.symlink(name_old_str, new_path)
-                elif files_mode == "hardlink":
-                    os.link(name_old_str, new_path)
-                elif files_mode == "copy":
-                    copy_file(name_old_str, new_path)
-                elif files_mode == "move":
-                    move_file(name_old_str, new_path)
-                else:
-                    raise NotImplementedError(files_mode)
+                copy_mode.copy(name_old_str, new_path)
 
 
 def _assign_obj_id(metadata, non_unique):
+    # Avoid heavy import by importing within function:
+    from .pynwb_utils import get_object_id
+
     msg = "%d out of %d paths are not unique" % (len(non_unique), len(metadata))
 
     lgr.info(msg + ". We will try adding _obj- based on crc32 of object_id")
@@ -340,6 +375,9 @@ def _get_unique_values_among_non_unique(metadata, non_unique_paths, field):
 
 def get_obj_id(object_id):
     """Given full object_id, get its shortened version"""
+    # Avoid heavy import by importing within function:
+    import numpy as np
+
     return np.base_repr(binascii.crc32(object_id.encode("ascii")), 36).lower()
 
 
@@ -383,9 +421,9 @@ def _assign_dandi_names(metadata):
 def _get_unique_values(metadata, fields, filter_=False):
     unique_values = {}
     for field in fields:
-        unique_values[field] = set(_get_hashable(r.get(field, None)) for r in metadata)
+        unique_values[field] = {_get_hashable(r.get(field, None)) for r in metadata}
         if filter_:
-            unique_values[field] = set(v for v in unique_values[field] if v)
+            unique_values[field] = {v for v in unique_values[field] if v}
     return unique_values
 
 
@@ -395,13 +433,16 @@ def _sanitize_value(value, field):
     Of particular importance is _ which we use, as in BIDS, to separate
     _key-value entries
     """
-    value = re.sub(r"[_*\\/<>:|\"'?%@;]", "-", value)
+    value = re.sub(r"[_*\\/<>:|\"'?%@;,\s]", "-", value)
     if field != "extension":
         value = value.replace(".", "-")
     return value
 
 
 def _populate_modalities(metadata):
+    # Avoid heavy import by importing within function:
+    from .pynwb_utils import get_neurodata_types_to_modalities_map
+
     ndtypes_to_modalities = get_neurodata_types_to_modalities_map()
     ndtypes_unassigned = set()
     for r in metadata:
@@ -558,8 +599,6 @@ number_of_cells: RECOMMENDED
 
 def populate_dataset_yml(filepath, metadata):
     # To preserve comments, let's use ruamel
-    import ruamel.yaml
-
     yaml = ruamel.yaml.YAML()  # defaults to round-trip if no parameters given
     if not op.lexists(filepath):
         # Create an empty one, which we would populate with information
@@ -678,7 +717,7 @@ def _get_non_unique_paths(metadata):
     return non_unique
 
 
-def detect_link_type(srcfile, destdir):
+def detect_link_type(srcfile: AnyPath, destdir: AnyPath) -> FileOperationMode:
     """
     Determine what type of links the filesystem will let us make from the file
     ``srcfile`` to the directory ``destdir``.  If symlinks are allowed, returns
@@ -696,39 +735,38 @@ def detect_link_type(srcfile, destdir):
                 lgr.info(
                     "Symlink and hardlink tests both failed; setting files_mode='copy'"
                 )
-                return "copy"
+                return FileOperationMode.COPY
             else:
                 lgr.info(
                     "Hard link support autodetected; setting files_mode='hardlink'"
                 )
-                return "hardlink"
+                return FileOperationMode.HARDLINK
         else:
             lgr.info("Symlink support autodetected; setting files_mode='symlink'")
-            return "symlink"
+            return FileOperationMode.SYMLINK
     finally:
-        try:
-            destfile.unlink()
-        except FileNotFoundError:
-            pass
+        destfile.unlink(missing_ok=True)
 
 
 def organize(
-    paths,
-    dandiset_path=None,
-    invalid="fail",
-    files_mode="auto",
-    devel_debug=False,
-    update_external_file_paths=False,
-    media_files_mode=None,
-    required_fields=None,
-):
+    paths: Sequence[str],
+    dandiset_path: str | None = None,
+    invalid: OrganizeInvalid = OrganizeInvalid.FAIL,
+    files_mode: FileOperationMode = FileOperationMode.AUTO,
+    devel_debug: bool = False,
+    update_external_file_paths: bool = False,
+    media_files_mode: CopyMode | None = None,
+    required_fields: Sequence[str] | None = None,
+    jobs: int | None = None,
+) -> None:
     in_place = False  # If we deduce that we are organizing in-place
+    jobs = jobs or -1
 
     # will come handy when dry becomes proper separate option
     def dry_print(msg):
         print(f"DRY: {msg}")
 
-    if files_mode == "dry":
+    if files_mode is FileOperationMode.DRY:
 
         def act(func, *args, **kwargs):
             dry_print(f"{func.__name__} {args}, {kwargs}")
@@ -739,7 +777,10 @@ def organize(
             lgr.debug("%s %s %s", func.__name__, args, kwargs)
             return func(*args, **kwargs)
 
-    if update_external_file_paths and files_mode not in ["copy", "move"]:
+    if update_external_file_paths and files_mode not in [
+        FileOperationMode.COPY,
+        FileOperationMode.MOVE,
+    ]:
         raise ValueError(
             "--files-mode needs to be one of 'copy/move' for the rewrite option to work"
         )
@@ -755,7 +796,7 @@ def organize(
         del dandiset
 
     # Early checks to not wait to fail
-    if files_mode == "simulate":
+    if files_mode is FileOperationMode.SIMULATE:
         # in this mode we will demand the entire output folder to be absent
         if op.lexists(dandiset_path):
             # TODO: RF away
@@ -763,6 +804,9 @@ def organize(
                 "In simulate mode %r (--dandiset-path) must not exist, we will create it."
                 % dandiset_path
             )
+
+    # Avoid heavy import by importing within function:
+    from .pynwb_utils import ignore_benign_pynwb_warnings
 
     ignore_benign_pynwb_warnings()
 
@@ -775,7 +819,7 @@ def organize(
                 f"No dandiset was found at {dandiset_path}, and no "
                 f"paths were provided"
             )
-        if files_mode not in ("dry", "move"):
+        if files_mode not in (FileOperationMode.DRY, FileOperationMode.MOVE):
             raise ValueError(
                 "Only 'dry' or 'move' mode could be used to operate in-place "
                 "within a dandiset (no paths were provided)"
@@ -798,39 +842,57 @@ def organize(
         # react to those
         # Doesn't play nice with Parallel
         # with tqdm.tqdm(desc="Files", total=len(paths), unit="file", unit_scale=False) as pbar:
-        failed = []
 
         def _get_metadata(path):
+            # Avoid heavy import by importing within function:
+            from .metadata.nwb import get_metadata
+
+            meta, exc = {}, None
             try:
                 meta = get_metadata(path)
-            except Exception as exc:
-                meta = {}
-                failed.append(path)
-                # pbar.desc = "Files (%d failed)" % len(failed)
-                lgr.debug("Failed to get metadata for %s: %s", path, exc)
+            except Exception as e:
+                exc = (
+                    e.__class__,
+                    str(e),
+                    traceback.TracebackException.from_exception(e),
+                )
             # pbar.update(1)
             meta["path"] = path
-            return meta
+            return meta, exc
 
-        if not devel_debug:
+        if (
+            not devel_debug and jobs != 1 and not len(paths) == 1
+        ):  # Do not use joblib at all if number_of_jobs=1
             # Note: It is Python (pynwb) intensive, not IO, so ATM there is little
             # to no benefit from Parallel without using multiproc!  But that would
             # complicate progress bar indication... TODO
-            metadata = list(
-                Parallel(n_jobs=-1, verbose=10)(
+            metadata_excs = list(
+                Parallel(n_jobs=jobs, verbose=10)(
                     delayed(_get_metadata)(path) for path in paths
                 )
             )
         else:
-            metadata = list(map(_get_metadata, paths))
-        if failed:
+            metadata_excs = list(map(_get_metadata, paths))
+        exceptions = [e for _, e in metadata_excs if e]
+        if exceptions:
             lgr.warning(
-                "Failed to load metadata for %d out of %d files",
-                len(failed),
+                "Failed to load metadata for %d out of %d files "
+                "due to following types of exceptions: %s. "
+                "Details of the exceptions will be shown at DEBUG level",
+                len(exceptions),
                 len(paths),
+                ", ".join(e[0].__name__ for e in exceptions),
             )
+            for m, e in metadata_excs:
+                if not e:
+                    continue
+                lgr.debug(
+                    "Loading metadata for path %s resulted in following exception:\n%s",
+                    m["path"],
+                    "\n".join(e[-1].format()),
+                )
 
-    metadata, skip_invalid = filter_invalid_metadata_rows(metadata)
+    metadata, skip_invalid = filter_invalid_metadata_rows([m for m, _ in metadata_excs])
     if skip_invalid:
         msg = (
             "%d out of %d files were found not containing all necessary "
@@ -841,17 +903,17 @@ def organize(
                 ", ".join(m["path"] for m in skip_invalid),
             )
         )
-        if invalid == "fail":
+        if invalid is OrganizeInvalid.FAIL:
             raise ValueError(msg)
-        elif invalid == "warn":
+        elif invalid is OrganizeInvalid.WARN:
             lgr.warning(msg + " They will be skipped")
         else:
-            raise ValueError(f"invalid has an invalid value {invalid}")
+            raise AssertionError(f"Unhandled OrganizeInvalid member: {invalid!r}")
 
     if not op.lexists(dandiset_path):
         act(os.makedirs, dandiset_path)
 
-    if files_mode == "auto":
+    if files_mode is FileOperationMode.AUTO:
         files_mode = detect_link_type(link_test_file, dandiset_path)
 
     metadata = create_unique_filenames_from_metadata(
@@ -882,13 +944,13 @@ def organize(
         )
 
     if update_external_file_paths and media_files_mode is None:
-        media_files_mode = "symlink"
+        media_files_mode = CopyMode.SYMLINK
         lgr.warning(
-            "--media-files-mode not specified, setting to recommended mode: 'symlink' "
+            "--media-files-mode not specified, setting to recommended mode: 'symlink'"
         )
 
     # look for multiple nwbfiles linking to one video:
-    if media_files_mode == "move":
+    if media_files_mode is CopyMode.MOVE:
         videos_list = []
         for meta in metadata:
             for ext_ob in meta["external_file_objects"]:
@@ -952,16 +1014,18 @@ def organize(
             e_abs_path = op.abspath(e_path)
             if use_abs_paths:
                 e_path = e_abs_path
-            elif files_mode == "symlink":  # path should be relative to the target
+            elif (
+                files_mode is FileOperationMode.SYMLINK
+            ):  # path should be relative to the target
                 e_path = op.relpath(e_abs_path, dandi_dirpath)
 
         if dandi_abs_fullpath == e_abs_path:
             lgr.debug("Skipping %s since the same in source/destination", e_path)
             skip_same.append(e)
             continue
-        elif files_mode == "symlink" and op.realpath(dandi_abs_fullpath) == op.realpath(
-            e_abs_path
-        ):
+        elif files_mode is FileOperationMode.SYMLINK and op.realpath(
+            dandi_abs_fullpath
+        ) == op.realpath(e_abs_path):
             lgr.debug(
                 "Skipping %s since mode is symlink and both resolve to the same path",
                 e_path,
@@ -970,32 +1034,22 @@ def organize(
             continue
 
         if (
-            files_mode == "dry"
+            files_mode is FileOperationMode.DRY
         ):  # TODO: this is actually a files_mode on top of modes!!!?
             dry_print(f"{e_path} -> {dandi_path}")
         else:
             if not op.lexists(dandi_dirpath):
                 os.makedirs(dandi_dirpath)
-            if files_mode == "simulate":
+            if files_mode is FileOperationMode.SIMULATE:
                 os.symlink(e_path, dandi_fullpath)
-                continue
-            #
-            if files_mode == "symlink":
-                os.symlink(e_path, dandi_fullpath)
-            elif files_mode == "hardlink":
-                os.link(e_path, dandi_fullpath)
-            elif files_mode == "copy":
-                copy_file(e_path, dandi_fullpath)
-            elif files_mode == "move":
-                move_file(e_path, dandi_fullpath)
             else:
-                raise NotImplementedError(files_mode)
-            acted_upon.append(e)
+                files_mode.as_copy_mode().copy(e_path, dandi_fullpath)
+                acted_upon.append(e)
 
     if acted_upon and in_place:
         # We might need to cleanup a bit - e.g. prune empty directories left
         # by the move in in-place mode
-        dirs = set(op.dirname(e["path"]) for e in acted_upon)
+        dirs = {op.dirname(e["path"]) for e in acted_upon}
         for d in sorted(dirs)[::-1]:  # from longest to shortest
             if op.exists(d):
                 try:
@@ -1006,7 +1060,11 @@ def organize(
 
     # create video file name and re write nwb file external files:
     if update_external_file_paths:
+        # Avoid heavy import by importing within function:
+        from .pynwb_utils import rename_nwb_external_files
+
         rename_nwb_external_files(metadata, dandiset_path)
+        assert media_files_mode is not None
         organize_external_files(metadata, dandiset_path, media_files_mode)
 
     def msg_(msg, n, cond=None):
@@ -1032,7 +1090,7 @@ LABELREGEX = r"[^_*\\/<>:|\"'?%@;.]+"
 ORGANIZED_FILENAME_REGEX = (
     rf"sub-{LABELREGEX}"
     rf"(_ses-{LABELREGEX})?"
-    rf"(_(tis|slice|cell|probe|obj)-{LABELREGEX})*"
+    rf"(_(tis|slice|cell|desc|probe|obj)-{LABELREGEX})*"
     r"(_[a-z]+(\+[a-z]+)*)?"
     r"\.nwb"
 )
@@ -1065,7 +1123,7 @@ def validate_organized_path(
                 severity=Severity.ERROR,
                 scope=Scope.FILE,
                 path=filepath,
-                message="Filename does not conform to Dandi standard",
+                message="Filename does not conform to DANDI standard",
                 path_regex=ORGANIZED_FILENAME_REGEX,
                 dandiset_path=dandiset_path,
             )

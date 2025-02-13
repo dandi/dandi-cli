@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 from operator import attrgetter
 import os
 from pathlib import Path
 import subprocess
-from typing import cast
 from unittest.mock import ANY
 
 from dandischema.models import get_schema_version
@@ -245,7 +246,8 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
         ),
     ]
 
-    bidsdd = cast(BIDSDatasetDescriptionAsset, files[1])
+    bidsdd = files[1]
+    assert isinstance(bidsdd, BIDSDatasetDescriptionAsset)
     assert sorted(bidsdd.dataset_files, key=attrgetter("filepath")) == [
         GenericBIDSAsset(
             filepath=tmp_path / "bids1" / "file.txt",
@@ -269,7 +271,8 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
     for asset in bidsdd.dataset_files:
         assert asset.bids_dataset_description is bidsdd
 
-    bidsdd = cast(BIDSDatasetDescriptionAsset, files[5])
+    bidsdd = files[5]
+    assert isinstance(bidsdd, BIDSDatasetDescriptionAsset)
     assert sorted(bidsdd.dataset_files, key=attrgetter("filepath")) == [
         GenericBIDSAsset(
             filepath=tmp_path / "bids2" / "movie.mp4",
@@ -502,6 +505,18 @@ def test_upload_zarr_with_excluded_dotfiles(
         "arr_1/.zarray",
         "arr_1/0",
     ]
+
+
+def test_upload_zarr_entry_content_type(new_dandiset, tmp_path):
+    filepath = tmp_path / "example.zarr"
+    zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
+    zf = dandi_file(filepath)
+    assert isinstance(zf, ZarrAsset)
+    asset = zf.upload(new_dandiset.dandiset, {"description": "A test Zarr"})
+    assert isinstance(asset, RemoteZarrAsset)
+    e = asset.get_entry_by_path(".zgroup")
+    r = new_dandiset.client.get(e.download_url, json_resp=False)
+    assert r.headers["Content-Type"] == "application/json"
 
 
 def test_validate_deep_zarr(tmp_path: Path) -> None:

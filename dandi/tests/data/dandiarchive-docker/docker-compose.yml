@@ -4,8 +4,6 @@
 # <https://github.com/dandi/dandi-api/blob/master/docker-compose.override.yml>,
 # but using images uploaded to Docker Hub instead of building them locally.
 
-version: '2.1'
-
 services:
   django:
     image: dandiarchive/dandiarchive-api
@@ -19,7 +17,7 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_started
-    environment:
+    environment: &django_env
       DJANGO_CELERY_BROKER_URL: amqp://rabbitmq:5672/
       DJANGO_CONFIGURATION: DevelopmentConfiguration
       DJANGO_DANDI_DANDISETS_BUCKET_NAME: dandi-dandisets
@@ -31,14 +29,19 @@ services:
       DJANGO_MINIO_STORAGE_ENDPOINT: minio:9000
       DJANGO_MINIO_STORAGE_SECRET_KEY: minioSecretKey
       DJANGO_STORAGE_BUCKET_NAME: django-storage
-      DJANGO_MINIO_STORAGE_MEDIA_URL: http://localhost:9000/django-storage
-      DJANGO_DANDI_SCHEMA_VERSION:
+      # The Minio URL needs to use 127.0.0.1 instead of localhost so that blob
+      # assets' "S3 URLs" will use 127.0.0.1, and thus tests that try to open
+      # these URLs via fsspec will not fail on systems where localhost is both
+      # 127.0.0.1 and ::1.
+      DJANGO_MINIO_STORAGE_MEDIA_URL: http://127.0.0.1:9000/django-storage
+      DJANGO_DANDI_SCHEMA_VERSION: ~
       DJANGO_DANDI_WEB_APP_URL: http://localhost:8085
       DJANGO_DANDI_API_URL: http://localhost:8000
       DJANGO_DANDI_JUPYTERHUB_URL: https://hub.dandiarchive.org
+      DJANGO_DANDI_DEV_EMAIL: "test@example.com"
       DANDI_ALLOW_LOCALHOST_URLS: "1"
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
 
   celery:
     image: dandiarchive/dandiarchive-api
@@ -62,35 +65,24 @@ services:
       rabbitmq:
         condition: service_started
     environment:
-      DJANGO_CELERY_BROKER_URL: amqp://rabbitmq:5672/
-      DJANGO_CONFIGURATION: DevelopmentConfiguration
-      DJANGO_DANDI_DANDISETS_BUCKET_NAME: dandi-dandisets
-      DJANGO_DANDI_DANDISETS_LOG_BUCKET_NAME: dandiapi-dandisets-logs
-      DJANGO_DANDI_DANDISETS_EMBARGO_BUCKET_NAME: dandi-embargoed-dandisets
-      DJANGO_DANDI_DANDISETS_EMBARGO_LOG_BUCKET_NAME: dandiapi-embargo-dandisets-logs
-      DJANGO_DATABASE_URL: postgres://postgres:postgres@postgres:5432/django
-      DJANGO_MINIO_STORAGE_ACCESS_KEY: minioAccessKey
-      DJANGO_MINIO_STORAGE_ENDPOINT: minio:9000
-      DJANGO_MINIO_STORAGE_SECRET_KEY: minioSecretKey
-      DJANGO_STORAGE_BUCKET_NAME: django-storage
-      DJANGO_MINIO_STORAGE_MEDIA_URL: http://localhost:9000/django-storage
-      DJANGO_DANDI_SCHEMA_VERSION:
+      << : *django_env
       DJANGO_DANDI_VALIDATION_JOB_INTERVAL: "5"
-      DJANGO_DANDI_WEB_APP_URL: http://localhost:8085
-      DJANGO_DANDI_API_URL: http://localhost:8000
-      DJANGO_DANDI_JUPYTERHUB_URL: https://hub.dandiarchive.org
-      DANDI_ALLOW_LOCALHOST_URLS: "1"
+    ulimits:
+      # https://github.com/celery/billiard/pull/417
+      nofile:
+        soft: 1000
+        hard: 3000
 
   minio:
-    image: minio/minio:RELEASE.2022-04-12T06-55-35Z
+    image: minio/minio:latest
     # When run with a TTY, minio prints credentials on startup
     tty: true
     command: ["server", "/data"]
     ports:
-      - "9000:9000"
+      - "127.0.0.1:9000:9000"
     environment:
-      MINIO_ACCESS_KEY: minioAccessKey
-      MINIO_SECRET_KEY: minioSecretKey
+      MINIO_ROOT_USER: minioAccessKey
+      MINIO_ROOT_PASSWORD: minioSecretKey
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 7s
@@ -102,8 +94,9 @@ services:
       POSTGRES_DB: django
       POSTGRES_PASSWORD: postgres
     image: postgres
-    ports:
-      - "5432:5432"
+    command: postgres -c log_lock_waits=on -c log_min_duration_statement=100
+    expose:
+      - "5432"
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres"]
       interval: 7s
@@ -112,5 +105,5 @@ services:
 
   rabbitmq:
     image: rabbitmq:management
-    ports:
-      - "5672:5672"
+    expose:
+      - "5672"

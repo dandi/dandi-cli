@@ -10,9 +10,11 @@ from pynwb import NWBHDF5IO
 import pytest
 import ruamel.yaml
 
-from ..cli.command import organize
-from ..consts import dandiset_metadata_file, file_operation_modes
+from ..cli.cmd_organize import organize
+from ..consts import dandiset_metadata_file
 from ..organize import (
+    CopyMode,
+    FileOperationMode,
     _sanitize_value,
     create_dataset_yml_template,
     create_unique_filenames_from_metadata,
@@ -30,6 +32,9 @@ def test_sanitize_value() -> None:
     assert _sanitize_value("_.ext", "extension") == "-.ext"
     assert _sanitize_value("_.ext", "unrelated") == "--ext"
     assert _sanitize_value("A;B", "unrelated") == "A-B"
+    # no spaces or tabs please
+    assert _sanitize_value("A B\t C", "unrelated") == "A-B--C"
+    assert _sanitize_value("A;B,C", "unrelated") == "A-B-C"
     assert _sanitize_value("A\\/B", "unrelated") == "A--B"
     assert _sanitize_value("A\"'B", "unrelated") == "A--B"
 
@@ -101,8 +106,8 @@ def test_populate_dataset_yml(tmp_path: Path) -> None:
 
 # do not test 'move' - would need  a dedicated handling since it would
 # really move data away and break testing of other modes
-no_move_modes = file_operation_modes[:]
-no_move_modes.remove("move")
+no_move_modes: list[FileOperationMode | str] = list(FileOperationMode)
+no_move_modes.remove(FileOperationMode.MOVE)
 if not on_windows:
     # github workflows start whining about cross-drives links
     no_move_modes.append("symlink-relative")
@@ -110,20 +115,25 @@ if not on_windows:
 
 @pytest.mark.integration
 @pytest.mark.parametrize("mode", no_move_modes)
-def test_organize_nwb_test_data(nwb_test_data: Path, tmp_path: Path, mode: str) -> None:
+@pytest.mark.parametrize("jobs", (1, -1))
+def test_organize_nwb_test_data(
+    nwb_test_data: Path, tmp_path: Path, mode: FileOperationMode | str, jobs: int
+) -> None:
     outdir = tmp_path / "organized"
 
     relative = False
     if mode == "symlink-relative":
         # Force relative paths, as if e.g. user did provide
         relative = True
-        mode = "symlink"
+        mode = FileOperationMode.SYMLINK
         # all paths will be relative to the curdir, which should cause
         # organize also organize using relative paths in case of 'symlink'
         # mode
         cwd = os.getcwd()
         nwb_test_data = Path(op.relpath(nwb_test_data, cwd))
         outdir = Path(op.relpath(outdir, cwd))
+
+    assert isinstance(mode, FileOperationMode)
 
     src = tmp_path / "src"
     src.touch()
@@ -134,10 +144,7 @@ def test_organize_nwb_test_data(nwb_test_data: Path, tmp_path: Path, mode: str) 
         symlinks_work = False
     else:
         symlinks_work = True
-    try:
-        dest.unlink()
-    except FileNotFoundError:
-        pass
+    dest.unlink(missing_ok=True)
     try:
         os.link(src, dest)
     except OSError:
@@ -145,14 +152,25 @@ def test_organize_nwb_test_data(nwb_test_data: Path, tmp_path: Path, mode: str) 
     else:
         hardlinks_work = True
 
-    if mode in ("simulate", "symlink") and not symlinks_work:
+    if (
+        mode in (FileOperationMode.SIMULATE, FileOperationMode.SYMLINK)
+        and not symlinks_work
+    ):
         pytest.skip("Symlinks not supported")
-    elif mode == "hardlink" and not hardlinks_work:
+    elif mode is FileOperationMode.HARDLINK and not hardlinks_work:
         pytest.skip("Hard links not supported")
 
     input_files = nwb_test_data / "v2.0.1"
 
-    cmd = ["-d", str(outdir), "--files-mode", mode, str(input_files)]
+    cmd = [
+        "-d",
+        str(outdir),
+        "--files-mode",
+        str(mode),
+        str(input_files),
+        "--jobs",
+        str(jobs),
+    ]
     r = CliRunner().invoke(organize, cmd)
 
     # with @map_to_click_exceptions we loose original str of message somehow
@@ -168,7 +186,7 @@ def test_organize_nwb_test_data(nwb_test_data: Path, tmp_path: Path, mode: str) 
     produced_paths = sorted(find_files(".*", paths=outdir))
     produced_nwb_paths = sorted(find_files(r"\.nwb\Z", paths=outdir))
     produced_relpaths = [op.relpath(p, outdir) for p in produced_paths]
-    if mode == "dry":
+    if mode is FileOperationMode.DRY:
         assert produced_relpaths == []
     else:
         assert produced_relpaths == [
@@ -178,9 +196,11 @@ def test_organize_nwb_test_data(nwb_test_data: Path, tmp_path: Path, mode: str) 
         # symlinks)
         assert all(map(op.exists, produced_paths))
 
-    if mode == "simulate":
+    if mode is FileOperationMode.SIMULATE:
         assert all((op.isabs(p) != relative) for p in produced_paths)
-    elif mode == "symlink" or (mode == "auto" and symlinks_work):
+    elif mode is FileOperationMode.SYMLINK or (
+        mode is FileOperationMode.AUTO and symlinks_work
+    ):
         assert all(op.islink(p) for p in produced_nwb_paths)
     else:
         assert not any(op.islink(p) for p in produced_paths)
@@ -237,6 +257,21 @@ def test_ambiguous_probe1() -> None:
     ]
 
 
+def test_ambiguous_desc() -> None:
+    base = dict(subject_id="1", session="2", modalities=["mod"], extension="nwb")
+    # fake filenames should be ok since we never should get to reading them for object_id
+    metadata = [
+        dict(path="1.nwb", **base),
+        dict(path="2.nwb", description="ms5", **base),
+    ]
+    metadata_ = create_unique_filenames_from_metadata(metadata)
+    assert metadata_ != metadata
+    assert [m["dandi_path"] for m in metadata_] == [
+        op.join("sub-1", "sub-1_mod.nwb"),
+        op.join("sub-1", "sub-1_desc-ms5_mod.nwb"),
+    ]
+
+
 @pytest.mark.parametrize(
     "sym_success,hard_success,result",
     [
@@ -266,16 +301,18 @@ def test_detect_link_type(
     assert detect_link_type(p, tmp_path) == result
 
 
-@pytest.mark.parametrize("mode", ["copy", "move"])
-@pytest.mark.parametrize("video_mode", ["copy", "move", "symlink", "hardlink"])
-def test_video_organize(video_mode, mode, nwbfiles_video_unique):
+@pytest.mark.parametrize("mode", [FileOperationMode.COPY, FileOperationMode.MOVE])
+@pytest.mark.parametrize("video_mode", list(CopyMode))
+def test_video_organize(
+    video_mode: CopyMode, mode: FileOperationMode, nwbfiles_video_unique: Path
+) -> None:
     dandi_organize_path = nwbfiles_video_unique.parent / "dandi_organized"
     cmd = [
         "--files-mode",
-        mode,
+        str(mode),
         "--update-external-file-paths",
         "--media-files-mode",
-        video_mode,
+        str(video_mode),
         "-d",
         str(dandi_organize_path),
         str(nwbfiles_video_unique),
@@ -305,26 +342,23 @@ def test_video_organize(video_mode, mode, nwbfiles_video_unique):
     assert len(video_files_list) == len(video_files_organized)
 
 
-@pytest.mark.parametrize("video_mode", ["copy", "move"])
-def test_video_organize_common(video_mode, nwbfiles_video_common):
+@pytest.mark.parametrize("video_mode,rc", [(CopyMode.COPY, 0), (CopyMode.MOVE, 1)])
+def test_video_organize_common(
+    video_mode: CopyMode, rc: int, nwbfiles_video_common: Path
+) -> None:
     dandi_organize_path = nwbfiles_video_common.parent / "dandi_organized"
     cmd = [
         "--files-mode",
         "move",
         "--update-external-file-paths",
         "--media-files-mode",
-        video_mode,
+        str(video_mode),
         "-d",
         str(dandi_organize_path),
         str(nwbfiles_video_common),
     ]
     r = CliRunner().invoke(organize, cmd)
-    if video_mode == "move":
-        assert r.exit_code == 1
-        print(r.exception)
-    else:
-        assert r.exit_code == 0
-        print(r.stdout)
+    assert r.exit_code == rc
 
 
 @pytest.mark.parametrize(
@@ -332,6 +366,11 @@ def test_video_organize_common(video_mode, nwbfiles_video_common):
     [
         ("XCaMPgf/XCaMPgf_ANM471996_cell01.dat", []),
         ("sub-RAT123/sub-RAT123.nwb", []),
+        ("sub-RAT123/sub-RAT123_desc-label.nwb", []),  # _desc- is supported now
+        (
+            "sub-RAT123/sub-RAT123_notsupported-irrelevant.nwb",
+            ["DANDI.NON_DANDI_FILENAME"],
+        ),
         ("sub-RAT123/sub-RAT124.nwb", ["DANDI.METADATA_MISMATCH_SUBJECT"]),
         ("sub-RAT124.nwb", ["DANDI.NON_DANDI_FOLDERNAME"]),
         ("foo/sub-RAT124.nwb", ["DANDI.NON_DANDI_FOLDERNAME"]),
