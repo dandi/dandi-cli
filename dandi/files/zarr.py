@@ -6,6 +6,7 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import closing
 from dataclasses import dataclass, field, replace
 from datetime import datetime
+import json
 import os
 import os.path
 from pathlib import Path
@@ -558,13 +559,16 @@ def _upload_zarr_file(
     storage_session: RESTFullAPIClient, upload_url: str, item: UploadItem
 ) -> int:
     try:
+        headers = {"Content-MD5": item.base64_digest}
+        if item.content_type is not None:
+            headers["Content-Type"] = item.content_type
         with item.filepath.open("rb") as fp:
             storage_session.put(
                 upload_url,
                 data=fp,
                 json_resp=False,
                 retry_if=_retry_zarr_file,
-                headers={"Content-MD5": item.base64_digest},
+                headers=headers,
             )
     except Exception:
         post_upload_size_check(item.filepath, item.size, True)
@@ -643,21 +647,33 @@ class UploadItem:
     filepath: Path
     digest: str
     size: int
+    content_type: str | None
 
     @classmethod
     def from_entry(cls, e: LocalZarrEntry, digest: str) -> UploadItem:
+        if e.name in {".zarray", ".zattrs", ".zgroup", ".zmetadata"}:
+            try:
+                with e.filepath.open("rb") as fp:
+                    json.load(fp)
+            except Exception:
+                content_type = None
+            else:
+                content_type = "application/json"
+        else:
+            content_type = None
         return cls(
             entry_path=str(e),
             filepath=e.filepath,
             digest=digest,
             size=pre_upload_size_check(e.filepath),
+            content_type=content_type,
         )
 
     @property
     def base64_digest(self) -> str:
         return b64encode(bytes.fromhex(self.digest)).decode("us-ascii")
 
-    def upload_request(self) -> dict[str, str]:
+    def upload_request(self) -> dict[str, str | None]:
         return {"path": self.entry_path, "base64md5": self.base64_digest}
 
 
