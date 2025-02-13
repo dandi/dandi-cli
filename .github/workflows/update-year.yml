@@ -1,0 +1,21 @@
+name: Update year
+
+on:
+  # We would not trigger update until actual changes are done
+  # to our code, or we explicitly request
+  push:
+    branches:
+      - 'master'
+  workflow_dispatch:
+
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: FantasticFiasco/action-update-license-year@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
