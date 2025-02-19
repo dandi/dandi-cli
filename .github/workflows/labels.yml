@@ -1,0 +1,24 @@
+name: Check PR Labels
+
+on:
+  pull_request:
+    types: [opened, labeled, unlabeled, synchronize]
+
+jobs:
+  check_labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR Labels
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const allowedPattern = /^(major|minor|patch|performance|internal|documentation|tests|dependencies)$/;
+
+            const labels = context.payload.pull_request.labels.map(label => label.name);
+
+            const hasValidLabel = labels.some(label => allowedPattern.test(label));
+            if (!hasValidLabel) {
+              core.setFailed("The pull request must have a label of 'major', 'minor', or 'patch'.");
+            } else {
+              console.log('PR has a valid label.');
+            }
