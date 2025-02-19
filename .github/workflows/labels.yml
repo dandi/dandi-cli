@@ -12,7 +12,8 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const allowedPattern = /^(major|minor|patch)$/;
+            const allowedPattern = /^(major|minor|patch|performance|internal|documentation|tests|dependencies)$/;
+
             const labels = context.payload.pull_request.labels.map(label => label.name);
 
             const hasValidLabel = labels.some(label => allowedPattern.test(label));
