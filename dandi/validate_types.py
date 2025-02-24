@@ -8,10 +8,12 @@ from typing import Any
 
 @dataclass
 class ValidationOrigin:
-    name: str
-    version: str
-    standard: str | None = None  # TODO: Enum for the standards??
-    standard_version: str | None = None
+    name: str  # Validator name
+    version: str  # Validator version
+    standard: str | None = (
+        None  # Standard being validated against # TODO: Enum for the standards??
+    )
+    standard_version: str | None = None  # Version of the standard
 
 
 # TODO: decide on the naming consistency -- either prepend all with Validation or not
