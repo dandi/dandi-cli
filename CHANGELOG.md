@@ -1,3 +1,35 @@
+# 0.67.0 (Mon Mar 03 2025)
+
+#### 🚀 Enhancement
+
+- Set Content-Type when uploading certain Zarr entries [#1576](https://github.com/dandi/dandi-cli/pull/1576) ([@jwodder](https://github.com/jwodder))
+
+#### 🐛 Bug Fix
+
+- Fix support for pynwb v3 which has changed API slightly [#1584](https://github.com/dandi/dandi-cli/pull/1584) ([@jwodder](https://github.com/jwodder))
+- Add Python 3.13 as supported version [#1545](https://github.com/dandi/dandi-cli/pull/1545) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- [gh-actions](deps): Bump actions/github-script from 6 to 7 [#1583](https://github.com/dandi/dandi-cli/pull/1583) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Enforce usage of auto (release) labels [#1577](https://github.com/dandi/dandi-cli/pull/1577) ([@asmacdo](https://github.com/asmacdo))
+- [gh-actions](deps): Bump actions/checkout from 3 to 4 [#1580](https://github.com/dandi/dandi-cli/pull/1580) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Do specify our copyright in LICENSE file, unify name with dandiarchive.org, make year auto update in docs [#1574](https://github.com/dandi/dandi-cli/pull/1574) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 📝 Documentation
+
+- Update license copyright year(s) [#1579](https://github.com/dandi/dandi-cli/pull/1579) ([@github-actions[bot]](https://github.com/github-actions[bot]))
+
+#### Authors: 5
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- [@github-actions[bot]](https://github.com/github-actions[bot])
+- Austin Macdonald ([@asmacdo](https://github.com/asmacdo))
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.66.7 (Wed Feb 12 2025)
 
 #### 🐛 Bug Fix
