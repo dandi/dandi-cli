@@ -379,7 +379,11 @@ def test_validate_bogus(tmp_path):
     # but that would be too rigid to test. Let's just see that we have expected errors
     assert any(
         e.message.startswith(
-            ("Unable to open file", "Unable to synchronously open file")
+            (
+                "Unable to open file",
+                "Unable to synchronously open file",
+                "Could not find an IO to read the file",
+            )
         )
         for e in errors
     )
