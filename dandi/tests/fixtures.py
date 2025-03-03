@@ -767,7 +767,7 @@ def _create_nwb_files(video_list: list[tuple[Path, Path]]) -> Path:
             sex="M",
             description="lab mouse ",
         )
-        device = Device(f"imaging_device_{i}")
+        device = Device(name=f"imaging_device_{i}")
         name = f"{vid_1.stem}_{i}"
         nwbfile = NWBFile(
             f"{name}{i}",

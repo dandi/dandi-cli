@@ -352,7 +352,9 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
     path = str(path)  # Might come in as pathlib's PATH
     errors: list[ValidationResult] = []
     try:
-        if Version(pynwb.__version__) >= Version(
+        if Version(pynwb.__version__) >= Version("3.0.0"):
+            error_outputs = pynwb.validate(path=path)
+        elif Version(pynwb.__version__) >= Version(
             "2.2.0"
         ):  # Use cached namespace feature
             # argument get_cached_namespaces is True by default
