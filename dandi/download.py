@@ -438,8 +438,8 @@ class ItemsSummary:
         self.files = 0
         # TODO: get rid of needing it
         self.t0: float | None = None  # when first record is seen
-        self.size = 0
-        self.has_unknown_sizes = False
+        self.size: int = 0
+        self.has_unknown_sizes: bool = False
 
     def as_dict(self) -> dict:
         return {
@@ -576,7 +576,7 @@ def _populate_dandiset_yaml(
             existing is DownloadExisting.REFRESH
             and os.lstat(dandiset_yaml).st_mtime >= mtime.timestamp()
         ):
-            yield _skip_file("already exists", size=os.lstat(dandiset_yaml).st_mtime)
+            yield _skip_file("already exists")
             return
     ds = Dandiset(dandiset_path, allow_empty=True)
     ds.path_obj.mkdir(exist_ok=True)  # exist_ok in case of parallel race
