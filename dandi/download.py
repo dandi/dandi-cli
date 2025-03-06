@@ -1154,12 +1154,11 @@ def pairing(p: str, gen: Iterator[dict]) -> Iterator[tuple[str, dict]]:
         yield (p, d)
 
 
-DLState = Enum("DLState", "STARTING DOWNLOADING SKIPPED ERROR CHECKSUM_ERROR DONE")
+DLState = Enum("DLState", "STARTING DOWNLOADING SKIPPED ERROR DONE")
 
 
 @dataclass
 class DownloadProgress:
-    state: DLState = DLState.STARTING
     downloaded: int = 0
     size: int | None = None
 
@@ -1170,46 +1169,48 @@ class ProgressCombiner:
     file_qty: int | None = (
         None  # set to specific known value whenever full sweep is complete
     )
-    files: dict[str, DownloadProgress] = field(default_factory=dict)
+    downloading: dict[str, DownloadProgress] = field(default_factory=dict)
+    #: The total number of bytes downloaded so far, including all files
+    #: currently downloading, skipped, or finished downloading (even if
+    #: the checksum check failed)
+    total_downloaded: int = 0
     #: Total size of all files that were not skipped and did not error out
     #: during download
     maxsize: int = 0
     prev_status: str = ""
     yielded_size: bool = False
+    file_states: Counter[DLState] = field(default_factory=Counter)
+    files_fed: int = 0
 
     def get_done(self) -> dict:
-        total_downloaded = sum(
-            s.downloaded
-            for s in self.files.values()
-            if s.state
-            in (
-                DLState.DOWNLOADING,
-                DLState.CHECKSUM_ERROR,
-                DLState.SKIPPED,
-                DLState.DONE,
-            )
-        )
         return {
-            "done": total_downloaded,
-            "done%": total_downloaded / self.zarr_size * 100 if self.zarr_size else 0,
+            "done": self.total_downloaded,
+            "done%": (
+                self.total_downloaded / self.zarr_size * 100 if self.zarr_size else 0
+            ),
         }
 
     def get_status(self, report_done: bool = True) -> dict:
-        state_qtys = Counter(s.state for s in self.files.values())
-        total = len(self.files)
         if (
             self.file_qty is not None  # if already known
-            and total == self.file_qty
-            and state_qtys[DLState.STARTING] == state_qtys[DLState.DOWNLOADING] == 0
+            and self.files_fed == self.file_qty
+            and self.file_states[DLState.STARTING]
+            == self.file_states[DLState.DOWNLOADING]
+            == 0
         ):
             # All files have finished
-            if state_qtys[DLState.ERROR] or state_qtys[DLState.CHECKSUM_ERROR]:
+            if self.file_states[DLState.ERROR]:
                 new_status = "error"
-            elif state_qtys[DLState.DONE]:
+            elif self.file_states[DLState.DONE]:
                 new_status = "done"
             else:
                 new_status = "skipped"
-        elif total - state_qtys[DLState.STARTING] - state_qtys[DLState.SKIPPED] > 0:
+        elif (
+            self.files_fed
+            - self.file_states[DLState.STARTING]
+            - self.file_states[DLState.SKIPPED]
+            > 0
+        ):
             new_status = "downloading"
         else:
             new_status = ""
@@ -1218,12 +1219,12 @@ class ProgressCombiner:
 
         if report_done:
             msg_comps = []
-            for msg_label, states in {
-                "done": (DLState.DONE,),
-                "errored": (DLState.ERROR, DLState.CHECKSUM_ERROR),
-                "skipped": (DLState.SKIPPED,),
-            }.items():
-                if count := sum(state_qtys.get(state, 0) for state in states):
+            for msg_label, state in [
+                ("done", DLState.DONE),
+                ("errored", DLState.ERROR),
+                ("skipped", DLState.SKIPPED),
+            ]:
+                if count := self.file_states[state]:
                     msg_comps.append(f"{count} {msg_label}")
             if msg_comps:
                 statusdict["message"] = ", ".join(msg_comps)
@@ -1238,7 +1239,6 @@ class ProgressCombiner:
 
     def feed(self, path: str, status: dict) -> Iterator[dict]:
         keys = list(status.keys())
-        self.files.setdefault(path, DownloadProgress())
         size = status.get("size")
         if size is not None:
             if not self.yielded_size:
@@ -1246,41 +1246,62 @@ class ProgressCombiner:
                 self.yielded_size = True
                 yield {"size": self.zarr_size}
         if status.get("status") == "skipped":
-            self.files[path].state = DLState.SKIPPED
+            self.files_fed += 1
+            self.file_states[DLState.SKIPPED] += 1
+            if path in self.downloading:
+                lgr.debug(
+                    "We were downloading %s, which we just skipped -- must not happen",
+                    path,
+                )
+                # To avoid double-accounting etc.
+                self.total_downloaded -= self.downloading.pop(path).downloaded
             # Treat skipped as "downloaded" for the matter of accounting
             if size is not None:
-                self.files[path].downloaded = size
+                self.total_downloaded += size
                 self.maxsize += size
             yield self.get_status()
         elif keys == ["size"]:
-            self.files[path].size = size
-            self.maxsize += status["size"]
-            if any(s.state is DLState.DOWNLOADING for s in self.files.values()):
+            self.files_fed += 1
+            self.file_states[DLState.STARTING] += 1
+            assert size is not None
+            assert path not in self.downloading
+            self.downloading[path] = DownloadProgress(size=size)
+            self.maxsize += size
+            if self.file_states[DLState.DOWNLOADING]:
                 yield self.get_done()
         elif status == {"status": "downloading"}:
-            self.files[path].state = DLState.DOWNLOADING
+            self.file_states[DLState.DOWNLOADING] += 1
+            if path not in self.downloading:
+                self.files_fed += 1
+                self.downloading[path] = DownloadProgress()
+            else:
+                self.file_states[DLState.STARTING] -= 1
             if out := self.get_status(report_done=False):
                 yield out
         elif "done" in status:
-            self.files[path].downloaded = status["done"]
+            prev_done = self.downloading[path].downloaded
+            self.total_downloaded += status["done"] - prev_done
+            self.downloading[path].downloaded = status["done"]
             yield self.get_done()
         elif status.get("status") == "error":
-            if "checksum" in status:
-                self.files[path].state = DLState.CHECKSUM_ERROR
-            else:
-                self.files[path].state = DLState.ERROR
-                sz = self.files[path].size
-                if sz is not None:
-                    self.maxsize -= sz
+            self.file_states[DLState.DOWNLOADING] -= 1
+            self.file_states[DLState.ERROR] += 1
+            progress = self.downloading.pop(path)
+            if "checksum" not in status:
+                if progress.size is not None:
+                    self.maxsize -= progress.size
+                self.total_downloaded -= progress.downloaded
             yield self.get_status()
         elif keys == ["checksum"]:
             pass
         elif status == {"status": "setting mtime"}:
             pass
         elif status == {"status": "done"}:
-            self.files[path].state = DLState.DONE
+            del self.downloading[path]
+            self.file_states[DLState.DOWNLOADING] -= 1
+            self.file_states[DLState.DONE] += 1
             yield self.get_status()
         else:
             lgr.warning(
-                "Unexpected download status dict for %r received: %r", path, status
+                "Unexpected download status dict received for %r: %r", path, status
             )
