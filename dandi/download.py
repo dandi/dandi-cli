@@ -1248,10 +1248,13 @@ class ProgressCombiner:
         if status.get("status") == "skipped":
             self.files_fed += 1
             self.file_states[DLState.SKIPPED] += 1
-            try:
+            if path in self.downloading:
+                lgr.debug(
+                    "We were downloading %s, which we just skipped -- must not happen",
+                    path,
+                )
+                # To avoid double-accounting etc.
                 self.total_downloaded -= self.downloading.pop(path).downloaded
-            except KeyError:
-                pass
             # Treat skipped as "downloaded" for the matter of accounting
             if size is not None:
                 self.total_downloaded += size
@@ -1261,6 +1264,7 @@ class ProgressCombiner:
             self.files_fed += 1
             self.file_states[DLState.STARTING] += 1
             assert size is not None
+            assert path not in self.downloading
             self.downloading[path] = DownloadProgress(size=size)
             self.maxsize += size
             if self.file_states[DLState.DOWNLOADING]:
