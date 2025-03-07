@@ -1,3 +1,21 @@
+# 0.67.1 (Fri Mar 07 2025)
+
+#### 🐛 Bug Fix
+
+- EMBER named it sandbox already not staging [#1590](https://github.com/dandi/dandi-cli/pull/1590) ([@yarikoptic](https://github.com/yarikoptic))
+- BF: do not provide size for dandiset.yaml (and definetely not mtime for the size) [#1587](https://github.com/dandi/dandi-cli/pull/1587) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏎 Performance
+
+- Reduce looping & memory usage in ProgressCombiner [#1586](https://github.com/dandi/dandi-cli/pull/1586) ([@jwodder](https://github.com/jwodder))
+
+#### Authors: 2
+
+- John T. Wodder II ([@jwodder](https://github.com/jwodder))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.67.0 (Mon Mar 03 2025)
 
 #### 🚀 Enhancement
