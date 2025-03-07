@@ -39,6 +39,7 @@ services:
       DJANGO_DANDI_API_URL: http://localhost:8000
       DJANGO_DANDI_JUPYTERHUB_URL: https://hub.dandiarchive.org
       DJANGO_DANDI_DEV_EMAIL: "test@example.com"
+      DJANGO_DANDI_ADMIN_EMAIL: "test-admin@example.com"
       DANDI_ALLOW_LOCALHOST_URLS: "1"
     ports:
       - "127.0.0.1:8000:8000"
