@@ -1,5 +1,4 @@
 {
-    "onlyPublishWithReleaseLabel": true,
     "baseBranch": "master",
     "author": "DANDI Bot <team@dandiarchive.org>",
     "noVersionPrefix": true,
