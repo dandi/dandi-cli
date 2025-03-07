@@ -441,7 +441,9 @@ def test_parse_dandi_url_unknown_instance() -> None:
         parse_dandi_url("dandi://not-an-instance/000001")
 
     valid_instances = ", ".join(sorted(known_instances.keys()))
-    expected_message = f"Unknown instance 'not-an-instance'.  Valid instances: {valid_instances}"
+    expected_message = (
+        f"Unknown instance 'not-an-instance'.  Valid instances: {valid_instances}"
+    )
 
     assert str(excinfo.value) == expected_message
 
