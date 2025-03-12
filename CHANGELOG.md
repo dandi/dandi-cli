@@ -1,3 +1,20 @@
+# 0.67.2 (Wed Mar 12 2025)
+
+#### 🏠 Internal
+
+- Add ability to release upon workflow dispatch [#1589](https://github.com/dandi/dandi-cli/pull/1589) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Add Dandi admin email setting [#1588](https://github.com/dandi/dandi-cli/pull/1588) ([@asmacdo](https://github.com/asmacdo))
+
+#### Authors: 2
+
+- Austin Macdonald ([@asmacdo](https://github.com/asmacdo))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.67.1 (Fri Mar 07 2025)
 
 #### 🐛 Bug Fix
