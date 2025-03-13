@@ -886,10 +886,16 @@ def organize(
             for m, e in metadata_excs:
                 if not e:
                     continue
+                try:
+                    fmt = list(e[-1].format())
+                except AttributeError as exc:
+                    # Workaround:
+                    # https://github.com/agronholm/exceptiongroup/issues/144
+                    fmt = [f"Failed to get exception {e} format: {exc}"]
                 lgr.debug(
                     "Loading metadata for path %s resulted in following exception:\n%s",
                     m["path"],
-                    "\n".join(e[-1].format()),
+                    "\n".join(fmt),
                 )
 
     metadata, skip_invalid = filter_invalid_metadata_rows([m for m, _ in metadata_excs])
