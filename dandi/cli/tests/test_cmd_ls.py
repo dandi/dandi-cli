@@ -70,7 +70,13 @@ def test_ls_bids_file(bids_examples: Path) -> None:
     bids_file_path = (
         bids_examples / "asl003" / "sub-Sub1" / "anat" / "sub-Sub1_T1w.nii.gz"
     )
-    r = CliRunner().invoke(ls, ["-f", "yaml", str(bids_file_path)])
+    r = CliRunner().invoke(
+        ls,
+        ["-f", "yaml", str(bids_file_path)],
+        # workaround since bst manages to log to stdout
+        # https://github.com/bids-standard/bids-specification/pull/2085
+        env={"BIDS_SCHEMA_LOG_LEVEL": "CRITICAL"},
+    )
     assert r.exit_code == 0, r.output
     data = yaml_load(r.stdout, "safe")
     assert len(data) == 1
