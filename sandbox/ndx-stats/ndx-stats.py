@@ -197,12 +197,13 @@ def main():
         result = [asdict(stat) for stat in extension_stats]
 
     # Output results
+    out = json.dumps(result, indent=2, cls=EnhancedJSONEncoder)
     if args.output:
         with open(args.output, "w") as f:
-            json.dump(result, f, indent=2)
+            f.write(out)
         print(f"Results written to {args.output}")
     else:
-        print(json.dumps(result, indent=2, cls=EnhancedJSONEncoder))
+        print(out)
 
 
 if __name__ == "__main__":
