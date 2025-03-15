@@ -6,6 +6,7 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import closing
 from dataclasses import dataclass, field, replace
 from datetime import datetime
+import json
 import os
 import os.path
 from pathlib import Path
@@ -22,7 +23,6 @@ from dandi.consts import (
     ZARR_DELETE_BATCH_SIZE,
     ZARR_MIME_TYPE,
     ZARR_UPLOAD_BATCH_SIZE,
-    EmbargoStatus,
 )
 from dandi.dandiapi import (
     RemoteAsset,
@@ -96,7 +96,7 @@ class LocalZarrEntry(BasePath):
     def get_digest(self) -> Digest:
         """
         Calculate the DANDI etag digest for the entry.  If the entry is a
-        directory, the algorithm will be the Dandi Zarr checksum algorithm; if
+        directory, the algorithm will be the DANDI Zarr checksum algorithm; if
         it is a file, it will be MD5.
         """
         # Avoid heavy import by importing within function:
@@ -133,7 +133,7 @@ class ZarrStat:
 
     #: The total size of the asset
     size: int
-    #: The Dandi Zarr checksum of the asset
+    #: The DANDI Zarr checksum of the asset
     digest: Digest
     #: A list of all files in the asset in unspecified order
     files: list[LocalZarrEntry]
@@ -303,12 +303,6 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
-        # So that older clients don't get away with doing the wrong thing once
-        # Zarr upload to embargoed Dandisets is implemented in the API:
-        if dandiset.embargo_status is EmbargoStatus.EMBARGOED:
-            raise NotImplementedError(
-                "Uploading Zarr assets to embargoed Dandisets is currently not implemented"
-            )
         asset_path = metadata.setdefault("path", self.path)
         client = dandiset.client
         lgr.debug("%s: Producing asset", asset_path)
@@ -571,13 +565,16 @@ def _upload_zarr_file(
     storage_session: RESTFullAPIClient, upload_url: str, item: UploadItem
 ) -> int:
     try:
+        headers = {"Content-MD5": item.base64_digest}
+        if item.content_type is not None:
+            headers["Content-Type"] = item.content_type
         with item.filepath.open("rb") as fp:
             storage_session.put(
                 upload_url,
                 data=fp,
                 json_resp=False,
                 retry_if=_retry_zarr_file,
-                headers={"Content-MD5": item.base64_digest},
+                headers=headers,
             )
     except Exception:
         post_upload_size_check(item.filepath, item.size, True)
@@ -656,21 +653,33 @@ class UploadItem:
     filepath: Path
     digest: str
     size: int
+    content_type: str | None
 
     @classmethod
     def from_entry(cls, e: LocalZarrEntry, digest: str) -> UploadItem:
+        if e.name in {".zarray", ".zattrs", ".zgroup", ".zmetadata"}:
+            try:
+                with e.filepath.open("rb") as fp:
+                    json.load(fp)
+            except Exception:
+                content_type = None
+            else:
+                content_type = "application/json"
+        else:
+            content_type = None
         return cls(
             entry_path=str(e),
             filepath=e.filepath,
             digest=digest,
             size=pre_upload_size_check(e.filepath),
+            content_type=content_type,
         )
 
     @property
     def base64_digest(self) -> str:
         return b64encode(bytes.fromhex(self.digest)).decode("us-ascii")
 
-    def upload_request(self) -> dict[str, str]:
+    def upload_request(self) -> dict[str, str | None]:
         return {"path": self.entry_path, "base64md5": self.base64_digest}
 
 

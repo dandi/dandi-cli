@@ -1,17 +1,26 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import nullcontext
+from email.utils import parsedate_to_datetime
+from functools import partial
+from glob import glob
 import json
+import logging
+from multiprocessing import Manager, Process
 import os
 import os.path
 from pathlib import Path
 import re
 from shutil import rmtree
 import time
+from unittest import mock
 
 import numpy as np
 import pytest
 from pytest_mock import MockerFixture
+import requests
+from requests.exceptions import HTTPError
 import responses
 import zarr
 
@@ -21,12 +30,14 @@ from .test_helpers import assert_dirtrees_eq
 from ..consts import DRAFT, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
 from ..download import (
+    DownloadDirectory,
     Downloader,
     DownloadExisting,
     DownloadFormat,
     PathType,
     ProgressCombiner,
     PYOUTHelper,
+    _check_attempts_and_sleep,
     download,
 )
 from ..exceptions import NotFoundError
@@ -66,9 +77,11 @@ def test_download_000027(
     with pytest.raises(FileExistsError):
         download(url, tmp_path, format=DownloadFormat.DEBUG)
     assert "FileExistsError" not in capsys.readouterr().out
-    # but  no exception is raised, and rather it gets output to pyout otherwise
-    download(url, tmp_path)
+    # Generic error should be raised if we are using pyout/parallelization
+    with pytest.raises(RuntimeError) as exc:
+        download(url, tmp_path)
     assert "FileExistsError" in capsys.readouterr().out
+    assert "Encountered 1 error while downloading" in str(exc)
 
     # TODO: somehow get that status report about what was downloaded and what not
     download(url, tmp_path, existing=DownloadExisting.SKIP)  # TODO: check that skipped
@@ -118,8 +131,9 @@ def test_download_000027_assets_only(url: str, tmp_path: Path) -> None:
 @mark.skipif_no_network
 @pytest.mark.parametrize("resizer", [lambda sz: 0, lambda sz: sz // 2, lambda sz: sz])
 @pytest.mark.parametrize("version", ["0.210831.2033", DRAFT])
+@pytest.mark.parametrize("break_download", [False, True])
 def test_download_000027_resume(
-    tmp_path: Path, resizer: Callable[[int], int], version: str
+    tmp_path: Path, resizer: Callable[[int], int], version: str, break_download: bool
 ) -> None:
     url = f"https://dandiarchive.org/dandiset/000027/{version}"
     digester = Digester()
@@ -133,15 +147,26 @@ def test_download_000027_resume(
     nwb.rename(dlfile)
     size = dlfile.stat().st_size
     os.truncate(dlfile, resizer(size))
+    if break_download:
+        bad_load = b"bad"
+        if resizer(size) == size:  # no truncation
+            os.truncate(dlfile, size - len(bad_load))
+        with open(dlfile, "ab") as f:
+            f.write(bad_load)
     with (dldir / "checksum").open("w") as fp:
         json.dump(digests, fp)
-    download(url, tmp_path, get_metadata=False)
+
+    with pytest.raises(RuntimeError) if break_download else nullcontext():
+        download(url, tmp_path, get_metadata=False)
     assert list_paths(dsdir, dirs=True) == [
         dsdir / "sub-RAT123",
         dsdir / "sub-RAT123" / "sub-RAT123.nwb",
     ]
     assert nwb.stat().st_size == size
-    assert digester(str(nwb)) == digests
+    if break_download:
+        assert digester(str(nwb)) != digests
+    else:
+        assert digester(str(nwb)) == digests
 
 
 def test_download_newest_version(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
@@ -560,7 +585,7 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"done": 20, "done%": 20 / 42 * 100},
                 {"done": 40, "done%": 40 / 42 * 100},
                 {"done": 42, "done%": 100.0},
-                {"status": "done", "message": "1 done"},
+                {"done": 42, "done%": 100.0, "status": "done", "message": "1 done"},
             ],
         ),
         (  # 1
@@ -599,8 +624,8 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"done": 122, "done%": 122 / 169 * 100},
                 {"done": 162, "done%": 162 / 169 * 100},
                 {"done": 169, "done%": 100.0},
-                {"message": "1 done"},
-                {"status": "done", "message": "2 done"},
+                {"done": 169, "done%": 100.0, "message": "1 done"},
+                {"done": 169, "done%": 100.0, "status": "done", "message": "2 done"},
             ],
         ),
         (  # 2
@@ -638,10 +663,15 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"done": 42, "done%": 42 / 169 * 100},
                 {"done": 82, "done%": 82 / 169 * 100},
                 {"done": 122, "done%": 122 / 169 * 100},
-                {"message": "1 done"},
+                {"done": 122, "done%": 122 / 169 * 100, "message": "1 done"},
                 {"done": 162, "done%": 162 / 169 * 100},
                 {"done": 169, "done%": 169 / 169 * 100},
-                {"status": "done", "message": "2 done"},
+                {
+                    "done": 169,
+                    "done%": 169 / 169 * 100,
+                    "status": "done",
+                    "message": "2 done",
+                },
             ],
         ),
         (  # 3
@@ -675,13 +705,13 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"done": 20, "done%": 20 / 169 * 100},
                 {"done": 40, "done%": 40 / 169 * 100},
                 {"done": 42, "done%": 42 / 169 * 100},
-                {"message": "1 done"},
+                {"done": 42, "done%": 42 / 169 * 100, "message": "1 done"},
                 {"done": 42, "done%": 42 / 169 * 100},
                 {"done": 82, "done%": 82 / 169 * 100},
                 {"done": 122, "done%": 122 / 169 * 100},
                 {"done": 162, "done%": 162 / 169 * 100},
                 {"done": 169, "done%": 100.0},
-                {"status": "done", "message": "2 done"},
+                {"done": 169, "done%": 100.0, "status": "done", "message": "2 done"},
             ],
         ),
         (  # 4
@@ -711,10 +741,14 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"done": 20, "done%": 20 / 169 * 100},
                 {"done": 60, "done%": 60 / 169 * 100},
                 {"done": 80, "done%": 80 / 169 * 100},
-                {"message": "1 errored"},
-                {"done": 40, "done%": 40 / 169 * 100},
+                {"done": 40, "done%": 40 / 169 * 100, "message": "1 errored"},
                 {"done": 42, "done%": 42 / 169 * 100},
-                {"status": "error", "message": "1 done, 1 errored"},
+                {
+                    "done": 42,
+                    "done%": 42 / 169 * 100,
+                    "status": "error",
+                    "message": "1 done, 1 errored",
+                },
             ],
         ),
         (  # 5
@@ -743,14 +777,18 @@ def test_download_zarr_subdir_has_only_subdirs(
             ],
             [
                 {"size": 169},
-                {"message": "1 skipped"},
-                {"done": 127, "done%": (127 + 0) / 169 * 100},
+                {"done": 127, "done%": (127 + 0) / 169 * 100, "message": "1 skipped"},
                 {"status": "downloading"},
                 {"done": 127 + 0, "done%": (127 + 0) / 169 * 100},
                 {"done": 127 + 20, "done%": (127 + 20) / 169 * 100},
                 {"done": 127 + 40, "done%": (127 + 40) / 169 * 100},
                 {"done": 127 + 42, "done%": 100.0},
-                {"status": "done", "message": "1 done, 1 skipped"},
+                {
+                    "done": 127 + 42,
+                    "done%": 100.0,
+                    "status": "done",
+                    "message": "1 done, 1 skipped",
+                },
             ],
         ),
         (  # 7
@@ -794,8 +832,13 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"done": 122, "done%": 122 / 169 * 100},
                 {"done": 162, "done%": 162 / 169 * 100},
                 {"done": 169, "done%": 100.0},
-                {"message": "1 errored"},
-                {"status": "error", "message": "1 done, 1 errored"},
+                {"done": 169, "done%": 100.0, "message": "1 errored"},
+                {
+                    "done": 169,
+                    "done%": 100.0,
+                    "status": "error",
+                    "message": "1 done, 1 errored",
+                },
             ],
         ),
         (  # 8
@@ -834,8 +877,7 @@ def test_download_zarr_subdir_has_only_subdirs(
             [
                 {"size": 179},
                 {"status": "downloading"},
-                {"message": "1 skipped"},
-                {"done": 10, "done%": 10 / 179 * 100},
+                {"done": 10, "done%": 10 / 179 * 100, "message": "1 skipped"},
                 {"done": 10, "done%": 10 / 179 * 100},
                 {"done": 10, "done%": 10 / 179 * 100},
                 {"done": 10 + 20, "done%": (10 + 20) / 179 * 100},
@@ -843,10 +885,19 @@ def test_download_zarr_subdir_has_only_subdirs(
                 {"done": 10 + 80, "done%": (10 + 80) / 179 * 100},
                 {"done": 10 + 120, "done%": (10 + 120) / 179 * 100},
                 {"done": 10 + 122, "done%": (10 + 122) / 179 * 100},
-                {"message": "1 errored, 1 skipped"},
+                {
+                    "done": 10 + 122,
+                    "done%": (10 + 122) / 179 * 100,
+                    "message": "1 errored, 1 skipped",
+                },
                 {"done": 10 + 162, "done%": (10 + 162) / 179 * 100},
                 {"done": 179, "done%": 100.0},
-                {"status": "error", "message": "1 done, 1 errored, 1 skipped"},
+                {
+                    "done": 179,
+                    "done%": 100.0,
+                    "status": "error",
+                    "message": "1 done, 1 errored, 1 skipped",
+                },
             ],
         ),
     ],
@@ -1038,3 +1089,206 @@ def test_pyouthelper_time_remaining_1339():
             assert len(done) == 2
         else:
             assert done[-1] == f"ETA: {10 - i} seconds<"
+
+
+@mark.skipif_on_windows  # https://github.com/pytest-dev/pytest/issues/12964
+def test_DownloadDirectory_basic(tmp_path: Path) -> None:
+    with DownloadDirectory(tmp_path, digests={}) as dl:
+        assert dl.dirpath.exists()
+        assert dl.writefile.exists()
+        assert dl.writefile.stat().st_size == 0
+        assert dl.offset == 0
+
+        dl.append(b"123")
+        assert dl.fp is not None
+        dl.fp.flush()  # appends are not flushed automatically
+        assert dl.writefile.stat().st_size == 3
+        assert dl.offset == 0  # doesn't change
+
+        dl.append(b"456")
+        inode_number = dl.writefile.stat().st_ino
+        assert inode_number != tmp_path.stat().st_ino
+
+    # but after we are done - should be a full file!
+    assert tmp_path.stat().st_size == 6
+    assert tmp_path.read_bytes() == b"123456"
+    # we moved the file, didn't copy (expensive)
+    assert inode_number == tmp_path.stat().st_ino
+
+    # no problem with overwriting with new content
+    with DownloadDirectory(tmp_path, digests={}) as dl:
+        dl.append(b"789")
+    assert tmp_path.read_bytes() == b"789"
+
+    # even if path is a directory which we "overwrite"
+    tmp_path.unlink()
+    tmp_path.mkdir()
+    (tmp_path / "somedata.dat").write_text("content")
+    with DownloadDirectory(tmp_path, digests={}) as dl:
+        assert set(glob(f"{tmp_path}*")) == {str(tmp_path), str(dl.dirpath)}
+        dl.append(b"123")
+    assert tmp_path.read_bytes() == b"123"
+
+    # no temp .dandidownload folder is left behind
+    assert set(glob(f"{tmp_path}*")) == {str(tmp_path)}
+
+    # test locking
+    with Manager() as manager:
+        results = manager.list()
+        with DownloadDirectory(tmp_path, digests={}) as dl:
+            dl.append(b"123")
+            p1 = Process(target=_download_directory_subproc, args=(tmp_path, results))
+            p1.start()
+            p1.join()
+        assert len(results) == 1
+        assert results[0] == f"Could not acquire download lock for {tmp_path}"
+    assert tmp_path.read_bytes() == b"123"
+
+
+# needs to be a top-level function for pickling
+def _download_directory_subproc(path, results):
+    try:
+        with DownloadDirectory(path, digests={}):
+            results.append("re-entered fine")
+    except Exception as exc:
+        results.append(str(exc))
+
+
+def test_DownloadDirectory_exc(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG, logger="dandi")
+    # and now let's exit with exception
+    with pytest.raises(RuntimeError):
+        with DownloadDirectory(tmp_path, digests={}) as dl:
+            dl.append(b"456")
+            raise RuntimeError("Boom")
+    assert (
+        "dandi",
+        10,
+        f"{dl.dirpath} - entered __exit__ with position 3 with exception: "
+        "<class 'RuntimeError'>, Boom",
+    ) == caplog.record_tuples[-1]
+    # and we left without cleanup but closed things up after ourselves
+    assert tmp_path.exists()
+    assert tmp_path.is_dir()
+    assert dl.dirpath.exists()
+    assert dl.fp is None
+    assert dl.writefile.read_bytes() == b"456"
+
+
+def test__check_attempts_and_sleep() -> None:
+    f = partial(_check_attempts_and_sleep, Path("some/path"))
+
+    response403 = requests.Response()
+    response403.status_code = 403  # no retry
+
+    response500 = requests.Response()
+    response500.status_code = 500
+
+    # we do retry if cause is unknown (no response)
+    with mock.patch("time.sleep") as mock_sleep:
+        assert f(HTTPError(), attempt=1, attempts_allowed=2) == 2
+        mock_sleep.assert_called_once()
+        assert mock_sleep.call_args.args[0] >= 0
+
+    # or if some 500
+    with mock.patch("time.sleep") as mock_sleep:
+        assert f(HTTPError(response=response500), attempt=1, attempts_allowed=2) == 2
+        mock_sleep.assert_called_once()
+        assert mock_sleep.call_args.args[0] >= 0
+
+    # do not bother if already at limit
+    with mock.patch("time.sleep") as mock_sleep:
+        assert f(HTTPError(), attempt=2, attempts_allowed=2) is None
+        mock_sleep.assert_not_called()
+
+    # do not bother if 403
+    with mock.patch("time.sleep") as mock_sleep:
+        assert f(HTTPError(response=response403), attempt=1, attempts_allowed=2) is None
+        mock_sleep.assert_not_called()
+
+    # And in case of "Aggressive setting" when DANDI_DOWNLOAD_AGGRESSIVE_RETRY
+    # env var is set to 1, we retry if there was extra content downloaded
+    # patch env var DANDI_DOWNLOAD_AGGRESSIVE_RETRY
+    with mock.patch.dict(os.environ, {"DANDI_DOWNLOAD_AGGRESSIVE_RETRY": "1"}):
+        with mock.patch("time.sleep") as mock_sleep:
+            assert (
+                f(HTTPError(), attempt=2, attempts_allowed=2, downloaded_in_attempt=0)
+                is None
+            )
+            mock_sleep.assert_not_called()
+
+            assert (
+                f(HTTPError(), attempt=2, attempts_allowed=2, downloaded_in_attempt=1)
+                == 3
+            )
+            mock_sleep.assert_called_once()
+            assert mock_sleep.call_args.args[0] >= 0
+
+
+@pytest.mark.parametrize("status_code", [429, 503])
+def test__check_attempts_and_sleep_retries(status_code: int) -> None:
+    f = partial(_check_attempts_and_sleep, Path("some/path"))
+
+    response = requests.Response()
+    response.status_code = status_code
+
+    response.headers["Retry-After"] = "10"
+    with mock.patch("time.sleep") as mock_sleep:
+        assert f(HTTPError(response=response), attempt=1, attempts_allowed=2) == 2
+        mock_sleep.assert_called_once()
+        assert mock_sleep.call_args.args[0] == 10
+
+    response.headers["Retry-After"] = "Wed, 21 Oct 2015 07:28:00 GMT"
+    with mock.patch("time.sleep") as mock_sleep, mock.patch(
+        "dandi.utils.datetime"
+    ) as mock_datetime:
+        # shifted by 2 minutes
+        mock_datetime.datetime.now.return_value = parsedate_to_datetime(
+            "Wed, 21 Oct 2015 07:26:00 GMT"
+        )
+        assert f(HTTPError(response=response), attempt=1, attempts_allowed=2) == 2
+        mock_sleep.assert_called_once()
+        assert mock_sleep.call_args.args[0] == 120
+
+    # we would still sleep some time if Retry-After is not decypherable
+    response.headers["Retry-After"] = "indecipherable"
+    with mock.patch("time.sleep") as mock_sleep:
+        assert (
+            _check_attempts_and_sleep(
+                Path("some/path"),
+                HTTPError(response=response),
+                attempt=1,
+                attempts_allowed=2,
+            )
+            == 2
+        )
+        mock_sleep.assert_called_once()
+        assert mock_sleep.call_args.args[0] > 0
+
+    # shifted by 1 year! (too long)
+    response.headers["Retry-After"] = "Wed, 21 Oct 2016 07:28:00 GMT"
+    with mock.patch("time.sleep") as mock_sleep, mock.patch(
+        "dandi.utils.datetime"
+    ) as mock_datetime:
+        mock_datetime.datetime.now.return_value = parsedate_to_datetime(
+            "Wed, 21 Oct 2015 07:28:00 GMT"
+        )
+        assert f(HTTPError(response=response), attempt=1, attempts_allowed=2) == 2
+        mock_sleep.assert_called_once()
+        # and we do sleep some time
+        assert mock_sleep.call_args.args[0] > 0
+
+    # in the past second (too quick)
+    response.headers["Retry-After"] = "Wed, 21 Oct 2015 07:27:59 GMT"
+    with mock.patch("time.sleep") as mock_sleep, mock.patch(
+        "dandi.utils.datetime"
+    ) as mock_datetime:
+        mock_datetime.datetime.now.return_value = parsedate_to_datetime(
+            "Wed, 21 Oct 2015 07:28:00 GMT"
+        )
+        assert f(HTTPError(response=response), attempt=1, attempts_allowed=2) == 2
+        mock_sleep.assert_called_once()
+        # and we do not sleep really
+        assert not mock_sleep.call_args.args[0]

@@ -585,7 +585,7 @@ class SampleDandisetFactory:
                 "contributor": [
                     {
                         "schemaKey": "Person",
-                        "name": "Tests, Dandi-Cli",
+                        "name": "Tests, DANDI-Cli",
                         "email": "nemo@example.com",
                         "roleName": ["dcite:Author", "dcite:ContactPerson"],
                     }
@@ -610,12 +610,23 @@ def sample_dandiset_factory(
     return SampleDandisetFactory(local_dandi_api, tmp_path_factory)
 
 
+# @sweep_embargo can be used along with `new_dandiset` fixture to
+# run the test against both embargoed and non-embargoed Dandisets.
+# "embargo: bool" argument should be added to the test function.
+sweep_embargo = pytest.mark.parametrize("embargo", [True, False])
+
+
 @pytest.fixture()
 def new_dandiset(
     request: pytest.FixtureRequest, sample_dandiset_factory: SampleDandisetFactory
 ) -> SampleDandiset:
+    kws = {}
+    if "embargo" in request.node.fixturenames:
+        kws["embargo"] = request.node.callspec.params["embargo"]
     return sample_dandiset_factory.mkdandiset(
-        f"Sample Dandiset for {request.node.name}"
+        f"Sample {'Embargoed' if kws.get('embargo') else 'Public'} "
+        f"Dandiset for {request.node.name}",
+        **kws,
     )
 
 
@@ -756,7 +767,7 @@ def _create_nwb_files(video_list: list[tuple[Path, Path]]) -> Path:
             sex="M",
             description="lab mouse ",
         )
-        device = Device(f"imaging_device_{i}")
+        device = Device(name=f"imaging_device_{i}")
         name = f"{vid_1.stem}_{i}"
         nwbfile = NWBFile(
             f"{name}{i}",

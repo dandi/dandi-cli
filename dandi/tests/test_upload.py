@@ -11,9 +11,9 @@ import pytest
 from pytest_mock import MockerFixture
 import zarr
 
-from .fixtures import SampleDandiset
+from .fixtures import SampleDandiset, sweep_embargo
 from .test_helpers import assert_dirtrees_eq
-from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
+from ..consts import ZARR_MIME_TYPE, EmbargoStatus, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteBlobAsset, RemoteZarrAsset
 from ..dandiset import Dandiset
 from ..download import download
@@ -151,9 +151,10 @@ def test_upload_download_small_file(
     assert (tmp_path / dandiset_id / "file.txt").read_bytes() == contents
 
 
+@sweep_embargo
 @pytest.mark.parametrize("confirm", [True, False])
 def test_upload_sync(
-    confirm: bool, mocker: MockerFixture, text_dandiset: SampleDandiset
+    confirm: bool, mocker: MockerFixture, text_dandiset: SampleDandiset, embargo: bool
 ) -> None:
     (text_dandiset.dspath / "file.txt").unlink()
     confirm_mock = mocker.patch("click.confirm", return_value=confirm)
@@ -250,7 +251,13 @@ def test_upload_bids_non_nwb_file(bids_dandiset: SampleDandiset) -> None:
     assert [asset.path for asset in bids_dandiset.dandiset.get_assets()] == ["README"]
 
 
-def test_upload_sync_zarr(mocker, zarr_dandiset):
+@sweep_embargo
+def test_upload_sync_zarr(
+    mocker: MockerFixture, zarr_dandiset: SampleDandiset, embargo: bool
+) -> None:
+    assert zarr_dandiset.dandiset.embargo_status == (
+        EmbargoStatus.EMBARGOED if embargo else EmbargoStatus.OPEN
+    )
     rmtree(zarr_dandiset.dspath / "sample.zarr")
     zarr.save(zarr_dandiset.dspath / "identity.zarr", np.eye(5))
     confirm_mock = mocker.patch("click.confirm", return_value=True)

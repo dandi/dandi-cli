@@ -379,7 +379,11 @@ def test_validate_bogus(tmp_path):
     # but that would be too rigid to test. Let's just see that we have expected errors
     assert any(
         e.message.startswith(
-            ("Unable to open file", "Unable to synchronously open file")
+            (
+                "Unable to open file",
+                "Unable to synchronously open file",
+                "Could not find an IO to read the file",
+            )
         )
         for e in errors
     )
@@ -505,6 +509,18 @@ def test_upload_zarr_with_excluded_dotfiles(
         "arr_1/.zarray",
         "arr_1/0",
     ]
+
+
+def test_upload_zarr_entry_content_type(new_dandiset, tmp_path):
+    filepath = tmp_path / "example.zarr"
+    zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
+    zf = dandi_file(filepath)
+    assert isinstance(zf, ZarrAsset)
+    asset = zf.upload(new_dandiset.dandiset, {"description": "A test Zarr"})
+    assert isinstance(asset, RemoteZarrAsset)
+    e = asset.get_entry_by_path(".zgroup")
+    r = new_dandiset.client.get(e.download_url, json_resp=False)
+    assert r.headers["Content-Type"] == "application/json"
 
 
 def test_validate_deep_zarr(tmp_path: Path) -> None:

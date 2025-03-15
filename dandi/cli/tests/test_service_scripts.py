@@ -11,7 +11,6 @@ import anys
 from click.testing import CliRunner
 from dandischema.consts import DANDI_SCHEMA_VERSION
 import pytest
-import vcr
 
 from dandi import __version__
 from dandi.tests.fixtures import SampleDandiset
@@ -76,9 +75,14 @@ def test_update_dandiset_from_doi(
     dandiset_id = new_dandiset.dandiset_id
     repository = new_dandiset.api.instance.gui
     monkeypatch.setenv("DANDI_API_KEY", new_dandiset.api.api_key)
-    if os.environ.get("DANDI_TESTS_NO_VCR", ""):
+    if os.environ.get("DANDI_TESTS_NO_VCR", "") or sys.version_info <= (3, 10):
+        # Older vcrpy has an issue with Python 3.9 and newer urllib2 >= 2
+        # But we require newer urllib2 for more correct operation, and
+        # do still support 3.9.  Remove when 3.9 support is dropped
         ctx = nullcontext()
     else:
+        import vcr
+
         ctx = vcr.use_cassette(
             str(DATA_DIR / "update_dandiset_from_doi" / f"{name}.vcr.yaml"),
             before_record_request=record_only_doi_requests,

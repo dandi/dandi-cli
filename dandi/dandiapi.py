@@ -43,6 +43,7 @@ from .utils import (
     chunked,
     ensure_datetime,
     get_instance,
+    get_retry_after,
     is_interactive,
     is_page2_url,
     joinurl,
@@ -236,6 +237,13 @@ class RESTFullAPIClient:
                             )
                             if data is not None and hasattr(data, "seek"):
                                 data.seek(0)
+                        if retry_after := get_retry_after(result):
+                            lgr.debug(
+                                "Sleeping for %d seconds as instructed in response "
+                                "(in addition to tenacity imposed)",
+                                retry_after,
+                            )
+                            sleep(retry_after)
                         result.raise_for_status()
         except Exception as e:
             if isinstance(e, requests.HTTPError):
@@ -397,7 +405,7 @@ class RESTFullAPIClient:
 
 
 class DandiAPIClient(RESTFullAPIClient):
-    """A client for interacting with a Dandi Archive server"""
+    """A client for interacting with a DANDI API server"""
 
     def __init__(
         self,
@@ -406,7 +414,7 @@ class DandiAPIClient(RESTFullAPIClient):
         dandi_instance: DandiInstance | None = None,
     ) -> None:
         """
-        Construct a client instance for the given API URL or Dandi instance
+        Construct a client instance for the given API URL or DANDI instance
         (mutually exclusive options).  If no URL or instance is supplied, the
         instance specified by the :envvar:`DANDI_INSTANCE` environment variable
         (default value: ``"dandi"``) is used.
@@ -442,7 +450,7 @@ class DandiAPIClient(RESTFullAPIClient):
     ) -> DandiAPIClient:
         """
         Construct a client instance for the server identified by ``instance``
-        (either the name of a registered Dandi Archive instance or a
+        (either the name of a registered DANDI instance or a
         `DandiInstance` instance) and an optional authentication token/API key.
         If no token is supplied and ``authenticate`` is true,
         `dandi_authenticate()` is called on the instance before returning it.
@@ -638,7 +646,7 @@ class DandiAPIClient(RESTFullAPIClient):
 
     def check_schema_version(self, schema_version: str | None = None) -> None:
         """
-        Confirms that the server is using the same version of the Dandi schema
+        Confirms that the server is using the same version of the DANDI schema
         as the client.  If it is not, a `SchemaVersionError` is raised.
 
         :param schema_version: the schema version to confirm that the server
@@ -889,7 +897,7 @@ class RemoteDandiset:
     @property
     def api_path(self) -> str:
         """
-        The path (relative to the base endpoint for a Dandi Archive API) at
+        The path (relative to the base endpoint for the DANDI API) at
         which API requests for interacting with the Dandiset itself are made
         """
         return f"/dandisets/{self.identifier}/"
@@ -905,7 +913,7 @@ class RemoteDandiset:
     @property
     def version_api_path(self) -> str:
         """
-        The path (relative to the base endpoint for a Dandi Archive API) at
+        The path (relative to the base endpoint for the DANDI API) at
         which API requests for interacting with the version in question of the
         Dandiset are made
         """
@@ -1378,7 +1386,7 @@ class BaseRemoteAsset(ABC, APIBase):
     modified: datetime
     #: Metadata supplied at initialization; returned when metadata is requested
     #: instead of performing an API call
-    _metadata: Optional[Dict[str, Any]] = PrivateAttr(default_factory=None)
+    _metadata: Optional[Dict[str, Any]] = PrivateAttr(default=None)
 
     def __init__(self, **data: Any) -> None:  # type: ignore[no-redef]
         super().__init__(**data)
@@ -1429,7 +1437,7 @@ class BaseRemoteAsset(ABC, APIBase):
     @property
     def api_path(self) -> str:
         """
-        The path (relative to the base endpoint for a Dandi Archive API) at
+        The path (relative to the base endpoint for the DANDI API) at
         which API requests for interacting with the asset itself are made
         """
         return f"/assets/{self.identifier}/"
@@ -1592,10 +1600,23 @@ class BaseRemoteAsset(ABC, APIBase):
             # TODO: apparently we might need retries here as well etc
             # if result.status_code not in (200, 201):
             result.raise_for_status()
+            nbytes, nchunks = 0, 0
             for chunk in result.iter_content(chunk_size=chunk_size):
+                nchunks += 1
                 if chunk:  # could be some "keep alive"?
+                    nbytes += len(chunk)
                     yield chunk
-            lgr.info("Asset %s successfully downloaded", self.identifier)
+                else:
+                    lgr.debug("'Empty' chunk downloaded for %s", url)
+            lgr.info(
+                "Asset %s (%d bytes in %d chunks starting from %d) successfully "
+                "downloaded from %s",
+                self.identifier,
+                nbytes,
+                nchunks,
+                start_at,
+                url,
+            )
 
         return downloader
 
@@ -1626,7 +1647,7 @@ class BaseRemoteAsset(ABC, APIBase):
         """
         .. versionadded:: 0.36.0
 
-        The primary digest algorithm used by Dandi Archive for the asset,
+        The primary digest algorithm used by DANDI for the asset,
         determined based on its underlying data: dandi-etag for blob resources,
         dandi-zarr-checksum for Zarr resources
         """
@@ -1812,7 +1833,7 @@ class RemoteAsset(BaseRemoteAsset):
     @property
     def api_path(self) -> str:
         """
-        The path (relative to the base endpoint for a Dandi Archive API) at
+        The path (relative to the base endpoint for the DANDI API) at
         which API requests for interacting with the asset itself are made
         """
         return f"/dandisets/{self.dandiset_id}/versions/{self.version_id}/assets/{self.identifier}/"
@@ -2002,6 +2023,19 @@ class RemoteZarrEntry:
                 return False
         return True
 
+    @property
+    def download_url(self) -> str:
+        """
+        .. versionadded:: 0.67.0
+
+        The URL from which the entry can be downloaded
+        """
+        return str(
+            URL(self.client.get_url(f"/zarr/{self.zarr_id}/files/")).with_query(
+                {"prefix": str(self), "download": "true"}
+            )
+        )
+
     def get_download_file_iter(
         self, chunk_size: int = MAX_CHUNK_SIZE
     ) -> Callable[[int], Iterator[bytes]]:
@@ -2009,11 +2043,7 @@ class RemoteZarrEntry:
         Returns a function that when called (optionally with an offset into the
         file to start downloading at) returns a generator of chunks of the file
         """
-        url = str(
-            URL(self.client.get_url(f"/zarr/{self.zarr_id}/files/")).with_query(
-                {"prefix": str(self), "download": "true"}
-            )
-        )
+        url = self.download_url
 
         def downloader(start_at: int = 0) -> Iterator[bytes]:
             lgr.debug("Starting download from %s", url)

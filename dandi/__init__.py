@@ -10,7 +10,7 @@ Additional references:
 
 - `Source Git repository <https://github.com/dandi/dandi-cli>`_
 - `Library documentation <https://dandi.readthedocs.io/>`_
-- `DANDI Archive handbook <https://www.dandiarchive.org/handbook/>`_
+- `DANDI Docs <https://docs.dandiarchive.org>`_
 """
 
 import logging

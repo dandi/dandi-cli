@@ -394,6 +394,12 @@ species_map = [
         NCBITAXON_URI_TEMPLATE.format("9545"),
         "Macaca nemestrina",
     ),
+    (
+        ["mongolian gerbil", "mongolian jird"],
+        None,
+        NCBITAXON_URI_TEMPLATE.format("10047"),
+        "Meriones unguiculatus",
+    ),
 ]
 
 
@@ -466,8 +472,10 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
         else:
             lower_value = value_orig.lower()
             for common_names, prefix, uri, name in species_map:
-                if any(key in lower_value for key in common_names) or (
-                    prefix is not None and lower_value.startswith(prefix)
+                if (
+                    lower_value == name.lower()
+                    or any(key in lower_value for key in common_names)
+                    or (prefix is not None and lower_value.startswith(prefix))
                 ):
                     value_id = uri
                     value = name
@@ -714,6 +722,12 @@ neurodata_typemap: dict[str, Neurodatum] = {
         "module": "ophys",
         "neurodata_type": "TwoPhotonSeries",
         "technique": "two-photon microscopy technique",
+        "approach": "microscopy approach; cell population imaging",
+    },
+    "OnePhotonSeries": {
+        "module": "ophys",
+        "neurodata_type": "OnePhotonSeries",
+        "technique": "one-photon microscopy technique",
         "approach": "microscopy approach; cell population imaging",
     },
     "OpticalChannel": {

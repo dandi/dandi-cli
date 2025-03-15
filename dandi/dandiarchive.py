@@ -1,6 +1,6 @@
 """
 This module provides functionality for parsing URLs and other resource
-identifiers for Dandisets & assets on Dandi Archive servers and for fetching
+identifiers for Dandisets & assets on DANDI instances and for fetching
 the objects to which the URLs refer.  See :ref:`resource_ids` for a list of
 accepted URL formats.
 
@@ -9,7 +9,7 @@ acquire a `ParsedDandiURL` instance, which can then be used to obtain the
 Dandiset and/or assets specified in the URL.  Call an instance's
 `~ParsedDandiURL.get_dandiset()` and/or `~ParsedDandiURL.get_assets()` to get
 the assets, passing in a `~dandi.dandiapi.DandiAPIClient` for the appropriate
-Dandi Archive API instance; an unauthenticated client pointing to the correct
+DANDI API instance; an unauthenticated client pointing to the correct
 instance can be acquired via the `~ParsedDandiURL.get_client()` method.  As a
 convenience, one can acquire a client, the Dandiset, and an iterator of all
 assets by using the `~ParsedDandiAPI.navigate()` context manager like so:
@@ -51,7 +51,7 @@ from .consts import (
 )
 from .dandiapi import BaseRemoteAsset, DandiAPIClient, RemoteDandiset
 from .exceptions import FailedToConnectError, NotFoundError, UnknownURLError
-from .utils import get_instance
+from .utils import get_instance, get_retry_after
 
 lgr = get_logger()
 
@@ -59,7 +59,7 @@ lgr = get_logger()
 @dataclass
 class ParsedDandiURL(ABC):
     """
-    Parsed representation of a URL pointing to a Dandi Archive resource
+    Parsed representation of a URL pointing to a DANDI resource
     (Dandiset or asset(s)).  Subclasses must implement `get_assets()`.
 
     Most methods take a ``client: DandiAPIClient`` argument, which must be a
@@ -69,7 +69,7 @@ class ParsedDandiURL(ABC):
     passed instead.
     """
 
-    #: The Dandi Archive instance that the URL points to
+    #: The DANDI instance that the URL points to
     instance: DandiInstance
     #: The ID of the Dandiset given in the URL
     dandiset_id: str | None
@@ -80,7 +80,7 @@ class ParsedDandiURL(ABC):
 
     @property
     def api_url(self) -> AnyHttpUrl:
-        """The base URL of the Dandi API service, without a trailing slash"""
+        """The base URL of the DANDI API service, without a trailing slash"""
         # Kept for backwards compatibility
         adapter = TypeAdapter(AnyHttpUrl)
         return adapter.validate_python(self.instance.api.rstrip("/"))
@@ -287,7 +287,10 @@ class MultiAssetURL(ParsedDandiURL):
 
 
 @dataclass
-class BaseAssetIDURL(SingleAssetURL):
+# The below `type: ignore[override]` prevents mypy under Python 3.13+ from
+# complaining about problems caused by overriding the types of `dandiset_id`
+# and `version_id` from what they are in ParsedDandiURL.
+class BaseAssetIDURL(SingleAssetURL):  # type: ignore[override]
     """
     Parsed from a URL that refers to an asset by ID and does not include the
     Dandiset ID
@@ -714,7 +717,7 @@ class _dandi_url_parser:
         cls, url: str, *, map_instance: bool = True, glob: bool = False
     ) -> ParsedDandiURL:
         """
-        Parse a Dandi Archive URL and return a `ParsedDandiURL` instance.  See
+        Parse a DANDI instance URL and return a `ParsedDandiURL` instance.  See
         :ref:`resource_ids` for the supported URL formats.
 
         .. versionadded:: 0.54.0
@@ -890,14 +893,26 @@ class _dandi_url_parser:
         while True:
             r = requests.head(url, allow_redirects=True)
             if r.status_code in RETRY_STATUSES and i < 4:
-                delay = 0.1 * 10**i
-                lgr.warning(
-                    "HEAD request to %s returned %d; sleeping for %f seconds and then retrying...",
-                    url,
-                    r.status_code,
-                    delay,
-                )
-                sleep(delay)
+                retry_after = get_retry_after(r)
+                if retry_after is not None:
+                    delay = retry_after
+                else:
+                    delay = 0.1 * 10**i
+                if delay:
+                    lgr.warning(
+                        "HEAD request to %s returned %d; "
+                        "sleeping for %f seconds and then retrying...",
+                        url,
+                        r.status_code,
+                        delay,
+                    )
+                    sleep(delay)
+                else:
+                    lgr.warning(
+                        "HEAD request to %s returned %d; retrying...",
+                        url,
+                        r.status_code,
+                    )
                 i += 1
                 continue
             elif r.status_code == 404:

@@ -34,12 +34,12 @@ you can also run `tox` with `lint` and `typing`:
 tox -e lint,typing
 ```
 
-### dandi-api instance
+### dandi-archive instance
 
-The [dandi-api](https://github.com/dandi/dandi-api) repository provides a
-docker-compose recipe for establishing a local instance of a fresh dandi-api.
+The [dandi-archive](https://github.com/dandi/dandi-archive) repository provides a
+docker-compose recipe for establishing a local instance of a fresh dandi-archive.
 See
-[README.md:Docker](https://github.com/dandi/dandi-api#develop-with-docker-recommended-quickstart)
+[DEVELOPMENT.md:Docker](https://github.com/dandi/dandi-archive/blob/master/DEVELOPMENT.md#develop-with-docker-recommended-quickstart)
 for the instructions.  In a new instance, you would need to generate a new API
 key to be used by the `dandi` client for upload etc.
 
@@ -84,6 +84,10 @@ development command line options.
 - `DANDI_DEVEL_INSTRUMENT_REQUESTS_SUPERLEN` -- When set, the `upload()`
   function will patch `requests` to log the results of calls to
   `requests.utils.super_len()`
+
+- `DANDI_DOWNLOAD_AGGRESSIVE_RETRY` -- When set, would make `download()` retry
+  very aggressively - it would keep trying if at least some bytes are downloaded
+  on each attempt.  Typically is not needed and could be a sign of network issues.
 
 ## Sourcegraph
 

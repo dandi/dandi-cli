@@ -3,6 +3,7 @@
 from collections import Counter
 import datetime
 import logging
+import re
 import sys
 import time
 
@@ -54,7 +55,11 @@ def summary_dates(values):
 
 
 def counts(values):
-    return [f"{v:d} {k}" for k, v in Counter(values).items()]
+    vals = [f"{v:d} {k}" for k, v in Counter(values).items()]
+    # limit to 5 flines
+    if len(vals) > 5:
+        vals = vals[:4] + ["+%d more" % (len(vals) - 4)]
+    return vals
 
 
 # class mapped_counts(object):
@@ -158,7 +163,8 @@ def get_style(hide_if_missing=True):
             color=dict(
                 re_lookup=[["^exists", "yellow"], ["^(failed|error|ERROR)", "red"]]
             ),
-            aggregate=counts,
+            # replace numbers since we do not want unique among them
+            aggregate=lambda values: counts(re.sub(r"\d+", "some", v) for v in values),
         ),
         "progress": progress_style,
         "done%": progress_style,

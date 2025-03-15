@@ -131,7 +131,7 @@ def map_to_click_exceptions(f):
         #     raise click.UsageError(str(e))
         except Exception as e:
             e_str = str(e)
-            lgr.debug("Caught exception %s", e_str)
+            lgr.debug("Caught exception %s", e_str, exc_info=True)
             if not map_to_click_exceptions._do_map:
                 raise
             raise click.ClickException(e_str)

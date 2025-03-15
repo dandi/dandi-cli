@@ -513,6 +513,30 @@ def test_species():
     }
 
 
+# all of them should match the same record
+# There should be no network access -- just matching records
+@pytest.mark.parametrize(
+    "species",
+    [
+        "mongolian gerbil",
+        "mongolian jird",
+        "Mongolian jird",
+        "http://purl.obolibrary.org/obo/NCBITaxon_10047",
+        "Meriones unguiculatus",
+        "Meriones Unguiculatus",
+        "meriones Unguiculatus",
+    ],
+)
+def test_species_all_possible(species: str) -> None:
+    species_rec = extract_species({"species": species})
+    assert species_rec
+    assert species_rec.model_dump(mode="json", exclude_none=True) == {
+        "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_10047",
+        "schemaKey": "SpeciesType",
+        "name": "Meriones unguiculatus",
+    }
+
+
 def test_extract_unknown_species():
     with pytest.raises(ValueError) as excinfo:
         extract_species({"species": "mumba-jumba"})

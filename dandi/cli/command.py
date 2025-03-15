@@ -70,7 +70,8 @@ def print_version(ctx, param, value):
 @click.option("--pdb", help="Fall into pdb if errors out", is_flag=True)
 @click.pass_context
 def main(ctx, log_level, pdb=False):
-    """A client to support interactions with DANDI archive (http://dandiarchive.org).
+    """A client to support interactions with DANDI instances, such as the DANDI
+    Archive (http://dandiarchive.org).
 
     To see help for a specific command, run
 
@@ -114,14 +115,20 @@ def main(ctx, log_level, pdb=False):
             lambda r: r.name != "pyout" and not r.name.startswith("pyout.")
         )
     root.addHandler(handler)
+    exts = (
+        "dandischema",
+        "h5py",
+        "hdmf",
+        "pynwb",
+        "requests",
+        "urllib3",
+    )
 
     lgr.info(
-        "dandi v%s, dandischema v%s, hdmf v%s, pynwb v%s, h5py v%s",
+        "python %s, dandi %s, "
+        + ", ".join("%s %s" % (e, get_module_version(e)) for e in sorted(exts)),
+        sys.version.split()[0],
         __version__,
-        get_module_version("dandischema"),
-        get_module_version("hdmf"),
-        get_module_version("pynwb"),
-        get_module_version("h5py"),
         extra={"file_only": True},
     )
     lgr.info("sys.argv = %r", sys.argv, extra={"file_only": True})
