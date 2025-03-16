@@ -145,6 +145,12 @@ def analyze_extensions(
     # Convert to list for output
     return list(extension_stats.values())
 
+def snapshot_result(result, output):
+    out = json.dumps(result, indent=2, cls=EnhancedJSONEncoder)
+    if output:
+        with open(output, "w") as f:
+            f.write(out)
+    return out
 
 def main():
     parser = argparse.ArgumentParser(description="Analyze NWB file extensions")
@@ -180,6 +186,7 @@ def main():
             urls = get_s3_urls_and_dandi_paths(dandiset_id=d)
             nwb_urls = [url for url, path in urls.items() if path.endswith(".nwb")]
             result[d] = analyze_extensions(nwb_urls, True)
+            snapshot_result(result, args.output)
     else:
         if args.files:
             file_paths = args.files
@@ -197,12 +204,8 @@ def main():
         result = [asdict(stat) for stat in extension_stats]
 
     # Output results
-    out = json.dumps(result, indent=2, cls=EnhancedJSONEncoder)
-    if args.output:
-        with open(args.output, "w") as f:
-            f.write(out)
-        print(f"Results written to {args.output}")
-    else:
+    out = snapshot_result(result, args.output)
+    if not args.output:
         print(out)
 
 
