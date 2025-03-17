@@ -1,18 +1,34 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum, IntEnum
+from enum import Enum, IntEnum, auto, unique
 from pathlib import Path
 from typing import Any
+
+from dandi.utils import StrEnum
+
+
+@unique
+class Standard(StrEnum):
+    BIDS = auto()
+    DANDI_LAYOUT = "DANDI-LAYOUT"
+    DANDI_SCHEMA = "DANDI-SCHEMA"
+    HED = auto()
+    NWB = auto()
+    OME_ZARR = "OME-ZARR"
+    ZARR = auto()
+
+    # File formats (For denoting validation failures in file format level)
+    JSON = auto()
+    TSV = auto()
+    YAML = auto()
 
 
 @dataclass
 class ValidationOrigin:
     name: str  # Validator name
     version: str  # Validator version
-    standard: str | None = (
-        None  # Standard being validated against # TODO: Enum for the standards??
-    )
+    standard: Standard | None = None  # Standard being validated against
     standard_version: str | None = None  # Version of the standard
 
 
