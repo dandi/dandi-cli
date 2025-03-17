@@ -18,7 +18,7 @@ def test_cmd_instances(monkeypatch):
         f"  gui: http://{instancehost}:8085\n"
         "dandi-sandbox:\n"
         "  api: https://api-sandbox.dandiarchive.org/api\n"
-        "  gui: https://gui-sandbox.dandiarchive.org\n"
+        "  gui: https://sandbox.dandiarchive.org\n"
         "linc:\n"
         "  api: https://api.lincbrain.org/api\n"
         "  gui: https://lincbrain.org\n"

@@ -124,7 +124,7 @@ known_instances = {
     ),
     "dandi-sandbox": DandiInstance(
         "dandi-sandbox",
-        "https://gui-sandbox.dandiarchive.org",
+        "https://sandbox.dandiarchive.org",
         "https://api-sandbox.dandiarchive.org/api",
     ),
     "dandi-api-local-docker-tests": DandiInstance(

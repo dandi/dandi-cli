@@ -804,7 +804,7 @@ class _dandi_url_parser:
             r"https?://deploy-preview-.*--gui-dandiarchive-org\.netlify\.app",
             url_server,
         ):
-            url_server = "https://gui-sandbox.dandiarchive.org"
+            url_server = "https://sandbox.dandiarchive.org"
         instance = get_instance(url_server)
         # asset_type = groups.get("asset_type")
         dandiset_id = groups.get("dandiset_id")

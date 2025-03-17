@@ -306,7 +306,7 @@ from .fixtures import DandiAPI, SampleDandiset
             ),
         ),
         (
-            "https://gui-sandbox.dandiarchive.org/#/dandiset/000018",
+            "https://sandbox.dandiarchive.org/#/dandiset/000018",
             DandisetURL(
                 instance=known_instances["dandi-sandbox"],
                 dandiset_id="000018",
