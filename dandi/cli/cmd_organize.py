@@ -50,6 +50,12 @@ from ..organize import CopyMode, FileOperationMode, OrganizeInvalid
     help="How to relocate video files referenced by NWB files",
 )
 @click.option(
+    "--style",
+    type=str,
+    default="dandi",
+    help="Output directory style, currently `dandi`, by default, and `bids`.",
+)
+@click.option(
     "--required-field",
     "required_fields",
     type=click.Choice(list(dandi_layout_fields)),
@@ -71,6 +77,7 @@ def organize(
     files_mode: FileOperationMode,
     media_files_mode: CopyMode | None,
     update_external_file_paths: bool,
+    style: str,
     jobs: int | None,
     devel_debug: bool = False,
 ) -> None:
@@ -118,5 +125,6 @@ def organize(
         update_external_file_paths=update_external_file_paths,
         media_files_mode=media_files_mode,
         required_fields=required_fields,
+        style=style,
         jobs=jobs,
     )
