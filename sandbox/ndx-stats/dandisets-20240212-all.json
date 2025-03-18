@@ -1,0 +1,9514 @@
+{
+  "000003": [
+    {
+      "name": "core",
+      "total_count": 100,
+      "versions": {
+        "2.2.5": 100
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 100,
+      "versions": {
+        "1.3.0": 100
+      }
+    }
+  ],
+  "000004": [],
+  "000005": [
+    {
+      "name": "core",
+      "total_count": 148,
+      "versions": {
+        "2.2.2": 148
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 148,
+      "versions": {
+        "1.1.3": 148
+      }
+    }
+  ],
+  "000006": [
+    {
+      "name": "core",
+      "total_count": 53,
+      "versions": {
+        "2.0.2": 53
+      }
+    }
+  ],
+  "000007": [
+    {
+      "name": "core",
+      "total_count": 54,
+      "versions": {
+        "2.2.2": 54
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 54,
+      "versions": {
+        "1.1.3": 54
+      }
+    }
+  ],
+  "000008": [
+    {
+      "name": "core",
+      "total_count": 1328,
+      "versions": {
+        "2.2.5": 1328
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1328,
+      "versions": {
+        "1.3.0": 1328
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 1328,
+      "versions": {
+        "0.3.0": 1328
+      }
+    }
+  ],
+  "000009": [
+    {
+      "name": "core",
+      "total_count": 173,
+      "versions": {
+        "2.1.0": 173
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 173,
+      "versions": {
+        "1.0.0": 173
+      }
+    }
+  ],
+  "000010": [
+    {
+      "name": "core",
+      "total_count": 158,
+      "versions": {
+        "2.1.0": 158
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 59,
+      "versions": {
+        "1.0.0": 59
+      }
+    }
+  ],
+  "000011": [
+    {
+      "name": "core",
+      "total_count": 92,
+      "versions": {
+        "2.1.0": 92
+      }
+    }
+  ],
+  "000012": [
+    {
+      "name": "core",
+      "total_count": 297,
+      "versions": {
+        "2.2.5": 297
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 297,
+      "versions": {
+        "1.3.0": 297
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 297,
+      "versions": {
+        "0.3.0": 297
+      }
+    }
+  ],
+  "000013": [
+    {
+      "name": "core",
+      "total_count": 52,
+      "versions": {
+        "2.2.2": 52
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 52,
+      "versions": {
+        "1.1.3": 52
+      }
+    }
+  ],
+  "000015": [
+    {
+      "name": "core",
+      "total_count": 209,
+      "versions": {
+        "2.1.0": 209
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 209,
+      "versions": {
+        "1.0.0": 209
+      }
+    }
+  ],
+  "000016": [
+    {
+      "name": "core",
+      "total_count": 135,
+      "versions": {
+        "2.2.2": 135
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 135,
+      "versions": {
+        "1.1.3": 135
+      }
+    }
+  ],
+  "000017": [
+    {
+      "name": "core",
+      "total_count": 39,
+      "versions": {
+        "2.1.0": 39
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 39,
+      "versions": {
+        "1.0.0": 39
+      }
+    }
+  ],
+  "000018": [],
+  "000019": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.0.2": 1
+      }
+    },
+    {
+      "name": "ndx-spectrum",
+      "total_count": 1,
+      "versions": {
+        "0.1.0": 1
+      }
+    }
+  ],
+  "000020": [
+    {
+      "name": "core",
+      "total_count": 4435,
+      "versions": {
+        "2.2.5": 4435
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 4435,
+      "versions": {
+        "1.1.3": 4435
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 4435,
+      "versions": {
+        "0.1.0": 4435
+      }
+    }
+  ],
+  "000021": [
+    {
+      "name": "core",
+      "total_count": 214,
+      "versions": {
+        "2.2.2": 214
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 214,
+      "versions": {
+        "1.1.3": 214
+      }
+    },
+    {
+      "name": "ndx-aibs-ecephys",
+      "total_count": 214,
+      "versions": {
+        "0.2.0": 214
+      }
+    }
+  ],
+  "000022": [
+    {
+      "name": "core",
+      "total_count": 169,
+      "versions": {
+        "2.2.2": 169
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 169,
+      "versions": {
+        "1.1.3": 169
+      }
+    },
+    {
+      "name": "ndx-aibs-ecephys",
+      "total_count": 169,
+      "versions": {
+        "0.2.0": 169
+      }
+    }
+  ],
+  "000023": [
+    {
+      "name": "core",
+      "total_count": 318,
+      "versions": {
+        "2.2.5": 318
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 318,
+      "versions": {
+        "1.1.3": 318
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 318,
+      "versions": {
+        "0.1.0": 318
+      }
+    }
+  ],
+  "000024": [],
+  "000025": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.4.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.5.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.1.0": 1
+      }
+    },
+    {
+      "name": "ndx-lnmc-icephys-hierarchy",
+      "total_count": 1,
+      "versions": {
+        "1.0.0": 1
+      }
+    }
+  ],
+  "000026": [],
+  "000027": [],
+  "000028": [
+    {
+      "name": "core",
+      "total_count": 3,
+      "versions": {
+        "2.2.5": 3
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 3,
+      "versions": {
+        "1.1.3": 3
+      }
+    }
+  ],
+  "000029": [
+    {
+      "name": "core",
+      "total_count": 4,
+      "versions": {
+        "2.5.0": 1,
+        "2.0.2": 3
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.5.1": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.2.0": 1
+      }
+    }
+  ],
+  "000030": [],
+  "000031": [],
+  "000032": [],
+  "000033": [],
+  "000034": [
+    {
+      "name": "core",
+      "total_count": 6,
+      "versions": {
+        "2.2.5": 6
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 6,
+      "versions": {
+        "1.2.0": 2,
+        "1.1.3": 4
+      }
+    }
+  ],
+  "000035": [
+    {
+      "name": "core",
+      "total_count": 185,
+      "versions": {
+        "2.1.0": 185
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 185,
+      "versions": {
+        "1.1.3": 185
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 185,
+      "versions": {
+        "0.3.0": 185
+      }
+    }
+  ],
+  "000036": [
+    {
+      "name": "core",
+      "total_count": 57,
+      "versions": {
+        "2.2.5": 57
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 57,
+      "versions": {
+        "1.1.3": 57
+      }
+    }
+  ],
+  "000037": [
+    {
+      "name": "core",
+      "total_count": 150,
+      "versions": {
+        "2.5.0": 150
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 150,
+      "versions": {
+        "1.5.1": 150
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 150,
+      "versions": {
+        "0.2.0": 150
+      }
+    }
+  ],
+  "000038": [],
+  "000039": [
+    {
+      "name": "core",
+      "total_count": 100,
+      "versions": {
+        "2.4.0": 100
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 100,
+      "versions": {
+        "1.5.0": 100
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 100,
+      "versions": {
+        "0.1.0": 100
+      }
+    }
+  ],
+  "000040": [],
+  "000041": [
+    {
+      "name": "core",
+      "total_count": 22,
+      "versions": {
+        "2.2.5": 22
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 22,
+      "versions": {
+        "1.1.3": 22
+      }
+    }
+  ],
+  "000042": [],
+  "000043": [
+    {
+      "name": "core",
+      "total_count": 94,
+      "versions": {
+        "2.2.4": 64,
+        "2.2.5": 30
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 94,
+      "versions": {
+        "1.1.3": 94
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 94,
+      "versions": {
+        "0.1.0": 94
+      }
+    }
+  ],
+  "000044": [
+    {
+      "name": "core",
+      "total_count": 8,
+      "versions": {
+        "2.2.5": 8
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 8,
+      "versions": {
+        "1.3.0": 8
+      }
+    }
+  ],
+  "000045": [
+    {
+      "name": "core",
+      "total_count": 6615,
+      "versions": {
+        "2.2.5": 6615
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 6615,
+      "versions": {
+        "1.2.0": 6615
+      }
+    },
+    {
+      "name": "ndx-ibl-metadata",
+      "total_count": 6615,
+      "versions": {
+        "0.1.0": 6615
+      }
+    },
+    {
+      "name": "ndx-spectrum",
+      "total_count": 6615,
+      "versions": {
+        "0.2.2": 6615
+      }
+    }
+  ],
+  "000046": [],
+  "000047": [],
+  "000048": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.2.5": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.2.0": 1
+      }
+    },
+    {
+      "name": "ndx-grayscalevolume",
+      "total_count": 1,
+      "versions": {
+        "0.0.2": 1
+      }
+    },
+    {
+      "name": "ndx-icephys-meta",
+      "total_count": 1,
+      "versions": {
+        "0.1.0": 1
+      }
+    },
+    {
+      "name": "ndx-spectrum",
+      "total_count": 1,
+      "versions": {
+        "0.2.2": 1
+      }
+    }
+  ],
+  "000049": [
+    {
+      "name": "core",
+      "total_count": 78,
+      "versions": {
+        "2.2.5": 78
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 78,
+      "versions": {
+        "1.2.0": 78
+      }
+    }
+  ],
+  "000050": [
+    {
+      "name": "core",
+      "total_count": 56,
+      "versions": {
+        "2.2.5": 56
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 56,
+      "versions": {
+        "1.2.0": 56
+      }
+    }
+  ],
+  "000051": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.2.5": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.3.0": 1
+      }
+    }
+  ],
+  "000052": [],
+  "000053": [
+    {
+      "name": "core",
+      "total_count": 359,
+      "versions": {
+        "2.2.5": 359
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 359,
+      "versions": {
+        "1.3.0": 358,
+        "1.4.0-alpha": 1
+      }
+    },
+    {
+      "name": "ndx-events",
+      "total_count": 20,
+      "versions": {
+        "0.2.0": 20
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.1.0": 1
+      }
+    }
+  ],
+  "000054": [
+    {
+      "name": "core",
+      "total_count": 85,
+      "versions": {
+        "2.2.5": 85
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 85,
+      "versions": {
+        "1.3.0": 85
+      }
+    }
+  ],
+  "000055": [
+    {
+      "name": "core",
+      "total_count": 55,
+      "versions": {
+        "2.2.5": 55
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 55,
+      "versions": {
+        "1.4.0-alpha": 55
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 55,
+      "versions": {
+        "0.1.0": 55
+      }
+    },
+    {
+      "name": "ndx-events",
+      "total_count": 55,
+      "versions": {
+        "0.2.0": 55
+      }
+    }
+  ],
+  "000056": [
+    {
+      "name": "core",
+      "total_count": 40,
+      "versions": {
+        "2.2.5": 40
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 40,
+      "versions": {
+        "1.3.0": 40
+      }
+    }
+  ],
+  "000058": [],
+  "000059": [
+    {
+      "name": "core",
+      "total_count": 100,
+      "versions": {
+        "2.6.0-alpha": 10,
+        "2.2.5": 90
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 100,
+      "versions": {
+        "1.8.0": 10,
+        "1.3.0": 90
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 10,
+      "versions": {
+        "0.5.0": 10
+      }
+    }
+  ],
+  "000060": [
+    {
+      "name": "core",
+      "total_count": 98,
+      "versions": {
+        "2.2.5": 98
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 98,
+      "versions": {
+        "1.3.0": 98
+      }
+    },
+    {
+      "name": "ndx-events",
+      "total_count": 98,
+      "versions": {
+        "0.2.0": 98
+      }
+    }
+  ],
+  "000061": [
+    {
+      "name": "core",
+      "total_count": 40,
+      "versions": {
+        "2.2.5": 40
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 40,
+      "versions": {
+        "1.3.0": 40
+      }
+    }
+  ],
+  "000063": [],
+  "000064": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.2.5": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.3.0": 1
+      }
+    },
+    {
+      "name": "ndx-simulation-output",
+      "total_count": 1,
+      "versions": {
+        "0.3.0": 1
+      }
+    }
+  ],
+  "000065": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.2.5": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.3.0": 1
+      }
+    },
+    {
+      "name": "ndx-franklab-novela",
+      "total_count": 1,
+      "versions": {
+        "0.0.011.37": 1
+      }
+    }
+  ],
+  "000066": [],
+  "000067": [
+    {
+      "name": "core",
+      "total_count": 28,
+      "versions": {
+        "2.2.5": 28
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 28,
+      "versions": {
+        "1.4.0-alpha": 28
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 28,
+      "versions": {
+        "0.1.0": 28
+      }
+    }
+  ],
+  "000068": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.2.5": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.3.0": 1
+      }
+    }
+  ],
+  "000070": [
+    {
+      "name": "core",
+      "total_count": 10,
+      "versions": {
+        "2.2.5": 9,
+        "2.7.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 10,
+      "versions": {
+        "1.3.0": 9,
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    }
+  ],
+  "000071": [],
+  "000072": [],
+  "000105": [],
+  "000106": [],
+  "000107": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.2.4": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.1.3": 1
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 1,
+      "versions": {
+        "0.1.0": 1
+      }
+    }
+  ],
+  "000108": [],
+  "000109": [
+    {
+      "name": "core",
+      "total_count": 350,
+      "versions": {
+        "2.2.5": 350
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 350,
+      "versions": {
+        "1.3.0": 350
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 350,
+      "versions": {
+        "0.1.0": 350
+      }
+    }
+  ],
+  "000111": [],
+  "000112": [],
+  "000113": [],
+  "000114": [
+    {
+      "name": "core",
+      "total_count": 30,
+      "versions": {
+        "2.6.0-alpha": 30
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 30,
+      "versions": {
+        "1.5.1": 30
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 30,
+      "versions": {
+        "0.2.0": 30
+      }
+    },
+    {
+      "name": "ndx-photometry",
+      "total_count": 30,
+      "versions": {
+        "0.1.0": 30
+      }
+    }
+  ],
+  "000115": [
+    {
+      "name": "core",
+      "total_count": 57,
+      "versions": {
+        "2.3.0": 57
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 57,
+      "versions": {
+        "1.5.0": 57
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 57,
+      "versions": {
+        "0.1.0": 57
+      }
+    },
+    {
+      "name": "ndx-franklab-novela",
+      "total_count": 57,
+      "versions": {
+        "0.0.011.37": 57
+      }
+    }
+  ],
+  "000116": [],
+  "000117": [
+    {
+      "name": "core",
+      "total_count": 197,
+      "versions": {
+        "2.3.0": 197
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 197,
+      "versions": {
+        "1.5.0": 197
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 197,
+      "versions": {
+        "0.1.0": 197
+      }
+    }
+  ],
+  "000118": [],
+  "000120": [],
+  "000121": [
+    {
+      "name": "core",
+      "total_count": 12,
+      "versions": {
+        "2.2.5": 12
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 12,
+      "versions": {
+        "1.3.0": 12
+      }
+    }
+  ],
+  "000122": [
+    {
+      "name": "core",
+      "total_count": 5,
+      "versions": {
+        "2.3.0": 5
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 5,
+      "versions": {
+        "1.5.0": 5
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 5,
+      "versions": {
+        "0.1.0": 5
+      }
+    },
+    {
+      "name": "ndx-nirs",
+      "total_count": 5,
+      "versions": {
+        "0.2.0": 5
+      }
+    }
+  ],
+  "000123": [],
+  "000124": [],
+  "000125": [],
+  "000126": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.3.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.5.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.1.0": 1
+      }
+    }
+  ],
+  "000127": [
+    {
+      "name": "core",
+      "total_count": 2,
+      "versions": {
+        "2.4.0": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2,
+      "versions": {
+        "1.5.0": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.1.0": 2
+      }
+    }
+  ],
+  "000128": [
+    {
+      "name": "core",
+      "total_count": 2,
+      "versions": {
+        "2.4.0": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2,
+      "versions": {
+        "1.5.0": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.1.0": 2
+      }
+    }
+  ],
+  "000129": [
+    {
+      "name": "core",
+      "total_count": 2,
+      "versions": {
+        "2.4.0": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2,
+      "versions": {
+        "1.5.0": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.1.0": 2
+      }
+    }
+  ],
+  "000130": [
+    {
+      "name": "core",
+      "total_count": 2,
+      "versions": {
+        "2.4.0": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2,
+      "versions": {
+        "1.5.0": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.1.0": 2
+      }
+    }
+  ],
+  "000131": [],
+  "000132": [],
+  "000133": [],
+  "000134": [],
+  "000135": [],
+  "000136": [],
+  "000137": [],
+  "000138": [
+    {
+      "name": "core",
+      "total_count": 2,
+      "versions": {
+        "2.4.0": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2,
+      "versions": {
+        "1.5.0": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.1.0": 2
+      }
+    }
+  ],
+  "000139": [
+    {
+      "name": "core",
+      "total_count": 2,
+      "versions": {
+        "2.4.0": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2,
+      "versions": {
+        "1.5.0": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.1.0": 2
+      }
+    }
+  ],
+  "000140": [
+    {
+      "name": "core",
+      "total_count": 2,
+      "versions": {
+        "2.4.0": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2,
+      "versions": {
+        "1.5.0": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.1.0": 2
+      }
+    }
+  ],
+  "000141": [],
+  "000142": [
+    {
+      "name": "core",
+      "total_count": 717,
+      "versions": {
+        "2.3.0": 717
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 717,
+      "versions": {
+        "1.5.0": 717
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 717,
+      "versions": {
+        "0.1.0": 717
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 717,
+      "versions": {
+        "0.1.0": 717
+      }
+    }
+  ],
+  "000143": [],
+  "000144": [
+    {
+      "name": "core",
+      "total_count": 2,
+      "versions": {
+        "2.4.0": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2,
+      "versions": {
+        "1.5.0": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.1.0": 2
+      }
+    }
+  ],
+  "000145": [],
+  "000146": [],
+  "000147": [
+    {
+      "name": "core",
+      "total_count": 10,
+      "versions": {
+        "2.3.0": 10
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 10,
+      "versions": {
+        "1.5.0": 10
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 10,
+      "versions": {
+        "0.1.0": 10
+      }
+    }
+  ],
+  "000148": [
+    {
+      "name": "core",
+      "total_count": 46,
+      "versions": {
+        "2.4.0": 46
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 46,
+      "versions": {
+        "1.5.0": 46
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 46,
+      "versions": {
+        "0.1.0": 46
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 45,
+      "versions": {
+        "0.3.0": 45
+      }
+    }
+  ],
+  "000149": [
+    {
+      "name": "core",
+      "total_count": 4,
+      "versions": {
+        "2.2.5": 4
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 4,
+      "versions": {
+        "1.5.0": 4
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 4,
+      "versions": {
+        "0.1.0": 4
+      }
+    },
+    {
+      "name": "ndx-ibl-metadata",
+      "total_count": 4,
+      "versions": {
+        "0.1.0": 4
+      }
+    },
+    {
+      "name": "ndx-spectrum",
+      "total_count": 4,
+      "versions": {
+        "0.2.2": 4
+      }
+    }
+  ],
+  "000150": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.7.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    },
+    {
+      "name": "ndx-aibs-behavior-ophys",
+      "total_count": 1,
+      "versions": {
+        "0.2.0": 1
+      }
+    },
+    {
+      "name": "ndx-aibs-ophys-event-detection",
+      "total_count": 1,
+      "versions": {
+        "0.1.0": 1
+      }
+    },
+    {
+      "name": "ndx-aibs-stimulus-template",
+      "total_count": 1,
+      "versions": {
+        "0.1.0": 1
+      }
+    },
+    {
+      "name": "ndx-ellipse-eye-tracking",
+      "total_count": 1,
+      "versions": {
+        "0.1.0": 1
+      }
+    }
+  ],
+  "000151": [],
+  "000153": [],
+  "000154": [],
+  "000155": [],
+  "000156": [],
+  "000157": [],
+  "000158": [],
+  "000159": [],
+  "000160": [],
+  "000161": [],
+  "000162": [],
+  "000163": [],
+  "000164": [],
+  "000165": [
+    {
+      "name": "core",
+      "total_count": 571,
+      "versions": {
+        "2.4.0": 571
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 571,
+      "versions": {
+        "1.5.0": 571
+      }
+    }
+  ],
+  "000166": [
+    {
+      "name": "core",
+      "total_count": 19,
+      "versions": {
+        "2.2.5": 19
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 19,
+      "versions": {
+        "1.5.0": 19
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 19,
+      "versions": {
+        "0.1.0": 19
+      }
+    }
+  ],
+  "000167": [
+    {
+      "name": "core",
+      "total_count": 5,
+      "versions": {
+        "2.5.0": 4,
+        "2.6.0-alpha": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 5,
+      "versions": {
+        "1.5.1": 4,
+        "1.6.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 5,
+      "versions": {
+        "0.2.0": 4,
+        "0.3.0": 1
+      }
+    }
+  ],
+  "000168": [
+    {
+      "name": "core",
+      "total_count": 170,
+      "versions": {
+        "2.4.0": 170
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 170,
+      "versions": {
+        "1.5.0": 170
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 170,
+      "versions": {
+        "0.1.0": 170
+      }
+    }
+  ],
+  "000169": [],
+  "000170": [],
+  "000171": [],
+  "000172": [],
+  "000173": [
+    {
+      "name": "core",
+      "total_count": 59,
+      "versions": {
+        "2.4.0": 59
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 59,
+      "versions": {
+        "1.5.0": 59
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 59,
+      "versions": {
+        "0.1.0": 59
+      }
+    }
+  ],
+  "000206": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.4.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.5.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.1.0": 1
+      }
+    }
+  ],
+  "000207": [
+    {
+      "name": "core",
+      "total_count": 19,
+      "versions": {
+        "2.5.0": 19
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 19,
+      "versions": {
+        "1.5.0": 19
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 19,
+      "versions": {
+        "0.1.0": 19
+      }
+    }
+  ],
+  "000208": [],
+  "000209": [
+    {
+      "name": "core",
+      "total_count": 291,
+      "versions": {
+        "2.3.0": 291
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 291,
+      "versions": {
+        "1.5.0": 291
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 291,
+      "versions": {
+        "0.1.0": 291
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 291,
+      "versions": {
+        "0.1.0": 291
+      }
+    }
+  ],
+  "000210": [],
+  "000211": [],
+  "000212": [
+    {
+      "name": "core",
+      "total_count": 1013,
+      "versions": {
+        "2.4.0": 1013
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1013,
+      "versions": {
+        "1.5.0": 1013
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 84,
+      "versions": {
+        "0.1.0": 84
+      }
+    }
+  ],
+  "000213": [
+    {
+      "name": "core",
+      "total_count": 67,
+      "versions": {
+        "2.4.0": 67
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 67,
+      "versions": {
+        "1.5.0": 67
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 67,
+      "versions": {
+        "0.1.0": 67
+      }
+    }
+  ],
+  "000214": [],
+  "000215": [],
+  "000216": [],
+  "000217": [
+    {
+      "name": "core",
+      "total_count": 1121,
+      "versions": {
+        "2.4.0": 1121
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1121,
+      "versions": {
+        "1.5.0": 1121
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1121,
+      "versions": {
+        "0.1.0": 1121
+      }
+    }
+  ],
+  "000218": [
+    {
+      "name": "core",
+      "total_count": 98,
+      "versions": {
+        "2.4.0": 98
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 98,
+      "versions": {
+        "1.5.0": 98
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 98,
+      "versions": {
+        "0.1.0": 98
+      }
+    }
+  ],
+  "000219": [
+    {
+      "name": "core",
+      "total_count": 62,
+      "versions": {
+        "2.3.0": 62
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 62,
+      "versions": {
+        "1.5.0": 62
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 62,
+      "versions": {
+        "0.1.0": 62
+      }
+    }
+  ],
+  "000220": [
+    {
+      "name": "core",
+      "total_count": 34,
+      "versions": {
+        "2.4.0": 34
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 34,
+      "versions": {
+        "1.5.0": 34
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 34,
+      "versions": {
+        "0.1.0": 34
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 33,
+      "versions": {
+        "0.3.0": 33
+      }
+    }
+  ],
+  "000221": [
+    {
+      "name": "core",
+      "total_count": 262,
+      "versions": {
+        "2.4.0": 262
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 262,
+      "versions": {
+        "1.5.0": 262
+      }
+    }
+  ],
+  "000222": [],
+  "000223": [
+    {
+      "name": "core",
+      "total_count": 19,
+      "versions": {
+        "2.4.0": 19
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 19,
+      "versions": {
+        "1.5.0": 19
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 19,
+      "versions": {
+        "0.1.0": 19
+      }
+    }
+  ],
+  "000225": [],
+  "000226": [
+    {
+      "name": "core",
+      "total_count": 60,
+      "versions": {
+        "2.4.0": 60
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 60,
+      "versions": {
+        "1.5.1": 60
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 60,
+      "versions": {
+        "0.2.0": 60
+      }
+    }
+  ],
+  "000227": [],
+  "000228": [
+    {
+      "name": "core",
+      "total_count": 91,
+      "versions": {
+        "2.2.5": 91
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 91,
+      "versions": {
+        "1.1.3": 91
+      }
+    }
+  ],
+  "000229": [],
+  "000230": [
+    {
+      "name": "core",
+      "total_count": 9,
+      "versions": {
+        "2.4.0": 9
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 9,
+      "versions": {
+        "1.5.1": 9
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 9,
+      "versions": {
+        "0.2.0": 9
+      }
+    },
+    {
+      "name": "ndx-events",
+      "total_count": 9,
+      "versions": {
+        "0.2.0": 9
+      }
+    }
+  ],
+  "000231": [
+    {
+      "name": "core",
+      "total_count": 115,
+      "versions": {
+        "2.4.0": 115
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 115,
+      "versions": {
+        "1.5.1": 115
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 115,
+      "versions": {
+        "0.2.0": 115
+      }
+    },
+    {
+      "name": "ndx-pose",
+      "total_count": 115,
+      "versions": {
+        "0.1.1": 115
+      }
+    }
+  ],
+  "000232": [
+    {
+      "name": "core",
+      "total_count": 179,
+      "versions": {
+        "2.6.0-alpha": 179
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 179,
+      "versions": {
+        "1.8.0": 179
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 179,
+      "versions": {
+        "0.5.0": 179
+      }
+    }
+  ],
+  "000233": [
+    {
+      "name": "core",
+      "total_count": 345,
+      "versions": {
+        "2.4.0": 345
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 345,
+      "versions": {
+        "1.5.1": 345
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 345,
+      "versions": {
+        "0.2.0": 345
+      }
+    }
+  ],
+  "000235": [
+    {
+      "name": "core",
+      "total_count": 8,
+      "versions": {
+        "2.4.0": 8
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 8,
+      "versions": {
+        "1.5.1": 8
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 8,
+      "versions": {
+        "0.2.0": 8
+      }
+    }
+  ],
+  "000236": [
+    {
+      "name": "core",
+      "total_count": 9,
+      "versions": {
+        "2.4.0": 9
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 9,
+      "versions": {
+        "1.5.1": 9
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 9,
+      "versions": {
+        "0.2.0": 9
+      }
+    }
+  ],
+  "000237": [
+    {
+      "name": "core",
+      "total_count": 8,
+      "versions": {
+        "2.4.0": 8
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 8,
+      "versions": {
+        "1.5.1": 8
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 8,
+      "versions": {
+        "0.2.0": 8
+      }
+    }
+  ],
+  "000238": [
+    {
+      "name": "core",
+      "total_count": 6,
+      "versions": {
+        "2.4.0": 6
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 6,
+      "versions": {
+        "1.5.1": 6
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 6,
+      "versions": {
+        "0.2.0": 6
+      }
+    }
+  ],
+  "000239": [
+    {
+      "name": "core",
+      "total_count": 754,
+      "versions": {
+        "2.4.0": 754
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 754,
+      "versions": {
+        "1.5.1": 754
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 754,
+      "versions": {
+        "0.2.0": 754
+      }
+    }
+  ],
+  "000241": [],
+  "000243": [],
+  "000244": [
+    {
+      "name": "core",
+      "total_count": 33,
+      "versions": {
+        "2.4.0": 33
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 33,
+      "versions": {
+        "1.5.1": 33
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 33,
+      "versions": {
+        "0.2.0": 33
+      }
+    }
+  ],
+  "000245": [
+    {
+      "name": "core",
+      "total_count": 25,
+      "versions": {
+        "2.4.0": 25
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 25,
+      "versions": {
+        "1.5.1": 25
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 25,
+      "versions": {
+        "0.2.0": 25
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 25,
+      "versions": {
+        "0.3.0": 25
+      }
+    }
+  ],
+  "000246": [
+    {
+      "name": "core",
+      "total_count": 1477,
+      "versions": {
+        "2.4.0": 1433,
+        "2.6.0-alpha": 44
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1477,
+      "versions": {
+        "1.5.0": 1433,
+        "1.8.0": 44
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1477,
+      "versions": {
+        "0.1.0": 1433,
+        "0.5.0": 44
+      }
+    }
+  ],
+  "000247": [
+    {
+      "name": "core",
+      "total_count": 194,
+      "versions": {
+        "2.4.0": 194
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 194,
+      "versions": {
+        "1.5.0": 194
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 194,
+      "versions": {
+        "0.1.0": 194
+      }
+    }
+  ],
+  "000248": [
+    {
+      "name": "core",
+      "total_count": 78,
+      "versions": {
+        "2.6.0-alpha": 78
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 78,
+      "versions": {
+        "1.6.0": 78
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 78,
+      "versions": {
+        "0.3.0": 78
+      }
+    },
+    {
+      "name": "ndx-aibs-ecephys",
+      "total_count": 78,
+      "versions": {
+        "0.2.0": 78
+      }
+    },
+    {
+      "name": "ndx-aibs-stimulus-template",
+      "total_count": 78,
+      "versions": {
+        "0.1.0": 78
+      }
+    },
+    {
+      "name": "ndx-ellipse-eye-tracking",
+      "total_count": 10,
+      "versions": {
+        "0.1.0": 10
+      }
+    }
+  ],
+  "000249": [
+    {
+      "name": "core",
+      "total_count": 777,
+      "versions": {
+        "2.4.0": 777
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 777,
+      "versions": {
+        "1.5.1": 777
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 777,
+      "versions": {
+        "0.2.0": 777
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 777,
+      "versions": {
+        "0.3.0": 777
+      }
+    },
+    {
+      "name": "ndx-events",
+      "total_count": 777,
+      "versions": {
+        "0.2.0": 777
+      }
+    },
+    {
+      "name": "ndx-sound",
+      "total_count": 777,
+      "versions": {
+        "0.1.0": 777
+      }
+    }
+  ],
+  "000250": [
+    {
+      "name": "core",
+      "total_count": 3,
+      "versions": {
+        "2.4.0": 3
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 3,
+      "versions": {
+        "1.5.0": 3
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 3,
+      "versions": {
+        "0.1.0": 3
+      }
+    }
+  ],
+  "000251": [
+    {
+      "name": "core",
+      "total_count": 513,
+      "versions": {
+        "2.5.0": 513
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 513,
+      "versions": {
+        "1.5.1": 513
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 513,
+      "versions": {
+        "0.2.0": 513
+      }
+    },
+    {
+      "name": "ndx-events",
+      "total_count": 513,
+      "versions": {
+        "0.2.0": 513
+      }
+    }
+  ],
+  "000252": [
+    {
+      "name": "core",
+      "total_count": 12,
+      "versions": {
+        "2.6.0-alpha": 12
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 12,
+      "versions": {
+        "1.5.1": 12
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 12,
+      "versions": {
+        "0.2.0": 12
+      }
+    }
+  ],
+  "000253": [
+    {
+      "name": "core",
+      "total_count": 98,
+      "versions": {
+        "2.6.0-alpha": 98
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 98,
+      "versions": {
+        "1.6.0": 98
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 98,
+      "versions": {
+        "0.3.0": 98
+      }
+    },
+    {
+      "name": "ndx-aibs-ecephys",
+      "total_count": 98,
+      "versions": {
+        "0.2.0": 98
+      }
+    },
+    {
+      "name": "ndx-aibs-stimulus-template",
+      "total_count": 98,
+      "versions": {
+        "0.1.0": 98
+      }
+    },
+    {
+      "name": "ndx-ellipse-eye-tracking",
+      "total_count": 9,
+      "versions": {
+        "0.1.0": 9
+      }
+    }
+  ],
+  "000255": [],
+  "000288": [
+    {
+      "name": "core",
+      "total_count": 36,
+      "versions": {
+        "2.2.4": 36
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 36,
+      "versions": {
+        "1.1.3": 36
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 36,
+      "versions": {
+        "0.1.0": 36
+      }
+    }
+  ],
+  "000289": [
+    {
+      "name": "core",
+      "total_count": 221,
+      "versions": {
+        "2.5.0": 221
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 221,
+      "versions": {
+        "1.5.0": 221
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 221,
+      "versions": {
+        "0.1.0": 221
+      }
+    }
+  ],
+  "000290": [],
+  "000292": [
+    {
+      "name": "core",
+      "total_count": 11,
+      "versions": {
+        "2.3.0": 11
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 11,
+      "versions": {
+        "1.5.0": 11
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 11,
+      "versions": {
+        "0.1.0": 11
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 11,
+      "versions": {
+        "0.3.0": 11
+      }
+    }
+  ],
+  "000293": [
+    {
+      "name": "core",
+      "total_count": 121,
+      "versions": {
+        "2.3.0": 121
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 121,
+      "versions": {
+        "1.5.0": 121
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 121,
+      "versions": {
+        "0.1.0": 121
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 121,
+      "versions": {
+        "0.3.0": 121
+      }
+    }
+  ],
+  "000294": [
+    {
+      "name": "core",
+      "total_count": 2,
+      "versions": {
+        "2.5.0": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2,
+      "versions": {
+        "1.5.1": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.2.0": 2
+      }
+    },
+    {
+      "name": "ndx-grayscalevolume",
+      "total_count": 2,
+      "versions": {
+        "0.0.2": 2
+      }
+    },
+    {
+      "name": "ndx-icephys-meta",
+      "total_count": 2,
+      "versions": {
+        "0.1.0": 2
+      }
+    },
+    {
+      "name": "ndx-spectrum",
+      "total_count": 2,
+      "versions": {
+        "0.2.2": 2
+      }
+    }
+  ],
+  "000295": [
+    {
+      "name": "core",
+      "total_count": 26,
+      "versions": {
+        "2.5.0": 26
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 26,
+      "versions": {
+        "1.5.1": 26
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 26,
+      "versions": {
+        "0.2.0": 26
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 26,
+      "versions": {
+        "0.3.0": 26
+      }
+    }
+  ],
+  "000296": [
+    {
+      "name": "core",
+      "total_count": 1278,
+      "versions": {
+        "2.4.0": 1278
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1278,
+      "versions": {
+        "1.5.0": 1278
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1278,
+      "versions": {
+        "0.1.0": 1278
+      }
+    }
+  ],
+  "000297": [
+    {
+      "name": "core",
+      "total_count": 118,
+      "versions": {
+        "2.3.0": 118
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 118,
+      "versions": {
+        "1.5.0": 118
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 118,
+      "versions": {
+        "0.1.0": 118
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 118,
+      "versions": {
+        "0.3.0": 118
+      }
+    }
+  ],
+  "000298": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.7.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    }
+  ],
+  "000299": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.4.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.5.1": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.2.0": 1
+      }
+    }
+  ],
+  "000301": [
+    {
+      "name": "core",
+      "total_count": 14,
+      "versions": {
+        "2.5.0": 14
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 14,
+      "versions": {
+        "1.5.0": 14
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 14,
+      "versions": {
+        "0.1.0": 14
+      }
+    }
+  ],
+  "000302": [
+    {
+      "name": "core",
+      "total_count": 32,
+      "versions": {
+        "2.6.0-alpha": 32
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 32,
+      "versions": {
+        "1.5.0": 32
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 32,
+      "versions": {
+        "0.1.0": 32
+      }
+    }
+  ],
+  "000335": [],
+  "000337": [
+    {
+      "name": "core",
+      "total_count": 21,
+      "versions": {
+        "2.2.5": 8,
+        "2.2.4": 13
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 21,
+      "versions": {
+        "1.3.0": 8,
+        "1.1.3": 13
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 13,
+      "versions": {
+        "0.1.0": 13
+      }
+    }
+  ],
+  "000338": [
+    {
+      "name": "core",
+      "total_count": 2,
+      "versions": {
+        "2.5.0": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2,
+      "versions": {
+        "1.5.0": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.1.0": 2
+      }
+    }
+  ],
+  "000339": [
+    {
+      "name": "core",
+      "total_count": 65,
+      "versions": {
+        "2.5.0": 65
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 65,
+      "versions": {
+        "1.5.0": 65
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 65,
+      "versions": {
+        "0.1.0": 65
+      }
+    }
+  ],
+  "000340": [],
+  "000341": [
+    {
+      "name": "core",
+      "total_count": 787,
+      "versions": {
+        "2.4.0": 787
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 787,
+      "versions": {
+        "1.5.1": 787
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 787,
+      "versions": {
+        "0.2.0": 787
+      }
+    }
+  ],
+  "000343": [],
+  "000346": [],
+  "000347": [
+    {
+      "name": "core",
+      "total_count": 9,
+      "versions": {
+        "2.5.0": 9
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 9,
+      "versions": {
+        "1.5.1": 9
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 9,
+      "versions": {
+        "0.2.0": 9
+      }
+    }
+  ],
+  "000348": [],
+  "000349": [],
+  "000350": [
+    {
+      "name": "core",
+      "total_count": 12,
+      "versions": {
+        "2.5.0": 12
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 12,
+      "versions": {
+        "1.5.1": 12
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 12,
+      "versions": {
+        "0.2.0": 12
+      }
+    },
+    {
+      "name": "ndx-events",
+      "total_count": 12,
+      "versions": {
+        "0.2.0": 12
+      }
+    }
+  ],
+  "000351": [
+    {
+      "name": "core",
+      "total_count": 428,
+      "versions": {
+        "2.4.0": 425,
+        "2.5.0": 3
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 428,
+      "versions": {
+        "1.5.0": 425,
+        "1.5.1": 3
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 428,
+      "versions": {
+        "0.1.0": 425,
+        "0.2.0": 3
+      }
+    },
+    {
+      "name": "ndx-eventlog-namlab",
+      "total_count": 428,
+      "versions": {
+        "0.1.0": 428
+      }
+    },
+    {
+      "name": "ndx-photometry-namlab",
+      "total_count": 428,
+      "versions": {
+        "0.1.0": 428
+      }
+    }
+  ],
+  "000359": [],
+  "000362": [
+    {
+      "name": "core",
+      "total_count": 52,
+      "versions": {
+        "2.5.0": 52
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 52,
+      "versions": {
+        "1.5.1": 52
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 52,
+      "versions": {
+        "0.2.0": 52
+      }
+    }
+  ],
+  "000363": [
+    {
+      "name": "core",
+      "total_count": 174,
+      "versions": {
+        "2.6.0-alpha": 6,
+        "2.5.0": 168
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 174,
+      "versions": {
+        "1.7.0": 6,
+        "1.8.0": 168
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 174,
+      "versions": {
+        "0.4.0": 6,
+        "0.5.0": 168
+      }
+    }
+  ],
+  "000364": [],
+  "000397": [
+    {
+      "name": "core",
+      "total_count": 3,
+      "versions": {
+        "2.5.0": 3
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 3,
+      "versions": {
+        "1.5.1": 3
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 3,
+      "versions": {
+        "0.2.0": 3
+      }
+    }
+  ],
+  "000398": [
+    {
+      "name": "core",
+      "total_count": 42,
+      "versions": {
+        "2.5.0": 42
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 42,
+      "versions": {
+        "1.5.1": 42
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 42,
+      "versions": {
+        "0.2.0": 42
+      }
+    }
+  ],
+  "000399": [
+    {
+      "name": "core",
+      "total_count": 105,
+      "versions": {
+        "2.6.0-alpha": 105
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 105,
+      "versions": {
+        "1.5.0": 105
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 105,
+      "versions": {
+        "0.1.0": 105
+      }
+    }
+  ],
+  "000400": [],
+  "000401": [],
+  "000402": [
+    {
+      "name": "core",
+      "total_count": 19,
+      "versions": {
+        "2.5.0": 19
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 19,
+      "versions": {
+        "1.5.1": 19
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 19,
+      "versions": {
+        "0.2.0": 19
+      }
+    }
+  ],
+  "000404": [
+    {
+      "name": "core",
+      "total_count": 13,
+      "versions": {
+        "2.5.0": 13
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 13,
+      "versions": {
+        "1.5.1": 13
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 13,
+      "versions": {
+        "0.2.0": 13
+      }
+    }
+  ],
+  "000405": [
+    {
+      "name": "core",
+      "total_count": 276,
+      "versions": {
+        "2.5.0": 276
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 276,
+      "versions": {
+        "1.5.1": 276
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 276,
+      "versions": {
+        "0.2.0": 276
+      }
+    }
+  ],
+  "000406": [],
+  "000408": [
+    {
+      "name": "core",
+      "total_count": 227,
+      "versions": {
+        "2.6.0-alpha": 227
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 227,
+      "versions": {
+        "1.5.1": 227
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 227,
+      "versions": {
+        "0.2.0": 227
+      }
+    }
+  ],
+  "000409": [
+    {
+      "name": "core",
+      "total_count": 677,
+      "versions": {
+        "2.5.0": 329,
+        "2.6.0-alpha": 348
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 677,
+      "versions": {
+        "1.5.1": 329,
+        "1.7.0": 348
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 677,
+      "versions": {
+        "0.2.0": 329,
+        "0.4.0": 348
+      }
+    },
+    {
+      "name": "ndx-ibl",
+      "total_count": 677,
+      "versions": {
+        "0.1.0": 677
+      }
+    },
+    {
+      "name": "ndx-pose",
+      "total_count": 677,
+      "versions": {
+        "0.1.1": 677
+      }
+    }
+  ],
+  "000410": [
+    {
+      "name": "core",
+      "total_count": 22,
+      "versions": {
+        "2.4.0": 22
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 22,
+      "versions": {
+        "1.5.1": 22
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 22,
+      "versions": {
+        "0.2.0": 22
+      }
+    },
+    {
+      "name": "ndx-franklab-novela",
+      "total_count": 22,
+      "versions": {
+        "0.1.0": 22
+      }
+    }
+  ],
+  "000411": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.5.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.5.1": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.2.0": 1
+      }
+    }
+  ],
+  "000444": [],
+  "000445": [],
+  "000447": [
+    {
+      "name": "core",
+      "total_count": 5,
+      "versions": {
+        "2.6.0-alpha": 5
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 5,
+      "versions": {
+        "1.5.0": 5
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 5,
+      "versions": {
+        "0.1.0": 5
+      }
+    }
+  ],
+  "000448": [
+    {
+      "name": "core",
+      "total_count": 18,
+      "versions": {
+        "2.6.0-alpha": 18
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 18,
+      "versions": {
+        "1.5.1": 18
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 18,
+      "versions": {
+        "0.2.0": 18
+      }
+    }
+  ],
+  "000449": [],
+  "000451": [],
+  "000452": [],
+  "000454": [
+    {
+      "name": "core",
+      "total_count": 4,
+      "versions": {
+        "2.6.0-alpha": 4
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 4,
+      "versions": {
+        "1.5.1": 4
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 4,
+      "versions": {
+        "0.2.0": 4
+      }
+    }
+  ],
+  "000456": [],
+  "000457": [],
+  "000458": [
+    {
+      "name": "core",
+      "total_count": 24,
+      "versions": {
+        "2.5.0": 24
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 24,
+      "versions": {
+        "1.5.1": 24
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 24,
+      "versions": {
+        "0.2.0": 24
+      }
+    }
+  ],
+  "000461": [
+    {
+      "name": "core",
+      "total_count": 14,
+      "versions": {
+        "2.6.0-alpha": 14
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 14,
+      "versions": {
+        "1.5.1": 14
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 14,
+      "versions": {
+        "0.2.0": 14
+      }
+    }
+  ],
+  "000462": [
+    {
+      "name": "core",
+      "total_count": 14,
+      "versions": {
+        "2.6.0-alpha": 14
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 14,
+      "versions": {
+        "1.5.1": 14
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 14,
+      "versions": {
+        "0.2.0": 14
+      }
+    }
+  ],
+  "000463": [
+    {
+      "name": "core",
+      "total_count": 29,
+      "versions": {
+        "2.5.0": 29
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 29,
+      "versions": {
+        "1.5.0": 29
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 29,
+      "versions": {
+        "0.1.0": 29
+      }
+    }
+  ],
+  "000465": [
+    {
+      "name": "core",
+      "total_count": 36,
+      "versions": {
+        "2.6.0-alpha": 36
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 36,
+      "versions": {
+        "1.5.1": 36
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 36,
+      "versions": {
+        "0.2.0": 36
+      }
+    }
+  ],
+  "000466": [],
+  "000467": [
+    {
+      "name": "core",
+      "total_count": 14684,
+      "versions": {
+        "2.6.0-alpha": 14684
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 14684,
+      "versions": {
+        "1.5.1": 14684
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 14684,
+      "versions": {
+        "0.2.0": 14684
+      }
+    }
+  ],
+  "000468": [],
+  "000469": [
+    {
+      "name": "core",
+      "total_count": 41,
+      "versions": {
+        "2.6.0-alpha": 41
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 41,
+      "versions": {
+        "1.5.0": 41
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 41,
+      "versions": {
+        "0.1.0": 41
+      }
+    }
+  ],
+  "000470": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.6.0-alpha": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.5.1": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.2.0": 1
+      }
+    }
+  ],
+  "000472": [
+    {
+      "name": "core",
+      "total_count": 10,
+      "versions": {
+        "2.6.0-alpha": 10
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 10,
+      "versions": {
+        "1.8.0": 10
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 10,
+      "versions": {
+        "0.5.0": 10
+      }
+    },
+    {
+      "name": "ndx-multichannel-volume",
+      "total_count": 10,
+      "versions": {
+        "0.1.12": 10
+      }
+    }
+  ],
+  "000473": [
+    {
+      "name": "core",
+      "total_count": 25,
+      "versions": {
+        "2.6.0-alpha": 25
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 25,
+      "versions": {
+        "1.5.0": 25
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 25,
+      "versions": {
+        "0.1.0": 25
+      }
+    }
+  ],
+  "000474": [],
+  "000476": [],
+  "000478": [],
+  "000479": [],
+  "000480": [],
+  "000481": [
+    {
+      "name": "core",
+      "total_count": 2,
+      "versions": {
+        "2.6.0-alpha": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2,
+      "versions": {
+        "1.5.1": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.2.0": 2
+      }
+    }
+  ],
+  "000482": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.6.0-alpha": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.5.1": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.2.0": 1
+      }
+    }
+  ],
+  "000483": [
+    {
+      "name": "core",
+      "total_count": 128,
+      "versions": {
+        "2.6.0-alpha": 128
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 128,
+      "versions": {
+        "1.5.1": 128
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 128,
+      "versions": {
+        "0.2.0": 128
+      }
+    }
+  ],
+  "000485": [
+    {
+      "name": "core",
+      "total_count": 37,
+      "versions": {
+        "2.4.0": 37
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 37,
+      "versions": {
+        "1.5.1": 37
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 37,
+      "versions": {
+        "0.2.0": 37
+      }
+    }
+  ],
+  "000486": [
+    {
+      "name": "core",
+      "total_count": 36,
+      "versions": {
+        "2.4.0": 36
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 36,
+      "versions": {
+        "1.5.1": 36
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 36,
+      "versions": {
+        "0.2.0": 36
+      }
+    }
+  ],
+  "000487": [],
+  "000488": [
+    {
+      "name": "core",
+      "total_count": 43,
+      "versions": {
+        "2.6.0-alpha": 43
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 43,
+      "versions": {
+        "1.5.1": 43
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 43,
+      "versions": {
+        "0.2.0": 43
+      }
+    }
+  ],
+  "000489": [
+    {
+      "name": "core",
+      "total_count": 18,
+      "versions": {
+        "2.5.0": 18
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 18,
+      "versions": {
+        "1.5.1": 18
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 18,
+      "versions": {
+        "0.2.0": 18
+      }
+    }
+  ],
+  "000490": [],
+  "000491": [
+    {
+      "name": "core",
+      "total_count": 14,
+      "versions": {
+        "2.6.0-alpha": 14
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 14,
+      "versions": {
+        "1.5.0": 14
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 14,
+      "versions": {
+        "0.1.0": 14
+      }
+    }
+  ],
+  "000492": [],
+  "000529": [
+    {
+      "name": "core",
+      "total_count": 27,
+      "versions": {
+        "2.6.0-alpha": 27
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 27,
+      "versions": {
+        "1.5.1": 27
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 27,
+      "versions": {
+        "0.2.0": 27
+      }
+    }
+  ],
+  "000530": [],
+  "000532": [],
+  "000534": [],
+  "000535": [
+    {
+      "name": "core",
+      "total_count": 115,
+      "versions": {
+        "2.6.0-alpha": 115
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 115,
+      "versions": {
+        "1.5.1": 115
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 115,
+      "versions": {
+        "0.2.0": 115
+      }
+    }
+  ],
+  "000536": [],
+  "000537": [
+    {
+      "name": "core",
+      "total_count": 125,
+      "versions": {
+        "2.6.0-alpha": 125
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 125,
+      "versions": {
+        "1.5.0": 125
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 125,
+      "versions": {
+        "0.1.0": 125
+      }
+    }
+  ],
+  "000538": [
+    {
+      "name": "core",
+      "total_count": 11,
+      "versions": {
+        "2.6.0-alpha": 11
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 11,
+      "versions": {
+        "1.5.0": 11
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 11,
+      "versions": {
+        "0.1.0": 11
+      }
+    }
+  ],
+  "000539": [],
+  "000540": [
+    {
+      "name": "core",
+      "total_count": 495,
+      "versions": {
+        "2.5.0": 495
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 495,
+      "versions": {
+        "1.5.1": 495
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 495,
+      "versions": {
+        "0.2.0": 495
+      }
+    }
+  ],
+  "000541": [
+    {
+      "name": "core",
+      "total_count": 21,
+      "versions": {
+        "2.6.0-alpha": 21
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 21,
+      "versions": {
+        "1.8.0": 21
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 21,
+      "versions": {
+        "0.5.0": 21
+      }
+    },
+    {
+      "name": "ndx-multichannel-volume",
+      "total_count": 21,
+      "versions": {
+        "0.1.12": 21
+      }
+    }
+  ],
+  "000542": [],
+  "000543": [],
+  "000544": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.5.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.5.1": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.2.0": 1
+      }
+    }
+  ],
+  "000545": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.5.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.6.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.3.0": 1
+      }
+    }
+  ],
+  "000546": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.6.0-alpha": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.5.1": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.2.0": 1
+      }
+    }
+  ],
+  "000547": [
+    {
+      "name": "core",
+      "total_count": 70,
+      "versions": {
+        "2.6.0-alpha": 70
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 70,
+      "versions": {
+        "1.5.0": 70
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 70,
+      "versions": {
+        "0.1.0": 70
+      }
+    }
+  ],
+  "000548": [
+    {
+      "name": "core",
+      "total_count": 19,
+      "versions": {
+        "2.6.0-alpha": 19
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 19,
+      "versions": {
+        "1.6.0": 19
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 19,
+      "versions": {
+        "0.3.0": 19
+      }
+    }
+  ],
+  "000549": [
+    {
+      "name": "core",
+      "total_count": 26,
+      "versions": {
+        "2.6.0-alpha": 26
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 26,
+      "versions": {
+        "1.6.0": 26
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 26,
+      "versions": {
+        "0.3.0": 26
+      }
+    }
+  ],
+  "000550": [
+    {
+      "name": "core",
+      "total_count": 17,
+      "versions": {
+        "2.6.0-alpha": 17
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 17,
+      "versions": {
+        "1.6.0": 17
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 17,
+      "versions": {
+        "0.3.0": 17
+      }
+    }
+  ],
+  "000552": [
+    {
+      "name": "core",
+      "total_count": 117,
+      "versions": {
+        "2.6.0-alpha": 117
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 117,
+      "versions": {
+        "1.6.0": 117
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 117,
+      "versions": {
+        "0.3.0": 117
+      }
+    },
+    {
+      "name": "ndx-events",
+      "total_count": 104,
+      "versions": {
+        "0.2.0": 104
+      }
+    }
+  ],
+  "000554": [
+    {
+      "name": "core",
+      "total_count": 36,
+      "versions": {
+        "2.6.0-alpha": 36
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 36,
+      "versions": {
+        "1.5.1": 36
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 36,
+      "versions": {
+        "0.2.0": 36
+      }
+    }
+  ],
+  "000555": [],
+  "000556": [],
+  "000557": [],
+  "000558": [],
+  "000559": [
+    {
+      "name": "core",
+      "total_count": 1942,
+      "versions": {
+        "2.6.0-alpha": 1942
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1942,
+      "versions": {
+        "1.6.0": 1942
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1942,
+      "versions": {
+        "0.3.0": 1942
+      }
+    },
+    {
+      "name": "ndx-depth-moseq",
+      "total_count": 1939,
+      "versions": {
+        "0.1.0": 1939
+      }
+    },
+    {
+      "name": "ndx-events",
+      "total_count": 1939,
+      "versions": {
+        "0.2.0": 1939
+      }
+    },
+    {
+      "name": "ndx-photometry",
+      "total_count": 1939,
+      "versions": {
+        "0.1.0": 1939
+      }
+    },
+    {
+      "name": "ndx-pose",
+      "total_count": 5,
+      "versions": {
+        "0.1.1": 5
+      }
+    }
+  ],
+  "000560": [],
+  "000563": [
+    {
+      "name": "core",
+      "total_count": 94,
+      "versions": {
+        "2.6.0-alpha": 94
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 94,
+      "versions": {
+        "1.6.0": 94
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 94,
+      "versions": {
+        "0.3.0": 94
+      }
+    },
+    {
+      "name": "ndx-aibs-ecephys",
+      "total_count": 94,
+      "versions": {
+        "0.2.0": 94
+      }
+    },
+    {
+      "name": "ndx-aibs-stimulus-template",
+      "total_count": 94,
+      "versions": {
+        "0.1.0": 94
+      }
+    },
+    {
+      "name": "ndx-ellipse-eye-tracking",
+      "total_count": 14,
+      "versions": {
+        "0.1.0": 14
+      }
+    }
+  ],
+  "000564": [],
+  "000565": [
+    {
+      "name": "core",
+      "total_count": 21,
+      "versions": {
+        "2.6.0-alpha": 21
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 21,
+      "versions": {
+        "1.8.0": 21
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 21,
+      "versions": {
+        "0.5.0": 21
+      }
+    },
+    {
+      "name": "ndx-multichannel-volume",
+      "total_count": 21,
+      "versions": {
+        "0.1.12": 21
+      }
+    }
+  ],
+  "000566": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.6.0-alpha": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.6.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.3.0": 1
+      }
+    }
+  ],
+  "000567": [],
+  "000568": [
+    {
+      "name": "core",
+      "total_count": 56,
+      "versions": {
+        "2.6.0-alpha": 56
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 56,
+      "versions": {
+        "1.5.1": 56
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 56,
+      "versions": {
+        "0.2.0": 56
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 56,
+      "versions": {
+        "0.3.0": 56
+      }
+    },
+    {
+      "name": "ndx-events",
+      "total_count": 56,
+      "versions": {
+        "0.2.0": 56
+      }
+    }
+  ],
+  "000569": [
+    {
+      "name": "core",
+      "total_count": 103,
+      "versions": {
+        "2.2.4": 103
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 103,
+      "versions": {
+        "1.1.3": 103
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 103,
+      "versions": {
+        "0.1.0": 103
+      }
+    }
+  ],
+  "000570": [
+    {
+      "name": "core",
+      "total_count": 155,
+      "versions": {
+        "2.2.4": 101,
+        "2.3.0": 48,
+        "2.2.5": 6
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 155,
+      "versions": {
+        "1.1.3": 101,
+        "1.5.0": 48,
+        "1.3.0": 6
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 155,
+      "versions": {
+        "0.1.0": 155
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 48,
+      "versions": {
+        "0.1.0": 48
+      }
+    }
+  ],
+  "000571": [],
+  "000572": [
+    {
+      "name": "core",
+      "total_count": 287,
+      "versions": {
+        "2.6.0-alpha": 287
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 287,
+      "versions": {
+        "1.5.0": 287
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 287,
+      "versions": {
+        "0.1.0": 287
+      }
+    }
+  ],
+  "000574": [
+    {
+      "name": "core",
+      "total_count": 45,
+      "versions": {
+        "2.6.0-alpha": 45
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 45,
+      "versions": {
+        "1.6.0": 45
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 45,
+      "versions": {
+        "0.3.0": 45
+      }
+    }
+  ],
+  "000575": [
+    {
+      "name": "core",
+      "total_count": 18,
+      "versions": {
+        "2.6.0-alpha": 18
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 18,
+      "versions": {
+        "1.6.0": 18
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 18,
+      "versions": {
+        "0.3.0": 18
+      }
+    }
+  ],
+  "000576": [
+    {
+      "name": "core",
+      "total_count": 18,
+      "versions": {
+        "2.6.0-alpha": 18
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 18,
+      "versions": {
+        "1.6.0": 18
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 18,
+      "versions": {
+        "0.3.0": 18
+      }
+    }
+  ],
+  "000577": [],
+  "000579": [
+    {
+      "name": "core",
+      "total_count": 308,
+      "versions": {
+        "2.6.0-alpha": 308
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 308,
+      "versions": {
+        "1.6.0": 308
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 308,
+      "versions": {
+        "0.3.0": 308
+      }
+    },
+    {
+      "name": "ndx-harvey-swac",
+      "total_count": 308,
+      "versions": {
+        "0.1.0": 308
+      }
+    }
+  ],
+  "000582": [
+    {
+      "name": "core",
+      "total_count": 118,
+      "versions": {
+        "2.6.0-alpha": 118
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 118,
+      "versions": {
+        "1.8.0": 118
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 118,
+      "versions": {
+        "0.5.0": 118
+      }
+    }
+  ],
+  "000615": [
+    {
+      "name": "core",
+      "total_count": 3,
+      "versions": {
+        "2.6.0-alpha": 3
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 3,
+      "versions": {
+        "1.5.0": 3
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 3,
+      "versions": {
+        "0.1.0": 3
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 3,
+      "versions": {
+        "0.1.0": 3
+      }
+    }
+  ],
+  "000617": [
+    {
+      "name": "core",
+      "total_count": 1197,
+      "versions": {
+        "2.3.0": 599,
+        "2.7.0": 598
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1197,
+      "versions": {
+        "1.5.0": 599,
+        "1.8.0": 598
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1197,
+      "versions": {
+        "0.1.0": 599,
+        "0.5.0": 598
+      }
+    },
+    {
+      "name": "ndx-aibs-behavior-ophys",
+      "total_count": 1197,
+      "versions": {
+        "0.2.0": 1197
+      }
+    },
+    {
+      "name": "ndx-aibs-ophys-event-detection",
+      "total_count": 1197,
+      "versions": {
+        "0.1.0": 1197
+      }
+    },
+    {
+      "name": "ndx-aibs-stimulus-template",
+      "total_count": 1197,
+      "versions": {
+        "0.1.0": 1197
+      }
+    },
+    {
+      "name": "ndx-ellipse-eye-tracking",
+      "total_count": 1197,
+      "versions": {
+        "0.1.0": 1197
+      }
+    }
+  ],
+  "000618": [
+    {
+      "name": "core",
+      "total_count": 125,
+      "versions": {
+        "2.6.0-alpha": 125
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 125,
+      "versions": {
+        "1.5.1": 125
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 125,
+      "versions": {
+        "0.2.0": 125
+      }
+    }
+  ],
+  "000619": [],
+  "000623": [
+    {
+      "name": "core",
+      "total_count": 29,
+      "versions": {
+        "2.6.0-alpha": 29
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 29,
+      "versions": {
+        "1.8.0": 29
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 29,
+      "versions": {
+        "0.5.0": 29
+      }
+    }
+  ],
+  "000624": [
+    {
+      "name": "core",
+      "total_count": 27,
+      "versions": {
+        "2.6.0-alpha": 27
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 27,
+      "versions": {
+        "1.8.0": 27
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 27,
+      "versions": {
+        "0.5.0": 27
+      }
+    }
+  ],
+  "000625": [
+    {
+      "name": "core",
+      "total_count": 3,
+      "versions": {
+        "2.6.0-alpha": 3
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 3,
+      "versions": {
+        "1.8.0": 3
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 3,
+      "versions": {
+        "0.5.0": 3
+      }
+    },
+    {
+      "name": "ndx-grayscalevolume",
+      "total_count": 3,
+      "versions": {
+        "0.0.2": 3
+      }
+    },
+    {
+      "name": "ndx-icephys-meta",
+      "total_count": 3,
+      "versions": {
+        "0.1.0": 3
+      }
+    },
+    {
+      "name": "ndx-spectrum",
+      "total_count": 3,
+      "versions": {
+        "0.2.2": 3
+      }
+    }
+  ],
+  "000626": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.5.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.5.1": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.2.0": 1
+      }
+    }
+  ],
+  "000628": [
+    {
+      "name": "core",
+      "total_count": 2037,
+      "versions": {
+        "2.6.0-alpha": 2037
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2037,
+      "versions": {
+        "1.5.0": 2037
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2037,
+      "versions": {
+        "0.1.0": 2037
+      }
+    }
+  ],
+  "000629": [
+    {
+      "name": "core",
+      "total_count": 114,
+      "versions": {
+        "2.4.0": 114
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 114,
+      "versions": {
+        "1.5.1": 114
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 114,
+      "versions": {
+        "0.2.0": 114
+      }
+    },
+    {
+      "name": "ndx-franklab-novela",
+      "total_count": 114,
+      "versions": {
+        "0.1.0": 114
+      }
+    }
+  ],
+  "000630": [
+    {
+      "name": "core",
+      "total_count": 210,
+      "versions": {
+        "2.3.0": 132,
+        "2.2.5": 64,
+        "2.2.4": 14
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 210,
+      "versions": {
+        "1.5.0": 132,
+        "1.3.0": 64,
+        "1.1.3": 14
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 132,
+      "versions": {
+        "0.1.0": 132
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 210,
+      "versions": {
+        "0.1.0": 210
+      }
+    }
+  ],
+  "000631": [
+    {
+      "name": "core",
+      "total_count": 15,
+      "versions": {
+        "2.6.0-alpha": 15
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 15,
+      "versions": {
+        "1.8.0": 15
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 15,
+      "versions": {
+        "0.5.0": 15
+      }
+    }
+  ],
+  "000632": [
+    {
+      "name": "core",
+      "total_count": 24,
+      "versions": {
+        "2.6.0-alpha": 24
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 24,
+      "versions": {
+        "1.8.0": 24
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 24,
+      "versions": {
+        "0.5.0": 24
+      }
+    }
+  ],
+  "000633": [
+    {
+      "name": "core",
+      "total_count": 2,
+      "versions": {
+        "2.6.0-alpha": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2,
+      "versions": {
+        "1.8.0": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.5.0": 2
+      }
+    }
+  ],
+  "000634": [
+    {
+      "name": "core",
+      "total_count": 10,
+      "versions": {
+        "2.6.0-alpha": 10
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 10,
+      "versions": {
+        "1.8.0": 10
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 10,
+      "versions": {
+        "0.5.0": 10
+      }
+    }
+  ],
+  "000635": [
+    {
+      "name": "core",
+      "total_count": 81,
+      "versions": {
+        "2.2.4": 81
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 81,
+      "versions": {
+        "1.1.3": 81
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 81,
+      "versions": {
+        "0.1.0": 81
+      }
+    }
+  ],
+  "000636": [
+    {
+      "name": "core",
+      "total_count": 706,
+      "versions": {
+        "2.3.0": 471,
+        "2.2.5": 154,
+        "2.2.4": 81
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 706,
+      "versions": {
+        "1.5.0": 471,
+        "1.3.0": 154,
+        "1.1.3": 81
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 471,
+      "versions": {
+        "0.1.0": 471
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 706,
+      "versions": {
+        "0.1.0": 706
+      }
+    }
+  ],
+  "000637": [
+    {
+      "name": "core",
+      "total_count": 292,
+      "versions": {
+        "2.5.0": 292
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 292,
+      "versions": {
+        "1.5.0": 292
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 292,
+      "versions": {
+        "0.1.0": 292
+      }
+    }
+  ],
+  "000638": [
+    {
+      "name": "core",
+      "total_count": 33,
+      "versions": {
+        "2.6.0-alpha": 33
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 33,
+      "versions": {
+        "1.8.0": 33
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 33,
+      "versions": {
+        "0.5.0": 33
+      }
+    }
+  ],
+  "000640": [
+    {
+      "name": "core",
+      "total_count": 339,
+      "versions": {
+        "2.6.0-alpha": 339
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 339,
+      "versions": {
+        "1.8.0": 339
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 339,
+      "versions": {
+        "0.5.0": 339
+      }
+    },
+    {
+      "name": "ndx-grayscalevolume",
+      "total_count": 339,
+      "versions": {
+        "0.0.2": 339
+      }
+    },
+    {
+      "name": "ndx-icephys-meta",
+      "total_count": 339,
+      "versions": {
+        "0.1.0": 339
+      }
+    },
+    {
+      "name": "ndx-spectrum",
+      "total_count": 339,
+      "versions": {
+        "0.2.2": 339
+      }
+    }
+  ],
+  "000673": [
+    {
+      "name": "core",
+      "total_count": 44,
+      "versions": {
+        "2.6.0-alpha": 44
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 44,
+      "versions": {
+        "1.5.0": 44
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 44,
+      "versions": {
+        "0.1.0": 44
+      }
+    }
+  ],
+  "000674": [],
+  "000676": [],
+  "000677": [],
+  "000678": [
+    {
+      "name": "core",
+      "total_count": 391,
+      "versions": {
+        "2.2.5": 391
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 391,
+      "versions": {
+        "1.2.0": 391
+      }
+    },
+    {
+      "name": "uobrainflex_metadata",
+      "total_count": 391,
+      "versions": {
+        "1.0": 391
+      }
+    }
+  ],
+  "000679": [],
+  "000680": [],
+  "000682": [],
+  "000683": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.6.0-alpha": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.7.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.4.0": 1
+      }
+    }
+  ],
+  "000686": [
+    {
+      "name": "core",
+      "total_count": 18,
+      "versions": {
+        "2.6.0-alpha": 18
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 18,
+      "versions": {
+        "1.8.0": 18
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 18,
+      "versions": {
+        "0.5.0": 18
+      }
+    }
+  ],
+  "000687": [
+    {
+      "name": "core",
+      "total_count": 10,
+      "versions": {
+        "2.6.0-alpha": 10
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 10,
+      "versions": {
+        "1.8.0": 10
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 10,
+      "versions": {
+        "0.5.0": 10
+      }
+    }
+  ],
+  "000688": [
+    {
+      "name": "core",
+      "total_count": 111,
+      "versions": {
+        "2.5.0": 111
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 111,
+      "versions": {
+        "1.8.0": 111
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 111,
+      "versions": {
+        "0.5.0": 111
+      }
+    }
+  ],
+  "000689": [
+    {
+      "name": "core",
+      "total_count": 53,
+      "versions": {
+        "2.6.0-alpha": 48,
+        "2.7.0": 5
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 53,
+      "versions": {
+        "1.8.0": 33,
+        "1.6.0": 20
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 53,
+      "versions": {
+        "0.5.0": 33,
+        "0.3.0": 20
+      }
+    },
+    {
+      "name": "ndx-pose",
+      "total_count": 33,
+      "versions": {
+        "0.1.1": 33
+      }
+    },
+    {
+      "name": "ndx-events",
+      "total_count": 20,
+      "versions": {
+        "0.2.0": 20
+      }
+    },
+    {
+      "name": "ndx-photometry",
+      "total_count": 20,
+      "versions": {
+        "0.1.0": 20
+      }
+    }
+  ],
+  "000691": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.5.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.5.1": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.2.0": 1
+      }
+    },
+    {
+      "name": "ndx-extract",
+      "total_count": 1,
+      "versions": {
+        "0.2.0": 1
+      }
+    }
+  ],
+  "000692": [
+    {
+      "name": "core",
+      "total_count": 9,
+      "versions": {
+        "2.6.0-alpha": 9
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 9,
+      "versions": {
+        "1.8.0": 9
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 9,
+      "versions": {
+        "0.5.0": 9
+      }
+    },
+    {
+      "name": "ndx-multichannel-volume",
+      "total_count": 9,
+      "versions": {
+        "0.1.12": 9
+      }
+    }
+  ],
+  "000693": [],
+  "000694": [],
+  "000695": [],
+  "000696": [
+    {
+      "name": "core",
+      "total_count": 6,
+      "versions": {
+        "2.6.0-alpha": 6
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 6,
+      "versions": {
+        "1.8.0": 6
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 6,
+      "versions": {
+        "0.5.0": 6
+      }
+    }
+  ],
+  "000697": [
+    {
+      "name": "core",
+      "total_count": 15,
+      "versions": {
+        "2.4.0": 15
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 15,
+      "versions": {
+        "1.5.1": 15
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 15,
+      "versions": {
+        "0.2.0": 15
+      }
+    }
+  ],
+  "000698": [
+    {
+      "name": "core",
+      "total_count": 16,
+      "versions": {
+        "2.4.0": 16
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 16,
+      "versions": {
+        "1.5.1": 16
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 16,
+      "versions": {
+        "0.2.0": 16
+      }
+    }
+  ],
+  "000699": [
+    {
+      "name": "core",
+      "total_count": 17,
+      "versions": {
+        "2.4.0": 17
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 17,
+      "versions": {
+        "1.5.1": 17
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 17,
+      "versions": {
+        "0.2.0": 17
+      }
+    }
+  ],
+  "000700": [
+    {
+      "name": "core",
+      "total_count": 15,
+      "versions": {
+        "2.4.0": 15
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 15,
+      "versions": {
+        "1.5.1": 15
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 15,
+      "versions": {
+        "0.2.0": 15
+      }
+    }
+  ],
+  "000701": [
+    {
+      "name": "core",
+      "total_count": 15,
+      "versions": {
+        "2.4.0": 15
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 15,
+      "versions": {
+        "1.5.1": 15
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 15,
+      "versions": {
+        "0.2.0": 15
+      }
+    }
+  ],
+  "000702": [
+    {
+      "name": "core",
+      "total_count": 16,
+      "versions": {
+        "2.4.0": 16
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 16,
+      "versions": {
+        "1.5.1": 16
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 16,
+      "versions": {
+        "0.2.0": 16
+      }
+    }
+  ],
+  "000703": [
+    {
+      "name": "core",
+      "total_count": 22,
+      "versions": {
+        "2.4.0": 22
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 22,
+      "versions": {
+        "1.5.1": 22
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 22,
+      "versions": {
+        "0.2.0": 22
+      }
+    }
+  ],
+  "000704": [
+    {
+      "name": "core",
+      "total_count": 20,
+      "versions": {
+        "2.4.0": 20
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 20,
+      "versions": {
+        "1.5.1": 20
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 20,
+      "versions": {
+        "0.2.0": 20
+      }
+    }
+  ],
+  "000705": [
+    {
+      "name": "core",
+      "total_count": 20,
+      "versions": {
+        "2.4.0": 20
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 20,
+      "versions": {
+        "1.5.1": 20
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 20,
+      "versions": {
+        "0.2.0": 20
+      }
+    }
+  ],
+  "000706": [
+    {
+      "name": "core",
+      "total_count": 16,
+      "versions": {
+        "2.4.0": 16
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 16,
+      "versions": {
+        "1.5.1": 16
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 16,
+      "versions": {
+        "0.2.0": 16
+      }
+    }
+  ],
+  "000707": [
+    {
+      "name": "core",
+      "total_count": 36,
+      "versions": {
+        "2.4.0": 36
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 36,
+      "versions": {
+        "1.5.1": 36
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 36,
+      "versions": {
+        "0.2.0": 36
+      }
+    }
+  ],
+  "000708": [
+    {
+      "name": "core",
+      "total_count": 17,
+      "versions": {
+        "2.4.0": 17
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 17,
+      "versions": {
+        "1.5.1": 17
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 17,
+      "versions": {
+        "0.2.0": 17
+      }
+    }
+  ],
+  "000710": [
+    {
+      "name": "core",
+      "total_count": 6,
+      "versions": {
+        "2.6.0-alpha": 6
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 6,
+      "versions": {
+        "1.8.0": 6
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 6,
+      "versions": {
+        "0.5.0": 6
+      }
+    }
+  ],
+  "000711": [
+    {
+      "name": "core",
+      "total_count": 6015,
+      "versions": {
+        "2.6.0-alpha": 6001,
+        "2.5.0": 14
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 6015,
+      "versions": {
+        "1.8.0": 6001,
+        "1.5.1": 14
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 6015,
+      "versions": {
+        "0.5.0": 6001,
+        "0.2.0": 14
+      }
+    },
+    {
+      "name": "ndx-aibs-behavior-ophys",
+      "total_count": 6015,
+      "versions": {
+        "0.2.0": 6015
+      }
+    },
+    {
+      "name": "ndx-aibs-ecephys",
+      "total_count": 6009,
+      "versions": {
+        "0.2.0": 6009
+      }
+    },
+    {
+      "name": "ndx-aibs-ophys-event-detection",
+      "total_count": 6015,
+      "versions": {
+        "0.1.0": 6015
+      }
+    },
+    {
+      "name": "ndx-aibs-stimulus-template",
+      "total_count": 6015,
+      "versions": {
+        "0.1.0": 6015
+      }
+    },
+    {
+      "name": "ndx-ellipse-eye-tracking",
+      "total_count": 6015,
+      "versions": {
+        "0.1.0": 6015
+      }
+    }
+  ],
+  "000712": [],
+  "000713": [
+    {
+      "name": "core",
+      "total_count": 4293,
+      "versions": {
+        "2.6.0-alpha": 4293
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 4293,
+      "versions": {
+        "1.8.0": 4293
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 4293,
+      "versions": {
+        "0.5.0": 4293
+      }
+    },
+    {
+      "name": "ndx-aibs-behavior-ophys",
+      "total_count": 4293,
+      "versions": {
+        "0.2.0": 4293
+      }
+    },
+    {
+      "name": "ndx-aibs-ecephys",
+      "total_count": 4293,
+      "versions": {
+        "0.2.0": 4293
+      }
+    },
+    {
+      "name": "ndx-aibs-ophys-event-detection",
+      "total_count": 3271,
+      "versions": {
+        "0.1.0": 3271
+      }
+    },
+    {
+      "name": "ndx-aibs-stimulus-template",
+      "total_count": 4293,
+      "versions": {
+        "0.1.0": 4293
+      }
+    },
+    {
+      "name": "ndx-ellipse-eye-tracking",
+      "total_count": 4293,
+      "versions": {
+        "0.1.0": 4293
+      }
+    }
+  ],
+  "000714": [
+    {
+      "name": "core",
+      "total_count": 9,
+      "versions": {
+        "2.6.0-alpha": 9
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 9,
+      "versions": {
+        "1.8.0": 9
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 9,
+      "versions": {
+        "0.5.0": 9
+      }
+    },
+    {
+      "name": "ndx-multichannel-volume",
+      "total_count": 9,
+      "versions": {
+        "0.1.12": 9
+      }
+    }
+  ],
+  "000715": [
+    {
+      "name": "core",
+      "total_count": 10,
+      "versions": {
+        "2.6.0-alpha": 10
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 10,
+      "versions": {
+        "1.8.0": 10
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 10,
+      "versions": {
+        "0.5.0": 10
+      }
+    },
+    {
+      "name": "ndx-multichannel-volume",
+      "total_count": 10,
+      "versions": {
+        "0.1.12": 10
+      }
+    }
+  ],
+  "000717": [
+    {
+      "name": "core",
+      "total_count": 5,
+      "versions": {
+        "2.6.0-alpha": 2,
+        "2.2.4": 1,
+        "2.2.5": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 5,
+      "versions": {
+        "1.8.0": 2,
+        "1.1.3": 1,
+        "1.3.0": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.5.0": 2
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 1,
+      "versions": {
+        "0.1.0": 1
+      }
+    },
+    {
+      "name": "ndx-events",
+      "total_count": 1,
+      "versions": {
+        "0.2.0": 1
+      }
+    }
+  ],
+  "000718": [
+    {
+      "name": "core",
+      "total_count": 12,
+      "versions": {
+        "2.7.0": 12
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 12,
+      "versions": {
+        "1.8.0": 12
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 12,
+      "versions": {
+        "0.5.0": 12
+      }
+    },
+    {
+      "name": "ndx-miniscope",
+      "total_count": 11,
+      "versions": {
+        "0.5.1": 11
+      }
+    }
+  ],
+  "000719": [],
+  "000722": [],
+  "000723": [
+    {
+      "name": "core",
+      "total_count": 30,
+      "versions": {
+        "2.7.0": 30
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 30,
+      "versions": {
+        "1.8.0": 30
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 30,
+      "versions": {
+        "0.5.0": 30
+      }
+    }
+  ],
+  "000724": [],
+  "000726": [],
+  "000727": [
+    {
+      "name": "core",
+      "total_count": 9,
+      "versions": {
+        "2.6.0-alpha": 9
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 9,
+      "versions": {
+        "1.8.0": 9
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 9,
+      "versions": {
+        "0.5.0": 9
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 9,
+      "versions": {
+        "0.3.0": 9
+      }
+    }
+  ],
+  "000728": [
+    {
+      "name": "core",
+      "total_count": 3036,
+      "versions": {
+        "2.6.0-alpha": 9,
+        "2.7.0": 3027
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 3036,
+      "versions": {
+        "1.8.0": 3036
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 3036,
+      "versions": {
+        "0.5.0": 3036
+      }
+    }
+  ],
+  "000730": [],
+  "000732": [
+    {
+      "name": "core",
+      "total_count": 36,
+      "versions": {
+        "2.6.0-alpha": 36
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 36,
+      "versions": {
+        "1.8.0": 36
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 36,
+      "versions": {
+        "0.5.0": 36
+      }
+    }
+  ],
+  "000733": [],
+  "000766": [
+    {
+      "name": "core",
+      "total_count": 366,
+      "versions": {
+        "2.6.0-alpha": 359,
+        "2.7.0": 7
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 366,
+      "versions": {
+        "1.8.0": 366
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 366,
+      "versions": {
+        "0.5.0": 366
+      }
+    }
+  ],
+  "000768": [
+    {
+      "name": "core",
+      "total_count": 51,
+      "versions": {
+        "2.2.4": 51
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 51,
+      "versions": {
+        "1.1.3": 51
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 51,
+      "versions": {
+        "0.1.0": 51
+      }
+    }
+  ],
+  "000769": [
+    {
+      "name": "core",
+      "total_count": 177,
+      "versions": {
+        "2.2.4": 177
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 177,
+      "versions": {
+        "1.1.3": 177
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 177,
+      "versions": {
+        "0.1.0": 177
+      }
+    }
+  ],
+  "000773": [
+    {
+      "name": "core",
+      "total_count": 15246,
+      "versions": {
+        "2.6.0-alpha": 15246
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 15246,
+      "versions": {
+        "1.5.1": 15246
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 15246,
+      "versions": {
+        "0.2.0": 15246
+      }
+    }
+  ],
+  "000774": [
+    {
+      "name": "core",
+      "total_count": 10,
+      "versions": {
+        "2.5.0": 10
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 10,
+      "versions": {
+        "1.5.1": 10
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 10,
+      "versions": {
+        "0.2.0": 10
+      }
+    }
+  ],
+  "000776": [
+    {
+      "name": "core",
+      "total_count": 38,
+      "versions": {
+        "2.7.0": 38
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 38,
+      "versions": {
+        "1.8.0": 38
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 38,
+      "versions": {
+        "0.5.0": 38
+      }
+    },
+    {
+      "name": "ndx-multichannel-volume",
+      "total_count": 38,
+      "versions": {
+        "0.1.12": 38
+      }
+    }
+  ],
+  "000784": [],
+  "000871": [
+    {
+      "name": "core",
+      "total_count": 284,
+      "versions": {
+        "2.3.0": 190,
+        "2.6.0-alpha": 94
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 284,
+      "versions": {
+        "1.5.0": 190,
+        "1.6.0": 94
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 284,
+      "versions": {
+        "0.1.0": 190,
+        "0.3.0": 94
+      }
+    },
+    {
+      "name": "ndx-aibs-behavior-ophys",
+      "total_count": 284,
+      "versions": {
+        "0.2.0": 284
+      }
+    },
+    {
+      "name": "ndx-aibs-ophys-event-detection",
+      "total_count": 284,
+      "versions": {
+        "0.1.0": 284
+      }
+    },
+    {
+      "name": "ndx-aibs-stimulus-template",
+      "total_count": 284,
+      "versions": {
+        "0.1.0": 284
+      }
+    },
+    {
+      "name": "ndx-ellipse-eye-tracking",
+      "total_count": 284,
+      "versions": {
+        "0.1.0": 284
+      }
+    }
+  ],
+  "000872": [],
+  "000875": [
+    {
+      "name": "core",
+      "total_count": 9,
+      "versions": {
+        "2.6.0-alpha": 9
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 9,
+      "versions": {
+        "1.8.0": 9
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 9,
+      "versions": {
+        "0.5.0": 9
+      }
+    }
+  ],
+  "000876": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.6.0-alpha": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    }
+  ],
+  "000877": [],
+  "000878": [],
+  "000880": [],
+  "000881": [],
+  "000886": [],
+  "000887": [],
+  "000888": [
+    {
+      "name": "core",
+      "total_count": 52,
+      "versions": {
+        "2.4.0": 52
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 52,
+      "versions": {
+        "1.5.1": 52
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 52,
+      "versions": {
+        "0.2.0": 52
+      }
+    }
+  ],
+  "000889": [
+    {
+      "name": "core",
+      "total_count": 52,
+      "versions": {
+        "2.4.0": 52
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 52,
+      "versions": {
+        "1.5.1": 52
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 52,
+      "versions": {
+        "0.2.0": 52
+      }
+    }
+  ],
+  "000891": [
+    {
+      "name": "core",
+      "total_count": 87,
+      "versions": {
+        "2.6.0-alpha": 87
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 87,
+      "versions": {
+        "1.5.0": 87
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 87,
+      "versions": {
+        "0.1.0": 87
+      }
+    }
+  ],
+  "000893": [],
+  "000897": [
+    {
+      "name": "core",
+      "total_count": 30,
+      "versions": {
+        "2.6.0-alpha": 30
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 30,
+      "versions": {
+        "1.8.0": 30
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 30,
+      "versions": {
+        "0.5.0": 30
+      }
+    },
+    {
+      "name": "ndx-events",
+      "total_count": 30,
+      "versions": {
+        "0.2.0": 30
+      }
+    }
+  ],
+  "000930": [],
+  "000931": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.6.0-alpha": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 1,
+      "versions": {
+        "0.3.0": 1
+      }
+    }
+  ],
+  "000932": [
+    {
+      "name": "core",
+      "total_count": 238,
+      "versions": {
+        "2.6.0-alpha": 238
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 238,
+      "versions": {
+        "1.8.0": 75,
+        "1.5.1": 163
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 238,
+      "versions": {
+        "0.5.0": 75,
+        "0.2.0": 163
+      }
+    }
+  ],
+  "000933": [
+    {
+      "name": "core",
+      "total_count": 28,
+      "versions": {
+        "2.2.4": 28
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 28,
+      "versions": {
+        "1.1.3": 28
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 28,
+      "versions": {
+        "0.1.0": 28
+      }
+    }
+  ],
+  "000934": [
+    {
+      "name": "core",
+      "total_count": 13,
+      "versions": {
+        "2.2.4": 13
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 13,
+      "versions": {
+        "1.1.3": 13
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 13,
+      "versions": {
+        "0.1.0": 13
+      }
+    }
+  ],
+  "000935": [
+    {
+      "name": "core",
+      "total_count": 6,
+      "versions": {
+        "2.6.0-alpha": 6
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 6,
+      "versions": {
+        "1.5.0": 6
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 6,
+      "versions": {
+        "0.1.0": 6
+      }
+    }
+  ],
+  "000937": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.5.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.6.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.3.0": 1
+      }
+    },
+    {
+      "name": "ndx-franklab-novela",
+      "total_count": 1,
+      "versions": {
+        "0.1.0": 1
+      }
+    }
+  ],
+  "000938": [
+    {
+      "name": "core",
+      "total_count": 5,
+      "versions": {
+        "2.6.0-alpha": 5
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 5,
+      "versions": {
+        "1.8.0": 5
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 5,
+      "versions": {
+        "0.5.0": 5
+      }
+    }
+  ],
+  "000939": [
+    {
+      "name": "core",
+      "total_count": 31,
+      "versions": {
+        "2.6.0-alpha": 31
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 31,
+      "versions": {
+        "1.8.0": 31
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 31,
+      "versions": {
+        "0.5.0": 31
+      }
+    }
+  ],
+  "000940": [
+    {
+      "name": "core",
+      "total_count": 21,
+      "versions": {
+        "2.6.0-alpha": 21
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 21,
+      "versions": {
+        "1.5.0": 21
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 21,
+      "versions": {
+        "0.1.0": 21
+      }
+    }
+  ],
+  "000941": [
+    {
+      "name": "core",
+      "total_count": 11,
+      "versions": {
+        "2.6.0-alpha": 11
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 11,
+      "versions": {
+        "1.6.0": 11
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 11,
+      "versions": {
+        "0.3.0": 11
+      }
+    }
+  ],
+  "000942": [],
+  "000943": [
+    {
+      "name": "core",
+      "total_count": 734,
+      "versions": {
+        "2.6.0-alpha": 734
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 734,
+      "versions": {
+        "1.8.0": 734
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 734,
+      "versions": {
+        "0.5.0": 734
+      }
+    }
+  ],
+  "000945": [
+    {
+      "name": "core",
+      "total_count": 75,
+      "versions": {
+        "2.5.0": 60,
+        "2.6.0-alpha": 15
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 75,
+      "versions": {
+        "1.5.0": 75
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 75,
+      "versions": {
+        "0.1.0": 75
+      }
+    }
+  ],
+  "000946": [
+    {
+      "name": "core",
+      "total_count": 1199,
+      "versions": {
+        "2.6.0-alpha": 1199
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1199,
+      "versions": {
+        "1.5.0": 1199
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1199,
+      "versions": {
+        "0.1.0": 1199
+      }
+    }
+  ],
+  "000947": [
+    {
+      "name": "core",
+      "total_count": 378,
+      "versions": {
+        "2.6.0-alpha": 378
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 378,
+      "versions": {
+        "1.8.0": 378
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 378,
+      "versions": {
+        "0.5.0": 378
+      }
+    },
+    {
+      "name": "ndx-turner-metadata",
+      "total_count": 378,
+      "versions": {
+        "0.1.0": 378
+      }
+    }
+  ],
+  "000949": [],
+  "000950": [
+    {
+      "name": "core",
+      "total_count": 47,
+      "versions": {
+        "2.6.0-alpha": 47
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 47,
+      "versions": {
+        "1.8.0": 47
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 47,
+      "versions": {
+        "0.5.0": 47
+      }
+    }
+  ],
+  "000951": [
+    {
+      "name": "core",
+      "total_count": 954,
+      "versions": {
+        "2.6.0-alpha": 954
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 954,
+      "versions": {
+        "1.8.0": 954
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 954,
+      "versions": {
+        "0.5.0": 954
+      }
+    },
+    {
+      "name": "ndx-events",
+      "total_count": 36,
+      "versions": {
+        "0.2.0": 36
+      }
+    },
+    {
+      "name": "ndx-pose",
+      "total_count": 495,
+      "versions": {
+        "0.1.1": 495
+      }
+    },
+    {
+      "name": "ndx-sound",
+      "total_count": 36,
+      "versions": {
+        "0.1.0": 36
+      }
+    }
+  ],
+  "000952": [
+    {
+      "name": "core",
+      "total_count": 216,
+      "versions": {
+        "2.7.0": 216
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 216,
+      "versions": {
+        "1.8.0": 216
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 216,
+      "versions": {
+        "0.5.0": 216
+      }
+    }
+  ],
+  "000953": [
+    {
+      "name": "core",
+      "total_count": 20,
+      "versions": {
+        "2.6.0-alpha": 20
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 20,
+      "versions": {
+        "1.8.0": 20
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 20,
+      "versions": {
+        "0.5.0": 20
+      }
+    }
+  ],
+  "000954": [
+    {
+      "name": "core",
+      "total_count": 40,
+      "versions": {
+        "2.6.0-alpha": 40
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 40,
+      "versions": {
+        "1.8.0": 40
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 40,
+      "versions": {
+        "0.5.0": 40
+      }
+    }
+  ],
+  "000955": [
+    {
+      "name": "core",
+      "total_count": 11,
+      "versions": {
+        "2.5.0": 11
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 11,
+      "versions": {
+        "1.5.0": 11
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 11,
+      "versions": {
+        "0.1.0": 11
+      }
+    }
+  ],
+  "000956": [],
+  "000957": [
+    {
+      "name": "core",
+      "total_count": 10,
+      "versions": {
+        "2.6.0-alpha": 10
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 10,
+      "versions": {
+        "1.8.0": 10
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 10,
+      "versions": {
+        "0.5.0": 10
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 10,
+      "versions": {
+        "0.3.0": 10
+      }
+    }
+  ],
+  "000958": [],
+  "000959": [],
+  "000960": [],
+  "000961": [],
+  "000965": [],
+  "000968": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.6.0-alpha": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 1,
+      "versions": {
+        "0.3.0": 1
+      }
+    }
+  ],
+  "000969": [],
+  "000970": [],
+  "000971": [
+    {
+      "name": "core",
+      "total_count": 4139,
+      "versions": {
+        "2.7.0": 4139
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 4139,
+      "versions": {
+        "1.8.0": 4139
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 4139,
+      "versions": {
+        "0.5.0": 4139
+      }
+    },
+    {
+      "name": "ndx-events",
+      "total_count": 4139,
+      "versions": {
+        "0.2.0": 4139
+      }
+    },
+    {
+      "name": "ndx-fiber-photometry",
+      "total_count": 4139,
+      "versions": {
+        "0.1.0": 4139
+      }
+    }
+  ],
+  "000978": [
+    {
+      "name": "core",
+      "total_count": 9,
+      "versions": {
+        "2.6.0-alpha": 9
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 9,
+      "versions": {
+        "1.5.0": 9
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 9,
+      "versions": {
+        "0.1.0": 9
+      }
+    }
+  ],
+  "000979": [
+    {
+      "name": "core",
+      "total_count": 3,
+      "versions": {
+        "2.6.0-alpha": 3
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 3,
+      "versions": {
+        "1.5.1": 3
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 3,
+      "versions": {
+        "0.2.0": 3
+      }
+    }
+  ],
+  "000980": [],
+  "000982": [],
+  "000983": [
+    {
+      "name": "core",
+      "total_count": 38,
+      "versions": {
+        "2.7.0": 38
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 38,
+      "versions": {
+        "1.8.0": 38
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 38,
+      "versions": {
+        "0.5.0": 38
+      }
+    }
+  ],
+  "000984": [
+    {
+      "name": "core",
+      "total_count": 3,
+      "versions": {
+        "2.6.0-alpha": 3
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 3,
+      "versions": {
+        "1.5.1": 3
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 3,
+      "versions": {
+        "0.2.0": 3
+      }
+    }
+  ],
+  "000985": [],
+  "000986": [],
+  "000987": [
+    {
+      "name": "core",
+      "total_count": 14,
+      "versions": {
+        "2.6.0-alpha": 14
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 14,
+      "versions": {
+        "1.8.0": 14
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 14,
+      "versions": {
+        "0.5.0": 14
+      }
+    }
+  ],
+  "000988": [
+    {
+      "name": "core",
+      "total_count": 185,
+      "versions": {
+        "2.6.0-alpha": 185
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 185,
+      "versions": {
+        "1.5.0": 185
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 185,
+      "versions": {
+        "0.1.0": 185
+      }
+    }
+  ],
+  "000989": [
+    {
+      "name": "core",
+      "total_count": 257,
+      "versions": {
+        "2.6.0-alpha": 257
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 257,
+      "versions": {
+        "1.8.0": 257
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 257,
+      "versions": {
+        "0.5.0": 257
+      }
+    }
+  ],
+  "001022": [
+    {
+      "name": "core",
+      "total_count": 3,
+      "versions": {
+        "2.6.0-alpha": 3
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 3,
+      "versions": {
+        "1.8.0": 3
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 3,
+      "versions": {
+        "0.5.0": 3
+      }
+    }
+  ],
+  "001023": [
+    {
+      "name": "core",
+      "total_count": 10,
+      "versions": {
+        "2.6.0-alpha": 10
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 10,
+      "versions": {
+        "1.8.0": 10
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 10,
+      "versions": {
+        "0.5.0": 10
+      }
+    }
+  ],
+  "001024": [],
+  "001025": [
+    {
+      "name": "core",
+      "total_count": 21,
+      "versions": {
+        "2.6.0-alpha": 21
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 21,
+      "versions": {
+        "1.8.0": 21
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 21,
+      "versions": {
+        "0.5.0": 21
+      }
+    }
+  ],
+  "001027": [
+    {
+      "name": "core",
+      "total_count": 10,
+      "versions": {
+        "2.6.0-alpha": 10
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 10,
+      "versions": {
+        "1.8.0": 10
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 10,
+      "versions": {
+        "0.5.0": 10
+      }
+    }
+  ],
+  "001028": [
+    {
+      "name": "core",
+      "total_count": 12,
+      "versions": {
+        "2.6.0-alpha": 12
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 12,
+      "versions": {
+        "1.8.0": 12
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 12,
+      "versions": {
+        "0.5.0": 12
+      }
+    }
+  ],
+  "001029": [
+    {
+      "name": "core",
+      "total_count": 51,
+      "versions": {
+        "2.6.0-alpha": 51
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 51,
+      "versions": {
+        "1.5.0": 51
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 51,
+      "versions": {
+        "0.1.0": 51
+      }
+    }
+  ],
+  "001030": [
+    {
+      "name": "core",
+      "total_count": 17,
+      "versions": {
+        "2.6.0-alpha": 17
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 17,
+      "versions": {
+        "1.8.0": 17
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 17,
+      "versions": {
+        "0.5.0": 17
+      }
+    }
+  ],
+  "001031": [
+    {
+      "name": "core",
+      "total_count": 10,
+      "versions": {
+        "2.6.0-alpha": 10
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 10,
+      "versions": {
+        "1.8.0": 10
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 10,
+      "versions": {
+        "0.5.0": 10
+      }
+    }
+  ],
+  "001032": [
+    {
+      "name": "core",
+      "total_count": 178,
+      "versions": {
+        "2.6.0-alpha": 178
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 178,
+      "versions": {
+        "1.8.0": 178
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 178,
+      "versions": {
+        "0.5.0": 178
+      }
+    }
+  ],
+  "001033": [
+    {
+      "name": "core",
+      "total_count": 193,
+      "versions": {
+        "2.6.0-alpha": 193
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 193,
+      "versions": {
+        "1.8.0": 193
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 193,
+      "versions": {
+        "0.5.0": 193
+      }
+    }
+  ],
+  "001034": [
+    {
+      "name": "core",
+      "total_count": 178,
+      "versions": {
+        "2.6.0-alpha": 178
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 178,
+      "versions": {
+        "1.8.0": 178
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 178,
+      "versions": {
+        "0.5.0": 178
+      }
+    }
+  ],
+  "001035": [
+    {
+      "name": "core",
+      "total_count": 254,
+      "versions": {
+        "2.6.0-alpha": 254
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 254,
+      "versions": {
+        "1.8.0": 254
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 254,
+      "versions": {
+        "0.5.0": 254
+      }
+    }
+  ],
+  "001036": [],
+  "001037": [
+    {
+      "name": "core",
+      "total_count": 2,
+      "versions": {
+        "2.7.0": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2,
+      "versions": {
+        "1.8.0": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.5.0": 2
+      }
+    }
+  ],
+  "001038": [
+    {
+      "name": "core",
+      "total_count": 1238,
+      "versions": {
+        "2.7.0": 1238
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1238,
+      "versions": {
+        "1.8.0": 1238
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1238,
+      "versions": {
+        "0.5.0": 1238
+      }
+    },
+    {
+      "name": "ndx-events",
+      "total_count": 1238,
+      "versions": {
+        "0.3.0": 1238
+      }
+    },
+    {
+      "name": "ndx-fiber-photometry",
+      "total_count": 1238,
+      "versions": {
+        "0.1.0": 1238
+      }
+    }
+  ],
+  "001039": [],
+  "001044": [],
+  "001045": [],
+  "001046": [
+    {
+      "name": "core",
+      "total_count": 9,
+      "versions": {
+        "2.7.0": 9
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 9,
+      "versions": {
+        "1.8.0": 9
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 9,
+      "versions": {
+        "0.5.0": 9
+      }
+    }
+  ],
+  "001047": [
+    {
+      "name": "core",
+      "total_count": 88,
+      "versions": {
+        "2.6.0-alpha": 88
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 88,
+      "versions": {
+        "1.8.0": 88
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 88,
+      "versions": {
+        "0.5.0": 88
+      }
+    }
+  ],
+  "001048": [
+    {
+      "name": "core",
+      "total_count": 7,
+      "versions": {
+        "2.6.0-alpha": 7
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 7,
+      "versions": {
+        "1.8.0": 7
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 7,
+      "versions": {
+        "0.5.0": 7
+      }
+    }
+  ],
+  "001049": [],
+  "001051": [
+    {
+      "name": "core",
+      "total_count": 666,
+      "versions": {
+        "2.5.0": 666
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 666,
+      "versions": {
+        "1.5.1": 666
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 666,
+      "versions": {
+        "0.2.0": 666
+      }
+    },
+    {
+      "name": "ndx-aibs-behavior-ophys",
+      "total_count": 666,
+      "versions": {
+        "0.2.0": 666
+      }
+    },
+    {
+      "name": "ndx-aibs-ecephys",
+      "total_count": 666,
+      "versions": {
+        "0.2.0": 666
+      }
+    },
+    {
+      "name": "ndx-aibs-stimulus-template",
+      "total_count": 666,
+      "versions": {
+        "0.1.0": 666
+      }
+    },
+    {
+      "name": "ndx-ellipse-eye-tracking",
+      "total_count": 666,
+      "versions": {
+        "0.1.0": 666
+      }
+    }
+  ],
+  "001052": [],
+  "001054": [
+    {
+      "name": "core",
+      "total_count": 117,
+      "versions": {
+        "2.7.0": 117
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 117,
+      "versions": {
+        "1.8.0": 117
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 117,
+      "versions": {
+        "0.5.0": 117
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 117,
+      "versions": {
+        "0.3.0": 117
+      }
+    }
+  ],
+  "001055": [
+    {
+      "name": "core",
+      "total_count": 5,
+      "versions": {
+        "2.6.0-alpha": 5
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 5,
+      "versions": {
+        "1.8.0": 5
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 5,
+      "versions": {
+        "0.5.0": 5
+      }
+    }
+  ],
+  "001056": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.6.0-alpha": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    }
+  ],
+  "001057": [
+    {
+      "name": "core",
+      "total_count": 10,
+      "versions": {
+        "2.6.0-alpha": 10
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 10,
+      "versions": {
+        "1.8.0": 10
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 10,
+      "versions": {
+        "0.5.0": 10
+      }
+    }
+  ],
+  "001058": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.6.0-alpha": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    }
+  ],
+  "001059": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.6.0-alpha": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    }
+  ],
+  "001060": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.6.0-alpha": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    }
+  ],
+  "001061": [],
+  "001062": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.7.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    },
+    {
+      "name": "ndx-grayscalevolume",
+      "total_count": 1,
+      "versions": {
+        "0.0.2": 1
+      }
+    },
+    {
+      "name": "ndx-icephys-meta",
+      "total_count": 1,
+      "versions": {
+        "0.1.0": 1
+      }
+    },
+    {
+      "name": "ndx-pose",
+      "total_count": 1,
+      "versions": {
+        "0.1.1": 1
+      }
+    },
+    {
+      "name": "ndx-spectrum",
+      "total_count": 1,
+      "versions": {
+        "0.2.2": 1
+      }
+    }
+  ],
+  "001063": [],
+  "001064": [],
+  "001065": [
+    {
+      "name": "core",
+      "total_count": 294,
+      "versions": {
+        "2.2.4": 294
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 294,
+      "versions": {
+        "1.1.3": 294
+      }
+    },
+    {
+      "name": "ndx-mies",
+      "total_count": 294,
+      "versions": {
+        "0.1.0": 294
+      }
+    }
+  ],
+  "001066": [],
+  "001069": [
+    {
+      "name": "core",
+      "total_count": 10,
+      "versions": {
+        "2.7.0": 10
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 10,
+      "versions": {
+        "1.8.0": 10
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 10,
+      "versions": {
+        "0.5.0": 10
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 10,
+      "versions": {
+        "0.3.0": 10
+      }
+    }
+  ],
+  "001070": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.7.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    }
+  ],
+  "001071": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.7.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    }
+  ],
+  "001072": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.7.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    }
+  ],
+  "001073": [
+    {
+      "name": "core",
+      "total_count": 3,
+      "versions": {
+        "2.7.0": 3
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 3,
+      "versions": {
+        "1.8.0": 3
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 3,
+      "versions": {
+        "0.5.0": 3
+      }
+    }
+  ],
+  "001075": [
+    {
+      "name": "core",
+      "total_count": 223,
+      "versions": {
+        "2.7.0": 223
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 223,
+      "versions": {
+        "1.8.0": 223
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 223,
+      "versions": {
+        "0.5.0": 223
+      }
+    },
+    {
+      "name": "ndx-microscopy",
+      "total_count": 223,
+      "versions": {
+        "0.1.0": 223
+      }
+    },
+    {
+      "name": "ndx-patterned-ogen",
+      "total_count": 223,
+      "versions": {
+        "0.1.0": 223
+      }
+    },
+    {
+      "name": "ndx-subjects",
+      "total_count": 223,
+      "versions": {
+        "0.1.0": 223
+      }
+    }
+  ],
+  "001076": [
+    {
+      "name": "core",
+      "total_count": 48,
+      "versions": {
+        "2.6.0-alpha": 48
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 48,
+      "versions": {
+        "1.8.0": 48
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 48,
+      "versions": {
+        "0.5.0": 48
+      }
+    },
+    {
+      "name": "ndx-grayscalevolume",
+      "total_count": 48,
+      "versions": {
+        "0.0.2": 48
+      }
+    },
+    {
+      "name": "ndx-icephys-meta",
+      "total_count": 48,
+      "versions": {
+        "0.1.0": 48
+      }
+    },
+    {
+      "name": "ndx-spectrum",
+      "total_count": 48,
+      "versions": {
+        "0.2.2": 48
+      }
+    }
+  ],
+  "001078": [
+    {
+      "name": "core",
+      "total_count": 9,
+      "versions": {
+        "2.6.0-alpha": 9
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 9,
+      "versions": {
+        "1.8.0": 9
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 9,
+      "versions": {
+        "0.5.0": 9
+      }
+    }
+  ],
+  "001079": [],
+  "001083": [],
+  "001084": [
+    {
+      "name": "core",
+      "total_count": 116,
+      "versions": {
+        "2.7.0": 116
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 116,
+      "versions": {
+        "1.8.0": 116
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 116,
+      "versions": {
+        "0.5.0": 116
+      }
+    },
+    {
+      "name": "ndx-fiber-photometry",
+      "total_count": 116,
+      "versions": {
+        "0.1.0": 116
+      }
+    }
+  ],
+  "001085": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.7.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    }
+  ],
+  "001086": [],
+  "001087": [],
+  "001091": [],
+  "001092": [
+    {
+      "name": "core",
+      "total_count": 3,
+      "versions": {
+        "2.7.0": 3
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 3,
+      "versions": {
+        "1.8.0": 3
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 3,
+      "versions": {
+        "0.5.0": 3
+      }
+    }
+  ],
+  "001095": [],
+  "001096": [],
+  "001097": [
+    {
+      "name": "core",
+      "total_count": 2,
+      "versions": {
+        "2.7.0": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2,
+      "versions": {
+        "1.8.0": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.5.0": 2
+      }
+    }
+  ],
+  "001130": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.7.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    },
+    {
+      "name": "ndx-events",
+      "total_count": 1,
+      "versions": {
+        "0.2.0": 1
+      }
+    },
+    {
+      "name": "ndx-photometry",
+      "total_count": 1,
+      "versions": {
+        "0.1.0": 1
+      }
+    }
+  ],
+  "001131": [
+    {
+      "name": "core",
+      "total_count": 2,
+      "versions": {
+        "2.7.0": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2,
+      "versions": {
+        "1.8.0": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.5.0": 2
+      }
+    }
+  ],
+  "001132": [
+    {
+      "name": "core",
+      "total_count": 69,
+      "versions": {
+        "2.7.0": 69
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 69,
+      "versions": {
+        "1.8.0": 69
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 69,
+      "versions": {
+        "0.5.0": 69
+      }
+    }
+  ],
+  "001133": [],
+  "001170": [
+    {
+      "name": "core",
+      "total_count": 12,
+      "versions": {
+        "2.7.0": 12
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 12,
+      "versions": {
+        "1.8.0": 12
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 12,
+      "versions": {
+        "0.5.0": 12
+      }
+    }
+  ],
+  "001171": [
+    {
+      "name": "core",
+      "total_count": 62,
+      "versions": {
+        "2.4.0": 62
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 62,
+      "versions": {
+        "1.5.0": 62
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 62,
+      "versions": {
+        "0.1.0": 62
+      }
+    }
+  ],
+  "001174": [
+    {
+      "name": "core",
+      "total_count": 45,
+      "versions": {
+        "2.7.0": 45
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 45,
+      "versions": {
+        "1.8.0": 45
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 45,
+      "versions": {
+        "0.5.0": 45
+      }
+    }
+  ],
+  "001175": [],
+  "001176": [
+    {
+      "name": "core",
+      "total_count": 132,
+      "versions": {
+        "2.7.0": 132
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 132,
+      "versions": {
+        "1.8.0": 132
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 132,
+      "versions": {
+        "0.5.0": 132
+      }
+    }
+  ],
+  "001181": [],
+  "001182": [
+    {
+      "name": "core",
+      "total_count": 15,
+      "versions": {
+        "2.7.0": 15
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 15,
+      "versions": {
+        "1.8.0": 15
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 15,
+      "versions": {
+        "0.5.0": 15
+      }
+    }
+  ],
+  "001183": [
+    {
+      "name": "core",
+      "total_count": 37,
+      "versions": {
+        "2.7.0": 37
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 37,
+      "versions": {
+        "1.8.0": 37
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 37,
+      "versions": {
+        "0.5.0": 37
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 37,
+      "versions": {
+        "0.3.0": 37
+      }
+    }
+  ],
+  "001184": [
+    {
+      "name": "core",
+      "total_count": 309,
+      "versions": {
+        "2.7.0": 309
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 309,
+      "versions": {
+        "1.8.0": 309
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 309,
+      "versions": {
+        "0.5.0": 309
+      }
+    }
+  ],
+  "001185": [],
+  "001186": [],
+  "001187": [
+    {
+      "name": "core",
+      "total_count": 46,
+      "versions": {
+        "2.6.0-alpha": 46
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 46,
+      "versions": {
+        "1.5.0": 46
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 46,
+      "versions": {
+        "0.1.0": 46
+      }
+    }
+  ],
+  "001188": [
+    {
+      "name": "core",
+      "total_count": 233,
+      "versions": {
+        "2.7.0": 233
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 233,
+      "versions": {
+        "1.8.0": 233
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 233,
+      "versions": {
+        "0.5.0": 233
+      }
+    }
+  ],
+  "001190": [
+    {
+      "name": "core",
+      "total_count": 8,
+      "versions": {
+        "2.7.0": 8
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 8,
+      "versions": {
+        "1.8.0": 8
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 8,
+      "versions": {
+        "0.5.0": 8
+      }
+    }
+  ],
+  "001192": [],
+  "001193": [
+    {
+      "name": "core",
+      "total_count": 40,
+      "versions": {
+        "2.7.0": 40
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 40,
+      "versions": {
+        "1.8.0": 40
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 40,
+      "versions": {
+        "0.5.0": 40
+      }
+    }
+  ],
+  "001194": [],
+  "001195": [
+    {
+      "name": "core",
+      "total_count": 3,
+      "versions": {
+        "2.7.0": 3
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 3,
+      "versions": {
+        "1.8.0": 3
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 3,
+      "versions": {
+        "0.5.0": 3
+      }
+    }
+  ],
+  "001197": [],
+  "001199": [
+    {
+      "name": "core",
+      "total_count": 96,
+      "versions": {
+        "2.6.0-alpha": 96
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 96,
+      "versions": {
+        "1.5.0": 96
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 96,
+      "versions": {
+        "0.1.0": 96
+      }
+    }
+  ],
+  "001200": [
+    {
+      "name": "core",
+      "total_count": 54,
+      "versions": {
+        "2.6.0-alpha": 54
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 54,
+      "versions": {
+        "1.5.0": 54
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 54,
+      "versions": {
+        "0.1.0": 54
+      }
+    }
+  ],
+  "001201": [
+    {
+      "name": "core",
+      "total_count": 12,
+      "versions": {
+        "2.7.0": 12
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 12,
+      "versions": {
+        "1.8.0": 12
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 12,
+      "versions": {
+        "0.5.0": 12
+      }
+    }
+  ],
+  "001202": [
+    {
+      "name": "core",
+      "total_count": 13,
+      "versions": {
+        "2.6.0-alpha": 13
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 13,
+      "versions": {
+        "1.5.0": 13
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 13,
+      "versions": {
+        "0.1.0": 13
+      }
+    }
+  ],
+  "001203": [],
+  "001205": [
+    {
+      "name": "core",
+      "total_count": 282,
+      "versions": {
+        "2.6.0-alpha": 282
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 282,
+      "versions": {
+        "1.5.0": 282
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 282,
+      "versions": {
+        "0.1.0": 282
+      }
+    }
+  ],
+  "001207": [],
+  "001208": [],
+  "001209": [
+    {
+      "name": "core",
+      "total_count": 12,
+      "versions": {
+        "2.6.0-alpha": 12
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 12,
+      "versions": {
+        "1.8.0": 12
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 12,
+      "versions": {
+        "0.5.0": 12
+      }
+    }
+  ],
+  "001210": [],
+  "001211": [],
+  "001212": [],
+  "001245": [
+    {
+      "name": "core",
+      "total_count": 18,
+      "versions": {
+        "2.7.0": 18
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 18,
+      "versions": {
+        "1.8.0": 18
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 18,
+      "versions": {
+        "0.5.0": 18
+      }
+    }
+  ],
+  "001246": [],
+  "001247": [],
+  "001248": [
+    {
+      "name": "core",
+      "total_count": 2,
+      "versions": {
+        "2.7.0": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2,
+      "versions": {
+        "1.8.0": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.5.0": 2
+      }
+    }
+  ],
+  "001249": [
+    {
+      "name": "core",
+      "total_count": 14,
+      "versions": {
+        "2.7.0": 14
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 14,
+      "versions": {
+        "1.8.0": 14
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 14,
+      "versions": {
+        "0.5.0": 14
+      }
+    }
+  ],
+  "001250": [
+    {
+      "name": "core",
+      "total_count": 20,
+      "versions": {
+        "2.7.0": 20
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 20,
+      "versions": {
+        "1.8.0": 20
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 20,
+      "versions": {
+        "0.5.0": 20
+      }
+    }
+  ],
+  "001251": [],
+  "001252": [],
+  "001253": [],
+  "001254": [],
+  "001256": [
+    {
+      "name": "core",
+      "total_count": 30,
+      "versions": {
+        "2.7.0": 30
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 30,
+      "versions": {
+        "1.8.0": 30
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 30,
+      "versions": {
+        "0.5.0": 30
+      }
+    }
+  ],
+  "001257": [],
+  "001258": [
+    {
+      "name": "core",
+      "total_count": 69,
+      "versions": {
+        "2.7.0": 69
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 69,
+      "versions": {
+        "1.8.0": 69
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 69,
+      "versions": {
+        "0.5.0": 69
+      }
+    },
+    {
+      "name": "ndx-fiber-photometry",
+      "total_count": 69,
+      "versions": {
+        "0.1.0": 69
+      }
+    }
+  ],
+  "001260": [],
+  "001261": [],
+  "001262": [],
+  "001263": [],
+  "001266": [
+    {
+      "name": "core",
+      "total_count": 83,
+      "versions": {
+        "2.7.0": 83
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 83,
+      "versions": {
+        "1.8.0": 83
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 83,
+      "versions": {
+        "0.5.0": 83
+      }
+    }
+  ],
+  "001271": [
+    {
+      "name": "core",
+      "total_count": 287,
+      "versions": {
+        "2.6.0-alpha": 287
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 287,
+      "versions": {
+        "1.8.0": 287
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 287,
+      "versions": {
+        "0.5.0": 287
+      }
+    }
+  ],
+  "001272": [
+    {
+      "name": "core",
+      "total_count": 65,
+      "versions": {
+        "2.6.0-alpha": 65
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 65,
+      "versions": {
+        "1.8.0": 65
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 65,
+      "versions": {
+        "0.5.0": 65
+      }
+    }
+  ],
+  "001273": [
+    {
+      "name": "core",
+      "total_count": 181,
+      "versions": {
+        "2.6.0-alpha": 181
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 181,
+      "versions": {
+        "1.8.0": 181
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 181,
+      "versions": {
+        "0.5.0": 181
+      }
+    }
+  ],
+  "001274": [
+    {
+      "name": "core",
+      "total_count": 232,
+      "versions": {
+        "2.6.0-alpha": 232
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 232,
+      "versions": {
+        "1.8.0": 232
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 232,
+      "versions": {
+        "0.5.0": 232
+      }
+    }
+  ],
+  "001275": [
+    {
+      "name": "core",
+      "total_count": 20,
+      "versions": {
+        "2.6.0-alpha": 20
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 20,
+      "versions": {
+        "1.8.0": 20
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 20,
+      "versions": {
+        "0.5.0": 20
+      }
+    },
+    {
+      "name": "ndx-events",
+      "total_count": 20,
+      "versions": {
+        "0.2.0": 20
+      }
+    }
+  ],
+  "001276": [
+    {
+      "name": "core",
+      "total_count": 108,
+      "versions": {
+        "2.6.0-alpha": 108
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 108,
+      "versions": {
+        "1.8.0": 108
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 108,
+      "versions": {
+        "0.5.0": 108
+      }
+    }
+  ],
+  "001277": [
+    {
+      "name": "core",
+      "total_count": 49,
+      "versions": {
+        "2.6.0-alpha": 49
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 49,
+      "versions": {
+        "1.8.0": 49
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 49,
+      "versions": {
+        "0.5.0": 49
+      }
+    }
+  ],
+  "001280": [
+    {
+      "name": "core",
+      "total_count": 120,
+      "versions": {
+        "2.6.0-alpha": 120
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 120,
+      "versions": {
+        "1.6.0": 119,
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 120,
+      "versions": {
+        "0.3.0": 119,
+        "0.5.0": 1
+      }
+    },
+    {
+      "name": "ndx-franklab-novela",
+      "total_count": 120,
+      "versions": {
+        "0.1.0": 120
+      }
+    },
+    {
+      "name": "ndx-xarray",
+      "total_count": 119,
+      "versions": {
+        "0.1.0": 119
+      }
+    }
+  ],
+  "001281": [
+    {
+      "name": "core",
+      "total_count": 457,
+      "versions": {
+        "2.5.0": 457
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 457,
+      "versions": {
+        "1.5.1": 457
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 457,
+      "versions": {
+        "0.2.0": 457
+      }
+    }
+  ],
+  "001282": [
+    {
+      "name": "core",
+      "total_count": 2,
+      "versions": {
+        "2.7.0": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2,
+      "versions": {
+        "1.8.0": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.5.0": 2
+      }
+    }
+  ],
+  "001283": [],
+  "001284": [
+    {
+      "name": "core",
+      "total_count": 84,
+      "versions": {
+        "2.6.0-alpha": 84
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 84,
+      "versions": {
+        "1.8.0": 84
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 84,
+      "versions": {
+        "0.5.0": 84
+      }
+    }
+  ],
+  "001285": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.7.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    }
+  ],
+  "001286": [],
+  "001287": [],
+  "001289": [],
+  "001290": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.7.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    }
+  ],
+  "001291": [],
+  "001292": [],
+  "001325": [],
+  "001327": [],
+  "001328": [],
+  "001330": [],
+  "001332": [],
+  "001333": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    }
+  ],
+  "001334": [],
+  "001335": [
+    {
+      "name": "core",
+      "total_count": 1,
+      "versions": {
+        "2.7.0": 1
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 1,
+      "versions": {
+        "1.8.0": 1
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 1,
+      "versions": {
+        "0.5.0": 1
+      }
+    }
+  ],
+  "001336": [],
+  "001337": [
+    {
+      "name": "core",
+      "total_count": 223,
+      "versions": {
+        "2.6.0-alpha": 223
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 223,
+      "versions": {
+        "1.8.0": 223
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 223,
+      "versions": {
+        "0.5.0": 223
+      }
+    }
+  ],
+  "001339": [
+    {
+      "name": "core",
+      "total_count": 82,
+      "versions": {
+        "2.6.0-alpha": 82
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 82,
+      "versions": {
+        "1.8.0": 82
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 82,
+      "versions": {
+        "0.5.0": 82
+      }
+    }
+  ],
+  "001340": [
+    {
+      "name": "core",
+      "total_count": 69,
+      "versions": {
+        "2.7.0": 69
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 69,
+      "versions": {
+        "1.8.0": 69
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 69,
+      "versions": {
+        "0.5.0": 69
+      }
+    },
+    {
+      "name": "ndx-fiber-photometry",
+      "total_count": 69,
+      "versions": {
+        "0.1.0": 69
+      }
+    }
+  ],
+  "001341": [
+    {
+      "name": "core",
+      "total_count": 2,
+      "versions": {
+        "2.7.0": 2
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 2,
+      "versions": {
+        "1.8.0": 2
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 2,
+      "versions": {
+        "0.5.0": 2
+      }
+    }
+  ],
+  "001342": [],
+  "001348": [],
+  "001349": [],
+  "001350": [],
+  "001351": [],
+  "001354": [
+    {
+      "name": "core",
+      "total_count": 50,
+      "versions": {
+        "2.8.0": 50
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 50,
+      "versions": {
+        "1.8.0": 50
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 50,
+      "versions": {
+        "0.5.0": 50
+      }
+    },
+    {
+      "name": "ndx-dandi-icephys",
+      "total_count": 50,
+      "versions": {
+        "0.3.0": 50
+      }
+    }
+  ],
+  "001355": [],
+  "001356": [],
+  "001357": [
+    {
+      "name": "core",
+      "total_count": 159,
+      "versions": {
+        "2.8.0": 159
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 159,
+      "versions": {
+        "1.8.0": 159
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 159,
+      "versions": {
+        "0.5.0": 159
+      }
+    }
+  ],
+  "001358": [
+    {
+      "name": "core",
+      "total_count": 131,
+      "versions": {
+        "2.7.0": 131
+      }
+    },
+    {
+      "name": "hdmf-common",
+      "total_count": 131,
+      "versions": {
+        "1.8.0": 131
+      }
+    },
+    {
+      "name": "hdmf-experimental",
+      "total_count": 131,
+      "versions": {
+        "0.5.0": 131
+      }
+    }
+  ],
+  "001359": [],
+  "001360": [],
+  "001362": []
+}
