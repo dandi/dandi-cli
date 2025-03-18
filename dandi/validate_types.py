@@ -26,6 +26,21 @@ class Standard(StrEnum):
     YAML = auto()
 
 
+@unique
+class Validator(StrEnum):
+    """Validators that are used to do validation"""
+
+    bids_validator_deno = "bids-validator-deno"
+    bidsschematools = auto()
+    dandi = auto()
+    dandi_zarr = "dandi.zarr"
+    dandischema = auto()
+    hed_python_validator = "hed-python-validator"
+    nwbinspector = auto()
+    pynwb = auto()
+    zarr = auto()
+
+
 @dataclass
 class ValidationOrigin:
     name: str  # Validator name
