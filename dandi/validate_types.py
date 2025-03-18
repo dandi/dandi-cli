@@ -10,6 +10,8 @@ from dandi.utils import StrEnum
 
 @unique
 class Standard(StrEnum):
+    """Standards to validate against"""
+
     BIDS = auto()
     DANDI_LAYOUT = "DANDI-LAYOUT"
     DANDI_SCHEMA = "DANDI-SCHEMA"
