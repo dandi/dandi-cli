@@ -49,13 +49,28 @@ class ValidationOrigin:
     standard_version: str | None = None  # Version of the standard
 
 
-# TODO: decide on the naming consistency -- either prepend all with Validation or not
 class Severity(IntEnum):
-    HINT = 1
-    INFO = 2  # new/unused, available in linkml
-    WARNING = 3
-    ERROR = 4
-    CRITICAL = 5  # new/unused, linkml has FATAL
+    """Severity levels for validation results"""
+
+    INFO = 10
+    """Not an indication of problem but information of status or confirmation"""
+
+    HINT = 20
+    """Data is valid but could be improved"""
+
+    WARNING = 30
+    """Data is not recognized as valid. Changes are needed to ensure validity"""
+
+    ERROR = 40
+    """Data is recognized as invalid"""
+
+    CRITICAL = 50
+    """
+    A serious invalidity in data.
+    E.g., an invalidity that prevents validation of other aspects of the data such
+    as when validating against the BIDS standard, the data is without a `BIDSVersion`
+    field or has an invalid `BIDSVersion` field.
+    """
 
 
 class Scope(Enum):
