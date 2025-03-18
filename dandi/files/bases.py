@@ -27,7 +27,7 @@ from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
 from dandi.utils import post_upload_size_check, pre_upload_size_check, yaml_load
-from dandi.validate_types import Scope, Severity, ValidationOrigin, ValidationResult
+from dandi.validate_types import Origin, Scope, Severity, ValidationResult
 
 lgr = dandi.get_logger()
 
@@ -201,7 +201,7 @@ class LocalAsset(DandiFile):
             )
             return [
                 ValidationResult(
-                    origin=ValidationOrigin(
+                    origin=Origin(
                         name="dandi",
                         version=dandi.__version__,
                     ),
@@ -526,7 +526,7 @@ class NWBAsset(LocalFileAsset):
         else:
             # make sure that we have some basic metadata fields we require
             try:
-                origin = ValidationOrigin(
+                origin = Origin(
                     name="nwbinspector",
                     version=str(_get_nwb_inspector_version()),
                 )
@@ -694,7 +694,7 @@ def _check_required_fields(
             message = f"Required field {f!r} has no value"
             errors.append(
                 ValidationResult(
-                    origin=ValidationOrigin(
+                    origin=Origin(
                         name="dandischema",
                         version=dandischema.__version__,  # type: ignore[attr-defined]
                     ),
@@ -709,7 +709,7 @@ def _check_required_fields(
             message = f"Required field {f!r} has value {v!r}"
             errors.append(
                 ValidationResult(
-                    origin=ValidationOrigin(
+                    origin=Origin(
                         name="dandischema",
                         version=dandischema.__version__,  # type: ignore[attr-defined]
                     ),
@@ -793,7 +793,7 @@ def _pydantic_errors_to_validation_results(
             message = e.get("message", e.get("msg", None))
         out.append(
             ValidationResult(
-                origin=ValidationOrigin(
+                origin=Origin(
                     name="dandischema",
                     version=dandischema.__version__,  # type: ignore[attr-defined]
                 ),

@@ -42,7 +42,7 @@ class Validator(StrEnum):
 
 
 @dataclass
-class ValidationOrigin:
+class Origin:
     name: str  # Validator name
     version: str  # Validator version
     standard: Standard | None = None  # Standard being validated against
@@ -92,7 +92,7 @@ class ValidationObject(Enum):
 @dataclass
 class ValidationResult:
     id: str
-    origin: ValidationOrigin  # metadata about underlying validator and standard
+    origin: Origin  # metadata about underlying validator and standard
     scope: Scope
     origin_result: Any | None = None  # original validation result from "origin"
     object: ValidationObject | None = None

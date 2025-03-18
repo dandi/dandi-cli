@@ -7,7 +7,7 @@ from .fixtures import BIDS_ERROR_TESTDATA_SELECTION, BIDS_TESTDATA_SELECTION
 from .. import __version__
 from ..consts import dandiset_metadata_file
 from ..validate import validate
-from ..validate_types import Scope, Severity, ValidationOrigin, ValidationResult
+from ..validate_types import Origin, Scope, Severity, ValidationResult
 
 
 def test_validate_nwb_error(simple3_nwb: Path) -> None:
@@ -31,7 +31,7 @@ def test_validate_empty(tmp_path: Path) -> None:
     assert list(validate(tmp_path)) == [
         ValidationResult(
             id="DANDI.NO_DANDISET_FOUND",
-            origin=ValidationOrigin(name="dandi", version=__version__),
+            origin=Origin(name="dandi", version=__version__),
             severity=Severity.ERROR,
             scope=Scope.DANDISET,
             path=tmp_path,

@@ -35,7 +35,7 @@ from .utils import (
     move_file,
     yaml_load,
 )
-from .validate_types import Scope, Severity, ValidationOrigin, ValidationResult
+from .validate_types import Origin, Scope, Severity, ValidationResult
 
 lgr = get_logger()
 
@@ -1119,7 +1119,7 @@ def validate_organized_path(
         errors.append(
             ValidationResult(
                 id="DANDI.NON_DANDI_FILENAME",
-                origin=ValidationOrigin(name="dandi", version=__version__),
+                origin=Origin(name="dandi", version=__version__),
                 severity=Severity.ERROR,
                 scope=Scope.FILE,
                 path=filepath,
@@ -1135,7 +1135,7 @@ def validate_organized_path(
         errors.append(
             ValidationResult(
                 id="DANDI.NON_DANDI_FOLDERNAME",
-                origin=ValidationOrigin(name="dandi", version=__version__),
+                origin=Origin(name="dandi", version=__version__),
                 severity=Severity.ERROR,
                 scope=Scope.FOLDER,
                 path=filepath,
@@ -1151,7 +1151,7 @@ def validate_organized_path(
             errors.append(
                 ValidationResult(
                     id="DANDI.METADATA_MISMATCH_SUBJECT",
-                    origin=ValidationOrigin(name="dandi", version=__version__),
+                    origin=Origin(name="dandi", version=__version__),
                     severity=Severity.ERROR,
                     scope=Scope.FILE,
                     path=filepath,

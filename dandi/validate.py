@@ -8,7 +8,7 @@ from . import __version__
 from .consts import dandiset_metadata_file
 from .files import find_dandi_files
 from .utils import find_parent_directory_containing
-from .validate_types import Scope, Severity, ValidationOrigin, ValidationResult
+from .validate_types import Origin, Scope, Severity, ValidationResult
 
 BIDS_TO_DANDI = {
     "subject": "subject_id",
@@ -46,7 +46,7 @@ def validate_bids(
 
     validation_result = validate_bids_(paths, exclude_files=["dandiset.yaml"])
     our_validation_result = []
-    origin = ValidationOrigin(
+    origin = Origin(
         name="bidsschematools",
         version=bidsschematools.__version__,
         standard="bids",
@@ -150,7 +150,7 @@ def validate(
         if dandiset_path is None:
             yield ValidationResult(
                 id="DANDI.NO_DANDISET_FOUND",
-                origin=ValidationOrigin(name="dandi", version=__version__),
+                origin=Origin(name="dandi", version=__version__),
                 severity=Severity.ERROR,
                 scope=Scope.DANDISET,
                 path=Path(p),
