@@ -81,21 +81,12 @@ class Scope(Enum):
     DATASET = "dataset"
 
 
-# new/unused, may be should be gone
-class ValidationObject(Enum):
-    METADATA = "metadata"
-    DATA = "data"  # e.g. actual data contained in files, not metadata (e.g. as in
-    # nwb or nifti header)
-    FILE = "file"  # e.g. file itself, e.g. truncated file or file not matching checksum
-
-
 @dataclass
 class ValidationResult:
     id: str
     origin: Origin  # metadata about underlying validator and standard
     scope: Scope
     origin_result: Any | None = None  # original validation result from "origin"
-    object: ValidationObject | None = None
     severity: Severity | None = None
     # asset_paths, if not populated, assumes [.path], but could be smth like
     # {"path": "task-broken_bold.json",
