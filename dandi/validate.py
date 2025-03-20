@@ -47,7 +47,7 @@ def validate_bids(
     validation_result = validate_bids_(paths, exclude_files=["dandiset.yaml"])
     our_validation_result = []
     origin = Origin(
-        name="bidsschematools",
+        validator="bidsschematools",
         version=bidsschematools.__version__,
         standard="bids",
         standard_version=validation_result["bids_version"],
@@ -150,7 +150,7 @@ def validate(
         if dandiset_path is None:
             yield ValidationResult(
                 id="DANDI.NO_DANDISET_FOUND",
-                origin=Origin(name="dandi", version=__version__),
+                origin=Origin(validator="dandi", version=__version__),
                 severity=Severity.ERROR,
                 scope=Scope.DANDISET,
                 path=Path(p),

@@ -202,7 +202,7 @@ class LocalAsset(DandiFile):
             return [
                 ValidationResult(
                     origin=Origin(
-                        name="dandi",
+                        validator="dandi",
                         version=dandi.__version__,
                     ),
                     severity=Severity.ERROR,
@@ -527,7 +527,7 @@ class NWBAsset(LocalFileAsset):
             # make sure that we have some basic metadata fields we require
             try:
                 origin = Origin(
-                    name="nwbinspector",
+                    validator="nwbinspector",
                     version=str(_get_nwb_inspector_version()),
                 )
 
@@ -695,7 +695,7 @@ def _check_required_fields(
             errors.append(
                 ValidationResult(
                     origin=Origin(
-                        name="dandischema",
+                        validator="dandischema",
                         version=dandischema.__version__,  # type: ignore[attr-defined]
                     ),
                     severity=Severity.ERROR,
@@ -710,7 +710,7 @@ def _check_required_fields(
             errors.append(
                 ValidationResult(
                     origin=Origin(
-                        name="dandischema",
+                        validator="dandischema",
                         version=dandischema.__version__,  # type: ignore[attr-defined]
                     ),
                     severity=Severity.WARNING,
@@ -794,7 +794,7 @@ def _pydantic_errors_to_validation_results(
         out.append(
             ValidationResult(
                 origin=Origin(
-                    name="dandischema",
+                    validator="dandischema",
                     version=dandischema.__version__,  # type: ignore[attr-defined]
                 ),
                 severity=Severity.ERROR,

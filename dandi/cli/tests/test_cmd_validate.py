@@ -72,7 +72,7 @@ def test_process_issues(capsys):
         ValidationResult(
             id="NWBI.check_data_orientation",
             origin=Origin(
-                name="nwbinspector",
+                validator="nwbinspector",
                 version="",
             ),
             scope=Scope.FILE,
@@ -83,7 +83,7 @@ def test_process_issues(capsys):
         ValidationResult(
             id="NWBI.check_data_orientation",
             origin=Origin(
-                name="nwbinspector",
+                validator="nwbinspector",
                 version="",
             ),
             scope=Scope.FILE,
@@ -94,7 +94,7 @@ def test_process_issues(capsys):
         ValidationResult(
             id="NWBI.check_missing_unit",
             origin=Origin(
-                name="nwbinspector",
+                validator="nwbinspector",
                 version="",
             ),
             scope=Scope.FILE,

@@ -210,7 +210,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 
         errors: list[ValidationResult] = []
         origin: Origin = Origin(
-            name="zarr",
+            validator="zarr",
             version=zarr.__version__,
             standard="zarr",
         )
@@ -233,7 +233,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             data = None
 
         origin = Origin(
-            name="dandi.zarr",
+            validator="dandi.zarr",
             version=__version__,
             standard="zarr",
         )
