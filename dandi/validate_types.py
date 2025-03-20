@@ -43,10 +43,17 @@ class Validator(StrEnum):
 
 
 class Origin(BaseModel):
-    validator: Validator  # The validator conducting the validation
-    validator_version: str  # The version of the validator
-    standard: Standard | None = None  # Standard being validated against
-    standard_version: str | None = None  # Version of the standard
+    validator: Validator
+    """The validator conducting the validation"""
+
+    validator_version: str
+    """The version of the validator"""
+
+    standard: Standard | None = None
+    """Standard being validated against"""
+
+    standard_version: str | None = None
+    """Version of the standard"""
 
 
 class Severity(IntEnum):
