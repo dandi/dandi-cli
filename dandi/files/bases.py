@@ -27,7 +27,7 @@ from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
 from dandi.utils import post_upload_size_check, pre_upload_size_check, yaml_load
-from dandi.validate_types import Origin, Scope, Severity, ValidationResult
+from dandi.validate_types import Origin, Scope, Severity, ValidationResult, Validator
 
 lgr = dandi.get_logger()
 
@@ -202,7 +202,7 @@ class LocalAsset(DandiFile):
             return [
                 ValidationResult(
                     origin=Origin(
-                        validator="dandi",
+                        validator=Validator.dandi,
                         version=dandi.__version__,
                     ),
                     severity=Severity.ERROR,
@@ -527,7 +527,7 @@ class NWBAsset(LocalFileAsset):
             # make sure that we have some basic metadata fields we require
             try:
                 origin = Origin(
-                    validator="nwbinspector",
+                    validator=Validator.nwbinspector,
                     version=str(_get_nwb_inspector_version()),
                 )
 
@@ -695,7 +695,7 @@ def _check_required_fields(
             errors.append(
                 ValidationResult(
                     origin=Origin(
-                        validator="dandischema",
+                        validator=Validator.dandischema,
                         version=dandischema.__version__,  # type: ignore[attr-defined]
                     ),
                     severity=Severity.ERROR,
@@ -710,7 +710,7 @@ def _check_required_fields(
             errors.append(
                 ValidationResult(
                     origin=Origin(
-                        validator="dandischema",
+                        validator=Validator.dandischema,
                         version=dandischema.__version__,  # type: ignore[attr-defined]
                     ),
                     severity=Severity.WARNING,
@@ -794,7 +794,7 @@ def _pydantic_errors_to_validation_results(
         out.append(
             ValidationResult(
                 origin=Origin(
-                    validator="dandischema",
+                    validator=Validator.dandischema,
                     version=dandischema.__version__,  # type: ignore[attr-defined]
                 ),
                 severity=Severity.ERROR,
