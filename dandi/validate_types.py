@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from enum import Enum, IntEnum, auto, unique
 from pathlib import Path
 from typing import Any
+
+from pydantic import BaseModel
 
 from dandi.utils import StrEnum
 
@@ -41,8 +42,7 @@ class Validator(StrEnum):
     zarr = auto()
 
 
-@dataclass
-class Origin:
+class Origin(BaseModel):
     name: str  # Validator name
     version: str  # Validator version
     standard: Standard | None = None  # Standard being validated against
@@ -81,8 +81,7 @@ class Scope(Enum):
     DATASET = "dataset"
 
 
-@dataclass
-class ValidationResult:
+class ValidationResult(BaseModel):
     id: str
     origin: Origin  # metadata about underlying validator and standard
     scope: Scope
