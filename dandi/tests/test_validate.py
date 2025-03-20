@@ -31,7 +31,7 @@ def test_validate_empty(tmp_path: Path) -> None:
     assert list(validate(tmp_path)) == [
         ValidationResult(
             id="DANDI.NO_DANDISET_FOUND",
-            origin=Origin(validator=Validator.dandi, version=__version__),
+            origin=Origin(validator=Validator.dandi, validator_version=__version__),
             severity=Severity.ERROR,
             scope=Scope.DANDISET,
             path=tmp_path,

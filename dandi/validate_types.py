@@ -44,7 +44,7 @@ class Validator(StrEnum):
 
 class Origin(BaseModel):
     validator: Validator  # The validator conducting the validation
-    version: str  # Validator version
+    validator_version: str  # The version of the validator
     standard: Standard | None = None  # Standard being validated against
     standard_version: str | None = None  # Version of the standard
 

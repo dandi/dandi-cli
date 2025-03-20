@@ -73,7 +73,7 @@ def test_process_issues(capsys):
             id="NWBI.check_data_orientation",
             origin=Origin(
                 validator=Validator.nwbinspector,
-                version="",
+                validator_version="",
             ),
             scope=Scope.FILE,
             message="Data may be in the wrong orientation.",
@@ -84,7 +84,7 @@ def test_process_issues(capsys):
             id="NWBI.check_data_orientation",
             origin=Origin(
                 validator=Validator.nwbinspector,
-                version="",
+                validator_version="",
             ),
             scope=Scope.FILE,
             message="Data may be in the wrong orientation.",
@@ -95,7 +95,7 @@ def test_process_issues(capsys):
             id="NWBI.check_missing_unit",
             origin=Origin(
                 validator=Validator.nwbinspector,
-                version="",
+                validator_version="",
             ),
             scope=Scope.FILE,
             message="Missing text for attribute 'unit'.",

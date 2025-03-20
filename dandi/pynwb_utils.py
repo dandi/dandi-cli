@@ -367,7 +367,7 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
                 ValidationResult(
                     origin=Origin(
                         validator=Validator.pynwb,
-                        version=pynwb.__version__,
+                        validator_version=pynwb.__version__,
                     ),
                     severity=Severity.ERROR,
                     id=f"pynwb.{error}",
@@ -384,7 +384,7 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
             ValidationResult(
                 origin=Origin(
                     validator=Validator.pynwb,
-                    version=pynwb.__version__,
+                    validator_version=pynwb.__version__,
                 ),
                 severity=Severity.ERROR,
                 id="pynwb.GENERIC",
@@ -416,7 +416,7 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
                     ValidationResult(
                         origin=Origin(
                             validator=Validator.pynwb,
-                            version=pynwb.__version__,
+                            validator_version=pynwb.__version__,
                         ),
                         severity=Severity.ERROR,
                         id="pynwb.GENERIC",

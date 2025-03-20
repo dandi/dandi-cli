@@ -48,7 +48,7 @@ def validate_bids(
     our_validation_result = []
     origin = Origin(
         validator=Validator.bidsschematools,
-        version=bidsschematools.__version__,
+        validator_version=bidsschematools.__version__,
         standard="bids",
         standard_version=validation_result["bids_version"],
     )
@@ -150,7 +150,7 @@ def validate(
         if dandiset_path is None:
             yield ValidationResult(
                 id="DANDI.NO_DANDISET_FOUND",
-                origin=Origin(validator=Validator.dandi, version=__version__),
+                origin=Origin(validator=Validator.dandi, validator_version=__version__),
                 severity=Severity.ERROR,
                 scope=Scope.DANDISET,
                 path=Path(p),

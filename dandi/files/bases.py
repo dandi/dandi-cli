@@ -203,7 +203,7 @@ class LocalAsset(DandiFile):
                 ValidationResult(
                     origin=Origin(
                         validator=Validator.dandi,
-                        version=dandi.__version__,
+                        validator_version=dandi.__version__,
                     ),
                     severity=Severity.ERROR,
                     id="dandi.SOFTWARE_ERROR",
@@ -528,7 +528,7 @@ class NWBAsset(LocalFileAsset):
             try:
                 origin = Origin(
                     validator=Validator.nwbinspector,
-                    version=str(_get_nwb_inspector_version()),
+                    validator_version=str(_get_nwb_inspector_version()),
                 )
 
                 for error in inspect_nwbfile(
@@ -696,7 +696,7 @@ def _check_required_fields(
                 ValidationResult(
                     origin=Origin(
                         validator=Validator.dandischema,
-                        version=dandischema.__version__,  # type: ignore[attr-defined]
+                        validator_version=dandischema.__version__,  # type: ignore[attr-defined]
                     ),
                     severity=Severity.ERROR,
                     id="dandischema.requred_field",
@@ -711,7 +711,7 @@ def _check_required_fields(
                 ValidationResult(
                     origin=Origin(
                         validator=Validator.dandischema,
-                        version=dandischema.__version__,  # type: ignore[attr-defined]
+                        validator_version=dandischema.__version__,  # type: ignore[attr-defined]
                     ),
                     severity=Severity.WARNING,
                     id="dandischema.placeholder_value",
@@ -795,7 +795,7 @@ def _pydantic_errors_to_validation_results(
             ValidationResult(
                 origin=Origin(
                     validator=Validator.dandischema,
-                    version=dandischema.__version__,  # type: ignore[attr-defined]
+                    validator_version=dandischema.__version__,  # type: ignore[attr-defined]
                 ),
                 severity=Severity.ERROR,
                 id=id,
