@@ -42,7 +42,14 @@ from dandi.utils import (
 )
 
 from .bases import LocalDirectoryAsset
-from ..validate_types import Origin, Scope, Severity, ValidationResult, Validator
+from ..validate_types import (
+    Origin,
+    Scope,
+    Severity,
+    Standard,
+    ValidationResult,
+    Validator,
+)
 
 lgr = get_logger()
 
@@ -212,7 +219,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         origin: Origin = Origin(
             validator=Validator.zarr,
             validator_version=zarr.__version__,
-            standard="zarr",
+            standard=Standard.ZARR,
+            # TODO: standard_version=...,
         )
 
         try:
@@ -235,7 +243,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         origin = Origin(
             validator=Validator.dandi_zarr,
             validator_version=__version__,
-            standard="zarr",
+            standard=Standard.ZARR,
+            # TODO: standard_version=...,
         )
         # if data:
         # TODO: figure out how to assign standard_version

@@ -29,7 +29,14 @@ from .consts import (
 )
 from .misctypes import Readable
 from .utils import get_module_version, is_url
-from .validate_types import Origin, Scope, Severity, ValidationResult, Validator
+from .validate_types import (
+    Origin,
+    Scope,
+    Severity,
+    Standard,
+    ValidationResult,
+    Validator,
+)
 
 lgr = get_logger()
 
@@ -368,6 +375,8 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
                     origin=Origin(
                         validator=Validator.pynwb,
                         validator_version=pynwb.__version__,
+                        standard=Standard.NWB,
+                        # TODO: standard_version=...,
                     ),
                     severity=Severity.ERROR,
                     id=f"pynwb.{error}",
@@ -385,6 +394,8 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
                 origin=Origin(
                     validator=Validator.pynwb,
                     validator_version=pynwb.__version__,
+                    standard=Standard.NWB,
+                    # TODO: standard_version=...,
                 ),
                 severity=Severity.ERROR,
                 id="pynwb.GENERIC",
@@ -417,6 +428,8 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
                         origin=Origin(
                             validator=Validator.pynwb,
                             validator_version=pynwb.__version__,
+                            standard=Standard.NWB,
+                            # TODO: standard_version=...,
                         ),
                         severity=Severity.ERROR,
                         id="pynwb.GENERIC",

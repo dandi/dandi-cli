@@ -27,7 +27,14 @@ from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
 from dandi.utils import post_upload_size_check, pre_upload_size_check, yaml_load
-from dandi.validate_types import Origin, Scope, Severity, ValidationResult, Validator
+from dandi.validate_types import (
+    Origin,
+    Scope,
+    Severity,
+    Standard,
+    ValidationResult,
+    Validator,
+)
 
 lgr = dandi.get_logger()
 
@@ -529,6 +536,8 @@ class NWBAsset(LocalFileAsset):
                 origin = Origin(
                     validator=Validator.nwbinspector,
                     validator_version=str(_get_nwb_inspector_version()),
+                    standard=Standard.NWB,
+                    # TODO: standard_version=...,
                 )
 
                 for error in inspect_nwbfile(
@@ -697,6 +706,8 @@ def _check_required_fields(
                     origin=Origin(
                         validator=Validator.dandischema,
                         validator_version=dandischema.__version__,  # type: ignore[attr-defined]
+                        standard=Standard.DANDI_SCHEMA
+                        # TODO: standard_version=...,
                     ),
                     severity=Severity.ERROR,
                     id="dandischema.requred_field",
@@ -712,6 +723,8 @@ def _check_required_fields(
                     origin=Origin(
                         validator=Validator.dandischema,
                         validator_version=dandischema.__version__,  # type: ignore[attr-defined]
+                        standard=Standard.DANDI_SCHEMA,
+                        # TODO: standard_version=...,
                     ),
                     severity=Severity.WARNING,
                     id="dandischema.placeholder_value",
@@ -796,6 +809,8 @@ def _pydantic_errors_to_validation_results(
                 origin=Origin(
                     validator=Validator.dandischema,
                     validator_version=dandischema.__version__,  # type: ignore[attr-defined]
+                    standard=Standard.DANDI_SCHEMA,
+                    # TODO: standard_version=...,
                 ),
                 severity=Severity.ERROR,
                 id=id,
