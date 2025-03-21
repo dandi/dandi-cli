@@ -89,9 +89,18 @@ class Scope(Enum):
 
 class ValidationResult(BaseModel):
     id: str
-    origin: Origin  # metadata about underlying validator and standard
+
+    origin: Origin
+    """Origin of the validation result as validator and standard used in producing it"""
+
     scope: Scope
-    origin_result: Any | None = None  # original validation result from "origin"
+
+    origin_result: Any | None = None
+    """
+    The representation of the validation result produced by the used validator,
+    `self.origin.validator`, unchanged
+    """
+
     severity: Severity | None = None
     # asset_paths, if not populated, assumes [.path], but could be smth like
     # {"path": "task-broken_bold.json",
