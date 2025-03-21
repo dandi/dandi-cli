@@ -215,6 +215,7 @@ class LocalAsset(DandiFile):
                     severity=Severity.ERROR,
                     id="dandi.SOFTWARE_ERROR",
                     scope=Scope.FILE,
+                    origin_result=e,
                     # metadata=metadata,
                     path=self.filepath,  # note that it is not relative .path
                     message=f"Failed to read metadata: {e}",
@@ -562,6 +563,7 @@ class NWBAsset(LocalFileAsset):
                             severity=severity,
                             id=f"NWBI.{error.check_function_name}",
                             scope=Scope.FILE,
+                            origin_result=error,
                             path=Path(error.file_path),
                             message=error.message,
                             # Assuming multiple sessions per multiple subjects,
@@ -815,6 +817,7 @@ def _pydantic_errors_to_validation_results(
                 severity=Severity.ERROR,
                 id=id,
                 scope=scope,
+                origin_result=e,
                 path=file_path,
                 message=message,
                 # TODO? dataset_path=dataset_path,

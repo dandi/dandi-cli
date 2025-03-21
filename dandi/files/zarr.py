@@ -225,7 +225,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 
         try:
             data = zarr.open(str(self.filepath))
-        except Exception:
+        except Exception as e:
             if devel_debug:
                 raise
             errors.append(
@@ -234,6 +234,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     severity=Severity.ERROR,
                     id="zarr.cannot_open",
                     scope=Scope.FILE,
+                    origin_result=e,
                     path=self.filepath,
                     message="Error opening file.",
                 )

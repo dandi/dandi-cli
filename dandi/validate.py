@@ -81,6 +81,7 @@ def validate_bids(
                 severity=Severity.ERROR,
                 id="BIDS.NON_BIDS_PATH_PLACEHOLDER",
                 scope=Scope.FILE,
+                origin_result=validation_result,
                 path=Path(path),
                 message="File does not match any pattern known to BIDS.",
                 dataset_path=dataset_path,
@@ -100,6 +101,7 @@ def validate_bids(
                     severity=Severity.ERROR,
                     id="BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",
                     scope=Scope.DATASET,
+                    origin_result=validation_result,
                     path_regex=pattern["regex"],
                     message="BIDS-required file is not present.",
                 )
@@ -123,6 +125,7 @@ def validate_bids(
                 origin=origin,
                 id="BIDS.MATCH",
                 scope=Scope.FILE,
+                origin_result=validation_result,
                 path=Path(file_path),
                 metadata=meta,
                 dataset_path=dataset_path,

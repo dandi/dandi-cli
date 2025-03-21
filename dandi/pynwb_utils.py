@@ -381,6 +381,7 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
                     severity=Severity.ERROR,
                     id=f"pynwb.{error}",
                     scope=Scope.FILE,
+                    origin_result=error,
                     path=Path(path),
                     message=f"Failed to validate. {error.reason}",
                     within_asset_paths={path: error.location},
@@ -400,6 +401,7 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
                 severity=Severity.ERROR,
                 id="pynwb.GENERIC",
                 scope=Scope.FILE,
+                origin_result=exc,
                 path=Path(path),
                 message=f"{exc}",
             )
@@ -434,6 +436,7 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
                         severity=Severity.ERROR,
                         id="pynwb.GENERIC",
                         scope=Scope.FILE,
+                        origin_result=e,
                         path=Path(path),
                         message=e,
                     )
