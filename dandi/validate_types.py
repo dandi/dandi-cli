@@ -83,7 +83,6 @@ class Severity(IntEnum):
 class Scope(Enum):
     FILE = "file"
     FOLDER = "folder"
-    # Isaac: make it/add "dandiset-metadata" to signal specific relation to metadata
     DANDISET = "dandiset"
     DATASET = "dataset"
 
