@@ -29,7 +29,14 @@ from .consts import (
 )
 from .misctypes import Readable
 from .utils import get_module_version, is_url
-from .validate_types import Scope, Severity, ValidationOrigin, ValidationResult
+from .validate_types import (
+    Origin,
+    Scope,
+    Severity,
+    Standard,
+    ValidationResult,
+    Validator,
+)
 
 lgr = get_logger()
 
@@ -365,13 +372,16 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
         for error in error_outputs:
             errors.append(
                 ValidationResult(
-                    origin=ValidationOrigin(
-                        name="pynwb",
-                        version=pynwb.__version__,
+                    origin=Origin(
+                        validator=Validator.pynwb,
+                        validator_version=pynwb.__version__,
+                        standard=Standard.NWB,
+                        # TODO: standard_version=...,
                     ),
                     severity=Severity.ERROR,
                     id=f"pynwb.{error}",
                     scope=Scope.FILE,
+                    origin_result=error,
                     path=Path(path),
                     message=f"Failed to validate. {error.reason}",
                     within_asset_paths={path: error.location},
@@ -382,13 +392,16 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
             raise
         errors.append(
             ValidationResult(
-                origin=ValidationOrigin(
-                    name="pynwb",
-                    version=pynwb.__version__,
+                origin=Origin(
+                    validator=Validator.pynwb,
+                    validator_version=pynwb.__version__,
+                    standard=Standard.NWB,
+                    # TODO: standard_version=...,
                 ),
                 severity=Severity.ERROR,
                 id="pynwb.GENERIC",
                 scope=Scope.FILE,
+                origin_result=exc,
                 path=Path(path),
                 message=f"{exc}",
             )
@@ -414,13 +427,16 @@ def validate(path: str | Path, devel_debug: bool = False) -> list[ValidationResu
             for e in nwb_errors:
                 errors.append(
                     ValidationResult(
-                        origin=ValidationOrigin(
-                            name="pynwb",
-                            version=pynwb.__version__,
+                        origin=Origin(
+                            validator=Validator.pynwb,
+                            validator_version=pynwb.__version__,
+                            standard=Standard.NWB,
+                            # TODO: standard_version=...,
                         ),
                         severity=Severity.ERROR,
                         id="pynwb.GENERIC",
                         scope=Scope.FILE,
+                        origin_result=e,
                         path=Path(path),
                         message=e,
                     )

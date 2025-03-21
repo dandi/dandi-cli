@@ -4,6 +4,7 @@ from bisect import bisect
 from collections.abc import Iterable, Iterator
 import datetime
 from email.utils import parsedate_to_datetime
+from enum import Enum
 from functools import lru_cache
 from importlib.metadata import version as importlib_version
 import inspect
@@ -953,3 +954,16 @@ def get_retry_after(response: requests.Response) -> Optional[int]:
                 sleep_amount,
             )
     return sleep_amount
+
+
+class StrEnum(str, Enum):
+    """
+    A variation of Enum that is also a subclass of str, akin to IntEnum
+
+    Member instances of a subclass of this class assigned to `auto()` will have their
+    own name as their value.
+    """
+
+    @staticmethod
+    def _generate_next_value_(name, _start, _count, _last_values):
+        return name
