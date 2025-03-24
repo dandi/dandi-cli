@@ -1392,7 +1392,7 @@ class BaseRemoteAsset(ABC, APIBase):
     #: The asset's (forward-slash-separated) path
     path: str
     #: The path within the asset, as e.g. path in a zarr/
-    subpath: str | None = Field(default=None)
+    subpath: Optional[str] = None
     #: The size of the asset in bytes
     size: int
     #: The date at which the asset was created
