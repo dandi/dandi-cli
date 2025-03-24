@@ -1240,16 +1240,29 @@ class RemoteDandiset:
         paths (e.g., ``../``) within it.
         """
         path = self._normalize_path(path)
-        try:
-            # Weed out any assets that happen to have the given path as a
-            # proper prefix:
-            (asset,) = (
-                a for a in self.get_assets_with_path_prefix(path) if a.path == path
-            )
-        except ValueError:
-            raise NotFoundError(f"No asset at path {path!r}")
-        else:
-            return asset
+        # Weed out any assets that happen to have the given path as a
+        # proper prefix:
+        assets = [a for a in self.get_assets_with_path_prefix(path) if a.path == path]
+        if assets:
+            if len(assets) > 1:
+                lgr.warning(
+                    "Multiple assets found at path %r; returning the first one",
+                    path,
+                )
+            asset = assets[0]
+        elif not assets:
+            zarr_suf = ".zarr/"
+            if (zarr_suf in path) and (zarr_suffix_idx := path.index(zarr_suf)):
+                # If path ends with .zarr/, we might have a zarr asset without
+                # a trailing slash in the path.  Try again:
+                zarr_path_len = zarr_suffix_idx + len(zarr_suf)
+                zarr_path = path[: zarr_path_len - 1]  # -1 for trailing /
+                subpath = path[len(zarr_path) :]
+                asset = self.get_asset_by_path(zarr_path)
+                asset.subpath = subpath
+            else:
+                raise NotFoundError(f"No asset at path {path!r}")
+        return asset
 
     def download_directory(
         self,
@@ -1378,6 +1391,8 @@ class BaseRemoteAsset(ABC, APIBase):
     identifier: str = Field(alias="asset_id")
     #: The asset's (forward-slash-separated) path
     path: str
+    #: The path within the asset, as e.g. path in a zarr/
+    subpath: str | None = Field(default=None)
     #: The size of the asset in bytes
     size: int
     #: The date at which the asset was created
