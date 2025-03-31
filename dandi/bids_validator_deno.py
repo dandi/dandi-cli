@@ -57,8 +57,7 @@ def _invoke_validator(args: list[str]) -> CompletedProcess:
         )
     except TimeoutExpired as e:
         raise RuntimeError(
-            f"The deno-compiled BIDS validator, {e.cmd} timed out after {e.timeout} "
-            f"seconds"
+            f"The `{' '.join(e.cmd)}` command timed out after {e.timeout} " f"seconds"
         ) from e
 
     return result
@@ -109,8 +108,8 @@ def get_version() -> str:
         result.check_returncode()
     except CalledProcessError as e:
         raise RuntimeError(
-            f"Execution of the deno-compiled BIDS validator with the --version option "
-            f"failed: exit code {e.returncode}"
+            f"Execution of the `{' '.join(e.cmd)}` command failed: "
+            f"exit code {e.returncode}"
         ) from e
 
     # Get the version from the stdout
@@ -120,8 +119,9 @@ def get_version() -> str:
         version = match.group(1)
     else:
         raise RuntimeError(
-            "Failed to extract the version of the deno-compiled BIDS validator from "
-            f"stdout, {result.stdout!r}, using the expected regex pattern, {pattern!r},"
+            f"Failed to extract a version number from the stdout output of the "
+            f"`{' '.join(result.args)}` command, {result.stdout!r}, using the expected "
+            f"regex pattern, {pattern!r}"
         )
 
     return version

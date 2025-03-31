@@ -128,7 +128,7 @@ class TestGetVersion:
         with patch("dandi.bids_validator_deno._invoke_validator") as mock_invoke:
             # Simulate a CompletedProcess with a non-zero return code
             mock_invoke.return_value = CompletedProcess(
-                args=["bids-validator-deno", "--version"],
+                args=[CMD, "--version"],
                 returncode=returncode,
                 stdout="Some error",
                 stderr="Some other error",
@@ -159,7 +159,7 @@ class TestGetVersion:
         """
         with patch("dandi.bids_validator_deno._invoke_validator") as mock_invoke:
             mock_invoke.return_value = CompletedProcess(
-                args=["bids-validator-deno", "--version"],
+                args=[CMD, "--version"],
                 returncode=0,
                 stdout=stdout_text,
                 stderr="",
@@ -183,12 +183,12 @@ class TestGetVersion:
         """
         with patch("dandi.bids_validator_deno._invoke_validator") as mock_invoke:
             mock_invoke.return_value = CompletedProcess(
-                args=["bids-validator-deno", "--version"],
+                args=[CMD, "--version"],
                 returncode=0,
                 stdout=stdout_text,
                 stderr="",
             )
             # Because the regex doesn't match any of these stdout_text variants,
             # we expect a RuntimeError about failing to extract the version.
-            with pytest.raises(RuntimeError, match="Failed to extract the version"):
+            with pytest.raises(RuntimeError, match="Failed to extract a version"):
                 get_version()
