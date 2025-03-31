@@ -85,6 +85,8 @@ def bids_validate(dir_: DirectoryPath) -> BidsValidationResult:
     """
     result = _invoke_validator(["--json", str(dir_)])
 
+    # The condition of this statement may need to change in the future.
+    # See https://github.com/bids-standard/bids-validator/issues/191 for details
     if result.returncode not in range(0, 1) or result.stderr != "":
         raise RuntimeError(
             f"Execution of the `{' '.join(result.args)}` failed.\n"
