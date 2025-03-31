@@ -85,8 +85,13 @@ def bids_validate(dir_: DirectoryPath) -> BidsValidationResult:
     """
     result = _invoke_validator(["--json", str(dir_)])
 
-    if result.returncode not in range(0, 1):
-        raise RuntimeError("todo: handle non-zero return codes")  # TODO: more here
+    if result.returncode not in range(0, 1) or result.stderr != "":
+        raise RuntimeError(
+            f"Execution of the `{' '.join(result.args)}` failed.\n"
+            f"Exit code: {result.returncode}\n"
+            f"stdout:\n {result.stdout}\n"
+            f"stderr:\n {result.stderr}\n"
+        )
 
     # Parse the JSON output. TODO: confirm if the JSON output is always at stdout
     return BidsValidationResult.model_validate_json(result.stdout)
