@@ -93,7 +93,7 @@ def bids_validate(dir_: DirectoryPath) -> BidsValidationResult:
             f"stderr:\n {result.stderr}\n"
         )
 
-    # Parse the JSON output. TODO: confirm if the JSON output is always at stdout
+    # Parse the JSON output at stdout
     return BidsValidationResult.model_validate_json(result.stdout)
 
 
