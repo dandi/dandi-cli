@@ -4,9 +4,9 @@
 from functools import cache
 import re
 from subprocess import CalledProcessError, CompletedProcess, TimeoutExpired, run
-from typing import Optional
+from typing import Any
 
-from pydantic import DirectoryPath
+from pydantic import DirectoryPath, RootModel, validate_call
 
 CMD = "bids-validator-deno"
 TIMEOUT = 600.0  # 10 minutes, in seconds
@@ -64,9 +64,33 @@ def _invoke_validator(args: list[str]) -> CompletedProcess:
     return result
 
 
-def bids_validate(dataset_dir: DirectoryPath) -> Optional[dict]:
-    """"""
-    # TODO: use the `--no-color` option to disable color output
+class BidsValidationResult(RootModel):
+    root: dict[str, Any]
+
+
+@validate_call
+def bids_validate(dir_: DirectoryPath) -> BidsValidationResult:
+    """
+    Validate a file directory as a BIDS dataset with the deno-compiled BIDS validator
+
+    Parameters
+    ----------
+    dir_ : DirectoryPath
+        The path to the directory to validate
+
+    Returns
+    -------
+    BidsValidationResult
+        The result of the validation using the deno-compiled BIDS validator with
+        the `--json` option.
+    """
+    result = _invoke_validator(["--json", str(dir_)])
+
+    if result.returncode not in range(0, 1):
+        raise RuntimeError("todo: handle non-zero return codes")  # TODO: more here
+
+    # Parse the JSON output. TODO: confirm if the JSON output is always at stdout
+    return BidsValidationResult.model_validate_json(result.stdout)
 
 
 @cache
