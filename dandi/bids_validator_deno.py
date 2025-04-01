@@ -107,6 +107,12 @@ def bids_validate(dir_: DirectoryPath) -> BidsValidationResult:
     BidsValidationResult
         The result of the validation using the deno-compiled BIDS validator with
         the `--json` option.
+
+    Raises
+    ------
+    ValidatorError
+        If the deno-compiled BIDS validator fails in execution, and the failure is
+        not an indication of the presence of validation errors.
     """
     result = _invoke_validator(["--json", str(dir_)])
 
@@ -130,6 +136,15 @@ def get_version() -> str:
     -------
     str
         The version of the deno-compiled BIDS validator
+
+    Raises
+    ------
+    ValidatorError
+        If the deno-compiled BIDS validator fails in execution, and the failure is
+        not an indication of the presence of validation errors.
+    RuntimeError
+        If the version number cannot be extracted from the output of the
+        `bids-validator-deno --version` command using the expected regex pattern
     """
     result = _invoke_validator(["--version"])
 
