@@ -15,6 +15,31 @@ TIMEOUT = 600.0  # 10 minutes, in seconds
 _ANSI_SGR_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
 
 
+class ValidatorError(Exception):
+    """
+    Exception raised when the deno-compiled BIDS validator fails in execution,
+    and the failure is not an indication of the presence of validation errors.
+    """
+
+    def __init__(self, cmd: list[str], returncode: int, stdout: str, stderr: str):
+        # Pass a human-readable message up to the base Exception
+        super().__init__("Execution of the deno-compiled BIDS validator failed")
+        self.cmd = cmd
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+    def __str__(self):
+        base_msg = str(super())  # the message passed in __init__
+        return (
+            f"{base_msg}\n"
+            f"Command: `{' '.join(self.cmd)}`\n"
+            f"Return code: {self.returncode}\n"
+            f"Stdout:\n{self.stdout}\n"
+            f"Stderr:\n{self.stderr}"
+        )
+
+
 def strip_sgr(text: str) -> str:
     """
     Strip ANSI SGR (Select Graphic Rendition) sequences from a string.
@@ -88,11 +113,8 @@ def bids_validate(dir_: DirectoryPath) -> BidsValidationResult:
     # The condition of this statement may need to change in the future.
     # See https://github.com/bids-standard/bids-validator/issues/191 for details
     if result.returncode not in range(0, 2) or result.stderr != "":
-        raise RuntimeError(
-            f"Execution of `{' '.join(result.args)}` failed.\n"
-            f"Exit code: {result.returncode}\n"
-            f"stdout:\n {result.stdout}\n"
-            f"stderr:\n {result.stderr}\n"
+        raise ValidatorError(
+            result.args, result.returncode, result.stdout, result.stderr
         )
 
     # Parse the JSON output at stdout
@@ -114,10 +136,7 @@ def get_version() -> str:
     try:
         result.check_returncode()
     except CalledProcessError as e:
-        raise RuntimeError(
-            f"Execution of the `{' '.join(e.cmd)}` command failed: "
-            f"exit code {e.returncode}"
-        ) from e
+        raise ValidatorError(e.cmd, e.returncode, e.stdout, e.stderr)
 
     # Get the version from the stdout
     pattern = r"bids-validator\s+(\S+)"
