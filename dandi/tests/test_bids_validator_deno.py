@@ -41,7 +41,7 @@ from dandi.bids_validator_deno import (
         ),
     ],
 )
-def test_strip_sgr(text, expected_output: str):
+def test_strip_sgr(text: str, expected_output: str) -> None:
     """
     Test the strip_sgr function to ensure it removes ANSI SGR sequences.
     """
@@ -73,7 +73,7 @@ class TestInvokeValidator:
         expected_returncode: int,
         expected_in_stdout: Optional[str],
         expected_in_stderr: Optional[str],
-    ):
+    ) -> None:
         """
         Call the real bids-validator-deno command for given args.
         These tests validate the return code and partial output.
