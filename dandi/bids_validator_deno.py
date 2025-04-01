@@ -89,7 +89,7 @@ def bids_validate(dir_: DirectoryPath) -> BidsValidationResult:
     # See https://github.com/bids-standard/bids-validator/issues/191 for details
     if result.returncode not in range(0, 2) or result.stderr != "":
         raise RuntimeError(
-            f"Execution of the `{' '.join(result.args)}` failed.\n"
+            f"Execution of `{' '.join(result.args)}` failed.\n"
             f"Exit code: {result.returncode}\n"
             f"stdout:\n {result.stdout}\n"
             f"stderr:\n {result.stderr}\n"
