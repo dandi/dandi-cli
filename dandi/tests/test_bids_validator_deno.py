@@ -8,7 +8,9 @@ import pytest
 from dandi.bids_validator_deno import (
     CMD,
     TIMEOUT,
+    BidsValidationResult,
     _invoke_validator,
+    bids_validate,
     get_version,
     strip_sgr,
 )
@@ -101,6 +103,49 @@ class TestInvokeValidator:
             mock_run.side_effect = TimeoutExpired(cmd=[CMD], timeout=TIMEOUT)
             with pytest.raises(RuntimeError, match="timed out after"):
                 _invoke_validator([])
+
+
+class TestBidsValidate:
+    def test_validate_empty_dir(self, tmp_path):
+        """
+        Test the case where an empty directory is validated
+        """
+        result = bids_validate(tmp_path)
+        assert isinstance(result, BidsValidationResult)
+
+    @pytest.mark.parametrize(
+        "exit_code, stderr",
+        [
+            (-42, ""),
+            (-1, ""),
+            (2, ""),
+            (2, "Some error"),
+            (100, ""),
+            (0, "Some other error"),
+            (1, "Errr!"),
+        ],
+    )
+    @pytest.mark.parametrize("stdout", ["", "Some output", "Some other output"])
+    def test_execution_error(self, exit_code, stdout, stderr, tmp_path):
+        """
+        Test the cases where the deno-compiled BIDS validator fails not due to
+        the input directory being invalid BIDS dataset but due to some other error
+        in the execution of the validator.
+        """
+        with patch("dandi.bids_validator_deno._invoke_validator") as mock_invoke:
+            # Simulate a CompletedProcess
+            mock_invoke.return_value = CompletedProcess(
+                args=[CMD, "--json", str(tmp_path)],
+                returncode=exit_code,
+                stdout=stdout,
+                stderr=stderr,
+            )
+            # We expect a RuntimeError with a message about "exit code <exit_code>"
+            with pytest.raises(
+                RuntimeError,
+                match=f"Execution of `{f'{CMD} --json {tmp_path}'}` failed.",
+            ):
+                bids_validate(tmp_path)
 
 
 @pytest.fixture
