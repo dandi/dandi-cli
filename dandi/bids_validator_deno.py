@@ -30,7 +30,7 @@ class ValidatorError(Exception):
         self.stderr = stderr
 
     def __str__(self):
-        base_msg = str(super())  # the message passed in __init__
+        base_msg = super().__str__()  # the message passed in __init__
         return (
             f"{base_msg}\n"
             f"Command: `{' '.join(self.cmd)}`\n"
