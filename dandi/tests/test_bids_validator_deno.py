@@ -9,11 +9,39 @@ from dandi.bids_validator_deno import (
     CMD,
     TIMEOUT,
     BidsValidationResult,
+    ValidatorError,
     _invoke_validator,
     bids_validate,
     get_version,
     strip_sgr,
 )
+
+
+def test_validator_error():
+    """
+    Test the ValidatorError exception class.
+    """
+    cmd = ["bids-validator-deno", "--json"]
+    returncode = 1
+    stdout = "Some output"
+    stderr = "Some error"
+
+    error = ValidatorError(cmd, returncode, stdout, stderr)
+
+    assert error.cmd == cmd
+    assert error.returncode == returncode
+    assert error.stdout == stdout
+    assert error.stderr == stderr
+
+    # Check the string representation
+    expected_str = (
+        "Execution of the deno-compiled BIDS validator failed\n"
+        f"Command: `bids-validator-deno --json`\n"
+        f"Return code: {returncode}\n"
+        f"Stdout:\n{stdout}\n"
+        f"Stderr:\n{stderr}"
+    )
+    assert str(error) == expected_str
 
 
 @pytest.mark.parametrize(
@@ -129,23 +157,28 @@ class TestBidsValidate:
     def test_execution_error(self, exit_code, stdout, stderr, tmp_path):
         """
         Test the cases where the deno-compiled BIDS validator fails not due to
-        the input directory being invalid BIDS dataset but due to some other error
+        the input directory being an invalid BIDS dataset but due to some other error
         in the execution of the validator.
         """
+        cmd = [CMD, "--json", str(tmp_path)]
         with patch("dandi.bids_validator_deno._invoke_validator") as mock_invoke:
             # Simulate a CompletedProcess
             mock_invoke.return_value = CompletedProcess(
-                args=[CMD, "--json", str(tmp_path)],
+                args=cmd,
                 returncode=exit_code,
                 stdout=stdout,
                 stderr=stderr,
             )
-            # We expect a RuntimeError with a message about "exit code <exit_code>"
-            with pytest.raises(
-                RuntimeError,
-                match=f"Execution of `{f'{CMD} --json {tmp_path}'}` failed.",
-            ):
+            # We expect a `ValidatorError`
+            with pytest.raises(ValidatorError) as excinfo:
                 bids_validate(tmp_path)
+
+            e = excinfo.value
+
+            assert e.cmd == cmd
+            assert e.returncode == exit_code
+            assert e.stdout == stdout
+            assert e.stderr == stderr
 
 
 @pytest.fixture
@@ -170,18 +203,28 @@ class TestGetVersion:
         """
         Test the case where `bids-validator-deno --version` has a non-zero exit code
         """
+        cmd = [CMD, "--version"]
+        stdout = "Some output"
+        stderr = "Some error"
         with patch("dandi.bids_validator_deno._invoke_validator") as mock_invoke:
             # Simulate a CompletedProcess with a non-zero return code
             mock_invoke.return_value = CompletedProcess(
-                args=[CMD, "--version"],
+                args=cmd,
                 returncode=returncode,
-                stdout="Some error",
-                stderr="Some other error",
+                stdout=stdout,
+                stderr=stderr,
             )
 
-            # We expect a RuntimeError with a message about "exit code <returncode>"
-            with pytest.raises(RuntimeError, match=f"exit code {returncode}"):
+            # We expect a `ValidatorError`
+            with pytest.raises(ValidatorError) as excinfo:
                 get_version()
+
+            e = excinfo.value
+
+            assert e.cmd == cmd
+            assert e.returncode == returncode
+            assert e.stdout == stdout
+            assert e.stderr == stderr
 
     @pytest.mark.parametrize(
         "stdout_text, expected_version",
