@@ -8,13 +8,13 @@ import pytest
 from dandi.bids_validator_deno import (
     CMD,
     TIMEOUT,
-    BidsValidationResult,
     ValidatorError,
     _invoke_validator,
     bids_validate,
     get_version,
     strip_sgr,
 )
+from dandi.bids_validator_deno.models import BidsValidationResult
 
 
 def test_validator_error():
