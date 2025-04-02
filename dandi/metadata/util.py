@@ -515,7 +515,7 @@ M = TypeVar("M", bound=models.DandiBaseModel)
 
 def extract_model(modelcls: type[M], metadata: dict, **kwargs: Any) -> M:
     m = modelcls.model_construct()
-    for field in m.model_fields.keys():
+    for field in modelcls.model_fields.keys():
         value = kwargs.get(field, extract_field(field, metadata))
         if value is not None:
             setattr(m, field, value)
