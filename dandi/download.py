@@ -743,7 +743,7 @@ def _download_file(
     resuming = False
     attempt = 0
     attempts_allowed: int = (
-        3  # number to do, could be incremented if we downloaded a little
+        10  # number to do, could be incremented if we downloaded a little
     )
     while attempt <= attempts_allowed:
         attempt += 1
