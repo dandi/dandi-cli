@@ -121,7 +121,7 @@ def bids_validate(dir_: DirectoryPath) -> BidsValidationResult:
         )
 
     # Parse the JSON output at stdout
-    return BidsValidationResult.model_validate_json(result.stdout)
+    return BidsValidationResult.model_validate_json(result.stdout, strict=True)
 
 
 @cache
