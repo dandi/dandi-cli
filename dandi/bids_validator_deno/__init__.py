@@ -4,9 +4,10 @@
 from functools import cache
 import re
 from subprocess import CalledProcessError, CompletedProcess, TimeoutExpired, run
-from typing import Any
 
-from pydantic import DirectoryPath, RootModel, validate_call
+from pydantic import DirectoryPath, validate_call
+
+from dandi.bids_validator_deno.models import BidsValidationResult
 
 CMD = "bids-validator-deno"
 TIMEOUT = 600.0  # 10 minutes, in seconds
@@ -86,10 +87,6 @@ def _invoke_validator(args: list[str]) -> CompletedProcess:
         ) from e
 
     return result
-
-
-class BidsValidationResult(RootModel):
-    root: dict[str, Any]
 
 
 @validate_call
