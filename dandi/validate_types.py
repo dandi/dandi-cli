@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+import dandi
 from dandi.utils import StrEnum
 
 
@@ -72,6 +73,25 @@ class Origin(BaseModel):
 
     standard_version: str | None = None
     """Version of the standard"""
+
+
+# Some commonly used `Origin` instances
+ORIGIN_VALIDATION_DANDI = Origin(
+    type=OriginType.VALIDATION,
+    validator=Validator.dandi,
+    validator_version=dandi.__version__,
+)
+ORIGIN_VALIDATION_DANDI_LAYOUT = Origin(
+    type=OriginType.VALIDATION,
+    validator=Validator.dandi,
+    validator_version=dandi.__version__,
+    standard=Standard.DANDI_LAYOUT,
+)
+ORIGIN_INTERNAL_DANDI = Origin(
+    type=OriginType.INTERNAL,
+    validator=Validator.dandi,
+    validator_version=dandi.__version__,
+)
 
 
 class Severity(IntEnum):

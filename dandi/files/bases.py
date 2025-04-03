@@ -29,6 +29,8 @@ from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
 from dandi.utils import post_upload_size_check, pre_upload_size_check, yaml_load
 from dandi.validate_types import (
+    ORIGIN_INTERNAL_DANDI,
+    ORIGIN_VALIDATION_DANDI,
     Origin,
     OriginType,
     Scope,
@@ -210,11 +212,7 @@ class LocalAsset(DandiFile):
             )
             return [
                 ValidationResult(
-                    origin=Origin(
-                        type=OriginType.INTERNAL,
-                        validator=Validator.dandi,
-                        validator_version=dandi.__version__,
-                    ),
+                    origin=ORIGIN_INTERNAL_DANDI,
                     severity=Severity.ERROR,
                     id="dandi.SOFTWARE_ERROR",
                     scope=Scope.FILE,
@@ -537,7 +535,7 @@ class NWBAsset(LocalFileAsset):
         else:
             # make sure that we have some basic metadata fields we require
             try:
-                origin = Origin(
+                origin_validation_nwbinspector = Origin(
                     type=OriginType.VALIDATION,
                     validator=Validator.nwbinspector,
                     validator_version=str(_get_nwb_inspector_version()),
@@ -561,7 +559,7 @@ class NWBAsset(LocalFileAsset):
                         }
                     errors.append(
                         ValidationResult(
-                            origin=origin,
+                            origin=origin_validation_nwbinspector,
                             severity=severity,
                             id=f"NWBI.{error.check_function_name}",
                             scope=Scope.FILE,
@@ -707,11 +705,7 @@ def _check_required_fields(
             message = f"Required field {f!r} has no value"
             errors.append(
                 ValidationResult(
-                    origin=Origin(
-                        type=OriginType.VALIDATION,
-                        validator=Validator.dandi,
-                        validator_version=dandi.__version__,
-                    ),
+                    origin=ORIGIN_VALIDATION_DANDI,
                     severity=Severity.ERROR,
                     id="dandischema.requred_field",
                     scope=Scope.FILE,
@@ -723,11 +717,7 @@ def _check_required_fields(
             message = f"Required field {f!r} has value {v!r}"
             errors.append(
                 ValidationResult(
-                    origin=Origin(
-                        type=OriginType.VALIDATION,
-                        validator=Validator.dandi,
-                        validator_version=dandi.__version__,
-                    ),
+                    origin=ORIGIN_VALIDATION_DANDI,
                     severity=Severity.WARNING,
                     id="dandischema.placeholder_value",
                     scope=Scope.FILE,

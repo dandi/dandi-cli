@@ -18,7 +18,7 @@ import uuid
 
 import ruamel.yaml
 
-from . import __version__, get_logger
+from . import get_logger
 from .consts import dandi_layout_fields
 from .dandiset import Dandiset
 from .exceptions import OrganizeImpossibleError
@@ -36,13 +36,10 @@ from .utils import (
     yaml_load,
 )
 from .validate_types import (
-    Origin,
-    OriginType,
+    ORIGIN_VALIDATION_DANDI_LAYOUT,
     Scope,
     Severity,
-    Standard,
     ValidationResult,
-    Validator,
 )
 
 lgr = get_logger()
@@ -1127,12 +1124,7 @@ def validate_organized_path(
         errors.append(
             ValidationResult(
                 id="DANDI.NON_DANDI_FILENAME",
-                origin=Origin(
-                    type=OriginType.VALIDATION,
-                    validator=Validator.dandi,
-                    validator_version=__version__,
-                    standard=Standard.DANDI_LAYOUT,
-                ),
+                origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
                 severity=Severity.ERROR,
                 scope=Scope.FILE,
                 path=filepath,
@@ -1148,12 +1140,7 @@ def validate_organized_path(
         errors.append(
             ValidationResult(
                 id="DANDI.NON_DANDI_FOLDERNAME",
-                origin=Origin(
-                    type=OriginType.VALIDATION,
-                    validator=Validator.dandi,
-                    validator_version=__version__,
-                    standard=Standard.DANDI_LAYOUT,
-                ),
+                origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
                 severity=Severity.ERROR,
                 scope=Scope.FOLDER,
                 path=filepath,
@@ -1169,12 +1156,7 @@ def validate_organized_path(
             errors.append(
                 ValidationResult(
                     id="DANDI.METADATA_MISMATCH_SUBJECT",
-                    origin=Origin(
-                        type=OriginType.VALIDATION,
-                        validator=Validator.dandi,
-                        validator_version=__version__,
-                        standard=Standard.DANDI_LAYOUT,
-                    ),
+                    origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
                     severity=Severity.ERROR,
                     scope=Scope.FILE,
                     path=filepath,

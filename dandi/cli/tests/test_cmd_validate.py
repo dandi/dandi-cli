@@ -75,14 +75,16 @@ def test_validate_nwb_path_grouping(organized_nwb_dir4: Path) -> None:
 
 
 def test_process_issues(capsys):
+    origin_validation_nwbinspector = Origin(
+        type=OriginType.VALIDATION,
+        validator=Validator.nwbinspector,
+        validator_version="",
+    )
+
     issues = [
         ValidationResult(
             id="NWBI.check_data_orientation",
-            origin=Origin(
-                type=OriginType.VALIDATION,
-                validator=Validator.nwbinspector,
-                validator_version="",
-            ),
+            origin=origin_validation_nwbinspector,
             scope=Scope.FILE,
             message="Data may be in the wrong orientation.",
             path=Path("dir0/sub-mouse004/sub-mouse004.nwb"),
@@ -90,11 +92,7 @@ def test_process_issues(capsys):
         ),
         ValidationResult(
             id="NWBI.check_data_orientation",
-            origin=Origin(
-                type=OriginType.VALIDATION,
-                validator=Validator.nwbinspector,
-                validator_version="",
-            ),
+            origin=origin_validation_nwbinspector,
             scope=Scope.FILE,
             message="Data may be in the wrong orientation.",
             path=Path("dir1/sub-mouse001/sub-mouse001.nwb"),
@@ -102,11 +100,7 @@ def test_process_issues(capsys):
         ),
         ValidationResult(
             id="NWBI.check_missing_unit",
-            origin=Origin(
-                type=OriginType.VALIDATION,
-                validator=Validator.nwbinspector,
-                validator_version="",
-            ),
+            origin=origin_validation_nwbinspector,
             scope=Scope.FILE,
             message="Missing text for attribute 'unit'.",
             path=Path("dir1/sub-mouse001/sub-mouse001.nwb"),

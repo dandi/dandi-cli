@@ -244,7 +244,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         import zarr
 
         errors: list[ValidationResult] = []
-        origin: Origin = Origin(
+        origin_internal_zarr: Origin = Origin(
             type=OriginType.INTERNAL,
             validator=Validator.zarr,
             validator_version=zarr.__version__,
@@ -258,7 +258,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 raise
             errors.append(
                 ValidationResult(
-                    origin=origin,
+                    origin=origin_internal_zarr,
                     severity=Severity.ERROR,
                     id="zarr.cannot_open",
                     scope=Scope.FILE,
@@ -269,18 +269,18 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             )
             data = None
 
-        origin = Origin(
+        origin_internal_zarr = Origin(
             type=OriginType.VALIDATION,
             validator=Validator.dandi_zarr,
             validator_version=__version__,
         )
         if data is not None:
-            origin.standard_version = get_zarr_format_version(data)
+            origin_internal_zarr.standard_version = get_zarr_format_version(data)
 
         if isinstance(data, zarr.Group) and not data:
             errors.append(
                 ValidationResult(
-                    origin=origin,
+                    origin=origin_internal_zarr,
                     severity=Severity.ERROR,
                     id="zarr.empty_group",
                     scope=Scope.FILE,
@@ -294,7 +294,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 raise ValueError(msg)
             errors.append(
                 ValidationResult(
-                    origin=origin,
+                    origin=origin_internal_zarr,
                     severity=Severity.ERROR,
                     id="zarr.tree_depth_exceeded",
                     scope=Scope.FILE,

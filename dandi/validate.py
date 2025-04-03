@@ -4,11 +4,11 @@ from collections.abc import Iterator
 import os
 from pathlib import Path
 
-from . import __version__
 from .consts import dandiset_metadata_file
 from .files import find_dandi_files
 from .utils import find_parent_directory_containing
 from .validate_types import (
+    ORIGIN_VALIDATION_DANDI_LAYOUT,
     Origin,
     OriginType,
     Scope,
@@ -162,12 +162,7 @@ def validate(
         if dandiset_path is None:
             yield ValidationResult(
                 id="DANDI.NO_DANDISET_FOUND",
-                origin=Origin(
-                    type=OriginType.VALIDATION,
-                    validator=Validator.dandi,
-                    validator_version=__version__,
-                    standard=Standard.DANDI_LAYOUT,
-                ),
+                origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
                 severity=Severity.ERROR,
                 scope=Scope.DANDISET,
                 path=Path(p),
