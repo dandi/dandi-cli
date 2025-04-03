@@ -214,9 +214,10 @@ def download(
                 else:
                     break
     if errors:
-        raise RuntimeError(
-            f"Encountered {pluralize(len(errors), 'error')} while downloading."
-        )
+        error_msg = f"Encountered {pluralize(len(errors), 'error')} while downloading."
+        # Also log the first error for easier debugging
+        lgr.error("%s The first error: %r", error_msg, errors[0])
+        raise RuntimeError(error_msg)
 
 
 @dataclass
@@ -741,12 +742,11 @@ def _download_file(
             )
 
     resuming = False
-    attempt = 0
+    attempt = 1
     attempts_allowed: int = (
-        3  # number to do, could be incremented if we downloaded a little
+        10  # number to do, could be incremented if we downloaded a little
     )
     while attempt <= attempts_allowed:
-        attempt += 1
         try:
             if digester:
                 downloaded_digest = digester()  # start empty
@@ -797,17 +797,19 @@ def _download_file(
         # Catching RequestException lets us retry on timeout & connection
         # errors (among others) in addition to HTTP status errors.
         except requests.RequestException as exc:
-            attempts_allowed_or_not = _check_attempts_and_sleep(
-                path=path,
-                exc=exc,
-                attempt=attempt,
-                attempts_allowed=attempts_allowed,
-                downloaded_in_attempt=downloaded_in_attempt,
-            )
-            if not isinstance(attempts_allowed_or_not, int) or not attempts_allowed:
+            if not (
+                attempts_allowed := _check_attempts_and_sleep(
+                    path=path,
+                    exc=exc,
+                    attempt=attempt,
+                    attempts_allowed=attempts_allowed,
+                    downloaded_in_attempt=downloaded_in_attempt,
+                )
+            ):
                 yield {"status": "error", "message": str(exc)}
                 return
-            attempts_allowed = attempts_allowed_or_not
+        finally:
+            attempt += 1
     else:
         lgr.warning("downloader logic: We should not be here!")
 
@@ -1087,7 +1089,7 @@ def _check_attempts_and_sleep(
     attempt: int,
     attempts_allowed: int,
     downloaded_in_attempt: int = 0,
-) -> int | None:
+) -> int:
     """
     Check if we should retry the download, sleep if still allowed,
     and return potentially adjusted 'attempts_allowed'
@@ -1098,8 +1100,8 @@ def _check_attempts_and_sleep(
     :param attempts_allowed: The number of download attempts currently allowed
     :param downloaded_in_attempt: The number of bytes downloaded in the last attempt
 
-    :returns: The number of download attempts allowed, potentially adjusted, if download
-        should be retried. None if download should not be retried.
+    :returns: The number of download attempts allowed overall, potentially adjusted,
+        if download should be retried.  It would return 0 if no more attempts allowed.
         Note: If download should be retried, this function sleeps before returning.
         otherwise, it returns immediately.
     """
@@ -1119,8 +1121,11 @@ def _check_attempts_and_sleep(
             )
             attempts_allowed += 1
     if attempt >= attempts_allowed:
-        lgr.debug("%s - download failed after %d attempts: %s", path, attempt + 1, exc)
-        return None
+        # The last allowed attempt has failed,
+        # so there is no point of retrying or sleeping any longer - return right away
+        # and we would record that error as the error which caused the download to fail.
+        lgr.debug("%s - download failed after %d attempts: %s", path, attempt, exc)
+        return 0
     if exc.response is not None:
         if exc.response.status_code not in (
             400,  # Bad Request, but happened with girder:
@@ -1133,7 +1138,7 @@ def _check_attempts_and_sleep(
                 exc.response.status_code,
                 exc,
             )
-            return None
+            return 0
         sleep_amount = get_retry_after(exc.response)
     if sleep_amount is None:
         # it was not Retry-after set, so we come up with random duration to sleep
