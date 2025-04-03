@@ -742,12 +742,11 @@ def _download_file(
             )
 
     resuming = False
-    attempt = 0
+    attempt = 1
     attempts_allowed: int = (
         10  # number to do, could be incremented if we downloaded a little
     )
     while attempt <= attempts_allowed:
-        attempt += 1
         try:
             if digester:
                 downloaded_digest = digester()  # start empty
@@ -809,6 +808,8 @@ def _download_file(
                 yield {"status": "error", "message": str(exc)}
                 return
             attempts_allowed = attempts_allowed_or_not
+        finally:
+            attempt += 1
     else:
         lgr.warning("downloader logic: We should not be here!")
 
