@@ -1200,12 +1200,12 @@ def test__check_attempts_and_sleep() -> None:
 
     # do not bother if already at limit
     with mock.patch("time.sleep") as mock_sleep:
-        assert f(HTTPError(), attempt=2, attempts_allowed=2) is None
+        assert f(HTTPError(), attempt=2, attempts_allowed=2) == 0
         mock_sleep.assert_not_called()
 
     # do not bother if 403
     with mock.patch("time.sleep") as mock_sleep:
-        assert f(HTTPError(response=response403), attempt=1, attempts_allowed=2) is None
+        assert f(HTTPError(response=response403), attempt=1, attempts_allowed=2) == 0
         mock_sleep.assert_not_called()
 
     # And in case of "Aggressive setting" when DANDI_DOWNLOAD_AGGRESSIVE_RETRY
@@ -1215,7 +1215,7 @@ def test__check_attempts_and_sleep() -> None:
         with mock.patch("time.sleep") as mock_sleep:
             assert (
                 f(HTTPError(), attempt=2, attempts_allowed=2, downloaded_in_attempt=0)
-                is None
+                == 0
             )
             mock_sleep.assert_not_called()
 
