@@ -87,6 +87,11 @@ ORIGIN_VALIDATION_DANDI_LAYOUT = Origin(
     validator_version=dandi.__version__,
     standard=Standard.DANDI_LAYOUT,
 )
+ORIGIN_VALIDATION_DANDI_ZARR = Origin(
+    type=OriginType.VALIDATION,
+    validator=Validator.dandi_zarr,
+    validator_version=dandi.__version__,
+)
 ORIGIN_INTERNAL_DANDI = Origin(
     type=OriginType.INTERNAL,
     validator=Validator.dandi,

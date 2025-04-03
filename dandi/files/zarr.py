@@ -17,7 +17,7 @@ from dandischema.models import BareAsset, DigestType
 import requests
 from zarr_checksum.tree import ZarrChecksumTree
 
-from dandi import __version__, get_logger
+from dandi import get_logger
 from dandi.consts import (
     MAX_ZARR_DEPTH,
     ZARR_DELETE_BATCH_SIZE,
@@ -43,6 +43,7 @@ from dandi.utils import (
 
 from .bases import LocalDirectoryAsset
 from ..validate_types import (
+    ORIGIN_VALIDATION_DANDI_ZARR,
     Origin,
     OriginType,
     Scope,
@@ -269,20 +270,12 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             )
             data = None
 
-        origin_internal_zarr = Origin(
-            type=OriginType.VALIDATION,
-            validator=Validator.dandi_zarr,
-            validator_version=__version__,
-        )
-        if data is not None:
-            origin_internal_zarr.standard_version = get_zarr_format_version(data)
-
         if isinstance(data, zarr.Group) and not data:
             errors.append(
                 ValidationResult(
-                    origin=origin_internal_zarr,
+                    origin=ORIGIN_VALIDATION_DANDI_ZARR,
                     severity=Severity.ERROR,
-                    id="zarr.empty_group",
+                    id="dandi_zarr.empty_group",
                     scope=Scope.FILE,
                     path=self.filepath,
                     message="Zarr group is empty.",
@@ -294,9 +287,9 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 raise ValueError(msg)
             errors.append(
                 ValidationResult(
-                    origin=origin_internal_zarr,
+                    origin=ORIGIN_VALIDATION_DANDI_ZARR,
                     severity=Severity.ERROR,
-                    id="zarr.tree_depth_exceeded",
+                    id="dandi_zarr.tree_depth_exceeded",
                     scope=Scope.FILE,
                     path=self.filepath,
                     message=msg,

@@ -530,7 +530,9 @@ def test_validate_deep_zarr(tmp_path: Path) -> None:
     zf = dandi_file(zarr_path)
     assert zf.get_validation_errors() == []
     mkpaths(zarr_path, "a/b/c/d/e/f/g/h.txt")
-    assert [e.id for e in zf.get_validation_errors()] == ["zarr.tree_depth_exceeded"]
+    assert [e.id for e in zf.get_validation_errors()] == [
+        "dandi_zarr.tree_depth_exceeded"
+    ]
 
 
 def test_validate_zarr_deep_via_excluded_dotfiles(tmp_path: Path) -> None:
