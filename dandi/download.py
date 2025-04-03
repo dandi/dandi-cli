@@ -214,9 +214,10 @@ def download(
                 else:
                     break
     if errors:
-        raise RuntimeError(
-            f"Encountered {pluralize(len(errors), 'error')} while downloading."
-        )
+        error_msg = f"Encountered {pluralize(len(errors), 'error')} while downloading."
+        # Also log the first error for easier debugging
+        lgr.error("%s The first error: %r", error_msg, errors[0])
+        raise RuntimeError(error_msg)
 
 
 @dataclass
