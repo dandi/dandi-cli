@@ -1,3 +1,18 @@
+# 0.67.3 (Thu Apr 03 2025)
+
+#### 🐛 Bug Fix
+
+- Download: make it retry more times and log the first error from many [#1603](https://github.com/dandi/dandi-cli/pull/1603) ([@yarikoptic](https://github.com/yarikoptic) [@candleindark](https://github.com/candleindark))
+- Remove deprecated use of Pydantic per Pydantic 2.11 [#1601](https://github.com/dandi/dandi-cli/pull/1601) ([@candleindark](https://github.com/candleindark))
+- Upgrade bidsschematools to be of 1.x series [#1591](https://github.com/dandi/dandi-cli/pull/1591) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 2
+
+- Isaac To ([@candleindark](https://github.com/candleindark))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.67.2 (Wed Mar 12 2025)
 
 #### 🏠 Internal
