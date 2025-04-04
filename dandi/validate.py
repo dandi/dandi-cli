@@ -4,11 +4,19 @@ from collections.abc import Iterator
 import os
 from pathlib import Path
 
-from . import __version__
 from .consts import dandiset_metadata_file
 from .files import find_dandi_files
 from .utils import find_parent_directory_containing
-from .validate_types import Scope, Severity, ValidationOrigin, ValidationResult
+from .validate_types import (
+    ORIGIN_VALIDATION_DANDI_LAYOUT,
+    Origin,
+    OriginType,
+    Scope,
+    Severity,
+    Standard,
+    ValidationResult,
+    Validator,
+)
 
 BIDS_TO_DANDI = {
     "subject": "subject_id",
@@ -46,10 +54,12 @@ def validate_bids(
 
     validation_result = validate_bids_(paths, exclude_files=["dandiset.yaml"])
     our_validation_result = []
-    origin = ValidationOrigin(
-        name="bidsschematools",
-        version=bidsschematools.__version__,
-        bids_version=validation_result["bids_version"],
+    origin = Origin(
+        type=OriginType.VALIDATION,
+        validator=Validator.bidsschematools,
+        validator_version=bidsschematools.__version__,
+        standard=Standard.BIDS,
+        standard_version=validation_result["bids_version"],
     )
 
     # Storing variable to not re-compute set paths for each individual file.
@@ -73,6 +83,7 @@ def validate_bids(
                 severity=Severity.ERROR,
                 id="BIDS.NON_BIDS_PATH_PLACEHOLDER",
                 scope=Scope.FILE,
+                origin_result=validation_result,
                 path=Path(path),
                 message="File does not match any pattern known to BIDS.",
                 dataset_path=dataset_path,
@@ -92,6 +103,7 @@ def validate_bids(
                     severity=Severity.ERROR,
                     id="BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",
                     scope=Scope.DATASET,
+                    origin_result=validation_result,
                     path_regex=pattern["regex"],
                     message="BIDS-required file is not present.",
                 )
@@ -115,6 +127,7 @@ def validate_bids(
                 origin=origin,
                 id="BIDS.MATCH",
                 scope=Scope.FILE,
+                origin_result=validation_result,
                 path=Path(file_path),
                 metadata=meta,
                 dataset_path=dataset_path,
@@ -149,7 +162,7 @@ def validate(
         if dandiset_path is None:
             yield ValidationResult(
                 id="DANDI.NO_DANDISET_FOUND",
-                origin=ValidationOrigin(name="dandi", version=__version__),
+                origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
                 severity=Severity.ERROR,
                 scope=Scope.DANDISET,
                 path=Path(p),

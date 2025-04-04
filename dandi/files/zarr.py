@@ -42,9 +42,45 @@ from dandi.utils import (
 )
 
 from .bases import LocalDirectoryAsset
-from ..validate_types import Scope, Severity, ValidationOrigin, ValidationResult
+from ..validate_types import (
+    ORIGIN_VALIDATION_DANDI_ZARR,
+    Origin,
+    OriginType,
+    Scope,
+    Severity,
+    Standard,
+    ValidationResult,
+    Validator,
+)
 
 lgr = get_logger()
+
+
+def get_zarr_format_version(data: Any) -> str:
+    """
+    Get the Zarr storage specification version from a Zarr data object
+
+    Parameters
+    ----------
+    data : zarr.core.Array or zarr.hierarchy.Group
+        The Zarr data object from which to extract the storage specification version
+
+    Returns
+    -------
+    str
+        The Zarr storage specification version,
+        https://zarr-specs.readthedocs.io/en/latest/specs.html, used in the Zarr data
+        object
+    """
+    import zarr  # Delay heavy import
+
+    if isinstance(data, zarr.Group):
+        meta = json.loads(data.store.get(".zgroup"))
+    elif isinstance(data, zarr.Array):
+        meta = json.loads(data.store.get(".zarray"))
+    else:
+        raise TypeError("`data` must be a `zarr.core.Array` or `zarr.hierarchy.Group`")
+    return str(meta["zarr_format"])
 
 
 @dataclass
@@ -209,34 +245,37 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         import zarr
 
         errors: list[ValidationResult] = []
+        origin_internal_zarr: Origin = Origin(
+            type=OriginType.INTERNAL,
+            validator=Validator.zarr,
+            validator_version=zarr.__version__,
+            standard=Standard.ZARR,
+        )
+
         try:
             data = zarr.open(str(self.filepath))
-        except Exception:
+        except Exception as e:
             if devel_debug:
                 raise
             errors.append(
                 ValidationResult(
-                    origin=ValidationOrigin(
-                        name="zarr",
-                        version=zarr.version.version,
-                    ),
+                    origin=origin_internal_zarr,
                     severity=Severity.ERROR,
                     id="zarr.cannot_open",
                     scope=Scope.FILE,
+                    origin_result=e,
                     path=self.filepath,
                     message="Error opening file.",
                 )
             )
             data = None
+
         if isinstance(data, zarr.Group) and not data:
             errors.append(
                 ValidationResult(
-                    origin=ValidationOrigin(
-                        name="zarr",
-                        version=zarr.version.version,
-                    ),
+                    origin=ORIGIN_VALIDATION_DANDI_ZARR,
                     severity=Severity.ERROR,
-                    id="zarr.empty_group",
+                    id="dandi_zarr.empty_group",
                     scope=Scope.FILE,
                     path=self.filepath,
                     message="Zarr group is empty.",
@@ -248,12 +287,9 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 raise ValueError(msg)
             errors.append(
                 ValidationResult(
-                    origin=ValidationOrigin(
-                        name="zarr",
-                        version=zarr.version.version,
-                    ),
+                    origin=ORIGIN_VALIDATION_DANDI_ZARR,
                     severity=Severity.ERROR,
-                    id="zarr.tree_depth_exceeded",
+                    id="dandi_zarr.tree_depth_exceeded",
                     scope=Scope.FILE,
                     path=self.filepath,
                     message=msg,
