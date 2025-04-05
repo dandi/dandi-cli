@@ -212,7 +212,6 @@ def harmonize(bv_result: BidsValidationResult, ds_path: Path) -> list[Validation
     code_messages = bv_result.issues.codeMessages
     schema_version = bv_result.summary.schemaVersion
     dandiset_path = find_parent_directory_containing("dandiset.yaml", ds_path)
-    dataset_path = find_parent_directory_containing("dataset_description.json", ds_path)
 
     origin = Origin(
         type=OriginType.VALIDATION,
@@ -243,7 +242,7 @@ def harmonize(bv_result: BidsValidationResult, ds_path: Path) -> list[Validation
                 origin_result=issue,  # TODO: it may be more useful if set to `bv_result`
                 severity=_SEVERITY_MAP.get(issue.severity),
                 dandiset_path=dandiset_path,
-                dataset_path=dataset_path,
+                dataset_path=ds_path,
                 message=_get_msg(issue, code_messages),
                 # metadata, not sure if this can be done it is there is SubjectMetadata in summary
                 path=path,
