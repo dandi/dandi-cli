@@ -244,7 +244,8 @@ def harmonize(bv_result: BidsValidationResult, ds_path: Path) -> list[Validation
                 dandiset_path=dandiset_path,
                 dataset_path=ds_path,
                 message=_get_msg(issue, code_messages),
-                # metadata, not sure if this can be done it is there is SubjectMetadata in summary
+                # TODO: metadata, not sure if this can be done it is there is
+                #   SubjectMetadata in summary
                 path=issue_path,
             )
         )
