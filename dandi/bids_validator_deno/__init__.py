@@ -205,6 +205,9 @@ def harmonize(bv_result: BidsValidationResult, ds_path: Path) -> list[Validation
         A list of `ValidationResult` objects in which each object represents an issue
         in the validation result.
     """
+    # Ensure the path is absolute and in canonical form
+    ds_path = ds_path.resolve()
+
     issues = bv_result.issues.issues
     code_messages = bv_result.issues.codeMessages
     schema_version = bv_result.summary.schemaVersion
