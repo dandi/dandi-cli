@@ -232,7 +232,7 @@ def harmonize(bv_result: BidsValidationResult, ds_path: Path) -> list[Validation
             continue
 
         # The absolute path to the file or directory that the issue is related to
-        path = _get_path(issue, ds_path)
+        issue_path = _get_path(issue, ds_path)
 
         results.append(
             ValidationResult(
@@ -245,7 +245,7 @@ def harmonize(bv_result: BidsValidationResult, ds_path: Path) -> list[Validation
                 dataset_path=ds_path,
                 message=_get_msg(issue, code_messages),
                 # metadata, not sure if this can be done it is there is SubjectMetadata in summary
-                path=path,
+                path=issue_path,
             )
         )
 
