@@ -229,6 +229,9 @@ def harmonize(bv_result: BidsValidationResult, ds_path: Path) -> list[Validation
             #   to the Severity enum.
             continue
 
+        # The absolute path to the file or directory that the issue is related to
+        path = _get_path(issue, ds_path)
+
         results.append(
             ValidationResult(
                 id=f"BIDS.{issue.code}",
@@ -240,7 +243,7 @@ def harmonize(bv_result: BidsValidationResult, ds_path: Path) -> list[Validation
                 dataset_path=dataset_path,
                 message=_get_msg(issue, code_messages),
                 # metadata, not sure if this can be done it is there is SubjectMetadata in summary
-                # path=,
+                path=path,
             )
         )
 
@@ -273,3 +276,31 @@ def _get_msg(issue: Issue, code_messages: dict[str, str]) -> Optional[str]:
 
     # Return `None` if a non-empty message cannot be produced
     return msg if msg else None
+
+
+# todo: to be tested
+def _get_path(issue: Issue, ds_path: Path) -> Optional[Path]:
+    """
+    Given an issue from the validation result of the deno-compiled BIDS validator,
+    produce the absolute path to the file or directory that the issue is related to.
+
+    Parameters
+    ----------
+    issue : Issue
+        The issue to produce a path for
+    ds_path : Path
+        The path to the dataset that has been validated to produce the `issue`
+    Returns
+    -------
+    Optional[Path]
+        The absolute path to the file or directory that the issue is related to
+        (or `None` if such a path can't be produced. E.g., there is no file or
+        directory that the issue is related to.)
+    """
+    if issue.location is None:
+        return None
+
+    # Ensure the path is absolute and in canonical form
+    ds_path = ds_path.resolve()
+
+    return ds_path.joinpath(issue.location.lstrip("/"))
