@@ -238,7 +238,7 @@ def harmonize(bv_result: BidsValidationResult, ds_path: Path) -> list[Validation
             ValidationResult(
                 id=f"BIDS.{issue.code}",
                 origin=origin,
-                scope=Scope.FILE,  # TODO: it can be folder or dataset as well, possibly
+                scope=_get_scope(issue_path),
                 origin_result=issue,  # TODO: it may be more useful if set to `bv_result`
                 severity=_SEVERITY_MAP.get(issue.severity),
                 dandiset_path=dandiset_path,
@@ -250,6 +250,33 @@ def harmonize(bv_result: BidsValidationResult, ds_path: Path) -> list[Validation
         )
 
     return results
+
+
+# TODO: to be tested
+def _get_scope(issue_path: Optional[Path]) -> Scope:
+    """
+    Return the scope of the issue
+
+    Parameters
+    ----------
+    issue_path : Optional[Path]
+        The path to the file or directory that the issue is related to. `None` if there
+        is no such a file or directory.
+    Returns
+    -------
+    Scope
+        The scope of the issue. If `issue_path` is `None`, the scope is set to
+        `Scope.DATASET`.
+    """
+    if issue_path is None:
+        return Scope.DATASET
+
+    if issue_path.is_file() or issue_path.is_symlink():
+        return Scope.FILE
+    if issue_path.is_dir():
+        return Scope.FOLDER
+
+    return Scope.DATASET
 
 
 # todo: to be tested
