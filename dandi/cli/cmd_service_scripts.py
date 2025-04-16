@@ -246,6 +246,7 @@ def publish_dandiset_version_doi(dandi_instance, dandiset, dandiset_version) -> 
         elif doi_state == "registered":
             print("TODO? Republish DOI?")
         elif doi_state == "draft":
+            # TODO(asmacdo) DJANGO_DANDI_DOI_PUBLISH env var could be used to disable publishing
             print("DOI is draft, publishing to 'findable'...")
             # TODO(asmacdo) re-enable, avoiding unnecessary proliferation so disabled for now
             # Tested once, produced
