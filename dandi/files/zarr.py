@@ -11,7 +11,7 @@ import os
 import os.path
 from pathlib import Path
 from time import sleep
-from typing import Any
+from typing import Any, Optional
 
 from dandischema.models import BareAsset, DigestType
 import requests
@@ -56,31 +56,45 @@ from ..validate_types import (
 lgr = get_logger()
 
 
-def get_zarr_format_version(data: Any) -> str:
+def get_zarr_format_version(path: Path) -> Optional[str]:
     """
-    Get the Zarr storage specification version from a Zarr data object
+    Get the Zarr format version from a Zarr object, a Zarr group or array
 
     Parameters
     ----------
-    data : zarr.core.Array or zarr.hierarchy.Group
-        The Zarr data object from which to extract the storage specification version
+    path : The path to the store of the Zarr object in the filesystem
 
     Returns
     -------
     str
-        The Zarr storage specification version,
-        https://zarr-specs.readthedocs.io/en/latest/specs.html, used in the Zarr data
-        object
-    """
-    import zarr  # Delay heavy import
+        The Zarr format version, https://zarr-specs.readthedocs.io/en/latest/specs.html,
+        the Zarr object conforms to if it can be determined, otherwise None
 
-    if isinstance(data, zarr.Group):
-        meta = json.loads(data.store.get(".zgroup"))
-    elif isinstance(data, zarr.Array):
-        meta = json.loads(data.store.get(".zarray"))
-    else:
-        raise TypeError("`data` must be a `zarr.core.Array` or `zarr.hierarchy.Group`")
-    return str(meta["zarr_format"])
+    Note
+    ----
+        Currently, this function can only handle Zarr objects that have a storage of
+        `zarr.storage.LocalStore` in zarr-python 3.x or `zarr.storage.DirectoryStore`
+        in zarr-python 2.x. For Zarr objects that have a different storage, this
+        function will return None. Upgrading to zarr-python 3.x will eliminate this
+        limitation.
+
+        This function is currently implemented by "manually" reading the content
+        of a Zarr store. Once, upgrade to zarr-python 3.x is done, we can use the
+        zarr.open() method to obtain the Zarr object from its store that has an `info`
+        attribute that contains the Zarr format version.
+    """
+
+    if not path.is_dir():
+        return None
+
+    if (path / "zarr.json").is_file():
+        # Zarr format V3
+        return "3"
+    if (path / ".zgroup").is_file() or (path / ".zarray").is_file():
+        # Zarr format V2
+        return "2"
+
+    return None
 
 
 @dataclass
