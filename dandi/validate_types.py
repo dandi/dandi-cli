@@ -40,6 +40,7 @@ class Validator(StrEnum):
     hed_python_validator = "hed-python-validator"
     nwbinspector = auto()
     pynwb = auto()
+    tensorstore = auto()
     zarr = auto()
 
 

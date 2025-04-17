@@ -11,12 +11,14 @@ import os
 import os.path
 from pathlib import Path
 from time import sleep
-from typing import Any
+from typing import Any, Optional
 
 from dandischema.models import BareAsset, DigestType
+from pydantic import BaseModel, ConfigDict, ValidationError
 import requests
 from zarr_checksum.tree import ZarrChecksumTree
 
+from dandi import __version__ as dandi_version
 from dandi import get_logger
 from dandi.consts import (
     MAX_ZARR_DEPTH,
@@ -56,31 +58,214 @@ from ..validate_types import (
 lgr = get_logger()
 
 
-def get_zarr_format_version(data: Any) -> str:
+class _Zarr3Metadata(BaseModel):
     """
-    Get the Zarr storage specification version from a Zarr data object
+    Metadata for Zarr format V3 stored in the zarr.json file
+
+    Note
+    ----
+        This will not be needed once the upgrade to zarr-python 3.x is done and
+        should be removed.
+    """
+
+    node_type: str
+
+    model_config = ConfigDict(strict=True)
+
+
+def get_zarr_format_version(path: Path) -> Optional[str]:
+    """
+    Get the Zarr format version from a Zarr object, a Zarr group or array
 
     Parameters
     ----------
-    data : zarr.core.Array or zarr.hierarchy.Group
-        The Zarr data object from which to extract the storage specification version
+    path : The path to the store of the Zarr object in the filesystem
 
     Returns
     -------
     str
-        The Zarr storage specification version,
-        https://zarr-specs.readthedocs.io/en/latest/specs.html, used in the Zarr data
-        object
-    """
-    import zarr  # Delay heavy import
+        The Zarr format version, https://zarr-specs.readthedocs.io/en/latest/specs.html,
+        the Zarr object conforms to if it can be determined, otherwise None
 
-    if isinstance(data, zarr.Group):
-        meta = json.loads(data.store.get(".zgroup"))
-    elif isinstance(data, zarr.Array):
-        meta = json.loads(data.store.get(".zarray"))
-    else:
-        raise TypeError("`data` must be a `zarr.core.Array` or `zarr.hierarchy.Group`")
-    return str(meta["zarr_format"])
+    Note
+    ----
+        Currently, this function can only handle Zarr objects that have a storage of
+        `zarr.storage.LocalStore` in zarr-python 3.x or `zarr.storage.DirectoryStore`
+        in zarr-python 2.x. For Zarr objects that have a different storage, this
+        function will return None. Upgrading to zarr-python 3.x will eliminate this
+        limitation.
+
+        This function is currently implemented by "manually" reading the content
+        of a Zarr store. Once, upgrade to zarr-python 3.x is done, we can use the
+        zarr.open() method to obtain the Zarr object from its store that has an `info`
+        attribute that contains the Zarr format version.
+    """
+
+    if not path.is_dir():
+        return None
+
+    if (path / "zarr.json").is_file():
+        # Zarr format V3
+        return "3"
+    if (path / ".zgroup").is_file() or (path / ".zarray").is_file():
+        # Zarr format V2
+        return "2"
+
+    return None
+
+
+def _ts_validate_zarr3(path: Path, devel_debug: bool = False) -> list[ValidationResult]:
+    """
+    Validate a Zarr format V3 LocalStore with the tensorstore package
+
+    Parameters
+    ----------
+    path : The path to the Zarr format V3 LocalStore in the filesystem
+    devel_debug : bool
+        If True, re-raise an exception instead of returning it packaged in a
+        `ValidationResult` object
+
+    Returns
+    -------
+    list[ValidationResult]
+        A list of validation results representing validation errors encountered
+
+    Raises
+    -------
+    ValueError
+        If the path is not a directory
+
+
+    Note
+    ----
+        Since tensorstore does not support the concept of a Zarr group, this function
+        validates a Zarr format V3 LocalStore by opening all the contained arrays with
+        tensorstore individually.
+
+        This function will no longer be needed once the upgrade to zarr-python 3.x is
+        done and should be removed.
+    """
+
+    if not path.is_dir():
+        raise ValueError(f"Path {path} is not a directory")
+
+    meta_fname = "zarr.json"
+
+    results: list[ValidationResult] = []
+
+    root_meta_path = path / meta_fname
+    if not root_meta_path.is_file():
+        # meta file doesn't exist in the LocalStore
+        results.append(
+            ValidationResult(
+                id="zarr.missing_zarr_json",
+                origin=Origin(
+                    type=OriginType.VALIDATION,
+                    validator=Validator.dandi_zarr,
+                    validator_version=dandi_version,
+                    standard=Standard.ZARR,
+                    standard_version="3",
+                ),
+                scope=Scope.FILE,
+                severity=Severity.ERROR,
+                message=f"Zarr format V3 LocalStore at {path} is missing the zarr.json "
+                f"file",
+                path=path,
+            )
+        )
+
+    for root, dirs, files in os.walk(path):
+        if meta_fname in files:
+            meta_path = Path(root) / meta_fname
+            meta_text = meta_path.read_text()
+            try:
+                meta = _Zarr3Metadata.model_validate_json(meta_text)
+            except ValidationError as e:
+                if devel_debug:
+                    raise
+                results.append(
+                    ValidationResult(
+                        id="zarr.invalid_zarr_json",
+                        origin=Origin(
+                            type=OriginType.VALIDATION,
+                            validator=Validator.dandi_zarr,
+                            validator_version=dandi_version,
+                            standard=Standard.ZARR,
+                            standard_version="3",
+                        ),
+                        scope=Scope.FILE,
+                        origin_result=e,
+                        severity=Severity.ERROR,
+                        message="Invalid zarr.json file",
+                        path=meta_path,
+                    )
+                )
+            else:
+                # Check if the directory is a Zarr array
+                if meta.node_type == "array":
+                    results.extend(_ts_validate_zarr3_array(Path(root), devel_debug))
+                    dirs.clear()  # Skip subdirectories
+
+    return results
+
+
+def _ts_validate_zarr3_array(
+    path: Path, devel_debug: bool = False
+) -> list[ValidationResult]:
+    """
+    Validate a Zarr format V3 array in a LocalStore with the tensorstore package
+
+    Parameters
+    ----------
+    path : The path to the Zarr format V3 array in the filesystem
+    devel_debug : bool
+        If True, re-raise an exception instead of returning it packaged in a
+        `ValidationResult` object
+
+    Returns
+    -------
+    list[ValidationResult]
+        A list of validation results representing validation errors encountered
+
+    Note
+    ----
+        This function will no longer be needed once the upgrade to zarr-python 3.x is
+        done and should be removed.
+    """
+    # Avoid heavy import by importing within function
+    from importlib.metadata import version
+
+    import tensorstore as ts  # type: ignore[import]
+
+    results: list[ValidationResult] = []
+
+    # TensorStore spec describing where and how to read the Zarr array
+    spec = {"driver": "zarr3", "kvstore": {"driver": "file", "path": str(path)}}
+
+    try:
+        ts.open(spec, read=True, write=False).result()
+    except Exception as e:
+        if devel_debug:
+            raise
+        results.append(
+            ValidationResult(
+                id="zarr.tensorstore_cannot_open",
+                origin=Origin(
+                    type=OriginType.INTERNAL,
+                    validator=Validator.tensorstore,
+                    validator_version=version("tensorstore"),
+                    standard=Standard.ZARR,
+                    standard_version="3",
+                ),
+                scope=Scope.FILE,
+                origin_result=e,
+                severity=Severity.ERROR,
+                message="Error opening Zarr array with tensorstore",
+                path=path,
+            )
+        )
+
+    return results
 
 
 @dataclass
@@ -253,7 +438,50 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         )
 
         try:
-            data = zarr.open(str(self.filepath))
+            data = zarr.open(str(self.filepath), mode="r")
+        except zarr.errors.PathNotFoundError as e:
+            # The asset is potentially in Zarr V3 format, which is not support by
+            # zarr-python 2.x. Before upgrade to zarr-python 3.x, use tensorstore to
+            # open it.
+
+            format_version = get_zarr_format_version(self.filepath)
+
+            if format_version is None:
+                # === The Zarr format can't be determined ===
+                if devel_debug:
+                    raise
+                errors.append(
+                    ValidationResult(
+                        id="zarr.cannot_open",
+                        origin=origin_internal_zarr,
+                        scope=Scope.FILE,
+                        origin_result=e,
+                        severity=Severity.ERROR,
+                        message="Error opening file and Zarr format cannot be determined",
+                        path=self.filepath,
+                    )
+                )
+            elif format_version == "3":
+                # === The Zarr format is V3 ===
+                errors.extend(_ts_validate_zarr3(self.filepath, devel_debug))
+            else:
+                # === A Zarr format should be supported by `zarr.open()` ===
+                if devel_debug:
+                    raise
+                errors.append(
+                    ValidationResult(
+                        id="zarr.cannot_open",
+                        origin=origin_internal_zarr,
+                        scope=Scope.FILE,
+                        origin_result=e,
+                        severity=Severity.ERROR,
+                        message="Error opening file.",
+                        path=self.filepath,
+                    )
+                )
+
+            # code for temporary workaround for Zarr format V3 with tensorstore ends
+
         except Exception as e:
             if devel_debug:
                 raise
@@ -268,19 +496,18 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     message="Error opening file.",
                 )
             )
-            data = None
-
-        if isinstance(data, zarr.Group) and not data:
-            errors.append(
-                ValidationResult(
-                    origin=ORIGIN_VALIDATION_DANDI_ZARR,
-                    severity=Severity.ERROR,
-                    id="dandi_zarr.empty_group",
-                    scope=Scope.FILE,
-                    path=self.filepath,
-                    message="Zarr group is empty.",
+        else:
+            if isinstance(data, zarr.Group) and not data:
+                errors.append(
+                    ValidationResult(
+                        origin=ORIGIN_VALIDATION_DANDI_ZARR,
+                        severity=Severity.ERROR,
+                        id="dandi_zarr.empty_group",
+                        scope=Scope.FILE,
+                        path=self.filepath,
+                        message="Zarr group is empty.",
+                    )
                 )
-            )
         if self._is_too_deep():
             msg = f"Zarr directory tree more than {MAX_ZARR_DEPTH} directories deep"
             if devel_debug:

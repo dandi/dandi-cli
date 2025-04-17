@@ -541,3 +541,70 @@ def test_validate_zarr_deep_via_excluded_dotfiles(tmp_path: Path) -> None:
     mkpaths(zarr_path, ".git/a/b/c/d/e/f/g.txt", "a/b/c/.git/d/e/f/g.txt")
     zf = dandi_file(zarr_path)
     assert zf.get_validation_errors() == []
+
+
+VALID_STORES_PATH = "data/zarr3_stores/valid_stores"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "arrays_in_groups.zarr",
+        "single_array.zarr",
+    ],
+)
+def test_validate_valid_zarr3(path: str) -> None:
+    """
+    Test validating valid Zarr format 3 objects, Zarr groups or arrays
+
+    Parameters
+    ----------
+    path : Path
+        The path to the store of the Zarr object in the filesystem relative to
+        `VALID_STORES_PATH` which is relative to the parent of the path of this
+        test file
+    """
+    zf = dandi_file(Path(__file__).parent / VALID_STORES_PATH / path)
+    assert zf.get_validation_errors() == []
+
+
+INVALID_STORES_PATH = "data/zarr3_stores/invalid_stores"
+
+
+@pytest.mark.parametrize(
+    "path, expected_result_ids",
+    [
+        # Expects "zarr.cannot_open" because Zarr format version can't be determined
+        # without a zarr.json file
+        ("arrays_in_groups_missing_zarr_json.zarr", {"zarr.cannot_open"}),
+        ("single_array_missing_zarr_json.zarr", {"zarr.cannot_open"}),
+        # Stores with the `node_type` field in some zarr.json missing or having
+        # invalid values
+        (
+            "arrays_in_groups_node_type_problem.zarr",
+            {"zarr.invalid_zarr_json", "zarr.invalid_zarr_json"},
+        ),
+        (
+            "single_array_node_type_problem.zarr",
+            {"zarr.invalid_zarr_json"},
+        ),
+        # A store with a corrupt zarr.json for an array (missing fields other than
+        # `node_type`)
+        ("array_v3_corrupt_zarr_json.zarr", {"zarr.tensorstore_cannot_open"}),
+    ],
+)
+def test_validate_invalid_zarr3(path: str, expected_result_ids: set[str]) -> None:
+    """
+    Test validating valid Zarr format 3 objects, Zarr groups or arrays
+
+    Parameters
+    ----------
+    path : Path
+        The path to the store of the Zarr object in the filesystem relative to
+        `INVALID_STORES_PATH` which is relative to the parent of the path of this
+        test file
+    """
+    zf = dandi_file(Path(__file__).parent / INVALID_STORES_PATH / path)
+
+    result_ids = {r.id for r in zf.get_validation_errors()}
+    assert result_ids == expected_result_ids
