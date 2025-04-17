@@ -14,7 +14,7 @@ from time import sleep
 from typing import Any, Optional
 
 from dandischema.models import BareAsset, DigestType
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 import requests
 from zarr_checksum.tree import ZarrChecksumTree
 
@@ -69,6 +69,8 @@ class _Zarr3Metadata(BaseModel):
     """
 
     node_type: str
+
+    model_config = ConfigDict(strict=True)
 
 
 def get_zarr_format_version(path: Path) -> Optional[str]:
