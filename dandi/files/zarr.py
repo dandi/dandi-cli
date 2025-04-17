@@ -112,13 +112,16 @@ def get_zarr_format_version(path: Path) -> Optional[str]:
     return None
 
 
-def _ts_validate_zarr3(path: Path) -> list[ValidationResult]:
+def _ts_validate_zarr3(path: Path, devel_debug: bool = False) -> list[ValidationResult]:
     """
     Validate a Zarr format V3 LocalStore with the tensorstore package
 
     Parameters
     ----------
     path : The path to the Zarr format V3 LocalStore in the filesystem
+    devel_debug : bool
+        If True, re-raise an exception instead of returning it packaged in a
+        `ValidationResult` object
 
     Returns
     -------
@@ -176,6 +179,8 @@ def _ts_validate_zarr3(path: Path) -> list[ValidationResult]:
             try:
                 meta = _Zarr3Metadata.model_validate_json(meta_text)
             except ValidationError as e:
+                if devel_debug:
+                    raise
                 results.append(
                     ValidationResult(
                         id="zarr.invalid_zarr_json",
