@@ -201,19 +201,24 @@ def _ts_validate_zarr3(path: Path, devel_debug: bool = False) -> list[Validation
             else:
                 # Check if the directory is a Zarr array
                 if meta.node_type == "array":
-                    results.extend(_ts_validate_zarr3_array(Path(root)))
+                    results.extend(_ts_validate_zarr3_array(Path(root), devel_debug))
                     dirs.clear()  # Skip subdirectories
 
     return results
 
 
-def _ts_validate_zarr3_array(path: Path) -> list[ValidationResult]:
+def _ts_validate_zarr3_array(
+    path: Path, devel_debug: bool = False
+) -> list[ValidationResult]:
     """
     Validate a Zarr format V3 array in a LocalStore with the tensorstore package
 
     Parameters
     ----------
     path : The path to the Zarr format V3 array in the filesystem
+    devel_debug : bool
+        If True, re-raise an exception instead of returning it packaged in a
+        `ValidationResult` object
 
     Returns
     -------
@@ -238,6 +243,8 @@ def _ts_validate_zarr3_array(path: Path) -> list[ValidationResult]:
     try:
         ts.open(spec, read=True, write=False).result()
     except Exception as e:
+        if devel_debug:
+            raise
         results.append(
             ValidationResult(
                 id="zarr.tensorstore_cannot_open",
