@@ -119,65 +119,6 @@ def get_zarr_format_version(path: Path) -> Optional[str]:
     return None
 
 
-def _get_arrays_zarr3(path: Path) -> list[Path]:
-    """
-    Get all the Zarr arrays in a Zarr format V3 LocalStore
-
-    Parameters
-    ----------
-    path : The path to the Zarr format V3 LocalStore in the filesystem
-
-    Returns
-    -------
-    list[Path]
-        A list of paths to the directories each presenting a Zarr array in the
-        LocalStore
-
-    Raises
-    -------
-    ZarrValidationError
-        If the LocalStore at the given path is deemed impossible to be a valid Zarr
-        LocalStore
-
-    ValueError
-        If the path is not a directory
-
-
-    Note
-    ----
-        This function will no longer be needed once the upgrade to zarr-python 3.x is
-        done and should be removed.
-    """
-
-    if not path.is_dir():
-        raise ValueError(f"Path {path} is not a directory")
-
-    meta_fname = "zarr.json"
-
-    ds_meta_path = path / meta_fname
-    if not ds_meta_path.is_file():
-        raise ZarrValidationError(f"Path {path} is missing the zarr.json file")
-
-    arrays: list[Path] = []
-
-    for root, dirs, files in os.walk(path):
-        if meta_fname in files:
-            meta_text = (Path(root) / meta_fname).read_text()
-            try:
-                meta = _Zarr3Metadata.model_validate_json(meta_text)
-            except ValidationError as e:
-                raise ZarrValidationError(
-                    f"Path {Path(root).absolute()} contains an invalid zarr.json file: "
-                    f"{e}"
-                ) from e
-            # Check if the directory is a Zarr array
-            if meta.node_type == "array":
-                arrays.append(Path(root))
-                dirs.clear()
-
-    return arrays
-
-
 def _ts_validate_zarr3(path: Path) -> list[ValidationResult]:
     """
     Validate a Zarr format V3 LocalStore with the tensorstore package
