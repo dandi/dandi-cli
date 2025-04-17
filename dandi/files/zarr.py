@@ -436,7 +436,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         )
 
         try:
-            data = zarr.open(str(self.filepath))
+            data = zarr.open(str(self.filepath), mode="r")
         except zarr.errors.PathNotFoundError as e:
             # The asset is potentially in Zarr V3 format, which is not support by
             # zarr-python 2.x. Before upgrade to zarr-python 3.x, use tensorstore to
