@@ -210,7 +210,55 @@ def _ts_validate_zarr3(path: Path) -> list[ValidationResult]:
 
 
 def _ts_validate_zarr3_array(path: Path) -> list[ValidationResult]:
-    raise NotImplementedError
+    """
+    Validate a Zarr format V3 array in a LocalStore with the tensorstore package
+
+    Parameters
+    ----------
+    path : The path to the Zarr format V3 array in the filesystem
+
+    Returns
+    -------
+    list[ValidationResult]
+        A list of validation results representing validation errors encountered
+
+    Note
+    ----
+        This function will no longer be needed once the upgrade to zarr-python 3.x is
+        done and should be removed.
+    """
+    # Avoid heavy import by importing within function
+    from importlib.metadata import version
+
+    import tensorstore as ts  # type: ignore[import]
+
+    results: list[ValidationResult] = []
+
+    # TensorStore spec describing where and how to read the Zarr array
+    spec = {"driver": "zarr3", "kvstore": {"driver": "file", "path": str(path)}}
+
+    try:
+        ts.open(spec, read=True, write=False).result()
+    except Exception as e:
+        results.append(
+            ValidationResult(
+                id="zarr.tensorstore_cannot_open",
+                origin=Origin(
+                    type=OriginType.INTERNAL,
+                    validator=Validator.tensorstore,
+                    validator_version=version("tensorstore"),
+                    standard=Standard.ZARR,
+                    standard_version="3",
+                ),
+                scope=Scope.FOLDER,
+                origin_result=e,
+                severity=Severity.ERROR,
+                message="Error opening Zarr array with tensorstore",
+                path=path,
+            )
+        )
+
+    return results
 
 
 @dataclass
