@@ -58,13 +58,6 @@ from ..validate_types import (
 lgr = get_logger()
 
 
-class ZarrValidationError(Exception):
-    """
-    Raised when handling a Zarr object, a Zarr group or array, or its store, and the
-    object or its store is deemed impossible to be valid
-    """
-
-
 class _Zarr3Metadata(BaseModel):
     """
     Metadata for Zarr format V3 stored in the zarr.json file
