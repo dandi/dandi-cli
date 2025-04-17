@@ -432,6 +432,49 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 
         try:
             data = zarr.open(str(self.filepath))
+        except zarr.errors.PathNotFoundError as e:
+            # The asset is potentially in Zarr V3 format, which is not support by
+            # zarr-python 2.x. Before upgrade to zarr-python 3.x, use tensorstore to
+            # open it.
+
+            format_version = get_zarr_format_version(self.filepath)
+
+            if format_version is None:
+                # === The Zarr format can't be determined ===
+                if devel_debug:
+                    raise
+                errors.append(
+                    ValidationResult(
+                        id="zarr.cannot_open",
+                        origin=origin_internal_zarr,
+                        scope=Scope.FOLDER,
+                        origin_result=e,
+                        severity=Severity.ERROR,
+                        message="Error opening file and Zarr format cannot be determined",
+                        path=self.filepath,
+                    )
+                )
+            elif format_version == "3":
+                # === The Zarr format is V3 ===
+                errors.extend(_ts_validate_zarr3(self.filepath, devel_debug))
+            else:
+                # === A Zarr format should be supported by `zarr.open()` ===
+                if devel_debug:
+                    raise
+                errors.append(
+                    ValidationResult(
+                        id="zarr.cannot_open",
+                        origin=origin_internal_zarr,
+                        scope=Scope.FOLDER,
+                        origin_result=e,
+                        severity=Severity.ERROR,
+                        message="Error opening file.",
+                        path=self.filepath,
+                    )
+                )
+
+            # code for temporary workaround for Zarr format V3 with tensorstore ends
+
         except Exception as e:
             if devel_debug:
                 raise
@@ -446,19 +489,18 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     message="Error opening file.",
                 )
             )
-            data = None
-
-        if isinstance(data, zarr.Group) and not data:
-            errors.append(
-                ValidationResult(
-                    origin=ORIGIN_VALIDATION_DANDI_ZARR,
-                    severity=Severity.ERROR,
-                    id="dandi_zarr.empty_group",
-                    scope=Scope.FILE,
-                    path=self.filepath,
-                    message="Zarr group is empty.",
+        else:
+            if isinstance(data, zarr.Group) and not data:
+                errors.append(
+                    ValidationResult(
+                        origin=ORIGIN_VALIDATION_DANDI_ZARR,
+                        severity=Severity.ERROR,
+                        id="dandi_zarr.empty_group",
+                        scope=Scope.FILE,
+                        path=self.filepath,
+                        message="Zarr group is empty.",
+                    )
                 )
-            )
         if self._is_too_deep():
             msg = f"Zarr directory tree more than {MAX_ZARR_DEPTH} directories deep"
             if devel_debug:
