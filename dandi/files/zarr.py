@@ -164,7 +164,7 @@ def _ts_validate_zarr3(path: Path, devel_debug: bool = False) -> list[Validation
                     standard=Standard.ZARR,
                     standard_version="3",
                 ),
-                scope=Scope.FOLDER,
+                scope=Scope.FILE,
                 severity=Severity.ERROR,
                 message=f"Zarr format V3 LocalStore at {path} is missing the zarr.json "
                 f"file",
@@ -255,7 +255,7 @@ def _ts_validate_zarr3_array(
                     standard=Standard.ZARR,
                     standard_version="3",
                 ),
-                scope=Scope.FOLDER,
+                scope=Scope.FILE,
                 origin_result=e,
                 severity=Severity.ERROR,
                 message="Error opening Zarr array with tensorstore",
@@ -452,7 +452,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     ValidationResult(
                         id="zarr.cannot_open",
                         origin=origin_internal_zarr,
-                        scope=Scope.FOLDER,
+                        scope=Scope.FILE,
                         origin_result=e,
                         severity=Severity.ERROR,
                         message="Error opening file and Zarr format cannot be determined",
@@ -470,7 +470,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     ValidationResult(
                         id="zarr.cannot_open",
                         origin=origin_internal_zarr,
-                        scope=Scope.FOLDER,
+                        scope=Scope.FILE,
                         origin_result=e,
                         severity=Severity.ERROR,
                         message="Error opening file.",
