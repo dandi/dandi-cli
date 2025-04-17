@@ -18,7 +18,7 @@ from pydantic import BaseModel, ValidationError
 import requests
 from zarr_checksum.tree import ZarrChecksumTree
 
-import dandi
+from dandi import __version__ as dandi_version
 from dandi import get_logger
 from dandi.consts import (
     MAX_ZARR_DEPTH,
@@ -164,7 +164,7 @@ def _ts_validate_zarr3(path: Path) -> list[ValidationResult]:
                 origin=Origin(
                     type=OriginType.VALIDATION,
                     validator=Validator.dandi_zarr,
-                    validator_version=dandi.__version__,
+                    validator_version=dandi_version,
                     standard=Standard.ZARR,
                     standard_version="3",
                 ),
@@ -189,7 +189,7 @@ def _ts_validate_zarr3(path: Path) -> list[ValidationResult]:
                         origin=Origin(
                             type=OriginType.VALIDATION,
                             validator=Validator.dandi_zarr,
-                            validator_version=dandi.__version__,
+                            validator_version=dandi_version,
                             standard=Standard.ZARR,
                             standard_version="3",
                         ),
