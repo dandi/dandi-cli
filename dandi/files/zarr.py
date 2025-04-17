@@ -18,6 +18,7 @@ from pydantic import BaseModel, ValidationError
 import requests
 from zarr_checksum.tree import ZarrChecksumTree
 
+import dandi
 from dandi import get_logger
 from dandi.consts import (
     MAX_ZARR_DEPTH,
@@ -175,6 +176,100 @@ def _get_arrays_zarr3(path: Path) -> list[Path]:
                 dirs.clear()
 
     return arrays
+
+
+def _ts_validate_zarr3(path: Path) -> list[ValidationResult]:
+    """
+    Validate a Zarr format V3 LocalStore with the tensorstore package
+
+    Parameters
+    ----------
+    path : The path to the Zarr format V3 LocalStore in the filesystem
+
+    Returns
+    -------
+    list[ValidationResult]
+        A list of validation results representing validation errors encountered
+
+    Raises
+    -------
+    ValueError
+        If the path is not a directory
+
+
+    Note
+    ----
+        Since tensorstore does not support the concept of a Zarr group, this function
+        validates a Zarr format V3 LocalStore by opening all the contained arrays with
+        tensorstore individually.
+
+        This function will no longer be needed once the upgrade to zarr-python 3.x is
+        done and should be removed.
+    """
+
+    if not path.is_dir():
+        raise ValueError(f"Path {path} is not a directory")
+
+    meta_fname = "zarr.json"
+
+    results: list[ValidationResult] = []
+
+    root_meta_path = path / meta_fname
+    if not root_meta_path.is_file():
+        # meta file doesn't exist in the LocalStore
+        results.append(
+            ValidationResult(
+                id="zarr.missing_zarr_json",
+                origin=Origin(
+                    type=OriginType.VALIDATION,
+                    validator=Validator.dandi_zarr,
+                    validator_version=dandi.__version__,
+                    standard=Standard.ZARR,
+                    standard_version="3",
+                ),
+                scope=Scope.FOLDER,
+                severity=Severity.ERROR,
+                message=f"Zarr format V3 LocalStore at {path} is missing the zarr.json "
+                f"file",
+                path=path,
+            )
+        )
+
+    for root, dirs, files in os.walk(path):
+        if meta_fname in files:
+            meta_path = Path(root) / meta_fname
+            meta_text = meta_path.read_text()
+            try:
+                meta = _Zarr3Metadata.model_validate_json(meta_text)
+            except ValidationError as e:
+                results.append(
+                    ValidationResult(
+                        id="zarr.invalid_zarr_json",
+                        origin=Origin(
+                            type=OriginType.VALIDATION,
+                            validator=Validator.dandi_zarr,
+                            validator_version=dandi.__version__,
+                            standard=Standard.ZARR,
+                            standard_version="3",
+                        ),
+                        scope=Scope.FILE,
+                        origin_result=e,
+                        severity=Severity.ERROR,
+                        message="Invalid zarr.json file",
+                        path=meta_path,
+                    )
+                )
+            else:
+                # Check if the directory is a Zarr array
+                if meta.node_type == "array":
+                    results.extend(_ts_validate_zarr3_array(Path(root)))
+                    dirs.clear()  # Skip subdirectories
+
+    return results
+
+
+def _ts_validate_zarr3_array(path: Path) -> list[ValidationResult]:
+    raise NotImplementedError
 
 
 @dataclass
