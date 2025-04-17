@@ -149,9 +149,7 @@ def _get_arrays_zarr3(path: Path) -> list[Path]:
     """
 
     if not path.is_dir():
-        raise ValueError(
-            f"Path {path} is not a directory. Thus, it cannot be a Zarr LocalStore"
-        )
+        raise ValueError(f"Path {path} is not a directory")
 
     meta_fname = "zarr.json"
 
