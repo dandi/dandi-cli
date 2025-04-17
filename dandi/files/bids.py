@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-import os.path
 from pathlib import Path
 from threading import Lock
 import weakref
@@ -67,25 +66,6 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
             if self._dataset_errors is None:
                 # Import here to avoid circular import
                 from dandi.validate import validate_bids
-
-                bids_paths = [str(self.filepath)] + [
-                    str(asset.filepath) for asset in self.dataset_files
-                ]
-                # This is an ad-hoc fix which should be removed once bidsschematools greater than
-                # 0.6.0 is released.
-                # It won't cause any trouble afterwards, but it will no longer fulfill any
-                # purpose. The issue is that README* is still required and if we don't
-                # include it explicitly in the listing validation will implicitly fail, even
-                # if the file is present.
-                readme_extensions = ["", ".md", ".rst", ".txt"]
-                for ext in readme_extensions:
-                    readme_candidate = self.bids_root / Path("README" + ext)
-                    if (
-                        os.path.lexists(readme_candidate)
-                        and str(readme_candidate) not in bids_paths
-                    ):
-                        bids_paths += [str(readme_candidate)]
-                # end of ad-hoc fix.
 
                 results = validate_bids(self.bids_root)
                 self._dataset_errors: list[ValidationResult] = []
