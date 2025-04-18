@@ -15,15 +15,22 @@ import click
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from packaging.version import Version
 from requests.auth import HTTPBasicAuth
+from requests.exceptions import HTTPError
 
 from .base import ChoiceList, instance_option, map_to_click_exceptions
 from .. import __version__, lgr
 from ..dandiapi import DandiAPIClient, RemoteBlobAsset, RESTFullAPIClient
 from ..dandiarchive import parse_dandi_url
-from ..exceptions import HTTP404Error, NotFoundError
+from ..exceptions import NotFoundError
 from ..utils import yaml_dump
 
 T = TypeVar("T")
+
+
+DOI_HUMAN_URLS = {
+    "https://api.test.datacite.org/dois": "https://doi.test.datacite.org/dois",
+    "https://api.datacite.org/dois": "https://doi.datacite.org/dois",
+}
 
 
 @click.group()
@@ -126,143 +133,52 @@ def reextract_metadata(url: str, diff: bool, when: str) -> None:
                 asset.set_raw_metadata(mddict)
 
 
-# TODO REMOVE JUST REFERENCE
-# -------------------DANDI-ARCHIVE ---------------------------------
-# def _generate_doi_data(version: Version):
-#     from dandischema.datacite import to_datacite
-#
-#     publish = settings.DANDI_DOI_PUBLISH
-#     # Use the DANDI test datacite instance as a placeholder if PREFIX isn't set
-#     prefix = settings.DANDI_DOI_API_PREFIX or "10.80507"
-#     dandiset_id = version.dandiset.identifier
-#     version_id = version.version
-#     doi = f"{prefix}/dandi.{dandiset_id}/{version_id}"
-#     metadata = version.metadata
-#     metadata["doi"] = doi
-#     return (doi, to_datacite(metadata, publish=publish))
-#
-#
-# def create_doi(version: Version) -> str:
-#     doi, request_body = _generate_doi_data(version)
-#     # If DOI isn't configured, skip the API call
-#     if doi_configured():
-#         try:
-#             requests.post(
-#                 settings.DANDI_DOI_API_URL,
-#                 json=request_body,
-#                 auth=requests.auth.HTTPBasicAuth(
-#                     settings.DANDI_DOI_API_USER,
-#                     settings.DANDI_DOI_API_PASSWORD,
-#                 ),
-#                 timeout=30,
-#             ).raise_for_status()
-#         except requests.exceptions.HTTPError as e:
-#             logger.exception("Failed to create DOI %s", doi)
-#             logger.exception(request_body)
-#             if e.response:
-#                 logger.exception(e.response.text)
-#             raise
-#     return doi
-#
-#
-# -------------------DANDI-ARCHIVE ---------------------------------
-
-
 @service_scripts.command()
 @instance_option()
 @click.option(
-    "-d",
-    "--dandiset",
-    metavar="DANDISET_ID",
-    required=True,
-    help="ID of Dandiset to operate on",
-)
-@click.option(
-    "--dandiset-version",
+    "--version-ref",
     metavar="DANDISET_VERSION_ID",
     required=True,
-    help="ID of Dandiset Version to operate on",
+    help="ID of Dandiset/Version to operate on, ie DANDI:000005/0.250416.1418",
 )
-def publish_dandiset_version_doi(dandi_instance, dandiset, dandiset_version) -> None:
+def publish_dandiset_version_doi(dandi_instance, version_ref) -> None:
+    from dandischema.datacite import to_datacite
+
+    if version_ref.startswith("DANDI:"):
+        version_ref = version_ref[len("DANDI:") :]
+    dandiset_id, dandiset_version_id = version_ref.split("/")
+
     with DandiAPIClient.for_dandi_instance(dandi_instance, authenticate=True) as client:
-        ds = client.get_dandiset(dandiset, dandiset_version, lazy=False)
+        ds = client.get_dandiset(dandiset_id, dandiset_version_id, lazy=False)
         version_metadata = ds.get_raw_metadata()
 
-    # TODO(asmacdo) verify actually published, and doi exists
     doi = version_metadata["doi"]
     username = os.environ["DJANGO_DANDI_DOI_API_USER"]
     password = os.environ["DJANGO_DANDI_DOI_API_PASSWORD"]
     base_url = os.environ["DJANGO_DANDI_DOI_API_URL"]
+    publish = os.environ.get("DJANGO_DANDI_DOI_PUBLISH", False)
     doi_auth = HTTPBasicAuth(username, password)
-    # TODO(asmacdo) as-is works, but lets make sure the headers are correct
-    # Expected: `Content-Type: application/vnd.api+json`
+
+    headers = {"accept": "application/vnd.api+json", "content-type": "application/json"}
+    datacite_body = to_datacite(version_metadata, publish=publish)
     with RESTFullAPIClient(base_url) as doiclient:
         try:
-            doidata = doiclient.get(doi, auth=doi_auth)
-        except HTTP404Error as e:
-            print(f"DOI does not exist {e}")
-            doidata = None
+            doidata = doiclient.post(
+                "", auth=doi_auth, headers=headers, json=datacite_body
+            )
+        except HTTPError as e:
+            print("Failed to create DOI %s", doi)
+            print("Datcite payload:")
+            print(datacite_body)
+            if e.response:
+                print(e.response.text)
+            raise
 
-        if doidata is None:
-            print("Creating DOI...")
-            from dandischema.datacite import to_datacite
-
-            datacite_body = to_datacite(version_metadata, publish=False)
-            try:
-                doidata = doiclient.post("", auth=doi_auth, json=datacite_body)
-                encoded_doi = urllib.parse.quote(
-                    doidata["data"]["id"], safe=""
-                )  # encode special chars
-                # TODO(asmacdo) Dont hardcode base of verify url
-                #  - this is not included in the API response
-                #  - but its either doi.test.datacite.org or doi.datacite.org
-                #     - could be determined which one from DJANGO_DANDI_API_URL and some constants
-                verify_url = f"https://doi.test.datacite.org/dois/{encoded_doi}"
-                print(f"DOI successefully created, verify at {verify_url}")
-            except Exception as e:
-                import ipdb
-
-                ipdb.set_trace()
-                print(e)
-
-                ipdb.set_trace()
-                # TODO(asmacdo)
-                print("TODO CATCH ME")
-                # What exceptions? (possible responses not listed on API Reference)
-                # Maybe just all ie, except requests.exceptions.HTTPError as e:
-                # Exceptions seen:
-                #  - 404 (when using invalid creds or invalid url)
-                #  - 403 (at least caused by a DOI prefix we dont have access to)
-                #  - 422
-                #    - "title": "param is missing or the value is empty: attributes"
-                #    - Response JSON: {'errors': [{'source': 'doi', 'title': 'This DOI has already been taken', 'uid': '10.80507/asmacdo-draft-doi-test'}]}  # noqa
-                #    - For Draft, less stringent. For event=publish Response JSON: {'errors': [{'source': 'url', 'title': "Can't be blank", 'uid': '10.80507/asmacdo-draft-doi-test3'}, {'source': 'xml', 'title': "Can't be blank", 'uid': '10.80507/asmacdo-draft-doi-test3'}]}  # noqa
-                print("TODO Output errors")
-
-        # TODO(asmacdo) does "state" always exist when draft?
-        doi_state = doidata["data"]["attributes"]["state"]
-        if doi_state == "findable":
-            print("NOOP, DOI already Findable")
-        elif doi_state == "registered":
-            print("TODO? Republish DOI?")
-        elif doi_state == "draft":
-            # TODO(asmacdo) DJANGO_DANDI_DOI_PUBLISH env var could be used to disable publishing
-            print("DOI is draft, publishing to 'findable'...")
-            # TODO(asmacdo) re-enable, avoiding unnecessary proliferation so disabled for now
-            # Tested once, produced
-            #    https://doi.test.datacite.org/dois/10.80507%2Fdandi.000004%2F0.250416.1347
-            # publish_update_body = {
-            #   "data": {
-            #     "type": "dois",
-            #     "attributes": {
-            #       "event": "publish"
-            #     }
-            #   }
-            # }
-            # TODO(asmacdo) catch and output errors
-            # doidata = doiclient.put(doi, auth=doi_auth, json=publish_update_body)
-            # print(doidata)
-            print("SKIPPING PUBLISH FOR DEVELOPMENT")
+    encoded_doi = urllib.parse.quote(
+        doidata["data"]["id"], safe=""
+    )  # encode special chars
+    verify_url = f"{DOI_HUMAN_URLS[base_url]}/{encoded_doi}"
+    print(f"DOI successefully created, verify at {verify_url}")
 
 
 @service_scripts.command()
