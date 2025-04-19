@@ -9,6 +9,8 @@ import weakref
 
 from dandischema.models import BareAsset
 
+from dandi.bids_validator_deno import bids_validate
+
 from .bases import GenericAsset, LocalFileAsset, NWBAsset
 from .zarr import ZarrAsset
 from ..consts import ZARR_MIME_TYPE
@@ -64,10 +66,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
     def _validate(self) -> None:
         with self._lock:
             if self._dataset_errors is None:
-                # Import here to avoid circular import
-                from dandi.validate import validate_bids
-
-                results = validate_bids(self.bids_root)
+                results = bids_validate(self.bids_root)
                 self._dataset_errors: list[ValidationResult] = []
                 self._asset_errors: dict[str, list[ValidationResult]] = defaultdict(
                     list
