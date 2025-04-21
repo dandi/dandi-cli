@@ -152,15 +152,34 @@ def publish_dandiset_version_doi(dandi_instance, version_ref) -> None:
         ds = client.get_dandiset(dandiset_id, dandiset_version_id, lazy=False)
         version_metadata = ds.get_raw_metadata()
 
-    doi = version_metadata["doi"]
     username = os.environ["DJANGO_DANDI_DOI_API_USER"]
     password = os.environ["DJANGO_DANDI_DOI_API_PASSWORD"]
     base_url = os.environ["DJANGO_DANDI_DOI_API_URL"]
+
+    doi = version_metadata["doi"]
+    if "10.80507" in doi and base_url == "https://api.datacite.org/dois":
+        if "dandi.123456" in doi:
+            raise ValueError(f"Hopeless case with fake DOI {doi}")
+        # we used to try to mint using wrong DOI prefix, fix was in
+        # https://github.com/dandi/dandi-schema/pull/65
+        import json
+
+        print("Round-tripping through JSON, fixing DOI")
+        # round-trip through JSON to replace all such DOIs
+        version_metadata = json.loads(
+            json.dumps(version_metadata).replace("10.80507/", "10.48324/")
+        )
+        doi = version_metadata["doi"]
+        # TODO: fix up in dandi-archive DB!?
     publish = os.environ.get("DJANGO_DANDI_DOI_PUBLISH", False)
     doi_auth = HTTPBasicAuth(username, password)
 
     headers = {"accept": "application/vnd.api+json", "content-type": "application/json"}
-    datacite_body = to_datacite(version_metadata, publish=publish)
+    datacite_body = to_datacite(
+        version_metadata,
+        # validate=False,
+        publish=publish,
+    )
     with RESTFullAPIClient(base_url) as doiclient:
         try:
             doidata = doiclient.post(
