@@ -142,7 +142,7 @@ def reextract_metadata(url: str, diff: bool, when: str) -> None:
     required=True,
     help="ID of Dandiset/Version to operate on, ie DANDI:000005/0.250416.1418",
 )
-def publish_dandiset_version_doi(dandi_instance, version_ref) -> None:
+def publish_dandiset_version_doi(dandi_instance: str, version_ref: str) -> None:
     from dandischema.datacite import to_datacite
 
     if version_ref.startswith("DANDI:"):
