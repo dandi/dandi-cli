@@ -171,7 +171,8 @@ def publish_dandiset_version_doi(dandi_instance, version_ref) -> None:
         )
         doi = version_metadata["doi"]
         # TODO: fix up in dandi-archive DB!?
-    publish = os.environ.get("DJANGO_DANDI_DOI_PUBLISH", False)
+    publish_str = os.environ.get("DJANGO_DANDI_DOI_PUBLISH", "False")
+    publish = {"true": True, "false": False}.get(publish_str.lower(), False)
     doi_auth = HTTPBasicAuth(username, password)
 
     headers = {"accept": "application/vnd.api+json", "content-type": "application/json"}
