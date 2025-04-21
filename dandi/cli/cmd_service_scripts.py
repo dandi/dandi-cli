@@ -4,6 +4,7 @@ from collections.abc import Callable
 from copy import deepcopy
 from datetime import datetime
 from difflib import unified_diff
+import json
 import os
 from pathlib import PurePosixPath
 from textwrap import indent
@@ -156,14 +157,14 @@ def publish_dandiset_version_doi(dandi_instance, version_ref) -> None:
     password = os.environ["DJANGO_DANDI_DOI_API_PASSWORD"]
     base_url = os.environ["DJANGO_DANDI_DOI_API_URL"]
 
-    doi = version_metadata["doi"]
+    if not (doi := version_metadata.get("doi")):
+        print(json.dumps(version_metadata, indent=2))
+        raise NotImplementedError("Need to mint DOI")
     if "10.80507" in doi and base_url == "https://api.datacite.org/dois":
         if "dandi.123456" in doi:
             raise ValueError(f"Hopeless case with fake DOI {doi}")
         # we used to try to mint using wrong DOI prefix, fix was in
         # https://github.com/dandi/dandi-schema/pull/65
-        import json
-
         print("Round-tripping through JSON, fixing DOI")
         # round-trip through JSON to replace all such DOIs
         version_metadata = json.loads(
