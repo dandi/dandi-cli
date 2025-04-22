@@ -4,14 +4,19 @@ from collections.abc import Callable
 from copy import deepcopy
 from datetime import datetime
 from difflib import unified_diff
+import json
+import os
 from pathlib import PurePosixPath
 from textwrap import indent
 from typing import Any, TypeVar
+import urllib.parse
 from uuid import uuid4
 
 import click
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from packaging.version import Version
+from requests.auth import HTTPBasicAuth
+from requests.exceptions import HTTPError
 
 from .base import ChoiceList, instance_option, map_to_click_exceptions
 from .. import __version__, lgr
@@ -21,6 +26,12 @@ from ..exceptions import NotFoundError
 from ..utils import yaml_dump
 
 T = TypeVar("T")
+
+
+DOI_HUMAN_URLS = {
+    "https://api.test.datacite.org/dois": "https://doi.test.datacite.org/dois",
+    "https://api.datacite.org/dois": "https://doi.datacite.org/dois",
+}
 
 
 @click.group()
@@ -121,6 +132,74 @@ def reextract_metadata(url: str, diff: bool, when: str) -> None:
                     )
                 lgr.info("Saving new asset metadata")
                 asset.set_raw_metadata(mddict)
+
+
+@service_scripts.command()
+@instance_option()
+@click.option(
+    "--version-ref",
+    metavar="DANDISET_VERSION_ID",
+    required=True,
+    help="ID of Dandiset/Version to operate on, ie DANDI:000005/0.250416.1418",
+)
+def publish_dandiset_version_doi(dandi_instance: str, version_ref: str) -> None:
+    from dandischema.datacite import to_datacite
+
+    if version_ref.startswith("DANDI:"):
+        version_ref = version_ref[len("DANDI:") :]
+    dandiset_id, dandiset_version_id = version_ref.split("/")
+
+    with DandiAPIClient.for_dandi_instance(dandi_instance, authenticate=True) as client:
+        ds = client.get_dandiset(dandiset_id, dandiset_version_id, lazy=False)
+        version_metadata = ds.get_raw_metadata()
+
+    username = os.environ["DJANGO_DANDI_DOI_API_USER"]
+    password = os.environ["DJANGO_DANDI_DOI_API_PASSWORD"]
+    base_url = os.environ["DJANGO_DANDI_DOI_API_URL"]
+
+    if not (doi := version_metadata.get("doi")):
+        print(json.dumps(version_metadata, indent=2))
+        raise NotImplementedError("Need to mint DOI")
+    if "10.80507" in doi and base_url == "https://api.datacite.org/dois":
+        if "dandi.123456" in doi:
+            raise ValueError(f"Hopeless case with fake DOI {doi}")
+        # we used to try to mint using wrong DOI prefix, fix was in
+        # https://github.com/dandi/dandi-schema/pull/65
+        print("Round-tripping through JSON, fixing DOI")
+        # round-trip through JSON to replace all such DOIs
+        version_metadata = json.loads(
+            json.dumps(version_metadata).replace("10.80507/", "10.48324/")
+        )
+        doi = version_metadata["doi"]
+        # TODO: fix up in dandi-archive DB!?
+    publish_str = os.environ.get("DJANGO_DANDI_DOI_PUBLISH", "False")
+    publish = {"true": True, "false": False}.get(publish_str.lower(), False)
+    doi_auth = HTTPBasicAuth(username, password)
+
+    headers = {"accept": "application/vnd.api+json", "content-type": "application/json"}
+    datacite_body = to_datacite(
+        version_metadata,
+        # validate=False,
+        publish=publish,
+    )
+    with RESTFullAPIClient(base_url) as doiclient:
+        try:
+            doidata = doiclient.post(
+                "", auth=doi_auth, headers=headers, json=datacite_body
+            )
+        except HTTPError as e:
+            print("Failed to create DOI %s", doi)
+            print("Datcite payload:")
+            print(datacite_body)
+            if e.response:
+                print(e.response.text)
+            raise
+
+    encoded_doi = urllib.parse.quote(
+        doidata["data"]["id"], safe=""
+    )  # encode special chars
+    verify_url = f"{DOI_HUMAN_URLS[base_url]}/{encoded_doi}"
+    print(f"DOI successefully created, verify at {verify_url}")
 
 
 @service_scripts.command()
