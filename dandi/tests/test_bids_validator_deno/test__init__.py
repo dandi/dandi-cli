@@ -1,6 +1,6 @@
 from pathlib import Path
 from subprocess import CompletedProcess, TimeoutExpired
-from typing import Optional
+from typing import Any, Optional
 from unittest.mock import ANY, patch
 
 import pytest
@@ -45,6 +45,17 @@ CONFIG_FOR_EXAMPLES = {
         {"location": f"/{dandiset_metadata_file}"},
     ]
 }
+
+
+def mock_bids_validate(*args: Any, **kwargs: Any) -> list[ValidationResult]:
+    """
+    Mock `bids_validate` to validate the examples in
+    # https://github.com/bids-standard/bids-examples and
+    # https://github.com/bids-standard/bids-error-examples. These example datasets
+    contains empty NIFTI files
+    """
+    kwargs["ignore_nifti_headers"] = True
+    return bids_validate(*args, **kwargs)
 
 
 @pytest.mark.parametrize(
