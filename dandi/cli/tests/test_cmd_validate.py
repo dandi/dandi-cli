@@ -1,11 +1,9 @@
-import json
 from pathlib import Path
 
 from click.testing import CliRunner
 import pytest
 
 from ..cmd_validate import _process_issues, validate
-from ...tests.fixtures import BIDS_ERROR_TESTDATA_SELECTION
 from ...validate_types import (
     Origin,
     OriginType,
@@ -16,17 +14,41 @@ from ...validate_types import (
 )
 
 
-@pytest.mark.parametrize("dataset", BIDS_ERROR_TESTDATA_SELECTION)
-def test_validate_bids_error(bids_error_examples: Path, dataset: str) -> None:
-    broken_dataset = bids_error_examples / dataset
-    with (broken_dataset / ".ERRORS.json").open() as f:
-        expected_errors = json.load(f)
-    r = CliRunner().invoke(validate, [str(broken_dataset)])
-    # Does it break?
+@pytest.mark.parametrize(
+    "ds_name, expected_err_location",
+    [
+        ("invalid_asl003", "sub-Sub1/perf/sub-Sub1_headshape.jpg"),
+        ("invalid_pet001", "sub-01/ses-01/anat/sub-02_ses-01_T1w.json"),
+    ],
+)
+def test_validate_bids_error(
+    ds_name: str,
+    expected_err_location: str,
+    bids_error_examples: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Test validating a selection of datasets at
+        https://github.com/bids-standard/bids-error-examples
+    """
+    from dandi.files import bids
+    from dandi.tests.test_bids_validator_deno.test__init__ import (
+        CONFIG_FOR_EXAMPLES,
+        mock_bids_validate,
+    )
+
+    monkeypatch.setattr(bids, "BIDS_VALIDATOR_CONFIG", CONFIG_FOR_EXAMPLES)
+    monkeypatch.setattr(bids, "bids_validate", mock_bids_validate)
+
+    broken_dataset = bids_error_examples / ds_name
+
+    r = CliRunner().invoke(validate, ["--min-severity", "ERROR", str(broken_dataset)])
+
+    # Assert there are errors
     assert r.exit_code == 1
-    # Does it detect all errors?
-    for key in expected_errors:
-        assert key in r.output
+
+    # Assert that there is at least one error from the expected location
+    assert str(Path(expected_err_location)) in r.output
 
 
 def test_validate_severity(organized_nwb_dir3: Path) -> None:

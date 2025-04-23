@@ -11,6 +11,11 @@ import pytest
 from pytest_mock import MockerFixture
 import zarr
 
+from dandi.tests.test_bids_validator_deno.test__init__ import (
+    CONFIG_FOR_EXAMPLES,
+    mock_bids_validate,
+)
+
 from .fixtures import SampleDandiset, sweep_embargo
 from .test_helpers import assert_dirtrees_eq
 from ..consts import ZARR_MIME_TYPE, EmbargoStatus, dandiset_metadata_file
@@ -217,8 +222,17 @@ def test_upload_bids_validation_ignore(
 
 
 def test_upload_bids_metadata(
-    mocker: MockerFixture, bids_dandiset: SampleDandiset
+    bids_dandiset: SampleDandiset, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """
+    Test the uploading of metadata of a dataset at
+        https://github.com/bids-standard/bids-examples
+    """
+    from dandi.files import bids
+
+    monkeypatch.setattr(bids, "BIDS_VALIDATOR_CONFIG", CONFIG_FOR_EXAMPLES)
+    monkeypatch.setattr(bids, "bids_validate", mock_bids_validate)
+
     bids_dandiset.upload(existing=UploadExisting.FORCE)
     dandiset = bids_dandiset.dandiset
     # Automatically check all files, heuristic should remain very BIDS-stable
@@ -231,7 +245,20 @@ def test_upload_bids_metadata(
             assert metadata.wasAttributedTo[0].identifier == "Sub1"
 
 
-def test_upload_bids(mocker: MockerFixture, bids_dandiset: SampleDandiset) -> None:
+def test_upload_bids(
+    mocker: MockerFixture,
+    bids_dandiset: SampleDandiset,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Test the uploading of a dataset at
+        https://github.com/bids-standard/bids-examples
+    """
+    from dandi.files import bids
+
+    monkeypatch.setattr(bids, "BIDS_VALIDATOR_CONFIG", CONFIG_FOR_EXAMPLES)
+    monkeypatch.setattr(bids, "bids_validate", mock_bids_validate)
+
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
     bids_dandiset.upload(existing=UploadExisting.FORCE)
     # Check whether upload was run
