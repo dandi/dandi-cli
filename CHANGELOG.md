@@ -1,3 +1,23 @@
+# 0.68.0 (Wed Apr 23 2025)
+
+#### 🚀 Enhancement
+
+- Add support for validating Zarr folders with format V3 using custom walk-through and tensorstore [#1614](https://github.com/dandi/dandi-cli/pull/1614) ([@candleindark](https://github.com/candleindark))
+- Enh service script publish version doi [#1612](https://github.com/dandi/dandi-cli/pull/1612) ([@asmacdo](https://github.com/asmacdo) [@yarikoptic](https://github.com/yarikoptic))
+- Overhauling validation results to get them closer to cover different types of validators [#1514](https://github.com/dandi/dandi-cli/pull/1514) ([@yarikoptic](https://github.com/yarikoptic) [@candleindark](https://github.com/candleindark))
+
+#### 🏠 Internal
+
+- Remove obsolete (without effect) piece of code in bids.py for validation [#1615](https://github.com/dandi/dandi-cli/pull/1615) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 3
+
+- Austin Macdonald ([@asmacdo](https://github.com/asmacdo))
+- Isaac To ([@candleindark](https://github.com/candleindark))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.67.3 (Thu Apr 03 2025)
 
 #### 🐛 Bug Fix
