@@ -156,6 +156,16 @@ def validate(
     path, errors
       errors for a path
     """
+    # Archive of unique `ValidationResult` objects obtained through
+    # `DandiFile.get_validation_errors()`
+    # Note: This is needed to hold on to the unique `ValidationResult` objects
+    #   so that they don't get garbage collected, ensuring that the same ID in
+    #   `df_result_ids` is always associated with the same object.
+    df_results: list[ValidationResult] = []
+
+    # The ids of the objects in `df_results` obtain through the `id()` built-in function
+    df_result_ids: set[int] = set()
+
     for p in paths:
         p = os.path.abspath(p)
         dandiset_path = find_parent_directory_containing(dandiset_metadata_file, p)
@@ -171,6 +181,11 @@ def validate(
         for df in find_dandi_files(
             p, dandiset_path=dandiset_path, allow_all=allow_any_path
         ):
-            yield from df.get_validation_errors(
+            for r in df.get_validation_errors(
                 schema_version=schema_version, devel_debug=devel_debug
-            )
+            ):
+                r_id = id(r)
+                if r_id not in df_result_ids:
+                    df_results.append(r)
+                    df_result_ids.add(r_id)
+                    yield r
