@@ -635,7 +635,7 @@ class RemoteMover(LocalizedMover):
         if relcontents:
             return Folder(rpath, relcontents)
         if needs_dir and file_found:
-            # Aaron
+            # Error being hit
             raise ValueError(f"Remote path {path!r} is a file")
         elif (
             not needs_dir
@@ -776,7 +776,7 @@ class LocalRemoteMover(Mover):
                     f"Asset {lm.src!r} would be moved to {lm.dest!r}, which"
                     " exists remotely but not locally"
                 )
-                # Aaron
+                # Error being hit
         if mismatches:
             raise AssetMismatchError(mismatches)
 
