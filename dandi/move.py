@@ -495,7 +495,8 @@ class LocalMover(LocalizedMover):
     def is_dir(self, path: AssetPath) -> bool:
         """Returns true if the given path points to a directory"""
         p = self.dandiset_path / path
-        return p.is_dir() and p.suffix not in (".ngff", ".zarr")
+        return p.is_dir()
+        # return p.is_dir() and p.suffix not in (".ngff", ".zarr")
 
     def is_file(self, path: AssetPath) -> bool:
         """Returns true if the given path points to an asset"""
@@ -503,8 +504,13 @@ class LocalMover(LocalizedMover):
         return (
             p.is_file()
             or p.is_symlink()
-            or (p.is_dir() and p.suffix in (".ngff", ".zarr"))
+            or (p.is_dir())
         )
+        # return (
+        #     p.is_file()
+        #     or p.is_symlink()
+        #     or (p.is_dir() and p.suffix in (".ngff", ".zarr"))
+        # )
 
     def move(self, src: AssetPath, dest: AssetPath) -> None:
         """
@@ -629,6 +635,7 @@ class RemoteMover(LocalizedMover):
         if relcontents:
             return Folder(rpath, relcontents)
         if needs_dir and file_found:
+            # Aaron
             raise ValueError(f"Remote path {path!r} is a file")
         elif (
             not needs_dir
@@ -769,6 +776,7 @@ class LocalRemoteMover(Mover):
                     f"Asset {lm.src!r} would be moved to {lm.dest!r}, which"
                     " exists remotely but not locally"
                 )
+                # Aaron
         if mismatches:
             raise AssetMismatchError(mismatches)
 
