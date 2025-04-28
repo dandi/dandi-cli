@@ -49,11 +49,11 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
 
     #: A list of validation error messages for individual assets in the
     #: dataset, keyed by `bids_path` properties; populated by `_validate()`
-    _asset_errors: dict[str, list[ValidationResult]] | None = None
+    _asset_errors: defaultdict[str, list[ValidationResult]] | None = None
 
     #: Asset metadata for individual assets in the dataset, keyed by
     #: `bids_path` properties; populated by `_validate()`
-    _asset_metadata: dict[str, BareAsset] | None = None
+    _asset_metadata: defaultdict[str, BareAsset] | None = None
 
     #: Version of BIDS used for the validation;
     #: populated by `_validate()`
