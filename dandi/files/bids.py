@@ -52,7 +52,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
     _asset_errors: defaultdict[str, list[ValidationResult]] | None = None
 
     #: Asset metadata for individual assets in the dataset, keyed by
-    #: `bids_path` properties; populated by `_validate()`
+    #: `bids_path` properties; populated by `_get_metadata()`
     _asset_metadata: defaultdict[str, BareAsset] | None = None
 
     #: Version of BIDS used for the validation;
@@ -72,26 +72,16 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         """
         return self.filepath.parent
 
-    def _validate(self) -> None:
+    def _get_metadata(self) -> None:
+        """
+        Get metadata for all assets in the dataset
+
+        This populates `self._asset_metadata`
+        """
         with self._lock:
-            if self._dataset_errors is None:
+            if self._asset_metadata is None:
                 # Import here to avoid circular import
                 from dandi.validate import validate_bids
-
-                # Obtain BIDS validation results of the entire dataset through the
-                # deno-compiled BIDS validator
-                self._dataset_errors = bids_validate(
-                    self.bids_root, config=BIDS_VALIDATOR_CONFIG
-                )
-
-                # Categorized validation results related to individual assets by the
-                # path of the asset in the BIDS dataset
-                self._asset_errors = defaultdict(list)
-                for result in self._dataset_errors:
-                    if result.path is not None:
-                        self._asset_errors[
-                            result.path.relative_to(self.bids_root).as_posix()
-                        ].append(result)
 
                 # === Validate the dataset using bidsschematools ===
                 #   This is done to obtain the metadata for each asset in the dataset
@@ -109,7 +99,25 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                         self._asset_metadata[bids_path] = prepare_metadata(
                             result.metadata
                         )
-                        self._bids_version = result.origin.standard_version
+
+    def _validate(self) -> None:
+        with self._lock:
+            if self._dataset_errors is None:
+
+                # Obtain BIDS validation results of the entire dataset through the
+                # deno-compiled BIDS validator
+                self._dataset_errors = bids_validate(
+                    self.bids_root, config=BIDS_VALIDATOR_CONFIG
+                )
+
+                # Categorized validation results related to individual assets by the
+                # path of the asset in the BIDS dataset
+                self._asset_errors = defaultdict(list)
+                for result in self._dataset_errors:
+                    if result.path is not None:
+                        self._asset_errors[
+                            result.path.relative_to(self.bids_root).as_posix()
+                        ].append(result)
 
     def get_asset_errors(self, asset: BIDSAsset) -> list[ValidationResult]:
         """:meta private:"""
@@ -119,7 +127,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
 
     def get_asset_metadata(self, asset: BIDSAsset) -> BareAsset:
         """:meta private:"""
-        self._validate()
+        self._get_metadata()
         assert self._asset_metadata is not None
         return self._asset_metadata[asset.bids_path]
 
