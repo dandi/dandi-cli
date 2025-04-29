@@ -119,6 +119,12 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                             result.path.relative_to(self.bids_root).as_posix()
                         ].append(result)
 
+                # Obtain BIDS standard version from one of the validation results
+                if self._dataset_errors:
+                    bids_version = self._dataset_errors[0].origin.standard_version
+                    assert bids_version is not None
+                    self._bids_version = bids_version
+
     def get_asset_errors(self, asset: BIDSAsset) -> list[ValidationResult]:
         """:meta private:"""
         self._validate()
