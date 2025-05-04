@@ -329,9 +329,11 @@ def _harmonize(
         validator=Validator.bids_validator_deno,
         validator_version=get_version(),
         standard=Standard.BIDS,
-        # todo: the BIDSVersion is unavailable through the validator;
-        #   However, the schema version is actually more precise
-        standard_version=schema_version,
+        # `BIDSVersion` is unavailable through the BIDS validator; see
+        #   https://github.com/bids-standard/bids-validator/issues/10#issuecomment-2848121538
+        #   for details
+        # standard_version=<BIDS Version>,
+        standard_schema_version=schema_version,
     )
 
     results: list[ValidationResult] = []
