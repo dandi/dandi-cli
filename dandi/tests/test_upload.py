@@ -11,10 +11,7 @@ import pytest
 from pytest_mock import MockerFixture
 import zarr
 
-from dandi.tests.test_bids_validator_deno.test__init__ import (
-    CONFIG_FOR_EXAMPLES,
-    mock_bids_validate,
-)
+from dandi.tests.test_bids_validator_deno.test__init__ import mock_bids_validate
 
 from .fixtures import SampleDandiset, sweep_embargo
 from .test_helpers import assert_dirtrees_eq
@@ -230,7 +227,6 @@ def test_upload_bids_metadata(
     """
     from dandi.files import bids
 
-    monkeypatch.setattr(bids, "BIDS_VALIDATOR_CONFIG", CONFIG_FOR_EXAMPLES)
     monkeypatch.setattr(bids, "bids_validate", mock_bids_validate)
 
     bids_dandiset.upload(existing=UploadExisting.FORCE)
@@ -256,7 +252,6 @@ def test_upload_bids(
     """
     from dandi.files import bids
 
-    monkeypatch.setattr(bids, "BIDS_VALIDATOR_CONFIG", CONFIG_FOR_EXAMPLES)
     monkeypatch.setattr(bids, "bids_validate", mock_bids_validate)
 
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
@@ -328,7 +323,17 @@ def test_upload_zarr(new_dandiset: SampleDandiset) -> None:
 
 
 # identical to above, but different scenaior/fixture and path. TODO: avoid duplication
-def test_upload_bids_zarr(bids_zarr_dandiset: SampleDandiset) -> None:
+def test_upload_bids_zarr(
+    bids_zarr_dandiset: SampleDandiset, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    Test the uploading of a dataset based on one of the datasets at
+        https://github.com/bids-standard/bids-examples
+    """
+    from dandi.files import bids
+
+    monkeypatch.setattr(bids, "bids_validate", mock_bids_validate)
+
     bids_zarr_dandiset.upload()
     assets = list(bids_zarr_dandiset.dandiset.get_assets())
     assert len(assets) > 10  # it is a bigish dataset

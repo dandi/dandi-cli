@@ -10,7 +10,6 @@ import weakref
 from dandischema.models import BareAsset
 
 from dandi.bids_validator_deno import bids_validate
-from dandi.consts import dandiset_metadata_file
 
 from .bases import GenericAsset, LocalFileAsset, NWBAsset
 from .zarr import ZarrAsset
@@ -21,14 +20,6 @@ from ..validate_types import ValidationResult
 
 BIDS_ASSET_ERRORS = ("BIDS.NON_BIDS_PATH_PLACEHOLDER",)
 BIDS_DATASET_ERRORS = ("BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",)
-
-# Config for running the deno-compiled BIDS validator
-BIDS_VALIDATOR_CONFIG = {
-    "ignore": [
-        # Ignore any error regarding the dandiset metadata file
-        {"location": f"/{dandiset_metadata_file}"}
-    ]
-}
 
 
 @dataclass
@@ -121,9 +112,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
 
                 # Obtain BIDS validation results of the entire dataset through the
                 # deno-compiled BIDS validator
-                self._dataset_errors = bids_validate(
-                    self.bids_root, config=BIDS_VALIDATOR_CONFIG
-                )
+                self._dataset_errors = bids_validate(self.bids_root)
 
                 # Categorized validation results related to individual assets by the
                 # path of the asset in the BIDS dataset
