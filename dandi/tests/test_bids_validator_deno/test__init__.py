@@ -54,6 +54,7 @@ def mock_bids_validate(*args: Any, **kwargs: Any) -> list[ValidationResult]:
     # https://github.com/bids-standard/bids-error-examples. These example datasets
     contains empty NIFTI files
     """
+    kwargs["config"] = CONFIG_FOR_EXAMPLES
     kwargs["ignore_nifti_headers"] = True
     return bids_validate(*args, **kwargs)
 

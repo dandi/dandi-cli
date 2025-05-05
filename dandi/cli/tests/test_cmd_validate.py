@@ -32,12 +32,8 @@ def test_validate_bids_error(
         https://github.com/bids-standard/bids-error-examples
     """
     from dandi.files import bids
-    from dandi.tests.test_bids_validator_deno.test__init__ import (
-        CONFIG_FOR_EXAMPLES,
-        mock_bids_validate,
-    )
+    from dandi.tests.test_bids_validator_deno.test__init__ import mock_bids_validate
 
-    monkeypatch.setattr(bids, "BIDS_VALIDATOR_CONFIG", CONFIG_FOR_EXAMPLES)
     monkeypatch.setattr(bids, "bids_validate", mock_bids_validate)
 
     broken_dataset = bids_error_examples / ds_name

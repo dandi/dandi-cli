@@ -1,12 +1,8 @@
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
-
-from dandi.tests.test_bids_validator_deno.test__init__ import (
-    CONFIG_FOR_EXAMPLES,
-    mock_bids_validate,
-)
 
 from .fixtures import BIDS_TESTDATA_SELECTION
 from .. import __version__
@@ -75,13 +71,54 @@ def test_validate_bids(
     """
     from dandi.files import bids
 
-    monkeypatch.setattr(bids, "BIDS_VALIDATOR_CONFIG", CONFIG_FOR_EXAMPLES)
+    def mock_bids_validate(*args: Any, **kwargs: Any) -> list[ValidationResult]:
+        """
+        Mock `bids_validate` to validate the examples in
+        # https://github.com/bids-standard/bids-examples. These example datasets
+        contains empty NIFTI files
+
+        Note
+        -----
+            Unlike other mock function for `bids_validate`, this one doesn't
+            configure the validator to ignore the dandiset metadata file. Thus,
+            an error regarding the `dandiset.yaml` file is to be expected.
+        """
+        from dandi.bids_validator_deno import bids_validate
+
+        kwargs["config"] = {
+            "ignore": [
+                # Raw Data Files in the examples are empty
+                {"code": "EMPTY_FILE"}
+            ]
+        }
+        kwargs["ignore_nifti_headers"] = True
+        return bids_validate(*args, **kwargs)
+
     monkeypatch.setattr(bids, "bids_validate", mock_bids_validate)
 
     selected_dataset = bids_examples / dataset
-    validation_result = validate(selected_dataset)
-    for r in validation_result:
-        assert r.severity is None or r.severity < Severity.ERROR
+    validation_results = list(validate(selected_dataset))
+
+    validation_errs = [
+        r
+        for r in validation_results
+        if r.severity is not None and r.severity >= Severity.ERROR
+    ]
+
+    # Assert that there is one error
+    assert len(validation_errs) == 1
+
+    err = validation_errs[0]
+
+    assert err.path is not None
+    assert err.dataset_path is not None
+    assert err.path.relative_to(err.dataset_path).as_posix() == dandiset_metadata_file
+
+    assert err.message is not None
+    assert err.message.startswith(
+        f"The dandiset metadata file, `{dandiset_metadata_file}`, is not a part of "
+        f"BIDS specification."
+    )
 
 
 def test_validate_bids_onefile(bids_error_examples: Path, tmp_path: Path) -> None:
@@ -131,8 +168,8 @@ def test_validate_bids_errors(
         https://github.com/bids-standard/bids-error-examples
     """
     from dandi.files import bids
+    from dandi.tests.test_bids_validator_deno.test__init__ import mock_bids_validate
 
-    monkeypatch.setattr(bids, "BIDS_VALIDATOR_CONFIG", CONFIG_FOR_EXAMPLES)
     monkeypatch.setattr(bids, "bids_validate", mock_bids_validate)
 
     ds_path = bids_error_examples / ds_name
