@@ -122,7 +122,6 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 # Obtain BIDS standard version from one of the validation results
                 if self._dataset_errors:
                     bids_version = self._dataset_errors[0].origin.standard_version
-                    assert bids_version is not None
                     self._bids_version = bids_version
 
     def get_asset_errors(self, asset: BIDSAsset) -> list[ValidationResult]:
@@ -208,9 +207,8 @@ class BIDSAsset(LocalFileAsset):
         metadata.path = self.path
         return metadata
 
-    def get_validation_bids_version(self) -> str:
+    def get_validation_bids_version(self) -> str | None:
         self.bids_dataset_description._validate()
-        assert self.bids_dataset_description._bids_version is not None
         return self.bids_dataset_description._bids_version
 
 
