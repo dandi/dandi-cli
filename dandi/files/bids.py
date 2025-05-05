@@ -55,7 +55,9 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
     #: `bids_path` properties; populated by `_get_metadata()`
     _asset_metadata: defaultdict[str, BareAsset] | None = None
 
-    #: Version of BIDS used for the validation;
+    #: Version of BIDS used in the validation
+    #: (not necessarily the same as the value of the `"BIDSVersion"` field in the
+    #: represented `dataset_description.json` file);
     #: populated by `_validate()`
     #: In future this might be removed and the information included in the
     #: BareAsset via dandischema.
@@ -71,6 +73,19 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         The directory on the filesystem in which the BIDS dataset is located
         """
         return self.filepath.parent
+
+    @property
+    def bids_version(self) -> str | None:
+        """
+        The version of BIDS used for in validation
+
+        Note
+        ----
+            This value is not necessarily the same as the value of the `"BIDSVersion"`
+            field in the represented `dataset_description.json` file.
+        """
+        self._validate()
+        return self._bids_version
 
     def _get_metadata(self) -> None:
         """
@@ -208,8 +223,7 @@ class BIDSAsset(LocalFileAsset):
         return metadata
 
     def get_validation_bids_version(self) -> str | None:
-        self.bids_dataset_description._validate()
-        return self.bids_dataset_description._bids_version
+        return self.bids_dataset_description.bids_version
 
 
 class NWBBIDSAsset(BIDSAsset, NWBAsset):
