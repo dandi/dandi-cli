@@ -353,7 +353,8 @@ def _harmonize(
                 id=f"BIDS.{issue.code}",
                 origin=origin,
                 scope=_get_scope(issue_path),
-                origin_result=issue,  # TODO: it may be more useful if set to `bv_result`
+                # Store only the issue, not entire bv_result with more context
+                origin_result=issue,
                 severity=_SEVERITY_MAP[severity] if severity else None,
                 dandiset_path=dandiset_path,
                 dataset_path=ds_path,
