@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from enum import Enum, IntEnum, auto, unique
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import BaseModel, Field
+from pydantic.functional_serializers import PlainSerializer
 
 import dandi
 from dandi.utils import StrEnum
@@ -130,6 +131,15 @@ class Severity(IntEnum):
     """
 
 
+Severity_ = Annotated[
+    Severity, PlainSerializer(lambda s: s.name, return_type=str, when_used="json")
+]
+"""
+The annotated version of `Severity` with which the values of `Severity` are serialized
+as their names when serialized to JSON, i.e. serialization done in the mode of "json".
+"""
+
+
 class Scope(Enum):
     FILE = "file"
     FOLDER = "folder"
@@ -151,7 +161,7 @@ class ValidationResult(BaseModel):
     `self.origin.validator`, unchanged
     """
 
-    severity: Severity | None = None
+    severity: Severity_ | None = None
     # asset_paths, if not populated, assumes [.path], but could be smth like
     # {"path": "task-broken_bold.json",
     #  "asset_paths": ["sub-01/func/sub-01_task-broken_bold.json",
