@@ -32,7 +32,7 @@ def test_validate_bids_error(
         https://github.com/bids-standard/bids-error-examples
     """
     from dandi.files import bids
-    from dandi.tests.test_bids_validator_deno.test__init__ import mock_bids_validate
+    from dandi.tests.test_bids_validator_deno.test_validator import mock_bids_validate
 
     monkeypatch.setattr(bids, "bids_validate", mock_bids_validate)
 

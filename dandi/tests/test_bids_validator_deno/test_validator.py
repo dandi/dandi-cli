@@ -5,9 +5,13 @@ from unittest.mock import ANY, patch
 
 import pytest
 
+from dandi.bids_validator_deno._models import BidsValidationResult, DatasetIssues, Issue
+from dandi.bids_validator_deno._models import Severity as BidsSeverity
+from dandi.bids_validator_deno._models import SummaryOutput
+
 # Adjust the import as needed for your package structure
 # noinspection PyProtectedMember
-from dandi.bids_validator_deno import (
+from dandi.bids_validator_deno._validator import (
     CMD,
     TIMEOUT,
     ValidatorError,
@@ -20,9 +24,6 @@ from dandi.bids_validator_deno import (
     get_version,
     strip_sgr,
 )
-from dandi.bids_validator_deno.models import BidsValidationResult, DatasetIssues, Issue
-from dandi.bids_validator_deno.models import Severity as BidsSeverity
-from dandi.bids_validator_deno.models import SummaryOutput
 from dandi.consts import dandiset_metadata_file
 from dandi.tests.fixtures import BIDS_TESTDATA_SELECTION
 from dandi.validate_types import (
@@ -180,7 +181,7 @@ class TestInvokeValidator:
         """
         Test that a TimeoutExpired from `subprocess.run` raises a RuntimeError.
         """
-        with patch("dandi.bids_validator_deno.run") as mock_run:
+        with patch("dandi.bids_validator_deno._validator.run") as mock_run:
             mock_run.side_effect = TimeoutExpired(cmd=[CMD], timeout=TIMEOUT)
             with pytest.raises(RuntimeError, match="timed out after"):
                 _invoke_validator([])
@@ -252,7 +253,9 @@ class TestBidsValidate:
         """
         Test the case where the deno-compiled BIDS validator succeeds in execution
         """
-        with patch("dandi.bids_validator_deno._bids_validate") as mock_validate:
+        with patch(
+            "dandi.bids_validator_deno._validator._bids_validate"
+        ) as mock_validate:
             mock_validate.return_value = BidsValidationResult(
                 issues=DatasetIssues(
                     issues=[Issue(code="code1")], codeMessages={"code1": "message1"}
@@ -294,7 +297,7 @@ class TestBidsValidate:
             outfile_content="Some content",
         )
         with patch(
-            "dandi.bids_validator_deno._bids_validate",
+            "dandi.bids_validator_deno._validator._bids_validate",
             side_effect=validator_error,
         ):
             results = bids_validate(tmp_path)
@@ -356,7 +359,7 @@ class Test_BidsValidate:
         )
 
         with patch(
-            "dandi.bids_validator_deno._invoke_validator",
+            "dandi.bids_validator_deno._validator._invoke_validator",
             wraps=_invoke_validator,  # <--- "Spy" on the original function
         ) as mock_invoke:
 
@@ -457,7 +460,9 @@ class Test_BidsValidate:
         in the execution of the validator.
         """
         cmd = [CMD, "--json", str(tmp_path)]
-        with patch("dandi.bids_validator_deno._invoke_validator") as mock_invoke:
+        with patch(
+            "dandi.bids_validator_deno._validator._invoke_validator"
+        ) as mock_invoke:
             # Simulate a CompletedProcess
             mock_invoke.return_value = CompletedProcess(
                 args=cmd,

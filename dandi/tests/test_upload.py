@@ -11,7 +11,7 @@ import pytest
 from pytest_mock import MockerFixture
 import zarr
 
-from dandi.tests.test_bids_validator_deno.test__init__ import mock_bids_validate
+from dandi.tests.test_bids_validator_deno.test_validator import mock_bids_validate
 
 from .fixtures import SampleDandiset, sweep_embargo
 from .test_helpers import assert_dirtrees_eq
