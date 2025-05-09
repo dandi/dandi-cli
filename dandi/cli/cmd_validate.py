@@ -170,19 +170,27 @@ def _process_issues(
             "The `grouping` parameter values currently supported are 'path' and"
             " 'none'."
         )
-    if any(i.severity is Severity.ERROR for i in issues):
+
+    if (
+        max(
+            (i.severity for i in issues if i.severity is not None),
+            default=Severity.INFO,
+        )
+        >= Severity.ERROR
+    ):
         raise SystemExit(1)
     else:
         click.secho("No errors found.", fg="green")
 
 
 def _get_severity_color(severities: list[Severity]) -> str:
-    if Severity.ERROR in severities:
+    max_severity = max(severities, default=Severity.INFO)
+    if max_severity >= Severity.ERROR:
         return "red"
-    elif Severity.WARNING in severities:
+    if max_severity >= Severity.WARNING:
         return "yellow"
-    else:
-        return "blue"
+
+    return "blue"
 
 
 def display_errors(
