@@ -161,7 +161,9 @@ Severity_ = Annotated[
     BeforeValidator(
         _accept_severity_by_name, json_schema_input_type=Severity | _SeverityName
     ),
-    PlainSerializer(lambda s: s.name, return_type=str, when_used="json"),
+    PlainSerializer(
+        lambda s: _SeverityName[s.name], return_type=_SeverityName, when_used="json"
+    ),
 ]
 """
 The annotated version of `Severity` with which the values of `Severity` are serialized
