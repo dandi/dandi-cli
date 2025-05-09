@@ -4,7 +4,7 @@ from enum import Enum, IntEnum, auto, unique
 from pathlib import Path
 from typing import Annotated, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field
 from pydantic.functional_serializers import PlainSerializer
 
 import dandi
@@ -131,8 +131,37 @@ class Severity(IntEnum):
     """
 
 
+_SeverityName = Enum("_SeverityName", [(n, n) for n in Severity.__members__])
+"""
+Names of the members of `Severity` as an enum
+
+This is used for generating JSON schema for `Severity_`
+"""
+
+
+def _accept_severity_by_name(v: Any) -> Any:
+    """
+    A validator function to be used in `BeforeValidator` to allow `Severity` member
+    names to be validated as `Severity` values.
+    """
+    if isinstance(v, str):
+        if v in Severity.__members__:
+            return Severity[v].value
+        else:
+            raise ValueError(
+                f"Invalid severity name: {v}. "
+                f"Valid names are: {', '.join(Severity.__members__.keys())}"
+            )
+    else:
+        return v
+
+
 Severity_ = Annotated[
-    Severity, PlainSerializer(lambda s: s.name, return_type=str, when_used="json")
+    Severity,
+    BeforeValidator(
+        _accept_severity_by_name, json_schema_input_type=Severity | _SeverityName
+    ),
+    PlainSerializer(lambda s: s.name, return_type=str, when_used="json"),
 ]
 """
 The annotated version of `Severity` with which the values of `Severity` are serialized
