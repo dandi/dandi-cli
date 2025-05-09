@@ -131,7 +131,9 @@ class Severity(IntEnum):
     """
 
 
-_SeverityName = Enum("_SeverityName", [(n, n) for n in Severity.__members__])
+_SeverityName = Enum(  # type: ignore[misc]
+    "_SeverityName", [(n, n) for n in Severity.__members__]
+)
 """
 Names of the members of `Severity` as an enum
 
