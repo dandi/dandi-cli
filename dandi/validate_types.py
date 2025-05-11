@@ -188,7 +188,7 @@ class ValidationResult(BaseModel):
 
     scope: Scope
 
-    origin_result: Any | None = Field(None, exclude=True)
+    origin_result: Any | None = Field(default=None, exclude=True)
     """
     The representation of the validation result produced by the used validator,
     `self.origin.validator`, unchanged
