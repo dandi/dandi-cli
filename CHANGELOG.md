@@ -1,3 +1,17 @@
+# 0.68.1 (Tue May 13 2025)
+
+#### 🐛 Bug Fix
+
+- BF(workaround): disallow click 8.2.0 due to regression [#1628](https://github.com/dandi/dandi-cli/pull/1628) ([@yarikoptic](https://github.com/yarikoptic))
+- Deduplicate validation results yield from `validate.validate()` [#1619](https://github.com/dandi/dandi-cli/pull/1619) ([@candleindark](https://github.com/candleindark))
+
+#### Authors: 2
+
+- Isaac To ([@candleindark](https://github.com/candleindark))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.68.0 (Wed Apr 23 2025)
 
 #### 🚀 Enhancement
