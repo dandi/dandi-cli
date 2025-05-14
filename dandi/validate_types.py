@@ -75,6 +75,12 @@ class Origin(BaseModel):
     standard_version: str | None = None
     """Version of the standard"""
 
+    standard_schema_version: str | None = None
+    """
+    Version of the schema used in defining or implementing the standard,
+    such as BIDS schema version in BIDS
+    """
+
 
 # Some commonly used `Origin` instances
 ORIGIN_VALIDATION_DANDI = Origin(
