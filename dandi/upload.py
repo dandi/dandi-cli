@@ -263,7 +263,9 @@ def upload(
                     yield {"status": "pre-validating"}
                     validation_statuses = dfile.get_validation_errors()
                     validation_errors = [
-                        s for s in validation_statuses if s.severity == Severity.ERROR
+                        s
+                        for s in validation_statuses
+                        if s.severity is not None and s.severity >= Severity.ERROR
                     ]
                     yield {"errors": len(validation_errors)}
                     # TODO: split for dandi, pynwb errors
