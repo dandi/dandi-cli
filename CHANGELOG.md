@@ -1,3 +1,21 @@
+# 0.69.0 (Wed May 21 2025)
+
+#### 🚀 Enhancement
+
+- Replace the use of `bidsschematools` with the use of deno-compiled BIDS validator in obtaining validation result [#1599](https://github.com/dandi/dandi-cli/pull/1599) ([@candleindark](https://github.com/candleindark))
+
+#### 🐛 Bug Fix
+
+- Restrict to specific 0.11.0 dandischema so we do not upgrade to 0.11.1 which provided new dandi schema release, and limit click before 8.2.0 for now [#1630](https://github.com/dandi/dandi-cli/pull/1630) ([@yarikoptic](https://github.com/yarikoptic))
+- Correct logic handling the values of `validate_types.Severity` [#1622](https://github.com/dandi/dandi-cli/pull/1622) ([@candleindark](https://github.com/candleindark))
+
+#### Authors: 2
+
+- Isaac To ([@candleindark](https://github.com/candleindark))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.68.1 (Tue May 13 2025)
 
 #### 🐛 Bug Fix
