@@ -1,6 +1,8 @@
 import re
+from unittest.mock import patch
 
 import pytest
+import requests
 import responses
 
 from dandi.consts import DandiInstance, known_instances
@@ -448,6 +450,46 @@ def test_parse_dandi_url_not_found() -> None:
 def test_follow_redirect() -> None:
     url = follow_redirect("https://bit.ly/dandi12")
     assert re.match(r"https://(.*\.)?dandiarchive.org", url)
+
+
+def test_follow_redirect_retry_on_connection_error() -> None:
+    """Test that follow_redirect retries on requests.ConnectionError and eventually succeeds."""
+    test_url = "https://example.com/test"
+    expected_url = "https://example.com/redirected"
+
+    # Mock requests.head to raise ConnectionError first 2 times, then succeed
+    call_count = 0
+
+    def mock_head(url, allow_redirects=True):
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 2:
+            raise requests.ConnectionError("Connection failed")
+        # On third call, return successful response
+        response = requests.Response()
+        response.status_code = 200
+        response.url = expected_url
+        return response
+
+    with patch("dandi.dandiarchive.requests.head", side_effect=mock_head):
+        with patch("dandi.dandiarchive.sleep"):  # Mock sleep to speed up test
+            result = follow_redirect(test_url)
+            assert result == expected_url
+            assert call_count == 3  # Should have retried 2 times before succeeding
+
+
+def test_follow_redirect_exhausted_retries_on_connection_error() -> None:
+    """Test that follow_redirect raises ConnectionError after exhausting retries."""
+    test_url = "https://example.com/test"
+
+    # Mock requests.head to always raise ConnectionError
+    def mock_head(url, allow_redirects=True):
+        raise requests.ConnectionError("Connection failed")
+
+    with patch("dandi.dandiarchive.requests.head", side_effect=mock_head):
+        with patch("dandi.dandiarchive.sleep"):  # Mock sleep to speed up test
+            with pytest.raises(requests.ConnectionError, match="Connection failed"):
+                follow_redirect(test_url)
 
 
 @responses.activate
