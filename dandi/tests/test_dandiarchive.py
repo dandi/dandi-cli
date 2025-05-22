@@ -28,7 +28,17 @@ from .fixtures import DandiAPI, SampleDandiset
     [
         # New DANDI web UI driven by DANDI API.
         pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/000001",
+            "https://dandiarchive.org/dandiset/000001",
+            DandisetURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000001",
+                version_id=None,
+            ),
+            marks=mark.skipif_no_network,
+        ),
+        # Test the one with /#/ in URL (redirected)
+        pytest.param(
+            "https://dandiarchive.org/#/dandiset/000001",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000001",
@@ -37,7 +47,7 @@ from .fixtures import DandiAPI, SampleDandiset
             marks=mark.skipif_no_network,
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/000001/",
+            "https://dandiarchive.org/dandiset/000001/",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000001",
@@ -46,7 +56,7 @@ from .fixtures import DandiAPI, SampleDandiset
             marks=mark.skipif_no_network,
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302",
+            "https://dandiarchive.org/dandiset/000001/0.201104.2302",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000001",
@@ -55,7 +65,7 @@ from .fixtures import DandiAPI, SampleDandiset
             marks=mark.skipif_no_network,
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302/",
+            "https://dandiarchive.org/dandiset/000001/0.201104.2302/",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000001",
@@ -64,7 +74,7 @@ from .fixtures import DandiAPI, SampleDandiset
             marks=mark.skipif_no_network,
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302/files",
+            "https://dandiarchive.org/dandiset/000001/0.201104.2302/files",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000001",
@@ -73,7 +83,7 @@ from .fixtures import DandiAPI, SampleDandiset
             marks=mark.skipif_no_network,
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/000001/draft",
+            "https://dandiarchive.org/dandiset/000001/draft",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000001",
@@ -82,7 +92,7 @@ from .fixtures import DandiAPI, SampleDandiset
             marks=mark.skipif_no_network,
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/dandiset/000001",
+            "https://dandiarchive.org/dandiset/000001",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000001",
@@ -91,7 +101,7 @@ from .fixtures import DandiAPI, SampleDandiset
             marks=mark.skipif_no_network,
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/dandiset/000001/0.201104.2302",
+            "https://dandiarchive.org/dandiset/000001/0.201104.2302",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000001",
@@ -100,7 +110,7 @@ from .fixtures import DandiAPI, SampleDandiset
             marks=mark.skipif_no_network,
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/dandiset/000001/0.201104.2302/files",
+            "https://dandiarchive.org/dandiset/000001/0.201104.2302/files",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000001",
@@ -109,7 +119,7 @@ from .fixtures import DandiAPI, SampleDandiset
             marks=mark.skipif_no_network,
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/dandiset/000001/draft",
+            "https://dandiarchive.org/dandiset/000001/draft",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000001",
@@ -191,7 +201,7 @@ from .fixtures import DandiAPI, SampleDandiset
             ),
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/000001/files"
+            "https://dandiarchive.org/#/dandiset/000001/files"
             "?location=%2Fsub-anm369962",
             AssetFolderURL(
                 instance=known_instances["dandi"],
@@ -202,7 +212,7 @@ from .fixtures import DandiAPI, SampleDandiset
             marks=mark.skipif_no_network,
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/000006/0.200714.1807/files"
+            "https://dandiarchive.org/#/dandiset/000006/0.200714.1807/files"
             "?location=%2Fsub-anm369962",
             AssetFolderURL(
                 instance=known_instances["dandi"],
@@ -213,7 +223,7 @@ from .fixtures import DandiAPI, SampleDandiset
             marks=mark.skipif_no_network,
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/001001/draft/files"
+            "https://dandiarchive.org/#/dandiset/001001/draft/files"
             "?location=sub-RAT123%2F",
             AssetFolderURL(
                 instance=known_instances["dandi"],
@@ -322,17 +332,6 @@ from .fixtures import DandiAPI, SampleDandiset
                 version_id=None,
             ),
         ),
-        pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/001001/draft/files"
-            "?location=sub-RAT123/*.nwb",
-            AssetFolderURL(
-                instance=known_instances["dandi"],
-                dandiset_id="001001",
-                version_id="draft",
-                path="sub-RAT123/*.nwb/",
-            ),
-            marks=mark.skipif_no_network,
-        ),
         (
             "dandi://dandi-api-local-docker-tests/000002/f*/bar.nwb",
             AssetItemURL(
@@ -370,17 +369,6 @@ def test_parse_api_url(url: str, parsed_url: ParsedDandiURL) -> None:
                 version_id="draft",
                 path="sub-RAT123/*.nwb",
             ),
-        ),
-        pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/001001/draft/files"
-            "?location=sub-RAT123/*.nwb",
-            AssetGlobURL(
-                instance=known_instances["dandi"],
-                dandiset_id="001001",
-                version_id="draft",
-                path="sub-RAT123/*.nwb",
-            ),
-            marks=mark.skipif_no_network,
         ),
         (
             "dandi://dandi-api-local-docker-tests/000002/f*/bar.nwb",
