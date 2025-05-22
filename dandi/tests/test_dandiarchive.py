@@ -28,16 +28,6 @@ from .fixtures import DandiAPI, SampleDandiset
 @pytest.mark.parametrize(
     "url,parsed_url",
     [
-        # DANDI web UI driven by DANDI API.
-        pytest.param(
-            "https://dandiarchive.org/dandiset/000001",
-            DandisetURL(
-                instance=known_instances["dandi"],
-                dandiset_id="000001",
-                version_id=None,
-            ),
-            marks=mark.skipif_no_network,
-        ),
         # Test the one with /#/ in URL (redirected)
         pytest.param(
             "https://dandiarchive.org/#/dandiset/000001",
@@ -48,8 +38,9 @@ from .fixtures import DandiAPI, SampleDandiset
             ),
             marks=mark.skipif_no_network,
         ),
+        # DANDI web UI driven by DANDI API.
         pytest.param(
-            "https://dandiarchive.org/dandiset/000001/",
+            "https://dandiarchive.org/dandiset/000001",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000001",
@@ -68,42 +59,6 @@ from .fixtures import DandiAPI, SampleDandiset
         ),
         pytest.param(
             "https://dandiarchive.org/dandiset/000001/0.201104.2302/",
-            DandisetURL(
-                instance=known_instances["dandi"],
-                dandiset_id="000001",
-                version_id="0.201104.2302",
-            ),
-            marks=mark.skipif_no_network,
-        ),
-        pytest.param(
-            "https://dandiarchive.org/dandiset/000001/0.201104.2302/files",
-            DandisetURL(
-                instance=known_instances["dandi"],
-                dandiset_id="000001",
-                version_id="0.201104.2302",
-            ),
-            marks=mark.skipif_no_network,
-        ),
-        pytest.param(
-            "https://dandiarchive.org/dandiset/000001/draft",
-            DandisetURL(
-                instance=known_instances["dandi"],
-                dandiset_id="000001",
-                version_id="draft",
-            ),
-            marks=mark.skipif_no_network,
-        ),
-        pytest.param(
-            "https://dandiarchive.org/dandiset/000001",
-            DandisetURL(
-                instance=known_instances["dandi"],
-                dandiset_id="000001",
-                version_id=None,
-            ),
-            marks=mark.skipif_no_network,
-        ),
-        pytest.param(
-            "https://dandiarchive.org/dandiset/000001/0.201104.2302",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000001",
@@ -170,7 +125,7 @@ from .fixtures import DandiAPI, SampleDandiset
                 version_id=None,
             ),
         ),
-        (
+        (  # no trailing /
             "http://localhost:8000/api/dandisets/000002",
             DandisetURL(
                 instance=known_instances["dandi-api-local-docker-tests"],
