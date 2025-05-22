@@ -890,9 +890,25 @@ class _dandi_url_parser:
             or one of the statuses in `~dandi.consts.RETRY_STATUSES` is returned
         """
         i = 0
+        retries = 4
         while True:
-            r = requests.head(url, allow_redirects=True)
-            if r.status_code in RETRY_STATUSES and i < 4:
+            try:
+                r = requests.head(url, allow_redirects=True)
+            except requests.ConnectionError as e:
+                # we frequently get those on Windows for some reason
+                if i < retries:
+                    lgr.warning(
+                        "HEAD request to %s failed with %s; retrying...",
+                        url,
+                        e,
+                    )
+                    sleep(0.1 * 10**i)
+                    i += 1
+                    continue
+                else:
+                    lgr.warning("Exhausted %d retries for %s", retries, url)
+                    raise  # re-raise the exception
+            if r.status_code in RETRY_STATUSES and i < retries:
                 retry_after = get_retry_after(r)
                 if retry_after is not None:
                     delay = retry_after
