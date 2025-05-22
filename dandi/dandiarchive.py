@@ -940,6 +940,7 @@ class _dandi_url_parser:
                 return r.url
             assert isinstance(url, str)
             return url
+        raise RuntimeError("Must not get here: either return or raise in the loop")
 
 
 # convenience binding
