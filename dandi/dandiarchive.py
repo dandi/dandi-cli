@@ -889,15 +889,29 @@ class _dandi_url_parser:
         :raises FailedToConnectError: if a response other than 200, 400, 404,
             or one of the statuses in `~dandi.consts.RETRY_STATUSES` is returned
         """
-        i = 0
-        while True:
-            r = requests.head(url, allow_redirects=True)
-            if r.status_code in RETRY_STATUSES and i < 4:
+        retries = 4
+        for retry in range(retries + 1):
+            try:
+                r = requests.head(url, allow_redirects=True)
+            except requests.ConnectionError as e:
+                # we frequently get those on Windows for some reason
+                if retry < retries:
+                    lgr.warning(
+                        "HEAD request to %s failed with %s; retrying...",
+                        url,
+                        e,
+                    )
+                    sleep(0.1 * 10**retry)
+                    continue
+                else:
+                    lgr.warning("Exhausted %d retries for %s", retries, url)
+                    raise  # re-raise the exception
+            if r.status_code in RETRY_STATUSES and retry < retries:
                 retry_after = get_retry_after(r)
                 if retry_after is not None:
                     delay = retry_after
                 else:
-                    delay = 0.1 * 10**i
+                    delay = 0.1 * 10**retry
                 if delay:
                     lgr.warning(
                         "HEAD request to %s returned %d; "
@@ -913,7 +927,6 @@ class _dandi_url_parser:
                         url,
                         r.status_code,
                     )
-                i += 1
                 continue
             elif r.status_code == 404:
                 raise NotFoundError(url)
@@ -927,6 +940,7 @@ class _dandi_url_parser:
                 return r.url
             assert isinstance(url, str)
             return url
+        raise RuntimeError("Must not get here: either return or raise in the loop")
 
 
 # convenience binding

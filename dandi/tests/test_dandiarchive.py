@@ -1,6 +1,8 @@
 import re
+from unittest.mock import patch
 
 import pytest
+import requests
 import responses
 
 from dandi.consts import DandiInstance, known_instances
@@ -26,9 +28,19 @@ from .fixtures import DandiAPI, SampleDandiset
 @pytest.mark.parametrize(
     "url,parsed_url",
     [
-        # New DANDI web UI driven by DANDI API.
+        # Test the one with /#/ in URL (redirected)
         pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/000001",
+            "https://dandiarchive.org/#/dandiset/000001",
+            DandisetURL(
+                instance=known_instances["dandi"],
+                dandiset_id="000001",
+                version_id=None,
+            ),
+            marks=mark.skipif_no_network,
+        ),
+        # DANDI web UI driven by DANDI API.
+        pytest.param(
+            "https://dandiarchive.org/dandiset/000001",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000001",
@@ -37,16 +49,7 @@ from .fixtures import DandiAPI, SampleDandiset
             marks=mark.skipif_no_network,
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/000001/",
-            DandisetURL(
-                instance=known_instances["dandi"],
-                dandiset_id="000001",
-                version_id=None,
-            ),
-            marks=mark.skipif_no_network,
-        ),
-        pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302",
+            "https://dandiarchive.org/dandiset/000001/0.201104.2302",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000001",
@@ -55,7 +58,7 @@ from .fixtures import DandiAPI, SampleDandiset
             marks=mark.skipif_no_network,
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302/",
+            "https://dandiarchive.org/dandiset/000001/0.201104.2302/",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000001",
@@ -64,7 +67,7 @@ from .fixtures import DandiAPI, SampleDandiset
             marks=mark.skipif_no_network,
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/000001/0.201104.2302/files",
+            "https://dandiarchive.org/dandiset/000001/0.201104.2302/files",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000001",
@@ -73,43 +76,7 @@ from .fixtures import DandiAPI, SampleDandiset
             marks=mark.skipif_no_network,
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/000001/draft",
-            DandisetURL(
-                instance=known_instances["dandi"],
-                dandiset_id="000001",
-                version_id="draft",
-            ),
-            marks=mark.skipif_no_network,
-        ),
-        pytest.param(
-            "https://gui.dandiarchive.org/dandiset/000001",
-            DandisetURL(
-                instance=known_instances["dandi"],
-                dandiset_id="000001",
-                version_id=None,
-            ),
-            marks=mark.skipif_no_network,
-        ),
-        pytest.param(
-            "https://gui.dandiarchive.org/dandiset/000001/0.201104.2302",
-            DandisetURL(
-                instance=known_instances["dandi"],
-                dandiset_id="000001",
-                version_id="0.201104.2302",
-            ),
-            marks=mark.skipif_no_network,
-        ),
-        pytest.param(
-            "https://gui.dandiarchive.org/dandiset/000001/0.201104.2302/files",
-            DandisetURL(
-                instance=known_instances["dandi"],
-                dandiset_id="000001",
-                version_id="0.201104.2302",
-            ),
-            marks=mark.skipif_no_network,
-        ),
-        pytest.param(
-            "https://gui.dandiarchive.org/dandiset/000001/draft",
+            "https://dandiarchive.org/dandiset/000001/draft",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000001",
@@ -158,7 +125,7 @@ from .fixtures import DandiAPI, SampleDandiset
                 version_id=None,
             ),
         ),
-        (
+        (  # no trailing /
             "http://localhost:8000/api/dandisets/000002",
             DandisetURL(
                 instance=known_instances["dandi-api-local-docker-tests"],
@@ -191,7 +158,7 @@ from .fixtures import DandiAPI, SampleDandiset
             ),
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/000001/files"
+            "https://dandiarchive.org/#/dandiset/000001/files"
             "?location=%2Fsub-anm369962",
             AssetFolderURL(
                 instance=known_instances["dandi"],
@@ -202,7 +169,7 @@ from .fixtures import DandiAPI, SampleDandiset
             marks=mark.skipif_no_network,
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/000006/0.200714.1807/files"
+            "https://dandiarchive.org/#/dandiset/000006/0.200714.1807/files"
             "?location=%2Fsub-anm369962",
             AssetFolderURL(
                 instance=known_instances["dandi"],
@@ -213,7 +180,7 @@ from .fixtures import DandiAPI, SampleDandiset
             marks=mark.skipif_no_network,
         ),
         pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/001001/draft/files"
+            "https://dandiarchive.org/#/dandiset/001001/draft/files"
             "?location=sub-RAT123%2F",
             AssetFolderURL(
                 instance=known_instances["dandi"],
@@ -322,17 +289,6 @@ from .fixtures import DandiAPI, SampleDandiset
                 version_id=None,
             ),
         ),
-        pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/001001/draft/files"
-            "?location=sub-RAT123/*.nwb",
-            AssetFolderURL(
-                instance=known_instances["dandi"],
-                dandiset_id="001001",
-                version_id="draft",
-                path="sub-RAT123/*.nwb/",
-            ),
-            marks=mark.skipif_no_network,
-        ),
         (
             "dandi://dandi-api-local-docker-tests/000002/f*/bar.nwb",
             AssetItemURL(
@@ -370,17 +326,6 @@ def test_parse_api_url(url: str, parsed_url: ParsedDandiURL) -> None:
                 version_id="draft",
                 path="sub-RAT123/*.nwb",
             ),
-        ),
-        pytest.param(
-            "https://gui.dandiarchive.org/#/dandiset/001001/draft/files"
-            "?location=sub-RAT123/*.nwb",
-            AssetGlobURL(
-                instance=known_instances["dandi"],
-                dandiset_id="001001",
-                version_id="draft",
-                path="sub-RAT123/*.nwb",
-            ),
-            marks=mark.skipif_no_network,
         ),
         (
             "dandi://dandi-api-local-docker-tests/000002/f*/bar.nwb",
@@ -460,6 +405,46 @@ def test_parse_dandi_url_not_found() -> None:
 def test_follow_redirect() -> None:
     url = follow_redirect("https://bit.ly/dandi12")
     assert re.match(r"https://(.*\.)?dandiarchive.org", url)
+
+
+def test_follow_redirect_retry_on_connection_error() -> None:
+    """Test that follow_redirect retries on requests.ConnectionError and eventually succeeds."""
+    test_url = "https://example.com/test"
+    expected_url = "https://example.com/redirected"
+
+    # Mock requests.head to raise ConnectionError first 2 times, then succeed
+    call_count = 0
+
+    def mock_head(url, allow_redirects=True):
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 2:
+            raise requests.ConnectionError("Connection failed")
+        # On third call, return successful response
+        response = requests.Response()
+        response.status_code = 200
+        response.url = expected_url
+        return response
+
+    with patch("dandi.dandiarchive.requests.head", side_effect=mock_head):
+        with patch("dandi.dandiarchive.sleep"):  # Mock sleep to speed up test
+            result = follow_redirect(test_url)
+            assert result == expected_url
+            assert call_count == 3  # Should have retried 2 times before succeeding
+
+
+def test_follow_redirect_exhausted_retries_on_connection_error() -> None:
+    """Test that follow_redirect raises ConnectionError after exhausting retries."""
+    test_url = "https://example.com/test"
+
+    # Mock requests.head to always raise ConnectionError
+    def mock_head(url, allow_redirects=True):
+        raise requests.ConnectionError("Connection failed")
+
+    with patch("dandi.dandiarchive.requests.head", side_effect=mock_head):
+        with patch("dandi.dandiarchive.sleep"):  # Mock sleep to speed up test
+            with pytest.raises(requests.ConnectionError, match="Connection failed"):
+                follow_redirect(test_url)
 
 
 @responses.activate
