@@ -28,7 +28,7 @@ from .fixtures import DandiAPI, SampleDandiset
 @pytest.mark.parametrize(
     "url,parsed_url",
     [
-        # New DANDI web UI driven by DANDI API.
+        # DANDI web UI driven by DANDI API.
         pytest.param(
             "https://dandiarchive.org/dandiset/000001",
             DandisetURL(
