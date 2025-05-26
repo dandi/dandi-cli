@@ -41,6 +41,30 @@ from .utils import ensure_datetime, path_is_subpath, pluralize
 from .validate_types import Severity
 
 
+def _check_dandidownload_paths(dfile: DandiFile) -> None:
+    """
+    Check if an asset contains .dandidownload paths and raise UploadError if found.
+
+    .dandidownload paths indicate incomplete or interrupted downloads and should not
+    be uploaded as they represent "garbage" data in the file structure.
+    """
+    # Check the main file path
+    if ".dandidownload" in str(dfile.filepath):
+        raise UploadError(
+            f"Asset contains .dandidownload path which indicates incomplete "
+            f"download: {dfile.filepath}"
+        )
+
+    # For Zarr assets, check all internal paths
+    if isinstance(dfile, ZarrAsset):
+        for entry in dfile.iterfiles():
+            if ".dandidownload" in str(entry):
+                raise UploadError(
+                    f"Zarr asset contains .dandidownload path which indicates "
+                    f"incomplete download: {entry}"
+                )
+
+
 class Uploaded(TypedDict):
     size: int
     errors: list[str]
@@ -251,6 +275,9 @@ def upload(
                     except Exception as exc:
                         # without limiting [:50] it might cause some pyout indigestion
                         raise UploadError(str(exc)[:50])
+
+                # Check for .dandidownload paths that indicate incomplete downloads
+                _check_dandidownload_paths(dfile)
 
                 #
                 # Validate first, so we do not bother server at all if not kosher
