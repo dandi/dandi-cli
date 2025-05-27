@@ -223,3 +223,6 @@ assert {v.get("type", "additional") for v in dandi_layout_fields.values()} == {
 REQUEST_RETRIES = 12
 
 DOWNLOAD_TIMEOUT = 30
+
+#: Suffix used for temporary download directories
+DOWNLOAD_SUFFIX = ".dandidownload"

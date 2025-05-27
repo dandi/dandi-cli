@@ -19,7 +19,12 @@ from dandi.tests.test_bids_validator_deno.test_validator import mock_bids_valida
 
 from .fixtures import SampleDandiset, sweep_embargo
 from .test_helpers import assert_dirtrees_eq
-from ..consts import ZARR_MIME_TYPE, EmbargoStatus, dandiset_metadata_file
+from ..consts import (
+    DOWNLOAD_SUFFIX,
+    ZARR_MIME_TYPE,
+    EmbargoStatus,
+    dandiset_metadata_file,
+)
 from ..dandiapi import AssetType, RemoteBlobAsset, RemoteZarrAsset, RESTFullAPIClient
 from ..dandiset import Dandiset
 from ..download import download
@@ -623,13 +628,13 @@ def test_upload_rejects_dandidownload_paths(
     dspath = new_dandiset.dspath
 
     # Test 1: Regular file with .dandidownload in path
-    badfile_path = dspath / "test.dandidownload" / "file.nwb"
+    badfile_path = dspath / f"test{DOWNLOAD_SUFFIX}" / "file.nwb"
     badfile_path.parent.mkdir(parents=True)
     make_nwb_file(badfile_path, subject_id="test")
 
     with pytest.raises(
         UploadError,
-        match="contains .dandidownload path which indicates incomplete download",
+        match=f"contains {DOWNLOAD_SUFFIX} path which indicates incomplete download",
     ):
         new_dandiset.upload(allow_any_path=True)
 
@@ -641,13 +646,13 @@ def test_upload_rejects_dandidownload_paths(
     zarr.save(zarr_path, np.arange(100))
 
     # Create a .dandidownload directory inside the zarr
-    bad_zarr_path = zarr_path / "sub.dandidownload"
+    bad_zarr_path = zarr_path / f"sub{DOWNLOAD_SUFFIX}"
     bad_zarr_path.mkdir()
     (bad_zarr_path / "badfile").write_text("bad data")
 
     with pytest.raises(
         UploadError,
-        match="Zarr asset contains .dandidownload path which indicates incomplete download",
+        match=f"Zarr asset contains {DOWNLOAD_SUFFIX} path which indicates incomplete download",
     ):
         new_dandiset.upload()
 
@@ -655,12 +660,12 @@ def test_upload_rejects_dandidownload_paths(
     rmtree(bad_zarr_path)
 
     # Test 3: Zarr asset with .dandidownload in filename
-    bad_file_in_zarr = zarr_path / "data.dandidownload"
+    bad_file_in_zarr = zarr_path / f"data{DOWNLOAD_SUFFIX}"
     bad_file_in_zarr.write_text("bad data")
 
     with pytest.raises(
         UploadError,
-        match="Zarr asset contains .dandidownload path which indicates incomplete download",
+        match=f"Zarr asset contains {DOWNLOAD_SUFFIX} path which indicates incomplete download",
     ):
         new_dandiset.upload()
 
@@ -679,11 +684,11 @@ def test_upload_rejects_dandidownload_nwb_file(new_dandiset: SampleDandiset) -> 
     dspath = new_dandiset.dspath
 
     # Create an NWB file with .dandidownload in its name
-    bad_nwb_path = dspath / "test.dandidownload.nwb"
+    bad_nwb_path = dspath / f"test{DOWNLOAD_SUFFIX}.nwb"
     make_nwb_file(bad_nwb_path, subject_id="test")
 
     with pytest.raises(
         UploadError,
-        match="contains .dandidownload path which indicates incomplete download",
+        match=f"contains {DOWNLOAD_SUFFIX} path which indicates incomplete download",
     ):
         new_dandiset.upload(allow_any_path=True)
