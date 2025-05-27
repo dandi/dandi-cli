@@ -19,6 +19,7 @@ from packaging.version import Version
 
 from . import __version__, lgr
 from .consts import (
+    DOWNLOAD_SUFFIX,
     DRAFT,
     DandiInstance,
     dandiset_identifier_regex,
@@ -49,18 +50,18 @@ def _check_dandidownload_paths(dfile: DandiFile) -> None:
     be uploaded as they represent "garbage" data in the file structure.
     """
     # Check the main file path
-    if ".dandidownload" in str(dfile.filepath):
+    if DOWNLOAD_SUFFIX in str(dfile.filepath):
         raise UploadError(
-            f"Asset contains .dandidownload path which indicates incomplete "
+            f"Asset contains {DOWNLOAD_SUFFIX} path which indicates incomplete "
             f"download: {dfile.filepath}"
         )
 
     # For Zarr assets, check all internal paths
     if isinstance(dfile, ZarrAsset):
         for entry in dfile.iterfiles():
-            if ".dandidownload" in str(entry):
+            if DOWNLOAD_SUFFIX in str(entry):
                 raise UploadError(
-                    f"Zarr asset contains .dandidownload path which indicates "
+                    f"Zarr asset contains {DOWNLOAD_SUFFIX} path which indicates "
                     f"incomplete download: {entry}"
                 )
 
