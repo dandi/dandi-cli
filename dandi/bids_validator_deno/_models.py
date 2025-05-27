@@ -72,5 +72,5 @@ class SummaryOutput(_BaseModel):
 
 class SubjectMetadata(_BaseModel):
     participantId: str
-    age: Union[int, Literal["89+"], None] = None
+    age: Union[float, Literal["89+"], None] = None
     sex: Optional[str] = None
