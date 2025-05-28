@@ -1106,6 +1106,10 @@ class RemoteDandiset:
             v = self.get_version(self.version_id)
             if v.status is VersionStatus.VALID and not v.asset_validation_errors:
                 return
+            # TODO(asmacdo) can we fail fast?
+            if v.status is VersionStatus.INVALID:
+                break
+
             sleep(0.5)
         # TODO: Improve the presentation of the error messages
         about = {
