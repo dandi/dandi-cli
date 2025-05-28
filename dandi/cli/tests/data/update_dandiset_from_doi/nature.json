@@ -13,11 +13,21 @@
     ],
     "version": "draft",
     "@context": "https://raw.githubusercontent.com/dandi/schema/master/releases/0.6.4/context.json",
-    "citation": "Sit, Kevin K.; Goard, Michael J. (2023) Coregistration of heading to visual cues in retrosplenial cortex (Version draft) [Data set]. DANDI Archive. http://localhost:8085/dandiset/000005/draft",
+    "citation": "Admin, Test; Sit, Kevin K.; Goard, Michael J. (2023) Coregistration of heading to visual cues in retrosplenial cortex (Version draft) [Data set]. DANDI Archive. http://localhost:8085/dandiset/000005/draft",
     "schemaKey": "Dandiset",
     "identifier": "DANDI:000005",
     "repository": "http://localhost:8085",
     "contributor": [
+        {
+            "affiliation": [],
+            "email": "admin@nil.nil",
+            "includeInCitation": true,
+            "name": "Admin, Test",
+            "roleName": [
+                "dcite:ContactPerson"
+            ],
+            "schemaKey": "Person"
+        },
         {
             "name": "Tests, DANDI-Cli",
             "email": "nemo@example.com",
