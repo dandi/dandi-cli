@@ -1,3 +1,23 @@
+# 0.69.1 (Wed May 28 2025)
+
+#### 🐛 Bug Fix
+
+- Fix daily tests by excluding new deno validator [#1642](https://github.com/dandi/dandi-cli/pull/1642) ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Workaround: catch AttributeError while formatting exception [#1638](https://github.com/dandi/dandi-cli/pull/1638) ([@yarikoptic](https://github.com/yarikoptic))
+- Stop extensively test no longer used gui.dandiarchive.org, retry HEAD (redirects) upon requests.ConnectionError [#1632](https://github.com/dandi/dandi-cli/pull/1632) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Add Claude Code GitHub Workflow [#1633](https://github.com/dandi/dandi-cli/pull/1633) ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### Authors: 3
+
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.69.0 (Wed May 21 2025)
 
 #### 🚀 Enhancement
