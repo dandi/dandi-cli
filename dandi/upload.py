@@ -19,6 +19,7 @@ from packaging.version import Version
 
 from . import __version__, lgr
 from .consts import (
+    DOWNLOAD_SUFFIX,
     DRAFT,
     DandiInstance,
     dandiset_identifier_regex,
@@ -39,6 +40,30 @@ from .support import pyout as pyouts
 from .support.pyout import naturalsize
 from .utils import ensure_datetime, path_is_subpath, pluralize
 from .validate_types import Severity
+
+
+def _check_dandidownload_paths(dfile: DandiFile) -> None:
+    """
+    Check if an asset contains .dandidownload paths and raise UploadError if found.
+
+    .dandidownload paths indicate incomplete or interrupted downloads and should not
+    be uploaded as they represent "garbage" data in the file structure.
+    """
+    # Check the main file path
+    if DOWNLOAD_SUFFIX in str(dfile.filepath):
+        raise UploadError(
+            f"Asset contains {DOWNLOAD_SUFFIX} path which indicates incomplete "
+            f"download: {dfile.filepath}"
+        )
+
+    # For Zarr assets, check all internal paths
+    if isinstance(dfile, ZarrAsset):
+        for entry in dfile.iterfiles():
+            if DOWNLOAD_SUFFIX in str(entry):
+                raise UploadError(
+                    f"Zarr asset contains {DOWNLOAD_SUFFIX} path which indicates "
+                    f"incomplete download: {entry}"
+                )
 
 
 class Uploaded(TypedDict):
@@ -251,6 +276,9 @@ def upload(
                     except Exception as exc:
                         # without limiting [:50] it might cause some pyout indigestion
                         raise UploadError(str(exc)[:50])
+
+                # Check for .dandidownload paths that indicate incomplete downloads
+                _check_dandidownload_paths(dfile)
 
                 #
                 # Validate first, so we do not bother server at all if not kosher
