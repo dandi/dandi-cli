@@ -17,22 +17,26 @@ from pydantic import BaseModel, ConfigDict
 from dandi.utils import StrEnum
 
 
-class BidsValidationResult(BaseModel):
+class _BaseModel(BaseModel):
+    """
+    The base model for all models in this module
+    """
+
+    model_config = ConfigDict(strict=True)
+
+
+class BidsValidationResult(_BaseModel):
     issues: DatasetIssues
     summary: SummaryOutput
     derivativesSummary: Optional[dict[str, BidsValidationResult]] = None
 
-    model_config = ConfigDict(strict=True)
 
-
-class DatasetIssues(BaseModel):
+class DatasetIssues(_BaseModel):
     issues: list[Issue]
     codeMessages: dict[str, str]
 
-    model_config = ConfigDict(strict=True)
 
-
-class Issue(BaseModel):
+class Issue(_BaseModel):
     code: str
     subCode: Optional[str] = None
     severity: Optional[Severity] = None
@@ -44,8 +48,6 @@ class Issue(BaseModel):
     line: Optional[int] = None
     character: Optional[int] = None
 
-    model_config = ConfigDict(strict=True)
-
 
 class Severity(StrEnum):
     warning = auto()
@@ -53,7 +55,7 @@ class Severity(StrEnum):
     ignore = auto()
 
 
-class SummaryOutput(BaseModel):
+class SummaryOutput(_BaseModel):
     sessions: list[str]
     subjects: list[str]
     subjectMetadata: list[SubjectMetadata]
@@ -67,12 +69,8 @@ class SummaryOutput(BaseModel):
     dataTypes: list[str]
     schemaVersion: str
 
-    model_config = ConfigDict(strict=True)
 
-
-class SubjectMetadata(BaseModel):
+class SubjectMetadata(_BaseModel):
     participantId: str
-    age: Union[int, Literal["89+"], None] = None
+    age: Union[float, Literal["89+"], None] = None
     sex: Optional[str] = None
-
-    model_config = ConfigDict(strict=True)

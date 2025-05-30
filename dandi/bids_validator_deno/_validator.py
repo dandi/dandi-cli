@@ -9,6 +9,7 @@ from subprocess import CompletedProcess, TimeoutExpired, run
 from tempfile import TemporaryDirectory
 from typing import Optional
 
+from packaging.version import parse as parse_ver_str
 from pydantic import DirectoryPath, validate_call
 
 from dandi.utils import find_parent_directory_containing
@@ -265,9 +266,20 @@ def _bids_validate(
         # Read the validation result from the outfile if it exists
         outfile_content = outfile_path.read_text() if outfile_path.exists() else None
 
-    # The condition of this statement may need to change in the future.
-    # See https://github.com/bids-standard/bids-validator/issues/191 for details
-    if result.returncode not in range(0, 2) or result.stderr != "":
+    if parse_ver_str(get_version()) <= parse_ver_str("2.0.5"):
+        validator_error_occurred = (
+            result.returncode not in range(0, 2) or result.stderr != ""
+        )
+    else:
+        # Since version 2.0.6, the BIDS validator uses exit code 16 to indicate failures
+        # due to validation errors. The second part of the `or` expression is retained
+        # mostly as a defensive measure. For more details about the use of the 16
+        # exit code, see https://github.com/bids-standard/bids-validator/pull/196.
+        validator_error_occurred = (
+            result.returncode not in [0, 16] or result.stderr != ""
+        )
+
+    if validator_error_occurred:
         raise ValidatorError(
             result.args,
             result.returncode,

@@ -3,6 +3,7 @@ from subprocess import CompletedProcess, TimeoutExpired
 from typing import Any, Optional
 from unittest.mock import ANY, patch
 
+from packaging.version import parse as parse_ver_str
 import pytest
 
 from dandi.bids_validator_deno._models import BidsValidationResult, DatasetIssues, Issue
@@ -442,15 +443,31 @@ class Test_BidsValidate:
 
     @pytest.mark.parametrize(
         "exit_code, stderr",
-        [
-            (-42, ""),
-            (-1, ""),
-            (2, ""),
-            (2, "Some error"),
-            (100, ""),
-            (0, "Some other error"),
-            (1, "Errr!"),
-        ],
+        (
+            [
+                (-42, ""),
+                (-1, ""),
+                (0, "Some other error"),
+                (1, ""),
+                (1, "Errr!"),
+                (2, ""),
+                (2, "Some error"),
+                (16, "some error"),
+                (100, ""),
+            ]
+            if parse_ver_str(get_version()) > parse_ver_str("2.0.5")
+            else [
+                (-42, ""),
+                (-1, ""),
+                (0, "Some other error"),
+                (1, "Errr!"),
+                (2, ""),
+                (2, "Some error"),
+                (16, ""),
+                (16, "Some error"),
+                (100, ""),
+            ]
+        ),
     )
     @pytest.mark.parametrize("stdout", ["", "Some output", "Some other output"])
     def test_execution_error(self, exit_code, stdout, stderr, tmp_path):
