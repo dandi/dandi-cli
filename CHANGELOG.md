@@ -1,3 +1,16 @@
+# 0.69.2 (Fri May 30 2025)
+
+#### 🐛 Bug Fix
+
+- Handle new exit behavior and validation result of the BIDS validator [#1644](https://github.com/dandi/dandi-cli/pull/1644) ([@candleindark](https://github.com/candleindark))
+- Validate and JSON Serialize `validate_types.Severity` instances by name [#1624](https://github.com/dandi/dandi-cli/pull/1624) ([@candleindark](https://github.com/candleindark))
+
+#### Authors: 1
+
+- Isaac To ([@candleindark](https://github.com/candleindark))
+
+---
+
 # 0.69.1 (Wed May 28 2025)
 
 #### 🐛 Bug Fix
