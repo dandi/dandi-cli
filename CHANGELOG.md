@@ -1,3 +1,15 @@
+# 0.69.3 (Wed Jun 04 2025)
+
+#### 🐛 Bug Fix
+
+- Unrestrict `dandischema` version [#1637](https://github.com/dandi/dandi-cli/pull/1637) ([@candleindark](https://github.com/candleindark))
+
+#### Authors: 1
+
+- Isaac To ([@candleindark](https://github.com/candleindark))
+
+---
+
 # 0.69.2 (Fri May 30 2025)
 
 #### 🐛 Bug Fix
