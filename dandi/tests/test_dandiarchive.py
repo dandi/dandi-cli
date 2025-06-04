@@ -19,7 +19,7 @@ from dandi.dandiarchive import (
     multiasset_target,
     parse_dandi_url,
 )
-from dandi.exceptions import NotFoundError, UnknownURLError
+from dandi.exceptions import FailedToConnectError, NotFoundError, UnknownURLError
 from dandi.tests.skip import mark
 
 from .fixtures import DandiAPI, SampleDandiset
@@ -443,7 +443,7 @@ def test_follow_redirect_exhausted_retries_on_connection_error() -> None:
 
     with patch("dandi.dandiarchive.requests.head", side_effect=mock_head):
         with patch("dandi.dandiarchive.sleep"):  # Mock sleep to speed up test
-            with pytest.raises(requests.ConnectionError, match="Connection failed"):
+            with pytest.raises(FailedToConnectError, match=r"failed with \d+ attempts"):
                 follow_redirect(test_url)
 
 

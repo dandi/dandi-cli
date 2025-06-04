@@ -886,38 +886,45 @@ class _dandi_url_parser:
         Resolve the given URL by following all redirects.
 
         :raises NotFoundError: if a 404 response is returned
-        :raises FailedToConnectError: if a response other than 200, 400, 404,
+        :raises FailedToConnectError: if a response other than 200, 404,
             or one of the statuses in `~dandi.consts.RETRY_STATUSES` is returned
+        :raises FailedToConnectError: if URL cannot be resolved after multiple attempts
         """
-        retries = 4
-        for retry in range(retries + 1):
+        max_attempts = 5
+
+        connection_error: requests.ConnectionError | None = None
+        resp: requests.Response | None = None
+        for attempt_idx in range(max_attempts):
             try:
-                r = requests.head(url, allow_redirects=True)
+                resp = requests.head(url, allow_redirects=True)
             except requests.ConnectionError as e:
                 # we frequently get those on Windows for some reason
-                if retry < retries:
-                    lgr.warning(
-                        "HEAD request to %s failed with %s; retrying...",
-                        url,
-                        e,
-                    )
-                    sleep(0.1 * 10**retry)
-                    continue
-                else:
-                    lgr.warning("Exhausted %d retries for %s", retries, url)
-                    raise  # re-raise the exception
-            if r.status_code in RETRY_STATUSES and retry < retries:
-                retry_after = get_retry_after(r)
+
+                lgr.warning(
+                    "HEAD request to %s failed with %s; retrying...",
+                    url,
+                    e,
+                )
+                connection_error = e  # Capture error for record
+                sleep(0.1 * 10**attempt_idx)
+                continue
+
+            # Clear the connection error if there is no such an error in the last
+            # request
+            connection_error = None
+
+            if resp.status_code in RETRY_STATUSES:
+                retry_after = get_retry_after(resp)
                 if retry_after is not None:
                     delay = retry_after
                 else:
-                    delay = 0.1 * 10**retry
+                    delay = 0.1 * 10**attempt_idx
                 if delay:
                     lgr.warning(
                         "HEAD request to %s returned %d; "
                         "sleeping for %f seconds and then retrying...",
                         url,
-                        r.status_code,
+                        resp.status_code,
                         delay,
                     )
                     sleep(delay)
@@ -925,22 +932,42 @@ class _dandi_url_parser:
                     lgr.warning(
                         "HEAD request to %s returned %d; retrying...",
                         url,
-                        r.status_code,
+                        resp.status_code,
                     )
                 continue
-            elif r.status_code == 404:
-                raise NotFoundError(url)
-            elif r.status_code != 200:
+
+            # `status_code` is not in `RETRY_STATUSES` no more attempt should be made
+            break
+
+        else:
+            # Exhausted all attempts
+            if connection_error is not None:
                 raise FailedToConnectError(
-                    f"Response for getting {url} to redirect returned {r.status_code}."
-                    f" Please verify that it is a URL related to dandiarchive and"
-                    f" supported by dandi client"
-                )
-            elif r.url != url:
-                return r.url
-            assert isinstance(url, str)
-            return url
-        raise RuntimeError("Must not get here: either return or raise in the loop")
+                    f"HEAD request to {url} failed with {max_attempts} attempts"
+                ) from connection_error
+
+            assert resp is not None
+            assert resp.status_code in RETRY_STATUSES
+
+            raise FailedToConnectError(
+                f"HEAD request to {url} failed with final {resp.status_code} status "
+                f"code after {max_attempts} attempts"
+            )
+
+        assert resp is not None
+        assert resp.status_code not in RETRY_STATUSES
+
+        if resp.status_code == 404:
+            raise NotFoundError(url)
+        if resp.status_code != 200:
+            raise FailedToConnectError(
+                f"HEAD request to {url} returned {resp.status_code} status after "
+                f"{attempt_idx + 1} attempts with the last HEAD request to {resp.url}. "
+                f"Please verify that {url} is related to dandiarchive and supported by "
+                f"dandi client."
+            )
+
+        return url if url == resp.url else resp.url
 
 
 # convenience binding
