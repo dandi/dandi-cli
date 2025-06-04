@@ -28,7 +28,7 @@ from interleave import FINISH_CURRENT, lazy_interleave
 import requests
 
 from . import get_logger
-from .consts import RETRY_STATUSES, dandiset_metadata_file
+from .consts import DOWNLOAD_SUFFIX, RETRY_STATUSES, dandiset_metadata_file
 from .dandiapi import AssetType, BaseRemoteZarrAsset, RemoteDandiset
 from .dandiarchive import (
     AssetItemURL,
@@ -863,7 +863,7 @@ class DownloadDirectory:
         self.digests = digests
         #: The working directory in which downloaded data will be temporarily
         #: stored
-        self.dirpath = self.filepath.with_name(self.filepath.name + ".dandidownload")
+        self.dirpath = self.filepath.with_name(self.filepath.name + DOWNLOAD_SUFFIX)
         #: The file in `dirpath` to which data will be written as it is
         #: received
         self.writefile = self.dirpath / "file"
