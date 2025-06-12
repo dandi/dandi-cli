@@ -72,7 +72,7 @@ def get_metadata(
             path_metadata = df.get_metadata(digest=digest)
             meta["bids_version"] = df.get_validation_bids_version()
             # there might be a more elegant way to do this:
-            if path_metadata.wasAttributedTo is not None:
+            if path_metadata.wasAttributedTo is not None and len(path_metadata.wasAttributedTo) > 0:
                 attributed = path_metadata.wasAttributedTo[0]
                 for key in metadata_all_fields:
                     try:
