@@ -436,7 +436,6 @@ def parse_purlobourl(
         if elchild:
             elchild0 = elchild[0]
             node_value = elchild0.childNodes[0].nodeValue
-
             if node_value is not None:
                 values[key] = node_value.capitalize()
     return values
