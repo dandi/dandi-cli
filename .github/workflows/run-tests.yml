@@ -1,6 +1,7 @@
 name: Tests
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - master
@@ -32,13 +33,14 @@ jobs:
           - ubuntu-latest
           - macos-latest
         python:
-          - 3.9
+          - 3.9  # Reaching EOL in October 2025
           - '3.10'  # Needs quotes so YAML doesn't think it's 3.1
           - '3.11'
           - '3.12'
           - '3.13'
         mode:
           - normal
+          - obolibrary-only
         include:
           - os: ubuntu-latest
             python: 3.9
@@ -97,10 +99,15 @@ jobs:
       if: github.event_name == 'schedule'
       run: echo PYTEST_ADDOPTS=--scheduled >> "$GITHUB_ENV"
 
-    - name: Run all tests
+    - name: Run all tests except those involving obolibrary
       if: matrix.mode != 'dandi-api'
       run: |
-        python -m pytest -s -v --cov=dandi --cov-report=xml dandi
+        python -m pytest -s -v -m "not obolibrary" --cov=dandi --cov-report=xml dandi
+
+    - name: Run only tests related to obolibrary
+      if: matrix.mode == 'obolibrary-only'
+      run: |
+        python -m pytest -s -v -m obolibrary dandi
 
     - name: Smoke test example code in docs
       if: matrix.mode != 'dandi-api' && github.event_name == 'schedule'
