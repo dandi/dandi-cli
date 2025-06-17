@@ -21,6 +21,7 @@ from dandischema.models import Dandiset as DandisetMeta
 from dandischema.models import get_schema_version
 from packaging.version import Version
 from pydantic import ValidationError
+from pydantic_core import ErrorDetails
 import requests
 
 import dandi
@@ -773,30 +774,35 @@ def _pydantic_errors_to_validation_results(
 ) -> list[ValidationResult]:
     """Convert list of dict from pydantic into our custom object."""
     out = []
-    errorlist: list
+    errorlist: list[dict | Exception] | list[ErrorDetails]
     if isinstance(errors, ValidationError):
         errorlist = errors.errors()
     else:
         errorlist = errors
+
     for e in errorlist:
         if isinstance(e, Exception):
             message = getattr(e, "message", str(e))
             id_ = "exception"
             scope = Scope.FILE
-        else:
-            assert isinstance(e, dict)
-            loc: list = e.get("loc", [])
+        elif isinstance(e, dict):
+            loc: Any = e.get("loc", [])
             loc_str = "+".join(str(x) for x in loc)
             id_ = ".".join(
                 filter(
-                    None, (
+                    None,
+                    (
                         "dandischema",
                         e.get("type", "UNKNOWN"),
                         loc_str,
-                    )
+                    ),
                 )
             )
             message = e.get("message", e.get("msg", None))
+        # else:
+        #     message = f"Unhandled Pydantic error type: {e} ({type(e)})"
+        #     raise ValueError(message=message)
+
         out.append(
             ValidationResult(
                 origin=Origin(
@@ -816,4 +822,5 @@ def _pydantic_errors_to_validation_results(
                 # TODO? dandiset_path=dandiset_path,
             )
         )
-        return out
+
+    return out
