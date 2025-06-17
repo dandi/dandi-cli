@@ -781,19 +781,18 @@ def _pydantic_errors_to_validation_results(
     for e in errorlist:
         if isinstance(e, Exception):
             message = getattr(e, "message", str(e))
-            id = "exception"
+            id_ = "exception"
             scope = Scope.FILE
         else:
             assert isinstance(e, dict)
-            id = ".".join(
-                filter(
-                    bool,
-                    (
-                        "dandischema",
-                        e.get("type", "UNKNOWN"),
-                        "+".join(e.get("loc", [])),
-                    ),
-                )
+            loc = e.get("loc", [])
+            loc_str = "+".join(str(x) for x in loc)
+            id_ = ".".join(
+                filter(None, (
+                    "dandischema",
+                    e.get("type", "UNKNOWN"),
+                    loc_str,
+                ))
             )
             message = e.get("message", e.get("msg", None))
         out.append(
@@ -806,7 +805,7 @@ def _pydantic_errors_to_validation_results(
                     standard_version=DANDI_SCHEMA_VERSION,
                 ),
                 severity=Severity.ERROR,
-                id=id,
+                id=id_,
                 scope=scope,
                 origin_result=e,
                 path=file_path,

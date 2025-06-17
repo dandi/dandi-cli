@@ -435,7 +435,10 @@ def parse_purlobourl(
         elchild = elfound.getElementsByTagName(key)
         if elchild:
             elchild0 = elchild[0]
-            values[key] = elchild0.childNodes[0].nodeValue.capitalize()
+            node_value = elchild0.childNodes[0].nodeValue
+
+            if node_value is not None:
+                values[key] = node_value.capitalize()
     return values
 
 
