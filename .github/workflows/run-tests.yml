@@ -29,9 +29,11 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - windows-2019
+          - windows-2022
+          - windows-latest
           - ubuntu-latest
-          - macos-latest
+          - macos-latest  # M1 architecture
+          - macos-13  # non-M1 architecture
         python:
           - 3.9  # Reaching EOL in October 2025
           - '3.10'  # Needs quotes so YAML doesn't think it's 3.1
@@ -40,11 +42,13 @@ jobs:
           - '3.13'
         mode:
           - normal
-          - obolibrary-only
         include:
           - os: ubuntu-latest
             python: 3.9
             mode: dandi-api
+          - os: ubuntu-latest
+            python: 3.13
+            mode: obolibrary-only
           - os: ubuntu-latest
             python: 3.9
             mode: dev-deps
