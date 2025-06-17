@@ -799,9 +799,9 @@ def _pydantic_errors_to_validation_results(
                 )
             )
             message = e.get("message", e.get("msg", None))
-        # else:
-        #     message = f"Unhandled Pydantic error type: {e} ({type(e)})"
-        #     raise ValueError(message=message)
+
+
+
 
         out.append(
             ValidationResult(
