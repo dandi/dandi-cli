@@ -800,9 +800,6 @@ def _pydantic_errors_to_validation_results(
             )
             message = e.get("message", e.get("msg", None))
 
-
-
-
         out.append(
             ValidationResult(
                 origin=Origin(
