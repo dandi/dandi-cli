@@ -26,6 +26,7 @@ import traceback
 import types
 from typing import IO, Any, List, Optional, Protocol, TypeVar, Union
 
+from dandischema.conf import Config as InstanceConfig
 import dateutil.parser
 from multidict import MultiDict  # dependency of yarl
 from pydantic import BaseModel, Field
@@ -546,6 +547,7 @@ class ServerServices(BaseModel):
 
 
 class ServerInfo(BaseModel):
+    instance_config: InstanceConfig
     # schema_version: str
     # schema_url: str
     version: str
