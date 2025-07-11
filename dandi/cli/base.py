@@ -58,6 +58,26 @@ def bind_client(server_info: ServerInfo) -> None:
     set_instance_config(server_info.instance_config)
 
 
+def init_client(dandi_id: str) -> None:
+    """
+    Initialize the DANDI client, including binding the client to a specific DANDI server
+    instance
+
+    Parameters
+    ----------
+    dandi_id : str
+        The ID specifying the particular known DANDI instance to bind the client to.
+        This is a key in the `dandi.consts.known_instances` dictionary.
+
+    Raises
+    ------
+    ValueError
+        If the provided `dandi_id` is not a valid key in the
+        `dandi.consts.known_instances` dictionary.
+    """
+    bind_client(get_server_info(dandi_id))
+
+
 # Aux common functionality
 
 
