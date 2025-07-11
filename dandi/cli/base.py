@@ -2,6 +2,7 @@ from functools import wraps
 import os
 
 import click
+from dandischema.conf import set_instance_config
 import requests
 from yarl import URL
 
@@ -41,6 +42,20 @@ def get_server_info(dandi_id: str) -> ServerInfo:
     resp = requests.get(info_url)
     resp.raise_for_status()
     return ServerInfo.model_validate(resp.json())
+
+
+def bind_client(server_info: ServerInfo) -> None:
+    """
+    Bind the DANDI client to a specific DANDI server instance. I.e., to set the DANDI
+    server instance as the context of subsequent command executions by the DANDI client
+
+    Parameters
+    ----------
+    server_info : ServerInfo
+        An object containing the information of the DANDI server instance to bind to.
+        This is typically obtained by calling `get_server_info()`.
+    """
+    set_instance_config(server_info.instance_config)
 
 
 # Aux common functionality
