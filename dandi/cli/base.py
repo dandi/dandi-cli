@@ -2,10 +2,46 @@ from functools import wraps
 import os
 
 import click
+import requests
+from yarl import URL
+
+from dandi.consts import known_instances
+from dandi.utils import ServerInfo
 
 from .. import get_logger
 
 lgr = get_logger()
+
+
+def get_server_info(dandi_id: str) -> ServerInfo:
+    """
+    Get server info from a particular DANDI instance
+
+    Parameters
+    ----------
+    dandi_id : str
+        The ID specifying the particular known DANDI instance to query for server info.
+        This is a key in the `dandi.consts.known_instances` dictionary.
+
+    Returns
+    -------
+    ServerInfo
+        An object representing the server information responded by the DANDI instance.
+
+    Raises
+    ------
+    valueError
+        If the provided `dandi_id` is not a valid key in the
+        `dandi.consts.known_instances` dictionary.
+    """
+    if dandi_id not in known_instances:
+        raise ValueError(f"Unknown DANDI instance: {dandi_id}")
+
+    info_url = str(URL(known_instances[dandi_id].api) / "info/")
+    resp = requests.get(info_url)
+    resp.raise_for_status()
+    return ServerInfo.model_validate(resp.json())
+
 
 # Aux common functionality
 
