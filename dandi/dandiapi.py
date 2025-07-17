@@ -17,7 +17,6 @@ from types import TracebackType
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import click
-from dandischema import models
 from pydantic import BaseModel, Field, PrivateAttr
 import requests
 import tenacity
@@ -36,7 +35,6 @@ from .consts import (
 )
 from .exceptions import HTTP404Error, NotFoundError, SchemaVersionError
 from .keyring import keyring_lookup, keyring_save
-from .misctypes import Digest, RemoteReadableAsset
 from .utils import (
     USER_AGENT,
     check_dandi_version,
@@ -50,7 +48,10 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
+    from dandischema import models
     from typing_extensions import Self
+
+    from .misctypes import Digest, RemoteReadableAsset
 
 
 lgr = get_logger()
@@ -653,6 +654,8 @@ class DandiAPIClient(RESTFullAPIClient):
             uses; if not set, the schema version for the installed
             ``dandischema`` library is used
         """
+        from dandischema import models
+
         if schema_version is None:
             schema_version = models.get_schema_version()
         server_info = self.get("/info/")
@@ -1065,6 +1068,8 @@ class RemoteDandiset:
             metadata.  Consider using `get_raw_metadata()` instead in order to
             fetch unstructured, possibly-invalid metadata.
         """
+        from dandischema import models
+
         return models.Dandiset.model_validate(self.get_raw_metadata())
 
     def get_raw_metadata(self) -> dict[str, Any]:
@@ -1469,6 +1474,8 @@ class BaseRemoteAsset(ABC, APIBase):
             valid metadata.  Consider using `get_raw_metadata()` instead in
             order to fetch unstructured, possibly-invalid metadata.
         """
+        from dandischema import models
+
         return models.Asset.model_validate(self.get_raw_metadata())
 
     def get_raw_metadata(self) -> dict[str, Any]:
@@ -1495,6 +1502,8 @@ class BaseRemoteAsset(ABC, APIBase):
         .. versionchanged:: 0.36.0
             Renamed from ``get_digest()`` to ``get_raw_digest()``
         """
+        from dandischema import models
+
         if digest_type is None:
             digest_type = self.digest_type.value
         elif isinstance(digest_type, models.DigestType):
@@ -1517,6 +1526,8 @@ class BaseRemoteAsset(ABC, APIBase):
         a dandi-etag digest for blob resources or a dandi-zarr-checksum for
         Zarr resources
         """
+        from .misctypes import Digest
+
         algorithm = self.digest_type
         return Digest(algorithm=algorithm, value=self.get_raw_digest(algorithm))
 
@@ -1651,6 +1662,8 @@ class BaseRemoteAsset(ABC, APIBase):
         determined based on its underlying data: dandi-etag for blob resources,
         dandi-zarr-checksum for Zarr resources
         """
+        from dandischema import models
+
         if self.asset_type is AssetType.ZARR:
             return models.DigestType.dandi_zarr_checksum
         else:
@@ -1683,6 +1696,8 @@ class BaseRemoteBlobAsset(BaseRemoteAsset):
         Returns a `Readable` instance that can be used to obtain a file-like
         object for reading bytes directly from the asset on the server
         """
+        from .misctypes import RemoteReadableAsset
+
         md = self.get_raw_metadata()
         local_prefix = self.client.api_url.lower()
         for url in md.get("contentUrl", []):
@@ -1965,6 +1980,10 @@ class RemoteZarrEntry:
         cls, asset: BaseRemoteZarrAsset, data: ZarrEntryServerData
     ) -> RemoteZarrEntry:
         """:meta private:"""
+        from dandischema import models
+
+        from .misctypes import Digest
+
         return cls(
             client=asset.client,
             zarr_id=asset.zarr,
