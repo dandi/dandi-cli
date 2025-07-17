@@ -10,15 +10,12 @@ import os
 from pathlib import Path
 import re
 from threading import Lock
-from typing import IO, Any, Generic
+from typing import IO, TYPE_CHECKING, Any, Generic
 from xml.etree.ElementTree import fromstring
 
 import dandischema
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dandischema.digests.dandietag import DandiETag
-from dandischema.models import BareAsset, CommonModel
-from dandischema.models import Dandiset as DandisetMeta
-from dandischema.models import get_schema_version
 from packaging.version import Version
 from pydantic import ValidationError
 from pydantic_core import ErrorDetails
@@ -40,6 +37,10 @@ from dandi.validate_types import (
     ValidationResult,
     Validator,
 )
+
+if TYPE_CHECKING:
+    from dandischema.models import BareAsset, CommonModel
+    from dandischema.models import Dandiset as DandisetMeta
 
 lgr = dandi.get_logger()
 
@@ -107,6 +108,8 @@ class DandisetMetadataFile(DandiFile):
         ignore_errors: bool = True,
     ) -> DandisetMeta:
         """Return the Dandiset metadata inside the file"""
+        from dandischema.models import Dandiset as DandisetMeta
+
         with open(self.filepath) as f:
             meta = yaml_load(f, typ="safe")
         return DandisetMeta.model_construct(**meta)
@@ -126,6 +129,9 @@ class DandisetMetadataFile(DandiFile):
                 meta, _required_dandiset_metadata_fields, str(self.filepath)
             )
         else:
+            from dandischema.models import Dandiset as DandisetMeta
+            from dandischema.models import get_schema_version
+
             current_version = get_schema_version()
             if schema_version != current_version:
                 raise ValueError(
@@ -186,6 +192,8 @@ class LocalAsset(DandiFile):
         schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
+        from dandischema.models import BareAsset, get_schema_version
+
         current_version = get_schema_version()
         if schema_version is None:
             schema_version = current_version
