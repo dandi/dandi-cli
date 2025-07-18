@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 import re
 from threading import Lock
-from typing import IO, TYPE_CHECKING, Any, Generic
+from typing import IO, TYPE_CHECKING, Any, Generic, TypeVar
 from xml.etree.ElementTree import fromstring
 
 import dandischema
@@ -24,7 +24,6 @@ import requests
 import dandi
 from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from dandi.metadata.core import get_default_metadata
-from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
 from dandi.utils import post_upload_size_check, pre_upload_size_check, yaml_load
 from dandi.validate_types import (
     ORIGIN_INTERNAL_DANDI,
@@ -41,6 +40,11 @@ from dandi.validate_types import (
 if TYPE_CHECKING:
     from dandischema.models import BareAsset, CommonModel
     from dandischema.models import Dandiset as DandisetMeta
+
+    # noinspection PyUnresolvedReferences
+    from dandi.misctypes import BasePath, Digest, LocalReadableFile
+
+P = TypeVar("P", bound="BasePath")
 
 lgr = dandi.get_logger()
 
@@ -153,6 +157,8 @@ class DandisetMetadataFile(DandiFile):
 
         Returns a `Readable` instance wrapping the local file
         """
+        from dandi.misctypes import LocalReadableFile
+
         return LocalReadableFile(self.filepath)
 
 
@@ -167,7 +173,11 @@ class LocalAsset(DandiFile):
     #: (i.e., relative to the Dandiset's root)
     path: str
 
-    _DUMMY_DIGEST = DUMMY_DANDI_ETAG
+    @staticmethod
+    def _get_dummy_digest() -> Digest:
+        from dandi.misctypes import DUMMY_DANDI_ETAG
+
+        return DUMMY_DANDI_ETAG
 
     @abstractmethod
     def get_digest(self) -> Digest:
@@ -202,7 +212,7 @@ class LocalAsset(DandiFile):
                 f"Unsupported schema version: {schema_version}; expected {current_version}"
             )
         try:
-            asset = self.get_metadata(digest=self._DUMMY_DIGEST)
+            asset = self.get_metadata(digest=self._get_dummy_digest())
             BareAsset(**asset.model_dump())
         except ValidationError as e:
             if devel_debug:
@@ -317,6 +327,7 @@ class LocalFileAsset(LocalAsset):
     def get_digest(self) -> Digest:
         """Calculate a dandi-etag digest for the asset"""
         # Avoid heavy import by importing within function:
+        from dandi.misctypes import Digest
         from dandi.support.digests import get_digest
 
         value = get_digest(self.filepath, digest="dandi-etag")
@@ -484,6 +495,8 @@ class LocalFileAsset(LocalAsset):
 
         Returns a `Readable` instance wrapping the local file
         """
+        from dandi.misctypes import LocalReadableFile
+
         return LocalReadableFile(self.filepath)
 
 
