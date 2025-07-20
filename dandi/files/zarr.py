@@ -365,9 +365,9 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 
     @staticmethod
     def _get_dummy_digest() -> Digest:
-        from dandi.misctypes import DUMMY_DANDI_ZARR_CHECKSUM
+        from dandi.misctypes import get_dummy_dandi_zarr_checksum
 
-        return DUMMY_DANDI_ZARR_CHECKSUM
+        return get_dummy_dandi_zarr_checksum()
 
     @property
     def filetree(self) -> LocalZarrEntry:

@@ -11,6 +11,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from fnmatch import fnmatchcase
+from functools import cache
 import os.path
 from pathlib import Path
 from typing import IO, TypeVar, cast
@@ -54,11 +55,15 @@ class Digest:
 
 #: Placeholder digest used in some situations where a digest is required but
 #: not actually relevant and would be too expensive to calculate
-DUMMY_DANDI_ETAG = Digest(algorithm=DigestType.dandi_etag, value=32 * "d" + "-1")
-DUMMY_DANDI_ZARR_CHECKSUM = Digest(
-    algorithm=DigestType.dandi_zarr_checksum,
-    value=32 * "d" + "-1--1",
-)
+@cache
+def get_dummy_dandi_etag() -> Digest:
+    return Digest(algorithm=DigestType.dandi_etag, value=32 * "d" + "-1")
+
+
+@cache
+def get_dummy_dandi_zarr_checksum() -> Digest:
+    return Digest(algorithm=DigestType.dandi_zarr_checksum, value=32 * "d" + "-1--1")
+
 
 P = TypeVar("P", bound="BasePath")
 

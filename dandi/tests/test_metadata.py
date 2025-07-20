@@ -49,7 +49,7 @@ from ..metadata.util import (
     species_map,
     timedelta2duration,
 )
-from ..misctypes import DUMMY_DANDI_ETAG
+from ..misctypes import get_dummy_dandi_etag
 from ..utils import ensure_datetime
 
 METADATA_DIR = Path(__file__).with_name("data") / "metadata"
@@ -836,7 +836,9 @@ def test_ndtypes(ndtypes, asset_dict):
 def test_nwb2asset(simple2_nwb: Path) -> None:
     # Classes with ANY_AWARE_DATETIME fields need to be constructed with
     # model_construct()
-    assert nwb2asset(simple2_nwb, digest=DUMMY_DANDI_ETAG) == BareAsset.model_construct(
+    assert nwb2asset(
+        simple2_nwb, digest=get_dummy_dandi_etag()
+    ) == BareAsset.model_construct(
         schemaKey="Asset",
         schemaVersion=DANDI_SCHEMA_VERSION,
         keywords=["keyword1", "keyword 2"],

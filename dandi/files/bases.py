@@ -175,9 +175,9 @@ class LocalAsset(DandiFile):
 
     @staticmethod
     def _get_dummy_digest() -> Digest:
-        from dandi.misctypes import DUMMY_DANDI_ETAG
+        from dandi.misctypes import get_dummy_dandi_etag
 
-        return DUMMY_DANDI_ETAG
+        return get_dummy_dandi_etag()
 
     @abstractmethod
     def get_digest(self) -> Digest:
