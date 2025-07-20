@@ -34,7 +34,7 @@ from dandi.dandiapi import (
     RESTFullAPIClient,
 )
 from dandi.metadata.core import get_default_metadata
-from dandi.misctypes import DUMMY_DANDI_ZARR_CHECKSUM, BasePath, Digest
+from dandi.misctypes import BasePath, Digest
 from dandi.utils import (
     chunked,
     exclude_from_zarr,
@@ -363,7 +363,11 @@ class ZarrStat:
 class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
     """Representation of a local Zarr directory"""
 
-    _DUMMY_DIGEST = DUMMY_DANDI_ZARR_CHECKSUM
+    @staticmethod
+    def _get_dummy_digest() -> Digest:
+        from dandi.misctypes import DUMMY_DANDI_ZARR_CHECKSUM
+
+        return DUMMY_DANDI_ZARR_CHECKSUM
 
     @property
     def filetree(self) -> LocalZarrEntry:
