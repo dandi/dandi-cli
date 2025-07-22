@@ -538,6 +538,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         metadata: dict[str, Any],
         jobs: int | None = None,
         replacing: RemoteAsset | None = None,
+        max_retries: int | None = None,
     ) -> Iterator[dict]:
         """
         Upload the Zarr directory as an asset with the given metadata to the
@@ -554,6 +555,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             If set, replace the given asset, which must have the same path as
             the new asset; if the old asset is a Zarr, the Zarr will be updated
             & reused for the new asset
+        :param int max_retries:
+            The maximum number of retries for the upload request
         :returns:
             A generator of `dict`\\s containing at least a ``"status"`` key.
             Upon successful upload, the last `dict` will have a status of
@@ -608,6 +611,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             r = client.put(
                 replacing.api_path,
                 json={"metadata": metadata, "zarr_id": zarr_id},
+                max_retries=max_retries,
             )
         else:
             lgr.debug("%s: Minting new Zarr", asset_path)

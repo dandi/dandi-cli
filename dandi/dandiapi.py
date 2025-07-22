@@ -142,6 +142,7 @@ class RESTFullAPIClient:
         json_resp: bool = True,
         retry_statuses: Sequence[int] = (),
         retry_if: Callable[[requests.Response], Any] | None = None,
+        max_retries: int | None = None,
         **kwargs: Any,
     ) -> Any:
         """
@@ -187,7 +188,9 @@ class RESTFullAPIClient:
             retry in addition to `dandi.consts.RETRY_STATUSES`
         :param retry_if: an optional predicate applied to a failed HTTP
             response to test whether to retry
+        :param max_retries: the maximum number of retries to attempt
         """
+        max_retries = max_retries or REQUEST_RETRIES
 
         url = self.get_url(path)
 
@@ -209,7 +212,7 @@ class RESTFullAPIClient:
                     retry=tenacity.retry_if_exception_type(
                         (requests.ConnectionError, requests.HTTPError)
                     ),
-                    stop=tenacity.stop_after_attempt(REQUEST_RETRIES),
+                    stop=tenacity.stop_after_attempt(max_retries),
                     reraise=True,
                 )
             ):
@@ -227,7 +230,7 @@ class RESTFullAPIClient:
                     if result.status_code in [*RETRY_STATUSES, *retry_statuses] or (
                         retry_if is not None and retry_if(result)
                     ):
-                        if attempt.retry_state.attempt_number < REQUEST_RETRIES:
+                        if attempt.retry_state.attempt_number < max_retries:
                             lgr.warning(
                                 "Will retry: Error %d while sending %s request to %s: %s",
                                 result.status_code,
