@@ -314,13 +314,15 @@ class RESTFullAPIClient:
         """
         Convenience method to call `request()` with the 'POST' HTTP method.
         """
-        return self.request("POST", path, retry_statuses=[403], **kwargs)
+        kwargs["retry_statuses"] = kwargs.get("retry_statuses", []) + [403]
+        return self.request("POST", path, **kwargs)
 
     def put(self, path: str, **kwargs: Any) -> Any:
         """
         Convenience method to call `request()` with the 'PUT' HTTP method.
         """
-        return self.request("PUT", path, retry_statuses=[403], **kwargs)
+        kwargs["retry_statuses"] = kwargs.get("retry_statuses", []) + [403]
+        return self.request("PUT", path, **kwargs)
 
     def delete(self, path: str, **kwargs: Any) -> Any:
         """
