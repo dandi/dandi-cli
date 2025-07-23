@@ -828,9 +828,9 @@ neurodata_typemap: dict[str, Neurodatum] = {
         "technique": "fourier analysis technique",
         "approach": None,
     },
-    "OptogeneticStimulusSIte": {
+    "OptogeneticStimulusSite": {
         "module": "ogen",
-        "neurodata_type": "OptogeneticStimulusSIte",
+        "neurodata_type": "OptogeneticStimulusSite",
         "technique": None,
         "approach": "optogenetic approach",
     },
@@ -839,6 +839,36 @@ neurodata_typemap: dict[str, Neurodatum] = {
         "neurodata_type": "OptogeneticSeries",
         "technique": None,
         "approach": "optogenetic approach",
+    },
+    "PoseEstimationSeries": {
+        "module": "ndx-pose",
+        "neurodata_type": "PoseEstimationSeries",
+        "technique": "pose estimation technique",
+        "approach": "behavioral approach",
+    },
+    "PoseEstimation": {
+        "module": "ndx-pose",
+        "neurodata_type": "PoseEstimation",
+        "technique": "pose estimation technique",
+        "approach": "behavioral approach",
+    },
+    "PoseTraining": {
+        "module": "ndx-pose",
+        "neurodata_type": "PoseTraining",
+        "technique": "pose estimation technique",
+        "approach": "behavioral approach",
+    },
+    "FiberPhotometryResponseSeries": {
+        "module": "ndx-fiber-photometry",
+        "neurodata_type": "FiberPhotometryResponseSeries",
+        "technique": "fiber photometry technique; optical technique",
+        "approach": "calcium imaging; cell population imaging",
+    },
+    "FiberPhotometryResponseSeries_old": {
+        "module": "ndx-photometry",  # deprecated and replaced by ndx-fiber-photometry
+        "neurodata_type": "FiberPhotometryResponseSeries",
+        "technique": "fiber photometry technique; optical technique",
+        "approach": "calcium imaging; cell population imaging",
     },
 }
 
