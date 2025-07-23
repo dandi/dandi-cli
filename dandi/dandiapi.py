@@ -314,7 +314,7 @@ class RESTFullAPIClient:
         """
         Convenience method to call `request()` with the 'POST' HTTP method.
         """
-        return self.request("POST", path, **kwargs)
+        return self.request("POST", path, retry_statuses=[403], **kwargs)
 
     def put(self, path: str, **kwargs: Any) -> Any:
         """
@@ -326,7 +326,7 @@ class RESTFullAPIClient:
         """
         Convenience method to call `request()` with the 'DELETE' HTTP method.
         """
-        return self.request("DELETE", path, retry_statuses=[403], **kwargs)
+        return self.request("DELETE", path, **kwargs)
 
     def patch(self, path: str, **kwargs: Any) -> Any:
         """
