@@ -20,7 +20,7 @@ Example output:
       api: http://localhost:8000/api
       gui: http://localhost:8085
     dandi-staging:
-      api: https://api-staging.dandiarchive.org/api
+      api: https://api.sandbox.dandiarchive.org/api
       gui: https://gui-staging.dandiarchive.org
     linc-staging:
       api: https://staging-api.lincbrain.org/api

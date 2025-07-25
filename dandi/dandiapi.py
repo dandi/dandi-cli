@@ -422,7 +422,7 @@ class DandiAPIClient(RESTFullAPIClient):
         :param str api_url: Base API URL of the server to interact with.
             - For DANDI production, use  ``"https://api.dandiarchive.org/api"``
             - For DANDI staging, use
-              ``"https://api-staging.dandiarchive.org/api"``
+              ``"https://api.sandbox.dandiarchive.org/api"``
         :param str token: User API Key. Note that different instance APIs have
             different keys.
         """
