@@ -113,7 +113,7 @@ Examples
 
     dandi move --dandiset DANDI:123456 sub-01/sub-01_blah.nii.gz sub-02/sub-02_useful.nii.gz
 
-  To operate on Dandiset 123456 on ``dandi-staging``, you can use::
+  To operate on Dandiset 123456 on ``dandi-sandbox``, you can use::
 
     dandi move --dandiset https://sandbox.dandiarchive.org/dandiset/123456 sub-01/sub-01_blah.nii.gz sub-02/sub-02_useful.nii.gz
 
