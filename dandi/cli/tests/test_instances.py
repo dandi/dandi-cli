@@ -18,7 +18,7 @@ def test_cmd_instances(monkeypatch):
         f"  gui: http://{instancehost}:8085\n"
         "dandi-staging:\n"
         "  api: https://api.sandbox.dandiarchive.org/api\n"
-        "  gui: https://gui-staging.dandiarchive.org\n"
+        "  gui: https://sandbox.dandiarchive.org\n"
         "ember:\n"
         "  api: https://api-dandi.emberarchive.org/api\n"
         "  gui: https://dandi.emberarchive.org\n"

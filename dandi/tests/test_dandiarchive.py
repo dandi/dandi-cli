@@ -273,7 +273,7 @@ from .fixtures import DandiAPI, SampleDandiset
             ),
         ),
         (
-            "https://gui-staging.dandiarchive.org/#/dandiset/000018",
+            "https://sandbox.dandiarchive.org/#/dandiset/000018",
             DandisetURL(
                 instance=known_instances["dandi-staging"],
                 dandiset_id="000018",

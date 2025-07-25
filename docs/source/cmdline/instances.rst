@@ -21,7 +21,7 @@ Example output:
       gui: http://localhost:8085
     dandi-staging:
       api: https://api.sandbox.dandiarchive.org/api
-      gui: https://gui-staging.dandiarchive.org
+      gui: https://sandbox.dandiarchive.org
     linc-staging:
       api: https://staging-api.lincbrain.org/api
       gui: https://staging.lincbrain.org
