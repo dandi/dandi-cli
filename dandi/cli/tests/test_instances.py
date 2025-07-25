@@ -16,7 +16,7 @@ def test_cmd_instances(monkeypatch):
         "dandi-api-local-docker-tests:\n"
         f"  api: http://{instancehost}:8000/api\n"
         f"  gui: http://{instancehost}:8085\n"
-        "dandi-staging:\n"
+        "dandi-sandbox:\n"
         "  api: https://api.sandbox.dandiarchive.org/api\n"
         "  gui: https://sandbox.dandiarchive.org\n"
         "ember:\n"

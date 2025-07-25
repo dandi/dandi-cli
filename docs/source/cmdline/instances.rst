@@ -19,7 +19,7 @@ Example output:
     dandi-api-local-docker-tests:
       api: http://localhost:8000/api
       gui: http://localhost:8085
-    dandi-staging:
+    dandi-sandbox:
       api: https://api.sandbox.dandiarchive.org/api
       gui: https://sandbox.dandiarchive.org
     linc-staging:

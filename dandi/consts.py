@@ -122,8 +122,8 @@ known_instances = {
         "https://dandiarchive.org",
         "https://api.dandiarchive.org/api",
     ),
-    "dandi-staging": DandiInstance(
-        "dandi-staging",
+    "dandi-sandbox": DandiInstance(
+        "dandi-sandbox",
         "https://sandbox.dandiarchive.org",
         "https://api.sandbox.dandiarchive.org/api",
     ),
