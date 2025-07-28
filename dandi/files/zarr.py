@@ -11,9 +11,8 @@ import os
 import os.path
 from pathlib import Path
 from time import sleep
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
-from dandischema.models import BareAsset, DigestType
 from pydantic import BaseModel, ConfigDict, ValidationError
 import requests
 from zarr_checksum.tree import ZarrChecksumTree
@@ -34,7 +33,7 @@ from dandi.dandiapi import (
     RESTFullAPIClient,
 )
 from dandi.metadata.core import get_default_metadata
-from dandi.misctypes import DUMMY_DANDI_ZARR_CHECKSUM, BasePath, Digest
+from dandi.misctypes import BasePath, Digest
 from dandi.utils import (
     chunked,
     exclude_from_zarr,
@@ -54,6 +53,9 @@ from ..validate_types import (
     ValidationResult,
     Validator,
 )
+
+if TYPE_CHECKING:
+    from dandischema.models import BareAsset
 
 lgr = get_logger()
 
@@ -320,6 +322,8 @@ class LocalZarrEntry(BasePath):
         directory, the algorithm will be the DANDI Zarr checksum algorithm; if
         it is a file, it will be MD5.
         """
+        from dandischema.models import DigestType
+
         # Avoid heavy import by importing within function:
         from dandi.support.digests import get_digest, get_zarr_checksum
 
@@ -363,7 +367,11 @@ class ZarrStat:
 class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
     """Representation of a local Zarr directory"""
 
-    _DUMMY_DIGEST = DUMMY_DANDI_ZARR_CHECKSUM
+    @staticmethod
+    def _get_dummy_digest() -> Digest:
+        from dandi.misctypes import get_dummy_dandi_zarr_checksum
+
+        return get_dummy_dandi_zarr_checksum()
 
     @property
     def filetree(self) -> LocalZarrEntry:
