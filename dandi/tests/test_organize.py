@@ -209,7 +209,15 @@ def test_organize_nwb_test_data(
 def test_ambiguous(simple2_nwb: Path, tmp_path: Path) -> None:
     copy2 = copy_nwb_file(simple2_nwb, tmp_path)
     outdir = tmp_path / "organized"
-    args = ["--files-mode", "copy", "-d", str(outdir), str(simple2_nwb), copy2]
+    args = [
+        "--files-mode",
+        "copy",
+        "-d",
+        str(outdir),
+        str(simple2_nwb),  # original file
+        copy2,  # exact copy but different object_id
+        str(simple2_nwb.parent),  # robust to multiple paths to the same file?
+    ]
     r = CliRunner().invoke(organize, args)
     assert r.exit_code == 0
     assert list_paths(outdir) == sorted(

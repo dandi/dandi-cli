@@ -838,7 +838,7 @@ def organize(
         metadata = load_jsonl(paths[0])
         link_test_file = metadata[0]["path"]
     else:
-        paths = list(find_files(r"\.nwb\Z", paths=paths))
+        paths = list(set(find_files(r"\.nwb\Z", paths=paths)))
         link_test_file = paths[0] if paths else None
         lgr.info("Loading metadata from %d files", len(paths))
         # Done here so we could still reuse cached 'get_metadata'
