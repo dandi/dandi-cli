@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build/Test Commands
 - Run tests: `tox -e py3` but should also work with just `python -m pytest dandi` if in a venv
 - Tests which require an instance of the archive, would use a fixture to start on using docker-compose.
-- Set env var DANDI_TESTS_PULL_DOCKER_COMPOSE= to avoid `docker compose pull` to speed up repetitive runs
+- Set env var `DANDI_TESTS_PULL_DOCKER_COMPOSE=""` (to empty value) to avoid `docker compose pull` to speed up repetitive runs
 - Run single test: `tox r -e py3 -- dandi/tests/test_file.py::test_function -v`
 - Lint and type checking: `tox -e lint,typing`
 - Install pre-commit hooks (if not installed as could be indicated by absence of
