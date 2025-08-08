@@ -535,3 +535,82 @@ def test_zarr_upload_403_retry(
     single_attempt_urls = [url for url, count in upload_attempts.items() if count == 1]
     for url in single_attempt_urls:
         assert "arr_1" not in url, f"URL {url} should have been retried but wasn't"
+
+
+@pytest.mark.ai_generated
+def test_zarr_upload_400_timeout_retry(
+    new_dandiset: SampleDandiset,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that 400 RequestTimeout errors trigger automatic retry via tenacity"""
+    # Create test Zarr
+    zarr_path = new_dandiset.dspath / "test.zarr"
+    zarr.save(zarr_path, np.arange(100), np.arange(100, 0, -1))
+
+    # Track request attempts
+    request_attempts: defaultdict[str, int] = defaultdict(int)
+    original_request = RESTFullAPIClient.request
+
+    def mock_request(self, method, path, **kwargs):
+        # Track attempts for each request
+        urlpath = urlparse(path).path if path.startswith("http") else path
+        request_attempts[urlpath] += 1
+
+        # Simulate 400 timeout on first attempt for files containing "arr_0"
+        if method == "PUT" and "arr_0" in path and request_attempts[urlpath] == 1:
+            # Return a mock response that will trigger the retry_if condition
+            resp = Mock(spec=requests.Response)
+            resp.status_code = 400
+            resp.text = (
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                "<Error><Code>RequestTimeout</Code>"
+                "<Message>Your socket connection to the server "
+                "was not read from or written to within the timeout period. "
+                "Idle connections will be closed.</Message>"
+                "<RequestId>1111111111111111</RequestId>"
+                "<HostId>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA</HostId>"
+                "</Error>"
+            )
+            resp.headers = {}
+            resp.content = resp.text.encode()
+            resp.json = Mock(side_effect=ValueError("No JSON"))
+            return resp
+
+        # Otherwise, call the original method
+        return original_request(self, method, path, **kwargs)
+
+    # Apply the mock
+    monkeypatch.setattr(RESTFullAPIClient, "request", mock_request)
+
+    # Upload the Zarr
+    new_dandiset.upload()
+
+    # Verify the upload succeeded
+    (asset,) = new_dandiset.dandiset.get_assets()
+    assert isinstance(asset, RemoteZarrAsset)
+    assert asset.asset_type is AssetType.ZARR
+    assert asset.path == "test.zarr"
+
+    # Verify that arr_0 files were retried automatically by tenacity
+    # Filter for PUT requests to S3/minio (not API endpoints)
+    arr_0_urls = [
+        url for url in request_attempts if "arr_0" in url and "dandi-dandisets" in url
+    ]
+    assert len(arr_0_urls) > 0, "Expected to find arr_0 files"
+
+    for url in arr_0_urls:
+        # Each arr_0 file should have been attempted twice (initial + 1 retry)
+        assert (
+            request_attempts[url] == 2
+        ), f"Expected {url} to be retried once, got {request_attempts[url]} attempts"
+
+    # Verify non-arr_0 S3/minio URLs were not retried
+    non_arr_0_urls = [
+        url
+        for url in request_attempts
+        if "arr_0" not in url and "dandi-dandisets" in url and request_attempts[url] > 0
+    ]
+    for url in non_arr_0_urls:
+        assert (
+            request_attempts[url] == 1
+        ), f"URL {url} should not have been retried but had {request_attempts[url]} attempts"
