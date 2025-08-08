@@ -10,15 +10,12 @@ import os
 from pathlib import Path
 import re
 from threading import Lock
-from typing import IO, Any, Generic
+from typing import IO, TYPE_CHECKING, Any, Generic, TypeVar
 from xml.etree.ElementTree import fromstring
 
 import dandischema
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dandischema.digests.dandietag import DandiETag
-from dandischema.models import BareAsset, CommonModel
-from dandischema.models import Dandiset as DandisetMeta
-from dandischema.models import get_schema_version
 from packaging.version import Version
 from pydantic import ValidationError
 from pydantic_core import ErrorDetails
@@ -27,7 +24,6 @@ import requests
 import dandi
 from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from dandi.metadata.core import get_default_metadata
-from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
 from dandi.utils import post_upload_size_check, pre_upload_size_check, yaml_load
 from dandi.validate_types import (
     ORIGIN_INTERNAL_DANDI,
@@ -40,6 +36,15 @@ from dandi.validate_types import (
     ValidationResult,
     Validator,
 )
+
+if TYPE_CHECKING:
+    from dandischema.models import BareAsset, CommonModel
+    from dandischema.models import Dandiset as DandisetMeta
+
+    # noinspection PyUnresolvedReferences
+    from dandi.misctypes import BasePath, Digest, LocalReadableFile
+
+P = TypeVar("P", bound="BasePath")
 
 lgr = dandi.get_logger()
 
@@ -107,6 +112,8 @@ class DandisetMetadataFile(DandiFile):
         ignore_errors: bool = True,
     ) -> DandisetMeta:
         """Return the Dandiset metadata inside the file"""
+        from dandischema.models import Dandiset as DandisetMeta
+
         with open(self.filepath) as f:
             meta = yaml_load(f, typ="safe")
         return DandisetMeta.model_construct(**meta)
@@ -126,6 +133,9 @@ class DandisetMetadataFile(DandiFile):
                 meta, _required_dandiset_metadata_fields, str(self.filepath)
             )
         else:
+            from dandischema.models import Dandiset as DandisetMeta
+            from dandischema.models import get_schema_version
+
             current_version = get_schema_version()
             if schema_version != current_version:
                 raise ValueError(
@@ -147,6 +157,8 @@ class DandisetMetadataFile(DandiFile):
 
         Returns a `Readable` instance wrapping the local file
         """
+        from dandi.misctypes import LocalReadableFile
+
         return LocalReadableFile(self.filepath)
 
 
@@ -161,7 +173,11 @@ class LocalAsset(DandiFile):
     #: (i.e., relative to the Dandiset's root)
     path: str
 
-    _DUMMY_DIGEST = DUMMY_DANDI_ETAG
+    @staticmethod
+    def _get_dummy_digest() -> Digest:
+        from dandi.misctypes import get_dummy_dandi_etag
+
+        return get_dummy_dandi_etag()
 
     @abstractmethod
     def get_digest(self) -> Digest:
@@ -186,6 +202,8 @@ class LocalAsset(DandiFile):
         schema_version: str | None = None,
         devel_debug: bool = False,
     ) -> list[ValidationResult]:
+        from dandischema.models import BareAsset, get_schema_version
+
         current_version = get_schema_version()
         if schema_version is None:
             schema_version = current_version
@@ -194,7 +212,7 @@ class LocalAsset(DandiFile):
                 f"Unsupported schema version: {schema_version}; expected {current_version}"
             )
         try:
-            asset = self.get_metadata(digest=self._DUMMY_DIGEST)
+            asset = self.get_metadata(digest=self._get_dummy_digest())
             BareAsset(**asset.model_dump())
         except ValidationError as e:
             if devel_debug:
@@ -309,6 +327,7 @@ class LocalFileAsset(LocalAsset):
     def get_digest(self) -> Digest:
         """Calculate a dandi-etag digest for the asset"""
         # Avoid heavy import by importing within function:
+        from dandi.misctypes import Digest
         from dandi.support.digests import get_digest
 
         value = get_digest(self.filepath, digest="dandi-etag")
@@ -476,6 +495,8 @@ class LocalFileAsset(LocalAsset):
 
         Returns a `Readable` instance wrapping the local file
         """
+        from dandi.misctypes import LocalReadableFile
+
         return LocalReadableFile(self.filepath)
 
 

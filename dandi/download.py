@@ -21,7 +21,6 @@ from types import TracebackType
 from typing import IO, Any, Literal
 
 from dandischema.digests.dandietag import ETagHashlike
-from dandischema.models import DigestType
 from fasteners import InterProcessLock
 import humanize
 from interleave import FINISH_CURRENT, lazy_interleave
@@ -995,6 +994,8 @@ def _download_zarr(
             digests[path] = d
 
     def downloads_gen():
+        from dandischema.models import DigestType
+
         for entry in asset.iterfiles():
             entries.append(entry)
             etag = entry.digest
