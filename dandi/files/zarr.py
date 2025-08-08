@@ -940,13 +940,18 @@ def _upload_zarr_file(
 
 
 def _retry_zarr_file(r: requests.Response) -> bool:
-    # Some sort of filesystem hiccup can cause requests to be unable to get the
-    # filesize, leading to it falling back to "chunked" transfer encoding,
-    # which S3 doesn't support.
     return (
+        # Some sort of filesystem hiccup can cause requests to be unable to get the
+        # filesize, leading to it falling back to "chunked" transfer encoding,
+        # which S3 doesn't support.
         r.status_code == 501
         and "header you provided implies functionality that is not implemented"
         in r.text
+    ) or (
+        # Network issue or rate limiting can cause a timeout, which results in a 400.
+        # Case: https://github.com/dandi/dandi-cli/issues/1662
+        r.status_code == 400
+        and "was not read from or written to within the timeout period" in r.text
     )
 
 
