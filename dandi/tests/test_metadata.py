@@ -788,11 +788,11 @@ def test_species_map():
             },
         ),
         (
-            ["OptogeneticStimulusSIte"],
+            ["OptogeneticStimulusSite"],
             {
                 "approach": ["optogenetic approach"],
                 "measurementTechnique": None,
-                "variableMeasured": ["OptogeneticStimulusSIte"],
+                "variableMeasured": ["OptogeneticStimulusSite"],
             },
         ),
         (
@@ -801,6 +801,46 @@ def test_species_map():
                 "approach": ["optogenetic approach"],
                 "measurementTechnique": None,
                 "variableMeasured": ["OptogeneticSeries"],
+            },
+        ),
+        (
+            ["PoseEstimationSeries"],
+            {
+                "approach": ["behavioral approach"],
+                "measurementTechnique": ["pose estimation technique"],
+                "variableMeasured": ["PoseEstimationSeries"],
+            },
+        ),
+        (
+            ["PoseEstimation"],
+            {
+                "approach": ["behavioral approach"],
+                "measurementTechnique": ["pose estimation technique"],
+                "variableMeasured": ["PoseEstimation"],
+            },
+        ),
+        (
+            ["PoseTraining"],
+            {
+                "approach": ["behavioral approach"],
+                "measurementTechnique": ["pose estimation technique"],
+                "variableMeasured": ["PoseTraining"],
+            },
+        ),
+        (
+            ["FiberPhotometryResponseSeries"],
+            {
+                "approach": ["fiber photometry technique; optical technique"],
+                "measurementTechnique": ["calcium imaging; cell population imaging"],
+                "variableMeasured": ["FiberPhotometryResponseSeries"],
+            },
+        ),
+        (
+            ["FiberPhotometryResponseSeries_old"],
+            {
+                "approach": ["fiber photometry technique; optical technique"],
+                "measurementTechnique": ["calcium imaging; cell population imaging"],
+                "variableMeasured": ["FiberPhotometryResponseSeries"],
             },
         ),
         (
