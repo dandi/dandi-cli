@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import datetime, timezone
 import os
 from pathlib import Path
 from shutil import copyfile, rmtree
@@ -631,7 +632,13 @@ def test_upload_rejects_dandidownload_paths(
     # Test 1: Regular file with .dandidownload in path
     badfile_path = dspath / f"test{DOWNLOAD_SUFFIX}" / "file.nwb"
     badfile_path.parent.mkdir(parents=True)
-    make_nwb_file(badfile_path, subject_id="test")
+    make_nwb_file(
+        badfile_path,
+        session_description="test session",
+        identifier="test123",
+        session_start_time=datetime(2017, 4, 15, 12, tzinfo=timezone.utc),
+        subject=pynwb.file.Subject(subject_id="test"),
+    )
 
     with pytest.raises(
         UploadError,
@@ -687,7 +694,13 @@ def test_upload_rejects_dandidownload_nwb_file(new_dandiset: SampleDandiset) -> 
 
     # Create an NWB file with .dandidownload in its name
     bad_nwb_path = dspath / f"test{DOWNLOAD_SUFFIX}.nwb"
-    make_nwb_file(bad_nwb_path, subject_id="test")
+    make_nwb_file(
+        bad_nwb_path,
+        session_description="test session",
+        identifier="test456",
+        session_start_time=datetime(2017, 4, 15, 12, tzinfo=timezone.utc),
+        subject=pynwb.file.Subject(subject_id="test"),
+    )
 
     with pytest.raises(
         UploadError,
