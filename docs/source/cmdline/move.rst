@@ -113,9 +113,9 @@ Examples
 
     dandi move --dandiset DANDI:123456 sub-01/sub-01_blah.nii.gz sub-02/sub-02_useful.nii.gz
 
-  To operate on Dandiset 123456 on ``dandi-staging``, you can use::
+  To operate on Dandiset 123456 on ``dandi-sandbox``, you can use::
 
-    dandi move --dandiset https://gui-staging.dandiarchive.org/dandiset/123456 sub-01/sub-01_blah.nii.gz sub-02/sub-02_useful.nii.gz
+    dandi move --dandiset https://sandbox.dandiarchive.org/dandiset/123456 sub-01/sub-01_blah.nii.gz sub-02/sub-02_useful.nii.gz
 
 - To move the contents of a folder :file:`rawdata/` to the top level of a
   Dandiset, you can use the ``--regex`` option to strip the ``rawdata/`` prefix
