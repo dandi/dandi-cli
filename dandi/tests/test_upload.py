@@ -621,6 +621,7 @@ def test_zarr_upload_400_timeout_retry(
         ), f"URL {url} should not have been retried but had {request_attempts[url]} attempts"
 
 
+@pytest.mark.ai_generated
 def test_upload_rejects_dandidownload_paths(
     new_dandiset: SampleDandiset, tmp_path: Path
 ) -> None:
@@ -679,6 +680,7 @@ def test_upload_rejects_dandidownload_paths(
     assert asset.path == "test.zarr"
 
 
+@pytest.mark.ai_generated
 def test_upload_rejects_dandidownload_nwb_file(new_dandiset: SampleDandiset) -> None:
     """Test that upload rejects NWB files with .dandidownload in their path"""
     dspath = new_dandiset.dspath
