@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import os.path as op
 from pathlib import Path
@@ -206,12 +207,29 @@ def test_organize_nwb_test_data(
         assert not any(op.islink(p) for p in produced_paths)
 
 
-def test_ambiguous(simple2_nwb: Path, tmp_path: Path) -> None:
+def test_ambiguous(
+    simple2_nwb: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO, logger="dandi")
     copy2 = copy_nwb_file(simple2_nwb, tmp_path)
     outdir = tmp_path / "organized"
-    args = ["--files-mode", "copy", "-d", str(outdir), str(simple2_nwb), copy2]
+    args = [
+        "--files-mode",
+        "copy",
+        "-d",
+        str(outdir),
+        str(simple2_nwb),  # original file
+        copy2,  # exact copy but different object_id
+        str(simple2_nwb.parent),  # robust to multiple paths to the same file?
+    ]
     r = CliRunner().invoke(organize, args)
     assert r.exit_code == 0
+    assert any(
+        r[:2] == ("dandi", 30)
+        and r[2].startswith("1 file path specified more than once")
+        for r in caplog.record_tuples
+    )
+    assert ("dandi", 20, "Loading metadata from 2 files") in caplog.record_tuples
     assert list_paths(outdir) == sorted(
         [
             outdir
