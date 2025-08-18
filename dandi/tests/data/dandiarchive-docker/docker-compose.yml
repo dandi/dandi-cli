@@ -18,29 +18,24 @@ services:
       rabbitmq:
         condition: service_started
     environment: &django_env
-      DJANGO_CELERY_BROKER_URL: amqp://rabbitmq:5672/
-      DJANGO_CONFIGURATION: DevelopmentConfiguration
-      DJANGO_DANDI_DANDISETS_BUCKET_NAME: dandi-dandisets
-      DJANGO_DANDI_DANDISETS_LOG_BUCKET_NAME: dandiapi-dandisets-logs
-      DJANGO_DANDI_DANDISETS_EMBARGO_BUCKET_NAME: dandi-embargoed-dandisets
-      DJANGO_DANDI_DANDISETS_EMBARGO_LOG_BUCKET_NAME: dandiapi-embargo-dandisets-logs
+      DJANGO_SETTINGS_MODULE: dandiapi.settings.development
       DJANGO_DATABASE_URL: postgres://postgres:postgres@postgres:5432/django
-      DJANGO_MINIO_STORAGE_ACCESS_KEY: minioAccessKey
-      DJANGO_MINIO_STORAGE_ENDPOINT: minio:9000
-      DJANGO_MINIO_STORAGE_SECRET_KEY: minioSecretKey
-      DJANGO_STORAGE_BUCKET_NAME: django-storage
+      DJANGO_CELERY_BROKER_URL: amqp://rabbitmq:5672/
       # The Minio URL needs to use 127.0.0.1 instead of localhost so that blob
       # assets' "S3 URLs" will use 127.0.0.1, and thus tests that try to open
       # these URLs via fsspec will not fail on systems where localhost is both
       # 127.0.0.1 and ::1.
-      DJANGO_MINIO_STORAGE_MEDIA_URL: http://127.0.0.1:9000/django-storage
-      DJANGO_DANDI_SCHEMA_VERSION: ~
+      DJANGO_MINIO_STORAGE_URL: http://minioAccessKey:minioSecretKey@minio:9000/dandi-dandisets
+      DJANGO_MINIO_STORAGE_MEDIA_URL: http://127.0.0.1:9000/dandi-dandisets
+      # When in Docker, the bridge network sends requests from the host machine exclusively via a
+      # dedicated IP address. Since there's no way to determine the real origin address,
+      # consider any IP address (though actually this will only be the single dedicated address) to
+      # be internal. This relies on the host to set up appropriate firewalls for Docker, to prevent
+      # access from non-internal addresses.
+      DJANGO_INTERNAL_IPS: 0.0.0.0/0
       DJANGO_DANDI_WEB_APP_URL: http://localhost:8085
       DJANGO_DANDI_API_URL: http://localhost:8000
       DJANGO_DANDI_JUPYTERHUB_URL: https://hub.dandiarchive.org
-      DJANGO_DANDI_DEV_EMAIL: "test@example.com"
-      DJANGO_DANDI_ADMIN_EMAIL: "test-admin@example.com"
-      DANDI_ALLOW_LOCALHOST_URLS: "1"
     ports:
       - "127.0.0.1:8000:8000"
 
