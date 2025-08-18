@@ -1,6 +1,7 @@
 {
     "baseBranch": "master",
-    "author": "DANDI Bot <team@dandiarchive.org>",
+    "name": "dandibot",
+    "email": "dandibot@mit.edu",
     "noVersionPrefix": true,
     "plugins": [
         "git-tag",

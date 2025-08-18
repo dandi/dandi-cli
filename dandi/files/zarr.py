@@ -6,6 +6,7 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import closing
 from dataclasses import dataclass, field, replace
 from datetime import datetime
+from enum import Enum
 import json
 import os
 import os.path
@@ -33,6 +34,7 @@ from dandi.dandiapi import (
     RemoteZarrEntry,
     RESTFullAPIClient,
 )
+from dandi.exceptions import UploadError
 from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ZARR_CHECKSUM, BasePath, Digest
 from dandi.utils import (
@@ -358,6 +360,22 @@ class ZarrStat:
     digest: Digest
     #: A list of all files in the asset in unspecified order
     files: list[LocalZarrEntry]
+
+
+class UploadStatus(Enum):
+    SUCCESS = "success"
+    RETRY_NEEDED = "retry_needed"  # 403 error - need new URL
+    FAILED = "failed"  # Other error - don't retry
+
+
+@dataclass
+class UploadResult:
+    """Result of a single file upload attempt"""
+
+    item: UploadItem
+    status: UploadStatus
+    size: int = 0
+    error: Exception | None = None
 
 
 class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
@@ -712,58 +730,107 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     to_upload.register(local_entry)
             yield {"status": "initiating upload", "size": total_size}
             lgr.debug("%s: Beginning upload", asset_path)
-            bytes_uploaded = 0
             changed = False
             with RESTFullAPIClient(
                 "http://nil.nil",
                 headers={"X-Amz-ACL": "bucket-owner-full-control"},
             ) as storage, closing(to_upload.get_items()) as upload_items:
+                bytes_uploaded = 0
                 for i, items in enumerate(
                     chunked(upload_items, ZARR_UPLOAD_BATCH_SIZE), start=1
                 ):
-                    uploading = []
-                    for it in items:
+                    # Items to upload in this batch (may be retried e.g. due to
+                    # 403 errors because of timed-out upload URLs)
+                    items_to_upload = list(items)
+                    max_retries = 5
+                    retry_count = 0
+                    # Add all items to checksum tree (only done once)
+                    for it in items_to_upload:
                         zcc.add_leaf(Path(it.entry_path), it.size, it.digest)
-                        uploading.append(it.upload_request())
-                    lgr.debug(
-                        "%s: Uploading Zarr file batch #%d (%s)",
-                        asset_path,
-                        i,
-                        pluralize(len(uploading), "file"),
-                    )
-                    r = client.post(f"/zarr/{zarr_id}/files/", json=uploading)
-                    with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
-                        futures = [
-                            executor.submit(
-                                _upload_zarr_file,
-                                storage_session=storage,
-                                upload_url=signed_url,
-                                item=it,
+
+                    while items_to_upload and retry_count <= max_retries:
+                        # Prepare upload requests for current items
+                        uploading = [it.upload_request() for it in items_to_upload]
+
+                        if retry_count == 0:
+                            lgr.debug(
+                                "%s: Uploading Zarr file batch #%d (%s)",
+                                asset_path,
+                                i,
+                                pluralize(len(uploading), "file"),
                             )
-                            for (signed_url, it) in zip(r, items)
-                        ]
-                        changed = True
-                        for fut in as_completed(futures):
-                            try:
-                                size = fut.result()
-                            except Exception as e:
-                                lgr.debug(
-                                    "Error uploading zarr: %s: %s", type(e).__name__, e
+                        else:
+                            lgr.debug(
+                                "%s: Retrying %s from batch #%d (attempt %d/%d)",
+                                asset_path,
+                                pluralize(len(uploading), "file"),
+                                i,
+                                retry_count,
+                                max_retries,
+                            )
+
+                        # Get signed URLs for items
+                        r = client.post(f"/zarr/{zarr_id}/files/", json=uploading)
+
+                        # Upload files in parallel
+                        with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
+                            futures = [
+                                executor.submit(
+                                    _upload_zarr_file,
+                                    storage_session=storage,
+                                    upload_url=signed_url,
+                                    item=it,
                                 )
-                                lgr.debug("Cancelling upload")
-                                for f in futures:
-                                    f.cancel()
-                                executor.shutdown()
-                                raise
-                            else:
-                                bytes_uploaded += size
-                                yield {
-                                    "status": "uploading",
-                                    "progress": 100
-                                    * bytes_uploaded
-                                    / to_upload.total_size,
-                                    "current": bytes_uploaded,
-                                }
+                                for (signed_url, it) in zip(r, items_to_upload)
+                            ]
+
+                            changed = True
+                            retry_items = []
+                            failed_items = []
+
+                            for fut in as_completed(futures):
+                                result = fut.result()
+
+                                if result.status == UploadStatus.SUCCESS:
+                                    bytes_uploaded += result.size
+                                    yield {
+                                        "status": "uploading",
+                                        "progress": 100
+                                        * bytes_uploaded
+                                        / to_upload.total_size,
+                                        "current": bytes_uploaded,
+                                    }
+                                elif result.status == UploadStatus.RETRY_NEEDED:
+                                    retry_items.append(result.item)
+                                else:
+                                    assert result.status == UploadStatus.FAILED
+                                    failed_items.append((result.item, result.error))
+
+                            # Handle failed items (non-403 errors)
+                            if failed_items:
+                                _handle_failed_items_and_raise(
+                                    executor, failed_items, futures
+                                )
+
+                            # Prepare for next iteration with retry items
+                            if items_to_upload := retry_items:
+                                retry_count += 1
+                                if retry_count <= max_retries:
+                                    lgr.info(
+                                        "%s: %s got 403 errors, requesting new URLs",
+                                        asset_path,
+                                        pluralize(len(items_to_upload), "file"),
+                                    )
+                                    # Small delay before retry
+                                    sleep(1 * retry_count)
+
+                    # Check if we exhausted retries
+                    if items_to_upload:
+                        nfiles_str = pluralize(len(items_to_upload), "file")
+                        raise UploadError(
+                            f"{asset_path}: failed to upload {nfiles_str} "
+                            f"after {max_retries} retries due to repeated 403 errors"
+                        )
                     lgr.debug("%s: Completing upload of batch #%d", asset_path, i)
             lgr.debug("%s: All files uploaded", asset_path)
             old_zarr_files = list(old_zarr_entries.values())
@@ -807,7 +874,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             elif mismatched and not first_run:
                 lgr.error(
                     "%s: Previous upload loop resulted in checksum mismatch,"
-                    " and no discrepancies between local and remote Zarr were found"
+                    " and no discrepancies between local and remote Zarr were found",
+                    asset_path,
                 )
                 raise RuntimeError("Unresolvable Zarr checksum mismatch")
             else:
@@ -818,9 +886,25 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         yield {"status": "done", "asset": a}
 
 
+def _handle_failed_items_and_raise(
+    executor: ThreadPoolExecutor, failed_items: list, futures: list
+) -> None:
+    # Cancel any remaining futures
+    for f in futures:
+        f.cancel()
+    executor.shutdown()
+
+    # Log all failures
+    for item, error in failed_items:
+        lgr.error("Failed to upload %s: %s", item.filepath, error)
+    # Raise the first error
+    raise failed_items[0][1]
+
+
 def _upload_zarr_file(
     storage_session: RESTFullAPIClient, upload_url: str, item: UploadItem
-) -> int:
+) -> UploadResult:
+    """Upload a single Zarr file and return the result status."""
     try:
         headers = {"Content-MD5": item.base64_digest}
         if item.content_type is not None:
@@ -833,22 +917,41 @@ def _upload_zarr_file(
                 retry_if=_retry_zarr_file,
                 headers=headers,
             )
-    except Exception:
+    except requests.HTTPError as e:
         post_upload_size_check(item.filepath, item.size, True)
-        raise
+        # Check if this is a 403 error that we should retry with a new URL
+        if e.response is not None and e.response.status_code == 403:
+            lgr.debug(
+                "Got 403 error uploading %s, will retry with new URL: %s",
+                item.filepath,
+                str(e),
+            )
+            return UploadResult(item=item, status=UploadStatus.RETRY_NEEDED, error=e)
+        else:
+            # Other HTTP error - don't retry
+            return UploadResult(item=item, status=UploadStatus.FAILED, error=e)
+    except Exception as e:
+        post_upload_size_check(item.filepath, item.size, True)
+        # Non-HTTP error - don't retry
+        return UploadResult(item=item, status=UploadStatus.FAILED, error=e)
     else:
         post_upload_size_check(item.filepath, item.size, False)
-        return item.size
+        return UploadResult(item=item, status=UploadStatus.SUCCESS, size=item.size)
 
 
 def _retry_zarr_file(r: requests.Response) -> bool:
-    # Some sort of filesystem hiccup can cause requests to be unable to get the
-    # filesize, leading to it falling back to "chunked" transfer encoding,
-    # which S3 doesn't support.
     return (
+        # Some sort of filesystem hiccup can cause requests to be unable to get the
+        # filesize, leading to it falling back to "chunked" transfer encoding,
+        # which S3 doesn't support.
         r.status_code == 501
         and "header you provided implies functionality that is not implemented"
         in r.text
+    ) or (
+        # Network issue or rate limiting can cause a timeout, which results in a 400.
+        # Case: https://github.com/dandi/dandi-cli/issues/1662
+        r.status_code == 400
+        and "was not read from or written to within the timeout period" in r.text
     )
 
 

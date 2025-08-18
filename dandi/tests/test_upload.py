@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+from collections import defaultdict
 import os
 from pathlib import Path
 from shutil import copyfile, rmtree
 from typing import Any
+from unittest.mock import Mock
+from urllib.parse import urlparse
 
 import numpy as np
 import pynwb
 import pytest
 from pytest_mock import MockerFixture
+import requests
 import zarr
 
 from dandi.tests.test_bids_validator_deno.test_validator import mock_bids_validate
@@ -16,7 +20,7 @@ from dandi.tests.test_bids_validator_deno.test_validator import mock_bids_valida
 from .fixtures import SampleDandiset, sweep_embargo
 from .test_helpers import assert_dirtrees_eq
 from ..consts import ZARR_MIME_TYPE, EmbargoStatus, dandiset_metadata_file
-from ..dandiapi import AssetType, RemoteBlobAsset, RemoteZarrAsset
+from ..dandiapi import AssetType, RemoteBlobAsset, RemoteZarrAsset, RESTFullAPIClient
 from ..dandiset import Dandiset
 from ..download import download
 from ..exceptions import NotFoundError, UploadError
@@ -475,3 +479,138 @@ def test_upload_zarr_with_empty_dir(new_dandiset: SampleDandiset) -> None:
     assert asset.path == "sample.zarr"
     with pytest.raises(NotFoundError):
         asset.get_entry_by_path("empty")
+
+
+def test_zarr_upload_403_retry(
+    new_dandiset: SampleDandiset, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that 403 errors during Zarr upload trigger retry with new URLs"""
+    # Create test Zarr
+    zarr_path = new_dandiset.dspath / "test.zarr"
+    zarr.save(zarr_path, np.arange(100), np.arange(100, 0, -1))
+
+    # Track upload attempts per URL
+    upload_attempts: defaultdict[str, int] = defaultdict(int)
+    original_put = RESTFullAPIClient.put
+
+    def mock_put(self, url, **kwargs):
+        # Track attempts for each URL
+        urlpath = urlparse(url).path
+        upload_attempts[urlpath] += 1
+
+        # Simulate 403 error on first attempt for some files
+        # Use a deterministic pattern - fail paths containing "arr_1"
+        if upload_attempts[urlpath] == 1 and "arr_1" in url:
+            # Create a mock 403 response
+            resp = Mock(spec=requests.Response)
+            resp.status_code = 403
+            resp.text = "Forbidden"
+            error = requests.HTTPError("403 Forbidden", response=resp)
+            error.response = resp
+            raise error
+        # Otherwise, call the original method
+        return original_put(self, url, **kwargs)
+
+    # Apply the mock
+    monkeypatch.setattr(RESTFullAPIClient, "put", mock_put)
+
+    # Upload the Zarr
+    new_dandiset.upload()
+
+    # Verify the upload succeeded
+    (asset,) = new_dandiset.dandiset.get_assets()
+    assert isinstance(asset, RemoteZarrAsset)
+    assert asset.asset_type is AssetType.ZARR
+    assert asset.path == "test.zarr"
+
+    # Verify that some URLs were retried (those with arr_1)
+    retry_urls = [url for url, count in upload_attempts.items() if count > 1]
+    assert len(retry_urls) > 0, "Expected at least one URL to be retried"
+
+    # Verify all retried URLs contained "arr_1" (our trigger pattern)
+    for url in retry_urls:
+        assert "arr_1" in url, f"URL {url} was retried but shouldn't have been"
+
+    # Verify non-arr_1 URLs were not retried
+    single_attempt_urls = [url for url, count in upload_attempts.items() if count == 1]
+    for url in single_attempt_urls:
+        assert "arr_1" not in url, f"URL {url} should have been retried but wasn't"
+
+
+@pytest.mark.ai_generated
+def test_zarr_upload_400_timeout_retry(
+    new_dandiset: SampleDandiset,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that 400 RequestTimeout errors trigger automatic retry via tenacity"""
+    # Create test Zarr
+    zarr_path = new_dandiset.dspath / "test.zarr"
+    zarr.save(zarr_path, np.arange(100), np.arange(100, 0, -1))
+
+    # Track request attempts
+    request_attempts: defaultdict[str, int] = defaultdict(int)
+    original_request = RESTFullAPIClient.request
+
+    def mock_request(self, method, path, **kwargs):
+        # Track attempts for each request
+        urlpath = urlparse(path).path if path.startswith("http") else path
+        request_attempts[urlpath] += 1
+
+        # Simulate 400 timeout on first attempt for files containing "arr_0"
+        if method == "PUT" and "arr_0" in path and request_attempts[urlpath] == 1:
+            # Return a mock response that will trigger the retry_if condition
+            resp = Mock(spec=requests.Response)
+            resp.status_code = 400
+            resp.text = (
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                "<Error><Code>RequestTimeout</Code>"
+                "<Message>Your socket connection to the server "
+                "was not read from or written to within the timeout period. "
+                "Idle connections will be closed.</Message>"
+                "<RequestId>1111111111111111</RequestId>"
+                "<HostId>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA</HostId>"
+                "</Error>"
+            )
+            resp.headers = {}
+            resp.content = resp.text.encode()
+            resp.json = Mock(side_effect=ValueError("No JSON"))
+            return resp
+
+        # Otherwise, call the original method
+        return original_request(self, method, path, **kwargs)
+
+    # Apply the mock
+    monkeypatch.setattr(RESTFullAPIClient, "request", mock_request)
+
+    # Upload the Zarr
+    new_dandiset.upload()
+
+    # Verify the upload succeeded
+    (asset,) = new_dandiset.dandiset.get_assets()
+    assert isinstance(asset, RemoteZarrAsset)
+    assert asset.asset_type is AssetType.ZARR
+    assert asset.path == "test.zarr"
+
+    # Verify that arr_0 files were retried automatically by tenacity
+    # Filter for PUT requests to S3/minio (not API endpoints)
+    arr_0_urls = [
+        url for url in request_attempts if "arr_0" in url and "dandi-dandisets" in url
+    ]
+    assert len(arr_0_urls) > 0, "Expected to find arr_0 files"
+
+    for url in arr_0_urls:
+        # Each arr_0 file should have been attempted twice (initial + 1 retry)
+        assert (
+            request_attempts[url] == 2
+        ), f"Expected {url} to be retried once, got {request_attempts[url]} attempts"
+
+    # Verify non-arr_0 S3/minio URLs were not retried
+    non_arr_0_urls = [
+        url
+        for url in request_attempts
+        if "arr_0" not in url and "dandi-dandisets" in url and request_attempts[url] > 0
+    ]
+    for url in non_arr_0_urls:
+        assert (
+            request_attempts[url] == 1
+        ), f"URL {url} should not have been retried but had {request_attempts[url]} attempts"
