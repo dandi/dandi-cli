@@ -1,3 +1,34 @@
+# 0.70.0 (Sat Jul 26 2025)
+
+#### 🚀 Enhancement
+
+- Expand Zarr dependency to include version 3 [#1653](https://github.com/dandi/dandi-cli/pull/1653) ([@kabilar](https://github.com/kabilar))
+
+#### 🐛 Bug Fix
+
+- Fix bug when running metadata extraction on BIDS with NWB [#1656](https://github.com/dandi/dandi-cli/pull/1656) ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Use name/email corresponding to our dandibot so we could allow it to push releases [#1669](https://github.com/dandi/dandi-cli/pull/1669) ([@yarikoptic](https://github.com/yarikoptic))
+- Adjust CI to differentiate obolibrary tests [#1657](https://github.com/dandi/dandi-cli/pull/1657) ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@yarikoptic](https://github.com/yarikoptic))
+- Improve `follow_redirect()` so that it has a singular checkpoint for limiting number of attempts and clearer logic [#1634](https://github.com/dandi/dandi-cli/pull/1634) ([@candleindark](https://github.com/candleindark))
+- [Chore] Fix MyPy [#1654](https://github.com/dandi/dandi-cli/pull/1654) ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🧪 Tests
+
+- RF: in our example skip going through all dandisets/assets! [#1667](https://github.com/dandi/dandi-cli/pull/1667) ([@yarikoptic](https://github.com/yarikoptic))
+- Upgrade Windows image for test CI [#1655](https://github.com/dandi/dandi-cli/pull/1655) ([@kabilar](https://github.com/kabilar))
+
+#### Authors: 4
+
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Isaac To ([@candleindark](https://github.com/candleindark))
+- Kabilar Gunalan ([@kabilar](https://github.com/kabilar))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.69.3 (Wed Jun 04 2025)
 
 #### 🐛 Bug Fix
