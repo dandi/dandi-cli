@@ -33,6 +33,7 @@ jobs:
 
       - name: Create release
         run: |
+          echo "@${{ github.actor }} is creating a release triggered by ${{ github.event_name }}"
           if [ "${{ github.event_name }}" = workflow_dispatch ]
           then opts=
           else opts=--only-publish-with-release-label
