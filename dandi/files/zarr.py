@@ -909,6 +909,10 @@ def _upload_zarr_file(
         headers = {"Content-MD5": item.base64_digest}
         if item.content_type is not None:
             headers["Content-Type"] = item.content_type
+        # Attach embargoed tag to headers, if specified in upload url
+        if "x-amz-tagging" in upload_url:
+            headers["x-amz-tagging"] = "embargoed=true"
+
         with item.filepath.open("rb") as fp:
             storage_session.put(
                 upload_url,
