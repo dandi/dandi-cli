@@ -33,13 +33,14 @@ jobs:
 
       - name: Create release
         run: |
+          echo "@${{ github.actor }} is creating a release triggered by ${{ github.event_name }}"
           if [ "${{ github.event_name }}" = workflow_dispatch ]
           then opts=
           else opts=--only-publish-with-release-label
           fi
           ~/auto shipit -vv $opts
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
 
