@@ -26,6 +26,7 @@ from dandi.consts import (
     ZARR_DELETE_BATCH_SIZE,
     ZARR_MIME_TYPE,
     ZARR_UPLOAD_BATCH_SIZE,
+    EmbargoStatus,
 )
 from dandi.dandiapi import (
     RemoteAsset,
@@ -778,6 +779,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                 executor.submit(
                                     _upload_zarr_file,
                                     storage_session=storage,
+                                    dandiset=dandiset,
                                     upload_url=signed_url,
                                     item=it,
                                 )
@@ -902,15 +904,17 @@ def _handle_failed_items_and_raise(
 
 
 def _upload_zarr_file(
-    storage_session: RESTFullAPIClient, upload_url: str, item: UploadItem
+    storage_session: RESTFullAPIClient,
+    dandiset: RemoteDandiset,
+    upload_url: str,
+    item: UploadItem,
 ) -> UploadResult:
     """Upload a single Zarr file and return the result status."""
     try:
         headers = {"Content-MD5": item.base64_digest}
         if item.content_type is not None:
             headers["Content-Type"] = item.content_type
-        # Attach embargoed tag to headers, if specified in upload url
-        if "x-amz-tagging" in upload_url:
+        if dandiset.embargo_status == EmbargoStatus.EMBARGOED:
             headers["x-amz-tagging"] = "embargoed=true"
 
         with item.filepath.open("rb") as fp:
