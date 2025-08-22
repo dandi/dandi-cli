@@ -41,7 +41,7 @@ jobs:
           ~/auto shipit -vv $opts
         env:
           PROTECTED_BRANCH_REVIEWER_TOKEN: ${{ secrets.GH_TOKEN }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
 
