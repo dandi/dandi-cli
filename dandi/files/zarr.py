@@ -10,6 +10,7 @@ from enum import Enum
 import json
 import os
 import os.path
+import urllib.parse
 from pathlib import Path
 from time import sleep
 from typing import Any, Optional
@@ -915,6 +916,17 @@ def _upload_zarr_file(
         if item.content_type is not None:
             headers["Content-Type"] = item.content_type
         if dandiset.embargo_status == EmbargoStatus.EMBARGOED:
+            # Technically, a header can be specified more than once. Join all together just in case.
+            signed_headers = ";".join(
+                urllib.parse.parse_qs(upload_url).get("X-Amz-SignedHeaders", [])
+            ).split(";")
+            # Check that the tagging header is present, and error if not. If not present, it will
+            # error either way, but error from AWS would be much less specific and hard to decipher
+            if "x-amz-tagging" not in signed_headers:
+                raise ValueError(
+                    "'x-amz-tagging' header not included in embargoed pre-signed URL"
+                )
+
             headers["x-amz-tagging"] = "embargoed=true"
 
         with item.filepath.open("rb") as fp:
