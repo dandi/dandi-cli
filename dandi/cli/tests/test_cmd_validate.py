@@ -4,6 +4,7 @@ from click.testing import CliRunner
 import pytest
 
 from ..cmd_validate import _process_issues, validate
+from ...tests.xfail import mark_xfail_windows_python313_posixsubprocess
 from ...validate_types import (
     Origin,
     OriginType,
@@ -77,6 +78,7 @@ def test_validate_ignore(simple2_nwb: Path) -> None:
     assert "DANDI.NO_DANDISET_FOUND" not in r.output
 
 
+@mark_xfail_windows_python313_posixsubprocess
 def test_validate_nwb_path_grouping(organized_nwb_dir4: Path) -> None:
     """
     Does grouping of issues by path work?

@@ -1,3 +1,40 @@
+# 0.71.0 (Fri Aug 22 2025)
+
+#### 🚀 Enhancement
+
+- Rename dandiarchive `staging` => `sandbox` [#1668](https://github.com/dandi/dandi-cli/pull/1668) ([@mvandenburgh](https://github.com/mvandenburgh))
+
+#### 🐛 Bug Fix
+
+- BF: fix upload of zarrs when connection sockets time out -- retry [#1675](https://github.com/dandi/dandi-cli/pull/1675) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- BF: fix upload of zarrs when we do not use minted upload URLs in time [#1674](https://github.com/dandi/dandi-cli/pull/1674) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- organize: operate on unique file-paths in case of multiple paths leading to the same file(s) [#1673](https://github.com/dandi/dandi-cli/pull/1673) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Revert back to use of GITHUB_TOKEN for actual push of PR to be merged with changelog [#1688](https://github.com/dandi/dandi-cli/pull/1688) ([@yarikoptic](https://github.com/yarikoptic))
+- Fix auto release [#1684](https://github.com/dandi/dandi-cli/pull/1684) ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Bring 0.70.0 tag into the "master" git line [#1682](https://github.com/dandi/dandi-cli/pull/1682) ([@dandibot](https://github.com/dandibot) [@yarikoptic](https://github.com/yarikoptic))
+- [gh-actions](deps): Bump actions/checkout from 4 to 5 [#1679](https://github.com/dandi/dandi-cli/pull/1679) ([@dependabot[bot]](https://github.com/dependabot[bot]) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 📝 Documentation
+
+- Merge 0.70.0 tag (CHANGELOG) into master [#1681](https://github.com/dandi/dandi-cli/pull/1681) ([@dandibot](https://github.com/dandibot) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Update `dandi-archive` docker env vars [#1678](https://github.com/dandi/dandi-cli/pull/1678) ([@mvandenburgh](https://github.com/mvandenburgh) [@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 5
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Dandi Bot ([@dandibot](https://github.com/dandibot))
+- Mike VanDenburgh ([@mvandenburgh](https://github.com/mvandenburgh))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.70.0 (Sat Jul 26 2025)
 
 #### 🚀 Enhancement
