@@ -24,7 +24,7 @@ def test_cmd_instances(monkeypatch):
         "  gui: https://dandi.emberarchive.org\n"
         "ember-sandbox:\n"
         "  api: https://api-dandi-sandbox.emberarchive.org/api\n"
-        "  gui: https://dandi-sandbox.emberarchive.org\n"
+        "  gui: https://apl-setup--ember-dandi-archive.netlify.app/\n"
         "linc:\n"
         "  api: https://api.lincbrain.org/api\n"
         "  gui: https://lincbrain.org\n"
