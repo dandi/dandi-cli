@@ -1,3 +1,25 @@
+# 0.71.1 (Mon Aug 25 2025)
+
+#### 🐛 Bug Fix
+
+- Bring back dandi-staging to provide more graceful transition for 3rd party libraries [#1694](https://github.com/dandi/dandi-cli/pull/1694) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Fix EMBER-DANDI Sandbox url [#1693](https://github.com/dandi/dandi-cli/pull/1693) ([@NEStock](https://github.com/NEStock))
+- Add ndx-events and ndx-hed into our "extensions" extra [#1691](https://github.com/dandi/dandi-cli/pull/1691) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🧪 Tests
+
+- Register a Pytest plugin, instead of relying on a root "conftest.py" [#1687](https://github.com/dandi/dandi-cli/pull/1687) ([@brianhelba](https://github.com/brianhelba) [@yarikoptic](https://github.com/yarikoptic))
+- BF: announce two tests xfail on windows python 3.13 [#1690](https://github.com/dandi/dandi-cli/pull/1690) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 4
+
+- Brian Helba ([@brianhelba](https://github.com/brianhelba))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Nicole Stock Tregoning ([@NEStock](https://github.com/NEStock))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.71.0 (Fri Aug 22 2025)
 
 #### 🚀 Enhancement
