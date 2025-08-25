@@ -27,7 +27,6 @@ from dandi.consts import (
     ZARR_DELETE_BATCH_SIZE,
     ZARR_MIME_TYPE,
     ZARR_UPLOAD_BATCH_SIZE,
-    EmbargoStatus,
 )
 from dandi.dandiapi import (
     RemoteAsset,
@@ -915,18 +914,28 @@ def _upload_zarr_file(
         headers = {"Content-MD5": item.base64_digest}
         if item.content_type is not None:
             headers["Content-Type"] = item.content_type
-        if dandiset.embargo_status == EmbargoStatus.EMBARGOED:
-            # Technically, a header can be specified more than once. Join all together just in case.
-            signed_headers = ";".join(
-                urllib.parse.parse_qs(upload_url).get("X-Amz-SignedHeaders", [])
-            ).split(";")
-            # Check that the tagging header is present, and error if not. If not present, it will
-            # error either way, but error from AWS would be much less specific and hard to decipher
-            if "x-amz-tagging" not in signed_headers:
-                raise ValueError(
-                    "'x-amz-tagging' header not included in embargoed pre-signed URL"
-                )
 
+        # TODO: Replace below implementation with this once LINC and EMBER
+        # update their API to match dandi-archive >= 0.12.14
+        # if dandiset.embargo_status == EmbargoStatus.EMBARGOED:
+        #     # Technically, a header can be specified more than once.
+        #     # Join all together just in case.
+        #     signed_headers = ";".join(
+        #         urllib.parse.parse_qs(upload_url).get("X-Amz-SignedHeaders", [])
+        #     ).split(";")
+        #     # Check that the tagging header is present, and error if not. If not present, it will
+        #     # error either way, but error from AWS would be much less specific
+        #     # and hard to decipher
+        #     if "x-amz-tagging" not in signed_headers:
+        #         raise ValueError(
+        #             "'x-amz-tagging' header not included in embargoed pre-signed URL"
+        #         )
+
+        # Technically, a header can be specified more than once. Join all together just in case.
+        signed_headers = ";".join(
+            urllib.parse.parse_qs(upload_url).get("X-Amz-SignedHeaders", [])
+        ).split(";")
+        if "x-amz-tagging" in signed_headers:
             headers["x-amz-tagging"] = "embargoed=true"
 
         with item.filepath.open("rb") as fp:
