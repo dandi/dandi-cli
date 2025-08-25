@@ -13,7 +13,7 @@ from .util import process_ndtypes
 from .. import get_logger
 from ..consts import metadata_all_fields
 from ..files import bids, dandi_file, find_bids_dataset_description
-from ..misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, Readable
+from ..misctypes import Digest, LocalReadableFile, Readable, get_dummy_dandi_etag
 from ..pynwb_utils import (
     _get_pynwb_metadata,
     get_neurodata_types,
@@ -68,7 +68,7 @@ def get_metadata(
             )
             assert isinstance(df, bids.BIDSAsset)
             if not digest:
-                digest = DUMMY_DANDI_ETAG
+                digest = get_dummy_dandi_etag()
             path_metadata = df.get_metadata(digest=digest)
             meta["bids_version"] = df.get_validation_bids_version()
             # there might be a more elegant way to do this:
