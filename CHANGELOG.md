@@ -1,3 +1,18 @@
+# 0.71.2 (Mon Aug 25 2025)
+
+#### 🐛 Bug Fix
+
+- Add tagging to zarr upload if embargoed [#1685](https://github.com/dandi/dandi-cli/pull/1685) ([@jjnesbitt](https://github.com/jjnesbitt))
+- BF: check for upload to not have our .dandidownload suffixes [#1645](https://github.com/dandi/dandi-cli/pull/1645) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### Authors: 3
+
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Jacob Nesbitt ([@jjnesbitt](https://github.com/jjnesbitt))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.71.1 (Mon Aug 25 2025)
 
 #### 🐛 Bug Fix
