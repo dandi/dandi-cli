@@ -149,7 +149,7 @@ known_instances = {
     ),
     "ember-sandbox": DandiInstance(
         "ember-sandbox",
-        "https://dandi-sandbox.emberarchive.org",
+        "https://apl-setup--ember-dandi-archive.netlify.app/",
         "https://api-dandi-sandbox.emberarchive.org/api",
     ),
 }
