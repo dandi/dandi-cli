@@ -11,6 +11,7 @@ from pynwb import NWBHDF5IO
 import pytest
 import ruamel.yaml
 
+from .xfail import mark_xfail_windows_python313_posixsubprocess
 from ..cli.cmd_organize import organize
 from ..consts import dandiset_metadata_file
 from ..organize import (
@@ -114,6 +115,7 @@ if not on_windows:
     no_move_modes.append("symlink-relative")
 
 
+@mark_xfail_windows_python313_posixsubprocess
 @pytest.mark.integration
 @pytest.mark.parametrize("mode", no_move_modes)
 @pytest.mark.parametrize("jobs", (1, -1))
@@ -207,6 +209,7 @@ def test_organize_nwb_test_data(
         assert not any(op.islink(p) for p in produced_paths)
 
 
+@mark_xfail_windows_python313_posixsubprocess
 def test_ambiguous(
     simple2_nwb: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -319,6 +322,7 @@ def test_detect_link_type(
     assert detect_link_type(p, tmp_path) == result
 
 
+@mark_xfail_windows_python313_posixsubprocess
 @pytest.mark.parametrize("mode", [FileOperationMode.COPY, FileOperationMode.MOVE])
 @pytest.mark.parametrize("video_mode", list(CopyMode))
 def test_video_organize(
@@ -360,6 +364,7 @@ def test_video_organize(
     assert len(video_files_list) == len(video_files_organized)
 
 
+@mark_xfail_windows_python313_posixsubprocess
 @pytest.mark.parametrize("video_mode,rc", [(CopyMode.COPY, 0), (CopyMode.MOVE, 1)])
 def test_video_organize_common(
     video_mode: CopyMode, rc: int, nwbfiles_video_common: Path
@@ -406,6 +411,7 @@ def test_validate_organized_path(path: str, error_ids: list[str]) -> None:
     assert [e.id for e in errors] == error_ids
 
 
+@mark_xfail_windows_python313_posixsubprocess
 def test_organize_required_field(simple2_nwb: Path, tmp_path: Path) -> None:
     (tmp_path / dandiset_metadata_file).write_text("{}\n")
     r = CliRunner().invoke(

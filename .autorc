@@ -4,6 +4,7 @@
     "email": "dandibot@mit.edu",
     "noVersionPrefix": true,
     "plugins": [
+        "protected-branch",
         "git-tag",
         [
             "exec",
