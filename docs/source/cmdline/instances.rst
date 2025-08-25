@@ -33,7 +33,7 @@ Example output:
       gui: https://lincbrain.org
     ember-sandbox:
       api: https://api-dandi-sandbox.emberarchive.org/api
-      gui: https://dandi-sandbox.emberarchive.org
+      gui: https://apl-setup--ember-dandi-archive.netlify.app/
     ember:
       api: https://api-dandi.emberarchive.org/api
       gui: https://dandi.emberarchive.org
