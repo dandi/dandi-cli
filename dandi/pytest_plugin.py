@@ -20,6 +20,19 @@ def pytest_addoption(parser: Parser) -> None:
     )
 
 
+def pytest_configure(config):
+    markers = [
+        "integration",
+        "obolibrary",
+        "flaky",
+        "ai_generated",
+    ]
+    for marker in markers:
+        config.addinivalue_line(
+            "markers", marker
+        )
+
+
 def pytest_collection_modifyitems(items: list[Item], config: Config) -> None:
     # Based on <https://pythontesting.net/framework/pytest/pytest-run-tests
     # -using-particular-fixture/>

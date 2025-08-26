@@ -273,9 +273,9 @@ from .fixtures import DandiAPI, SampleDandiset
             ),
         ),
         (
-            "https://gui-staging.dandiarchive.org/#/dandiset/000018",
+            "https://sandbox.dandiarchive.org/#/dandiset/000018",
             DandisetURL(
-                instance=known_instances["dandi-staging"],
+                instance=known_instances["dandi-sandbox"],
                 dandiset_id="000018",
                 version_id=None,
             ),
@@ -284,7 +284,7 @@ from .fixtures import DandiAPI, SampleDandiset
             "https://deploy-preview-854--gui-dandiarchive-org.netlify.app"
             "/#/dandiset/000018",
             DandisetURL(
-                instance=known_instances["dandi-staging"],
+                instance=known_instances["dandi-sandbox"],
                 dandiset_id="000018",
                 version_id=None,
             ),

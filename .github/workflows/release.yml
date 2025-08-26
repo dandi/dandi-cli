@@ -13,7 +13,7 @@ jobs:
     if: "!contains(github.event.head_commit.message, 'ci skip') && !contains(github.event.head_commit.message, 'skip ci')"
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -33,12 +33,14 @@ jobs:
 
       - name: Create release
         run: |
+          echo "@${{ github.actor }} is creating a release triggered by ${{ github.event_name }}"
           if [ "${{ github.event_name }}" = workflow_dispatch ]
           then opts=
           else opts=--only-publish-with-release-label
           fi
           ~/auto shipit -vv $opts
         env:
+          PROTECTED_BRANCH_REVIEWER_TOKEN: ${{ secrets.GH_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
