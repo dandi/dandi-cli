@@ -855,7 +855,7 @@ neurodata_typemap: dict[str, Neurodatum] = {
     "PoseTraining": {
         "module": "motion",
         "neurodata_type": "PoseTraining",
-        "technique": None,  # this data often consists of human-labeled points on images
+        "technique": "pose estimation training technique",
         "approach": "behavioral approach",
     },
     "FiberPhotometryResponseSeries": {
