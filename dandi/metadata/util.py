@@ -823,7 +823,7 @@ neurodata_typemap: dict[str, Neurodatum] = {
         "approach": "electrophysiological approach",
     },
     "Spectrum": {
-        "module": "ndx-spectrum",
+        "module": "spectrum",
         "neurodata_type": "Spectrum",
         "technique": "fourier analysis technique",
         "approach": None,
@@ -837,11 +837,11 @@ neurodata_typemap: dict[str, Neurodatum] = {
     "OptogeneticSeries": {
         "module": "ogen",
         "neurodata_type": "OptogeneticSeries",
-        "technique": None,
+        "technique": "optogenetic stimulation technique",
         "approach": "optogenetic approach",
     },
     "PoseEstimationSeries": {
-        "module": "behavior",
+        "module": "motion",
         "neurodata_type": "PoseEstimationSeries",
         "technique": "pose estimation technique",
         "approach": "behavioral approach",
@@ -855,17 +855,12 @@ neurodata_typemap: dict[str, Neurodatum] = {
     "PoseTraining": {
         "module": "motion",
         "neurodata_type": "PoseTraining",
-        "technique": "pose estimation technique",
+        "technique": None,  # this data often consists of human-labeled points on images 
         "approach": "behavioral approach",
     },
     "FiberPhotometryResponseSeries": {
         "module": "fiberphotometry",
-        "neurodata_type": "FiberPhotometryResponseSeries",
-        "technique": "fiber photometry technique; optical technique",
-        "approach": "calcium imaging; cell population imaging",
-    },
-    "FiberPhotometryResponseSeries_old": {
-        "module": "fiberphotometry",
+        # this can come from both the old ndx-photometry and the new ndx-fiber-photometry
         "neurodata_type": "FiberPhotometryResponseSeries",
         "technique": "fiber photometry technique; optical technique",
         "approach": "calcium imaging; cell population imaging",
