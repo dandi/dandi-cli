@@ -823,7 +823,7 @@ def test_species_map():
             ["PoseTraining"],
             {
                 "approach": ["behavioral approach"],
-                "measurementTechnique": [],
+                "measurementTechnique": ["pose estimation training technique"],
                 "variableMeasured": ["PoseTraining"],
             },
         ),
