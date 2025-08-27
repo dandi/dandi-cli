@@ -865,7 +865,7 @@ neurodata_typemap: dict[str, Neurodatum] = {
         "approach": "calcium imaging; cell population imaging",
     },
     "FiberPhotometryResponseSeries_old": {
-        "module": "ndx-photometry",  # deprecated and replaced by ndx-fiber-photometry
+        "module": "fiberphotometry",
         "neurodata_type": "FiberPhotometryResponseSeries",
         "technique": "fiber photometry technique; optical technique",
         "approach": "calcium imaging; cell population imaging",
