@@ -847,7 +847,7 @@ neurodata_typemap: dict[str, Neurodatum] = {
         "approach": "behavioral approach",
     },
     "PoseEstimation": {
-        "module": "ndx-pose",
+        "module": "motion",
         "neurodata_type": "PoseEstimation",
         "technique": "pose estimation technique",
         "approach": "behavioral approach",
