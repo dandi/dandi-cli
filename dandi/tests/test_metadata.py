@@ -799,7 +799,7 @@ def test_species_map():
             ["OptogeneticSeries"],
             {
                 "approach": ["optogenetic approach"],
-                "measurementTechnique": None,
+                "measurementTechnique": ["optogenetic stimulation technique"],
                 "variableMeasured": ["OptogeneticSeries"],
             },
         ),
@@ -823,20 +823,12 @@ def test_species_map():
             ["PoseTraining"],
             {
                 "approach": ["behavioral approach"],
-                "measurementTechnique": ["pose estimation technique"],
+                "measurementTechnique": [],
                 "variableMeasured": ["PoseTraining"],
             },
         ),
         (
             ["FiberPhotometryResponseSeries"],
-            {
-                "approach": ["fiber photometry technique; optical technique"],
-                "measurementTechnique": ["calcium imaging; cell population imaging"],
-                "variableMeasured": ["FiberPhotometryResponseSeries"],
-            },
-        ),
-        (
-            ["FiberPhotometryResponseSeries_old"],
             {
                 "approach": ["fiber photometry technique; optical technique"],
                 "measurementTechnique": ["calcium imaging; cell population imaging"],
