@@ -830,8 +830,8 @@ def test_species_map():
         (
             ["FiberPhotometryResponseSeries"],
             {
-                "approach": ["fiber photometry technique; optical technique"],
-                "measurementTechnique": ["calcium imaging; cell population imaging"],
+                "approach": ["calcium imaging; cell population imaging"],
+                "measurementTechnique": ["fiber photometry technique; optical technique"],
                 "variableMeasured": ["FiberPhotometryResponseSeries"],
             },
         ),
