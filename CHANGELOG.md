@@ -1,3 +1,15 @@
+# 0.71.3 (Thu Aug 28 2025)
+
+#### 🧪 Tests
+
+- Run dandi-archive celery worker with `uv` [#1698](https://github.com/dandi/dandi-cli/pull/1698) ([@mvandenburgh](https://github.com/mvandenburgh))
+
+#### Authors: 1
+
+- Mike VanDenburgh ([@mvandenburgh](https://github.com/mvandenburgh))
+
+---
+
 # 0.71.2 (Mon Aug 25 2025)
 
 #### 🐛 Bug Fix
