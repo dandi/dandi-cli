@@ -200,49 +200,49 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
             filepath=tmp_path / "bids1" / "dataset_description.json",
             path="bids1/dataset_description.json",
             dandiset_path=tmp_path,
-            dataset_files=ANY,
+            dataset_files=ANY,  # type: ignore[arg-type]
         ),
         GenericBIDSAsset(
             filepath=tmp_path / "bids1" / "file.txt",
             path="bids1/file.txt",
             dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,
+            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
         ),
         ZarrBIDSAsset(
             filepath=tmp_path / "bids1" / "subdir" / "glarch.zarr",
             path="bids1/subdir/glarch.zarr",
             dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,
+            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
         ),
         NWBBIDSAsset(
             filepath=tmp_path / "bids1" / "subdir" / "quux.nwb",
             path="bids1/subdir/quux.nwb",
             dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,
+            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
         ),
         BIDSDatasetDescriptionAsset(
             filepath=tmp_path / "bids2" / "dataset_description.json",
             path="bids2/dataset_description.json",
             dandiset_path=tmp_path,
-            dataset_files=ANY,
+            dataset_files=ANY,  # type: ignore[arg-type]
         ),
         GenericBIDSAsset(
             filepath=tmp_path / "bids2" / "movie.mp4",
             path="bids2/movie.mp4",
             dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,
+            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
         ),
         GenericBIDSAsset(
             filepath=tmp_path / "bids2" / "subbids" / "data.json",
             path="bids2/subbids/data.json",
             dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,
+            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
         ),
         GenericBIDSAsset(
             filepath=tmp_path / "bids2" / "subbids" / "dataset_description.json",
             path="bids2/subbids/dataset_description.json",
             dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,
+            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
         ),
     ]
 
@@ -253,19 +253,19 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
             filepath=tmp_path / "bids1" / "file.txt",
             path="bids1/file.txt",
             dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,
+            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
         ),
         ZarrBIDSAsset(
             filepath=tmp_path / "bids1" / "subdir" / "glarch.zarr",
             path="bids1/subdir/glarch.zarr",
             dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,
+            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
         ),
         NWBBIDSAsset(
             filepath=tmp_path / "bids1" / "subdir" / "quux.nwb",
             path="bids1/subdir/quux.nwb",
             dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,
+            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
         ),
     ]
     for asset in bidsdd.dataset_files:
@@ -278,19 +278,19 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
             filepath=tmp_path / "bids2" / "movie.mp4",
             path="bids2/movie.mp4",
             dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,
+            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
         ),
         GenericBIDSAsset(
             filepath=tmp_path / "bids2" / "subbids" / "data.json",
             path="bids2/subbids/data.json",
             dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,
+            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
         ),
         GenericBIDSAsset(
             filepath=tmp_path / "bids2" / "subbids" / "dataset_description.json",
             path="bids2/subbids/dataset_description.json",
             dandiset_path=tmp_path,
-            bids_dataset_description_ref=ANY,
+            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
         ),
     ]
     for asset in bidsdd.dataset_files:
