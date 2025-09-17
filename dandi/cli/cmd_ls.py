@@ -3,7 +3,6 @@ import os
 import os.path as op
 
 import click
-from dandischema import models
 
 from .base import devel_option, lgr, map_to_click_exceptions
 from .formatter import JSONFormatter, JSONLinesFormatter, PYOUTFormatter, YAMLFormatter
@@ -91,6 +90,8 @@ def ls(
     jobs=6,
 ):
     """List .nwb files and dandisets metadata."""
+
+    from dandischema import models
 
     # TODO: more logical ordering in case of fields = None
     common_fields = ("path", "size")

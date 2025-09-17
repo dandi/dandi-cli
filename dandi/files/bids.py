@@ -5,9 +5,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
+from typing import TYPE_CHECKING
 import weakref
-
-from dandischema.models import BareAsset
 
 from dandi.bids_validator_deno import bids_validate
 
@@ -17,6 +16,9 @@ from ..consts import ZARR_MIME_TYPE
 from ..metadata.core import add_common_metadata, prepare_metadata
 from ..misctypes import Digest
 from ..validate_types import ValidationResult
+
+if TYPE_CHECKING:
+    from dandischema.models import BareAsset
 
 BIDS_ASSET_ERRORS = ("BIDS.NON_BIDS_PATH_PLACEHOLDER",)
 BIDS_DATASET_ERRORS = ("BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",)
@@ -84,6 +86,8 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
 
         This populates `self._asset_metadata`
         """
+        from dandischema.models import BareAsset
+
         with self._lock:
             if self._asset_metadata is None:
                 # Import here to avoid circular import
@@ -236,6 +240,8 @@ class NWBBIDSAsset(BIDSAsset, NWBAsset):
         digest: Digest | None = None,
         ignore_errors: bool = True,
     ) -> BareAsset:
+        from dandischema.models import BareAsset
+
         bids_metadata = BIDSAsset.get_metadata(self, digest, ignore_errors)
         nwb_metadata = NWBAsset.get_metadata(self, digest, ignore_errors)
         return BareAsset(
