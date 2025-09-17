@@ -1,3 +1,21 @@
+# 0.71.4 (Wed Sep 17 2025)
+
+#### 🐛 Bug Fix
+
+- Add a "common paper wasp" species [#1705](https://github.com/dandi/dandi-cli/pull/1705) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- [gh-actions](deps): Bump actions/github-script from 7 to 8 [#1702](https://github.com/dandi/dandi-cli/pull/1702) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- [gh-actions](deps): Bump actions/setup-python from 5 to 6 [#1703](https://github.com/dandi/dandi-cli/pull/1703) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### Authors: 2
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.71.3 (Thu Aug 28 2025)
 
 #### 🧪 Tests
