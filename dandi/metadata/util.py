@@ -400,6 +400,12 @@ species_map = [
         NCBITAXON_URI_TEMPLATE.format("10047"),
         "Meriones unguiculatus",
     ),
+    (
+        ["common paper wasp"],
+        None,
+        NCBITAXON_URI_TEMPLATE.format("30207"),
+        "Polistes fuscatus",
+    ),
 ]
 
 
