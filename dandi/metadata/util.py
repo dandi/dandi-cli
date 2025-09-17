@@ -823,7 +823,7 @@ neurodata_typemap: dict[str, Neurodatum] = {
         "approach": None,
     },
     "Units": {
-        "module": "misc",
+        "module": "sortedunits",
         "neurodata_type": "Units",
         "technique": "spike sorting technique",
         "approach": "electrophysiological approach",
