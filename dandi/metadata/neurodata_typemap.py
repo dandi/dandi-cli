@@ -107,7 +107,7 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
     "MoSeqExtractParameterGroup": {
         "module": "behavior",
         "neurodata_type": "MoSeqExtractParameterGroup",
-        "technique": None,
+        "technique": "motion analysis technique",
         "approach": "behavioral approach",
     },
     "Position": {
@@ -119,7 +119,7 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
     "PupilTracking": {
         "module": "behavior",
         "neurodata_type": "PupilTracking",
-        "technique": "behavioral technique",
+        "technique": "eye tracking technique",
         "approach": "behavioral approach",
     },
     "Skeleton": {
@@ -135,13 +135,13 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
         "approach": "behavioral approach",
     },
     "TtlTypesTable": {
-        "module": "behavior",
+        "module": "misc",
         "neurodata_type": "TtlTypesTable",
         "technique": None,
         "approach": "behavioral approach",
     },
     "TtlsTable": {
-        "module": "behavior",
+        "module": "misc",
         "neurodata_type": "TtlsTable",
         "technique": None,
         "approach": "behavioral approach",
@@ -225,7 +225,7 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
     "EcephysProbe": {
         "module": "ecephys",
         "neurodata_type": "EcephysProbe",
-        "technique": None,
+        "technique": "surgical technique",
         "approach": "electrophysiological approach",
     },
     "ElectricalSeries": {
@@ -255,7 +255,7 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
     "IblProbes": {
         "module": "ecephys",
         "neurodata_type": "IblProbes",
-        "technique": None,
+        "technique": "surgical technique",
         "approach": "electrophysiological approach",
     },
     "LFP": {
@@ -273,19 +273,19 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
     "Probe": {
         "module": "ecephys",
         "neurodata_type": "Probe",
-        "technique": None,
+        "technique": "surgical technique",
         "approach": "electrophysiological approach",
     },
     "Shank": {
         "module": "ecephys",
         "neurodata_type": "Shank",
-        "technique": None,
+        "technique": "surgical technique",
         "approach": "electrophysiological approach",
     },
     "ShanksElectrode": {
         "module": "ecephys",
         "neurodata_type": "ShanksElectrode",
-        "technique": None,
+        "technique": "surgical technique",
         "approach": "electrophysiological approach",
     },
     "SpikeEventSeries": {
@@ -329,7 +329,7 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
     "OpticalFiber": {
         "module": "fiberphotometry",
         "neurodata_type": "OpticalFiber",
-        "technique": None,
+        "technique": "surgical technique",
         "approach": "calcium imaging; cell population imaging",
     },
     "Photodetector": {
@@ -385,7 +385,7 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
     "IntracellularElectrode": {
         "module": "icephys",
         "neurodata_type": "IntracellularElectrode",
-        "technique": None,
+        "technique": "surgical technique",
         "approach": "electrophysiological approach",
     },
     "IntracellularElectrodesTable": {
@@ -519,10 +519,10 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
         "approach": None,
     },
     "EcephysEyeTrackingRigMetadata": {
-        "module": "misc",
+        "module": "device",
         "neurodata_type": "EcephysEyeTrackingRigMetadata",
-        "technique": None,
-        "approach": "electrophysiological approach",
+        "technique": "eye tracking technique",
+        "approach": "behavioral approach",
     },
     "ElementIdentifiers": {
         "module": "misc",
@@ -624,7 +624,7 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
         "module": "misc",
         "neurodata_type": "NDXICEphysFile",
         "technique": None,
-        "approach": "electrophysiological approach",
+        "approach": None,
     },
     "OphysMetadata": {
         "module": "misc",
