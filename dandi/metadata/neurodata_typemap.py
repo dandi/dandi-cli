@@ -1,5 +1,11 @@
 neurodata_typemap: dict[str, dict[str, str | None]] = {
     # base module
+    "ImageSeries": {
+        "module": "base",
+        "neurodata_type": "ImageSeries",
+        "technique": None,
+        "approach": None,
+    },
     "NWBFile": {
         "module": "base",
         "neurodata_type": "NWBFile",
@@ -134,18 +140,6 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
         "technique": "behavioral technique",
         "approach": "behavioral approach",
     },
-    "TtlTypesTable": {
-        "module": "misc",
-        "neurodata_type": "TtlTypesTable",
-        "technique": None,
-        "approach": "behavioral approach",
-    },
-    "TtlsTable": {
-        "module": "misc",
-        "neurodata_type": "TtlsTable",
-        "technique": None,
-        "approach": "behavioral approach",
-    },
 
     # device module
     "CameraDevice": {
@@ -165,6 +159,12 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
         "neurodata_type": "Device",
         "technique": None,
         "approach": None,
+    },
+    "EcephysEyeTrackingRigMetadata": {
+        "module": "device",
+        "neurodata_type": "EcephysEyeTrackingRigMetadata",
+        "technique": "eye tracking technique",
+        "approach": "behavioral approach",
     },
     "HeaderDevice": {
         "module": "device",
@@ -518,12 +518,6 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
         "technique": None,
         "approach": None,
     },
-    "EcephysEyeTrackingRigMetadata": {
-        "module": "device",
-        "neurodata_type": "EcephysEyeTrackingRigMetadata",
-        "technique": "eye tracking technique",
-        "approach": "behavioral approach",
-    },
     "ElementIdentifiers": {
         "module": "misc",
         "neurodata_type": "ElementIdentifiers",
@@ -546,6 +540,12 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
         "module": "misc",
         "neurodata_type": "IblSessionData",
         "technique": None,
+        "approach": None,
+    },
+    "ImageMaskSeries": {
+        "module": "misc",
+        "neurodata_type": "ImageMaskSeries",
+        "technique": "image segmentation technique",
         "approach": None,
     },
     "ImageReferences": {
@@ -623,6 +623,12 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
     "NDXICEphysFile": {
         "module": "misc",
         "neurodata_type": "NDXICEphysFile",
+        "technique": None,
+        "approach": None,
+    },
+    "NwbImageSeries": {
+        "module": "misc",
+        "neurodata_type": "NwbImageSeries",
         "technique": None,
         "approach": None,
     },
@@ -763,6 +769,18 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
         "neurodata_type": "TimestampVectorData",
         "technique": None,
         "approach": None,
+    },
+    "TtlTypesTable": {
+        "module": "misc",
+        "neurodata_type": "TtlTypesTable",
+        "technique": None,
+        "approach": "behavioral approach",
+    },
+    "TtlsTable": {
+        "module": "misc",
+        "neurodata_type": "TtlsTable",
+        "technique": None,
+        "approach": "behavioral approach",
     },
     "TurnerLabMetaData": {
         "module": "misc",
@@ -970,23 +988,11 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
         "technique": None,
         "approach": "microscopy approach",
     },
-    "ImageMaskSeries": {
-        "module": "misc",
-        "neurodata_type": "ImageMaskSeries",
-        "technique": "image segmentation technique",
-        "approach": None,
-    },
     "ImageSegmentation": {
         "module": "ophys",
         "neurodata_type": "ImageSegmentation",
         "technique": "image segmentation technique",
         "approach": "microscopy approach; cell population imaging",
-    },
-    "ImageSeries": {
-        "module": "core",
-        "neurodata_type": "ImageSeries",
-        "technique": None,
-        "approach": None,
     },
     "ImagingPlane": {
         "module": "ophys",
@@ -1065,12 +1071,6 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
         "neurodata_type": "MultiChannelVolumeSeries",
         "technique": "volumetric imaging technique",
         "approach": "microscopy approach",
-    },
-    "NwbImageSeries": {
-        "module": "misc",
-        "neurodata_type": "NwbImageSeries",
-        "technique": None,
-        "approach": None,
     },
     "OnePhotonSeries": {
         "module": "ophys",
