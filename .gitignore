@@ -12,7 +12,7 @@ build/
 dist/
 docs/**/generated/
 pip-wheel-metadata/
-sandbox/
+sandbox/dandi_metadata.json
 venv/
 venvs/
 .DS_Store
