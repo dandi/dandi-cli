@@ -971,10 +971,10 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
         "approach": "microscopy approach",
     },
     "ImageMaskSeries": {
-        "module": "ophys",
+        "module": "misc",
         "neurodata_type": "ImageMaskSeries",
         "technique": "image segmentation technique",
-        "approach": "microscopy approach",
+        "approach": None,
     },
     "ImageSegmentation": {
         "module": "ophys",
@@ -983,10 +983,10 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
         "approach": "microscopy approach; cell population imaging",
     },
     "ImageSeries": {
-        "module": "ophys",
+        "module": "core",
         "neurodata_type": "ImageSeries",
-        "technique": "optical imaging technique",
-        "approach": "microscopy approach",
+        "technique": None,
+        "approach": None,
     },
     "ImagingPlane": {
         "module": "ophys",
@@ -1067,10 +1067,10 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
         "approach": "microscopy approach",
     },
     "NwbImageSeries": {
-        "module": "ophys",
+        "module": "misc",
         "neurodata_type": "NwbImageSeries",
-        "technique": "optical imaging technique",
-        "approach": "microscopy approach",
+        "technique": None,
+        "approach": None,
     },
     "OnePhotonSeries": {
         "module": "ophys",
@@ -1087,7 +1087,7 @@ neurodata_typemap: dict[str, dict[str, str | None]] = {
     "OpticalChannel": {
         "module": "ophys",
         "neurodata_type": "OpticalChannel",
-        "technique": "surgical technique",
+        "technique": None,
         "approach": "microscopy approach; cell population imaging",
     },
     "OpticalChannelPlus": {
