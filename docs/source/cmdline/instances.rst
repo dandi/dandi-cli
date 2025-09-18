@@ -22,6 +22,9 @@ Example output:
     dandi-sandbox:
       api: https://api.sandbox.dandiarchive.org/api
       gui: https://sandbox.dandiarchive.org
+    dandi-staging:
+      api: https://api.sandbox.dandiarchive.org/api
+      gui: https://sandbox.dandiarchive.org
     linc-staging:
       api: https://staging-api.lincbrain.org/api
       gui: https://staging.lincbrain.org
@@ -30,7 +33,7 @@ Example output:
       gui: https://lincbrain.org
     ember-sandbox:
       api: https://api-dandi-sandbox.emberarchive.org/api
-      gui: https://dandi-sandbox.emberarchive.org
+      gui: https://apl-setup--ember-dandi-archive.netlify.app/
     ember:
       api: https://api-dandi.emberarchive.org/api
       gui: https://dandi.emberarchive.org

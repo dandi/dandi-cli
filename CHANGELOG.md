@@ -1,3 +1,70 @@
+# 0.71.4 (Wed Sep 17 2025)
+
+#### 🐛 Bug Fix
+
+- Add a "common paper wasp" species [#1705](https://github.com/dandi/dandi-cli/pull/1705) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- [gh-actions](deps): Bump actions/github-script from 7 to 8 [#1702](https://github.com/dandi/dandi-cli/pull/1702) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- [gh-actions](deps): Bump actions/setup-python from 5 to 6 [#1703](https://github.com/dandi/dandi-cli/pull/1703) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### Authors: 2
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.71.3 (Thu Aug 28 2025)
+
+#### 🧪 Tests
+
+- Run dandi-archive celery worker with `uv` [#1698](https://github.com/dandi/dandi-cli/pull/1698) ([@mvandenburgh](https://github.com/mvandenburgh))
+
+#### Authors: 1
+
+- Mike VanDenburgh ([@mvandenburgh](https://github.com/mvandenburgh))
+
+---
+
+# 0.71.2 (Mon Aug 25 2025)
+
+#### 🐛 Bug Fix
+
+- Add tagging to zarr upload if embargoed [#1685](https://github.com/dandi/dandi-cli/pull/1685) ([@jjnesbitt](https://github.com/jjnesbitt))
+- BF: check for upload to not have our .dandidownload suffixes [#1645](https://github.com/dandi/dandi-cli/pull/1645) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### Authors: 3
+
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Jacob Nesbitt ([@jjnesbitt](https://github.com/jjnesbitt))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.71.1 (Mon Aug 25 2025)
+
+#### 🐛 Bug Fix
+
+- Bring back dandi-staging to provide more graceful transition for 3rd party libraries [#1694](https://github.com/dandi/dandi-cli/pull/1694) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Fix EMBER-DANDI Sandbox url [#1693](https://github.com/dandi/dandi-cli/pull/1693) ([@NEStock](https://github.com/NEStock))
+- Add ndx-events and ndx-hed into our "extensions" extra [#1691](https://github.com/dandi/dandi-cli/pull/1691) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🧪 Tests
+
+- Register a Pytest plugin, instead of relying on a root "conftest.py" [#1687](https://github.com/dandi/dandi-cli/pull/1687) ([@brianhelba](https://github.com/brianhelba) [@yarikoptic](https://github.com/yarikoptic))
+- BF: announce two tests xfail on windows python 3.13 [#1690](https://github.com/dandi/dandi-cli/pull/1690) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 4
+
+- Brian Helba ([@brianhelba](https://github.com/brianhelba))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Nicole Stock Tregoning ([@NEStock](https://github.com/NEStock))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.71.0 (Fri Aug 22 2025)
 
 #### 🚀 Enhancement

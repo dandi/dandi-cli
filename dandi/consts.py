@@ -122,6 +122,13 @@ known_instances = {
         "https://dandiarchive.org",
         "https://api.dandiarchive.org/api",
     ),
+    # Deprecated. Remove early 2026.
+    # Should come before dandi-sandbox so _rev map does map to sandbox
+    "dandi-staging": DandiInstance(
+        "dandi-staging",
+        "https://sandbox.dandiarchive.org",
+        "https://api.sandbox.dandiarchive.org/api",
+    ),
     "dandi-sandbox": DandiInstance(
         "dandi-sandbox",
         "https://sandbox.dandiarchive.org",
@@ -149,7 +156,7 @@ known_instances = {
     ),
     "ember-sandbox": DandiInstance(
         "ember-sandbox",
-        "https://dandi-sandbox.emberarchive.org",
+        "https://apl-setup--ember-dandi-archive.netlify.app/",
         "https://api-dandi-sandbox.emberarchive.org/api",
     ),
 }
@@ -223,3 +230,6 @@ assert {v.get("type", "additional") for v in dandi_layout_fields.values()} == {
 REQUEST_RETRIES = 12
 
 DOWNLOAD_TIMEOUT = 30
+
+#: Suffix used for temporary download directories
+DOWNLOAD_SUFFIX = ".dandidownload"
