@@ -24,7 +24,7 @@ Options
 
     For ``skip``, if the local file exists, skip downloading that asset.
 
-    For ``overwrite``, if the local file exists, overwrite it.
+    For ``overwrite``, if the local file exists, overwrite that asset.
 
     For ``overwrite-different``, if the local file's hash is the same as on the
     server, the asset is skipped; otherwise, it is redownloaded.
