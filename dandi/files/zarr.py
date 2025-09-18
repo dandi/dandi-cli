@@ -732,10 +732,10 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             yield {"status": "initiating upload", "size": total_size}
             lgr.debug("%s: Beginning upload", asset_path)
             changed = False
-            with RESTFullAPIClient(
-                "http://nil.nil",
-                headers={"X-Amz-ACL": "bucket-owner-full-control"},
-            ) as storage, closing(to_upload.get_items()) as upload_items:
+            with (
+                RESTFullAPIClient("http://nil.nil") as storage,
+                closing(to_upload.get_items()) as upload_items,
+            ):
                 bytes_uploaded = 0
                 for i, items in enumerate(
                     chunked(upload_items, ZARR_UPLOAD_BATCH_SIZE), start=1
