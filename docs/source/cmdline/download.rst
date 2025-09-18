@@ -20,6 +20,15 @@ Options
 
     How to handle paths that already exist locally  [default: ``error``]
 
+    For ``error``, if the local file exists, display an error and skip downloading that asset.
+
+    For ``skip``, if the local file exists, skip downloading that asset.
+
+    For ``overwrite``, if the local file exists, overwrite it.
+
+    For ``overwrite-different``, if the local file's hash is the same as on the
+    server, the asset is skipped; otherwise, it is redownloaded.
+
     For ``refresh``, if the local file's size and mtime are the same as on the
     server, the asset is skipped; otherwise, it is redownloaded.
 
