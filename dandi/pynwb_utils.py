@@ -261,7 +261,7 @@ def _get_pynwb_metadata(path: str | Path | Readable) -> dict[str, Any]:
 
         # get external_file data:
         out["external_file_objects"] = _get_image_series(nwb)
-        
+
         # Calculate session duration for metadata
         session_duration = _get_session_duration(nwb)
         if session_duration is not None and out.get("session_start_time") is not None:
