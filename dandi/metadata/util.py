@@ -588,6 +588,7 @@ def extract_session(metadata: dict) -> list[models.Session] | None:
             name=session_id or "Acquisition session",
             description=metadata.get("session_description"),
             startDate=metadata.get("session_start_time"),
+            endDate=metadata.get("session_end_time"),
             used=probes,
         )
     ]
