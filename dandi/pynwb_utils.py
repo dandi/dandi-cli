@@ -275,15 +275,16 @@ def _get_pynwb_metadata(path: str | Path | Readable) -> dict[str, Any]:
 
 def _get_session_duration(nwb: pynwb.NWBFile) -> float | None:
     """Calculate the duration of a recording session from NWB file contents.
-    
-    This function finds the minimum and maximum timestamps across all TimeSeries and 
-    DynamicTable objects with time information, then returns the duration as max - min.
-    
+
+    This function finds the minimum and maximum timestamps across all TimeSeries
+    and DynamicTable objects with time information, then returns the duration as
+    max - min.
+
     Parameters
     ----------
     nwb: pynwb.NWBFile
         An open NWB file object
-        
+
     Returns
     -------
     float or None
@@ -292,7 +293,7 @@ def _get_session_duration(nwb: pynwb.NWBFile) -> float | None:
     """
     min_time = None
     max_time = None
-    
+
     # Iterate through all objects in the NWB file
     for obj in nwb.objects.values():
         try:
@@ -306,16 +307,22 @@ def _get_session_duration(nwb: pynwb.NWBFile) -> float | None:
                         min_time = start_val
                     if max_time is None or end_val > max_time:
                         max_time = end_val
-                elif obj.starting_time is not None and obj.rate is not None and obj.data is not None:
+                elif (
+                    obj.starting_time is not None
+                    and obj.rate is not None
+                    and obj.data is not None
+                ):
                     # Calculate start and end time
                     start_val = float(obj.starting_time)
                     num_samples = len(obj.data)
-                    end_val = float(obj.starting_time + (num_samples / obj.rate))
+                    end_val = float(
+                        obj.starting_time + (num_samples / obj.rate)
+                    )
                     if min_time is None or start_val < min_time:
                         min_time = start_val
                     if max_time is None or end_val > max_time:
                         max_time = end_val
-            
+
             # Handle DynamicTable objects with start_time and stop_time
             elif isinstance(obj, hdmf.common.DynamicTable):
                 if 'start_time' in obj.colnames:
@@ -330,12 +337,16 @@ def _get_session_duration(nwb: pynwb.NWBFile) -> float | None:
                         end_val = float(max(stop_times))
                         if max_time is None or end_val > max_time:
                             max_time = end_val
-                        
+
         except Exception as e:
             # Log but don't fail on individual object errors
-            lgr.debug("Error extracting time from object %s: %s", getattr(obj, 'name', 'unknown'), e)
+            lgr.debug(
+                "Error extracting time from object %s: %s",
+                getattr(obj, 'name', 'unknown'),
+                e,
+            )
             continue
-    
+
     # Return duration as max - min
     if min_time is not None and max_time is not None:
         return max_time - min_time
