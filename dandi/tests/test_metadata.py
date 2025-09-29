@@ -470,6 +470,76 @@ def test_time_extract_gest() -> None:
     )
 
 
+def test_session_duration_extraction(tmp_path: Path) -> None:
+    """Test that session duration is extracted and included in Session activity"""
+    from datetime import datetime
+    import numpy as np
+    from pynwb import NWBFile, TimeSeries, NWBHDF5IO
+    
+    # Create a test NWB file with TimeSeries data
+    nwb_path = tmp_path / "test_duration.nwb"
+    session_start = datetime(2020, 1, 1, 12, 0, 0, tzinfo=tzutc())
+    
+    nwbfile = NWBFile(
+        session_description='test session for duration',
+        identifier='test_duration_123',
+        session_start_time=session_start
+    )
+    
+    # Add a TimeSeries that spans 100 seconds (timestamps from 0 to 100)
+    data = np.random.rand(1000)
+    timestamps = np.linspace(0, 100, 1000)
+    ts1 = TimeSeries(
+        name='timeseries1',
+        data=data,
+        unit='volts',
+        timestamps=timestamps
+    )
+    nwbfile.add_acquisition(ts1)
+    
+    # Add another TimeSeries using starting_time and rate
+    # This one goes from 50s to 150s (100 samples at 1 Hz)
+    data2 = np.random.rand(100)
+    ts2 = TimeSeries(
+        name='timeseries2',
+        data=data2,
+        unit='volts',
+        starting_time=50.0,
+        rate=1.0
+    )
+    nwbfile.add_acquisition(ts2)
+    
+    # Write the file
+    with NWBHDF5IO(str(nwb_path), 'w') as io:
+        io.write(nwbfile)
+    
+    # Extract metadata
+    from ..metadata.nwb import get_metadata, nwb2asset
+    metadata = get_metadata(nwb_path)
+    
+    # Check that session_end_time was calculated
+    assert 'session_start_time' in metadata
+    assert 'session_end_time' in metadata
+    
+    # Calculate duration - should be 150 seconds (max) - 0 seconds (min)
+    duration = (metadata['session_end_time'] - metadata['session_start_time']).total_seconds()
+    assert abs(duration - 150.0) < 1.0  # Allow small floating point errors
+    
+    # Check that Session activity includes endDate
+    asset = nwb2asset(nwb_path, digest=DUMMY_DANDI_ETAG)
+    assert asset.wasGeneratedBy is not None
+    
+    # Find Session activities
+    sessions = [act for act in asset.wasGeneratedBy if act.schemaKey == 'Session']
+    assert len(sessions) > 0
+    
+    session = sessions[0]
+    assert session.startDate is not None
+    assert session.endDate is not None
+    assert session.startDate == metadata['session_start_time']
+    assert session.endDate == metadata['session_end_time']
+
+
 @mark_xfail_ontobee
 @mark.skipif_no_network
 @pytest.mark.obolibrary
