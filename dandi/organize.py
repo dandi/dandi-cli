@@ -15,6 +15,7 @@ from pathlib import Path, PurePosixPath
 import re
 import traceback
 import uuid
+from tqdm import tqdm
 
 import ruamel.yaml
 
@@ -1020,53 +1021,23 @@ def organize(
     )
     skip_same = []
     acted_upon = []
-    for e in metadata:
-        dandi_path = e["dandi_path"]
-        dandi_fullpath = op.join(dandiset_path, dandi_path)
-        dandi_abs_fullpath = (
-            op.abspath(dandi_fullpath)
-            if not op.isabs(dandi_fullpath)
-            else dandi_fullpath
+    if jobs == 1:
+        for e in metadata:
+            e, skipped, acted = _process_file(e, dandiset_path)
+            if skipped:
+                skip_same.append(e)
+            if acted:
+                acted_upon.append(e)
+    else:
+        print("SB DEV: writing in parallel mode, no progress bar...")
+        results = Parallel(n_jobs=jobs, verbose=10)(
+            delayed(_process_file)(e, dandiset_path, use_abs_paths, files_mode)
+            for e in metadata
         )
-        dandi_dirpath = op.dirname(dandi_fullpath)  # could be sub-... subdir
-
-        e_path = e["path"]
-        e_abs_path = e_path
-
-        if not op.isabs(e_path):
-            e_abs_path = op.abspath(e_path)
-            if use_abs_paths:
-                e_path = e_abs_path
-            elif (
-                files_mode is FileOperationMode.SYMLINK
-            ):  # path should be relative to the target
-                e_path = op.relpath(e_abs_path, dandi_dirpath)
-
-        if dandi_abs_fullpath == e_abs_path:
-            lgr.debug("Skipping %s since the same in source/destination", e_path)
-            skip_same.append(e)
-            continue
-        elif files_mode is FileOperationMode.SYMLINK and op.realpath(
-            dandi_abs_fullpath
-        ) == op.realpath(e_abs_path):
-            lgr.debug(
-                "Skipping %s since mode is symlink and both resolve to the same path",
-                e_path,
-            )
-            skip_same.append(e)
-            continue
-
-        if (
-            files_mode is FileOperationMode.DRY
-        ):  # TODO: this is actually a files_mode on top of modes!!!?
-            dry_print(f"{e_path} -> {dandi_path}")
-        else:
-            if not op.lexists(dandi_dirpath):
-                os.makedirs(dandi_dirpath)
-            if files_mode is FileOperationMode.SIMULATE:
-                os.symlink(e_path, dandi_fullpath)
-            else:
-                files_mode.as_copy_mode().copy(e_path, dandi_fullpath)
+        for e, skipped, acted in results:
+            if skipped:
+                skip_same.append(e)
+            if acted:
                 acted_upon.append(e)
 
     if acted_upon and in_place:
@@ -1107,6 +1078,50 @@ def organize(
         msg_(" %d invalid not considered.", skip_invalid),
         dandiset_path.rstrip("/"),
     )
+
+
+def _process_file(e, dandiset_path, use_abs_paths, files_mode):
+    # Returns e, skip_same, acted_upon
+    dandi_path = e["dandi_path"]
+    dandi_fullpath = op.join(dandiset_path, dandi_path)
+    dandi_abs_fullpath = (
+        op.abspath(dandi_fullpath) if not op.isabs(dandi_fullpath) else dandi_fullpath
+    )
+    dandi_dirpath = op.dirname(dandi_fullpath)  # could be sub-... subdir
+    e_path = e["path"]
+    e_abs_path = e_path
+    if not op.isabs(e_path):
+        e_abs_path = op.abspath(e_path)
+        if use_abs_paths:
+            e_path = e_abs_path
+        elif (
+            files_mode is FileOperationMode.SYMLINK
+        ):  # path should be relative to the target
+            e_path = op.relpath(e_abs_path, dandi_dirpath)
+    if dandi_abs_fullpath == e_abs_path:
+        lgr.debug("Skipping %s since the same in source/destination", e_path)
+        return e, True, False
+    elif files_mode is FileOperationMode.SYMLINK and op.realpath(
+        dandi_abs_fullpath
+    ) == op.realpath(e_abs_path):
+        lgr.debug(
+            "Skipping %s since mode is symlink and both resolve to the same path",
+            e_path,
+        )
+        return e, True, False
+    if (
+        files_mode is FileOperationMode.DRY
+    ):  # TODO: this is actually a files_mode on top of modes!!!?
+        pass  # dry_print(f"{e_path} -> {dandi_path}")
+    else:
+        if not op.lexists(dandi_dirpath):
+            os.makedirs(dandi_dirpath, exist_ok=True)
+        if files_mode is FileOperationMode.SIMULATE:
+            os.symlink(e_path, dandi_fullpath)
+        else:
+            files_mode.as_copy_mode().copy(e_path, dandi_fullpath)
+            return e, False, True
+    return e, False, False
 
 
 LABELREGEX = r"[^_*\\/<>:|\"'?%@;.]+"
