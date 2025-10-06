@@ -318,12 +318,10 @@ def _get_session_duration(nwb: pynwb.NWBFile) -> float | None:
             # Handle DynamicTable objects with start_time and stop_time
             elif isinstance(obj, hdmf.common.DynamicTable):
                 if "start_time" in obj.colnames:
-                    start_data = obj["start_time"].data[:]
-                    if len(start_data) > 0:
+                    if len(start_data := obj["start_time"].data):
                         start_times.append(float(min(start_data)))
                 if "stop_time" in obj.colnames:
-                    stop_data = obj["stop_time"].data[:]
-                    if len(stop_data) > 0:
+                    if len(stop_data := obj["stop_time"].data):
                         end_times.append(float(max(stop_data)))
 
         except Exception as e:
