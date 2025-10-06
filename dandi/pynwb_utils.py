@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Callable
+from datetime import timedelta
 import inspect
 import os
 import os.path as op
@@ -266,7 +267,6 @@ def _get_pynwb_metadata(path: str | Path | Readable) -> dict[str, Any]:
         session_duration = _get_session_duration(nwb)
         if session_duration is not None and out.get("session_start_time") is not None:
             # Convert to absolute datetime by adding duration to session_start_time
-            from datetime import timedelta
             start_time = out["session_start_time"]
             out["session_end_time"] = start_time + timedelta(seconds=session_duration)
 
@@ -291,8 +291,8 @@ def _get_session_duration(nwb: pynwb.NWBFile) -> float | None:
         The session duration in seconds (max_time - min_time),
         or None if no time information could be extracted
     """
-    min_time = None
-    max_time = None
+    start_times: list[float] = []
+    end_times: list[float] = []
 
     # Iterate through all objects in the NWB file
     for obj in nwb.objects.values():
@@ -301,55 +301,43 @@ def _get_session_duration(nwb: pynwb.NWBFile) -> float | None:
             if isinstance(obj, pynwb.base.TimeSeries):
                 if obj.timestamps is not None and len(obj.timestamps) > 0:
                     # Use first and last timestamps
-                    start_val = float(obj.timestamps[0])
-                    end_val = float(obj.timestamps[-1])
-                    if min_time is None or start_val < min_time:
-                        min_time = start_val
-                    if max_time is None or end_val > max_time:
-                        max_time = end_val
+                    start_times.append(float(obj.timestamps[0]))
+                    end_times.append(float(obj.timestamps[-1]))
                 elif (
                     obj.starting_time is not None
                     and obj.rate is not None
                     and obj.data is not None
                 ):
                     # Calculate start and end time
-                    start_val = float(obj.starting_time)
+                    start_times.append(float(obj.starting_time))
                     num_samples = len(obj.data)
-                    end_val = float(
-                        obj.starting_time + (num_samples / obj.rate)
+                    end_times.append(
+                        float(obj.starting_time + (num_samples / obj.rate))
                     )
-                    if min_time is None or start_val < min_time:
-                        min_time = start_val
-                    if max_time is None or end_val > max_time:
-                        max_time = end_val
 
             # Handle DynamicTable objects with start_time and stop_time
             elif isinstance(obj, hdmf.common.DynamicTable):
-                if 'start_time' in obj.colnames:
-                    start_times = obj['start_time'].data[:]
-                    if len(start_times) > 0:
-                        start_val = float(min(start_times))
-                        if min_time is None or start_val < min_time:
-                            min_time = start_val
-                if 'stop_time' in obj.colnames:
-                    stop_times = obj['stop_time'].data[:]
-                    if len(stop_times) > 0:
-                        end_val = float(max(stop_times))
-                        if max_time is None or end_val > max_time:
-                            max_time = end_val
+                if "start_time" in obj.colnames:
+                    start_data = obj["start_time"].data[:]
+                    if len(start_data) > 0:
+                        start_times.append(float(min(start_data)))
+                if "stop_time" in obj.colnames:
+                    stop_data = obj["stop_time"].data[:]
+                    if len(stop_data) > 0:
+                        end_times.append(float(max(stop_data)))
 
         except Exception as e:
             # Log but don't fail on individual object errors
             lgr.debug(
                 "Error extracting time from object %s: %s",
-                getattr(obj, 'name', 'unknown'),
+                getattr(obj, "name", "unknown"),
                 e,
             )
             continue
 
     # Return duration as max - min
-    if min_time is not None and max_time is not None:
-        return max_time - min_time
+    if start_times and end_times:
+        return max(end_times) - min(start_times)
     return None
 
 
