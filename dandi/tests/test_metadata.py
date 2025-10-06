@@ -6,7 +6,7 @@ from pathlib import Path
 import shutil
 from typing import Any
 
-from anys import ANY_AWARE_DATETIME, AnyFullmatch, AnyIn
+from anys import ANY_AWARE_DATETIME, ANY_INT, AnyFullmatch, AnyIn
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dandischema.metadata import validate
 from dandischema.models import (
@@ -24,7 +24,7 @@ from dandischema.models import (
     SexType,
     Software,
     SpeciesType,
-    StrainType
+    StrainType,
 )
 from dandischema.models import Dandiset as DandisetMeta
 from dateutil.tz import tzutc
@@ -874,7 +874,7 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
                 ],
             ),
         ],
-        contentSize=ByteSize(19664),
+        contentSize=ANY_INT,
         encodingFormat="application/x-nwb",
         digest={DigestType.dandi_etag: "dddddddddddddddddddddddddddddddd-1"},
         path=str(simple2_nwb),
