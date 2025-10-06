@@ -898,6 +898,7 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
                     identifier="http://purl.obolibrary.org/obo/NCBITaxon_10090",
                     name="Mus musculus - House mouse",
                 ),
+                strain=StrainType(schemaKey="StrainType", name="C57BL/6J"),
             ),
         ],
         variableMeasured=[],

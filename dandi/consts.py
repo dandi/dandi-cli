@@ -27,6 +27,7 @@ metadata_nwb_subject_fields = (
     "genotype",
     "sex",
     "species",
+    "strain",
     "subject_id",
 )
 
