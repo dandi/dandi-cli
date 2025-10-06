@@ -9,9 +9,9 @@ import os.path
 import sys
 from types import SimpleNamespace
 
-import click
 from click_didyoumean import DYMGroup
 import platformdirs
+import rich_click as click
 
 from .base import lgr, map_to_click_exceptions
 from .. import __version__, set_logger_level

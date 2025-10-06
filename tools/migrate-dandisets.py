@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-import click
 import requests
+import rich_click as click
 
 from dandi.dandiapi import DandiAPIClient
 from dandi.dandiset import APIDandiset
