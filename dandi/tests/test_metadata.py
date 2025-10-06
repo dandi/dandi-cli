@@ -24,6 +24,7 @@ from dandischema.models import (
     SexType,
     Software,
     SpeciesType,
+    StrainType
 )
 from dandischema.models import Dandiset as DandisetMeta
 from dateutil.tz import tzutc
