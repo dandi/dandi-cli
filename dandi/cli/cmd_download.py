@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 import os
 
-import click
+import rich_click as click
 
 from .base import ChoiceList, IntColonInt, instance_option, map_to_click_exceptions
 from ..dandiarchive import _dandi_url_parser, parse_dandi_url

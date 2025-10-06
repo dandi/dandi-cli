@@ -1,7 +1,7 @@
 from dataclasses import asdict
 import sys
 
-import click
+import rich_click as click
 import ruamel.yaml
 
 from .base import map_to_click_exceptions

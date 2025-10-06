@@ -5,12 +5,12 @@ import os.path as op
 from pathlib import Path
 from typing import TypeVar
 
-import click
 from keyring.backend import KeyringBackend, get_all_keyring
 from keyring.core import get_keyring, load_config, load_env
 from keyring.errors import KeyringError
 from keyring.util.platform_ import config_root
 from keyrings.alt.file import EncryptedKeyring
+import rich_click as click
 
 from . import get_logger
 

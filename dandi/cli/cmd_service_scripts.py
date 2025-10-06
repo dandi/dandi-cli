@@ -12,11 +12,11 @@ from typing import Any, TypeVar
 import urllib.parse
 from uuid import uuid4
 
-import click
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from packaging.version import Version
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import HTTPError
+import rich_click as click
 
 from .base import ChoiceList, instance_option, map_to_click_exceptions
 from .. import __version__, lgr

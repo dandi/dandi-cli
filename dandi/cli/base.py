@@ -1,7 +1,7 @@
 from functools import wraps
 import os
 
-import click
+import rich_click as click
 
 from .. import get_logger
 

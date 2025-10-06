@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import click
+import rich_click as click
 
 from .base import dandiset_path_option, devel_debug_option, map_to_click_exceptions
 from ..consts import dandi_layout_fields
