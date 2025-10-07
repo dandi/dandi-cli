@@ -110,6 +110,7 @@ def simple2_nwb(
             date_of_birth=datetime(2016, 12, 1, tzinfo=tzutc()),
             sex="U",
             species="Mus musculus",
+            strain="C57BL/6J",
         ),
         **simple1_nwb_metadata,
     )

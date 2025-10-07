@@ -10,7 +10,7 @@ is via virtualenv:
         && cd dandi-cli \
         &&  virtualenv --system-site-packages --python=python3 venvs/dev3 \
         && source venvs/dev3/bin/activate \
-        && pip install -e .[test]
+        && pip install -e ".[test]"
 
 ### Install and activate precommit
 

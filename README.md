@@ -44,8 +44,8 @@ to help you prepare and upload your data to, or obtain data from, a DANDI instan
 $> dandi
 Usage: dandi [OPTIONS] COMMAND [ARGS]...
 
-  A client to support interactions with a DANDI instance, such as the DANDI Archive
-  (http://dandiarchive.org).
+  A client to support interactions with DANDI instances, such as the DANDI
+  Archive (http://dandiarchive.org).
 
   To see help for a specific command, run
 
@@ -64,14 +64,16 @@ Options:
 Commands:
   delete            Delete dandisets and assets from the server.
   digest            Calculate file digests
-  download          Download a file or entire folder from DANDI.
-  instances         List known DANDI instances that the CLI can interact
+  download          Download files or entire folders from DANDI.
+  instances         List known DANDI instances that the CLI can interact...
   ls                List .nwb files and dandisets metadata.
   move              Move or rename assets in a local Dandiset and/or on...
   organize          (Re)organize NWB files according to their metadata.
+  service-scripts   Various utility operations
   shell-completion  Emit shell script for enabling command completion.
   upload            Upload Dandiset files to DANDI Archive.
   validate          Validate files for data standards compliance.
+  validate-bids     Validate BIDS paths.
 ```
 Run `dandi --help` or `dandi <subcommand> --help` (e.g. `dandi upload --help`) to see manual pages.
 

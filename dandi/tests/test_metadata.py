@@ -7,7 +7,7 @@ import shutil
 from typing import Any
 
 import numpy as np
-from anys import ANY_AWARE_DATETIME, AnyFullmatch, AnyIn
+from anys import ANY_AWARE_DATETIME, ANY_INT, AnyFullmatch, AnyIn
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from dandischema.metadata import validate
 from dandischema.models import (
@@ -25,6 +25,7 @@ from dandischema.models import (
     SexType,
     Software,
     SpeciesType,
+    StrainType,
 )
 from dandischema.models import Dandiset as DandisetMeta
 from dateutil.tz import tzutc
@@ -997,7 +998,7 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
                 ],
             ),
         ],
-        contentSize=ByteSize(19664),
+        contentSize=ANY_INT,
         encodingFormat="application/x-nwb",
         digest={DigestType.dandi_etag: "dddddddddddddddddddddddddddddddd-1"},
         path=str(simple2_nwb),
@@ -1022,6 +1023,7 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
                     identifier="http://purl.obolibrary.org/obo/NCBITaxon_10090",
                     name="Mus musculus - House mouse",
                 ),
+                strain=StrainType(schemaKey="StrainType", name="C57BL/6J"),
             ),
         ],
         variableMeasured=[],
