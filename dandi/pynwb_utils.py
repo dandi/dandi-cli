@@ -15,6 +15,7 @@ import dandischema
 from fscacher import PersistentCache
 import h5py
 import hdmf
+import numpy as np
 from packaging.version import Version
 import pynwb
 from pynwb import NWBHDF5IO
@@ -296,48 +297,72 @@ def _get_session_duration(nwb: pynwb.NWBFile) -> float | None:
 
     # Iterate through all objects in the NWB file
     for obj in nwb.objects.values():
-        try:
-            # Handle TimeSeries objects
-            if isinstance(obj, pynwb.base.TimeSeries):
-                if obj.timestamps is not None and len(obj.timestamps) > 0:
-                    # Use first and last timestamps
-                    start_times.append(float(obj.timestamps[0]))
-                    end_times.append(float(obj.timestamps[-1]))
-                elif (
-                    obj.starting_time is not None
-                    and obj.rate is not None
-                    and obj.data is not None
-                ):
-                    # Calculate start and end time
-                    start_times.append(float(obj.starting_time))
-                    num_samples = len(obj.data)
-                    end_times.append(
-                        float(obj.starting_time + (num_samples / obj.rate))
-                    )
+        # Handle TimeSeries objects
+        if isinstance(obj, pynwb.base.TimeSeries):
+            if obj.timestamps is not None and len(obj.timestamps) > 0:
+                # Use first and last timestamps
+                start_times.append(float(obj.timestamps[0]))
+                end_times.append(float(obj.timestamps[-1]))
+            elif (
+                obj.starting_time is not None
+                and obj.rate is not None
+                and obj.data is not None
+            ):
+                # Calculate start and end time
+                start_times.append(float(obj.starting_time))
+                num_samples = len(obj.data)
+                if obj.rate == 0:
+                    continue
+                end_times.append(float(obj.starting_time + (num_samples / obj.rate)))
 
-            # Handle DynamicTable objects with start_time and stop_time
-            elif isinstance(obj, hdmf.common.DynamicTable):
-                if "start_time" in obj.colnames:
-                    start_data = obj["start_time"].data[:]
-                    if len(start_data) > 0:
-                        start_times.append(float(min(start_data)))
-                if "stop_time" in obj.colnames:
-                    stop_data = obj["stop_time"].data[:]
-                    if len(stop_data) > 0:
-                        end_times.append(float(max(stop_data)))
+        # Handle DynamicTable objects with time columns
+        elif isinstance(obj, hdmf.common.DynamicTable):
+            # Handle start_time and stop_time columns (e.g., trials)
+            if "start_time" in obj.colnames:
+                start_times.append(float(obj["start_time"][0]))
+            if "stop_time" in obj.colnames:
+                end_times.append(float(obj["stop_time"][-1]))
 
-        except Exception as e:
-            # Log but don't fail on individual object errors
-            lgr.debug(
-                "Error extracting time from object %s: %s",
-                getattr(obj, "name", "unknown"),
-                e,
-            )
-            continue
+            # Handle spike_times column (e.g., Units table)
+            # Assume spike times are ordered within each unit
+            # Read only the first and last spike time from each unit
+            if "spike_times" in obj.colnames and len(obj["spike_times"]):
+                idxs = obj["spike_times"].data[:]
+
+                # handle bug if the first unit has no spikes
+                if idxs[0] == 0:
+                    idxs = idxs[1:]
+
+                st_data = obj["spike_times"].target
+
+                if len(idxs) > 1:
+                    start = float(np.min(np.r_[st_data[0], st_data[idxs[:-1]]]))
+                else:
+                    start = float(st_data[0])
+
+                end = float(np.max(st_data[idxs - 1]))
+                start_times.append(float(start))
+                end_times.append(float(end))
+
+            # Handle timestamp column (e.g., EventsTable)
+            if "timestamp" in obj.colnames and len(obj["timestamp"]):
+                timestamp_data = obj["timestamp"]
+                start_times.append(float(timestamp_data[0]))
+                # Check if duration column exists to calculate end times
+                if "duration" in obj.colnames:
+                    duration_data = obj["duration"]
+                    end_times.append(float(timestamp_data[-1] + duration_data[-1]))
+                else:
+                    # No duration, use max timestamp as end
+                    end_times.append(float(timestamp_data[-1]))
 
     # Return duration as max - min
     if start_times and end_times:
-        return max(end_times) - min(start_times)
+        duration = max(end_times) - min(start_times)
+        if (
+            duration < 3600 * 24 * 365 * 5
+        ):  # if duration is over 5 years, something went wrong
+            return duration
     return None
 
 
