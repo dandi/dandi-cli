@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dandischema.models import DandiBaseModel
 from pytest import Config, Item, Parser
 
 from .tests.fixtures import *  # noqa: F401, F403  # lgtm [py/polluting-import]
@@ -28,9 +29,7 @@ def pytest_configure(config):
         "ai_generated",
     ]
     for marker in markers:
-        config.addinivalue_line(
-            "markers", marker
-        )
+        config.addinivalue_line("markers", marker)
 
 
 def pytest_collection_modifyitems(items: list[Item], config: Config) -> None:
@@ -46,3 +45,24 @@ def pytest_collection_modifyitems(items: list[Item], config: Config) -> None:
                 deselected_items.append(item)
         config.hook.pytest_deselected(items=deselected_items)
         items[:] = selected_items
+
+
+def pytest_assertrepr_compare(op, left, right):
+    """Custom comparison representation for your classes."""
+    if (
+        isinstance(left, DandiBaseModel)
+        and isinstance(right, DandiBaseModel)
+        and op == "=="
+    ):
+        ldict, rdict = dict(left), dict(right)
+        if ldict == rdict:
+            return [
+                "dict representations of models are equal, but values aren't!",
+                f"Left: {left!r}",
+                f"Right: {right!r}",
+            ]
+        else:
+            # Rely on pytest just "recursing" into interpreting the dict fails
+            # TODO: could be further improved by account for ANY values etc
+            assert ldict == rdict  # for easier comprehension of diffs
+    return None
