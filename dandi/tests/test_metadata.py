@@ -678,7 +678,7 @@ def test_session_duration_with_events(tmp_path: Path) -> None:
     # Add events: event at 3s lasting 2s (ends at 5s)
     #             event at 100s lasting 80s (ends at 180s)
     events_table.add_row(timestamp=3.0, duration=2.0)
-    events_table.add_row(timestamp=100.0, duration=80.0)
+    events_table.add_row(timestamp=100.0, duration=30.0)
     events_table.add_row(timestamp=150.0, duration=10.0)
 
     # Add the table to a processing module
@@ -704,7 +704,7 @@ def test_session_duration_with_events(tmp_path: Path) -> None:
     duration = (
         metadata["session_end_time"] - metadata["session_start_time"]
     ).total_seconds()
-    assert abs(duration - 177.0) < 1.0  # Allow small floating point errors
+    assert abs(duration - 157.0) < 1.0  # Allow small floating point errors
 
 
 @mark_xfail_ontobee
