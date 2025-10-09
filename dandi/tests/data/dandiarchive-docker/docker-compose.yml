@@ -36,6 +36,8 @@ services:
       DJANGO_DANDI_WEB_APP_URL: http://localhost:8085
       DJANGO_DANDI_API_URL: http://localhost:8000
       DJANGO_DANDI_JUPYTERHUB_URL: https://hub.dandiarchive.org
+      DJANGO_DANDI_INSTANCE_NAME: DANDI
+      DJANGO_DANDI_INSTANCE_IDENTIFIER: RRID:SCR_017571
     ports:
       - "127.0.0.1:8000:8000"
 
