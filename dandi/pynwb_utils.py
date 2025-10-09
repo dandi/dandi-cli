@@ -318,9 +318,9 @@ def _get_session_duration(nwb: pynwb.NWBFile) -> float | None:
         # Handle DynamicTable objects with time columns
         elif isinstance(obj, hdmf.common.DynamicTable):
             # Handle start_time and stop_time columns (e.g., trials)
-            if "start_time" in obj.colnames:
+            if "start_time" in obj.colnames and len(obj["start_time"]):
                 start_times.append(float(obj["start_time"][0]))
-            if "stop_time" in obj.colnames:
+            if "stop_time" in obj.colnames and len(obj["stop_time"]):
                 end_times.append(float(obj["stop_time"][-1]))
 
             # Handle spike_times column (e.g., Units table)
