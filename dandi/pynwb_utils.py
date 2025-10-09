@@ -363,6 +363,13 @@ def _get_session_duration(nwb: pynwb.NWBFile) -> float | None:
             duration < 3600 * 24 * 365 * 5
         ):  # if duration is over 5 years, something went wrong
             return duration
+        else:
+            lgr.warning(
+                "Session duration of %.2f seconds (%.2f years) exceeds 5-year limit; "
+                "returning None as this likely indicates an error in timestamps",
+                duration,
+                duration / (3600 * 24 * 365),
+            )
     return None
 
 
