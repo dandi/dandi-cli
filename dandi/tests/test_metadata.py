@@ -28,7 +28,10 @@ from dandischema.models import (
 )
 from dandischema.models import Dandiset as DandisetMeta
 from dateutil.tz import tzutc
+from hdmf.common import DynamicTable
+import numpy as np
 from pydantic import ByteSize
+from pynwb import NWBHDF5IO, NWBFile, TimeSeries
 import pytest
 import requests
 from semantic_version import Version
@@ -469,6 +472,239 @@ def test_time_extract_gest() -> None:
     assert age_birth.valueReference == PropertyValue(
         value=AgeReferenceType("dandi:GestationalReference")
     )
+
+
+@pytest.mark.ai_generated
+def test_session_duration_extraction(tmp_path: Path) -> None:
+    """Test that session duration is extracted and included in Session activity"""
+    # Create a test NWB file with TimeSeries data
+    nwb_path = tmp_path / "test_duration.nwb"
+    session_start = datetime(2020, 1, 1, 12, 0, 0, tzinfo=tzutc())
+
+    nwbfile = NWBFile(
+        session_description="test session for duration",
+        identifier="test_duration_123",
+        session_start_time=session_start,
+    )
+
+    # Add a TimeSeries that spans 100 seconds (timestamps from 0 to 100)
+    data = np.random.rand(1000)
+    timestamps = np.linspace(0, 100, 1000)
+    ts1 = TimeSeries(name="timeseries1", data=data, unit="volts", timestamps=timestamps)
+    nwbfile.add_acquisition(ts1)
+
+    # Add another TimeSeries using starting_time and rate
+    # This one goes from 50s to 150s (100 samples at 1 Hz)
+    data2 = np.random.rand(100)
+    ts2 = TimeSeries(
+        name="timeseries2", data=data2, unit="volts", starting_time=50.0, rate=1.0
+    )
+    nwbfile.add_acquisition(ts2)
+
+    # Write the file
+    with NWBHDF5IO(str(nwb_path), "w") as io:
+        io.write(nwbfile)
+
+    # Extract metadata
+    from ..metadata.nwb import get_metadata, nwb2asset
+
+    metadata = get_metadata(nwb_path)
+
+    # Check that session_end_time was calculated
+    assert "session_start_time" in metadata
+    assert "session_end_time" in metadata
+
+    # Calculate duration - should be 150 seconds (max) - 0 seconds (min)
+    duration = (
+        metadata["session_end_time"] - metadata["session_start_time"]
+    ).total_seconds()
+    assert abs(duration - 150.0) < 1.0  # Allow small floating point errors
+
+    # Check that Session activity includes endDate
+    asset = nwb2asset(nwb_path, digest=DUMMY_DANDI_ETAG)
+    assert asset.wasGeneratedBy is not None
+
+    # Find Session activities
+    sessions = [act for act in asset.wasGeneratedBy if act.schemaKey == "Session"]
+    assert len(sessions) > 0
+
+    session = sessions[0]
+    assert session.startDate is not None
+    assert session.endDate is not None
+    assert session.startDate == metadata["session_start_time"]
+    assert session.endDate == metadata["session_end_time"]
+
+
+@pytest.mark.ai_generated
+def test_session_duration_with_trials(tmp_path: Path) -> None:
+    """Test that session duration includes trials table timestamps"""
+    # Create a test NWB file with trials
+    nwb_path = tmp_path / "test_duration_trials.nwb"
+    session_start = datetime(2020, 1, 1, 12, 0, 0, tzinfo=tzutc())
+
+    nwbfile = NWBFile(
+        session_description="test session with trials",
+        identifier="test_trials_123",
+        session_start_time=session_start,
+    )
+
+    # Add a TimeSeries that spans from 10 to 50 seconds
+    data = np.random.rand(400)
+    timestamps = np.linspace(10, 50, 400)
+    ts = TimeSeries(name="timeseries1", data=data, unit="volts", timestamps=timestamps)
+    nwbfile.add_acquisition(ts)
+
+    # Add trials that extend the session to 200 seconds
+    nwbfile.add_trial_column(
+        name="correct", description="whether the trial was correct"
+    )
+    nwbfile.add_trial(start_time=5.0, stop_time=15.0, correct=True)
+    nwbfile.add_trial(start_time=20.0, stop_time=30.0, correct=False)
+    nwbfile.add_trial(start_time=100.0, stop_time=200.0, correct=True)
+
+    # Write the file
+    with NWBHDF5IO(str(nwb_path), "w") as io:
+        io.write(nwbfile)
+
+    # Extract metadata
+    from ..metadata.nwb import get_metadata, nwb2asset
+
+    metadata = get_metadata(nwb_path)
+
+    # Check that session_end_time was calculated
+    assert "session_start_time" in metadata
+    assert "session_end_time" in metadata
+
+    # Calculate duration - should be 200 (max from trials) - 5 (min from trials) = 195 seconds
+    duration = (
+        metadata["session_end_time"] - metadata["session_start_time"]
+    ).total_seconds()
+    assert abs(duration - 195.0) < 1.0  # Allow small floating point errors
+
+    # Check that Session activity includes endDate
+    asset = nwb2asset(nwb_path, digest=DUMMY_DANDI_ETAG)
+    assert asset.wasGeneratedBy is not None
+
+    # Find Session activities
+    sessions = [act for act in asset.wasGeneratedBy if act.schemaKey == "Session"]
+    assert len(sessions) > 0
+
+    session = sessions[0]
+    assert session.startDate is not None
+    assert session.endDate is not None
+    assert session.startDate == metadata["session_start_time"]
+    assert session.endDate == metadata["session_end_time"]
+
+
+@pytest.mark.ai_generated
+def test_session_duration_with_units(tmp_path: Path) -> None:
+    """Test that session duration includes spike_times from Units table"""
+    # Create a test NWB file with Units table
+    nwb_path = tmp_path / "test_duration_units.nwb"
+    session_start = datetime(2020, 1, 1, 12, 0, 0, tzinfo=tzutc())
+
+    nwbfile = NWBFile(
+        session_description="test session with units",
+        identifier="test_units_123",
+        session_start_time=session_start,
+    )
+
+    # Add a simple TimeSeries that spans from 10 to 30 seconds
+    data = np.random.rand(200)
+    timestamps = np.linspace(10, 30, 200)
+    ts = TimeSeries(name="timeseries1", data=data, unit="volts", timestamps=timestamps)
+    nwbfile.add_acquisition(ts)
+
+    # Add Units with spike_times that extend session to 250 seconds
+    # Unit 1: spikes from 5s to 100s
+    # Unit 2: spikes from 50s to 250s
+    nwbfile.add_unit(spike_times=np.array([5.0, 10.0, 20.0, 50.0, 100.0]))
+    nwbfile.add_unit(spike_times=np.array([50.0, 100.0, 150.0, 200.0, 250.0]))
+
+    # Write the file
+    with NWBHDF5IO(str(nwb_path), "w") as io:
+        io.write(nwbfile)
+
+    # Extract metadata
+    from ..metadata.nwb import get_metadata
+
+    metadata = get_metadata(nwb_path)
+
+    # Check that session_end_time was calculated
+    assert "session_start_time" in metadata
+    assert "session_end_time" in metadata
+
+    # Duration should be 250 (max spike) - 5 (min spike) = 245 seconds
+    duration = (
+        metadata["session_end_time"] - metadata["session_start_time"]
+    ).total_seconds()
+    assert abs(duration - 245.0) < 1.0  # Allow small floating point errors
+
+
+@pytest.mark.ai_generated
+def test_session_duration_with_events(tmp_path: Path) -> None:
+    """Test that session duration includes timestamp/duration from DynamicTable"""
+    # Create a test NWB file with a DynamicTable containing timestamp and duration
+    nwb_path = tmp_path / "test_duration_events.nwb"
+    session_start = datetime(2020, 1, 1, 12, 0, 0, tzinfo=tzutc())
+
+    nwbfile = NWBFile(
+        session_description="test session with events",
+        identifier="test_events_123",
+        session_start_time=session_start,
+    )
+
+    # Add a simple TimeSeries that spans from 5 to 20 seconds
+    data = np.random.rand(150)
+    timestamps = np.linspace(5, 20, 150)
+    ts = TimeSeries(name="timeseries1", data=data, unit="volts", timestamps=timestamps)
+    nwbfile.add_acquisition(ts)
+
+    # Create a DynamicTable with timestamp and duration columns (similar to EventsTable)
+
+    events_table = DynamicTable(
+        name="events",
+        description="test events with timestamps and durations",
+    )
+    events_table.add_column(
+        name="timestamp",
+        description="event timestamps",
+    )
+    events_table.add_column(
+        name="duration",
+        description="event durations",
+    )
+
+    # Add events: event at 3s lasting 2s (ends at 5s)
+    #             event at 100s lasting 80s (ends at 180s)
+    events_table.add_row(timestamp=3.0, duration=2.0)
+    events_table.add_row(timestamp=100.0, duration=30.0)
+    events_table.add_row(timestamp=150.0, duration=10.0)
+
+    # Add the table to a processing module
+    processing_module = nwbfile.create_processing_module(
+        name="behavior", description="behavioral data"
+    )
+    processing_module.add(events_table)
+
+    # Write the file
+    with NWBHDF5IO(str(nwb_path), "w") as io:
+        io.write(nwbfile)
+
+    # Extract metadata
+    from ..metadata.nwb import get_metadata
+
+    metadata = get_metadata(nwb_path)
+
+    # Check that session_end_time was calculated
+    assert "session_start_time" in metadata
+    assert "session_end_time" in metadata
+
+    # Duration should be 180 (100 + 80, max end) - 3 (min timestamp) = 177 seconds
+    duration = (
+        metadata["session_end_time"] - metadata["session_start_time"]
+    ).total_seconds()
+    assert abs(duration - 157.0) < 1.0  # Allow small floating point errors
 
 
 @mark_xfail_ontobee
