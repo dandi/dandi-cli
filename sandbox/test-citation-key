@@ -1,0 +1,195 @@
+#!/usr/bin/env python
+"""
+Test script to verify citation key handling in Zotero.
+
+This script will:
+1. Create a test item with a citation key in the extra field
+2. Retrieve it back to verify the citation key is preserved
+3. Attempt to get BibTeX export to see how it appears
+
+Usage:
+    ./test-citation-key --api-key YOUR_API_KEY
+"""
+
+import argparse
+import logging
+import sys
+
+from pyzotero import zotero
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    stream=sys.stderr,
+)
+
+lgr = logging.getLogger(__name__)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Test citation key handling")
+    parser.add_argument(
+        "--api-key",
+        type=str,
+        required=True,
+        help="Zotero API key",
+    )
+    parser.add_argument(
+        "--group-id",
+        type=str,
+        default="5774211",
+        help="Zotero group ID (default: 5774211)",
+    )
+    parser.add_argument(
+        "--collection-key",
+        type=str,
+        default="T8I34DL3",
+        help="Zotero collection key (default: T8I34DL3)",
+    )
+    parser.add_argument(
+        "--cleanup",
+        action="store_true",
+        help="Delete the test item after creating it",
+    )
+
+    args = parser.parse_args()
+
+    # Connect to Zotero
+    lgr.info("Connecting to Zotero API...")
+    zot = zotero.Zotero(args.group_id, "group", args.api_key)
+
+    # Create a test item with a custom citation key
+    test_citation_key = "dandi.000027@0.210831.2033"
+    lgr.info(f"Creating test item with citation key: {test_citation_key}")
+
+    test_item = {
+        "itemType": "webpage",
+        "title": "TEST ITEM - Citation Key Test - DELETE ME",
+        "url": "https://example.com/test",
+        "date": "2025",
+        "extra": (
+            f"DOI: 10.48324/TEST/1.0\n"
+            f"Publisher: Test Publisher\n"
+            f"Citation Key: {test_citation_key}\n"
+        ),
+        "creators": [
+            {
+                "creatorType": "author",
+                "firstName": "Test",
+                "lastName": "Author",
+            }
+        ],
+        "tags": [{"tag": "test"}],
+    }
+
+    try:
+        # Create the item
+        lgr.info("Creating item...")
+        created = zot.create_items([test_item])
+
+        if not created or "successful" not in created:
+            lgr.error("Failed to create item")
+            lgr.error(f"Response: {created}")
+            sys.exit(1)
+
+        item_key = created["successful"]["0"]["key"]
+        lgr.info(f"✓ Created item with itemKey: {item_key}")
+
+        # Add to collection
+        lgr.info(f"Adding to collection {args.collection_key}...")
+        zot.addto_collection(args.collection_key, created["successful"]["0"])
+        lgr.info("✓ Added to collection")
+
+        # Retrieve it back
+        lgr.info("Retrieving item to verify...")
+        retrieved = zot.item(item_key)
+
+        lgr.info("\n" + "=" * 60)
+        lgr.info("Retrieved item details:")
+        lgr.info(f"  Title: {retrieved['data'].get('title', '')}")
+        lgr.info(f"  ItemKey: {retrieved['data'].get('key', '')}")
+        lgr.info(f"  Extra field:\n{retrieved['data'].get('extra', '    (empty)')}")
+        lgr.info("=" * 60)
+
+        # Extract citation key from extra
+        extra = retrieved["data"].get("extra", "")
+        citation_key_found = None
+        for line in extra.split("\n"):
+            if line.startswith("Citation Key:"):
+                citation_key_found = line.split(":", 1)[1].strip()
+                break
+
+        if citation_key_found:
+            lgr.info(f"\n✓ Citation key successfully stored: {citation_key_found}")
+            if citation_key_found == test_citation_key:
+                lgr.info("✓ Citation key matches what we set!")
+            else:
+                lgr.warning(f"✗ Citation key mismatch! Expected: {test_citation_key}")
+        else:
+            lgr.error("✗ Citation key not found in extra field!")
+
+        # Try to get BibTeX export
+        lgr.info("\nAttempting to get BibTeX export...")
+        try:
+            # Get raw BibTeX string from Zotero API
+            import requests
+
+            headers = {
+                "Authorization": f"Bearer {args.api_key}",
+                "Zotero-API-Version": "3",
+            }
+            bibtex_url = (
+                f"https://api.zotero.org/groups/{args.group_id}/"
+                f"items/{item_key}?format=bibtex"
+            )
+            response = requests.get(bibtex_url, headers=headers)
+
+            if response.status_code == 200:
+                bibtex_text = response.text
+                lgr.info("\n" + "=" * 60)
+                lgr.info("BibTeX export:")
+                print(bibtex_text)  # Print to stdout so it's easy to see
+                lgr.info("=" * 60)
+
+                # Check if our citation key appears in the export
+                if (
+                    test_citation_key in bibtex_text
+                    or "@misc{" + test_citation_key in bibtex_text
+                ):
+                    lgr.info(
+                        f"✓ Citation key '{test_citation_key}' appears in BibTeX export!"
+                    )
+                else:
+                    lgr.warning(
+                        f"✗ Citation key '{test_citation_key}' NOT found in BibTeX export"
+                    )
+                    lgr.warning("Zotero might be auto-generating a different key")
+            else:
+                lgr.warning(f"BibTeX export failed with status {response.status_code}")
+        except Exception as e:
+            lgr.warning(f"Could not get BibTeX export: {e}")
+            lgr.info("(This might require Better BibTeX plugin to be installed)")
+
+        if args.cleanup:
+            lgr.info(f"\nCleaning up - deleting test item {item_key}...")
+            zot.delete_item(retrieved)
+            lgr.info("✓ Test item deleted")
+        else:
+            lgr.info(f"\nTest item created with itemKey: {item_key}")
+            lgr.info("To delete it, run with --cleanup flag")
+            lgr.info(
+                "Or delete manually from: "
+                f"https://www.zotero.org/groups/{args.group_id}/items/{item_key}"
+            )
+
+    except Exception as e:
+        lgr.error(f"Error: {e}")
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

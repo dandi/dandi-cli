@@ -21,6 +21,7 @@ Requirements:
 
 import argparse
 import logging
+import re
 import sys
 from typing import Dict, List
 
@@ -71,9 +72,20 @@ def bibtex_to_zotero_item(entry: Dict) -> Dict:
     }
 
     # Extract DOI
+    # Note: Some Zotero item types (like 'webpage') don't accept 'DOI' as a direct field
+    # So we only add it to 'extra' field for all types to be safe
     doi = entry.get("doi", "")
     if doi:
-        item["DOI"] = doi
+        # Only add DOI as a direct field for item types that support it
+        if zotero_type in [
+            "journalArticle",
+            "conferencePaper",
+            "book",
+            "thesis",
+            "report",
+        ]:
+            item["DOI"] = doi
+        # Always add to extra field as well for consistency
         item["extra"] += f"DOI: {doi}\n"
 
     # Extract authors
@@ -103,8 +115,21 @@ def bibtex_to_zotero_item(entry: Dict) -> Dict:
             )
 
     # Add publisher
+    # Note: Some Zotero item types (like 'webpage') don't accept 'publisher' as a field
+    # For those, we'll add it to the 'extra' field instead
     if "publisher" in entry:
-        item["publisher"] = entry["publisher"]
+        publisher = entry["publisher"]
+        if zotero_type in [
+            "journalArticle",
+            "book",
+            "conferencePaper",
+            "thesis",
+            "report",
+        ]:
+            item["publisher"] = publisher
+        else:
+            # Add to extra field for types that don't support publisher
+            item["extra"] += f"Publisher: {publisher}\n"
 
     # Add keywords as tags
     if "keywords" in entry:
@@ -117,9 +142,13 @@ def bibtex_to_zotero_item(entry: Dict) -> Dict:
     if "abstract" in entry:
         item["abstractNote"] = entry["abstract"]
 
-    # Store the BibTeX key for reference
+    # Store the BibTeX key as citation key in extra field
+    # Zotero uses "Citation Key: value" format in extra field for Better BibTeX compatibility
+    # Replace '/' with '@' since '/' may not be valid in citation keys
     if "ID" in entry:
-        item["extra"] += f"BibTeX: {entry['ID']}\n"
+        bibtex_id = entry["ID"]
+        citation_key = bibtex_id.replace("/", "@")
+        item["extra"] += f"Citation Key: {citation_key}\n"
 
     return item
 
@@ -127,7 +156,7 @@ def bibtex_to_zotero_item(entry: Dict) -> Dict:
 def get_existing_items(zot: zotero.Zotero, collection_key: str) -> Dict[str, Dict]:
     """
     Retrieve all existing items in the collection.
-    Returns a dict mapping DOI to item data.
+    Returns a dict mapping citation key to item data.
     """
     lgr.info(f"Fetching existing items from collection {collection_key}")
 
@@ -150,27 +179,31 @@ def get_existing_items(zot: zotero.Zotero, collection_key: str) -> Dict[str, Dic
 
     lgr.info(f"Fetched total of {len(all_items)} items from collection")
 
-    doi_map = {}
+    citation_key_map = {}
     for item in all_items:
         # Skip notes, attachments, etc.
         if item["data"].get("itemType") in ["note", "attachment"]:
             continue
 
-        # Try to extract DOI from the item
-        doi = item["data"].get("DOI", "")
-        if not doi and "extra" in item["data"]:
-            # Try to extract DOI from extra field
+        # Extract citation key from extra field
+        citation_key = None
+        if "extra" in item["data"]:
             for line in item["data"]["extra"].split("\n"):
-                if line.startswith("DOI:"):
-                    doi = line.split(":", 1)[1].strip()
+                if line.startswith("Citation Key:"):
+                    citation_key = line.split(":", 1)[1].strip()
                     break
 
-        if doi:
-            # Normalize DOI to lowercase for case-insensitive comparison
-            doi_map[doi.lower()] = item
+        if citation_key:
+            citation_key_map[citation_key] = item
+        else:
+            lgr.debug(
+                f"Item {item.get('key', 'unknown')} has no citation key, skipping"
+            )
 
-    lgr.info(f"Found {len(doi_map)} existing items with DOIs in collection")
-    return doi_map
+    lgr.info(
+        f"Found {len(citation_key_map)} existing items with citation keys in collection"
+    )
+    return citation_key_map
 
 
 def items_are_different(existing: Dict, new: Dict) -> bool:
@@ -216,32 +249,40 @@ def update_zotero_collection(
     bib_entries: List[Dict],
     dry_run: bool = False,
     min_match_threshold: float = 0.95,
+    on_error: str = "exit",
+    act_only_on: str = None,
 ) -> None:
     """
     Update the Zotero collection with entries from BibTeX file.
+
+    Args:
+        on_error: What to do on error - 'exit' to stop immediately, 'continue' to keep going
+        act_only_on: Optional regex pattern to filter DOIs to act on
     """
     # Get existing items
     existing_items = get_existing_items(zot, collection_key)
 
-    # Build local DOI set (case-insensitive)
-    local_dois = set()
+    # Build local citation key set - includes ALL entries for validation
+    local_citation_keys = set()
     for entry in bib_entries:
-        doi = entry.get("doi", "")
-        if doi:
-            local_dois.add(doi.lower())
+        bibtex_id = entry.get("ID", "")
+        if bibtex_id:
+            local_citation_keys.add(bibtex_id)
 
-    lgr.info(f"Local BibTeX file has {len(local_dois)} unique DOIs")
+    lgr.info(f"Local BibTeX file has {len(local_citation_keys)} unique citation keys")
 
     # Validation: Check how many existing Zotero items are found locally
-    if existing_items:
+    # NOTE: This validation checks ALL items, regardless of --act-only-on filter
+    # The filter only applies to actual update/add operations below
+    if existing_items and not act_only_on:
         matched_count = 0
-        unmatched_dois = []
+        unmatched_keys = []
 
-        for existing_doi, item in existing_items.items():
-            if existing_doi in local_dois:
+        for existing_key, item in existing_items.items():
+            if existing_key in local_citation_keys:
                 matched_count += 1
             else:
-                unmatched_dois.append(existing_doi)
+                unmatched_keys.append(existing_key)
 
         match_rate = matched_count / len(existing_items)
         lgr.info(
@@ -254,21 +295,26 @@ def update_zotero_collection(
                 f"VALIDATION FAILED: Only {match_rate:.1%} of existing Zotero items "
                 f"were found in the local BibTeX file (threshold: {min_match_threshold:.1%})"
             )
-            lgr.error(f"Missing {len(unmatched_dois)} items from local BibTeX:")
-            for doi in unmatched_dois[:10]:  # Show first 10
-                lgr.error(f"  - {doi}")
-            if len(unmatched_dois) > 10:
-                lgr.error(f"  ... and {len(unmatched_dois) - 10} more")
+            lgr.error(f"Missing {len(unmatched_keys)} items from local BibTeX:")
+            for key in unmatched_keys[:10]:  # Show first 10
+                lgr.error(f"  - {key}")
+            if len(unmatched_keys) > 10:
+                lgr.error(f"  ... and {len(unmatched_keys) - 10} more")
             lgr.error(
                 "This suggests either:\n"
                 "  1. Local BibTeX file is incomplete/outdated\n"
                 "  2. Zotero collection has items not in DANDI archive\n"
-                "  3. DOI mismatch between local and remote\n"
+                "  3. Citation key mismatch between local and remote\n"
                 "Aborting to prevent data loss. Use --force to override (not yet implemented)."
             )
             sys.exit(1)
 
         lgr.info("Validation passed! Proceeding with sync...")
+    elif existing_items and act_only_on:
+        lgr.info(
+            f"Skipping validation check due to --act-only-on filter: {act_only_on}"
+        )
+        lgr.info("Will only act on items matching the filter pattern")
     else:
         lgr.info("No existing items in Zotero collection, will add all new items")
 
@@ -278,25 +324,37 @@ def update_zotero_collection(
     skipped_count = 0
     error_count = 0
 
+    # Compile regex pattern if provided
+    doi_filter_pattern = None
+    if act_only_on:
+        doi_filter_pattern = re.compile(act_only_on, re.IGNORECASE)
+        lgr.info(f"Filtering DOIs with pattern: {act_only_on}")
+
     # Process each BibTeX entry
     for entry in bib_entries:
-        # Skip entries without DOI (they're usually aliases)
-        doi = entry.get("doi", "")
-        if not doi:
-            lgr.debug(f"Skipping entry {entry.get('ID', 'unknown')} - no DOI")
+        # Get the citation key (BibTeX ID)
+        citation_key = entry.get("ID", "")
+        if not citation_key:
+            lgr.debug("Skipping entry with no ID")
             continue
 
-        doi_lower = doi.lower()
+        # Get DOI for filtering purposes
+        doi = entry.get("doi", "")
+
+        # Filter by pattern if specified (applies to DOI)
+        if doi_filter_pattern and doi and not doi_filter_pattern.search(doi):
+            lgr.debug(f"Skipping entry {citation_key} - doesn't match filter")
+            continue
 
         try:
             # Convert to Zotero format
             new_item = bibtex_to_zotero_item(entry)
 
-            if doi_lower in existing_items:
+            if citation_key in existing_items:
                 # Item exists - check if update is needed
-                existing = existing_items[doi_lower]
+                existing = existing_items[citation_key]
                 if items_are_different(existing["data"], new_item):
-                    lgr.info(f"Updating item: {entry.get('ID', 'unknown')} - {doi}")
+                    lgr.info(f"Updating item: {citation_key} - {doi}")
                     if not dry_run:
                         # Update the item
                         new_item["version"] = existing["version"]
@@ -304,11 +362,11 @@ def update_zotero_collection(
                         zot.update_item(new_item)
                     updated_count += 1
                 else:
-                    lgr.debug(f"Skipping unchanged item: {doi}")
+                    lgr.debug(f"Skipping unchanged item: {citation_key}")
                     skipped_count += 1
             else:
                 # New item - add it
-                lgr.info(f"Adding new item: {entry.get('ID', 'unknown')} - {doi}")
+                lgr.info(f"Adding new item: {citation_key} - {doi}")
                 if not dry_run:
                     # Create item and add to collection
                     created = zot.create_items([new_item])
@@ -317,9 +375,12 @@ def update_zotero_collection(
                 added_count += 1
 
         except Exception as e:
-            lgr.error(f"Error processing entry {entry.get('ID', 'unknown')}: {e}")
+            lgr.error(f"Error processing entry {citation_key}: {e}")
             error_count += 1
-            continue
+            if on_error == "exit":
+                lgr.error("Aborting due to error (--on-error exit)")
+                sys.exit(1)
+            # Otherwise continue to next entry
 
     # Summary
     lgr.info("=" * 60)
@@ -377,6 +438,22 @@ def main():
         default=0.95,
         help="Minimum match rate threshold for validation (default: 0.95 = 95%%)",
     )
+    parser.add_argument(
+        "--on-error",
+        type=str,
+        choices=["exit", "continue"],
+        default="exit",
+        help=(
+            "What to do on error: 'exit' stops immediately, "
+            "'continue' keeps going (default: exit)"
+        ),
+    )
+    parser.add_argument(
+        "--act-only-on",
+        type=str,
+        default=None,
+        help="Regex pattern to filter DOIs to act on (e.g., 'dandi.000027' or 'dandi.00002[0-9]')",
+    )
 
     args = parser.parse_args()
 
@@ -392,7 +469,13 @@ def main():
 
     # Update collection
     update_zotero_collection(
-        zot, args.collection_key, bib_entries, args.dry_run, args.min_match_threshold
+        zot,
+        args.collection_key,
+        bib_entries,
+        args.dry_run,
+        args.min_match_threshold,
+        args.on_error,
+        args.act_only_on,
     )
 
     lgr.info("Done!")
