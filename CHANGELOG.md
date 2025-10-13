@@ -1,3 +1,30 @@
+# 0.73.0 (Mon Oct 13 2025)
+
+#### 🚀 Enhancement
+
+- feat: add session end time extraction from NWB files [#1714](https://github.com/dandi/dandi-cli/pull/1714) ([@bendichter](https://github.com/bendichter) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🐛 Bug Fix
+
+- Don't include `x-amz-acl` header in zarr upload [#1710](https://github.com/dandi/dandi-cli/pull/1710) ([@jjnesbitt](https://github.com/jjnesbitt) [@yarikoptic](https://github.com/yarikoptic))
+- Upgrade minimal `dandischema` version to 0.11.1 for schema version compatibility [#1658](https://github.com/dandi/dandi-cli/pull/1658) ([@kabilar](https://github.com/kabilar) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- BF: fix incompatibility with click >= 8.2.0 [#1723](https://github.com/dandi/dandi-cli/pull/1723) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- [gh-actions](deps): Bump github/codeql-action from 3 to 4 [#1721](https://github.com/dandi/dandi-cli/pull/1721) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### Authors: 6
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Jacob Nesbitt ([@jjnesbitt](https://github.com/jjnesbitt))
+- Kabilar Gunalan ([@kabilar](https://github.com/kabilar))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.72.0 (Mon Oct 13 2025)
 
 #### 🚀 Enhancement
