@@ -1,3 +1,29 @@
+# 0.72.0 (Mon Oct 13 2025)
+
+#### 🚀 Enhancement
+
+- Add strain field to subject metadata and corresponding test case [#1716](https://github.com/dandi/dandi-cli/pull/1716) ([@bendichter](https://github.com/bendichter) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 📝 Documentation
+
+- Quote ".[test]" for `pip install` in DEVELOPMENT.md (might help on some shells e.g. under OS X) [#1718](https://github.com/dandi/dandi-cli/pull/1718) ([@bendichter](https://github.com/bendichter))
+- Update `dandi [--help]` printout on README.md [#1699](https://github.com/dandi/dandi-cli/pull/1699) ([@candleindark](https://github.com/candleindark))
+- Document options for the `dandi download --existing` flag [#1708](https://github.com/dandi/dandi-cli/pull/1708) ([@kabilar](https://github.com/kabilar) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Tune up tests docker-compose env vars for DANDI multi-instance (AKA vendorization) support [#1720](https://github.com/dandi/dandi-cli/pull/1720) ([@candleindark](https://github.com/candleindark) [@yarikoptic](https://github.com/yarikoptic))
+- Workaround typing errors with unittest.mock.ANY in mypy 1.18.1 [#1707](https://github.com/dandi/dandi-cli/pull/1707) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 4
+
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Isaac To ([@candleindark](https://github.com/candleindark))
+- Kabilar Gunalan ([@kabilar](https://github.com/kabilar))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.71.4 (Wed Sep 17 2025)
 
 #### 🐛 Bug Fix
