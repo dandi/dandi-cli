@@ -233,7 +233,12 @@ def main():
                     errors_filtered = []
                     # filter out the "input" field from errors
                     for error in exc.errors():
-                        error.pop("input")
+                        error.pop("input", None)
+                        # Convert any exception objects to strings
+                        if "ctx" in error and isinstance(error["ctx"], dict):
+                            for key, value in error["ctx"].items():
+                                if isinstance(value, Exception):
+                                    error["ctx"][key] = str(value)
                         error["identifier"] = m["identifier"]
                         error["version"] = m["version"]
                         errors_filtered.append(error)
