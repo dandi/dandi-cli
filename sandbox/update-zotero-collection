@@ -149,9 +149,10 @@ def bibtex_to_zotero_item(entry: Dict) -> Dict:
     # Add keywords as tags
     if "keywords" in entry:
         keywords = entry["keywords"]
-        # Split by comma
-        tags = [{"tag": k.strip()} for k in keywords.split(",")]
-        item["tags"] = tags
+        # Split by comma and filter out empty strings
+        tags = [{"tag": k.strip()} for k in keywords.split(",") if k.strip()]
+        if tags:  # Only add tags if there are any non-empty ones
+            item["tags"] = tags
 
     # Add abstract if available
     if "abstract" in entry:
@@ -296,6 +297,9 @@ def items_are_different(existing: Dict, new: Dict) -> bool:
         existing_val = existing.get(field, "").strip()
         new_val = new.get(field, "").strip()
         if existing_val != new_val:
+            lgr.debug(f"Field '{field}' differs:")
+            lgr.debug(f"  Existing: {existing_val[:100]}")
+            lgr.debug(f"  New: {new_val[:100]}")
             return True
 
     # Compare creators
@@ -303,12 +307,22 @@ def items_are_different(existing: Dict, new: Dict) -> bool:
     new_creators = new.get("creators", [])
 
     if len(existing_creators) != len(new_creators):
+        lgr.debug(
+            f"Creators count differs: {len(existing_creators)} vs {len(new_creators)}"
+        )
         return True
 
-    for ex_creator, new_creator in zip(existing_creators, new_creators):
+    for i, (ex_creator, new_creator) in enumerate(zip(existing_creators, new_creators)):
         if ex_creator.get("lastName") != new_creator.get("lastName") or ex_creator.get(
             "firstName"
         ) != new_creator.get("firstName"):
+            lgr.debug(f"Creator {i} differs:")
+            lgr.debug(
+                f"  Existing: {ex_creator.get('firstName')} {ex_creator.get('lastName')}"
+            )
+            lgr.debug(
+                f"  New: {new_creator.get('firstName')} {new_creator.get('lastName')}"
+            )
             return True
 
     # Compare tags
@@ -316,6 +330,9 @@ def items_are_different(existing: Dict, new: Dict) -> bool:
     new_tags = {t.get("tag", "") for t in new.get("tags", [])}
 
     if existing_tags != new_tags:
+        lgr.debug("Tags differ:")
+        lgr.debug(f"  Existing: {existing_tags}")
+        lgr.debug(f"  New: {new_tags}")
         return True
 
     return False
@@ -514,6 +531,11 @@ def update_zotero_collection(
                 existing = existing_items[citation_key]
                 if items_are_different(existing["data"], new_item):
                     lgr.info(f"Updating item: {citation_key} - {doi}")
+                    # Log what changed for debugging
+                    lgr.debug(
+                        f"  Existing extra: {existing['data'].get('extra', '')[:100]}"
+                    )
+                    lgr.debug(f"  New extra: {new_item.get('extra', '')[:100]}")
                     if not dry_run:
                         # Update the item
                         new_item["version"] = existing["version"]
