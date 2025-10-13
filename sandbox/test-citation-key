@@ -61,18 +61,19 @@ def main():
 
     # Create a test item with a custom citation key
     test_citation_key = "dandi.000027@0.210831.2033"
+    test_version = "0.210831.2033"
     lgr.info(f"Creating test item with citation key: {test_citation_key}")
 
+    # Test with dataset item type (more appropriate for DANDI datasets)
     test_item = {
-        "itemType": "webpage",
-        "title": "TEST ITEM - Citation Key Test - DELETE ME",
-        "url": "https://example.com/test",
+        "itemType": "dataset",
+        "title": "TEST ITEM - Dataset Citation Key Test - DELETE ME",
+        "url": "https://dandiarchive.org/dandiset/000027/0.210831.2033",
         "date": "2025",
-        "extra": (
-            f"DOI: 10.48324/TEST/1.0\n"
-            f"Publisher: Test Publisher\n"
-            f"Citation Key: {test_citation_key}\n"
-        ),
+        "DOI": "10.48324/TEST/1.0",  # dataset type supports DOI field directly
+        "versionNumber": test_version,  # dataset supports version field
+        "repository": "DANDI Archive",  # dataset supports repository field
+        "extra": f"Citation Key: {test_citation_key}\n",
         "creators": [
             {
                 "creatorType": "author",
@@ -80,8 +81,13 @@ def main():
                 "lastName": "Author",
             }
         ],
-        "tags": [{"tag": "test"}],
+        "tags": [{"tag": "test"}, {"tag": "dataset"}],
     }
+
+    lgr.info("Testing with itemType: dataset")
+    lgr.info(f"  DOI field: {test_item.get('DOI')}")
+    lgr.info(f"  versionNumber field: {test_item.get('versionNumber')}")
+    lgr.info(f"  repository field: {test_item.get('repository')}")
 
     try:
         # Create the item
@@ -107,8 +113,14 @@ def main():
 
         lgr.info("\n" + "=" * 60)
         lgr.info("Retrieved item details:")
+        lgr.info(f"  ItemType: {retrieved['data'].get('itemType', '')}")
         lgr.info(f"  Title: {retrieved['data'].get('title', '')}")
         lgr.info(f"  ItemKey: {retrieved['data'].get('key', '')}")
+        lgr.info(f"  DOI: {retrieved['data'].get('DOI', '(not set)')}")
+        lgr.info(f"  Version: {retrieved['data'].get('versionNumber', '(not set)')}")
+        lgr.info(f"  Repository: {retrieved['data'].get('repository', '(not set)')}")
+        lgr.info(f"  URL: {retrieved['data'].get('url', '')}")
+        lgr.info(f"  Date: {retrieved['data'].get('date', '')}")
         lgr.info(f"  Extra field:\n{retrieved['data'].get('extra', '    (empty)')}")
         lgr.info("=" * 60)
 

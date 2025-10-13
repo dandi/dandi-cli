@@ -57,13 +57,13 @@ def bibtex_to_zotero_item(entry: Dict) -> Dict:
         "article": "journalArticle",
         "book": "book",
         "inproceedings": "conferencePaper",
-        "misc": "webpage",  # DANDI uses @misc for datasets
+        "misc": "dataset",  # DANDI uses @misc for datasets, map to dataset type
         "phdthesis": "thesis",
         "techreport": "report",
     }
 
     entry_type = entry.get("ENTRYTYPE", "misc").lower()
-    zotero_type = type_mapping.get(entry_type, "webpage")
+    zotero_type = type_mapping.get(entry_type, "dataset")
 
     # Build the Zotero item
     item = {
@@ -75,21 +75,21 @@ def bibtex_to_zotero_item(entry: Dict) -> Dict:
     }
 
     # Extract DOI
-    # Note: Some Zotero item types (like 'webpage') don't accept 'DOI' as a direct field
-    # So we only add it to 'extra' field for all types to be safe
     doi = entry.get("doi", "")
     if doi:
-        # Only add DOI as a direct field for item types that support it
+        # dataset type supports DOI as a direct field
         if zotero_type in [
             "journalArticle",
             "conferencePaper",
             "book",
             "thesis",
             "report",
+            "dataset",
         ]:
             item["DOI"] = doi
-        # Always add to extra field as well for consistency
-        item["extra"] += f"DOI: {doi}\n"
+        else:
+            # For types that don't support DOI, add to extra field
+            item["extra"] += f"DOI: {doi}\n"
 
     # Extract authors
     if "author" in entry:
@@ -117,12 +117,14 @@ def bibtex_to_zotero_item(entry: Dict) -> Dict:
                 }
             )
 
-    # Add publisher
-    # Note: Some Zotero item types (like 'webpage') don't accept 'publisher' as a field
-    # For those, we'll add it to the 'extra' field instead
+    # Add publisher / repository
+    # For datasets, publisher goes to "repository" field; for others use publisher field
     if "publisher" in entry:
         publisher = entry["publisher"]
-        if zotero_type in [
+        if zotero_type == "dataset":
+            # dataset type has "repository" field instead of publisher
+            item["repository"] = publisher
+        elif zotero_type in [
             "journalArticle",
             "book",
             "conferencePaper",
@@ -133,6 +135,16 @@ def bibtex_to_zotero_item(entry: Dict) -> Dict:
         else:
             # Add to extra field for types that don't support publisher
             item["extra"] += f"Publisher: {publisher}\n"
+
+    # Extract version from DOI for datasets
+    # DOI format: 10.48324/DANDI.000027/0.210831.2033
+    if zotero_type == "dataset" and doi:
+        doi_parts = doi.split("/")
+        if len(doi_parts) >= 2:
+            version = doi_parts[-1]
+            # Check if it looks like a version (not just a dandiset ID)
+            if "." in version and len(version) > 6:
+                item["versionNumber"] = version
 
     # Add keywords as tags
     if "keywords" in entry:
@@ -250,7 +262,17 @@ def items_are_different(existing: Dict, new: Dict) -> bool:
         if existing_citation_key != new_citation_key:
             return True
         # For citation-key items, skip extra field comparison below
-        fields_to_compare = ["title", "date", "url", "abstractNote", "publisher"]
+        # Include dataset-specific fields (repository, versionNumber, DOI)
+        fields_to_compare = [
+            "title",
+            "date",
+            "url",
+            "abstractNote",
+            "publisher",
+            "repository",
+            "versionNumber",
+            "DOI",
+        ]
     else:
         # No citation keys, compare everything including extra
         fields_to_compare = [
@@ -259,6 +281,9 @@ def items_are_different(existing: Dict, new: Dict) -> bool:
             "url",
             "abstractNote",
             "publisher",
+            "repository",
+            "versionNumber",
+            "DOI",
             "extra",
         ]
 
