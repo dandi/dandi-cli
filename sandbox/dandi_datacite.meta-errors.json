@@ -1,12 +1,386 @@
 {
+ "DANDI:000003": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000003",
+   "version": "0.210812.1448"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000003",
+   "version": "0.230629.1955"
+  }
+ ],
+ "DANDI:000005": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    3,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000005",
+   "version": "0.220126.1853"
+  }
+ ],
+ "DANDI:000006": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    1,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000006",
+   "version": "0.220126.1855"
+  }
+ ],
+ "DANDI:000007": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    7,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000007",
+   "version": "0.220126.1903"
+  }
+ ],
+ "DANDI:000008": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    16,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000008",
+   "version": "0.211014.0808"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    16,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000008",
+   "version": "0.211014.0809"
+  }
+ ],
+ "DANDI:000009": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    5,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000009",
+   "version": "0.220126.1903"
+  }
+ ],
+ "DANDI:000010": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000010",
+   "version": "0.220126.1905"
+  }
+ ],
+ "DANDI:000011": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    3,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000011",
+   "version": "0.220126.1907"
+  }
+ ],
+ "DANDI:000013": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000013",
+   "version": "0.220126.2143"
+  }
+ ],
+ "DANDI:000015": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    3,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000015",
+   "version": "0.220126.1914"
+  }
+ ],
+ "DANDI:000017": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000017",
+   "version": "0.240329.1926"
+  }
+ ],
+ "DANDI:000020": [
+  {
+   "type": "union_tag_not_found",
+   "loc": [
+    "about",
+    0
+   ],
+   "msg": "Unable to extract tag using discriminator 'schemaKey'",
+   "ctx": {
+    "discriminator": "'schemaKey'"
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/union_tag_not_found",
+   "identifier": "DANDI:000020",
+   "version": "0.210913.1639"
+  }
+ ],
+ "DANDI:000023": [
+  {
+   "type": "union_tag_not_found",
+   "loc": [
+    "about",
+    0
+   ],
+   "msg": "Unable to extract tag using discriminator 'schemaKey'",
+   "ctx": {
+    "discriminator": "'schemaKey'"
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/union_tag_not_found",
+   "identifier": "DANDI:000023",
+   "version": "0.210914.1900"
+  }
+ ],
  "DANDI:000029": [
   {
-   "type": "missing",
+   "type": "value_error",
    "loc": [
-    "doi"
+    "contributor",
+    0,
+    "Person"
    ],
-   "msg": "Field required",
-   "url": "https://errors.pydantic.dev/2.9/v/missing",
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000029",
+   "version": "0.210712.1903"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000029",
+   "version": "0.210730.1538"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000029",
+   "version": "0.210805.2047"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000029",
+   "version": "0.210806.1511"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000029",
+   "version": "0.210806.2112"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000029",
+   "version": "0.210915.1646"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000029",
+   "version": "0.221107.2344"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000029",
+   "version": "0.230317.1541"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
    "identifier": "DANDI:000029",
    "version": "0.230317.1553"
   },
@@ -16,7 +390,36 @@
     "doi"
    ],
    "msg": "Field required",
-   "url": "https://errors.pydantic.dev/2.9/v/missing",
+   "url": "https://errors.pydantic.dev/2.12/v/missing",
+   "identifier": "DANDI:000029",
+   "version": "0.230317.1553"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000029",
+   "version": "0.231017.1955"
+  },
+  {
+   "type": "union_tag_not_found",
+   "loc": [
+    "contributor",
+    2
+   ],
+   "msg": "Unable to extract tag using discriminator 'schemaKey'",
+   "ctx": {
+    "discriminator": "'schemaKey'"
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/union_tag_not_found",
    "identifier": "DANDI:000029",
    "version": "0.231017.1955"
   },
@@ -26,261 +429,640 @@
     "doi"
    ],
    "msg": "Field required",
-   "url": "https://errors.pydantic.dev/2.9/v/missing",
+   "url": "https://errors.pydantic.dev/2.12/v/missing",
+   "identifier": "DANDI:000029",
+   "version": "0.231017.1955"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
    "identifier": "DANDI:000029",
    "version": "0.231017.1959"
-  }
- ],
- "DANDI:000623": [
+  },
+  {
+   "type": "union_tag_not_found",
+   "loc": [
+    "contributor",
+    2
+   ],
+   "msg": "Unable to extract tag using discriminator 'schemaKey'",
+   "ctx": {
+    "discriminator": "'schemaKey'"
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/union_tag_not_found",
+   "identifier": "DANDI:000029",
+   "version": "0.231017.1959"
+  },
   {
    "type": "missing",
    "loc": [
     "doi"
    ],
    "msg": "Field required",
-   "url": "https://errors.pydantic.dev/2.9/v/missing",
+   "url": "https://errors.pydantic.dev/2.12/v/missing",
+   "identifier": "DANDI:000029",
+   "version": "0.231017.1959"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000029",
+   "version": "0.231017.2004"
+  }
+ ],
+ "DANDI:000035": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    17,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000035",
+   "version": "0.211014.0808"
+  }
+ ],
+ "DANDI:000039": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000039",
+   "version": "0.210902.2328"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000039",
+   "version": "0.230223.1216"
+  }
+ ],
+ "DANDI:000041": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000041",
+   "version": "0.210812.1515"
+  }
+ ],
+ "DANDI:000044": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000044",
+   "version": "0.210812.1516"
+  }
+ ],
+ "DANDI:000053": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    6,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000053",
+   "version": "0.210819.0345"
+  },
+  {
+   "type": "union_tag_not_found",
+   "loc": [
+    "about",
+    0
+   ],
+   "msg": "Unable to extract tag using discriminator 'schemaKey'",
+   "ctx": {
+    "discriminator": "'schemaKey'"
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/union_tag_not_found",
+   "identifier": "DANDI:000053",
+   "version": "0.210819.0345"
+  }
+ ],
+ "DANDI:000054": [
+  {
+   "type": "union_tag_not_found",
+   "loc": [
+    "about",
+    0
+   ],
+   "msg": "Unable to extract tag using discriminator 'schemaKey'",
+   "ctx": {
+    "discriminator": "'schemaKey'"
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/union_tag_not_found",
+   "identifier": "DANDI:000054",
+   "version": "0.210819.1229"
+  },
+  {
+   "type": "union_tag_not_found",
+   "loc": [
+    "about",
+    0
+   ],
+   "msg": "Unable to extract tag using discriminator 'schemaKey'",
+   "ctx": {
+    "discriminator": "'schemaKey'"
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/union_tag_not_found",
+   "identifier": "DANDI:000054",
+   "version": "0.210819.1230"
+  },
+  {
+   "type": "union_tag_not_found",
+   "loc": [
+    "about",
+    0
+   ],
+   "msg": "Unable to extract tag using discriminator 'schemaKey'",
+   "ctx": {
+    "discriminator": "'schemaKey'"
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/union_tag_not_found",
+   "identifier": "DANDI:000054",
+   "version": "0.210819.1547"
+  }
+ ],
+ "DANDI:000056": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000056",
+   "version": "0.210812.1518"
+  }
+ ],
+ "DANDI:000059": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000059",
+   "version": "0.210812.1514"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000059",
+   "version": "0.230907.2101"
+  }
+ ],
+ "DANDI:000061": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000061",
+   "version": "0.210812.1517"
+  }
+ ],
+ "DANDI:000064": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    2,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000064",
+   "version": "0.221025.1735"
+  }
+ ],
+ "DANDI:000067": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000067",
+   "version": "0.210812.1457"
+  }
+ ],
+ "DANDI:000109": [
+  {
+   "type": "union_tag_not_found",
+   "loc": [
+    "about",
+    0
+   ],
+   "msg": "Unable to extract tag using discriminator 'schemaKey'",
+   "ctx": {
+    "discriminator": "'schemaKey'"
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/union_tag_not_found",
+   "identifier": "DANDI:000109",
+   "version": "0.210914.1904"
+  }
+ ],
+ "DANDI:000114": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    25,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000114",
+   "version": "0.230602.1643"
+  }
+ ],
+ "DANDI:000121": [
+  {
+   "type": "union_tag_not_found",
+   "loc": [
+    "about",
+    0
+   ],
+   "msg": "Unable to extract tag using discriminator 'schemaKey'",
+   "ctx": {
+    "discriminator": "'schemaKey'"
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/union_tag_not_found",
+   "identifier": "DANDI:000121",
+   "version": "0.210815.0703"
+  }
+ ],
+ "DANDI:000166": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000166",
+   "version": "0.220116.2037"
+  }
+ ],
+ "DANDI:000213": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000213",
+   "version": "0.220127.1738"
+  }
+ ],
+ "DANDI:000218": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000218",
+   "version": "0.220131.1608"
+  }
+ ],
+ "DANDI:000249": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    1,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000249",
+   "version": "0.230423.1416"
+  }
+ ],
+ "DANDI:000402": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    13,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000402",
+   "version": "0.230307.2132"
+  }
+ ],
+ "DANDI:000572": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000572",
+   "version": "0.230826.0140"
+  }
+ ],
+ "DANDI:000623": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000623",
+   "version": "0.240121.2058"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000623",
+   "version": "0.240130.2108"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    0,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000623",
+   "version": "0.240227.2023"
+  },
+  {
+   "type": "missing",
+   "loc": [
+    "doi"
+   ],
+   "msg": "Field required",
+   "url": "https://errors.pydantic.dev/2.12/v/missing",
    "identifier": "DANDI:000623",
    "version": "0.240227.2023"
   }
  ],
+ "DANDI:000673": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    10,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000673",
+   "version": "0.240118.2135"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    10,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000673",
+   "version": "0.240524.1751"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    10,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000673",
+   "version": "0.240524.1758"
+  }
+ ],
+ "DANDI:000678": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    4,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000678",
+   "version": "0.231004.2146"
+  }
+ ],
+ "DANDI:000689": [
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    52,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000689",
+   "version": "0.240524.2012"
+  },
+  {
+   "type": "value_error",
+   "loc": [
+    "contributor",
+    52,
+    "Person"
+   ],
+   "msg": "Value error, Contact person must have an email address.",
+   "ctx": {
+    "error": "Contact person must have an email address."
+   },
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
+   "identifier": "DANDI:000689",
+   "version": "0.240530.1923"
+  }
+ ],
  "DANDI:000727": [
   {
-   "type": "literal_error",
+   "type": "value_error",
    "loc": [
-    "about",
-    1,
-    "Disorder",
-    "schemaKey"
+    "contributor",
+    0,
+    "Person"
    ],
-   "msg": "Input should be 'Disorder'",
+   "msg": "Value error, Contact person must have an email address.",
    "ctx": {
-    "expected": "'Disorder'"
+    "error": "Contact person must have an email address."
    },
-   "url": "https://errors.pydantic.dev/2.9/v/literal_error",
-   "identifier": "DANDI:000727",
-   "version": "0.240106.0043"
-  },
-  {
-   "type": "string_pattern_mismatch",
-   "loc": [
-    "about",
-    1,
-    "Disorder",
-    "identifier"
-   ],
-   "msg": "String should match pattern '^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$'",
-   "ctx": {
-    "pattern": "^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$"
-   },
-   "url": "https://errors.pydantic.dev/2.9/v/string_pattern_mismatch",
-   "identifier": "DANDI:000727",
-   "version": "0.240106.0043"
-  },
-  {
-   "type": "literal_error",
-   "loc": [
-    "about",
-    1,
-    "Anatomy",
-    "schemaKey"
-   ],
-   "msg": "Input should be 'Anatomy'",
-   "ctx": {
-    "expected": "'Anatomy'"
-   },
-   "url": "https://errors.pydantic.dev/2.9/v/literal_error",
-   "identifier": "DANDI:000727",
-   "version": "0.240106.0043"
-  },
-  {
-   "type": "string_pattern_mismatch",
-   "loc": [
-    "about",
-    1,
-    "Anatomy",
-    "identifier"
-   ],
-   "msg": "String should match pattern '^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$'",
-   "ctx": {
-    "pattern": "^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$"
-   },
-   "url": "https://errors.pydantic.dev/2.9/v/string_pattern_mismatch",
-   "identifier": "DANDI:000727",
-   "version": "0.240106.0043"
-  },
-  {
-   "type": "string_pattern_mismatch",
-   "loc": [
-    "about",
-    1,
-    "GenericType",
-    "identifier"
-   ],
-   "msg": "String should match pattern '^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$'",
-   "ctx": {
-    "pattern": "^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$"
-   },
-   "url": "https://errors.pydantic.dev/2.9/v/string_pattern_mismatch",
-   "identifier": "DANDI:000727",
-   "version": "0.240106.0043"
-  },
-  {
-   "type": "literal_error",
-   "loc": [
-    "about",
-    2,
-    "Disorder",
-    "schemaKey"
-   ],
-   "msg": "Input should be 'Disorder'",
-   "ctx": {
-    "expected": "'Disorder'"
-   },
-   "url": "https://errors.pydantic.dev/2.9/v/literal_error",
-   "identifier": "DANDI:000727",
-   "version": "0.240106.0043"
-  },
-  {
-   "type": "string_pattern_mismatch",
-   "loc": [
-    "about",
-    2,
-    "Disorder",
-    "identifier"
-   ],
-   "msg": "String should match pattern '^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$'",
-   "ctx": {
-    "pattern": "^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$"
-   },
-   "url": "https://errors.pydantic.dev/2.9/v/string_pattern_mismatch",
-   "identifier": "DANDI:000727",
-   "version": "0.240106.0043"
-  },
-  {
-   "type": "literal_error",
-   "loc": [
-    "about",
-    2,
-    "Anatomy",
-    "schemaKey"
-   ],
-   "msg": "Input should be 'Anatomy'",
-   "ctx": {
-    "expected": "'Anatomy'"
-   },
-   "url": "https://errors.pydantic.dev/2.9/v/literal_error",
-   "identifier": "DANDI:000727",
-   "version": "0.240106.0043"
-  },
-  {
-   "type": "string_pattern_mismatch",
-   "loc": [
-    "about",
-    2,
-    "Anatomy",
-    "identifier"
-   ],
-   "msg": "String should match pattern '^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$'",
-   "ctx": {
-    "pattern": "^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$"
-   },
-   "url": "https://errors.pydantic.dev/2.9/v/string_pattern_mismatch",
-   "identifier": "DANDI:000727",
-   "version": "0.240106.0043"
-  },
-  {
-   "type": "string_pattern_mismatch",
-   "loc": [
-    "about",
-    2,
-    "GenericType",
-    "identifier"
-   ],
-   "msg": "String should match pattern '^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$'",
-   "ctx": {
-    "pattern": "^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$"
-   },
-   "url": "https://errors.pydantic.dev/2.9/v/string_pattern_mismatch",
-   "identifier": "DANDI:000727",
-   "version": "0.240106.0043"
-  },
-  {
-   "type": "literal_error",
-   "loc": [
-    "about",
-    4,
-    "Disorder",
-    "schemaKey"
-   ],
-   "msg": "Input should be 'Disorder'",
-   "ctx": {
-    "expected": "'Disorder'"
-   },
-   "url": "https://errors.pydantic.dev/2.9/v/literal_error",
-   "identifier": "DANDI:000727",
-   "version": "0.240106.0043"
-  },
-  {
-   "type": "string_pattern_mismatch",
-   "loc": [
-    "about",
-    4,
-    "Disorder",
-    "identifier"
-   ],
-   "msg": "String should match pattern '^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$'",
-   "ctx": {
-    "pattern": "^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$"
-   },
-   "url": "https://errors.pydantic.dev/2.9/v/string_pattern_mismatch",
-   "identifier": "DANDI:000727",
-   "version": "0.240106.0043"
-  },
-  {
-   "type": "literal_error",
-   "loc": [
-    "about",
-    4,
-    "Anatomy",
-    "schemaKey"
-   ],
-   "msg": "Input should be 'Anatomy'",
-   "ctx": {
-    "expected": "'Anatomy'"
-   },
-   "url": "https://errors.pydantic.dev/2.9/v/literal_error",
-   "identifier": "DANDI:000727",
-   "version": "0.240106.0043"
-  },
-  {
-   "type": "string_pattern_mismatch",
-   "loc": [
-    "about",
-    4,
-    "Anatomy",
-    "identifier"
-   ],
-   "msg": "String should match pattern '^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$'",
-   "ctx": {
-    "pattern": "^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$"
-   },
-   "url": "https://errors.pydantic.dev/2.9/v/string_pattern_mismatch",
-   "identifier": "DANDI:000727",
-   "version": "0.240106.0043"
-  },
-  {
-   "type": "string_pattern_mismatch",
-   "loc": [
-    "about",
-    4,
-    "GenericType",
-    "identifier"
-   ],
-   "msg": "String should match pattern '^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$'",
-   "ctx": {
-    "pattern": "^[a-zA-Z0-9-]+:[a-zA-Z0-9-/\\._]+$"
-   },
-   "url": "https://errors.pydantic.dev/2.9/v/string_pattern_mismatch",
+   "url": "https://errors.pydantic.dev/2.12/v/value_error",
    "identifier": "DANDI:000727",
    "version": "0.240106.0043"
   }
