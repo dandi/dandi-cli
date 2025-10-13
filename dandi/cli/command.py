@@ -153,6 +153,7 @@ from .cmd_instances import instances  # noqa: E402
 from .cmd_ls import ls  # noqa: E402
 from .cmd_move import move  # noqa: E402
 from .cmd_organize import organize  # noqa: E402
+from .cmd_search import search  # noqa: E402
 from .cmd_service_scripts import service_scripts  # noqa: E402
 from .cmd_shell_completion import shell_completion  # noqa: E402
 from .cmd_upload import upload  # noqa: E402
@@ -166,6 +167,7 @@ __all_commands__ = (
     ls,
     move,
     organize,
+    search,
     service_scripts,
     shell_completion,
     upload,
