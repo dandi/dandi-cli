@@ -5,5 +5,5 @@ set -eu
 cd "$(dirname $0)"
 
 
-./get-bibliography --datacite dandi_datacite.json --results dandi_results.json --bibfile dandi.bib --bibtype bibtex
-./get-bibliography                                --results dandi_results.json --bibfile dandi.ris --bibtype ris
+./get-bibliography --datacite dandi_datacite.json --results dandi_results-bib.json --bibfile dandi.bib --bibtype bibtex
+./get-bibliography                                --results dandi_results-ris.json --bibfile dandi.ris --bibtype ris
