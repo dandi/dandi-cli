@@ -153,6 +153,16 @@ def bibtex_to_zotero_item(entry: Dict) -> Dict:
         citation_key = bibtex_id.replace("/", "@")
         item["extra"] += f"Citation Key: {citation_key}\n"
 
+        # For "latest" entries (no version in ID), extract version from DOI
+        # e.g., ID=dandi.000027, DOI=10.48324/DANDI.000027/0.210831.2033
+        if "/" not in bibtex_id and "@" not in bibtex_id and doi:
+            # Extract version from DOI (last part after /)
+            doi_parts = doi.split("/")
+            if len(doi_parts) >= 2:
+                version = doi_parts[-1]
+                # Add current version info to extra field
+                item["extra"] += f"Current version: {version}\n"
+
     return item
 
 
@@ -215,8 +225,8 @@ def items_are_different(existing: Dict, new: Dict) -> bool:
     Compare two items to see if they're different.
     Returns True if update is needed.
     """
-    # Compare key fields
-    fields_to_compare = ["title", "date", "url", "abstractNote", "publisher"]
+    # Compare key fields (including extra for version changes)
+    fields_to_compare = ["title", "date", "url", "abstractNote", "publisher", "extra"]
 
     for field in fields_to_compare:
         existing_val = existing.get(field, "").strip()
