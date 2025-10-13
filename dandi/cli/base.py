@@ -25,7 +25,7 @@ class IntColonInt(click.ParamType):
         else:
             return value
 
-    def get_metavar(self, param):
+    def get_metavar(self, param, ctx=None):
         return "N[:M]"
 
 
@@ -51,7 +51,7 @@ class ChoiceList(click.ParamType):
                 )
         return selected
 
-    def get_metavar(self, param):
+    def get_metavar(self, param, ctx=None):
         return "[" + ",".join(self.values) + ",all]"
 
 
