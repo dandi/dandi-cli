@@ -344,11 +344,13 @@ def update_zotero_collection(
     existing_items = get_existing_items(zot, collection_key)
 
     # Build local citation key set - includes ALL entries for validation
+    # Convert BibTeX IDs to citation key format (/ -> @)
     local_citation_keys = set()
     for entry in bib_entries:
         bibtex_id = entry.get("ID", "")
         if bibtex_id:
-            local_citation_keys.add(bibtex_id)
+            citation_key = bibtex_id.replace("/", "@")
+            local_citation_keys.add(citation_key)
 
     lgr.info(f"Local BibTeX file has {len(local_citation_keys)} unique citation keys")
 
@@ -413,11 +415,13 @@ def update_zotero_collection(
 
     # Process each BibTeX entry
     for entry in bib_entries:
-        # Get the citation key (BibTeX ID)
-        citation_key = entry.get("ID", "")
-        if not citation_key:
+        # Get the BibTeX ID and convert to citation key format (/ -> @)
+        bibtex_id = entry.get("ID", "")
+        if not bibtex_id:
             lgr.debug("Skipping entry with no ID")
             continue
+
+        citation_key = bibtex_id.replace("/", "@")
 
         # Get DOI for filtering purposes
         doi = entry.get("doi", "")
