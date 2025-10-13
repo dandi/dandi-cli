@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Callable
+from datetime import timedelta
 import inspect
 import os
 import os.path as op
@@ -14,6 +15,7 @@ import dandischema
 from fscacher import PersistentCache
 import h5py
 import hdmf
+import numpy as np
 from packaging.version import Version
 import pynwb
 from pynwb import NWBHDF5IO
@@ -262,7 +264,113 @@ def _get_pynwb_metadata(path: str | Path | Readable) -> dict[str, Any]:
         # get external_file data:
         out["external_file_objects"] = _get_image_series(nwb)
 
+        # Calculate session duration for metadata
+        session_duration = _get_session_duration(nwb)
+        if session_duration is not None and out.get("session_start_time") is not None:
+            # Convert to absolute datetime by adding duration to session_start_time
+            start_time = out["session_start_time"]
+            out["session_end_time"] = start_time + timedelta(seconds=session_duration)
+
     return out
+
+
+def _get_session_duration(nwb: pynwb.NWBFile) -> float | None:
+    """Calculate the duration of a recording session from NWB file contents.
+
+    This function finds the minimum and maximum timestamps across all TimeSeries
+    and DynamicTable objects with time information, then returns the duration as
+    max - min.
+
+    Parameters
+    ----------
+    nwb: pynwb.NWBFile
+        An open NWB file object
+
+    Returns
+    -------
+    float or None
+        The session duration in seconds (max_time - min_time),
+        or None if no time information could be extracted
+    """
+    start_times: list[float] = []
+    end_times: list[float] = []
+
+    # Iterate through all objects in the NWB file
+    for obj in nwb.objects.values():
+        # Handle TimeSeries objects
+        if isinstance(obj, pynwb.base.TimeSeries):
+            if obj.timestamps is not None and len(obj.timestamps) > 0:
+                # Use first and last timestamps
+                start_times.append(float(obj.timestamps[0]))
+                end_times.append(float(obj.timestamps[-1]))
+            elif (
+                obj.starting_time is not None
+                and obj.rate is not None
+                and obj.data is not None
+            ):
+                # Calculate start and end time
+                start_times.append(float(obj.starting_time))
+                num_samples = len(obj.data)
+                if obj.rate == 0:
+                    continue
+                end_times.append(float(obj.starting_time + (num_samples / obj.rate)))
+
+        # Handle DynamicTable objects with time columns
+        elif isinstance(obj, hdmf.common.DynamicTable):
+            # Handle start_time and stop_time columns (e.g., trials)
+            if "start_time" in obj.colnames and len(obj["start_time"]):
+                start_times.append(float(obj["start_time"][0]))
+            if "stop_time" in obj.colnames and len(obj["stop_time"]):
+                end_times.append(float(obj["stop_time"][-1]))
+
+            # Handle spike_times column (e.g., Units table)
+            # Assume spike times are ordered within each unit
+            # Read only the first and last spike time from each unit
+            if "spike_times" in obj.colnames and len(obj["spike_times"]):
+                idxs = obj["spike_times"].data[:]
+
+                # handle bug if the first unit has no spikes
+                if idxs[0] == 0:
+                    idxs = idxs[1:]
+
+                st_data = obj["spike_times"].target
+
+                if len(idxs) > 1:
+                    start = float(np.min(np.r_[st_data[0], st_data[idxs[:-1]]]))
+                else:
+                    start = float(st_data[0])
+
+                end = float(np.max(st_data[idxs - 1]))
+                start_times.append(float(start))
+                end_times.append(float(end))
+
+            # Handle timestamp column (e.g., EventsTable)
+            if "timestamp" in obj.colnames and len(obj["timestamp"]):
+                timestamp_data = obj["timestamp"]
+                start_times.append(float(timestamp_data[0]))
+                # Check if duration column exists to calculate end times
+                if "duration" in obj.colnames:
+                    duration_data = obj["duration"]
+                    end_times.append(float(timestamp_data[-1] + duration_data[-1]))
+                else:
+                    # No duration, use max timestamp as end
+                    end_times.append(float(timestamp_data[-1]))
+
+    # Return duration as max - min
+    if start_times and end_times:
+        duration = max(end_times) - min(start_times)
+        if (
+            duration < 3600 * 24 * 365 * 5
+        ):  # if duration is over 5 years, something went wrong
+            return duration
+        else:
+            lgr.warning(
+                "Session duration of %.2f seconds (%.2f years) exceeds 5-year limit; "
+                "returning None as this likely indicates an error in timestamps",
+                duration,
+                duration / (3600 * 24 * 365),
+            )
+    return None
 
 
 def _get_image_series(nwb: pynwb.NWBFile) -> list[dict]:
