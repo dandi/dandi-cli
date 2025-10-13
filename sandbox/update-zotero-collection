@@ -224,9 +224,43 @@ def items_are_different(existing: Dict, new: Dict) -> bool:
     """
     Compare two items to see if they're different.
     Returns True if update is needed.
+
+    For items with Citation Key in extra field, we only compare the citation key
+    itself, not other metadata (like "Current version") which may change.
     """
-    # Compare key fields (including extra for version changes)
-    fields_to_compare = ["title", "date", "url", "abstractNote", "publisher", "extra"]
+    # Extract citation keys from extra field if present
+    existing_citation_key = None
+    new_citation_key = None
+
+    if "extra" in existing:
+        for line in existing["extra"].split("\n"):
+            if line.startswith("Citation Key:"):
+                existing_citation_key = line.split(":", 1)[1].strip()
+                break
+
+    if "extra" in new:
+        for line in new["extra"].split("\n"):
+            if line.startswith("Citation Key:"):
+                new_citation_key = line.split(":", 1)[1].strip()
+                break
+
+    # If both have citation keys, compare only the citation key
+    # (not the full extra field, since other metadata may change)
+    if existing_citation_key and new_citation_key:
+        if existing_citation_key != new_citation_key:
+            return True
+        # For citation-key items, skip extra field comparison below
+        fields_to_compare = ["title", "date", "url", "abstractNote", "publisher"]
+    else:
+        # No citation keys, compare everything including extra
+        fields_to_compare = [
+            "title",
+            "date",
+            "url",
+            "abstractNote",
+            "publisher",
+            "extra",
+        ]
 
     for field in fields_to_compare:
         existing_val = existing.get(field, "").strip()
