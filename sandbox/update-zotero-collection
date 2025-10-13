@@ -37,6 +37,9 @@ logging.basicConfig(
 
 lgr = logging.getLogger(__name__)
 
+# Zotero API pagination limit (100 is the maximum allowed by the API)
+ZOTERO_API_LIMIT = 100
+
 
 def parse_bibtex_file(bibfile: str) -> List[Dict]:
     """Parse a BibTeX file and return list of entries."""
@@ -163,19 +166,20 @@ def get_existing_items(zot: zotero.Zotero, collection_key: str) -> Dict[str, Dic
     # Fetch all items with pagination
     all_items = []
     start = 0
-    limit = 100
 
     while True:
-        lgr.debug(f"Fetching items starting at {start}, limit {limit}")
-        items = zot.collection_items(collection_key, limit=limit, start=start)
+        lgr.debug(f"Fetching items starting at {start}, limit {ZOTERO_API_LIMIT}")
+        items = zot.collection_items(
+            collection_key, limit=ZOTERO_API_LIMIT, start=start
+        )
         if not items:
             break
         all_items.extend(items)
         lgr.debug(f"Fetched {len(items)} items, total so far: {len(all_items)}")
-        if len(items) < limit:
+        if len(items) < ZOTERO_API_LIMIT:
             # Last page
             break
-        start += limit
+        start += ZOTERO_API_LIMIT
 
     lgr.info(f"Fetched total of {len(all_items)} items from collection")
 
@@ -243,6 +247,75 @@ def items_are_different(existing: Dict, new: Dict) -> bool:
     return False
 
 
+def clear_collection(
+    zot: zotero.Zotero, collection_key: str, dry_run: bool = False
+) -> None:
+    """
+    Delete all items from a Zotero collection.
+
+    Args:
+        zot: Zotero API connection
+        collection_key: The collection to clear
+        dry_run: If True, only report what would be deleted
+    """
+    lgr.info(f"Clearing all items from collection {collection_key}")
+
+    # Get all items in the collection
+    all_items = []
+    start = 0
+
+    while True:
+        lgr.debug(f"Fetching items starting at {start}, limit {ZOTERO_API_LIMIT}")
+        items = zot.collection_items(
+            collection_key, limit=ZOTERO_API_LIMIT, start=start
+        )
+        if not items:
+            break
+        all_items.extend(items)
+        lgr.debug(f"Fetched {len(items)} items, total so far: {len(all_items)}")
+        if len(items) < ZOTERO_API_LIMIT:
+            break
+        start += ZOTERO_API_LIMIT
+
+    lgr.info(f"Found {len(all_items)} items to delete")
+
+    if not all_items:
+        lgr.info("Collection is already empty")
+        return
+
+    if dry_run:
+        lgr.info("DRY RUN - would delete the following items:")
+
+    # Delete items (or show what would be deleted in dry-run)
+    deleted_count = 0
+    for item in all_items:
+        item_key = item.get("key")
+        if not item_key:
+            continue
+
+        title = item["data"].get("title", "No title")
+        item_type = item["data"].get("itemType", "unknown")
+        # Truncate long titles
+        if len(title) > 60:
+            title = title[:57] + "..."
+
+        try:
+            if dry_run:
+                lgr.info(f"  [{item_type:15s}] {item_key}: {title}")
+            else:
+                lgr.debug(f"Deleting item {item_key}: {title}")
+                zot.delete_item(item)
+            deleted_count += 1
+        except Exception as e:
+            lgr.error(f"Error deleting item {item_key}: {e}")
+
+    if dry_run:
+        lgr.info("=" * 60)
+        lgr.info(f"DRY RUN Summary: Would delete {deleted_count} items")
+    else:
+        lgr.info(f"Successfully deleted {deleted_count} items from collection")
+
+
 def update_zotero_collection(
     zot: zotero.Zotero,
     collection_key: str,
@@ -251,6 +324,7 @@ def update_zotero_collection(
     min_match_threshold: float = 0.95,
     on_error: str = "exit",
     act_only_on: str = None,
+    clear_first: bool = False,
 ) -> None:
     """
     Update the Zotero collection with entries from BibTeX file.
@@ -258,7 +332,14 @@ def update_zotero_collection(
     Args:
         on_error: What to do on error - 'exit' to stop immediately, 'continue' to keep going
         act_only_on: Optional regex pattern to filter DOIs to act on
+        clear_first: If True, delete all items from collection before syncing
     """
+    # Clear collection if requested
+    if clear_first:
+        clear_collection(zot, collection_key, dry_run)
+        if dry_run:
+            lgr.info("DRY RUN - would clear collection before syncing")
+
     # Get existing items
     existing_items = get_existing_items(zot, collection_key)
 
@@ -454,6 +535,11 @@ def main():
         default=None,
         help="Regex pattern to filter DOIs to act on (e.g., 'dandi.000027' or 'dandi.00002[0-9]')",
     )
+    parser.add_argument(
+        "--clear-collection",
+        action="store_true",
+        help="Delete all items from collection before syncing (use with caution!)",
+    )
 
     args = parser.parse_args()
 
@@ -476,6 +562,7 @@ def main():
         args.min_match_threshold,
         args.on_error,
         args.act_only_on,
+        args.clear_collection,
     )
 
     lgr.info("Done!")
