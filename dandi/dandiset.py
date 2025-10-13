@@ -7,8 +7,6 @@ import os.path
 from pathlib import Path, PurePath, PurePosixPath
 from typing import TYPE_CHECKING
 
-from dandischema.models import get_schema_version
-
 from . import get_logger
 from .consts import dandiset_metadata_file
 from .files import DandisetMetadataFile, LocalAsset, dandi_file, find_dandi_files
@@ -32,6 +30,8 @@ class Dandiset:
         schema_version: str | None = None,
     ) -> None:
         if schema_version is not None:
+            from dandischema.models import get_schema_version
+
             current_version = get_schema_version()
             if schema_version != current_version:
                 raise ValueError(

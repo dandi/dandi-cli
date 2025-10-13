@@ -3,14 +3,17 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 import re
+from typing import TYPE_CHECKING
 
-from dandischema import models
 from pydantic import ByteSize
 
-from .util import extract_model, get_generator
 from .. import get_logger
-from ..misctypes import Digest, LocalReadableFile, Readable
 from ..utils import get_mime_type, get_utcnow_datetime
+
+if TYPE_CHECKING:
+    from dandischema import models
+
+    from ..misctypes import Digest, Readable
 
 lgr = get_logger()
 
@@ -18,6 +21,8 @@ lgr = get_logger()
 def get_default_metadata(
     path: str | Path | Readable, digest: Digest | None = None
 ) -> models.BareAsset:
+    from dandischema import models
+
     metadata = models.BareAsset.model_construct()  # type: ignore[call-arg]
     start_time = end_time = datetime.now().astimezone()
     add_common_metadata(metadata, path, start_time, end_time, digest)
@@ -35,6 +40,11 @@ def add_common_metadata(
     Update a `dict` of raw "schemadata" with the fields that are common to both
     NWB assets and non-NWB assets
     """
+    from dandischema import models
+
+    from .util import get_generator
+    from ..misctypes import LocalReadableFile, Readable
+
     if digest is not None:
         metadata.digest = digest.asdict()
     else:
@@ -73,4 +83,8 @@ def prepare_metadata(metadata: dict) -> models.BareAsset:
 
     .. [2] metadata in the form used by the ``dandischema`` library
     """
+    from dandischema import models
+
+    from .util import extract_model
+
     return extract_model(models.BareAsset, metadata)

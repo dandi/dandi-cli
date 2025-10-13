@@ -11,11 +11,13 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from fnmatch import fnmatchcase
+from functools import cache
 import os.path
 from pathlib import Path
-from typing import IO, TypeVar, cast
+from typing import IO, TYPE_CHECKING, TypeVar, cast
 
-from dandischema.models import DigestType
+if TYPE_CHECKING:
+    from dandischema.models import DigestType
 
 
 @dataclass
@@ -34,6 +36,8 @@ class Digest:
         Construct a `Digest` with the given value and a ``algorithm`` of
         ``DigestType.dandi_etag``
         """
+        from dandischema.models import DigestType
+
         return cls(algorithm=DigestType.dandi_etag, value=value)
 
     @classmethod
@@ -42,6 +46,8 @@ class Digest:
         Construct a `Digest` with the given value and a ``algorithm`` of
         ``DigestType.dandi_zarr_checksum``
         """
+        from dandischema.models import DigestType
+
         return cls(algorithm=DigestType.dandi_zarr_checksum, value=value)
 
     def asdict(self) -> dict[DigestType, str]:
@@ -54,11 +60,19 @@ class Digest:
 
 #: Placeholder digest used in some situations where a digest is required but
 #: not actually relevant and would be too expensive to calculate
-DUMMY_DANDI_ETAG = Digest(algorithm=DigestType.dandi_etag, value=32 * "d" + "-1")
-DUMMY_DANDI_ZARR_CHECKSUM = Digest(
-    algorithm=DigestType.dandi_zarr_checksum,
-    value=32 * "d" + "-1--1",
-)
+@cache
+def get_dummy_dandi_etag() -> Digest:
+    from dandischema.models import DigestType
+
+    return Digest(algorithm=DigestType.dandi_etag, value=32 * "d" + "-1")
+
+
+@cache
+def get_dummy_dandi_zarr_checksum() -> Digest:
+    from dandischema.models import DigestType
+
+    return Digest(algorithm=DigestType.dandi_zarr_checksum, value=32 * "d" + "-1--1")
+
 
 P = TypeVar("P", bound="BasePath")
 
