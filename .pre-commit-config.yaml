@@ -19,10 +19,12 @@ repos:
     -   id: isort
         exclude: ^(dandi/_version\.py|dandi/due\.py|versioneer\.py)$
 -   repo: https://github.com/codespell-project/codespell
-    rev: v2.0.0
+    rev: v2.4.1
     hooks:
     -   id: codespell
         exclude: ^(dandi/_version\.py|dandi/due\.py|versioneer\.py|pyproject\.toml)$
+        additional_dependencies:
+        - tomli; python_version<'3.11'
 -   repo: https://github.com/PyCQA/flake8
     rev: 7.0.0
     hooks:
