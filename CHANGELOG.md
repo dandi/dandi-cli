@@ -320,7 +320,7 @@
 #### 🐛 Bug Fix
 
 - EMBER named it sandbox already not staging [#1590](https://github.com/dandi/dandi-cli/pull/1590) ([@yarikoptic](https://github.com/yarikoptic))
-- BF: do not provide size for dandiset.yaml (and definetely not mtime for the size) [#1587](https://github.com/dandi/dandi-cli/pull/1587) ([@yarikoptic](https://github.com/yarikoptic))
+- BF: do not provide size for dandiset.yaml (and definitely not mtime for the size) [#1587](https://github.com/dandi/dandi-cli/pull/1587) ([@yarikoptic](https://github.com/yarikoptic))
 
 #### 🏎 Performance
 
@@ -3180,7 +3180,7 @@ of a new DANDI API, and improving DX (Development eXperience).
 ## Added
 - `validate` now will report absent `subject_id` as an error
 ## Fixed
-- Caching of multiple functions re-using the same cache -- it could
+- Caching of multiple functions reusing the same cache -- it could
   have resulted in our case neural data types returned where full metadata
   was requested, or vice versa
 - Tolerate outdated (before 2.0.0) etelemetry
