@@ -486,10 +486,11 @@ class DandiAPIClient(RESTFullAPIClient):
     def dandi_authenticate(self) -> None:
         """
         Acquire and set the authentication token/API key used by the
-        `DandiAPIClient`.  If the :envvar:`DANDI_API_KEY` environment variable
-        is set, its value is used as the token.  Otherwise, the token is looked
+        `DandiAPIClient`.
+        If the :envvar:`f"{self._instance_id.replace('-', '_')}_API_KEY"` environment
+        variable is set, its value is used as the token.  Otherwise, the token is looked
         up in the user's keyring under the service
-        ":samp:`dandi-api-{INSTANCE_NAME}`" [#auth]_ and username "``key``".
+        ":samp:`dandi-api-{self.dandi_instance.name}`" [#auth]_ and username "``key``".
         If no token is found there, the user is prompted for the token, and, if
         it proves to be valid, it is stored in the user's keyring.
 
@@ -497,9 +498,10 @@ class DandiAPIClient(RESTFullAPIClient):
                    "``dandi-api-dandi-sandbox``" for the sandbox server
         """
         # Shortcut for advanced folks
-        api_key = os.environ.get("DANDI_API_KEY", None)
+        env_var_name = f"{self._instance_id.replace('-', '_')}_API_KEY"
+        api_key = os.environ.get(env_var_name, None)
         if api_key:
-            lgr.debug("Using api key from DANDI_API_KEY environment variable")
+            lgr.debug(f"Using `{env_var_name}` environment variable as the API key")
             self.authenticate(api_key)
             return
         client_name, app_id = self._get_keyring_ids()
