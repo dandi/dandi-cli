@@ -77,6 +77,17 @@ class VersionStatus(Enum):
     PUBLISHED = "Published"
 
 
+def get_api_key_env_name(dandi_instance: DandiInstance) -> str:
+    """
+    Get the name of the environment variable that can be used to specify the
+    API key for the given DANDI instance.
+
+    :param dandi_instance: the DANDI instance
+    :return: the name of the environment variable
+    """
+    return f"{dandi_instance.name.upper().replace('-', '_')}_API_KEY"
+
+
 # Following class is loosely based on GirderClient, with authentication etc
 # being stripped.
 # TODO: add copyright/license info
@@ -487,9 +498,9 @@ class DandiAPIClient(RESTFullAPIClient):
         """
         Acquire and set the authentication token/API key used by the
         `DandiAPIClient`.
-        If the :envvar:`f"{self._instance_id.replace('-', '_')}_API_KEY"` environment
-        variable is set, its value is used as the token.  Otherwise, the token is looked
-        up in the user's keyring under the service
+        If the :envvar:`f"{self.dandi_instance.name.upper().replace('-', '_')}_API_KEY"`
+        environment variable is set, its value is used as the token.  Otherwise,
+        the token is looked up in the user's keyring under the service
         ":samp:`dandi-api-{self.dandi_instance.name}`" [#auth]_ and username "``key``".
         If no token is found there, the user is prompted for the token, and, if
         it proves to be valid, it is stored in the user's keyring.
@@ -498,7 +509,7 @@ class DandiAPIClient(RESTFullAPIClient):
                    "``dandi-api-dandi-sandbox``" for the sandbox server
         """
         # Shortcut for advanced folks
-        env_var_name = f"{self._instance_id.replace('-', '_')}_API_KEY"
+        env_var_name = get_api_key_env_name(self.dandi_instance)
         api_key = os.environ.get(env_var_name, None)
         if api_key:
             lgr.debug(f"Using `{env_var_name}` environment variable as the API key")
