@@ -23,6 +23,7 @@ from .. import dandiapi
 from ..consts import (
     DRAFT,
     VERSION_REGEX,
+    DandiInstance,
     dandiset_identifier_regex,
     dandiset_metadata_file,
 )
@@ -32,6 +33,7 @@ from ..dandiapi import (
     RemoteBlobAsset,
     RemoteZarrAsset,
     Version,
+    get_api_key_env_name,
 )
 from ..download import download
 from ..exceptions import NotFoundError, SchemaVersionError
@@ -833,3 +835,19 @@ def test_asset_as_readable_open(new_dandiset: SampleDandiset, tmp_path: Path) ->
         assert fp.read() == b"This is test text.\n"
     finally:
         fp.close()
+
+
+@pytest.mark.parametrize(
+    ("instance_name", "expected_env_var_name"),
+    [
+        ("dandi", "DANDI_API_KEY"),
+        ("dandi-api-local-docker-tests", "DANDI_API_LOCAL_DOCKER_TESTS_API_KEY"),
+        ("dandi-sandbox", "DANDI_SANDBOX_API_KEY"),
+        ("ember-sandbox", "EMBER_SANDBOX_API_KEY"),
+    ],
+)
+def test_get_api_key_env_name(instance_name: str, expected_env_var_name: str) -> None:
+    dandi_instance = DandiInstance(
+        name=instance_name, gui="https://example.com", api="https://api.example.com"
+    )
+    assert get_api_key_env_name(dandi_instance) == expected_env_var_name
