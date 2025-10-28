@@ -36,7 +36,7 @@ from ..consts import (
     known_instances,
     metadata_nwb_file_fields,
 )
-from ..dandiapi import DandiAPIClient, RemoteDandiset
+from ..dandiapi import DandiAPIClient, RemoteDandiset, get_api_key_env_name
 from ..pynwb_utils import make_nwb_file
 from ..upload import upload
 
@@ -558,7 +558,8 @@ class SampleDandiset:
 
     def upload(self, paths: list[str | Path] | None = None, **kwargs: Any) -> None:
         with pytest.MonkeyPatch().context() as m:
-            m.setenv("DANDI_API_KEY", self.api.api_key)
+            env_var_name = get_api_key_env_name(self.api.client.dandi_instance)
+            m.setenv(f"{env_var_name}", self.api.api_key)  # todo: to be modified
             upload(
                 paths=paths or [self.dspath],
                 dandi_instance=self.api.instance_id,

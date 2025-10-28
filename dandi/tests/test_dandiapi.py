@@ -140,7 +140,9 @@ def test_authenticate_bad_key_good_key_input(
     )
     confirm_mock = mocker.patch("click.confirm", return_value=True)
 
-    monkeypatch.delenv("DANDI_API_KEY", raising=False)
+    monkeypatch.delenv(
+        get_api_key_env_name(local_dandi_api.client.dandi_instance), raising=False
+    )
 
     client = DandiAPIClient(local_dandi_api.api_url)
     assert "Authorization" not in client.session.headers
@@ -171,7 +173,9 @@ def test_authenticate_good_key_keyring(
     is_interactive_spy = mocker.spy(dandiapi, "is_interactive")
     confirm_spy = mocker.spy(click, "confirm")
 
-    monkeypatch.delenv("DANDI_API_KEY", raising=False)
+    monkeypatch.delenv(
+        get_api_key_env_name(local_dandi_api.client.dandi_instance), raising=False
+    )
 
     client = DandiAPIClient(local_dandi_api.api_url)
     assert "Authorization" not in client.session.headers
@@ -203,7 +207,9 @@ def test_authenticate_bad_key_keyring_good_key_input(
     )
     confirm_mock = mocker.patch("click.confirm", return_value=True)
 
-    monkeypatch.delenv("DANDI_API_KEY", raising=False)
+    monkeypatch.delenv(
+        get_api_key_env_name(local_dandi_api.client.dandi_instance), raising=False
+    )
 
     client = DandiAPIClient(local_dandi_api.api_url)
     assert "Authorization" not in client.session.headers
