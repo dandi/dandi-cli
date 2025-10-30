@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import click
 from dandischema import models
+import dandischema.consts
 from packaging.version import Version as PackagingVersion
 from pydantic import BaseModel, Field, PrivateAttr
 import requests
@@ -648,11 +649,16 @@ class DandiAPIClient(RESTFullAPIClient):
     def check_schema_version(self, schema_version: str | None = None) -> None:
         """
         Confirms that the server is using a "compatible" version of the DANDI schema.
-        Compatibility here means that the server's schema version can be lower than
-        client has, but within the same MAJOR.MINOR component of the version number
-        for 0.x series, and same MAJOR version for/after 1.x series.
 
-        If it is not, a `SchemaVersionError` is raised.
+        Compatibility here means that the server's schema version can be either
+
+        - lower than client has, but within the same MAJOR.MINOR component of the version
+          number for 0.x series, and same MAJOR version for/after 1.x series.
+        - higher than client has, but only if the client's schema version is listed
+          among the server's `allowed_schema_versions` (as returned by the `/info` API endpoint),
+          or if not there -- `dandischema.consts.ALLOWED_INPUT_SCHEMAS` is consulted.
+
+        If neither of above, a `SchemaVersionError` is raised.
 
         :param schema_version: the schema version to confirm that the server
             uses; if not set, the schema version for the installed
@@ -671,14 +677,20 @@ class DandiAPIClient(RESTFullAPIClient):
             schema_version
         )
         if server_ver > our_ver:
-            raise SchemaVersionError(
-                f"Server uses schema version {server_schema_version};"
-                f" client only supports prior {schema_version}.  You may need to"
-                " upgrade dandi and/or dandischema."
+            # TODO: potentially adjust here if name would be different: see
+            # https://github.com/dandi/dandi-archive/issues/2624
+            allowed_schema_versions = server_info.get(
+                "allowed_schema_versions", dandischema.consts.ALLOWED_INPUT_SCHEMAS
             )
-            # NOTE: here we could in theory support older schema versions as long as they
-            # could be migrated, but client would not know how to migrate -- server "might"
-            # as it is the one having newer version!
+            if schema_version not in allowed_schema_versions:
+                raise SchemaVersionError(
+                    f"Server uses schema version {server_schema_version};"
+                    f" client only supports prior {schema_version} and it"
+                    f" is not among any of the allowed upgradable schema versions"
+                    f" ({', '.join(allowed_schema_versions)}) .  You may need to"
+                    " upgrade dandi and/or dandischema."
+                )
+
             # TODO: check current server behavior which is likely to just not care!
             # So that is where server might need to provide support for upgrades upon
             # providing metadata.

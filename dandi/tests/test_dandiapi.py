@@ -285,14 +285,20 @@ def test_remote_asset_json_dict(text_dandiset: SampleDandiset) -> None:
             "4.5.6",
             "4.5.5",
             True,
-            "Server uses schema version 4.5.6; client only supports prior 4.5.5.  "
-            "You may need to upgrade dandi and/or dandischema.",
+            "Server uses schema version 4.5.6; client only supports prior 4.5.5 "
+            "and it is not among any of the allowed upgradable schema versions",
         ),
         (
             "0.6.7",
-            "0.6.6",
+            "0.3.0",
             True,
-            "Server uses schema version 0.6.7; client only supports prior 0.6.6",
+            "Server uses schema version 0.6.7; client only supports prior 0.3.0",
+        ),
+        (
+            "0.6.7",
+            "0.6.6",  # can be upgraded and thus uploaded!
+            False,
+            None,
         ),
         # Now - incompatible, for 0.x -- rely on MAJOR.MINOR
         (
