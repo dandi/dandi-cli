@@ -648,20 +648,20 @@ class DandiAPIClient(RESTFullAPIClient):
 
     def check_schema_version(self, schema_version: str | None = None) -> None:
         """
-        Confirms that the server is using a "compatible" version of the DANDI schema.
+        Confirms that the the given schema version at the client is "compatible" the server.
 
         Compatibility here means that the server's schema version can be either
 
         - lower than client has, but within the same MAJOR.MINOR component of the version
           number for 0.x series, and same MAJOR version for/after 1.x series.
-        - higher than client has, but only if the client's schema version is listed
+        - otherwise, but only if the client's schema version is listed
           among the server's `allowed_schema_versions` (as returned by the `/info` API endpoint),
           or if not there -- `dandischema.consts.ALLOWED_INPUT_SCHEMAS` is consulted.
 
         If neither of above, a `SchemaVersionError` is raised.
 
-        :param schema_version: the schema version to confirm that the server
-            uses; if not set, the schema version for the installed
+       :param schema_version: the schema version to be confirmed for compatibility with the server;
+           if not set, the schema version for the installed
             ``dandischema`` library is used
         """
         if schema_version is None:
