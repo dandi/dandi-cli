@@ -703,6 +703,19 @@ class DandiAPIClient(RESTFullAPIClient):
                 f"Server uses older incompatible schema version {server_schema_version};"
                 f" client supports {schema_version}."
             )
+        elif server_ver < our_ver:
+            # Compatible older server version -- all good, but inform the user
+            # TODO: potentially downgrade the record to match the schema,
+            #       see https://github.com/dandi/dandi-schema/issues/343
+            lgr.warning(
+                "Server uses schema version %s older than client's %s (dandischema library %s). "
+                "Server might fail to validate such assets and you might not be able to "
+                "publish this dandiset until server is upgraded. "
+                "Alternatively, you may downgrade dandischema and reupload.",
+                server_ver,
+                our_ver,
+                dandischema.__version__,
+            )
 
     def get_asset(self, asset_id: str) -> BaseRemoteAsset:
         """
