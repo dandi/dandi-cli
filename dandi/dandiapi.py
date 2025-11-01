@@ -487,12 +487,13 @@ class DandiAPIClient(RESTFullAPIClient):
         """
         Acquire and set the authentication token/API key used by the
         `DandiAPIClient`.
-        If the :envvar:`f"{self.dandi_instance.name.upper().replace('-', '_')}_API_KEY"`
-        environment variable is set, its value is used as the token.  Otherwise,
-        the token is looked up in the user's keyring under the service
-        ":samp:`dandi-api-{self.dandi_instance.name}`" [#auth]_ and username "``key``".
-        If no token is found there, the user is prompted for the token, and, if
-        it proves to be valid, it is stored in the user's keyring.
+        If the :envvar:`{INSTANCE_NAME}_API_KEY` environment variable is set, its value
+        is used as the token. Here, ``{INSTANCE_NAME}`` is the uppercased instance name
+        with hyphens replaced by underscores. Otherwise, the token is looked up in the
+        user's keyring under the service ":samp:`dandi-api-{self.dandi_instance.name}`"
+        [#auth]_ and username "``key``". If no token is found there, the user is
+        prompted for the token, and, if it proves to be valid, it is stored in the
+        user's keyring.
 
         .. [#auth] E.g., "``dandi-api-dandi``" for the production server or
                    "``dandi-api-dandi-sandbox``" for the sandbox server
