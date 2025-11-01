@@ -11,7 +11,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from .fixtures import DandiAPI
-from ..dandiapi import DandiAPIClient, get_api_key_env_name
+from ..dandiapi import DandiAPIClient
 from ..keyring import keyring_lookup, keyringrc_file
 
 
@@ -29,9 +29,7 @@ def ensure_keyring_backends() -> None:
 def test_dandi_authenticate_no_env_var(
     local_dandi_api: DandiAPI, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
 ) -> None:
-    monkeypatch.delenv(
-        get_api_key_env_name(local_dandi_api.client.dandi_instance), raising=False
-    )
+    local_dandi_api.monkeypatch_del_api_key_env(monkeypatch)
     monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyring.backends.null.Keyring")
     inputmock = mocker.patch(
         "dandi.dandiapi.input", return_value=local_dandi_api.api_key
