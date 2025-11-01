@@ -77,17 +77,6 @@ class VersionStatus(Enum):
     PUBLISHED = "Published"
 
 
-def get_api_key_env_name(dandi_instance: DandiInstance) -> str:
-    """
-    Get the name of the environment variable that can be used to specify the
-    API key for the given DANDI instance.
-
-    :param dandi_instance: the DANDI instance
-    :return: the name of the environment variable
-    """
-    return f"{dandi_instance.name.upper().replace('-', '_')}_API_KEY"
-
-
 # Following class is loosely based on GirderClient, with authentication etc
 # being stripped.
 # TODO: add copyright/license info
@@ -509,7 +498,7 @@ class DandiAPIClient(RESTFullAPIClient):
                    "``dandi-api-dandi-sandbox``" for the sandbox server
         """
         # Shortcut for advanced folks
-        env_var_name = get_api_key_env_name(self.dandi_instance)
+        env_var_name = self.api_key_env_var
         api_key = os.environ.get(env_var_name, None)
         if api_key:
             lgr.debug(f"Using `{env_var_name}` environment variable as the API key")
@@ -697,6 +686,14 @@ class DandiAPIClient(RESTFullAPIClient):
             raise NotFoundError(f"No such asset: {asset_id!r}")
         metadata = info.pop("metadata", None)
         return BaseRemoteAsset.from_base_data(self, info, metadata)
+
+    @property
+    def api_key_env_var(self) -> str:
+        """
+        Get the name of the environment variable that can be used to specify the
+        API key for the associated DANDI instance.
+        """
+        return f"{self.dandi_instance.name.upper().replace('-', '_')}_API_KEY"
 
 
 # `arbitrary_types_allowed` is needed for `client: DandiAPIClient`

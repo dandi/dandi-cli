@@ -36,7 +36,7 @@ from ..consts import (
     known_instances,
     metadata_nwb_file_fields,
 )
-from ..dandiapi import DandiAPIClient, RemoteDandiset, get_api_key_env_name
+from ..dandiapi import DandiAPIClient, RemoteDandiset
 from ..pynwb_utils import make_nwb_file
 from ..upload import upload
 
@@ -541,7 +541,7 @@ class DandiAPI:
         the associated DANDI instance
         """
         monkeypatch.setenv(
-            get_api_key_env_name(self.client.dandi_instance),
+            self.client.api_key_env_var,
             self.api_key,
         )
 
@@ -550,9 +550,7 @@ class DandiAPI:
         Monkeypatch to remove the environment variable that provides the API key for
         accessing the associated DANDI instance.
         """
-        monkeypatch.delenv(
-            get_api_key_env_name(self.client.dandi_instance), raising=False
-        )
+        monkeypatch.delenv(self.client.api_key_env_var, raising=False)
 
 
 @pytest.fixture(scope="session")

@@ -33,7 +33,6 @@ from ..dandiapi import (
     RemoteBlobAsset,
     RemoteZarrAsset,
     Version,
-    get_api_key_env_name,
 )
 from ..download import download
 from ..exceptions import NotFoundError, SchemaVersionError
@@ -846,8 +845,10 @@ def test_asset_as_readable_open(new_dandiset: SampleDandiset, tmp_path: Path) ->
         ("ember-sandbox", "EMBER_SANDBOX_API_KEY"),
     ],
 )
-def test_get_api_key_env_name(instance_name: str, expected_env_var_name: str) -> None:
-    dandi_instance = DandiInstance(
-        name=instance_name, gui="https://example.com", api="https://api.example.com"
+def test_get_api_key_env_var(instance_name: str, expected_env_var_name: str) -> None:
+    dandi_api_client = DandiAPIClient(
+        dandi_instance=DandiInstance(
+            name=instance_name, gui="https://example.com", api="https://api.example.com"
+        )
     )
-    assert get_api_key_env_name(dandi_instance) == expected_env_var_name
+    assert dandi_api_client.api_key_env_var == expected_env_var_name
