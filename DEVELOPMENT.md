@@ -63,7 +63,7 @@ development command line options.
   for the known instance named `dandi` and the environment variable
   `EMBER_SANDBOX_API_KEY` provides the key for the known instance named `ember-sandbox`.
   I.e., the environment variable name is the capitalized version of the instance's name
-  with "-" replaced by "_" suffixed by "_API_KEY". Providing API through environment
+  with "-" replaced by "_" suffixed by "_API_KEY". Providing API keys through environment
   variables avoids using keyrings, thus making it possible to "temporarily" use another
   account etc for the "API" version of the server.
 
