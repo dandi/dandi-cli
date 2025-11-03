@@ -13,7 +13,7 @@ authors = [
     {name = "DANDI developers", email = "team@dandiarchive.org"},
 ]
 maintainers = [
-    {name = "Yaroslav O. Halchenko", email = "debian@onerussian.com"},
+    {name = "DANDI developers", email = "team@dandiarchive.org"},
 ]
 keywords = [
     "data standards",
