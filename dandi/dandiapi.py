@@ -488,20 +488,23 @@ class DandiAPIClient(RESTFullAPIClient):
     def dandi_authenticate(self) -> None:
         """
         Acquire and set the authentication token/API key used by the
-        `DandiAPIClient`.  If the :envvar:`DANDI_API_KEY` environment variable
-        is set, its value is used as the token.  Otherwise, the token is looked
-        up in the user's keyring under the service
-        ":samp:`dandi-api-{INSTANCE_NAME}`" [#auth]_ and username "``key``".
-        If no token is found there, the user is prompted for the token, and, if
-        it proves to be valid, it is stored in the user's keyring.
+        `DandiAPIClient`.
+        If the :envvar:`{INSTANCE_NAME}_API_KEY` environment variable is set, its value
+        is used as the token. Here, ``{INSTANCE_NAME}`` is the uppercased instance name
+        with hyphens replaced by underscores. Otherwise, the token is looked up in the
+        user's keyring under the service ":samp:`dandi-api-{self.dandi_instance.name}`"
+        [#auth]_ and username "``key``". If no token is found there, the user is
+        prompted for the token, and, if it proves to be valid, it is stored in the
+        user's keyring.
 
         .. [#auth] E.g., "``dandi-api-dandi``" for the production server or
                    "``dandi-api-dandi-sandbox``" for the sandbox server
         """
         # Shortcut for advanced folks
-        api_key = os.environ.get("DANDI_API_KEY", None)
+        env_var_name = self.api_key_env_var
+        api_key = os.environ.get(env_var_name, None)
         if api_key:
-            lgr.debug("Using api key from DANDI_API_KEY environment variable")
+            lgr.debug(f"Using `{env_var_name}` environment variable as the API key")
             self.authenticate(api_key)
             return
         client_name, app_id = self._get_keyring_ids()
@@ -732,6 +735,14 @@ class DandiAPIClient(RESTFullAPIClient):
             raise NotFoundError(f"No such asset: {asset_id!r}")
         metadata = info.pop("metadata", None)
         return BaseRemoteAsset.from_base_data(self, info, metadata)
+
+    @property
+    def api_key_env_var(self) -> str:
+        """
+        Get the name of the environment variable that can be used to specify the
+        API key for the associated DANDI instance.
+        """
+        return f"{self.dandi_instance.name.upper().replace('-', '_')}_API_KEY"
 
 
 # `arbitrary_types_allowed` is needed for `client: DandiAPIClient`

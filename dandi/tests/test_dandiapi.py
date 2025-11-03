@@ -23,6 +23,7 @@ from .. import dandiapi
 from ..consts import (
     DRAFT,
     VERSION_REGEX,
+    DandiInstance,
     dandiset_identifier_regex,
     dandiset_metadata_file,
 )
@@ -138,7 +139,7 @@ def test_authenticate_bad_key_good_key_input(
     )
     confirm_mock = mocker.patch("click.confirm", return_value=True)
 
-    monkeypatch.delenv("DANDI_API_KEY", raising=False)
+    local_dandi_api.monkeypatch_del_api_key_env(monkeypatch)
 
     client = DandiAPIClient(local_dandi_api.api_url)
     assert "Authorization" not in client.session.headers
@@ -169,7 +170,7 @@ def test_authenticate_good_key_keyring(
     is_interactive_spy = mocker.spy(dandiapi, "is_interactive")
     confirm_spy = mocker.spy(click, "confirm")
 
-    monkeypatch.delenv("DANDI_API_KEY", raising=False)
+    local_dandi_api.monkeypatch_del_api_key_env(monkeypatch)
 
     client = DandiAPIClient(local_dandi_api.api_url)
     assert "Authorization" not in client.session.headers
@@ -201,7 +202,7 @@ def test_authenticate_bad_key_keyring_good_key_input(
     )
     confirm_mock = mocker.patch("click.confirm", return_value=True)
 
-    monkeypatch.delenv("DANDI_API_KEY", raising=False)
+    local_dandi_api.monkeypatch_del_api_key_env(monkeypatch)
 
     client = DandiAPIClient(local_dandi_api.api_url)
     assert "Authorization" not in client.session.headers
@@ -860,3 +861,21 @@ def test_asset_as_readable_open(new_dandiset: SampleDandiset, tmp_path: Path) ->
         assert fp.read() == b"This is test text.\n"
     finally:
         fp.close()
+
+
+@pytest.mark.parametrize(
+    ("instance_name", "expected_env_var_name"),
+    [
+        ("dandi", "DANDI_API_KEY"),
+        ("dandi-api-local-docker-tests", "DANDI_API_LOCAL_DOCKER_TESTS_API_KEY"),
+        ("dandi-sandbox", "DANDI_SANDBOX_API_KEY"),
+        ("ember-sandbox", "EMBER_SANDBOX_API_KEY"),
+    ],
+)
+def test_get_api_key_env_var(instance_name: str, expected_env_var_name: str) -> None:
+    dandi_api_client = DandiAPIClient(
+        dandi_instance=DandiInstance(
+            name=instance_name, gui="https://example.com", api="https://api.example.com"
+        )
+    )
+    assert dandi_api_client.api_key_env_var == expected_env_var_name
