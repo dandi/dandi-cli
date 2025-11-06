@@ -707,3 +707,107 @@ def test_upload_rejects_dandidownload_nwb_file(new_dandiset: SampleDandiset) -> 
         match=f"contains {DOWNLOAD_SUFFIX} path which indicates incomplete download",
     ):
         new_dandiset.upload(allow_any_path=True)
+
+
+@pytest.mark.ai_generated
+def test_log_validation_error_severity_levels(caplog: pytest.LogCaptureFixture) -> None:
+    """
+    Test that _log_validation_error logs validation errors according to their severity level.
+    """
+    import logging
+    from pathlib import Path
+
+    from dandi.upload import _log_validation_error
+    from dandi.validate_types import (
+        Origin,
+        OriginType,
+        Scope,
+        Severity,
+        ValidationResult,
+        Validator,
+    )
+
+    # Set log level to DEBUG to capture all messages
+    caplog.set_level(logging.DEBUG, logger="dandi")
+
+    # Create mock validation errors with different severity levels
+    errors = [
+        ValidationResult(
+            id="TEST.INFO",
+            origin=Origin(
+                type=OriginType.VALIDATION,
+                validator=Validator.dandi,
+                validator_version="test",
+            ),
+            scope=Scope.FILE,
+            severity=Severity.INFO,
+            message="Info message",
+            path=Path("/test"),
+        ),
+        ValidationResult(
+            id="TEST.HINT",
+            origin=Origin(
+                type=OriginType.VALIDATION,
+                validator=Validator.dandi,
+                validator_version="test",
+            ),
+            scope=Scope.FILE,
+            severity=Severity.HINT,
+            message="Hint message",
+            path=Path("/test"),
+        ),
+        ValidationResult(
+            id="TEST.WARNING",
+            origin=Origin(
+                type=OriginType.VALIDATION,
+                validator=Validator.dandi,
+                validator_version="test",
+            ),
+            scope=Scope.FILE,
+            severity=Severity.WARNING,
+            message="Warning message",
+            path=Path("/test"),
+        ),
+        ValidationResult(
+            id="TEST.ERROR",
+            origin=Origin(
+                type=OriginType.VALIDATION,
+                validator=Validator.dandi,
+                validator_version="test",
+            ),
+            scope=Scope.FILE,
+            severity=Severity.ERROR,
+            message="Error message",
+            path=Path("/test"),
+        ),
+        ValidationResult(
+            id="TEST.CRITICAL",
+            origin=Origin(
+                type=OriginType.VALIDATION,
+                validator=Validator.dandi,
+                validator_version="test",
+            ),
+            scope=Scope.FILE,
+            severity=Severity.CRITICAL,
+            message="Critical message",
+            path=Path("/test"),
+        ),
+    ]
+
+    # Log each error
+    for i, error in enumerate(errors, start=1):
+        _log_validation_error(i, error)
+
+    # Verify that each error was logged at the correct level
+    assert len(caplog.records) == 5
+
+    # Check log levels match the severity levels
+    assert caplog.records[0].levelno == Severity.INFO  # 10
+    assert caplog.records[1].levelno == Severity.HINT  # 20
+    assert caplog.records[2].levelno == Severity.WARNING  # 30
+    assert caplog.records[3].levelno == Severity.ERROR  # 40
+    assert caplog.records[4].levelno == Severity.CRITICAL  # 50
+
+    # Check that the error numbers and messages are present
+    for i, record in enumerate(caplog.records, start=1):
+        assert f"Error {i}:" in record.message

@@ -42,6 +42,26 @@ from .utils import ensure_datetime, path_is_subpath, pluralize
 from .validate_types import Severity
 
 
+def _log_validation_error(i: int, error: Any) -> None:
+    """
+    Log a validation error according to its severity level.
+
+    Parameters
+    ----------
+    i : int
+        The error number for display purposes
+    error : Any
+        The validation error object, expected to have a `severity` attribute
+    """
+    # Default to WARNING level if no severity is specified
+    log_level = (
+        error.severity
+        if hasattr(error, "severity") and error.severity is not None
+        else Severity.WARNING
+    )
+    lgr.log(log_level, " Error %d: %s", i, error)
+
+
 def _check_dandidownload_paths(dfile: DandiFile) -> None:
     """
     Check if an asset contains .dandidownload paths and raise UploadError if found.
@@ -305,7 +325,7 @@ def upload(
                                 len(validation_errors),
                             )
                             for i, e in enumerate(validation_errors, start=1):
-                                lgr.warning(" Error %d: %s", i, e)
+                                _log_validation_error(i, e)
                             validate_ok = False
                             raise UploadError("failed validation")
                     else:
