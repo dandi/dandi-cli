@@ -54,11 +54,7 @@ def _log_validation_error(i: int, error: Any) -> None:
         The validation error object, expected to have a `severity` attribute
     """
     # Default to WARNING level if no severity is specified
-    log_level = (
-        error.severity
-        if hasattr(error, "severity") and error.severity is not None
-        else Severity.WARNING
-    )
+    log_level = error.severity if error.severity is not None else Severity.WARNING
     lgr.log(log_level, " Error %d: %s", i, error)
 
 

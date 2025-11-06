@@ -32,8 +32,16 @@ from ..download import download
 from ..exceptions import NotFoundError, UploadError
 from ..files import LocalFileAsset
 from ..pynwb_utils import make_nwb_file
-from ..upload import UploadExisting, UploadValidation
+from ..upload import UploadExisting, UploadValidation, _log_validation_error
 from ..utils import list_paths, yaml_dump
+from ..validate_types import (
+    Origin,
+    OriginType,
+    Scope,
+    Severity,
+    ValidationResult,
+    Validator,
+)
 
 
 def test_upload_download(
@@ -715,17 +723,6 @@ def test_log_validation_error_severity_levels(caplog: pytest.LogCaptureFixture) 
     Test that _log_validation_error logs validation errors according to their severity level.
     """
     import logging
-    from pathlib import Path
-
-    from dandi.upload import _log_validation_error
-    from dandi.validate_types import (
-        Origin,
-        OriginType,
-        Scope,
-        Severity,
-        ValidationResult,
-        Validator,
-    )
 
     # Set log level to DEBUG to capture all messages
     caplog.set_level(logging.DEBUG, logger="dandi")
