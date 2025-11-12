@@ -23,6 +23,7 @@ from .. import dandiapi
 from ..consts import (
     DRAFT,
     VERSION_REGEX,
+    DandiInstance,
     dandiset_identifier_regex,
     dandiset_metadata_file,
 )
@@ -138,7 +139,7 @@ def test_authenticate_bad_key_good_key_input(
     )
     confirm_mock = mocker.patch("click.confirm", return_value=True)
 
-    monkeypatch.delenv("DANDI_API_KEY", raising=False)
+    local_dandi_api.monkeypatch_del_api_key_env(monkeypatch)
 
     client = DandiAPIClient(local_dandi_api.api_url)
     assert "Authorization" not in client.session.headers
@@ -169,7 +170,7 @@ def test_authenticate_good_key_keyring(
     is_interactive_spy = mocker.spy(dandiapi, "is_interactive")
     confirm_spy = mocker.spy(click, "confirm")
 
-    monkeypatch.delenv("DANDI_API_KEY", raising=False)
+    local_dandi_api.monkeypatch_del_api_key_env(monkeypatch)
 
     client = DandiAPIClient(local_dandi_api.api_url)
     assert "Authorization" not in client.session.headers
@@ -201,7 +202,7 @@ def test_authenticate_bad_key_keyring_good_key_input(
     )
     confirm_mock = mocker.patch("click.confirm", return_value=True)
 
-    monkeypatch.delenv("DANDI_API_KEY", raising=False)
+    local_dandi_api.monkeypatch_del_api_key_env(monkeypatch)
 
     client = DandiAPIClient(local_dandi_api.api_url)
     assert "Authorization" not in client.session.headers
@@ -272,10 +273,62 @@ def test_remote_asset_json_dict(text_dandiset: SampleDandiset) -> None:
     }
 
 
+@pytest.mark.parametrize(
+    "server_schema_version,local_schema_version,should_raise,expected_message_start",
+    [
+        # Current/identity matching -- always ok
+        (get_schema_version(), None, False, None),
+        (get_schema_version(), get_schema_version(), False, None),
+        ("0.6.7", "0.6.7", False, None),
+        # Less - is not good since we  might be missing fields and it is easy
+        # for client to upgrade.
+        (
+            "4.5.6",
+            "4.5.5",
+            True,
+            "Server uses schema version 4.5.6; client only supports prior 4.5.5 "
+            "and it is not among any of the allowed upgradable schema versions",
+        ),
+        (
+            "0.6.7",
+            "0.3.0",
+            True,
+            "Server uses schema version 0.6.7; client only supports prior 0.3.0",
+        ),
+        (
+            "0.6.7",
+            "0.6.6",  # can be upgraded and thus uploaded!
+            False,
+            None,
+        ),
+        # Now - incompatible, for 0.x -- rely on MAJOR.MINOR
+        (
+            "0.6.7",
+            "0.7.0",
+            True,
+            "Server uses older incompatible schema version 0.6.7; client supports 0.7.0",
+        ),
+        # After 1.x -- rely on MAJOR.
+        ("1.0.0", "1.2.3", False, None),
+        ("1.6.7", "1.7.0", False, None),
+        ("1.6.7", "1.8.3", False, None),
+        (
+            "1.6.7",
+            "2.7.0",
+            True,
+            "Server uses older incompatible schema version 1.6.7; client supports 2.7.0",
+        ),
+    ],
+)
 @responses.activate
-def test_check_schema_version_matches_default() -> None:
+def test_check_schema_version(
+    server_schema_version: str,
+    local_schema_version: str | None,
+    should_raise: bool,
+    expected_message_start: str | None,
+) -> None:
     server_info = {
-        "schema_version": get_schema_version(),
+        "schema_version": server_schema_version,
         "version": "0.0.0",
         "services": {
             "api": {"url": "https://test.nil/api"},
@@ -294,38 +347,13 @@ def test_check_schema_version_matches_default() -> None:
         json=server_info,
     )
     client = DandiAPIClient("https://test.nil/api")
-    client.check_schema_version()
-
-
-@responses.activate
-def test_check_schema_version_mismatch() -> None:
-    server_info = {
-        "schema_version": "4.5.6",
-        "version": "0.0.0",
-        "services": {
-            "api": {"url": "https://test.nil/api"},
-        },
-        "cli-minimal-version": "0.0.0",
-        "cli-bad-versions": [],
-    }
-    responses.add(
-        responses.GET,
-        "https://test.nil/server-info",
-        json=server_info,
-    )
-    responses.add(
-        responses.GET,
-        "https://test.nil/api/info/",
-        json=server_info,
-    )
-    client = DandiAPIClient("https://test.nil/api")
-    with pytest.raises(SchemaVersionError) as excinfo:
-        client.check_schema_version("1.2.3")
-    assert (
-        str(excinfo.value)
-        == "Server requires schema version 4.5.6; client only supports 1.2.3.  "
-        "You may need to upgrade dandi and/or dandischema."
-    )
+    if should_raise:
+        with pytest.raises(SchemaVersionError) as excinfo:
+            client.check_schema_version(local_schema_version)
+        if expected_message_start:
+            assert str(excinfo.value).startswith(expected_message_start)
+    else:
+        client.check_schema_version(local_schema_version)
 
 
 def test_get_dandisets(text_dandiset: SampleDandiset) -> None:
@@ -833,3 +861,21 @@ def test_asset_as_readable_open(new_dandiset: SampleDandiset, tmp_path: Path) ->
         assert fp.read() == b"This is test text.\n"
     finally:
         fp.close()
+
+
+@pytest.mark.parametrize(
+    ("instance_name", "expected_env_var_name"),
+    [
+        ("dandi", "DANDI_API_KEY"),
+        ("dandi-api-local-docker-tests", "DANDI_API_LOCAL_DOCKER_TESTS_API_KEY"),
+        ("dandi-sandbox", "DANDI_SANDBOX_API_KEY"),
+        ("ember-sandbox", "EMBER_SANDBOX_API_KEY"),
+    ],
+)
+def test_get_api_key_env_var(instance_name: str, expected_env_var_name: str) -> None:
+    dandi_api_client = DandiAPIClient(
+        dandi_instance=DandiInstance(
+            name=instance_name, gui="https://example.com", api="https://api.example.com"
+        )
+    )
+    assert dandi_api_client.api_key_env_var == expected_env_var_name

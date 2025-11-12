@@ -31,7 +31,7 @@ def test_reextract_metadata(
     asset_id = nwb_dandiset.dandiset.get_asset_by_path(
         "sub-mouse001/sub-mouse001.nwb"
     ).identifier
-    monkeypatch.setenv("DANDI_API_KEY", nwb_dandiset.api.api_key)
+    nwb_dandiset.api.monkeypatch_set_api_key_env(monkeypatch)
     r = CliRunner().invoke(
         service_scripts,
         ["reextract-metadata", "--when=always", nwb_dandiset.dandiset.version_api_url],
@@ -74,7 +74,7 @@ def test_update_dandiset_from_doi(
 ) -> None:
     dandiset_id = new_dandiset.dandiset_id
     repository = new_dandiset.api.instance.gui
-    monkeypatch.setenv("DANDI_API_KEY", new_dandiset.api.api_key)
+    new_dandiset.api.monkeypatch_set_api_key_env(monkeypatch)
     if os.environ.get("DANDI_TESTS_NO_VCR", "") or sys.version_info <= (3, 10):
         # Older vcrpy has an issue with Python 3.9 and newer urllib2 >= 2
         # But we require newer urllib2 for more correct operation, and

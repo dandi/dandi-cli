@@ -55,8 +55,17 @@ development command line options.
   otherwise be hidden from the user-visible (`--help`) interface, unless this
   env variable is set to a non-empty value
 
-- `DANDI_API_KEY` -- avoids using keyrings, thus making it possible to
-  "temporarily" use another account etc for the "API" version of the server.
+- `{CAPITALIZED_INSTANCE_NAME_WITH_UNDERSCORE}_API_KEY` --
+  Provides the API key to access a known DANDI instance.
+  Respective keys for multiple instances can be provided. The name of the environment
+  variable providing the key for a specific known DANDI instance corresponds to the name
+  of the instance. For example, the environment variable `DANDI_API_KEY` provides the key
+  for the known instance named `dandi` and the environment variable
+  `EMBER_SANDBOX_API_KEY` provides the key for the known instance named `ember-sandbox`.
+  I.e., the environment variable name is the capitalized version of the instance's name
+  with "-" replaced by "_" suffixed by "_API_KEY". Providing API keys through environment
+  variables avoids using keyrings, thus making it possible to "temporarily" use another
+  account etc for the "API" version of the server.
 
 - `DANDI_LOG_LEVEL` -- set log level. By default `INFO`, should be an int (`10` - `DEBUG`).
 

@@ -535,6 +535,23 @@ class DandiAPI:
     def api_url(self) -> str:
         return self.instance.api
 
+    def monkeypatch_set_api_key_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """
+        Monkeypatch the environment variable that provides the API key for accessing
+        the associated DANDI instance
+        """
+        monkeypatch.setenv(
+            self.client.api_key_env_var,
+            self.api_key,
+        )
+
+    def monkeypatch_del_api_key_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """
+        Monkeypatch to remove the environment variable that provides the API key for
+        accessing the associated DANDI instance.
+        """
+        monkeypatch.delenv(self.client.api_key_env_var, raising=False)
+
 
 @pytest.fixture(scope="session")
 def local_dandi_api(docker_compose_setup: dict[str, str]) -> Iterator[DandiAPI]:
@@ -558,7 +575,7 @@ class SampleDandiset:
 
     def upload(self, paths: list[str | Path] | None = None, **kwargs: Any) -> None:
         with pytest.MonkeyPatch().context() as m:
-            m.setenv("DANDI_API_KEY", self.api.api_key)
+            self.api.monkeypatch_set_api_key_env(m)
             upload(
                 paths=paths or [self.dspath],
                 dandi_instance=self.api.instance_id,

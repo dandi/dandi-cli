@@ -12,13 +12,13 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            const allowedPattern = /^(major|minor|patch|performance|internal|documentation|tests|dependencies)$/;
+            const allowedLabels = ['major', 'minor', 'patch', 'performance', 'internal', 'documentation', 'tests', 'dependencies'];
 
             const labels = context.payload.pull_request.labels.map(label => label.name);
 
-            const hasValidLabel = labels.some(label => allowedPattern.test(label));
+            const hasValidLabel = labels.some(label => allowedLabels.includes(label));
             if (!hasValidLabel) {
-              core.setFailed("The pull request must have a label of 'major', 'minor', or 'patch'.");
+              core.setFailed(`The pull request must have one of these labels: ${allowedLabels.join(', ')}`);
             } else {
               console.log('PR has a valid label.');
             }

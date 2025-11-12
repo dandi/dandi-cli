@@ -1,3 +1,19 @@
+# 0.73.1 (Mon Nov 03 2025)
+
+#### 🐛 Bug Fix
+
+- Allow for client to provide records with newer COMPATIBLE or older (upgradable) version of schema to the server [#1732](https://github.com/dandi/dandi-cli/pull/1732) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Refactor: Consolidate all metadata into pyproject.toml [#1726](https://github.com/dandi/dandi-cli/pull/1726) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.73.0 (Mon Oct 13 2025)
 
 #### 🚀 Enhancement

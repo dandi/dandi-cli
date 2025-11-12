@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import click
 from dandischema import models
+import dandischema.consts
+from packaging.version import Version as PackagingVersion
 from pydantic import BaseModel, Field, PrivateAttr
 import requests
 import tenacity
@@ -486,20 +488,23 @@ class DandiAPIClient(RESTFullAPIClient):
     def dandi_authenticate(self) -> None:
         """
         Acquire and set the authentication token/API key used by the
-        `DandiAPIClient`.  If the :envvar:`DANDI_API_KEY` environment variable
-        is set, its value is used as the token.  Otherwise, the token is looked
-        up in the user's keyring under the service
-        ":samp:`dandi-api-{INSTANCE_NAME}`" [#auth]_ and username "``key``".
-        If no token is found there, the user is prompted for the token, and, if
-        it proves to be valid, it is stored in the user's keyring.
+        `DandiAPIClient`.
+        If the :envvar:`{INSTANCE_NAME}_API_KEY` environment variable is set, its value
+        is used as the token. Here, ``{INSTANCE_NAME}`` is the uppercased instance name
+        with hyphens replaced by underscores. Otherwise, the token is looked up in the
+        user's keyring under the service ":samp:`dandi-api-{self.dandi_instance.name}`"
+        [#auth]_ and username "``key``". If no token is found there, the user is
+        prompted for the token, and, if it proves to be valid, it is stored in the
+        user's keyring.
 
         .. [#auth] E.g., "``dandi-api-dandi``" for the production server or
                    "``dandi-api-dandi-sandbox``" for the sandbox server
         """
         # Shortcut for advanced folks
-        api_key = os.environ.get("DANDI_API_KEY", None)
+        env_var_name = self.api_key_env_var
+        api_key = os.environ.get(env_var_name, None)
         if api_key:
-            lgr.debug("Using api key from DANDI_API_KEY environment variable")
+            lgr.debug(f"Using `{env_var_name}` environment variable as the API key")
             self.authenticate(api_key)
             return
         client_name, app_id = self._get_keyring_ids()
@@ -646,12 +651,21 @@ class DandiAPIClient(RESTFullAPIClient):
 
     def check_schema_version(self, schema_version: str | None = None) -> None:
         """
-        Confirms that the server is using the same version of the DANDI schema
-        as the client.  If it is not, a `SchemaVersionError` is raised.
+        Confirms that the given schema version at the client is "compatible" with the server.
 
-        :param schema_version: the schema version to confirm that the server
-            uses; if not set, the schema version for the installed
-            ``dandischema`` library is used
+        Compatibility here means that the server's schema version can be either
+
+        - lower than client has, but within the same MAJOR.MINOR component of the version
+          number for 0.x series, and same MAJOR version for/after 1.x series;
+        - the same;
+        - higher than the client has, but only if the client's schema version is listed
+          among the server's `allowed_schema_versions` (as returned by the `/info` API endpoint),
+          or if not there -- `dandischema.consts.ALLOWED_INPUT_SCHEMAS` is consulted.
+
+        If neither of above, a `SchemaVersionError` is raised.
+
+        :param schema_version: the schema version to be confirmed for compatibility with the server;
+           if not set, the schema version for the installed ``dandischema`` library is used.
         """
         if schema_version is None:
             schema_version = models.get_schema_version()
@@ -662,11 +676,48 @@ class DandiAPIClient(RESTFullAPIClient):
                 "Server did not provide schema_version in /info/;"
                 f" returned {server_info!r}"
             )
-        if server_schema_version != schema_version:
+        server_ver, our_ver = PackagingVersion(server_schema_version), PackagingVersion(
+            schema_version
+        )
+        if server_ver > our_ver:
+            # TODO: potentially adjust here if name would be different: see
+            # https://github.com/dandi/dandi-archive/issues/2624
+            allowed_schema_versions = server_info.get(
+                "allowed_schema_versions", dandischema.consts.ALLOWED_INPUT_SCHEMAS
+            )
+            if schema_version not in allowed_schema_versions:
+                raise SchemaVersionError(
+                    f"Server uses schema version {server_schema_version};"
+                    f" client only supports prior {schema_version} and it"
+                    f" is not among any of the allowed upgradable schema versions"
+                    f" ({', '.join(allowed_schema_versions)}) .  You may need to"
+                    " upgrade dandi and/or dandischema."
+                )
+
+            # TODO: check current server behavior which is likely to just not care!
+            # So that is where server might need to provide support for upgrades upon
+            # providing metadata.
+        elif (
+            server_ver.major == 0 and server_ver.release[:2] != our_ver.release[:2]
+        ) or (
+            server_ver.major != our_ver.major
+        ):  # MAJOR, MINOR within 0.x.y and MAJOR within 1.x.y
             raise SchemaVersionError(
-                f"Server requires schema version {server_schema_version};"
-                f" client only supports {schema_version}.  You may need to"
-                " upgrade dandi and/or dandischema."
+                f"Server uses older incompatible schema version {server_schema_version};"
+                f" client supports {schema_version}."
+            )
+        elif server_ver < our_ver:
+            # Compatible older server version -- all good, but inform the user
+            # TODO: potentially downgrade the record to match the schema,
+            #       see https://github.com/dandi/dandi-schema/issues/343
+            lgr.warning(
+                "Server uses schema version %s older than client's %s (dandischema library %s). "
+                "Server might fail to validate such assets and you might not be able to "
+                "publish this dandiset until server is upgraded. "
+                "Alternatively, you may downgrade dandischema and reupload.",
+                server_ver,
+                our_ver,
+                dandischema.__version__,
             )
 
     def get_asset(self, asset_id: str) -> BaseRemoteAsset:
@@ -684,6 +735,14 @@ class DandiAPIClient(RESTFullAPIClient):
             raise NotFoundError(f"No such asset: {asset_id!r}")
         metadata = info.pop("metadata", None)
         return BaseRemoteAsset.from_base_data(self, info, metadata)
+
+    @property
+    def api_key_env_var(self) -> str:
+        """
+        Get the name of the environment variable that can be used to specify the
+        API key for the associated DANDI instance.
+        """
+        return f"{self.dandi_instance.name.upper().replace('-', '_')}_API_KEY"
 
 
 # `arbitrary_types_allowed` is needed for `client: DandiAPIClient`
