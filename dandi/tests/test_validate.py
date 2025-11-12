@@ -120,6 +120,26 @@ def test_validate_bids(
         f"BIDS specification."
     )
 
+    # Check that there is also a HINT about .bidsignore
+    validation_hints = [
+        r
+        for r in validation_results
+        if r.severity is not None and r.severity == Severity.HINT
+    ]
+
+    # Assert that there is at least one hint
+    assert len(validation_hints) >= 1
+
+    # Find the hint about .bidsignore for dandiset.yaml
+    bidsignore_hint = next(
+        (h for h in validation_hints if h.id == "DANDI.BIDSIGNORE_DANDISET_YAML"),
+        None,
+    )
+    assert bidsignore_hint is not None
+    assert bidsignore_hint.message is not None
+    assert ".bidsignore" in bidsignore_hint.message
+    assert dandiset_metadata_file in bidsignore_hint.message
+
 
 def test_validate_bids_onefile(bids_error_examples: Path, tmp_path: Path) -> None:
     """
