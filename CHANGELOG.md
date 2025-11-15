@@ -1,3 +1,33 @@
+# 0.73.2 (Sat Nov 15 2025)
+
+### Release Notes
+
+#### Obtain API key for DANDI instance from corresponding env var ([#1731](https://github.com/dandi/dandi-cli/pull/1731))
+
+Instead of attempting to obtain API key from the environment variable DANDI_API_KEY when connecting to any known DANI instances, obtain the API key from an environment variable corresponding the to name of the instance. For example, obtain the key from the `DANDI_API_KEY` env var when connecting to the known DANI instance named `dandi` and obtain the key from the `EMBER_SANDBOX_API_KEY` var when the connecting to the known instance named `ember-sandbox`. I.e., the environment variable name is the capitalized version of the instance's name with "-" replaced by "_" suffixed by "_API_KEY".
+
+---
+
+#### 🐛 Bug Fix
+
+- Obtain API key for DANDI instance from corresponding env var [#1731](https://github.com/dandi/dandi-cli/pull/1731) ([@candleindark](https://github.com/candleindark))
+
+#### 🏠 Internal
+
+- Set maintainers to whole team and fixup label CI error message [#1728](https://github.com/dandi/dandi-cli/pull/1728) ([@asmacdo](https://github.com/asmacdo))
+
+#### 🧪 Tests
+
+- Add required env var to api integration tests [#1739](https://github.com/dandi/dandi-cli/pull/1739) ([@jjnesbitt](https://github.com/jjnesbitt) [@candleindark](https://github.com/candleindark))
+
+#### Authors: 3
+
+- Austin Macdonald ([@asmacdo](https://github.com/asmacdo))
+- Isaac To ([@candleindark](https://github.com/candleindark))
+- Jacob Nesbitt ([@jjnesbitt](https://github.com/jjnesbitt))
+
+---
+
 # 0.73.1 (Mon Nov 03 2025)
 
 #### 🐛 Bug Fix
