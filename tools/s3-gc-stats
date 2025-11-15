@@ -20,8 +20,8 @@ from urllib.parse import urlparse
 import boto3
 from botocore import UNSIGNED
 from botocore.client import Config
-import click
 from humanize import naturalsize
+import rich_click as click
 
 
 class Version(NamedTuple):

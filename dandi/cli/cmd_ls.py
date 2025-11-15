@@ -2,8 +2,8 @@ from collections import defaultdict
 import os
 import os.path as op
 
-import click
 from dandischema import models
+import rich_click as click
 
 from .base import devel_option, lgr, map_to_click_exceptions
 from .formatter import JSONFormatter, JSONLinesFormatter, PYOUTFormatter, YAMLFormatter

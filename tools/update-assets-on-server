@@ -12,9 +12,9 @@ import logging
 import os
 import sys
 
-import click
 from dandischema.consts import DANDI_SCHEMA_VERSION
 import requests
+import rich_click as click
 
 from dandi.dandiapi import DandiAPIClient
 from dandi.metadata import get_default_metadata, nwb2asset

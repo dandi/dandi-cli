@@ -7,7 +7,7 @@ import re
 from typing import cast
 import warnings
 
-import click
+import rich_click as click
 
 from .base import devel_debug_option, devel_option, map_to_click_exceptions
 from ..utils import pluralize
