@@ -1,5 +1,7 @@
 from functools import wraps
 import os
+import re
+from typing import Optional
 
 import click
 
@@ -147,3 +149,61 @@ def map_to_click_exceptions(f):
 map_to_click_exceptions._do_map = not bool(  # type: ignore[attr-defined]
     os.environ.get("DANDI_DEVEL", None)
 )
+
+
+def _compile_regex(regex: str) -> re.Pattern:
+    """
+    Helper to compile a regex pattern expressed as an `str` into a `re.Pattern`
+
+    Parameters
+    ----------
+    regex : str
+        The regex pattern expressed as a string.
+
+    Returns
+    -------
+    re.Pattern
+        The compiled regex pattern.
+    """
+    try:
+        compiled_regex = re.compile(regex)
+    except re.error as e:
+        raise click.BadParameter(f"Invalid regex pattern {regex!r}: {e}") from e
+
+    return compiled_regex
+
+
+def parse_regexes(
+    _ctx: click.Context, _param: click.Parameter, value: Optional[str]
+) -> Optional[list[re.Pattern]]:
+    """
+    Callback to parse a string of comma-separated regex patterns
+
+    Parameters
+    ----------
+    _ctx : click.Context
+        The Click context (not used).
+
+    _param : click.Parameter
+        The Click parameter (not used).
+
+    value : str | None
+        The input string containing comma-separated regex patterns. It is assumed
+        that none of the patterns contain commas themselves.
+
+    Returns
+    -------
+    list[re.Pattern]
+        A list of compiled regex patterns.
+
+    Notes
+    -----
+        This callback is only suitable to parse patterns that do not contain commas.
+    """
+    if value is None:
+        # Handle the case where no value is provided
+        return None
+
+    regexes = set(value.split(","))
+
+    return [_compile_regex(regex) for regex in regexes]
