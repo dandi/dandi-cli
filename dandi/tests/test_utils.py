@@ -5,6 +5,7 @@ import inspect
 import logging
 import os.path as op
 from pathlib import Path
+import re
 import time
 
 import pytest
@@ -20,6 +21,7 @@ from ..utils import (
     _get_instance,
     ensure_datetime,
     ensure_strtime,
+    filter_by_id_patterns,
     find_files,
     flatten,
     flattened,
@@ -32,6 +34,14 @@ from ..utils import (
     on_windows,
     post_upload_size_check,
     under_paths,
+)
+from ..validate_types import (
+    Origin,
+    OriginType,
+    Scope,
+    Severity,
+    ValidationResult,
+    Validator,
 )
 
 
@@ -589,3 +599,141 @@ def test_post_upload_size_check_erroring(
         logging.ERROR,
         f"Size of {p} was 42 at start of upload but is now 19 after upload",
     ) in caplog.record_tuples
+
+
+class TestFilterByIdPatterns:
+    """Test the _filter_by_id_patterns function."""
+
+    @pytest.fixture
+    def sample_validation_results(self) -> list[ValidationResult]:
+        """Create sample validation results for testing."""
+        origin_validation_nwbinspector = Origin(
+            type=OriginType.VALIDATION,
+            validator=Validator.nwbinspector,
+            validator_version="",
+        )
+        origin_validation_dandi = Origin(
+            type=OriginType.VALIDATION,
+            validator=Validator.dandi,
+            validator_version="",
+        )
+
+        return [
+            ValidationResult(
+                id="NWBI.check_data_orientation",
+                origin=origin_validation_nwbinspector,
+                scope=Scope.FILE,
+                message="Data may be in the wrong orientation.",
+                path=Path("sub-mouse001/sub-mouse001.nwb"),
+                severity=Severity.WARNING,
+            ),
+            ValidationResult(
+                id="NWBI.check_missing_unit",
+                origin=origin_validation_nwbinspector,
+                scope=Scope.FILE,
+                message="Missing text for attribute 'unit'.",
+                path=Path("sub-mouse002/sub-mouse002.nwb"),
+                severity=Severity.WARNING,
+            ),
+            ValidationResult(
+                id="DANDI.NO_DANDISET_FOUND",
+                origin=origin_validation_dandi,
+                scope=Scope.FILE,
+                message="No dandiset.yaml found.",
+                path=Path("sub-mouse003/sub-mouse003.nwb"),
+                severity=Severity.ERROR,
+            ),
+            ValidationResult(
+                id="DANDI.METADATA_MISSING",
+                origin=origin_validation_dandi,
+                scope=Scope.FILE,
+                message="Required metadata is missing.",
+                path=Path("sub-mouse004/sub-mouse004.nwb"),
+                severity=Severity.ERROR,
+            ),
+        ]
+
+    @pytest.mark.parametrize(
+        "pattern_strs,expected_ids",
+        [
+            # Single pattern matching one result
+            ([r"NWBI\.check_data_orientation"], ["NWBI.check_data_orientation"]),
+            ([r".NO_DANDISET_FOUND"], ["DANDI.NO_DANDISET_FOUND"]),
+            # Single pattern matching multiple results with prefix
+            (
+                [r"NWBI\.\S+"],
+                ["NWBI.check_data_orientation", "NWBI.check_missing_unit"],
+            ),
+            # Single pattern matching multiple results with different prefix
+            ([r"DANDI"], ["DANDI.NO_DANDISET_FOUND", "DANDI.METADATA_MISSING"]),
+            # Multiple patterns matching different results
+            (
+                [r"NWBI\.check_data_orientation", r"DANDI\.NO_DANDISET_FOUND"],
+                ["NWBI.check_data_orientation", "DANDI.NO_DANDISET_FOUND"],
+            ),
+            # Multiple patterns matching different subsets
+            (
+                [r"NWBI\.\S+", r"DANDI\.\S+"],
+                [
+                    "NWBI.check_data_orientation",
+                    "NWBI.check_missing_unit",
+                    "DANDI.NO_DANDISET_FOUND",
+                    "DANDI.METADATA_MISSING",
+                ],
+            ),
+            # Multiple patterns with some overlap
+            (
+                [r".*check.*", r"NWBI\..*"],
+                [
+                    "NWBI.check_data_orientation",
+                    "NWBI.check_missing_unit",
+                ],
+            ),
+            # Multiple patterns with complete overlap (should not duplicate)
+            (
+                [r"NWBI\.check_data_orientation", r"data_orientation"],
+                [
+                    "NWBI.check_data_orientation",
+                ],
+            ),
+            # Multiple patterns where one is subset of other
+            (
+                [r"\S+", r"NWBI\.\S+"],
+                [
+                    "NWBI.check_data_orientation",
+                    "NWBI.check_missing_unit",
+                    "DANDI.NO_DANDISET_FOUND",
+                    "DANDI.METADATA_MISSING",
+                ],
+            ),
+            # Pattern that matches nothing
+            ([r"NONEXISTENT_PATTERN"], []),
+            # Empty patterns list
+            ([], []),
+        ],
+    )
+    def test_pattern_filtering(
+        self,
+        sample_validation_results: list[ValidationResult],
+        pattern_strs: list[str],
+        expected_ids: list[str],
+    ) -> None:
+        """Test filtering with various pattern combinations and edge cases."""
+        patterns = [re.compile(p) for p in pattern_strs]
+        filtered = filter_by_id_patterns(sample_validation_results, patterns)
+        filtered_ids = [result.id for result in filtered]
+        assert filtered_ids == expected_ids
+
+    def test_empty_validation_results(self) -> None:
+        """Test filtering with an empty validation results list."""
+        patterns = [re.compile(r".*")]
+        filtered = filter_by_id_patterns([], patterns)
+        assert filtered == []
+
+    def test_preserves_order(
+        self, sample_validation_results: list[ValidationResult]
+    ) -> None:
+        """Test that filtering preserves the original order of results."""
+        patterns = [re.compile(r".*")]
+        filtered = filter_by_id_patterns(sample_validation_results, patterns)
+        assert filtered == sample_validation_results

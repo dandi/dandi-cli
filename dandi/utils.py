@@ -24,7 +24,7 @@ import sys
 from time import sleep
 import traceback
 import types
-from typing import IO, Any, List, Optional, Protocol, TypeVar, Union
+from typing import IO, TYPE_CHECKING, Any, List, Optional, Protocol, TypeVar, Union
 
 import dateutil.parser
 from multidict import MultiDict  # dependency of yarl
@@ -37,6 +37,9 @@ from yarl import URL
 from . import __version__, get_logger
 from .consts import DandiInstance, known_instances, known_instances_rev
 from .exceptions import BadCliVersionError, CliVersionTooOldError
+
+if TYPE_CHECKING:
+    from .validate_types import ValidationResult
 
 AnyPath = Union[str, Path]
 
@@ -972,3 +975,29 @@ class StrEnum(str, Enum):
     @staticmethod
     def _generate_next_value_(name, _start, _count, _last_values):
         return name
+
+
+def filter_by_id_patterns(
+    validation_results: Iterable[ValidationResult], patterns: list[re.Pattern[str]]
+) -> list[ValidationResult]:
+    """
+    Filter validation results by matching their IDs against provided regex patterns.
+
+    Parameters
+    ----------
+    validation_results : Iterable[ValidationResult]
+        The iterable of validation results to filter.
+    patterns : list[re.Pattern[str]]
+        The list of regex patterns to match validation result IDs against.
+
+    Returns
+    -------
+    list[ValidationResult]
+        The filtered list of validation results whose IDs match any of the provided patterns.
+    """
+
+    filtered_results = []
+    for result in validation_results:
+        if any(re.search(pattern, result.id) for pattern in patterns):
+            filtered_results.append(result)
+    return filtered_results
