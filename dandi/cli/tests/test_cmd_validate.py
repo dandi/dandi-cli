@@ -2,6 +2,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 import pytest
+import pytest_mock
 
 from ..cmd_validate import _process_issues, validate
 from ...tests.xfail import mark_xfail_windows_python313_posixsubprocess
@@ -149,3 +150,172 @@ def test_validate_bids_error_grouping_notification(
     # Does it notify the user correctly?
     notification_substring = "Invalid value for '--grouping'"
     assert notification_substring in r.output
+
+
+class TestValidateMatchOption:
+    """Test the --match option for filtering validation results."""
+
+    @staticmethod
+    def _mock_validate(*paths, **kwargs):
+        """Mock validation function that returns controlled ValidationResult objects."""
+        origin = Origin(
+            type=OriginType.VALIDATION,
+            validator=Validator.dandi,
+            validator_version="test",
+        )
+
+        # Return a set of validation results with different IDs
+        results = [
+            ValidationResult(
+                id="BIDS.DATATYPE_MISMATCH",
+                origin=origin,
+                severity=Severity.ERROR,
+                scope=Scope.FILE,
+                message="Datatype mismatch error",
+                path=Path(paths[0]) / "file1.nii",
+            ),
+            ValidationResult(
+                id="BIDS.EXTENSION_MISMATCH",
+                origin=origin,
+                severity=Severity.ERROR,
+                scope=Scope.FILE,
+                message="Extension mismatch error",
+                path=Path(paths[0]) / "file2.jpg",
+            ),
+            ValidationResult(
+                id="DANDI.NO_DANDISET_FOUND",
+                origin=origin,
+                severity=Severity.ERROR,
+                scope=Scope.DANDISET,
+                message="No dandiset found",
+                path=Path(paths[0]),
+            ),
+            ValidationResult(
+                id="NWBI.check_data_orientation",
+                origin=origin,
+                severity=Severity.WARNING,
+                scope=Scope.FILE,
+                message="Data orientation warning",
+                path=Path(paths[0]) / "file3.nwb",
+            ),
+        ]
+        return iter(results)
+
+    @pytest.mark.parametrize(
+        "match_patterns,parsed_patterns,should_contain,should_not_contain",
+        [
+            # Single pattern matching specific validation ID
+            (
+                r"BIDS\.DATATYPE_MISMATCH",
+                [r"BIDS\.DATATYPE_MISMATCH"],
+                ["BIDS.DATATYPE_MISMATCH"],
+                [
+                    "BIDS.EXTENSION_MISMATCH",
+                    "DANDI.NO_DANDISET_FOUND",
+                    "NWBI.check_data_orientation",
+                ],
+            ),
+            # Single pattern matching by prefix
+            (
+                r"^BIDS\.",
+                [r"^BIDS\."],
+                ["BIDS.DATATYPE_MISMATCH", "BIDS.EXTENSION_MISMATCH"],
+                ["DANDI.NO_DANDISET_FOUND", "NWBI.check_data_orientation"],
+            ),
+            # Single pattern that matches nothing (should show "No errors found")
+            (
+                r"NONEXISTENT_ID",
+                [r"NONEXISTENT_ID"],
+                ["No errors found"],
+                ["BIDS", "DANDI", "NWBI"],
+            ),
+            # Multiple patterns separated by comma
+            (
+                r"BIDS\.DATATYPE_MISMATCH,BIDS\.EXTENSION_MISMATCH",
+                [r"BIDS\.DATATYPE_MISMATCH", r"BIDS\.EXTENSION_MISMATCH"],
+                ["BIDS.DATATYPE_MISMATCH", "BIDS.EXTENSION_MISMATCH"],
+                ["DANDI.NO_DANDISET_FOUND", "NWBI.check_data_orientation"],
+            ),
+            # Multiple patterns with wildcard
+            (
+                r"BIDS\.\S+,DANDI\.\S+",
+                [r"BIDS\.\S+", r"DANDI\.\S+"],
+                [
+                    "BIDS.DATATYPE_MISMATCH",
+                    "BIDS.EXTENSION_MISMATCH",
+                    "DANDI.NO_DANDISET_FOUND",
+                ],
+                ["NWBI"],
+            ),
+        ],
+    )
+    def test_match_patterns(
+        self,
+        tmp_path: Path,
+        match_patterns: str,
+        parsed_patterns: list[str],
+        should_contain: list[str],
+        should_not_contain: list[str],
+        monkeypatch: pytest.MonkeyPatch,
+        mocker: pytest_mock.MockerFixture,
+    ) -> None:
+        """Test --match option with single or multiple comma-separated patterns."""
+        from .. import cmd_validate
+
+        # Use to monitor what compiled patterns are passed by the CLI
+        process_issues_spy = mocker.spy(cmd_validate, "_process_issues")
+
+        monkeypatch.setattr(cmd_validate, "validate_", self._mock_validate)
+
+        r = CliRunner().invoke(validate, [f"--match={match_patterns}", str(tmp_path)])
+
+        process_issues_spy.assert_called_once()
+        call_args = process_issues_spy.call_args
+
+        # Ensure the patterns are parsed and passed correctly
+        passed_patterns = call_args.kwargs.get(
+            "match", call_args.args[3] if len(call_args.args) > 3 else None
+        )
+        assert (
+            passed_patterns is not None
+        ), "No match patterns were passed to _process_issues"
+        # We don't really care about the order of the patterns
+        assert {p.pattern for p in passed_patterns} == set(parsed_patterns)
+
+        for text in should_contain:
+            assert text in r.output, f"Expected '{text}' in output but not found"
+
+        for text in should_not_contain:
+            assert text not in r.output, f"Expected '{text}' NOT in output but found"
+
+    def test_match_invalid_regex(self, tmp_path: Path) -> None:
+        """Test --match option with invalid regex pattern."""
+        # Invalid regex pattern with unmatched parenthesis
+        r = CliRunner(mix_stderr=False).invoke(
+            validate, [r"--match=(INVALID", str(tmp_path)], catch_exceptions=False
+        )
+
+        # Should fail with an error about invalid regex
+        assert r.exit_code != 0
+        assert "error" in r.stderr.lower() and "--match" in r.stderr
+
+    def test_match_with_ignore_combination(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test --match and --ignore options used together."""
+        from .. import cmd_validate
+
+        monkeypatch.setattr(cmd_validate, "validate_", self._mock_validate)
+
+        # Then use both match and ignore
+        r = CliRunner().invoke(
+            validate,
+            [
+                r"--match=BIDS\.DATATYPE_MISMATCH",
+                r"--ignore=DATATYPE_MISMATCH",
+                str(tmp_path),
+            ],
+        )
+
+        assert "BIDS.DATATYPE_MISMATCH" not in r.output
+        assert "No errors found" in r.output

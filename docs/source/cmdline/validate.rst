@@ -22,6 +22,13 @@ Options
     Ignore any validation errors & warnings whose ID matches the given regular
     expression
 
+.. option:: --match REGEX,REGEX,...
+
+    Comma-separated regex patterns used to filter issues in validation results by their
+    ID. Only issues with an ID matching at least one of the given patterns are included
+    in the eventual result. Note: The separator used to separate the patterns is a
+    comma (`,`), so no pattern should contain a comma.
+
 .. option:: --min-severity [HINT|WARNING|ERROR]
 
     Only display issues with severities above this level (HINT by default)
