@@ -49,7 +49,7 @@ class TestParseRegexes:
     def test_single_pattern(self, value):
 
         result = parse_regexes(DUMMY_CTX, DUMMY_PARAM, value)
-        assert isinstance(result, list)
+        assert isinstance(result, set)
         assert len(result) == 1
 
         (compiled,) = result
@@ -59,20 +59,18 @@ class TestParseRegexes:
     @pytest.mark.parametrize(
         "value, expected_patterns_in_strs",
         [
-            ("foo,,bar", ["foo", "", "bar"]),
-            ("^start$,end$", ["^start$", "end$"]),
-            (r"a\.b,c+d", [r"a\.b", r"c+d"]),
+            ("foo,,bar", {"foo", "", "bar"}),
+            ("^start$,end$", {"^start$", "end$"}),
+            (r"a\.b,c+d", {r"a\.b", r"c+d"}),
             # duplicates should be collapsed by the internal set()
-            ("foo,foo,bar", ["foo", "bar"]),
+            ("foo,foo,bar", {"foo", "bar"}),
         ],
     )
-    def test_multiple_patterns(self, value: str, expected_patterns_in_strs: list[str]):
+    def test_multiple_patterns(self, value: str, expected_patterns_in_strs: set[str]):
         result = parse_regexes(DUMMY_CTX, DUMMY_PARAM, value)
-        assert isinstance(result, list)
+        assert isinstance(result, set)
 
-        # Order is not guaranteed due to de-duplication via set
-        # So we just check that all expected patterns are present
-        assert {p.pattern for p in result} == set(expected_patterns_in_strs)
+        assert {p.pattern for p in result} == expected_patterns_in_strs
 
     @pytest.mark.parametrize(
         "value, bad_pattern", [("(", "("), ("foo,(", "("), ("good,[a-z", "[a-z")]

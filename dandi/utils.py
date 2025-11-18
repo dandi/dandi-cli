@@ -978,7 +978,7 @@ class StrEnum(str, Enum):
 
 
 def filter_by_id_patterns(
-    validation_results: Iterable[ValidationResult], patterns: list[re.Pattern[str]]
+    validation_results: Iterable[ValidationResult], patterns: set[re.Pattern]
 ) -> list[ValidationResult]:
     """
     Filter validation results by matching their IDs against provided regex patterns.
@@ -987,8 +987,8 @@ def filter_by_id_patterns(
     ----------
     validation_results : Iterable[ValidationResult]
         The iterable of validation results to filter.
-    patterns : list[re.Pattern[str]]
-        The list of regex patterns to match validation result IDs against.
+    patterns : set[re.Pattern]
+        The set of regex patterns to match validation result IDs against.
 
     Returns
     -------

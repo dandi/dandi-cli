@@ -108,7 +108,7 @@ def validate_bids(
 def validate(
     paths: tuple[str, ...],
     ignore: str | None,
-    match: Optional[list[re.Pattern]],
+    match: Optional[set[re.Pattern]],
     grouping: str,
     min_severity: str,
     schema: str | None = None,
@@ -158,7 +158,7 @@ def _process_issues(
     validator_result: Iterable[ValidationResult],
     grouping: str,
     ignore: str | None = None,
-    match: Optional[list[re.Pattern]] = None,
+    match: Optional[set[re.Pattern]] = None,
 ) -> None:
     issues = [i for i in validator_result if i.severity is not None]
     if ignore is not None:

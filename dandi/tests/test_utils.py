@@ -719,14 +719,14 @@ class TestFilterByIdPatterns:
         expected_ids: list[str],
     ) -> None:
         """Test filtering with various pattern combinations and edge cases."""
-        patterns = [re.compile(p) for p in pattern_strs]
+        patterns = {re.compile(p) for p in pattern_strs}
         filtered = filter_by_id_patterns(sample_validation_results, patterns)
         filtered_ids = [result.id for result in filtered]
         assert filtered_ids == expected_ids
 
     def test_empty_validation_results(self) -> None:
         """Test filtering with an empty validation results list."""
-        patterns = [re.compile(r".*")]
+        patterns = {re.compile(r".*")}
         filtered = filter_by_id_patterns([], patterns)
         assert filtered == []
 
@@ -734,6 +734,6 @@ class TestFilterByIdPatterns:
         self, sample_validation_results: list[ValidationResult]
     ) -> None:
         """Test that filtering preserves the original order of results."""
-        patterns = [re.compile(r".*")]
+        patterns = {re.compile(r".*")}
         filtered = filter_by_id_patterns(sample_validation_results, patterns)
         assert filtered == sample_validation_results

@@ -175,7 +175,7 @@ def _compile_regex(regex: str) -> re.Pattern:
 
 def parse_regexes(
     _ctx: click.Context, _param: click.Parameter, value: Optional[str]
-) -> Optional[list[re.Pattern]]:
+) -> Optional[set[re.Pattern]]:
     """
     Callback to parse a string of comma-separated regex patterns
 
@@ -193,8 +193,8 @@ def parse_regexes(
 
     Returns
     -------
-    list[re.Pattern]
-        A list of compiled regex patterns.
+    set[re.Pattern]
+        A set of compiled regex patterns.
 
     Notes
     -----
@@ -206,4 +206,4 @@ def parse_regexes(
 
     regexes = set(value.split(","))
 
-    return [_compile_regex(regex) for regex in regexes]
+    return {_compile_regex(regex) for regex in regexes}

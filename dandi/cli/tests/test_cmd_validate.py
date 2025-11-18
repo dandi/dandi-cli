@@ -207,7 +207,7 @@ class TestValidateMatchOption:
             # Single pattern matching specific validation ID
             (
                 r"BIDS\.DATATYPE_MISMATCH",
-                [r"BIDS\.DATATYPE_MISMATCH"],
+                {r"BIDS\.DATATYPE_MISMATCH"},
                 ["BIDS.DATATYPE_MISMATCH"],
                 [
                     "BIDS.EXTENSION_MISMATCH",
@@ -218,28 +218,28 @@ class TestValidateMatchOption:
             # Single pattern matching by prefix
             (
                 r"^BIDS\.",
-                [r"^BIDS\."],
+                {r"^BIDS\."},
                 ["BIDS.DATATYPE_MISMATCH", "BIDS.EXTENSION_MISMATCH"],
                 ["DANDI.NO_DANDISET_FOUND", "NWBI.check_data_orientation"],
             ),
             # Single pattern that matches nothing (should show "No errors found")
             (
                 r"NONEXISTENT_ID",
-                [r"NONEXISTENT_ID"],
+                {r"NONEXISTENT_ID"},
                 ["No errors found"],
                 ["BIDS", "DANDI", "NWBI"],
             ),
             # Multiple patterns separated by comma
             (
                 r"BIDS\.DATATYPE_MISMATCH,BIDS\.EXTENSION_MISMATCH",
-                [r"BIDS\.DATATYPE_MISMATCH", r"BIDS\.EXTENSION_MISMATCH"],
+                {r"BIDS\.DATATYPE_MISMATCH", r"BIDS\.EXTENSION_MISMATCH"},
                 ["BIDS.DATATYPE_MISMATCH", "BIDS.EXTENSION_MISMATCH"],
                 ["DANDI.NO_DANDISET_FOUND", "NWBI.check_data_orientation"],
             ),
             # Multiple patterns with wildcard
             (
                 r"BIDS\.\S+,DANDI\.\S+",
-                [r"BIDS\.\S+", r"DANDI\.\S+"],
+                {r"BIDS\.\S+", r"DANDI\.\S+"},
                 [
                     "BIDS.DATATYPE_MISMATCH",
                     "BIDS.EXTENSION_MISMATCH",
@@ -253,7 +253,7 @@ class TestValidateMatchOption:
         self,
         tmp_path: Path,
         match_patterns: str,
-        parsed_patterns: list[str],
+        parsed_patterns: set[str],
         should_contain: list[str],
         should_not_contain: list[str],
         monkeypatch: pytest.MonkeyPatch,
@@ -279,8 +279,7 @@ class TestValidateMatchOption:
         assert (
             passed_patterns is not None
         ), "No match patterns were passed to _process_issues"
-        # We don't really care about the order of the patterns
-        assert {p.pattern for p in passed_patterns} == set(parsed_patterns)
+        assert {p.pattern for p in passed_patterns} == parsed_patterns
 
         for text in should_contain:
             assert text in r.output, f"Expected '{text}' in output but not found"
