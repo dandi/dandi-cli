@@ -118,12 +118,17 @@ test = [
 tools = [
     "boto3",
 ]
+duckdb = [
+    "duckdb >= 0.9.0",
+    "pyyaml >= 5.0",
+]
 all = [
     "dandi[extensions]",
     "dandi[extras]",
     "dandi[style]",
     "dandi[test]",
     "dandi[tools]",
+    "dandi[duckdb]",
 ]
 
 [project.urls]
