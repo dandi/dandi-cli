@@ -53,7 +53,9 @@ class TestParseRegexes:
             ("foo,foo,bar", {"foo", "bar"}),
         ],
     )
-    def test_parse_patterns(self, value: str, expected_patterns_in_strs: set[str]):
+    def test_parse_patterns(
+        self, value: str, expected_patterns_in_strs: set[str]
+    ) -> None:
         result = parse_regexes(DUMMY_CTX, DUMMY_PARAM, value)
         assert isinstance(result, set)
 
@@ -62,6 +64,8 @@ class TestParseRegexes:
     @pytest.mark.parametrize(
         "value, bad_pattern", [("(", "("), ("foo,(", "("), ("good,[a-z", "[a-z")]
     )
-    def test_invalid_pattern_raises_bad_parameter(self, value: str, bad_pattern: str):
+    def test_invalid_pattern_raises_bad_parameter(
+        self, value: str, bad_pattern: str
+    ) -> None:
         with pytest.raises(click.BadParameter, match=re.escape(bad_pattern)):
             parse_regexes(DUMMY_CTX, DUMMY_PARAM, value)
