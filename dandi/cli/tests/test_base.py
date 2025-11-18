@@ -38,27 +38,14 @@ class TestParseRegexes:
         assert parse_regexes(DUMMY_CTX, DUMMY_PARAM, None) is None
 
     @pytest.mark.parametrize(
-        "value",
-        [
-            "abc",
-            "[a-z]+",
-            r"a\.b",
-            r"",
-        ],
-    )
-    def test_single_pattern(self, value):
-
-        result = parse_regexes(DUMMY_CTX, DUMMY_PARAM, value)
-        assert isinstance(result, set)
-        assert len(result) == 1
-
-        (compiled,) = result
-        assert isinstance(compiled, re.Pattern)
-        assert compiled.pattern == value
-
-    @pytest.mark.parametrize(
         "value, expected_patterns_in_strs",
         [
+            # Single patterns
+            ("abc", {"abc"}),
+            ("[a-z]+", {"[a-z]+"}),
+            (r"a\.b", {r"a\.b"}),
+            (r"", {r""}),
+            # Multiple patterns
             ("foo,,bar", {"foo", "", "bar"}),
             ("^start$,end$", {"^start$", "end$"}),
             (r"a\.b,c+d", {r"a\.b", r"c+d"}),
@@ -66,7 +53,7 @@ class TestParseRegexes:
             ("foo,foo,bar", {"foo", "bar"}),
         ],
     )
-    def test_multiple_patterns(self, value: str, expected_patterns_in_strs: set[str]):
+    def test_parse_patterns(self, value: str, expected_patterns_in_strs: set[str]):
         result = parse_regexes(DUMMY_CTX, DUMMY_PARAM, value)
         assert isinstance(result, set)
 
