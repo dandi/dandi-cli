@@ -33,7 +33,7 @@ jobs:
           - windows-latest
           - ubuntu-latest
           - macos-latest  # M1 architecture
-          - macos-13  # non-M1 architecture
+          - macos-15-intel  # non-M1 architecture
         python:
           - 3.9  # Reaching EOL in October 2025
           - '3.10'  # Needs quotes so YAML doesn't think it's 3.1
