@@ -219,8 +219,6 @@ class ValidationResult(BaseModel):
     def purview(self) -> str | None:
         if self.path is not None:
             return str(self.path)
-        elif self.path_regex is not None:
-            return self.path_regex
         elif self.dataset_path is not None:
             return str(self.dataset_path)
         else:
