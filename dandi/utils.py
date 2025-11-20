@@ -1001,3 +1001,50 @@ def filter_by_id_patterns(
         if any(re.search(pattern, result.id) for pattern in patterns):
             filtered_results.append(result)
     return filtered_results
+
+
+def filter_by_paths(
+    validation_results: Iterable[ValidationResult], paths: tuple[Path, ...]
+) -> list[ValidationResult]:
+    """
+    Filter validation results by matching their associated paths against provided paths.
+
+    Parameters
+    ----------
+    validation_results : Iterable[ValidationResult]
+        The iterable of validation results to filter.
+    paths : tuple[Path, ...]
+        The tuple of paths to match validation result paths against.
+
+    Returns
+    -------
+    list[ValidationResult]
+        The filtered list of validation results whose associated paths match the
+        provided paths. 'Matching' refers to cases where an associated path of a
+        validation result is the same path as, or falls under,
+        one of the provided paths.
+
+    Raises
+    ------
+    ValueError
+        If any of the provided paths doesn't exist in the filesystem.
+    """
+    for p in paths:
+        if not p.exists():
+            raise ValueError(f"Provided path {p} does not exist")
+
+    # Ensure all provided paths are resolved to their absolute forms
+    paths = tuple(p.resolve(strict=True) for p in paths)
+
+    filtered_results = []
+    for r in validation_results:
+        associated_paths = [
+            p.resolve(strict=True)
+            for p in (r.path, r.dataset_path)
+            if p is not None and p.exists()
+        ]
+        for assoc_path in associated_paths:
+            if any(assoc_path.is_relative_to(p) for p in paths):
+                filtered_results.append(r)
+                break
+    return filtered_results
