@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import click
+import rich_click as click
 
 from .base import map_to_click_exceptions
 
