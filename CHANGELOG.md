@@ -4,6 +4,8 @@
 
 #### Obtain API key for DANDI instance from corresponding env var ([#1731](https://github.com/dandi/dandi-cli/pull/1731))
 
+**⚠️ Breaking change for non-DANDI instances! (although just a .patch release)**
+
 Instead of attempting to obtain API key from the environment variable DANDI_API_KEY when connecting to any known DANI instances, obtain the API key from an environment variable corresponding the to name of the instance. For example, obtain the key from the `DANDI_API_KEY` env var when connecting to the known DANI instance named `dandi` and obtain the key from the `EMBER_SANDBOX_API_KEY` var when the connecting to the known instance named `ember-sandbox`. I.e., the environment variable name is the capitalized version of the instance's name with "-" replaced by "_" suffixed by "_API_KEY".
 
 ---
