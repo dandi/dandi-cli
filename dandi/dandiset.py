@@ -139,9 +139,9 @@ class Dandiset:
             id_ = str(id_.get("value", ""))
         elif id_ is not None:
             assert isinstance(id_, str)
-            if id_.startswith("DANDI:"):
-                # result of https://github.com/dandi/dandi-cli/pull/348 which
-                id_ = id_[len("DANDI:") :]
+            # result of https://github.com/dandi/dandi-cli/pull/348 which ???
+            # TODO: RF to avoid this evil!!!
+            id_ = id_.split(":")[-1]
 
         assert id_ is None or isinstance(id_, str)
         return id_
