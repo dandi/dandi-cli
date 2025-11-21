@@ -355,7 +355,7 @@ class TestValidateIncludePathOption:
         mocker: pytest_mock.MockerFixture,
     ) -> None:
         """
-        Test that the validated arguments for --include-path correct
+        Test that the validated arguments for --include-path are correct
         """
         from .. import cmd_validate
 
