@@ -22,6 +22,7 @@ from ..utils import (
     ensure_datetime,
     ensure_strtime,
     filter_by_id_patterns,
+    filter_by_paths,
     find_files,
     flatten,
     flattened,
@@ -737,3 +738,238 @@ class TestFilterByIdPatterns:
         patterns = {re.compile(r".*")}
         filtered = filter_by_id_patterns(sample_validation_results, patterns)
         assert filtered == sample_validation_results
+
+
+class TestFilterByPaths:
+    """Test the filter_by_paths function."""
+
+    @pytest.fixture
+    def sample_validation_results(self, tmp_path: Path) -> list[ValidationResult]:
+        """Create sample validation results with file paths for testing."""
+        # Create a directory structure for testing
+        (tmp_path / "sub-mouse001").mkdir()
+        (tmp_path / "sub-mouse002").mkdir()
+        (tmp_path / "sub-mouse003").mkdir()
+        (tmp_path / "data" / "nested").mkdir(parents=True)
+        (tmp_path / "dataset").mkdir()
+
+        # Create test files
+        file1 = tmp_path / "sub-mouse001" / "data.nwb"
+        file2 = tmp_path / "sub-mouse002" / "data.nwb"
+        file3 = tmp_path / "sub-mouse003" / "data.nwb"
+        file4 = tmp_path / "data" / "nested" / "experiment.nwb"
+        file5 = tmp_path / "file_with_both.nwb"
+        file1.touch()
+        file2.touch()
+        file3.touch()
+        file4.touch()
+        file5.touch()
+
+        origin_nwbinspector = Origin(
+            type=OriginType.VALIDATION,
+            validator=Validator.nwbinspector,
+            validator_version="",
+        )
+        origin_dandi = Origin(
+            type=OriginType.VALIDATION,
+            validator=Validator.dandi,
+            validator_version="",
+        )
+
+        return [
+            # Results with only 'path'
+            ValidationResult(
+                id="NWBI.check_1",
+                origin=origin_nwbinspector,
+                scope=Scope.FILE,
+                message="Issue 1",
+                path=file1,
+                severity=Severity.WARNING,
+            ),
+            ValidationResult(
+                id="NWBI.check_2",
+                origin=origin_nwbinspector,
+                scope=Scope.FILE,
+                message="Issue 2",
+                path=file2,
+                severity=Severity.WARNING,
+            ),
+            ValidationResult(
+                id="NWBI.check_3",
+                origin=origin_nwbinspector,
+                scope=Scope.FILE,
+                message="Issue 3",
+                path=file3,
+                severity=Severity.ERROR,
+            ),
+            ValidationResult(
+                id="NWBI.check_4",
+                origin=origin_nwbinspector,
+                scope=Scope.FILE,
+                message="Issue 4",
+                path=file4,
+                severity=Severity.WARNING,
+            ),
+            # Result with only 'dataset_path'
+            ValidationResult(
+                id="DANDI.dataset_only",
+                origin=origin_dandi,
+                scope=Scope.DANDISET,
+                message="Dataset issue",
+                dataset_path=tmp_path / "dataset",
+                severity=Severity.ERROR,
+            ),
+            # Result with both 'path' and 'dataset_path'
+            ValidationResult(
+                id="DANDI.both_paths",
+                origin=origin_dandi,
+                scope=Scope.FILE,
+                message="Issue with both paths",
+                path=file5,
+                dataset_path=tmp_path / "dataset",
+                severity=Severity.WARNING,
+            ),
+        ]
+
+    @pytest.mark.parametrize(
+        "path_specs,expected_ids",
+        [
+            # Single file path
+            (["sub-mouse001/data.nwb"], ["NWBI.check_1"]),
+            # Multiple file paths
+            (
+                ["sub-mouse001/data.nwb", "sub-mouse002/data.nwb"],
+                ["NWBI.check_1", "NWBI.check_2"],
+            ),
+            # Directory path matching all files under it
+            (["sub-mouse001"], ["NWBI.check_1"]),
+            # Parent directory path matching multiple subdirectories
+            (["data"], ["NWBI.check_4"]),
+            # Multiple directories
+            (
+                ["sub-mouse001", "sub-mouse003"],
+                ["NWBI.check_1", "NWBI.check_3"],
+            ),
+            # Nested directory
+            (["data/nested"], ["NWBI.check_4"]),
+            # All paths via parent directory (includes all results)
+            (
+                ["."],
+                [
+                    "NWBI.check_1",
+                    "NWBI.check_2",
+                    "NWBI.check_3",
+                    "NWBI.check_4",
+                    "DANDI.dataset_only",
+                    "DANDI.both_paths",
+                ],
+            ),
+            # Empty paths tuple
+            ([], []),
+            # No duplicates when result matches multiple filter paths (file + parent dir)
+            (["sub-mouse001/data.nwb", "sub-mouse001"], ["NWBI.check_1"]),
+            # Result with dataset_path
+            (["dataset"], ["DANDI.dataset_only", "DANDI.both_paths"]),
+            # Result with both path and dataset_path - filter by file path
+            (["file_with_both.nwb"], ["DANDI.both_paths"]),
+        ],
+    )
+    def test_path_filtering(
+        self,
+        sample_validation_results: list[ValidationResult],
+        tmp_path: Path,
+        path_specs: list[str],
+        expected_ids: list[str],
+    ) -> None:
+        """Test filtering with various path combinations and edge cases."""
+        paths = tuple(tmp_path / p for p in path_specs)
+        filtered = filter_by_paths(sample_validation_results, paths)
+        filtered_ids = [result.id for result in filtered]
+        assert filtered_ids == expected_ids
+
+    def test_nonexistent_path_raises_error(
+        self, sample_validation_results: list[ValidationResult], tmp_path: Path
+    ) -> None:
+        """Test that filtering with a non-existent path raises ValueError."""
+        nonexistent_path = tmp_path / "nonexistent"
+        with pytest.raises(ValueError, match="does not exist"):
+            filter_by_paths(sample_validation_results, (nonexistent_path,))
+
+    def test_empty_validation_results(self, tmp_path: Path) -> None:
+        """Test filtering with an empty validation results list."""
+        filtered = filter_by_paths([], (tmp_path,))
+        assert filtered == []
+
+    def test_preserves_order(
+        self, sample_validation_results: list[ValidationResult], tmp_path: Path
+    ) -> None:
+        """Test that filtering preserves the original order of results."""
+        filtered = filter_by_paths(sample_validation_results, (tmp_path,))
+        assert filtered == sample_validation_results
+
+    def test_result_with_nonexistent_path(self, tmp_path: Path) -> None:
+        """Test that results with non-existent paths are ignored during filtering."""
+        existing_file = tmp_path / "existing.nwb"
+        nonexistent_file = tmp_path / "nonexistent.nwb"
+        existing_file.touch()
+
+        origin = Origin(
+            type=OriginType.VALIDATION,
+            validator=Validator.nwbinspector,
+            validator_version="",
+        )
+
+        results = [
+            ValidationResult(
+                id="NWBI.check_1",
+                origin=origin,
+                scope=Scope.FILE,
+                message="Issue 1",
+                path=existing_file,
+                severity=Severity.WARNING,
+            ),
+            ValidationResult(
+                id="NWBI.check_2",
+                origin=origin,
+                scope=Scope.FILE,
+                message="Issue 2",
+                path=nonexistent_file,  # This file doesn't exist
+                severity=Severity.WARNING,
+            ),
+        ]
+
+        # Filter by parent directory - should only get the existing file's result
+        filtered = filter_by_paths(results, (tmp_path,))
+        assert len(filtered) == 1
+        assert filtered[0].id == "NWBI.check_1"
+
+    def test_relative_paths_resolved(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that relative paths are properly resolved to absolute paths."""
+        monkeypatch.chdir(tmp_path)
+
+        subdir = tmp_path / "subdir"
+        subdir.mkdir()
+        file1 = subdir / "data.nwb"
+        file1.touch()
+
+        origin = Origin(
+            type=OriginType.VALIDATION,
+            validator=Validator.nwbinspector,
+            validator_version="",
+        )
+
+        result = ValidationResult(
+            id="NWBI.check_1",
+            origin=origin,
+            scope=Scope.FILE,
+            message="Issue",
+            path=file1,
+            severity=Severity.WARNING,
+        )
+
+        # Use relative path
+        filtered = filter_by_paths([result], (Path("subdir"),))
+        assert len(filtered) == 1
+        assert filtered[0].id == "NWBI.check_1"
