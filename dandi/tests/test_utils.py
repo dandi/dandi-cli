@@ -603,7 +603,7 @@ def test_post_upload_size_check_erroring(
 
 
 class TestFilterByIdPatterns:
-    """Test the _filter_by_id_patterns function."""
+    """Test the filter_by_id_patterns function."""
 
     @pytest.fixture
     def sample_validation_results(self) -> list[ValidationResult]:
