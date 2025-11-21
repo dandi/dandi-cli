@@ -3,14 +3,20 @@ from __future__ import annotations
 from collections.abc import Iterable
 import logging
 import os
+from pathlib import Path
 import re
-from typing import cast
+from typing import Optional, cast
 import warnings
 
 import click
 
-from .base import devel_debug_option, devel_option, map_to_click_exceptions
-from ..utils import pluralize
+from .base import (
+    devel_debug_option,
+    devel_option,
+    map_to_click_exceptions,
+    parse_regexes,
+)
+from ..utils import filter_by_id_patterns, filter_by_paths, pluralize
 from ..validate import validate as validate_
 from ..validate_types import Severity, ValidationResult
 
@@ -81,6 +87,26 @@ def validate_bids(
 )
 @click.option("--ignore", metavar="REGEX", help="Regex matching error IDs to ignore")
 @click.option(
+    "--match",
+    metavar="REGEX,REGEX,...",
+    help=(
+        "Comma-separated regex patterns used to filter issues in validation results "
+        "by their ID. Only issues with an ID matching at least one of the given "
+        "patterns are included in the eventual result. "
+        "(No pattern should contain a comma.)"
+    ),
+    callback=parse_regexes,
+)
+@click.option(
+    "--include-path",
+    multiple=True,
+    type=click.Path(exists=True, resolve_path=True, path_type=Path),
+    help=(
+        "Filter issues in the validation results to only those associated with the "
+        "given path(s). This option can be specified multiple times."
+    ),
+)
+@click.option(
     "--min-severity",
     help="Only display issues with severities above this level.",
     type=click.Choice([i.name for i in Severity], case_sensitive=True),
@@ -92,6 +118,8 @@ def validate_bids(
 def validate(
     paths: tuple[str, ...],
     ignore: str | None,
+    match: Optional[set[re.Pattern]],
+    include_path: tuple[Path, ...],
     grouping: str,
     min_severity: str,
     schema: str | None = None,
@@ -134,17 +162,28 @@ def validate(
         if i.severity is not None and i.severity.value >= min_severity_value
     ]
 
-    _process_issues(filtered_results, grouping, ignore)
+    _process_issues(filtered_results, grouping, ignore, match, include_path)
 
 
 def _process_issues(
     validator_result: Iterable[ValidationResult],
     grouping: str,
     ignore: str | None = None,
+    match: Optional[set[re.Pattern]] = None,
+    include_path: tuple[Path, ...] = (),
 ) -> None:
     issues = [i for i in validator_result if i.severity is not None]
     if ignore is not None:
         issues = [i for i in issues if not re.search(ignore, i.id)]
+
+    # Filter issues by ID patterns if provided
+    if match is not None:
+        issues = filter_by_id_patterns(issues, match)
+
+    # Filter issues by included paths if provided
+    if include_path:
+        issues = filter_by_paths(issues, include_path)
+
     purviews = [i.purview for i in issues]
     if grouping == "none":
         display_errors(
