@@ -117,6 +117,55 @@ from .fixtures import DandiAPI, SampleDandiset
                 version_id="0.210831.2033",
             ),
         ),
+        # Test other instances with short format
+        (
+            "DANDI-SANDBOX:000029",
+            DandisetURL(
+                instance=known_instances["dandi-sandbox"],
+                dandiset_id="000029",
+                version_id=None,
+            ),
+        ),
+        (
+            "dandi-sandbox:000029/draft",
+            DandisetURL(
+                instance=known_instances["dandi-sandbox"],
+                dandiset_id="000029",
+                version_id="draft",
+            ),
+        ),
+        (
+            "LINC:000029",
+            DandisetURL(
+                instance=known_instances["linc"],
+                dandiset_id="000029",
+                version_id=None,
+            ),
+        ),
+        (
+            "linc:000029/0.210831.2033",
+            DandisetURL(
+                instance=known_instances["linc"],
+                dandiset_id="000029",
+                version_id="0.210831.2033",
+            ),
+        ),
+        (
+            "EMBER:000029",
+            DandisetURL(
+                instance=known_instances["ember"],
+                dandiset_id="000029",
+                version_id=None,
+            ),
+        ),
+        (
+            "ember-sandbox:000029/draft",
+            DandisetURL(
+                instance=known_instances["ember-sandbox"],
+                dandiset_id="000029",
+                version_id="draft",
+            ),
+        ),
         (
             "http://localhost:8000/api/dandisets/000002/",
             DandisetURL(
