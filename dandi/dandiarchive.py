@@ -589,13 +589,13 @@ class _dandi_url_parser:
         #       for not only "dandiarchive.org" URLs
         (
             re.compile(
-                rf"(?P<instance_name>DANDI):"
+                rf"(?P<instance_name>[-\w._]+):"
                 rf"{dandiset_id_grp}"
                 rf"(/(?P<version>{VERSION_REGEX}))?",
                 flags=re.I,
             ),
             {},
-            "DANDI:<dandiset id>[/<version>]",
+            "<INSTANCE>:<dandiset id>[/<version>]",
         ),
         (
             re.compile(r"https?://gui\.dandiarchive\.org/.*"),
