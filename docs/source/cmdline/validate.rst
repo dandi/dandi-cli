@@ -33,7 +33,7 @@ Options
 
     Filter issues in the validation results to only those associated with the
     given path(s). A validation issue is associated with a path if its associated
-    path(s) are the same as or falls under the provided path. This option can be
+    path(s) are the same as or fall under the provided path. This option can be
     specified multiple times to include multiple paths.
 
 .. option:: --min-severity [HINT|WARNING|ERROR]
