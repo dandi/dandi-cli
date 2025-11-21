@@ -152,54 +152,54 @@ def test_validate_bids_error_grouping_notification(
     assert notification_substring in r.output
 
 
+def _mock_validate(*paths, **kwargs):
+    """Mock validation function that returns controlled ValidationResult objects."""
+    origin = Origin(
+        type=OriginType.VALIDATION,
+        validator=Validator.dandi,
+        validator_version="test",
+    )
+
+    # Return a set of validation results with different IDs
+    results = [
+        ValidationResult(
+            id="BIDS.DATATYPE_MISMATCH",
+            origin=origin,
+            severity=Severity.ERROR,
+            scope=Scope.FILE,
+            message="Datatype mismatch error",
+            path=Path(paths[0]) / "file1.nii",
+        ),
+        ValidationResult(
+            id="BIDS.EXTENSION_MISMATCH",
+            origin=origin,
+            severity=Severity.ERROR,
+            scope=Scope.FILE,
+            message="Extension mismatch error",
+            path=Path(paths[0]) / "file2.jpg",
+        ),
+        ValidationResult(
+            id="DANDI.NO_DANDISET_FOUND",
+            origin=origin,
+            severity=Severity.ERROR,
+            scope=Scope.DANDISET,
+            message="No dandiset found",
+            path=Path(paths[0]),
+        ),
+        ValidationResult(
+            id="NWBI.check_data_orientation",
+            origin=origin,
+            severity=Severity.WARNING,
+            scope=Scope.FILE,
+            message="Data orientation warning",
+            path=Path(paths[0]) / "file3.nwb",
+        ),
+    ]
+    return iter(results)
+
+
 class TestValidateMatchOption:
     """Test the --match option for filtering validation results."""
-
-    @staticmethod
-    def _mock_validate(*paths, **kwargs):
-        """Mock validation function that returns controlled ValidationResult objects."""
-        origin = Origin(
-            type=OriginType.VALIDATION,
-            validator=Validator.dandi,
-            validator_version="test",
-        )
-
-        # Return a set of validation results with different IDs
-        results = [
-            ValidationResult(
-                id="BIDS.DATATYPE_MISMATCH",
-                origin=origin,
-                severity=Severity.ERROR,
-                scope=Scope.FILE,
-                message="Datatype mismatch error",
-                path=Path(paths[0]) / "file1.nii",
-            ),
-            ValidationResult(
-                id="BIDS.EXTENSION_MISMATCH",
-                origin=origin,
-                severity=Severity.ERROR,
-                scope=Scope.FILE,
-                message="Extension mismatch error",
-                path=Path(paths[0]) / "file2.jpg",
-            ),
-            ValidationResult(
-                id="DANDI.NO_DANDISET_FOUND",
-                origin=origin,
-                severity=Severity.ERROR,
-                scope=Scope.DANDISET,
-                message="No dandiset found",
-                path=Path(paths[0]),
-            ),
-            ValidationResult(
-                id="NWBI.check_data_orientation",
-                origin=origin,
-                severity=Severity.WARNING,
-                scope=Scope.FILE,
-                message="Data orientation warning",
-                path=Path(paths[0]) / "file3.nwb",
-            ),
-        ]
-        return iter(results)
 
     @pytest.mark.parametrize(
         "match_patterns,parsed_patterns,should_contain,should_not_contain",
@@ -265,7 +265,7 @@ class TestValidateMatchOption:
         # Use to monitor what compiled patterns are passed by the CLI
         process_issues_spy = mocker.spy(cmd_validate, "_process_issues")
 
-        monkeypatch.setattr(cmd_validate, "validate_", self._mock_validate)
+        monkeypatch.setattr(cmd_validate, "validate_", _mock_validate)
 
         r = CliRunner().invoke(validate, [f"--match={match_patterns}", str(tmp_path)])
 
@@ -304,7 +304,7 @@ class TestValidateMatchOption:
         """Test --match and --ignore options used together."""
         from .. import cmd_validate
 
-        monkeypatch.setattr(cmd_validate, "validate_", self._mock_validate)
+        monkeypatch.setattr(cmd_validate, "validate_", _mock_validate)
 
         # Then use both match and ignore
         r = CliRunner().invoke(
@@ -318,3 +318,72 @@ class TestValidateMatchOption:
 
         assert "BIDS.DATATYPE_MISMATCH" not in r.output
         assert "No errors found" in r.output
+
+
+class TestValidateIncludePathOption:
+    """Test the --include-path option for filtering validation results."""
+
+    def test_nonexistent_include_path(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Test --include-path option with a non-existent path."""
+
+        non_existent_path = tmp_path / "nonexistent.nwb"
+
+        r = CliRunner().invoke(
+            validate,
+            [f"--include-path={non_existent_path}", str(tmp_path)],
+        )
+
+        # Should exit with an error about `--include-path`
+        assert r.exit_code != 0
+        assert "--include-path" in r.output
+
+    @pytest.mark.parametrize(
+        "include_paths",
+        [
+            ["path1.nwb"],
+            ["path1.nwb", "path2.nwb"],
+        ],
+    )
+    def test_validated_option_args(
+        self,
+        include_paths: list[str],
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        mocker: pytest_mock.MockerFixture,
+    ) -> None:
+        """
+        Test that the validated arguments for --include-path correct
+        """
+        from .. import cmd_validate
+
+        # Use to monitor what compiled patterns are passed by the CLI
+        process_issues_spy = mocker.spy(cmd_validate, "_process_issues")
+
+        # We actually don't care about validation results here.
+        #   We are only mocking to avoid running actual validation logic.
+        monkeypatch.setattr(cmd_validate, "validate_", _mock_validate)
+
+        paths = [tmp_path / p for p in include_paths]
+        for p in paths:
+            p.touch()
+
+        cli_args = [f"--include-path={p}" for p in paths] + [str(tmp_path)]
+        CliRunner().invoke(
+            validate,
+            cli_args,
+        )
+
+        process_issues_spy.assert_called_once()
+        call_args = process_issues_spy.call_args
+
+        # Ensure the paths are parsed and passed correctly
+        passed_paths = call_args.kwargs.get(
+            "include_path",
+            call_args.args[4] if len(call_args.args) > 4 else None,
+        )
+        assert len(passed_paths) == len(include_paths)
+        assert all(isinstance(p, Path) for p in passed_paths)
+        assert all(p.is_absolute() for p in passed_paths)
