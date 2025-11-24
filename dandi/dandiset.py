@@ -141,7 +141,7 @@ class Dandiset:
             assert isinstance(id_, str)
             # result of https://github.com/dandi/dandi-cli/pull/348 which ???
             # TODO: RF to avoid this evil!!!
-            id_ = id_.split(":")[-1]
+            id_ = id_.split(":", maxsplit=1)[-1]
 
         assert id_ is None or isinstance(id_, str)
         return id_
