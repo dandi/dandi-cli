@@ -90,6 +90,19 @@ development command line options.
 - `DANDI_TESTS_NO_VCR` — When set, the use of vcrpy to playback captured HTTP
   requests during testing will be disabled
 
+- `DANDI_TESTS_INSTANCE_NAME` -- Sets the instance name for the Docker Compose
+  test environment (passed as `DJANGO_DANDI_INSTANCE_NAME`). Defaults to
+  `DANDI`. Useful for testing vendorized instances.
+
+- `DANDI_TESTS_INSTANCE_IDENTIFIER` -- Sets the instance identifier (RRID) for
+  the Docker Compose test environment (passed as
+  `DJANGO_DANDI_INSTANCE_IDENTIFIER`). Defaults to `RRID:ABC_123456`. Useful
+  for testing vendorized instances.
+
+- `DANDI_TESTS_DOI_PREFIX` -- Sets the DOI API prefix for the Docker Compose
+  test environment (passed as `DJANGO_DANDI_DOI_API_PREFIX`). Defaults to
+  `10.80507`. Useful for testing vendorized instances.
+
 - `DANDI_DEVEL_INSTRUMENT_REQUESTS_SUPERLEN` -- When set, the `upload()`
   function will patch `requests` to log the results of calls to
   `requests.utils.super_len()`
