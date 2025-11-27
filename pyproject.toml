@@ -7,7 +7,7 @@ build-backend = 'setuptools.build_meta'
 name = "dandi"
 description = "Command line client for interaction with DANDI instances"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 authors = [
     {name = "DANDI developers", email = "team@dandiarchive.org"},
@@ -36,7 +36,6 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -51,8 +50,7 @@ dependencies = [
     "click-didyoumean",
     "dandischema ~= 0.12.0",
     "etelemetry >= 0.2.2",
-    # For pydantic to be able to use type annotations like `X | None`
-    "eval_type_backport; python_version < '3.10'",
+
     "fasteners",
     "fscacher >= 0.3.0",
     # Workaround for no wheels for intel OSX as of 3.15
