@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import re
 from importlib.metadata import PackageNotFoundError, requires, version
 
 from dandischema.models import DandiBaseModel
+from packaging.requirements import Requirement
 from pytest import Config, Item, Parser
 
 from .tests.fixtures import *  # noqa: F401, F403  # lgtm [py/polluting-import]
@@ -41,11 +41,7 @@ def pytest_report_header(config: Config) -> list[str]:
         # Extract package names from requirement strings.
         # Format: "package-name >= 1.0" or "package-name ; condition"
         #  and by regex thus we skip extras (in square brackets like [test])
-        deps = {
-            match.group(1)
-            for dep in (requires("dandi") or [])
-            if (match := re.match(r"^([a-zA-Z0-9_-]+)", dep))
-        }
+        deps = {Requirement(dep).name for dep in (requires("dandi") or [])}
     except PackageNotFoundError:
         # Use defaults if we didn't get deps from metadata
         deps = {"dandischema", "h5py", "hdmf"}
