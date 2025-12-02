@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import re
+from importlib.metadata import PackageNotFoundError, requires, version
+
 from dandischema.models import DandiBaseModel
 from pytest import Config, Item, Parser
 
@@ -30,6 +33,33 @@ def pytest_configure(config):
     ]
     for marker in markers:
         config.addinivalue_line("markers", marker)
+
+
+def pytest_report_header(config: Config) -> list[str]:
+    """Add version information for key dependencies to the pytest header."""
+    try:
+        # Extract package names from requirement strings.
+        # Format: "package-name >= 1.0" or "package-name ; condition"
+        #  and by regex thus we skip extras (in square brackets like [test])
+        deps = {
+            match.group(1)
+            for dep in (requires("dandi") or [])
+            if (match := re.match(r"^([a-zA-Z0-9_-]+)", dep))
+        }
+    except PackageNotFoundError:
+        # Use defaults if we didn't get deps from metadata
+        deps = {"dandischema", "h5py", "hdmf"}
+
+    # Format versions for display (sorted for consistent output)
+    versions = []
+    for pkg in sorted(deps):
+        try:
+            version_str = f"-{version(pkg)}"
+        except PackageNotFoundError:
+            version_str = " missing"
+        versions.append(f"{pkg}{version_str}")
+
+    return [f"dependencies: {', '.join(versions)}"] if versions else []
 
 
 def pytest_collection_modifyitems(items: list[Item], config: Config) -> None:
