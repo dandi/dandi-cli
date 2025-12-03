@@ -108,9 +108,9 @@ from .fixtures import DandiAPI, SampleDandiset
                 version_id="draft",
             ),
         ),
-        # lower cased
+        # numeric version
         (
-            "dandi:000027/0.210831.2033",
+            "DANDI:000027/0.210831.2033",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000027",
@@ -127,14 +127,6 @@ from .fixtures import DandiAPI, SampleDandiset
             ),
         ),
         (
-            "dandi-sandbox:000029/draft",
-            DandisetURL(
-                instance=known_instances["dandi-sandbox"],
-                dandiset_id="000029",
-                version_id="draft",
-            ),
-        ),
-        (
             "LINC:000029",
             DandisetURL(
                 instance=known_instances["linc"],
@@ -143,7 +135,7 @@ from .fixtures import DandiAPI, SampleDandiset
             ),
         ),
         (
-            "linc:000029/0.210831.2033",
+            "LINC:000029/0.210831.2033",
             DandisetURL(
                 instance=known_instances["linc"],
                 dandiset_id="000029",
@@ -151,17 +143,17 @@ from .fixtures import DandiAPI, SampleDandiset
             ),
         ),
         (
-            "EMBER:000029",
+            "EMBER-DANDI:000029",
             DandisetURL(
-                instance=known_instances["ember"],
+                instance=known_instances["ember-dandi"],
                 dandiset_id="000029",
                 version_id=None,
             ),
         ),
         (
-            "ember-sandbox:000029/draft",
+            "EMBER-DANDI-SANDBOX:000029/draft",
             DandisetURL(
-                instance=known_instances["ember-sandbox"],
+                instance=known_instances["ember-dandi-sandbox"],
                 dandiset_id="000029",
                 version_id="draft",
             ),

@@ -574,7 +574,9 @@ class _dandi_url_parser:
     # Should absorb port and "api/":
     server_grp = "(?P<server>(?P<protocol>https?)://(?P<hostname>[^/]+)/(api/)?)"
     # Build instance name pattern from known instances to avoid matching unknown patterns
-    instance_name_pattern = "|".join(re.escape(name) for name in known_instances.keys())
+    instance_name_pattern = "|".join(
+        re.escape(name.upper()) for name in known_instances
+    )
     known_urls: list[tuple[re.Pattern[str], dict[str, Any], str]] = [
         # List of (regex, settings, display string) triples
         #
@@ -594,7 +596,6 @@ class _dandi_url_parser:
                 rf"(?P<instance_name>{instance_name_pattern}):"
                 rf"{dandiset_id_grp}"
                 rf"(/(?P<version>{VERSION_REGEX}))?",
-                flags=re.I,
             ),
             {},
             "<INSTANCE>:<dandiset id>[/<version>]",

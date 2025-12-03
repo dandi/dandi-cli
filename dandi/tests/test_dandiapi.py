@@ -869,7 +869,7 @@ def test_asset_as_readable_open(new_dandiset: SampleDandiset, tmp_path: Path) ->
         ("dandi", "DANDI_API_KEY"),
         ("dandi-api-local-docker-tests", "DANDI_API_LOCAL_DOCKER_TESTS_API_KEY"),
         ("dandi-sandbox", "DANDI_SANDBOX_API_KEY"),
-        ("ember-sandbox", "EMBER_SANDBOX_API_KEY"),
+        ("ember-dandi-sandbox", "EMBER_SANDBOX_API_KEY"),
     ],
 )
 def test_get_api_key_env_var(instance_name: str, expected_env_var_name: str) -> None:
