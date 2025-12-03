@@ -52,7 +52,7 @@ def pytest_report_header(config: Config) -> list[str]:
         try:
             version_str = f"-{version(pkg)}"
         except PackageNotFoundError:
-            version_str = " missing"
+            version_str = " NOT INSTALLED"
         versions.append(f"{pkg}{version_str}")
 
     return [f"dependencies: {', '.join(versions)}"] if versions else []
