@@ -577,8 +577,8 @@ def get_instance(dandi_instance_id: str | DandiInstance) -> DandiInstance:
         dandi_id = dandi_instance_id
         instance = known_instances[dandi_id]
     if dandi_id == "dandi-staging":
-        lgr.warning(
-            "'dandi-staging' DANDI instance identifier is deprecated. "
+        raise ValueError(
+            "'dandi-staging' DANDI instance identifier was removed. "
             "The instance was renamed into 'dandi-sandbox', please use that identifier instead."
         )
     if redirector_url is None:
