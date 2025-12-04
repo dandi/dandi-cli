@@ -61,7 +61,7 @@ development command line options.
   variable providing the key for a specific known DANDI instance corresponds to the name
   of the instance. For example, the environment variable `DANDI_API_KEY` provides the key
   for the known instance named `dandi` and the environment variable
-  `EMBER_DANDI_SANDBOX_API_KEY` provides the key for the known instance named `ember-sandbox`.
+  `EMBER_DANDI_SANDBOX_API_KEY` provides the key for the known instance named `ember-dandi-sandbox`.
   I.e., the environment variable name is the capitalized version of the instance's name
   with "-" replaced by "_" suffixed by "_API_KEY". Providing API keys through environment
   variables avoids using keyrings, thus making it possible to "temporarily" use another
