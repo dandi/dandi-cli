@@ -12,7 +12,7 @@ from pytest_mock import MockerFixture
 
 from .fixtures import DandiAPI
 from ..dandiapi import DandiAPIClient
-from ..keyring import keyring_lookup, keyringrc_file
+from ..keyring_utils import keyring_lookup, keyringrc_file
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -145,7 +145,7 @@ def test_keyring_lookup_default_no_password(
 ) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     kb0 = null.Keyring()
-    get_keyring = mocker.patch("dandi.keyring.get_keyring", return_value=kb0)
+    get_keyring = mocker.patch("dandi.keyring_utils.get_keyring", return_value=kb0)
     kb, password = keyring_lookup("testservice", "testusername")
     assert kb is kb0
     assert password is None
@@ -159,7 +159,7 @@ def test_keyring_lookup_default_password(
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     kb0 = keyfile.PlaintextKeyring()
     kb0.set_password("testservice", "testusername", "testpassword")
-    get_keyring = mocker.patch("dandi.keyring.get_keyring", return_value=kb0)
+    get_keyring = mocker.patch("dandi.keyring_utils.get_keyring", return_value=kb0)
     kb, password = keyring_lookup("testservice", "testusername")
     assert kb is kb0
     assert password == "testpassword"
@@ -176,7 +176,7 @@ def test_keyring_lookup_fail_default_encrypted(
 ) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
     get_keyring = mocker.patch(
-        "dandi.keyring.get_keyring", return_value=EncryptedFailure()
+        "dandi.keyring_utils.get_keyring", return_value=EncryptedFailure()
     )
     with pytest.raises(KeyringError):
         keyring_lookup("testservice", "testusername")
@@ -188,7 +188,9 @@ def test_keyring_lookup_encrypted_fallback_exists_no_password(
     mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
-    get_keyring = mocker.patch("dandi.keyring.get_keyring", return_value=fail.Keyring())
+    get_keyring = mocker.patch(
+        "dandi.keyring_utils.get_keyring", return_value=fail.Keyring()
+    )
     kf = Path(keyfile.EncryptedKeyring().file_path)
     kf.parent.mkdir(parents=True, exist_ok=True)
     kf.touch()
@@ -203,7 +205,9 @@ def test_keyring_lookup_encrypted_fallback_exists_password(
     mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
-    get_keyring = mocker.patch("dandi.keyring.get_keyring", return_value=fail.Keyring())
+    get_keyring = mocker.patch(
+        "dandi.keyring_utils.get_keyring", return_value=fail.Keyring()
+    )
     kb0 = keyfile.EncryptedKeyring()
     getpass = mocker.patch("getpass.getpass", return_value="file-password")
     kb0.set_password("testservice", "testusername", "testpassword")
@@ -221,7 +225,9 @@ def test_keyring_lookup_encrypted_fallback_not_exists_no_create(
     mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
-    get_keyring = mocker.patch("dandi.keyring.get_keyring", return_value=fail.Keyring())
+    get_keyring = mocker.patch(
+        "dandi.keyring_utils.get_keyring", return_value=fail.Keyring()
+    )
     confirm = mocker.patch("click.confirm", return_value=False)
     with pytest.raises(KeyringError):
         keyring_lookup("testservice", "testusername")
@@ -236,7 +242,9 @@ def test_keyring_lookup_encrypted_fallback_not_exists_create_rcconf(
     mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
-    get_keyring = mocker.patch("dandi.keyring.get_keyring", return_value=fail.Keyring())
+    get_keyring = mocker.patch(
+        "dandi.keyring_utils.get_keyring", return_value=fail.Keyring()
+    )
     confirm = mocker.patch("click.confirm", return_value=True)
     kb, password = keyring_lookup("testservice", "testusername")
     assert isinstance(kb, keyfile.EncryptedKeyring)
@@ -256,7 +264,9 @@ def test_keyring_lookup_encrypted_fallback_not_exists_create_rcconf_exists(
     mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("PYTHON_KEYRING_BACKEND", raising=False)
-    get_keyring = mocker.patch("dandi.keyring.get_keyring", return_value=fail.Keyring())
+    get_keyring = mocker.patch(
+        "dandi.keyring_utils.get_keyring", return_value=fail.Keyring()
+    )
     confirm = mocker.patch("click.confirm", return_value=True)
     rc = keyringrc_file()
     rc.parent.mkdir(parents=True, exist_ok=True)
