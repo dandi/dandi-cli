@@ -127,17 +127,7 @@ class Dandiset:
             id_ = metadata["identifier"]
             lgr.debug("Found identifier %s in top level 'identifier'", str(id_))
 
-        if isinstance(id_, dict):
-            # New formalized model, but see below DANDI: way
-            # TODO: add schemaVersion handling but only after we have them provided
-            # in all metadata records from dandi-api server
-            if id_.get("propertyID") != "DANDI":
-                raise ValueError(
-                    f"Got following identifier record when was expecting a record "
-                    f"with 'propertyID: DANDI': {id_}"
-                )
-            id_ = str(id_.get("value", ""))
-        elif id_ is not None:
+        if id_ is not None:
             assert isinstance(id_, str)
             # result of https://github.com/dandi/dandi-cli/pull/348 which ???
             # TODO: RF to avoid this evil!!!
