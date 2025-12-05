@@ -1,8 +1,8 @@
 import os
 from os.path import basename, normcase, splitext
 
-import click
 from packaging.version import Version
+import rich_click as click
 
 SHELLS = ["bash", "zsh", "fish"]
 

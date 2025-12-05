@@ -16,12 +16,12 @@ from time import sleep, time
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-import click
 from dandischema import models
 import dandischema.consts
 from packaging.version import Version as PackagingVersion
 from pydantic import BaseModel, Field, PrivateAttr
 import requests
+import rich_click as click
 import tenacity
 from yarl import URL
 

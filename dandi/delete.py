@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from operator import attrgetter
 from pathlib import Path
 
-import click
+import rich_click as click
 from yarl import URL
 
 from .consts import DRAFT, ZARR_EXTENSIONS, DandiInstance, dandiset_metadata_file

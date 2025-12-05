@@ -1,9 +1,9 @@
 import os
 from pathlib import Path
 
-import click
 from click.testing import CliRunner
 import pytest
+import rich_click as click
 
 from ..cmd_download import download
 from ...consts import dandiset_metadata_file, known_instances

@@ -10,12 +10,12 @@ from shutil import rmtree
 from typing import Any
 
 import anys
-import click
 from dandischema.models import UUID_PATTERN, DigestType, get_schema_version
 import pytest
 from pytest_mock import MockerFixture
 import requests
 import responses
+import rich_click as click
 
 from .fixtures import DandiAPI, SampleDandiset, SampleDandisetFactory
 from .skip import mark

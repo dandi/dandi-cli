@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-import click
 from click.testing import CliRunner
 import pytest
 from pytest_mock import MockerFixture
+import rich_click as click
 
 from ..cmd_move import move
 

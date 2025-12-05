@@ -14,8 +14,8 @@ from time import sleep
 from typing import Any, TypedDict, cast
 from unittest.mock import patch
 
-import click
 from packaging.version import Version
+import rich_click as click
 
 from . import __version__, lgr
 from .consts import (
