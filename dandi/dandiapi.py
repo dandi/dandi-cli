@@ -37,7 +37,7 @@ from .consts import (
     EmbargoStatus,
 )
 from .exceptions import HTTP404Error, NotFoundError, SchemaVersionError
-from .keyring import keyring_lookup, keyring_save
+from .keyring_utils import keyring_lookup, keyring_save
 from .misctypes import Digest, RemoteReadableAsset
 from .utils import (
     USER_AGENT,
