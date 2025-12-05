@@ -650,7 +650,7 @@ def _get_instance(
 
 # This is defined in module level because repeated invocations of
 # TypeAdapter creation is expensive
-_url_adapter = TypeAdapter(AnyHttpUrl | FtpUrl)
+_url_adapter: TypeAdapter = TypeAdapter(AnyHttpUrl | FtpUrl)
 
 
 def is_url(s: str) -> bool:
