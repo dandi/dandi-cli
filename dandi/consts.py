@@ -123,13 +123,6 @@ known_instances = {
         "https://dandiarchive.org",
         "https://api.dandiarchive.org/api",
     ),
-    # Deprecated. Remove early 2026.
-    # Should come before dandi-sandbox so _rev map does map to sandbox
-    "dandi-staging": DandiInstance(
-        "dandi-staging",
-        "https://sandbox.dandiarchive.org",
-        "https://api.sandbox.dandiarchive.org/api",
-    ),
     "dandi-sandbox": DandiInstance(
         "dandi-sandbox",
         "https://sandbox.dandiarchive.org",
@@ -150,13 +143,13 @@ known_instances = {
         "https://staging.lincbrain.org",
         "https://staging-api.lincbrain.org/api",
     ),
-    "ember": DandiInstance(
-        "ember",
+    "ember-dandi": DandiInstance(
+        "ember-dandi",
         "https://dandi.emberarchive.org",
         "https://api-dandi.emberarchive.org/api",
     ),
-    "ember-sandbox": DandiInstance(
-        "ember-sandbox",
+    "ember-dandi-sandbox": DandiInstance(
+        "ember-dandi-sandbox",
         "https://apl-setup--ember-dandi-archive.netlify.app/",
         "https://api-dandi-sandbox.emberarchive.org/api",
     ),

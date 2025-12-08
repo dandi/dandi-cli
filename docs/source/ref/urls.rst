@@ -17,8 +17,10 @@ has one, and its draft version will be used otherwise.
   (case insensitive; ``version`` cannot be "draft") when it redirects
   to one of the other URL formats
 
-- :samp:`DANDI:{dandiset-id}[/{version}]` (case insensitive)
-  — Refers to a Dandiset on the main DANDI Archive instance named "dandi".
+- :samp:`{instance-name}:{dandiset-id}[/{version}]` (case insensitive,
+  where ``instance-name`` is a known DANDI instance such as ``DANDI``,
+  ``DANDI-SANDBOX``, ``LINC``, ``EMBER``, etc.)
+  — Refers to a Dandiset on the specified DANDI Archive instance.
   `parse_dandi_url()` converts this format to a `DandisetURL`.
 
 - Any ``https://gui.dandiarchive.org/`` or

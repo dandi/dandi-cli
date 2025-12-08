@@ -108,13 +108,54 @@ from .fixtures import DandiAPI, SampleDandiset
                 version_id="draft",
             ),
         ),
-        # lower cased
+        # numeric version
         (
-            "dandi:000027/0.210831.2033",
+            "DANDI:000027/0.210831.2033",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000027",
                 version_id="0.210831.2033",
+            ),
+        ),
+        # Test other instances with short format
+        (
+            "DANDI-SANDBOX:000029",
+            DandisetURL(
+                instance=known_instances["dandi-sandbox"],
+                dandiset_id="000029",
+                version_id=None,
+            ),
+        ),
+        (
+            "LINC:000029",
+            DandisetURL(
+                instance=known_instances["linc"],
+                dandiset_id="000029",
+                version_id=None,
+            ),
+        ),
+        (
+            "LINC:000029/0.210831.2033",
+            DandisetURL(
+                instance=known_instances["linc"],
+                dandiset_id="000029",
+                version_id="0.210831.2033",
+            ),
+        ),
+        (
+            "EMBER-DANDI:000029",
+            DandisetURL(
+                instance=known_instances["ember-dandi"],
+                dandiset_id="000029",
+                version_id=None,
+            ),
+        ),
+        (
+            "EMBER-DANDI-SANDBOX:000029/draft",
+            DandisetURL(
+                instance=known_instances["ember-dandi-sandbox"],
+                dandiset_id="000029",
+                version_id="draft",
             ),
         ),
         (

@@ -13,7 +13,7 @@ def get_helptext(command):
 
 def test_resource_identifier_helptext():
     # The \n chars must be included for correct rendering
-    correct = "Accepted resource identifier patterns:\n   - DANDI:<dandiset id>[/<version>]\n"
+    correct = "Accepted resource identifier patterns:\n   - <INSTANCE>:<dandiset id>[/<version>]\n"
 
     ls_helptext = get_helptext(['dandi', 'ls'])
     assert correct in ls_helptext
