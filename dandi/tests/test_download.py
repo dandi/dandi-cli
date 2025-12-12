@@ -16,6 +16,7 @@ from shutil import rmtree
 import time
 from unittest import mock
 
+from dandischema.models import ID_PATTERN
 import numpy as np
 import pytest
 from pytest_mock import MockerFixture
@@ -258,7 +259,7 @@ def test_download_dandiset_yaml(text_dandiset: SampleDandiset, tmp_path: Path) -
     assert list_paths(tmp_path, dirs=True) == [tmp_path / dandiset_metadata_file]
     with (tmp_path / dandiset_metadata_file).open(encoding="utf-8") as fp:
         metadata = yaml_load(fp)
-    assert metadata["id"] == f"DANDI:{dandiset_id}/draft"
+    assert re.match(rf"^{ID_PATTERN}:{dandiset_id}/draft$", metadata["id"])
 
 
 def test_download_asset_id(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
