@@ -103,7 +103,7 @@ jobs:
       run: echo PYTEST_ADDOPTS=--scheduled >> "$GITHUB_ENV"
 
     - name: Run all tests except those involving obolibrary
-      if: matrix.mode != 'dandi-api'
+      if: matrix.mode != 'dandi-api' && matrix.mode != 'obolibrary-only'
       run: |
         python -m pytest -s -v -m "not obolibrary" --cov=dandi --cov-report=xml dandi
 
