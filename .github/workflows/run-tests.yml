@@ -41,10 +41,22 @@ jobs:
           - '3.13'
         mode:
           - normal
+        vendored_dandiapi:
+          # Allow vendor information for the dandi-api instance to default to
+          #   the default values specified in
+          #   dandi/tests/data/dandiarchive-docker/docker-compose.yml
+          - default
         include:
           - os: ubuntu-latest
             python: '3.10'
             mode: dandi-api
+          - os: ubuntu-latest
+            python: '3.10'
+            mode: dandi-api
+            vendored_dandiapi: ember-dandi
+            instance_name: EMBER-DANDI
+            instance_identifier: 'RRID:SCR_026700'
+            doi_prefix: '10.82754'
           - os: ubuntu-latest
             python: 3.13
             mode: obolibrary-only
@@ -75,6 +87,21 @@ jobs:
       run: |
         python -m pip install --upgrade pip wheel
         pip install ".[extras,test]"
+
+    # Set only if matrix.instance_name is defined
+    - name: Set DANDI_TESTS_INSTANCE_NAME
+      if: ${{ matrix.instance_name }}
+      run: echo "DANDI_TESTS_INSTANCE_NAME=${{ matrix.instance_name }}" >> "$GITHUB_ENV"
+
+    # Set only if matrix.instance_identifier is defined
+    - name: Set DANDI_TESTS_INSTANCE_IDENTIFIER
+      if: ${{ matrix.instance_identifier }}
+      run: echo "DANDI_TESTS_INSTANCE_IDENTIFIER=${{ matrix.instance_identifier }}" >> "$GITHUB_ENV"
+
+    # Set only if matrix.doi_prefix is defined
+    - name: Set DANDI_TESTS_DOI_PREFIX
+      if: ${{ matrix.doi_prefix }}
+      run: echo "DANDI_TESTS_DOI_PREFIX=${{ matrix.doi_prefix }}" >> "$GITHUB_ENV"
 
     - name: Install dev versions of select dependencies
       if: matrix.mode == 'dev-deps'
