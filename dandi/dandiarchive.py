@@ -743,7 +743,8 @@ class _dandi_url_parser:
                 continue
             groups = match.groupdict()
             if "instance_name" in groups:
-                # map to lower case so we could immediately map DANDI: into "dandi" instance
+                # map to lower case so we could immediately map an instance name to
+                # an instance in `dandi.consts.known_instances`
                 groups["instance_name"] = groups["instance_name"].lower()
             lgr.log(5, "Matched %r into %s", url, groups)
             rewrite = settings.get("rewrite", False)
