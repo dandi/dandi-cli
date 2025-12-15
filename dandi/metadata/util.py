@@ -425,7 +425,11 @@ def parse_purlobourl(
     :return: dictionary containing found nodes
     """
 
-    req = requests.get(url, allow_redirects=True)
+    if url.startswith(NCBITAXON_URI_TEMPLATE.format("")):
+        rdf_content_url = f"https://ontobee.org/ontology/rdf/NCBITaxon?iri={url}"
+        req = requests.get(rdf_content_url, allow_redirects=True)
+    else:
+        req = requests.get(url, allow_redirects=True)
     req.raise_for_status()
     doc = parseString(req.text)
     for elfound in doc.getElementsByTagName("Class"):
