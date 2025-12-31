@@ -151,7 +151,7 @@ known_instances = {
     "ember-dandi-sandbox": DandiInstance(
         "ember-dandi-sandbox",
         "https://apl-setup--ember-dandi-archive.netlify.app/",
-        "https://api-dandi-sandbox.emberarchive.org/api",
+        "https://api-dandi.sandbox.emberarchive.org/api",
     ),
 }
 # to map back url: name
