@@ -186,8 +186,12 @@ def validate(
             ):
                 r_id = id(r)
                 if r_id not in df_result_ids:
-                    # If the error is about the dandiset metadata file, modify
-                    # the message in the validation to give the context of DANDI
+                    df_results.append(r)
+                    df_result_ids.add(r_id)
+                    yield r
+
+                    # If the error is about the dandiset metadata file, add a HINT
+                    # message in the validation to give the context of DANDI
                     # and add a HINT to suggest adding to .bidsignore
                     is_dandiset_yaml_error = (
                         r.path is not None
@@ -196,28 +200,15 @@ def validate(
                         == dandiset_metadata_file
                     )
                     if is_dandiset_yaml_error:
-                        r.message = (
-                            f"The dandiset metadata file, `{dandiset_metadata_file}`, "
-                            f"is not a part of BIDS specification. Please include a "
-                            f"`.bidsignore` file with specification to ignore the "
-                            f"metadata file in your dataset. For more details, see "
-                            f"https://github.com/bids-standard/bids-specification/"
-                            f"issues/131#issuecomment-461060166."
-                        )
-                    df_results.append(r)
-                    df_result_ids.add(r_id)
-                    yield r
-
-                    # After yielding the error for dandiset.yaml, also yield a HINT
-                    if is_dandiset_yaml_error:
                         hint = ValidationResult(
                             id="DANDI.BIDSIGNORE_DANDISET_YAML",
                             origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
-                            severity=Severity.HINT,
                             scope=Scope.DATASET,
-                            path=r.dataset_path,
+                            origin_result=r,
+                            severity=Severity.HINT,
+                            dandiset_path=r.dandiset_path,
                             dataset_path=r.dataset_path,
-                            dandiset_path=dandiset_path,
+                            path=r.path,
                             message=(
                                 f"Consider creating or updating a `.bidsignore` file "
                                 f"in the root of your BIDS dataset to ignore "
