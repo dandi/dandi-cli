@@ -189,32 +189,3 @@ def validate(
                     df_results.append(r)
                     df_result_ids.add(r_id)
                     yield r
-
-                    # If the error is about the dandiset metadata file, add a HINT
-                    # message in the validation to give the context of DANDI
-                    # and add a HINT to suggest adding to .bidsignore
-                    is_dandiset_yaml_error = (
-                        r.path is not None
-                        and r.dataset_path is not None
-                        and r.path.relative_to(r.dataset_path).as_posix()
-                        == dandiset_metadata_file
-                    )
-                    if is_dandiset_yaml_error:
-                        hint = ValidationResult(
-                            id="DANDI.BIDSIGNORE_DANDISET_YAML",
-                            origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
-                            scope=Scope.DATASET,
-                            origin_result=r,
-                            severity=Severity.HINT,
-                            dandiset_path=r.dandiset_path,
-                            dataset_path=r.dataset_path,
-                            path=r.path,
-                            message=(
-                                f"Consider creating or updating a `.bidsignore` file "
-                                f"in the root of your BIDS dataset to ignore "
-                                f"`{dandiset_metadata_file}`. "
-                                f"Add the following line to `.bidsignore`:\n"
-                                f"{dandiset_metadata_file}"
-                            ),
-                        )
-                        yield hint
