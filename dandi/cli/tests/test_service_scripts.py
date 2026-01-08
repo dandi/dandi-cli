@@ -10,6 +10,7 @@ import sys
 import anys
 from click.testing import CliRunner
 from dandischema.consts import DANDI_SCHEMA_VERSION
+from dandischema.models import ID_PATTERN
 import pytest
 
 from dandi import __version__
@@ -105,13 +106,13 @@ def test_update_dandiset_from_doi(
     metadata = new_dandiset.dandiset.get_raw_metadata()
     with (DATA_DIR / "update_dandiset_from_doi" / f"{name}.json").open() as fp:
         expected = json.load(fp)
-    expected["id"] = f"DANDI:{dandiset_id}/draft"
+    expected["id"] = anys.AnyFullmatch(rf"{ID_PATTERN}:{dandiset_id}/draft")
     expected["url"] = f"{repository}/dandiset/{dandiset_id}/draft"
     expected["@context"] = (
         "https://raw.githubusercontent.com/dandi/schema/master/releases"
         f"/{DANDI_SCHEMA_VERSION}/context.json"
     )
-    expected["identifier"] = f"DANDI:{dandiset_id}"
+    expected["identifier"] = anys.AnyFullmatch(rf"{ID_PATTERN}:{dandiset_id}")
     expected["repository"] = repository
     expected["dateCreated"] = anys.ANY_AWARE_DATETIME_STR
     expected["schemaVersion"] = DANDI_SCHEMA_VERSION

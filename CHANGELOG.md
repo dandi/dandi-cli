@@ -1,3 +1,60 @@
+# 0.74.0 (Wed Dec 17 2025)
+
+### Release Notes
+
+#### Remove hardcoded vendor specific information ([#1760](https://github.com/dandi/dandi-cli/pull/1760))
+
+Removed hardcoded vendor specific info so that dandi-cli can now connect to different DANDI instances with different vendor specific info.
+
+#### Add support for all known instances in short URL format, removed dandi-staging and renamed EMBER* ones into EMBER-DANDI* ([#1750](https://github.com/dandi/dandi-cli/pull/1750))
+
+Added support for all known instances in short URL format (such as `DANDI-SANDBOX:123456` or `EMBER-DANDI:123456`) matching the instance names known to the dandi CLI and library. 
+BREAKING: Note that `INSTANCE:` in above examples must be capital - lower case `dandi:123456` would no longer be supported. Also version will be treated case-sensitive so must be `draft` not `DRAFT`.
+Removed deprecated `dandi-staging` instance definition.
+Renamed `ember` and `ember-sandbox` into `ember-dandi` and `ember-dandi-sandbox` correspondingly.
+
+---
+
+#### 🚀 Enhancement
+
+- Add support for all known instances in short URL format, removed dandi-staging and renamed EMBER* ones into EMBER-DANDI* [#1750](https://github.com/dandi/dandi-cli/pull/1750) ([@Copilot](https://github.com/Copilot) [@yarikoptic](https://github.com/yarikoptic))
+- Set `dandischema` dependency to `0.12.0` and beyond [#1744](https://github.com/dandi/dandi-cli/pull/1744) ([@candleindark](https://github.com/candleindark))
+
+#### 🐛 Bug Fix
+
+- Switch to use /rdf/ renderer  for purl obo urls [#1772](https://github.com/dandi/dandi-cli/pull/1772) ([@yarikoptic](https://github.com/yarikoptic))
+- Remove hardcoded vendor specific information [#1760](https://github.com/dandi/dandi-cli/pull/1760) ([@candleindark](https://github.com/candleindark))
+- Rename `keyring.py` to `keyring_utils.py` [#1765](https://github.com/dandi/dandi-cli/pull/1765) ([@candleindark](https://github.com/candleindark))
+- Drop support for Python 3.9 [#1759](https://github.com/dandi/dandi-cli/pull/1759) ([@Copilot](https://github.com/Copilot))
+- docs: Document vendorizable test environment variables [#1757](https://github.com/dandi/dandi-cli/pull/1757) ([@Copilot](https://github.com/Copilot))
+- BF: strip away any prefix before ":" while determining numeric dandiset identifier [#1751](https://github.com/dandi/dandi-cli/pull/1751) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- [gh-actions](deps): bump actions/checkout from 5 to 6 [#1755](https://github.com/dandi/dandi-cli/pull/1755) ([@dependabot[bot]](https://github.com/dependabot[bot]) [@candleindark](https://github.com/candleindark))
+
+#### 📝 Documentation
+
+- Improve help message for the `--validation` option in `dandi upload` [#1768](https://github.com/dandi/dandi-cli/pull/1768) ([@candleindark](https://github.com/candleindark))
+- Add alert/clarification for 0.73.2 release [#1747](https://github.com/dandi/dandi-cli/pull/1747) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Not run test without `obolibrary` mark in `obolibrary-only` env [#1770](https://github.com/dandi/dandi-cli/pull/1770) ([@candleindark](https://github.com/candleindark))
+- Add dependency versions to pytest header output [#1761](https://github.com/dandi/dandi-cli/pull/1761) ([@yarikoptic](https://github.com/yarikoptic))
+- bf(tests): pass DBUS_SESSION_BUS_ADDRESS env var for docker [#1763](https://github.com/dandi/dandi-cli/pull/1763) ([@yarikoptic](https://github.com/yarikoptic))
+- Make dandi-archive instance used by tests vendorizable [#1756](https://github.com/dandi/dandi-cli/pull/1756) ([@candleindark](https://github.com/candleindark) [@Copilot](https://github.com/Copilot))
+- Update GitHub CI MacOS intel runner [#1746](https://github.com/dandi/dandi-cli/pull/1746) ([@candleindark](https://github.com/candleindark))
+
+#### Authors: 4
+
+- [@Copilot](https://github.com/Copilot)
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Isaac To ([@candleindark](https://github.com/candleindark))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.73.2 (Sat Nov 15 2025)
 
 ### Release Notes

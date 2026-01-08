@@ -28,7 +28,7 @@ from typing import IO, Any, List, Optional, Protocol, TypeVar, Union
 
 import dateutil.parser
 from multidict import MultiDict  # dependency of yarl
-from pydantic import BaseModel, Field
+from pydantic import AnyHttpUrl, BaseModel, Field, FtpUrl, TypeAdapter, ValidationError
 import requests
 import ruamel.yaml
 from semantic_version import Version
@@ -648,13 +648,36 @@ def _get_instance(
     )
 
 
-def is_url(s: str) -> bool:
-    """Very primitive url detection for now
+# This is defined in module level because repeated invocations of
+# TypeAdapter creation is expensive
+_url_adapter: TypeAdapter[AnyHttpUrl | FtpUrl] = TypeAdapter(AnyHttpUrl | FtpUrl)
 
-    TODO: redo
+
+def is_url(s: str) -> bool:
     """
-    return s.lower().startswith(("http://", "https://", "dandi:", "ftp://"))
-    # Slashes are not required after "dandi:" so as to support "DANDI:<id>"
+    Determines whether the input string `s` is a valid URL (standard URL or DANDI URL).
+    """
+
+    # Importing from within function to avoid possible circular imports
+    #   since this a utility module
+    from dandi.dandiarchive import parse_dandi_url
+    from dandi.exceptions import UnknownURLError
+
+    try:
+        _url_adapter.validate_python(s)
+    except ValidationError:
+        # `s` is not a standard URL, try parsing it as DANDI URL
+        try:
+            parse_dandi_url(s)
+        except UnknownURLError:
+            # `s` is neither a standard URL nor a DANDI URL, returning `False`
+            return False
+
+        # `s` is a DANDI URL, returning `True`
+        return True
+
+    # `s` is a standard URL
+    return True
 
 
 def get_module_version(module: str | types.ModuleType) -> str | None:

@@ -39,7 +39,11 @@ from ..upload import UploadExisting, UploadValidation
 )
 @click.option(
     "--validation",
-    help="Data must pass validation before the upload.  Use of this option is highly discouraged.",
+    help="Controls validation requirements before upload. (Setting this option to a "
+    "value other than 'require' is highly discouraged.) "
+    "'require' - data must pass validation before upload; "
+    "'skip' - no validation is performed on data before upload; "
+    "'ignore' - data is validated but upload proceeds regardless of validation results.",
     type=click.Choice(list(UploadValidation)),
     default="require",
     show_default=True,
