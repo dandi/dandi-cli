@@ -186,22 +186,6 @@ def validate(
             ):
                 r_id = id(r)
                 if r_id not in df_result_ids:
-                    # If the error is about the dandiset metadata file, modify
-                    # the message in the validation to give the context of DANDI
-                    if (
-                        r.path is not None
-                        and r.dataset_path is not None
-                        and r.path.relative_to(r.dataset_path).as_posix()
-                        == dandiset_metadata_file
-                    ):
-                        r.message = (
-                            f"The dandiset metadata file, `{dandiset_metadata_file}`, "
-                            f"is not a part of BIDS specification. Please include a "
-                            f"`.bidsignore` file with specification to ignore the "
-                            f"metadata file in your dataset. For more details, see "
-                            f"https://github.com/bids-standard/bids-specification/"
-                            f"issues/131#issuecomment-461060166."
-                        )
                     df_results.append(r)
                     df_result_ids.add(r_id)
                     yield r

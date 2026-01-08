@@ -114,11 +114,30 @@ def test_validate_bids(
     assert err.dataset_path is not None
     assert err.path.relative_to(err.dataset_path).as_posix() == dandiset_metadata_file
 
+    # The error message should be the original BIDS error, not modified
     assert err.message is not None
-    assert err.message.startswith(
-        f"The dandiset metadata file, `{dandiset_metadata_file}`, is not a part of "
-        f"BIDS specification."
+    # We just check that it's about dandiset.yaml, not checking exact message
+    # since it comes from BIDS validator
+
+    # Check that there is also a HINT about .bidsignore
+    validation_hints = [
+        r
+        for r in validation_results
+        if r.severity is not None and r.severity == Severity.HINT
+    ]
+
+    # Assert that there is at least one hint
+    assert len(validation_hints) >= 1
+
+    # Find the hint about .bidsignore for dandiset.yaml
+    bidsignore_hint = next(
+        (h for h in validation_hints if h.id == "DANDI.BIDSIGNORE_DANDISET_YAML"),
+        None,
     )
+    assert bidsignore_hint is not None
+    assert bidsignore_hint.message is not None
+    assert ".bidsignore" in bidsignore_hint.message
+    assert dandiset_metadata_file in bidsignore_hint.message
 
 
 def test_validate_bids_onefile(bids_error_examples: Path, tmp_path: Path) -> None:
