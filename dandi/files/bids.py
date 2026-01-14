@@ -13,10 +13,15 @@ from dandi.bids_validator_deno import bids_validate
 
 from .bases import GenericAsset, LocalFileAsset, NWBAsset
 from .zarr import ZarrAsset
-from ..consts import ZARR_MIME_TYPE
+from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..metadata.core import add_common_metadata, prepare_metadata
 from ..misctypes import Digest
-from ..validate_types import ValidationResult
+from ..validate_types import (
+    ORIGIN_VALIDATION_DANDI_LAYOUT,
+    Scope,
+    Severity,
+    ValidationResult,
+)
 
 BIDS_ASSET_ERRORS = ("BIDS.NON_BIDS_PATH_PLACEHOLDER",)
 BIDS_DATASET_ERRORS = ("BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",)
@@ -113,6 +118,39 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 # Obtain BIDS validation results of the entire dataset through the
                 # deno-compiled BIDS validator
                 self._dataset_errors = bids_validate(self.bids_root)
+
+                # Add HINT for dandiset.yaml errors
+                # If any error is about the dandiset metadata file, add a HINT
+                # suggesting to add it to .bidsignore
+                additional_hints = []
+                for result in self._dataset_errors:
+                    is_dandiset_yaml_error = (
+                        result.path is not None
+                        and result.path.relative_to(self.bids_root).as_posix()
+                        == dandiset_metadata_file
+                    )
+                    if is_dandiset_yaml_error:
+                        hint = ValidationResult(
+                            id="DANDI.BIDSIGNORE_DANDISET_YAML",
+                            origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
+                            scope=Scope.DATASET,
+                            origin_result=result,
+                            severity=Severity.HINT,
+                            dandiset_path=result.dandiset_path,
+                            dataset_path=result.dataset_path,
+                            path=result.path,
+                            message=(
+                                f"Consider creating or updating a `.bidsignore` file "
+                                f"in the root of your BIDS dataset to ignore "
+                                f"`{dandiset_metadata_file}`. "
+                                f"Add the following line to `.bidsignore`:\n"
+                                f"{dandiset_metadata_file}"
+                            ),
+                        )
+                        additional_hints.append(hint)
+
+                # Add hints to the dataset errors
+                self._dataset_errors.extend(additional_hints)
 
                 # Categorized validation results related to individual assets by the
                 # path of the asset in the BIDS dataset

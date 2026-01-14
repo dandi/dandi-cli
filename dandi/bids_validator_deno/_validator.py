@@ -12,10 +12,8 @@ from typing import Optional
 from packaging.version import parse as parse_ver_str
 from pydantic import DirectoryPath, validate_call
 
-from dandi.consts import dandiset_metadata_file
 from dandi.utils import find_parent_directory_containing
 from dandi.validate_types import (
-    ORIGIN_VALIDATION_DANDI_LAYOUT,
     Origin,
     OriginType,
     Scope,
@@ -363,45 +361,20 @@ def _harmonize(
         # The absolute path to the file or directory that the issue is related to
         issue_path = _get_path(issue, ds_path)
 
-        validation_result = ValidationResult(
-            id=f"BIDS.{issue.code}",
-            origin=origin,
-            scope=_get_scope(issue_path),
-            # Store only the issue, not entire bv_result with more context
-            origin_result=issue,
-            severity=_SEVERITY_MAP[severity] if severity else None,
-            dandiset_path=dandiset_path,
-            dataset_path=ds_path,
-            message=_get_msg(issue, code_messages),
-            path=issue_path,
-        )
-        results.append(validation_result)
-
-        # If the error is about the dandiset metadata file, add a HINT
-        # suggesting to add it to .bidsignore
-        is_dandiset_yaml_error = (
-            issue_path is not None
-            and issue_path.relative_to(ds_path).as_posix() == dandiset_metadata_file
-        )
-        if is_dandiset_yaml_error:
-            hint = ValidationResult(
-                id="DANDI.BIDSIGNORE_DANDISET_YAML",
-                origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
-                scope=Scope.DATASET,
-                origin_result=validation_result,
-                severity=Severity.HINT,
+        results.append(
+            ValidationResult(
+                id=f"BIDS.{issue.code}",
+                origin=origin,
+                scope=_get_scope(issue_path),
+                # Store only the issue, not entire bv_result with more context
+                origin_result=issue,
+                severity=_SEVERITY_MAP[severity] if severity else None,
                 dandiset_path=dandiset_path,
                 dataset_path=ds_path,
+                message=_get_msg(issue, code_messages),
                 path=issue_path,
-                message=(
-                    f"Consider creating or updating a `.bidsignore` file "
-                    f"in the root of your BIDS dataset to ignore "
-                    f"`{dandiset_metadata_file}`. "
-                    f"Add the following line to `.bidsignore`:\n"
-                    f"{dandiset_metadata_file}"
-                ),
             )
-            results.append(hint)
+        )
 
     return results
 
