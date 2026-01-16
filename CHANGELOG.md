@@ -1,3 +1,17 @@
+# 0.74.1 (Wed Jan 14 2026)
+
+#### 🏠 Internal
+
+- Update license copyright year(s) [#1775](https://github.com/dandi/dandi-cli/pull/1775) ([@github-actions[bot]](https://github.com/github-actions[bot]))
+- Update EMBER-DANDI Sandbox API URL [#1774](https://github.com/dandi/dandi-cli/pull/1774) ([@NEStock](https://github.com/NEStock))
+
+#### Authors: 2
+
+- [@github-actions[bot]](https://github.com/github-actions[bot])
+- Nicole Tregoning ([@NEStock](https://github.com/NEStock))
+
+---
+
 # 0.74.0 (Wed Dec 17 2025)
 
 ### Release Notes
