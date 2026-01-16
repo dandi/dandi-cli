@@ -117,19 +117,22 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
 
                 # Obtain BIDS validation results of the entire dataset through the
                 # deno-compiled BIDS validator
-                self._dataset_errors = bids_validate(self.bids_root)
+                v_results = bids_validate(self.bids_root)
 
-                # Add HINT for dandiset.yaml errors
-                # If any error is about the dandiset metadata file, add a HINT
-                # suggesting to add it to .bidsignore
-                additional_hints = []
-                for result in self._dataset_errors:
-                    is_dandiset_yaml_error = (
+                # Validation results from the deno BIDS validator with an additional
+                # hint, represented as a `ValidationResult` object, following
+                # each `dandiset.yaml` error, suggesting to add the `dandiset.yaml` file
+                # to `.bidsignore`.
+                v_results_extended: list[ValidationResult] = []
+
+                for result in v_results:
+                    v_results_extended.append(result)
+                    if (
                         result.path is not None
-                        and result.path.relative_to(self.bids_root).as_posix()
+                        and result.dataset_path is not None
+                        and result.path.relative_to(result.dataset_path).as_posix()
                         == dandiset_metadata_file
-                    )
-                    if is_dandiset_yaml_error:
+                    ):
                         hint = ValidationResult(
                             id="DANDI.BIDSIGNORE_DANDISET_YAML",
                             origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
@@ -147,10 +150,9 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                                 f"{dandiset_metadata_file}"
                             ),
                         )
-                        additional_hints.append(hint)
+                        v_results_extended.append(hint)
 
-                # Add hints to the dataset errors
-                self._dataset_errors.extend(additional_hints)
+                self._dataset_errors = v_results_extended
 
                 # Categorized validation results related to individual assets by the
                 # path of the asset in the BIDS dataset
