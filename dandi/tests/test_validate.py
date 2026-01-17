@@ -114,11 +114,18 @@ def test_validate_bids(
     assert err.dataset_path is not None
     assert err.path.relative_to(err.dataset_path).as_posix() == dandiset_metadata_file
 
-    assert err.message is not None
-    assert err.message.startswith(
-        f"The dandiset metadata file, `{dandiset_metadata_file}`, is not a part of "
-        f"BIDS specification."
-    )
+    # === Assert that there is the dandiset.yaml hint ===
+    i = None
+    for i, r in enumerate(validation_results):
+        if r is err:
+            break
+
+    assert i is not None
+    # There must be at least one more result after the error
+    assert len(validation_results) > i + 1
+    # The next result must be the hint re: dandiset.yaml
+    assert validation_results[i + 1].id == "DANDI.BIDSIGNORE_DANDISET_YAML"
+    assert validation_results[i + 1].severity == Severity.HINT
 
 
 def test_validate_bids_onefile(bids_error_examples: Path, tmp_path: Path) -> None:
