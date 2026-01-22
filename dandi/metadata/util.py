@@ -828,28 +828,53 @@ neurodata_typemap: dict[str, Neurodatum] = {
         "approach": None,
     },
     "Units": {
-        "module": "misc",
+        "module": "sortedunits",
         "neurodata_type": "Units",
         "technique": "spike sorting technique",
         "approach": "electrophysiological approach",
     },
     "Spectrum": {
-        "module": "ndx-spectrum",
+        "module": "spectrum",
         "neurodata_type": "Spectrum",
         "technique": "fourier analysis technique",
         "approach": None,
     },
-    "OptogeneticStimulusSIte": {
+    "OptogeneticStimulusSite": {
         "module": "ogen",
-        "neurodata_type": "OptogeneticStimulusSIte",
+        "neurodata_type": "OptogeneticStimulusSite",
         "technique": None,
         "approach": "optogenetic approach",
     },
     "OptogeneticSeries": {
         "module": "ogen",
         "neurodata_type": "OptogeneticSeries",
-        "technique": None,
+        "technique": "optogenetic stimulation technique",
         "approach": "optogenetic approach",
+    },
+    "PoseEstimationSeries": {
+        "module": "motion",
+        "neurodata_type": "PoseEstimationSeries",
+        "technique": "pose estimation technique",
+        "approach": "behavioral approach",
+    },
+    "PoseEstimation": {
+        "module": "motion",
+        "neurodata_type": "PoseEstimation",
+        "technique": "pose estimation technique",
+        "approach": "behavioral approach",
+    },
+    "PoseTraining": {
+        "module": "motion",
+        "neurodata_type": "PoseTraining",
+        "technique": "pose estimation training technique",
+        "approach": "behavioral approach",
+    },
+    "FiberPhotometryResponseSeries": {
+        "module": "fiberphotometry",
+        # this can come from both the old ndx-photometry and the new ndx-fiber-photometry
+        "neurodata_type": "FiberPhotometryResponseSeries",
+        "technique": "fiber photometry technique; optical technique",
+        "approach": "calcium imaging; cell population imaging",
     },
 }
 
