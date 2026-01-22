@@ -515,7 +515,7 @@ def check_replace_asset(
 ) -> tuple[bool, dict[str, str]]:
     # Returns a (replace asset, message to yield) tuple
     if isinstance(local_asset, ZarrAsset):
-        return (True, {"message": "exists - reuploading"})
+        return (True, {"message": "file exists"})
     assert local_etag is not None
     metadata = remote_asset.get_raw_metadata()
     local_mtime = local_asset.modified
