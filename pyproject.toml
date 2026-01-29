@@ -80,7 +80,7 @@ dependencies = [
     # possibly silently incomplete downloads: https://github.com/dandi/dandi-cli/issues/1500
     "urllib3 >= 2.0.0",
     "yarl ~= 1.9",
-    "zarr >= 2.10, <= 3.0.8",
+    "zarr >= 2.10, <= 3.1.5",
     "zarr_checksum ~= 0.4.0",
 ]
 dynamic = ["version"]
