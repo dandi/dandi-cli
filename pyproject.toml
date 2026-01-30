@@ -53,9 +53,6 @@ dependencies = [
 
     "fasteners",
     "fscacher >= 0.3.0",
-    # Workaround for no wheels for intel OSX as of 3.15
-    "h5py<3.15 ; sys_platform == 'darwin' and platform_machine != 'arm64'",
-    "h5py ; sys_platform != 'darwin' or platform_machine == 'arm64'",
     # 3.14.4: https://github.com/hdmf-dev/hdmf/issues/1186
     "hdmf != 3.5.0,!=3.14.4",
     "humanize",
@@ -104,7 +101,9 @@ style = [
 test = [
     "anys ~= 0.2",
     "coverage",
-    "opencv-python",
+    # Workaround for VideoWriter regression in 4.13.0.90 on Intel macOS
+    "opencv-python < 4.13 ; sys_platform == 'darwin' and platform_machine != 'arm64'",
+    "opencv-python ; sys_platform != 'darwin' or platform_machine == 'arm64'",
     "pytest",
     "pytest-cov",
     "pytest-mock",
