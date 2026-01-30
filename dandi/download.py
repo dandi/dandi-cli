@@ -108,7 +108,11 @@ def download(
         # if no paths provided etc, we will download dandiset path
         # we are at, BUT since we are not git -- we do not even know
         # on which instance it exists!  Thus ATM we would do nothing but crash
-        raise NotImplementedError("No URLs were provided.  Cannot download anything")
+        raise NotImplementedError(
+            "No URLs were provided. Cannot download anything. "
+            "Provide a DANDI URL (e.g., 'dandi download DANDI:000027') "
+            "or use '--download' with a dandiset URL."
+        )
 
     parsed_urls = [parse_dandi_url(u, glob=path_type is PathType.GLOB) for u in urls]
 
