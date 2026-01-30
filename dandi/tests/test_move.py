@@ -769,7 +769,11 @@ def test_move_not_dandiset(
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ValueError) as excinfo:
         move("file.txt", "subdir2/banana.txt", dest="subdir1", work_on=work_on)
-    assert str(excinfo.value) == f"{tmp_path.absolute()}: not a Dandiset"
+    assert str(excinfo.value) == (
+        f"{tmp_path.absolute()}: not a Dandiset. "
+        "The directory does not contain a 'dandiset.yaml' file. "
+        "Use 'dandi download' to download a dandiset first."
+    )
 
 
 def test_move_local_delete_empty_dirs(
