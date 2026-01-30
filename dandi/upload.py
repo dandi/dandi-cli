@@ -283,7 +283,10 @@ def upload(
                     try:
                         yield {"size": dfile.size}
                     except FileNotFoundError:
-                        raise UploadError("File not found")
+                        raise UploadError(
+                            f"File not found: {strpath}. "
+                            "Verify the file exists and the path is correct."
+                        )
                     except Exception as exc:
                         # without limiting [:50] it might cause some pyout indigestion
                         raise UploadError(str(exc)[:50])
@@ -318,7 +321,10 @@ def upload(
                             for i, e in enumerate(validation_errors, start=1):
                                 lgr.warning(" Error %d: %s", i, e)
                             validate_ok = False
-                            raise UploadError("failed validation")
+                            raise UploadError(
+                                "File failed validation. "
+                                f"Run 'dandi validate {strpath}' to see detailed validation errors."
+                            )
                     else:
                         yield {"status": "validated"}
                 else:
@@ -357,7 +363,10 @@ def upload(
                     try:
                         file_etag = dfile.get_digest()
                     except Exception as exc:
-                        raise UploadError("failed to compute digest: %s" % str(exc))
+                        raise UploadError(
+                            f"Failed to compute digest: {exc}. "
+                            "Verify the file is readable and not corrupted."
+                        )
 
                 try:
                     extant = remote_dandiset.get_asset_by_path(dfile.path)
@@ -388,7 +397,11 @@ def upload(
                         digest=file_etag, ignore_errors=allow_any_path
                     ).model_dump(mode="json", exclude_none=True)
                 except Exception as e:
-                    raise UploadError("failed to extract metadata: %s" % str(e))
+                    raise UploadError(
+                        f"Failed to extract metadata: {e}. "
+                        "Verify the file format is correct and supported. "
+                        "For NWB files, check that the file follows the NWB specification."
+                    )
 
                 #
                 # Upload file
