@@ -1,3 +1,12 @@
+"""Validation of DANDI datasets against schemas and standards.
+
+This module provides validation functionality for dandisets, including:
+- DANDI schema validation
+- BIDS standard validation
+- File layout and organization validation
+- Metadata completeness checking
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterator
