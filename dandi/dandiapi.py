@@ -435,7 +435,11 @@ class DandiAPIClient(RESTFullAPIClient):
                 dandi_instance = get_instance(instance_name)
             api_url = dandi_instance.api
         elif dandi_instance is not None:
-            raise ValueError("api_url and dandi_instance are mutually exclusive")
+            raise ValueError(
+                "api_url and dandi_instance are mutually exclusive. "
+                "Use either 'api_url' to specify a custom API URL, "
+                "or 'dandi_instance' to use a registered DANDI instance, but not both."
+            )
         else:
             dandi_instance = get_instance(api_url)
         super().__init__(api_url)
@@ -562,7 +566,11 @@ class DandiAPIClient(RESTFullAPIClient):
                     self, self.get(f"/dandisets/{dandiset_id}/")
                 )
             except HTTP404Error:
-                raise NotFoundError(f"No such Dandiset: {dandiset_id!r}")
+                raise NotFoundError(
+                    f"No such Dandiset: {dandiset_id!r}. "
+                    "Verify the Dandiset ID is correct and that you have access. "
+                    f"View available Dandisets at {self.dandi_instance.gui}."
+                )
             if version_id is not None and version_id != d.version_id:
                 if version_id == DRAFT:
                     return d.for_version(d.draft_version)
@@ -732,7 +740,11 @@ class DandiAPIClient(RESTFullAPIClient):
         try:
             info = self.get(f"/assets/{asset_id}/info/")
         except HTTP404Error:
-            raise NotFoundError(f"No such asset: {asset_id!r}")
+            raise NotFoundError(
+                f"No such asset: {asset_id!r}. "
+                "Verify the asset ID is correct. "
+                "Use 'dandi ls' to list available assets."
+            )
         metadata = info.pop("metadata", None)
         return BaseRemoteAsset.from_base_data(self, info, metadata)
 
@@ -1306,7 +1318,11 @@ class RemoteDandiset:
                 a for a in self.get_assets_with_path_prefix(path) if a.path == path
             )
         except ValueError:
-            raise NotFoundError(f"No asset at path {path!r}")
+            raise NotFoundError(
+                f"No asset at path {path!r} in version {self.version_id}. "
+                "Verify the path is correct and the asset exists in this version. "
+                "Use 'dandi ls' to list available assets."
+            )
         else:
             return asset
 
