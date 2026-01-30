@@ -1,5 +1,7 @@
 # DANDI Client Development
 
+> **Note**: For comprehensive developer documentation including testing guides and contribution workflows, see `docs/source/development/` (built Sphinx docs) or the [online documentation](https://dandi.readthedocs.io/).
+
 ## Development environment
 
 Assuming that you have `python3` (and virtualenv) installed, the fastest
@@ -159,3 +161,19 @@ organized by label.  `auto` recognizes the following PR labels:
 - `tests` — for changes to tests
 - `dependencies` — for updates to dependency versions
 - `performance` — for performance improvements
+
+## Developer Documentation
+
+For additional developer resources, see the Sphinx documentation in `docs/source/development/`:
+
+- **Testing Guide** (`docs/source/development/testing.rst`) - Comprehensive testing practices, patterns, and Docker setup
+- **Contributing Guide** (`docs/source/development/contributing.rst`) - Quick reference for contribution workflow
+
+To build the documentation locally:
+```bash
+cd docs
+make html
+open build/html/index.html  # or xdg-open on Linux
+```
+
+Or view online at [dandi.readthedocs.io](https://dandi.readthedocs.io/)

@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+For comprehensive development information, see `DEVELOPMENT.md` and the developer documentation in `docs/source/development/`.
+
 ## Build/Test Commands
 - Run tests: `tox -e py3` but should also work with just `python -m pytest dandi` if in a venv
 - Tests which require an instance of the archive, would use a fixture to start on using docker-compose.
@@ -35,3 +37,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Documentation
 - Keep docstrings updated when changing function signatures
 - CLI help text should be clear and include examples where appropriate
+- Documentation files go in `docs/source/` (Sphinx RST format)
+- Testing documentation: See `.lad/tmp/TESTING_BEST_PRACTICES.md` and `.lad/tmp/TESTING_GUIDELINES.md`
+
+## File Placement Guidelines
+**IMPORTANT**: Do not create analysis, baseline, or temporary files in the project root.
+
+Proper file locations:
+- **LAD session artifacts**: `.lad/tmp/` (test baselines, analysis reports, session notes)
+- **Documentation**: `docs/source/` (must be RST format for Sphinx)
+- **Test data**: `dandi/tests/data/`
+- **Development notes**: `.lad/tmp/notes/` or personal notes outside the repo
+- **Temporary scratch files**: Use system temp dir or `.lad/tmp/scratchpad/`
+
+Examples of files that should NOT be in project root:
+- ❌ `test_execution_baseline.md` → ✅ `.lad/tmp/test_execution_baseline.md`
+- ❌ `analysis_report.md` → ✅ `.lad/tmp/analysis_report.md`
+- ❌ `session_notes.txt` → ✅ `.lad/tmp/notes/session_notes.txt`
+- ❌ `TESTING_GUIDE.md` → ✅ `docs/source/development/testing.rst` (converted to RST)
