@@ -101,7 +101,9 @@ style = [
 test = [
     "anys ~= 0.2",
     "coverage",
-    "opencv-python",
+    # Workaround for VideoWriter regression in 4.13.0.90 on Intel macOS
+    "opencv-python < 4.13 ; sys_platform == 'darwin' and platform_machine != 'arm64'",
+    "opencv-python ; sys_platform != 'darwin' or platform_machine == 'arm64'",
     "pytest",
     "pytest-cov",
     "pytest-mock",
