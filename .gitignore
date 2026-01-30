@@ -16,3 +16,4 @@ sandbox/
 venv/
 venvs/
 .DS_Store
+.lad/tmp/
