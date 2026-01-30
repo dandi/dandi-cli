@@ -1,3 +1,19 @@
+# 0.74.2 (Fri Jan 30 2026)
+
+#### 🐛 Bug Fix
+
+- Allow for newer versions of `zarr` package [#1779](https://github.com/dandi/dandi-cli/pull/1779) ([@kabilar](https://github.com/kabilar))
+- Add HINT validation result for dandiset.yaml in both validate and upload commands [#1741](https://github.com/dandi/dandi-cli/pull/1741) ([@Copilot](https://github.com/Copilot) [@yarikoptic](https://github.com/yarikoptic) [@candleindark](https://github.com/candleindark))
+
+#### Authors: 4
+
+- [@Copilot](https://github.com/Copilot)
+- Isaac To ([@candleindark](https://github.com/candleindark))
+- Kabilar Gunalan ([@kabilar](https://github.com/kabilar))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.74.1 (Wed Jan 14 2026)
 
 #### 🏠 Internal
