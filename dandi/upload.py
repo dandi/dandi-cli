@@ -312,7 +312,8 @@ def upload(
                             validate_ok = False
                             raise UploadError(
                                 "File failed validation. "
-                                f"Run 'dandi validate {strpath}' to see detailed validation errors."
+                                "Check log or run "
+                                f"'dandi validate {strpath}' to see detailed validation errors."
                             )
                     else:
                         yield {"status": "validated"}
@@ -388,8 +389,7 @@ def upload(
                 except Exception as e:
                     raise UploadError(
                         f"Failed to extract metadata: {e}. "
-                        "Verify the file format is correct and supported. "
-                        "For NWB files, check that the file follows the NWB specification."
+                        "Verify the file format is correct and supported."
                     )
 
                 #
