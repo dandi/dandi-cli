@@ -111,10 +111,15 @@ def _get_file_annex_backend(filepath: Path) -> str | None:
 
         # Parse the backend from the annex key format
         # Typical format: ../../.git/annex/objects/XX/YY/SHA256E-sNNNNN--HASH/HASH
-        parts = Path(target).parts
-        for part in parts:
-            if "-s" in part:
-                # This looks like an annex key
+        # Verify this is actually in the annex objects directory
+        target_path = Path(target)
+        if "annex" not in target_path.parts or "objects" not in target_path.parts:
+            return None
+
+        # Find the part that looks like an annex key (contains backend and size)
+        for part in target_path.parts:
+            if "-s" in part and "--" in part:
+                # This looks like an annex key: BACKEND-sSIZE--HASH
                 backend = part.split("-")[0]
                 return backend
     except Exception as e:
@@ -547,11 +552,15 @@ def upload(
                             )
 
                         # Get the remote URL from asset metadata
+                        # The contentUrl field contains an array of URLs where the
+                        # asset can be accessed. We use the first URL, which is
+                        # typically the S3 URL. Additional URLs may include API
+                        # endpoints or alternative storage locations.
                         asset_metadata = uploaded_asset.get_raw_metadata()
                         content_urls = asset_metadata.get("contentUrl", [])
 
                         if content_urls:
-                            # Register the first URL (typically the S3 URL)
+                            # Register the first URL with git-annex
                             remote_url = content_urls[0]
                             file_size = asset_metadata.get("contentSize")
 

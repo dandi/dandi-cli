@@ -50,7 +50,7 @@ from ..upload import DataladMode, UploadExisting, UploadValidation
 )
 @click.option(
     "--datalad",
-    type=click.Choice(list(DataladMode)),
+    type=click.Choice([e.value for e in DataladMode]),
     default="no",
     show_default=True,
     help=(
