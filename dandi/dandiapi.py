@@ -33,6 +33,7 @@ from .consts import (
     REQUEST_RETRIES,
     RETRY_STATUSES,
     ZARR_DELETE_BATCH_SIZE,
+    ZARR_EXTENSIONS,
     DandiInstance,
     EmbargoStatus,
 )
@@ -1310,6 +1311,35 @@ class RemoteDandiset:
         else:
             return asset
 
+    def get_asset_with_subpath(self, path: str) -> RemoteAsset | ZarrWithPrefix:
+        def is_zarr_part(part: str) -> bool:
+            for ext in ZARR_EXTENSIONS:
+                if part.endswith(ext) and part != ext:
+                    return True
+            return False
+
+        full_path = PurePosixPath(path)
+        asset_path = PurePosixPath()
+        for i, p in enumerate(full_path.parts):
+            asset_path /= p
+            if is_zarr_part(p) and i < len(full_path.parts) - 1:
+                try:
+                    asset = self.get_asset_by_path(str(asset_path))
+                except NotFoundError:
+                    pass
+                else:
+                    if isinstance(asset, RemoteZarrAsset):
+                        return ZarrWithPrefix(
+                            zarr=asset, prefix="/".join(full_path.parts[i + 1 :])
+                        )
+                    else:
+                        # We found a blob, which is not a folder, so no Zarr
+                        # path can exist under it.
+                        raise NotFoundError(
+                            f"{path!r} is not a Zarr path with entry prefix"
+                        )
+        return self.get_asset_by_path(path)
+
     def download_directory(
         self,
         assets_dirpath: str,
@@ -1991,6 +2021,12 @@ class RemoteZarrAsset(RemoteAsset, BaseRemoteZarrAsset):
         self.created = ensure_datetime(data["created"])
         self.modified = ensure_datetime(data["modified"])
         self._metadata = data["metadata"]
+
+
+@dataclass
+class ZarrWithPrefix:
+    zarr: RemoteZarrAsset
+    prefix: str
 
 
 @dataclass
