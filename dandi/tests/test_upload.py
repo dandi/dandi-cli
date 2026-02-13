@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import os
 from pathlib import Path
 from shutil import copyfile, rmtree
+import subprocess
 from typing import Any
 from unittest.mock import Mock
 from urllib.parse import urlparse
@@ -710,11 +711,9 @@ def test_upload_rejects_dandidownload_nwb_file(new_dandiset: SampleDandiset) -> 
 
 
 @pytest.mark.ai_generated
-def test_is_git_annex_repo(tmp_path: Path) -> None:
-    """Test detection of git-annex repositories."""
-    import subprocess
-
-    from ..upload import _is_git_annex_repo
+def test_git_annex_repo_ops(tmp_path: Path) -> None:
+    """Test git-annex repository detection and backend operations."""
+    from ..upload import _get_file_annex_backend, _is_git_annex_repo, GitAnnexMode
 
     # Check if git-annex is available
     try:
@@ -726,7 +725,13 @@ def test_is_git_annex_repo(tmp_path: Path) -> None:
     except (FileNotFoundError, subprocess.CalledProcessError):
         pytest.skip("git-annex not available")
 
-    # Not a git repo
+    # Test enum values
+    assert GitAnnexMode.YES.value == "yes"
+    assert GitAnnexMode.NO.value == "no"
+    assert GitAnnexMode.AUTO.value == "auto"
+    assert str(GitAnnexMode.YES) == "yes"
+
+    # Test detection: Not a git repo
     assert not _is_git_annex_repo(tmp_path)
 
     # Create a git repo
@@ -739,31 +744,7 @@ def test_is_git_annex_repo(tmp_path: Path) -> None:
     )
     assert _is_git_annex_repo(tmp_path)
 
-
-@pytest.mark.ai_generated
-def test_get_file_annex_backend(tmp_path: Path) -> None:
-    """Test getting the git-annex backend for a file."""
-    import subprocess
-
-    from ..upload import _get_file_annex_backend
-
-    # Check if git-annex is available
-    try:
-        subprocess.run(
-            ["git", "annex", "version"],
-            capture_output=True,
-            check=True,
-        )
-    except (FileNotFoundError, subprocess.CalledProcessError):
-        pytest.skip("git-annex not available")
-
-    # Create a git-annex repo
-    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
-    subprocess.run(
-        ["git", "annex", "init"], cwd=tmp_path, check=True, capture_output=True
-    )
-
-    # Create a test file
+    # Test backend detection: Create a test file
     test_file = tmp_path / "test.txt"
     test_file.write_text("test content")
 
@@ -781,14 +762,3 @@ def test_get_file_annex_backend(tmp_path: Path) -> None:
     # Should detect backend (default is SHA256E on most systems)
     backend = _get_file_annex_backend(test_file)
     assert backend is not None
-
-
-@pytest.mark.ai_generated
-def test_datalad_mode_enum() -> None:
-    """Test DataladMode enum values."""
-    from ..upload import DataladMode
-
-    assert DataladMode.YES.value == "yes"
-    assert DataladMode.NO.value == "no"
-    assert DataladMode.AUTO.value == "auto"
-    assert str(DataladMode.YES) == "yes"

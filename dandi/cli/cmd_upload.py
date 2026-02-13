@@ -9,7 +9,7 @@ from .base import (
     instance_option,
     map_to_click_exceptions,
 )
-from ..upload import DataladMode, UploadExisting, UploadValidation
+from ..upload import GitAnnexMode, UploadExisting, UploadValidation
 
 
 @click.command()
@@ -49,15 +49,15 @@ from ..upload import DataladMode, UploadExisting, UploadValidation
     show_default=True,
 )
 @click.option(
-    "--datalad",
-    type=click.Choice(tuple(e.value for e in DataladMode)),
-    default="no",
+    "--git-annex",
+    type=click.Choice(tuple(e.value for e in GitAnnexMode)),
+    default="auto",
     show_default=True,
     help=(
-        "Enable datalad/git-annex support to link local uploaded files with remote URLs. "
-        "'yes' - always use datalad; "
-        "'no' - never use datalad (default); "
-        "'auto' - auto-detect git-annex repository and use datalad if found."
+        "Enable git-annex support to link local uploaded files with remote URLs. "
+        "'yes' - always use git-annex; "
+        "'no' - never use git-annex; "
+        "'auto' - auto-detect git-annex repository and use if found (default)."
     ),
 )
 @click.argument("paths", nargs=-1)  # , type=click.Path(exists=True, dir_okay=False))
@@ -87,7 +87,7 @@ def upload(
     dandi_instance: str,
     existing: UploadExisting,
     validation: UploadValidation,
-    datalad: DataladMode,
+    git_annex: GitAnnexMode,
     # Development options should come as kwargs
     allow_any_path: bool = False,
     upload_dandiset_metadata: bool = False,
@@ -128,5 +128,5 @@ def upload(
         jobs=jobs,
         jobs_per_file=jobs_per_file,
         sync=sync,
-        datalad=datalad,
+        git_annex=git_annex,
     )
