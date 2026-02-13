@@ -569,7 +569,7 @@ class DandiAPIClient(RESTFullAPIClient):
                 raise NotFoundError(
                     f"No such Dandiset: {dandiset_id!r}. "
                     "Verify the Dandiset ID is correct and that you have access. "
-                    f"View available Dandisets at {self.dandi_instance.gui}."
+                    f"View available Dandisets at '{self.dandi_instance.gui}'."
                 )
             if version_id is not None and version_id != d.version_id:
                 if version_id == DRAFT:
@@ -1246,7 +1246,7 @@ class RemoteDandiset:
         try:
             info = self.client.get(f"{self.version_api_path}assets/{asset_id}/info/")
         except HTTP404Error:
-            raise NotFoundError(f"No such asset: {asset_id!r} for {self}")
+            raise NotFoundError(f"No such asset: {asset_id!r} for '{self}'")
         metadata = info.pop("metadata", None)
         return RemoteAsset.from_data(self, info, metadata)
 
@@ -1319,7 +1319,7 @@ class RemoteDandiset:
             )
         except ValueError:
             raise NotFoundError(
-                f"No asset at path {path!r} in version {self.version_id}. "
+                f"No asset at path {path!r} in version '{self.version_id}'. "
                 "Verify the path is correct and the asset exists in this version. "
                 "Use 'dandi ls' to list available assets."
             )
