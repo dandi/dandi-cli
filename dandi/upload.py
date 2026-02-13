@@ -6,9 +6,11 @@ from contextlib import ExitStack
 from enum import Enum
 from functools import reduce
 import io
+import os
 import os.path
 from pathlib import Path
 import re
+import subprocess
 import time
 from time import sleep
 from typing import Any, TypedDict, cast
@@ -66,6 +68,114 @@ def _check_dandidownload_paths(dfile: DandiFile) -> None:
                 )
 
 
+def _is_git_annex_repo(path: Path) -> bool:
+    """
+    Check if the given path is within a git-annex repository.
+
+    Returns True if .git/annex directory exists in the repository root.
+    """
+    try:
+        # Find git repository root
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=path if path.is_dir() else path.parent,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            repo_root = Path(result.stdout.strip())
+            annex_dir = repo_root / ".git" / "annex"
+            return annex_dir.exists()
+    except Exception as e:
+        lgr.debug("Error checking for git-annex repository: %s", e)
+    return False
+
+
+def _get_file_annex_backend(filepath: Path) -> str | None:
+    """
+    Get the git-annex backend for a file if it's annexed.
+
+    Returns the backend name (e.g., 'SHA256E') or None if file is not annexed.
+    """
+    if not filepath.exists():
+        return None
+
+    try:
+        # Check if file is a symlink (git-annex files are symlinks)
+        if not filepath.is_symlink():
+            return None
+
+        # Read the symlink target
+        target = os.readlink(filepath)
+
+        # Parse the backend from the annex key format
+        # Typical format: ../../.git/annex/objects/XX/YY/SHA256E-sNNNNN--HASH/HASH
+        parts = Path(target).parts
+        for part in parts:
+            if "-s" in part:
+                # This looks like an annex key
+                backend = part.split("-")[0]
+                return backend
+    except Exception as e:
+        lgr.debug("Error checking git-annex backend for %s: %s", filepath, e)
+
+    return None
+
+
+def _register_url_with_annex(
+    filepath: Path, remote_url: str, expected_size: int | None = None
+) -> bool:
+    """
+    Register a remote URL with git-annex for a file.
+
+    Args:
+        filepath: Local file path
+        remote_url: Remote URL to register
+        expected_size: Expected file size (for validation)
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        # Use git-annex addurl with --relaxed to skip size/hash checks
+        # and --file to specify the target file
+        cmd = [
+            "git",
+            "annex",
+            "addurl",
+            "--relaxed",
+            "--file",
+            str(filepath),
+            remote_url,
+        ]
+
+        lgr.debug("Registering URL with git-annex: %s -> %s", filepath, remote_url)
+
+        result = subprocess.run(
+            cmd,
+            cwd=filepath.parent,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if result.returncode == 0:
+            lgr.info("Successfully registered %s with git-annex", filepath)
+            return True
+        else:
+            lgr.warning(
+                "Failed to register %s with git-annex: %s",
+                filepath,
+                result.stderr.strip(),
+            )
+            return False
+
+    except Exception as e:
+        lgr.warning("Error registering URL with git-annex for %s: %s", filepath, e)
+        return False
+
+
 class Uploaded(TypedDict):
     size: int
     errors: list[str]
@@ -91,6 +201,17 @@ class UploadValidation(str, Enum):
         return self.value
 
 
+class DataladMode(str, Enum):
+    """Mode for datalad/git-annex integration during upload"""
+
+    YES = "yes"
+    NO = "no"
+    AUTO = "auto"
+
+    def __str__(self) -> str:
+        return self.value
+
+
 def upload(
     paths: Sequence[str | Path] | None = None,
     existing: UploadExisting = UploadExisting.REFRESH,
@@ -102,6 +223,7 @@ def upload(
     jobs: int | None = None,
     jobs_per_file: int | None = None,
     sync: bool = False,
+    datalad: DataladMode = DataladMode.NO,
 ) -> None:
     if paths:
         paths = [Path(p).absolute() for p in paths]
@@ -113,6 +235,16 @@ def upload(
             f"Found no {dandiset_metadata_file} anywhere in common ancestor of"
             " paths.  Use 'dandi download' or 'organize' first."
         )
+
+    # Determine if we should use datalad based on mode
+    use_datalad = False
+    if datalad == DataladMode.YES:
+        use_datalad = True
+    elif datalad == DataladMode.AUTO:
+        # Auto-detect git-annex repository
+        use_datalad = _is_git_annex_repo(dandiset.path)
+        if use_datalad:
+            lgr.info("Auto-detected git-annex repository; enabling datalad support")
 
     with ExitStack() as stack:
         # We need to use the client as a context manager in order to ensure the
@@ -384,9 +516,12 @@ def upload(
                 #
                 yield {"status": "uploading"}
                 validating = False
+                uploaded_asset: RemoteAsset | None = None
                 for r in dfile.iter_upload(
                     remote_dandiset, metadata, jobs=jobs_per_file, replacing=extant
                 ):
+                    if r["status"] == "done":
+                        uploaded_asset = r.get("asset")
                     r.pop("asset", None)  # to keep pyout from choking
                     if r["status"] == "uploading":
                         uploaded_paths[strpath]["size"] = r.pop("current")
@@ -398,6 +533,45 @@ def upload(
                             validating = True
                     else:
                         yield r
+
+                # Handle datalad integration after successful upload
+                if use_datalad and uploaded_asset is not None:
+                    try:
+                        # Check backend and warn if not SHA256E
+                        current_backend = _get_file_annex_backend(dfile.filepath)
+                        if current_backend and current_backend != "SHA256E":
+                            lgr.warning(
+                                "%s: File backend is %s, but dandiset standard is SHA256E",
+                                strpath,
+                                current_backend,
+                            )
+
+                        # Get the remote URL from asset metadata
+                        asset_metadata = uploaded_asset.get_raw_metadata()
+                        content_urls = asset_metadata.get("contentUrl", [])
+
+                        if content_urls:
+                            # Register the first URL (typically the S3 URL)
+                            remote_url = content_urls[0]
+                            file_size = asset_metadata.get("contentSize")
+
+                            if _register_url_with_annex(
+                                dfile.filepath, remote_url, file_size
+                            ):
+                                lgr.debug(
+                                    "%s: Successfully registered remote URL with git-annex",
+                                    strpath,
+                                )
+                        else:
+                            lgr.debug(
+                                "%s: No contentUrl found in asset metadata; skipping datalad registration",
+                                strpath,
+                            )
+                    except Exception as e:
+                        lgr.warning(
+                            "%s: Error during datalad integration: %s", strpath, e
+                        )
+
                 yield {"status": "done"}
 
             except Exception as exc:
