@@ -242,7 +242,7 @@ def upload(
         use_datalad = True
     elif datalad == DataladMode.AUTO:
         # Auto-detect git-annex repository
-        use_datalad = _is_git_annex_repo(dandiset.path)
+        use_datalad = _is_git_annex_repo(dandiset.path_obj)
         if use_datalad:
             lgr.info("Auto-detected git-annex repository; enabling datalad support")
 
@@ -564,7 +564,8 @@ def upload(
                                 )
                         else:
                             lgr.debug(
-                                "%s: No contentUrl found in asset metadata; skipping datalad registration",
+                                "%s: No contentUrl found in asset metadata; "
+                                "skipping datalad registration",
                                 strpath,
                             )
                     except Exception as e:
