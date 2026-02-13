@@ -1,3 +1,14 @@
+"""Utilities for working with NWB (Neurodata Without Borders) files.
+
+This module provides helper functions for reading, validating, and extracting
+metadata from NWB files using PyNWB. Features include:
+- NWB file I/O with caching
+- Metadata extraction for DANDI schema
+- Version compatibility checking
+- External link detection
+- Validation against NWB standards
+"""
+
 from __future__ import annotations
 
 from collections import Counter

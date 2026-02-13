@@ -4,7 +4,6 @@ from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from contextlib import ExitStack
 from enum import Enum
-from functools import reduce
 import io
 import os.path
 from pathlib import Path
@@ -493,7 +492,7 @@ def upload(
             for p in paths:
                 rp = os.path.relpath(p, dandiset.path)
                 relpaths.append("" if rp == "." else rp)
-            path_prefix = reduce(os.path.commonprefix, relpaths)  # type: ignore[arg-type]
+            path_prefix = os.path.commonprefix(relpaths)
             to_delete = []
             for asset in remote_dandiset.get_assets_with_path_prefix(path_prefix):
                 if any(
