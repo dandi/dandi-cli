@@ -569,7 +569,6 @@ class DandiAPIClient(RESTFullAPIClient):
                 raise NotFoundError(
                     f"No such Dandiset: {dandiset_id!r}. "
                     "Verify the Dandiset ID is correct and that you have access. "
-                    f"View available Dandisets at {self.dandi_instance.gui}."
                 )
             if version_id is not None and version_id != d.version_id:
                 if version_id == DRAFT:
