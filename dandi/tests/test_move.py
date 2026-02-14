@@ -770,8 +770,8 @@ def test_move_not_dandiset(
     with pytest.raises(ValueError) as excinfo:
         move("file.txt", "subdir2/banana.txt", dest="subdir1", work_on=work_on)
     assert str(excinfo.value) == (
-        f"{tmp_path.absolute()}: not a Dandiset. "
-        "The directory does not contain a 'dandiset.yaml' file. "
+        f"'{tmp_path.absolute()}' not a Dandiset because "
+        "the directory does not contain a 'dandiset.yaml' file. "
         "Use 'dandi download' to download a dandiset first."
     )
 
