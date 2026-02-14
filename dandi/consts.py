@@ -1,3 +1,12 @@
+"""Constants and configuration for DANDI CLI.
+
+This module defines constants used throughout the DANDI CLI including:
+- Metadata field definitions for NWB files
+- Known DANDI Archive instances and their configurations
+- File organization patterns and BIDS-related constants
+- Request timeouts and retry settings
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterator
