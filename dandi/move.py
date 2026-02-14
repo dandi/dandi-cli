@@ -24,7 +24,7 @@ import re
 from typing import NewType
 
 from . import get_logger
-from .consts import DandiInstance
+from .consts import DandiInstance, dandiset_metadata_file
 from .dandiapi import DandiAPIClient, RemoteAsset, RemoteDandiset
 from .dandiarchive import DandisetURL, parse_dandi_url
 from .dandiset import Dandiset
@@ -244,7 +244,11 @@ class LocalizedMover(Mover):
             posixpath.normpath(posixpath.join(self.subpath.as_posix(), path))
         )
         if p.parts and p.parts[0] == os.pardir:
-            raise ValueError(f"{path!r} is outside of Dandiset")
+            raise ValueError(
+                f"{path!r} is outside of Dandiset. "
+                "Paths cannot use '..' to navigate above the Dandiset root. "
+                "All assets must remain within the Dandiset directory structure."
+            )
         return (AssetPath(str(p)), path.endswith("/"))
 
     def calculate_moves(
@@ -483,11 +487,17 @@ class LocalMover(LocalizedMover):
         rpath, needs_dir = self.resolve(path)
         p = self.dandiset_path / rpath
         if not os.path.lexists(p):
-            raise NotFoundError(f"No asset at local path {path!r}")
+            raise NotFoundError(
+                f"No asset at local path {path!r}. "
+                "Verify the path is correct and the file exists locally."
+            )
         if p.is_dir():
             if is_src:
                 if p == self.dandiset_path / self.subpath:
-                    raise ValueError("Cannot move current working directory")
+                    raise ValueError(
+                        "Cannot move current working directory. "
+                        "Change to a different directory before moving this location."
+                    )
                 files = [
                     df.filepath.relative_to(p).as_posix()
                     for df in find_dandi_files(
@@ -499,7 +509,10 @@ class LocalMover(LocalizedMover):
                 files = []
             return Folder(rpath, files)
         elif needs_dir:
-            raise ValueError(f"Local path {path!r} is a file")
+            raise ValueError(
+                f"Local path {path!r} is a file but a directory was expected. "
+                "Use a path ending with '/' for directories."
+            )
         else:
             return File(rpath)
 
@@ -623,7 +636,10 @@ class RemoteMover(LocalizedMover):
         file_found = False
         if rpath == self.subpath.as_posix():
             if is_src:
-                raise ValueError("Cannot move current working directory")
+                raise ValueError(
+                    "Cannot move current working directory. "
+                    "Change to a different directory before moving this location."
+                )
             else:
                 return Folder(rpath, [])
         for p in self.assets.keys():
@@ -640,7 +656,10 @@ class RemoteMover(LocalizedMover):
         if relcontents:
             return Folder(rpath, relcontents)
         if needs_dir and file_found:
-            raise ValueError(f"Remote path {path!r} is a file")
+            raise ValueError(
+                f"Remote path {path!r} is a file but a directory was expected. "
+                "Use a path ending with '/' for directories."
+            )
         elif (
             not needs_dir
             and not is_src
@@ -652,7 +671,11 @@ class RemoteMover(LocalizedMover):
             # remote directory.
             return Folder(rpath, [])
         else:
-            raise NotFoundError(f"No asset at remote path {path!r}")
+            raise NotFoundError(
+                f"No asset at remote path {path!r}. "
+                "Verify the path is correct and the asset exists on the server. "
+                "Use 'dandi ls' to list available assets."
+            )
 
     def is_dir(self, path: AssetPath) -> bool:
         """Returns true if the given path points to a directory"""
@@ -902,7 +925,11 @@ def find_dandiset_and_subpath(path: Path) -> tuple[Dandiset, Path]:
     path = path.absolute()
     ds = Dandiset.find(path)
     if ds is None:
-        raise ValueError(f"{path}: not a Dandiset")
+        raise ValueError(
+            f"{path}: not a Dandiset. "
+            f"The directory does not contain a '{dandiset_metadata_file}' file. "
+            "Use 'dandi download' to download a dandiset first."
+        )
     return (ds, path.relative_to(ds.path))
 
 
