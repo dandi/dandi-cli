@@ -42,7 +42,11 @@ class Dandiset:
         if not allow_empty and not os.path.lexists(
             self.path_obj / dandiset_metadata_file
         ):
-            raise ValueError(f"No dandiset at {path}")
+            raise ValueError(
+                f"No dandiset at {path}. "
+                f"The directory does not contain a '{dandiset_metadata_file}' file. "
+                "Use 'dandi download' to download a dandiset or check the path."
+            )
         self.metadata: dict | None = None
         self._metadata_file_obj = self.path_obj / dandiset_metadata_file
         self._load_metadata()
@@ -139,11 +143,17 @@ class Dandiset:
     @property
     def identifier(self) -> str:
         if self.metadata is None:
-            raise ValueError("No metadata record found in Dandiset")
+            raise ValueError(
+                f"No metadata record found in Dandiset at {self.path}. "
+                f"The '{dandiset_metadata_file}' file may be empty or corrupted. "
+                "Use 'dandi download' to re-download the dandiset metadata."
+            )
         id_ = self._get_identifier(self.metadata)
         if not id_:
             raise ValueError(
-                f"Found no dandiset.identifier in metadata record: {self.metadata}"
+                f"Found no dandiset.identifier in metadata record. "
+                f"The '{dandiset_metadata_file}' file must contain an 'identifier' field. "
+                f"Metadata: {self.metadata}"
             )
         return id_
 
