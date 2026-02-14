@@ -1,3 +1,14 @@
+"""Upload assets to DANDI Archive.
+
+This module handles uploading NWB files and other assets to DANDI Archive
+instances. Features include:
+- Validation of files before upload
+- Progress tracking with resume capability
+- Metadata extraction and assignment
+- BIDS validation integration
+- Concurrent uploads with thread pool
+"""
+
 from __future__ import annotations
 
 from collections import defaultdict
