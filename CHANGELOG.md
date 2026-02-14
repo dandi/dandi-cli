@@ -1,3 +1,23 @@
+# 0.74.3 (Sat Feb 14 2026)
+
+#### 🐛 Bug Fix
+
+- bf: pass aiohttp timeouts to fsspec to fix test hang [#1795](https://github.com/dandi/dandi-cli/pull/1795) ([@yarikoptic](https://github.com/yarikoptic))
+- Enhance dandiset metadata error messages [#1790](https://github.com/dandi/dandi-cli/pull/1790) ([@yarikoptic](https://github.com/yarikoptic) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Fix type annotation in upload sync path prefix calculation [#1794](https://github.com/dandi/dandi-cli/pull/1794) ([@yarikoptic](https://github.com/yarikoptic) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Fix macOS-15-intel CI failures: h5py and opencv-python regressions [#1783](https://github.com/dandi/dandi-cli/pull/1783) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 📝 Documentation
+
+- Add module docstrings to validation and NWB utilities [#1789](https://github.com/dandi/dandi-cli/pull/1789) ([@yarikoptic](https://github.com/yarikoptic) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### Authors: 2
+
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.74.2 (Fri Jan 30 2026)
 
 #### 🐛 Bug Fix
