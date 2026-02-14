@@ -374,8 +374,9 @@ def test_move_nonexistent_src(
             work_on=work_on,
             dandi_instance=moving_dandiset.api.instance_id,
         )
+    asset_type = "remote" if work_on == MoveWorkOn.REMOTE else "local"
     assert str(excinfo.value) == (
-        f"No asset at {'remote' if work_on == MoveWorkOn.REMOTE else 'local'} path 'subdir1/avocado.txt'. "
+        f"No asset at {asset_type} path 'subdir1/avocado.txt'. "
         + (
             "Verify the path is correct and the asset exists on the server. "
             "Use 'dandi ls' to list available assets."
@@ -405,10 +406,10 @@ def test_move_file_slash_src(
             work_on=work_on,
             dandi_instance=moving_dandiset.api.instance_id,
         )
-    assert (
-        str(excinfo.value)
-        == f"{'Remote' if work_on == MoveWorkOn.REMOTE else 'Local'} path 'subdir1/apple.txt/' is a file but a directory was expected. "
-        "Use a path ending with '/' for directories."
+    path_type = "Remote" if work_on == MoveWorkOn.REMOTE else "Local"
+    assert str(excinfo.value) == (
+        f"{path_type} path 'subdir1/apple.txt/' is a file but a directory "
+        "was expected. Use a path ending with '/' for directories."
     )
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
@@ -431,10 +432,10 @@ def test_move_file_slash_dest(
             work_on=work_on,
             dandi_instance=moving_dandiset.api.instance_id,
         )
-    assert (
-        str(excinfo.value)
-        == f"{'Remote' if work_on == MoveWorkOn.REMOTE else 'Local'} path 'subdir1/apple.txt/' is a file but a directory was expected. "
-        "Use a path ending with '/' for directories."
+    path_type = "Remote" if work_on == MoveWorkOn.REMOTE else "Local"
+    assert str(excinfo.value) == (
+        f"{path_type} path 'subdir1/apple.txt/' is a file but a directory "
+        "was expected. Use a path ending with '/' for directories."
     )
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
