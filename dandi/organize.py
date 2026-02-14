@@ -1,5 +1,12 @@
-"""
-ATM primarily a sandbox for some functionality for dandi organize
+"""Organize and structure NWB files according to DANDI conventions.
+
+This module provides functionality for organizing neuroscience data files
+according to DANDI's file organization schema. Features include:
+- Automatic path generation from metadata
+- BIDS-like subject/session organization
+- Metadata-driven file naming
+- Validation of organized paths
+- Support for videos and generic files
 """
 
 from __future__ import annotations

@@ -1,10 +1,20 @@
+"""Upload assets to DANDI Archive.
+
+This module handles uploading NWB files and other assets to DANDI Archive
+instances. Features include:
+- Validation of files before upload
+- Progress tracking with resume capability
+- Metadata extraction and assignment
+- BIDS validation integration
+- Concurrent uploads with thread pool
+"""
+
 from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from contextlib import ExitStack
 from enum import Enum
-from functools import reduce
 import io
 import os.path
 from pathlib import Path
@@ -493,7 +503,7 @@ def upload(
             for p in paths:
                 rp = os.path.relpath(p, dandiset.path)
                 relpaths.append("" if rp == "." else rp)
-            path_prefix = reduce(os.path.commonprefix, relpaths)  # type: ignore[arg-type]
+            path_prefix = os.path.commonprefix(relpaths)
             to_delete = []
             for asset in remote_dandiset.get_assets_with_path_prefix(path_prefix):
                 if any(
