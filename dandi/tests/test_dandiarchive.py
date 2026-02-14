@@ -588,11 +588,17 @@ def test_get_nonexistent_dandiset(
     parsed_url.get_dandiset(client)  # No error
     with pytest.raises(NotFoundError) as excinfo:
         parsed_url.get_dandiset(client, lazy=False)
-    assert str(excinfo.value) == "No such Dandiset: '999999'"
+    assert str(excinfo.value) == (
+        "No such Dandiset: '999999'. "
+        "Verify the Dandiset ID is correct and that you have access. "
+    )
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
-    assert str(excinfo.value) == "No such Dandiset: '999999'"
+    assert str(excinfo.value) == (
+        "No such Dandiset: '999999'. "
+        "Verify the Dandiset ID is correct and that you have access. "
+    )
 
 
 @pytest.mark.parametrize("version", ["draft", "0.999999.9999"])
@@ -608,7 +614,10 @@ def test_get_nonexistent_dandiset_asset_id(
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
-    assert str(excinfo.value) == "No such Dandiset: '999999'"
+    assert str(excinfo.value) == (
+        "No such Dandiset: '999999'. "
+        "Verify the Dandiset ID is correct and that you have access. "
+    )
 
 
 def test_get_dandiset_nonexistent_asset_id(text_dandiset: SampleDandiset) -> None:
@@ -635,7 +644,11 @@ def test_get_nonexistent_asset_id(local_dandi_api: DandiAPI) -> None:
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
-    assert str(excinfo.value) == "No such asset: '00000000-0000-0000-0000-000000000000'"
+    assert str(excinfo.value) == (
+        "No such asset: '00000000-0000-0000-0000-000000000000'. "
+        "Verify the asset ID is correct. "
+        "Use 'dandi ls' to list available assets."
+    )
 
 
 @pytest.mark.parametrize("version_suffix", ["", "@draft", "@0.999999.9999"])
@@ -648,7 +661,10 @@ def test_get_nonexistent_dandiset_asset_path(
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
-    assert str(excinfo.value) == "No such Dandiset: '999999'"
+    assert str(excinfo.value) == (
+        "No such Dandiset: '999999'. "
+        "Verify the Dandiset ID is correct and that you have access. "
+    )
 
 
 def test_get_nonexistent_asset_path(text_dandiset: SampleDandiset) -> None:
@@ -661,7 +677,11 @@ def test_get_nonexistent_asset_path(text_dandiset: SampleDandiset) -> None:
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
-    assert str(excinfo.value) == "No asset at path 'does/not/exist'"
+    assert str(excinfo.value) == (
+        "No asset at path 'does/not/exist' in version draft. "
+        "Verify the path is correct and the asset exists in this version. "
+        "Use 'dandi ls' to list available assets."
+    )
 
 
 @pytest.mark.parametrize("version_suffix", ["", "@draft", "@0.999999.9999"])
@@ -677,7 +697,10 @@ def test_get_nonexistent_dandiset_asset_folder(
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
-    assert str(excinfo.value) == "No such Dandiset: '999999'"
+    assert str(excinfo.value) == (
+        "No such Dandiset: '999999'. "
+        "Verify the Dandiset ID is correct and that you have access. "
+    )
 
 
 def test_get_nonexistent_asset_folder(text_dandiset: SampleDandiset) -> None:
@@ -706,7 +729,10 @@ def test_get_nonexistent_dandiset_asset_prefix(
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
-    assert str(excinfo.value) == "No such Dandiset: '999999'"
+    assert str(excinfo.value) == (
+        "No such Dandiset: '999999'. "
+        "Verify the Dandiset ID is correct and that you have access. "
+    )
 
 
 def test_get_nonexistent_asset_prefix(text_dandiset: SampleDandiset) -> None:
