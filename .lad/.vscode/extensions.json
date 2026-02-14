@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "github.copilot",
+    "github.copilot-chat",
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "hbenl.vscode-test-explorer",
+    "ryanluker.vscode-coverage-gutters",
+    "ms-python.flake8"
+  ]
+}
