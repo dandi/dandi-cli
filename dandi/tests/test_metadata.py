@@ -1145,6 +1145,7 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
     )
 
 
+@pytest.mark.timeout(120)
 @pytest.mark.xfail(reason="https://github.com/dandi/dandi-cli/issues/1450")
 def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
     pytest.importorskip("fsspec")
