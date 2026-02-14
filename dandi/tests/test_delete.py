@@ -252,7 +252,10 @@ def test_delete_nonexistent_dandiset(
             devel_debug=True,
             force=True,
         )
-    assert str(excinfo.value) == "No such Dandiset: '999999'"
+    assert str(excinfo.value) == (
+        "No such Dandiset: '999999'. "
+        "Verify the Dandiset ID is correct and that you have access. "
+    )
     delete_spy.assert_not_called()
 
 
