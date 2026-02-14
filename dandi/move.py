@@ -1,3 +1,14 @@
+"""Move and rename assets in DANDI Archive.
+
+This module provides functionality for moving and renaming assets both
+locally and remotely in DANDI Archive instances. Features include:
+- Local file reorganization
+- Remote asset path changes
+- Combined local and remote moves
+- Conflict resolution (skip, overwrite, error)
+- Validation of move operations
+"""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

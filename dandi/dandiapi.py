@@ -1,3 +1,15 @@
+"""REST API client for interacting with DANDI Archive instances.
+
+This module provides client classes for communicating with DANDI Archive API
+servers, including asset management, dandiset operations, and authentication.
+
+The main classes are:
+- DandiAPIClient: High-level client for DANDI API operations
+- RESTFullAPIClient: Base HTTP client with retry and authentication
+- RemoteDandiset: Represents a dandiset on the server
+- RemoteAsset: Represents an asset (file) on the server
+"""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
