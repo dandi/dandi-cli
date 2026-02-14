@@ -345,10 +345,27 @@ class RemoteReadableAsset(Readable):
         # Optional dependency:
         import fsspec
 
+        from aiohttp import ClientTimeout
+
         # We need to call open() on the return value of fsspec.open() because
         # otherwise the filehandle will only be opened when used to enter a
         # context manager.
-        return cast(IO[bytes], fsspec.open(self.url, mode="rb").open())
+        #
+        # Pass explicit timeouts to aiohttp to prevent indefinite hangs in
+        # fsspec's sync() wrapper.  Without these, a stalled connection to S3
+        # (or minio in tests) causes fsspec's background IO thread to block
+        # forever, which in turn blocks the calling thread in
+        # threading.Event.wait() — see https://github.com/fsspec/filesystem_spec/issues/1666
+        return cast(
+            IO[bytes],
+            fsspec.open(
+                self.url,
+                mode="rb",
+                client_kwargs={
+                    "timeout": ClientTimeout(total=120, sock_read=60, sock_connect=30)
+                },
+            ).open(),
+        )
 
     def get_size(self) -> int:
         return self.size
