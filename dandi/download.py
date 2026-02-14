@@ -1,3 +1,13 @@
+"""Download assets from DANDI Archive.
+
+This module provides functionality for downloading files and Zarr archives
+from DANDI Archive instances. It supports:
+- Individual file downloads with integrity verification
+- Zarr archive downloads with parallel entry handling
+- Resume capability for interrupted downloads
+- Progress tracking and error recovery
+"""
+
 from __future__ import annotations
 
 from collections import Counter, deque
