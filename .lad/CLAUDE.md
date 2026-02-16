@@ -4,10 +4,10 @@
 *Auto-updated by LAD workflows - current system understanding*
 
 ## Code Style Requirements
-- **Docstrings**: NumPy-style required for all functions/classes
-- **Linting**: Flake8 compliance (max-complexity 10)
-- **Testing**: TDD approach, component-aware strategies
-- **Coverage**: 90%+ target for new code
+- **Docstrings**: NumPy-style for public APIs
+- **Formatting**: Black (line length 100), isort (profile="black"), enforced via pre-commit
+- **Linting**: `tox -e lint`; type checking: `tox -e typing`
+- **Testing**: pytest via `tox -e py3`; Docker Compose for integration tests
 
 ## Communication Guidelines
 **Objective, European-Style Communication**:
@@ -26,9 +26,10 @@
 - **Progress tracking**: Update both TodoWrite and plan.md files consistently
 
 ## Testing Strategy Guidelines
-- **API Endpoints**: Integration testing (real app + mocked external deps)
-- **Business Logic**: Unit testing (complete isolation + mocks)
-- **Data Processing**: Unit testing (minimal deps + test fixtures)
+- **CLI Commands**: click CliRunner + mocked API calls
+- **API Client Operations**: Integration testing with Docker Compose fixtures
+- **File Processing & Utilities**: Unit testing (tmp_path + test data fixtures)
+- **AI-generated tests**: Mark with `@pytest.mark.ai_generated`
 
 ## Project Structure Patterns
 *Learned from exploration - common patterns and conventions*
@@ -46,6 +47,8 @@
 
 ### Token Optimization for Large Codebases
 **Standard test commands:**
+- **Full suite**: `tox -e py3` or `python -m pytest dandi`
+- **Single test**: `python -m pytest dandi/tests/test_file.py::test_function -v`
 - **Large test suites**: Use `2>&1 | tail -n 100` for pytest commands to capture only final results/failures
 - **Coverage reports**: Use `tail -n 150` for comprehensive coverage output to include summary
 - **Keep targeted tests unchanged**: Single test runs (`pytest -xvs`) don't need redirection

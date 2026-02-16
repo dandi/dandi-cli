@@ -40,34 +40,34 @@ class TestChunkSize(Enum):
     INDIVIDUAL = 1   # Timeout-prone tests
 
 def execute_test_chunk_with_timeout_prevention(
-    test_category: str, 
+    test_category: str,
     chunk_size: Optional[int] = None,
     timeout_seconds: int = 120
 ) -> TestExecutionResult:
     """
     Execute test category using proven chunking strategy to prevent timeouts
-    
+
     Implements intelligent chunking based on test category complexity:
-    - Security tests: 10-20 tests per chunk (fast, stable execution)
-    - Model registry: Split into logical chunks (local, API, database)
+    - Simple/unit tests: 10-20 tests per chunk (fast, stable execution)
+    - Large categories: Split into logical chunks by subgroup
     - Integration tests: 5-10 tests per chunk (complex setup)
     - Performance tests: Individual or small groups (timeout-prone)
-    
+
     Args:
-        test_category: Category like 'security', 'model_registry', 'integration'
+        test_category: Category like 'unit', 'functional', 'integration'
         chunk_size: Override default chunk size if needed
         timeout_seconds: Maximum execution time per chunk
-        
+
     Returns:
         TestExecutionResult with comprehensive execution metadata
-        
+
     Example usage:
-        # Execute security tests with optimized chunking
-        security_results = execute_test_chunk_with_timeout_prevention('security')
-        
-        # Execute model registry with custom chunking
-        registry_results = execute_test_chunk_with_timeout_prevention(
-            'model_registry', 
+        # Execute unit tests with optimized chunking
+        unit_results = execute_test_chunk_with_timeout_prevention('unit')
+
+        # Execute functional tests with custom chunking
+        functional_results = execute_test_chunk_with_timeout_prevention(
+            'functional',
             chunk_size=8
         )
     """
@@ -82,16 +82,16 @@ def execute_test_chunk_with_timeout_prevention(
 def establish_comprehensive_test_baseline() -> Dict[str, TestExecutionResult]:
     """
     Create complete test inventory and execute baseline analysis
-    
+
     Performs comprehensive test discovery and categorization:
     - Test collection with error detection
     - Category-wise execution tracking
     - Health metrics establishment
     - Baseline statistics for comparison
-    
+
     Returns:
         Dictionary mapping test categories to execution results
-        
+
     Implementation approach:
         1. Run pytest --collect-only for complete test discovery
         2. Extract collection statistics and error rates
@@ -107,19 +107,19 @@ def aggregate_test_results_across_categories(
 ) -> Dict[str, any]:
     """
     Aggregate test execution results for comprehensive health analysis
-    
+
     Combines results from all test categories to provide:
     - Overall success rate calculations
     - Category-wise performance comparison
     - Health metrics trending
     - Execution efficiency analysis
-    
+
     Args:
         category_results: Results from all executed test categories
-        
+
     Returns:
         Comprehensive health metrics dictionary
-        
+
     Output structure:
         {
             'total_tests': int,
@@ -138,18 +138,18 @@ def generate_test_health_metrics_report(
 ) -> None:
     """
     Generate comprehensive test health report with baseline statistics
-    
+
     Creates structured markdown report containing:
     - Executive summary of test health
     - Category-wise success rates
     - Collection error analysis
     - Execution efficiency metrics
     - Baseline establishment confirmation
-    
+
     Args:
         aggregated_results: Output from aggregate_test_results_across_categories
         output_file: Path for generated health report
-        
+
     Report sections:
         1. Overall Statistics
         2. Category Performance Analysis
@@ -167,21 +167,21 @@ def optimize_test_execution_for_token_efficiency(
 ) -> Tuple[str, str]:
     """
     Execute tests with token-optimized output handling
-    
+
     Implements proven patterns for large test suite execution:
     - Comprehensive output capture with intelligent filtering
     - Error and warning prioritization
     - Summary extraction and preservation
     - Detailed logging for later analysis
-    
+
     Args:
         test_command: Complete pytest command to execute
         category: Test category for context-specific filtering
         max_output_lines: Maximum lines to return for immediate analysis
-        
+
     Returns:
         Tuple of (filtered_output, full_output_file_path)
-        
+
     Token optimization strategy:
         - Capture full output to file for comprehensive analysis
         - Filter critical information (errors, warnings, failures)
@@ -197,17 +197,17 @@ def save_execution_context_for_analysis_phase(
 ) -> None:
     """
     Preserve execution context for next phase (04b Analysis Framework)
-    
+
     Creates structured context files needed for pattern analysis:
     - test_execution_baseline.md: Category-wise results
     - test_health_metrics.md: Overall statistics
     - comprehensive_test_output.txt: Aggregated results
     - test_context_summary.md: Context preservation
-    
+
     Args:
         execution_results: Results from all test category executions
         health_metrics: Aggregated health analysis
-        
+
     Context preservation strategy:
         1. Structure results for pattern recognition
         2. Preserve baseline for comparison tracking
@@ -230,17 +230,17 @@ test_executor = TestExecutionInfrastructure()  # Copilot will suggest class stru
 
 ### 2. Category-Specific Execution
 ```python
-# Execute security tests with timeout prevention
-# Use proven chunk size for fast, stable security test execution
+# Execute unit tests with timeout prevention
+# Use proven chunk size for fast, stable test execution
 # Generate comprehensive results with health metrics
 
-security_results = execute_test_chunk_with_timeout_prevention('security')
+unit_results = execute_test_chunk_with_timeout_prevention('unit')
 
-# Execute model registry tests with intelligent chunking
-# Split into logical groups: local, API, database tests
+# Execute functional tests with intelligent chunking
+# Split into logical groups based on test category complexity
 # Handle complex setup requirements with appropriate timeouts
 
-registry_results = execute_test_chunk_with_timeout_prevention('model_registry')
+functional_results = execute_test_chunk_with_timeout_prevention('functional')
 ```
 
 ### 3. Comprehensive Baseline Establishment
