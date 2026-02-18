@@ -1,0 +1,1 @@
+{"version":2,"ops":[{"type":1,"author":{"id":"12cb25e6e3f19b53447b05d00d7d4d53c925c908"},"timestamp":1618330491,"metadata":{"github-id":"MDU6SXNzdWU4NTcxMTg2NDk=","github-url":"https://github.com/dandi/dandi-cli/issues/562","origin":"github"},"title":"conda install does not support python 3.9","message":"reported from a user install.","files":null}]}
