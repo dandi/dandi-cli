@@ -1,0 +1,1 @@
+{"version":2,"ops":[{"type":1,"author":{"id":"34bb3b7763ea6d04cae1c21ede40209df34305b5"},"timestamp":1713922147,"metadata":{"github-id":"I_kwDODBZtRc6Gtiax","github-url":"https://github.com/dandi/dandi-cli/issues/1430","origin":"github"},"title":"ContactPerson must have email now","message":"after merge of\n- https://github.com/dandi/dandi-schema/pull/235","files":null}]}
