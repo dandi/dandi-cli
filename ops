@@ -1,0 +1,1 @@
+{"version":2,"ops":[{"type":1,"author":{"id":"bc8a3197725c0467cd24911ff10ce52a2905729e"},"timestamp":1616796296,"metadata":{"github-id":"MDU6SXNzdWU4NDIzMjU1NzA=","github-url":"https://github.com/dandi/dandi-cli/issues/514","origin":"github"},"title":"migrate2newschema quietly changes argument","message":"running `migrate2newschema(meta)` changes `meta`.","files":null}]}
