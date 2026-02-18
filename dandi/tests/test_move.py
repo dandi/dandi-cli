@@ -374,9 +374,15 @@ def test_move_nonexistent_src(
             work_on=work_on,
             dandi_instance=moving_dandiset.api.instance_id,
         )
-    assert (
-        str(excinfo.value)
-        == f"No asset at {'remote' if work_on == 'remote' else 'local'} path 'subdir1/avocado.txt'"
+    asset_type = "remote" if work_on == MoveWorkOn.REMOTE else "local"
+    assert str(excinfo.value) == (
+        f"No asset at {asset_type} path 'subdir1/avocado.txt'. "
+        + (
+            "Verify the path is correct and the asset exists on the server. "
+            "Use 'dandi ls' to list available assets."
+            if work_on == MoveWorkOn.REMOTE
+            else "Verify the path is correct and the file exists locally."
+        )
     )
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
@@ -400,9 +406,10 @@ def test_move_file_slash_src(
             work_on=work_on,
             dandi_instance=moving_dandiset.api.instance_id,
         )
-    assert (
-        str(excinfo.value)
-        == f"{'Remote' if work_on == 'remote' else 'Local'} path 'subdir1/apple.txt/' is a file"
+    path_type = "Remote" if work_on == MoveWorkOn.REMOTE else "Local"
+    assert str(excinfo.value) == (
+        f"{path_type} path 'subdir1/apple.txt/' is a file but a directory "
+        "was expected. Use a path ending with '/' for directories."
     )
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
@@ -425,9 +432,10 @@ def test_move_file_slash_dest(
             work_on=work_on,
             dandi_instance=moving_dandiset.api.instance_id,
         )
-    assert (
-        str(excinfo.value)
-        == f"{'Remote' if work_on == 'remote' else 'Local'} path 'subdir1/apple.txt/' is a file"
+    path_type = "Remote" if work_on == MoveWorkOn.REMOTE else "Local"
+    assert str(excinfo.value) == (
+        f"{path_type} path 'subdir1/apple.txt/' is a file but a directory "
+        "was expected. Use a path ending with '/' for directories."
     )
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
@@ -593,9 +601,14 @@ def test_move_from_subdir_abspaths(
             work_on=work_on,
             dandi_instance=moving_dandiset.api.instance_id,
         )
-    assert (
-        str(excinfo.value)
-        == f"No asset at {'remote' if work_on == 'remote' else 'local'} path 'file.txt'"
+    assert str(excinfo.value) == (
+        f"No asset at {'remote' if work_on == MoveWorkOn.REMOTE else 'local'} path 'file.txt'. "
+        + (
+            "Verify the path is correct and the asset exists on the server. "
+            "Use 'dandi ls' to list available assets."
+            if work_on == MoveWorkOn.REMOTE
+            else "Verify the path is correct and the file exists locally."
+        )
     )
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
@@ -619,7 +632,11 @@ def test_move_from_subdir_as_dot(
             dandi_instance=moving_dandiset.api.instance_id,
             devel_debug=True,
         )
-    assert str(excinfo.value) == "Cannot move current working directory"
+    assert (
+        str(excinfo.value)
+        == "Cannot move current working directory. "
+        "Change to a different directory before moving this location."
+    )
     check_assets(moving_dandiset, starting_assets, work_on, {})
 
 
@@ -769,7 +786,11 @@ def test_move_not_dandiset(
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ValueError) as excinfo:
         move("file.txt", "subdir2/banana.txt", dest="subdir1", work_on=work_on)
-    assert str(excinfo.value) == f"{tmp_path.absolute()}: not a Dandiset"
+    assert str(excinfo.value) == (
+        f"{tmp_path.absolute()}: not a Dandiset. "
+        "The directory does not contain a 'dandiset.yaml' file. "
+        "Use 'dandi download' to download a dandiset first."
+    )
 
 
 def test_move_local_delete_empty_dirs(
