@@ -1,0 +1,1 @@
+{"version":2,"ops":[{"type":1,"author":{"id":"364914f8b1c8a9131d300bf2978e4ffe2ff1aeeb"},"timestamp":1643147030,"metadata":{"github-id":"I_kwDODBZtRc5CbEbw","github-url":"https://github.com/dandi/dandi-cli/issues/880","origin":"github"},"title":"Add support for Zarr assets to `dandi organize`","message":"","files":null}]}
