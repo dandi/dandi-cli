@@ -35,3 +35,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Documentation
 - Keep docstrings updated when changing function signatures
 - CLI help text should be clear and include examples where appropriate
+
+## Issue Tracking with git-bug
+This project has GitHub issues synced locally via git-bug.  Use these commands
+to get issue context without needing GitHub API access:
+- `git bug ls status:open` - list open issues
+- `git bug show <id-prefix>` - show issue details and comments
+- `git bug ls "title:keyword"` - search issues by title
+- `git bug ls "label:bug"` - filter by label
+- `git bug bridge pull` - sync latest issues from GitHub
+
+When working on a bug fix or feature, check `git bug ls` for related issues
+to understand context and prior discussion.
