@@ -1,0 +1,1 @@
+{"version":2,"ops":[{"type":1,"author":{"id":"364914f8b1c8a9131d300bf2978e4ffe2ff1aeeb"},"timestamp":1643147163,"metadata":{"github-id":"I_kwDODBZtRc5CbE1m","github-url":"https://github.com/dandi/dandi-cli/issues/883","origin":"github"},"title":"Support downloading Zarrs identified by `https://\u003cserver\u003e/api/assets/\u003casset-id\u003e/` URLs","message":"","files":null}]}
