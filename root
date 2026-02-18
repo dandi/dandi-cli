@@ -1,0 +1,1 @@
+{"version":2,"ops":[{"type":1,"author":{"id":"34bb3b7763ea6d04cae1c21ede40209df34305b5"},"timestamp":1671487702,"metadata":{"github-id":"I_kwDODBZtRc5ZoFFB","github-url":"https://github.com/dandi/dandi-cli/issues/1179","origin":"github"},"title":"cut release manually","message":"`auto`-mated release failed due to E2BIG -- @jwodder please release \"manually\"","files":null}]}
