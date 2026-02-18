@@ -1,0 +1,1 @@
+{"version":2,"ops":[{"type":1,"author":{"id":"34bb3b7763ea6d04cae1c21ede40209df34305b5"},"timestamp":1662754215,"metadata":{"github-id":"I_kwDODBZtRc5RjjyM","github-url":"https://github.com/dandi/dandi-cli/issues/1114","origin":"github"},"title":"bids: should skip .dotdirs","message":"suchas `.git`, `.datalad/` etc. I believe that bids-validator does the same","files":null}]}
