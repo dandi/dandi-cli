@@ -8,7 +8,6 @@ from pathlib import Path
 from threading import Lock
 import weakref
 
-from dandischema import __version__ as dandischema_version
 from dandischema.models import (
     BareAsset,
     StandardsType,
@@ -16,12 +15,11 @@ from dandischema.models import (
     hed_standard,
     ome_ngff_standard,
 )
-from packaging.version import Version
 
 import dandi
 from dandi.bids_validator_deno import bids_validate
 
-from .bases import GenericAsset, LocalFileAsset, NWBAsset
+from .bases import GenericAsset, LocalFileAsset, NWBAsset, _SCHEMA_BAREASSET_HAS_DATASTANDARD
 from .zarr import ZarrAsset
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..metadata.core import add_common_metadata, prepare_metadata
@@ -38,24 +36,17 @@ lgr = dandi.get_logger()
 BIDS_ASSET_ERRORS = ("BIDS.NON_BIDS_PATH_PLACEHOLDER",)
 BIDS_DATASET_ERRORS = ("BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",)
 
-_HAS_DATA_STANDARD = "dataStandard" in BareAsset.model_fields
-if not _HAS_DATA_STANDARD and Version(dandischema_version) >= Version("0.12.2"):
-    raise RuntimeError(
-        f"dandischema {dandischema_version} should have "
-        f"'dataStandard' field on BareAsset"
-    )
-
 
 def _add_standard(
-    metadata: BareAsset,
+    metadata,  # type: ignore[no-untyped-def]
     standard_dict: dict,
     version: str | None = None,
 ) -> None:
     """Add a data standard to asset metadata if the field is available."""
-    if not _HAS_DATA_STANDARD:
+    if not _SCHEMA_BAREASSET_HAS_DATASTANDARD:
         return
     kwargs = dict(standard_dict)
-    if version and "version" in StandardsType.model_fields:
+    if version:
         kwargs["version"] = version
     standard = StandardsType(**kwargs)
     if metadata.dataStandard is None:
@@ -255,12 +246,9 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                 version = hed_version
                 library_entries = []
             kwargs: dict = dict(hed_standard)
-            if version and "version" in StandardsType.model_fields:
+            if version:
                 kwargs["version"] = version
-            if (
-                library_entries
-                and "extensions" in StandardsType.model_fields
-            ):
+            if library_entries:
                 extensions = []
                 for entry in library_entries:
                     # Format is "prefix:version" (e.g. "sc:1.0.0")
