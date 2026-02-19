@@ -6,10 +6,11 @@ from pathlib import Path
 import re
 from typing import Any, NoReturn
 
+import h5py
 import numpy as np
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
 
-from ..pynwb_utils import _sanitize_nwb_version, nwb_has_external_links
+from ..pynwb_utils import _sanitize_nwb_version, get_nwb_extensions, nwb_has_external_links
 
 
 def test_pynwb_io(simple1_nwb: Path) -> None:
@@ -107,10 +108,6 @@ def test_nwb_has_external_links(tmp_path):
 
 def test_get_nwb_extensions(tmp_path: Path) -> None:
     """Test extraction of NWB extensions from HDF5 specifications group."""
-    import h5py
-
-    from ..pynwb_utils import get_nwb_extensions
-
     h5path = tmp_path / "test.nwb"
     with h5py.File(h5path, "w") as f:
         specs = f.create_group("specifications")
@@ -133,10 +130,6 @@ def test_get_nwb_extensions(tmp_path: Path) -> None:
 
 def test_get_nwb_extensions_no_specs(tmp_path: Path) -> None:
     """No specifications group returns empty dict."""
-    import h5py
-
-    from ..pynwb_utils import get_nwb_extensions
-
     h5path = tmp_path / "test.nwb"
     with h5py.File(h5path, "w") as f:
         f.attrs["nwb_version"] = "2.7.0"
