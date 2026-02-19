@@ -18,7 +18,7 @@ from dandischema.consts import DANDI_SCHEMA_VERSION
 from dandischema.digests.dandietag import DandiETag
 from dandischema.models import BareAsset, CommonModel
 from dandischema.models import Dandiset as DandisetMeta
-from dandischema.models import get_schema_version
+from dandischema.models import StandardsType, get_schema_version, nwb_standard
 from packaging.version import Version
 from pydantic import ValidationError
 from pydantic_core import ErrorDetails
@@ -504,6 +504,12 @@ class NWBAsset(LocalFileAsset):
             else:
                 raise
         metadata.path = self.path
+        if "dataStandard" in BareAsset.model_fields:
+            nwb = StandardsType(**nwb_standard)
+            if metadata.dataStandard is None:
+                metadata.dataStandard = [nwb]
+            elif nwb not in metadata.dataStandard:
+                metadata.dataStandard.append(nwb)
         return metadata
 
     # TODO: @validate_cache.memoize_path

@@ -608,3 +608,66 @@ def test_validate_invalid_zarr3(path: str, expected_result_ids: set[str]) -> Non
 
     result_ids = {r.id for r in zf.get_validation_errors()}
     assert result_ids == expected_result_ids
+
+
+@pytest.mark.ai_generated
+class TestBIDSDatasetDescriptionDataStandard:
+    """Tests for per-asset dataStandard population from dataset_description.json"""
+
+    @staticmethod
+    def _make_bids_dd(tmp_path: Path, content: dict) -> BIDSDatasetDescriptionAsset:
+        import json
+
+        dd_path = tmp_path / "dataset_description.json"
+        dd_path.write_text(json.dumps(content))
+        return BIDSDatasetDescriptionAsset(
+            filepath=dd_path,
+            path="dataset_description.json",
+            dandiset_path=tmp_path,
+        )
+
+    @staticmethod
+    def _standard_names(metadata):  # type: ignore[no-untyped-def]
+        from dandischema.models import BareAsset
+
+        if "dataStandard" not in BareAsset.model_fields:
+            pytest.skip("dandischema too old, no dataStandard on BareAsset")
+        return [s.name for s in (metadata.dataStandard or [])]
+
+    def test_bids_always_set(self, tmp_path: Path) -> None:
+        asset = self._make_bids_dd(
+            tmp_path,
+            {"Name": "Test", "BIDSVersion": "1.9.0"},
+        )
+        names = self._standard_names(asset.get_metadata())
+        assert "Brain Imaging Data Structure (BIDS)" in names
+
+    def test_hed_detected_when_hedversion_present(self, tmp_path: Path) -> None:
+        asset = self._make_bids_dd(
+            tmp_path,
+            {"Name": "Test", "BIDSVersion": "1.9.0", "HEDVersion": "8.2.0"},
+        )
+        names = self._standard_names(asset.get_metadata())
+        assert "Hierarchical Event Descriptors (HED)" in names
+        assert "Brain Imaging Data Structure (BIDS)" in names
+
+    def test_hed_not_detected_when_hedversion_absent(self, tmp_path: Path) -> None:
+        asset = self._make_bids_dd(
+            tmp_path,
+            {"Name": "Test", "BIDSVersion": "1.9.0"},
+        )
+        names = self._standard_names(asset.get_metadata())
+        assert "Hierarchical Event Descriptors (HED)" not in names
+
+    def test_hed_detected_with_list_hedversion(self, tmp_path: Path) -> None:
+        """HEDVersion can be a list of strings per BIDS spec."""
+        asset = self._make_bids_dd(
+            tmp_path,
+            {
+                "Name": "Test",
+                "BIDSVersion": "1.9.0",
+                "HEDVersion": ["8.2.0", "sc:1.0.0"],
+            },
+        )
+        names = self._standard_names(asset.get_metadata())
+        assert "Hierarchical Event Descriptors (HED)" in names
