@@ -12,7 +12,6 @@ from dandischema.models import (
     BareAsset,
     StandardsType,
     bids_standard,
-    hed_standard,
     ome_ngff_standard,
 )
 
@@ -20,6 +19,11 @@ import dandi
 from dandi.bids_validator_deno import bids_validate
 
 from .bases import GenericAsset, LocalFileAsset, NWBAsset, _SCHEMA_BAREASSET_HAS_DATASTANDARD
+
+if _SCHEMA_BAREASSET_HAS_DATASTANDARD:
+    from dandischema.models import hed_standard
+else:
+    hed_standard = None  # type: ignore[assignment]
 from .zarr import ZarrAsset
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..metadata.core import add_common_metadata, prepare_metadata
@@ -234,7 +238,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
             _add_standard(metadata, bids_standard)
             return metadata
         _add_standard(metadata, bids_standard, version=desc.get("BIDSVersion"))
-        if hed_version := desc.get("HEDVersion"):
+        if hed_standard and (hed_version := desc.get("HEDVersion")):
             # HEDVersion can be a string or list.
             # List form: ["8.2.0", "sc:1.0.0"] where first element is base
             # HED version and subsequent "prefix:version" entries are library
