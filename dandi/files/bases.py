@@ -520,7 +520,7 @@ class NWBAsset(LocalFileAsset):
         metadata.path = self.path
         if _SCHEMA_BAREASSET_HAS_DATASTANDARD:
             kwargs: dict[str, Any] = dict(nwb_standard)
-            # Populate NWB extensions (ndx-*) from the h5 specifications group
+            # Avoid heavy import by importing within function:
             from dandi.pynwb_utils import get_nwb_extensions
 
             try:
