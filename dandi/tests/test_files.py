@@ -671,3 +671,33 @@ class TestBIDSDatasetDescriptionDataStandard:
         )
         names = self._standard_names(asset.get_metadata())
         assert "Hierarchical Event Descriptors (HED)" in names
+
+    def test_hed_library_schemas_as_extensions(self, tmp_path: Path) -> None:
+        """HED library schemas in list HEDVersion populate extensions."""
+        from dandischema.models import BareAsset, StandardsType
+
+        if "extensions" not in StandardsType.model_fields:
+            pytest.skip("dandischema too old, no extensions on StandardsType")
+        if "dataStandard" not in BareAsset.model_fields:
+            pytest.skip("dandischema too old, no dataStandard on BareAsset")
+        asset = self._make_bids_dd(
+            tmp_path,
+            {
+                "Name": "Test",
+                "BIDSVersion": "1.9.0",
+                "HEDVersion": ["8.2.0", "sc:1.0.0", "lang:1.1.0"],
+            },
+        )
+        metadata = asset.get_metadata()
+        hed_standards = [
+            s for s in (metadata.dataStandard or [])
+            if s.name == "Hierarchical Event Descriptors (HED)"
+        ]
+        assert len(hed_standards) == 1
+        hed = hed_standards[0]
+        assert hed.version == "8.2.0"
+        assert hed.extensions is not None
+        ext_names = {e.name for e in hed.extensions}
+        assert ext_names == {"sc", "lang"}
+        ext_map = {e.name: e.version for e in hed.extensions}
+        assert ext_map == {"sc": "1.0.0", "lang": "1.1.0"}
