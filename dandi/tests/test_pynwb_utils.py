@@ -16,6 +16,7 @@ from pytest_mock import MockerFixture
 from ..pynwb_utils import (
     _rename_pose_estimation_original_videos,
     _sanitize_nwb_version,
+    get_nwb_extensions,
     nwb_has_external_links,
     rename_nwb_external_files,
 )
@@ -232,10 +233,6 @@ def test_nwb_has_external_links(tmp_path):
 
 def test_get_nwb_extensions(tmp_path: Path) -> None:
     """Test extraction of NWB extensions from HDF5 specifications group."""
-    import h5py
-
-    from ..pynwb_utils import get_nwb_extensions
-
     h5path = tmp_path / "test.nwb"
     with h5py.File(h5path, "w") as f:
         specs = f.create_group("specifications")
@@ -258,10 +255,6 @@ def test_get_nwb_extensions(tmp_path: Path) -> None:
 
 def test_get_nwb_extensions_no_specs(tmp_path: Path) -> None:
     """No specifications group returns empty dict."""
-    import h5py
-
-    from ..pynwb_utils import get_nwb_extensions
-
     h5path = tmp_path / "test.nwb"
     with h5py.File(h5path, "w") as f:
         f.attrs["nwb_version"] = "2.7.0"
