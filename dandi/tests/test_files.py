@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from operator import attrgetter
 import os
 from pathlib import Path
@@ -17,6 +18,7 @@ from .. import get_logger
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteZarrAsset
 from ..exceptions import UnknownAssetError
+from ..files.bases import _SCHEMA_BAREASSET_HAS_DATASTANDARD
 from ..files import (
     BIDSDatasetDescriptionAsset,
     DandisetMetadataFile,
@@ -654,8 +656,6 @@ class TestBIDSDatasetDescriptionDataStandard:
 
     @staticmethod
     def _make_bids_dd(tmp_path: Path, content: dict) -> BIDSDatasetDescriptionAsset:
-        import json
-
         dd_path = tmp_path / "dataset_description.json"
         dd_path.write_text(json.dumps(content))
         return BIDSDatasetDescriptionAsset(
@@ -666,8 +666,6 @@ class TestBIDSDatasetDescriptionDataStandard:
 
     @staticmethod
     def _standard_names(metadata):  # type: ignore[no-untyped-def]
-        from ..files.bases import _SCHEMA_BAREASSET_HAS_DATASTANDARD
-
         if not _SCHEMA_BAREASSET_HAS_DATASTANDARD:
             pytest.skip("dandischema too old, no dataStandard on BareAsset")
         return [s.name for s in (metadata.dataStandard or [])]
@@ -712,8 +710,6 @@ class TestBIDSDatasetDescriptionDataStandard:
 
     def test_hed_library_schemas_as_extensions(self, tmp_path: Path) -> None:
         """HED library schemas in list HEDVersion populate extensions."""
-        from ..files.bases import _SCHEMA_BAREASSET_HAS_DATASTANDARD
-
         if not _SCHEMA_BAREASSET_HAS_DATASTANDARD:
             pytest.skip("dandischema too old, no dataStandard on BareAsset")
         asset = self._make_bids_dd(
