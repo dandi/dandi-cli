@@ -628,9 +628,9 @@ class TestBIDSDatasetDescriptionDataStandard:
 
     @staticmethod
     def _standard_names(metadata):  # type: ignore[no-untyped-def]
-        from dandischema.models import BareAsset
+        from ..files.bases import _SCHEMA_BAREASSET_HAS_DATASTANDARD
 
-        if "dataStandard" not in BareAsset.model_fields:
+        if not _SCHEMA_BAREASSET_HAS_DATASTANDARD:
             pytest.skip("dandischema too old, no dataStandard on BareAsset")
         return [s.name for s in (metadata.dataStandard or [])]
 
@@ -674,11 +674,9 @@ class TestBIDSDatasetDescriptionDataStandard:
 
     def test_hed_library_schemas_as_extensions(self, tmp_path: Path) -> None:
         """HED library schemas in list HEDVersion populate extensions."""
-        from dandischema.models import BareAsset, StandardsType
+        from ..files.bases import _SCHEMA_BAREASSET_HAS_DATASTANDARD
 
-        if "extensions" not in StandardsType.model_fields:
-            pytest.skip("dandischema too old, no extensions on StandardsType")
-        if "dataStandard" not in BareAsset.model_fields:
+        if not _SCHEMA_BAREASSET_HAS_DATASTANDARD:
             pytest.skip("dandischema too old, no dataStandard on BareAsset")
         asset = self._make_bids_dd(
             tmp_path,

@@ -21,6 +21,20 @@ from dandischema.models import Dandiset as DandisetMeta
 from dandischema.models import StandardsType, get_schema_version, nwb_standard
 from packaging.version import Version
 from pydantic import ValidationError
+
+# True when the installed dandischema exposes the per-asset dataStandard field
+# and related StandardsType enhancements (version, extensions).  All these
+# fields ship together starting with dandischema 0.12.2.
+# TODO: remove this guard (and all branches that check it) once the minimum
+# required dandischema version is >= 0.12.2.
+_SCHEMA_BAREASSET_HAS_DATASTANDARD = "dataStandard" in BareAsset.model_fields
+if not _SCHEMA_BAREASSET_HAS_DATASTANDARD and Version(
+    dandischema.__version__
+) >= Version("0.12.2"):
+    raise RuntimeError(
+        f"dandischema {dandischema.__version__} should have "
+        f"'dataStandard' field on BareAsset"
+    )
 from pydantic_core import ErrorDetails
 import requests
 
@@ -504,28 +518,27 @@ class NWBAsset(LocalFileAsset):
             else:
                 raise
         metadata.path = self.path
-        if "dataStandard" in BareAsset.model_fields:
+        if _SCHEMA_BAREASSET_HAS_DATASTANDARD:
             kwargs: dict[str, Any] = dict(nwb_standard)
-            # Populate NWB extensions (ndx-*) if the schema supports it
-            if "extensions" in StandardsType.model_fields:
-                from dandi.pynwb_utils import get_nwb_extensions
+            # Populate NWB extensions (ndx-*) from the h5 specifications group
+            from dandi.pynwb_utils import get_nwb_extensions
 
-                try:
-                    nwb_exts = get_nwb_extensions(self.filepath)
-                except Exception:
-                    lgr.debug(
-                        "Failed to extract NWB extensions from %s",
-                        self.filepath,
-                        exc_info=True,
+            try:
+                nwb_exts = get_nwb_extensions(self.filepath)
+            except Exception:
+                lgr.debug(
+                    "Failed to extract NWB extensions from %s",
+                    self.filepath,
+                    exc_info=True,
+                )
+                nwb_exts = {}
+            if nwb_exts:
+                kwargs["extensions"] = [
+                    StandardsType(name=name, version=ver).model_dump(
+                        mode="json", exclude_none=True
                     )
-                    nwb_exts = {}
-                if nwb_exts:
-                    kwargs["extensions"] = [
-                        StandardsType(name=name, version=ver).model_dump(
-                            mode="json", exclude_none=True
-                        )
-                        for name, ver in sorted(nwb_exts.items())
-                    ]
+                    for name, ver in sorted(nwb_exts.items())
+                ]
             nwb = StandardsType(**kwargs)
             if metadata.dataStandard is None:
                 metadata.dataStandard = [nwb]
