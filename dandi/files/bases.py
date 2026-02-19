@@ -505,7 +505,28 @@ class NWBAsset(LocalFileAsset):
                 raise
         metadata.path = self.path
         if "dataStandard" in BareAsset.model_fields:
-            nwb = StandardsType(**nwb_standard)
+            kwargs: dict[str, Any] = dict(nwb_standard)
+            # Populate NWB extensions (ndx-*) if the schema supports it
+            if "extensions" in StandardsType.model_fields:
+                from dandi.pynwb_utils import get_nwb_extensions
+
+                try:
+                    nwb_exts = get_nwb_extensions(self.filepath)
+                except Exception:
+                    lgr.debug(
+                        "Failed to extract NWB extensions from %s",
+                        self.filepath,
+                        exc_info=True,
+                    )
+                    nwb_exts = {}
+                if nwb_exts:
+                    kwargs["extensions"] = [
+                        StandardsType(name=name, version=ver).model_dump(
+                            mode="json", exclude_none=True
+                        )
+                        for name, ver in sorted(nwb_exts.items())
+                    ]
+            nwb = StandardsType(**kwargs)
             if metadata.dataStandard is None:
                 metadata.dataStandard = [nwb]
             elif nwb not in metadata.dataStandard:

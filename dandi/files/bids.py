@@ -244,12 +244,37 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
             return metadata
         _add_standard(metadata, bids_standard, version=desc.get("BIDSVersion"))
         if hed_version := desc.get("HEDVersion"):
-            # HEDVersion can be a string or list; use first element as version
+            # HEDVersion can be a string or list.
+            # List form: ["8.2.0", "sc:1.0.0"] where first element is base
+            # HED version and subsequent "prefix:version" entries are library
+            # schemas recorded as extensions.
             if isinstance(hed_version, list):
                 version = hed_version[0] if hed_version else None
+                library_entries = hed_version[1:]
             else:
                 version = hed_version
-            _add_standard(metadata, hed_standard, version=version)
+                library_entries = []
+            kwargs: dict = dict(hed_standard)
+            if version and "version" in StandardsType.model_fields:
+                kwargs["version"] = version
+            if (
+                library_entries
+                and "extensions" in StandardsType.model_fields
+            ):
+                extensions = []
+                for entry in library_entries:
+                    # Format is "prefix:version" (e.g. "sc:1.0.0")
+                    if ":" in str(entry):
+                        lib_name, lib_ver = str(entry).split(":", 1)
+                    else:
+                        lib_name, lib_ver = str(entry), None
+                    ext = StandardsType(name=lib_name, version=lib_ver)
+                    extensions.append(
+                        ext.model_dump(mode="json", exclude_none=True)
+                    )
+                if extensions:
+                    kwargs["extensions"] = extensions
+            _add_standard(metadata, kwargs)
         return metadata
 
 
