@@ -1,0 +1,50 @@
+---
+name: Sync git-bug issues
+
+on:
+  schedule:
+    # Run hourly at minute 17 (avoid top-of-hour contention)
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Fetch git-bug refs so we can push incremental updates
+          fetch-depth: 0
+
+      - name: Fetch existing bug refs
+        run: |
+          git fetch origin 'refs/bugs/*:refs/bugs/*' || true
+
+      - name: Install git-bug
+        run: |
+          curl -sL -o /usr/local/bin/git-bug \
+            https://github.com/git-bug/git-bug/releases/download/v0.10.1/git-bug_linux_amd64
+          chmod +x /usr/local/bin/git-bug
+          git-bug version
+
+      - name: Configure bridge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git-bug bridge configure \
+            --name=github \
+            --target=github \
+            --owner=dandi \
+            --project=dandi-cli \
+            --token="$GH_TOKEN"
+
+      - name: Pull issues from GitHub
+        run: git-bug bridge pull github
+
+      - name: Push bug refs to origin
+        run: |
+          git push origin 'refs/bugs/*:refs/bugs/*'

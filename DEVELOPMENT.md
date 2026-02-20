@@ -132,6 +132,73 @@ view code coverage information as follows:
    lines based on whether they are covered by tests or not.
 
 
+## Git-bug: Local Issue Tracking
+
+This project uses [git-bug](https://github.com/git-bug/git-bug) for distributed,
+offline-first issue tracking.  Issues from GitHub are synced and stored as native
+git objects under `refs/bugs/*`, so you can browse and search them without internet
+access or GitHub API calls.
+
+### Installation
+
+Install git-bug from [releases](https://github.com/git-bug/git-bug/releases)
+or via a package manager:
+
+    # macOS/Linux (Homebrew)
+    brew install git-bug
+
+    # Nix
+    nix profile install nixpkgs#git-bug
+
+    # Binary download (Linux amd64)
+    curl -L -o git-bug \
+        https://github.com/git-bug/git-bug/releases/latest/download/git-bug_linux_amd64
+    chmod +x git-bug && mv git-bug ~/.local/bin/
+
+### Fetching Issues
+
+After cloning, fetch the bug refs to get local issues:
+
+    git bug pull
+
+### Quick Reference
+
+    # List open issues
+    git bug ls status:open
+
+    # Show a specific issue (by ID prefix)
+    git bug show <id-prefix>
+
+    # Search issues by title keyword
+    git bug ls status:open "title:upload"
+
+    # Filter by label
+    git bug ls "label:bug"
+
+    # Filter by author
+    git bug ls "author:username"
+
+    # Newest first
+    git bug ls status:open sort:creation-desc
+
+### Syncing with GitHub
+
+    # Pull latest issues from GitHub
+    git bug bridge pull
+
+    # Push local bug refs to remote (for team access)
+    git bug push origin
+
+### Known Limitations
+
+- **Images/media**: Bridge importers preserve image URLs as markdown text but
+  do not download image blobs.  Images hosted on
+  `user-images.githubusercontent.com` are accessible only while GitHub hosts
+  them.
+- **Two-way sync**: While git-bug supports pushing changes back to GitHub,
+  the primary workflow is pull-from-GitHub for offline access.
+
+
 ## Releasing with GitHub Actions, auto, and pull requests
 
 New releases of dandi-cli are created via a GitHub Actions workflow built
