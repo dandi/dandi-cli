@@ -97,6 +97,7 @@ class TestMatchLocationToAllen:
     def test_ca1(self) -> None:
         result = match_location_to_allen("CA1")
         assert result is not None
+        assert result.name is not None
         assert "CA1" in result.name or "Field CA1" in result.name
 
 

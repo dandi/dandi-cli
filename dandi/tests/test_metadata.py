@@ -824,8 +824,10 @@ def test_brain_anatomy_with_existing_biosample_chain(tmp_path: Path) -> None:
     # Navigate to deepest sample (tissue)
     sample = result[0]  # cell
     assert sample.identifier == "cell01"
+    assert sample.wasDerivedFrom is not None
     sample = sample.wasDerivedFrom[0]  # slice
     assert sample.identifier == "slice01"
+    assert sample.wasDerivedFrom is not None
     sample = sample.wasDerivedFrom[0]  # tissue (deepest)
     assert sample.identifier == "tissue01"
     assert sample.anatomy is not None

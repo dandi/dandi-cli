@@ -39,7 +39,8 @@ def _load_allen_structures() -> list[dict[str, Any]]:
         Path(__file__).resolve().parent.parent / "data" / "allen_ccf_structures.json"
     )
     with open(data_path) as f:
-        return json.load(f)
+        structures: list[dict[str, Any]] = json.load(f)
+    return structures
 
 
 @lru_cache(maxsize=1)
@@ -112,7 +113,7 @@ def _parse_location_string(location: str) -> list[str]:
                             tokens.append(val)
                 return tokens
         except (ValueError, SyntaxError):
-            pass
+            pass  # Not a valid dict literal; fall through to other parsers
 
     # Try key-value format (e.g. "area: VISp, depth: 175")
     if re.search(r"\w+\s*:", location) and "://" not in location:
@@ -212,7 +213,9 @@ def locations_to_anatomy(locations: list[str]) -> list[models.Anatomy]:
         tokens = _parse_location_string(loc)
         for token in tokens:
             anatomy = match_location_to_allen(token)
-            if anatomy is not None and anatomy.identifier not in seen_ids:
-                seen_ids.add(anatomy.identifier)
-                results.append(anatomy)
+            if anatomy is not None:
+                id_str = str(anatomy.identifier)
+                if id_str not in seen_ids:
+                    seen_ids.add(id_str)
+                    results.append(anatomy)
     return results

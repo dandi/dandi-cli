@@ -450,7 +450,7 @@ def _get_brain_locations(nwb: pynwb.NWBFile) -> list[str]:
                         if val and isinstance(val, str):
                             locations.append(val)
             except Exception:
-                pass
+                pass  # IC electrode table format varies across NWB versions
 
     return locations
 
