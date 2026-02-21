@@ -161,7 +161,7 @@ tag_prefix = ""
 parentdir_prefix = ""
 
 [tool.codespell]
-skip = "_version.py,due.py,versioneer.py,*.vcr.yaml,venv,venvs,pyproject.toml"
+skip = "_version.py,due.py,versioneer.py,*.vcr.yaml,venv,venvs,pyproject.toml,allen_ccf_structures.json"
 # Don't warn about "[l]ist" in the abbrev_prompt() docstring:
 # TE is present in the BIDS schema
 ignore-regex = "(\\[\\w\\]\\w+|TE|ignore \"bu\" strings)"

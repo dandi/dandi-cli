@@ -516,6 +516,8 @@ def extract_assay_type(metadata: dict) -> list[models.AssayType] | None:
 
 
 def extract_anatomy(metadata: dict) -> list[models.Anatomy] | None:
+    # Anatomy is now populated via wasDerivedFrom BioSample.
+    # This extractor is kept only as a fallback for the top-level "anatomy" field.
     if "anatomy" in metadata:
         return [models.Anatomy(identifier="anatomy", name=metadata["anatomy"])]
     else:
@@ -552,20 +554,63 @@ def extract_model_list(
 
 def extract_wasDerivedFrom(metadata: dict) -> list[models.BioSample] | None:
     derived_from: list[models.BioSample] | None = None
+    deepest: models.BioSample | None = None
     for field, sample_name in [
         ("tissue_sample_id", "tissuesample"),
         ("slice_id", "slice"),
         ("cell_id", "cell"),
     ]:
         if metadata.get(field) is not None:
+            sample = models.BioSample(
+                identifier=metadata[field],
+                wasDerivedFrom=derived_from,
+                sampleType=models.SampleType(name=sample_name),
+            )
+            derived_from = [sample]
+            if deepest is None:
+                deepest = sample
+
+    # Compute anatomy from brain locations (mouse only)
+    anatomy = _extract_brain_anatomy(metadata)
+    if anatomy:
+        if deepest is not None:
+            # Add anatomy to the deepest (first created) BioSample
+            deepest.anatomy = anatomy
+        else:
+            # No existing chain — create a new BioSample for the anatomy
             derived_from = [
                 models.BioSample(
-                    identifier=metadata[field],
-                    wasDerivedFrom=derived_from,
-                    sampleType=models.SampleType(name=sample_name),
+                    identifier="brain-region-sample",
+                    sampleType=models.SampleType(name="tissuesample"),
+                    anatomy=anatomy,
                 )
             ]
+
     return derived_from
+
+
+def _extract_brain_anatomy(metadata: dict) -> list[models.Anatomy]:
+    """Extract brain anatomy from metadata, if the species is mouse."""
+    from .brain_areas import locations_to_anatomy
+
+    locations = metadata.get("brain_locations")
+    if not locations:
+        return []
+
+    # Only apply Allen CCF matching for mouse (NCBITaxon_10090)
+    species = metadata.get("species")
+    if species is None:
+        return []
+    species_str = str(species).lower()
+    is_mouse = (
+        "10090" in species_str
+        or "mus musculus" in species_str
+        or "mouse" in species_str
+    )
+    if not is_mouse:
+        return []
+
+    return locations_to_anatomy(locations)
 
 
 extract_wasAttributedTo = extract_model_list(
