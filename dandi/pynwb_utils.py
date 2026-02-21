@@ -282,6 +282,9 @@ def _get_pynwb_metadata(path: str | Path | Readable) -> dict[str, Any]:
             start_time = out["session_start_time"]
             out["session_end_time"] = start_time + timedelta(seconds=session_duration)
 
+        # Extract brain locations for anatomy metadata
+        out["brain_locations"] = _get_brain_locations(nwb)
+
     return out
 
 
@@ -382,6 +385,74 @@ def _get_session_duration(nwb: pynwb.NWBFile) -> float | None:
                 duration / (3600 * 24 * 365),
             )
     return None
+
+
+def _get_brain_locations(nwb: pynwb.NWBFile) -> list[str]:
+    """Extract brain location strings from an NWB file.
+
+    Collects location values from imaging planes (ophys), the electrodes
+    table (ecephys), and intracellular electrodes (icephys).
+
+    Parameters
+    ----------
+    nwb : pynwb.NWBFile
+        An open NWB file object.
+
+    Returns
+    -------
+    list[str]
+        Raw location strings found in the file.
+    """
+    locations: list[str] = []
+
+    # Ophys: imaging planes
+    for plane in getattr(nwb, "imaging_planes", {}).values():
+        loc = getattr(plane, "location", None)
+        if loc and isinstance(loc, str):
+            locations.append(loc)
+
+    # Ecephys: electrodes table "location" column
+    electrodes = getattr(nwb, "electrodes", None)
+    if electrodes is not None:
+        try:
+            col_names = electrodes.colnames
+        except Exception:
+            col_names = ()
+        if col_names and "location" in col_names:
+            try:
+                locs = electrodes["location"].data[:]
+            except Exception:
+                locs = []
+            for val in locs:
+                if isinstance(val, bytes):
+                    val = val.decode("utf-8", errors="replace")
+                if val and isinstance(val, str):
+                    locations.append(val)
+
+    # Icephys: intracellular electrodes
+    ic_electrodes = getattr(nwb, "ic_electrodes", None) or getattr(
+        nwb, "icephys_electrodes", None
+    )
+    if ic_electrodes is not None:
+        if isinstance(ic_electrodes, dict):
+            for elec in ic_electrodes.values():
+                loc = getattr(elec, "location", None)
+                if loc and isinstance(loc, str):
+                    locations.append(loc)
+        else:
+            # Might be a DynamicTable in some NWB versions
+            try:
+                col_names = getattr(ic_electrodes, "colnames", ())
+                if col_names and "location" in col_names:
+                    for val in ic_electrodes["location"].data[:]:
+                        if isinstance(val, bytes):
+                            val = val.decode("utf-8", errors="replace")
+                        if val and isinstance(val, str):
+                            locations.append(val)
+            except Exception:
+                pass  # IC electrode table format varies across NWB versions
+
+    return locations
 
 
 def _get_image_series(nwb: pynwb.NWBFile) -> list[dict]:
