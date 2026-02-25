@@ -598,8 +598,7 @@ def _extract_brain_anatomy(metadata: dict) -> list[models.Anatomy]:
         return []
 
     # Only apply Allen CCF matching for mouse (NCBITaxon_10090)
-    species = metadata.get("species")
-    if species is None:
+    if not (species := metadata.get("species")):
         return []
     species_str = str(species).lower()
     is_mouse = (
