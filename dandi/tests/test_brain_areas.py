@@ -11,93 +11,62 @@ from ..metadata.brain_areas import (
 
 @pytest.mark.ai_generated
 class TestParseLocationString:
-    def test_simple_acronym(self) -> None:
-        assert _parse_location_string("VISp") == ["VISp"]
+    @pytest.mark.parametrize(
+        "input_str, expected",
+        [
+            ("VISp", ["VISp"]),
+            ("Primary visual area", ["Primary visual area"]),
+            ("VISp,VISrl,VISlm", ["VISp", "VISrl", "VISlm"]),
+            ("VISp, VISrl, VISlm", ["VISp", "VISrl", "VISlm"]),
+            ("area: VISp, depth: 175", ["VISp"]),
+            ("VISp, unknown, CA1", ["VISp", "CA1"]),
+        ],
+    )
+    def test_parses_locations(self, input_str: str, expected: list[str]) -> None:
+        assert _parse_location_string(input_str) == expected
 
-    def test_simple_name(self) -> None:
-        assert _parse_location_string("Primary visual area") == ["Primary visual area"]
+    @pytest.mark.parametrize(
+        "input_str",
+        [
+            "{'area': 'VISp', 'depth': '20'}",
+            "{'region_name': 'VISp', 'depth': '20'}",
+        ],
+    )
+    def test_dict_literal_extracts_visp(self, input_str: str) -> None:
+        assert "VISp" in _parse_location_string(input_str)
 
-    def test_comma_separated(self) -> None:
-        assert _parse_location_string("VISp,VISrl,VISlm") == ["VISp", "VISrl", "VISlm"]
-
-    def test_comma_separated_with_spaces(self) -> None:
-        assert _parse_location_string("VISp, VISrl, VISlm") == [
-            "VISp",
-            "VISrl",
-            "VISlm",
-        ]
-
-    def test_dict_literal_with_area(self) -> None:
-        result = _parse_location_string("{'area': 'VISp', 'depth': '20'}")
-        assert result == ["VISp"]
-
-    def test_dict_literal_no_area_key(self) -> None:
-        result = _parse_location_string("{'region_name': 'VISp', 'depth': '20'}")
-        # Should return non-numeric string values
-        assert "VISp" in result
-
-    def test_key_value_pairs(self) -> None:
-        result = _parse_location_string("area: VISp, depth: 175")
-        assert result == ["VISp"]
-
-    def test_trivial_unknown(self) -> None:
-        assert _parse_location_string("unknown") == []
-
-    def test_trivial_none(self) -> None:
-        assert _parse_location_string("none") == []
-
-    def test_trivial_na(self) -> None:
-        assert _parse_location_string("n/a") == []
-
-    def test_trivial_brain(self) -> None:
-        assert _parse_location_string("brain") == []
-
-    def test_empty_string(self) -> None:
-        assert _parse_location_string("") == []
-
-    def test_whitespace_only(self) -> None:
-        assert _parse_location_string("   ") == []
-
-    def test_comma_list_with_trivial(self) -> None:
-        result = _parse_location_string("VISp, unknown, CA1")
-        assert result == ["VISp", "CA1"]
+    @pytest.mark.parametrize(
+        "input_str",
+        ["unknown", "none", "n/a", "brain", "", "   "],
+    )
+    def test_trivial_returns_empty(self, input_str: str) -> None:
+        assert _parse_location_string(input_str) == []
 
 
 @pytest.mark.ai_generated
 class TestMatchLocationToAllen:
-    def test_exact_acronym(self) -> None:
-        result = match_location_to_allen("VISp")
+    @pytest.mark.parametrize(
+        "token, expected_name",
+        [
+            ("VISp", "Primary visual area"),
+            ("visp", "Primary visual area"),
+            ("Primary visual area", "Primary visual area"),
+            ("primary visual area", "Primary visual area"),
+        ],
+    )
+    def test_matches(self, token: str, expected_name: str) -> None:
+        result = match_location_to_allen(token)
         assert result is not None
         assert "MBA_" in str(result.identifier)
-        assert result.name == "Primary visual area"
+        assert result.name == expected_name
 
-    def test_case_insensitive_acronym(self) -> None:
-        result = match_location_to_allen("visp")
-        assert result is not None
-        assert result.name == "Primary visual area"
-
-    def test_exact_name(self) -> None:
-        result = match_location_to_allen("Primary visual area")
-        assert result is not None
-        assert "MBA_" in str(result.identifier)
-
-    def test_case_insensitive_name(self) -> None:
-        result = match_location_to_allen("primary visual area")
-        assert result is not None
-        assert "MBA_" in str(result.identifier)
-
-    def test_no_match(self) -> None:
-        result = match_location_to_allen("nonexistent_area_xyz")
-        assert result is None
-
-    def test_empty_string(self) -> None:
-        result = match_location_to_allen("")
-        assert result is None
+    @pytest.mark.parametrize("token", ["nonexistent_area_xyz", ""])
+    def test_no_match(self, token: str) -> None:
+        assert match_location_to_allen(token) is None
 
     def test_ca1(self) -> None:
         result = match_location_to_allen("CA1")
         assert result is not None
-        assert result.name is not None
         assert "CA1" in result.name or "Field CA1" in result.name
 
 
@@ -116,21 +85,20 @@ class TestLocationsToAnatomy:
         result = locations_to_anatomy(["VISp", "CA1"])
         assert len(result) == 2
 
-    def test_empty_list(self) -> None:
-        result = locations_to_anatomy([])
-        assert result == []
-
-    def test_all_unmatched(self) -> None:
-        result = locations_to_anatomy(["nonexistent_xyz"])
-        assert result == []
+    @pytest.mark.parametrize(
+        "locations",
+        [
+            [],
+            ["nonexistent_xyz"],
+            ["unknown", "n/a", "none"],
+        ],
+    )
+    def test_returns_empty(self, locations: list[str]) -> None:
+        assert locations_to_anatomy(locations) == []
 
     def test_mixed_matched_unmatched(self) -> None:
         result = locations_to_anatomy(["VISp", "nonexistent_xyz"])
         assert len(result) == 1
-
-    def test_trivial_values_filtered(self) -> None:
-        result = locations_to_anatomy(["unknown", "n/a", "none"])
-        assert result == []
 
     def test_comma_separated_input(self) -> None:
         result = locations_to_anatomy(["VISp,CA1"])

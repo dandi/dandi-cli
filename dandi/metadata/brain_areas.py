@@ -76,6 +76,47 @@ def _build_lookup_dicts() -> (
     return acronym_exact, acronym_lower, name_exact, name_lower
 
 
+def _is_numeric(val: str) -> bool:
+    """Return True if *val* looks like a number (int or float)."""
+    try:
+        float(val)
+        return True
+    except ValueError:
+        return False
+
+
+# Canonicalised area key names recognised in dict-style location strings.
+# Keys are normalised by lowering, stripping whitespace, and removing hyphens
+# and underscores so that "brain-area", "brain_area", "BrainArea" all match.
+_AREA_KEYS = frozenset(
+    {
+        "area",
+        "areaname",
+        "brainarea",
+        "brainregion",
+        "location",
+        "name",
+        "region",
+        "regionname",
+    }
+)
+
+
+def _normalise_key(key: str) -> str:
+    """Lower-case and strip spaces, hyphens, underscores from *key*."""
+    return re.sub(r"[\s_-]", "", key).lower()
+
+
+def _extract_area_from_dict(d: dict) -> str | None:
+    """Return the first non-trivial area value from a dict with flexible key matching."""
+    for key, val in d.items():
+        if _normalise_key(str(key)) in _AREA_KEYS:
+            val = str(val).strip()
+            if val and val.lower() not in _TRIVIAL_VALUES:
+                return val
+    return None
+
+
 def _parse_location_string(location: str) -> list[str]:
     """Parse a raw NWB location string into area tokens ignoring numerics etc.
 
@@ -84,7 +125,7 @@ def _parse_location_string(location: str) -> list[str]:
     - Dict literals: ``"{'area': 'VISp', 'depth': '20'}"``
     - Key-value pairs: ``"area: VISp, depth: 175"``
     - Comma-separated lists: ``"VISp,VISrl,VISlm"``
-    
+
     In examples above, depth numerical values are getting ignored.
     """
     location = location.strip()
@@ -96,26 +137,18 @@ def _parse_location_string(location: str) -> list[str]:
         try:
             d = ast.literal_eval(location)
             if isinstance(d, dict):
-                # Look for known area keys
-                for key in ("area", "location", "region", "brain_area", "brain_region"):
-                    val = d.get(key)
-                    if val is not None:
-                        val = str(val).strip()
-                        if val and val.lower() not in _TRIVIAL_VALUES:
-                            return [val]
-                # If no known key, return all string values that are non-trivial
+                val = _extract_area_from_dict(d)
+                if val is not None:
+                    return [val]
+                # If no known key, return all non-trivial, non-numeric values
                 tokens = []
-                for val in d.values():
-                    val = str(val).strip()
-                    if val and val.lower() not in _TRIVIAL_VALUES:
-                        # Skip purely numeric values (e.g. depth)
-                        try:
-                            float(val)
-                        except ValueError:
-                            tokens.append(val)
+                for v in d.values():
+                    v = str(v).strip()
+                    if v and v.lower() not in _TRIVIAL_VALUES and not _is_numeric(v):
+                        tokens.append(v)
                 return tokens
         except (ValueError, SyntaxError):
-            pass  # Not a valid dict literal; fall through to other parsers
+            lgr.debug("Location %r looks like a dict but failed to parse", location)
 
     # Try key-value format (e.g. "area: VISp, depth: 175")
     if re.search(r"\w+\s*:", location) and "://" not in location:
@@ -126,18 +159,14 @@ def _parse_location_string(location: str) -> list[str]:
             if m:
                 kv[m.group(1).lower()] = m.group(2).strip()
         if kv:
-            for key in ("area", "location", "region", "brain_area", "brain_region"):
-                val = kv.get(key)
-                if val is not None and val.lower() not in _TRIVIAL_VALUES:
-                    return [val]
+            val = _extract_area_from_dict(kv)
+            if val is not None:
+                return [val]
             # Fall through — return non-trivial, non-numeric values
             tokens = []
-            for val in kv.values():
-                if val.lower() not in _TRIVIAL_VALUES:
-                    try:
-                        float(val)
-                    except ValueError:
-                        tokens.append(val)
+            for v in kv.values():
+                if v.lower() not in _TRIVIAL_VALUES and not _is_numeric(v):
+                    tokens.append(v)
             if tokens:
                 return tokens
 

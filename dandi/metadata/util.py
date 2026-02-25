@@ -589,24 +589,33 @@ def extract_wasDerivedFrom(metadata: dict) -> list[models.BioSample] | None:
     return derived_from
 
 
+def _is_mouse(metadata: dict) -> bool:
+    """Return True if the species in *metadata* is mouse.
+
+    Reuses the canonical mouse entry from *species_map* to match against
+    common names, the Latin prefix, and the NCBITaxon identifier.
+    """
+    if not (species := metadata.get("species")):
+        return False
+    species_str = str(species).lower()
+    # species_map[0] = (["mouse"], "mus", NCBITaxon_10090 URI, full name)
+    common_names, prefix, uri, _name = species_map[0]
+    return (
+        "10090" in species_str
+        or (prefix is not None and species_str.startswith(prefix))
+        or any(name in species_str for name in common_names)
+        or uri.lower() in species_str
+    )
+
+
 def _extract_brain_anatomy(metadata: dict) -> list[models.Anatomy]:
     """Extract brain anatomy from metadata, if the species is mouse."""
     from .brain_areas import locations_to_anatomy
 
-    locations = metadata.get("brain_locations")
-    if not locations:
+    if not (locations := metadata.get("brain_locations")):
         return []
 
-    # Only apply Allen CCF matching for mouse (NCBITaxon_10090)
-    if not (species := metadata.get("species")):
-        return []
-    species_str = str(species).lower()
-    is_mouse = (
-        "10090" in species_str
-        or "mus musculus" in species_str
-        or "mouse" in species_str
-    )
-    if not is_mouse:
+    if not _is_mouse(metadata):
         return []
 
     return locations_to_anatomy(locations)
