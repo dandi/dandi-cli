@@ -84,6 +84,8 @@ def _parse_location_string(location: str) -> list[str]:
     - Dict literals: ``"{'area': 'VISp', 'depth': '20'}"``
     - Key-value pairs: ``"area: VISp, depth: 175"``
     - Comma-separated lists: ``"VISp,VISrl,VISlm"``
+    
+    In examples above, depth numerical values are getting ignored.
     """
     location = location.strip()
     if not location or location.lower() in _TRIVIAL_VALUES:
