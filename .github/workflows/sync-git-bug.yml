@@ -20,6 +20,13 @@ jobs:
           # Fetch git-bug refs so we can push incremental updates
           fetch-depth: 0
 
+      - name: Configure git
+        run: |
+          # Required by git-bug to have those set, otherwise would not work!
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@users.noreply.github.com"
+
+
       - name: Fetch existing bug refs
         run: |
           git fetch origin 'refs/bugs/*:refs/bugs/*' || true
