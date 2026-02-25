@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Test Markers
 - When adding AI-generated tests, mark them with `@pytest.mark.ai_generated`
-- Any new pytest markers must be registered in `tox.ini` under `[pytest]` section in the `markers` list
+- Any new pytest markers must be registered in `pytest_configure` function of `dandi/pytest_plugin.py`
 
 ## Code Style
 - Code is formatted with Black (line length 100)
