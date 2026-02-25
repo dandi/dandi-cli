@@ -77,7 +77,7 @@ def _build_lookup_dicts() -> (
 
 
 def _parse_location_string(location: str) -> list[str]:
-    """Parse a raw NWB location string into area tokens.
+    """Parse a raw NWB location string into area tokens ignoring numerics etc.
 
     Handles:
     - Simple strings: ``"VISp"``
