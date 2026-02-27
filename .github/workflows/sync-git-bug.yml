@@ -38,6 +38,13 @@ jobs:
           chmod +x /usr/local/bin/git-bug
           git-bug version
 
+      - name: Create git-bug identity
+        run: |
+          git-bug user new \
+            --name="github-actions" \
+            --email="github-actions@users.noreply.github.com" \
+            --non-interactive
+
       - name: Configure bridge
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
