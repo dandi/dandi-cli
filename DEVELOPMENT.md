@@ -73,7 +73,8 @@ development command line options.
   are `clear` - would clear the cache, `ignore` - would ignore it. Note that for
   metadata cache we use only released portion of `dandi.__version__` as a token.
   If handling of metadata has changed while developing, set this env var to
-  `clear` to have cache `clear()`ed before use.
+  `clear` to have cache `clear()`ed before use. This variable also controls the
+  API metadata cache used by `DandiAPIClient(cache=True)`.
 
 - `DANDI_INSTANCEHOST` -- defaults to `localhost`. Point to host/IP which hosts
   a local instance of dandiarchive.

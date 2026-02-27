@@ -66,6 +66,8 @@ from .utils import (
 if TYPE_CHECKING:
     from typing_extensions import Self
 
+    from .apicache import APIMetadataCache
+
 
 lgr = get_logger()
 
@@ -426,6 +428,7 @@ class DandiAPIClient(RESTFullAPIClient):
         api_url: str | None = None,
         token: str | None = None,
         dandi_instance: DandiInstance | None = None,
+        cache: bool = False,
     ) -> None:
         """
         Construct a client instance for the given API URL or DANDI instance
@@ -439,6 +442,11 @@ class DandiAPIClient(RESTFullAPIClient):
               ``"https://api.sandbox.dandiarchive.org/api"``
         :param str token: User API Key. Note that different instance APIs have
             different keys.
+        :param bool cache: When ``True``, API metadata responses are cached
+            persistently to disk (in an sqlite3 database) and validated against
+            ``modified`` timestamps.  Controlled by the :envvar:`DANDI_CACHE`
+            environment variable (``"ignore"`` disables, ``"clear"`` wipes the
+            cache on first access).
         """
         check_dandi_version()
         if api_url is None:
@@ -458,6 +466,17 @@ class DandiAPIClient(RESTFullAPIClient):
         self.dandi_instance: DandiInstance = dandi_instance
         if token is not None:
             self.authenticate(token)
+        if cache:
+            from .apicache import APIMetadataCache
+
+            self._cache: APIMetadataCache | None = APIMetadataCache()
+        else:
+            self._cache = None
+
+    @property
+    def cache(self) -> APIMetadataCache | None:
+        """The persistent API metadata cache, or ``None`` if caching is disabled."""
+        return self._cache
 
     @classmethod
     def for_dandi_instance(
@@ -1152,14 +1171,28 @@ class RemoteDandiset:
     def get_raw_metadata(self) -> dict[str, Any]:
         """
         Fetch the metadata for this version of the Dandiset as an unprocessed
-        `dict`
+        `dict`.
+
+        When the client was created with ``cache=True``, results are served
+        from a persistent on-disk cache whenever the version's ``modified``
+        timestamp has not changed.
         """
+        cache = self.client.cache
+        entity_id = f"{self.identifier}/{self.version_id}"
+        if cache is not None and self._version is not None:
+            modified = self._version.modified.isoformat()
+            cached = cache.get(self.client.api_url, "dandiset", entity_id, modified)
+            if cached is not None:
+                return cached
         try:
             data = self.client.get(self.version_api_path)
             assert isinstance(data, dict)
-            return data
         except HTTP404Error:
             raise NotFoundError(f"No such asset: {self}")
+        if cache is not None:
+            modified = self.version.modified.isoformat()
+            cache.set(self.client.api_url, "dandiset", entity_id, modified, data)
+        return data
 
     def set_metadata(self, metadata: models.Dandiset) -> None:
         """
@@ -1558,16 +1591,28 @@ class BaseRemoteAsset(ABC, APIBase):
         return models.Asset.model_validate(self.get_raw_metadata())
 
     def get_raw_metadata(self) -> dict[str, Any]:
-        """Fetch the metadata for the asset as an unprocessed `dict`"""
+        """Fetch the metadata for the asset as an unprocessed `dict`.
+
+        When the client was created with ``cache=True``, results are served
+        from a persistent on-disk cache whenever the asset's ``modified``
+        timestamp has not changed.
+        """
         if self._metadata is not None:
             return self._metadata
-        else:
-            try:
-                data = self.client.get(self.api_path)
-                assert isinstance(data, dict)
-                return data
-            except HTTP404Error:
-                raise NotFoundError(f"No such asset: {self}")
+        cache = self.client.cache
+        modified = self.modified.isoformat()
+        if cache is not None:
+            cached = cache.get(self.client.api_url, "asset", self.identifier, modified)
+            if cached is not None:
+                return cached
+        try:
+            data = self.client.get(self.api_path)
+            assert isinstance(data, dict)
+        except HTTP404Error:
+            raise NotFoundError(f"No such asset: {self}")
+        if cache is not None:
+            cache.set(self.client.api_url, "asset", self.identifier, modified, data)
+        return data
 
     def get_raw_digest(self, digest_type: str | models.DigestType | None = None) -> str:
         """
