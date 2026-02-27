@@ -12,6 +12,8 @@ permissions:
 
 jobs:
   sync:
+    # Only run in the upstream repo, not in forks
+    if: ${{ !github.event.repository.fork }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -61,8 +63,8 @@ jobs:
           git-bug bridge new \
             --name=github \
             --target=github \
-            --owner=dandi \
-            --project=dandi-cli \
+            --owner="${GITHUB_REPOSITORY_OWNER}" \
+            --project="${GITHUB_REPOSITORY#*/}" \
             --token="$GH_TOKEN" \
             --non-interactive
 
