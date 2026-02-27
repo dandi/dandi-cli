@@ -6,6 +6,11 @@ on:
     # Run hourly at minute 17 (avoid top-of-hour contention)
     - cron: "17 * * * *"
   workflow_dispatch:
+    inputs:
+      push-to-github:
+        description: "Push local bugs to GitHub Issues"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -67,6 +72,10 @@ jobs:
             --project="${GITHUB_REPOSITORY#*/}" \
             --token="$GH_TOKEN" \
             --non-interactive
+
+      - name: Push local bugs to GitHub
+        if: inputs.push-to-github
+        run: git-bug bridge push github
 
       - name: Pull issues from GitHub
         run: git-bug bridge pull github
