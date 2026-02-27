@@ -26,10 +26,19 @@ jobs:
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@users.noreply.github.com"
 
-
-      - name: Fetch existing bug refs
+      - name: Fetch existing git-bug refs
         run: |
+          # Fetch both bugs and identities; bug refs are unusable without
+          # their corresponding identity refs (git-bug cache build fails).
           git fetch origin 'refs/bugs/*:refs/bugs/*' || true
+          git fetch origin 'refs/identities/*:refs/identities/*' || true
+          # If identity refs are missing, wipe fetched bug refs to avoid
+          # "identity doesn't exist" errors during cache build.
+          if [ -z "$(git for-each-ref refs/identities/)" ]; then
+            echo "No identity refs found on remote; wiping bug refs to start fresh"
+            git for-each-ref --format='%(refname)' refs/bugs/ \
+              | xargs -r -n1 git update-ref -d || true
+          fi
 
       - name: Install git-bug
         run: |
@@ -60,6 +69,7 @@ jobs:
       - name: Pull issues from GitHub
         run: git-bug bridge pull github
 
-      - name: Push bug refs to origin
+      - name: Push git-bug refs to origin
         run: |
           git push origin 'refs/bugs/*:refs/bugs/*'
+          git push origin 'refs/identities/*:refs/identities/*'
