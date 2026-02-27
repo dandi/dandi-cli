@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from dandi.apicache import APIMetadataCache
@@ -11,21 +13,19 @@ from dandi.apicache import APIMetadataCache
 class TestAPIMetadataCache:
     API_URL = "https://api.dandiarchive.org/api"
 
-    def test_cache_miss(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_cache_miss(self, tmp_path: Path) -> None:
         cache = APIMetadataCache(db_path=tmp_path / "cache.sqlite")
         result = cache.get(self.API_URL, "asset", "abc-123", "2024-01-01T00:00:00Z")
         assert result is None
 
-    def test_set_then_get(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_set_then_get(self, tmp_path: Path) -> None:
         cache = APIMetadataCache(db_path=tmp_path / "cache.sqlite")
         metadata = {"name": "test-asset", "size": 42}
         cache.set(self.API_URL, "asset", "abc-123", "2024-01-01T00:00:00Z", metadata)
         result = cache.get(self.API_URL, "asset", "abc-123", "2024-01-01T00:00:00Z")
         assert result == metadata
 
-    def test_stale_modified_returns_none(
-        self, tmp_path: pytest.TempPathFactory
-    ) -> None:
+    def test_stale_modified_returns_none(self, tmp_path: Path) -> None:
         cache = APIMetadataCache(db_path=tmp_path / "cache.sqlite")
         metadata = {"name": "test-asset", "size": 42}
         cache.set(self.API_URL, "asset", "abc-123", "2024-01-01T00:00:00Z", metadata)
@@ -33,7 +33,7 @@ class TestAPIMetadataCache:
         result = cache.get(self.API_URL, "asset", "abc-123", "2024-06-15T12:00:00Z")
         assert result is None
 
-    def test_update_replaces_entry(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_update_replaces_entry(self, tmp_path: Path) -> None:
         cache = APIMetadataCache(db_path=tmp_path / "cache.sqlite")
         cache.set(self.API_URL, "asset", "abc-123", "2024-01-01T00:00:00Z", {"v": 1})
         cache.set(self.API_URL, "asset", "abc-123", "2024-06-15T12:00:00Z", {"v": 2})
@@ -46,7 +46,7 @@ class TestAPIMetadataCache:
             "v": 2
         }
 
-    def test_clear(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_clear(self, tmp_path: Path) -> None:
         cache = APIMetadataCache(db_path=tmp_path / "cache.sqlite")
         cache.set(self.API_URL, "asset", "abc-123", "2024-01-01T00:00:00Z", {"a": 1})
         cache.clear()
@@ -54,7 +54,7 @@ class TestAPIMetadataCache:
             cache.get(self.API_URL, "asset", "abc-123", "2024-01-01T00:00:00Z") is None
         )
 
-    def test_different_entity_types(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_different_entity_types(self, tmp_path: Path) -> None:
         cache = APIMetadataCache(db_path=tmp_path / "cache.sqlite")
         cache.set(
             self.API_URL, "asset", "id1", "2024-01-01T00:00:00Z", {"type": "asset"}
@@ -74,7 +74,7 @@ class TestAPIMetadataCache:
         }
 
     def test_dandi_cache_ignore(
-        self, tmp_path: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("DANDI_CACHE", "ignore")
         cache = APIMetadataCache(db_path=tmp_path / "cache.sqlite")
@@ -85,7 +85,7 @@ class TestAPIMetadataCache:
         )
 
     def test_dandi_cache_clear(
-        self, tmp_path: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         # First, populate the cache normally
         cache1 = APIMetadataCache(db_path=tmp_path / "cache.sqlite")
