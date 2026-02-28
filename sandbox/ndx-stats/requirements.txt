@@ -1,0 +1,6 @@
+h5py
+packaging
+tqdm
+remfile
+fsspec
+nwbinspector
