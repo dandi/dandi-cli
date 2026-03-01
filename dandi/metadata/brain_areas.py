@@ -117,6 +117,16 @@ def _extract_area_from_dict(d: dict) -> str | None:
     return None
 
 
+def _non_trivial_values(d: dict) -> list[str]:
+    """Return non-trivial, non-numeric string values from *d*."""
+    tokens = []
+    for v in d.values():
+        v = str(v).strip()
+        if v and v.lower() not in _TRIVIAL_VALUES and not _is_numeric(v):
+            tokens.append(v)
+    return tokens
+
+
 def _parse_location_string(location: str) -> list[str]:
     """Parse a raw NWB location string into area tokens ignoring numerics etc.
 
@@ -141,12 +151,7 @@ def _parse_location_string(location: str) -> list[str]:
                 if val is not None:
                     return [val]
                 # If no known key, return all non-trivial, non-numeric values
-                tokens = []
-                for v in d.values():
-                    v = str(v).strip()
-                    if v and v.lower() not in _TRIVIAL_VALUES and not _is_numeric(v):
-                        tokens.append(v)
-                return tokens
+                return _non_trivial_values(d)
         except (ValueError, SyntaxError):
             lgr.debug("Location %r looks like a dict but failed to parse", location)
 
@@ -163,10 +168,7 @@ def _parse_location_string(location: str) -> list[str]:
             if val is not None:
                 return [val]
             # Fall through — return non-trivial, non-numeric values
-            tokens = []
-            for v in kv.values():
-                if v.lower() not in _TRIVIAL_VALUES and not _is_numeric(v):
-                    tokens.append(v)
+            tokens = _non_trivial_values(kv)
             if tokens:
                 return tokens
 

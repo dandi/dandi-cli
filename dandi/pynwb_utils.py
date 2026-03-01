@@ -417,11 +417,19 @@ def _get_brain_locations(nwb: pynwb.NWBFile) -> list[str]:
         try:
             col_names = electrodes.colnames
         except Exception:
+            lgr.debug(
+                "Failed to read colnames from electrodes table",
+                exc_info=True,
+            )
             col_names = ()
         if col_names and "location" in col_names:
             try:
                 locs = electrodes["location"].data[:]
             except Exception:
+                lgr.debug(
+                    "Failed to read location data from electrodes table",
+                    exc_info=True,
+                )
                 locs = []
             for val in locs:
                 if isinstance(val, bytes):

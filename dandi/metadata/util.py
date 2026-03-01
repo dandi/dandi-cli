@@ -598,8 +598,11 @@ def _is_mouse(metadata: dict) -> bool:
     if not (species := metadata.get("species")):
         return False
     species_str = str(species).lower()
-    # species_map[0] = (["mouse"], "mus", NCBITaxon_10090 URI, full name)
-    common_names, prefix, uri, _name = species_map[0]
+    # Look up the mouse entry by its NCBITaxon ID rather than position
+    mouse_entry = next((entry for entry in species_map if "10090" in entry[2]), None)
+    if mouse_entry is None:
+        return False
+    common_names, prefix, uri, _name = mouse_entry
     return (
         "10090" in species_str
         or (prefix is not None and species_str.startswith(prefix))

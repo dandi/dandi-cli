@@ -19,7 +19,7 @@ def _flatten(node: dict, out: list[dict]) -> None:
 
 
 def main() -> None:
-    url = "http://api.brain-map.org/api/v2/structure_graph_download/1.json"
+    url = "https://api.brain-map.org/api/v2/structure_graph_download/1.json"
     resp = requests.get(url, timeout=30)
     resp.raise_for_status()
     data = resp.json()
