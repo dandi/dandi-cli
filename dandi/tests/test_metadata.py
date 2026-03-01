@@ -45,9 +45,11 @@ from ..dandiapi import RemoteBlobAsset
 from ..metadata.core import prepare_metadata
 from ..metadata.nwb import get_metadata, nwb2asset
 from ..metadata.util import (
+    _is_mouse,
     extract_age,
     extract_cellLine,
     extract_species,
+    extract_wasDerivedFrom,
     parse_age,
     parse_purlobourl,
     process_ndtypes,
@@ -809,8 +811,6 @@ def test_brain_anatomy_non_mouse_skipped(tmp_path: Path) -> None:
 @pytest.mark.ai_generated
 def test_brain_anatomy_with_existing_biosample_chain(tmp_path: Path) -> None:
     """Test that anatomy is added to the deepest BioSample when chain exists."""
-    from ..metadata.util import extract_wasDerivedFrom
-
     metadata = {
         "tissue_sample_id": "tissue01",
         "slice_id": "slice01",
@@ -832,6 +832,125 @@ def test_brain_anatomy_with_existing_biosample_chain(tmp_path: Path) -> None:
     assert sample.identifier == "tissue01"
     assert sample.anatomy is not None
     assert len(sample.anatomy) >= 1
+
+
+@pytest.mark.ai_generated
+def test_brain_anatomy_ophys_imaging_plane(tmp_path: Path) -> None:
+    """Test that brain anatomy is extracted from imaging plane locations."""
+    nwb_path = tmp_path / "test_ophys.nwb"
+    session_start = datetime(2020, 1, 1, 12, 0, 0, tzinfo=tzutc())
+
+    nwbfile = NWBFile(
+        session_description="test ophys",
+        identifier="test_ophys_123",
+        session_start_time=session_start,
+        subject=pynwb.file.Subject(
+            subject_id="mouse002",
+            species="Mus musculus",
+            sex="U",
+        ),
+    )
+
+    device = nwbfile.create_device(name="microscope")
+    nwbfile.create_imaging_plane(
+        name="ImagingPlane",
+        optical_channel=pynwb.ophys.OpticalChannel(
+            name="OpticalChannel",
+            description="test channel",
+            emission_lambda=500.0,
+        ),
+        description="test imaging plane",
+        device=device,
+        excitation_lambda=600.0,
+        indicator="GCaMP6f",
+        location="Primary visual area",
+    )
+
+    with NWBHDF5IO(str(nwb_path), "w") as io:
+        io.write(nwbfile)
+
+    from ..metadata.nwb import nwb2asset
+    from ..misctypes import DUMMY_DANDI_ETAG
+
+    asset = nwb2asset(nwb_path, digest=DUMMY_DANDI_ETAG)
+    assert asset.wasDerivedFrom is not None
+    assert len(asset.wasDerivedFrom) > 0
+
+    sample = asset.wasDerivedFrom[0]
+    while sample.wasDerivedFrom:
+        sample = sample.wasDerivedFrom[0]
+
+    assert sample.anatomy is not None
+    assert len(sample.anatomy) > 0
+    assert sample.anatomy[0].name == "Primary visual area"
+
+
+@pytest.mark.ai_generated
+def test_brain_anatomy_synthetic_biosample_fallback() -> None:
+    """Test that a synthetic BioSample is created when no tissue/slice/cell IDs exist."""
+    metadata = {
+        "brain_locations": ["VISp"],
+        "species": "Mus musculus",
+    }
+    result = extract_wasDerivedFrom(metadata)
+    assert result is not None
+    assert len(result) == 1
+    sample = result[0]
+    assert sample.identifier == "brain-region-sample"
+    assert sample.anatomy is not None
+    assert len(sample.anatomy) == 1
+    assert sample.anatomy[0].name == "Primary visual area"
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "species",
+    [
+        "Mus musculus",
+        "mouse",
+        "http://purl.obolibrary.org/obo/NCBITaxon_10090",
+        "Mus musculus - House mouse",
+        "mus musculus",
+    ],
+)
+def test_is_mouse_positive(species: str) -> None:
+    """Test that _is_mouse correctly identifies mouse species variants."""
+    assert _is_mouse({"species": species}) is True
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "species",
+    [
+        "Rattus norvegicus",
+        "rat",
+        "Homo sapiens",
+        "human",
+        "Drosophila melanogaster",
+        "",
+    ],
+)
+def test_is_mouse_negative(species: str) -> None:
+    """Test that _is_mouse rejects non-mouse species."""
+    assert _is_mouse({"species": species}) is False
+
+
+@pytest.mark.ai_generated
+def test_is_mouse_missing_species() -> None:
+    """Test that _is_mouse returns False when species is absent."""
+    assert _is_mouse({}) is False
+
+
+@pytest.mark.ai_generated
+def test_brain_anatomy_unmatched_tokens_only() -> None:
+    """Test that only unmatched tokens for a mouse produce no anatomy."""
+    metadata = {
+        "brain_locations": ["nonexistent_area_xyz", "fake_region_123"],
+        "species": "Mus musculus",
+    }
+    result = extract_wasDerivedFrom(metadata)
+    # No matching anatomy → no synthetic BioSample created
+    assert result is None
 
 
 @mark_xfail_ontobee
