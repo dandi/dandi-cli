@@ -554,6 +554,11 @@ def extract_model_list(
 
 def extract_wasDerivedFrom(metadata: dict) -> list[models.BioSample] | None:
     derived_from: list[models.BioSample] | None = None
+    # Track the deepest (tissue-level) BioSample in the chain.
+    # The loop iterates tissue → slice → cell; each new sample wraps the
+    # previous one via wasDerivedFrom, so the first sample created is the
+    # deepest (tissue).  Anatomy is attached there because it describes the
+    # physical origin of the sample.
     deepest: models.BioSample | None = None
     for field, sample_name in [
         ("tissue_sample_id", "tissuesample"),
@@ -574,10 +579,12 @@ def extract_wasDerivedFrom(metadata: dict) -> list[models.BioSample] | None:
     anatomy = _extract_brain_anatomy(metadata)
     if anatomy:
         if deepest is not None:
-            # Add anatomy to the deepest (first created) BioSample
             deepest.anatomy = anatomy
         else:
-            # No existing chain — create a new BioSample for the anatomy
+            # No tissue/slice/cell IDs but we do have brain locations —
+            # create a synthetic BioSample to carry the anatomy.  The
+            # identifier is a fixed placeholder; it won't collide with
+            # real NWB object IDs (which are UUIDs).
             derived_from = [
                 models.BioSample(
                     identifier="brain-region-sample",

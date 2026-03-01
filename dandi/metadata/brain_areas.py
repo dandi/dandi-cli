@@ -44,9 +44,9 @@ def _load_allen_structures() -> list[dict[str, Any]]:
 
 
 @lru_cache(maxsize=1)
-def _build_lookup_dicts() -> (
-    tuple[dict[str, dict], dict[str, dict], dict[str, dict], dict[str, dict]]
-):
+def _build_lookup_dicts() -> tuple[
+    dict[str, dict], dict[str, dict], dict[str, dict], dict[str, dict]
+]:
     """Build lookup dictionaries for Allen CCF structures.
 
     Returns
@@ -221,6 +221,7 @@ def match_location_to_allen(token: str) -> models.Anatomy | None:
 
 
 def _structure_to_anatomy(s: dict[str, Any]) -> models.Anatomy:
+    """Convert an Allen CCF structure dict to a ``dandischema`` Anatomy model."""
     return models.Anatomy(
         identifier=MBAO_URI_TEMPLATE.format(s["id"]),
         name=s["name"],
