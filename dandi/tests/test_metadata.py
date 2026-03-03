@@ -45,7 +45,6 @@ from ..dandiapi import RemoteBlobAsset
 from ..metadata.core import prepare_metadata
 from ..metadata.nwb import get_metadata, nwb2asset
 from ..metadata.util import (
-    _is_mouse,
     extract_age,
     extract_cellLine,
     extract_species,
@@ -510,8 +509,6 @@ def test_session_duration_extraction(tmp_path: Path) -> None:
         io.write(nwbfile)
 
     # Extract metadata
-    from ..metadata.nwb import get_metadata, nwb2asset
-
     metadata = get_metadata(nwb_path)
 
     # Check that session_end_time was calculated
@@ -571,8 +568,6 @@ def test_session_duration_with_trials(tmp_path: Path) -> None:
         io.write(nwbfile)
 
     # Extract metadata
-    from ..metadata.nwb import get_metadata, nwb2asset
-
     metadata = get_metadata(nwb_path)
 
     # Check that session_end_time was calculated
@@ -630,8 +625,6 @@ def test_session_duration_with_units(tmp_path: Path) -> None:
         io.write(nwbfile)
 
     # Extract metadata
-    from ..metadata.nwb import get_metadata
-
     metadata = get_metadata(nwb_path)
 
     # Check that session_end_time was calculated
@@ -696,8 +689,6 @@ def test_session_duration_with_events(tmp_path: Path) -> None:
         io.write(nwbfile)
 
     # Extract metadata
-    from ..metadata.nwb import get_metadata
-
     metadata = get_metadata(nwb_path)
 
     # Check that session_end_time was calculated
@@ -746,9 +737,6 @@ def test_brain_anatomy_in_wasDerivedFrom(tmp_path: Path) -> None:
 
     with NWBHDF5IO(str(nwb_path), "w") as io:
         io.write(nwbfile)
-
-    from ..metadata.nwb import nwb2asset
-    from ..misctypes import DUMMY_DANDI_ETAG
 
     asset = nwb2asset(nwb_path, digest=DUMMY_DANDI_ETAG)
     assert asset.wasDerivedFrom is not None
@@ -799,9 +787,6 @@ def test_brain_anatomy_non_mouse_skipped(tmp_path: Path) -> None:
 
     with NWBHDF5IO(str(nwb_path), "w") as io:
         io.write(nwbfile)
-
-    from ..metadata.nwb import nwb2asset
-    from ..misctypes import DUMMY_DANDI_ETAG
 
     asset = nwb2asset(nwb_path, digest=DUMMY_DANDI_ETAG)
     # No wasDerivedFrom should exist (no tissue/slice/cell ids and non-mouse)
@@ -869,9 +854,6 @@ def test_brain_anatomy_ophys_imaging_plane(tmp_path: Path) -> None:
     with NWBHDF5IO(str(nwb_path), "w") as io:
         io.write(nwbfile)
 
-    from ..metadata.nwb import nwb2asset
-    from ..misctypes import DUMMY_DANDI_ETAG
-
     asset = nwb2asset(nwb_path, digest=DUMMY_DANDI_ETAG)
     assert asset.wasDerivedFrom is not None
     assert len(asset.wasDerivedFrom) > 0
@@ -900,45 +882,6 @@ def test_brain_anatomy_synthetic_biosample_fallback() -> None:
     assert sample.anatomy is not None
     assert len(sample.anatomy) == 1
     assert sample.anatomy[0].name == "Primary visual area"
-
-
-@pytest.mark.ai_generated
-@pytest.mark.parametrize(
-    "species",
-    [
-        "Mus musculus",
-        "mouse",
-        "http://purl.obolibrary.org/obo/NCBITaxon_10090",
-        "Mus musculus - House mouse",
-        "mus musculus",
-    ],
-)
-def test_is_mouse_positive(species: str) -> None:
-    """Test that _is_mouse correctly identifies mouse species variants."""
-    assert _is_mouse({"species": species}) is True
-
-
-@pytest.mark.ai_generated
-@pytest.mark.parametrize(
-    "species",
-    [
-        "Rattus norvegicus",
-        "rat",
-        "Homo sapiens",
-        "human",
-        "Drosophila melanogaster",
-        "",
-    ],
-)
-def test_is_mouse_negative(species: str) -> None:
-    """Test that _is_mouse rejects non-mouse species."""
-    assert _is_mouse({"species": species}) is False
-
-
-@pytest.mark.ai_generated
-def test_is_mouse_missing_species() -> None:
-    """Test that _is_mouse returns False when species is absent."""
-    assert _is_mouse({}) is False
 
 
 @pytest.mark.ai_generated

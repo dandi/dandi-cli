@@ -13,6 +13,7 @@ import requests
 import tenacity
 from yarl import URL
 
+from .brain_areas import locations_to_ccf_mouse_anatomy
 from .. import __version__
 from ..utils import ensure_datetime
 
@@ -596,39 +597,19 @@ def extract_wasDerivedFrom(metadata: dict) -> list[models.BioSample] | None:
     return derived_from
 
 
-def _is_mouse(metadata: dict) -> bool:
-    """Return True if the species in *metadata* is mouse.
-
-    Reuses the canonical mouse entry from *species_map* to match against
-    common names, the Latin prefix, and the NCBITaxon identifier.
-    """
-    if not (species := metadata.get("species")):
-        return False
-    species_str = str(species).lower()
-    # Look up the mouse entry by its NCBITaxon ID rather than position
-    mouse_entry = next((entry for entry in species_map if "10090" in entry[2]), None)
-    if mouse_entry is None:
-        return False
-    common_names, prefix, uri, _name = mouse_entry
-    return (
-        "10090" in species_str
-        or (prefix is not None and species_str.startswith(prefix))
-        or any(name in species_str for name in common_names)
-        or uri.lower() in species_str
-    )
+_MOUSE_URI = NCBITAXON_URI_TEMPLATE.format("10090")
 
 
 def _extract_brain_anatomy(metadata: dict) -> list[models.Anatomy]:
     """Extract brain anatomy from metadata, if the species is mouse."""
-    from .brain_areas import locations_to_anatomy
-
     if not (locations := metadata.get("brain_locations")):
         return []
 
-    if not _is_mouse(metadata):
+    species = extract_species(metadata)
+    if species is None or str(species.identifier) != _MOUSE_URI:
         return []
 
-    return locations_to_anatomy(locations)
+    return locations_to_ccf_mouse_anatomy(locations)
 
 
 extract_wasAttributedTo = extract_model_list(

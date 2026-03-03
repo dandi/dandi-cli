@@ -228,7 +228,7 @@ def _structure_to_anatomy(s: dict[str, Any]) -> models.Anatomy:
     )
 
 
-def locations_to_anatomy(locations: list[str]) -> list[models.Anatomy]:
+def locations_to_ccf_mouse_anatomy(locations: list[str]) -> list[models.Anatomy]:
     """Convert raw NWB location strings to deduplicated Anatomy list.
 
     Parameters

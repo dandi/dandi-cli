@@ -4,7 +4,7 @@ import pytest
 
 from ..metadata.brain_areas import (
     _parse_location_string,
-    locations_to_anatomy,
+    locations_to_ccf_mouse_anatomy,
     match_location_to_allen,
 )
 
@@ -75,16 +75,16 @@ class TestMatchLocationToAllen:
 @pytest.mark.ai_generated
 class TestLocationsToAnatomy:
     def test_basic(self) -> None:
-        result = locations_to_anatomy(["VISp"])
+        result = locations_to_ccf_mouse_anatomy(["VISp"])
         assert len(result) == 1
         assert result[0].name == "Primary visual area"
 
     def test_deduplication(self) -> None:
-        result = locations_to_anatomy(["VISp", "VISp", "visp"])
+        result = locations_to_ccf_mouse_anatomy(["VISp", "VISp", "visp"])
         assert len(result) == 1
 
     def test_multiple_locations(self) -> None:
-        result = locations_to_anatomy(["VISp", "CA1"])
+        result = locations_to_ccf_mouse_anatomy(["VISp", "CA1"])
         assert len(result) == 2
 
     @pytest.mark.parametrize(
@@ -96,12 +96,12 @@ class TestLocationsToAnatomy:
         ],
     )
     def test_returns_empty(self, locations: list[str]) -> None:
-        assert locations_to_anatomy(locations) == []
+        assert locations_to_ccf_mouse_anatomy(locations) == []
 
     def test_mixed_matched_unmatched(self) -> None:
-        result = locations_to_anatomy(["VISp", "nonexistent_xyz"])
+        result = locations_to_ccf_mouse_anatomy(["VISp", "nonexistent_xyz"])
         assert len(result) == 1
 
     def test_comma_separated_input(self) -> None:
-        result = locations_to_anatomy(["VISp,CA1"])
+        result = locations_to_ccf_mouse_anatomy(["VISp,CA1"])
         assert len(result) == 2
