@@ -31,6 +31,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Prefer specific exceptions over generic ones
 - For CLI, use click library patterns
 - Imports organized: stdlib, third-party, local (alphabetical within groups)
+- **Imports must be at the top of the file** — do NOT place imports inside
+  functions or methods unless there is a concrete reason (circular dependency,
+  or heavy transitive imports like `pynwb`/`h5py`/`nwbinspector` that would
+  slow down module load for unrelated code paths).  When deferring an import
+  for weight, add the comment `# Avoid heavy import by importing within function:`.
 
 ## Documentation
 - Keep docstrings updated when changing function signatures

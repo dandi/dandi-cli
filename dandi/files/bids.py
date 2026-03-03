@@ -3,15 +3,32 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
+import json
 from pathlib import Path
 from threading import Lock
 import weakref
 
-from dandischema.models import BareAsset
+from dandischema.models import (
+    BareAsset,
+    StandardsType,
+    bids_standard,
+    ome_ngff_standard,
+)
 
+import dandi
 from dandi.bids_validator_deno import bids_validate
 
-from .bases import GenericAsset, LocalFileAsset, NWBAsset
+from .bases import (
+    _SCHEMA_BAREASSET_HAS_DATASTANDARD,
+    GenericAsset,
+    LocalFileAsset,
+    NWBAsset,
+)
+
+if _SCHEMA_BAREASSET_HAS_DATASTANDARD:
+    from dandischema.models import hed_standard  # type: ignore[attr-defined]
+else:
+    hed_standard = None  # type: ignore[assignment]
 from .zarr import ZarrAsset
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..metadata.core import add_common_metadata, prepare_metadata
@@ -23,8 +40,30 @@ from ..validate_types import (
     ValidationResult,
 )
 
+lgr = dandi.get_logger()
+
 BIDS_ASSET_ERRORS = ("BIDS.NON_BIDS_PATH_PLACEHOLDER",)
 BIDS_DATASET_ERRORS = ("BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",)
+
+
+def _add_standard(
+    metadata: BareAsset,
+    standard_dict: dict,
+    version: str | None = None,
+) -> None:
+    """Add a data standard to asset metadata if the field is available."""
+    if not _SCHEMA_BAREASSET_HAS_DATASTANDARD:
+        return
+    kwargs = dict(standard_dict)
+    if version:
+        kwargs["version"] = version
+    standard = StandardsType(**kwargs)
+    # TODO: use metadata.dataStandard directly once min dandischema >= 0.12.2
+    cur = getattr(metadata, "dataStandard", None)
+    if cur is None:
+        setattr(metadata, "dataStandard", [standard])
+    elif standard not in cur:
+        cur.append(standard)
 
 
 @dataclass
@@ -192,7 +231,48 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         assert self._dataset_errors is not None
         return self._dataset_errors.copy()
 
-    # get_metadata(): inherit use of default metadata from LocalFileAsset
+    def get_metadata(
+        self,
+        digest: Digest | None = None,
+        ignore_errors: bool = True,
+    ) -> BareAsset:
+        metadata = super().get_metadata(digest=digest, ignore_errors=ignore_errors)
+        try:
+            with open(self.filepath) as f:
+                desc = json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            lgr.warning("Failed to read %s: %s", self.filepath, e)
+            _add_standard(metadata, bids_standard)
+            return metadata
+        _add_standard(metadata, bids_standard, version=desc.get("BIDSVersion"))
+        if hed_standard and (hed_version := desc.get("HEDVersion")):
+            # HEDVersion can be a string or list.
+            # List form: ["8.2.0", "sc:1.0.0"] where first element is base
+            # HED version and subsequent "prefix:version" entries are library
+            # schemas recorded as extensions.
+            if isinstance(hed_version, list):
+                version = hed_version[0] if hed_version else None
+                library_entries = hed_version[1:]
+            else:
+                version = hed_version
+                library_entries = []
+            kwargs: dict = dict(hed_standard)
+            if version:
+                kwargs["version"] = version
+            if library_entries:
+                extensions = []
+                for entry in library_entries:
+                    # Format is "prefix:version" (e.g. "sc:1.0.0")
+                    if ":" in str(entry):
+                        lib_name, lib_ver = str(entry).split(":", 1)
+                    else:
+                        lib_name, lib_ver = str(entry), None
+                    ext = StandardsType(name=lib_name, version=lib_ver)  # type: ignore[call-arg]
+                    extensions.append(ext.model_dump(mode="json", exclude_none=True))
+                if extensions:
+                    kwargs["extensions"] = extensions
+            _add_standard(metadata, kwargs)
+        return metadata
 
 
 @dataclass
@@ -312,6 +392,8 @@ class ZarrBIDSAsset(ZarrAsset, BIDSAsset):
         add_common_metadata(metadata, self.filepath, start_time, end_time, digest)
         metadata.path = self.path
         metadata.encodingFormat = ZARR_MIME_TYPE
+        if Path(self.path).suffixes == [".ome", ".zarr"]:
+            _add_standard(metadata, ome_ngff_standard)
         return metadata
 
 
