@@ -18,10 +18,15 @@ from dandischema.models import (
 import dandi
 from dandi.bids_validator_deno import bids_validate
 
-from .bases import GenericAsset, LocalFileAsset, NWBAsset, _SCHEMA_BAREASSET_HAS_DATASTANDARD
+from .bases import (
+    _SCHEMA_BAREASSET_HAS_DATASTANDARD,
+    GenericAsset,
+    LocalFileAsset,
+    NWBAsset,
+)
 
 if _SCHEMA_BAREASSET_HAS_DATASTANDARD:
-    from dandischema.models import hed_standard
+    from dandischema.models import hed_standard  # type: ignore[attr-defined]
 else:
     hed_standard = None  # type: ignore[assignment]
 from .zarr import ZarrAsset
@@ -42,7 +47,7 @@ BIDS_DATASET_ERRORS = ("BIDS.MANDATORY_FILE_MISSING_PLACEHOLDER",)
 
 
 def _add_standard(
-    metadata,  # type: ignore[no-untyped-def]
+    metadata: BareAsset,
     standard_dict: dict,
     version: str | None = None,
 ) -> None:
@@ -53,10 +58,12 @@ def _add_standard(
     if version:
         kwargs["version"] = version
     standard = StandardsType(**kwargs)
-    if metadata.dataStandard is None:
-        metadata.dataStandard = [standard]
-    elif standard not in metadata.dataStandard:
-        metadata.dataStandard.append(standard)
+    # TODO: use metadata.dataStandard directly once min dandischema >= 0.12.2
+    cur = getattr(metadata, "dataStandard", None)
+    if cur is None:
+        setattr(metadata, "dataStandard", [standard])
+    elif standard not in cur:
+        cur.append(standard)
 
 
 @dataclass
@@ -260,10 +267,8 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                         lib_name, lib_ver = str(entry).split(":", 1)
                     else:
                         lib_name, lib_ver = str(entry), None
-                    ext = StandardsType(name=lib_name, version=lib_ver)
-                    extensions.append(
-                        ext.model_dump(mode="json", exclude_none=True)
-                    )
+                    ext = StandardsType(name=lib_name, version=lib_ver)  # type: ignore[call-arg]
+                    extensions.append(ext.model_dump(mode="json", exclude_none=True))
                 if extensions:
                     kwargs["extensions"] = extensions
             _add_standard(metadata, kwargs)

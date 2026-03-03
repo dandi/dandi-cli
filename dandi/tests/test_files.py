@@ -17,7 +17,6 @@ from .. import get_logger
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteZarrAsset
 from ..exceptions import UnknownAssetError
-from ..files.bases import _SCHEMA_BAREASSET_HAS_DATASTANDARD
 from ..files import (
     BIDSDatasetDescriptionAsset,
     DandisetMetadataFile,
@@ -31,6 +30,7 @@ from ..files import (
     dandi_file,
     find_dandi_files,
 )
+from ..files.bases import _SCHEMA_BAREASSET_HAS_DATASTANDARD
 
 lgr = get_logger()
 
@@ -684,7 +684,9 @@ class TestBIDSDatasetDescriptionDataStandard:
         )
         metadata = asset.get_metadata()
         hed_standards = [
-            s for s in (metadata.dataStandard or [])
+            # TODO: use metadata.dataStandard directly once min dandischema >= 0.12.2
+            s
+            for s in (getattr(metadata, "dataStandard", None) or [])
             if s.name == "Hierarchical Event Descriptors (HED)"
         ]
         assert len(hed_standards) == 1
