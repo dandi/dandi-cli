@@ -521,8 +521,10 @@ class NWBAsset(LocalFileAsset):
         if _SCHEMA_BAREASSET_HAS_DATASTANDARD:
             kwargs: dict[str, Any] = dict(nwb_standard)
             # Avoid heavy import by importing within function:
-            from dandi.pynwb_utils import get_nwb_extensions
+            from dandi.pynwb_utils import get_nwb_extensions, get_nwb_version
 
+            if nwb_ver := get_nwb_version(self.filepath):
+                kwargs["version"] = nwb_ver
             try:
                 nwb_exts = get_nwb_extensions(self.filepath)
             except Exception:
