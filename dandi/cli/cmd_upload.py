@@ -48,6 +48,16 @@ from ..upload import UploadExisting, UploadValidation
     default="require",
     show_default=True,
 )
+@click.option(
+    "--zarr-mode",
+    type=click.Choice(["full", "patch"]),
+    default="full",
+    help=(
+        "Zarr sync mode: 'full' (default) syncs completely; "
+        "'patch' uploads/updates without deleting remote files."
+    ),
+    show_default=True,
+)
 @click.argument("paths", nargs=-1)  # , type=click.Path(exists=True, dir_okay=False))
 # &
 # Development options:  Set DANDI_DEVEL for them to become available
@@ -75,6 +85,7 @@ def upload(
     dandi_instance: str,
     existing: UploadExisting,
     validation: UploadValidation,
+    zarr_mode: str,
     # Development options should come as kwargs
     allow_any_path: bool = False,
     upload_dandiset_metadata: bool = False,
@@ -115,4 +126,5 @@ def upload(
         jobs=jobs,
         jobs_per_file=jobs_per_file,
         sync=sync,
+        zarr_mode=zarr_mode,
     )

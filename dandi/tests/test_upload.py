@@ -711,3 +711,83 @@ def test_upload_rejects_dandidownload_nwb_file(new_dandiset: SampleDandiset) -> 
         match=f"contains {DOWNLOAD_SUFFIX} path which indicates incomplete download",
     ):
         new_dandiset.upload(allow_any_path=True)
+
+
+# ---------- Partial Zarr upload (patch mode) tests ----------
+
+
+@pytest.mark.ai_generated
+def test_upload_zarr_patch_mode_no_delete(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    """Upload with patch mode should NOT delete remote-only files."""
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+
+    # Delete a local file so it becomes remote-only
+    local_zarr = zarr_dandiset.dspath / "sample.zarr"
+    # Find and remove a data file (not .zgroup etc)
+    data_files = [
+        f for f in list_paths(local_zarr) if f.is_file() and not f.name.startswith(".")
+    ]
+    assert data_files, "Expected data files in zarr"
+    removed_file = data_files[0]
+    removed_relpath = removed_file.relative_to(local_zarr).as_posix()
+    removed_file.unlink()
+
+    # Upload in patch mode — remote file should be preserved
+    zarr_dandiset.upload(zarr_mode="patch")
+
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    remote_entries_after = set(str(e) for e in asset.iterfiles())
+    assert (
+        removed_relpath in remote_entries_after
+    ), "Remote-only file was deleted in patch mode"
+
+
+@pytest.mark.ai_generated
+def test_upload_zarr_full_mode_delete(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    """Upload with full mode (default) SHOULD delete remote-only files."""
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+
+    # Delete a local file
+    local_zarr = zarr_dandiset.dspath / "sample.zarr"
+    data_files = [
+        f for f in list_paths(local_zarr) if f.is_file() and not f.name.startswith(".")
+    ]
+    assert data_files, "Expected data files in zarr"
+    removed_file = data_files[0]
+    removed_relpath = removed_file.relative_to(local_zarr).as_posix()
+    removed_file.unlink()
+
+    # Upload in full mode — remote file should be deleted
+    zarr_dandiset.upload(zarr_mode="full")
+
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    remote_entries_after = set(str(e) for e in asset.iterfiles())
+    assert (
+        removed_relpath not in remote_entries_after
+    ), "Remote-only file was NOT deleted in full mode"
+
+
+@pytest.mark.ai_generated
+def test_upload_zarr_patch_mode_updates_changed_file(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    """Patch mode should still upload new/modified files."""
+    local_zarr = zarr_dandiset.dspath / "sample.zarr"
+    # Add a new file
+    new_file = local_zarr / "new_entry.txt"
+    new_file.write_text("new content")
+
+    zarr_dandiset.upload(zarr_mode="patch", validation="skip")
+
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    remote_entries = set(str(e) for e in asset.iterfiles())
+    assert "new_entry.txt" in remote_entries, "New file was not uploaded in patch mode"

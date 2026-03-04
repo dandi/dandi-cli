@@ -46,6 +46,7 @@ from .consts import (
     PUBLISHED_VERSION_REGEX,
     RETRY_STATUSES,
     VERSION_REGEX,
+    ZARR_EXTENSIONS,
     DandiInstance,
     known_instances,
 )
@@ -443,6 +444,83 @@ class AssetItemURL(SingleAssetURL):
                 raise ValueError(
                     f"Asset path {self.path!r} points to a directory but lacks trailing /"
                 )
+
+
+def split_zarr_location(location: str) -> tuple[str, str] | None:
+    """Split a location into ``(asset_path, zarr_subpath)`` if it crosses a zarr boundary.
+
+    Scans path components for segments ending with a Zarr extension
+    (``.zarr``, ``.ngff``).  If found **and** there are remaining components
+    after the boundary, returns the split; otherwise returns ``None``.
+
+    Parameters
+    ----------
+    location : str
+        A POSIX-style path, e.g. ``"sub-1/file.ome.zarr/0/0/0"``.
+
+    Returns
+    -------
+    tuple[str, str] | None
+        ``(asset_path, zarr_subpath)`` when a zarr boundary with a subpath
+        is detected, otherwise ``None``.
+
+    Examples
+    --------
+    >>> split_zarr_location("sub-1/file.ome.zarr/0/0/0")
+    ('sub-1/file.ome.zarr', '0/0/0')
+    >>> split_zarr_location("sub-1/file.ome.zarr")  # no subpath
+    >>> split_zarr_location("sub-1/file.nwb")        # no zarr extension
+    """
+    from pathlib import PurePosixPath
+
+    parts = PurePosixPath(location).parts
+    for i, part in enumerate(parts):
+        if any(part.endswith(ext) for ext in ZARR_EXTENSIONS):
+            asset_path = "/".join(parts[: i + 1])
+            zarr_subpath = "/".join(parts[i + 1 :])
+            return (asset_path, zarr_subpath) if zarr_subpath else None
+    return None
+
+
+@dataclass
+class AssetZarrEntryURL(SingleAssetURL):
+    """Parsed from a URL that points into entries within a Zarr asset.
+
+    For example, ``dandi://dandi/000108/sub-1/file.ome.zarr/0/0/0`` would
+    produce ``asset_path="sub-1/file.ome.zarr"`` and ``zarr_subpath="0/0/0"``.
+    """
+
+    asset_path: str  # e.g., "sub-1/file.ome.zarr"
+    zarr_subpath: str  # e.g., "0/0/0"
+
+    def get_assets(
+        self, client: DandiAPIClient, order: str | None = None, strict: bool = False
+    ) -> Iterator[BaseRemoteAsset]:
+        """Yield the zarr asset whose path equals ``asset_path``.
+
+        If the asset does not exist, a `NotFoundError` is raised when
+        ``strict`` is true; otherwise nothing is yielded.
+        """
+        try:
+            dandiset = self.get_dandiset(client, lazy=not strict)
+            assert dandiset is not None
+            dandiset.version_id  # Force version evaluation
+        except NotFoundError:
+            if strict:
+                raise
+            else:
+                return
+        with _maybe_strict(strict):
+            yield dandiset.get_asset_by_path(self.asset_path)
+
+    def get_asset_download_path(
+        self, asset: BaseRemoteAsset, preserve_tree: bool
+    ) -> str:
+        path = asset.path.lstrip("/")
+        if preserve_tree:
+            return path
+        else:
+            return posixpath.basename(path)
 
 
 @dataclass
@@ -845,12 +923,24 @@ class _dandi_url_parser:
                     path=location,
                 )
             else:
-                parsed_url = AssetItemURL(
-                    instance=instance,
-                    dandiset_id=dandiset_id,
-                    version_id=version_id,
-                    path=location,
-                )
+                # Check if location crosses a zarr boundary
+                zarr_split = split_zarr_location(location)
+                if zarr_split is not None:
+                    asset_path, zarr_subpath = zarr_split
+                    parsed_url = AssetZarrEntryURL(
+                        instance=instance,
+                        dandiset_id=dandiset_id,
+                        version_id=version_id,
+                        asset_path=asset_path,
+                        zarr_subpath=zarr_subpath,
+                    )
+                else:
+                    parsed_url = AssetItemURL(
+                        instance=instance,
+                        dandiset_id=dandiset_id,
+                        version_id=version_id,
+                        path=location,
+                    )
         elif asset_id:
             if dandiset_id is None:
                 parsed_url = BaseAssetIDURL(instance=instance, asset_id=asset_id)
