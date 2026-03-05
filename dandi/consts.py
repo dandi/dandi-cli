@@ -201,6 +201,8 @@ ZARR_DELETE_BATCH_SIZE = 100
 
 BIDS_DATASET_DESCRIPTION = "dataset_description.json"
 
+BIDS_IGNORE_FILE = ".bidsignore"
+
 # Fields which would be used to compose organized filenames
 # TODO: add full description into command --help etc
 # Order matters!
