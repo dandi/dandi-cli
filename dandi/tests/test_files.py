@@ -179,6 +179,7 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
         dandiset_metadata_file,
         "foo.txt",
         "bar.nwb",
+        "bids1/.bidsignore",
         "bids1/dataset_description.json",
         "bids1/file.txt",
         "bids1/subdir/quux.nwb",
@@ -196,6 +197,12 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
 
     assert files == [
         NWBAsset(filepath=tmp_path / "bar.nwb", path="bar.nwb", dandiset_path=tmp_path),
+        GenericBIDSAsset(
+            filepath=tmp_path / "bids1" / ".bidsignore",
+            path="bids1/.bidsignore",
+            dandiset_path=tmp_path,
+            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
+        ),
         BIDSDatasetDescriptionAsset(
             filepath=tmp_path / "bids1" / "dataset_description.json",
             path="bids1/dataset_description.json",
@@ -246,9 +253,15 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
         ),
     ]
 
-    bidsdd = files[1]
+    bidsdd = files[2]
     assert isinstance(bidsdd, BIDSDatasetDescriptionAsset)
     assert sorted(bidsdd.dataset_files, key=attrgetter("filepath")) == [
+        GenericBIDSAsset(
+            filepath=tmp_path / "bids1" / ".bidsignore",
+            path="bids1/.bidsignore",
+            dandiset_path=tmp_path,
+            bids_dataset_description_ref=ANY,  # type: ignore[arg-type]
+        ),
         GenericBIDSAsset(
             filepath=tmp_path / "bids1" / "file.txt",
             path="bids1/file.txt",
@@ -271,7 +284,7 @@ def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
     for asset in bidsdd.dataset_files:
         assert asset.bids_dataset_description is bidsdd
 
-    bidsdd = files[5]
+    bidsdd = files[6]
     assert isinstance(bidsdd, BIDSDatasetDescriptionAsset)
     assert sorted(bidsdd.dataset_files, key=attrgetter("filepath")) == [
         GenericBIDSAsset(

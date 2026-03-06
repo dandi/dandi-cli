@@ -687,6 +687,7 @@ def bids_dandiset(new_dandiset: SampleDandiset, bids_examples: Path) -> SampleDa
         ignore=shutil.ignore_patterns(dandiset_metadata_file),
     )
     (new_dandiset.dspath / "CHANGES").write_text("0.1.0 2014-11-03\n")
+    (new_dandiset.dspath / ".bidsignore").write_text("dandiset.yaml\n")
     return new_dandiset
 
 
