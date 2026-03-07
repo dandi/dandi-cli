@@ -21,7 +21,7 @@ from pathlib import Path
 import re
 import time
 from time import sleep
-from typing import Any, TypedDict, cast
+from typing import Any, Literal, TypedDict, cast
 from unittest.mock import patch
 
 import click
@@ -112,7 +112,7 @@ def upload(
     jobs: int | None = None,
     jobs_per_file: int | None = None,
     sync: bool = False,
-    zarr_mode: str = "full",
+    zarr_mode: Literal["full", "patch"] = "full",
 ) -> None:
     if paths:
         paths = [Path(p).absolute() for p in paths]

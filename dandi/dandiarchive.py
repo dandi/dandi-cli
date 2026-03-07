@@ -471,9 +471,7 @@ def split_zarr_location(location: str) -> tuple[str, str] | None:
     >>> split_zarr_location("sub-1/file.ome.zarr")  # no subpath
     >>> split_zarr_location("sub-1/file.nwb")        # no zarr extension
     """
-    from pathlib import PurePosixPath
-
-    parts = PurePosixPath(location).parts
+    parts = [p for p in location.split("/") if p]
     for i, part in enumerate(parts):
         if any(part.endswith(ext) for ext in ZARR_EXTENSIONS):
             asset_path = "/".join(parts[: i + 1])
@@ -512,15 +510,6 @@ class AssetZarrEntryURL(SingleAssetURL):
                 return
         with _maybe_strict(strict):
             yield dandiset.get_asset_by_path(self.asset_path)
-
-    def get_asset_download_path(
-        self, asset: BaseRemoteAsset, preserve_tree: bool
-    ) -> str:
-        path = asset.path.lstrip("/")
-        if preserve_tree:
-            return path
-        else:
-            return posixpath.basename(path)
 
 
 @dataclass

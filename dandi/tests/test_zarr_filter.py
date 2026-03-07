@@ -165,6 +165,18 @@ class TestParseZarrFilter:
         filters = parse_zarr_filter("regex:a:b")
         assert filters[0].pattern == "a:b"
 
+    @pytest.mark.ai_generated
+    def test_parse_invalid_regex(self) -> None:
+        """Invalid regex patterns should raise ValueError at construction time."""
+        with pytest.raises(ValueError, match="Invalid regex pattern"):
+            parse_zarr_filter("regex:[invalid")
+
+    @pytest.mark.ai_generated
+    def test_invalid_regex_direct(self) -> None:
+        """Direct ZarrFilter construction with bad regex should also fail."""
+        with pytest.raises(ValueError, match="Invalid regex pattern"):
+            ZarrFilter("regex", "(unclosed")
+
 
 class TestMakeZarrEntryFilter:
     @pytest.mark.ai_generated

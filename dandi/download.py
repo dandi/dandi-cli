@@ -1069,6 +1069,9 @@ def _download_zarr(
             if final_out is not None:
                 break
         else:
+            if zarr_entry_filter is not None:
+                # Filter matched no entries; still report completion
+                yield {"status": "done"}
             return
 
     if zarr_entry_filter is not None:

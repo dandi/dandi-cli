@@ -7,7 +7,7 @@ subsets of entries within Zarr assets (e.g., only metadata files).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
 import re
 from typing import Callable, Literal
@@ -19,6 +19,16 @@ class ZarrFilter:
 
     filter_type: Literal["glob", "path", "regex"]
     pattern: str
+    _compiled_regex: re.Pattern[str] | None = field(
+        init=False, default=None, repr=False, compare=False
+    )
+
+    def __post_init__(self) -> None:
+        if self.filter_type == "regex":
+            try:
+                self._compiled_regex = re.compile(self.pattern)
+            except re.error as e:
+                raise ValueError(f"Invalid regex pattern {self.pattern!r}: {e}") from e
 
     def matches(self, entry_path: str) -> bool:
         """Test if a zarr-internal path matches this filter.
@@ -41,7 +51,8 @@ class ZarrFilter:
                 self.pattern.rstrip("/") + "/"
             )
         elif self.filter_type == "regex":
-            return re.search(self.pattern, entry_path) is not None
+            assert self._compiled_regex is not None
+            return self._compiled_regex.search(entry_path) is not None
         else:
             raise ValueError(f"Unknown filter type: {self.filter_type!r}")
 
@@ -55,7 +66,13 @@ def _glob_match(pattern: str, path: str) -> bool:
     """
     patparts = [p for p in pattern.split("/") if p]
     pathparts = [p for p in path.split("/") if p]
-    return _glob_match_parts(patparts, pathparts)
+    # Collapse consecutive ** into a single ** to avoid exponential backtracking
+    collapsed: list[str] = []
+    for p in patparts:
+        if p == "**" and collapsed and collapsed[-1] == "**":
+            continue
+        collapsed.append(p)
+    return _glob_match_parts(collapsed, pathparts)
 
 
 def _glob_match_parts(patparts: list[str], pathparts: list[str]) -> bool:
@@ -107,7 +124,8 @@ def parse_zarr_filter(spec: str) -> list[ZarrFilter]:
     Raises
     ------
     ValueError
-        If the spec is not a valid alias or ``TYPE:PATTERN`` string.
+        If the spec is not a valid alias or ``TYPE:PATTERN`` string,
+        or if a regex pattern is invalid.
     """
     if spec in ZARR_FILTER_ALIASES:
         return list(ZARR_FILTER_ALIASES[spec])
@@ -121,6 +139,7 @@ def parse_zarr_filter(spec: str) -> list[ZarrFilter]:
         raise ValueError(
             f"Unknown zarr filter type: {type_!r}. Expected 'glob', 'path', or 'regex'"
         )
+    # type_ is validated above; narrow str -> Literal for the dataclass
     return [ZarrFilter(type_, pattern)]  # type: ignore[arg-type]
 
 
