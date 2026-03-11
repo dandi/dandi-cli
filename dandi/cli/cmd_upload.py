@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal, cast
+
 import click
 
 from .base import (
@@ -126,5 +128,5 @@ def upload(
         jobs=jobs,
         jobs_per_file=jobs_per_file,
         sync=sync,
-        zarr_mode=zarr_mode,
+        zarr_mode=cast(Literal["full", "patch"], zarr_mode),
     )
