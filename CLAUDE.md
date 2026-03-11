@@ -31,6 +31,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Prefer specific exceptions over generic ones
 - For CLI, use click library patterns
 - Imports organized: stdlib, third-party, local (alphabetical within groups)
+- Never place imports inside functions or methods; always use top-level imports
+- Use the walrus operator (`:=`) where it simplifies code (e.g., `if (x := expr()):` instead of separate assign-then-check)
 
 ## Documentation
 - Keep docstrings updated when changing function signatures
