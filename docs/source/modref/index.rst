@@ -49,6 +49,7 @@ Support functionality
 
 .. toctree::
 
+   apicache
    consts
    utils
    support.digests
