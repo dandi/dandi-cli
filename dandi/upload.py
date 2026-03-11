@@ -21,7 +21,7 @@ from pathlib import Path
 import re
 import time
 from time import sleep
-from typing import Any, Literal, TypedDict, cast
+from typing import Any, TypedDict, cast
 from unittest.mock import patch
 
 import click
@@ -101,6 +101,14 @@ class UploadValidation(str, Enum):
         return self.value
 
 
+class ZarrMode(str, Enum):
+    FULL = "full"
+    PATCH = "patch"
+
+    def __str__(self) -> str:
+        return self.value
+
+
 def upload(
     paths: Sequence[str | Path] | None = None,
     existing: UploadExisting = UploadExisting.REFRESH,
@@ -112,7 +120,7 @@ def upload(
     jobs: int | None = None,
     jobs_per_file: int | None = None,
     sync: bool = False,
-    zarr_mode: Literal["full", "patch"] = "full",
+    zarr_mode: ZarrMode = ZarrMode.FULL,
 ) -> None:
     if paths:
         paths = [Path(p).absolute() for p in paths]

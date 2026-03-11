@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Literal, cast
-
 import click
 
 from .base import (
@@ -11,7 +9,7 @@ from .base import (
     instance_option,
     map_to_click_exceptions,
 )
-from ..upload import UploadExisting, UploadValidation
+from ..upload import UploadExisting, UploadValidation, ZarrMode
 
 
 @click.command()
@@ -52,7 +50,7 @@ from ..upload import UploadExisting, UploadValidation
 )
 @click.option(
     "--zarr-mode",
-    type=click.Choice(["full", "patch"]),
+    type=click.Choice(list(ZarrMode)),
     default="full",
     help=(
         "Zarr sync mode: 'full' (default) syncs completely; "
@@ -87,7 +85,7 @@ def upload(
     dandi_instance: str,
     existing: UploadExisting,
     validation: UploadValidation,
-    zarr_mode: str,
+    zarr_mode: ZarrMode,
     # Development options should come as kwargs
     allow_any_path: bool = False,
     upload_dandiset_metadata: bool = False,
@@ -128,5 +126,5 @@ def upload(
         jobs=jobs,
         jobs_per_file=jobs_per_file,
         sync=sync,
-        zarr_mode=cast(Literal["full", "patch"], zarr_mode),
+        zarr_mode=zarr_mode,
     )

@@ -12,7 +12,10 @@ import os
 import os.path
 from pathlib import Path
 from time import sleep
-from typing import Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from ..upload import ZarrMode
 import urllib.parse
 
 from dandischema.models import BareAsset, DigestType
@@ -557,7 +560,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         metadata: dict[str, Any],
         jobs: int | None = None,
         replacing: RemoteAsset | None = None,
-        zarr_mode: Literal["full", "patch"] = "full",
+        zarr_mode: ZarrMode = "full",  # type: ignore[assignment]
     ) -> Iterator[dict]:
         """
         Upload the Zarr directory as an asset with the given metadata to the
