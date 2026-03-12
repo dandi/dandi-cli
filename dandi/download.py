@@ -66,6 +66,7 @@ from .utils import (
     pluralize,
     yaml_load,
 )
+from .zarr_filter import ZarrFilter, make_zarr_entry_filter, parse_zarr_filter
 
 lgr = get_logger()
 
@@ -125,8 +126,6 @@ def download(
     parsed_urls = [parse_dandi_url(u, glob=path_type is PathType.GLOB) for u in urls]
 
     # Parse zarr entry filters
-    from .zarr_filter import ZarrFilter, make_zarr_entry_filter, parse_zarr_filter
-
     zarr_entry_filter: Callable[[str], bool] | None = None
     all_zf: list[ZarrFilter] = []
     if zarr_filters:
