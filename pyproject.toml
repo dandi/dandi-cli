@@ -48,7 +48,7 @@ dependencies = [
     # >=8.2.0: https://github.com/pallets/click/issues/2911
     "click >= 7.1, <8.2.0",
     "click-didyoumean",
-    "dandischema ~= 0.12.0",
+    "dandischema @ git+https://github.com/dandi/dandi-schema.git@enh-hed",
     "etelemetry >= 0.2.2",
 
     "fasteners",
