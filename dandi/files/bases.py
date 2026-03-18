@@ -18,7 +18,7 @@ from dandischema.consts import DANDI_SCHEMA_VERSION
 from dandischema.digests.dandietag import DandiETag
 from dandischema.models import BareAsset, CommonModel
 from dandischema.models import Dandiset as DandisetMeta
-from dandischema.models import get_schema_version
+from dandischema.models import StandardsType, get_schema_version, nwb_standard
 from packaging.version import Version
 from pydantic import ValidationError
 from pydantic_core import ErrorDetails
@@ -40,6 +40,20 @@ from dandi.validate_types import (
     ValidationResult,
     Validator,
 )
+
+# True when the installed dandischema exposes the per-asset dataStandard field
+# and related StandardsType enhancements (version, extensions).  All these
+# fields ship together starting with dandischema 0.12.2.
+# TODO: remove this guard (and all branches that check it) once the minimum
+# required dandischema version is >= 0.12.2.
+_SCHEMA_BAREASSET_HAS_DATASTANDARD = "dataStandard" in BareAsset.model_fields
+if not _SCHEMA_BAREASSET_HAS_DATASTANDARD and Version(
+    dandischema.__version__
+) >= Version("0.12.2"):
+    raise RuntimeError(
+        f"dandischema {dandischema.__version__} should have "
+        f"'dataStandard' field on BareAsset"
+    )
 
 lgr = dandi.get_logger()
 
@@ -504,6 +518,36 @@ class NWBAsset(LocalFileAsset):
             else:
                 raise
         metadata.path = self.path
+        if _SCHEMA_BAREASSET_HAS_DATASTANDARD:
+            kwargs: dict[str, Any] = dict(nwb_standard)
+            # Avoid heavy import by importing within function:
+            from dandi.pynwb_utils import get_nwb_extensions, get_nwb_version
+
+            if nwb_ver := get_nwb_version(self.filepath):
+                kwargs["version"] = nwb_ver
+            try:
+                nwb_exts = get_nwb_extensions(self.filepath)
+            except Exception:
+                lgr.debug(
+                    "Failed to extract NWB extensions from %s",
+                    self.filepath,
+                    exc_info=True,
+                )
+                nwb_exts = {}
+            if nwb_exts:
+                kwargs["extensions"] = [
+                    StandardsType(name=name, version=ver).model_dump(  # type: ignore[call-arg]
+                        mode="json", exclude_none=True
+                    )
+                    for name, ver in sorted(nwb_exts.items())
+                ]
+            nwb = StandardsType(**kwargs)
+            # TODO: use metadata.dataStandard directly once min dandischema >= 0.12.2
+            cur = getattr(metadata, "dataStandard", None)
+            if cur is None:
+                setattr(metadata, "dataStandard", [nwb])
+            elif nwb not in cur:
+                cur.append(nwb)
         return metadata
 
     # TODO: @validate_cache.memoize_path
