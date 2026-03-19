@@ -13,7 +13,10 @@ from .base import devel_debug_option, devel_option, map_to_click_exceptions
 from .formatter import JSONFormatter, JSONLinesFormatter, YAMLFormatter
 from ..utils import pluralize
 from ..validate.core import validate as validate_
+from ..validate.io import validation_sidecar_path, write_validation_jsonl
 from ..validate.types import Severity, ValidationResult
+
+lgr = logging.getLogger(__name__)
 
 STRUCTURED_FORMATS = ("json", "json_pp", "json_lines", "yaml")
 
@@ -148,15 +151,27 @@ def validate_bids(
     type=click.Choice(["human", "json", "json_pp", "json_lines", "yaml"]),
     default="human",
 )
+@click.option(
+    "--output",
+    "-o",
+    "output_file",
+    help="Write output to file instead of stdout. "
+    "Requires --format to be set to a structured format.",
+    type=click.Path(dir_okay=False, writable=True),
+    default=None,
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
+@click.pass_context
 @devel_debug_option()
 @map_to_click_exceptions
 def validate(
+    ctx: click.Context,
     paths: tuple[str, ...],
     ignore: str | None,
     grouping: str,
     min_severity: str,
     output_format: str = "human",
+    output_file: str | None = None,
     schema: str | None = None,
     devel_debug: bool = False,
     allow_any_path: bool = False,
@@ -165,14 +180,35 @@ def validate(
 
     Exits with non-0 exit code if any file is not compliant.
     """
+    if output_file is not None and output_format not in STRUCTURED_FORMATS:
+        raise click.UsageError(
+            "--output requires --format to be set to a structured format "
+            "(json, json_pp, json_lines, yaml)."
+        )
+
     results = _collect_results(paths, schema, devel_debug, allow_any_path)
     filtered = _filter_results(results, min_severity, ignore)
 
     if output_format == "human":
         _process_issues(filtered, grouping)
+    elif output_file is not None:
+        with open(output_file, "w") as fh:
+            _render_structured(filtered, output_format, fh)
+        lgr.info("Validation output written to %s", output_file)
+        _exit_if_errors(filtered)
     else:
         _render_structured(filtered, output_format, sys.stdout)
+        # Auto-save sidecar next to logfile
+        if filtered and hasattr(ctx, "obj") and ctx.obj is not None:
+            _auto_save_sidecar(filtered, ctx.obj.logfile)
         _exit_if_errors(filtered)
+
+
+def _auto_save_sidecar(results: list[ValidationResult], logfile: str) -> None:
+    """Write validation sidecar JSONL next to the logfile."""
+    sidecar = validation_sidecar_path(logfile)
+    write_validation_jsonl(results, sidecar)
+    lgr.info("Validation sidecar saved to %s", sidecar)
 
 
 def _get_formatter(output_format: str, out: object = None):

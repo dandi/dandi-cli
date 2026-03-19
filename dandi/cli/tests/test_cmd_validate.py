@@ -209,3 +209,33 @@ def test_validate_format_no_errors_no_message(tmp_path: Path) -> None:
     assert "No errors found" not in r.output
     data = json.loads(r.output)
     assert data == []
+
+
+@pytest.mark.ai_generated
+def test_validate_output_file(simple2_nwb: Path, tmp_path: Path) -> None:
+    """Test --output writes to file instead of stdout."""
+    outfile = tmp_path / "results.jsonl"
+    r = CliRunner().invoke(
+        validate,
+        ["-f", "json_lines", "-o", str(outfile), str(simple2_nwb)],
+    )
+    assert r.exit_code == 1
+    assert outfile.exists()
+    lines = outfile.read_text().strip().split("\n")
+    assert len(lines) >= 1
+    rec = json.loads(lines[0])
+    assert "id" in rec
+    # stdout should be empty (output went to file)
+    assert r.output.strip() == ""
+
+
+@pytest.mark.ai_generated
+def test_validate_output_requires_format(simple2_nwb: Path, tmp_path: Path) -> None:
+    """Test --output without --format gives a usage error."""
+    outfile = tmp_path / "results.jsonl"
+    r = CliRunner().invoke(
+        validate,
+        ["-o", str(outfile), str(simple2_nwb)],
+    )
+    assert r.exit_code != 0
+    assert "--output requires --format" in r.output
