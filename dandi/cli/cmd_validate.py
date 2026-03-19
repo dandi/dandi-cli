@@ -146,7 +146,10 @@ def validate_bids(
     "--grouping",
     "-g",
     help="How to group error/warning reporting.",
-    type=click.Choice(["none", "path"], case_sensitive=False),
+    type=click.Choice(
+        ["none", "path", "severity", "id", "validator", "standard", "dandiset"],
+        case_sensitive=False,
+    ),
     default="none",
 )
 @click.option("--ignore", metavar="REGEX", help="Regex matching error IDs to ignore")
@@ -209,13 +212,14 @@ def validate(
     """
     # Auto-detect format from output file extension when --format not given
     if output_file is not None and output_format == "human":
-        output_format = _format_from_ext(output_file)
-        if output_format is None:
+        detected = _format_from_ext(output_file)
+        if detected is None:
             raise click.UsageError(
                 "--output requires --format to be set to a structured format "
                 "(json, json_pp, json_lines, yaml), or use a recognized "
                 "extension (.json, .jsonl, .yaml, .yml)."
             )
+        output_format = detected
 
     if load and paths:
         raise click.UsageError("--load and positional paths are mutually exclusive.")
@@ -326,13 +330,31 @@ def _exit_if_errors(results: list[ValidationResult]) -> None:
         raise SystemExit(1)
 
 
+def _group_key(issue: ValidationResult, grouping: str) -> str:
+    """Extract the grouping key from a ValidationResult."""
+    if grouping == "path":
+        return issue.purview or "(no path)"
+    elif grouping == "severity":
+        return issue.severity.name if issue.severity is not None else "NONE"
+    elif grouping == "id":
+        return issue.id
+    elif grouping == "validator":
+        return issue.origin.validator.value
+    elif grouping == "standard":
+        return issue.origin.standard.value if issue.origin.standard else "N/A"
+    elif grouping == "dandiset":
+        return str(issue.dandiset_path) if issue.dandiset_path else "(no dandiset)"
+    else:
+        raise NotImplementedError(f"Unsupported grouping: {grouping}")
+
+
 def _render_human(
     issues: list[ValidationResult],
     grouping: str,
 ) -> None:
     """Render validation results in human-readable colored format."""
-    purviews = [i.purview for i in issues]
     if grouping == "none":
+        purviews = [i.purview for i in issues]
         display_errors(
             purviews,
             [i.id for i in issues],
@@ -340,9 +362,8 @@ def _render_human(
             [i.message for i in issues],
         )
     elif grouping == "path":
-        # The purviews are the paths, if we group by path, we need to de-duplicate.
-        # typing complains if we just take the set, though the code works otherwise.
-        purviews = list(set(purviews))
+        # Legacy path grouping: de-duplicate purviews, show per-path
+        purviews = list(set(i.purview for i in issues))
         for purview in purviews:
             applies_to = [i for i in issues if purview == i.purview]
             display_errors(
@@ -352,10 +373,29 @@ def _render_human(
                 [i.message for i in applies_to],
             )
     else:
-        raise NotImplementedError(
-            "The `grouping` parameter values currently supported are 'path' and"
-            " 'none'."
-        )
+        # Generic grouped rendering with section headers
+        from collections import OrderedDict
+
+        groups: OrderedDict[str, list[ValidationResult]] = OrderedDict()
+        for issue in issues:
+            key = _group_key(issue, grouping)
+            groups.setdefault(key, []).append(issue)
+
+        for key, group_issues in groups.items():
+            header = f"=== {key} ({pluralize(len(group_issues), 'issue')}) ==="
+            fg = _get_severity_color(
+                cast(
+                    "list[Severity]",
+                    [i.severity for i in group_issues if i.severity is not None],
+                )
+            )
+            click.secho(header, fg=fg, bold=True)
+            for issue in group_issues:
+                msg = f"  [{issue.id}] {issue.purview} — {issue.message}"
+                ifg = _get_severity_color(
+                    [issue.severity] if issue.severity is not None else []
+                )
+                click.secho(msg, fg=ifg)
 
     if not any(r.severity is not None and r.severity >= Severity.ERROR for r in issues):
         click.secho("No errors found.", fg="green")

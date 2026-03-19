@@ -5,7 +5,7 @@ from click.testing import CliRunner
 import pytest
 import ruamel.yaml
 
-from ..cmd_validate import _process_issues, validate
+from ..cmd_validate import _process_issues, _render_human, validate
 from ...tests.xfail import mark_xfail_windows_python313_posixsubprocess
 from ...validate.types import (
     Origin,
@@ -323,3 +323,56 @@ def test_validate_load_mutual_exclusivity(simple2_nwb: Path, tmp_path: Path) -> 
     r = CliRunner().invoke(validate, ["--load", str(outfile), str(simple2_nwb)])
     assert r.exit_code != 0
     assert "mutually exclusive" in r.output
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "grouping",
+    ["severity", "id", "validator", "standard", "dandiset"],
+)
+def test_render_human_grouping(grouping: str, capsys: pytest.CaptureFixture) -> None:
+    """Test extended grouping renders section headers with counts."""
+    origin = Origin(
+        type=OriginType.VALIDATION,
+        validator=Validator.nwbinspector,
+        validator_version="",
+    )
+    issues = [
+        ValidationResult(
+            id="NWBI.check_data_orientation",
+            origin=origin,
+            scope=Scope.FILE,
+            message="Data may be in the wrong orientation.",
+            path=Path("sub-01/sub-01.nwb"),
+            severity=Severity.WARNING,
+            dandiset_path=Path("/data/ds001"),
+        ),
+        ValidationResult(
+            id="NWBI.check_missing_unit",
+            origin=origin,
+            scope=Scope.FILE,
+            message="Missing text for attribute 'unit'.",
+            path=Path("sub-02/sub-02.nwb"),
+            severity=Severity.WARNING,
+            dandiset_path=Path("/data/ds001"),
+        ),
+    ]
+    _render_human(issues, grouping=grouping)
+    captured = capsys.readouterr().out
+
+    # Section headers with "===" must appear
+    assert "===" in captured
+    # Both issues should be rendered
+    assert "NWBI.check_data_orientation" in captured
+    assert "NWBI.check_missing_unit" in captured
+    # Issue counts in headers
+    assert "issue" in captured
+
+
+@pytest.mark.ai_generated
+def test_validate_grouping_severity_cli(simple2_nwb: Path) -> None:
+    """Test --grouping=severity via CLI."""
+    r = CliRunner().invoke(validate, ["--grouping=severity", str(simple2_nwb)])
+    assert r.exit_code != 0
+    assert "===" in r.output
+    assert "ERROR" in r.output
