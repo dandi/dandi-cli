@@ -112,6 +112,7 @@ def upload(
     jobs: int | None = None,
     jobs_per_file: int | None = None,
     sync: bool = False,
+    validation_log_path: str | Path | None = None,
 ) -> None:
     if paths:
         paths = [Path(p).absolute() for p in paths]
@@ -300,6 +301,12 @@ def upload(
                 ):
                     yield {"status": "pre-validating"}
                     validation_statuses = dfile.get_validation_errors()
+                    if validation_log_path is not None and validation_statuses:
+                        from .validate.io import append_validation_jsonl
+
+                        append_validation_jsonl(
+                            validation_statuses, validation_log_path
+                        )
                     validation_errors = [
                         s
                         for s in validation_statuses
