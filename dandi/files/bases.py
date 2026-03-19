@@ -29,7 +29,7 @@ from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
 from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
 from dandi.utils import post_upload_size_check, pre_upload_size_check, yaml_load
-from dandi.validate_types import (
+from dandi.validate.types import (
     ORIGIN_INTERNAL_DANDI,
     ORIGIN_VALIDATION_DANDI,
     Origin,

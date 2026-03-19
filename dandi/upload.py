@@ -49,7 +49,7 @@ from .misctypes import Digest
 from .support import pyout as pyouts
 from .support.pyout import naturalsize
 from .utils import ensure_datetime, path_is_subpath, pluralize
-from .validate_types import Severity
+from .validate.types import Severity
 
 
 def _check_dandidownload_paths(dfile: DandiFile) -> None:

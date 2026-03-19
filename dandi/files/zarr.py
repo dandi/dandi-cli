@@ -10,10 +10,10 @@ from enum import Enum
 import json
 import os
 import os.path
-import urllib.parse
 from pathlib import Path
 from time import sleep
 from typing import Any, Optional
+import urllib.parse
 
 from dandischema.models import BareAsset, DigestType
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -47,7 +47,7 @@ from dandi.utils import (
 )
 
 from .bases import LocalDirectoryAsset
-from ..validate_types import (
+from ..validate.types import (
     ORIGIN_VALIDATION_DANDI_ZARR,
     Origin,
     OriginType,

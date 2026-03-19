@@ -13,10 +13,7 @@ from collections.abc import Iterator
 import os
 from pathlib import Path
 
-from .consts import dandiset_metadata_file
-from .files import find_dandi_files
-from .utils import find_parent_directory_containing
-from .validate_types import (
+from .types import (
     ORIGIN_VALIDATION_DANDI_LAYOUT,
     Origin,
     OriginType,
@@ -26,6 +23,9 @@ from .validate_types import (
     ValidationResult,
     Validator,
 )
+from ..consts import dandiset_metadata_file
+from ..files import find_dandi_files
+from ..utils import find_parent_directory_containing
 
 BIDS_TO_DANDI = {
     "subject": "subject_id",

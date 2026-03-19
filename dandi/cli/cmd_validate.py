@@ -11,8 +11,8 @@ import click
 
 from .base import devel_debug_option, devel_option, map_to_click_exceptions
 from ..utils import pluralize
-from ..validate import validate as validate_
-from ..validate_types import Severity, ValidationResult
+from ..validate.core import validate as validate_
+from ..validate.types import Severity, ValidationResult
 
 
 @click.command()

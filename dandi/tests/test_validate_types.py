@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import ValidationError
 import pytest
 
-from dandi.validate_types import (
+from dandi.validate.types import (
     Origin,
     OriginType,
     Scope,

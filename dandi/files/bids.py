@@ -16,7 +16,7 @@ from .zarr import ZarrAsset
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..metadata.core import add_common_metadata, prepare_metadata
 from ..misctypes import Digest
-from ..validate_types import (
+from ..validate.types import (
     ORIGIN_VALIDATION_DANDI_LAYOUT,
     Scope,
     Severity,
@@ -92,7 +92,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         with self._lock:
             if self._asset_metadata is None:
                 # Import here to avoid circular import
-                from dandi.validate import validate_bids
+                from dandi.validate.core import validate_bids
 
                 # === Validate the dataset using bidsschematools ===
                 #   This is done to obtain the metadata for each asset in the dataset

@@ -13,7 +13,7 @@ from packaging.version import parse as parse_ver_str
 from pydantic import DirectoryPath, validate_call
 
 from dandi.utils import find_parent_directory_containing
-from dandi.validate_types import (
+from dandi.validate.types import (
     Origin,
     OriginType,
     Scope,

@@ -5,7 +5,7 @@ import pytest
 
 from ..cmd_validate import _process_issues, validate
 from ...tests.xfail import mark_xfail_windows_python313_posixsubprocess
-from ...validate_types import (
+from ...validate.types import (
     Origin,
     OriginType,
     Scope,

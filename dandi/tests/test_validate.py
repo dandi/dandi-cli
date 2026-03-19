@@ -7,8 +7,8 @@ import pytest
 from .fixtures import BIDS_TESTDATA_SELECTION
 from .. import __version__
 from ..consts import dandiset_metadata_file
-from ..validate import validate
-from ..validate_types import (
+from ..validate.core import validate
+from ..validate.types import (
     Origin,
     OriginType,
     Scope,
