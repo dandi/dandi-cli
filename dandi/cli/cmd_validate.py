@@ -4,7 +4,7 @@ import logging
 import os
 import re
 import sys
-from typing import cast
+from typing import IO, cast
 import warnings
 
 import click
@@ -241,7 +241,7 @@ def _auto_save_sidecar(results: list[ValidationResult], logfile: str) -> None:
     lgr.info("Validation sidecar saved to %s", sidecar)
 
 
-def _print_summary(results: list[ValidationResult], out: object) -> None:
+def _print_summary(results: list[ValidationResult], out: IO[str]) -> None:
     """Print summary statistics about validation results."""
     from collections import Counter
 
@@ -275,7 +275,9 @@ def _print_summary(results: list[ValidationResult], out: object) -> None:
             print(f"  {standard}: {count}", file=out)
 
 
-def _get_formatter(output_format: str, out: object = None):
+def _get_formatter(
+    output_format: str, out: IO[str] | None = None
+) -> JSONFormatter | JSONLinesFormatter | YAMLFormatter:
     """Create a formatter for the given output format."""
     if output_format == "json":
         return JSONFormatter(out=out)
@@ -292,7 +294,7 @@ def _get_formatter(output_format: str, out: object = None):
 def _render_structured(
     results: list[ValidationResult],
     output_format: str,
-    out: object,
+    out: IO[str],
 ) -> None:
     """Render validation results in a structured format."""
     formatter = _get_formatter(output_format, out=out)
