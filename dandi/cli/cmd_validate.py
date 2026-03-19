@@ -160,6 +160,11 @@ def validate_bids(
     type=click.Path(dir_okay=False, writable=True),
     default=None,
 )
+@click.option(
+    "--summary/--no-summary",
+    help="Show summary statistics.",
+    default=False,
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
 @click.pass_context
 @devel_debug_option()
@@ -172,6 +177,7 @@ def validate(
     min_severity: str,
     output_format: str = "human",
     output_file: str | None = None,
+    summary: bool = False,
     schema: str | None = None,
     devel_debug: bool = False,
     allow_any_path: bool = False,
@@ -190,14 +196,21 @@ def validate(
     filtered = _filter_results(results, min_severity, ignore)
 
     if output_format == "human":
-        _process_issues(filtered, grouping)
+        _render_human(filtered, grouping)
+        if summary:
+            _print_summary(filtered, sys.stdout)
+        _exit_if_errors(filtered)
     elif output_file is not None:
         with open(output_file, "w") as fh:
             _render_structured(filtered, output_format, fh)
         lgr.info("Validation output written to %s", output_file)
+        if summary:
+            _print_summary(filtered, sys.stderr)
         _exit_if_errors(filtered)
     else:
         _render_structured(filtered, output_format, sys.stdout)
+        if summary:
+            _print_summary(filtered, sys.stderr)
         # Auto-save sidecar next to logfile
         if filtered and hasattr(ctx, "obj") and ctx.obj is not None:
             _auto_save_sidecar(filtered, ctx.obj.logfile)
@@ -209,6 +222,40 @@ def _auto_save_sidecar(results: list[ValidationResult], logfile: str) -> None:
     sidecar = validation_sidecar_path(logfile)
     write_validation_jsonl(results, sidecar)
     lgr.info("Validation sidecar saved to %s", sidecar)
+
+
+def _print_summary(results: list[ValidationResult], out: object) -> None:
+    """Print summary statistics about validation results."""
+    from collections import Counter
+
+    total = len(results)
+    print("\n--- Validation Summary ---", file=out)
+    print(f"Total issues: {total}", file=out)
+    if not total:
+        return
+
+    severity_counts = Counter(
+        r.severity.name if r.severity is not None else "NONE" for r in results
+    )
+    print("By severity:", file=out)
+    for sev in ("CRITICAL", "ERROR", "WARNING", "HINT", "INFO"):
+        if sev in severity_counts:
+            print(f"  {sev}: {severity_counts[sev]}", file=out)
+
+    validator_counts = Counter(r.origin.validator.value for r in results)
+    if validator_counts:
+        print("By validator:", file=out)
+        for validator, count in validator_counts.most_common():
+            print(f"  {validator}: {count}", file=out)
+
+    standard_counts = Counter(
+        r.origin.standard.value if r.origin.standard is not None else "N/A"
+        for r in results
+    )
+    if standard_counts:
+        print("By standard:", file=out)
+        for standard, count in standard_counts.most_common():
+            print(f"  {standard}: {count}", file=out)
 
 
 def _get_formatter(output_format: str, out: object = None):
@@ -243,10 +290,11 @@ def _exit_if_errors(results: list[ValidationResult]) -> None:
         raise SystemExit(1)
 
 
-def _process_issues(
+def _render_human(
     issues: list[ValidationResult],
     grouping: str,
 ) -> None:
+    """Render validation results in human-readable colored format."""
     purviews = [i.purview for i in issues]
     if grouping == "none":
         display_errors(
@@ -273,16 +321,17 @@ def _process_issues(
             " 'none'."
         )
 
-    if (
-        max(
-            (i.severity for i in issues if i.severity is not None),
-            default=Severity.INFO,
-        )
-        >= Severity.ERROR
-    ):
-        raise SystemExit(1)
-    else:
+    if not any(r.severity is not None and r.severity >= Severity.ERROR for r in issues):
         click.secho("No errors found.", fg="green")
+
+
+def _process_issues(
+    issues: list[ValidationResult],
+    grouping: str,
+) -> None:
+    """Legacy wrapper: render human output and exit if errors."""
+    _render_human(issues, grouping)
+    _exit_if_errors(issues)
 
 
 def _get_severity_color(severities: list[Severity]) -> str:

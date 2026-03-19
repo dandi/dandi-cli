@@ -239,3 +239,13 @@ def test_validate_output_requires_format(simple2_nwb: Path, tmp_path: Path) -> N
     )
     assert r.exit_code != 0
     assert "--output requires --format" in r.output
+
+
+@pytest.mark.ai_generated
+def test_validate_summary_human(simple2_nwb: Path) -> None:
+    """Test --summary in human format shows statistics."""
+    r = CliRunner().invoke(validate, ["--summary", str(simple2_nwb)])
+    assert r.exit_code != 0
+    assert "Validation Summary" in r.output
+    assert "Total issues:" in r.output
+    assert "By severity:" in r.output
