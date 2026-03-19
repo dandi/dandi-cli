@@ -7,6 +7,7 @@ from pydantic import ValidationError
 import pytest
 
 from dandi.validate.types import (
+    CURRENT_RECORD_VERSION,
     Origin,
     OriginType,
     Scope,
@@ -156,3 +157,26 @@ class TestValidationResult:
 
         assert excinfo.value.error_count() == 1
         assert excinfo.value.errors()[0]["loc"][-1] == "severity"
+
+    @pytest.mark.ai_generated
+    def test_record_version_serialization(self) -> None:
+        """Test that record_version is included in JSON serialization."""
+        r = ValidationResult(
+            id="foo",
+            origin=FOO_ORIGIN,
+            scope=Scope.FILE,
+            severity=Severity.ERROR,
+        )
+        assert r.record_version == CURRENT_RECORD_VERSION
+
+        json_dump = r.model_dump(mode="json")
+        assert json_dump["record_version"] == CURRENT_RECORD_VERSION
+
+        json_str = r.model_dump_json()
+        json_dict = json.loads(json_str)
+        assert json_dict["record_version"] == CURRENT_RECORD_VERSION
+
+        # Round-trip
+        r2 = ValidationResult.model_validate_json(json_str)
+        assert r2.record_version == CURRENT_RECORD_VERSION
+        assert r == r2

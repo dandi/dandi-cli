@@ -17,6 +17,7 @@ Import from dandi.validate.core directly for validate/validate_bids.
 """
 
 from .types import (
+    CURRENT_RECORD_VERSION,
     ORIGIN_INTERNAL_DANDI,
     ORIGIN_VALIDATION_DANDI,
     ORIGIN_VALIDATION_DANDI_LAYOUT,
@@ -32,6 +33,7 @@ from .types import (
 )
 
 __all__ = [
+    "CURRENT_RECORD_VERSION",
     "ORIGIN_INTERNAL_DANDI",
     "ORIGIN_VALIDATION_DANDI",
     "ORIGIN_VALIDATION_DANDI_LAYOUT",
