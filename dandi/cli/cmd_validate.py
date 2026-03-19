@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
 import logging
 import os
 import re
@@ -13,6 +12,57 @@ from .base import devel_debug_option, devel_option, map_to_click_exceptions
 from ..utils import pluralize
 from ..validate.core import validate as validate_
 from ..validate.types import Severity, ValidationResult
+
+
+def _collect_results(
+    paths: tuple[str, ...],
+    schema: str | None,
+    devel_debug: bool,
+    allow_any_path: bool,
+) -> list[ValidationResult]:
+    """Run validation and collect all results into a list."""
+    # Avoid heavy import by importing within function:
+    from ..pynwb_utils import ignore_benign_pynwb_warnings
+
+    # Don't log validation warnings, as this command reports them to the user
+    # anyway:
+    root = logging.getLogger()
+    for h in root.handlers:
+        h.addFilter(lambda r: not getattr(r, "validating", False))
+
+    if not paths:
+        paths = (os.curdir,)
+    # below we are using load_namespaces but it causes HDMF to whine if there
+    # is no cached name spaces in the file.  It is benign but not really useful
+    # at this point, so we ignore it although ideally there should be a formal
+    # way to get relevant warnings (not errors) from PyNWB
+    ignore_benign_pynwb_warnings()
+
+    return list(
+        validate_(
+            *paths,
+            schema_version=schema,
+            devel_debug=devel_debug,
+            allow_any_path=allow_any_path,
+        )
+    )
+
+
+def _filter_results(
+    results: list[ValidationResult],
+    min_severity: str,
+    ignore: str | None,
+) -> list[ValidationResult]:
+    """Filter results by minimum severity and ignore pattern."""
+    min_severity_value = Severity[min_severity].value
+    filtered = [
+        r
+        for r in results
+        if r.severity is not None and r.severity.value >= min_severity_value
+    ]
+    if ignore is not None:
+        filtered = [r for r in filtered if not re.search(ignore, r.id)]
+    return filtered
 
 
 @click.command()
@@ -102,49 +152,15 @@ def validate(
 
     Exits with non-0 exit code if any file is not compliant.
     """
-    # Avoid heavy import by importing within function:
-    from ..pynwb_utils import ignore_benign_pynwb_warnings
-
-    # Don't log validation warnings, as this command reports them to the user
-    # anyway:
-    root = logging.getLogger()
-    for h in root.handlers:
-        h.addFilter(lambda r: not getattr(r, "validating", False))
-
-    if not paths:
-        paths = (os.curdir,)
-    # below we are using load_namespaces but it causes HDMF to whine if there
-    # is no cached name spaces in the file.  It is benign but not really useful
-    # at this point, so we ignore it although ideally there should be a formal
-    # way to get relevant warnings (not errors) from PyNWB
-    ignore_benign_pynwb_warnings()
-
-    validator_result = validate_(
-        *paths,
-        schema_version=schema,
-        devel_debug=devel_debug,
-        allow_any_path=allow_any_path,
-    )
-
-    min_severity_value = Severity[min_severity].value
-
-    filtered_results = [
-        i
-        for i in validator_result
-        if i.severity is not None and i.severity.value >= min_severity_value
-    ]
-
-    _process_issues(filtered_results, grouping, ignore)
+    results = _collect_results(paths, schema, devel_debug, allow_any_path)
+    filtered = _filter_results(results, min_severity, ignore)
+    _process_issues(filtered, grouping)
 
 
 def _process_issues(
-    validator_result: Iterable[ValidationResult],
+    issues: list[ValidationResult],
     grouping: str,
-    ignore: str | None = None,
 ) -> None:
-    issues = [i for i in validator_result if i.severity is not None]
-    if ignore is not None:
-        issues = [i for i in issues if not re.search(ignore, i.id)]
     purviews = [i.purview for i in issues]
     if grouping == "none":
         display_errors(
