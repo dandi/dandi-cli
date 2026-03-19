@@ -10,9 +10,12 @@ Submodules:
 - core: Main validation functions (validate, validate_bids)
 - types: Data types and models (ValidationResult, Origin, Severity, etc.)
 - io: JSONL read/write utilities for validation results
+
+Note: core is NOT eagerly imported here to avoid circular imports
+(core → dandi.files → dandi.validate.types → dandi.validate.__init__).
+Import from dandi.validate.core directly for validate/validate_bids.
 """
 
-from .core import validate, validate_bids
 from .types import (
     ORIGIN_INTERNAL_DANDI,
     ORIGIN_VALIDATION_DANDI,
@@ -41,6 +44,4 @@ __all__ = [
     "Standard",
     "ValidationResult",
     "Validator",
-    "validate",
-    "validate_bids",
 ]

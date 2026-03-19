@@ -4,11 +4,8 @@ from typing import Any
 
 import pytest
 
-from .fixtures import BIDS_TESTDATA_SELECTION
-from .. import __version__
-from ..consts import dandiset_metadata_file
-from ..validate.core import validate
-from ..validate.types import (
+from ..core import validate
+from ..types import (
     Origin,
     OriginType,
     Scope,
@@ -17,6 +14,9 @@ from ..validate.types import (
     ValidationResult,
     Validator,
 )
+from ... import __version__
+from ...consts import dandiset_metadata_file
+from ...tests.fixtures import BIDS_TESTDATA_SELECTION
 
 
 def test_validate_nwb_error(simple3_nwb: Path) -> None:
