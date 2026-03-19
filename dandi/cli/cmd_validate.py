@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from collections import OrderedDict
+import dataclasses
+import json as json_mod
 import logging
 import os
 import re
 import sys
-from typing import IO, cast
+from typing import IO, Union, cast
 import warnings
 
 import click
@@ -17,6 +20,14 @@ from ..validate.io import validation_sidecar_path, write_validation_jsonl
 from ..validate.types import Severity, ValidationResult
 
 lgr = logging.getLogger(__name__)
+
+
+@dataclasses.dataclass
+class TruncationNotice:
+    """Placeholder indicating omitted results in truncated output."""
+
+    omitted_count: int
+
 
 STRUCTURED_FORMATS = ("json", "json_pp", "json_lines", "yaml")
 
@@ -131,7 +142,9 @@ def validate_bids(
         "`dandi validate` instead. Proceeding to parse the call to `dandi validate` now.",
         DeprecationWarning,
     )
-    ctx.invoke(validate, paths=paths, grouping=grouping)
+    ctx.invoke(
+        validate, paths=paths, grouping=(grouping,) if grouping != "none" else ()
+    )
 
 
 @click.command()
@@ -145,12 +158,13 @@ def validate_bids(
 @click.option(
     "--grouping",
     "-g",
-    help="How to group error/warning reporting.",
+    help="How to group output. Repeat for hierarchical nesting, e.g. -g severity -g id.",
     type=click.Choice(
         ["none", "path", "severity", "id", "validator", "standard", "dandiset"],
         case_sensitive=False,
     ),
-    default="none",
+    multiple=True,
+    default=(),
 )
 @click.option("--ignore", metavar="REGEX", help="Regex matching error IDs to ignore")
 @click.option(
@@ -182,6 +196,13 @@ def validate_bids(
     default=False,
 )
 @click.option(
+    "--max-per-group",
+    type=int,
+    default=None,
+    help="Limit results per group (or total if ungrouped). "
+    "Excess results are replaced by a count of omitted items.",
+)
+@click.option(
     "--load",
     help="Load validation results from JSONL file(s) instead of running validation.",
     type=click.Path(exists=True, dir_okay=False),
@@ -196,11 +217,12 @@ def validate(
     ctx: click.Context,
     paths: tuple[str, ...],
     ignore: str | None,
-    grouping: str,
+    grouping: tuple[str, ...],
     min_severity: str,
     output_format: str = "human",
     output_file: str | None = None,
     summary: bool = False,
+    max_per_group: int | None = None,
     load: tuple[str, ...] = (),
     schema: str | None = None,
     devel_debug: bool = False,
@@ -210,6 +232,9 @@ def validate(
 
     Exits with non-0 exit code if any file is not compliant.
     """
+    # Normalize grouping: strip "none" values
+    grouping = tuple(g for g in grouping if g != "none")
+
     # Auto-detect format from output file extension when --format not given
     if output_file is not None and output_format == "human":
         detected = _format_from_ext(output_file)
@@ -220,6 +245,13 @@ def validate(
                 "extension (.json, .jsonl, .yaml, .yml)."
             )
         output_format = detected
+
+    # JSONL is incompatible with grouping (flat format, no nesting)
+    if grouping and output_format == "json_lines":
+        raise click.UsageError(
+            "--grouping is incompatible with json_lines format "
+            "(JSONL is a flat format that cannot represent nested groups)."
+        )
 
     if load and paths:
         raise click.UsageError("--load and positional paths are mutually exclusive.")
@@ -234,19 +266,31 @@ def validate(
     filtered = _filter_results(results, min_severity, ignore)
 
     if output_format == "human":
-        _render_human(filtered, grouping)
+        _render_human(filtered, grouping, max_per_group=max_per_group)
         if summary:
             _print_summary(filtered, sys.stdout)
         _exit_if_errors(filtered)
     elif output_file is not None:
         with open(output_file, "w") as fh:
-            _render_structured(filtered, output_format, fh)
+            _render_structured(
+                filtered,
+                output_format,
+                fh,
+                grouping,
+                max_per_group=max_per_group,
+            )
         lgr.info("Validation output written to %s", output_file)
         if summary:
             _print_summary(filtered, sys.stderr)
         _exit_if_errors(filtered)
     else:
-        _render_structured(filtered, output_format, sys.stdout)
+        _render_structured(
+            filtered,
+            output_format,
+            sys.stdout,
+            grouping,
+            max_per_group=max_per_group,
+        )
         if summary:
             _print_summary(filtered, sys.stderr)
         # Auto-save sidecar next to logfile (skip when loading)
@@ -316,12 +360,39 @@ def _render_structured(
     results: list[ValidationResult],
     output_format: str,
     out: IO[str],
+    grouping: tuple[str, ...] = (),
+    max_per_group: int | None = None,
 ) -> None:
     """Render validation results in a structured format."""
-    formatter = _get_formatter(output_format, out=out)
-    with formatter:
-        for r in results:
-            formatter(r.model_dump(mode="json"))
+    if grouping:
+        # Grouped output: build nested dict, serialize directly
+        grouped: GroupedResults | TruncatedResults = _group_results(results, grouping)
+        if max_per_group is not None:
+            grouped = _truncate_leaves(grouped, max_per_group)
+        data = _serialize_grouped(grouped)
+        if output_format in ("json", "json_pp"):
+            indent = 2 if output_format == "json_pp" else None
+            json_mod.dump(data, out, indent=indent, sort_keys=True, default=str)
+            out.write("\n")
+        elif output_format == "yaml":
+            import ruamel.yaml
+
+            yaml = ruamel.yaml.YAML(typ="safe")
+            yaml.default_flow_style = False
+            yaml.dump(data, out)
+        else:
+            raise ValueError(f"Unsupported format for grouped output: {output_format}")
+    else:
+        items: list[dict] = [r.model_dump(mode="json") for r in results]
+        if max_per_group is not None and len(items) > max_per_group:
+            items = items[:max_per_group]
+            items.append(
+                {"_truncated": True, "omitted_count": len(results) - max_per_group}
+            )
+        formatter = _get_formatter(output_format, out=out)
+        with formatter:
+            for item in items:
+                formatter(item)
 
 
 def _exit_if_errors(results: list[ValidationResult]) -> None:
@@ -348,20 +419,88 @@ def _group_key(issue: ValidationResult, grouping: str) -> str:
         raise NotImplementedError(f"Unsupported grouping: {grouping}")
 
 
+# Recursive grouped type: either a nested OrderedDict or leaf list
+GroupedResults = Union["OrderedDict[str, GroupedResults]", list[ValidationResult]]
+
+# Leaf items after possible truncation
+LeafItem = Union[ValidationResult, TruncationNotice]
+TruncatedResults = Union["OrderedDict[str, TruncatedResults]", list[LeafItem]]
+
+
+def _group_results(
+    results: list[ValidationResult],
+    levels: tuple[str, ...],
+) -> GroupedResults:
+    """Group results recursively by the given hierarchy of grouping levels.
+
+    Returns a nested OrderedDict with leaf values as lists of ValidationResult.
+    With zero levels, returns the flat list unchanged.
+    """
+    if not levels:
+        return results
+    key_fn = levels[0]
+    remaining = levels[1:]
+    groups: OrderedDict[str, list[ValidationResult]] = OrderedDict()
+    for r in results:
+        k = _group_key(r, key_fn)
+        groups.setdefault(k, []).append(r)
+    if remaining:
+        return OrderedDict((k, _group_results(v, remaining)) for k, v in groups.items())
+    # mypy can't resolve the recursive type alias, but this is correct:
+    # OrderedDict[str, list[VR]] is a valid GroupedResults
+    return cast("GroupedResults", groups)
+
+
+def _truncate_leaves(
+    grouped: GroupedResults | TruncatedResults, max_per_group: int
+) -> TruncatedResults:
+    """Truncate leaf lists to *max_per_group* items, appending a TruncationNotice."""
+    if isinstance(grouped, list):
+        if len(grouped) > max_per_group:
+            kept: list[LeafItem] = list(grouped[:max_per_group])
+            kept.append(TruncationNotice(len(grouped) - max_per_group))
+            return kept
+        return cast("TruncatedResults", grouped)
+    return OrderedDict(
+        (k, _truncate_leaves(v, max_per_group)) for k, v in grouped.items()
+    )
+
+
+def _serialize_grouped(grouped: GroupedResults | TruncatedResults) -> dict | list:
+    """Convert grouped results to a JSON-serializable nested dict/list."""
+    if isinstance(grouped, list):
+        result: list[dict] = []
+        for item in grouped:
+            if isinstance(item, TruncationNotice):
+                result.append({"_truncated": True, "omitted_count": item.omitted_count})
+            else:
+                result.append(item.model_dump(mode="json"))
+        return result
+    return {k: _serialize_grouped(v) for k, v in grouped.items()}
+
+
 def _render_human(
     issues: list[ValidationResult],
-    grouping: str,
+    grouping: tuple[str, ...],
+    max_per_group: int | None = None,
 ) -> None:
     """Render validation results in human-readable colored format."""
-    if grouping == "none":
-        purviews = [i.purview for i in issues]
+    if not grouping:
+        shown = issues
+        omitted = 0
+        if max_per_group is not None and len(issues) > max_per_group:
+            shown = issues[:max_per_group]
+            omitted = len(issues) - max_per_group
+        purviews = [i.purview for i in shown]
         display_errors(
             purviews,
-            [i.id for i in issues],
-            cast("list[Severity]", [i.severity for i in issues]),
-            [i.message for i in issues],
+            [i.id for i in shown],
+            cast("list[Severity]", [i.severity for i in shown]),
+            [i.message for i in shown],
         )
-    elif grouping == "path":
+        if omitted:
+            click.secho(f"... and {pluralize(omitted, 'more issue')}", fg="cyan")
+    elif grouping == ("path",):
         # Legacy path grouping: de-duplicate purviews, show per-path
         purviews = list(set(i.purview for i in issues))
         for purview in purviews:
@@ -373,39 +512,80 @@ def _render_human(
                 [i.message for i in applies_to],
             )
     else:
-        # Generic grouped rendering with section headers
-        from collections import OrderedDict
-
-        groups: OrderedDict[str, list[ValidationResult]] = OrderedDict()
-        for issue in issues:
-            key = _group_key(issue, grouping)
-            groups.setdefault(key, []).append(issue)
-
-        for key, group_issues in groups.items():
-            header = f"=== {key} ({pluralize(len(group_issues), 'issue')}) ==="
-            fg = _get_severity_color(
-                cast(
-                    "list[Severity]",
-                    [i.severity for i in group_issues if i.severity is not None],
-                )
-            )
-            click.secho(header, fg=fg, bold=True)
-            for issue in group_issues:
-                msg = f"  [{issue.id}] {issue.purview} — {issue.message}"
-                ifg = _get_severity_color(
-                    [issue.severity] if issue.severity is not None else []
-                )
-                click.secho(msg, fg=ifg)
+        grouped: GroupedResults | TruncatedResults = _group_results(issues, grouping)
+        if max_per_group is not None:
+            grouped = _truncate_leaves(grouped, max_per_group)
+        _render_human_grouped(grouped, depth=0)
 
     if not any(r.severity is not None and r.severity >= Severity.ERROR for r in issues):
         click.secho("No errors found.", fg="green")
 
 
+def _count_leaves(grouped: GroupedResults | TruncatedResults) -> int:
+    """Count total items in a grouped structure (including omitted counts)."""
+    if isinstance(grouped, list):
+        return sum(
+            item.omitted_count if isinstance(item, TruncationNotice) else 1
+            for item in grouped
+        )
+    return sum(_count_leaves(v) for v in grouped.values())
+
+
+def _render_human_grouped(
+    grouped: GroupedResults | TruncatedResults,
+    depth: int,
+) -> None:
+    """Recursively render grouped results with nested indented section headers."""
+    indent = "  " * depth
+    if isinstance(grouped, list):
+        # Leaf level: render individual issues
+        for issue in grouped:
+            if isinstance(issue, TruncationNotice):
+                click.secho(
+                    f"{indent}... and {pluralize(issue.omitted_count, 'more issue')}",
+                    fg="cyan",
+                )
+                continue
+            msg = f"{indent}[{issue.id}] {issue.purview} — {issue.message}"
+            fg = _get_severity_color(
+                [issue.severity] if issue.severity is not None else []
+            )
+            click.secho(msg, fg=fg)
+    else:
+        for key, value in grouped.items():
+            count = _count_leaves(value)
+            header = f"{indent}=== {key} ({pluralize(count, 'issue')}) ==="
+            # Determine color from all issues in this group
+            all_issues = _collect_all_issues(value)
+            fg = _get_severity_color(
+                cast(
+                    "list[Severity]",
+                    [i.severity for i in all_issues if i.severity is not None],
+                )
+            )
+            click.secho(header, fg=fg, bold=True)
+            _render_human_grouped(value, depth + 1)
+
+
+def _collect_all_issues(
+    grouped: GroupedResults | TruncatedResults,
+) -> list[ValidationResult]:
+    """Flatten a grouped structure into a list of all ValidationResults."""
+    if isinstance(grouped, list):
+        return [item for item in grouped if isinstance(item, ValidationResult)]
+    result: list[ValidationResult] = []
+    for v in grouped.values():
+        result.extend(_collect_all_issues(v))
+    return result
+
+
 def _process_issues(
     issues: list[ValidationResult],
-    grouping: str,
+    grouping: str | tuple[str, ...],
 ) -> None:
     """Legacy wrapper: render human output and exit if errors."""
+    if isinstance(grouping, str):
+        grouping = (grouping,) if grouping != "none" else ()
     _render_human(issues, grouping)
     _exit_if_errors(issues)
 

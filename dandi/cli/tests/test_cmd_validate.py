@@ -1,11 +1,20 @@
 import json
 from pathlib import Path
+from typing import cast
 
 from click.testing import CliRunner
 import pytest
 import ruamel.yaml
 
-from ..cmd_validate import _process_issues, _render_human, validate
+from ..cmd_validate import (
+    GroupedResults,
+    TruncationNotice,
+    _group_results,
+    _process_issues,
+    _render_human,
+    _truncate_leaves,
+    validate,
+)
 from ...tests.xfail import mark_xfail_windows_python313_posixsubprocess
 from ...validate.types import (
     Origin,
@@ -357,7 +366,7 @@ def test_render_human_grouping(grouping: str, capsys: pytest.CaptureFixture) -> 
             dandiset_path=Path("/data/ds001"),
         ),
     ]
-    _render_human(issues, grouping=grouping)
+    _render_human(issues, grouping=(grouping,))
     captured = capsys.readouterr().out
 
     # Section headers with "===" must appear
@@ -376,3 +385,390 @@ def test_validate_grouping_severity_cli(simple2_nwb: Path) -> None:
     assert r.exit_code != 0
     assert "===" in r.output
     assert "ERROR" in r.output
+
+
+@pytest.mark.ai_generated
+def test_render_human_multilevel_grouping(capsys: pytest.CaptureFixture) -> None:
+    """Test multi-level grouping renders nested section headers."""
+    origin = Origin(
+        type=OriginType.VALIDATION,
+        validator=Validator.nwbinspector,
+        validator_version="",
+    )
+    issues = [
+        ValidationResult(
+            id="NWBI.check_data_orientation",
+            origin=origin,
+            scope=Scope.FILE,
+            message="Data may be in the wrong orientation.",
+            path=Path("sub-01/sub-01.nwb"),
+            severity=Severity.WARNING,
+            dandiset_path=Path("/data/ds001"),
+        ),
+        ValidationResult(
+            id="NWBI.check_missing_unit",
+            origin=origin,
+            scope=Scope.FILE,
+            message="Missing text for attribute 'unit'.",
+            path=Path("sub-02/sub-02.nwb"),
+            severity=Severity.WARNING,
+            dandiset_path=Path("/data/ds001"),
+        ),
+        ValidationResult(
+            id="NWBI.check_data_orientation",
+            origin=origin,
+            scope=Scope.FILE,
+            message="Data may be in the wrong orientation.",
+            path=Path("sub-03/sub-03.nwb"),
+            severity=Severity.ERROR,
+            dandiset_path=Path("/data/ds001"),
+        ),
+    ]
+    _render_human(issues, grouping=("severity", "id"))
+    captured = capsys.readouterr().out
+
+    # Should have nested headers: severity then id
+    assert "=== WARNING" in captured
+    assert "=== ERROR" in captured
+    assert "=== NWBI.check_data_orientation" in captured
+    assert "=== NWBI.check_missing_unit" in captured
+    # Nested headers should be indented
+    lines = captured.split("\n")
+    # Find inner headers — they should have leading spaces
+    inner_headers = [ln for ln in lines if "===" in ln and ln.startswith("  ")]
+    assert len(inner_headers) >= 2  # at least 2 inner group headers
+
+
+@pytest.mark.ai_generated
+def test_validate_multilevel_grouping_human_cli(simple2_nwb: Path) -> None:
+    """Test -g severity -g id via CLI produces nested headers."""
+    r = CliRunner().invoke(validate, ["-g", "severity", "-g", "id", str(simple2_nwb)])
+    assert r.exit_code != 0
+    assert "===" in r.output
+    # Should have nested structure
+    lines = r.output.split("\n")
+    inner_headers = [ln for ln in lines if "===" in ln and ln.startswith("  ")]
+    assert len(inner_headers) >= 1
+
+
+@pytest.mark.ai_generated
+def test_validate_multilevel_grouping_json_cli(simple2_nwb: Path) -> None:
+    """Test -g severity -f json_pp via CLI produces nested JSON dict."""
+    r = CliRunner().invoke(
+        validate, ["-g", "severity", "-f", "json_pp", str(simple2_nwb)]
+    )
+    assert r.exit_code == 1
+    data = json.loads(r.output)
+    # With grouping, output should be a dict (not a list)
+    assert isinstance(data, dict)
+    # Keys should be severity names
+    for key in data:
+        assert key in ("CRITICAL", "ERROR", "WARNING", "HINT", "INFO", "NONE")
+    # Values should be lists of validation result dicts
+    for v in data.values():
+        assert isinstance(v, list)
+        for rec in v:
+            assert "id" in rec
+
+
+@pytest.mark.ai_generated
+def test_validate_multilevel_grouping_json_two_levels(simple2_nwb: Path) -> None:
+    """Test -g severity -g id -f json_pp produces two-level nested JSON."""
+    r = CliRunner().invoke(
+        validate, ["-g", "severity", "-g", "id", "-f", "json_pp", str(simple2_nwb)]
+    )
+    assert r.exit_code == 1
+    data = json.loads(r.output)
+    assert isinstance(data, dict)
+    # Each value should be a dict (second grouping level)
+    for severity_key, id_groups in data.items():
+        assert isinstance(id_groups, dict)
+        for id_key, results in id_groups.items():
+            assert isinstance(results, list)
+            for rec in results:
+                assert "id" in rec
+
+
+@pytest.mark.ai_generated
+def test_validate_grouping_yaml_cli(simple2_nwb: Path) -> None:
+    """Test -g severity -f yaml produces grouped YAML output."""
+    r = CliRunner().invoke(validate, ["-g", "severity", "-f", "yaml", str(simple2_nwb)])
+    assert r.exit_code == 1
+    yaml = ruamel.yaml.YAML(typ="safe")
+    data = yaml.load(r.output)
+    assert isinstance(data, dict)
+    for key in data:
+        assert key in ("CRITICAL", "ERROR", "WARNING", "HINT", "INFO", "NONE")
+
+
+@pytest.mark.ai_generated
+def test_validate_grouping_jsonl_error(simple2_nwb: Path) -> None:
+    """Test -g severity -f json_lines gives a UsageError."""
+    r = CliRunner().invoke(
+        validate, ["-g", "severity", "-f", "json_lines", str(simple2_nwb)]
+    )
+    assert r.exit_code != 0
+    assert "incompatible" in r.output
+
+
+@pytest.mark.ai_generated
+def test_validate_grouping_none_explicit(simple2_nwb: Path) -> None:
+    """Test -g none is treated as no grouping."""
+    r = CliRunner().invoke(validate, ["-g", "none", str(simple2_nwb)])
+    assert r.exit_code != 0
+    # Should NOT have section headers
+    assert "===" not in r.output
+
+
+@pytest.mark.ai_generated
+def test_group_results_unit() -> None:
+    """Unit test for _group_results with multiple levels."""
+    from collections import OrderedDict
+
+    origin = Origin(
+        type=OriginType.VALIDATION,
+        validator=Validator.nwbinspector,
+        validator_version="",
+    )
+    issues = [
+        ValidationResult(
+            id="A.one",
+            origin=origin,
+            scope=Scope.FILE,
+            message="msg1",
+            path=Path("f1.nwb"),
+            severity=Severity.ERROR,
+        ),
+        ValidationResult(
+            id="A.two",
+            origin=origin,
+            scope=Scope.FILE,
+            message="msg2",
+            path=Path("f2.nwb"),
+            severity=Severity.WARNING,
+        ),
+        ValidationResult(
+            id="A.one",
+            origin=origin,
+            scope=Scope.FILE,
+            message="msg3",
+            path=Path("f3.nwb"),
+            severity=Severity.ERROR,
+        ),
+    ]
+
+    # Zero levels: returns flat list
+    result = _group_results(issues, ())
+    assert result is issues
+
+    # One level
+    result = _group_results(issues, ("severity",))
+    assert isinstance(result, OrderedDict)
+    assert "ERROR" in result
+    assert "WARNING" in result
+    assert len(result["ERROR"]) == 2
+    assert len(result["WARNING"]) == 1
+
+    # Two levels
+    result2 = _group_results(issues, ("severity", "id"))
+    assert isinstance(result2, OrderedDict)
+    error_group = result2["ERROR"]
+    assert isinstance(error_group, OrderedDict)
+    assert "A.one" in error_group
+    assert len(error_group["A.one"]) == 2
+    warning_group = result2["WARNING"]
+    assert isinstance(warning_group, OrderedDict)
+    assert "A.two" in warning_group
+    assert len(warning_group["A.two"]) == 1
+
+
+def _make_jsonl(tmp_path: Path, n: int = 5) -> Path:
+    """Write *n* synthetic validation results to a JSONL file and return its path."""
+    outfile = tmp_path / "results.jsonl"
+    lines = []
+    for i in range(n):
+        sev = "ERROR" if i % 2 == 0 else "WARNING"
+        rec = {
+            "id": f"TEST.issue_{i}",
+            "origin": {
+                "type": "VALIDATION",
+                "validator": "nwbinspector",
+                "validator_version": "",
+            },
+            "scope": "file",
+            "severity": sev,
+            "path": f"sub-{i:02d}/sub-{i:02d}.nwb",
+            "message": f"Synthetic issue number {i}",
+            "record_version": "1",
+        }
+        lines.append(json.dumps(rec))
+    outfile.write_text("\n".join(lines) + "\n")
+    return outfile
+
+
+@pytest.mark.ai_generated
+def test_max_per_group_flat(tmp_path: Path) -> None:
+    """--max-per-group without grouping truncates the flat list."""
+    jsonl = _make_jsonl(tmp_path, n=5)
+    r = CliRunner().invoke(validate, ["--load", str(jsonl), "--max-per-group", "2"])
+    assert r.exit_code == 1
+    assert "3 more issues" in r.output
+    # Only 2 real issues should be listed
+    assert "TEST.issue_0" in r.output
+    assert "TEST.issue_1" in r.output
+    assert "TEST.issue_4" not in r.output
+
+
+@pytest.mark.ai_generated
+def test_max_per_group_with_grouping(tmp_path: Path) -> None:
+    """-g severity --max-per-group 1 truncates each severity group independently."""
+    jsonl = _make_jsonl(tmp_path, n=6)
+    r = CliRunner().invoke(
+        validate,
+        ["--load", str(jsonl), "-g", "severity", "--max-per-group", "1"],
+    )
+    assert r.exit_code == 1
+    # Each group should show "more issue(s)"
+    assert "more issue" in r.output
+    # Headers should reflect original counts (including omitted)
+    assert "=== ERROR" in r.output
+    assert "=== WARNING" in r.output
+
+
+@pytest.mark.ai_generated
+def test_max_per_group_json(tmp_path: Path) -> None:
+    """-f json_pp --max-per-group 2 emits _truncated placeholder in JSON."""
+    jsonl = _make_jsonl(tmp_path, n=5)
+    r = CliRunner().invoke(
+        validate,
+        ["--load", str(jsonl), "-f", "json_pp", "--max-per-group", "2"],
+    )
+    assert r.exit_code == 1  # ERRORs in test data
+    data = json.loads(r.output)
+    assert isinstance(data, list)
+    # Last item should be a truncation notice
+    assert data[-1]["_truncated"] is True
+    assert data[-1]["omitted_count"] == 3
+    # Only 2 real results before the notice
+    real = [d for d in data if "_truncated" not in d]
+    assert len(real) == 2
+
+
+@pytest.mark.ai_generated
+def test_max_per_group_multilevel(tmp_path: Path) -> None:
+    """-g severity -g id --max-per-group 1 truncates only at leaf level."""
+    jsonl = _make_jsonl(tmp_path, n=6)
+    r = CliRunner().invoke(
+        validate,
+        [
+            "--load",
+            str(jsonl),
+            "-g",
+            "severity",
+            "-g",
+            "id",
+            "--max-per-group",
+            "1",
+        ],
+    )
+    assert r.exit_code == 1
+    # All severity groups should appear
+    assert "=== ERROR" in r.output
+    assert "=== WARNING" in r.output
+    # Each id within a severity gets at most 1 result — but since each
+    # synthetic issue has a unique id, each leaf has exactly 1 item,
+    # so no truncation notice is expected for unique-id leaves.
+    # Verify structure is intact.
+    assert "TEST.issue_0" in r.output
+
+
+@pytest.mark.ai_generated
+def test_max_per_group_no_truncation(tmp_path: Path) -> None:
+    """--max-per-group larger than result count produces no placeholder."""
+    jsonl = _make_jsonl(tmp_path, n=3)
+    r = CliRunner().invoke(validate, ["--load", str(jsonl), "--max-per-group", "100"])
+    assert r.exit_code == 1
+    assert "more issue" not in r.output
+    # All issues present
+    assert "TEST.issue_0" in r.output
+    assert "TEST.issue_1" in r.output
+    assert "TEST.issue_2" in r.output
+
+
+@pytest.mark.ai_generated
+def test_max_per_group_json_grouped(tmp_path: Path) -> None:
+    """-g severity -f json_pp --max-per-group 1 emits _truncated in grouped JSON."""
+    jsonl = _make_jsonl(tmp_path, n=6)
+    r = CliRunner().invoke(
+        validate,
+        [
+            "--load",
+            str(jsonl),
+            "-g",
+            "severity",
+            "-f",
+            "json_pp",
+            "--max-per-group",
+            "1",
+        ],
+    )
+    data = json.loads(r.output)
+    assert isinstance(data, dict)
+    # Each severity group should have a truncation notice if it has > 1 item
+    for sev_key, items in data.items():
+        assert isinstance(items, list)
+        truncated = [i for i in items if isinstance(i, dict) and i.get("_truncated")]
+        if len(items) > 1:
+            # At least one truncation notice
+            assert len(truncated) >= 1
+
+
+@pytest.mark.ai_generated
+def test_truncate_leaves_unit() -> None:
+    """Unit test for _truncate_leaves helper."""
+    from collections import OrderedDict
+
+    origin = Origin(
+        type=OriginType.VALIDATION,
+        validator=Validator.nwbinspector,
+        validator_version="",
+    )
+    issues = [
+        ValidationResult(
+            id=f"T.{i}",
+            origin=origin,
+            scope=Scope.FILE,
+            message=f"msg{i}",
+            path=Path(f"f{i}.nwb"),
+            severity=Severity.ERROR,
+        )
+        for i in range(5)
+    ]
+
+    # Flat list truncation
+    truncated = _truncate_leaves(issues, 2)
+    assert isinstance(truncated, list)
+    assert len(truncated) == 3  # 2 results + 1 notice
+    assert isinstance(truncated[-1], TruncationNotice)
+    assert truncated[-1].omitted_count == 3
+
+    # Nested dict truncation
+    grouped: GroupedResults = cast(
+        "GroupedResults", OrderedDict([("A", issues[:3]), ("B", issues[3:])])
+    )
+    truncated_grouped = _truncate_leaves(grouped, 1)
+    assert isinstance(truncated_grouped, OrderedDict)
+    a_items = truncated_grouped["A"]
+    assert isinstance(a_items, list)
+    assert len(a_items) == 2  # 1 result + 1 notice
+    assert isinstance(a_items[-1], TruncationNotice)
+    assert a_items[-1].omitted_count == 2
+    # B has 2 items → truncated to 1 + notice
+    b_items = truncated_grouped["B"]
+    assert isinstance(b_items, list)
+    assert len(b_items) == 2
+    assert isinstance(b_items[-1], TruncationNotice)
+
+    # No truncation when under limit
+    no_trunc = _truncate_leaves(issues, 100)
+    assert no_trunc is issues
