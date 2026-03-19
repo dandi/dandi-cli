@@ -20,6 +20,19 @@ lgr = logging.getLogger(__name__)
 
 STRUCTURED_FORMATS = ("json", "json_pp", "json_lines", "yaml")
 
+_EXT_TO_FORMAT = {
+    ".json": "json_pp",
+    ".jsonl": "json_lines",
+    ".yaml": "yaml",
+    ".yml": "yaml",
+}
+
+
+def _format_from_ext(path: str) -> str | None:
+    """Infer output format from file extension, or None if unrecognized."""
+    ext = os.path.splitext(path)[1].lower()
+    return _EXT_TO_FORMAT.get(ext)
+
 
 def _collect_results(
     paths: tuple[str, ...],
@@ -194,11 +207,15 @@ def validate(
 
     Exits with non-0 exit code if any file is not compliant.
     """
-    if output_file is not None and output_format not in STRUCTURED_FORMATS:
-        raise click.UsageError(
-            "--output requires --format to be set to a structured format "
-            "(json, json_pp, json_lines, yaml)."
-        )
+    # Auto-detect format from output file extension when --format not given
+    if output_file is not None and output_format == "human":
+        output_format = _format_from_ext(output_file)
+        if output_format is None:
+            raise click.UsageError(
+                "--output requires --format to be set to a structured format "
+                "(json, json_pp, json_lines, yaml), or use a recognized "
+                "extension (.json, .jsonl, .yaml, .yml)."
+            )
 
     if load and paths:
         raise click.UsageError("--load and positional paths are mutually exclusive.")

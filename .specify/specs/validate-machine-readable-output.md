@@ -198,9 +198,10 @@ that varies by grouping option.
 `--format` and `--output` are independent:
 - `--format` controls serialization format (default: `human`)
 - `--output` controls destination (default: stdout)
-- Neither implies the other — if `--output` is given without `--format`,
-  the format must be specified explicitly (error otherwise, since writing
-  colored human text to a file is not useful)
+- When `--output` is given without `--format`, the format is auto-detected
+  from the file extension: `.json` → `json_pp`, `.jsonl` → `json_lines`,
+  `.yaml`/`.yml` → `yaml`. If the extension is unrecognized, an error is
+  raised (since writing colored human text to a file is not useful)
 
 ## Design
 
@@ -506,8 +507,10 @@ alongside the `.log` file.
 ```
 
 Validation:
-- If `--output` is given and `--format` is `human` (default), raise
-  `click.UsageError("--output requires --format to be set to a structured format")`
+- If `--output` is given and `--format` is `human` (default), auto-detect
+  format from file extension (`.json` → `json_pp`, `.jsonl` → `json_lines`,
+  `.yaml`/`.yml` → `yaml`). If extension is unrecognized, raise
+  `click.UsageError`
 
 #### Auto-save sidecar
 
@@ -800,7 +803,9 @@ cat results/*.jsonl | jq -s '
 
 ### Step 1b: `--output` + auto-save sidecar
 
-- Add `--output` option, enforce `--format` must be structured
+- Add `--output` option, auto-detect format from extension (`.json` →
+  `json_pp`, `.jsonl` → `json_lines`, `.yaml`/`.yml` → `yaml`); error
+  if extension unrecognized and `--format` not given
 - Create `dandi/validate/io.py` with shared `write_validation_jsonl()`,
   `append_validation_jsonl()`, `load_validation_jsonl()`,
   `validation_sidecar_path()`

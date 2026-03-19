@@ -231,14 +231,43 @@ def test_validate_output_file(simple2_nwb: Path, tmp_path: Path) -> None:
 
 @pytest.mark.ai_generated
 def test_validate_output_requires_format(simple2_nwb: Path, tmp_path: Path) -> None:
-    """Test --output without --format gives a usage error."""
-    outfile = tmp_path / "results.jsonl"
+    """Test --output with unrecognized extension and no --format gives error."""
+    outfile = tmp_path / "results.txt"
     r = CliRunner().invoke(
         validate,
         ["-o", str(outfile), str(simple2_nwb)],
     )
     assert r.exit_code != 0
     assert "--output requires --format" in r.output
+
+
+@pytest.mark.ai_generated
+def test_validate_output_auto_format(simple2_nwb: Path, tmp_path: Path) -> None:
+    """Test --output auto-detects format from file extension."""
+    outfile = tmp_path / "results.jsonl"
+    r = CliRunner().invoke(
+        validate,
+        ["-o", str(outfile), str(simple2_nwb)],
+    )
+    assert r.exit_code == 1  # NO_DANDISET_FOUND
+    assert outfile.exists()
+    lines = outfile.read_text().strip().split("\n")
+    # Should be json_lines format (one JSON per line)
+    rec = json.loads(lines[0])
+    assert "id" in rec
+
+    # .json → json_pp (indented)
+    outjson = tmp_path / "results.json"
+    r = CliRunner().invoke(
+        validate,
+        ["-o", str(outjson), str(simple2_nwb)],
+    )
+    assert r.exit_code == 1
+    content = outjson.read_text()
+    data = json.loads(content)
+    assert isinstance(data, list)
+    # json_pp produces indented output
+    assert "\n " in content
 
 
 @pytest.mark.ai_generated
