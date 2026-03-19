@@ -1,7 +1,9 @@
+import json
 from pathlib import Path
 
 from click.testing import CliRunner
 import pytest
+import ruamel.yaml
 
 from ..cmd_validate import _process_issues, validate
 from ...tests.xfail import mark_xfail_windows_python313_posixsubprocess
@@ -149,3 +151,61 @@ def test_validate_bids_error_grouping_notification(
     # Does it notify the user correctly?
     notification_substring = "Invalid value for '--grouping'"
     assert notification_substring in r.output
+
+
+@pytest.mark.ai_generated
+def test_validate_format_json(simple2_nwb: Path) -> None:
+    """Test --format json outputs a valid JSON array."""
+    r = CliRunner().invoke(validate, ["-f", "json", str(simple2_nwb)])
+    assert r.exit_code == 1  # NO_DANDISET_FOUND is an error
+    data = json.loads(r.output)
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    # Check structure of first result
+    rec = data[0]
+    assert "id" in rec
+    assert "origin" in rec
+    assert "severity" in rec
+    assert "record_version" in rec
+
+
+@pytest.mark.ai_generated
+def test_validate_format_json_lines(simple2_nwb: Path) -> None:
+    """Test --format json_lines outputs one JSON object per line."""
+    r = CliRunner().invoke(validate, ["-f", "json_lines", str(simple2_nwb)])
+    assert r.exit_code == 1
+    lines = [line for line in r.output.strip().split("\n") if line.strip()]
+    assert len(lines) >= 1
+    for line in lines:
+        rec = json.loads(line)
+        assert "id" in rec
+        assert "severity" in rec
+        assert "record_version" in rec
+
+
+@pytest.mark.ai_generated
+def test_validate_format_yaml(simple2_nwb: Path) -> None:
+    """Test --format yaml outputs valid YAML."""
+    r = CliRunner().invoke(validate, ["-f", "yaml", str(simple2_nwb)])
+    assert r.exit_code == 1
+    yaml = ruamel.yaml.YAML(typ="safe")
+    data = yaml.load(r.output)
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    rec = data[0]
+    assert "id" in rec
+    assert "severity" in rec
+    assert "record_version" in rec
+
+
+@pytest.mark.ai_generated
+def test_validate_format_no_errors_no_message(tmp_path: Path) -> None:
+    """Structured formats should not emit 'No errors found.' text."""
+    (tmp_path / "dandiset.yaml").write_text(
+        "identifier: 12346\nname: Foo\ndescription: Dandiset Foo\n"
+    )
+    r = CliRunner().invoke(validate, ["-f", "json", str(tmp_path)])
+    assert r.exit_code == 0
+    assert "No errors found" not in r.output
+    data = json.loads(r.output)
+    assert data == []

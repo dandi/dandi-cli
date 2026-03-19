@@ -3,15 +3,19 @@ from __future__ import annotations
 import logging
 import os
 import re
+import sys
 from typing import cast
 import warnings
 
 import click
 
 from .base import devel_debug_option, devel_option, map_to_click_exceptions
+from .formatter import JSONFormatter, JSONLinesFormatter, YAMLFormatter
 from ..utils import pluralize
 from ..validate.core import validate as validate_
 from ..validate.types import Severity, ValidationResult
+
+STRUCTURED_FORMATS = ("json", "json_pp", "json_lines", "yaml")
 
 
 def _collect_results(
@@ -136,6 +140,14 @@ def validate_bids(
     type=click.Choice([i.name for i in Severity], case_sensitive=True),
     default="HINT",
 )
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    help="Output format.",
+    type=click.Choice(["human", "json", "json_pp", "json_lines", "yaml"]),
+    default="human",
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
 @devel_debug_option()
 @map_to_click_exceptions
@@ -144,6 +156,7 @@ def validate(
     ignore: str | None,
     grouping: str,
     min_severity: str,
+    output_format: str = "human",
     schema: str | None = None,
     devel_debug: bool = False,
     allow_any_path: bool = False,
@@ -154,7 +167,44 @@ def validate(
     """
     results = _collect_results(paths, schema, devel_debug, allow_any_path)
     filtered = _filter_results(results, min_severity, ignore)
-    _process_issues(filtered, grouping)
+
+    if output_format == "human":
+        _process_issues(filtered, grouping)
+    else:
+        _render_structured(filtered, output_format, sys.stdout)
+        _exit_if_errors(filtered)
+
+
+def _get_formatter(output_format: str, out: object = None):
+    """Create a formatter for the given output format."""
+    if output_format == "json":
+        return JSONFormatter(out=out)
+    elif output_format == "json_pp":
+        return JSONFormatter(indent=2, out=out)
+    elif output_format == "json_lines":
+        return JSONLinesFormatter(out=out)
+    elif output_format == "yaml":
+        return YAMLFormatter(out=out)
+    else:
+        raise ValueError(f"Unknown format: {output_format}")
+
+
+def _render_structured(
+    results: list[ValidationResult],
+    output_format: str,
+    out: object,
+) -> None:
+    """Render validation results in a structured format."""
+    formatter = _get_formatter(output_format, out=out)
+    with formatter:
+        for r in results:
+            formatter(r.model_dump(mode="json"))
+
+
+def _exit_if_errors(results: list[ValidationResult]) -> None:
+    """Raise SystemExit(1) if any result has severity >= ERROR."""
+    if any(r.severity is not None and r.severity >= Severity.ERROR for r in results):
+        raise SystemExit(1)
 
 
 def _process_issues(
