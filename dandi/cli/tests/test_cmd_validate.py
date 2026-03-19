@@ -249,3 +249,48 @@ def test_validate_summary_human(simple2_nwb: Path) -> None:
     assert "Validation Summary" in r.output
     assert "Total issues:" in r.output
     assert "By severity:" in r.output
+
+
+@pytest.mark.ai_generated
+def test_validate_load(simple2_nwb: Path, tmp_path: Path) -> None:
+    """Test --load reads results from a JSONL file."""
+    # First, produce a JSONL file
+    outfile = tmp_path / "results.jsonl"
+    r = CliRunner().invoke(
+        validate,
+        ["-f", "json_lines", "-o", str(outfile), str(simple2_nwb)],
+    )
+    assert r.exit_code == 1
+    assert outfile.exists()
+
+    # Now load it
+    r = CliRunner().invoke(validate, ["--load", str(outfile)])
+    assert r.exit_code == 1  # loaded errors still produce exit 1
+    assert "DANDI.NO_DANDISET_FOUND" in r.output
+
+
+@pytest.mark.ai_generated
+def test_validate_load_with_format(simple2_nwb: Path, tmp_path: Path) -> None:
+    """Test --load combined with --format."""
+    outfile = tmp_path / "results.jsonl"
+    r = CliRunner().invoke(
+        validate,
+        ["-f", "json_lines", "-o", str(outfile), str(simple2_nwb)],
+    )
+    assert outfile.exists()
+
+    r = CliRunner().invoke(validate, ["--load", str(outfile), "-f", "json"])
+    assert r.exit_code == 1
+    data = json.loads(r.output)
+    assert isinstance(data, list)
+    assert len(data) >= 1
+
+
+@pytest.mark.ai_generated
+def test_validate_load_mutual_exclusivity(simple2_nwb: Path, tmp_path: Path) -> None:
+    """Test --load and paths are mutually exclusive."""
+    outfile = tmp_path / "dummy.jsonl"
+    outfile.write_text("")
+    r = CliRunner().invoke(validate, ["--load", str(outfile), str(simple2_nwb)])
+    assert r.exit_code != 0
+    assert "mutually exclusive" in r.output

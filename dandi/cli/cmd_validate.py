@@ -165,6 +165,13 @@ def validate_bids(
     help="Show summary statistics.",
     default=False,
 )
+@click.option(
+    "--load",
+    help="Load validation results from JSONL file(s) instead of running validation.",
+    type=click.Path(exists=True, dir_okay=False),
+    multiple=True,
+    default=(),
+)
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, dir_okay=True))
 @click.pass_context
 @devel_debug_option()
@@ -178,6 +185,7 @@ def validate(
     output_format: str = "human",
     output_file: str | None = None,
     summary: bool = False,
+    load: tuple[str, ...] = (),
     schema: str | None = None,
     devel_debug: bool = False,
     allow_any_path: bool = False,
@@ -192,7 +200,16 @@ def validate(
             "(json, json_pp, json_lines, yaml)."
         )
 
-    results = _collect_results(paths, schema, devel_debug, allow_any_path)
+    if load and paths:
+        raise click.UsageError("--load and positional paths are mutually exclusive.")
+
+    if load:
+        from ..validate.io import load_validation_jsonl
+
+        results = load_validation_jsonl(*load)
+    else:
+        results = _collect_results(paths, schema, devel_debug, allow_any_path)
+
     filtered = _filter_results(results, min_severity, ignore)
 
     if output_format == "human":
@@ -211,8 +228,8 @@ def validate(
         _render_structured(filtered, output_format, sys.stdout)
         if summary:
             _print_summary(filtered, sys.stderr)
-        # Auto-save sidecar next to logfile
-        if filtered and hasattr(ctx, "obj") and ctx.obj is not None:
+        # Auto-save sidecar next to logfile (skip when loading)
+        if not load and filtered and hasattr(ctx, "obj") and ctx.obj is not None:
             _auto_save_sidecar(filtered, ctx.obj.logfile)
         _exit_if_errors(filtered)
 
