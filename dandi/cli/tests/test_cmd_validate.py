@@ -15,7 +15,9 @@ from ..cmd_validate import (
     _truncate_leaves,
     validate,
 )
+from ..command import main
 from ...tests.xfail import mark_xfail_windows_python313_posixsubprocess
+from ...validate.io import load_validation_jsonl
 from ...validate.types import (
     Origin,
     OriginType,
@@ -772,3 +774,88 @@ def test_truncate_leaves_unit() -> None:
     # No truncation when under limit
     no_trunc = _truncate_leaves(issues, 100)
     assert no_trunc is issues
+
+
+@pytest.mark.ai_generated
+def test_validate_auto_sidecar_human(
+    simple2_nwb: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Default human-format validate auto-saves sidecar next to log file."""
+    logdir = tmp_path / "logs"
+    logdir.mkdir()
+    monkeypatch.setattr("platformdirs.user_log_dir", lambda *a, **kw: str(logdir))
+
+    r = CliRunner().invoke(main, ["validate", str(simple2_nwb)])
+    assert r.exit_code == 1  # NO_DANDISET_FOUND
+
+    # Find sidecar files
+    sidecars = list(logdir.glob("*_validation.jsonl"))
+    assert len(sidecars) == 1
+
+    # Verify content is loadable
+    results = load_validation_jsonl(sidecars[0])
+    assert len(results) > 0
+
+
+@pytest.mark.ai_generated
+def test_validate_auto_sidecar_skipped_with_output(
+    simple2_nwb: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--output suppresses auto-save sidecar."""
+    logdir = tmp_path / "logs"
+    logdir.mkdir()
+    monkeypatch.setattr("platformdirs.user_log_dir", lambda *a, **kw: str(logdir))
+
+    outfile = tmp_path / "results.jsonl"
+    r = CliRunner().invoke(main, ["validate", "-o", str(outfile), str(simple2_nwb)])
+    assert r.exit_code == 1
+    assert outfile.exists()
+
+    # No sidecar should exist
+    sidecars = list(logdir.glob("*_validation.jsonl"))
+    assert len(sidecars) == 0
+
+
+@pytest.mark.ai_generated
+def test_validate_auto_sidecar_skipped_with_load(
+    simple2_nwb: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--load suppresses auto-save sidecar."""
+    logdir = tmp_path / "logs"
+    logdir.mkdir()
+    monkeypatch.setattr("platformdirs.user_log_dir", lambda *a, **kw: str(logdir))
+
+    # First produce a JSONL to load
+    outfile = tmp_path / "input.jsonl"
+    r = CliRunner().invoke(
+        main, ["validate", "-f", "json_lines", "-o", str(outfile), str(simple2_nwb)]
+    )
+    assert outfile.exists()
+
+    # Clear any sidecars from first run
+    for s in logdir.glob("*_validation.jsonl"):
+        s.unlink()
+
+    # Now --load it
+    r = CliRunner().invoke(main, ["validate", "--load", str(outfile)])
+    assert r.exit_code == 1
+
+    # No new sidecar should exist
+    sidecars = list(logdir.glob("*_validation.jsonl"))
+    assert len(sidecars) == 0
+
+
+@pytest.mark.ai_generated
+def test_validate_auto_sidecar_structured_stdout(
+    simple2_nwb: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Structured format to stdout also auto-saves sidecar."""
+    logdir = tmp_path / "logs"
+    logdir.mkdir()
+    monkeypatch.setattr("platformdirs.user_log_dir", lambda *a, **kw: str(logdir))
+
+    r = CliRunner().invoke(main, ["validate", "-f", "json", str(simple2_nwb)])
+    assert r.exit_code == 1
+
+    sidecars = list(logdir.glob("*_validation.jsonl"))
+    assert len(sidecars) == 1

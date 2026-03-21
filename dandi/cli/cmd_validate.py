@@ -231,6 +231,11 @@ def validate(
     """Validate files for data standards compliance.
 
     Exits with non-0 exit code if any file is not compliant.
+
+    Validation results are automatically saved as a JSONL sidecar next to the
+    dandi-cli log file (unless --output is used or --load is active).  Use
+    ``dandi validate --load <path>`` to re-render saved results later with
+    different grouping, filtering, or format options.
     """
     # Normalize grouping: strip "none" values
     grouping = tuple(g for g in grouping if g != "none")
@@ -269,7 +274,6 @@ def validate(
         _render_human(filtered, grouping, max_per_group=max_per_group)
         if summary:
             _print_summary(filtered, sys.stdout)
-        _exit_if_errors(filtered)
     elif output_file is not None:
         with open(output_file, "w") as fh:
             _render_structured(
@@ -282,7 +286,6 @@ def validate(
         lgr.info("Validation output written to %s", output_file)
         if summary:
             _print_summary(filtered, sys.stderr)
-        _exit_if_errors(filtered)
     else:
         _render_structured(
             filtered,
@@ -293,10 +296,18 @@ def validate(
         )
         if summary:
             _print_summary(filtered, sys.stderr)
-        # Auto-save sidecar next to logfile (skip when loading)
-        if not load and filtered and hasattr(ctx, "obj") and ctx.obj is not None:
-            _auto_save_sidecar(filtered, ctx.obj.logfile)
-        _exit_if_errors(filtered)
+
+    # Auto-save sidecar next to logfile (skip when loading or writing to --output file)
+    if (
+        not load
+        and not output_file
+        and filtered
+        and hasattr(ctx, "obj")
+        and ctx.obj is not None
+    ):
+        _auto_save_sidecar(filtered, ctx.obj.logfile)
+
+    _exit_if_errors(filtered)
 
 
 def _auto_save_sidecar(results: list[ValidationResult], logfile: str) -> None:
