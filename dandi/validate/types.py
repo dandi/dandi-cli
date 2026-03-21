@@ -180,7 +180,13 @@ class Scope(Enum):
     DATASET = "dataset"
 
 
+CURRENT_RECORD_VERSION = "1"
+
+
 class ValidationResult(BaseModel):
+    record_version: str = CURRENT_RECORD_VERSION
+    """Version of the serialized record format for forward compatibility"""
+
     id: str
 
     origin: Origin

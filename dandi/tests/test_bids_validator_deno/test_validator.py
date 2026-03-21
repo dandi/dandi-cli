@@ -27,7 +27,7 @@ from dandi.bids_validator_deno._validator import (
 )
 from dandi.consts import dandiset_metadata_file
 from dandi.tests.fixtures import BIDS_TESTDATA_SELECTION
-from dandi.validate_types import (
+from dandi.validate.types import (
     OriginType,
     Scope,
     Severity,
