@@ -1101,11 +1101,20 @@ class RemoteDandiset:
             `Version`.
         """
         try:
-            return VersionInfo.model_validate(
-                self.client.get(
-                    f"/dandisets/{self.identifier}/versions/{version_id}/info/"
-                )
+            info_resp = self.client.get(
+                f"/dandisets/{self.identifier}/versions/{version_id}/info/"
             )
+
+            # Handle validation error changes https://github.com/dandi/dandi-archive/pull/2719
+            if "asset_validation_errors" not in info_resp:
+                info_resp["asset_validation_errors"] = self.client.get(
+                    f"/dandisets/{self.identifier}/versions/{version_id}/asset_validation_errors/"
+                )
+                info_resp["version_validation_errors"] = info_resp.pop(
+                    "validation_errors"
+                )
+
+            return VersionInfo.model_validate(info_resp)
         except HTTP404Error:
             raise NotFoundError(
                 f"No such version: {version_id!r} of Dandiset {self.identifier}"
