@@ -600,11 +600,21 @@ def extract_wasDerivedFrom(metadata: dict) -> list[models.BioSample] | None:
 _MOUSE_URI = NCBITAXON_URI_TEMPLATE.format("10090")
 
 
-def _extract_brain_anatomy(metadata: dict) -> list[models.Anatomy]:
+def _extract_brain_anatomy(
+    metadata: dict, max_synonym_scope: str = "EXACT"
+) -> list[models.Anatomy]:
     """Extract brain anatomy from metadata.
 
     For mice, tries Allen CCF first then falls back to UBERON.
     For other species, tries UBERON directly.
+
+    Parameters
+    ----------
+    metadata : dict
+        NWB metadata dictionary.
+    max_synonym_scope : str
+        Most permissive UBERON synonym scope to try.  Tiers are tried
+        in precision order: EXACT > NARROW > BROAD > RELATED.
     """
     if not (locations := metadata.get("brain_locations")):
         return []
@@ -614,9 +624,9 @@ def _extract_brain_anatomy(metadata: dict) -> list[models.Anatomy]:
         return []
 
     if str(species.identifier) == _MOUSE_URI:
-        return locations_to_mouse_anatomy(locations)
+        return locations_to_mouse_anatomy(locations, max_synonym_scope)
     else:
-        return locations_to_uberon_anatomy(locations)
+        return locations_to_uberon_anatomy(locations, max_synonym_scope)
 
 
 extract_wasAttributedTo = extract_model_list(
