@@ -20,6 +20,17 @@ class TestParseLocationString:
             ("VISp, VISrl, VISlm", ["VISp", "VISrl", "VISlm"]),
             ("area: VISp, depth: 175", ["VISp"]),
             ("VISp, unknown, CA1", ["VISp", "CA1"]),
+            # Dict literal with no known area key → _non_trivial_values fallback
+            ("{'custom': 'VISp', 'depth': '20'}", ["VISp"]),
+            # Key-value format with no known area key → _non_trivial_values fallback
+            ("custom: VISp, depth: 175", ["VISp"]),
+            # Dict literal with flexible key names (hyphens/underscores)
+            ("{'brain-area': 'VISp', 'depth': '20'}", ["VISp"]),
+            ("{'brain_region': 'CA1'}", ["CA1"]),
+            # Dict literal where area key has trivial value → _non_trivial_values
+            ("{'area': 'unknown', 'tag': 'VISp'}", ["VISp"]),
+            # Non-dict set literal starting with { → falls through to comma split
+            ("{1, 2, 3}", ["{1", "2", "3}"]),
         ],
     )
     def test_parses_locations(self, input_str: str, expected: list[str]) -> None:
@@ -41,6 +52,18 @@ class TestParseLocationString:
     )
     def test_trivial_returns_empty(self, input_str: str) -> None:
         assert _parse_location_string(input_str) == []
+
+    def test_malformed_dict_literal(self) -> None:
+        """Dict-like string that fails ast.literal_eval falls through."""
+        result = _parse_location_string("{not valid python}")
+        # Falls through to key-value parser or simple string
+        assert isinstance(result, list)
+        assert len(result) > 0
+
+    def test_url_skips_kv_parser(self) -> None:
+        """Strings containing :// should not be parsed as key-value pairs."""
+        result = _parse_location_string("http://example.com/brain")
+        assert result == ["http://example.com/brain"]
 
 
 @pytest.mark.ai_generated

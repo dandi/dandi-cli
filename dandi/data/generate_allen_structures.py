@@ -12,13 +12,13 @@ from pathlib import Path
 import requests
 
 
-def _flatten(node: dict, out: list[dict]) -> None:
+def _flatten(node: dict, out: list[dict]) -> None:  # pragma: no cover
     out.append({"id": node["id"], "acronym": node["acronym"], "name": node["name"]})
     for child in node.get("children", []):
         _flatten(child, out)
 
 
-def main() -> None:
+def main() -> None:  # pragma: no cover
     url = "https://api.brain-map.org/api/v2/structure_graph_download/1.json"
     resp = requests.get(url, timeout=30)
     resp.raise_for_status()
@@ -33,5 +33,5 @@ def main() -> None:
     print(f"Wrote {len(structures)} structures to {out_path}")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()
