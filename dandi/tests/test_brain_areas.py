@@ -5,7 +5,10 @@ import pytest
 from ..metadata.brain_areas import (
     _parse_location_string,
     locations_to_ccf_mouse_anatomy,
+    locations_to_mouse_anatomy,
+    locations_to_uberon_anatomy,
     match_location_to_allen,
+    match_location_to_uberon,
 )
 
 
@@ -128,3 +131,102 @@ class TestLocationsToAnatomy:
     def test_comma_separated_input(self) -> None:
         result = locations_to_ccf_mouse_anatomy(["VISp,CA1"])
         assert len(result) == 2
+
+
+@pytest.mark.ai_generated
+class TestMatchLocationToUberon:
+    @pytest.mark.parametrize(
+        "token, expected_name",
+        [
+            ("brain", "brain"),
+            ("hippocampal formation", "hippocampal formation"),
+            ("primary visual cortex", "primary visual cortex"),
+            ("cerebral cortex", "cerebral cortex"),
+        ],
+    )
+    def test_matches(self, token: str, expected_name: str) -> None:
+        result = match_location_to_uberon(token)
+        assert result is not None
+        assert "UBERON_" in str(result.identifier)
+        assert result.name == expected_name
+
+    def test_case_insensitive(self) -> None:
+        result = match_location_to_uberon("Hippocampal Formation")
+        assert result is not None
+        assert result.name == "hippocampal formation"
+
+    def test_exact_synonym(self) -> None:
+        # "brain fornix" is an EXACT synonym for "fornix of brain"
+        result = match_location_to_uberon("brain fornix")
+        assert result is not None
+        assert result.name == "fornix of brain"
+
+    def test_related_synonym_excluded_by_default(self) -> None:
+        # "encephalon" is a RELATED synonym for "brain"
+        result = match_location_to_uberon("encephalon")
+        assert result is None
+
+    def test_related_synonym_included_when_requested(self) -> None:
+        result = match_location_to_uberon(
+            "encephalon", synonym_scopes=frozenset({"EXACT", "RELATED"})
+        )
+        assert result is not None
+        assert result.name == "brain"
+
+    @pytest.mark.parametrize("token", ["nonexistent_area_xyz", ""])
+    def test_no_match(self, token: str) -> None:
+        assert match_location_to_uberon(token) is None
+
+    def test_ca1_synonym(self) -> None:
+        # CA1 is an exact synonym for "CA1 field of hippocampus"
+        result = match_location_to_uberon("CA1")
+        assert result is not None
+        assert "CA1" in result.name
+
+
+@pytest.mark.ai_generated
+class TestLocationsToUberonAnatomy:
+    def test_basic(self) -> None:
+        result = locations_to_uberon_anatomy(["hippocampal formation"])
+        assert len(result) == 1
+        assert result[0].name == "hippocampal formation"
+
+    def test_deduplication(self) -> None:
+        result = locations_to_uberon_anatomy(
+            ["hippocampal formation", "Hippocampal Formation"]
+        )
+        assert len(result) == 1
+
+    def test_empty(self) -> None:
+        assert locations_to_uberon_anatomy([]) == []
+
+    def test_unmatched(self) -> None:
+        assert locations_to_uberon_anatomy(["nonexistent_xyz"]) == []
+
+
+@pytest.mark.ai_generated
+class TestLocationsToMouseAnatomy:
+    def test_allen_preferred(self) -> None:
+        """Allen CCF match should be used over UBERON for mouse."""
+        result = locations_to_mouse_anatomy(["VISp"])
+        assert len(result) == 1
+        assert "MBA_" in str(result[0].identifier)
+
+    def test_uberon_fallback(self) -> None:
+        """Tokens not in Allen CCF should fall back to UBERON."""
+        # "visual cortex" is in UBERON but not Allen CCF
+        result = locations_to_mouse_anatomy(["visual cortex"])
+        assert len(result) == 1
+        assert "UBERON_" in str(result[0].identifier)
+
+    def test_mixed_allen_and_uberon(self) -> None:
+        """Allen-matched and UBERON-matched tokens should coexist."""
+        result = locations_to_mouse_anatomy(["VISp", "visual cortex"])
+        assert len(result) == 2
+        identifiers = {str(r.identifier) for r in result}
+        assert any("MBA_" in i for i in identifiers)
+        assert any("UBERON_" in i for i in identifiers)
+
+    def test_deduplication(self) -> None:
+        result = locations_to_mouse_anatomy(["VISp", "VISp"])
+        assert len(result) == 1

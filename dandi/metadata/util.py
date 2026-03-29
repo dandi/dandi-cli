@@ -13,7 +13,7 @@ import requests
 import tenacity
 from yarl import URL
 
-from .brain_areas import locations_to_ccf_mouse_anatomy
+from .brain_areas import locations_to_mouse_anatomy, locations_to_uberon_anatomy
 from .. import __version__
 from ..utils import ensure_datetime
 
@@ -576,7 +576,7 @@ def extract_wasDerivedFrom(metadata: dict) -> list[models.BioSample] | None:
             if deepest is None:
                 deepest = sample
 
-    # Compute anatomy from brain locations (mouse only)
+    # Compute anatomy from brain locations
     anatomy = _extract_brain_anatomy(metadata)
     if anatomy:
         if deepest is not None:
@@ -601,15 +601,22 @@ _MOUSE_URI = NCBITAXON_URI_TEMPLATE.format("10090")
 
 
 def _extract_brain_anatomy(metadata: dict) -> list[models.Anatomy]:
-    """Extract brain anatomy from metadata, if the species is mouse."""
+    """Extract brain anatomy from metadata.
+
+    For mice, tries Allen CCF first then falls back to UBERON.
+    For other species, tries UBERON directly.
+    """
     if not (locations := metadata.get("brain_locations")):
         return []
 
     species = extract_species(metadata)
-    if species is None or str(species.identifier) != _MOUSE_URI:
+    if species is None:
         return []
 
-    return locations_to_ccf_mouse_anatomy(locations)
+    if str(species.identifier) == _MOUSE_URI:
+        return locations_to_mouse_anatomy(locations)
+    else:
+        return locations_to_uberon_anatomy(locations)
 
 
 extract_wasAttributedTo = extract_model_list(

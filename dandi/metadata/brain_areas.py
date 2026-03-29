@@ -14,6 +14,7 @@ from .. import get_logger
 lgr = get_logger()
 
 MBAO_URI_TEMPLATE = "http://purl.obolibrary.org/obo/MBA_{}"
+UBERON_URI_TEMPLATE = "http://purl.obolibrary.org/obo/UBERON_{}"
 
 # Values that should be treated as missing / uninformative
 _TRIVIAL_VALUES = frozenset(
@@ -247,6 +248,178 @@ def locations_to_ccf_mouse_anatomy(locations: list[str]) -> list[models.Anatomy]
         tokens = _parse_location_string(loc)
         for token in tokens:
             anatomy = match_location_to_allen(token)
+            if anatomy is not None:
+                id_str = str(anatomy.identifier)
+                if id_str not in seen_ids:
+                    seen_ids.add(id_str)
+                    results.append(anatomy)
+    return results
+
+
+# ---------------------------------------------------------------------------
+# UBERON matching
+# ---------------------------------------------------------------------------
+
+
+@lru_cache(maxsize=1)
+def _load_uberon_structures() -> list[dict[str, Any]]:
+    """Load the bundled UBERON brain structures JSON."""
+    data_path = (
+        Path(__file__).resolve().parent.parent / "data" / "uberon_brain_structures.json"
+    )
+    with open(data_path) as f:
+        structures: list[dict[str, Any]] = json.load(f)
+    return structures
+
+
+@lru_cache(maxsize=4)
+def _build_uberon_lookup_dicts(
+    synonym_scopes: frozenset[str] = frozenset({"EXACT"}),
+) -> tuple[dict[str, dict], dict[str, dict]]:
+    """Build lookup dictionaries for UBERON structures.
+
+    Parameters
+    ----------
+    synonym_scopes : frozenset[str]
+        Which synonym scopes to include (e.g. ``{"EXACT"}``,
+        ``{"EXACT", "RELATED"}``).
+
+    Returns
+    -------
+    tuple of 2 dicts
+        (name_exact, name_lower) mapping term names and synonym texts to
+        structure dicts.
+    """
+    structures = _load_uberon_structures()
+    name_exact: dict[str, dict] = {}
+    name_lower: dict[str, dict] = {}
+    for s in structures:
+        name = s["name"]
+        if name not in name_exact:
+            name_exact[name] = s
+        name_low = name.lower()
+        if name_low not in name_lower:
+            name_lower[name_low] = s
+        # Synonyms stored as [text, scope_letter] compact format
+        _scope_map = {"E": "EXACT", "R": "RELATED", "N": "NARROW", "B": "BROAD"}
+        for syn in s.get("synonyms", []):
+            scope = _scope_map.get(syn[1], syn[1])
+            if scope not in synonym_scopes:
+                continue
+            text = syn[0]
+            if text not in name_exact:
+                name_exact[text] = s
+            text_low = text.lower()
+            if text_low not in name_lower:
+                name_lower[text_low] = s
+    return name_exact, name_lower
+
+
+def match_location_to_uberon(
+    token: str,
+    synonym_scopes: frozenset[str] = frozenset({"EXACT"}),
+) -> models.Anatomy | None:
+    """Match a single location token against UBERON brain structures.
+
+    Tries exact name/synonym, then case-insensitive name/synonym.
+
+    Parameters
+    ----------
+    token : str
+        Location string to match.
+    synonym_scopes : frozenset[str]
+        Synonym scopes to include in matching.
+
+    Returns
+    -------
+    models.Anatomy or None
+    """
+    name_exact, name_lower = _build_uberon_lookup_dicts(synonym_scopes)
+    token_stripped = token.strip()
+    if not token_stripped:
+        return None
+
+    # 1. Exact name/synonym match
+    s = name_exact.get(token_stripped)
+    if s is not None:
+        return _uberon_structure_to_anatomy(s)
+
+    # 2. Case-insensitive name/synonym match
+    s = name_lower.get(token_stripped.lower())
+    if s is not None:
+        return _uberon_structure_to_anatomy(s)
+
+    return None
+
+
+def _uberon_structure_to_anatomy(s: dict[str, Any]) -> models.Anatomy:
+    """Convert a UBERON structure dict to a ``dandischema`` Anatomy model."""
+    return models.Anatomy(
+        identifier=UBERON_URI_TEMPLATE.format(s["id"]),
+        name=s["name"],
+    )
+
+
+def locations_to_uberon_anatomy(
+    locations: list[str],
+    synonym_scopes: frozenset[str] = frozenset({"EXACT"}),
+) -> list[models.Anatomy]:
+    """Convert raw NWB location strings to deduplicated UBERON Anatomy list.
+
+    Parameters
+    ----------
+    locations : list[str]
+        Raw location strings from NWB file.
+    synonym_scopes : frozenset[str]
+        Synonym scopes to include in matching.
+
+    Returns
+    -------
+    list[models.Anatomy]
+        Matched and deduplicated anatomy entries.
+    """
+    seen_ids: set[str] = set()
+    results: list[models.Anatomy] = []
+    for loc in locations:
+        tokens = _parse_location_string(loc)
+        for token in tokens:
+            anatomy = match_location_to_uberon(token, synonym_scopes)
+            if anatomy is not None:
+                id_str = str(anatomy.identifier)
+                if id_str not in seen_ids:
+                    seen_ids.add(id_str)
+                    results.append(anatomy)
+    return results
+
+
+def locations_to_mouse_anatomy(
+    locations: list[str],
+    synonym_scopes: frozenset[str] = frozenset({"EXACT"}),
+) -> list[models.Anatomy]:
+    """Convert raw NWB location strings for mouse.
+
+    Tries Allen CCF first for each token, falls back to UBERON.
+
+    Parameters
+    ----------
+    locations : list[str]
+        Raw location strings from NWB file.
+    synonym_scopes : frozenset[str]
+        Synonym scopes for UBERON fallback matching.
+
+    Returns
+    -------
+    list[models.Anatomy]
+        Matched and deduplicated anatomy entries.
+    """
+    seen_ids: set[str] = set()
+    results: list[models.Anatomy] = []
+    for loc in locations:
+        tokens = _parse_location_string(loc)
+        for token in tokens:
+            anatomy = match_location_to_allen(token)
+            if anatomy is None:
+                anatomy = match_location_to_uberon(token, synonym_scopes)
             if anatomy is not None:
                 id_str = str(anatomy.identifier)
                 if id_str not in seen_ids:
