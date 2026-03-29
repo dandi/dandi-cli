@@ -226,6 +226,8 @@ def test_upload_bids_validation_ignore(
     dandiset.get_asset_by_path("dataset_description.json")
     # actual data file?
     dandiset.get_asset_by_path("sub-Sub1/anat/sub-Sub1_T1w.nii.gz")
+    # .bidsignore file?
+    dandiset.get_asset_by_path(".bidsignore")
 
 
 def test_upload_bids_metadata(
@@ -276,6 +278,8 @@ def test_upload_bids(
     dandiset.get_asset_by_path("dataset_description.json")
     # actual data file?
     dandiset.get_asset_by_path("sub-Sub1/anat/sub-Sub1_T1w.nii.gz")
+    # .bidsignore file should be uploaded automatically
+    dandiset.get_asset_by_path(".bidsignore")
 
 
 def test_upload_bids_non_nwb_file(bids_dandiset: SampleDandiset) -> None:
