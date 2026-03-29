@@ -181,7 +181,7 @@ class TestMatchLocationToUberon:
         # CA1 is an exact synonym for "CA1 field of hippocampus"
         result = match_location_to_uberon("CA1")
         assert result is not None
-        assert "CA1" in result.name
+        assert result.name is not None and "CA1" in result.name
 
 
 @pytest.mark.ai_generated
