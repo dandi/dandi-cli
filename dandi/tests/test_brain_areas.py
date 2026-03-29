@@ -166,10 +166,13 @@ class TestMatchLocationToUberon:
         result = match_location_to_uberon("encephalon")
         assert result is None
 
+    def test_related_synonym_excluded_at_broad(self) -> None:
+        # BROAD doesn't include RELATED
+        result = match_location_to_uberon("encephalon", max_synonym_scope="BROAD")
+        assert result is None
+
     def test_related_synonym_included_when_requested(self) -> None:
-        result = match_location_to_uberon(
-            "encephalon", synonym_scopes=frozenset({"EXACT", "RELATED"})
-        )
+        result = match_location_to_uberon("encephalon", max_synonym_scope="RELATED")
         assert result is not None
         assert result.name == "brain"
 

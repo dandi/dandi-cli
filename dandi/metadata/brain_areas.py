@@ -272,82 +272,111 @@ def _load_uberon_structures() -> list[dict[str, Any]]:
     return structures
 
 
+# Synonym scopes ordered from most to least precise.
+_SCOPE_ORDER = ("EXACT", "NARROW", "BROAD", "RELATED")
+_SCOPE_LETTER = {"E": "EXACT", "N": "NARROW", "B": "BROAD", "R": "RELATED"}
+
+
+def _scopes_up_to(max_scope: str) -> tuple[str, ...]:
+    """Return scope tiers from EXACT up to and including *max_scope*."""
+    idx = _SCOPE_ORDER.index(max_scope)
+    return _SCOPE_ORDER[: idx + 1]
+
+
 @lru_cache(maxsize=4)
 def _build_uberon_lookup_dicts(
-    synonym_scopes: frozenset[str] = frozenset({"EXACT"}),
+    scope: str,
 ) -> tuple[dict[str, dict], dict[str, dict]]:
-    """Build lookup dictionaries for UBERON structures.
+    """Build lookup dictionaries for a single UBERON synonym scope.
+
+    Term names are always included (they are not scope-gated).
+    Synonyms are filtered to only those matching *scope*.
 
     Parameters
     ----------
-    synonym_scopes : frozenset[str]
-        Which synonym scopes to include (e.g. ``{"EXACT"}``,
-        ``{"EXACT", "RELATED"}``).
+    scope : str
+        A single scope to include (``"EXACT"``, ``"NARROW"``, etc.).
+        Pass ``"_NAME"`` to build a name-only dict (no synonyms).
 
     Returns
     -------
     tuple of 2 dicts
-        (name_exact, name_lower) mapping term names and synonym texts to
-        structure dicts.
+        (name_exact, name_lower) mapping texts to structure dicts.
     """
     structures = _load_uberon_structures()
     name_exact: dict[str, dict] = {}
     name_lower: dict[str, dict] = {}
     for s in structures:
-        name = s["name"]
-        if name not in name_exact:
-            name_exact[name] = s
-        name_low = name.lower()
-        if name_low not in name_lower:
-            name_lower[name_low] = s
-        # Synonyms stored as [text, scope_letter] compact format
-        _scope_map = {"E": "EXACT", "R": "RELATED", "N": "NARROW", "B": "BROAD"}
-        for syn in s.get("synonyms", []):
-            scope = _scope_map.get(syn[1], syn[1])
-            if scope not in synonym_scopes:
-                continue
-            text = syn[0]
-            if text not in name_exact:
-                name_exact[text] = s
-            text_low = text.lower()
-            if text_low not in name_lower:
-                name_lower[text_low] = s
+        if scope == "_NAME":
+            # Name-only tier (always tried first)
+            name = s["name"]
+            if name not in name_exact:
+                name_exact[name] = s
+            name_low = name.lower()
+            if name_low not in name_lower:
+                name_lower[name_low] = s
+        else:
+            # Synonym tier for the given scope
+            for syn in s.get("synonyms", []):
+                syn_scope = _SCOPE_LETTER.get(syn[1], syn[1])
+                if syn_scope != scope:
+                    continue
+                text = syn[0]
+                if text not in name_exact:
+                    name_exact[text] = s
+                text_low = text.lower()
+                if text_low not in name_lower:
+                    name_lower[text_low] = s
     return name_exact, name_lower
+
+
+def _lookup_in_dicts(
+    token: str, name_exact: dict[str, dict], name_lower: dict[str, dict]
+) -> dict | None:
+    """Try exact then case-insensitive lookup, return structure or None."""
+    s = name_exact.get(token)
+    if s is not None:
+        return s
+    return name_lower.get(token.lower())
 
 
 def match_location_to_uberon(
     token: str,
-    synonym_scopes: frozenset[str] = frozenset({"EXACT"}),
+    max_synonym_scope: str = "EXACT",
 ) -> models.Anatomy | None:
     """Match a single location token against UBERON brain structures.
 
-    Tries exact name/synonym, then case-insensitive name/synonym.
+    Matching is tiered: term names are tried first, then synonyms in
+    precision order (EXACT > NARROW > BROAD > RELATED) up to and
+    including *max_synonym_scope*.
 
     Parameters
     ----------
     token : str
         Location string to match.
-    synonym_scopes : frozenset[str]
-        Synonym scopes to include in matching.
+    max_synonym_scope : str
+        Most permissive synonym scope to try.  ``"EXACT"`` (default)
+        only uses exact synonyms.  ``"BROAD"`` tries EXACT, then
+        NARROW, then BROAD.
 
     Returns
     -------
     models.Anatomy or None
     """
-    name_exact, name_lower = _build_uberon_lookup_dicts(synonym_scopes)
     token_stripped = token.strip()
     if not token_stripped:
         return None
 
-    # 1. Exact name/synonym match
-    s = name_exact.get(token_stripped)
+    # Always try term names first
+    s = _lookup_in_dicts(token_stripped, *_build_uberon_lookup_dicts("_NAME"))
     if s is not None:
         return _uberon_structure_to_anatomy(s)
 
-    # 2. Case-insensitive name/synonym match
-    s = name_lower.get(token_stripped.lower())
-    if s is not None:
-        return _uberon_structure_to_anatomy(s)
+    # Try synonym tiers in precision order
+    for scope in _scopes_up_to(max_synonym_scope):
+        s = _lookup_in_dicts(token_stripped, *_build_uberon_lookup_dicts(scope))
+        if s is not None:
+            return _uberon_structure_to_anatomy(s)
 
     return None
 
@@ -362,7 +391,7 @@ def _uberon_structure_to_anatomy(s: dict[str, Any]) -> models.Anatomy:
 
 def locations_to_uberon_anatomy(
     locations: list[str],
-    synonym_scopes: frozenset[str] = frozenset({"EXACT"}),
+    max_synonym_scope: str = "EXACT",
 ) -> list[models.Anatomy]:
     """Convert raw NWB location strings to deduplicated UBERON Anatomy list.
 
@@ -370,8 +399,9 @@ def locations_to_uberon_anatomy(
     ----------
     locations : list[str]
         Raw location strings from NWB file.
-    synonym_scopes : frozenset[str]
-        Synonym scopes to include in matching.
+    max_synonym_scope : str
+        Most permissive synonym scope to try (see
+        :func:`match_location_to_uberon`).
 
     Returns
     -------
@@ -383,7 +413,7 @@ def locations_to_uberon_anatomy(
     for loc in locations:
         tokens = _parse_location_string(loc)
         for token in tokens:
-            anatomy = match_location_to_uberon(token, synonym_scopes)
+            anatomy = match_location_to_uberon(token, max_synonym_scope)
             if anatomy is not None:
                 id_str = str(anatomy.identifier)
                 if id_str not in seen_ids:
@@ -394,7 +424,7 @@ def locations_to_uberon_anatomy(
 
 def locations_to_mouse_anatomy(
     locations: list[str],
-    synonym_scopes: frozenset[str] = frozenset({"EXACT"}),
+    max_synonym_scope: str = "EXACT",
 ) -> list[models.Anatomy]:
     """Convert raw NWB location strings for mouse.
 
@@ -404,8 +434,9 @@ def locations_to_mouse_anatomy(
     ----------
     locations : list[str]
         Raw location strings from NWB file.
-    synonym_scopes : frozenset[str]
-        Synonym scopes for UBERON fallback matching.
+    max_synonym_scope : str
+        Most permissive synonym scope for UBERON fallback (see
+        :func:`match_location_to_uberon`).
 
     Returns
     -------
@@ -419,7 +450,7 @@ def locations_to_mouse_anatomy(
         for token in tokens:
             anatomy = match_location_to_allen(token)
             if anatomy is None:
-                anatomy = match_location_to_uberon(token, synonym_scopes)
+                anatomy = match_location_to_uberon(token, max_synonym_scope)
             if anatomy is not None:
                 id_str = str(anatomy.identifier)
                 if id_str not in seen_ids:
