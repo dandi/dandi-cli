@@ -368,14 +368,16 @@ def match_location_to_uberon(
         return None
 
     # Always try term names first
-    s = _lookup_in_dicts(token_stripped, *_build_uberon_lookup_dicts("_NAME"))
-    if s is not None:
+    if (
+        s := _lookup_in_dicts(token_stripped, *_build_uberon_lookup_dicts("_NAME"))
+    ) is not None:
         return _uberon_structure_to_anatomy(s)
 
     # Try synonym tiers in precision order
     for scope in _scopes_up_to(max_synonym_scope):
-        s = _lookup_in_dicts(token_stripped, *_build_uberon_lookup_dicts(scope))
-        if s is not None:
+        if (
+            s := _lookup_in_dicts(token_stripped, *_build_uberon_lookup_dicts(scope))
+        ) is not None:
             return _uberon_structure_to_anatomy(s)
 
     return None

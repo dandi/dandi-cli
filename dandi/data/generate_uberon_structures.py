@@ -1,26 +1,32 @@
-#!/usr/bin/env python3
 """Regenerate uberon_brain_structures.json from the UBERON OBO file.
 
-Run: python -m dandi.data.generate_uberon_structures
-
 Downloads the UBERON OBO file, parses it without any library dependency,
-extracts brain/nervous system descendants, and writes a compact JSON file.
+extracts brain/nervous system descendants, and writes the bundled JSON.
+
+Can be run via::
+
+    dandi service-scripts generate-uberon-structures
 """
 
 from __future__ import annotations
 
 from collections import defaultdict
 import json
+import logging
 from pathlib import Path
 import re
 
 import requests
 
+lgr = logging.getLogger(__name__)
+
 # Root terms whose descendants (via is_a and part_of) we collect.
 _ROOT_IDS = frozenset({"UBERON:0001016", "UBERON:0000955"})  # nervous system, brain
 
+_OUTPUT_PATH = Path(__file__).with_name("uberon_brain_structures.json")
 
-def _parse_obo_terms(text: str) -> list[dict]:  # pragma: no cover
+
+def _parse_obo_terms(text: str) -> list[dict]:
     """Parse [Term] stanzas from raw OBO text."""
     terms: list[dict] = []
     in_term = False
@@ -62,8 +68,9 @@ def _parse_obo_terms(text: str) -> list[dict]:  # pragma: no cover
             if parent_id.startswith("UBERON:"):
                 current["parents"].append(parent_id)
         elif line.startswith("synonym: "):
-            m = re.match(r'synonym:\s+"(.+?)"\s+(EXACT|RELATED|NARROW|BROAD)', line)
-            if m:
+            if m := re.match(
+                r'synonym:\s+"(.+?)"\s+(EXACT|RELATED|NARROW|BROAD)', line
+            ):
                 current["synonyms"].append({"text": m.group(1), "scope": m.group(2)})
 
     if current.get("id"):
@@ -71,9 +78,7 @@ def _parse_obo_terms(text: str) -> list[dict]:  # pragma: no cover
     return terms
 
 
-def _collect_descendants(
-    terms: list[dict], root_ids: frozenset[str]
-) -> set[str]:  # pragma: no cover
+def _collect_descendants(terms: list[dict], root_ids: frozenset[str]) -> set[str]:
     """BFS from root_ids through children (reverse of is_a/part_of) edges."""
     children: dict[str, list[str]] = defaultdict(list)
     for t in terms:
@@ -91,22 +96,23 @@ def _collect_descendants(
     return visited
 
 
-def main() -> None:  # pragma: no cover
+def generate(output: Path = _OUTPUT_PATH) -> None:
+    """Download UBERON OBO and write brain/nervous-system structures JSON."""
     url = "http://purl.obolibrary.org/obo/uberon.obo"
-    print(f"Downloading {url} ...")
+    lgr.info("Downloading %s ...", url)
     resp = requests.get(url, timeout=120)
     resp.raise_for_status()
-    print(f"Downloaded {len(resp.text)} bytes, parsing ...")
+    lgr.info("Downloaded %d bytes, parsing ...", len(resp.text))
 
     all_terms = _parse_obo_terms(resp.text)
-    print(f"Parsed {len(all_terms)} terms")
+    lgr.info("Parsed %d terms", len(all_terms))
 
     # Filter to UBERON terms only (skip cross-ontology references)
     uberon_terms = [t for t in all_terms if t["id"].startswith("UBERON:")]
-    print(f"UBERON terms: {len(uberon_terms)}")
+    lgr.info("UBERON terms: %d", len(uberon_terms))
 
     descendant_ids = _collect_descendants(uberon_terms, _ROOT_IDS)
-    print(f"Nervous system descendants (including roots): {len(descendant_ids)}")
+    lgr.info("Nervous system descendants (including roots): %d", len(descendant_ids))
 
     structures: list[dict] = []
     for t in uberon_terms:
@@ -115,19 +121,14 @@ def main() -> None:  # pragma: no cover
         numeric_id = t["id"].replace("UBERON:", "")
         entry: dict = {"id": numeric_id, "name": t["name"]}
         if t["synonyms"]:
-            # Compact format: [text, scope_letter] to keep file under 500KB
+            # Compact format: [text, scope_letter]
             entry["synonyms"] = [
                 [syn["text"], syn["scope"][0]] for syn in t["synonyms"]
             ]
         structures.append(entry)
 
     structures.sort(key=lambda s: s["id"])
-    out_path = Path(__file__).with_name("uberon_brain_structures.json")
-    with open(out_path, "w") as f:
-        json.dump(structures, f, separators=(",", ":"))
+    with open(output, "w") as f:
+        json.dump(structures, f, indent=1)
         f.write("\n")
-    print(f"Wrote {len(structures)} structures to {out_path}")
-
-
-if __name__ == "__main__":  # pragma: no cover
-    main()
+    lgr.info("Wrote %d structures to %s", len(structures), output)
