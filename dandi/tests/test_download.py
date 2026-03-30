@@ -1293,3 +1293,121 @@ def test__check_attempts_and_sleep_retries(status_code: int) -> None:
         mock_sleep.assert_called_once()
         # and we do not sleep really
         assert not mock_sleep.call_args.args[0]
+
+
+# ---------- Partial Zarr download tests ----------
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_with_glob_filter(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    """Download only .z* metadata files from a zarr asset."""
+    download(
+        zarr_dandiset.dandiset.version_api_url,
+        tmp_path,
+        zarr_filters=("glob:**/.z*",),
+    )
+    zarr_dir = tmp_path / zarr_dandiset.dandiset_id / "sample.zarr"
+    assert zarr_dir.exists()
+    # All downloaded files should be metadata (start with .z)
+    all_files = list_paths(zarr_dir)
+    assert len(all_files) > 0
+    for f in all_files:
+        assert f.name.startswith(".z"), f"Non-metadata file downloaded: {f}"
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_metadata_alias(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    """Test the 'metadata' alias for --zarr."""
+    download(
+        zarr_dandiset.dandiset.version_api_url,
+        tmp_path,
+        zarr_filters=("metadata",),
+    )
+    zarr_dir = tmp_path / zarr_dandiset.dandiset_id / "sample.zarr"
+    assert zarr_dir.exists()
+    all_files = list_paths(zarr_dir)
+    assert len(all_files) > 0
+    for f in all_files:
+        assert f.name.startswith(".z") or f.name in (
+            "zarr.json",
+            ".zmetadata",
+        ), f"Non-metadata file downloaded: {f}"
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_filter_no_delete(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    """Verify local files outside filter scope are NOT deleted during partial download."""
+    dd = tmp_path / zarr_dandiset.dandiset_id
+    dd.mkdir()
+    zarr_dir = dd / "sample.zarr"
+    zarr_dir.mkdir()
+    # Create a pre-existing "extra" file
+    extra = zarr_dir / "extra_local_file.txt"
+    extra.write_text("should not be deleted")
+
+    download(
+        zarr_dandiset.dandiset.version_api_url,
+        tmp_path,
+        zarr_filters=("glob:**/.z*",),
+        existing=DownloadExisting.OVERWRITE,
+    )
+    # The extra file should still exist (filter mode skips deletion)
+    assert extra.exists(), "Local file outside filter scope was deleted"
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_with_path_filter(
+    tmp_path: Path, new_dandiset: SampleDandiset
+) -> None:
+    """Download only a specific subtree using path: filter."""
+    zf = new_dandiset.dspath / "sample.zarr"
+    zf.mkdir()
+    (zf / "a").mkdir()
+    (zf / "a" / "data.bin").write_text("data-a")
+    (zf / "b").mkdir()
+    (zf / "b" / "data.bin").write_text("data-b")
+    new_dandiset.upload(validation="skip")
+
+    download(
+        new_dandiset.dandiset.version_api_url,
+        tmp_path,
+        zarr_filters=("path:a",),
+    )
+    zarr_dir = tmp_path / new_dandiset.dandiset_id / "sample.zarr"
+    assert (zarr_dir / "a" / "data.bin").exists()
+    assert not (zarr_dir / "b").exists(), "Files outside path filter were downloaded"
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_filter_nonexistent(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    """A filter matching nothing should download nothing, without error."""
+    download(
+        zarr_dandiset.dandiset.version_api_url,
+        tmp_path,
+        zarr_filters=("path:nonexistent/path",),
+    )
+    zarr_dir = tmp_path / zarr_dandiset.dandiset_id / "sample.zarr"
+    if zarr_dir.exists():
+        # Should have no actual data files
+        data_files = [f for f in list_paths(zarr_dir) if not f.name.startswith(".")]
+        assert len(data_files) == 0
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_sync_conflict() -> None:
+    """--sync and --zarr cannot be used together."""
+    with pytest.raises(ValueError, match="--sync and --zarr cannot be used together"):
+        download(
+            "https://dandiarchive.org/dandiset/000027",
+            "/tmp/unused",
+            sync=True,
+            zarr_filters=("metadata",),
+        )

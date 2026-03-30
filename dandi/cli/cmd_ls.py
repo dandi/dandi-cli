@@ -8,7 +8,13 @@ from dandischema import models
 from .base import devel_option, lgr, map_to_click_exceptions
 from .formatter import JSONFormatter, JSONLinesFormatter, PYOUTFormatter, YAMLFormatter
 from ..consts import ZARR_EXTENSIONS, metadata_all_fields
-from ..dandiarchive import DandisetURL, _dandi_url_parser, parse_dandi_url
+from ..dandiapi import BaseRemoteZarrAsset
+from ..dandiarchive import (
+    AssetZarrEntryURL,
+    DandisetURL,
+    _dandi_url_parser,
+    parse_dandi_url,
+)
 from ..dandiset import Dandiset
 from ..misctypes import Digest
 from ..support.pyout import PYOUT_SHORT_NAMES, PYOUT_SHORT_NAMES_rev
@@ -143,6 +149,17 @@ def ls(
                             if metadata in ("all", "assets"):
                                 rec["metadata"] = a.get_raw_metadata()
                             yield rec
+                            # If URL points into a zarr, also list entries
+                            if isinstance(parsed_url, AssetZarrEntryURL) and isinstance(
+                                a, BaseRemoteZarrAsset
+                            ):
+                                for entry in a.iterfiles(
+                                    prefix=parsed_url.zarr_subpath
+                                ):
+                                    yield {
+                                        "path": f"{a.path}/{entry}",
+                                        "size": entry.size,
+                                    }
             else:
                 # For now we support only individual files
                 yield path
