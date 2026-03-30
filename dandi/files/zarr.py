@@ -969,6 +969,7 @@ def _upload_zarr_file(
                 json_resp=False,
                 retry_if=_retry_zarr_file,
                 headers=headers,
+                timeout=(60, 7200),
             )
     except requests.HTTPError as e:
         post_upload_size_check(item.filepath, item.size, True)
