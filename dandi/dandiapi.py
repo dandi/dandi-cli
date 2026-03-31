@@ -212,6 +212,14 @@ class RESTFullAPIClient:
 
         lgr.debug("%s %s", method.upper(), url)
 
+        def _rewind_data(retry_state: tenacity.RetryCallState) -> None:
+            # After a failed attempt (ConnectionError mid-upload, HTTPError,
+            # etc.), the file pointer may be at an arbitrary position. Seek
+            # back to 0 so the next attempt sends the complete body.
+            # See https://github.com/dandi/dandi-cli/issues/1821
+            if data is not None and hasattr(data, "seek"):
+                data.seek(0)
+
         try:
             for i, attempt in enumerate(
                 tenacity.Retrying(
@@ -225,6 +233,7 @@ class RESTFullAPIClient:
                     ),
                     stop=tenacity.stop_after_attempt(REQUEST_RETRIES),
                     reraise=True,
+                    before_sleep=_rewind_data,
                 )
             ):
                 with attempt:
@@ -249,8 +258,6 @@ class RESTFullAPIClient:
                                 url,
                                 result.text,
                             )
-                            if data is not None and hasattr(data, "seek"):
-                                data.seek(0)
                         if retry_after := get_retry_after(result):
                             lgr.debug(
                                 "Sleeping for %d seconds as instructed in response "
