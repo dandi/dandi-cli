@@ -27,6 +27,7 @@ from dandi import __version__ as dandi_version
 from dandi import get_logger
 from dandi.consts import (
     MAX_ZARR_DEPTH,
+    S3_MAX_SINGLE_PART_UPLOAD,
     ZARR_DELETE_BATCH_SIZE,
     ZARR_MIME_TYPE,
     ZARR_UPLOAD_BATCH_SIZE,
@@ -910,7 +911,7 @@ def _handle_failed_items_and_raise(
 
     # Log all failures
     for item, error in failed_items:
-        lgr.error("Failed to upload %s: %s", item.filepath, error)
+        lgr.error("Failed to upload %s (%d bytes): %s", item.filepath, item.size, error)
 
     # Summary diagnostics
     exc_counts = Counter(type(error).__name__ for _, error in failed_items)
@@ -976,17 +977,29 @@ def _upload_zarr_file(
         # Check if this is a 403 error that we should retry with a new URL
         if e.response is not None and e.response.status_code == 403:
             lgr.debug(
-                "Got 403 error uploading %s, will retry with new URL: %s",
+                "Got 403 error uploading %s (%d bytes), will retry with new URL: %s",
                 item.filepath,
+                item.size,
                 str(e),
             )
             return UploadResult(item=item, status=UploadStatus.RETRY_NEEDED, error=e)
         else:
-            # Other HTTP error - don't retry
+            lgr.warning(
+                "HTTP error uploading %s (%d bytes): %s",
+                item.filepath,
+                item.size,
+                e,
+            )
             return UploadResult(item=item, status=UploadStatus.FAILED, error=e)
     except Exception as e:
         post_upload_size_check(item.filepath, item.size, True)
-        # Non-HTTP error - don't retry
+        lgr.warning(
+            "Error uploading %s (%d bytes): %s: %s",
+            item.filepath,
+            item.size,
+            type(e).__name__,
+            e,
+        )
         return UploadResult(item=item, status=UploadStatus.FAILED, error=e)
     else:
         post_upload_size_check(item.filepath, item.size, False)
@@ -1081,11 +1094,19 @@ class UploadItem:
                 content_type = "application/json"
         else:
             content_type = None
+        size = pre_upload_size_check(e.filepath)
+        if size > S3_MAX_SINGLE_PART_UPLOAD:
+            raise ValueError(
+                f"Zarr chunk {e.filepath} is {size / 1024**3:.2f} GiB,"
+                f" exceeding the S3 single-part upload limit of"
+                f" {S3_MAX_SINGLE_PART_UPLOAD / 1024**3:.0f} GiB."
+                f" Multipart upload for zarr chunks is not yet supported."
+            )
         return cls(
             entry_path=str(e),
             filepath=e.filepath,
             digest=digest,
-            size=pre_upload_size_check(e.filepath),
+            size=size,
             content_type=content_type,
         )
 
