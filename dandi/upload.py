@@ -16,9 +16,11 @@ from collections.abc import Iterator, Sequence
 from contextlib import ExitStack
 from enum import Enum
 import io
+import os
 import os.path
 from pathlib import Path
 import re
+import subprocess
 import time
 from time import sleep
 from typing import Any, TypedDict, cast
@@ -76,6 +78,145 @@ def _check_dandidownload_paths(dfile: DandiFile) -> None:
                 )
 
 
+def _is_git_annex_repo(path: Path) -> bool:
+    """
+    Check if the given path is within a git-annex repository.
+
+    Returns True if git-annex is properly initialized (has git-annex branch
+    and annex.uuid config).
+    """
+    try:
+        # Find git repository root
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=path if path.is_dir() else path.parent,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return False
+
+        repo_root = Path(result.stdout.strip())
+
+        # Check for git-annex branch
+        branch_result = subprocess.run(
+            ["git", "show-ref", "--verify", "refs/heads/git-annex"],
+            cwd=repo_root,
+            capture_output=True,
+            check=False,
+        )
+        if branch_result.returncode != 0:
+            return False
+
+        # Check for annex.uuid config
+        config_result = subprocess.run(
+            ["git", "config", "annex.uuid"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if config_result.returncode != 0 or not config_result.stdout.strip():
+            return False
+
+        return True
+    except Exception as e:
+        lgr.debug("Error checking for git-annex repository: %s", e)
+    return False
+
+
+def _get_file_annex_backend(filepath: Path) -> str | None:
+    """
+    Get the git-annex backend for a file if it's annexed.
+
+    Returns the backend name (e.g., 'SHA256E') or None if file is not annexed.
+    """
+    if not filepath.exists():
+        return None
+
+    try:
+        # Check if file is a symlink (git-annex files are symlinks)
+        if not filepath.is_symlink():
+            return None
+
+        # Read the symlink target
+        target = os.readlink(filepath)
+
+        # Parse the backend from the annex key format
+        # Typical format: ../../.git/annex/objects/XX/YY/SHA256E-sNNNNN--HASH/HASH
+        # Verify this is actually in the annex objects directory
+        target_path = Path(target)
+        if "annex" not in target_path.parts or "objects" not in target_path.parts:
+            return None
+
+        # Find the part that looks like an annex key (contains backend and size)
+        for part in target_path.parts:
+            if "-s" in part and "--" in part:
+                # This looks like an annex key: BACKEND-sSIZE--HASH
+                # Extract just the filename (last part of path)
+                backend = Path(target).name.split("-")[0]
+                return backend
+    except Exception as e:
+        lgr.debug("Error checking git-annex backend for %s: %s", filepath, e)
+
+    return None
+
+
+def _register_url_with_annex(
+    filepath: Path, remote_url: str, expected_size: int | None = None
+) -> bool:
+    """
+    Register a remote URL with git-annex for a file.
+
+    Args:
+        filepath: Local file path
+        remote_url: Remote URL to register
+        expected_size: Expected file size (for validation)
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        # Use git-annex addurl with --relaxed to skip size/hash checks
+        # and --file to specify the target file
+        cmd = [
+            "git",
+            "annex",
+            "addurl",
+            "--relaxed",
+            "--file",
+            str(filepath),
+            remote_url,
+        ]
+
+        lgr.debug("Registering URL with git-annex: %s -> %s", filepath, remote_url)
+
+        result = subprocess.run(
+            cmd,
+            cwd=filepath.parent,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if result.returncode == 0:
+            lgr.info("Successfully registered url %s to %s with git-annex", remote_url, filepath)
+            return True
+        else:
+            lgr.warning(
+                "Failed to register url %s for %s with git-annex: %s",
+                remote_url,
+                filepath,
+                result.stderr.strip(),
+            )
+            return False
+
+    except Exception as e:
+        lgr.warning("Error registering URL with git-annex for %s: %s", filepath, e)
+        return False
+
+
 class Uploaded(TypedDict):
     size: int
     errors: list[str]
@@ -101,6 +242,17 @@ class UploadValidation(str, Enum):
         return self.value
 
 
+class GitAnnexMode(str, Enum):
+    """Mode for git-annex integration during upload"""
+
+    YES = "yes"
+    NO = "no"
+    AUTO = "auto"
+
+    def __str__(self) -> str:
+        return self.value
+
+
 def upload(
     paths: Sequence[str | Path] | None = None,
     existing: UploadExisting = UploadExisting.REFRESH,
@@ -112,6 +264,7 @@ def upload(
     jobs: int | None = None,
     jobs_per_file: int | None = None,
     sync: bool = False,
+    git_annex: GitAnnexMode = GitAnnexMode.AUTO,
 ) -> None:
     if paths:
         paths = [Path(p).absolute() for p in paths]
@@ -123,6 +276,16 @@ def upload(
             f"Found no {dandiset_metadata_file} anywhere in common ancestor of"
             " paths.  Use 'dandi download' or 'organize' first."
         )
+
+    # Determine if we should use git-annex based on mode
+    use_git_annex = False
+    if git_annex == GitAnnexMode.YES:
+        use_git_annex = True
+    elif git_annex == GitAnnexMode.AUTO:
+        # Auto-detect git-annex repository
+        use_git_annex = _is_git_annex_repo(dandiset.path_obj)
+        if use_git_annex:
+            lgr.info("Auto-detected git-annex repository; enabling git-annex support")
 
     with ExitStack() as stack:
         # We need to use the client as a context manager in order to ensure the
@@ -394,9 +557,12 @@ def upload(
                 #
                 yield {"status": "uploading"}
                 validating = False
+                uploaded_asset: RemoteAsset | None = None
                 for r in dfile.iter_upload(
                     remote_dandiset, metadata, jobs=jobs_per_file, replacing=extant
                 ):
+                    if r["status"] == "done":
+                        uploaded_asset = r.get("asset")
                     r.pop("asset", None)  # to keep pyout from choking
                     if r["status"] == "uploading":
                         uploaded_paths[strpath]["size"] = r.pop("current")
@@ -408,6 +574,75 @@ def upload(
                             validating = True
                     else:
                         yield r
+
+                # Handle git-annex integration after successful upload
+                if use_git_annex and uploaded_asset is not None:
+                    # Check backend and warn if not SHA256E
+                    current_backend = _get_file_annex_backend(dfile.filepath)
+                    if current_backend and current_backend != "SHA256E":
+                        lgr.warning(
+                            "%s: File backend is %s, but dandiset standard is SHA256E",
+                            strpath,
+                            current_backend,
+                        )
+
+                    # Poll for contentUrl with timeout (may take time to appear)
+                    # The contentUrl field contains an array of URLs where the
+                    # asset can be accessed. For public dandisets, we prefer
+                    # S3 URLs. For embargoed dandisets, we may need API URLs
+                    # with authentication.
+                    content_urls = None
+                    max_wait = 20  # seconds
+                    poll_interval = 2  # seconds
+                    for attempt in range(max_wait // poll_interval):
+                        asset_metadata = uploaded_asset.get_raw_metadata()
+                        content_urls = asset_metadata.get("contentUrl", [])
+                        if content_urls:
+                            break
+                        if attempt < (max_wait // poll_interval) - 1:
+                            lgr.debug(
+                                "%s: Waiting for contentUrl to be populated (attempt %d/%d)",
+                                strpath,
+                                attempt + 1,
+                                max_wait // poll_interval,
+                            )
+                            sleep(poll_interval)
+
+                    if not content_urls:
+                        raise RuntimeError(
+                            f"{strpath}: No contentUrl found in asset metadata after {max_wait}s. "
+                            "Cannot register with git-annex. Use --git-annex no to disable."
+                        )
+
+                    # Select appropriate URL based on dandiset status
+                    # For public dandisets: prefer S3 URLs (direct access)
+                    # For embargoed: may need to use API URLs with auth
+                    remote_url = None
+                    for url in content_urls:
+                        # Prefer S3 URLs for public access
+                        if "s3.amazonaws.com" in url.lower() or "amazonaws.com" in url.lower():
+                            remote_url = url
+                            break
+
+                    # Fall back to first URL if no S3 URL found
+                    if not remote_url:
+                        remote_url = content_urls[0]
+
+                    file_size = asset_metadata.get("contentSize")
+
+                    if not _register_url_with_annex(
+                        dfile.filepath, remote_url, file_size
+                    ):
+                        raise RuntimeError(
+                            f"{strpath}: Failed to register URL with git-annex. "
+                            "Use --git-annex no to disable."
+                        )
+
+                    lgr.debug(
+                        "%s: Successfully registered remote URL with git-annex",
+                        strpath,
+                    )
+
                 yield {"status": "done"}
 
             except Exception as exc:
