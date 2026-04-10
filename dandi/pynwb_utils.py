@@ -408,8 +408,8 @@ def _get_image_series(nwb: pynwb.NWBFile) -> list[dict]:
             if isinstance(ob, pynwb.image.ImageSeries) and ob.external_file is not None:
                 out_dict = dict(id=ob.object_id, name=ob.name, external_files=[])
                 for ext_file in ob.external_file:
-                    if PurePosixPath(ext_file).suffix in VIDEO_FILE_EXTENSIONS:
-                        out_dict["external_files"].append(PurePosixPath(ext_file))
+                    if (path := PurePosixPath(ext_file)).suffix in VIDEO_FILE_EXTENSIONS:
+                        out_dict["external_files"].append(path)
                     else:
                         lgr.warning(
                             "external file %s should be one of: %s",
