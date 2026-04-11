@@ -24,6 +24,7 @@ from ..consts import (
     DOWNLOAD_SUFFIX,
     ZARR_MIME_TYPE,
     EmbargoStatus,
+    SyncMode,
     dandiset_metadata_file,
 )
 from ..dandiapi import AssetType, RemoteBlobAsset, RemoteZarrAsset, RESTFullAPIClient
@@ -190,6 +191,16 @@ def test_upload_sync_folder(
     text_dandiset.dandiset.get_asset_by_path("file.txt")
     with pytest.raises(NotFoundError):
         text_dandiset.dandiset.get_asset_by_path("subdir2/banana.txt")
+
+
+@pytest.mark.ai_generated
+def test_upload_sync_do(mocker: MockerFixture, text_dandiset: SampleDandiset) -> None:
+    (text_dandiset.dspath / "file.txt").unlink()
+    confirm_mock = mocker.patch("click.confirm")
+    text_dandiset.upload(sync=SyncMode.DO)
+    confirm_mock.assert_not_called()
+    with pytest.raises(NotFoundError):
+        text_dandiset.dandiset.get_asset_by_path("file.txt")
 
 
 def test_upload_bids_invalid(

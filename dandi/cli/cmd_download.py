@@ -6,6 +6,7 @@ import os
 import click
 
 from .base import ChoiceList, IntColonInt, instance_option, map_to_click_exceptions
+from ..consts import SyncMode
 from ..dandiarchive import _dandi_url_parser, parse_dandi_url
 from ..dandiset import Dandiset
 from ..download import DownloadExisting, DownloadFormat, PathType
@@ -116,13 +117,14 @@ Download files or entire folders from DANDI.
     ),
 )
 @click.option(
-    "--sync", is_flag=True, help="Delete local assets that do not exist on the server"
-)
-@click.option(
-    "-y",
-    "--yes",
-    is_flag=True,
-    help="Automatically confirm yes to any prompts (e.g., deletion with --sync)",
+    "--sync",
+    is_flag=False,
+    flag_value="ask",
+    default=None,
+    type=click.Choice(list(SyncMode)),
+    help="Delete local assets that do not exist on the server. "
+    "With 'ask' (the default when --sync is passed without a value), prompt before "
+    "deleting. With 'do', delete without prompting.",
 )
 @instance_option(
     default=None,
@@ -156,8 +158,7 @@ def download(
     jobs: tuple[int, int],
     format: DownloadFormat,
     download_types: set[str],
-    sync: bool,
-    yes: bool,
+    sync: str | None,
     dandi_instance: str,
     path_type: PathType,
     preserve_tree: bool,
@@ -197,8 +198,7 @@ def download(
         get_metadata="dandiset.yaml" in download_types or preserve_tree,
         get_assets="assets" in download_types or preserve_tree,
         preserve_tree=preserve_tree,
-        sync=sync,
-        yes=yes,
+        sync=SyncMode(sync) if sync is not None else None,
         path_type=path_type,
         # develop_debug=develop_debug
     )

@@ -38,7 +38,7 @@ from interleave import FINISH_CURRENT, lazy_interleave
 import requests
 
 from . import get_logger
-from .consts import DOWNLOAD_SUFFIX, RETRY_STATUSES, dandiset_metadata_file
+from .consts import DOWNLOAD_SUFFIX, RETRY_STATUSES, SyncMode, dandiset_metadata_file
 from .dandiapi import AssetType, BaseRemoteZarrAsset, RemoteDandiset
 from .dandiarchive import (
     AssetItemURL,
@@ -107,8 +107,7 @@ def download(
     get_metadata: bool = True,
     get_assets: bool = True,
     preserve_tree: bool = False,
-    sync: bool = False,
-    yes: bool = False,
+    sync: bool | SyncMode | None = False,
     path_type: PathType = PathType.EXACT,
 ) -> None:
     # TODO: unduplicate with upload. For now stole from that one
@@ -203,10 +202,13 @@ def download(
         raise AssertionError(f"Unhandled DownloadFormat member: {format!r}")
 
     if sync:
+        # Normalize legacy bool True to SyncMode.ASK
+        if sync is True:
+            sync = SyncMode.ASK
         to_delete = [p for dl in downloaders for p in dl.delete_for_sync()]
         if to_delete:
             do_delete = False
-            if yes:
+            if sync is SyncMode.DO:
                 do_delete = True
             else:
                 while True:
