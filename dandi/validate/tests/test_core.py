@@ -222,9 +222,10 @@ def test_validate_broken_symlink_error_default(tmp_path: Path) -> None:
     errs = [r for r in results if r.id == "DANDI.FILE_CONTENT_MISSING"]
     assert len(errs) == 1
     assert errs[0].severity == Severity.ERROR
+    assert errs[0].message is not None
     assert "broken symlink" in errs[0].message.lower()
     # No traceback should appear in the message
-    assert "Traceback" not in (errs[0].message or "")
+    assert "Traceback" not in errs[0].message
 
 
 @pytest.mark.ai_generated
@@ -235,6 +236,7 @@ def test_validate_broken_symlink_skip(tmp_path: Path) -> None:
     skipped = [r for r in results if r.id == "DANDI.FILE_CONTENT_MISSING_SKIPPED"]
     assert len(skipped) == 1
     assert skipped[0].severity == Severity.WARNING
+    assert skipped[0].message is not None
     assert "skipped" in skipped[0].message.lower()
     # No pynwb/nwbinspector errors should appear
     pynwb_errs = [r for r in results if r.origin.validator in (Validator.pynwb,)]
