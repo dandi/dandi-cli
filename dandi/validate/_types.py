@@ -11,6 +11,22 @@ from pydantic.functional_serializers import PlainSerializer
 import dandi
 from dandi.utils import StrEnum
 
+
+class MissingFileContent(StrEnum):
+    """Policy for handling files whose content is missing (e.g. broken symlinks
+    in a datalad dataset without fetched data)."""
+
+    error = auto()
+    """Emit a concise error for each file with missing content (default)."""
+
+    only_non_data = "only-non-data"
+    """Skip content-dependent validators (e.g. pynwb, nwbinspector) but still
+    validate non-data aspects such as path layout."""
+
+    skip = auto()
+    """Skip the file entirely; emit a WARNING noting that validation was skipped."""
+
+
 lgr = logging.getLogger(__name__)
 
 
