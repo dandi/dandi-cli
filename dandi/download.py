@@ -108,6 +108,7 @@ def download(
     get_assets: bool = True,
     preserve_tree: bool = False,
     sync: bool = False,
+    yes: bool = False,
     path_type: PathType = PathType.EXACT,
 ) -> None:
     # TODO: unduplicate with upload. For now stole from that one
@@ -204,25 +205,31 @@ def download(
     if sync:
         to_delete = [p for dl in downloaders for p in dl.delete_for_sync()]
         if to_delete:
-            while True:
-                opt = abbrev_prompt(
-                    f"Delete {pluralize(len(to_delete), 'local asset')}?",
-                    "yes",
-                    "no",
-                    "list",
-                )
-                if opt == "list":
-                    for p in to_delete:
-                        print(p)
-                elif opt == "yes":
-                    for p in to_delete:
-                        if p.is_dir():
-                            rmtree(p)
-                        else:
-                            p.unlink()
-                    break
-                else:
-                    break
+            do_delete = False
+            if yes:
+                do_delete = True
+            else:
+                while True:
+                    opt = abbrev_prompt(
+                        f"Delete {pluralize(len(to_delete), 'local asset')}?",
+                        "yes",
+                        "no",
+                        "list",
+                    )
+                    if opt == "list":
+                        for p in to_delete:
+                            print(p)
+                    elif opt == "yes":
+                        do_delete = True
+                        break
+                    else:
+                        break
+            if do_delete:
+                for p in to_delete:
+                    if p.is_dir():
+                        rmtree(p)
+                    else:
+                        p.unlink()
     if errors:
         error_msg = f"Encountered {pluralize(len(errors), 'error')} while downloading."
         # Also log the first error for easier debugging

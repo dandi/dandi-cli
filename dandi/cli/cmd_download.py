@@ -118,6 +118,12 @@ Download files or entire folders from DANDI.
 @click.option(
     "--sync", is_flag=True, help="Delete local assets that do not exist on the server"
 )
+@click.option(
+    "-y",
+    "--yes",
+    is_flag=True,
+    help="Automatically confirm yes to any prompts (e.g., deletion with --sync)",
+)
 @instance_option(
     default=None,
     help=(
@@ -151,6 +157,7 @@ def download(
     format: DownloadFormat,
     download_types: set[str],
     sync: bool,
+    yes: bool,
     dandi_instance: str,
     path_type: PathType,
     preserve_tree: bool,
@@ -191,6 +198,7 @@ def download(
         get_assets="assets" in download_types or preserve_tree,
         preserve_tree=preserve_tree,
         sync=sync,
+        yes=yes,
         path_type=path_type,
         # develop_debug=develop_debug
     )

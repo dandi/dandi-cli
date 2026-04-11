@@ -319,6 +319,25 @@ def test_download_sync(
         assert (dspath / "file.txt").exists()
 
 
+@pytest.mark.ai_generated
+def test_download_sync_yes(
+    mocker: MockerFixture, text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
+    dspath = tmp_path / text_dandiset.dandiset_id
+    os.rename(text_dandiset.dspath, dspath)
+    confirm_mock = mocker.patch("dandi.download.abbrev_prompt")
+    download(
+        f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}",
+        tmp_path,
+        existing=DownloadExisting.OVERWRITE,
+        sync=True,
+        yes=True,
+    )
+    confirm_mock.assert_not_called()
+    assert not (dspath / "file.txt").exists()
+
+
 def test_download_sync_folder(
     mocker: MockerFixture, text_dandiset: SampleDandiset
 ) -> None:
