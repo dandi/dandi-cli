@@ -154,6 +154,16 @@ def _is_broken_symlink(filepath: Path) -> bool:
     return filepath.is_symlink() and not filepath.exists()
 
 
+# BIDS error codes that require reading file content (headers, pixel data).
+# When ``only-non-data`` is active these are suppressed for broken-symlink files.
+_BIDS_CONTENT_DEPENDENT_CODES = frozenset(
+    {
+        "BIDS.NIFTI_HEADER_UNREADABLE",
+        "BIDS.EMPTY_FILE",
+    }
+)
+
+
 def validate(
     *paths: str | Path,
     schema_version: str | None = None,
@@ -218,13 +228,23 @@ def validate(
                 ):
                     continue
                 # only-non-data: fall through but pass the flag to validators
+
+            is_broken = _is_broken_symlink(df.filepath)
             for r in df.get_validation_errors(
                 schema_version=schema_version,
                 devel_debug=devel_debug,
-                missing_file_content=(
-                    missing_file_content if _is_broken_symlink(df.filepath) else None
-                ),
+                missing_file_content=(missing_file_content if is_broken else None),
             ):
+                # For broken-symlink files under only-non-data, suppress
+                # BIDS errors that require reading file content (e.g.
+                # NIFTI_HEADER_UNREADABLE).  The validator ran in full so
+                # real files still get those checks.
+                if (
+                    is_broken
+                    and missing_file_content == MissingFileContent.only_non_data
+                    and r.id in _BIDS_CONTENT_DEPENDENT_CODES
+                ):
+                    continue
                 r_id = id(r)
                 if r_id not in df_result_ids:
                     df_results.append(r)
@@ -275,6 +295,19 @@ def _handle_missing_content(
             ),
         )
     else:
-        # only-non-data: warning will be emitted by individual validators
-        # that skip content-dependent checks
-        return None
+        # only-non-data: emit a warning per file so the user knows that
+        # content-dependent checks were skipped for this file.
+        return ValidationResult(
+            id="DANDI.FILE_CONTENT_MISSING_PARTIAL",
+            origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
+            severity=Severity.WARNING,
+            scope=Scope.FILE,
+            path=filepath,
+            dandiset_path=df.dandiset_path,
+            message=(
+                f"File content is not available (broken symlink: "
+                f"{filepath} -> {os.readlink(filepath)}); "
+                f"content-dependent checks skipped, "
+                f"path layout still validated."
+            ),
+        )

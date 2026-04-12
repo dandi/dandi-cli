@@ -112,16 +112,13 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                             result.metadata
                         )
 
-    def _validate(self, ignore_nifti_headers: bool = False) -> None:
+    def _validate(self) -> None:
         with self._lock:
             if self._dataset_errors is None:
 
                 # Obtain BIDS validation results of the entire dataset through the
                 # deno-compiled BIDS validator
-                v_results = bids_validate(
-                    self.bids_root,
-                    ignore_nifti_headers=ignore_nifti_headers,
-                )
+                v_results = bids_validate(self.bids_root)
 
                 # Validation results from the deno BIDS validator with an additional
                 # hint, represented as a `ValidationResult` object, following
@@ -172,13 +169,9 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
                     bids_version = self._dataset_errors[0].origin.standard_version
                     self._bids_version = bids_version
 
-    def get_asset_errors(
-        self,
-        asset: BIDSAsset,
-        ignore_nifti_headers: bool = False,
-    ) -> list[ValidationResult]:
+    def get_asset_errors(self, asset: BIDSAsset) -> list[ValidationResult]:
         """:meta private:"""
-        self._validate(ignore_nifti_headers=ignore_nifti_headers)
+        self._validate()
         assert self._asset_errors is not None
         return self._asset_errors[asset.bids_path].copy()
 
@@ -197,11 +190,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         """
         Return all validation results for the containing dataset per the BIDS standard
         """
-        self._validate(
-            ignore_nifti_headers=(
-                missing_file_content == MissingFileContent.only_non_data
-            ),
-        )
+        self._validate()
         assert self._dataset_errors is not None
         return self._dataset_errors.copy()
 
@@ -252,12 +241,7 @@ class BIDSAsset(LocalFileAsset):
         devel_debug: bool = False,
         missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
-        return self.bids_dataset_description.get_asset_errors(
-            self,
-            ignore_nifti_headers=(
-                missing_file_content == MissingFileContent.only_non_data
-            ),
-        )
+        return self.bids_dataset_description.get_asset_errors(self)
 
     def get_metadata(
         self,

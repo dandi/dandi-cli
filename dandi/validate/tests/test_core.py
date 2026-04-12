@@ -201,8 +201,15 @@ def test_validate_bids_errors(
         assert err_location == expected_err_location
 
 
-def _make_dandiset_with_broken_symlink(tmp_path: Path) -> Path:
-    """Create a minimal dandiset with a broken NWB symlink (simulating datalad)."""
+def _make_dandiset_with_broken_symlink(
+    tmp_path: Path, *, include_real_nwb: bool = False
+) -> Path:
+    """Create a minimal dandiset with a broken NWB symlink (simulating datalad).
+
+    When *include_real_nwb* is True a second subject directory contains a real
+    (though minimal) NWB file so tests can verify that normal validation still
+    runs on files with content present alongside broken symlinks.
+    """
     (tmp_path / dandiset_metadata_file).write_text(
         "identifier: '000027'\nname: Test\ndescription: Test dandiset\n"
     )
@@ -210,7 +217,23 @@ def _make_dandiset_with_broken_symlink(tmp_path: Path) -> Path:
     sub_dir.mkdir()
     nwb_link = sub_dir / "sub-001.nwb"
     # Symlink to a non-existent target (simulating datalad annex)
-    nwb_link.symlink_to("/nonexistent/annex/target.nwb")
+    nwb_link.symlink_to(
+        ".git/annex/objects/XX/YY/SHA256E-s123--abc.nwb/SHA256E-s123--abc.nwb"
+    )
+
+    if include_real_nwb:
+        from datetime import datetime, timezone
+
+        from ...pynwb_utils import make_nwb_file
+
+        sub2 = tmp_path / "sub-002"
+        sub2.mkdir()
+        make_nwb_file(
+            sub2 / "sub-002.nwb",
+            session_description="test session",
+            identifier="test-nwb-001",
+            session_start_time=datetime(2017, 4, 3, 11, tzinfo=timezone.utc),
+        )
     return tmp_path
 
 
@@ -255,3 +278,35 @@ def test_validate_broken_symlink_only_non_data(tmp_path: Path) -> None:
     # No pynwb/nwbinspector errors
     pynwb_errs = [r for r in results if r.origin.validator in (Validator.pynwb,)]
     assert len(pynwb_errs) == 0
+
+
+@pytest.mark.ai_generated
+def test_validate_broken_symlink_real_file_still_validated(tmp_path: Path) -> None:
+    """When a real NWB file coexists with broken symlinks, normal validation
+    still runs on the real file under all policies."""
+    ds = _make_dandiset_with_broken_symlink(tmp_path, include_real_nwb=True)
+
+    for policy in (MissingFileContent.skip, MissingFileContent.only_non_data):
+        results = list(validate(ds, missing_file_content=policy))
+
+        # The real file (sub-002.nwb) must have been validated by pynwb or
+        # nwbinspector — look for any result referencing it.
+        real_file = tmp_path / "sub-002" / "sub-002.nwb"
+        real_results = [
+            r for r in results if r.path is not None and r.path == real_file
+        ]
+        assert len(real_results) > 0, (
+            f"policy={policy.value}: expected validation results for the real "
+            f"NWB file at {real_file}"
+        )
+
+        # The broken symlink file must NOT have pynwb/nwbinspector results.
+        broken_file = tmp_path / "sub-001" / "sub-001.nwb"
+        broken_pynwb = [
+            r
+            for r in results
+            if r.path == broken_file and r.origin.validator == Validator.pynwb
+        ]
+        assert (
+            len(broken_pynwb) == 0
+        ), f"policy={policy.value}: pynwb should not run on the broken symlink"

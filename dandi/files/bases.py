@@ -32,7 +32,6 @@ from dandi.utils import post_upload_size_check, pre_upload_size_check, yaml_load
 from dandi.validate._types import (
     ORIGIN_INTERNAL_DANDI,
     ORIGIN_VALIDATION_DANDI,
-    ORIGIN_VALIDATION_DANDI_LAYOUT,
     MissingFileContent,
     Origin,
     OriginType,
@@ -545,22 +544,9 @@ class NWBAsset(LocalFileAsset):
         errors: list[ValidationResult] = []
 
         if missing_file_content == MissingFileContent.only_non_data:
-            # Skip content-dependent validators; emit a warning
-            errors.append(
-                ValidationResult(
-                    id="DANDI.FILE_CONTENT_MISSING_PARTIAL",
-                    origin=ORIGIN_VALIDATION_DANDI_LAYOUT,
-                    severity=Severity.WARNING,
-                    scope=Scope.FILE,
-                    path=self.filepath,
-                    dandiset_path=self.dandiset_path,
-                    message=(
-                        "File content is not available; "
-                        "skipping content-dependent validators "
-                        "(pynwb, nwbinspector). Only path layout is validated."
-                    ),
-                )
-            )
+            # Skip content-dependent validators (pynwb, nwbinspector).
+            # The warning for the user is emitted centrally in _core.validate().
+            pass
         else:
             # Avoid heavy import by importing within function:
             from nwbinspector import Importance, inspect_nwbfile, load_config
