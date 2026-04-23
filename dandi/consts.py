@@ -199,6 +199,9 @@ ZARR_UPLOAD_BATCH_SIZE = 255
 #: Maximum number of Zarr directory entries to delete at once
 ZARR_DELETE_BATCH_SIZE = 100
 
+#: Zarr chunks above this size (bytes) are uploaded via multipart upload
+ZARR_LARGE_CHUNK_THRESHOLD = 5 * 1024 * 1024 * 1024  # 5 GB
+
 BIDS_DATASET_DESCRIPTION = "dataset_description.json"
 
 BIDS_IGNORE_FILE = ".bidsignore"
