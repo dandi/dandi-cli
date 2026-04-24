@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-import os
-import subprocess
 from operator import attrgetter
+import os
 from pathlib import Path
+import subprocess
 from unittest.mock import ANY, patch
 
+from dandischema.models import get_schema_version
 import numpy as np
 import pytest
 import zarr
-from dandischema.models import get_schema_version
 
+from .fixtures import SampleDandiset
 from .. import get_logger
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteZarrAsset
@@ -28,7 +29,6 @@ from ..files import (
     dandi_file,
     find_dandi_files,
 )
-from .fixtures import SampleDandiset
 
 lgr = get_logger()
 
@@ -538,33 +538,32 @@ def test_upload_zarr_entry_content_type(new_dandiset, tmp_path):
 
 @pytest.mark.ai_generated
 def test_upload_zarr_large_chunks(new_dandiset, tmp_path):
-    """Chunks above ZARR_LARGE_CHUNK_THRESHOLD are uploaded via upload_zarr_file_multipart."""
+    """Chunks above ZARR_LARGE_CHUNK_THRESHOLD are uploaded via multipart upload."""
     filepath = tmp_path / "example.zarr"
     zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
     zf = dandi_file(filepath)
     assert isinstance(zf, ZarrAsset)
 
-    from ..files.zarr import upload_zarr_file_multipart
+    from ..files.bases import _multipart_upload as real_multipart_upload
 
-    real_upload_zarr_file_multipart = upload_zarr_file_multipart
     called_paths: list[str] = []
 
-    def spy_upload_zarr_file_multipart(item, *args, **kwargs):
-        called_paths.append(item.entry_path)
-        yield from real_upload_zarr_file_multipart(item, *args, **kwargs)
+    def spy_multipart_upload(**kwargs):
+        called_paths.append(kwargs["asset_path"])
+        yield from real_multipart_upload(**kwargs)
 
     # Set threshold to 0 so every chunk is treated as "large"
     with (
         patch("dandi.files.zarr.ZARR_LARGE_CHUNK_THRESHOLD", 0),
         patch(
-            "dandi.files.zarr.upload_zarr_file_multipart",
-            spy_upload_zarr_file_multipart,
+            "dandi.files.zarr._multipart_upload",
+            spy_multipart_upload,
         ),
     ):
         asset = zf.upload(new_dandiset.dandiset, {})
 
     assert isinstance(asset, RemoteZarrAsset)
-    # Every chunk file in the zarr should have been routed through upload_zarr_file_multipart
+    # Every chunk file in the zarr should have been routed through multipart upload
     remote_entries = {str(e) for e in asset.iterfiles()}
     assert remote_entries == set(called_paths)
 

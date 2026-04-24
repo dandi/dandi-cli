@@ -10,13 +10,10 @@ from enum import Enum
 import json
 import os
 import os.path
-import re
 from pathlib import Path
-from threading import Lock
 from time import sleep
 from typing import Any, Optional
 import urllib.parse
-from xml.etree.ElementTree import fromstring
 
 from dandischema.models import BareAsset, DigestType
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -50,7 +47,7 @@ from dandi.utils import (
     pre_upload_size_check,
 )
 
-from .bases import LocalDirectoryAsset, _upload_blob_part
+from .bases import LocalDirectoryAsset, _multipart_upload
 from ..validate._types import (
     ORIGIN_VALIDATION_DANDI_ZARR,
     Origin,
@@ -760,25 +757,28 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 
                     # Upload chunks above 5GB individually via multipart upload
                     for it in large_items:
-                        for status in upload_zarr_file_multipart(
-                            item=it,
-                            zarr_id=zarr_id,
-                            dandiset=dandiset,
+                        # Yield uploading status
+                        yield from _multipart_upload(
+                            client=client,
+                            filepath=it.filepath,
+                            asset_path=it.entry_path,
+                            upload_prefix="/uploads/zarr",
+                            extra_init_fields={
+                                "zarr": {"chunk_key": it.entry_path, "zarr_id": zarr_id}
+                            },
                             jobs=jobs,
-                        ):
-                            if status.get("status") == "done":
-                                changed = True
-                                bytes_uploaded += it.size
-                                yield {
-                                    "status": "uploading",
-                                    "progress": 100
-                                    * bytes_uploaded
-                                    / to_upload.total_size,
-                                    "current": bytes_uploaded,
-                                }
-                            else:
-                                yield status
+                        )
 
+                        # Part is finished uploading, yield final progress
+                        changed = True
+                        bytes_uploaded += it.size
+                        yield {
+                            "status": "uploading",
+                            "progress": 100 * bytes_uploaded / to_upload.total_size,
+                            "current": bytes_uploaded,
+                        }
+
+                    # Upload the remaining files using single part upload
                     while items_to_upload and retry_count <= max_retries:
                         # Prepare upload requests for current items
                         uploading = [it.upload_request() for it in items_to_upload]
@@ -931,115 +931,6 @@ def _handle_failed_items_and_raise(
         lgr.error("Failed to upload %s: %s", item.filepath, error)
     # Raise the first error
     raise failed_items[0][1]
-
-
-def upload_zarr_file_multipart(
-    item: UploadItem,
-    zarr_id: str,
-    dandiset: RemoteDandiset,
-    jobs: int | None = None,
-):
-    # Avoid heavy import by importing within function:
-    from dandi.support.digests import get_dandietag
-
-    client = dandiset.client
-
-    yield {"status": "calculating etag"}
-    etagger = get_dandietag(item.filepath)
-    filetag = etagger.as_str()
-
-    yield {"status": "initiating upload"}
-    lgr.debug("%s: Beginning upload", item.filepath)
-    total_size = pre_upload_size_check(item.filepath)
-
-    resp = client.post(
-        "/uploads/zarr/initialize/",
-        json={
-            "contentSize": total_size,
-            "digest": {
-                "algorithm": "dandi:dandi-etag",
-                "value": filetag,
-            },
-            "zarr": {
-                "chunk_key": item.entry_path,
-                "zarr_id": zarr_id,
-            },
-        },
-    )
-
-    try:
-        upload_id = resp["upload_id"]
-        parts = resp["parts"]
-        if len(parts) != etagger.part_qty:
-            raise RuntimeError(
-                f"Server and client disagree on number of parts for upload;"
-                f" server says {len(parts)}, client says {etagger.part_qty}"
-            )
-        parts_out = []
-        bytes_uploaded = 0
-        lgr.debug("Uploading %s in %d parts", item.filepath, len(parts))
-        with RESTFullAPIClient("http://nil.nil") as storage:
-            with item.filepath.open("rb") as fp:
-                with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
-                    lock = Lock()
-                    futures = [
-                        executor.submit(
-                            _upload_blob_part,
-                            storage_session=storage,
-                            fp=fp,
-                            lock=lock,
-                            etagger=etagger,
-                            asset_path=item.entry_path,
-                            part=part,
-                        )
-                        for part in parts
-                    ]
-                    for fut in as_completed(futures):
-                        out_part = fut.result()
-                        bytes_uploaded += out_part["size"]
-                        yield {
-                            "status": "uploading",
-                            "progress": 100 * bytes_uploaded / total_size,
-                            "current": bytes_uploaded,
-                        }
-                        parts_out.append(out_part)
-
-            lgr.debug("%s: Completing upload", item.entry_path)
-            resp = client.post(
-                f"/uploads/zarr/{upload_id}/complete/",
-                json={"parts": parts_out},
-            )
-            lgr.debug(
-                "%s: Announcing completion to %s",
-                item.entry_path,
-                resp["complete_url"],
-            )
-            r = storage.post(resp["complete_url"], data=resp["body"], json_resp=False)
-            lgr.debug(
-                "%s: Upload completed. Response content: %s",
-                item.entry_path,
-                r.content,
-            )
-            rxml = fromstring(r.text)
-            m = re.match(r"\{.+?\}", rxml.tag)
-            ns = m.group(0) if m else ""
-            final_etag = rxml.findtext(f"{ns}ETag")
-            if final_etag is not None:
-                final_etag = final_etag.strip('"')
-                if final_etag != filetag:
-                    raise RuntimeError(
-                        "Server and client disagree on final ETag of"
-                        f" uploaded file; server says {final_etag},"
-                        f" client says {filetag}"
-                    )
-            # else: Error? Warning?
-            resp = client.post(f"/uploads/zarr/{upload_id}/validate/")
-            yield {"status": "done"}
-    except Exception:
-        post_upload_size_check(item.filepath, total_size, True)
-        raise
-    else:
-        post_upload_size_check(item.filepath, total_size, False)
 
 
 def _upload_zarr_file(

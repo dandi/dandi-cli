@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import deque
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime
@@ -341,118 +341,26 @@ class LocalFileAsset(LocalAsset):
             ``"done"`` and an ``"asset"`` key containing the resulting
             `RemoteAsset`.
         """
-        # Avoid heavy import by importing within function:
-        from dandi.support.digests import get_dandietag
-
         asset_path = metadata.setdefault("path", self.path)
         client = dandiset.client
-        yield {"status": "calculating etag"}
-        etagger = get_dandietag(self.filepath)
-        filetag = etagger.as_str()
-        lgr.debug("Calculated dandi-etag of %s for %s", filetag, self.filepath)
-        digest = metadata.get("digest", {})
-        if "dandi:dandi-etag" in digest:
-            if digest["dandi:dandi-etag"] != filetag:
-                raise RuntimeError(
-                    f"{self.filepath}: File etag changed; was originally"
-                    f" {digest['dandi:dandi-etag']} but is now {filetag}"
-                )
-        yield {"status": "initiating upload"}
-        lgr.debug("%s: Beginning upload", asset_path)
-        total_size = pre_upload_size_check(self.filepath)
+        expected_etag = metadata.get("digest", {}).get("dandi:dandi-etag")
         try:
-            resp = client.post(
-                "/uploads/initialize/",
-                json={
-                    "contentSize": total_size,
-                    "digest": {
-                        "algorithm": "dandi:dandi-etag",
-                        "value": filetag,
-                    },
-                    "dandiset": dandiset.identifier,
-                },
+            validate_resp = yield from _multipart_upload(
+                client=client,
+                filepath=self.filepath,
+                asset_path=asset_path,
+                upload_prefix="/uploads",
+                extra_init_fields={"dandiset": dandiset.identifier},
+                expected_etag=expected_etag,
+                jobs=jobs,
             )
+            blob_id = validate_resp["blob_id"]
         except requests.HTTPError as e:
             if e.response is not None and e.response.status_code == 409:
                 lgr.debug("%s: Blob already exists on server", asset_path)
                 blob_id = e.response.headers["Location"]
             else:
                 raise
-        else:
-            try:
-                upload_id = resp["upload_id"]
-                parts = resp["parts"]
-                if len(parts) != etagger.part_qty:
-                    raise RuntimeError(
-                        f"Server and client disagree on number of parts for upload;"
-                        f" server says {len(parts)}, client says {etagger.part_qty}"
-                    )
-                parts_out = []
-                bytes_uploaded = 0
-                lgr.debug("Uploading %s in %d parts", self.filepath, len(parts))
-                with RESTFullAPIClient("http://nil.nil") as storage:
-                    with self.filepath.open("rb") as fp:
-                        with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
-                            lock = Lock()
-                            futures = [
-                                executor.submit(
-                                    _upload_blob_part,
-                                    storage_session=storage,
-                                    fp=fp,
-                                    lock=lock,
-                                    etagger=etagger,
-                                    asset_path=asset_path,
-                                    part=part,
-                                )
-                                for part in parts
-                            ]
-                            for fut in as_completed(futures):
-                                out_part = fut.result()
-                                bytes_uploaded += out_part["size"]
-                                yield {
-                                    "status": "uploading",
-                                    "progress": 100 * bytes_uploaded / total_size,
-                                    "current": bytes_uploaded,
-                                }
-                                parts_out.append(out_part)
-                    lgr.debug("%s: Completing upload", asset_path)
-                    resp = client.post(
-                        f"/uploads/{upload_id}/complete/",
-                        json={"parts": parts_out},
-                    )
-                    lgr.debug(
-                        "%s: Announcing completion to %s",
-                        asset_path,
-                        resp["complete_url"],
-                    )
-                    r = storage.post(
-                        resp["complete_url"], data=resp["body"], json_resp=False
-                    )
-                    lgr.debug(
-                        "%s: Upload completed. Response content: %s",
-                        asset_path,
-                        r.content,
-                    )
-                    rxml = fromstring(r.text)
-                    m = re.match(r"\{.+?\}", rxml.tag)
-                    ns = m.group(0) if m else ""
-                    final_etag = rxml.findtext(f"{ns}ETag")
-                    if final_etag is not None:
-                        final_etag = final_etag.strip('"')
-                        if final_etag != filetag:
-                            raise RuntimeError(
-                                "Server and client disagree on final ETag of"
-                                f" uploaded file; server says {final_etag},"
-                                f" client says {filetag}"
-                            )
-                    # else: Error? Warning?
-                    resp = client.post(f"/uploads/{upload_id}/validate/")
-                    blob_id = resp["blob_id"]
-            except Exception:
-                post_upload_size_check(self.filepath, total_size, True)
-                raise
-            else:
-                post_upload_size_check(self.filepath, total_size, False)
         lgr.debug("%s: Assigning asset blob to dandiset & version", asset_path)
         yield {"status": "producing asset"}
         if replacing is not None:
@@ -694,6 +602,120 @@ def _upload_blob_part(
         "size": part["size"],
         "etag": server_etag,
     }
+
+
+def _multipart_upload(
+    client: RESTFullAPIClient,
+    filepath: Path,
+    asset_path: str,
+    upload_prefix: str,
+    extra_init_fields: dict,
+    expected_etag: str | None = None,
+    jobs: int | None = None,
+) -> Generator[dict, None, dict]:
+    """Perform a full multipart upload: etag calculation, initialization, part upload, and validation.
+
+    Yields progress dicts and returns the validate response dict.  If
+    ``expected_etag`` is provided and does not match the computed etag, raises
+    ``RuntimeError``.  A 409 HTTPError from the initialize call propagates
+    unchanged so the caller can handle the "blob already exists" case.
+    """
+    # Avoid heavy import by importing within function:
+    from dandi.support.digests import get_dandietag
+
+    yield {"status": "calculating etag"}
+    etagger = get_dandietag(filepath)
+    filetag = etagger.as_str()
+    lgr.debug("Calculated dandi-etag of %s for %s", filetag, filepath)
+    if expected_etag is not None and filetag != expected_etag:
+        raise RuntimeError(
+            f"{filepath}: File etag changed; was originally"
+            f" {expected_etag} but is now {filetag}"
+        )
+    yield {"status": "initiating upload"}
+    lgr.debug("%s: Beginning upload", asset_path)
+    total_size = pre_upload_size_check(filepath)
+    resp = client.post(
+        f"{upload_prefix}/initialize/",
+        json={
+            "contentSize": total_size,
+            "digest": {"algorithm": "dandi:dandi-etag", "value": filetag},
+            **extra_init_fields,
+        },
+    )
+    try:
+        upload_id = resp["upload_id"]
+        parts = resp["parts"]
+        if len(parts) != etagger.part_qty:
+            raise RuntimeError(
+                f"Server and client disagree on number of parts for upload;"
+                f" server says {len(parts)}, client says {etagger.part_qty}"
+            )
+        parts_out = []
+        bytes_uploaded = 0
+        lgr.debug("Uploading %s in %d parts", filepath, len(parts))
+        with RESTFullAPIClient("http://nil.nil") as storage:
+            with filepath.open("rb") as fp:
+                with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
+                    lock = Lock()
+                    futures = [
+                        executor.submit(
+                            _upload_blob_part,
+                            storage_session=storage,
+                            fp=fp,
+                            lock=lock,
+                            etagger=etagger,
+                            asset_path=asset_path,
+                            part=part,
+                        )
+                        for part in parts
+                    ]
+                    for fut in as_completed(futures):
+                        out_part = fut.result()
+                        bytes_uploaded += out_part["size"]
+                        yield {
+                            "status": "uploading",
+                            "progress": 100 * bytes_uploaded / total_size,
+                            "current": bytes_uploaded,
+                        }
+                        parts_out.append(out_part)
+            lgr.debug("%s: Completing upload", asset_path)
+            resp = client.post(
+                f"{upload_prefix}/{upload_id}/complete/",
+                json={"parts": parts_out},
+            )
+            lgr.debug(
+                "%s: Announcing completion to %s",
+                asset_path,
+                resp["complete_url"],
+            )
+            r = storage.post(resp["complete_url"], data=resp["body"], json_resp=False)
+            lgr.debug(
+                "%s: Upload completed. Response content: %s",
+                asset_path,
+                r.content,
+            )
+            rxml = fromstring(r.text)
+            m = re.match(r"\{.+?\}", rxml.tag)
+            ns = m.group(0) if m else ""
+            final_etag = rxml.findtext(f"{ns}ETag")
+            if final_etag is not None:
+                final_etag = final_etag.strip('"')
+                if final_etag != filetag:
+                    raise RuntimeError(
+                        "Server and client disagree on final ETag of"
+                        f" uploaded file; server says {final_etag},"
+                        f" client says {filetag}"
+                    )
+            # else: Error? Warning?
+            validate_resp = client.post(f"{upload_prefix}/{upload_id}/validate/")
+    except Exception:
+        post_upload_size_check(filepath, total_size, True)
+        raise
+    else:
+        post_upload_size_check(filepath, total_size, False)
+
+    return validate_resp
 
 
 def _check_required_fields(
