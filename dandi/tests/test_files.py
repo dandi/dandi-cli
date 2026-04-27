@@ -16,6 +16,7 @@ from .. import get_logger
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteZarrAsset
 from ..exceptions import UnknownAssetError
+from ..files.bases import _multipart_upload as real_multipart_upload
 from ..files import (
     BIDSDatasetDescriptionAsset,
     DandisetMetadataFile,
@@ -543,8 +544,6 @@ def test_upload_zarr_large_chunks(new_dandiset, tmp_path):
     zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
     zf = dandi_file(filepath)
     assert isinstance(zf, ZarrAsset)
-
-    from ..files.bases import _multipart_upload as real_multipart_upload
 
     called_paths: list[str] = []
 
