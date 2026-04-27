@@ -764,7 +764,8 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                             asset_path=it.entry_path,
                             upload_prefix="/uploads/zarr",
                             extra_init_fields={
-                                "zarr": {"chunk_key": it.entry_path, "zarr_id": zarr_id}
+                                "zarr_id": zarr_id,
+                                "chunk_key": it.entry_path,
                             },
                             jobs=jobs,
                         )
