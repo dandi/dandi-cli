@@ -613,7 +613,7 @@ def _multipart_upload(
     expected_etag: str | None = None,
     jobs: int | None = None,
 ) -> Generator[dict, None, dict]:
-    """Perform a full multipart upload: etag calculation, initialization, part upload, and validation.
+    """Perform multipart upload: etag calculation, initialization, part upload, and validation.
 
     Yields progress dicts and returns the validate response dict.  If
     ``expected_etag`` is provided and does not match the computed etag, raises
