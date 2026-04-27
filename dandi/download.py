@@ -237,6 +237,7 @@ class Downloader:
     url: ParsedDandiURL
     output_dir: InitVar[str | Path]
     output_prefix: Path = field(init=False)
+    #: just a convenience combination of output_dir and output_prefix
     output_path: Path = field(init=False)
     existing: DownloadExisting
     get_metadata: bool
@@ -344,6 +345,12 @@ class Downloader:
                             asset.path,
                         )
                         mtime = asset.modified
+                    if asset.subpath:
+                        lgr.warning(
+                            "No downloading of subpaths within blobs yet. Got %s for %s",
+                            asset.subpath,
+                            asset.path,
+                        )
                     _download_generator = _download_file(
                         asset.get_download_file_iter(),
                         download_path,
@@ -363,7 +370,8 @@ class Downloader:
                     ), f"Asset {asset.path} is neither blob nor Zarr"
                     _download_generator = _download_zarr(
                         asset,
-                        download_path,
+                        prefix=asset.subpath,
+                        download_path=download_path,
                         toplevel_path=self.output_path,
                         existing=self.existing,
                         jobs=self.jobs_per_zarr,
@@ -824,6 +832,7 @@ def _download_file(
         lgr.warning("downloader logic: We should not be here!")
 
     final_digest = None
+
     if downloaded_digest and not resuming:
         assert downloaded_digest is not None
         final_digest = downloaded_digest.hexdigest()  # we care only about hex
@@ -989,6 +998,7 @@ def _download_zarr(
     toplevel_path: str | Path,
     existing: DownloadExisting,
     lock: Lock,
+    prefix: str | None = None,
     jobs: int | None = None,
 ) -> Iterator[dict]:
     # Avoid heavy import by importing within function:
@@ -1005,7 +1015,7 @@ def _download_zarr(
             digests[path] = d
 
     def downloads_gen():
-        for entry in asset.iterfiles():
+        for entry in asset.iterfiles(prefix=prefix):
             entries.append(entry)
             etag = entry.digest
             assert etag.algorithm is DigestType.md5
