@@ -4,7 +4,7 @@ from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from contextlib import ExitStack
 from enum import Enum
-from functools import reduce
+from functools import partial, reduce
 import io
 import os.path
 from pathlib import Path
@@ -40,6 +40,12 @@ from .support import pyout as pyouts
 from .support.pyout import naturalsize
 from .utils import ensure_datetime, path_is_subpath, pluralize
 from .validate_types import Severity
+
+import threading
+import multiprocessing
+
+# Small cap specifically for metadata I/O/parse
+_METADATA_SLOTS = threading.BoundedSemaphore(value=1)
 
 
 def _check_dandidownload_paths(dfile: DandiFile) -> None:
@@ -251,9 +257,15 @@ def upload(
         upload_err: Exception | None = None
         validate_ok = True
 
+        # Pre-build asset dict to avoid repeated api calls for each asset
+        asset_gen = remote_dandiset.get_assets()
+        asset_dict = {a.path: a for a in asset_gen}
+
         # TODO: we might want to always yield a full record so no field is not
         # provided to pyout to cause it to halt
-        def process_path(dfile: DandiFile) -> Iterator[dict]:
+        def process_path(
+            dfile: DandiFile, metadata=None, file_etag=None, validation_errors=None
+        ) -> Iterator[dict]:
             """
 
             Parameters
@@ -313,7 +325,9 @@ def upload(
                 else:
                     # yielding empty causes pyout to get stuck or crash
                     # https://github.com/pyout/pyout/issues/91
-                    # yield {"errors": '',}
+                    # yield {
+                    #     "errors": 0,
+                    # }
                     pass
 
                 #
@@ -329,8 +343,10 @@ def upload(
                         assert dandiset is not None
                         assert dandiset.metadata is not None
                         remote_dandiset.set_raw_metadata(dandiset.metadata)
+                        process_paths.discard(strpath)
                         yield {"status": "updated metadata"}
                     else:
+                        process_paths.discard(strpath)
                         yield skip_file("should be edited online")
                     return
                 assert isinstance(dfile, LocalAsset)
@@ -338,22 +354,34 @@ def upload(
                 #
                 # Compute checksums
                 #
-                file_etag: Digest | None
-                if isinstance(dfile, ZarrAsset):
-                    file_etag = None
-                else:
-                    yield {"status": "digesting"}
-                    try:
-                        file_etag = dfile.get_digest()
-                    except Exception as exc:
-                        raise UploadError("failed to compute digest: %s" % str(exc))
+                if file_etag is None:
+                    file_etag: Digest | None
+                    if isinstance(dfile, ZarrAsset):
+                        file_etag = None
+                    else:
+                        yield {"status": "digesting"}
+                        try:
+                            file_etag = dfile.get_digest()
+                        except Exception as exc:
+                            raise UploadError("failed to compute digest: %s" % str(exc))
 
-                try:
-                    extant = remote_dandiset.get_asset_by_path(dfile.path)
-                except NotFoundError:
-                    extant = None
-                else:
-                    assert extant is not None
+                # try:
+                #     extant = asset_dict.get(dfile.path)
+                # except NotFoundError:
+                #     extant = None
+                # else:
+                #     assert extant is not None
+                #     replace, out = check_replace_asset(
+                #         local_asset=dfile,
+                #         remote_asset=extant,
+                #         existing=existing,
+                #         local_etag=file_etag,
+                #     )
+                #     yield out
+                #     if not replace:
+                #         return
+
+                if extant := asset_dict.get(dfile.path):
                     replace, out = check_replace_asset(
                         local_asset=dfile,
                         remote_asset=extant,
@@ -363,6 +391,8 @@ def upload(
                     yield out
                     if not replace:
                         return
+                else:
+                    extant = None
 
                 #
                 # Extract metadata - delayed since takes time, but is done before
@@ -371,13 +401,17 @@ def upload(
                 # Extract metadata before actual upload and skip if fails
                 # TODO: allow for for non-nwb files to skip this step
                 # ad-hoc for dandiset.yaml for now
-                yield {"status": "extracting metadata"}
-                try:
-                    metadata = dfile.get_metadata(
-                        digest=file_etag, ignore_errors=allow_any_path
-                    ).model_dump(mode="json", exclude_none=True)
-                except Exception as e:
-                    raise UploadError("failed to extract metadata: %s" % str(e))
+                # yield {"status": "extracting metadata"}
+                if metadata is None:
+                    yield {"status": "waiting for metadata slot"}
+                    try:
+                        with _METADATA_SLOTS:
+                            yield {"status": "extracting metadata"}
+                            metadata = dfile.get_metadata(
+                                digest=file_etag, ignore_errors=allow_any_path
+                            ).model_dump(mode="json", exclude_none=True)
+                    except Exception as e:
+                        raise UploadError("failed to extract metadata: %s" % str(e))
 
                 #
                 # Upload file
@@ -398,6 +432,7 @@ def upload(
                             validating = True
                     else:
                         yield r
+                process_paths.discard(strpath)
                 yield {"status": "done"}
 
             except Exception as exc:
@@ -412,7 +447,7 @@ def upload(
                 uploaded_paths[strpath]["errors"].append(message)
                 yield error_file(message)
             finally:
-                process_paths.remove(strpath)
+                process_paths.discard(strpath)
 
         # We will again use pyout to provide a neat table summarizing our progress
         # with upload etc
@@ -440,9 +475,51 @@ def upload(
             style=pyout_style, columns=rec_fields, max_workers=jobs or 5
         )
 
+        files_sizes = [dfile.size for dfile in dandi_files]
+        print(
+            f"Total size of {len(files_sizes)} files to consider for upload is"
+            f" {naturalsize(sum(files_sizes))}",
+            flush=True,
+        )
+        import numpy as np
+
+        sorted_size_index = np.argsort(files_sizes)
+
+        ordered_dfiles = [dandi_files[i] for i in sorted_size_index]
+        # ordered_dfiles.reverse()
+
+        # ordered_dfiles = dandi_files
+
+        # def _get_etag_and_metadata(dfile):
+        #     print(f"Precomputing etag and metadata for {dfile.filepath}", flush=True)
+        #     file_etag: Digest | None
+        #     if isinstance(dfile, ZarrAsset):
+        #         file_etag = None
+        #     else:
+        #         try:
+        #             file_etag = dfile.get_digest()
+        #         except Exception as exc:
+        #             raise UploadError("failed to compute digest: %s" % str(exc))
+        #     metadata = dfile.get_metadata(
+        #         digest=file_etag, ignore_errors=allow_any_path
+        #     ).model_dump(mode="json", exclude_none=True)
+        #     return file_etag, metadata
+
+        # def stream_precomputed_info(dfiles, workers):
+        #     with multiprocessing.Pool(workers) as pool:
+        #         for dfile in dfiles:
+        #             print(f"Scheduling precomputation for {dfile.filepath}", flush=True)
+        #         for result in pool.imap_unordered(_get_etag_and_metadata, dfiles):
+        #             yield result
+
         with out:
-            for dfile in dandi_files:
-                while len(process_paths) >= 10:
+            for (
+                dfile,
+                file_etag,
+                metadata,
+                validation_errors,
+            ) in stream_precomputed_info(ordered_dfiles, 32, allow_any_path):
+                while len(process_paths) >= min(jobs, 32):  # 15:
                     lgr.log(2, "Sleep waiting for some paths to finish processing")
                     time.sleep(0.5)
 
@@ -458,10 +535,12 @@ def upload(
                 try:
                     if devel_debug:
                         # DEBUG: do serially
-                        for v in process_path(dfile):
+                        for v in process_path(dfile, metadata, file_etag):
                             print(str(v), flush=True)
                     else:
-                        rec[tuple(rec_fields[1:])] = process_path(dfile)
+                        rec[tuple(rec_fields[1:])] = process_path(
+                            dfile, metadata, file_etag, validation_errors
+                        )
                 except ValueError as exc:
                     rec.update(error_file(exc))
                 out(rec)
@@ -564,3 +643,39 @@ def skip_file(msg: Any) -> dict[str, str]:
 
 def error_file(msg: Any) -> dict[str, str]:
     return {"status": "ERROR", "message": str(msg)}
+
+
+def _get_etag_and_metadata(dfile, allow_any_path: bool):
+    if isinstance(dfile, DandisetMetadataFile):
+        return dfile, None, None, None
+    file_etag: Digest | None
+    if isinstance(dfile, ZarrAsset):
+        file_etag = None
+    else:
+        try:
+            file_etag = dfile.get_digest()
+        except Exception as exc:
+            raise UploadError("failed to compute digest: %s" % str(exc))
+    metadata = dfile.get_metadata(
+        digest=file_etag, ignore_errors=allow_any_path
+    ).model_dump(mode="json", exclude_none=True)
+    validation_errors = []  # SB DEV TODO
+    # validation_statuses = dfile.get_validation_errors()
+    # validation_errors = [
+    #     s
+    #     for s in validation_statuses
+    #     if s.severity is not None and s.severity >= Severity.ERROR
+    # ]
+
+    return dfile, file_etag, metadata, validation_errors
+
+
+def stream_precomputed_info(dfiles, workers, allow_any_path: bool):
+    with multiprocessing.Pool(workers) as pool:
+        for dfile in dfiles:
+            print(f"Scheduling precomputation for {dfile.filepath}", flush=True)
+        for result in pool.imap_unordered(
+            partial(_get_etag_and_metadata, allow_any_path=allow_any_path),
+            dfiles,
+        ):
+            yield result

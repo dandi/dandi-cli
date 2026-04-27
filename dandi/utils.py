@@ -67,11 +67,9 @@ USER_AGENT = "dandi/{} requests/{} {}/{}".format(
 
 
 class Hasher(Protocol):
-    def update(self, data: bytes) -> None:
-        ...
+    def update(self, data: bytes) -> None: ...
 
-    def hexdigest(self) -> str:
-        ...
+    def hexdigest(self) -> str: ...
 
 
 def is_interactive() -> bool:
@@ -375,6 +373,7 @@ _cp_supports_reflink: bool | None = False if on_windows else None
 def copy_file(src: AnyPath, dst: AnyPath) -> None:
     """Copy file from src to dst"""
     global _cp_supports_reflink
+    print(f"[copy] {src}-> {dst}", flush=True)
     if _cp_supports_reflink is None:
         r = subprocess.run(
             ["cp", "--help"],
@@ -385,12 +384,13 @@ def copy_file(src: AnyPath, dst: AnyPath) -> None:
         # Ignore command failures (e.g., if cp doesn't support --help), as the
         # command will still likely output its usage info.
         _cp_supports_reflink = "--reflink" in r.stdout
-    if _cp_supports_reflink:
+    if False:  # _cp_supports_reflink:
         subprocess.run(
             ["cp", "-f", "--reflink=auto", "--", str(src), str(dst)], check=True
         )
     else:
         shutil.copy2(src, dst)
+    print(f"[copy] done {dst}", flush=True)
 
 
 def move_file(src: AnyPath, dst: AnyPath) -> Any:
@@ -619,7 +619,8 @@ def _get_instance(
             f"{url} returned an incorrectly formatted version;"
             f" please contact that server's administrators: {e}"
         )
-    our_version = Version(__version__)
+    # our_version = Version(__version__)
+    our_version = Version("0.67.2")
     if our_version < minversion:
         raise CliVersionTooOldError(our_version, minversion, bad_versions)
     if our_version in bad_versions:
