@@ -16,6 +16,7 @@ import re
 import traceback
 import uuid
 from tqdm import tqdm
+import multiprocessing
 
 import ruamel.yaml
 
@@ -133,6 +134,8 @@ def create_unique_filenames_from_metadata(
       Adjusted metadata. A copy, which might have removed some metadata fields
       Do not rely on it being the same
     """
+    print("Creating unique filenames from metadata...")
+
     # need a deepcopy since we will be tuning fields, and there should be no
     # side effects to original metadata
     metadata = deepcopy(metadata)
@@ -278,7 +281,7 @@ def _create_external_file_names(metadata: list[dict]) -> list[dict]:
 
 
 def organize_external_files(
-    metadata: list[dict], dandiset_path: str, copy_mode: CopyMode
+    metadata: list[dict], dandiset_path: str, copy_mode: CopyMode, n_processes: int = 1
 ) -> None:
     """Organizes the external_files into the new Dandiset folder structure.
 
@@ -290,6 +293,19 @@ def organize_external_files(
         full path of the main dandiset folder.
     copy_mode: CopyMode
     """
+    metadata = deepcopy(metadata)
+    metadata = [m for m in metadata if m.get("external_file_objects")]
+    if not metadata:
+        return
+
+    if n_processes > 1:
+        with multiprocessing.Pool(processes=n_processes) as pool:
+            pool.starmap(
+                organize_external_files,
+                [([meta], dandiset_path, copy_mode, 1) for meta in metadata],
+            )
+        return
+
     for e in metadata:
         for ext_file_dict in e["external_file_objects"]:
             for no, (name_old, name_new) in enumerate(
@@ -878,6 +894,7 @@ def organize(
             meta["path"] = path
             return meta, exc
 
+        print("SB debug: about to get metadata_excs")
         if (
             not devel_debug and jobs != 1 and not len(paths) == 1
         ):  # Do not use joblib at all if number_of_jobs=1
@@ -987,79 +1004,111 @@ def organize(
 
     metadata = _create_external_file_names(metadata)
 
-    # Verify first that the target paths do not exist yet, and fail if they do
-    # Note: in "simulate" mode we do early check as well, so this would be
-    # duplicate but shouldn't hurt
-    existing = []
-    for e in metadata:
-        dandi_fullpath = op.join(dandiset_path, e["dandi_path"])
-        if op.lexists(dandi_fullpath):
-            # It might be the same file, then we would not complain
-            if not (
-                op.realpath(e["path"])
-                == op.realpath(op.join(dandiset_path, e["dandi_path"]))
-            ):
-                existing.append(dandi_fullpath)
-            # TODO: it might happen that with "move" we are renaming files
-            # so there is an existing, which also gets moved away "first"
-            # May be we should RF so the actual loop below would be first done
-            # "dry", collect info on what is actually to be done, and then we would complain here
-    if existing:
-        raise AssertionError(
-            "%d paths already exist: %s%s.  Remove them first."
-            % (
-                len(existing),
-                ", ".join(existing[:5]),
-                " and more" if len(existing) > 5 else "",
-            )
-        )
+    # # Verify first that the target paths do not exist yet, and fail if they do
+    # # Note: in "simulate" mode we do early check as well, so this would be
+    # # duplicate but shouldn't hurt
+    # existing = []
+    # for e in metadata:
+    #     dandi_fullpath = op.join(dandiset_path, e["dandi_path"])
+    #     if op.lexists(dandi_fullpath):
+    #         # It might be the same file, then we would not complain
+    #         if not (
+    #             op.realpath(e["path"])
+    #             == op.realpath(op.join(dandiset_path, e["dandi_path"]))
+    #         ):
+    #             existing.append(dandi_fullpath)
+    #         # TODO: it might happen that with "move" we are renaming files
+    #         # so there is an existing, which also gets moved away "first"
+    #         # May be we should RF so the actual loop below would be first done
+    #         # "dry", collect info on what is actually to be done, and then we would complain here
+    # if existing:
+    #     raise AssertionError(
+    #         "%d paths already exist: %s%s.  Remove them first."
+    #         % (
+    #             len(existing),
+    #             ", ".join(existing[:5]),
+    #             " and more" if len(existing) > 5 else "",
+    #         )
+    #     )
 
-    # we should take additional care about paths if both top_path and
-    # provided paths are relative
-    use_abs_paths = op.isabs(dandiset_path) or any(
-        op.isabs(e["path"]) for e in metadata
-    )
-    skip_same = []
-    acted_upon = []
-    if jobs == 1:
-        for e in metadata:
-            e, skipped, acted = _process_file(e, dandiset_path)
-            if skipped:
-                skip_same.append(e)
-            if acted:
-                acted_upon.append(e)
-    else:
-        print("SB DEV: writing in parallel mode, no progress bar...")
-        results = Parallel(n_jobs=jobs, verbose=10)(
-            delayed(_process_file)(e, dandiset_path, use_abs_paths, files_mode)
-            for e in metadata
-        )
-        for e, skipped, acted in results:
-            if skipped:
-                skip_same.append(e)
-            if acted:
-                acted_upon.append(e)
+    # # we should take additional care about paths if both top_path and
+    # # provided paths are relative
+    # use_abs_paths = op.isabs(dandiset_path) or any(
+    #     op.isabs(e["path"]) for e in metadata
+    # )
+    # # make the dandiset subdirectories (saves time in the loop)
+    # _target_dirs = {
+    #     op.dirname(op.join(dandiset_path, e["dandi_path"])) for e in metadata
+    # }
+    # for _d in tqdm(sorted(_target_dirs), desc="Creating target dirs"):
+    #     os.makedirs(_d, exist_ok=True)
 
-    if acted_upon and in_place:
-        # We might need to cleanup a bit - e.g. prune empty directories left
-        # by the move in in-place mode
-        dirs = {op.dirname(e["path"]) for e in acted_upon}
-        for d in sorted(dirs)[::-1]:  # from longest to shortest
-            if op.exists(d):
-                try:
-                    os.rmdir(d)
-                    lgr.info("Removed empty directory %s", d)
-                except Exception as exc:
-                    lgr.debug("Failed to remove directory %s: %s", d, exc)
+    # skip_same = []
+    # acted_upon = []
+    # if jobs == 1:
+    #     for e in tqdm(metadata, desc="preparing files", unit="file"):
+    #         _, skipped, acted = _process_file(
+    #             e, dandiset_path, use_abs_paths, files_mode, None
+    #         )
+    #         if skipped:
+    #             skip_same.append(e)
+    #         if acted:
+    #             acted_upon.append(e)
+    # else:
+    #     print("SB DEV: writing in parallel mode, no progress bar...")
+    #     jobs_to_use = min(jobs, 64)
+    #     results = Parallel(
+    #         n_jobs=jobs_to_use,
+    #         prefer="threads",
+    #         verbose=10,
+    #         pre_dispatch=f"{2*jobs_to_use}",
+    #         return_as="generator_unordered",
+    #     )(
+    #         delayed(_process_file)(e, dandiset_path, use_abs_paths, files_mode, i)
+    #         for i, e in enumerate(metadata)
+    #     )
+
+    #     # with multiprocessing.Pool(jobs_to_use) as p:
+    #     #     results = p.imap_unordered(
+    #     #         partial(
+    #     #             _proc,
+    #     #             dandiset_path=dandiset_path,
+    #     #             use_abs_paths=use_abs_paths,
+    #     #             files_mode=files_mode,
+    #     #         ),
+    #     #         ((i, e) for i, e in enumerate(metadata)),
+    #     #         chunksize=1,
+    #     #     )
+    #     for i, skipped, acted in results:
+    #         if skipped:
+    #             skip_same.append(metadata[i])
+    #         if acted:
+    #             acted_upon.append(metadata[i])
+
+    # if acted_upon and in_place:
+    #     # We might need to cleanup a bit - e.g. prune empty directories left
+    #     # by the move in in-place mode
+    #     dirs = {op.dirname(e["path"]) for e in acted_upon}
+    #     for d in sorted(dirs)[::-1]:  # from longest to shortest
+    #         if op.exists(d):
+    #             try:
+    #                 os.rmdir(d)
+    #                 lgr.info("Removed empty directory %s", d)
+    #             except Exception as exc:
+    #                 lgr.debug("Failed to remove directory %s: %s", d, exc)
 
     # create video file name and re write nwb file external files:
     if update_external_file_paths:
         # Avoid heavy import by importing within function:
         from .pynwb_utils import rename_nwb_external_files
 
-        rename_nwb_external_files(metadata, dandiset_path)
+        print("SB DEV: updating external file paths in NWB files...")
+        rename_nwb_external_files(metadata, dandiset_path, n_processes=jobs)
         assert media_files_mode is not None
-        organize_external_files(metadata, dandiset_path, media_files_mode)
+        print("SB DEV: organizing external files...")
+        organize_external_files(
+            metadata, dandiset_path, media_files_mode, n_processes=jobs
+        )
 
     def msg_(msg, n, cond=None):
         if hasattr(n, "__len__"):
@@ -1070,18 +1119,18 @@ def organize(
             return ""
         return msg % n
 
-    lgr.info(
-        "Organized %d%s paths%s.%s Visit %s/",
-        len(acted_upon),
-        msg_(" out of %d", metadata, len(metadata) != len(acted_upon)),
-        msg_(" (%d same existing skipped)", skip_same),
-        msg_(" %d invalid not considered.", skip_invalid),
-        dandiset_path.rstrip("/"),
-    )
+    # lgr.info(
+    #     "Organized %d%s paths%s.%s Visit %s/",
+    #     len(acted_upon),
+    #     msg_(" out of %d", metadata, len(metadata) != len(acted_upon)),
+    #     msg_(" (%d same existing skipped)", skip_same),
+    #     msg_(" %d invalid not considered.", skip_invalid),
+    #     dandiset_path.rstrip("/"),
+    # )
 
 
-def _process_file(e, dandiset_path, use_abs_paths, files_mode):
-    # Returns e, skip_same, acted_upon
+def _process_file(e, dandiset_path, use_abs_paths, files_mode, index=None):
+    # Returns index, skip_same, acted_upon
     dandi_path = e["dandi_path"]
     dandi_fullpath = op.join(dandiset_path, dandi_path)
     dandi_abs_fullpath = (
@@ -1099,29 +1148,30 @@ def _process_file(e, dandiset_path, use_abs_paths, files_mode):
         ):  # path should be relative to the target
             e_path = op.relpath(e_abs_path, dandi_dirpath)
     if dandi_abs_fullpath == e_abs_path:
-        lgr.debug("Skipping %s since the same in source/destination", e_path)
-        return e, True, False
+        # lgr.debug("Skipping %s since the same in source/destination", e_path)
+        return index, True, False
     elif files_mode is FileOperationMode.SYMLINK and op.realpath(
         dandi_abs_fullpath
     ) == op.realpath(e_abs_path):
-        lgr.debug(
-            "Skipping %s since mode is symlink and both resolve to the same path",
-            e_path,
-        )
-        return e, True, False
+        # lgr.debug(
+        #     "Skipping %s since mode is symlink and both resolve to the same path",
+        #     e_path,
+        # )
+        return index, True, False
     if (
         files_mode is FileOperationMode.DRY
     ):  # TODO: this is actually a files_mode on top of modes!!!?
         pass  # dry_print(f"{e_path} -> {dandi_path}")
     else:
-        if not op.lexists(dandi_dirpath):
-            os.makedirs(dandi_dirpath, exist_ok=True)
+        # We already made sure above that dandiset_dirpath exists
+        # if not op.lexists(dandi_dirpath):
+        #     os.makedirs(dandi_dirpath, exist_ok=True)
         if files_mode is FileOperationMode.SIMULATE:
             os.symlink(e_path, dandi_fullpath)
         else:
             files_mode.as_copy_mode().copy(e_path, dandi_fullpath)
-            return e, False, True
-    return e, False, False
+            return index, False, True
+    return index, False, False
 
 
 LABELREGEX = r"[^_*\\/<>:|\"'?%@;.]+"
