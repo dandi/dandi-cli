@@ -354,6 +354,8 @@ class LocalFileAsset(LocalAsset):
                 expected_etag=expected_etag,
                 jobs=jobs,
             )
+            if validate_resp is None:
+                raise RuntimeError("Expected upload response of type `dict` but received `None`")
             blob_id = validate_resp["blob_id"]
         except requests.HTTPError as e:
             if e.response is not None and e.response.status_code == 409:
@@ -612,7 +614,7 @@ def _multipart_upload(
     extra_init_fields: dict,
     expected_etag: str | None = None,
     jobs: int | None = None,
-) -> Generator[dict, None, dict]:
+) -> Generator[dict, None, dict | None]:
     """Perform multipart upload: etag calculation, initialization, part upload, and validation.
 
     Yields progress dicts and returns the validate response dict.  If
@@ -708,7 +710,7 @@ def _multipart_upload(
                         f" client says {filetag}"
                     )
             # else: Error? Warning?
-            validate_resp = client.post(f"{upload_prefix}/{upload_id}/validate/")
+            validate_resp: dict | None = client.post(f"{upload_prefix}/{upload_id}/validate/")
     except Exception:
         post_upload_size_check(filepath, total_size, True)
         raise
