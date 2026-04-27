@@ -10,6 +10,7 @@ import re
 from typing import IO, Any, TypeVar, cast
 import warnings
 
+import copy
 import dandischema
 from fscacher import PersistentCache
 import h5py
@@ -301,7 +302,9 @@ def _get_image_series(nwb: pynwb.NWBFile) -> list[dict]:
     return out
 
 
-def rename_nwb_external_files(metadata: list[dict], dandiset_path: str) -> None:
+def rename_nwb_external_files(
+    metadata: list[dict], dandiset_path: str, n_processes=1
+) -> None:
     """Renames the external_file attribute in an ImageSeries datatype in an open nwb file.
 
     It pulls information about the ImageSeries objects from metadata:
@@ -314,6 +317,21 @@ def rename_nwb_external_files(metadata: list[dict], dandiset_path: str) -> None:
     dandiset_path: str
         base path of dandiset
     """
+    metadata = copy.deepcopy(metadata)
+    metadata = [m for m in metadata if m["external_file_objects"]]
+    if not metadata:
+        return
+
+    if n_processes > 1:
+        print("using multiprocessing with %d processes" % n_processes)
+        import multiprocessing
+
+        with multiprocessing.Pool(processes=n_processes) as pool:
+            pool.starmap(
+                rename_nwb_external_files,
+                [([meta], dandiset_path, 1) for meta in metadata],
+            )
+
     for meta in metadata:
         if not all(i in meta for i in ["path", "dandi_path", "external_file_objects"]):
             lgr.warning(
