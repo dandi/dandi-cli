@@ -554,6 +554,7 @@ def test_upload_zarr_large_chunks(new_dandiset, tmp_path):
     # Set threshold to 0 so every chunk is treated as "large"
     with (
         patch("dandi.files.zarr.ZARR_LARGE_CHUNK_THRESHOLD", 0),
+        patch("dandi.support.digests.ZARR_LARGE_CHUNK_THRESHOLD", 0),
         patch(
             "dandi.files.zarr._multipart_upload",
             spy_multipart_upload,
@@ -590,6 +591,7 @@ def test_upload_zarr_mixed_chunks(new_dandiset, tmp_path):
     mixed_threshold = 200
     with (
         patch("dandi.files.zarr.ZARR_LARGE_CHUNK_THRESHOLD", mixed_threshold),
+        patch("dandi.support.digests.ZARR_LARGE_CHUNK_THRESHOLD", mixed_threshold),
         patch("dandi.files.zarr._multipart_upload", spy_multipart_upload),
     ):
         asset = zf.upload(new_dandiset.dandiset, {})

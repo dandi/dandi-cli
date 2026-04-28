@@ -26,6 +26,7 @@ from dandischema.digests.dandietag import DandiETag
 from fscacher import PersistentCache
 from zarr_checksum.checksum import ZarrChecksum, ZarrChecksumManifest
 from zarr_checksum.tree import ZarrChecksumTree
+from dandi.consts import ZARR_LARGE_CHUNK_THRESHOLD
 
 from .threaded_walk import threaded_walk
 from ..utils import Hasher, exclude_from_zarr
@@ -133,32 +134,17 @@ def md5file_nocache(filepath: str | Path) -> str:
     Compute the MD5 digest of a file without caching with fscacher, which has
     been shown to slow things down for the large numbers of files typically
     present in Zarrs
-    """
-    return Digester(["md5"])(filepath)["md5"]
 
-
-def multipart_md5file_nocache(filepath: str | Path) -> str:
-    """
-    Compute the S3 multipart ETag for a file.
-
-    Splits the file into parts of ``part_size`` bytes, hashes each part with
-    MD5, then returns ``MD5(concat(part_md5s))-{num_parts}``, matching what S3
-    stores as the ETag for a multipart upload.
+    If the file is larger than `ZARR_LARGE_CHUNK_THRESHOLD`, the computed checksum is not a
+    traditional md5 checksum, but is instead an S3 multipart ETag.
     """
     if isinstance(filepath, str):
         filepath = Path(filepath)
 
-    part_size = DandiETag(filepath.stat().st_size)._part_gen.initial_part_size
-    part_md5s = b""
-    num_parts = 0
-    with open(filepath, "rb") as f:
-        while True:
-            chunk = f.read(part_size)
-            if not chunk:
-                break
-            part_md5s += hashlib.md5(chunk).digest()
-            num_parts += 1
-    return f"{hashlib.md5(part_md5s).hexdigest()}-{num_parts}"
+    if filepath.stat().st_size > ZARR_LARGE_CHUNK_THRESHOLD:
+        return get_dandietag(filepath).as_str()
+
+    return Digester(["md5"])(filepath)["md5"]
 
 
 def checksum_zarr_dir(

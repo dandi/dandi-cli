@@ -1037,15 +1037,9 @@ class EntryUploadTracker:
     @staticmethod
     def _mkitem(e: LocalZarrEntry) -> UploadItem:
         # Avoid heavy import by importing within function:
-        from dandi.support.digests import md5file_nocache, multipart_md5file_nocache
+        from dandi.support.digests import md5file_nocache
 
-        file_size = e.filepath.stat().st_size
-        digest = (
-            md5file_nocache(e.filepath)
-            if file_size <= ZARR_LARGE_CHUNK_THRESHOLD
-            else multipart_md5file_nocache(e.filepath)
-        )
-
+        digest = md5file_nocache(e.filepath)
         return UploadItem.from_entry(e, digest)
 
     def get_items(self, jobs: int = 5) -> Generator[UploadItem, None, None]:
