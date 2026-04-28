@@ -137,6 +137,30 @@ def md5file_nocache(filepath: str | Path) -> str:
     return Digester(["md5"])(filepath)["md5"]
 
 
+def multipart_md5file_nocache(filepath: str | Path) -> str:
+    """
+    Compute the S3 multipart ETag for a file.
+
+    Splits the file into parts of ``part_size`` bytes, hashes each part with
+    MD5, then returns ``MD5(concat(part_md5s))-{num_parts}``, matching what S3
+    stores as the ETag for a multipart upload.
+    """
+    if isinstance(filepath, str):
+        filepath = Path(filepath)
+
+    part_size = DandiETag(filepath.stat().st_size)._part_gen.initial_part_size
+    part_md5s = b""
+    num_parts = 0
+    with open(filepath, "rb") as f:
+        while True:
+            chunk = f.read(part_size)
+            if not chunk:
+                break
+            part_md5s += hashlib.md5(chunk).digest()
+            num_parts += 1
+    return f"{hashlib.md5(part_md5s).hexdigest()}-{num_parts}"
+
+
 def checksum_zarr_dir(
     files: dict[str, tuple[str, int]], directories: dict[str, tuple[str, int]]
 ) -> str:
