@@ -567,6 +567,48 @@ def test_upload_zarr_large_chunks(new_dandiset, tmp_path):
     assert remote_entries == set(called_paths)
 
 
+@pytest.mark.ai_generated
+def test_upload_zarr_mixed_chunks(new_dandiset, tmp_path):
+    """Chunks above ZARR_LARGE_CHUNK_THRESHOLD go multipart; smaller ones use single-part upload."""
+    filepath = tmp_path / "mixed.zarr"
+    store = zarr.open_group(str(filepath), mode="w")
+    # small array: 10 int64 elements, produces a ~96-byte chunk (compressed)
+    store.create_dataset("small", data=np.arange(10, dtype=np.int64), chunks=(10,))
+    # large array: 200 int64 elements, produces a ~329-byte chunk (compressed)
+    store.create_dataset("large", data=np.arange(200, dtype=np.int64), chunks=(200,))
+
+    zf = dandi_file(filepath)
+    assert isinstance(zf, ZarrAsset)
+
+    multipart_paths: list[str] = []
+
+    def spy_multipart_upload(**kwargs):
+        multipart_paths.append(kwargs["asset_path"])
+        yield from real_multipart_upload(**kwargs)
+
+    # Threshold sits between the two chunk sizes so only the large chunk goes multipart
+    mixed_threshold = 200
+    with (
+        patch("dandi.files.zarr.ZARR_LARGE_CHUNK_THRESHOLD", mixed_threshold),
+        patch("dandi.files.zarr._multipart_upload", spy_multipart_upload),
+    ):
+        asset = zf.upload(new_dandiset.dandiset, {})
+
+    assert isinstance(asset, RemoteZarrAsset)
+
+    remote_entries = {str(e) for e in asset.iterfiles()}
+    # Only chunk files whose on-disk size exceeds the threshold should be multipart-uploaded
+    large_chunks = {
+        p
+        for p in remote_entries
+        if (filepath / p).stat().st_size > mixed_threshold
+    }
+    assert set(multipart_paths) == large_chunks
+    # At least one chunk must have gone each path so the test is meaningful
+    assert len(multipart_paths) > 0
+    assert len(remote_entries) - len(multipart_paths) > 0
+
+
 def test_validate_deep_zarr(tmp_path: Path) -> None:
     zarr_path = tmp_path / "foo.zarr"
     zarr.save(zarr_path, np.arange(1000), np.arange(1000, 0, -1))
