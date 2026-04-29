@@ -743,10 +743,10 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     # Items to upload in this batch (may be retried e.g. due to
                     # 403 errors because of timed-out upload URLs)
                     all_items = list(items)
-                    large_items = [
+                    multipart_items = [
                         it for it in all_items if it.size > ZARR_LARGE_CHUNK_THRESHOLD
                     ]
-                    items_to_upload = [
+                    singlepart_items = [
                         it for it in all_items if it.size <= ZARR_LARGE_CHUNK_THRESHOLD
                     ]
                     max_retries = 5
@@ -756,7 +756,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         zcc.add_leaf(Path(it.entry_path), it.size, it.digest)
 
                     # Upload chunks above 5GB individually via multipart upload
-                    for it in large_items:
+                    for it in multipart_items:
                         # Yield uploading status
                         yield from _multipart_upload(
                             client=client,
@@ -780,9 +780,9 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         }
 
                     # Upload the remaining files using single part upload
-                    while items_to_upload and retry_count <= max_retries:
+                    while singlepart_items and retry_count <= max_retries:
                         # Prepare upload requests for current items
-                        uploading = [it.upload_request() for it in items_to_upload]
+                        uploading = [it.upload_request() for it in singlepart_items]
 
                         if retry_count == 0:
                             lgr.debug(
@@ -814,7 +814,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                     upload_url=signed_url,
                                     item=it,
                                 )
-                                for (signed_url, it) in zip(r, items_to_upload)
+                                for (signed_url, it) in zip(r, singlepart_items)
                             ]
 
                             changed = True
@@ -846,20 +846,20 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                 )
 
                             # Prepare for next iteration with retry items
-                            if items_to_upload := retry_items:
+                            if singlepart_items := retry_items:
                                 retry_count += 1
                                 if retry_count <= max_retries:
                                     lgr.info(
                                         "%s: %s got 403 errors, requesting new URLs",
                                         asset_path,
-                                        pluralize(len(items_to_upload), "file"),
+                                        pluralize(len(singlepart_items), "file"),
                                     )
                                     # Small delay before retry
                                     sleep(1 * retry_count)
 
                     # Check if we exhausted retries
-                    if items_to_upload:
-                        nfiles_str = pluralize(len(items_to_upload), "file")
+                    if singlepart_items:
+                        nfiles_str = pluralize(len(singlepart_items), "file")
                         raise UploadError(
                             f"{asset_path}: failed to upload {nfiles_str} "
                             f"after {max_retries} retries due to repeated 403 errors"
