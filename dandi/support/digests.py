@@ -142,7 +142,8 @@ def md5file_nocache(filepath: str | Path) -> str:
         filepath = Path(filepath)
 
     if filepath.stat().st_size > ZARR_LARGE_CHUNK_THRESHOLD:
-        return get_dandietag(filepath).as_str()
+        # For some reason the type checker treats this return as an Any type
+        return get_dandietag(filepath).as_str()  # type: ignore [no-any-return]
 
     return Digester(["md5"])(filepath)["md5"]
 
