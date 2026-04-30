@@ -773,10 +773,14 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     for it in all_items:
                         zcc.add_leaf(Path(it.entry_path), it.size, it.digest)
 
-                    # Upload chunks above 5GB individually via multipart upload
+                    # Upload chunks above 5GB individually via multipart upload.
+                    # ``_multipart_upload`` reports ``current`` as bytes within
+                    # the single chunk being uploaded; translate it to bytes
+                    # uploaded across the whole zarr so progress reporting
+                    # stays monotonic for downstream consumers.
                     for it in multipart_items:
-                        # Yield uploading status
-                        yield from _multipart_upload(
+                        cumulative_before = bytes_uploaded
+                        for status in _multipart_upload(
                             client=client,
                             filepath=it.filepath,
                             asset_path=it.entry_path,
@@ -786,16 +790,21 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                 "chunk_key": it.entry_path,
                             },
                             jobs=jobs,
-                        )
-
-                        # Part is finished uploading, yield final progress
+                        ):
+                            if (
+                                status.get("status") == "uploading"
+                                and "current" in status
+                            ):
+                                cumulative = cumulative_before + status["current"]
+                                yield {
+                                    "status": "uploading",
+                                    "progress": 100 * cumulative / to_upload.total_size,
+                                    "current": cumulative,
+                                }
+                            else:
+                                yield status
                         changed = True
                         bytes_uploaded += it.size
-                        yield {
-                            "status": "uploading",
-                            "progress": 100 * bytes_uploaded / to_upload.total_size,
-                            "current": bytes_uploaded,
-                        }
 
                     # Upload the remaining files using single part upload
                     while singlepart_items and retry_count <= max_retries:
