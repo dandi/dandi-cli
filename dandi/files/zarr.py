@@ -743,22 +743,44 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     # Items to upload in this batch (may be retried e.g. due to
                     # 403 errors because of timed-out upload URLs)
                     all_items = list(items)
-                    large_items = [
+                    multipart_items = [
                         it for it in all_items if it.size > ZARR_LARGE_CHUNK_THRESHOLD
                     ]
-                    items_to_upload = [
+                    singlepart_items = [
                         it for it in all_items if it.size <= ZARR_LARGE_CHUNK_THRESHOLD
                     ]
+                    # TODO: remove once all servers are > 0.23.0 (i.e. ship
+                    # dandi-archive#2784) and the multipart zarr upload
+                    # endpoints are universally available; the capability
+                    # check would then be unnecessary.
+                    if multipart_items and not client.supports_zarr_multipart_upload:
+                        largest = max(multipart_items, key=lambda it: it.size)
+                        total_large_size = sum(it.size for it in multipart_items)
+                        raise UploadError(
+                            f"{asset_path}:"
+                            f" {pluralize(len(multipart_items), 'Zarr chunk')}"
+                            f" totaling {total_large_size / 1024**3:.2f} GiB"
+                            f" exceed the S3 single-part upload limit of"
+                            f" {ZARR_LARGE_CHUNK_THRESHOLD / 1024**3:.0f} GiB"
+                            f" (largest: {largest.entry_path},"
+                            f" {largest.size / 1024**3:.2f} GiB);"
+                            f" the server does not support multipart zarr"
+                            f" uploads (dandi-archive#2784)."
+                        )
                     max_retries = 5
                     retry_count = 0
                     # Add all items to checksum tree (only done once)
                     for it in all_items:
                         zcc.add_leaf(Path(it.entry_path), it.size, it.digest)
 
-                    # Upload chunks above 5GB individually via multipart upload
-                    for it in large_items:
-                        # Yield uploading status
-                        yield from _multipart_upload(
+                    # Upload chunks above 5GB individually via multipart upload.
+                    # ``_multipart_upload`` reports ``current`` as bytes within
+                    # the single chunk being uploaded; translate it to bytes
+                    # uploaded across the whole zarr so progress reporting
+                    # stays monotonic for downstream consumers.
+                    for it in multipart_items:
+                        cumulative_before = bytes_uploaded
+                        for status in _multipart_upload(
                             client=client,
                             filepath=it.filepath,
                             asset_path=it.entry_path,
@@ -768,21 +790,26 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                 "chunk_key": it.entry_path,
                             },
                             jobs=jobs,
-                        )
-
-                        # Part is finished uploading, yield final progress
+                        ):
+                            if (
+                                status.get("status") == "uploading"
+                                and "current" in status
+                            ):
+                                cumulative = cumulative_before + status["current"]
+                                yield {
+                                    "status": "uploading",
+                                    "progress": 100 * cumulative / to_upload.total_size,
+                                    "current": cumulative,
+                                }
+                            else:
+                                yield status
                         changed = True
                         bytes_uploaded += it.size
-                        yield {
-                            "status": "uploading",
-                            "progress": 100 * bytes_uploaded / to_upload.total_size,
-                            "current": bytes_uploaded,
-                        }
 
                     # Upload the remaining files using single part upload
-                    while items_to_upload and retry_count <= max_retries:
+                    while singlepart_items and retry_count <= max_retries:
                         # Prepare upload requests for current items
-                        uploading = [it.upload_request() for it in items_to_upload]
+                        uploading = [it.upload_request() for it in singlepart_items]
 
                         if retry_count == 0:
                             lgr.debug(
@@ -814,7 +841,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                     upload_url=signed_url,
                                     item=it,
                                 )
-                                for (signed_url, it) in zip(r, items_to_upload)
+                                for (signed_url, it) in zip(r, singlepart_items)
                             ]
 
                             changed = True
@@ -846,20 +873,20 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                 )
 
                             # Prepare for next iteration with retry items
-                            if items_to_upload := retry_items:
+                            if singlepart_items := retry_items:
                                 retry_count += 1
                                 if retry_count <= max_retries:
                                     lgr.info(
                                         "%s: %s got 403 errors, requesting new URLs",
                                         asset_path,
-                                        pluralize(len(items_to_upload), "file"),
+                                        pluralize(len(singlepart_items), "file"),
                                     )
                                     # Small delay before retry
                                     sleep(1 * retry_count)
 
                     # Check if we exhausted retries
-                    if items_to_upload:
-                        nfiles_str = pluralize(len(items_to_upload), "file")
+                    if singlepart_items:
+                        nfiles_str = pluralize(len(singlepart_items), "file")
                         raise UploadError(
                             f"{asset_path}: failed to upload {nfiles_str} "
                             f"after {max_retries} retries due to repeated 403 errors"
