@@ -1,3 +1,26 @@
+# 0.75.1 (Thu Apr 30 2026)
+
+#### 🐛 Bug Fix
+
+- Add support for updated error text upon Zarr name conflicts [#1848](https://github.com/dandi/dandi-cli/pull/1848) ([@brianhelba](https://github.com/brianhelba))
+- BF: Add timeout to follow_redirect HEAD requests; retry on Timeout [#1849](https://github.com/dandi/dandi-cli/pull/1849) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- ENH: Add REUSE specification and checks for compliance [#1844](https://github.com/dandi/dandi-cli/pull/1844) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🧪 Tests
+
+- Allow test server to be provided externally [#1847](https://github.com/dandi/dandi-cli/pull/1847) ([@brianhelba](https://github.com/brianhelba) [@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 3
+
+- Brian Helba ([@brianhelba](https://github.com/brianhelba))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.75.0 (Wed Apr 29 2026)
 
 ### Release Notes
