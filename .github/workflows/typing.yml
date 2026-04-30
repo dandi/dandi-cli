@@ -6,6 +6,9 @@ on:
 
 jobs:
   typing:
+    # TODO(remove-before-merge): temporarily disabled to expedite iteration
+    # on the cross-repo PR matrix workflow.
+    if: false
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository

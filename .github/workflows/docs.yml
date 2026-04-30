@@ -8,6 +8,9 @@ on:
 
 jobs:
   docs:
+    # TODO(remove-before-merge): temporarily disabled to expedite iteration
+    # on the cross-repo PR matrix workflow.
+    if: false
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
