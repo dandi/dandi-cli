@@ -749,6 +749,24 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     singlepart_items = [
                         it for it in all_items if it.size <= ZARR_LARGE_CHUNK_THRESHOLD
                     ]
+                    # TODO: remove once all servers are > 0.23.0 (i.e. ship
+                    # dandi-archive#2784) and the multipart zarr upload
+                    # endpoints are universally available; the capability
+                    # check would then be unnecessary.
+                    if multipart_items and not client.supports_zarr_multipart_upload:
+                        largest = max(multipart_items, key=lambda it: it.size)
+                        total_large_size = sum(it.size for it in multipart_items)
+                        raise UploadError(
+                            f"{asset_path}:"
+                            f" {pluralize(len(multipart_items), 'Zarr chunk')}"
+                            f" totaling {total_large_size / 1024**3:.2f} GiB"
+                            f" exceed the S3 single-part upload limit of"
+                            f" {ZARR_LARGE_CHUNK_THRESHOLD / 1024**3:.0f} GiB"
+                            f" (largest: {largest.entry_path},"
+                            f" {largest.size / 1024**3:.2f} GiB);"
+                            f" the server does not support multipart zarr"
+                            f" uploads (dandi-archive#2784)."
+                        )
                     max_retries = 5
                     retry_count = 0
                     # Add all items to checksum tree (only done once)
