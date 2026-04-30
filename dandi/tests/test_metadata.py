@@ -1025,19 +1025,51 @@ def test_species_map():
             },
         ),
         (
-            ["OptogeneticStimulusSIte"],
+            ["OptogeneticStimulusSite"],
             {
                 "approach": ["optogenetic approach"],
                 "measurementTechnique": None,
-                "variableMeasured": ["OptogeneticStimulusSIte"],
+                "variableMeasured": ["OptogeneticStimulusSite"],
             },
         ),
         (
             ["OptogeneticSeries"],
             {
                 "approach": ["optogenetic approach"],
-                "measurementTechnique": None,
+                "measurementTechnique": ["optogenetic stimulation technique"],
                 "variableMeasured": ["OptogeneticSeries"],
+            },
+        ),
+        (
+            ["PoseEstimationSeries"],
+            {
+                "approach": ["behavioral approach"],
+                "measurementTechnique": ["pose estimation technique"],
+                "variableMeasured": ["PoseEstimationSeries"],
+            },
+        ),
+        (
+            ["PoseEstimation"],
+            {
+                "approach": ["behavioral approach"],
+                "measurementTechnique": ["pose estimation technique"],
+                "variableMeasured": ["PoseEstimation"],
+            },
+        ),
+        (
+            ["PoseTraining"],
+            {
+                "approach": ["behavioral approach"],
+                "measurementTechnique": ["pose estimation training technique"],
+                "variableMeasured": ["PoseTraining"],
+            },
+        ),
+        (
+            ["FiberPhotometryResponseSeries"],
+            {
+                "approach": ["calcium imaging; cell population imaging"],
+                "measurementTechnique": ["fiber photometry technique; optical technique"],
+                "variableMeasured": ["FiberPhotometryResponseSeries"],
             },
         ),
         (
