@@ -16,7 +16,6 @@ from .. import get_logger
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteZarrAsset
 from ..exceptions import UnknownAssetError
-from ..files.bases import _multipart_upload as real_multipart_upload
 from ..files import (
     BIDSDatasetDescriptionAsset,
     DandisetMetadataFile,
@@ -30,6 +29,7 @@ from ..files import (
     dandi_file,
     find_dandi_files,
 )
+from ..files.bases import _multipart_upload as real_multipart_upload
 
 lgr = get_logger()
 
@@ -540,6 +540,11 @@ def test_upload_zarr_entry_content_type(new_dandiset, tmp_path):
 @pytest.mark.ai_generated
 def test_upload_zarr_large_chunks(new_dandiset, tmp_path):
     """Chunks above ZARR_LARGE_CHUNK_THRESHOLD are uploaded via multipart upload."""
+    if not new_dandiset.client.supports_zarr_multipart_upload:
+        pytest.skip(
+            "Server does not expose the zarr multipart upload endpoints"
+            " (dandi-archive#2784)"
+        )
     filepath = tmp_path / "example.zarr"
     zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
     zf = dandi_file(filepath)
@@ -571,6 +576,11 @@ def test_upload_zarr_large_chunks(new_dandiset, tmp_path):
 @pytest.mark.ai_generated
 def test_upload_zarr_mixed_chunks(new_dandiset, tmp_path):
     """Chunks above ZARR_LARGE_CHUNK_THRESHOLD go multipart; smaller ones use single-part upload."""
+    if not new_dandiset.client.supports_zarr_multipart_upload:
+        pytest.skip(
+            "Server does not expose the zarr multipart upload endpoints"
+            " (dandi-archive#2784)"
+        )
     filepath = tmp_path / "mixed.zarr"
     store = zarr.open_group(str(filepath), mode="w")
     # small array: 10 int64 elements, produces a ~96-byte chunk (compressed)
@@ -601,9 +611,7 @@ def test_upload_zarr_mixed_chunks(new_dandiset, tmp_path):
     remote_entries = {str(e) for e in asset.iterfiles()}
     # Only chunk files whose on-disk size exceeds the threshold should be multipart-uploaded
     large_chunks = {
-        p
-        for p in remote_entries
-        if (filepath / p).stat().st_size > mixed_threshold
+        p for p in remote_entries if (filepath / p).stat().st_size > mixed_threshold
     }
     assert set(multipart_paths) == large_chunks
     # At least one chunk must have gone each path so the test is meaningful
