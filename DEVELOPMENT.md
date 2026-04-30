@@ -156,6 +156,13 @@ for a rendered example.
   tests will not pull the latest needed Docker images at the start of a run if
   older versions of the images are already present.
 
+- `DANDI_TESTS_API_URL` -- When set, the integration tests will run against this
+  externally-managed dandi-archive API URL instead of starting a local Docker
+  Compose stack.  Requires `DANDI_TESTS_DJANGO_API_KEY` to also be set.
+
+- `DANDI_TESTS_DJANGO_API_KEY` -- Admin DRF token for the externally-managed
+  server pointed to by `DANDI_TESTS_API_URL`; required when the latter is set.
+
 - `DANDI_TESTS_NO_VCR` — When set, the use of vcrpy to playback captured HTTP
   requests during testing will be disabled
 

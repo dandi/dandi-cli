@@ -239,5 +239,10 @@ REQUEST_RETRIES = 12
 
 DOWNLOAD_TIMEOUT = 30
 
+#: Per-request timeout (seconds) for HEAD requests issued by
+#: ``follow_redirect`` while resolving a redirect chain.  Without it,
+#: requests hangs indefinitely on a stalled hop (observed on Windows CI).
+REDIRECT_HEAD_TIMEOUT = 30
+
 #: Suffix used for temporary download directories
 DOWNLOAD_SUFFIX = ".dandidownload"
