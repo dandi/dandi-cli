@@ -38,6 +38,7 @@ jobs:
           - '3.11'
           - '3.12'
           - '3.13'
+          - '3.14'
         mode:
           - normal
         vendored_dandiapi:
@@ -57,13 +58,13 @@ jobs:
             instance_identifier: 'RRID:SCR_026700'
             doi_prefix: '10.82754'
           - os: ubuntu-latest
-            python: 3.13
+            python: 3.14
             mode: obolibrary-only
           - os: ubuntu-latest
             python: '3.10'
             mode: dev-deps
           - os: ubuntu-latest
-            python: 3.13
+            python: 3.14
             mode: dev-deps
           - os: ubuntu-latest
             python: '3.10'
