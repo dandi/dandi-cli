@@ -1,0 +1,407 @@
+name: Cross-repo PR tests
+
+# ----------------------------------------------------------------------------
+# Cross-repo PR matrix.
+#
+# A PR description may include marker lines like:
+#   dandi-archive PR: #2784
+#   dandi-archive PR: https://github.com/dandi/dandi-archive/pull/2784
+#   dandi-schema  PR: #321
+#   dandi-schema  PR: https://github.com/dandi/dandi-schema/pull/321
+# When such a marker is present, three jobs run:
+#   * `discover-cross-repo-prs` parses the body and resolves each marker to
+#     repo+sha (handles forks via `gh api`).
+#   * `build-archive-image` checks out the dandi-archive PR head (or master
+#     if only a schema PR is given), optionally rewrites the pinned
+#     `dandischema` line in `pyproject.toml` to a git URL pointing at the
+#     schema PR head, builds with `dev/django-public.Dockerfile`, and
+#     exports the image as a workflow artifact.
+#   * `test-cross-repo` loads that image, force-installs `dandischema` from
+#     the PR head into the runner venv, sets `DANDI_TESTS_PULL_DOCKER_COMPOSE=0`
+#     so docker compose uses the loaded image instead of pulling Docker Hub,
+#     and runs the `--dandi-api` test suite.
+#
+# Pattern adapted from bids-standard/bids-examples
+# `.github/workflows/validate_datasets.yml`.
+# See `.specify/specs/cross-repo-pr-matrix.md` for full design notes.
+#
+# This workflow is split out from `run-tests.yml` so it can react to PR-body
+# edits (`pull_request: types: edited`) — adding or removing a marker
+# re-fires only this workflow, not the full test matrix.
+#
+# TODO(generalize): lift this into an organization-level reusable workflow
+# at e.g. `dandi/.github/.github/workflows/cross-repo-pr-matrix.yml` (or a
+# composite action), so dandi-cli, dandi-schema, and dandi-archive can each
+# `uses:` it to run the *same* dandi-cli-against-tandem integration test.
+# Behaviour should depend on the calling repo:
+#   - inside dandi-cli  PR: head of *this* PR + markers for archive/schema
+#   - inside dandi-schema PR: dandi-cli master (or `dandi-cli PR:` marker)
+#     against dandi-archive master (or `dandi-archive PR:` marker), with
+#     dandischema pinned to *this* PR's head automatically
+#   - inside dandi-archive PR: archive image built from *this* PR's head,
+#     dandi-cli master (or marker), dandi-schema master (or marker)
+# Then `${{ github.repository }}` / `${{ github.event.pull_request.head.sha }}`
+# become the implicit "self" override and the marker parsing only handles
+# the *other* two. Could generalize further to an arbitrary list of
+# `repo -> override` triples (Docker image override vs pip override) so
+# e.g. NWB/HDMF stacks could reuse the pattern. Out of scope for the
+# initial landing here — first prove the in-repo version works end-to-end
+# against dandi-cli#1839 + dandi-archive#2784.
+# ----------------------------------------------------------------------------
+
+on:
+  pull_request:
+    # `edited` re-fires when the PR body / title / base is changed, so adding
+    # or removing a `dandi-archive PR:` / `dandi-schema PR:` marker re-runs
+    # the cross-repo flow without touching the rest of CI.
+    types: [opened, edited, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      dandi_cli_pr:
+        description: >-
+          dandi-cli PR (number, #N, or full URL). Leave blank to test
+          against the dispatched ref of dandi/dandi-cli (master by
+          default). Mutually exclusive with dandi_cli_branch.
+        required: false
+        default: ''
+      dandi_cli_branch:
+        description: >-
+          dandi-cli branch in dandi/dandi-cli (e.g. "master" or a
+          feature branch). Mutually exclusive with dandi_cli_pr.
+        required: false
+        default: ''
+      dandi_schema_pr:
+        description: >-
+          dandi-schema PR (number, #N, or full URL). At least one
+          schema/archive override (PR or branch) must be supplied for
+          the run to do anything.
+        required: false
+        default: ''
+      dandi_schema_branch:
+        description: >-
+          dandi-schema branch in dandi/dandi-schema. Mutually
+          exclusive with dandi_schema_pr.
+        required: false
+        default: ''
+      dandi_archive_pr:
+        description: >-
+          dandi-archive PR (number, #N, or full URL). At least one
+          schema/archive override (PR or branch) must be supplied for
+          the run to do anything.
+        required: false
+        default: ''
+      dandi_archive_branch:
+        description: >-
+          dandi-archive branch in dandi/dandi-archive (e.g. "master"
+          to test against unreleased master). Mutually exclusive with
+          dandi_archive_pr.
+        required: false
+        default: ''
+
+# Cancel an in-flight cross-repo run when the PR is updated again — picking
+# up the newest body/commits matters more than finishing the old one.
+concurrency:
+  group: cross-repo-pr-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  discover-cross-repo-prs:
+    runs-on: ubuntu-latest
+    outputs:
+      cli_repo:     ${{ steps.parse.outputs.cli_repo }}
+      cli_ref:      ${{ steps.parse.outputs.cli_ref }}
+      archive_repo: ${{ steps.parse.outputs.archive_repo }}
+      archive_ref:  ${{ steps.parse.outputs.archive_ref }}
+      schema_repo:  ${{ steps.parse.outputs.schema_repo }}
+      schema_ref:   ${{ steps.parse.outputs.schema_ref }}
+      should_run:   ${{ steps.parse.outputs.should_run }}
+    steps:
+      - name: Resolve cross-repo refs
+        id: parse
+        env:
+          EVENT: ${{ github.event_name }}
+          BODY: ${{ github.event.pull_request.body }}
+          IN_CLI_PR:         ${{ inputs.dandi_cli_pr }}
+          IN_CLI_BRANCH:     ${{ inputs.dandi_cli_branch }}
+          IN_SCHEMA_PR:      ${{ inputs.dandi_schema_pr }}
+          IN_SCHEMA_BRANCH:  ${{ inputs.dandi_schema_branch }}
+          IN_ARCHIVE_PR:     ${{ inputs.dandi_archive_pr }}
+          IN_ARCHIVE_BRANCH: ${{ inputs.dandi_archive_branch }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Two event sources:
+          #   * pull_request:      parse `dandi-{cli,schema,archive} PR:`
+          #                        and `... branch:` markers from the PR
+          #                        body. The dandi-cli source is implicit
+          #                        from the event ref unless an explicit
+          #                        `dandi-cli` marker is given.
+          #   * workflow_dispatch: read the six dandi_*_pr / dandi_*_branch
+          #                        inputs. At least one schema/archive
+          #                        override is required for the run to
+          #                        do anything.
+          CLI_PR=;     CLI_BRANCH=
+          SCHEMA_PR=;  SCHEMA_BRANCH=
+          ARCH_PR=;    ARCH_BRANCH=
+
+          extract_num() {
+            # Accept "N", "#N", or a full GitHub PR URL; print bare number.
+            printf '%s' "${1:-}" \
+              | grep -oiP '(https?://github\.com/dandi/dandi-[a-z]+/pulls?/|dandi/dandi-[a-z]+#|#)?\K[0-9]+' \
+              | head -1 || true
+          }
+
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            CLI_PR=$(extract_num     "$IN_CLI_PR")
+            SCHEMA_PR=$(extract_num  "$IN_SCHEMA_PR")
+            ARCH_PR=$(extract_num    "$IN_ARCHIVE_PR")
+            CLI_BRANCH="${IN_CLI_BRANCH:-}"
+            SCHEMA_BRANCH="${IN_SCHEMA_BRANCH:-}"
+            ARCH_BRANCH="${IN_ARCHIVE_BRANCH:-}"
+          elif [ "$EVENT" = "pull_request" ]; then
+            printf '%s' "${BODY:-}" > /tmp/pr_body.txt
+            # Branch names accept word chars, dots, slashes, dashes.
+            CLI_PR=$(grep        -oiP 'dandi-cli\s+PR:\s*(https://github\.com/dandi/dandi-cli/pulls?/|dandi/dandi-cli#)?\K[0-9]+'        /tmp/pr_body.txt | head -1 || true)
+            CLI_BRANCH=$(grep    -oiP 'dandi-cli\s+branch:\s*\K[\w./-]+'                                                                  /tmp/pr_body.txt | head -1 || true)
+            SCHEMA_PR=$(grep     -oiP 'dandi-schema\s+PR:\s*(https://github\.com/dandi/dandi-schema/pulls?/|dandi/dandi-schema#)?\K[0-9]+' /tmp/pr_body.txt | head -1 || true)
+            SCHEMA_BRANCH=$(grep -oiP 'dandi-schema\s+branch:\s*\K[\w./-]+'                                                                /tmp/pr_body.txt | head -1 || true)
+            ARCH_PR=$(grep       -oiP 'dandi-archive\s+PR:\s*(https://github\.com/dandi/dandi-archive/pulls?/|dandi/dandi-archive#)?\K[0-9]+' /tmp/pr_body.txt | head -1 || true)
+            ARCH_BRANCH=$(grep   -oiP 'dandi-archive\s+branch:\s*\K[\w./-]+'                                                               /tmp/pr_body.txt | head -1 || true)
+          fi
+
+          # Mutual exclusion: PR *or* branch per repo, never both.
+          assert_not_both() {
+            local repo=$1 pr=$2 branch=$3
+            if [ -n "$pr" ] && [ -n "$branch" ]; then
+              echo "::error::$repo: specify either a PR or a branch, not both (got PR='$pr' branch='$branch')"
+              exit 1
+            fi
+          }
+          assert_not_both dandi-cli     "$CLI_PR"    "$CLI_BRANCH"
+          assert_not_both dandi-schema  "$SCHEMA_PR" "$SCHEMA_BRANCH"
+          assert_not_both dandi-archive "$ARCH_PR"   "$ARCH_BRANCH"
+
+          # The whole point of this workflow is validating against an
+          # *unreleased* dandi-schema or dandi-archive ref. If neither
+          # has any kind of pointer (PR or branch) the regular matrix
+          # already covers everything — skip with no `gh api` calls and
+          # no image rebuild.
+          if [ -z "$SCHEMA_PR$SCHEMA_BRANCH$ARCH_PR$ARCH_BRANCH" ]; then
+            echo "No dandi-schema / dandi-archive pointer supplied — skipping."
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Security: refuse to build/run code from forks.
+          #
+          # The cross-repo workflow runs in a context that may have access
+          # to repository secrets (when triggered by a maintainer or by
+          # `workflow_dispatch`). Building a Docker image from an arbitrary
+          # fork would let a malicious user execute their code in that
+          # context — a classic supply-chain hole. So PR head repos are
+          # required to live under the dandi/ org. Branches are inherently
+          # safe because we only ever query `repos/dandi/<repo>/branches/...`.
+          assert_dandi_org() {
+            local label=$1 repo=$2
+            case "$repo" in
+              dandi/*) ;;
+              *)
+                echo "::error::$label: refusing to build from non-dandi repo '$repo' — cross-repo overrides must come from the dandi/ org to avoid running untrusted code with workflow secrets."
+                exit 1
+                ;;
+            esac
+          }
+
+          resolve_pr() {
+            # $1=output-key, $2=full-repo (dandi/dandi-X), $3=PR number
+            local key=$1 fullrepo=$2 num=$3
+            [ -n "$num" ] || return 0
+            echo "Resolving $fullrepo PR #$num"
+            read -r REPO SHA < <(gh api "repos/$fullrepo/pulls/$num" \
+              --jq '[.head.repo.full_name, .head.sha] | @tsv')
+            assert_dandi_org "$fullrepo PR #$num" "$REPO"
+            echo "${key}_repo=$REPO" >> "$GITHUB_OUTPUT"
+            echo "${key}_ref=$SHA"   >> "$GITHUB_OUTPUT"
+            echo "  -> $REPO @ $SHA (PR #$num)"
+          }
+          resolve_branch() {
+            # $1=output-key, $2=full-repo (dandi/dandi-X), $3=branch name.
+            # We always resolve under dandi/<repo>, so the source is trusted
+            # by construction. Pin to a SHA for reproducibility.
+            local key=$1 fullrepo=$2 branch=$3
+            [ -n "$branch" ] || return 0
+            echo "Resolving $fullrepo branch '$branch'"
+            SHA=$(gh api "repos/$fullrepo/branches/$branch" --jq '.commit.sha' 2>/dev/null || true)
+            if [ -z "$SHA" ]; then
+              echo "::error::$fullrepo: branch '$branch' not found in dandi/ org repo"
+              exit 1
+            fi
+            echo "${key}_repo=$fullrepo" >> "$GITHUB_OUTPUT"
+            echo "${key}_ref=$SHA"        >> "$GITHUB_OUTPUT"
+            echo "  -> $fullrepo @ $SHA (branch $branch)"
+          }
+
+          resolve_pr     cli     dandi/dandi-cli     "$CLI_PR"
+          resolve_branch cli     dandi/dandi-cli     "$CLI_BRANCH"
+          resolve_pr     schema  dandi/dandi-schema  "$SCHEMA_PR"
+          resolve_branch schema  dandi/dandi-schema  "$SCHEMA_BRANCH"
+          resolve_pr     archive dandi/dandi-archive "$ARCH_PR"
+          resolve_branch archive dandi/dandi-archive "$ARCH_BRANCH"
+
+          # We've already early-exited above when neither schema nor
+          # archive has any pointer, so reaching this point means there's
+          # a real override and the build/test jobs should run.
+          echo "should_run=true" >> "$GITHUB_OUTPUT"
+
+  build-archive-image:
+    needs: discover-cross-repo-prs
+    if: needs.discover-cross-repo-prs.outputs.should_run == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out dandi-archive (PR head, or master)
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ needs.discover-cross-repo-prs.outputs.archive_repo || 'dandi/dandi-archive' }}
+          ref:        ${{ needs.discover-cross-repo-prs.outputs.archive_ref  || 'master' }}
+          fetch-depth: 0
+
+      - name: Patch pyproject.toml to use dandi-schema PR head
+        if: needs.discover-cross-repo-prs.outputs.schema_repo != ''
+        env:
+          SCHEMA_REPO: ${{ needs.discover-cross-repo-prs.outputs.schema_repo }}
+          SCHEMA_REF:  ${{ needs.discover-cross-repo-prs.outputs.schema_ref }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os, pathlib, re
+          repo = os.environ["SCHEMA_REPO"]
+          ref  = os.environ["SCHEMA_REF"]
+          spec = f'"dandischema @ git+https://github.com/{repo}@{ref}"'
+          p = pathlib.Path("pyproject.toml")
+          before = p.read_text()
+          after = re.sub(r'"dandischema[^"]*"', spec, before, count=1)
+          if before == after:
+              raise SystemExit("Failed to find dandischema dependency line in pyproject.toml")
+          p.write_text(after)
+          print(f"Replaced dandischema with {spec}")
+          PY
+          # uv resolves direct refs at sync time; a stale uv.lock would block it.
+          if [ -f uv.lock ]; then
+            pip install --quiet uv
+            uv lock
+          fi
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t dandiarchive/dandiarchive-api \
+            -f dev/django-public.Dockerfile \
+            .
+
+      - name: Export Docker image
+        run: docker image save -o dandiarchive-api.tgz dandiarchive/dandiarchive-api
+
+      - name: Upload Docker image tarball
+        uses: actions/upload-artifact@v7
+        with:
+          name: dandiarchive-api-cross-repo
+          path: dandiarchive-api.tgz
+          retention-days: 1
+
+  test-cross-repo:
+    needs: [discover-cross-repo-prs, build-archive-image]
+    if: needs.discover-cross-repo-prs.outputs.should_run == 'true' && needs.build-archive-image.result == 'success'
+    runs-on: ubuntu-latest
+    env:
+      NO_ET: 1
+      DANDI_PAGINATION_DISABLE_FALLBACK: "1"
+      DANDI_TESTS_PERSIST_DOCKER_COMPOSE: "1"
+      # Skip `docker compose pull` so the locally loaded image is used.
+      DANDI_TESTS_PULL_DOCKER_COMPOSE: "0"
+    steps:
+      # Empty `repository` / `ref` fall back to actions/checkout's defaults
+      # (= the event-supplied refs for `pull_request`, the dispatched ref
+      # for `workflow_dispatch`). Setting them is what lets a manual run
+      # target a specific dandi-cli PR via the `dandi_cli_pr` input.
+      - name: Check out dandi-cli (PR head, dispatched ref, or master)
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ needs.discover-cross-repo-prs.outputs.cli_repo }}
+          ref:        ${{ needs.discover-cross-repo-prs.outputs.cli_ref }}
+          fetch-depth: 0
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install ".[extras,test]"
+
+      - name: Override dandischema with PR head
+        if: needs.discover-cross-repo-prs.outputs.schema_repo != ''
+        env:
+          SCHEMA_REPO: ${{ needs.discover-cross-repo-prs.outputs.schema_repo }}
+          SCHEMA_REF:  ${{ needs.discover-cross-repo-prs.outputs.schema_ref }}
+        run: |
+          pip install --upgrade --force-reinstall \
+            "dandischema @ git+https://github.com/${SCHEMA_REPO}@${SCHEMA_REF}"
+
+      - name: Download prebuilt dandi-archive image
+        uses: actions/download-artifact@v8
+        with:
+          name: dandiarchive-api-cross-repo
+
+      - name: Load Docker image
+        run: docker image load -i dandiarchive-api.tgz
+
+      - name: Show cross-repo overrides
+        run: |
+          echo "event=${{ github.event_name }}"
+          echo "cli_repo=${{ needs.discover-cross-repo-prs.outputs.cli_repo }}"
+          echo "cli_ref=${{ needs.discover-cross-repo-prs.outputs.cli_ref }}"
+          echo "archive_repo=${{ needs.discover-cross-repo-prs.outputs.archive_repo }}"
+          echo "archive_ref=${{ needs.discover-cross-repo-prs.outputs.archive_ref }}"
+          echo "schema_repo=${{ needs.discover-cross-repo-prs.outputs.schema_repo }}"
+          echo "schema_ref=${{ needs.discover-cross-repo-prs.outputs.schema_ref }}"
+          git rev-parse HEAD
+          python -c "import dandischema; print('dandischema', dandischema.__version__)"
+          docker image inspect dandiarchive/dandiarchive-api --format '{{.Id}} {{.Created}}'
+
+      - name: Run DANDI API tests against PR archive image
+        run: |
+          export DANDI_TESTS_AUDIT_CSV=/tmp/audit.csv
+          python -m pytest -s -v --cov=dandi --cov-report=xml --dandi-api dandi
+          if [ ! -e /tmp/audit.csv ]; then
+            echo "Audit file not created"
+            exit 1
+          fi
+
+      - name: Dump Docker Compose logs
+        if: failure()
+        run: |
+          docker compose \
+            -f dandi/tests/data/dandiarchive-docker/docker-compose.yml \
+            logs --timestamps
+
+      - name: Shut down Docker Compose
+        if: always()
+        run: |
+          docker compose \
+            -f dandi/tests/data/dandiarchive-docker/docker-compose.yml \
+            down -v
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          flags: cross-repo
+          fail_ci_if_error: false

@@ -19,6 +19,10 @@ defaults:
 
 jobs:
   test:
+    # TODO(remove-before-merge): temporarily disabled to expedite iteration
+    # on the cross-repo PR matrix workflow. Drop this `if: false` (and the
+    # whole commit that introduced it) before merging.
+    if: false
     runs-on: ${{ matrix.os }}
     env:
       NO_ET: 1

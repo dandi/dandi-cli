@@ -26,6 +26,7 @@ from dandischema.digests.dandietag import DandiETag
 from fscacher import PersistentCache
 from zarr_checksum.checksum import ZarrChecksum, ZarrChecksumManifest
 from zarr_checksum.tree import ZarrChecksumTree
+from dandi.consts import ZARR_LARGE_CHUNK_THRESHOLD
 
 from .threaded_walk import threaded_walk
 from ..utils import Hasher, exclude_from_zarr
@@ -133,7 +134,17 @@ def md5file_nocache(filepath: str | Path) -> str:
     Compute the MD5 digest of a file without caching with fscacher, which has
     been shown to slow things down for the large numbers of files typically
     present in Zarrs
+
+    If the file is larger than `ZARR_LARGE_CHUNK_THRESHOLD`, the computed checksum is not a
+    traditional md5 checksum, but is instead an S3 multipart ETag.
     """
+    if isinstance(filepath, str):
+        filepath = Path(filepath)
+
+    if filepath.stat().st_size > ZARR_LARGE_CHUNK_THRESHOLD:
+        # For some reason the type checker treats this return as an Any type
+        return get_dandietag(filepath).as_str()  # type: ignore [no-any-return]
+
     return Digester(["md5"])(filepath)["md5"]
 
 
