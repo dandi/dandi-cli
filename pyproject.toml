@@ -164,7 +164,7 @@ parentdir_prefix = ""
 skip = "_version.py,due.py,versioneer.py,*.vcr.yaml,venv,venvs,pyproject.toml"
 # Don't warn about "[l]ist" in the abbrev_prompt() docstring:
 # TE is present in the BIDS schema
-ignore-regex = "(\\[\\w\\]\\w+|TE|ignore \"bu\" strings)"
+ignore-regex = "(\\[\\w\\]\\w+|ignore \"bu\" strings)"
 ignore-words-list = "ba,bu,fo"
 
 [tool.mypy]
