@@ -49,6 +49,7 @@ from dandi.utils import (
 from .bases import LocalDirectoryAsset
 from ..validate._types import (
     ORIGIN_VALIDATION_DANDI_ZARR,
+    MissingFileContent,
     Origin,
     OriginType,
     Scope,
@@ -443,6 +444,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         self,
         schema_version: str | None = None,
         devel_debug: bool = False,
+        missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
         # Avoid heavy import by importing within function:
         import zarr
@@ -541,7 +543,9 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 )
             )
         return errors + super().get_validation_errors(
-            schema_version=schema_version, devel_debug=devel_debug
+            schema_version=schema_version,
+            devel_debug=devel_debug,
+            missing_file_content=missing_file_content,
         )
 
     def _is_too_deep(self) -> bool:

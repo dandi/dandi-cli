@@ -27,6 +27,7 @@ from ._types import (
     ORIGIN_VALIDATION_DANDI,
     ORIGIN_VALIDATION_DANDI_LAYOUT,
     ORIGIN_VALIDATION_DANDI_ZARR,
+    MissingFileContent,
     Origin,
     OriginType,
     Scope,
@@ -39,6 +40,7 @@ from ._types import (
 
 __all__ = [
     "CURRENT_RECORD_VERSION",
+    "MissingFileContent",
     "ORIGIN_INTERNAL_DANDI",
     "ORIGIN_VALIDATION_DANDI",
     "ORIGIN_VALIDATION_DANDI_LAYOUT",
