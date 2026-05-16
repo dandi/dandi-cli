@@ -6,10 +6,11 @@ from pathlib import Path
 import re
 from typing import Any, NoReturn
 
+import h5py
 import numpy as np
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
 
-from ..pynwb_utils import _sanitize_nwb_version, nwb_has_external_links
+from ..pynwb_utils import _sanitize_nwb_version, get_nwb_extensions, nwb_has_external_links
 
 
 def test_pynwb_io(simple1_nwb: Path) -> None:
@@ -103,3 +104,34 @@ def test_nwb_has_external_links(tmp_path):
 
     assert not nwb_has_external_links(filename1)
     assert nwb_has_external_links(filename4)
+
+
+def test_get_nwb_extensions(tmp_path: Path) -> None:
+    """Test extraction of NWB extensions from HDF5 specifications group."""
+    h5path = tmp_path / "test.nwb"
+    with h5py.File(h5path, "w") as f:
+        specs = f.create_group("specifications")
+        # Core namespaces should be excluded
+        core_grp = specs.create_group("core")
+        core_grp.create_group("2.7.0")
+        hdmf_grp = specs.create_group("hdmf-common")
+        hdmf_grp.create_group("1.8.0")
+        # An extension namespace should be included, latest version used
+        ndx_ecog = specs.create_group("ndx-ecog")
+        ndx_ecog.create_group("0.1.0")
+        ndx_ecog.create_group("0.2.0")
+        # Another extension
+        ndx_events = specs.create_group("ndx-events")
+        ndx_events.create_group("0.3.0")
+
+    result = get_nwb_extensions(h5path)
+    assert result == {"ndx-ecog": "0.2.0", "ndx-events": "0.3.0"}
+
+
+def test_get_nwb_extensions_no_specs(tmp_path: Path) -> None:
+    """No specifications group returns empty dict."""
+    h5path = tmp_path / "test.nwb"
+    with h5py.File(h5path, "w") as f:
+        f.attrs["nwb_version"] = "2.7.0"
+
+    assert get_nwb_extensions(h5path) == {}
