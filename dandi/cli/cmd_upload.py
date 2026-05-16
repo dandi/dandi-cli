@@ -9,6 +9,7 @@ from .base import (
     instance_option,
     map_to_click_exceptions,
 )
+from ..consts import SyncMode
 from ..upload import UploadExisting, UploadValidation
 
 
@@ -35,7 +36,14 @@ from ..upload import UploadExisting, UploadValidation
     ),
 )
 @click.option(
-    "--sync", is_flag=True, help="Delete assets on the server that do not exist locally"
+    "--sync",
+    is_flag=False,
+    flag_value="ask",
+    default=None,
+    type=click.Choice(list(SyncMode)),
+    help="Delete assets on the server that do not exist locally. "
+    "With 'ask' (the default when --sync is passed without a value), prompt before "
+    "deleting. With 'do', delete without prompting.",
 )
 @click.option(
     "--validation",
@@ -71,7 +79,7 @@ from ..upload import UploadExisting, UploadValidation
 def upload(
     paths: tuple[str, ...],
     jobs_pair: tuple[int, int] | None,
-    sync: bool,
+    sync: str | None,
     dandi_instance: str,
     existing: UploadExisting,
     validation: UploadValidation,
@@ -120,6 +128,6 @@ def upload(
         devel_debug=devel_debug,
         jobs=jobs,
         jobs_per_file=jobs_per_file,
-        sync=sync,
+        sync=SyncMode(sync) if sync is not None else None,
         validation_log_path=companion,
     )

@@ -32,6 +32,7 @@ from .consts import (
     DOWNLOAD_SUFFIX,
     DRAFT,
     DandiInstance,
+    SyncMode,
     dandiset_identifier_regex,
     dandiset_metadata_file,
 )
@@ -112,7 +113,7 @@ def upload(
     devel_debug: bool = False,
     jobs: int | None = None,
     jobs_per_file: int | None = None,
-    sync: bool = False,
+    sync: bool | SyncMode | None = False,
     validation_log_path: str | Path | None = None,
 ) -> None:
     if paths:
@@ -505,6 +506,9 @@ def upload(
             raise upload_err
 
         if sync:
+            # Normalize legacy bool True to SyncMode.ASK
+            if sync is True:
+                sync = SyncMode.ASK
             relpaths: list[str] = []
             for p in paths:
                 rp = os.path.relpath(p, dandiset.path)
@@ -516,8 +520,11 @@ def upload(
                     p == "" or path_is_subpath(asset.path, p) for p in relpaths
                 ) and not os.path.lexists(Path(dandiset.path, asset.path)):
                     to_delete.append(asset)
-            if to_delete and click.confirm(
-                f"Delete {pluralize(len(to_delete), 'asset')} on server?"
+            if to_delete and (
+                sync is SyncMode.DO
+                or click.confirm(
+                    f"Delete {pluralize(len(to_delete), 'asset')} on server?"
+                )
             ):
                 for asset in to_delete:
                     asset.delete()

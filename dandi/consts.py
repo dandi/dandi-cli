@@ -101,6 +101,14 @@ class EmbargoStatus(Enum):
     EMBARGOED = "EMBARGOED"
 
 
+class SyncMode(str, Enum):
+    ASK = "ask"
+    DO = "do"
+
+    def __str__(self) -> str:
+        return self.value
+
+
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
 
