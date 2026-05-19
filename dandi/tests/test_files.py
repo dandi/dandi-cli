@@ -29,6 +29,7 @@ from ..files import (
     dandi_file,
     find_dandi_files,
 )
+from ..files.zarr import get_zarr_format_version
 
 lgr = get_logger()
 
@@ -460,29 +461,63 @@ def test_upload_zarr(new_dandiset, tmp_path):
     assert not (zf.filetree / "arr_2" / "0").is_dir()
 
 
+# V2 (``.zgroup`` / ``.zarray``) and V3 (``zarr.json``, ``c/<chunk>`` layout,
+# different default compressor) Zarr serialisations have different on-disk
+# byte layouts and therefore different digests. Key expected values on the
+# format that was *actually* produced rather than on ``zarr.__version__``:
+# zarr-python 3.x can still write V2 via ``zarr_format=2``.
+_ZARR_PROPERTIES_EXPECTED = {
+    "2": {
+        "total_size": 1516,
+        "total_digest": "4313ab36412db2981c3ed391b38604d6-5--1516",
+        "entries": [
+            (".zgroup", 24, "e20297935e73dd0154104d4ea53040ab"),
+            ("arr_0", 746, "51c74ec257069ce3a555bdddeb50230a-2--746"),
+            ("arr_0/.zarray", 315, "9e30a0a1a465e24220d4132fdd544634"),
+            ("arr_0/0", 431, "ed4e934a474f1d2096846c6248f18c00"),
+            ("arr_1", 746, "7b99a0ad9bd8bb3331657e54755b1a31-2--746"),
+            ("arr_1/.zarray", 315, "9e30a0a1a465e24220d4132fdd544634"),
+            ("arr_1/0", 431, "fba4dee03a51bde314e9713b00284a93"),
+        ],
+    },
+    "3": {
+        "total_size": 3935,
+        "total_digest": "00157f091c9a6295e89eb3c4c2efaeff-5--3935",
+        "entries": [
+            ("arr_0", 2192, "ae16256ae750e4303674ccf1e23fa3c6-2--2192"),
+            ("arr_0/c", 1573, "93912a45f2107a08090f7b283297d662-1--1573"),
+            ("arr_0/c/0", 1573, "6c237f8d2d4a41bc1e26e31518dafd9e"),
+            ("arr_0/zarr.json", 619, "850fae056c97aa9c76df0a52411f4086"),
+            ("arr_1", 1677, "debc9ca4b2184a6ef1a3d6fcf7d79fd9-2--1677"),
+            ("arr_1/c", 1058, "2642f5d2df2cddf469313abd9910b371-1--1058"),
+            ("arr_1/c/0", 1058, "084d662af7251a807649fb48edc36e95"),
+            ("arr_1/zarr.json", 619, "850fae056c97aa9c76df0a52411f4086"),
+            ("zarr.json", 66, "457126c0639af2eba0140851c39c1aad"),
+        ],
+    },
+}
+
+
 def test_zarr_properties(tmp_path: Path) -> None:
-    # This test assumes that the Zarr serialization format never changes
+    # Expected sizes and digests are selected by the Zarr serialisation
+    # format ``zarr.save`` actually produced (V2 vs V3 layouts differ).
     filepath = tmp_path / "example.zarr"
     dt = np.dtype("<i8")
     zarr.save(filepath, np.arange(1000, dtype=dt), np.arange(1000, 0, -1, dtype=dt))
+    fmt = get_zarr_format_version(filepath)
+    expected = _ZARR_PROPERTIES_EXPECTED[fmt]
     zf = dandi_file(filepath)
     assert isinstance(zf, ZarrAsset)
-    assert zf.filetree.size == 1516
-    assert zf.filetree.get_digest().value == "4313ab36412db2981c3ed391b38604d6-5--1516"
+    assert zf.filetree.size == expected["total_size"]
+    assert zf.filetree.get_digest().value == expected["total_digest"]
     entries = sorted(zf.iterfiles(include_dirs=True), key=attrgetter("parts"))
-    assert [(str(e), e.size, e.get_digest().value) for e in entries] == [
-        (".zgroup", 24, "e20297935e73dd0154104d4ea53040ab"),
-        ("arr_0", 746, "51c74ec257069ce3a555bdddeb50230a-2--746"),
-        ("arr_0/.zarray", 315, "9e30a0a1a465e24220d4132fdd544634"),
-        ("arr_0/0", 431, "ed4e934a474f1d2096846c6248f18c00"),
-        ("arr_1", 746, "7b99a0ad9bd8bb3331657e54755b1a31-2--746"),
-        ("arr_1/.zarray", 315, "9e30a0a1a465e24220d4132fdd544634"),
-        ("arr_1/0", 431, "fba4dee03a51bde314e9713b00284a93"),
+    assert [(str(e), e.size, e.get_digest().value) for e in entries] == expected[
+        "entries"
     ]
-    assert zf.get_digest().value == "4313ab36412db2981c3ed391b38604d6-5--1516"
+    assert zf.get_digest().value == expected["total_digest"]
     stat = zf.stat()
-    assert stat.size == 1516
-    assert stat.digest.value == "4313ab36412db2981c3ed391b38604d6-5--1516"
+    assert stat.size == expected["total_size"]
+    assert stat.digest.value == expected["total_digest"]
     assert sorted(stat.files, key=attrgetter("parts")) == [
         e for e in entries if e.is_file()
     ]
