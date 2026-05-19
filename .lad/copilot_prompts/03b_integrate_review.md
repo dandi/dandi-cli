@@ -7,11 +7,11 @@ You are Claude, a senior dev lead. Integrate external review feedback into the p
 3. `review_chatgpt.md`                     ← ChatGPT review (❌ bullets)
 
 ### Phase 1: Integrate Review Feedback (Required)
-1. Parse both review files; merge issues by category (Completeness, Order, Risk, Coverage, Maintainability, Security).  
+1. Parse both review files; merge issues by category (Completeness, Order, Risk, Coverage, Maintainability, Security).
 2. For each issue:
-   * If it requires a **new task**, add a checklist item with test path & size.  
-   * If it requires **re-ordering**, adjust task numbers accordingly.  
-   * If already covered, mark as "addressed".  
+   * If it requires a **new task**, add a checklist item with test path & size.
+   * If it requires **re-ordering**, adjust task numbers accordingly.
+   * If already covered, mark as "addressed".
 3. Insert a `<details><summary>Review-Resolution Log</summary>` block beneath the checklist summarising how each issue was handled.
 4. Create the fully integrated plan with all feedback incorporated.
 
