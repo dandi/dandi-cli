@@ -8,7 +8,7 @@ import pytest
 import zarr
 
 from ..cmd_digest import digest
-from ...files.zarr import get_zarr_format_version
+from ...tests.test_files import zarr_format_of
 
 # The on-disk Zarr serialisation format changed between V2 (``.zgroup`` /
 # ``.zarray``) and V3 (``zarr.json``, ``c/<chunk>`` layout, different default
@@ -64,8 +64,9 @@ def test_digest_zarr():
         zarr.save(
             "sample.zarr", np.arange(1000, dtype=dt), np.arange(1000, 0, -1, dtype=dt)
         )
-        fmt = get_zarr_format_version(Path("sample.zarr"))
-        expected = _EXPECTED_SAMPLE_ZARR_DIGEST_BY_FORMAT[fmt]
+        expected = _EXPECTED_SAMPLE_ZARR_DIGEST_BY_FORMAT[
+            zarr_format_of(Path("sample.zarr"))
+        ]
         r = runner.invoke(digest, ["--digest", "zarr-checksum", "sample.zarr"])
         assert r.exit_code == 0
         assert r.output == f"sample.zarr: {expected}\n"
@@ -88,8 +89,9 @@ def test_digest_zarr_with_excluded_dotfiles():
         zarr.save(
             "sample.zarr", np.arange(1000, dtype=dt), np.arange(1000, 0, -1, dtype=dt)
         )
-        fmt = get_zarr_format_version(Path("sample.zarr"))
-        expected = _EXPECTED_SAMPLE_ZARR_DIGEST_BY_FORMAT[fmt]
+        expected = _EXPECTED_SAMPLE_ZARR_DIGEST_BY_FORMAT[
+            zarr_format_of(Path("sample.zarr"))
+        ]
         subprocess.run(["git", "init"], cwd="sample.zarr", check=True)
         os.mkdir("sample.zarr/.dandi")
         Path("sample.zarr", ".dandi", "somefile.txt").touch()

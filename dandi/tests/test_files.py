@@ -4,6 +4,7 @@ from operator import attrgetter
 import os
 from pathlib import Path
 import subprocess
+from typing import TypedDict
 from unittest.mock import ANY
 
 from dandischema.models import get_schema_version
@@ -32,6 +33,73 @@ from ..files import (
 from ..files.zarr import get_zarr_format_version
 
 lgr = get_logger()
+
+
+def zarr_format_of(path: Path) -> str:
+    """
+    Return the Zarr serialisation format ("2" or "3") of the tree at ``path``.
+
+    Thin test-only wrapper around `get_zarr_format_version` that asserts the
+    format could be determined — used by tests that have just called
+    ``zarr.save(...)`` and so know the path is a valid Zarr store.
+    """
+    fmt = get_zarr_format_version(path)
+    assert fmt is not None, f"Path {path} is not a recognised Zarr store"
+    return fmt
+
+
+class _TwoArrayLayout(TypedDict):
+    files: list[str]
+    files_and_dirs: list[str]
+    root_meta: str
+
+
+# Per-Zarr-format expected on-disk paths for the canonical
+# ``zarr.save(p, arr_0, arr_1)`` two-array sample used by upload/download
+# tests. V2 writes ``.zgroup`` / ``arr_X/.zarray`` / ``arr_X/0``; V3 writes
+# ``zarr.json`` / ``arr_X/zarr.json`` / ``arr_X/c/0``.
+_TWO_ARRAY_ZARR_LAYOUT: dict[str, _TwoArrayLayout] = {
+    "2": {
+        "files": [
+            ".zgroup",
+            "arr_0/.zarray",
+            "arr_0/0",
+            "arr_1/.zarray",
+            "arr_1/0",
+        ],
+        "files_and_dirs": [
+            ".zgroup",
+            "arr_0",
+            "arr_0/.zarray",
+            "arr_0/0",
+            "arr_1",
+            "arr_1/.zarray",
+            "arr_1/0",
+        ],
+        "root_meta": ".zgroup",
+    },
+    "3": {
+        "files": [
+            "arr_0/c/0",
+            "arr_0/zarr.json",
+            "arr_1/c/0",
+            "arr_1/zarr.json",
+            "zarr.json",
+        ],
+        "files_and_dirs": [
+            "arr_0",
+            "arr_0/c",
+            "arr_0/c/0",
+            "arr_0/zarr.json",
+            "arr_1",
+            "arr_1/c",
+            "arr_1/c/0",
+            "arr_1/zarr.json",
+            "zarr.json",
+        ],
+        "root_meta": "zarr.json",
+    },
+}
 
 
 def mkpaths(root: Path, *paths: str) -> None:
@@ -408,6 +476,8 @@ def test_validate_bogus(tmp_path):
 def test_upload_zarr(new_dandiset, tmp_path):
     filepath = tmp_path / "example.zarr"
     zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
+    layout = _TWO_ARRAY_ZARR_LAYOUT[zarr_format_of(filepath)]
+    root_meta = layout["root_meta"]
     zf = dandi_file(filepath)
     assert isinstance(zf, ZarrAsset)
     asset = zf.upload(new_dandiset.dandiset, {"description": "A test Zarr"})
@@ -423,33 +493,23 @@ def test_upload_zarr(new_dandiset, tmp_path):
     assert md["description"] == "A modified Zarr"
 
     entries = sorted(asset.iterfiles(), key=attrgetter("parts"))
-    assert [str(e) for e in entries] == [
-        ".zgroup",
-        "arr_0/.zarray",
-        "arr_0/0",
-        "arr_1/.zarray",
-        "arr_1/0",
-    ]
+    assert [str(e) for e in entries] == layout["files"]
 
     entries = sorted(zf.iterfiles(include_dirs=True), key=attrgetter("parts"))
-    assert [str(e) for e in entries] == [
-        ".zgroup",
-        "arr_0",
-        "arr_0/.zarray",
-        "arr_0/0",
-        "arr_1",
-        "arr_1/.zarray",
-        "arr_1/0",
-    ]
-    assert (zf.filetree / ".zgroup").exists()
-    assert (zf.filetree / ".zgroup").is_file()
-    assert not (zf.filetree / ".zgroup").is_dir()
+    assert [str(e) for e in entries] == layout["files_and_dirs"]
+    # The root group metadata file is ``.zgroup`` in V2 and ``zarr.json`` in
+    # V3; either way it must be a real file at the Zarr root.
+    assert (zf.filetree / root_meta).exists()
+    assert (zf.filetree / root_meta).is_file()
+    assert not (zf.filetree / root_meta).is_dir()
     assert (zf.filetree / "arr_0").exists()
     assert not (zf.filetree / "arr_0").is_file()
     assert (zf.filetree / "arr_0").is_dir()
     assert not (zf.filetree / "0").exists()
     assert not (zf.filetree / "0").is_file()
     assert not (zf.filetree / "0").is_dir()
+    # ``arr_0/.zgroup`` never exists: in V2 ``arr_0`` is an array (uses
+    # ``.zarray``); in V3 ``.zgroup`` is not used at all.
     assert not (zf.filetree / "arr_0" / ".zgroup").exists()
     assert not (zf.filetree / "arr_0" / ".zgroup").is_file()
     assert not (zf.filetree / "arr_0" / ".zgroup").is_dir()
@@ -504,8 +564,7 @@ def test_zarr_properties(tmp_path: Path) -> None:
     filepath = tmp_path / "example.zarr"
     dt = np.dtype("<i8")
     zarr.save(filepath, np.arange(1000, dtype=dt), np.arange(1000, 0, -1, dtype=dt))
-    fmt = get_zarr_format_version(filepath)
-    expected = _ZARR_PROPERTIES_EXPECTED[fmt]
+    expected = _ZARR_PROPERTIES_EXPECTED[zarr_format_of(filepath)]
     zf = dandi_file(filepath)
     assert isinstance(zf, ZarrAsset)
     assert zf.filetree.size == expected["total_size"]
@@ -528,6 +587,7 @@ def test_upload_zarr_with_excluded_dotfiles(
 ) -> None:
     filepath = tmp_path / "example.zarr"
     zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
+    layout = _TWO_ARRAY_ZARR_LAYOUT[zarr_format_of(filepath)]
     subprocess.run(["git", "init"], cwd=str(filepath), check=True)
     (filepath / ".dandi").mkdir()
     (filepath / ".dandi" / "somefile.txt").write_text("Hello world!\n")
@@ -540,33 +600,20 @@ def test_upload_zarr_with_excluded_dotfiles(
     asset = zf.upload(new_dandiset.dandiset, {})
     assert isinstance(asset, RemoteZarrAsset)
     local_entries = sorted(zf.iterfiles(include_dirs=True), key=attrgetter("parts"))
-    assert [str(e) for e in local_entries] == [
-        ".zgroup",
-        "arr_0",
-        "arr_0/.zarray",
-        "arr_0/0",
-        "arr_1",
-        "arr_1/.zarray",
-        "arr_1/0",
-    ]
+    assert [str(e) for e in local_entries] == layout["files_and_dirs"]
     remote_entries = sorted(asset.iterfiles(), key=attrgetter("parts"))
-    assert [str(e) for e in remote_entries] == [
-        ".zgroup",
-        "arr_0/.zarray",
-        "arr_0/0",
-        "arr_1/.zarray",
-        "arr_1/0",
-    ]
+    assert [str(e) for e in remote_entries] == layout["files"]
 
 
 def test_upload_zarr_entry_content_type(new_dandiset, tmp_path):
     filepath = tmp_path / "example.zarr"
     zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
+    root_meta = _TWO_ARRAY_ZARR_LAYOUT[zarr_format_of(filepath)]["root_meta"]
     zf = dandi_file(filepath)
     assert isinstance(zf, ZarrAsset)
     asset = zf.upload(new_dandiset.dandiset, {"description": "A test Zarr"})
     assert isinstance(asset, RemoteZarrAsset)
-    e = asset.get_entry_by_path(".zgroup")
+    e = asset.get_entry_by_path(root_meta)
     r = new_dandiset.client.get(e.download_url, json_resp=False)
     assert r.headers["Content-Type"] == "application/json"
 
