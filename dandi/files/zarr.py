@@ -285,7 +285,8 @@ def _is_empty_group(group: Any) -> bool:
     """
     try:
         return len(group) == 0
-    except Exception:
+    except Exception as exc:
+        lgr.debug("Could not determine emptiness of Zarr group %r: %s", group, exc)
         return False
 
 
@@ -490,30 +491,22 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             except Exception as e:
                 if devel_debug:
                     raise
-                if format_version is None:
-                    errors.append(
-                        ValidationResult(
-                            id="zarr.cannot_open",
-                            origin=origin_internal_zarr,
-                            scope=Scope.FILE,
-                            origin_result=e,
-                            severity=Severity.ERROR,
-                            message="Error opening file and Zarr format cannot be determined",
-                            path=self.filepath,
-                        )
+                message = (
+                    "Error opening file and Zarr format cannot be determined"
+                    if format_version is None
+                    else "Error opening file."
+                )
+                errors.append(
+                    ValidationResult(
+                        id="zarr.cannot_open",
+                        origin=origin_internal_zarr,
+                        scope=Scope.FILE,
+                        origin_result=e,
+                        severity=Severity.ERROR,
+                        message=message,
+                        path=self.filepath,
                     )
-                else:
-                    errors.append(
-                        ValidationResult(
-                            origin=origin_internal_zarr,
-                            severity=Severity.ERROR,
-                            id="zarr.cannot_open",
-                            scope=Scope.FILE,
-                            origin_result=e,
-                            path=self.filepath,
-                            message="Error opening file.",
-                        )
-                    )
+                )
                 data = None
             if isinstance(data, zarr.Group) and _is_empty_group(data):
                 errors.append(

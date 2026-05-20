@@ -8,7 +8,7 @@ import pytest
 import zarr
 
 from ..cmd_digest import digest
-from ...tests.test_files import zarr_format_of
+from ...tests.test_helpers import zarr_format_of
 
 # The on-disk Zarr serialisation format changed between V2 (``.zgroup`` /
 # ``.zarray``) and V3 (``zarr.json``, ``c/<chunk>`` layout, different default

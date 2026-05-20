@@ -4,7 +4,6 @@ from operator import attrgetter
 import os
 from pathlib import Path
 import subprocess
-from typing import TypedDict
 from unittest.mock import ANY
 
 from dandischema.models import get_schema_version
@@ -13,6 +12,7 @@ import pytest
 import zarr
 
 from .fixtures import SampleDandiset
+from .test_helpers import TWO_ARRAY_ZARR_LAYOUT, zarr_format_of
 from .. import get_logger
 from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteZarrAsset
@@ -30,76 +30,8 @@ from ..files import (
     dandi_file,
     find_dandi_files,
 )
-from ..files.zarr import get_zarr_format_version
 
 lgr = get_logger()
-
-
-def zarr_format_of(path: Path) -> str:
-    """
-    Return the Zarr serialisation format ("2" or "3") of the tree at ``path``.
-
-    Thin test-only wrapper around `get_zarr_format_version` that asserts the
-    format could be determined — used by tests that have just called
-    ``zarr.save(...)`` and so know the path is a valid Zarr store.
-    """
-    fmt = get_zarr_format_version(path)
-    assert fmt is not None, f"Path {path} is not a recognised Zarr store"
-    return fmt
-
-
-class _TwoArrayLayout(TypedDict):
-    files: list[str]
-    files_and_dirs: list[str]
-    root_meta: str
-
-
-# Per-Zarr-format expected on-disk paths for the canonical
-# ``zarr.save(p, arr_0, arr_1)`` two-array sample used by upload/download
-# tests. V2 writes ``.zgroup`` / ``arr_X/.zarray`` / ``arr_X/0``; V3 writes
-# ``zarr.json`` / ``arr_X/zarr.json`` / ``arr_X/c/0``.
-_TWO_ARRAY_ZARR_LAYOUT: dict[str, _TwoArrayLayout] = {
-    "2": {
-        "files": [
-            ".zgroup",
-            "arr_0/.zarray",
-            "arr_0/0",
-            "arr_1/.zarray",
-            "arr_1/0",
-        ],
-        "files_and_dirs": [
-            ".zgroup",
-            "arr_0",
-            "arr_0/.zarray",
-            "arr_0/0",
-            "arr_1",
-            "arr_1/.zarray",
-            "arr_1/0",
-        ],
-        "root_meta": ".zgroup",
-    },
-    "3": {
-        "files": [
-            "arr_0/c/0",
-            "arr_0/zarr.json",
-            "arr_1/c/0",
-            "arr_1/zarr.json",
-            "zarr.json",
-        ],
-        "files_and_dirs": [
-            "arr_0",
-            "arr_0/c",
-            "arr_0/c/0",
-            "arr_0/zarr.json",
-            "arr_1",
-            "arr_1/c",
-            "arr_1/c/0",
-            "arr_1/zarr.json",
-            "zarr.json",
-        ],
-        "root_meta": "zarr.json",
-    },
-}
 
 
 def mkpaths(root: Path, *paths: str) -> None:
@@ -476,7 +408,7 @@ def test_validate_bogus(tmp_path):
 def test_upload_zarr(new_dandiset, tmp_path):
     filepath = tmp_path / "example.zarr"
     zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
-    layout = _TWO_ARRAY_ZARR_LAYOUT[zarr_format_of(filepath)]
+    layout = TWO_ARRAY_ZARR_LAYOUT[zarr_format_of(filepath)]
     root_meta = layout["root_meta"]
     zf = dandi_file(filepath)
     assert isinstance(zf, ZarrAsset)
@@ -587,7 +519,7 @@ def test_upload_zarr_with_excluded_dotfiles(
 ) -> None:
     filepath = tmp_path / "example.zarr"
     zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
-    layout = _TWO_ARRAY_ZARR_LAYOUT[zarr_format_of(filepath)]
+    layout = TWO_ARRAY_ZARR_LAYOUT[zarr_format_of(filepath)]
     subprocess.run(["git", "init"], cwd=str(filepath), check=True)
     (filepath / ".dandi").mkdir()
     (filepath / ".dandi" / "somefile.txt").write_text("Hello world!\n")
@@ -608,7 +540,7 @@ def test_upload_zarr_with_excluded_dotfiles(
 def test_upload_zarr_entry_content_type(new_dandiset, tmp_path):
     filepath = tmp_path / "example.zarr"
     zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
-    root_meta = _TWO_ARRAY_ZARR_LAYOUT[zarr_format_of(filepath)]["root_meta"]
+    root_meta = TWO_ARRAY_ZARR_LAYOUT[zarr_format_of(filepath)]["root_meta"]
     zf = dandi_file(filepath)
     assert isinstance(zf, ZarrAsset)
     asset = zf.upload(new_dandiset.dandiset, {"description": "A test Zarr"})
