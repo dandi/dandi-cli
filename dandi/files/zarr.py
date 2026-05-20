@@ -1048,7 +1048,10 @@ class UploadItem:
 
     @classmethod
     def from_entry(cls, e: LocalZarrEntry, digest: str) -> UploadItem:
-        if e.name in {".zarray", ".zattrs", ".zgroup", ".zmetadata"}:
+        # JSON metadata files. ``.zarray`` / ``.zattrs`` / ``.zgroup`` /
+        # ``.zmetadata`` are the V2 names; ``zarr.json`` is the V3 name (a
+        # single file per group/array containing all metadata).
+        if e.name in {".zarray", ".zattrs", ".zgroup", ".zmetadata", "zarr.json"}:
             try:
                 with e.filepath.open("rb") as fp:
                     json.load(fp)
