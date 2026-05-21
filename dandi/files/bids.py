@@ -18,6 +18,7 @@ from ..metadata.core import add_common_metadata, prepare_metadata
 from ..misctypes import Digest
 from ..validate._types import (
     ORIGIN_VALIDATION_DANDI_LAYOUT,
+    MissingFileContent,
     Scope,
     Severity,
     ValidationResult,
@@ -184,6 +185,7 @@ class BIDSDatasetDescriptionAsset(LocalFileAsset):
         self,
         schema_version: str | None = None,
         devel_debug: bool = False,
+        missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
         """
         Return all validation results for the containing dataset per the BIDS standard
@@ -237,6 +239,7 @@ class BIDSAsset(LocalFileAsset):
         self,
         schema_version: str | None = None,
         devel_debug: bool = False,
+        missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
         return self.bids_dataset_description.get_asset_errors(self)
 
@@ -266,9 +269,13 @@ class NWBBIDSAsset(BIDSAsset, NWBAsset):
         self,
         schema_version: str | None = None,
         devel_debug: bool = False,
+        missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
         return NWBAsset.get_validation_errors(
-            self, schema_version, devel_debug
+            self,
+            schema_version,
+            devel_debug,
+            missing_file_content=missing_file_content,
         ) + BIDSAsset.get_validation_errors(self)
 
     def get_metadata(
@@ -297,9 +304,13 @@ class ZarrBIDSAsset(ZarrAsset, BIDSAsset):
         self,
         schema_version: str | None = None,
         devel_debug: bool = False,
+        missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
         return ZarrAsset.get_validation_errors(
-            self, schema_version, devel_debug
+            self,
+            schema_version,
+            devel_debug,
+            missing_file_content=missing_file_content,
         ) + BIDSAsset.get_validation_errors(self)
 
     def get_metadata(
@@ -328,7 +339,11 @@ class GenericBIDSAsset(BIDSAsset, GenericAsset):
         self,
         schema_version: str | None = None,
         devel_debug: bool = False,
+        missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
         return GenericAsset.get_validation_errors(
-            self, schema_version, devel_debug
+            self,
+            schema_version,
+            devel_debug,
+            missing_file_content=missing_file_content,
         ) + BIDSAsset.get_validation_errors(self)

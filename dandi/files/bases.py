@@ -32,6 +32,7 @@ from dandi.utils import post_upload_size_check, pre_upload_size_check, yaml_load
 from dandi.validate._types import (
     ORIGIN_INTERNAL_DANDI,
     ORIGIN_VALIDATION_DANDI,
+    MissingFileContent,
     Origin,
     OriginType,
     Scope,
@@ -91,9 +92,18 @@ class DandiFile(ABC):
         self,
         schema_version: str | None = None,
         devel_debug: bool = False,
+        missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
         """
         Attempt to validate the file and return a list of errors encountered
+
+        Parameters
+        ----------
+        missing_file_content : MissingFileContent | None
+            When set (not None), the file's content is known to be unavailable
+            (e.g. broken symlink).  Validators should adjust behaviour
+            accordingly — for ``only-non-data`` they should skip
+            content-dependent checks and emit a WARNING.
         """
         ...
 
@@ -116,6 +126,7 @@ class DandisetMetadataFile(DandiFile):
         self,
         schema_version: str | None = None,
         devel_debug: bool = False,
+        missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
         with open(self.filepath) as f:
             meta = yaml_load(f, typ="safe")
@@ -185,7 +196,14 @@ class LocalAsset(DandiFile):
         self,
         schema_version: str | None = None,
         devel_debug: bool = False,
+        missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
+        # When file content is unavailable and policy is only-non-data,
+        # skip metadata extraction (which requires reading the file) and
+        # only do path-based validation via subclass hooks.
+        if missing_file_content == MissingFileContent.only_non_data:
+            return []
+
         current_version = get_schema_version()
         if schema_version is None:
             schema_version = current_version
@@ -511,81 +529,88 @@ class NWBAsset(LocalFileAsset):
         self,
         schema_version: str | None = None,
         devel_debug: bool = False,
+        missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
         """
         Validate NWB asset
 
         If ``schema_version`` was provided, we only validate basic metadata,
-        and completely skip validation using nwbinspector.inspect_nwbfile
+        and completely skip validation using nwbinspector.inspect_nwbfile.
+
+        If ``missing_file_content`` is ``only-non-data``, content-dependent
+        validators (pynwb, nwbinspector) are skipped and only path-layout
+        validation is performed.
         """
-        # Avoid heavy import by importing within function:
-        from nwbinspector import Importance, inspect_nwbfile, load_config
+        errors: list[ValidationResult] = []
 
-        # Avoid heavy import by importing within function:
-        from dandi.pynwb_utils import validate as pynwb_validate
-
-        errors: list[ValidationResult] = pynwb_validate(
-            self.filepath, devel_debug=devel_debug
-        )
-        if schema_version is not None:
-            errors.extend(
-                super().get_validation_errors(
-                    schema_version=schema_version, devel_debug=devel_debug
-                )
-            )
+        if missing_file_content == MissingFileContent.only_non_data:
+            # Skip content-dependent validators (pynwb, nwbinspector).
+            # The warning for the user is emitted centrally in _core.validate().
+            pass
         else:
-            # make sure that we have some basic metadata fields we require
-            try:
-                origin_validation_nwbinspector = Origin(
-                    type=OriginType.VALIDATION,
-                    validator=Validator.nwbinspector,
-                    validator_version=str(_get_nwb_inspector_version()),
-                )
+            # Avoid heavy import by importing within function:
+            from nwbinspector import Importance, inspect_nwbfile, load_config
 
-                for error in inspect_nwbfile(
-                    nwbfile_path=self.filepath,
-                    skip_validate=True,
-                    config=load_config(filepath_or_keyword="dandi"),
-                    importance_threshold=Importance.BEST_PRACTICE_VIOLATION,
-                    # we might want to switch to a lower threshold once nwbinspector
-                    # upstream reporting issues are clarified:
-                    # https://github.com/dandi/dandi-cli/pull/1162#issuecomment-1322238896
-                    # importance_threshold=Importance.BEST_PRACTICE_SUGGESTION,
-                ):
-                    severity = NWBI_IMPORTANCE_TO_DANDI_SEVERITY[error.importance.name]
-                    kw: Any = {}
-                    if error.location:
-                        kw["within_asset_paths"] = {
-                            error.file_path: error.location,
-                        }
-                    errors.append(
-                        ValidationResult(
-                            origin=origin_validation_nwbinspector,
-                            severity=severity,
-                            id=f"NWBI.{error.check_function_name}",
-                            scope=Scope.FILE,
-                            origin_result=error,
-                            path=Path(error.file_path),
-                            message=error.message,
-                            # Assuming multiple sessions per multiple subjects,
-                            # otherwise nesting level might differ
-                            dataset_path=Path(error.file_path).parent.parent,  # TODO
-                            dandiset_path=Path(error.file_path).parent,  # TODO
-                            **kw,
-                        )
+            # Avoid heavy import by importing within function:
+            from dandi.pynwb_utils import validate as pynwb_validate
+
+            errors.extend(pynwb_validate(self.filepath, devel_debug=devel_debug))
+            if schema_version is not None:
+                errors.extend(
+                    super().get_validation_errors(
+                        schema_version=schema_version, devel_debug=devel_debug
                     )
-            except Exception as e:
-                if devel_debug:
-                    raise
-                # TODO: might reraise instead of making it into an error
-                return _pydantic_errors_to_validation_results(
-                    [e], self.filepath, scope=Scope.FILE
                 )
+            else:
+                # make sure that we have some basic metadata fields we require
+                try:
+                    origin_validation_nwbinspector = Origin(
+                        type=OriginType.VALIDATION,
+                        validator=Validator.nwbinspector,
+                        validator_version=str(_get_nwb_inspector_version()),
+                    )
+
+                    for error in inspect_nwbfile(
+                        nwbfile_path=self.filepath,
+                        skip_validate=True,
+                        config=load_config(filepath_or_keyword="dandi"),
+                        importance_threshold=Importance.BEST_PRACTICE_VIOLATION,
+                    ):
+                        severity = NWBI_IMPORTANCE_TO_DANDI_SEVERITY[
+                            error.importance.name
+                        ]
+                        kw: Any = {}
+                        if error.location:
+                            kw["within_asset_paths"] = {
+                                error.file_path: error.location,
+                            }
+                        errors.append(
+                            ValidationResult(
+                                origin=origin_validation_nwbinspector,
+                                severity=severity,
+                                id=f"NWBI.{error.check_function_name}",
+                                scope=Scope.FILE,
+                                origin_result=error,
+                                path=Path(error.file_path),
+                                message=error.message,
+                                dataset_path=Path(error.file_path).parent.parent,
+                                dandiset_path=Path(error.file_path).parent,
+                                **kw,
+                            )
+                        )
+                except Exception as e:
+                    if devel_debug:
+                        raise
+                    # TODO: might reraise instead of making it into an error
+                    return _pydantic_errors_to_validation_results(
+                        [e], self.filepath, scope=Scope.FILE
+                    )
 
         # Avoid circular imports by importing within function:
         from .bids import NWBBIDSAsset
         from ..organize import validate_organized_path
 
+        # Path-layout validation always runs (doesn't need content)
         if not isinstance(self, NWBBIDSAsset) and self.dandiset_path is not None:
             errors.extend(
                 validate_organized_path(self.path, self.filepath, self.dandiset_path)
