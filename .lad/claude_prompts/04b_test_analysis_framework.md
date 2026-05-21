@@ -70,7 +70,7 @@ print(f'UNCLASSIFIED failures: {len(failures) - len(import_failures) - len(api_f
 - Examples: {{top_3_infrastructure_examples}}
 - Fix Strategy: {{infrastructure_approach}}
 
-### API_COMPATIBILITY Issues (Method Signatures, Interfaces)  
+### API_COMPATIBILITY Issues (Method Signatures, Interfaces)
 - Count: {{api_count}}
 - Pattern: {{common_api_patterns}}
 - Examples: {{top_3_api_examples}}
@@ -112,7 +112,7 @@ grep -oE 'Error: [^:]*' all_failures.txt | sort | uniq -c | sort -nr | head -10 
 echo "## Files Most Frequently Involved in Failures:" >> cross_cutting_analysis.md
 cat common_failing_files.txt >> cross_cutting_analysis.md
 
-echo "## Most Common Error Types:" >> cross_cutting_analysis.md  
+echo "## Most Common Error Types:" >> cross_cutting_analysis.md
 cat common_error_types.txt >> cross_cutting_analysis.md
 ```
 
@@ -131,7 +131,7 @@ cat common_error_types.txt >> cross_cutting_analysis.md
 
 ### Risk Assessment for Each Fix Category:
 - INFRASTRUCTURE fixes: Risk {{level}} - {{reasoning}}
-- API_COMPATIBILITY fixes: Risk {{level}} - {{reasoning}}  
+- API_COMPATIBILITY fixes: Risk {{level}} - {{reasoning}}
 - TEST_DESIGN fixes: Risk {{level}} - {{reasoning}}
 - CONFIGURATION fixes: Risk {{level}} - {{reasoning}}
 - COVERAGE_GAPS fixes: Risk {{level}} - {{reasoning}}
@@ -155,7 +155,7 @@ cat common_error_types.txt >> cross_cutting_analysis.md
 - **Assessment**: {{detailed_analysis}}
 
 ### Enterprise Standard (85-95% pass rate expectation):
-- **Justified**: [Y/N] + Reasoning  
+- **Justified**: [Y/N] + Reasoning
 - **Business Impact**: [Critical / High / Medium / Low]
 - **Assessment**: {{detailed_analysis}}
 
@@ -213,7 +213,7 @@ echo "## Validation Results by Standard:" >> standards_validation.md
 ### P2-HIGH (System reliability + Quick wins):
 - Tests essential for research workflows: {{count}}
 - Tests with medium effort but high system impact: {{count}}
-- **Total P2**: {{total}} tests  
+- **Total P2**: {{total}} tests
 - **Estimated Effort**: {{time_estimate}}
 
 ### P3-MEDIUM (Performance + Clear value proposition):
@@ -270,7 +270,7 @@ echo "## Priority Queue (Ready for PDCA cycles):" >> implementation_context.md
 echo "### P1-CRITICAL fixes:" >> implementation_context.md
 echo "{{list_P1_fixes_with_approach}}" >> implementation_context.md
 
-echo "### P2-HIGH fixes:" >> implementation_context.md  
+echo "### P2-HIGH fixes:" >> implementation_context.md
 echo "{{list_P2_fixes_with_approach}}" >> implementation_context.md
 
 echo "## Solution Batching Opportunities:" >> implementation_context.md

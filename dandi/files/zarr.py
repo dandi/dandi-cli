@@ -271,14 +271,36 @@ def _ts_validate_zarr3_array(
     return results
 
 
+def _is_empty_group(group: Any) -> bool:
+    """
+    Return whether a `zarr.Group` has no child arrays or groups.
+
+    In zarr-python 2.x ``bool(group)`` / ``len(group)`` is a cheap check, but in
+    zarr-python 3.x both eagerly iterate the group's members, which raises if
+    the underlying directory contains non-Zarr files (e.g. an arbitrary
+    ``a/b/c/...`` tree) or arrays with metadata that the new library can't
+    parse (e.g. legacy ``>u1`` dtypes). Treat any such failure as "not empty"
+    — there is *some* content there, even if it's not a valid Zarr member —
+    so we don't spuriously report ``dandi_zarr.empty_group``.
+    """
+    try:
+        return len(group) == 0
+    except Exception as exc:
+        lgr.debug("Could not determine emptiness of Zarr group %r: %s", group, exc)
+        return False
+
+
 @dataclass
 class LocalZarrEntry(BasePath):
     """A file or directory within a `ZarrAsset`"""
 
-    #: The path to the actual file or directory on disk
-    filepath: Path
     #: The path to the root of the Zarr file tree
     zarr_basepath: Path
+
+    @property
+    def filepath(self) -> Path:
+        """The path to the actual file or directory on disk"""
+        return self.zarr_basepath.joinpath(*self.parts)
 
     def _get_subpath(self, name: str) -> LocalZarrEntry:
         if not name or "/" in name:
@@ -288,16 +310,14 @@ class LocalZarrEntry(BasePath):
         elif name == "..":
             return self.parent
         else:
-            return replace(
-                self, filepath=self.filepath / name, parts=self.parts + (name,)
-            )
+            return replace(self, parts=self.parts + (name,))
 
     @property
     def parent(self) -> LocalZarrEntry:
         if self.is_root():
             return self
         else:
-            return replace(self, filepath=self.filepath.parent, parts=self.parts[:-1])
+            return replace(self, parts=self.parts[:-1])
 
     def exists(self) -> bool:
         return os.path.lexists(self.filepath)
@@ -390,9 +410,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         The `LocalZarrEntry` for the root of the hierarchy of files within the
         Zarr asset
         """
-        return LocalZarrEntry(
-            filepath=self.filepath, zarr_basepath=self.filepath, parts=()
-        )
+        return LocalZarrEntry(zarr_basepath=self.filepath, parts=())
 
     def stat(self) -> ZarrStat:
         """Return various details about the Zarr asset"""
@@ -456,67 +474,41 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             standard=Standard.ZARR,
         )
 
-        try:
-            data = zarr.open(str(self.filepath), mode="r")
-        except zarr.errors.PathNotFoundError as e:
-            # The asset is potentially in Zarr V3 format, which is not support by
-            # zarr-python 2.x. Before upgrade to zarr-python 3.x, use tensorstore to
-            # open it.
-
-            format_version = get_zarr_format_version(self.filepath)
-
-            if format_version is None:
-                # === The Zarr format can't be determined ===
-                if devel_debug:
-                    raise
-                errors.append(
-                    ValidationResult(
-                        id="zarr.cannot_open",
-                        origin=origin_internal_zarr,
-                        scope=Scope.FILE,
-                        origin_result=e,
-                        severity=Severity.ERROR,
-                        message="Error opening file and Zarr format cannot be determined",
-                        path=self.filepath,
-                    )
-                )
-            elif format_version == "3":
-                # === The Zarr format is V3 ===
-                errors.extend(_ts_validate_zarr3(self.filepath, devel_debug))
-            else:
-                # === A Zarr format should be supported by `zarr.open()` ===
-                if devel_debug:
-                    raise
-                errors.append(
-                    ValidationResult(
-                        id="zarr.cannot_open",
-                        origin=origin_internal_zarr,
-                        scope=Scope.FILE,
-                        origin_result=e,
-                        severity=Severity.ERROR,
-                        message="Error opening file.",
-                        path=self.filepath,
-                    )
-                )
-
-            # code for temporary workaround for Zarr format V3 with tensorstore ends
-
-        except Exception as e:
-            if devel_debug:
-                raise
-            errors.append(
-                ValidationResult(
-                    origin=origin_internal_zarr,
-                    severity=Severity.ERROR,
-                    id="zarr.cannot_open",
-                    scope=Scope.FILE,
-                    origin_result=e,
-                    path=self.filepath,
-                    message="Error opening file.",
-                )
-            )
+        # Zarr V3 stores are validated by `_ts_validate_zarr3` regardless of
+        # zarr-python version. With zarr-python 2.x, `zarr.open()` cannot
+        # handle V3 at all (raises `PathNotFoundError`); with zarr-python 3.x
+        # it can sometimes partially open malformed V3 stores (e.g. valid
+        # root metadata, bad child metadata), which would cause us to miss
+        # the `_ts_validate_zarr3` path. Detecting the format up front keeps
+        # the validation behaviour consistent across versions.
+        format_version = get_zarr_format_version(self.filepath)
+        if format_version == "3":
+            errors.extend(_ts_validate_zarr3(self.filepath, devel_debug))
+            data = None
         else:
-            if isinstance(data, zarr.Group) and not data:
+            try:
+                data = zarr.open(str(self.filepath), mode="r")
+            except Exception as e:
+                if devel_debug:
+                    raise
+                message = (
+                    "Error opening file and Zarr format cannot be determined"
+                    if format_version is None
+                    else "Error opening file."
+                )
+                errors.append(
+                    ValidationResult(
+                        id="zarr.cannot_open",
+                        origin=origin_internal_zarr,
+                        scope=Scope.FILE,
+                        origin_result=e,
+                        severity=Severity.ERROR,
+                        message=message,
+                        path=self.filepath,
+                    )
+                )
+                data = None
+            if isinstance(data, zarr.Group) and _is_empty_group(data):
                 errors.append(
                     ValidationResult(
                         origin=ORIGIN_VALIDATION_DANDI_ZARR,
@@ -591,7 +583,10 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     json={"name": asset_path, "dandiset": dandiset.identifier},
                 )
             except requests.HTTPError as e:
-                if e.response is not None and "Zarr already exists" in e.response.text:
+                if e.response is not None and (
+                    "Zarr already exists" in e.response.text
+                    or "dandiset, name must make a unique set" in e.response.text
+                ):
                     lgr.warning(
                         "%s: Found pre-existing Zarr at same path not"
                         " associated with any asset; reusing",
@@ -1046,7 +1041,10 @@ class UploadItem:
 
     @classmethod
     def from_entry(cls, e: LocalZarrEntry, digest: str) -> UploadItem:
-        if e.name in {".zarray", ".zattrs", ".zgroup", ".zmetadata"}:
+        # JSON metadata files. ``.zarray`` / ``.zattrs`` / ``.zgroup`` /
+        # ``.zmetadata`` are the V2 names; ``zarr.json`` is the V3 name (a
+        # single file per group/array containing all metadata).
+        if e.name in {".zarray", ".zattrs", ".zgroup", ".zmetadata", "zarr.json"}:
             try:
                 with e.filepath.open("rb") as fp:
                     json.load(fp)

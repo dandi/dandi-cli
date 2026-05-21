@@ -12,7 +12,7 @@ You are Claude performing systematic test quality analysis and remediation with 
 <command> 2>&1 | tee full_output.txt | grep -iE "(warning|error|failed|exception|fatal|critical)" | tail -n 30; echo "--- FINAL OUTPUT ---"; tail -n 100 full_output.txt
 ```
 
-**Research Software Quality Standards**: 
+**Research Software Quality Standards**:
 - Scientific reproducibility maintained across test fixes
 - Test effectiveness prioritized over coverage metrics
 - Research impact assessment for all test failures
@@ -43,7 +43,7 @@ You are Claude performing systematic test quality analysis and remediation with 
    - Map interdependencies between failing tests
 
 3. **Research Impact Assessment** (Enhanced Test Quality Framework):
-   
+
    **Scientific Criticality Levels**:
    - **CRITICAL**: Test failure affects research results validity or computational reproducibility
    - **HIGH**: Test failure affects user experience or system reliability but not scientific results
@@ -63,18 +63,18 @@ You are Claude performing systematic test quality analysis and remediation with 
    - Apply **Research Impact Assessment Framework**:
      ```markdown
      ## Test Quality Assessment: test_name
-     
+
      **Scientific Criticality**: [CRITICAL/HIGH/MEDIUM/LOW]
      - Research Impact: [How failure affects scientific validity/reproducibility]
      - Computational Impact: [Effect on result accuracy/consistency]
      - User Impact: [Effect on research workflow/usability]
-     
+
      **Test Design Quality**: [POOR/ADEQUATE/GOOD]
      - Necessity: [Essential behavior verification vs unnecessary test]
      - Oracle Quality: [How reliably can correct result be determined]
      - Reproducibility: [Does test ensure consistent outputs]
      - Maintainability: [Cost of maintenance vs value provided]
-     
+
      **Root Cause**: [Technical cause of failure]
      **Fix Strategy**: [Approach to resolution]
      **Fix Complexity**: [SIMPLE/MODERATE/COMPLEX]
