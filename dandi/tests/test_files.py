@@ -4,7 +4,7 @@ from operator import attrgetter
 import os
 from pathlib import Path
 import subprocess
-from unittest.mock import ANY
+from unittest.mock import ANY, patch
 
 from dandischema.models import get_schema_version
 import numpy as np
@@ -14,7 +14,7 @@ import zarr
 from .fixtures import SampleDandiset
 from .test_helpers import TWO_ARRAY_ZARR_LAYOUT, zarr_format_of
 from .. import get_logger
-from ..consts import ZARR_MIME_TYPE, dandiset_metadata_file
+from ..consts import ZARR_LARGE_CHUNK_THRESHOLD, ZARR_MIME_TYPE, dandiset_metadata_file
 from ..dandiapi import AssetType, RemoteZarrAsset
 from ..exceptions import UnknownAssetError
 from ..files import (
@@ -30,6 +30,7 @@ from ..files import (
     dandi_file,
     find_dandi_files,
 )
+from ..files.bases import _multipart_upload as real_multipart_upload
 
 lgr = get_logger()
 
@@ -548,6 +549,53 @@ def test_upload_zarr_entry_content_type(new_dandiset, tmp_path):
     e = asset.get_entry_by_path(root_meta)
     r = new_dandiset.client.get(e.download_url, json_resp=False)
     assert r.headers["Content-Type"] == "application/json"
+
+
+@pytest.mark.ai_generated
+def test_upload_zarr_large_chunks(new_dandiset, tmp_path):
+    """Chunks above ZARR_LARGE_CHUNK_THRESHOLD are uploaded via multipart upload."""
+    if not new_dandiset.client.supports_zarr_multipart_upload:
+        pytest.skip(
+            "Server does not expose the zarr multipart upload endpoints"
+            " (dandi-archive#2784)"
+        )
+    filepath = tmp_path / "example.zarr"
+    zarr.save(filepath, np.arange(1000), np.arange(1000, 0, -1))
+
+    # Add a "large" array whose single chunk is a sparse file just over the threshold.
+    # Sparse files appear large to stat() without consuming real disk space.
+    store = zarr.open_group(str(filepath), mode="a")
+    large_arr = store.create_dataset(
+        "large", shape=(1,), chunks=(1,), dtype=np.uint8, compressor=None
+    )
+    large_arr[:] = np.zeros(1, dtype=np.uint8)
+    large_chunk_path = filepath / "large" / "0"
+    large_chunk_path.unlink()
+    with open(large_chunk_path, "wb") as f:
+        f.seek(ZARR_LARGE_CHUNK_THRESHOLD + 1)
+        f.write(b"\x00")
+
+    zf = dandi_file(filepath)
+    assert isinstance(zf, ZarrAsset)
+
+    called_paths: list[str] = []
+
+    def spy_multipart_upload(**kwargs):
+        called_paths.append(kwargs["asset_path"])
+        yield from real_multipart_upload(**kwargs)
+
+    with patch("dandi.files.zarr._multipart_upload", spy_multipart_upload):
+        asset = zf.upload(new_dandiset.dandiset, {})
+
+    assert isinstance(asset, RemoteZarrAsset)
+    remote_entries = {str(e) for e in asset.iterfiles()}
+
+    # Only the large chunk should have been routed through multipart upload
+    assert set(called_paths) == {"large/0"}
+
+    # At least one chunk must have gone each path so the test is meaningful
+    assert len(called_paths) > 0
+    assert len(remote_entries) - len(called_paths) > 0
 
 
 def test_validate_deep_zarr(tmp_path: Path) -> None:

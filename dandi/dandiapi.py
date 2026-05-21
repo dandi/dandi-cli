@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from fnmatch import fnmatchcase
+from functools import cached_property
 import json
 import os.path
 from pathlib import Path, PurePosixPath
@@ -564,6 +565,27 @@ class DandiAPIClient(RESTFullAPIClient):
     @property
     def _instance_id(self) -> str:
         return self.dandi_instance.name.upper()
+
+    @cached_property
+    def supports_zarr_multipart_upload(self) -> bool:
+        """
+        Whether the server exposes the zarr multipart upload endpoints
+        introduced in dandi-archive#2784 (``/uploads/zarr/initialize/`` and
+        friends).
+
+        Probed once per client by POSTing an empty body to
+        ``/uploads/zarr/initialize/``: if the route does not exist the server
+        returns 404; any other status (400 for the bad payload, 401/403 for
+        auth, etc.) means the route is present and the server supports
+        multipart zarr uploads.
+        """
+        try:
+            self.post("/uploads/zarr/initialize/", json={})
+        except HTTP404Error:
+            return False
+        except requests.HTTPError:
+            return True
+        return True
 
     def get_dandiset(
         self, dandiset_id: str, version_id: str | None = None, lazy: bool = True
