@@ -1,3 +1,24 @@
+# 1.0.0 (Thu May 21 2026)
+
+#### 💥 Breaking Change
+
+- [gh-actions](deps): Bump fsfe/reuse-action from 5 to 6 [#1852](https://github.com/dandi/dandi-cli/pull/1852) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### 🐛 Bug Fix
+
+- BF: Make Zarr validation/digest tests work with zarr-python 2.x and 3.x [#1858](https://github.com/dandi/dandi-cli/pull/1858) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- Fixup permissions (and pre-commit - spaces at end of lines) on .md files under .lad/ and remove spurious TE from regex in codespell [#1853](https://github.com/dandi/dandi-cli/pull/1853) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 2
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.75.1 (Thu Apr 30 2026)
 
 #### 🐛 Bug Fix
