@@ -28,7 +28,7 @@ import zarr
 from .fixtures import SampleDandiset, SampleDandisetFactory
 from .skip import mark
 from .test_helpers import TWO_ARRAY_ZARR_LAYOUT, assert_dirtrees_eq, zarr_format_of
-from ..consts import DRAFT, dandiset_metadata_file
+from ..consts import DRAFT, SyncMode, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
 from ..download import (
     DownloadDirectory,
@@ -317,6 +317,24 @@ def test_download_sync(
         assert not (dspath / "file.txt").exists()
     else:
         assert (dspath / "file.txt").exists()
+
+
+@pytest.mark.ai_generated
+def test_download_sync_do(
+    mocker: MockerFixture, text_dandiset: SampleDandiset, tmp_path: Path
+) -> None:
+    text_dandiset.dandiset.get_asset_by_path("file.txt").delete()
+    dspath = tmp_path / text_dandiset.dandiset_id
+    os.rename(text_dandiset.dspath, dspath)
+    confirm_mock = mocker.patch("dandi.download.abbrev_prompt")
+    download(
+        f"dandi://{text_dandiset.api.instance_id}/{text_dandiset.dandiset_id}",
+        tmp_path,
+        existing=DownloadExisting.OVERWRITE,
+        sync=SyncMode.DO,
+    )
+    confirm_mock.assert_not_called()
+    assert not (dspath / "file.txt").exists()
 
 
 def test_download_sync_folder(
