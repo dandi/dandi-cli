@@ -1,3 +1,32 @@
+# 0.76.0 (Thu May 21 2026)
+
+#### 🚀 Enhancement
+
+- Redesign --sync as optional-value option (ask/do) for download and upload [#1835](https://github.com/dandi/dandi-cli/pull/1835) ([@claude](https://github.com/claude) [@yarikoptic](https://github.com/yarikoptic) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Add --missing-file-content option to handle broken symlinks in validate [#1834](https://github.com/dandi/dandi-cli/pull/1834) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 🐛 Bug Fix
+
+- feat: add support for Python 3.14 in workflows and classifiers [#1838](https://github.com/dandi/dandi-cli/pull/1838) ([@kevinzunigacuellar](https://github.com/kevinzunigacuellar) [@yarikoptic](https://github.com/yarikoptic))
+- ENH+BF: Zarr upload retry resilience, diagnostics, and explicit timeout [#1827](https://github.com/dandi/dandi-cli/pull/1827) ([@yarikoptic](https://github.com/yarikoptic))
+- BF: Make Zarr validation/digest tests work with zarr-python 2.x and 3.x [#1858](https://github.com/dandi/dandi-cli/pull/1858) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- [gh-actions](deps): Bump actions/github-script from 8 to 9 [#1836](https://github.com/dandi/dandi-cli/pull/1836) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Fixup permissions (and pre-commit - spaces at end of lines) on .md files under .lad/ and remove spurious TE from regex in codespell [#1853](https://github.com/dandi/dandi-cli/pull/1853) ([@yarikoptic](https://github.com/yarikoptic))
+- [gh-actions](deps): Bump fsfe/reuse-action from 5 to 6 [#1852](https://github.com/dandi/dandi-cli/pull/1852) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### Authors: 5
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Claude ([@claude](https://github.com/claude))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Kevin Z ([@kevinzunigacuellar](https://github.com/kevinzunigacuellar))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.75.1 (Thu Apr 30 2026)
 
 #### 🐛 Bug Fix
