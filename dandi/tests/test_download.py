@@ -27,7 +27,7 @@ import zarr
 
 from .fixtures import SampleDandiset, SampleDandisetFactory
 from .skip import mark
-from .test_helpers import assert_dirtrees_eq
+from .test_helpers import TWO_ARRAY_ZARR_LAYOUT, assert_dirtrees_eq, zarr_format_of
 from ..consts import DRAFT, SyncMode, dandiset_metadata_file
 from ..dandiarchive import DandisetURL
 from ..download import (
@@ -478,6 +478,10 @@ def test_download_different_zarr_onto_excluded_dotfiles(
     dd.mkdir()
     zarr_path = dd / "sample.zarr"
     zarr.save(zarr_path, np.eye(5))
+    # `zarr_dandiset` was uploaded with default ``zarr.save`` — its on-disk
+    # layout (and therefore the layout we expect to see after download) is
+    # V2 for zarr-python 2.x, V3 for zarr-python 3.x.
+    layout = TWO_ARRAY_ZARR_LAYOUT[zarr_format_of(zarr_dandiset.dspath / "sample.zarr")]
     (zarr_path / ".git").touch()
     (zarr_path / ".dandi").mkdir()
     (zarr_path / ".dandi" / "somefile.txt").touch()
@@ -490,21 +494,18 @@ def test_download_different_zarr_onto_excluded_dotfiles(
         tmp_path,
         existing=DownloadExisting.OVERWRITE_DIFFERENT,
     )
-    assert list_paths(zarr_path, dirs=True, exclude_vcs=False) == [
+    dotfile_paths = [
         zarr_path / ".dandi",
         zarr_path / ".dandi" / "somefile.txt",
         zarr_path / ".datalad",
         zarr_path / ".git",
         zarr_path / ".gitattributes",
-        zarr_path / ".zgroup",
-        zarr_path / "arr_0",
         zarr_path / "arr_0" / ".gitmodules",
-        zarr_path / "arr_0" / ".zarray",
-        zarr_path / "arr_0" / "0",
-        zarr_path / "arr_1",
-        zarr_path / "arr_1" / ".zarray",
-        zarr_path / "arr_1" / "0",
     ]
+    zarr_paths = [zarr_path / p for p in layout["files_and_dirs"]]
+    assert list_paths(zarr_path, dirs=True, exclude_vcs=False) == sorted(
+        set(dotfile_paths + zarr_paths)
+    )
 
 
 def test_download_different_zarr_delete_dir(
@@ -513,7 +514,16 @@ def test_download_different_zarr_delete_dir(
     d = new_dandiset.dandiset
     dspath = new_dandiset.dspath
     zarr.save(dspath / "sample.zarr", np.eye(5))
-    assert not any(p.is_dir() for p in (dspath / "sample.zarr").iterdir())
+    # The single-array ``np.eye(5)`` Zarr has a flatter layout than the
+    # two-array Zarr below: in V2 no subdirs at all; in V3 only ``c/``
+    # (the chunk container) rather than ``arr_0/`` and ``arr_1/``. This
+    # is the contrast the test exercises — downloading the smaller Zarr
+    # must delete the extra ``arr_*`` subdirs of the bigger one.
+    initial_subdirs = {p.name for p in (dspath / "sample.zarr").iterdir() if p.is_dir()}
+    if zarr_format_of(dspath / "sample.zarr") == "2":
+        assert initial_subdirs == set()
+    else:
+        assert initial_subdirs == {"c"}
     new_dandiset.upload()
     dd = tmp_path / d.identifier
     dd.mkdir(parents=True, exist_ok=True)
@@ -940,12 +950,13 @@ def test_download_multiple_urls(
     # end up using the same `new_dandiset`.  Hence, we need to fall back to
     # using `sample_dandiset_factory` here.
     zarr_dandiset = sample_dandiset_factory.mkdandiset("Sample Zarr Dandiset")
-    zarr.save(
-        zarr_dandiset.dspath / "sample.zarr", np.arange(1000), np.arange(1000, 0, -1)
-    )
+    zarr_local = zarr_dandiset.dspath / "sample.zarr"
+    zarr.save(zarr_local, np.arange(1000), np.arange(1000, 0, -1))
+    layout = TWO_ARRAY_ZARR_LAYOUT[zarr_format_of(zarr_local)]
     zarr_dandiset.upload()
 
     download([text_dandiset.dandiset.api_url, zarr_dandiset.dandiset.api_url], tmp_path)
+    zarr_root = tmp_path / zarr_dandiset.dandiset_id / "sample.zarr"
     assert list_paths(tmp_path) == [
         tmp_path / text_dandiset.dandiset_id / "dandiset.yaml",
         tmp_path / text_dandiset.dandiset_id / "file.txt",
@@ -953,16 +964,7 @@ def test_download_multiple_urls(
         tmp_path / text_dandiset.dandiset_id / "subdir2" / "banana.txt",
         tmp_path / text_dandiset.dandiset_id / "subdir2" / "coconut.txt",
         tmp_path / zarr_dandiset.dandiset_id / "dandiset.yaml",
-        tmp_path
-        / zarr_dandiset.dandiset_id
-        / tmp_path
-        / zarr_dandiset.dandiset_id
-        / "sample.zarr"
-        / ".zgroup",
-        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_0" / ".zarray",
-        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_0" / "0",
-        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_1" / ".zarray",
-        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr" / "arr_1" / "0",
+        *[zarr_root / p for p in layout["files"]],
     ]
 
 

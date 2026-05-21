@@ -164,7 +164,7 @@ parentdir_prefix = ""
 skip = "_version.py,due.py,versioneer.py,*.vcr.yaml,venv,venvs,pyproject.toml"
 # Don't warn about "[l]ist" in the abbrev_prompt() docstring:
 # TE is present in the BIDS schema
-ignore-regex = "(\\[\\w\\]\\w+|TE|ignore \"bu\" strings)"
+ignore-regex = "(\\[\\w\\]\\w+|ignore \"bu\" strings)"
 ignore-words-list = "ba,bu,fo"
 
 [tool.mypy]
@@ -216,6 +216,18 @@ module = [
     "zarr.*",
 ]
 ignore_missing_imports = true
+
+# `zarr.*` ships its own type stubs in zarr-python 3.x but they reject
+# `numpy.ndarray` as a value for the `NDArrayLike` protocol because of
+# minor `ndarray.reshape` overload divergence. This surfaces as ~30
+# `arg-type` errors on every `zarr.save(path, np.arange(...))` call in
+# the test suite. zarr-python 2.x has no stubs and the same calls are
+# untyped, so CI typing (which currently resolves to zarr 2.18) passes.
+# Skip following zarr imports so behaviour is consistent regardless of
+# the installed zarr-python version.
+[[tool.mypy.overrides]]
+module = ["zarr.*"]
+follow_imports = "skip"
 
 [tool.pydantic-mypy]
 init_forbid_extra = true

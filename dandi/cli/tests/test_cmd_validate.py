@@ -896,3 +896,103 @@ def test_validate_auto_companion_structured_stdout(
     assert r.exit_code == 1
 
     assert len(list(redirected_logdir.glob("*_validation.jsonl"))) == 1
+
+
+# ---- Tests for --missing-file-content option (issue #1606) ----
+
+
+def _make_dandiset_with_broken_symlinks(tmp_path: Path) -> Path:
+    """Create a dandiset with broken NWB symlinks *and* one real NWB file.
+
+    Layout::
+
+        dandiset.yaml
+        sub-001/sub-001.nwb   -> broken symlink (datalad annex)
+        sub-002/sub-002.nwb   -> broken symlink (datalad annex)
+        sub-003/sub-003.nwb   -> real NWB file (content present)
+
+    This lets tests assert that real files are still fully validated
+    while broken symlinks are handled according to the policy.
+    """
+    from datetime import datetime, timezone
+
+    from ...consts import dandiset_metadata_file
+    from ...pynwb_utils import make_nwb_file
+
+    (tmp_path / dandiset_metadata_file).write_text(
+        "identifier: '000027'\nname: Test\ndescription: Test dandiset\n"
+    )
+    # Two broken symlinks
+    for name in ("sub-001/sub-001.nwb", "sub-002/sub-002.nwb"):
+        p = tmp_path / name
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.symlink_to(
+            ".git/annex/objects/XX/YY/SHA256E-s123--abc.nwb/SHA256E-s123--abc.nwb"
+        )
+    # One real NWB file
+    sub3 = tmp_path / "sub-003"
+    sub3.mkdir()
+    make_nwb_file(
+        sub3 / "sub-003.nwb",
+        session_description="test session",
+        identifier="test-nwb-003",
+        session_start_time=datetime(2017, 4, 3, 11, tzinfo=timezone.utc),
+    )
+    return tmp_path
+
+
+@pytest.mark.ai_generated
+def test_validate_missing_file_content_error_default(tmp_path: Path) -> None:
+    """Default --missing-file-content=error emits concise errors for broken symlinks."""
+    ds = _make_dandiset_with_broken_symlinks(tmp_path)
+    r = CliRunner().invoke(validate, [str(ds)])
+    assert r.exit_code == 1
+    assert "FILE_CONTENT_MISSING" in r.output
+    assert "broken symlink" in r.output.lower()
+    # No Python tracebacks in output
+    assert "Traceback" not in r.output
+    # The real NWB file (sub-003) must still be validated
+    assert "sub-003" in r.output
+
+
+@pytest.mark.ai_generated
+def test_validate_missing_file_content_skip(tmp_path: Path) -> None:
+    """--missing-file-content=skip skips broken symlinks with a WARNING."""
+    ds = _make_dandiset_with_broken_symlinks(tmp_path)
+    r = CliRunner().invoke(validate, ["--missing-file-content", "skip", str(ds)])
+    assert "FILE_CONTENT_MISSING_SKIPPED" in r.output
+    assert "skipped" in r.output.lower()
+    # The real NWB file (sub-003) must still be validated
+    assert "sub-003" in r.output
+
+
+@pytest.mark.ai_generated
+def test_validate_missing_file_content_only_non_data(tmp_path: Path) -> None:
+    """--missing-file-content=only-non-data validates path layout only for broken."""
+    ds = _make_dandiset_with_broken_symlinks(tmp_path)
+    r = CliRunner().invoke(
+        validate, ["--missing-file-content", "only-non-data", str(ds)]
+    )
+    assert "FILE_CONTENT_MISSING_PARTIAL" in r.output
+    # No pynwb tracebacks
+    assert "Traceback" not in r.output
+    # The real NWB file (sub-003) must still be validated
+    assert "sub-003" in r.output
+
+
+@pytest.mark.ai_generated
+def test_validate_missing_file_content_no_broken_symlinks(tmp_path: Path) -> None:
+    """--missing-file-content has no effect on normal files (no broken symlinks)."""
+    from ...consts import dandiset_metadata_file
+
+    (tmp_path / dandiset_metadata_file).write_text(
+        "identifier: '000027'\nname: Test\ndescription: Test dandiset\n"
+    )
+    r_default = CliRunner().invoke(validate, [str(tmp_path)])
+    r_skip = CliRunner().invoke(
+        validate, ["--missing-file-content", "skip", str(tmp_path)]
+    )
+    # Both should succeed identically (no broken symlinks)
+    assert r_default.exit_code == r_skip.exit_code == 0
+    assert "FILE_CONTENT_MISSING" not in r_default.output
+    assert "FILE_CONTENT_MISSING" not in r_skip.output

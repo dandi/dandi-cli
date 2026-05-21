@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 import logging
 import os
@@ -373,6 +373,20 @@ LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name
 @pytest.fixture(scope="session")
 def docker_compose_setup() -> Iterator[dict[str, str]]:
     skipif.no_network()
+
+    if external_url := os.environ.get("DANDI_TESTS_API_URL"):
+        api_key = os.environ.get("DANDI_TESTS_DJANGO_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "DANDI_TESTS_API_URL is set but DANDI_TESTS_DJANGO_API_KEY is not; "
+                "set it to a valid admin DRF token for the externally-managed server."
+            )
+        known_instances["dandi-api-local-docker-tests"] = replace(
+            known_instances["dandi-api-local-docker-tests"], api=external_url
+        )
+        yield {"django_api_key": api_key}
+        return
+
     skipif.no_docker_engine()
 
     # Check that we're running on a Unix-based system (Linux or macOS), as the

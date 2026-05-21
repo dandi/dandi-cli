@@ -1,3 +1,89 @@
+# 0.75.1 (Thu Apr 30 2026)
+
+#### 🐛 Bug Fix
+
+- Add support for updated error text upon Zarr name conflicts [#1848](https://github.com/dandi/dandi-cli/pull/1848) ([@brianhelba](https://github.com/brianhelba))
+- BF: Add timeout to follow_redirect HEAD requests; retry on Timeout [#1849](https://github.com/dandi/dandi-cli/pull/1849) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 🏠 Internal
+
+- ENH: Add REUSE specification and checks for compliance [#1844](https://github.com/dandi/dandi-cli/pull/1844) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🧪 Tests
+
+- Allow test server to be provided externally [#1847](https://github.com/dandi/dandi-cli/pull/1847) ([@brianhelba](https://github.com/brianhelba) [@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 3
+
+- Brian Helba ([@brianhelba](https://github.com/brianhelba))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.75.0 (Wed Apr 29 2026)
+
+### Release Notes
+
+#### RF: Derive LocalZarrEntry.filepath from zarr_basepath and parts ([#1843](https://github.com/dandi/dandi-cli/pull/1843))
+
+Refactor `LocalZarrEntry` so `filepath` is derived from `zarr_basepath` and `parts` instead of being stored separately, eliminating the possibility of internal inconsistency between the two representations.
+
+---
+
+#### 🚀 Enhancement
+
+- ENH: Machine-readable validate output with store/reload [#1822](https://github.com/dandi/dandi-cli/pull/1822) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Refactoring of codebase into dandi/validate/ subpackage for larger #1822 [#1830](https://github.com/dandi/dandi-cli/pull/1830) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🐛 Bug Fix
+
+- RF: Derive LocalZarrEntry.filepath from zarr_basepath and parts [#1843](https://github.com/dandi/dandi-cli/pull/1843) ([@candleindark](https://github.com/candleindark))
+- Fix broken external_file paths when organizing on Windows [#1832](https://github.com/dandi/dandi-cli/pull/1832) ([@h-mayorquin](https://github.com/h-mayorquin))
+- BF: Seek file data to 0 before every retry in request(), not just for retryable status codes [#1824](https://github.com/dandi/dandi-cli/pull/1824) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Bump nwbinspector to ~= 0.7.0 [#1809](https://github.com/dandi/dandi-cli/pull/1809) ([@bendichter](https://github.com/bendichter) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Upload .bidsignore files as part of BIDS datasets [#1819](https://github.com/dandi/dandi-cli/pull/1819) ([@yarikoptic](https://github.com/yarikoptic))
+- Fix test assertions for enhanced move operation error messages [#1802](https://github.com/dandi/dandi-cli/pull/1802) ([@Copilot](https://github.com/Copilot) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Update test assertions for enhanced API error messages [#1801](https://github.com/dandi/dandi-cli/pull/1801) ([@Copilot](https://github.com/Copilot))
+- Fix test assertion mismatch in test_move_not_dandiset [#1800](https://github.com/dandi/dandi-cli/pull/1800) ([@Copilot](https://github.com/Copilot))
+
+#### 🏠 Internal
+
+- Introduce hatch-managed environments [#1831](https://github.com/dandi/dandi-cli/pull/1831) ([@candleindark](https://github.com/candleindark))
+- Remove no-op `DANDI_ALLOW_LOCALHOST_URLS` from test configs [#1829](https://github.com/dandi/dandi-cli/pull/1829) ([@candleindark](https://github.com/candleindark))
+- [gh-actions](deps): Bump codecov/codecov-action from 5 to 6 [#1826](https://github.com/dandi/dandi-cli/pull/1826) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Remove sync git bug workflow for now altogether [#1814](https://github.com/dandi/dandi-cli/pull/1814) ([@yarikoptic](https://github.com/yarikoptic))
+- Configure user.* git vars for git-bug [#1813](https://github.com/dandi/dandi-cli/pull/1813) ([@yarikoptic](https://github.com/yarikoptic))
+- Fix git-bug sync workflow: bridge configure → bridge new [#1810](https://github.com/dandi/dandi-cli/pull/1810) ([@yarikoptic](https://github.com/yarikoptic))
+- Add git-bug distributed issue tracking [#1804](https://github.com/dandi/dandi-cli/pull/1804) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Enhance path validation error messages [#1792](https://github.com/dandi/dandi-cli/pull/1792) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@Copilot](https://github.com/Copilot) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Enhance API client error messages [#1791](https://github.com/dandi/dandi-cli/pull/1791) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@Copilot](https://github.com/Copilot) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 📝 Documentation
+
+- ai: fix up CLAUDE.md as to pytest markers placement [#1812](https://github.com/dandi/dandi-cli/pull/1812) ([@yarikoptic](https://github.com/yarikoptic))
+- Adapt LAD framework to dandi-cli project practices [#1805](https://github.com/dandi/dandi-cli/pull/1805) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Add module docstrings to core API and configuration modules [#1787](https://github.com/dandi/dandi-cli/pull/1787) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Add LLM-Assisted Development (LAD) test quality framework [#1785](https://github.com/dandi/dandi-cli/pull/1785) ([@yarikoptic](https://github.com/yarikoptic) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Add module docstrings to operation modules [#1788](https://github.com/dandi/dandi-cli/pull/1788) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 🧪 Tests
+
+- BF: Pin rabbitmq image to 4.2-management in test docker-compose [#1841](https://github.com/dandi/dandi-cli/pull/1841) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 8
+
+- [@Copilot](https://github.com/Copilot)
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Heberto Mayorquin ([@h-mayorquin](https://github.com/h-mayorquin))
+- Isaac To ([@candleindark](https://github.com/candleindark))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.74.3 (Sat Feb 14 2026)
 
 #### 🐛 Bug Fix
