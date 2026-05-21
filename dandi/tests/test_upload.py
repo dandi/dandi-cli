@@ -627,6 +627,105 @@ def test_zarr_upload_400_timeout_retry(
 
 
 @pytest.mark.ai_generated
+def test_zarr_upload_403_batch_retry_reduces_parallelism(
+    new_dandiset: SampleDandiset,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that 403 errors trigger batch-level retry with reduced parallelism
+    and exponential backoff, exercising the batch retry loop in iter_upload."""
+    zarr_path = new_dandiset.dspath / "test.zarr"
+    zarr.save(zarr_path, np.arange(100), np.arange(100, 0, -1))
+
+    # Mock at the request() level so that _upload_zarr_file sees the 403
+    # response and returns RETRY_NEEDED, triggering the batch retry loop.
+    request_attempts: defaultdict[str, int] = defaultdict(int)
+    original_request = RESTFullAPIClient.request
+
+    def mock_request(self, method, path, **kwargs):
+        urlpath = urlparse(path).path if path.startswith("http") else path
+        request_attempts[urlpath] += 1
+
+        # Simulate 403 on first attempt for files containing "arr_1"
+        if method == "PUT" and "arr_1" in path and request_attempts[urlpath] == 1:
+            resp = Mock(spec=requests.Response)
+            resp.status_code = 403
+            resp.ok = False
+            resp.text = "Forbidden"
+            resp.headers = {}
+            error = requests.HTTPError("403 Forbidden", response=resp)
+            error.response = resp
+            raise error
+
+        return original_request(self, method, path, **kwargs)
+
+    monkeypatch.setattr(RESTFullAPIClient, "request", mock_request)
+    # Speed up the test by removing the exponential backoff sleep
+    monkeypatch.setattr("dandi.files.zarr.sleep", lambda _: None)
+
+    with caplog.at_level("INFO", logger="dandi"):
+        new_dandiset.upload()
+
+    # Verify the upload succeeded
+    (asset,) = new_dandiset.dandiset.get_assets()
+    assert isinstance(asset, RemoteZarrAsset)
+    assert asset.path == "test.zarr"
+
+    # Verify the batch retry log message with worker count
+    retry_msgs = [
+        r.message for r in caplog.records if "requesting new URLs" in r.message
+    ]
+    assert len(retry_msgs) > 0, "Expected batch retry log message"
+    assert "workers:" in retry_msgs[0], "Expected reduced worker count in retry log"
+
+
+@pytest.mark.ai_generated
+def test_zarr_upload_connection_error_diagnostics(
+    new_dandiset: SampleDandiset,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that ConnectionError failures produce diagnostic summary logging."""
+    zarr_path = new_dandiset.dspath / "test.zarr"
+    zarr.save(zarr_path, np.arange(100), np.arange(100, 0, -1))
+
+    # Mock put() to raise ConnectionError for all S3 uploads.
+    # This bypasses tenacity retries (they would take too long) and directly
+    # exercises _upload_zarr_file's except-Exception path and the
+    # _handle_failed_items_and_raise diagnostics.
+    original_put = RESTFullAPIClient.put
+
+    def mock_put(self, url, **kwargs):
+        if "dandi-dandisets" in url:
+            raise requests.ConnectionError(
+                "('Connection aborted.', ConnectionAbortedError(10053, "
+                "'An established connection was aborted by the software "
+                "in your host machine'))"
+            )
+        return original_put(self, url, **kwargs)
+
+    monkeypatch.setattr(RESTFullAPIClient, "put", mock_put)
+
+    with caplog.at_level("ERROR", logger="dandi"), pytest.raises(
+        requests.ConnectionError
+    ):
+        new_dandiset.upload()
+
+    # Verify the diagnostic summary was logged
+    summary_msgs = [
+        r.message for r in caplog.records if "Upload failure summary" in r.message
+    ]
+    assert (
+        len(summary_msgs) == 1
+    ), f"Expected 1 summary message, got {len(summary_msgs)}"
+    summary = summary_msgs[0]
+    assert "ConnectionError" in summary
+    assert (
+        "systematic" in summary
+    ), "All-same-type failures should be flagged as systematic"
+
+
+@pytest.mark.ai_generated
 def test_upload_rejects_dandidownload_paths(
     new_dandiset: SampleDandiset, tmp_path: Path
 ) -> None:
