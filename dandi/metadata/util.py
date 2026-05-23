@@ -13,6 +13,7 @@ import requests
 import tenacity
 from yarl import URL
 
+from .brain_areas import locations_to_ccf_mouse_anatomy
 from .. import __version__
 from ..utils import ensure_datetime
 
@@ -516,6 +517,8 @@ def extract_assay_type(metadata: dict) -> list[models.AssayType] | None:
 
 
 def extract_anatomy(metadata: dict) -> list[models.Anatomy] | None:
+    # Anatomy is now populated via wasDerivedFrom BioSample.
+    # This extractor is kept only as a fallback for the top-level "anatomy" field.
     if "anatomy" in metadata:
         return [models.Anatomy(identifier="anatomy", name=metadata["anatomy"])]
     else:
@@ -552,20 +555,61 @@ def extract_model_list(
 
 def extract_wasDerivedFrom(metadata: dict) -> list[models.BioSample] | None:
     derived_from: list[models.BioSample] | None = None
+    # Track the deepest (tissue-level) BioSample in the chain.
+    # The loop iterates tissue → slice → cell; each new sample wraps the
+    # previous one via wasDerivedFrom, so the first sample created is the
+    # deepest (tissue).  Anatomy is attached there because it describes the
+    # physical origin of the sample.
+    deepest: models.BioSample | None = None
     for field, sample_name in [
         ("tissue_sample_id", "tissuesample"),
         ("slice_id", "slice"),
         ("cell_id", "cell"),
     ]:
         if metadata.get(field) is not None:
+            sample = models.BioSample(
+                identifier=metadata[field],
+                wasDerivedFrom=derived_from,
+                sampleType=models.SampleType(name=sample_name),
+            )
+            derived_from = [sample]
+            if deepest is None:
+                deepest = sample
+
+    # Compute anatomy from brain locations (mouse only)
+    anatomy = _extract_brain_anatomy(metadata)
+    if anatomy:
+        if deepest is not None:
+            deepest.anatomy = anatomy
+        else:
+            # No tissue/slice/cell IDs but we do have brain locations —
+            # create a synthetic BioSample to carry the anatomy.  The
+            # identifier is a fixed placeholder; it won't collide with
+            # real NWB object IDs (which are UUIDs).
             derived_from = [
                 models.BioSample(
-                    identifier=metadata[field],
-                    wasDerivedFrom=derived_from,
-                    sampleType=models.SampleType(name=sample_name),
+                    identifier="brain-region-sample",
+                    sampleType=models.SampleType(name="tissuesample"),
+                    anatomy=anatomy,
                 )
             ]
+
     return derived_from
+
+
+_MOUSE_URI = NCBITAXON_URI_TEMPLATE.format("10090")
+
+
+def _extract_brain_anatomy(metadata: dict) -> list[models.Anatomy]:
+    """Extract brain anatomy from metadata, if the species is mouse."""
+    if not (locations := metadata.get("brain_locations")):
+        return []
+
+    species = extract_species(metadata)
+    if species is None or str(species.identifier) != _MOUSE_URI:
+        return []
+
+    return locations_to_ccf_mouse_anatomy(locations)
 
 
 extract_wasAttributedTo = extract_model_list(

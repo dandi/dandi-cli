@@ -31,6 +31,7 @@ from dateutil.tz import tzutc
 from hdmf.common import DynamicTable
 import numpy as np
 from pydantic import ByteSize
+import pynwb
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
 import pytest
 import requests
@@ -47,6 +48,7 @@ from ..metadata.util import (
     extract_age,
     extract_cellLine,
     extract_species,
+    extract_wasDerivedFrom,
     parse_age,
     parse_purlobourl,
     process_ndtypes,
@@ -75,6 +77,7 @@ def test_get_metadata(simple1_nwb: Path, simple1_nwb_metadata: dict[str, Any]) -
     # We also populate with nd_types now, although here they would be empty
     target_metadata["nd_types"] = []
     target_metadata["external_file_objects"] = []
+    target_metadata["brain_locations"] = []
     # we do not populate any subject fields in our simple1_nwb
     for f in metadata_nwb_subject_fields:
         target_metadata[f] = None
@@ -506,8 +509,6 @@ def test_session_duration_extraction(tmp_path: Path) -> None:
         io.write(nwbfile)
 
     # Extract metadata
-    from ..metadata.nwb import get_metadata, nwb2asset
-
     metadata = get_metadata(nwb_path)
 
     # Check that session_end_time was calculated
@@ -567,8 +568,6 @@ def test_session_duration_with_trials(tmp_path: Path) -> None:
         io.write(nwbfile)
 
     # Extract metadata
-    from ..metadata.nwb import get_metadata, nwb2asset
-
     metadata = get_metadata(nwb_path)
 
     # Check that session_end_time was calculated
@@ -626,8 +625,6 @@ def test_session_duration_with_units(tmp_path: Path) -> None:
         io.write(nwbfile)
 
     # Extract metadata
-    from ..metadata.nwb import get_metadata
-
     metadata = get_metadata(nwb_path)
 
     # Check that session_end_time was calculated
@@ -692,8 +689,6 @@ def test_session_duration_with_events(tmp_path: Path) -> None:
         io.write(nwbfile)
 
     # Extract metadata
-    from ..metadata.nwb import get_metadata
-
     metadata = get_metadata(nwb_path)
 
     # Check that session_end_time was calculated
@@ -705,6 +700,200 @@ def test_session_duration_with_events(tmp_path: Path) -> None:
         metadata["session_end_time"] - metadata["session_start_time"]
     ).total_seconds()
     assert abs(duration - 157.0) < 1.0  # Allow small floating point errors
+
+
+@pytest.mark.ai_generated
+def test_brain_anatomy_in_wasDerivedFrom(tmp_path: Path) -> None:
+    """Test that brain anatomy from electrode locations appears in wasDerivedFrom."""
+    nwb_path = tmp_path / "test_anatomy.nwb"
+    session_start = datetime(2020, 1, 1, 12, 0, 0, tzinfo=tzutc())
+
+    nwbfile = NWBFile(
+        session_description="test session for anatomy",
+        identifier="test_anatomy_123",
+        session_start_time=session_start,
+        subject=pynwb.file.Subject(
+            subject_id="mouse001",
+            species="Mus musculus",
+            sex="U",
+        ),
+    )
+
+    # Add device and electrode group with a brain location
+    device = nwbfile.create_device(name="probe0")
+    electrode_group = nwbfile.create_electrode_group(
+        name="group0",
+        description="test electrode group",
+        location="VISp",
+        device=device,
+    )
+    nwbfile.add_electrode(
+        group=electrode_group,
+        location="VISp",
+        x=0.0,
+        y=0.0,
+        z=0.0,
+    )
+
+    with NWBHDF5IO(str(nwb_path), "w") as io:
+        io.write(nwbfile)
+
+    asset = nwb2asset(nwb_path, digest=DUMMY_DANDI_ETAG)
+    assert asset.wasDerivedFrom is not None
+    assert len(asset.wasDerivedFrom) > 0
+
+    # Find the deepest BioSample (the one without wasDerivedFrom)
+    sample = asset.wasDerivedFrom[0]
+    while sample.wasDerivedFrom:
+        sample = sample.wasDerivedFrom[0]
+
+    assert sample.anatomy is not None
+    assert len(sample.anatomy) > 0
+    assert "MBA_" in str(sample.anatomy[0].identifier)
+    assert sample.anatomy[0].name == "Primary visual area"
+
+
+@pytest.mark.ai_generated
+def test_brain_anatomy_non_mouse_skipped(tmp_path: Path) -> None:
+    """Test that brain anatomy is not extracted for non-mouse species."""
+    nwb_path = tmp_path / "test_anatomy_rat.nwb"
+    session_start = datetime(2020, 1, 1, 12, 0, 0, tzinfo=tzutc())
+
+    nwbfile = NWBFile(
+        session_description="test session for anatomy",
+        identifier="test_anatomy_rat_123",
+        session_start_time=session_start,
+        subject=pynwb.file.Subject(
+            subject_id="rat001",
+            species="Rattus norvegicus",
+            sex="U",
+        ),
+    )
+
+    device = nwbfile.create_device(name="probe0")
+    electrode_group = nwbfile.create_electrode_group(
+        name="group0",
+        description="test electrode group",
+        location="VISp",
+        device=device,
+    )
+    nwbfile.add_electrode(
+        group=electrode_group,
+        location="VISp",
+        x=0.0,
+        y=0.0,
+        z=0.0,
+    )
+
+    with NWBHDF5IO(str(nwb_path), "w") as io:
+        io.write(nwbfile)
+
+    asset = nwb2asset(nwb_path, digest=DUMMY_DANDI_ETAG)
+    # No wasDerivedFrom should exist (no tissue/slice/cell ids and non-mouse)
+    assert asset.wasDerivedFrom is None
+
+
+@pytest.mark.ai_generated
+def test_brain_anatomy_with_existing_biosample_chain(tmp_path: Path) -> None:
+    """Test that anatomy is added to the deepest BioSample when chain exists."""
+    metadata = {
+        "tissue_sample_id": "tissue01",
+        "slice_id": "slice01",
+        "cell_id": "cell01",
+        "brain_locations": ["VISp", "CA1"],
+        "species": "Mus musculus",
+    }
+    result = extract_wasDerivedFrom(metadata)
+    assert result is not None
+
+    # Navigate to deepest sample (tissue)
+    sample = result[0]  # cell
+    assert sample.identifier == "cell01"
+    assert sample.wasDerivedFrom is not None
+    sample = sample.wasDerivedFrom[0]  # slice
+    assert sample.identifier == "slice01"
+    assert sample.wasDerivedFrom is not None
+    sample = sample.wasDerivedFrom[0]  # tissue (deepest)
+    assert sample.identifier == "tissue01"
+    assert sample.anatomy is not None
+    assert len(sample.anatomy) >= 1
+
+
+@pytest.mark.ai_generated
+def test_brain_anatomy_ophys_imaging_plane(tmp_path: Path) -> None:
+    """Test that brain anatomy is extracted from imaging plane locations."""
+    nwb_path = tmp_path / "test_ophys.nwb"
+    session_start = datetime(2020, 1, 1, 12, 0, 0, tzinfo=tzutc())
+
+    nwbfile = NWBFile(
+        session_description="test ophys",
+        identifier="test_ophys_123",
+        session_start_time=session_start,
+        subject=pynwb.file.Subject(
+            subject_id="mouse002",
+            species="Mus musculus",
+            sex="U",
+        ),
+    )
+
+    device = nwbfile.create_device(name="microscope")
+    nwbfile.create_imaging_plane(
+        name="ImagingPlane",
+        optical_channel=pynwb.ophys.OpticalChannel(
+            name="OpticalChannel",
+            description="test channel",
+            emission_lambda=500.0,
+        ),
+        description="test imaging plane",
+        device=device,
+        excitation_lambda=600.0,
+        indicator="GCaMP6f",
+        location="Primary visual area",
+    )
+
+    with NWBHDF5IO(str(nwb_path), "w") as io:
+        io.write(nwbfile)
+
+    asset = nwb2asset(nwb_path, digest=DUMMY_DANDI_ETAG)
+    assert asset.wasDerivedFrom is not None
+    assert len(asset.wasDerivedFrom) > 0
+
+    sample = asset.wasDerivedFrom[0]
+    while sample.wasDerivedFrom:
+        sample = sample.wasDerivedFrom[0]
+
+    assert sample.anatomy is not None
+    assert len(sample.anatomy) > 0
+    assert sample.anatomy[0].name == "Primary visual area"
+
+
+@pytest.mark.ai_generated
+def test_brain_anatomy_synthetic_biosample_fallback() -> None:
+    """Test that a synthetic BioSample is created when no tissue/slice/cell IDs exist."""
+    metadata = {
+        "brain_locations": ["VISp"],
+        "species": "Mus musculus",
+    }
+    result = extract_wasDerivedFrom(metadata)
+    assert result is not None
+    assert len(result) == 1
+    sample = result[0]
+    assert sample.identifier == "brain-region-sample"
+    assert sample.anatomy is not None
+    assert len(sample.anatomy) == 1
+    assert sample.anatomy[0].name == "Primary visual area"
+
+
+@pytest.mark.ai_generated
+def test_brain_anatomy_unmatched_tokens_only() -> None:
+    """Test that only unmatched tokens for a mouse produce no anatomy."""
+    metadata = {
+        "brain_locations": ["nonexistent_area_xyz", "fake_region_123"],
+        "species": "Mus musculus",
+    }
+    result = extract_wasDerivedFrom(metadata)
+    # No matching anatomy → no synthetic BioSample created
+    assert result is None
 
 
 @mark_xfail_ontobee
