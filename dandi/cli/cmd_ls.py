@@ -35,9 +35,10 @@ files/directories.
 @click.option(
     "-F",
     "--fields",
-    help="Comma-separated list of fields to display. "
-    "An empty value to trigger a list of "
-    "available fields to be printed out",
+    help="Comma-separated list of fields to display. 'path' field is mandatory thus"
+    "will always be added. Field could provide an alternative name as "
+    "'ALTERNATIVE==ORIGINAL', and '{STRING}' will be considered to be a subject to"
+    "'str.format()' operation using all other fields.",
 )
 @click.option(
     "-f",
@@ -113,12 +114,12 @@ def ls(
         fields = fields.split(",")
         # Map possibly present short names back to full names
         fields = [PYOUT_SHORT_NAMES_rev.get(f.lower(), f) for f in fields]
-        unknown_fields = set(fields).difference(all_fields)
-        if unknown_fields:
-            display_known_fields(all_fields)
-            raise click.UsageError(
-                "Following fields are not known: %s" % ", ".join(unknown_fields)
-            )
+        # unknown_fields = set(fields).difference(all_fields)
+        # if unknown_fields:
+        #     display_known_fields(all_fields)
+        #     raise click.UsageError(
+        #         "Following fields are not known: %s" % ", ".join(unknown_fields)
+        #     )
 
     urls = map(is_url, paths)
     # Actually I do not see why and it could be useful to compare local-vs-remote
@@ -152,11 +153,15 @@ def ls(
     if format == "auto":
         format = "yaml" if any(urls) or (len(paths) == 1 and not recursive) else "pyout"
 
+    field_names = {f.split("==", 1)[0]: f for f in fields}
+    if len(field_names) != len(fields):
+        raise ValueError("non unique names detected")
+
     if format == "pyout":
         if fields and fields[0] != "path":
             # we must always have path - our "id"
             fields = ["path"] + fields
-        out = PYOUTFormatter(fields=fields, wait_for_top=3, max_workers=jobs)
+        out = PYOUTFormatter(fields=field_names, wait_for_top=3, max_workers=jobs)
     elif format == "json":
         out = JSONFormatter()
     elif format == "json_pp":
@@ -170,7 +175,7 @@ def ls(
 
     async_keys = set(all_fields)
     if fields is not None:
-        async_keys = async_keys.intersection(fields)
+        async_keys = async_keys.intersection(field_names)
     async_keys = tuple(async_keys.difference(common_fields))
 
     errors = defaultdict(list)  # problem: [] paths
@@ -226,7 +231,34 @@ def ls(
                 errors["Empty record"].append(asset)
                 lgr.debug("Skipping a record for %s since empty", asset)
                 continue
-            out(rec)
+            if fields:
+                # get it flattened out and only the ones requested
+                rec_display = {}
+                for f in fields:
+                    f_name = f
+                    # could be alt_name==field
+                    if "==" in f:
+                        f_name, f = f.split("==", 1)
+                    if f in rec:
+                        # as is, nothing fancy
+                        f_value = rec[f]
+                    elif f.startswith("{") and f.endswith("}"):
+                        # # it is a str.format, strip {} for display
+                        # if f_name.startswith('{'):
+                        #     f_name = f_name
+                        try:
+                            # TODO: this all doesn't work on those fields which are "async"
+                            # i.e. loadded delayed in a thread within pyout upon a callback
+                            f_value = f.format(**rec)
+                        except Exception:
+                            lgr.error("Cannot str.format %r using %r", f, rec)
+                            f_value = "ERROR"
+                    else:
+                        f_value = "N/A"
+                    rec_display[f_name] = f_value
+            else:
+                rec_display = rec
+            out(rec_display)
     if errors:
         lgr.warning(
             "Failed to operate on some paths (empty records were listed):\n %s",
