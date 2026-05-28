@@ -770,7 +770,7 @@ def test_species_all_possible(species: str) -> None:
     assert species_rec.model_dump(mode="json", exclude_none=True) == {
         "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_10047",
         "schemaKey": "SpeciesType",
-        "name": "Meriones unguiculatus",
+        "name": "Meriones unguiculatus - Mongolian gerbil",
     }
 
 
@@ -782,9 +782,10 @@ def test_extract_unknown_species():
 
 def test_species_map():
     # all alternative names should be lower case
-    for common_names, *_ in species_map:
+    for common_names, _, _, name in species_map:
         for key in common_names:
             assert key.lower() == key
+        assert " - " in name
 
 
 @pytest.mark.parametrize(

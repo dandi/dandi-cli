@@ -332,7 +332,7 @@ def extract_cellLine(metadata: dict) -> str | None:
 
 NCBITAXON_URI_TEMPLATE = "http://purl.obolibrary.org/obo/NCBITaxon_{}"
 
-# common_names, prefix, uri, name
+# common_names, prefix, uri, name ({current name} - {GenBank common name})
 species_map = [
     (
         ["mouse"],
@@ -386,13 +386,13 @@ species_map = [
         ["c. elegans", "caenorhabditis elegans"],
         "caenorhabditis",
         NCBITAXON_URI_TEMPLATE.format("6239"),
-        "Caenorhabditis elegans",
+        "Caenorhabditis elegans - Roundworm",
     ),
     (
         ["pig-tailed macaque", "pigtail monkey", "pigtail macaque"],
         None,
         NCBITAXON_URI_TEMPLATE.format("9545"),
-        "Macaca nemestrina",
+        "Macaca nemestrina - Pig-tailed macaque",
     ),
     (
         ["bonnet macaque", "bonnet monkey", "radiata"],
@@ -404,13 +404,13 @@ species_map = [
         ["mongolian gerbil", "mongolian jird"],
         None,
         NCBITAXON_URI_TEMPLATE.format("10047"),
-        "Meriones unguiculatus",
+        "Meriones unguiculatus - Mongolian gerbil",
     ),
     (
         ["common paper wasp"],
         None,
         NCBITAXON_URI_TEMPLATE.format("30207"),
-        "Polistes fuscatus",
+        "Polistes fuscatus - Common paper wasp",
     ),
 ]
 
@@ -492,6 +492,7 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
             for common_names, prefix, uri, name in species_map:
                 if (
                     lower_value == name.lower()
+                    or lower_value == name.partition(" - ")[0].lower()
                     or any(key in lower_value for key in common_names)
                     or (prefix is not None and lower_value.startswith(prefix))
                 ):
