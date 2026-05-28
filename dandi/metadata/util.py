@@ -395,6 +395,12 @@ species_map = [
         "Macaca nemestrina",
     ),
     (
+        ["bonnet macaque", "bonnet monkey", "radiata"],
+        None,
+        NCBITAXON_URI_TEMPLATE.format("9548"),
+        "Macaca radiata - Bonnet macaque",
+    ),
+    (
         ["mongolian gerbil", "mongolian jird"],
         None,
         NCBITAXON_URI_TEMPLATE.format("10047"),
