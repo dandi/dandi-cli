@@ -40,6 +40,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
 ]
 dependencies = [
@@ -65,7 +66,7 @@ dependencies = [
     "pycryptodomex",  # for EncryptedKeyring backend in keyrings.alt
     "pydantic ~= 2.0",
     "pynwb >= 1.0.3,!=1.1.0,!=2.3.0",
-    "numcodecs < 0.16",
+    "numcodecs",
     "nwbinspector >= 0.7.0",
     "pyout >=0.5, !=0.6.0",
     "python-dateutil",
