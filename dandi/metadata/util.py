@@ -494,7 +494,7 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
                 if (
                     lower_value == name.lower()
                     or lower_value == scientific_name.lower()
-                    or lower_value == common_name.lower()
+                    or (common_name and lower_value == common_name.lower())
                 ):
                     value_id = uri
                     value = name
