@@ -490,15 +490,24 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
         else:
             lower_value = value_orig.lower()
             for common_names, prefix, uri, name in species_map:
+                scientific_name, _, common_name = name.partition(" - ")
                 if (
                     lower_value == name.lower()
-                    or lower_value == name.partition(" - ")[0].lower()
-                    or any(key in lower_value for key in common_names)
-                    or (prefix is not None and lower_value.startswith(prefix))
+                    or lower_value == scientific_name.lower()
+                    or lower_value == common_name.lower()
                 ):
                     value_id = uri
                     value = name
                     break
+            else:
+                for common_names, prefix, uri, name in species_map:
+                    if (
+                        any(key in lower_value for key in common_names)
+                        or (prefix is not None and lower_value.startswith(prefix))
+                    ):
+                        value_id = uri
+                        value = name
+                        break
         if value_id is None:
             raise ValueError(
                 f"Cannot interpret species field: {value_orig}. Please "

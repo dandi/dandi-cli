@@ -782,10 +782,15 @@ def test_extract_unknown_species():
 
 def test_species_map():
     # all alternative names should be lower case
-    for common_names, _, _, name in species_map:
+    for common_names, _, uri, name in species_map:
         for key in common_names:
             assert key.lower() == key
         assert " - " in name
+        for species in name.split(" - "):
+            species_rec = extract_species({"species": species})
+            assert species_rec
+            assert str(species_rec.identifier) == uri
+            assert species_rec.name == name
 
 
 @pytest.mark.parametrize(
