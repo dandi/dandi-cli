@@ -459,7 +459,7 @@ def parse_purlobourl(
 
 def extract_species(metadata: dict) -> models.SpeciesType | None:
     value_orig = metadata.get("species", None)
-    value_matches: list[tuple[str, str]] = []  # of (value_id, value)
+    value_matches: list[tuple[str, str | None]] = []  # of (value_id, value)
     if value_orig is not None and value_orig != "":
         if m := re.fullmatch(
             r"https?://purl\.obolibrary\.org/obo/NCBITaxon_([0-9]+)/?",
