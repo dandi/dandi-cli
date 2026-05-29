@@ -795,10 +795,20 @@ def test_species_rat(species: str) -> None:
     }
 
 
-def test_extract_unknown_species():
+@pytest.mark.parametrize(
+    "species",
+    [
+        "mumba-jumba",
+        "rat unknown",
+        "borat",
+        "my wonderful rat in pokadots",
+        "http://example.com/myrat",
+    ],
+)
+def test_species_extract_unknown(species):
     with pytest.raises(ValueError) as excinfo:
-        extract_species({"species": "mumba-jumba"})
-    assert str(excinfo.value).startswith("Cannot interpret species field: mumba-jumba")
+        extract_species({"species": species})
+    assert str(excinfo.value).startswith(f"Cannot interpret species field: {species}")
 
 
 @pytest.mark.parametrize("common_names,prefix,uri,name", species_map)

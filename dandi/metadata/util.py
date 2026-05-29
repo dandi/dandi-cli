@@ -488,7 +488,7 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
                         )
                 value_matches.append((value_id, value))
         else:
-            lower_value = value_orig.lower()
+            lower_value = value_orig.lower().strip()
             for common_names, prefix, uri, name in species_map:
                 if (
                     lower_value == name.lower()
@@ -499,7 +499,7 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
             # only if no matches -- try to match by common names within common names
             if not value_matches:
                 for common_names, prefix, uri, name in species_map:
-                    if any(key in lower_value for key in common_names):
+                    if any(key == lower_value for key in common_names):
                         value_matches.append((uri, name))
 
         value_matches = list(set(value_matches))  # unique values
