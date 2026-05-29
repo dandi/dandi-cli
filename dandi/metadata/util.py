@@ -347,7 +347,7 @@ species_map = [
         "Homo sapiens - Human",
     ),
     (
-        ["rat", "norvegicus"],
+        ["brown rat", "rat", "norvegicus"],
         None,
         NCBITAXON_URI_TEMPLATE.format("10116"),
         "Rattus norvegicus - Norway rat",
@@ -459,7 +459,7 @@ def parse_purlobourl(
 
 def extract_species(metadata: dict) -> models.SpeciesType | None:
     value_orig = metadata.get("species", None)
-    value_id = None
+    value_matches: list[tuple[str, str]] = []  # of (value_id, value)
     if value_orig is not None and value_orig != "":
         if m := re.fullmatch(
             r"https?://purl\.obolibrary\.org/obo/NCBITaxon_([0-9]+)/?",
@@ -469,8 +469,7 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
             normed_value = NCBITAXON_URI_TEMPLATE.format(m[1])
             for _common_names, _prefix, uri, name in species_map:
                 if uri == normed_value:
-                    value_id = uri
-                    value = name
+                    value_matches.append((uri, name))
                     break
             else:
                 value_id = value_orig
@@ -487,28 +486,24 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
                         value = " - ".join(
                             [result[key] for key in lookup if key in result]
                         )
+                value_matches.append((value_id, value))
         else:
             lower_value = value_orig.lower()
             for common_names, prefix, uri, name in species_map:
-                scientific_name, _, common_name = name.partition(" - ")
                 if (
                     lower_value == name.lower()
-                    or lower_value == scientific_name.lower()
-                    or (common_name and lower_value == common_name.lower())
+                    or (prefix is not None and lower_value.startswith(prefix))
+                    or any(lower_value == v.lower() for v in name.partition(" - "))
                 ):
-                    value_id = uri
-                    value = name
-                    break
-            else:
+                    value_matches.append((uri, name))
+            # only if no matches -- try to match by common names within common names
+            if not value_matches:
                 for common_names, prefix, uri, name in species_map:
-                    if (
-                        any(key in lower_value for key in common_names)
-                        or (prefix is not None and lower_value.startswith(prefix))
-                    ):
-                        value_id = uri
-                        value = name
-                        break
-        if value_id is None:
+                    if any(key in lower_value for key in common_names):
+                        value_matches.append((uri, name))
+
+        value_matches = list(set(value_matches))  # unique values
+        if not value_matches:
             raise ValueError(
                 f"Cannot interpret species field: {value_orig}. Please "
                 "contact help@dandiarchive.org to add your species. "
@@ -519,6 +514,14 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
                 "url for the species Homo sapiens. Please note that "
                 "this url is case sensitive."
             )
+        elif len(value_matches) > 1:
+            raise ValueError(
+                f"Got multiple ({len(value_matches)}) species matched for "
+                f"{value_orig}: {value_matches}.  Should not happen. "
+                "Either you need to be more specific or our code needs "
+                "fixing - contact help@dandiarchive.org."
+            )
+        value_id, value = value_matches[0]
         return models.SpeciesType(identifier=value_id, name=value)
     else:
         return None
