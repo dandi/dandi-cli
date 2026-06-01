@@ -1,3 +1,15 @@
+# 0.76.1 (Mon Jun 01 2026)
+
+#### 🐛 Bug Fix
+
+- enh: add Macaca radiata (bonnet macaque) to species_map [#1865](https://github.com/dandi/dandi-cli/pull/1865) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 1
+
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.76.0 (Thu May 21 2026)
 
 #### 🚀 Enhancement
