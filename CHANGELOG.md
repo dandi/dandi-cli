@@ -1,3 +1,18 @@
+# 0.76.2 (Mon Jun 01 2026)
+
+#### 🐛 Bug Fix
+
+- BF: remove duplicated definition for "Macaca radiata" [#1869](https://github.com/dandi/dandi-cli/pull/1869) ([@yarikoptic](https://github.com/yarikoptic))
+- ENH+BF: Format species names consistently in species_map, make matching more stringent for common names, improved testing [#1866](https://github.com/dandi/dandi-cli/pull/1866) ([@yarikoptic](https://github.com/yarikoptic) [@Copilot](https://github.com/Copilot) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### Authors: 3
+
+- [@Copilot](https://github.com/Copilot)
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.76.1 (Mon Jun 01 2026)
 
 #### 🐛 Bug Fix
