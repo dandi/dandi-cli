@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from itertools import chain
 import json
 from pathlib import Path
 import shutil
@@ -762,6 +763,7 @@ def test_species():
         "Meriones unguiculatus",
         "Meriones Unguiculatus",
         "meriones Unguiculatus",
+        "Meriones unguiculatus - Mongolian gerbil",
     ],
 )
 def test_species_all_possible(species: str) -> None:
@@ -770,21 +772,57 @@ def test_species_all_possible(species: str) -> None:
     assert species_rec.model_dump(mode="json", exclude_none=True) == {
         "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_10047",
         "schemaKey": "SpeciesType",
-        "name": "Meriones unguiculatus",
+        "name": "Meriones unguiculatus - Mongolian gerbil",
     }
 
 
-def test_extract_unknown_species():
+# tricky one since we have multiple rats but only one we want to map
+# as the default "rat"
+@pytest.mark.parametrize(
+    "species",
+    [
+        "rat",
+        "http://purl.obolibrary.org/obo/NCBITaxon_10116",
+    ],
+)
+def test_species_rat(species: str) -> None:
+    species_rec = extract_species({"species": species})
+    assert species_rec
+    assert species_rec.model_dump(mode="json", exclude_none=True) == {
+        "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_10116",
+        "schemaKey": "SpeciesType",
+        "name": "Rattus norvegicus - Norway rat",
+    }
+
+
+@pytest.mark.parametrize(
+    "species",
+    [
+        "mumba-jumba",
+        "rat unknown",
+        "borat",
+        "my wonderful rat in pokadots",
+        "http://example.com/myrat",
+    ],
+)
+def test_species_extract_unknown(species):
     with pytest.raises(ValueError) as excinfo:
-        extract_species({"species": "mumba-jumba"})
-    assert str(excinfo.value).startswith("Cannot interpret species field: mumba-jumba")
+        extract_species({"species": species})
+    assert str(excinfo.value).startswith(f"Cannot interpret species field: {species}")
 
 
-def test_species_map():
-    # all alternative names should be lower case
-    for common_names, *_ in species_map:
-        for key in common_names:
-            assert key.lower() == key
+@pytest.mark.parametrize("common_names,prefix,uri,name", species_map)
+def test_species_map(common_names, prefix, uri, name):
+    # all alternative names should be in lower case
+    for key in common_names:
+        assert key.lower() == key
+    assert " - " in name
+    # verify that feeding a full "standard" name matches the correct one
+    for species in chain(name.split(" - "), common_names):
+        species_rec = extract_species({"species": species})
+        assert species_rec
+        assert str(species_rec.identifier) == uri
+        assert species_rec.name == name
 
 
 @pytest.mark.parametrize(
