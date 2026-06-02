@@ -506,9 +506,6 @@ def test_session_duration_extraction(tmp_path: Path) -> None:
     with NWBHDF5IO(str(nwb_path), "w") as io:
         io.write(nwbfile)
 
-    # Extract metadata
-    from ..metadata.nwb import get_metadata, nwb2asset
-
     metadata = get_metadata(nwb_path)
 
     # Check that session_end_time was calculated
