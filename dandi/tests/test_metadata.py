@@ -634,7 +634,7 @@ def test_session_duration_with_units(tmp_path: Path) -> None:
 
 
 @pytest.mark.ai_generated
-def test_session_duration_with_scattered_nonspiking_units(tmp_path: Path) -> None:
+def test_session_duration_with_scattered_non_spiking_units(tmp_path: Path) -> None:
     """Test session duration with multiple non-spiking units in Units table."""
     nwb_path = tmp_path / "test_duration_scattered_nonspiking_units.nwb"
     session_start = datetime(2020, 1, 1, 12, 0, 0, tzinfo=tzutc())
@@ -659,10 +659,13 @@ def test_session_duration_with_scattered_nonspiking_units(tmp_path: Path) -> Non
     assert "session_start_time" in metadata
     assert "session_end_time" in metadata
 
+    end_offset = (metadata["session_end_time"] - session_start).total_seconds()
+    assert abs(end_offset - 245.0) < 1.0
+
     duration = (
         metadata["session_end_time"] - metadata["session_start_time"]
     ).total_seconds()
-    assert abs(duration - 245.0) < 1.0  # 250s - 5s, allow floating point errors
+    assert abs(duration - 245.0) < 1.0  # max 250s and min 5s spike times
 
 
 @pytest.mark.ai_generated
