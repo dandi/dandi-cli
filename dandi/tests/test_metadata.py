@@ -643,6 +643,41 @@ def test_session_duration_with_units(tmp_path: Path) -> None:
 
 
 @pytest.mark.ai_generated
+def test_session_duration_with_scattered_nonspiking_units(tmp_path: Path) -> None:
+    """Test session duration with multiple non-spiking units in Units table."""
+    nwb_path = tmp_path / "test_duration_scattered_nonspiking_units.nwb"
+    session_start = datetime(2020, 1, 1, 12, 0, 0, tzinfo=tzutc())
+
+    nwbfile = NWBFile(
+        session_description="test session with scattered non-spiking units",
+        identifier="test_scattered_nonspiking_units_123",
+        session_start_time=session_start,
+    )
+
+    nwbfile.add_unit(spike_times=np.array([]))
+    nwbfile.add_unit(spike_times=np.array([10.0, 20.0]))
+    nwbfile.add_unit(spike_times=np.array([]))
+    nwbfile.add_unit(spike_times=np.array([5.0, 250.0]))
+    nwbfile.add_unit(spike_times=np.array([]))
+    nwbfile.add_unit(spike_times=np.array([100.0]))
+
+    with NWBHDF5IO(str(nwb_path), "w") as io:
+        io.write(nwbfile)
+
+    from ..metadata.nwb import get_metadata
+
+    metadata = get_metadata(nwb_path)
+
+    assert "session_start_time" in metadata
+    assert "session_end_time" in metadata
+
+    duration = (
+        metadata["session_end_time"] - metadata["session_start_time"]
+    ).total_seconds()
+    assert abs(duration - 245.0) < 1.0  # 250s - 5s, allow floating point errors
+
+
+@pytest.mark.ai_generated
 def test_session_duration_with_events(tmp_path: Path) -> None:
     """Test that session duration includes timestamp/duration from DynamicTable"""
     # Create a test NWB file with a DynamicTable containing timestamp and duration
