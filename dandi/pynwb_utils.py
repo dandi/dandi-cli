@@ -339,19 +339,16 @@ def _get_session_duration(nwb: pynwb.NWBFile) -> float | None:
             # Read only the first and last spike time from each unit
             if "spike_times" in obj.colnames and len(obj["spike_times"]):
                 idxs = obj["spike_times"].data[:]
-
-                # handle bug if the first unit has no spikes
-                if idxs[0] == 0:
-                    idxs = idxs[1:]
+                spiking_idxs = np.unique(idxs)
 
                 st_data = obj["spike_times"].target
 
                 if len(idxs) > 1:
-                    start = float(np.min(np.r_[st_data[0], st_data[idxs[:-1]]]))
+                    start = float(np.min(np.r_[st_data[0], st_data[spiking_idxs[:-1]]]))
                 else:
                     start = float(st_data[0])
 
-                end = float(np.max(st_data[idxs - 1]))
+                end = float(np.max(st_data[spiking_idxs - 1]))
                 start_times.append(float(start))
                 end_times.append(float(end))
 
