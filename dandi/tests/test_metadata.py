@@ -656,7 +656,6 @@ def test_session_duration_with_scattered_nonspiking_units(tmp_path: Path) -> Non
         io.write(nwbfile)
 
     metadata = get_metadata(nwb_path)
-
     assert "session_start_time" in metadata
     assert "session_end_time" in metadata
 
