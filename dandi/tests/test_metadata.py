@@ -564,9 +564,6 @@ def test_session_duration_with_trials(tmp_path: Path) -> None:
     with NWBHDF5IO(str(nwb_path), "w") as io:
         io.write(nwbfile)
 
-    # Extract metadata
-    from ..metadata.nwb import get_metadata, nwb2asset
-
     metadata = get_metadata(nwb_path)
 
     # Check that session_end_time was calculated
@@ -623,9 +620,6 @@ def test_session_duration_with_units(tmp_path: Path) -> None:
     with NWBHDF5IO(str(nwb_path), "w") as io:
         io.write(nwbfile)
 
-    # Extract metadata
-    from ..metadata.nwb import get_metadata
-
     metadata = get_metadata(nwb_path)
 
     # Check that session_end_time was calculated
@@ -660,8 +654,6 @@ def test_session_duration_with_scattered_nonspiking_units(tmp_path: Path) -> Non
 
     with NWBHDF5IO(str(nwb_path), "w") as io:
         io.write(nwbfile)
-
-    from ..metadata.nwb import get_metadata
 
     metadata = get_metadata(nwb_path)
 
@@ -723,9 +715,6 @@ def test_session_duration_with_events(tmp_path: Path) -> None:
     # Write the file
     with NWBHDF5IO(str(nwb_path), "w") as io:
         io.write(nwbfile)
-
-    # Extract metadata
-    from ..metadata.nwb import get_metadata
 
     metadata = get_metadata(nwb_path)
 
