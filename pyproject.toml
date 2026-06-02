@@ -44,6 +44,7 @@ classifiers = [
     "Topic :: Scientific/Engineering",
 ]
 dependencies = [
+    "aiohttp < 3.14",
     "bidsschematools ~= 1.0",
     "bids-validator-deno >= 2.0.5",
     # >=8.2.0: https://github.com/pallets/click/issues/2911
