@@ -1,3 +1,15 @@
+# 0.76.3 (Tue Jun 02 2026)
+
+#### 🧪 Tests
+
+- Add aiohttp dependency with version constraint [#1872](https://github.com/dandi/dandi-cli/pull/1872) ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### Authors: 1
+
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+---
+
 # 0.76.2 (Mon Jun 01 2026)
 
 #### 🐛 Bug Fix
