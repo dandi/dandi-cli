@@ -51,7 +51,6 @@ dependencies = [
     "click-didyoumean",
     "dandischema ~= 0.12.0",
     "etelemetry >= 0.2.2",
-
     "fasteners",
     "fscacher >= 0.3.0",
     # 3.14.4: https://github.com/hdmf-dev/hdmf/issues/1186
@@ -100,6 +99,7 @@ style = [
     "pre-commit",
 ]
 test = [
+    "aiohttp < 3.14",  # See https://github.com/kevin1024/vcrpy/issues/995
     "anys ~= 0.2",
     "coverage",
     # Workaround for VideoWriter regression in 4.13.0.90 on Intel macOS
