@@ -240,12 +240,6 @@ init_forbid_extra = true
 installer = "uv"
 python = "3.10"
 
-[tool.hatch.envs.extensions]
-features = ["extensions"]
-
-[tool.hatch.envs.extras]
-features = ["extras"]
-
 [tool.hatch.envs.test]
 features = ["test"]
 [tool.hatch.envs.test.env-vars]
@@ -255,8 +249,9 @@ DANDI_PAGINATION_DISABLE_FALLBACK = "1"
 [tool.hatch.envs.test.scripts]
 run = "pytest {args:dandi/tests}"
 
-[tool.hatch.envs.tools]
-features = ["tools"]
-
-[tool.hatch.envs.all]
+# Installs every project extra (via the `all` extra) plus the development-only
+# `style` dependency group: a single environment with all dependencies for
+# local development.
+[tool.hatch.envs.dev-all]
 features = ["all"]
+dependency-groups = ["style"]
