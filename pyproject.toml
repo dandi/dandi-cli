@@ -94,10 +94,6 @@ extras = [
     "duecredit >= 0.6.0",
     "fsspec[http]",
 ]
-style = [
-    "flake8",
-    "pre-commit",
-]
 test = [
     "aiohttp < 3.14",  # See https://github.com/kevin1024/vcrpy/issues/995
     "anys ~= 0.2",
@@ -119,9 +115,16 @@ tools = [
 all = [
     "dandi[extensions]",
     "dandi[extras]",
-    "dandi[style]",
     "dandi[test]",
     "dandi[tools]",
+]
+
+# Development-only dependency sets, not published in built distributions.
+# See PEP 735.
+[dependency-groups]
+style = [
+    "flake8",
+    "pre-commit",
 ]
 
 [project.urls]
@@ -242,9 +245,6 @@ features = ["extensions"]
 
 [tool.hatch.envs.extras]
 features = ["extras"]
-
-[tool.hatch.envs.style]
-features = ["style"]
 
 [tool.hatch.envs.test]
 features = ["test"]
