@@ -7,7 +7,7 @@
 This project's hatch environments use [uv](https://github.com/astral-sh/uv)
 as the installer, which allows for significant improvements in environment
 setup speed. Each environment corresponds to a project
-extra (e.g., `test`, `style`, `tools`). To enter a shell in an environment:
+extra (e.g., `test`, `extras`, `tools`). To enter a shell in an environment:
 
 ```
 hatch shell <env-name>
