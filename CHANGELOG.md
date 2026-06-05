@@ -1,3 +1,21 @@
+# 0.76.4 (Fri Jun 05 2026)
+
+#### 🐛 Bug Fix
+
+- Update spike time calculations for scattered non-spiking units [#1871](https://github.com/dandi/dandi-cli/pull/1871) ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@Copilot](https://github.com/Copilot))
+
+#### 🔩 Dependency Updates
+
+- Migrate style extra to a PEP 735 dependency group [#1875](https://github.com/dandi/dandi-cli/pull/1875) ([@candleindark](https://github.com/candleindark))
+
+#### Authors: 3
+
+- [@Copilot](https://github.com/Copilot)
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Isaac To ([@candleindark](https://github.com/candleindark))
+
+---
+
 # 0.76.3 (Tue Jun 02 2026)
 
 #### 🧪 Tests
