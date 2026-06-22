@@ -72,7 +72,7 @@ jobs:
 
     steps:
     - name: Set up environment
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         # Fetch all commits so that versioneer will return something compatible
         # with semantic-version
