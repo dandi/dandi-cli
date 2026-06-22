@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Set up environment
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         fetch-depth: 0
     - name: Set up Python
@@ -29,6 +29,6 @@ jobs:
   reuse:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Check REUSE compliance
       uses: fsfe/reuse-action@v6
