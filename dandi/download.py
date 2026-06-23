@@ -1103,6 +1103,7 @@ def _download_zarr(
                     is_empty = False
             if is_empty and dir != zarr_basepath:
                 empty_dirs.append(dir)
+
         while empty_dirs:
             dir = empty_dirs.popleft()
             lgr.debug("Removing now-empty Zarr directory %s", dir)
