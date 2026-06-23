@@ -1058,7 +1058,7 @@ def _download_zarr(
     # So a clean download doesn't misleadingly announce "deleting extra files"
     to_delete: list[Path] = []
     empty_dirs: deque[Path] = deque()
-    dirs = deque([zarr_basepath])
+    dirs: deque[Path] = deque([zarr_basepath])
     while dirs:
         dir = dirs.popleft()
         is_empty = True
