@@ -1054,11 +1054,12 @@ def _download_zarr(
     remote_paths = set(map(str, entries))
     zarr_basepath = Path(download_path)
 
-    # Scan the tree to see if any stale files or now-empty directories need removing
+    # Scan the tree (without modifying it) for stale files and resulting empty directories
     # So a clean download doesn't misleadingly announce "deleting extra files"
-    has_extra = False
+    to_delete: list[Path] = []
+    empty_dirs: deque[Path] = deque()
     dirs = deque([zarr_basepath])
-    while dirs and not has_extra:
+    while dirs:
         dir = dirs.popleft()
         is_empty = True
         for path in list(dir.iterdir()):
@@ -1068,49 +1069,32 @@ def _download_zarr(
                 path.is_file()
                 and path.relative_to(zarr_basepath).as_posix() not in remote_paths
             ):
-                has_extra = True
-                break
+                to_delete.append(path)
             elif path.is_dir():
                 dirs.append(path)
                 is_empty = False
             else:
                 is_empty = False
         if is_empty and dir != zarr_basepath:
-            has_extra = True
+            empty_dirs.append(dir)
 
-    if has_extra:
+    if to_delete or empty_dirs:
         yield {"status": "deleting extra files"}
-        dirs = deque([zarr_basepath])
-        empty_dirs: deque[Path] = deque()
-        while dirs:
-            dir = dirs.popleft()
-            is_empty = True
-            for path in list(dir.iterdir()):
-                if exclude_from_zarr(path):
-                    is_empty = False
-                elif (
-                    path.is_file()
-                    and path.relative_to(zarr_basepath).as_posix() not in remote_paths
-                ):
-                    try:
-                        lgr.debug("Deleting extra Zarr file %s", path)
-                        path.unlink()
-                    except OSError:
-                        is_empty = False
-                elif path.is_dir():
-                    dirs.append(path)
-                    is_empty = False
-                else:
-                    is_empty = False
-            if is_empty and dir != zarr_basepath:
-                empty_dirs.append(dir)
-
+        for path in to_delete:
+            lgr.debug("Deleting extra Zarr file %s", path)
+            try:
+                path.unlink()
+            except OSError:
+                # A file we couldn't remove keeps its directory non-empty, so
+                # the rmdir guard below will leave that directory in place.
+                pass
         while empty_dirs:
             dir = empty_dirs.popleft()
-            lgr.debug("Removing now-empty Zarr directory %s", dir)
-            dir.rmdir()
-            if dir.parent != zarr_basepath and not any(dir.parent.iterdir()):
-                empty_dirs.append(dir.parent)
+            if not any(dir.iterdir()):
+                lgr.debug("Removing now-empty Zarr directory %s", dir)
+                dir.rmdir()
+                if dir.parent != zarr_basepath and not any(dir.parent.iterdir()):
+                    empty_dirs.append(dir.parent)
 
     if "skipped" not in final_out["message"]:
         zarr_checksum = asset.get_digest().value
