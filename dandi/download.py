@@ -1054,11 +1054,7 @@ def _download_zarr(
     remote_paths = set(map(str, entries))
     zarr_basepath = Path(download_path)
 
-    # First, scan the tree (without modifying anything) to determine whether
-    # there are any stale files or now-empty directories to remove.  On a
-    # fresh, first-time download every file on disk corresponds to a remote
-    # entry, so nothing needs to be deleted and we must not misleadingly
-    # announce "deleting extra files".
+    # Scan the tree (without modifying it) to see if any stale files or now-empty directories need removing, so a clean download doesn't misleadingly announce "deleting extra files".
     has_extra = False
     dirs = deque([zarr_basepath])
     while dirs and not has_extra:
