@@ -1054,10 +1054,7 @@ def _download_zarr(
     remote_paths = set(map(str, entries))
     zarr_basepath = Path(download_path)
 
-    # Walk the tree, removing stale files (and the directories they leave empty).
-    # The "deleting extra files" status is yielded lazily on the first removal so a
-    # clean download doesn't misleadingly announce it when there's nothing to delete.
-    announced = False
+    announced: bool = False
     empty_dirs: deque[Path] = deque()
     dirs: deque[Path] = deque([zarr_basepath])
     while dirs:
