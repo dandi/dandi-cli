@@ -3,6 +3,7 @@ from __future__ import annotations
 import click
 
 from .base import (
+    EnumChoice,
     IntColonInt,
     devel_debug_option,
     devel_option,
@@ -17,7 +18,7 @@ from ..upload import UploadExisting, UploadValidation
 @click.option(
     "-e",
     "--existing",
-    type=click.Choice(list(UploadExisting)),
+    type=EnumChoice(UploadExisting),
     help="What to do if a file found existing on the server. 'skip' would skip"
     "the file, 'force' - force reupload, 'overwrite' - force upload if "
     "either size or modification time differs; 'refresh' - upload only if "
@@ -40,7 +41,7 @@ from ..upload import UploadExisting, UploadValidation
     is_flag=False,
     flag_value="ask",
     default=None,
-    type=click.Choice(list(SyncMode)),
+    type=EnumChoice(SyncMode),
     help="Delete assets on the server that do not exist locally. "
     "With 'ask' (the default when --sync is passed without a value), prompt before "
     "deleting. With 'do', delete without prompting.",
@@ -52,7 +53,7 @@ from ..upload import UploadExisting, UploadValidation
     "'require' - data must pass validation before upload; "
     "'skip' - no validation is performed on data before upload; "
     "'ignore' - data is validated but upload proceeds regardless of validation results.",
-    type=click.Choice(list(UploadValidation)),
+    type=EnumChoice(UploadValidation),
     default="require",
     show_default=True,
 )
