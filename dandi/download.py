@@ -1051,11 +1051,12 @@ def _download_zarr(
         else:
             return
 
-    yield {"status": "deleting extra files"}
     remote_paths = set(map(str, entries))
     zarr_basepath = Path(download_path)
-    dirs = deque([zarr_basepath])
+
+    announced: bool = False
     empty_dirs: deque[Path] = deque()
+    dirs: deque[Path] = deque([zarr_basepath])
     while dirs:
         d = dirs.popleft()
         is_empty = True
@@ -1066,7 +1067,11 @@ def _download_zarr(
                 p.is_file()
                 and p.relative_to(zarr_basepath).as_posix() not in remote_paths
             ):
+                if not announced:
+                    announced = True
+                    yield {"status": "deleting extra files"}
                 try:
+                    lgr.debug("Deleting extra Zarr file %s", p)
                     p.unlink()
                 except OSError:
                     is_empty = False
@@ -1079,6 +1084,10 @@ def _download_zarr(
             empty_dirs.append(d)
     while empty_dirs:
         d = empty_dirs.popleft()
+        if not announced:
+            announced = True
+            yield {"status": "deleting extra files"}
+        lgr.debug("Removing now-empty Zarr directory %s", d)
         d.rmdir()
         if d.parent != zarr_basepath and not any(d.parent.iterdir()):
             empty_dirs.append(d.parent)

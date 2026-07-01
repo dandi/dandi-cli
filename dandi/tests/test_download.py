@@ -456,6 +456,73 @@ def test_download_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
     )
 
 
+def _zarr_download_statuses(
+    dandiset: SampleDandiset,
+    output_dir: Path,
+    existing: DownloadExisting = DownloadExisting.ERROR,
+) -> list[dict]:
+    return list(
+        Downloader(
+            url=DandisetURL(
+                instance=dandiset.api.instance,
+                dandiset_id=dandiset.dandiset.identifier,
+                version_id=dandiset.dandiset.version_id,
+            ),
+            output_dir=output_dir,
+            existing=existing,
+            get_metadata=True,
+            get_assets=True,
+            preserve_tree=False,
+            jobs_per_zarr=None,
+            on_error="raise",
+        ).download_generator()
+    )
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_clean_no_deleting_status(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    # On a fresh, first-time download every local file corresponds to a remote
+    # entry, so nothing is deleted and the "deleting extra files" status must
+    # not be emitted.
+    statuses = _zarr_download_statuses(zarr_dandiset, tmp_path)
+    assert not any(s.get("status") == "deleting extra files" for s in statuses)
+    assert_dirtrees_eq(
+        zarr_dandiset.dspath / "sample.zarr",
+        tmp_path / zarr_dandiset.dandiset_id / "sample.zarr",
+    )
+
+
+@pytest.mark.ai_generated
+def test_download_zarr_deletes_orphan_files(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    # First download cleanly.
+    download(zarr_dandiset.dandiset.version_api_url, tmp_path)
+    zarr_root = tmp_path / zarr_dandiset.dandiset_id / "sample.zarr"
+    # Introduce orphaned local files (and a now-extra subdirectory) that do not
+    # correspond to any remote Zarr entry.
+    orphan_file = zarr_root / "orphan.bin"
+    orphan_file.write_bytes(b"not a real zarr entry")
+    orphan_dir = zarr_root / "orphan_dir"
+    orphan_dir.mkdir()
+    (orphan_dir / "nested_orphan.bin").write_bytes(b"also extra")
+    assert orphan_file.exists()
+    assert orphan_dir.exists()
+    # Re-download: cleanup must remove the orphans and announce it.
+    statuses = _zarr_download_statuses(
+        zarr_dandiset, tmp_path, existing=DownloadExisting.OVERWRITE
+    )
+    assert any(s.get("status") == "deleting extra files" for s in statuses)
+    assert not orphan_file.exists()
+    assert not orphan_dir.exists()
+    assert_dirtrees_eq(
+        zarr_dandiset.dspath / "sample.zarr",
+        zarr_root,
+    )
+
+
 def test_download_different_zarr(tmp_path: Path, zarr_dandiset: SampleDandiset) -> None:
     dd = tmp_path / zarr_dandiset.dandiset_id
     dd.mkdir()
