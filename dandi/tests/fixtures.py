@@ -42,6 +42,11 @@ from ..upload import upload
 
 lgr = get_logger()
 
+# TODO: simply always inject this when minimal supported pynwb is above 3.1.3
+_imgseries_takes_num_samples = any(
+    arg["name"] == "num_samples"
+    for arg in getattr(ImageSeries.__init__, "__docval__", {}).get("args", [])
+)
 
 BIDS_TESTDATA_SELECTION = [
     "asl003",
@@ -812,7 +817,7 @@ def _create_nwb_files(video_list: list[tuple[Path, Path]]) -> Path:
             devices=[device],
         )
 
-        image_series = ImageSeries(
+        imgseries_kwargs: dict[str, Any] = dict(
             name=f"MouseWhiskers{i}",
             format="external",
             external_file=[str(vid_1), str(vid_2)],
@@ -820,6 +825,9 @@ def _create_nwb_files(video_list: list[tuple[Path, Path]]) -> Path:
             starting_time=0.0,
             rate=150.0,
         )
+        if _imgseries_takes_num_samples:
+            imgseries_kwargs["num_samples"] = 4
+        image_series = ImageSeries(**imgseries_kwargs)
         nwbfile.add_acquisition(image_series)
 
         nwbfile_path = base_nwb_path / f"{name}.nwb"
