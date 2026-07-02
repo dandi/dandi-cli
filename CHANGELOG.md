@@ -1,3 +1,26 @@
+# 0.76.5 (Thu Jul 02 2026)
+
+#### 🐛 Bug Fix
+
+- Support click >= 8.2.0 [#1883](https://github.com/dandi/dandi-cli/pull/1883) ([@rly](https://github.com/rly) [@yarikoptic](https://github.com/yarikoptic))
+- Only emit "deleting extra files" status when cleanup is needed [#1881](https://github.com/dandi/dandi-cli/pull/1881) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Fix dev-deps CI failures: detect pynwb num_samples support via __docval__ [#1882](https://github.com/dandi/dandi-cli/pull/1882) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🏠 Internal
+
+- [gh-actions](deps): Bump actions/checkout from 6 to 7 [#1880](https://github.com/dandi/dandi-cli/pull/1880) ([@dependabot[bot]](https://github.com/dependabot[bot]) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- [gh-actions](deps): Bump codecov/codecov-action from 6 to 7 [#1879](https://github.com/dandi/dandi-cli/pull/1879) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### Authors: 5
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Claude ([@claude](https://github.com/claude))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Ryan Ly ([@rly](https://github.com/rly))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.76.4 (Fri Jun 05 2026)
 
 #### 🐛 Bug Fix
