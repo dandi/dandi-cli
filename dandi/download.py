@@ -14,7 +14,7 @@ from collections import Counter, deque
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import InitVar, dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import Enum, StrEnum
 from functools import partial
 import hashlib
 import inspect
@@ -69,31 +69,22 @@ from .utils import (
 lgr = get_logger()
 
 
-class DownloadExisting(str, Enum):
+class DownloadExisting(StrEnum):
     ERROR = "error"
     SKIP = "skip"
     OVERWRITE = "overwrite"
     OVERWRITE_DIFFERENT = "overwrite-different"
     REFRESH = "refresh"
 
-    def __str__(self) -> str:
-        return self.value
 
-
-class DownloadFormat(str, Enum):
+class DownloadFormat(StrEnum):
     PYOUT = "pyout"
     DEBUG = "debug"
 
-    def __str__(self) -> str:
-        return self.value
 
-
-class PathType(str, Enum):
+class PathType(StrEnum):
     EXACT = "exact"
     GLOB = "glob"
-
-    def __str__(self) -> str:
-        return self.value
 
 
 def download(

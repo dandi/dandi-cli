@@ -15,11 +15,11 @@ import binascii
 from collections import Counter
 from collections.abc import Sequence
 from copy import deepcopy
-from enum import Enum
+from enum import StrEnum
 import os
 import os.path as op
-import posixpath
 from pathlib import Path, PurePosixPath
+import posixpath
 import re
 import traceback
 import uuid
@@ -54,7 +54,7 @@ from .validate._types import (
 lgr = get_logger()
 
 
-class FileOperationMode(str, Enum):
+class FileOperationMode(StrEnum):
     DRY = "dry"
     SIMULATE = "simulate"
     COPY = "copy"
@@ -63,22 +63,16 @@ class FileOperationMode(str, Enum):
     SYMLINK = "symlink"
     AUTO = "auto"
 
-    def __str__(self) -> str:
-        return self.value
-
     def as_copy_mode(self) -> CopyMode:
         # Raises ValueError if the mode can't be mapped to a CopyMode
         return CopyMode(self.value)
 
 
-class CopyMode(str, Enum):
+class CopyMode(StrEnum):
     SYMLINK = "symlink"
     COPY = "copy"
     MOVE = "move"
     HARDLINK = "hardlink"
-
-    def __str__(self) -> str:
-        return self.value
 
     def copy(self, old_path: AnyPath, new_path: AnyPath) -> None:
         if self is CopyMode.SYMLINK:
@@ -93,12 +87,9 @@ class CopyMode(str, Enum):
             raise AssertionError(f"Unhandled CopyMode member: {self!r}")
 
 
-class OrganizeInvalid(str, Enum):
+class OrganizeInvalid(StrEnum):
     FAIL = "fail"
     WARN = "warn"
-
-    def __str__(self) -> str:
-        return self.value
 
 
 dandi_path = op.join("sub-{subject_id}", "{dandi_filename}")
