@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import click
 
-from .base import dandiset_path_option, devel_debug_option, map_to_click_exceptions
+from .base import (
+    EnumChoice,
+    dandiset_path_option,
+    devel_debug_option,
+    map_to_click_exceptions,
+)
 from ..consts import dandi_layout_fields
 from ..organize import CopyMode, FileOperationMode, OrganizeInvalid
 
@@ -17,7 +22,7 @@ from ..organize import CopyMode, FileOperationMode, OrganizeInvalid
 @click.option(
     "--invalid",
     help="What to do if files without sufficient metadata are encountered.",
-    type=click.Choice(list(OrganizeInvalid)),
+    type=EnumChoice(OrganizeInvalid),
     default="fail",
     show_default=True,
 )
@@ -30,7 +35,7 @@ from ..organize import CopyMode, FileOperationMode, OrganizeInvalid
     "If 'auto' - whichever of symlink, hardlink, copy is allowed by system. "
     "The other modes (copy, move, symlink, hardlink) define how data files "
     "should be made available.",
-    type=click.Choice(list(FileOperationMode)),
+    type=EnumChoice(FileOperationMode),
     default="auto",
     show_default=True,
 )
@@ -45,7 +50,7 @@ from ..organize import CopyMode, FileOperationMode, OrganizeInvalid
 )
 @click.option(
     "--media-files-mode",
-    type=click.Choice(list(CopyMode)),
+    type=EnumChoice(CopyMode),
     default=None,
     help="How to relocate video files referenced by NWB files",
 )
