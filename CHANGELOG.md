@@ -1,3 +1,15 @@
+# 0.76.6 (Tue Jul 07 2026)
+
+#### 🐛 Bug Fix
+
+- New EMBER-DANDI sandbox frontend url [#1885](https://github.com/dandi/dandi-cli/pull/1885) ([@NEStock](https://github.com/NEStock))
+
+#### Authors: 1
+
+- Nicole Tregoning ([@NEStock](https://github.com/NEStock))
+
+---
+
 # 0.76.5 (Thu Jul 02 2026)
 
 #### 🐛 Bug Fix
