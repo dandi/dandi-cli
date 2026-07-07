@@ -47,7 +47,10 @@ dependencies = [
     "bids-validator-deno >= 2.0.5",
     "click >= 8.2",
     "click-didyoumean",
-    "dandischema ~= 0.12.0",
+    # Temporarily point at the dandi-schema #419 branch, where
+    # BareAsset.schemaKey is "BareAsset", so CI runs the client against the
+    # consolidated schema to check the schemaKey handling on this branch.
+    "dandischema @ git+https://github.com/dandi/dandi-schema.git@consolidate-models",
     "etelemetry >= 0.2.2",
     "fasteners",
     "fscacher >= 0.3.0",
