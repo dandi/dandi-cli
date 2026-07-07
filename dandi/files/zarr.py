@@ -580,6 +580,11 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             `RemoteAsset`.
         """
         asset_path = metadata.setdefault("path", self.path)
+        # Whatever the metadata was gathered as (e.g. a ``BareAsset``),
+        # what is being created on the server is an ``Asset`` as result of the upload.
+        # The server stores ``schemaKey`` verbatim, so set it
+        # here, at the point of upload, rather than relying on the caller.
+        metadata["schemaKey"] = "Asset"
         client = dandiset.client
         lgr.debug("%s: Producing asset", asset_path)
         yield {"status": "producing asset"}

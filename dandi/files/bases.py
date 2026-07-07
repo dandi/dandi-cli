@@ -363,6 +363,11 @@ class LocalFileAsset(LocalAsset):
         from dandi.support.digests import get_dandietag
 
         asset_path = metadata.setdefault("path", self.path)
+        # Whatever the metadata was gathered as (e.g. a ``BareAsset``),
+        # what is being created on the server is an ``Asset`` as result of the upload.
+        # The server stores ``schemaKey`` verbatim, so set it
+        # here, at the point of upload, rather than relying on the caller.
+        metadata["schemaKey"] = "Asset"
         client = dandiset.client
         yield {"status": "calculating etag"}
         etagger = get_dandietag(self.filepath)

@@ -1993,6 +1993,11 @@ class RemoteBlobAsset(RemoteAsset, BaseRemoteBlobAsset):
         Set the metadata for the asset on the server to the given value and
         update the `RemoteBlobAsset` in place.
         """
+        # Whatever the metadata was gathered as (e.g. a ``BareAsset``),
+        # what is being created on the server is an ``Asset`` as result of the upload.
+        # The server stores ``schemaKey`` verbatim, so set it
+        # here, at the point of upload, rather than relying on the caller.
+        metadata["schemaKey"] = "Asset"
         data = self.client.put(
             self.api_path, json={"metadata": metadata, "blob_id": self.blob}
         )
@@ -2016,6 +2021,11 @@ class RemoteZarrAsset(RemoteAsset, BaseRemoteZarrAsset):
         Set the metadata for the asset on the server to the given value and
         update the `RemoteZarrAsset` in place.
         """
+        # Whatever the metadata was gathered as (e.g. a ``BareAsset``),
+        # what is being created on the server is an ``Asset`` as result of the upload.
+        # The server stores ``schemaKey`` verbatim, so set it
+        # here, at the point of upload, rather than relying on the caller.
+        metadata["schemaKey"] = "Asset"
         data = self.client.put(
             self.api_path, json={"metadata": metadata, "zarr_id": self.zarr}
         )
