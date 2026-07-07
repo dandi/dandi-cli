@@ -3,10 +3,12 @@ import json
 import sys
 from textwrap import indent
 
+import click
 import ruamel.yaml
 
 from .. import get_logger
 from ..support import pyout as pyouts
+from ..validate._types import Severity
 
 lgr = get_logger()
 
@@ -87,6 +89,40 @@ class YAMLFormatter(Formatter):
 
     def __call__(self, rec):
         self.records.append(rec)
+
+
+class TextFormatter(Formatter):
+    """Render validation results as colored text lines.
+
+    Unlike other formatters which receive dicts, this receives
+    ``ValidationResult`` objects directly (needs ``.purview``, ``.severity``).
+    """
+
+    def __init__(self, out=None):
+        self.out = out or sys.stdout
+        self._has_errors = False
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if not self._has_errors:
+            click.secho("No errors found.", fg="green", file=self.out)
+
+    def __call__(self, rec):
+
+        severity = rec.severity
+        purview = rec.purview
+        msg = f"[{rec.id}] {purview} — {rec.message}"
+        if severity is not None and severity >= Severity.ERROR:
+            self._has_errors = True
+        if severity is not None:
+            if severity >= Severity.ERROR:
+                fg = "red"
+            elif severity >= Severity.WARNING:
+                fg = "yellow"
+            else:
+                fg = "blue"
+        else:
+            fg = "blue"
+        click.secho(msg, fg=fg, file=self.out)
 
 
 class PYOUTFormatter(pyouts.LogSafeTabular):

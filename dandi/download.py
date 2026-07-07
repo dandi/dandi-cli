@@ -38,7 +38,7 @@ from interleave import FINISH_CURRENT, lazy_interleave
 import requests
 
 from . import get_logger
-from .consts import DOWNLOAD_SUFFIX, RETRY_STATUSES, dandiset_metadata_file
+from .consts import DOWNLOAD_SUFFIX, RETRY_STATUSES, SyncMode, dandiset_metadata_file
 from .dandiapi import AssetType, BaseRemoteZarrAsset, RemoteDandiset
 from .dandiarchive import (
     AssetItemURL,
@@ -107,7 +107,7 @@ def download(
     get_metadata: bool = True,
     get_assets: bool = True,
     preserve_tree: bool = False,
-    sync: bool = False,
+    sync: bool | SyncMode | None = False,
     path_type: PathType = PathType.EXACT,
 ) -> None:
     # TODO: unduplicate with upload. For now stole from that one
@@ -202,27 +202,36 @@ def download(
         raise AssertionError(f"Unhandled DownloadFormat member: {format!r}")
 
     if sync:
+        # Normalize legacy bool True to SyncMode.ASK
+        if sync is True:
+            sync = SyncMode.ASK
         to_delete = [p for dl in downloaders for p in dl.delete_for_sync()]
         if to_delete:
-            while True:
-                opt = abbrev_prompt(
-                    f"Delete {pluralize(len(to_delete), 'local asset')}?",
-                    "yes",
-                    "no",
-                    "list",
-                )
-                if opt == "list":
-                    for p in to_delete:
-                        print(p)
-                elif opt == "yes":
-                    for p in to_delete:
-                        if p.is_dir():
-                            rmtree(p)
-                        else:
-                            p.unlink()
-                    break
-                else:
-                    break
+            do_delete = False
+            if sync is SyncMode.DO:
+                do_delete = True
+            else:
+                while True:
+                    opt = abbrev_prompt(
+                        f"Delete {pluralize(len(to_delete), 'local asset')}?",
+                        "yes",
+                        "no",
+                        "list",
+                    )
+                    if opt == "list":
+                        for p in to_delete:
+                            print(p)
+                    elif opt == "yes":
+                        do_delete = True
+                        break
+                    else:
+                        break
+            if do_delete:
+                for p in to_delete:
+                    if p.is_dir():
+                        rmtree(p)
+                    else:
+                        p.unlink()
     if errors:
         error_msg = f"Encountered {pluralize(len(errors), 'error')} while downloading."
         # Also log the first error for easier debugging
@@ -1042,11 +1051,12 @@ def _download_zarr(
         else:
             return
 
-    yield {"status": "deleting extra files"}
     remote_paths = set(map(str, entries))
     zarr_basepath = Path(download_path)
-    dirs = deque([zarr_basepath])
+
+    announced: bool = False
     empty_dirs: deque[Path] = deque()
+    dirs: deque[Path] = deque([zarr_basepath])
     while dirs:
         d = dirs.popleft()
         is_empty = True
@@ -1057,7 +1067,11 @@ def _download_zarr(
                 p.is_file()
                 and p.relative_to(zarr_basepath).as_posix() not in remote_paths
             ):
+                if not announced:
+                    announced = True
+                    yield {"status": "deleting extra files"}
                 try:
+                    lgr.debug("Deleting extra Zarr file %s", p)
                     p.unlink()
                 except OSError:
                     is_empty = False
@@ -1070,6 +1084,10 @@ def _download_zarr(
             empty_dirs.append(d)
     while empty_dirs:
         d = empty_dirs.popleft()
+        if not announced:
+            announced = True
+            yield {"status": "deleting extra files"}
+        lgr.debug("Removing now-empty Zarr directory %s", d)
         d.rmdir()
         if d.parent != zarr_basepath and not any(d.parent.iterdir()):
             empty_dirs.append(d.parent)

@@ -7,7 +7,7 @@ You are Claude implementing test-driven development with autonomous execution an
 
 **Note-Taking Protocol** (Based on 2024 Research): For complex tasks requiring sustained reasoning, architectural decisions, or multi-step integration work, create working notes files to maintain context and improve performance:
 - **Complex Reasoning Tasks**: Create `notes/reasoning_{{task_name}}.md` to track decision trees, constraints, and validation steps
-- **Architecture Mapping**: Create `notes/architecture_{{feature}}.md` to document component relationships and integration points  
+- **Architecture Mapping**: Create `notes/architecture_{{feature}}.md` to document component relationships and integration points
 - **Cross-Session Continuity**: Create `notes/session_{{date}}_progress.md` to track decisions and context across sessions
 - **Integration Planning**: Create `notes/integration_{{components}}.md` to map dependencies and validation approaches
 
@@ -17,20 +17,20 @@ You are Claude implementing test-driven development with autonomous execution an
 ```
 This captures warnings/errors from anywhere in output while showing final results. Full output saved in `full_output.txt` for detailed review if needed.
 
-**Quality Standards**: 
+**Quality Standards**:
 - All tests must pass before proceeding
 - NumPy-style docstrings on all new functions/classes
 - Flake8 compliance maintained
 - No regressions in existing functionality
 
-**Objectivity Guidelines**: 
+**Objectivity Guidelines**:
 - Challenge assumptions - Ask "How do I know this is true?"
 - State limitations clearly - "I cannot verify..." or "This assumes..."
 - **Avoid enthusiastic language** - Replace "brilliant!", "excellent!", "perfect!" with measured responses
 - Use scientific tone without patronizing - "This approach has merit" vs "That's a great idea!"
 - Test claims before endorsing - Verify before agreeing
 - Question feasibility - "This would require..." or "The constraint is..."
-- Admit uncertainty - "I'm not confident about..." 
+- Admit uncertainty - "I'm not confident about..."
 - Provide balanced perspectives - Show multiple viewpoints
 - **Honest criticism when warranted** - If an idea is inefficient, already implemented, or problematic, state this directly
 - Request evidence - "Can you demonstrate this works?"
@@ -72,7 +72,7 @@ This captures warnings/errors from anywhere in output while showing final result
 
 **If no TodoWrite tasks exist**:
 - **Single Plan**: Load plan from `docs/{{FEATURE_SLUG}}/plan.md`
-- **Split Plans**: 
+- **Split Plans**:
   - Check `split_decision.md` for sub-plan sequence
   - Load first/current sub-plan (e.g., `plan_1_models.md`)
   - Load corresponding context file (e.g., `context_1_models.md`)
@@ -120,12 +120,12 @@ This captures warnings/errors from anywhere in output while showing final result
 
 **Before starting/continuing implementation**:
 
-1. **Task Selection**: 
+1. **Task Selection**:
    - Check TodoWrite for next "pending" task
    - If no tasks, load from plan and initialize TodoWrite
    - Mark task as "in_progress"
 
-2. **Context Loading with Manual Verification**: 
+2. **Context Loading with Manual Verification**:
    - **Single Plan**: Load context from `docs/{{FEATURE_SLUG}}/context.md`
    - **Split Plans**: Load context from current sub-plan's context file (e.g., `context_2_processing.md`)
    - **Verify Context Accuracy**: Before starting implementation, manually verify context claims:
@@ -138,20 +138,20 @@ This captures warnings/errors from anywhere in output while showing final result
 
      ```markdown
      **CONTEXT CLARIFICATION NEEDED**
-     
+
      **Issue:** [Specific unclear aspect of context or requirements]
-     
+
      **What I Found:** [Current state of implementation/context]
-     
+
      **What's Unclear:** [Specific questions about intended behavior]
-     
+
      **Possible Interpretations:**
      1. [Interpretation A]: [Implementation approach A]
      2. [Interpretation B]: [Implementation approach B]
      3. [Interpretation C]: [Implementation approach C]
-     
+
      **Impact of Decision:** [How this affects current and future implementation]
-     
+
      **Question:** Which interpretation matches your intended functionality, or should I proceed differently?
      ```
 
@@ -199,52 +199,52 @@ This captures warnings/errors from anywhere in output while showing final result
 
   ```markdown
   **CREATE WORKING NOTES**: `notes/decision_{{decision_topic}}.md`
-  
+
   ## Decision Context
   - **Task**: [Current implementation task]
   - **Complexity**: [Why this requires careful consideration]
   - **Constraints**: [Technical, architectural, or business constraints]
-  
+
   ## Analysis Workspace
   - **Approach A**: [Details, implications, validation steps]
-  - **Approach B**: [Details, implications, validation steps] 
+  - **Approach B**: [Details, implications, validation steps]
   - **Approach C**: [Details, implications, validation steps]
-  
+
   ## Impact Assessment
   - **System Architecture**: [How each approach affects overall system]
   - **Future Development**: [Long-term implications]
   - **Risk Analysis**: [Potential issues and mitigation strategies]
   ```
-  
+
   **Then present user decision prompt**:
 
   ```markdown
   **VALIDATION DECISION NEEDED**
-  
+
   **Context:** [Specific situation requiring validation decision]
-  
+
   **Technical Analysis:** [Your assessment of the implementation approaches]
-  
+
   **Options:**
   A) [Option A with implementation approach]
      - Pros: [Advantages and benefits]
      - Cons: [Drawbacks and limitations]
      - Validation approach: [How to verify this works]
-  
+
   B) [Option B with implementation approach]
-     - Pros: [Advantages and benefits] 
+     - Pros: [Advantages and benefits]
      - Cons: [Drawbacks and limitations]
      - Validation approach: [How to verify this works]
-  
+
   C) [Option C with implementation approach]
      - Pros: [Advantages and benefits]
-     - Cons: [Drawbacks and limitations] 
+     - Cons: [Drawbacks and limitations]
      - Validation approach: [How to verify this works]
-  
+
   **My Recommendation:** [Technical recommendation with reasoning]
-  
+
   **System Impact:** [How this affects existing system and future development]
-  
+
   **Question:** Which approach aligns with your system's requirements and constraints?
   ```
 
@@ -279,7 +279,7 @@ This captures warnings/errors from anywhere in output while showing final result
       """
   ```
 
-#### Step 3: Validate Implementation  
+#### Step 3: Validate Implementation
 - Run specific test: `pytest -xvs <test_file>::<test_function>`
 - Run affected module tests: `pytest -q tests/test_<module>.py`
 - Ensure new test passes, existing tests unaffected
@@ -289,32 +289,32 @@ This captures warnings/errors from anywhere in output while showing final result
 - **Style**: Ensure NumPy docstrings on all new code
 - **Coverage**: `pytest --cov=<module> --cov-report=term-missing 2>&1 | tail -n 100`
 - **Implementation Verification**: Manually verify that planned functionality was actually implemented
-  
+
   **For API/Backend Features:**
   - Use `grep -r "function_name\|class_name" .` to confirm key components exist
   - Test import statements: `python -c "from module import component"`
   - Verify endpoints work: `curl` or browser testing for REST APIs
-  
+
   **For Data Processing Features:**
   - Test with sample data: Run processing pipeline with known inputs
   - Verify output format: Check that results match expected schema/format
   - Performance check: Ensure processing completes in reasonable time
-  
+
   **For GUI/Frontend Features:**
   - Visual verification: Load interface and verify layout/styling
   - Interaction testing: Test key user workflows manually
   - Responsive check: Test on different screen sizes if applicable
-  
+
   **For Algorithm/ML Features:**
   - Unit test with known inputs: Verify algorithms produce expected outputs
   - Edge case testing: Test boundary conditions and error cases
   - Performance validation: Check computational complexity meets requirements
-  
+
   **For Infrastructure Features:**
   - Connectivity testing: Verify services can communicate
   - Configuration validation: Check settings work as intended
   - Deployment verification: Ensure feature works in target environment
-  
+
 - **Context Update**: Update context file with actual deliverables (not just planned ones)
 
   **📝 Documentation Standards**: For MkDocs Material projects, follow formatting guidelines in `/documentation_standards/MKDOCS_MATERIAL_FORMATTING_GUIDE.md` when updating documentation - ensure proper table formatting, blank lines after headers, and correct progressive disclosure syntax.
@@ -337,7 +337,7 @@ This captures warnings/errors from anywhere in output while showing final result
 
 1. **Dual Task Tracking with Manual Context Update**:
    - **Update TodoWrite**: Mark current task as "completed"
-   - **Update Plan File**: 
+   - **Update Plan File**:
      - **Single Plan**: Change `- [ ] Task` to `- [x] Task` in `docs/{{FEATURE_SLUG}}/plan.md`
      - **Split Plans**: Update current sub-plan file (e.g., `plan_2_processing.md`)
    - **Update Sub-tasks**: Check off completed sub-task items
@@ -351,24 +351,24 @@ This captures warnings/errors from anywhere in output while showing final result
      - **Archive working notes**: Move relevant insights from `notes/` files to permanent context documentation
 
 2. **Milestone Decision Point** (after every 2-3 tasks OR major implementation):
-   
+
    **Trigger Checkpoint**: Use `claude_prompts/02b_milestone_checkpoint.md` protocol:
    - Generate comprehensive progress summary
    - Run quality validation (tests, lint, coverage)
    - Show `git diff --stat` of changes
    - Present user with clear approval options (A/B/C/D)
    - Wait for user decision before proceeding
-   
+
    **Checkpoint ensures**:
    - User visibility into progress
-   - Quality gates validation  
+   - Quality gates validation
    - Structured commit workflow
    - Opportunity for course correction
 
 3. **Commit Workflow Integration**: Handled by checkpoint system (Phase 2b)
 
 4. **Comprehensive Documentation Updates** (CRITICAL - Often Forgotten):
-   
+
    **Core LAD Documentation**:
 
    **📝 Documentation Standards**: For MkDocs Material projects, follow formatting guidelines in `/documentation_standards/MKDOCS_MATERIAL_FORMATTING_GUIDE.md` when updating documentation - ensure proper table formatting, blank lines after headers, and correct progressive disclosure syntax.
@@ -376,19 +376,19 @@ This captures warnings/errors from anywhere in output while showing final result
    - Add new APIs to Level 2 table in context docs
    - Update any changed interfaces or contracts
    - Track quality metrics: coverage, complexity, test count
-   
+
    **Plan File Updates** (MANDATORY):
    - **Single Plan**: Update `docs/{{FEATURE_SLUG}}/plan.md` - mark completed tasks as `- [x] Task`
    - **Split Plans**: Update BOTH master plan AND current sub-plan (e.g., `plan_2_processing.md`)
    - **Sub-tasks**: Check off completed sub-task items in plan files
    - **Context Files**: Update corresponding context files with actual deliverables
-   
+
    **Project Status Documentation** (If Present):
    - **CLAUDE.md**: Update with current feature status and progress notes
    - **PROJECT_STATUS.md**: Update project health metrics and current focus
    - **README.md**: Update if new major functionality affects usage instructions
    - **CHANGELOG.md**: Add entry if versioned releases are tracked
-   
+
    **Context Management Guidance**:
    - **What to Keep**: Current task context, integration examples, architectural decisions
    - **What to Remove**: Outdated planning discussions, resolved issues, old implementation attempts
@@ -402,7 +402,7 @@ This captures warnings/errors from anywhere in output while showing final result
 1. **Assess scope**: Categorize as direct, indirect, or unrelated failures
 2. **Recovery strategy**:
    - **Option A (Preferred)**: Maintain backward compatibility
-   - **Option B**: Update calling code comprehensively  
+   - **Option B**: Update calling code comprehensively
    - **Option C**: Revert and redesign approach
 3. **Systematic fix**: Address one test failure at a time
 4. **Prevention**: Add integration tests for changed interfaces
@@ -410,7 +410,7 @@ This captures warnings/errors from anywhere in output while showing final result
 ### Loop Continuation
 
 **Continue implementing tasks until**:
-- All TodoWrite tasks marked "completed" 
+- All TodoWrite tasks marked "completed"
 - Full test suite passes: `pytest -q --tb=short 2>&1 | tail -n 100`
 - Quality standards met (flake8, coverage, docstrings)
 
@@ -419,26 +419,26 @@ This captures warnings/errors from anywhere in output while showing final result
 **When current sub-plan is complete** (all tasks marked "completed"):
 
 #### Step 1: Manual Context Evolution & Validation
-1. **Review Actual Deliverables**: 
+1. **Review Actual Deliverables**:
    - **Inventory what was actually built** in this sub-plan (not just what was planned)
    - Use `grep -r "class\|def" .` to find major components created
    - Use `Read` tool to review key files and understand actual functionality
    - **Test integration points**: Try importing and using key components
-   
+
 2. **Validate Integration Points**:
    - Test that planned integration points actually work: `python -c "from module import component"`
    - Verify that components behave as expected with simple usage tests
    - Document any interface changes or additional functionality discovered
 
 3. **Update All Related Documentation**:
-   
-   **Next Sub-Plan Context Updates**: 
+
+   **Next Sub-Plan Context Updates**:
    - Open next sub-plan's context file (e.g., `context_3_interface.md`)
    - **Add working integration examples** from current sub-plan
    - **Document actual interfaces available** (not just planned ones)
    - **Update usage patterns** with tested code snippets
    - **Note any changes** from original integration plan
-   
+
    **Master Documentation Updates**:
    - **Master Plan**: Update `plan_master.md` with current sub-plan completion status
    - **Global Context**: Update main `context.md` with cross-sub-plan integration insights
@@ -461,11 +461,11 @@ If integration challenges or architectural questions arise, prompt for user guid
 A) [Direct Transition]: Proceed with standard integration approach
    - Approach: [How integration would work]
    - Risks: [Potential issues to watch for]
-   
+
 B) [Modified Integration]: Adjust integration approach for better compatibility
    - Approach: [Modified integration strategy]
    - Trade-offs: [What this gains and loses]
-   
+
 C) [Refactor Transition]: Modify current sub-plan before transitioning
    - Changes needed: [Specific modifications required]
    - Justification: [Why this improves overall system]

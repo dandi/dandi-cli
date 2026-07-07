@@ -18,6 +18,7 @@ from copy import deepcopy
 from enum import Enum
 import os
 import os.path as op
+import posixpath
 from pathlib import Path, PurePosixPath
 import re
 import traceback
@@ -43,7 +44,7 @@ from .utils import (
     pluralize,
     yaml_load,
 )
-from .validate_types import (
+from .validate._types import (
     ORIGIN_VALIDATION_DANDI_LAYOUT,
     Scope,
     Severity,
@@ -275,7 +276,7 @@ def _create_external_file_names(metadata: list[dict]) -> list[dict]:
             renamed_path_list = []
             uuid_str = ext_file_dict.get("id", str(uuid.uuid4()))
             for no, ext_file in enumerate(ext_file_dict["external_files"]):
-                renamed = op.join(
+                renamed = posixpath.join(
                     nwb_folder_name, f"{uuid_str}_external_file_{no}{ext_file.suffix}"
                 )
                 renamed_path_list.append(renamed)

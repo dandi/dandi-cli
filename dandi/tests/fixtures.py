@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 import logging
 import os
@@ -42,6 +42,11 @@ from ..upload import upload
 
 lgr = get_logger()
 
+# TODO: simply always inject this when minimal supported pynwb is above 3.1.3
+_imgseries_takes_num_samples = any(
+    arg["name"] == "num_samples"
+    for arg in getattr(ImageSeries.__init__, "__docval__", {}).get("args", [])
+)
 
 BIDS_TESTDATA_SELECTION = [
     "asl003",
@@ -373,6 +378,20 @@ LOCAL_DOCKER_ENV = LOCAL_DOCKER_DIR.name
 @pytest.fixture(scope="session")
 def docker_compose_setup() -> Iterator[dict[str, str]]:
     skipif.no_network()
+
+    if external_url := os.environ.get("DANDI_TESTS_API_URL"):
+        api_key = os.environ.get("DANDI_TESTS_DJANGO_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "DANDI_TESTS_API_URL is set but DANDI_TESTS_DJANGO_API_KEY is not; "
+                "set it to a valid admin DRF token for the externally-managed server."
+            )
+        known_instances["dandi-api-local-docker-tests"] = replace(
+            known_instances["dandi-api-local-docker-tests"], api=external_url
+        )
+        yield {"django_api_key": api_key}
+        return
+
     skipif.no_docker_engine()
 
     # Check that we're running on a Unix-based system (Linux or macOS), as the
@@ -798,7 +817,7 @@ def _create_nwb_files(video_list: list[tuple[Path, Path]]) -> Path:
             devices=[device],
         )
 
-        image_series = ImageSeries(
+        imgseries_kwargs: dict[str, Any] = dict(
             name=f"MouseWhiskers{i}",
             format="external",
             external_file=[str(vid_1), str(vid_2)],
@@ -806,6 +825,9 @@ def _create_nwb_files(video_list: list[tuple[Path, Path]]) -> Path:
             starting_time=0.0,
             rate=150.0,
         )
+        if _imgseries_takes_num_samples:
+            imgseries_kwargs["num_samples"] = 4
+        image_series = ImageSeries(**imgseries_kwargs)
         nwbfile.add_acquisition(image_series)
 
         nwbfile_path = base_nwb_path / f"{name}.nwb"

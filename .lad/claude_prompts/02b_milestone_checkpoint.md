@@ -56,7 +56,7 @@ fi
 
 ### 🔄 Integration Status
 - **Modified Files**: {{modified_files_count}} files
-- **New Files**: {{new_files_count}} files  
+- **New Files**: {{new_files_count}} files
 - **Test Files**: {{test_files_count}} files
 - **Documentation**: {{docs_status}}
 ```
@@ -78,7 +78,7 @@ git diff --stat
 # Full test suite
 pytest -q --tb=short
 
-# Lint check on modified files  
+# Lint check on modified files
 flake8 {{modified_files}}
 
 # Coverage report
@@ -94,7 +94,7 @@ pytest --cov={{feature_module}} --cov-report=term-missing --tb=no -q | tail -n 2
 
 ## User Interaction Protocol
 
-### 1. Milestone Presentation  
+### 1. Milestone Presentation
 **Create milestone notes first, then present to user:**
 
 ```markdown
@@ -107,7 +107,7 @@ pytest --cov={{feature_module}} --cov-report=term-missing --tb=no -q | tail -n 2
 - **Integration Status**: [Working integration points, verified functionality]
 
 ## Decision Context
-- **Architectural Decisions**: [Key technical choices made during implementation]  
+- **Architectural Decisions**: [Key technical choices made during implementation]
 - **Trade-offs**: [Performance vs. maintainability, complexity vs. flexibility decisions]
 - **Deviations**: [Changes from original plan and rationale]
 - **Discoveries**: [Unexpected findings or opportunities identified]
@@ -151,7 +151,7 @@ pytest --cov={{feature_module}} --cov-report=term-missing --tb=no -q | tail -n 2
 
 **A) ✅ APPROVE & COMMIT** - Everything looks good, commit and continue
    - Will commit changes with generated message
-   - Will push to remote branch  
+   - Will push to remote branch
    - **Single Plan**: Will continue with next tasks
    - **Split Plans**: If sub-plan complete, will offer sub-plan transition
 
@@ -209,7 +209,7 @@ echo "✅ Committed and pushed. Continuing with next tasks..."
 
 **To resume implementation**, tell me:
 - "Continue implementation" - Resume with next tasks
-- "Implement [specific change]" - Make modifications then continue  
+- "Implement [specific change]" - Make modifications then continue
 - "Commit and continue" - Commit current changes then continue
 
 **For detailed review**:
@@ -226,7 +226,7 @@ echo "✅ Committed and pushed. Continuing with next tasks..."
 
 **Common modification requests:**
 - "Refactor [function/class] to improve [specific aspect]"
-- "Add error handling for [specific case]"  
+- "Add error handling for [specific case]"
 - "Update tests to cover [specific scenario]"
 - "Change API design for [specific endpoint]"
 - "Improve performance of [specific operation]"
@@ -297,7 +297,7 @@ TodoWrite([
     # Mark completed tasks
     {"id": "1", "content": "Task A", "status": "completed", "priority": "high"},
     # Mark current checkpoint task
-    {"id": "checkpoint", "content": "Milestone checkpoint - awaiting user approval", 
+    {"id": "checkpoint", "content": "Milestone checkpoint - awaiting user approval",
      "status": "in_progress", "priority": "high"},
     # Keep pending tasks
     {"id": "3", "content": "Task C", "status": "pending", "priority": "medium"}
@@ -307,7 +307,7 @@ TodoWrite([
 ## Success Metrics
 **Each checkpoint should achieve:**
 - ✅ Clear progress visualization for user
-- ✅ Quality validation completed  
+- ✅ Quality validation completed
 - ✅ User feedback incorporated
 - ✅ Appropriate commit/push action taken
 - ✅ Implementation momentum maintained

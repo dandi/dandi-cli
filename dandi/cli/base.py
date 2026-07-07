@@ -1,3 +1,4 @@
+from enum import Enum
 from functools import wraps
 import os
 
@@ -27,6 +28,24 @@ class IntColonInt(click.ParamType):
 
     def get_metavar(self, param, ctx=None):
         return "N[:M]"
+
+
+class EnumChoice(click.Choice):
+    """A ``click.Choice`` over a ``str``-valued ``Enum``, matched on member values.
+
+    The available choices presented on the command line are the enum member
+    values (e.g. ``error``, ``skip``), and ``convert`` returns the corresponding
+    enum member. A string default is converted to its member as well.
+    """
+
+    def __init__(self, enum_cls: type[Enum], case_sensitive: bool = True) -> None:
+        self.enum_cls = enum_cls
+        super().__init__([e.value for e in enum_cls], case_sensitive=case_sensitive)
+
+    def convert(self, value, param, ctx):
+        if value is None or isinstance(value, self.enum_cls):
+            return value
+        return self.enum_cls(super().convert(value, param, ctx))
 
 
 class ChoiceList(click.ParamType):

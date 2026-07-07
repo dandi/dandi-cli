@@ -32,6 +32,7 @@ from .consts import (
     DOWNLOAD_SUFFIX,
     DRAFT,
     DandiInstance,
+    SyncMode,
     dandiset_identifier_regex,
     dandiset_metadata_file,
 )
@@ -49,7 +50,8 @@ from .misctypes import Digest
 from .support import pyout as pyouts
 from .support.pyout import naturalsize
 from .utils import ensure_datetime, path_is_subpath, pluralize
-from .validate_types import Severity
+from .validate._io import write_validation_jsonl
+from .validate._types import Severity
 
 
 def _check_dandidownload_paths(dfile: DandiFile) -> None:
@@ -111,7 +113,8 @@ def upload(
     devel_debug: bool = False,
     jobs: int | None = None,
     jobs_per_file: int | None = None,
-    sync: bool = False,
+    sync: bool | SyncMode | None = False,
+    validation_log_path: str | Path | None = None,
 ) -> None:
     if paths:
         paths = [Path(p).absolute() for p in paths]
@@ -300,6 +303,10 @@ def upload(
                 ):
                     yield {"status": "pre-validating"}
                     validation_statuses = dfile.get_validation_errors()
+                    if validation_log_path is not None and validation_statuses:
+                        write_validation_jsonl(
+                            validation_statuses, validation_log_path, append=True
+                        )
                     validation_errors = [
                         s
                         for s in validation_statuses
@@ -499,6 +506,9 @@ def upload(
             raise upload_err
 
         if sync:
+            # Normalize legacy bool True to SyncMode.ASK
+            if sync is True:
+                sync = SyncMode.ASK
             relpaths: list[str] = []
             for p in paths:
                 rp = os.path.relpath(p, dandiset.path)
@@ -510,8 +520,11 @@ def upload(
                     p == "" or path_is_subpath(asset.path, p) for p in relpaths
                 ) and not os.path.lexists(Path(dandiset.path, asset.path)):
                     to_delete.append(asset)
-            if to_delete and click.confirm(
-                f"Delete {pluralize(len(to_delete), 'asset')} on server?"
+            if to_delete and (
+                sync is SyncMode.DO
+                or click.confirm(
+                    f"Delete {pluralize(len(to_delete), 'asset')} on server?"
+                )
             ):
                 for asset in to_delete:
                     asset.delete()
