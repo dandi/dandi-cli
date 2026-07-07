@@ -430,7 +430,7 @@ if the archive exposes per-directory checksums via API or manifests.
 
 ## Part 5: `dandi ls` for Zarr Contents
 
-See separate implementation task.  Summary: allow `dandi ls` to list files
+This will be implemented as a separate pull request.  Summary: allow `dandi ls` to list files
 within a Zarr asset when given a Zarr URL, using `asset.iterfiles(prefix=...)`.
 Reuses `AssetZarrEntryURL` from Part 2.
 
