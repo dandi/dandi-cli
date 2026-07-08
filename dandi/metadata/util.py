@@ -13,7 +13,7 @@ import requests
 import tenacity
 from yarl import URL
 
-from .brain_areas import locations_to_ccf_mouse_anatomy
+from .brain_areas import locations_to_mouse_anatomy, locations_to_uberon_anatomy
 from .. import __version__
 from ..utils import ensure_datetime
 
@@ -595,7 +595,7 @@ def extract_wasDerivedFrom(metadata: dict) -> list[models.BioSample] | None:
             if deepest is None:
                 deepest = sample
 
-    # Compute anatomy from brain locations (mouse only)
+    # Compute anatomy from brain locations
     anatomy = _extract_brain_anatomy(metadata)
     if anatomy:
         if deepest is not None:
@@ -619,16 +619,33 @@ def extract_wasDerivedFrom(metadata: dict) -> list[models.BioSample] | None:
 _MOUSE_URI = NCBITAXON_URI_TEMPLATE.format("10090")
 
 
-def _extract_brain_anatomy(metadata: dict) -> list[models.Anatomy]:
-    """Extract brain anatomy from metadata, if the species is mouse."""
+def _extract_brain_anatomy(
+    metadata: dict, max_synonym_scope: str = "EXACT"
+) -> list[models.Anatomy]:
+    """Extract brain anatomy from metadata.
+
+    For mice, tries Allen CCF first then falls back to UBERON.
+    For other species, tries UBERON directly.
+
+    Parameters
+    ----------
+    metadata : dict
+        NWB metadata dictionary.
+    max_synonym_scope : str
+        Most permissive UBERON synonym scope to try.  Tiers are tried
+        in precision order: EXACT > NARROW > BROAD > RELATED.
+    """
     if not (locations := metadata.get("brain_locations")):
         return []
 
     species = extract_species(metadata)
-    if species is None or str(species.identifier) != _MOUSE_URI:
+    if species is None:
         return []
 
-    return locations_to_ccf_mouse_anatomy(locations)
+    if str(species.identifier) == _MOUSE_URI:
+        return locations_to_mouse_anatomy(locations, max_synonym_scope)
+    else:
+        return locations_to_uberon_anatomy(locations, max_synonym_scope)
 
 
 extract_wasAttributedTo = extract_model_list(

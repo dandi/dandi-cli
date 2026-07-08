@@ -30,6 +30,7 @@ def pytest_configure(config):
         "obolibrary",
         "flaky",
         "ai_generated",
+        "data_regeneration",
     ]
     for marker in markers:
         config.addinivalue_line("markers", marker)

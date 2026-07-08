@@ -43,6 +43,20 @@ def service_scripts() -> None:
 
 
 @service_scripts.command()
+@map_to_click_exceptions
+def generate_uberon_structures() -> None:
+    """Regenerate uberon_brain_structures.json from the UBERON OBO file.
+
+    Downloads the UBERON ontology, extracts brain/nervous-system
+    descendants (~2,400 terms), and writes the bundled JSON used for
+    anatomy matching.
+    """
+    from ..data.generate_uberon_structures import generate
+
+    generate()
+
+
+@service_scripts.command()
 @click.option("--diff", is_flag=True, help="Show diffs of old & new metadata")
 @click.option(
     "--when",
