@@ -1135,7 +1135,6 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
     # Classes with ANY_AWARE_DATETIME fields need to be constructed with
     # model_construct()
     assert nwb2asset(simple2_nwb, digest=DUMMY_DANDI_ETAG) == BareAsset.model_construct(
-        schemaKey="Asset",
         schemaVersion=DANDI_SCHEMA_VERSION,
         keywords=["keyword1", "keyword 2"],
         access=[
@@ -1218,7 +1217,6 @@ def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
     # Classes with ANY_AWARE_DATETIME fields need to be constructed with
     # model_construct()
     assert nwb2asset(r, digest=digest) == BareAsset.model_construct(
-        schemaKey="Asset",
         schemaVersion=DANDI_SCHEMA_VERSION,
         keywords=["keyword1", "keyword 2"],
         access=[
