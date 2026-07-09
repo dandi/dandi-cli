@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, StrEnum
 import os
 
 #: A list of metadata fields which dandi extracts from .nwb files.
@@ -101,12 +101,9 @@ class EmbargoStatus(Enum):
     EMBARGOED = "EMBARGOED"
 
 
-class SyncMode(str, Enum):
+class SyncMode(StrEnum):
     ASK = "ask"
     DO = "do"
-
-    def __str__(self) -> str:
-        return self.value
 
 
 dandiset_metadata_file = "dandiset.yaml"

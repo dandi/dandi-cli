@@ -7,7 +7,7 @@ build-backend = 'setuptools.build_meta'
 name = "dandi"
 description = "Command line client for interaction with DANDI instances"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {file = "LICENSE"}
 authors = [
     {name = "DANDI developers", email = "team@dandiarchive.org"},
@@ -36,7 +36,6 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -46,7 +45,7 @@ classifiers = [
 dependencies = [
     "bidsschematools ~= 1.0",
     "bids-validator-deno >= 2.0.5",
-    "click >= 7.1",
+    "click >= 8.2",
     "click-didyoumean",
     "dandischema ~= 0.12.0",
     "etelemetry >= 0.2.2",
@@ -237,7 +236,7 @@ init_forbid_extra = true
 
 [tool.hatch.envs.default]
 installer = "uv"
-python = "3.10"
+python = "3.11"
 
 [tool.hatch.envs.test]
 features = ["test"]
