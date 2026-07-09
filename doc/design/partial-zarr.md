@@ -28,21 +28,45 @@ Currently, `dandi download` of a Zarr asset always fetches every file, and
 or changed files **and deleting** remote files absent locally).  This makes even
 small metadata edits prohibitively expensive for large Zarrs.
 
-## Primary Use Case
+## Use Cases
 
-From @kabilar (#1462):
+### Use Case 1 -- Update metadata
 
-```bash
-# 1. Download just the metadata files from a zarr
-dandi download --zarr glob:'**/.z*' --zarr glob:'**/zarr.json' \
-    dandi://dandi/001289/rawdata/.../PC.ome.zarr
+Motivation (from @kabilar, #1462): only the metadata of a large Zarr needs
+editing (e.g. correct a `zarr.json` / `.zattrs` field), so downloading and
+re-uploading multi-GB of data chunks is wasteful.
 
-# 2. Edit .zattrs locally
-vim PC.ome.zarr/.zattrs
+1. Download just the metadata files from a Zarr:
+   ```bash
+   dandi download --zarr glob:'**/.z*' --zarr glob:'**/zarr.json' \
+       dandi://dandi/001289/rawdata/.../PC.ome.zarr
+   ```
+   (or the equivalent shorthand `--zarr metadata`).
+2. Edit the metadata locally, e.g. `vim PC.ome.zarr/zarr.json`.
+3. Upload changes without deleting remote data chunks:
+   ```bash
+   dandi upload --zarr-mode patch
+   ```
 
-# 3. Upload changes without deleting remote data chunks
-dandi upload --zarr-mode patch
-```
+### Use Case 2 -- Incrementally add shards to an existing Zarr
+
+Motivation: a very large dataset is being generated for which there is not
+enough space to house the entire dataset locally, so shards are produced,
+uploaded, and discarded in batches.
+
+1. Add shard(s) locally to a Zarr that already exists on DANDI (the local
+   directory typically contains just the Zarr metadata plus the newly-produced
+   shard files, not the full remote tree).
+2. Upload the shard(s) without deleting remote Zarr objects that do not exist
+   locally:
+   ```bash
+   dandi upload --zarr-mode patch
+   ```
+3. Remove the local shard(s) and repeat the process for the next batch.
+
+Both use cases exercise the same two primitives -- selective download via
+`--zarr` filters and non-destructive upload via `--zarr-mode patch` -- so the
+implementation of one covers the other.
 
 ---
 
