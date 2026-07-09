@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from base64 import b64encode
+from collections import Counter
 from collections.abc import Generator, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import closing
@@ -8,15 +9,17 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import Enum
 import json
+import math
 import os
 import os.path
 from pathlib import Path
+import random
 from time import sleep
 from typing import TYPE_CHECKING, Any, Optional
+import urllib.parse
 
 if TYPE_CHECKING:
     from ..upload import ZarrMode
-import urllib.parse
 
 from dandischema.models import BareAsset, DigestType
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -27,6 +30,7 @@ from dandi import __version__ as dandi_version
 from dandi import get_logger
 from dandi.consts import (
     MAX_ZARR_DEPTH,
+    S3_MAX_SINGLE_PART_UPLOAD,
     ZARR_DELETE_BATCH_SIZE,
     ZARR_MIME_TYPE,
     ZARR_UPLOAD_BATCH_SIZE,
@@ -50,8 +54,9 @@ from dandi.utils import (
 )
 
 from .bases import LocalDirectoryAsset
-from ..validate_types import (
+from ..validate._types import (
     ORIGIN_VALIDATION_DANDI_ZARR,
+    MissingFileContent,
     Origin,
     OriginType,
     Scope,
@@ -274,14 +279,36 @@ def _ts_validate_zarr3_array(
     return results
 
 
+def _is_empty_group(group: Any) -> bool:
+    """
+    Return whether a `zarr.Group` has no child arrays or groups.
+
+    In zarr-python 2.x ``bool(group)`` / ``len(group)`` is a cheap check, but in
+    zarr-python 3.x both eagerly iterate the group's members, which raises if
+    the underlying directory contains non-Zarr files (e.g. an arbitrary
+    ``a/b/c/...`` tree) or arrays with metadata that the new library can't
+    parse (e.g. legacy ``>u1`` dtypes). Treat any such failure as "not empty"
+    — there is *some* content there, even if it's not a valid Zarr member —
+    so we don't spuriously report ``dandi_zarr.empty_group``.
+    """
+    try:
+        return len(group) == 0
+    except Exception as exc:
+        lgr.debug("Could not determine emptiness of Zarr group %r: %s", group, exc)
+        return False
+
+
 @dataclass
 class LocalZarrEntry(BasePath):
     """A file or directory within a `ZarrAsset`"""
 
-    #: The path to the actual file or directory on disk
-    filepath: Path
     #: The path to the root of the Zarr file tree
     zarr_basepath: Path
+
+    @property
+    def filepath(self) -> Path:
+        """The path to the actual file or directory on disk"""
+        return self.zarr_basepath.joinpath(*self.parts)
 
     def _get_subpath(self, name: str) -> LocalZarrEntry:
         if not name or "/" in name:
@@ -291,16 +318,14 @@ class LocalZarrEntry(BasePath):
         elif name == "..":
             return self.parent
         else:
-            return replace(
-                self, filepath=self.filepath / name, parts=self.parts + (name,)
-            )
+            return replace(self, parts=self.parts + (name,))
 
     @property
     def parent(self) -> LocalZarrEntry:
         if self.is_root():
             return self
         else:
-            return replace(self, filepath=self.filepath.parent, parts=self.parts[:-1])
+            return replace(self, parts=self.parts[:-1])
 
     def exists(self) -> bool:
         return os.path.lexists(self.filepath)
@@ -393,9 +418,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         The `LocalZarrEntry` for the root of the hierarchy of files within the
         Zarr asset
         """
-        return LocalZarrEntry(
-            filepath=self.filepath, zarr_basepath=self.filepath, parts=()
-        )
+        return LocalZarrEntry(zarr_basepath=self.filepath, parts=())
 
     def stat(self) -> ZarrStat:
         """Return various details about the Zarr asset"""
@@ -447,6 +470,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         self,
         schema_version: str | None = None,
         devel_debug: bool = False,
+        missing_file_content: MissingFileContent | None = None,
     ) -> list[ValidationResult]:
         # Avoid heavy import by importing within function:
         import zarr
@@ -459,67 +483,41 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             standard=Standard.ZARR,
         )
 
-        try:
-            data = zarr.open(str(self.filepath), mode="r")
-        except zarr.errors.PathNotFoundError as e:
-            # The asset is potentially in Zarr V3 format, which is not support by
-            # zarr-python 2.x. Before upgrade to zarr-python 3.x, use tensorstore to
-            # open it.
-
-            format_version = get_zarr_format_version(self.filepath)
-
-            if format_version is None:
-                # === The Zarr format can't be determined ===
-                if devel_debug:
-                    raise
-                errors.append(
-                    ValidationResult(
-                        id="zarr.cannot_open",
-                        origin=origin_internal_zarr,
-                        scope=Scope.FILE,
-                        origin_result=e,
-                        severity=Severity.ERROR,
-                        message="Error opening file and Zarr format cannot be determined",
-                        path=self.filepath,
-                    )
-                )
-            elif format_version == "3":
-                # === The Zarr format is V3 ===
-                errors.extend(_ts_validate_zarr3(self.filepath, devel_debug))
-            else:
-                # === A Zarr format should be supported by `zarr.open()` ===
-                if devel_debug:
-                    raise
-                errors.append(
-                    ValidationResult(
-                        id="zarr.cannot_open",
-                        origin=origin_internal_zarr,
-                        scope=Scope.FILE,
-                        origin_result=e,
-                        severity=Severity.ERROR,
-                        message="Error opening file.",
-                        path=self.filepath,
-                    )
-                )
-
-            # code for temporary workaround for Zarr format V3 with tensorstore ends
-
-        except Exception as e:
-            if devel_debug:
-                raise
-            errors.append(
-                ValidationResult(
-                    origin=origin_internal_zarr,
-                    severity=Severity.ERROR,
-                    id="zarr.cannot_open",
-                    scope=Scope.FILE,
-                    origin_result=e,
-                    path=self.filepath,
-                    message="Error opening file.",
-                )
-            )
+        # Zarr V3 stores are validated by `_ts_validate_zarr3` regardless of
+        # zarr-python version. With zarr-python 2.x, `zarr.open()` cannot
+        # handle V3 at all (raises `PathNotFoundError`); with zarr-python 3.x
+        # it can sometimes partially open malformed V3 stores (e.g. valid
+        # root metadata, bad child metadata), which would cause us to miss
+        # the `_ts_validate_zarr3` path. Detecting the format up front keeps
+        # the validation behaviour consistent across versions.
+        format_version = get_zarr_format_version(self.filepath)
+        if format_version == "3":
+            errors.extend(_ts_validate_zarr3(self.filepath, devel_debug))
+            data = None
         else:
-            if isinstance(data, zarr.Group) and not data:
+            try:
+                data = zarr.open(str(self.filepath), mode="r")
+            except Exception as e:
+                if devel_debug:
+                    raise
+                message = (
+                    "Error opening file and Zarr format cannot be determined"
+                    if format_version is None
+                    else "Error opening file."
+                )
+                errors.append(
+                    ValidationResult(
+                        id="zarr.cannot_open",
+                        origin=origin_internal_zarr,
+                        scope=Scope.FILE,
+                        origin_result=e,
+                        severity=Severity.ERROR,
+                        message=message,
+                        path=self.filepath,
+                    )
+                )
+                data = None
+            if isinstance(data, zarr.Group) and _is_empty_group(data):
                 errors.append(
                     ValidationResult(
                         origin=ORIGIN_VALIDATION_DANDI_ZARR,
@@ -545,7 +543,9 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 )
             )
         return errors + super().get_validation_errors(
-            schema_version=schema_version, devel_debug=devel_debug
+            schema_version=schema_version,
+            devel_debug=devel_debug,
+            missing_file_content=missing_file_content,
         )
 
     def _is_too_deep(self) -> bool:
@@ -595,7 +595,10 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     json={"name": asset_path, "dandiset": dandiset.identifier},
                 )
             except requests.HTTPError as e:
-                if e.response is not None and "Zarr already exists" in e.response.text:
+                if e.response is not None and (
+                    "Zarr already exists" in e.response.text
+                    or "dandiset, name must make a unique set" in e.response.text
+                ):
                     lgr.warning(
                         "%s: Found pre-existing Zarr at same path not"
                         " associated with any asset; reusing",
@@ -749,6 +752,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     items_to_upload = list(items)
                     max_retries = 5
                     retry_count = 0
+                    current_jobs = jobs or 5
                     # Add all items to checksum tree (only done once)
                     for it in items_to_upload:
                         zcc.add_leaf(Path(it.entry_path), it.size, it.digest)
@@ -778,7 +782,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         r = client.post(f"/zarr/{zarr_id}/files/", json=uploading)
 
                         # Upload files in parallel
-                        with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
+                        with ThreadPoolExecutor(max_workers=current_jobs) as executor:
                             futures = [
                                 executor.submit(
                                     _upload_zarr_file,
@@ -821,14 +825,22 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                             # Prepare for next iteration with retry items
                             if items_to_upload := retry_items:
                                 retry_count += 1
+                                current_jobs = max(1, math.ceil(current_jobs / 2))
                                 if retry_count <= max_retries:
                                     lgr.info(
-                                        "%s: %s got 403 errors, requesting new URLs",
+                                        "%s: %s got 403 errors, requesting new URLs"
+                                        " (attempt %d/%d, workers: %d)",
                                         asset_path,
                                         pluralize(len(items_to_upload), "file"),
+                                        retry_count,
+                                        max_retries,
+                                        current_jobs,
                                     )
-                                    # Small delay before retry
-                                    sleep(1 * retry_count)
+                                    # Exponential backoff with jitter before retry
+                                    sleep(
+                                        min(2**retry_count * 5, 120)
+                                        + random.uniform(0, 5)
+                                    )
 
                     # Check if we exhausted retries
                     if items_to_upload:
@@ -920,7 +932,19 @@ def _handle_failed_items_and_raise(
 
     # Log all failures
     for item, error in failed_items:
-        lgr.error("Failed to upload %s: %s", item.filepath, error)
+        lgr.error("Failed to upload %s (%d bytes): %s", item.filepath, item.size, error)
+
+    # Summary diagnostics
+    exc_counts = Counter(type(error).__name__ for _, error in failed_items)
+    exc_summary = ", ".join(f"{k}: {v}" for k, v in exc_counts.most_common())
+    lgr.error(
+        "Upload failure summary: %d/%d files failed; exception types: {%s}%s",
+        len(failed_items),
+        len(futures),
+        exc_summary,
+        " (systematic — all same exception type)" if len(exc_counts) == 1 else "",
+    )
+
     # Raise the first error
     raise failed_items[0][1]
 
@@ -967,23 +991,36 @@ def _upload_zarr_file(
                 json_resp=False,
                 retry_if=_retry_zarr_file,
                 headers=headers,
+                timeout=(60, 7200),
             )
     except requests.HTTPError as e:
         post_upload_size_check(item.filepath, item.size, True)
         # Check if this is a 403 error that we should retry with a new URL
         if e.response is not None and e.response.status_code == 403:
             lgr.debug(
-                "Got 403 error uploading %s, will retry with new URL: %s",
+                "Got 403 error uploading %s (%d bytes), will retry with new URL: %s",
                 item.filepath,
+                item.size,
                 str(e),
             )
             return UploadResult(item=item, status=UploadStatus.RETRY_NEEDED, error=e)
         else:
-            # Other HTTP error - don't retry
+            lgr.warning(
+                "HTTP error uploading %s (%d bytes): %s",
+                item.filepath,
+                item.size,
+                e,
+            )
             return UploadResult(item=item, status=UploadStatus.FAILED, error=e)
     except Exception as e:
         post_upload_size_check(item.filepath, item.size, True)
-        # Non-HTTP error - don't retry
+        lgr.warning(
+            "Error uploading %s (%d bytes): %s: %s",
+            item.filepath,
+            item.size,
+            type(e).__name__,
+            e,
+        )
         return UploadResult(item=item, status=UploadStatus.FAILED, error=e)
     else:
         post_upload_size_check(item.filepath, item.size, False)
@@ -1068,7 +1105,10 @@ class UploadItem:
 
     @classmethod
     def from_entry(cls, e: LocalZarrEntry, digest: str) -> UploadItem:
-        if e.name in {".zarray", ".zattrs", ".zgroup", ".zmetadata"}:
+        # JSON metadata files. ``.zarray`` / ``.zattrs`` / ``.zgroup`` /
+        # ``.zmetadata`` are the V2 names; ``zarr.json`` is the V3 name (a
+        # single file per group/array containing all metadata).
+        if e.name in {".zarray", ".zattrs", ".zgroup", ".zmetadata", "zarr.json"}:
             try:
                 with e.filepath.open("rb") as fp:
                     json.load(fp)
@@ -1078,11 +1118,19 @@ class UploadItem:
                 content_type = "application/json"
         else:
             content_type = None
+        size = pre_upload_size_check(e.filepath)
+        if size > S3_MAX_SINGLE_PART_UPLOAD:
+            raise ValueError(
+                f"Zarr chunk {e.filepath} is {size / 1024**3:.2f} GiB,"
+                f" exceeding the S3 single-part upload limit of"
+                f" {S3_MAX_SINGLE_PART_UPLOAD / 1024**3:.0f} GiB."
+                f" Multipart upload for zarr chunks is not yet supported."
+            )
         return cls(
             entry_path=str(e),
             filepath=e.filepath,
             digest=digest,
-            size=pre_upload_size_check(e.filepath),
+            size=size,
             content_type=content_type,
         )
 

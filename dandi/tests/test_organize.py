@@ -353,6 +353,10 @@ def test_video_organize(
             for ext_file_ob in ext_file_objects:
                 for no, name in enumerate(ext_file_ob["external_files"]):
                     video_files_organized.append(name)
+                    # Regression: external_file paths are DANDI/S3 keys,
+                    # must use forward slashes even on Windows.
+                    # See https://github.com/catalystneuro/nwb-video-widgets/issues/33
+                    assert "\\" not in str(name)
                     # check if external_file arguments are correctly named according to convention:
                     filename = Path(
                         f"{vid_folder.name}/{ext_file_ob['id']}_external_file_{no}"

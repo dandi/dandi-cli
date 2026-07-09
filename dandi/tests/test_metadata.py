@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from itertools import chain
 import json
 from pathlib import Path
 import shutil
@@ -505,9 +506,6 @@ def test_session_duration_extraction(tmp_path: Path) -> None:
     with NWBHDF5IO(str(nwb_path), "w") as io:
         io.write(nwbfile)
 
-    # Extract metadata
-    from ..metadata.nwb import get_metadata, nwb2asset
-
     metadata = get_metadata(nwb_path)
 
     # Check that session_end_time was calculated
@@ -566,9 +564,6 @@ def test_session_duration_with_trials(tmp_path: Path) -> None:
     with NWBHDF5IO(str(nwb_path), "w") as io:
         io.write(nwbfile)
 
-    # Extract metadata
-    from ..metadata.nwb import get_metadata, nwb2asset
-
     metadata = get_metadata(nwb_path)
 
     # Check that session_end_time was calculated
@@ -625,9 +620,6 @@ def test_session_duration_with_units(tmp_path: Path) -> None:
     with NWBHDF5IO(str(nwb_path), "w") as io:
         io.write(nwbfile)
 
-    # Extract metadata
-    from ..metadata.nwb import get_metadata
-
     metadata = get_metadata(nwb_path)
 
     # Check that session_end_time was calculated
@@ -639,6 +631,41 @@ def test_session_duration_with_units(tmp_path: Path) -> None:
         metadata["session_end_time"] - metadata["session_start_time"]
     ).total_seconds()
     assert abs(duration - 245.0) < 1.0  # Allow small floating point errors
+
+
+@pytest.mark.ai_generated
+def test_session_duration_with_scattered_non_spiking_units(tmp_path: Path) -> None:
+    """Test session duration with multiple non-spiking units in Units table."""
+    nwb_path = tmp_path / "test_duration_scattered_nonspiking_units.nwb"
+    session_start = datetime(2020, 1, 1, 12, 0, 0, tzinfo=tzutc())
+
+    nwbfile = NWBFile(
+        session_description="test session with scattered non-spiking units",
+        identifier="test_scattered_nonspiking_units_123",
+        session_start_time=session_start,
+    )
+
+    nwbfile.add_unit(spike_times=np.array([]))
+    nwbfile.add_unit(spike_times=np.array([10.0, 20.0]))
+    nwbfile.add_unit(spike_times=np.array([]))
+    nwbfile.add_unit(spike_times=np.array([5.0, 250.0]))
+    nwbfile.add_unit(spike_times=np.array([]))
+    nwbfile.add_unit(spike_times=np.array([100.0]))
+
+    with NWBHDF5IO(str(nwb_path), "w") as io:
+        io.write(nwbfile)
+
+    metadata = get_metadata(nwb_path)
+    assert "session_start_time" in metadata
+    assert "session_end_time" in metadata
+
+    end_offset = (metadata["session_end_time"] - session_start).total_seconds()
+    assert abs(end_offset - 245.0) < 1.0
+
+    duration = (
+        metadata["session_end_time"] - metadata["session_start_time"]
+    ).total_seconds()
+    assert abs(duration - 245.0) < 1.0  # max 250s and min 5s spike times
 
 
 @pytest.mark.ai_generated
@@ -690,9 +717,6 @@ def test_session_duration_with_events(tmp_path: Path) -> None:
     # Write the file
     with NWBHDF5IO(str(nwb_path), "w") as io:
         io.write(nwbfile)
-
-    # Extract metadata
-    from ..metadata.nwb import get_metadata
 
     metadata = get_metadata(nwb_path)
 
@@ -762,6 +786,7 @@ def test_species():
         "Meriones unguiculatus",
         "Meriones Unguiculatus",
         "meriones Unguiculatus",
+        "Meriones unguiculatus - Mongolian gerbil",
     ],
 )
 def test_species_all_possible(species: str) -> None:
@@ -770,21 +795,57 @@ def test_species_all_possible(species: str) -> None:
     assert species_rec.model_dump(mode="json", exclude_none=True) == {
         "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_10047",
         "schemaKey": "SpeciesType",
-        "name": "Meriones unguiculatus",
+        "name": "Meriones unguiculatus - Mongolian gerbil",
     }
 
 
-def test_extract_unknown_species():
+# tricky one since we have multiple rats but only one we want to map
+# as the default "rat"
+@pytest.mark.parametrize(
+    "species",
+    [
+        "rat",
+        "http://purl.obolibrary.org/obo/NCBITaxon_10116",
+    ],
+)
+def test_species_rat(species: str) -> None:
+    species_rec = extract_species({"species": species})
+    assert species_rec
+    assert species_rec.model_dump(mode="json", exclude_none=True) == {
+        "identifier": "http://purl.obolibrary.org/obo/NCBITaxon_10116",
+        "schemaKey": "SpeciesType",
+        "name": "Rattus norvegicus - Norway rat",
+    }
+
+
+@pytest.mark.parametrize(
+    "species",
+    [
+        "mumba-jumba",
+        "rat unknown",
+        "borat",
+        "my wonderful rat in pokadots",
+        "http://example.com/myrat",
+    ],
+)
+def test_species_extract_unknown(species):
     with pytest.raises(ValueError) as excinfo:
-        extract_species({"species": "mumba-jumba"})
-    assert str(excinfo.value).startswith("Cannot interpret species field: mumba-jumba")
+        extract_species({"species": species})
+    assert str(excinfo.value).startswith(f"Cannot interpret species field: {species}")
 
 
-def test_species_map():
-    # all alternative names should be lower case
-    for common_names, *_ in species_map:
-        for key in common_names:
-            assert key.lower() == key
+@pytest.mark.parametrize("common_names,prefix,uri,name", species_map)
+def test_species_map(common_names, prefix, uri, name):
+    # all alternative names should be in lower case
+    for key in common_names:
+        assert key.lower() == key
+    assert " - " in name
+    # verify that feeding a full "standard" name matches the correct one
+    for species in chain(name.split(" - "), common_names):
+        species_rec = extract_species({"species": species})
+        assert species_rec
+        assert str(species_rec.identifier) == uri
+        assert species_rec.name == name
 
 
 @pytest.mark.parametrize(

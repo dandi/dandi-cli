@@ -40,17 +40,16 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
 ]
 dependencies = [
     "bidsschematools ~= 1.0",
     "bids-validator-deno >= 2.0.5",
-    # >=8.2.0: https://github.com/pallets/click/issues/2911
-    "click >= 7.1, <8.2.0",
+    "click >= 7.1",
     "click-didyoumean",
     "dandischema ~= 0.12.0",
     "etelemetry >= 0.2.2",
-
     "fasteners",
     "fscacher >= 0.3.0",
     # 3.14.4: https://github.com/hdmf-dev/hdmf/issues/1186
@@ -65,8 +64,8 @@ dependencies = [
     "pycryptodomex",  # for EncryptedKeyring backend in keyrings.alt
     "pydantic ~= 2.0",
     "pynwb >= 1.0.3,!=1.1.0,!=2.3.0",
-    "numcodecs < 0.16",
-    "nwbinspector >= 0.4.28,!=0.4.32",
+    "numcodecs",
+    "nwbinspector >= 0.7.0",
     "pyout >=0.5, !=0.6.0",
     "python-dateutil",
     "requests ~= 2.20",
@@ -94,11 +93,8 @@ extras = [
     "duecredit >= 0.6.0",
     "fsspec[http]",
 ]
-style = [
-    "flake8",
-    "pre-commit",
-]
 test = [
+    "aiohttp < 3.14",  # See https://github.com/kevin1024/vcrpy/issues/995
     "anys ~= 0.2",
     "coverage",
     # Workaround for VideoWriter regression in 4.13.0.90 on Intel macOS
@@ -118,9 +114,16 @@ tools = [
 all = [
     "dandi[extensions]",
     "dandi[extras]",
-    "dandi[style]",
     "dandi[test]",
     "dandi[tools]",
+]
+
+# Development-only dependency sets, not published in built distributions.
+# See PEP 735.
+[dependency-groups]
+style = [
+    "flake8",
+    "pre-commit",
 ]
 
 [project.urls]
@@ -164,7 +167,7 @@ parentdir_prefix = ""
 skip = "_version.py,due.py,versioneer.py,*.vcr.yaml,venv,venvs,pyproject.toml"
 # Don't warn about "[l]ist" in the abbrev_prompt() docstring:
 # TE is present in the BIDS schema
-ignore-regex = "(\\[\\w\\]\\w+|TE|ignore \"bu\" strings)"
+ignore-regex = "(\\[\\w\\]\\w+|ignore \"bu\" strings)"
 ignore-words-list = "ba,bu,fo"
 
 [tool.mypy]
@@ -217,5 +220,37 @@ module = [
 ]
 ignore_missing_imports = true
 
+# `zarr.*` ships its own type stubs in zarr-python 3.x but they reject
+# `numpy.ndarray` as a value for the `NDArrayLike` protocol because of
+# minor `ndarray.reshape` overload divergence. This surfaces as ~30
+# `arg-type` errors on every `zarr.save(path, np.arange(...))` call in
+# the test suite. zarr-python 2.x has no stubs and the same calls are
+# untyped, so CI typing (which currently resolves to zarr 2.18) passes.
+# Skip following zarr imports so behaviour is consistent regardless of
+# the installed zarr-python version.
+[[tool.mypy.overrides]]
+module = ["zarr.*"]
+follow_imports = "skip"
+
 [tool.pydantic-mypy]
 init_forbid_extra = true
+
+[tool.hatch.envs.default]
+installer = "uv"
+python = "3.10"
+
+[tool.hatch.envs.test]
+features = ["test"]
+[tool.hatch.envs.test.env-vars]
+# Disable the fallback to sequential next-link pagination so tests immediately
+# catch if the server changes its pagination strategy.
+DANDI_PAGINATION_DISABLE_FALLBACK = "1"
+[tool.hatch.envs.test.scripts]
+run = "pytest {args:dandi/tests}"
+
+# Installs every project extra (via the `all` extra) plus the development-only
+# `style` dependency group: a single environment with all dependencies for
+# local development.
+[tool.hatch.envs.dev-all]
+features = ["all"]
+dependency-groups = ["style"]

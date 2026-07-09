@@ -22,7 +22,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       NO_ET: 1
-      DANDI_ALLOW_LOCALHOST_URLS: "1"
       DANDI_PAGINATION_DISABLE_FALLBACK: "1"
       DANDI_TESTS_PERSIST_DOCKER_COMPOSE: "1"
     strategy:
@@ -39,6 +38,7 @@ jobs:
           - '3.11'
           - '3.12'
           - '3.13'
+          - '3.14'
         mode:
           - normal
         vendored_dandiapi:
@@ -58,13 +58,13 @@ jobs:
             instance_identifier: 'RRID:SCR_026700'
             doi_prefix: '10.82754'
           - os: ubuntu-latest
-            python: 3.13
+            python: 3.14
             mode: obolibrary-only
           - os: ubuntu-latest
             python: '3.10'
             mode: dev-deps
           - os: ubuntu-latest
-            python: 3.13
+            python: 3.14
             mode: dev-deps
           - os: ubuntu-latest
             python: '3.10'
@@ -72,7 +72,7 @@ jobs:
 
     steps:
     - name: Set up environment
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         # Fetch all commits so that versioneer will return something compatible
         # with semantic-version
@@ -178,7 +178,7 @@ jobs:
           down -v
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: ./coverage.xml

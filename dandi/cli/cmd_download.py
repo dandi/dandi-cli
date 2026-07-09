@@ -5,7 +5,14 @@ import os
 
 import click
 
-from .base import ChoiceList, IntColonInt, instance_option, map_to_click_exceptions
+from .base import (
+    ChoiceList,
+    EnumChoice,
+    IntColonInt,
+    instance_option,
+    map_to_click_exceptions,
+)
+from ..consts import SyncMode
 from ..dandiarchive import _dandi_url_parser, parse_dandi_url
 from ..dandiset import Dandiset
 from ..download import DownloadExisting, DownloadFormat, PathType
@@ -62,7 +69,7 @@ Download files or entire folders from DANDI.
 @click.option(
     "-e",
     "--existing",
-    type=click.Choice(list(DownloadExisting)),
+    type=EnumChoice(DownloadExisting),
     # TODO: verify-reupload (to become default)
     help="How to handle paths that already exist locally. "
     "For 'error', if the local file exists, display an error and skip downloading that asset. "
@@ -79,12 +86,12 @@ Download files or entire folders from DANDI.
     "-f",
     "--format",
     help="Choose the format/frontend for output. TODO: support all of the ls",
-    type=click.Choice(list(DownloadFormat)),
+    type=EnumChoice(DownloadFormat),
     default="pyout",
 )
 @click.option(
     "--path-type",
-    type=click.Choice(list(PathType)),
+    type=EnumChoice(PathType),
     default="exact",
     help="Whether to interpret asset paths in URLs as exact matches or glob patterns",
     show_default=True,
@@ -116,7 +123,14 @@ Download files or entire folders from DANDI.
     ),
 )
 @click.option(
-    "--sync", is_flag=True, help="Delete local assets that do not exist on the server"
+    "--sync",
+    is_flag=False,
+    flag_value="ask",
+    default=None,
+    type=EnumChoice(SyncMode),
+    help="Delete local assets that do not exist on the server. "
+    "With 'ask' (the default when --sync is passed without a value), prompt before "
+    "deleting. With 'do', delete without prompting.",
 )
 @click.option(
     "--zarr",
@@ -161,7 +175,7 @@ def download(
     jobs: tuple[int, int],
     format: DownloadFormat,
     download_types: set[str],
-    sync: bool,
+    sync: str | None,
     zarr_filters: tuple[str, ...],
     dandi_instance: str,
     path_type: PathType,
@@ -202,7 +216,7 @@ def download(
         get_metadata="dandiset.yaml" in download_types or preserve_tree,
         get_assets="assets" in download_types or preserve_tree,
         preserve_tree=preserve_tree,
-        sync=sync,
+        sync=SyncMode(sync) if sync is not None else None,
         zarr_filters=zarr_filters,
         path_type=path_type,
         # develop_debug=develop_debug

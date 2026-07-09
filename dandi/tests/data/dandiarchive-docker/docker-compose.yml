@@ -105,6 +105,6 @@ services:
       retries: 5
 
   rabbitmq:
-    image: rabbitmq:management
+    image: rabbitmq:4.2-management
     expose:
       - "5672"

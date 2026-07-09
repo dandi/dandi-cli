@@ -332,7 +332,7 @@ def extract_cellLine(metadata: dict) -> str | None:
 
 NCBITAXON_URI_TEMPLATE = "http://purl.obolibrary.org/obo/NCBITaxon_{}"
 
-# common_names, prefix, uri, name
+# common_names, prefix, uri, name ({current name} - {GenBank common name})
 species_map = [
     (
         ["mouse"],
@@ -347,7 +347,7 @@ species_map = [
         "Homo sapiens - Human",
     ),
     (
-        ["rat", "norvegicus"],
+        ["brown rat", "rat", "norvegicus"],
         None,
         NCBITAXON_URI_TEMPLATE.format("10116"),
         "Rattus norvegicus - Norway rat",
@@ -386,25 +386,31 @@ species_map = [
         ["c. elegans", "caenorhabditis elegans"],
         "caenorhabditis",
         NCBITAXON_URI_TEMPLATE.format("6239"),
-        "Caenorhabditis elegans",
+        "Caenorhabditis elegans - Roundworm",
     ),
     (
         ["pig-tailed macaque", "pigtail monkey", "pigtail macaque"],
         None,
         NCBITAXON_URI_TEMPLATE.format("9545"),
-        "Macaca nemestrina",
+        "Macaca nemestrina - Pig-tailed macaque",
+    ),
+    (
+        ["bonnet macaque", "bonnet monkey", "radiata"],
+        None,
+        NCBITAXON_URI_TEMPLATE.format("9548"),
+        "Macaca radiata - Bonnet macaque",
     ),
     (
         ["mongolian gerbil", "mongolian jird"],
         None,
         NCBITAXON_URI_TEMPLATE.format("10047"),
-        "Meriones unguiculatus",
+        "Meriones unguiculatus - Mongolian gerbil",
     ),
     (
         ["common paper wasp"],
         None,
         NCBITAXON_URI_TEMPLATE.format("30207"),
-        "Polistes fuscatus",
+        "Polistes fuscatus - Common paper wasp",
     ),
 ]
 
@@ -453,7 +459,7 @@ def parse_purlobourl(
 
 def extract_species(metadata: dict) -> models.SpeciesType | None:
     value_orig = metadata.get("species", None)
-    value_id = None
+    value_matches: list[tuple[str, str | None]] = []  # of (value_id, value)
     if value_orig is not None and value_orig != "":
         if m := re.fullmatch(
             r"https?://purl\.obolibrary\.org/obo/NCBITaxon_([0-9]+)/?",
@@ -463,8 +469,7 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
             normed_value = NCBITAXON_URI_TEMPLATE.format(m[1])
             for _common_names, _prefix, uri, name in species_map:
                 if uri == normed_value:
-                    value_id = uri
-                    value = name
+                    value_matches.append((uri, name))
                     break
             else:
                 value_id = value_orig
@@ -481,18 +486,24 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
                         value = " - ".join(
                             [result[key] for key in lookup if key in result]
                         )
+                value_matches.append((value_id, value))
         else:
-            lower_value = value_orig.lower()
+            lower_value = value_orig.lower().strip()
             for common_names, prefix, uri, name in species_map:
                 if (
                     lower_value == name.lower()
-                    or any(key in lower_value for key in common_names)
                     or (prefix is not None and lower_value.startswith(prefix))
+                    or any(lower_value == v.lower() for v in name.partition(" - "))
                 ):
-                    value_id = uri
-                    value = name
-                    break
-        if value_id is None:
+                    value_matches.append((uri, name))
+            # only if no matches -- try to match by common names within common names
+            if not value_matches:
+                for common_names, prefix, uri, name in species_map:
+                    if any(key == lower_value for key in common_names):
+                        value_matches.append((uri, name))
+
+        value_matches = list(set(value_matches))  # unique values
+        if not value_matches:
             raise ValueError(
                 f"Cannot interpret species field: {value_orig}. Please "
                 "contact help@dandiarchive.org to add your species. "
@@ -503,6 +514,14 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
                 "url for the species Homo sapiens. Please note that "
                 "this url is case sensitive."
             )
+        elif len(value_matches) > 1:
+            raise ValueError(
+                f"Got multiple ({len(value_matches)}) species matched for "
+                f"{value_orig}: {value_matches}.  Should not happen. "
+                "Either you need to be more specific or our code needs "
+                "fixing - contact help@dandiarchive.org."
+            )
+        value_id, value = value_matches[0]
         return models.SpeciesType(identifier=value_id, name=value)
     else:
         return None

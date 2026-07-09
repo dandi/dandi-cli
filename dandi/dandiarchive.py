@@ -44,6 +44,7 @@ from . import get_logger
 from .consts import (
     DANDISET_ID_REGEX,
     PUBLISHED_VERSION_REGEX,
+    REDIRECT_HEAD_TIMEOUT,
     RETRY_STATUSES,
     VERSION_REGEX,
     ZARR_EXTENSIONS,
@@ -975,12 +976,18 @@ class _dandi_url_parser:
         """
         max_attempts = 5
 
-        connection_error: requests.ConnectionError | None = None
+        # ConnectionError covers DNS / TCP-level failures (and ConnectTimeout);
+        # Timeout additionally covers ReadTimeout, which we observe on Windows
+        # CI when a hop in the redirect chain accepts the connection but never
+        # responds.  Without this, requests.head() blocks indefinitely.
+        connection_error: requests.RequestException | None = None
         resp: requests.Response | None = None
         for attempt_idx in range(max_attempts):
             try:
-                resp = requests.head(url, allow_redirects=True)
-            except requests.ConnectionError as e:
+                resp = requests.head(
+                    url, allow_redirects=True, timeout=REDIRECT_HEAD_TIMEOUT
+                )
+            except (requests.ConnectionError, requests.Timeout) as e:
                 # we frequently get those on Windows for some reason
 
                 lgr.warning(

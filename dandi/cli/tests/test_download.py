@@ -24,7 +24,7 @@ def test_download_defaults(mocker):
         get_metadata=True,
         get_assets=True,
         preserve_tree=False,
-        sync=False,
+        sync=None,
         zarr_filters=(),
         path_type=PathType.EXACT,
     )
@@ -44,7 +44,7 @@ def test_download_all_types(mocker):
         get_metadata=True,
         get_assets=True,
         preserve_tree=False,
-        sync=False,
+        sync=None,
         zarr_filters=(),
         path_type=PathType.EXACT,
     )
@@ -64,7 +64,7 @@ def test_download_metadata_only(mocker):
         get_metadata=True,
         get_assets=False,
         preserve_tree=False,
-        sync=False,
+        sync=None,
         zarr_filters=(),
         path_type=PathType.EXACT,
     )
@@ -84,7 +84,7 @@ def test_download_assets_only(mocker):
         get_metadata=False,
         get_assets=True,
         preserve_tree=False,
-        sync=False,
+        sync=None,
         zarr_filters=(),
         path_type=PathType.EXACT,
     )
@@ -119,7 +119,7 @@ def test_download_gui_instance_in_dandiset(mocker):
         get_metadata=True,
         get_assets=True,
         preserve_tree=False,
-        sync=False,
+        sync=None,
         zarr_filters=(),
         path_type=PathType.EXACT,
     )
@@ -146,7 +146,7 @@ def test_download_api_instance_in_dandiset(mocker):
         get_metadata=True,
         get_assets=True,
         preserve_tree=False,
-        sync=False,
+        sync=None,
         zarr_filters=(),
         path_type=PathType.EXACT,
     )
@@ -173,7 +173,7 @@ def test_download_url_instance_match(mocker):
         get_metadata=True,
         get_assets=True,
         preserve_tree=False,
-        sync=False,
+        sync=None,
         zarr_filters=(),
         path_type=PathType.EXACT,
     )

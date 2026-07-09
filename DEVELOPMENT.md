@@ -2,6 +2,40 @@
 
 ## Development environment
 
+### Using hatch
+
+This project's hatch environments use [uv](https://github.com/astral-sh/uv)
+as the installer, which allows for significant improvements in environment
+setup speed. Each environment corresponds to a project
+extra (e.g., `test`, `extras`, `tools`). To enter a shell in an environment:
+
+```
+hatch shell <env-name>
+```
+
+For example, to enter the `test` environment:
+
+```
+hatch shell test
+```
+
+To remove environments so they can be recreated from scratch:
+
+```
+hatch env remove <env-name>  # remove a specific environment
+```
+
+or to remove all environments at once:
+
+```
+hatch env prune
+```
+
+Refer to [hatch's documentation](https://hatch.pypa.io/latest/cli/reference/)
+for full CLI usage.
+
+### Using a virtualenv
+
 Assuming that you have `python3` (and virtualenv) installed, the fastest
 way to establish yourself a development environment (or a sample deployment),
 is via virtualenv:
@@ -23,7 +57,17 @@ pre-commit install
 
 ### Running tests locally
 
-You can run all tests locally by running `tox` (you can install `tox` running `pip install tox`):
+With hatch:
+```
+hatch run test:run
+```
+
+To run a specific test:
+```
+hatch run test:run dandi/tests/test_file.py::test_function -v
+```
+
+Alternatively, with `tox` (install via `pip install tox`):
 ```
 tox -e py3
 ```
@@ -47,6 +91,31 @@ Relevant `dandi` client commands (such as `upload`) are aware of such an
 instance as `dandi-api-local-docker-tests`.  See the note below on the
 `DANDI_DEVEL` environment variable, which is needed in order to expose the
 development command line options.
+
+## Code style conventions
+
+### Dataclass and attrs field documentation
+
+Document dataclass/attrs fields using `#:` comments above the field, not
+docstrings below.  This is the format Sphinx autodoc recognizes for attribute
+documentation:
+
+```python
+@dataclass
+class Movement:
+    """A movement/renaming of an asset"""
+
+    #: The asset's original path
+    src: AssetPath
+    #: The asset's destination path
+    dest: AssetPath
+    #: Whether to skip this operation because an asset already exists at the
+    #: destination
+    skip: bool = False
+```
+
+See [dandi.move.Movement on RTD](https://dandi.readthedocs.io/en/latest/modref/generated/dandi.move.html#dandi.move.Movement)
+for a rendered example.
 
 ## Environment variables
 
@@ -86,6 +155,13 @@ development command line options.
 - `DANDI_TESTS_PULL_DOCKER_COMPOSE` -- When set to an empty string or `0`, the
   tests will not pull the latest needed Docker images at the start of a run if
   older versions of the images are already present.
+
+- `DANDI_TESTS_API_URL` -- When set, the integration tests will run against this
+  externally-managed dandi-archive API URL instead of starting a local Docker
+  Compose stack.  Requires `DANDI_TESTS_DJANGO_API_KEY` to also be set.
+
+- `DANDI_TESTS_DJANGO_API_KEY` -- Admin DRF token for the externally-managed
+  server pointed to by `DANDI_TESTS_API_URL`; required when the latter is set.
 
 - `DANDI_TESTS_NO_VCR` — When set, the use of vcrpy to playback captured HTTP
   requests during testing will be disabled
