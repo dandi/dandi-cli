@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from contextlib import ExitStack
-from enum import Enum
+from enum import StrEnum
 import io
 import os.path
 from pathlib import Path
@@ -83,24 +83,18 @@ class Uploaded(TypedDict):
     errors: list[str]
 
 
-class UploadExisting(str, Enum):
+class UploadExisting(StrEnum):
     ERROR = "error"
     SKIP = "skip"
     FORCE = "force"
     OVERWRITE = "overwrite"
     REFRESH = "refresh"
 
-    def __str__(self) -> str:
-        return self.value
 
-
-class UploadValidation(str, Enum):
+class UploadValidation(StrEnum):
     REQUIRE = "require"
     SKIP = "skip"
     IGNORE = "ignore"
-
-    def __str__(self) -> str:
-        return self.value
 
 
 def upload(

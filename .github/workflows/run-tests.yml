@@ -34,8 +34,7 @@ jobs:
           - macos-latest  # M1 architecture
           - macos-15-intel  # non-M1 architecture
         python:
-          - '3.10'  # Needs quotes so YAML doesn't think it's 3.1
-          - '3.11'
+          - '3.11'  # Needs quotes so YAML doesn't think it's 3.1
           - '3.12'
           - '3.13'
           - '3.14'
@@ -48,10 +47,10 @@ jobs:
           - default
         include:
           - os: ubuntu-latest
-            python: '3.10'
+            python: '3.11'
             mode: dandi-api
           - os: ubuntu-latest
-            python: '3.10'
+            python: '3.11'
             mode: dandi-api
             vendored_dandiapi: ember-dandi
             instance_name: EMBER-DANDI
@@ -61,13 +60,13 @@ jobs:
             python: 3.14
             mode: obolibrary-only
           - os: ubuntu-latest
-            python: '3.10'
+            python: '3.11'
             mode: dev-deps
           - os: ubuntu-latest
             python: 3.14
             mode: dev-deps
           - os: ubuntu-latest
-            python: '3.10'
+            python: '3.11'
             mode: nfs
 
     steps:
