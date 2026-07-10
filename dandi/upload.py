@@ -97,6 +97,11 @@ class UploadValidation(StrEnum):
     IGNORE = "ignore"
 
 
+class ZarrMode(StrEnum):
+    FULL = "full"
+    PATCH = "patch"
+
+
 def upload(
     paths: Sequence[str | Path] | None = None,
     existing: UploadExisting = UploadExisting.REFRESH,
@@ -108,6 +113,7 @@ def upload(
     jobs: int | None = None,
     jobs_per_file: int | None = None,
     sync: bool | SyncMode | None = False,
+    zarr_mode: ZarrMode = ZarrMode.FULL,
     validation_log_path: str | Path | None = None,
 ) -> None:
     if paths:
@@ -395,8 +401,15 @@ def upload(
                 #
                 yield {"status": "uploading"}
                 validating = False
+                upload_kwargs: dict = {}
+                if isinstance(dfile, ZarrAsset):
+                    upload_kwargs["zarr_mode"] = zarr_mode
                 for r in dfile.iter_upload(
-                    remote_dandiset, metadata, jobs=jobs_per_file, replacing=extant
+                    remote_dandiset,
+                    metadata,
+                    jobs=jobs_per_file,
+                    replacing=extant,
+                    **upload_kwargs,
                 ):
                     r.pop("asset", None)  # to keep pyout from choking
                     if r["status"] == "uploading":

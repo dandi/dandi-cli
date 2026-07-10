@@ -825,3 +825,154 @@ def test_upload_rejects_dandidownload_nwb_file(new_dandiset: SampleDandiset) -> 
         match=f"contains {DOWNLOAD_SUFFIX} path which indicates incomplete download",
     ):
         new_dandiset.upload(allow_any_path=True)
+
+
+# ---------- Partial Zarr upload (patch mode) tests ----------
+
+
+@pytest.mark.ai_generated
+def test_upload_zarr_patch_mode_no_delete(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    """Upload with patch mode should NOT delete remote-only files."""
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+
+    # Delete a local file so it becomes remote-only
+    local_zarr = zarr_dandiset.dspath / "sample.zarr"
+    # Find and remove a data file (not .zgroup etc)
+    data_files = [
+        f for f in list_paths(local_zarr) if f.is_file() and not f.name.startswith(".")
+    ]
+    assert data_files, "Expected data files in zarr"
+    removed_file = data_files[0]
+    removed_relpath = removed_file.relative_to(local_zarr).as_posix()
+    removed_file.unlink()
+
+    # Upload in patch mode — remote file should be preserved
+    zarr_dandiset.upload(zarr_mode="patch")
+
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    remote_entries_after = set(str(e) for e in asset.iterfiles())
+    assert (
+        removed_relpath in remote_entries_after
+    ), "Remote-only file was deleted in patch mode"
+
+
+@pytest.mark.ai_generated
+def test_upload_zarr_full_mode_delete(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    """Upload with full mode (default) SHOULD delete remote-only files."""
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+
+    # Delete a local file
+    local_zarr = zarr_dandiset.dspath / "sample.zarr"
+    data_files = [
+        f for f in list_paths(local_zarr) if f.is_file() and not f.name.startswith(".")
+    ]
+    assert data_files, "Expected data files in zarr"
+    removed_file = data_files[0]
+    removed_relpath = removed_file.relative_to(local_zarr).as_posix()
+    removed_file.unlink()
+
+    # Upload in full mode — remote file should be deleted
+    zarr_dandiset.upload(zarr_mode="full")
+
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    remote_entries_after = set(str(e) for e in asset.iterfiles())
+    assert (
+        removed_relpath not in remote_entries_after
+    ), "Remote-only file was NOT deleted in full mode"
+
+
+@pytest.mark.ai_generated
+def test_upload_zarr_patch_mode_updates_changed_file(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    """Patch mode should still upload new/modified files."""
+    local_zarr = zarr_dandiset.dspath / "sample.zarr"
+    # Add a new file
+    new_file = local_zarr / "new_entry.txt"
+    new_file.write_text("new content")
+
+    zarr_dandiset.upload(zarr_mode="patch", validation="skip")
+
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    remote_entries = set(str(e) for e in asset.iterfiles())
+    assert "new_entry.txt" in remote_entries, "New file was not uploaded in patch mode"
+
+
+@pytest.mark.ai_generated
+def test_upload_zarr_patch_mode_incremental_shards(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    """Use Case 2 from doc/design/partial-zarr.md: incremental shard uploads.
+
+    Emulates the workflow of a producer that cannot house the full Zarr
+    locally: after an initial full upload, most local files are removed
+    (as if the local checkout was pruned to just the metadata) and a new
+    "shard" file is dropped in.  A patch-mode upload should push the new
+    shard and leave every remote-only file untouched.
+    """
+    local_zarr = zarr_dandiset.dspath / "sample.zarr"
+
+    # Snapshot the remote entries before we mutate anything locally.
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    remote_entries_before = {str(e) for e in asset.iterfiles()}
+    assert remote_entries_before, "Expected the fixture Zarr to have remote entries"
+
+    # Prune the local tree to just the metadata files (names starting with
+    # '.' or ending with .json / .zarray / .zgroup / .zattrs).  This mimics
+    # the state of a checkout produced by `dandi download --zarr metadata`.
+    metadata_suffixes = (".json", ".zarray", ".zgroup", ".zattrs")
+    kept_relpaths: set[str] = set()
+    for p in list_paths(local_zarr):
+        if not p.is_file():
+            continue
+        is_metadata = p.name.startswith(".") or p.name.endswith(metadata_suffixes)
+        if is_metadata:
+            kept_relpaths.add(p.relative_to(local_zarr).as_posix())
+        else:
+            p.unlink()
+    # Remove now-empty non-metadata directories.
+    for d in sorted(
+        (p for p in local_zarr.rglob("*") if p.is_dir()),
+        key=lambda x: len(x.parts),
+        reverse=True,
+    ):
+        try:
+            d.rmdir()
+        except OSError:
+            pass  # not empty -- keep it
+
+    pruned_remote_only = remote_entries_before - kept_relpaths
+    assert pruned_remote_only, (
+        "Test setup expected some purely-remote entries after pruning locally;"
+        " adjust the metadata heuristic if the fixture Zarr changed."
+    )
+
+    # Add a new "shard" file that only exists locally.
+    new_shard_relpath = "shard_new"
+    new_shard = local_zarr / new_shard_relpath
+    new_shard.write_bytes(b"synthetic shard payload")
+
+    zarr_dandiset.upload(zarr_mode="patch", validation="skip")
+
+    asset_after = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset_after, RemoteZarrAsset)
+    remote_entries_after = {str(e) for e in asset_after.iterfiles()}
+
+    assert (
+        new_shard_relpath in remote_entries_after
+    ), "New shard was not uploaded in patch mode"
+    missing = pruned_remote_only - remote_entries_after
+    assert not missing, (
+        "patch-mode upload deleted remote-only entries that were absent"
+        f" locally: {sorted(missing)}"
+    )
