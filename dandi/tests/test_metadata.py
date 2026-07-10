@@ -418,11 +418,22 @@ def test_prepare_metadata(filename: str, metadata: dict[str, Any]) -> None:
     with (METADATA_DIR / filename).open() as fp:
         data_as_dict = json.load(fp)
     data_as_dict["schemaVersion"] = DANDI_SCHEMA_VERSION
+    # `prepare_metadata()` returns a `BareAsset`, so the top-level `schemaKey`
+    # of `data` is the default of the `schemaKey` field of `BareAsset` of the
+    # installed dandischema: "Asset" historically, but "BareAsset" once
+    # https://github.com/dandi/dandi-schema/pull/419 lands, which pins
+    # `BareAsset.schemaKey` to its own class name.  The JSON files store a
+    # placeholder for this field, so set it to the current default here to keep
+    # the comparison independent of the installed dandischema version.
+    data_as_dict["schemaKey"] = BareAsset.model_fields["schemaKey"].default
     assert data == data_as_dict
+
+    # `data_as_dict` is a BareAsset; the following lines turn it into an Asset
+    # instance so that `validate()` below checks it against the Asset class: set
+    # its `schemaKey`, and add the Asset-only fields `identifier` and (as of
+    # schema-0.5.0, https://github.com/dandi/dandischema/pull/52) `contentUrl`.
+    data_as_dict["schemaKey"] = "Asset"
     data_as_dict["identifier"] = "0b0a1a0b-e3ea-4cf6-be94-e02c830d54be"
-    # as of schema-0.5.0 (https://github.com/dandi/dandischema/pull/52)
-    # contentUrl is required, and validate below would map into Asset,
-    # due to schemaKey
     if Version(DANDI_SCHEMA_VERSION) >= Version("0.5.0"):
         data_as_dict["contentUrl"] = ["http://example.com"]
     validate(data_as_dict)
@@ -1135,7 +1146,6 @@ def test_nwb2asset(simple2_nwb: Path) -> None:
     # Classes with ANY_AWARE_DATETIME fields need to be constructed with
     # model_construct()
     assert nwb2asset(simple2_nwb, digest=DUMMY_DANDI_ETAG) == BareAsset.model_construct(
-        schemaKey="Asset",
         schemaVersion=DANDI_SCHEMA_VERSION,
         keywords=["keyword1", "keyword 2"],
         access=[
@@ -1218,7 +1228,6 @@ def test_nwb2asset_remote_asset(nwb_dandiset: SampleDandiset) -> None:
     # Classes with ANY_AWARE_DATETIME fields need to be constructed with
     # model_construct()
     assert nwb2asset(r, digest=digest) == BareAsset.model_construct(
-        schemaKey="Asset",
         schemaVersion=DANDI_SCHEMA_VERSION,
         keywords=["keyword1", "keyword 2"],
         access=[

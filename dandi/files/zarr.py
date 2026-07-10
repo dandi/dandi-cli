@@ -38,6 +38,7 @@ from dandi.dandiapi import (
     RemoteZarrAsset,
     RemoteZarrEntry,
     RESTFullAPIClient,
+    set_asset_schema_key,
 )
 from dandi.exceptions import UploadError
 from dandi.metadata.core import get_default_metadata
@@ -580,6 +581,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             `RemoteAsset`.
         """
         asset_path = metadata.setdefault("path", self.path)
+        set_asset_schema_key(metadata)
         client = dandiset.client
         lgr.debug("%s: Producing asset", asset_path)
         yield {"status": "producing asset"}
