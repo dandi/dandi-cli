@@ -97,12 +97,10 @@ class UploadValidation(StrEnum):
     IGNORE = "ignore"
 
 
-class ZarrMode(str, Enum):
+class ZarrMode(StrEnum):
     FULL = "full"
     PATCH = "patch"
 
-    def __str__(self) -> str:
-        return self.value
 
 
 def upload(
