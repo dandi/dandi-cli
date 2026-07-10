@@ -70,6 +70,20 @@ if TYPE_CHECKING:
 lgr = get_logger()
 
 
+def set_asset_schema_key(metadata: dict[str, Any]) -> None:
+    """
+    Set ``schemaKey`` to ``"Asset"`` on metadata bound for the server as asset metadata.
+
+    However the metadata was gathered (e.g. as a ``BareAsset``), if it is to be uploaded
+    to the server to populate, in part, an ``Asset`` instance, set the ``schemaKey`` of
+    the metadata to ``"Asset"`` here. The server expects the uploaded metadata to carry
+    ``"Asset"`` as its ``schemaKey``.
+
+    The metadata is modified in place.
+    """
+    metadata["schemaKey"] = "Asset"
+
+
 class AssetType(Enum):
     """
     .. versionadded:: 0.36.0
@@ -1993,11 +2007,7 @@ class RemoteBlobAsset(RemoteAsset, BaseRemoteBlobAsset):
         Set the metadata for the asset on the server to the given value and
         update the `RemoteBlobAsset` in place.
         """
-        # Whatever the metadata was gathered as (e.g. a ``BareAsset``),
-        # what is being created on the server is an ``Asset`` as result of the upload.
-        # The server stores ``schemaKey`` verbatim, so set it
-        # here, at the point of upload, rather than relying on the caller.
-        metadata["schemaKey"] = "Asset"
+        set_asset_schema_key(metadata)
         data = self.client.put(
             self.api_path, json={"metadata": metadata, "blob_id": self.blob}
         )
@@ -2021,11 +2031,7 @@ class RemoteZarrAsset(RemoteAsset, BaseRemoteZarrAsset):
         Set the metadata for the asset on the server to the given value and
         update the `RemoteZarrAsset` in place.
         """
-        # Whatever the metadata was gathered as (e.g. a ``BareAsset``),
-        # what is being created on the server is an ``Asset`` as result of the upload.
-        # The server stores ``schemaKey`` verbatim, so set it
-        # here, at the point of upload, rather than relying on the caller.
-        metadata["schemaKey"] = "Asset"
+        set_asset_schema_key(metadata)
         data = self.client.put(
             self.api_path, json={"metadata": metadata, "zarr_id": self.zarr}
         )

@@ -25,7 +25,12 @@ from pydantic_core import ErrorDetails
 import requests
 
 import dandi
-from dandi.dandiapi import RemoteAsset, RemoteDandiset, RESTFullAPIClient
+from dandi.dandiapi import (
+    RemoteAsset,
+    RemoteDandiset,
+    RESTFullAPIClient,
+    set_asset_schema_key,
+)
 from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ETAG, Digest, LocalReadableFile, P
 from dandi.utils import post_upload_size_check, pre_upload_size_check, yaml_load
@@ -363,11 +368,7 @@ class LocalFileAsset(LocalAsset):
         from dandi.support.digests import get_dandietag
 
         asset_path = metadata.setdefault("path", self.path)
-        # Whatever the metadata was gathered as (e.g. a ``BareAsset``),
-        # what is being created on the server is an ``Asset`` as result of the upload.
-        # The server stores ``schemaKey`` verbatim, so set it
-        # here, at the point of upload, rather than relying on the caller.
-        metadata["schemaKey"] = "Asset"
+        set_asset_schema_key(metadata)
         client = dandiset.client
         yield {"status": "calculating etag"}
         etagger = get_dandietag(self.filepath)
