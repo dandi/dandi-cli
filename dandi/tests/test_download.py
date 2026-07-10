@@ -1389,19 +1389,26 @@ def test__check_attempts_and_sleep_retries(status_code: int) -> None:
 def test_download_zarr_with_glob_filter(
     tmp_path: Path, zarr_dandiset: SampleDandiset
 ) -> None:
-    """Download only .z* metadata files from a zarr asset."""
+    """Download only metadata files from a zarr asset via a glob filter.
+
+    Zarr v2 stores metadata in dot-files (``.zarray``/``.zgroup``/``.zattrs``),
+    while Zarr v3 uses ``zarr.json``.  Match both so the test is agnostic to
+    the on-disk format produced by the installed zarr-python.
+    """
     download(
         zarr_dandiset.dandiset.version_api_url,
         tmp_path,
-        zarr_filters=("glob:**/.z*",),
+        zarr_filters=("glob:**/.z*", "glob:**/zarr.json"),
     )
     zarr_dir = tmp_path / zarr_dandiset.dandiset_id / "sample.zarr"
     assert zarr_dir.exists()
-    # All downloaded files should be metadata (start with .z)
+    # All downloaded files should be metadata files.
     all_files = list_paths(zarr_dir)
     assert len(all_files) > 0
     for f in all_files:
-        assert f.name.startswith(".z"), f"Non-metadata file downloaded: {f}"
+        assert f.name.startswith(".z") or f.name == "zarr.json", (
+            f"Non-metadata file downloaded: {f}"
+        )
 
 
 @pytest.mark.ai_generated
