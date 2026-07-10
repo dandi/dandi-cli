@@ -1,6 +1,6 @@
 {
   "id": "dandiasset:0b0a1a0b-e3ea-4cf6-be94-e02c830d54be",
-  "schemaKey": "TO BE SPECIFIED DYNAMICALLY",
+  "schemaKey": "ANYTHING GOOD NOW -- `schemaKey` of a `BareAsset` instance will be adjusted to the default value of the `schemaKey` field in the Pydantic `BareAsset` model",
   "schemaVersion": "0.4.1",
   "keywords": [
     "test",
