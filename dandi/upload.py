@@ -102,7 +102,6 @@ class ZarrMode(StrEnum):
     PATCH = "patch"
 
 
-
 def upload(
     paths: Sequence[str | Path] | None = None,
     existing: UploadExisting = UploadExisting.REFRESH,
