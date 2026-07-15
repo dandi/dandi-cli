@@ -1167,6 +1167,15 @@ class RemoteDandiset:
             Only published Dandiset versions can be expected to have valid
             metadata.  Consider using `get_raw_metadata()` instead in order to
             fetch unstructured, possibly-invalid metadata.
+
+            Even a published version's metadata can fail to validate.  The
+            fetched metadata is validated against the `Dandiset` model of the installed
+            `dandischema`, not against the version of `Dandiset` model that the metadata
+            was published under, so drift between the two can render
+            previously-valid metadata invalid.
+
+        :raises pydantic.ValidationError: if the fetched metadata does not
+            validate against `dandischema.models.Dandiset`
         """
         return models.Dandiset.model_validate(self.get_raw_metadata())
 
@@ -1575,6 +1584,15 @@ class BaseRemoteAsset(ABC, APIBase):
             Only assets in published Dandiset versions can be expected to have
             valid metadata.  Consider using `get_raw_metadata()` instead in
             order to fetch unstructured, possibly-invalid metadata.
+
+            Even a published version's asset metadata can fail to validate.  The
+            fetched metadata is validated against the `Asset` model of the installed
+            `dandischema`, not against the version of `Asset` model that the metadata
+            was published under, so drift between the two can render
+            previously-valid metadata invalid.
+
+        :raises pydantic.ValidationError: if the fetched metadata does not
+            validate against `dandischema.models.Asset`
         """
         return models.Asset.model_validate(self.get_raw_metadata())
 
