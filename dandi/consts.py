@@ -199,12 +199,14 @@ MAX_ZARR_DEPTH = 7
 ZARR_MIME_TYPE = "application/x-zarr"
 
 #: Maximum file size for a single S3 PUT upload (5 GiB).
-#: S3 rejects single-part PUTs larger than this, so Zarr entries above this
-#: size are uploaded via multipart upload instead.  Files at or below it are
-#: digested with plain MD5; larger ones get an S3 multipart ETag.
-#: The archive enforces the same boundary from the other side, rejecting
-#: multipart uploads of Zarr entries that are not larger than this, so the two
-#: values must agree.
+#: S3 rejects single-part PUTs larger than this.  A Zarr that contains any
+#: entry above this size must therefore be uploaded via S3 multipart upload;
+#: the archive records this per Zarr with an immutable ``multipart`` flag, set
+#: when the Zarr is created.  All entries of a multipart Zarr are uploaded via
+#: multipart upload (and digested with their S3 multipart ETag), while all
+#: entries of a single-part Zarr are uploaded via single-part PUT (and digested
+#: with plain MD5); the two schemes cannot be mixed within one Zarr, since its
+#: checksum is an aggregate over per-entry S3 ETags.
 S3_MAX_SINGLE_PART_UPLOAD = 5 * 1024**3
 
 #: Maximum number of Zarr directory entries to upload at once

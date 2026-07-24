@@ -19,8 +19,10 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 import hashlib
 import logging
+import os
 import os.path
 from pathlib import Path
+import re
 
 from dandischema.digests.dandietag import DandiETag
 from fscacher import PersistentCache
@@ -99,13 +101,54 @@ def get_dandietag(filepath: str | Path) -> DandiETag:
     return DandiETag.from_file(filepath)
 
 
-def get_zarr_checksum(path: Path, known: dict[str, str] | None = None) -> str:
+#: Pattern of an S3 multipart ETag: an MD5 hex digest, a hyphen, and the number
+#: of parts (e.g. ``d41d8cd98f00b204e9800998ecf8427e-3``).
+_MULTIPART_ETAG_RE = re.compile(r"[0-9a-f]{32}-[1-9][0-9]*\Z")
+
+
+def is_multipart_etag(digest: str) -> bool:
+    """
+    Return whether ``digest`` is an S3 multipart ETag (``<md5>-<parts>``) rather
+    than a plain MD5 digest.
+    """
+    return bool(_MULTIPART_ETAG_RE.match(digest))
+
+
+def zarr_has_oversized_entry(path: Path) -> bool:
+    """
+    Return whether the Zarr at ``path`` contains any entry larger than
+    `S3_MAX_SINGLE_PART_UPLOAD`.  Such a Zarr must be uploaded via S3 multipart
+    upload, since S3 rejects single-part PUTs above that size.
+    """
+    for dirpath, dirnames, filenames in os.walk(path):
+        dp = Path(dirpath)
+        dirnames[:] = [d for d in dirnames if not exclude_from_zarr(dp / d)]
+        for fn in filenames:
+            fp = dp / fn
+            if exclude_from_zarr(fp):
+                continue
+            if os.path.getsize(fp) > S3_MAX_SINGLE_PART_UPLOAD:
+                return True
+    return False
+
+
+def get_zarr_checksum(
+    path: Path,
+    known: dict[str, str] | None = None,
+    multipart: bool | None = None,
+) -> str:
     """
     Compute the Zarr checksum for a file or directory tree.
 
     If the digests for any files in the Zarr are already known, they can be
     passed in the ``known`` argument, which must be a `dict` mapping
     slash-separated paths relative to the root of the Zarr to hex digests.
+
+    ``multipart`` indicates whether the Zarr is uploaded via S3 multipart
+    upload (see `md5file_nocache`), which determines how its entries are
+    digested.  If `None`, it is inferred: from ``known`` if given (any multipart
+    ETag among the known digests implies a multipart Zarr), otherwise from
+    whether any entry on disk exceeds `S3_MAX_SINGLE_PART_UPLOAD`.
     """
     if path.is_file():
         s = get_digest(path, "md5")
@@ -113,6 +156,12 @@ def get_zarr_checksum(path: Path, known: dict[str, str] | None = None) -> str:
         return s
     if known is None:
         known = {}
+    if multipart is None:
+        multipart = (
+            any(is_multipart_etag(d) for d in known.values())
+            if known
+            else zarr_has_oversized_entry(path)
+        )
 
     def digest_file(f: Path) -> tuple[Path, str, int]:
         assert known is not None
@@ -120,7 +169,7 @@ def get_zarr_checksum(path: Path, known: dict[str, str] | None = None) -> str:
         try:
             dgst = known[relpath]
         except KeyError:
-            dgst = md5file_nocache(f)
+            dgst = md5file_nocache(f, multipart)
         return (f, dgst, os.path.getsize(f))
 
     zcc = ZarrChecksumTree()
@@ -129,19 +178,20 @@ def get_zarr_checksum(path: Path, known: dict[str, str] | None = None) -> str:
     return str(zcc.process())
 
 
-def md5file_nocache(filepath: str | Path) -> str:
+def md5file_nocache(filepath: str | Path, multipart: bool = False) -> str:
     """
-    Compute the MD5 digest of a file without caching with fscacher, which has
+    Compute the digest of a Zarr entry without caching with fscacher, which has
     been shown to slow things down for the large numbers of files typically
-    present in Zarrs
+    present in Zarrs.
 
-    Files larger than `S3_MAX_SINGLE_PART_UPLOAD` are uploaded to S3 via
-    multipart upload, which gives them a multipart ETag rather than an MD5
-    digest.  The digest returned for such a file is therefore its multipart
-    ETag, so that it matches what the server stores and so that Zarr checksums
-    computed from it agree with the server's.
+    The entries of a *multipart* Zarr — one that contains an entry too large
+    for a single-part S3 PUT, and whose entries are therefore all uploaded via
+    S3 multipart upload — are digested with their multipart ETag rather than
+    their plain MD5, since that is what S3 stores as the object's ETag and thus
+    what the server's Zarr checksum is computed from.  A single-part Zarr's
+    entries are digested with plain MD5.
     """
-    if os.path.getsize(filepath) > S3_MAX_SINGLE_PART_UPLOAD:
+    if multipart:
         s = get_dandietag(filepath).as_str()
         assert isinstance(s, str)
         return s

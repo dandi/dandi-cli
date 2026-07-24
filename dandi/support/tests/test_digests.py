@@ -109,7 +109,7 @@ def test_get_zarr_checksum(mocker: MockerFixture, tmp_path: Path) -> None:
         )
         == "f77f4c5b277575f781c19ba91422f0c5-8--197"
     )
-    spy.assert_called_once_with(sub2 / "file7.txt")
+    spy.assert_called_once_with(sub2 / "file7.txt", False)
 
 
 @pytest.mark.parametrize(
@@ -166,24 +166,24 @@ def test_checksum_zarr_dir(
 
 
 @pytest.mark.ai_generated
-def test_md5file_nocache_small_file(tmp_path: Path) -> None:
+def test_md5file_nocache_single_part(tmp_path: Path) -> None:
+    """An entry of a single-part Zarr is digested with its plain MD5."""
     f = tmp_path / "sample.txt"
     f.write_bytes(b"123")
     assert md5file_nocache(f) == "202cb962ac59075b964b07152d234b70"
+    assert md5file_nocache(f, multipart=False) == "202cb962ac59075b964b07152d234b70"
 
 
 @pytest.mark.ai_generated
-def test_md5file_nocache_large_file(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_md5file_nocache_multipart(tmp_path: Path) -> None:
     """
-    Files that have to be uploaded to S3 via multipart upload are digested with
-    their multipart ETag rather than their MD5, as that is what the server ends
-    up storing for them.
+    An entry of a multipart Zarr is digested with its multipart ETag rather than
+    its MD5, as that is what the server ends up storing for it.  This holds
+    regardless of the entry's size, since a multipart Zarr uploads every entry
+    via multipart upload.
     """
     f = tmp_path / "sample.txt"
     f.write_bytes(b"123")
-    monkeypatch.setattr(digests, "S3_MAX_SINGLE_PART_UPLOAD", 2)
-    digest = md5file_nocache(f)
+    digest = md5file_nocache(f, multipart=True)
     assert digest != "202cb962ac59075b964b07152d234b70"
     assert digest == get_dandietag(f).as_str()
