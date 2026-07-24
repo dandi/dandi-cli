@@ -15,7 +15,13 @@ import pytest
 from pytest_mock import MockerFixture
 
 from .. import digests
-from ..digests import Digester, checksum_zarr_dir, get_zarr_checksum
+from ..digests import (
+    Digester,
+    checksum_zarr_dir,
+    get_dandietag,
+    get_zarr_checksum,
+    md5file_nocache,
+)
 
 
 def test_digester(tmp_path):
@@ -157,3 +163,27 @@ def test_checksum_zarr_dir(
     checksum: str,
 ) -> None:
     assert checksum_zarr_dir(files=files, directories=directories) == checksum
+
+
+@pytest.mark.ai_generated
+def test_md5file_nocache_small_file(tmp_path: Path) -> None:
+    f = tmp_path / "sample.txt"
+    f.write_bytes(b"123")
+    assert md5file_nocache(f) == "202cb962ac59075b964b07152d234b70"
+
+
+@pytest.mark.ai_generated
+def test_md5file_nocache_large_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """
+    Files that have to be uploaded to S3 via multipart upload are digested with
+    their multipart ETag rather than their MD5, as that is what the server ends
+    up storing for them.
+    """
+    f = tmp_path / "sample.txt"
+    f.write_bytes(b"123")
+    monkeypatch.setattr(digests, "S3_MAX_SINGLE_PART_UPLOAD", 2)
+    digest = md5file_nocache(f)
+    assert digest != "202cb962ac59075b964b07152d234b70"
+    assert digest == get_dandietag(f).as_str()

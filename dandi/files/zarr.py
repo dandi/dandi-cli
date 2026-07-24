@@ -51,7 +51,7 @@ from dandi.utils import (
     pre_upload_size_check,
 )
 
-from .bases import LocalDirectoryAsset
+from .bases import LocalDirectoryAsset, multipart_upload
 from ..validate._types import (
     ORIGIN_VALIDATION_DANDI_ZARR,
     MissingFileContent,
@@ -745,15 +745,45 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 for i, items in enumerate(
                     chunked(upload_items, ZARR_UPLOAD_BATCH_SIZE), start=1
                 ):
-                    # Items to upload in this batch (may be retried e.g. due to
-                    # 403 errors because of timed-out upload URLs)
-                    items_to_upload = list(items)
+                    batch = list(items)
                     max_retries = 5
                     retry_count = 0
                     current_jobs = jobs or 5
                     # Add all items to checksum tree (only done once)
-                    for it in items_to_upload:
+                    for it in batch:
                         zcc.add_leaf(Path(it.entry_path), it.size, it.digest)
+
+                    # Items to upload in this batch (may be retried e.g. due to
+                    # 403 errors because of timed-out upload URLs)
+                    items_to_upload = [it for it in batch if not it.is_multipart]
+
+                    # Entries too large for a single-part PUT are uploaded one
+                    # at a time via multipart upload.
+                    for it in [it for it in batch if it.is_multipart]:
+                        lgr.debug(
+                            "%s: Uploading Zarr entry %s (%.2f GiB) via multipart"
+                            " upload",
+                            asset_path,
+                            it.entry_path,
+                            it.size / 1024**3,
+                        )
+                        uploaded_before = bytes_uploaded
+                        for status in _upload_large_zarr_entry(
+                            client=client, zarr_id=zarr_id, item=it, jobs=jobs
+                        ):
+                            # Translate the per-entry byte count into one
+                            # covering the Zarr as a whole.
+                            if status.get("status") == "uploading":
+                                bytes_uploaded = uploaded_before + status["current"]
+                                yield {
+                                    "status": "uploading",
+                                    "progress": 100
+                                    * bytes_uploaded
+                                    / to_upload.total_size,
+                                    "current": bytes_uploaded,
+                                }
+                        bytes_uploaded = uploaded_before + it.size
+                        changed = True
 
                     while items_to_upload and retry_count <= max_retries:
                         # Prepare upload requests for current items
@@ -929,6 +959,51 @@ def _handle_failed_items_and_raise(
     raise failed_items[0][1]
 
 
+def _upload_large_zarr_entry(
+    client: RESTFullAPIClient,
+    zarr_id: str,
+    item: UploadItem,
+    jobs: int | None = None,
+) -> Generator[dict, None, None]:
+    """
+    Upload a Zarr entry that is too large for a single-part PUT, yielding the
+    status `dict`\\s of the underlying multipart upload.
+
+    :meta private:
+    """
+    try:
+        resp = yield from multipart_upload(
+            client=client,
+            filepath=item.filepath,
+            asset_path=item.entry_path,
+            init_fields={"zarr_id": zarr_id, "chunk_key": item.entry_path},
+            expected_etag=item.digest,
+            jobs=jobs,
+        )
+    except requests.HTTPError as e:
+        if e.response is not None and e.response.status_code == 400:
+            # Servers predating dandi-archive#2865 only accept a "dandiset"
+            # field here and reject the zarr fields, so a multipart upload of a
+            # Zarr entry cannot succeed against them.
+            raise UploadError(
+                f"{item.entry_path}: server rejected the multipart upload of"
+                f" this {item.size / 1024**3:.2f} GiB Zarr entry; it may not"
+                f" support multipart upload of Zarr entries, which requires"
+                f" dandi-archive with the unified upload endpoint."
+                f" Server response: {e.response.text}"
+            ) from e
+        raise
+    # The server reports back the key it stored the entry under.  If that isn't
+    # the key we asked for, the entry landed elsewhere in the Zarr, which would
+    # otherwise surface only as an unexplained Zarr checksum mismatch.
+    chunk_key = resp.get("chunk_key")
+    if chunk_key is not None and chunk_key != item.entry_path:
+        raise UploadError(
+            f"{item.entry_path}: server stored this Zarr entry under the"
+            f" unexpected key {chunk_key!r}"
+        )
+
+
 def _upload_zarr_file(
     storage_session: RESTFullAPIClient,
     dandiset: RemoteDandiset,
@@ -1099,13 +1174,6 @@ class UploadItem:
         else:
             content_type = None
         size = pre_upload_size_check(e.filepath)
-        if size > S3_MAX_SINGLE_PART_UPLOAD:
-            raise ValueError(
-                f"Zarr chunk {e.filepath} is {size / 1024**3:.2f} GiB,"
-                f" exceeding the S3 single-part upload limit of"
-                f" {S3_MAX_SINGLE_PART_UPLOAD / 1024**3:.0f} GiB."
-                f" Multipart upload for zarr chunks is not yet supported."
-            )
         return cls(
             entry_path=str(e),
             filepath=e.filepath,
@@ -1115,7 +1183,21 @@ class UploadItem:
         )
 
     @property
+    def is_multipart(self) -> bool:
+        """
+        Whether the entry is too large for a single-part S3 PUT and must
+        therefore be uploaded via multipart upload.  For such entries, `digest`
+        is an S3 multipart ETag rather than an MD5 digest.
+        """
+        return self.size > S3_MAX_SINGLE_PART_UPLOAD
+
+    @property
     def base64_digest(self) -> str:
+        if self.is_multipart:
+            raise ValueError(
+                f"{self.entry_path}: digest is a multipart ETag, which has no"
+                f" base64 MD5 representation"
+            )
         return b64encode(bytes.fromhex(self.digest)).decode("us-ascii")
 
     def upload_request(self) -> dict[str, str | None]:

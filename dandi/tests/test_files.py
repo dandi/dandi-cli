@@ -30,6 +30,10 @@ from ..files import (
     dandi_file,
     find_dandi_files,
 )
+from ..files import zarr as zarr_mod
+from ..files.zarr import UploadItem
+from ..support import digests
+from ..support.digests import md5file_nocache
 
 lgr = get_logger()
 
@@ -548,6 +552,43 @@ def test_upload_zarr_entry_content_type(new_dandiset, tmp_path):
     e = asset.get_entry_by_path(root_meta)
     r = new_dandiset.client.get(e.download_url, json_resp=False)
     assert r.headers["Content-Type"] == "application/json"
+
+
+@pytest.mark.ai_generated
+def test_zarr_upload_item_single_part(tmp_path: Path) -> None:
+    zarr_path = tmp_path / "example.zarr"
+    zarr.save(zarr_path, np.arange(1000), np.arange(1000, 0, -1))
+    zf = dandi_file(zarr_path)
+    assert isinstance(zf, ZarrAsset)
+    entry = next(e for e in zf.iterfiles() if e.is_file())
+    item = UploadItem.from_entry(entry, md5file_nocache(entry.filepath))
+    assert not item.is_multipart
+    # A plain MD5 digest has a base64 representation, used by the single-part
+    # upload path as the Content-MD5 header.
+    assert item.base64_digest
+
+
+@pytest.mark.ai_generated
+def test_zarr_upload_item_multipart(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """
+    Entries above the single-part limit are routed to multipart upload and
+    carry a multipart ETag rather than an MD5 digest.
+    """
+    zarr_path = tmp_path / "example.zarr"
+    zarr.save(zarr_path, np.arange(1000), np.arange(1000, 0, -1))
+    monkeypatch.setattr(zarr_mod, "S3_MAX_SINGLE_PART_UPLOAD", 2)
+    monkeypatch.setattr(digests, "S3_MAX_SINGLE_PART_UPLOAD", 2)
+    zf = dandi_file(zarr_path)
+    assert isinstance(zf, ZarrAsset)
+    entry = next(e for e in zf.iterfiles() if e.is_file())
+    # Formerly this raised, as multipart upload of Zarr entries was unsupported.
+    item = UploadItem.from_entry(entry, md5file_nocache(entry.filepath))
+    assert item.is_multipart
+    # A multipart ETag is not a hex digest, so it has no base64 MD5 form.
+    with pytest.raises(ValueError, match="multipart ETag"):
+        item.base64_digest
 
 
 def test_validate_deep_zarr(tmp_path: Path) -> None:

@@ -199,8 +199,12 @@ MAX_ZARR_DEPTH = 7
 ZARR_MIME_TYPE = "application/x-zarr"
 
 #: Maximum file size for a single S3 PUT upload (5 GiB).
-#: S3 rejects single-part PUTs larger than this; such files would need
-#: multipart upload which is not yet supported for zarr chunks.
+#: S3 rejects single-part PUTs larger than this, so Zarr entries above this
+#: size are uploaded via multipart upload instead.  Files at or below it are
+#: digested with plain MD5; larger ones get an S3 multipart ETag.
+#: The archive enforces the same boundary from the other side, rejecting
+#: multipart uploads of Zarr entries that are not larger than this, so the two
+#: values must agree.
 S3_MAX_SINGLE_PART_UPLOAD = 5 * 1024**3
 
 #: Maximum number of Zarr directory entries to upload at once

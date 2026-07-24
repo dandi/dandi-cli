@@ -28,6 +28,7 @@ from zarr_checksum.checksum import ZarrChecksum, ZarrChecksumManifest
 from zarr_checksum.tree import ZarrChecksumTree
 
 from .threaded_walk import threaded_walk
+from ..consts import S3_MAX_SINGLE_PART_UPLOAD
 from ..utils import Hasher, exclude_from_zarr
 
 lgr = logging.getLogger("dandi.support.digests")
@@ -133,7 +134,17 @@ def md5file_nocache(filepath: str | Path) -> str:
     Compute the MD5 digest of a file without caching with fscacher, which has
     been shown to slow things down for the large numbers of files typically
     present in Zarrs
+
+    Files larger than `S3_MAX_SINGLE_PART_UPLOAD` are uploaded to S3 via
+    multipart upload, which gives them a multipart ETag rather than an MD5
+    digest.  The digest returned for such a file is therefore its multipart
+    ETag, so that it matches what the server stores and so that Zarr checksums
+    computed from it agree with the server's.
     """
+    if os.path.getsize(filepath) > S3_MAX_SINGLE_PART_UPLOAD:
+        s = get_dandietag(filepath).as_str()
+        assert isinstance(s, str)
+        return s
     return Digester(["md5"])(filepath)["md5"]
 
 
