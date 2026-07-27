@@ -1,3 +1,17 @@
+# 0.76.7 (Fri Jul 10 2026)
+
+#### 🐛 Bug Fix
+
+- Set uploaded asset metadata schemaKey to "Asset" [#1886](https://github.com/dandi/dandi-cli/pull/1886) ([@candleindark](https://github.com/candleindark))
+- Drop python 3.10 and simplify for  click 8.2 enum choice [#1890](https://github.com/dandi/dandi-cli/pull/1890) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 2
+
+- Isaac To ([@candleindark](https://github.com/candleindark))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.76.6 (Tue Jul 07 2026)
 
 #### 🐛 Bug Fix

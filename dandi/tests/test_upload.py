@@ -50,6 +50,10 @@ def test_upload_download(
     (dspath / parent).mkdir()
     copyfile(nwb_file, dspath / parent / name)
     new_dandiset.upload()
+    # The uploaded asset's metadata is derived from a ``BareAsset``, but it must
+    # be uploaded and stored with a ``schemaKey`` of `"Asset"`
+    (asset,) = d.get_assets()
+    assert asset.get_raw_metadata()["schemaKey"] == "Asset"
     download(d.version_api_url, tmp_path)
     assert list_paths(tmp_path) == [
         tmp_path / d.identifier / dandiset_metadata_file,

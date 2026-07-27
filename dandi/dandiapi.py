@@ -70,6 +70,20 @@ if TYPE_CHECKING:
 lgr = get_logger()
 
 
+def set_asset_schema_key(metadata: dict[str, Any]) -> None:
+    """
+    Set ``schemaKey`` to ``"Asset"`` on metadata bound for the server as asset metadata.
+
+    However the metadata was gathered (e.g. as a ``BareAsset``), if it is to be uploaded
+    to the server to populate, in part, an ``Asset`` instance, set the ``schemaKey`` of
+    the metadata to ``"Asset"`` here. The server expects the uploaded metadata to carry
+    ``"Asset"`` as its ``schemaKey``.
+
+    The metadata is modified in place.
+    """
+    metadata["schemaKey"] = "Asset"
+
+
 class AssetType(Enum):
     """
     .. versionadded:: 0.36.0
@@ -1153,6 +1167,15 @@ class RemoteDandiset:
             Only published Dandiset versions can be expected to have valid
             metadata.  Consider using `get_raw_metadata()` instead in order to
             fetch unstructured, possibly-invalid metadata.
+
+            Even a published version's metadata can fail to validate.  The
+            fetched metadata is validated against the `Dandiset` model of the installed
+            `dandischema`, not against the version of `Dandiset` model that the metadata
+            was published under, so drift between the two can render
+            previously-valid metadata invalid.
+
+        :raises pydantic.ValidationError: if the fetched metadata does not
+            validate against `dandischema.models.Dandiset`
         """
         return models.Dandiset.model_validate(self.get_raw_metadata())
 
@@ -1561,6 +1584,15 @@ class BaseRemoteAsset(ABC, APIBase):
             Only assets in published Dandiset versions can be expected to have
             valid metadata.  Consider using `get_raw_metadata()` instead in
             order to fetch unstructured, possibly-invalid metadata.
+
+            Even a published version's asset metadata can fail to validate.  The
+            fetched metadata is validated against the `Asset` model of the installed
+            `dandischema`, not against the version of `Asset` model that the metadata
+            was published under, so drift between the two can render
+            previously-valid metadata invalid.
+
+        :raises pydantic.ValidationError: if the fetched metadata does not
+            validate against `dandischema.models.Asset`
         """
         return models.Asset.model_validate(self.get_raw_metadata())
 
@@ -1993,6 +2025,7 @@ class RemoteBlobAsset(RemoteAsset, BaseRemoteBlobAsset):
         Set the metadata for the asset on the server to the given value and
         update the `RemoteBlobAsset` in place.
         """
+        set_asset_schema_key(metadata)
         data = self.client.put(
             self.api_path, json={"metadata": metadata, "blob_id": self.blob}
         )
@@ -2016,6 +2049,7 @@ class RemoteZarrAsset(RemoteAsset, BaseRemoteZarrAsset):
         Set the metadata for the asset on the server to the given value and
         update the `RemoteZarrAsset` in place.
         """
+        set_asset_schema_key(metadata)
         data = self.client.put(
             self.api_path, json={"metadata": metadata, "zarr_id": self.zarr}
         )
