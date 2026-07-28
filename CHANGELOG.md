@@ -1,3 +1,19 @@
+# 0.76.8 (Tue Jul 28 2026)
+
+#### 📝 Documentation
+
+- Document validation caveats of the `get_metadata` methods [#1892](https://github.com/dandi/dandi-cli/pull/1892) ([@candleindark](https://github.com/candleindark))
+
+#### 🧪 Tests
+
+- Build expected metadata with the server's DANDI schema version [#1894](https://github.com/dandi/dandi-cli/pull/1894) ([@candleindark](https://github.com/candleindark))
+
+#### Authors: 1
+
+- Isaac To ([@candleindark](https://github.com/candleindark))
+
+---
+
 # 0.76.7 (Fri Jul 10 2026)
 
 #### 🐛 Bug Fix
