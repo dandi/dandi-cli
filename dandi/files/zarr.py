@@ -18,7 +18,7 @@ from time import sleep
 from typing import Any, Optional
 import urllib.parse
 
-from dandischema.models import BareAsset, DigestType
+from dandischema.models import BareAsset
 from pydantic import BaseModel, ConfigDict, ValidationError
 import requests
 from zarr_checksum.tree import ZarrChecksumTree
@@ -345,9 +345,10 @@ class LocalZarrEntry(BasePath):
 
     def get_digest(self) -> Digest:
         """
-        Calculate the DANDI etag digest for the entry.  If the entry is a
-        directory, the algorithm will be the DANDI Zarr checksum algorithm; if
-        it is a file, it will be MD5.
+        Calculate the digest of the entry as it would be stored in the archive.
+        If the entry is a directory, the algorithm is the DANDI Zarr checksum
+        algorithm; if it is a file, it is the S3 multipart ETag (DANDI etag),
+        matching how `dandi upload` stores an entry of a (multipart) Zarr.
         """
         # Avoid heavy import by importing within function:
         from dandi.support.digests import get_digest, get_zarr_checksum
@@ -355,9 +356,7 @@ class LocalZarrEntry(BasePath):
         if self.is_dir():
             return Digest.dandi_zarr(get_zarr_checksum(self.filepath))
         else:
-            return Digest(
-                algorithm=DigestType.md5, value=get_digest(self.filepath, "md5")
-            )
+            return Digest.dandi_etag(get_digest(self.filepath, "dandi-etag"))
 
     @property
     def size(self) -> int:
@@ -421,15 +420,11 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
     def stat(self) -> ZarrStat:
         """Return various details about the Zarr asset"""
         # Avoid heavy import by importing within function:
-        from dandi.support.digests import (
-            checksum_zarr_dir,
-            md5file_nocache,
-            zarr_has_oversized_entry,
-        )
+        from dandi.support.digests import checksum_zarr_dir, md5file_nocache
 
-        # A Zarr with any entry too large for a single-part S3 PUT is uploaded
-        # via multipart upload, which digests every entry differently.
-        multipart = zarr_has_oversized_entry(self.filepath)
+        # Digest entries as they would be uploaded: `dandi upload` creates new
+        # Zarrs with multipart upload, so every entry gets its multipart ETag.
+        multipart = True
 
         def dirstat(dirpath: LocalZarrEntry) -> ZarrStat:
             size = 0
@@ -796,8 +791,14 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 
                     if multipart:
                         # Every entry of a multipart Zarr is uploaded via S3
-                        # multipart upload, one entry at a time.
-                        for it in batch:
+                        # multipart upload.  Upload the batch's entries
+                        # concurrently, driving each entry's multipart upload to
+                        # completion in a worker thread (a generator cannot yield
+                        # from within a worker), and report progress from this,
+                        # the main thread, as entries finish.  Each entry still
+                        # parallelizes its own parts across ``jobs`` threads,
+                        # which matters for the occasional very large entry.
+                        def upload_one(it: UploadItem) -> int:
                             lgr.debug(
                                 "%s: Uploading Zarr entry %s (%.2f GiB) via"
                                 " multipart upload",
@@ -805,14 +806,20 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                 it.entry_path,
                                 it.size / 1024**3,
                             )
-                            uploaded_before = bytes_uploaded
-                            for status in _upload_zarr_entry_multipart(
+                            for _status in _upload_zarr_entry_multipart(
                                 client=client, zarr_id=zarr_id, item=it, jobs=jobs
                             ):
-                                # Translate the per-entry byte count into one
-                                # covering the Zarr as a whole.
-                                if status.get("status") == "uploading":
-                                    bytes_uploaded = uploaded_before + status["current"]
+                                pass
+                            return it.size
+
+                        with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
+                            entry_futures = [
+                                executor.submit(upload_one, it) for it in batch
+                            ]
+                            try:
+                                for entry_fut in as_completed(entry_futures):
+                                    bytes_uploaded += entry_fut.result()
+                                    changed = True
                                     yield {
                                         "status": "uploading",
                                         "progress": 100
@@ -820,8 +827,10 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                         / to_upload.total_size,
                                         "current": bytes_uploaded,
                                     }
-                            bytes_uploaded = uploaded_before + it.size
-                            changed = True
+                            except BaseException:
+                                for f in entry_futures:
+                                    f.cancel()
+                                raise
                         lgr.debug("%s: Completing upload of batch #%d", asset_path, i)
                         continue
 

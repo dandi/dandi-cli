@@ -84,10 +84,24 @@ def test_get_zarr_checksum(mocker: MockerFixture, tmp_path: Path) -> None:
     assert (
         get_zarr_checksum(tmp_path / "file1.txt") == "d0aa42f003e36c1ecaf9aa8f20b6f1ad"
     )
-    assert get_zarr_checksum(tmp_path) == "25627e0fc7c609d10100d020f7782a25-8--197"
-    assert get_zarr_checksum(sub1) == "64af93ad7f8d471c00044d1ddbd4c0ba-4--97"
+    # Single-part Zarrs digest their entries with plain MD5.
+    assert (
+        get_zarr_checksum(tmp_path, multipart=False)
+        == "25627e0fc7c609d10100d020f7782a25-8--197"
+    )
+    assert (
+        get_zarr_checksum(sub1, multipart=False)
+        == "64af93ad7f8d471c00044d1ddbd4c0ba-4--97"
+    )
 
+    # An empty Zarr's checksum does not depend on the upload scheme.
     assert get_zarr_checksum(empty) == "481a2f77ab786a0f45aafd5db0971caa-0--0"
+
+    # Absent an explicit choice or known digests, get_zarr_checksum assumes
+    # multipart upload — the default for new Zarrs — which digests entries
+    # differently from single-part upload.
+    assert get_zarr_checksum(tmp_path) == get_zarr_checksum(tmp_path, multipart=True)
+    assert get_zarr_checksum(tmp_path) != get_zarr_checksum(tmp_path, multipart=False)
 
     spy = mocker.spy(digests, "md5file_nocache")
     assert (

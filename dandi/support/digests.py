@@ -146,9 +146,12 @@ def get_zarr_checksum(
 
     ``multipart`` indicates whether the Zarr is uploaded via S3 multipart
     upload (see `md5file_nocache`), which determines how its entries are
-    digested.  If `None`, it is inferred: from ``known`` if given (any multipart
-    ETag among the known digests implies a multipart Zarr), otherwise from
-    whether any entry on disk exceeds `S3_MAX_SINGLE_PART_UPLOAD`.
+    digested.  If `None`, it is inferred: from ``known`` if any digests are
+    given (a multipart ETag among them implies a multipart Zarr), otherwise it
+    defaults to `True`, matching how `dandi upload` creates new Zarrs — so the
+    checksum reported for a local directory is the one it will have once
+    uploaded.  Pass ``multipart=False`` explicitly to checksum a Zarr known to
+    use single-part upload (e.g. a legacy Zarr already in the archive).
     """
     if path.is_file():
         s = get_digest(path, "md5")
@@ -157,11 +160,7 @@ def get_zarr_checksum(
     if known is None:
         known = {}
     if multipart is None:
-        multipart = (
-            any(is_multipart_etag(d) for d in known.values())
-            if known
-            else zarr_has_oversized_entry(path)
-        )
+        multipart = any(is_multipart_etag(d) for d in known.values()) if known else True
 
     def digest_file(f: Path) -> tuple[Path, str, int]:
         assert known is not None
