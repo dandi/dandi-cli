@@ -209,6 +209,12 @@ ZARR_MIME_TYPE = "application/x-zarr"
 #: checksum is an aggregate over per-entry S3 ETags.
 S3_MAX_SINGLE_PART_UPLOAD = 5 * 1024**3
 
+#: Values of a Zarr's ``upload_type`` field in the archive API, recording
+#: whether its entries are uploaded via single-part PUT or S3 multipart upload.
+#: The scheme is fixed when the Zarr is created (see `S3_MAX_SINGLE_PART_UPLOAD`).
+ZARR_UPLOAD_TYPE_SINGLEPART = "singlepart"
+ZARR_UPLOAD_TYPE_MULTIPART = "multipart"
+
 #: Maximum number of Zarr directory entries to upload at once
 ZARR_UPLOAD_BATCH_SIZE = 255
 

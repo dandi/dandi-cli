@@ -31,6 +31,7 @@ from dandi.consts import (
     ZARR_DELETE_BATCH_SIZE,
     ZARR_MIME_TYPE,
     ZARR_UPLOAD_BATCH_SIZE,
+    ZARR_UPLOAD_TYPE_MULTIPART,
 )
 from dandi.dandiapi import (
     RemoteAsset,
@@ -592,14 +593,14 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         from dandi.support.digests import zarr_has_oversized_entry
 
         # New Zarrs are created with multipart upload enabled.  The archive
-        # records this per Zarr with an immutable ``multipart`` flag set at
-        # creation time; all of a Zarr's entries must use the same upload
-        # scheme, since its checksum is an aggregate over per-entry S3 ETags.
-        # A pre-existing Zarr keeps whatever scheme it was created with.  An
-        # entry too large for a single-part S3 PUT *requires* multipart upload,
-        # so such content cannot be uploaded to a single-part Zarr (a
-        # pre-existing one, or any Zarr on an archive predating the flag, which
-        # always creates single-part Zarrs).
+        # records the scheme per Zarr in an immutable ``upload_type`` field set
+        # at creation time; all of a Zarr's entries must use the same scheme,
+        # since its checksum is an aggregate over per-entry S3 ETags.  A
+        # pre-existing Zarr keeps whatever scheme it was created with.  An entry
+        # too large for a single-part S3 PUT *requires* multipart upload, so
+        # such content cannot be uploaded to a single-part Zarr (a pre-existing
+        # one, or any Zarr on an archive predating the field, which always
+        # creates single-part Zarrs).
         needs_multipart = zarr_has_oversized_entry(self.filepath)
 
         def mkzarr() -> tuple[str, bool]:
@@ -609,7 +610,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     json={
                         "name": asset_path,
                         "dandiset": dandiset.identifier,
-                        "multipart": True,
+                        "upload_type": ZARR_UPLOAD_TYPE_MULTIPART,
                     },
                 )
             except requests.HTTPError as e:
@@ -630,15 +631,15 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         },
                     )
                     zarr_id = old_zarr["zarr_id"]
-                    zarr_multipart = bool(old_zarr.get("multipart", False))
+                    zarr_multipart = _zarr_is_multipart(old_zarr)
                 else:
                     raise
             else:
                 zarr_id = r["zarr_id"]
-                # Honour the flag the server actually recorded: an archive that
-                # predates the ``multipart`` flag ignores it and always creates
-                # a single-part Zarr.
-                zarr_multipart = bool(r.get("multipart", False))
+                # Honour the scheme the server actually recorded: an archive
+                # that predates the ``upload_type`` field ignores it and always
+                # creates a single-part Zarr.
+                zarr_multipart = _zarr_is_multipart(r)
             assert isinstance(zarr_id, str)
             return zarr_id, zarr_multipart
 
@@ -650,9 +651,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 )
                 zarr_id = replacing.zarr
                 # The reused Zarr's upload scheme was fixed when it was created.
-                multipart = bool(
-                    client.get(f"/zarr/{zarr_id}/").get("multipart", False)
-                )
+                multipart = _zarr_is_multipart(client.get(f"/zarr/{zarr_id}/"))
             else:
                 lgr.debug(
                     "%s: Pre-existing asset is not a Zarr; minting new Zarr", asset_path
@@ -986,6 +985,17 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             first_run = False
         lgr.info("%s: Asset successfully uploaded", asset_path)
         yield {"status": "done", "asset": a}
+
+
+def _zarr_is_multipart(zarr: dict[str, Any]) -> bool:
+    """
+    Return whether the archive's serialization of a Zarr indicates multipart
+    upload.  An archive predating the ``upload_type`` field omits it, which
+    means single-part upload.
+
+    :meta private:
+    """
+    return zarr.get("upload_type") == ZARR_UPLOAD_TYPE_MULTIPART
 
 
 def _handle_failed_items_and_raise(
