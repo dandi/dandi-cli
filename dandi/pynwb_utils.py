@@ -152,6 +152,49 @@ def get_nwb_version(
     return None
 
 
+# Namespaces bundled with NWB/HDMF core — not extensions
+_NWB_CORE_NAMESPACES = frozenset({"core", "hdmf-common", "hdmf-experimental"})
+
+
+def get_nwb_extensions(filepath: str | Path | Readable) -> dict[str, str]:
+    """Return NWB extensions embedded in an HDF5 file.
+
+    Reads the ``specifications`` group of an NWB HDF5 file and returns a
+    mapping of extension namespace names to their latest embedded version,
+    excluding core NWB/HDMF namespaces.
+
+    Parameters
+    ----------
+    filepath
+        Path to an NWB ``.nwb`` HDF5 file, or a :class:`Readable`.
+
+    Returns
+    -------
+    dict[str, str]
+        ``{namespace_name: latest_version}`` for each non-core namespace
+        found in the file's ``specifications`` group.  Empty dict if no
+        extensions are present or the group does not exist.
+    """
+    extensions: dict[str, str] = {}
+    with open_readable(filepath) as fp, h5py.File(fp, "r") as h5file:
+        specs = h5file.get("specifications")
+        if specs is None:
+            return extensions
+        for name in specs:
+            if name in _NWB_CORE_NAMESPACES:
+                continue
+            ns_group = specs[name]
+            if not isinstance(ns_group, h5py.Group):
+                continue
+            try:
+                sorted_versions = sorted(ns_group, key=Version)
+                if sorted_versions:
+                    extensions[name] = sorted_versions[-1]
+            except Exception:
+                lgr.debug("Failed to parse versions for NWB extension %s", name)
+    return extensions
+
+
 def get_neurodata_types_to_modalities_map() -> dict[str, str]:
     """Return a dict to map neurodata types known to pynwb to "modalities"
 
