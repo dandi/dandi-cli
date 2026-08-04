@@ -12,6 +12,7 @@ from typing import Any
 
 import anys
 import click
+import dandischema.consts
 from dandischema.models import UUID_PATTERN, DigestType, get_schema_version
 import pytest
 from pytest_mock import MockerFixture
@@ -32,13 +33,22 @@ from ..dandiapi import (
     DandiAPIClient,
     RemoteAsset,
     RemoteBlobAsset,
+    RemoteDandiset,
     RemoteZarrAsset,
     Version,
+    VersionStatus,
 )
 from ..download import download
 from ..exceptions import NotFoundError, SchemaVersionError
 from ..files import GenericAsset, dandi_file
 from ..utils import list_paths
+
+# Skip downgrade tests when the installed dandischema lacks migration paths to
+# older schema versions (e.g. released 0.13.0 only lists the current schema).
+_needs_downgrade = pytest.mark.skipif(
+    "0.7.0" not in dandischema.consts.ALLOWED_TARGET_SCHEMAS,
+    reason="Installed dandischema has no downgrade path to older schema versions",
+)
 
 
 def test_upload(
@@ -380,9 +390,23 @@ def _mock_server_info(schema_version: str) -> None:
         ("0.8.0", "0.8.0", "0.8.0", [], ["sameAs", "releaseNotes"]),
         # server one minor behind -- downgrade to 0.7.0, drop sameAs (added 0.7.1),
         # keep releaseNotes (added 0.7.0)
-        ("0.7.0", "0.8.0", "0.7.0", ["sameAs"], ["releaseNotes"]),
+        pytest.param(
+            "0.7.0",
+            "0.8.0",
+            "0.7.0",
+            ["sameAs"],
+            ["releaseNotes"],
+            marks=_needs_downgrade,
+        ),
         # server on 0.6.10 -- both sameAs and releaseNotes go
-        ("0.6.10", "0.8.0", "0.6.10", ["sameAs", "releaseNotes"], []),
+        pytest.param(
+            "0.6.10",
+            "0.8.0",
+            "0.6.10",
+            ["sameAs", "releaseNotes"],
+            [],
+            marks=_needs_downgrade,
+        ),
         # server on an unsupported (too-old) target -- leave metadata alone
         ("0.6.5", "0.8.0", "0.8.0", [], ["sameAs", "releaseNotes"]),
     ],
@@ -414,8 +438,56 @@ def test__maybe_downgrade_metadata(
         assert f in out, f"expected {f!r} to be kept"
 
 
+@_needs_downgrade
+@pytest.mark.parametrize(
+    "server_schema,obj_schema,populated_field,populated_value",
+    [
+        # sameAs was added in 0.8.0 -- server on 0.7.0 cannot accept it,
+        # and a non-empty value cannot be simply stripped.
+        ("0.7.0", "0.8.0", "sameAs", ["DANDI:000002"]),
+        # releaseNotes was added in 0.7.0 -- server on 0.6.10 cannot accept
+        # it, and a non-empty value cannot be simply stripped.
+        ("0.6.10", "0.7.0", "releaseNotes", "Some release notes."),
+    ],
+)
 @responses.activate
-def test_set_raw_metadata_downgrades_on_older_server(mocker: MockerFixture) -> None:
+def test__maybe_downgrade_metadata_falls_through_on_populated_field(
+    server_schema: str,
+    obj_schema: str,
+    populated_field: str,
+    populated_value: Any,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """
+    When ``dandischema.metadata.migrate`` refuses because a post-server-version
+    field carries a non-empty value that cannot be simply stripped, the client
+    must log a warning and return the original metadata unchanged so the
+    server can decide.
+    """
+    _mock_server_info(server_schema)
+    client = DandiAPIClient("https://test.nil/api")
+    metadata = {
+        "schemaKey": "Dandiset",
+        "schemaVersion": obj_schema,
+        "name": "n",
+        "description": "d",
+        "identifier": "DANDI:000001",
+        populated_field: populated_value,
+    }
+    with caplog.at_level(logging.WARNING, logger="dandi"):
+        out = client._maybe_downgrade_metadata(metadata)
+    assert out is metadata
+    assert out["schemaVersion"] == obj_schema
+    assert out[populated_field] == populated_value
+    assert any(
+        "Could not downgrade metadata" in rec.message and populated_field in rec.message
+        for rec in caplog.records
+    )
+
+
+@_needs_downgrade
+@responses.activate
+def test_set_raw_metadata_downgrades_on_older_server() -> None:
     """
     When the server reports an older schema version than the metadata carries,
     `RemoteVersion.set_raw_metadata` must downgrade the metadata before the
@@ -435,10 +507,6 @@ def test_set_raw_metadata_downgrades_on_older_server(mocker: MockerFixture) -> N
         callback=_put_callback,
         content_type="application/json",
     )
-
-    from datetime import datetime, timezone
-
-    from ..dandiapi import RemoteDandiset, VersionStatus
 
     client = DandiAPIClient("https://test.nil/api")
     ver = Version(

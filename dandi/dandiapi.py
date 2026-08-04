@@ -27,7 +27,7 @@ import posixpath
 import re
 from time import sleep, time
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
 
 import click
 from dandischema import models
@@ -712,12 +712,8 @@ class DandiAPIClient(RESTFullAPIClient):
         """
         if schema_version is None:
             schema_version = models.get_schema_version()
-        server_info = self.get("/info/")
-        if not (server_schema_version := server_info.get("schema_version")):
-            raise RuntimeError(
-                "Server did not provide schema_version in /info/;"
-                f" returned {server_info!r}"
-            )
+        server_info = self.server_info
+        server_schema_version = self.server_schema_version
         server_ver, our_ver = PackagingVersion(server_schema_version), PackagingVersion(
             schema_version
         )
@@ -775,15 +771,24 @@ class DandiAPIClient(RESTFullAPIClient):
             )
 
     @cached_property
+    def server_info(self) -> dict[str, Any]:
+        """
+        Cached response from the server's ``/info/`` endpoint.
+        """
+        info = self.get("/info/")
+        assert isinstance(info, dict)
+        return info
+
+    @cached_property
     def server_schema_version(self) -> str:
         """
         The DANDI schema version reported by the server's ``/info/`` endpoint.
         """
-        info = self.get("/info/")
-        schema_version = info.get("schema_version")
+        schema_version = self.server_info.get("schema_version")
         if not schema_version:
             raise RuntimeError(
-                "Server did not provide schema_version in /info/;" f" returned {info!r}"
+                f"Server did not provide schema_version in /info/; "
+                f"returned {self.server_info!r}"
             )
         assert isinstance(schema_version, str)
         return schema_version
@@ -796,6 +801,11 @@ class DandiAPIClient(RESTFullAPIClient):
         ``dandischema.consts.ALLOWED_TARGET_SCHEMAS``), return a downgraded
         copy of the metadata.  Otherwise return ``metadata`` unchanged.
 
+        If the downgrade path exists but ``dandischema.metadata.migrate``
+        refuses (e.g. a field added post-server-version is populated and
+        cannot be simply stripped), log a warning and return the original
+        metadata — the server will then decide.
+
         Ref: https://github.com/dandi/dandi-schema/issues/343
         """
         obj_ver = metadata.get("schemaVersion")
@@ -803,12 +813,24 @@ class DandiAPIClient(RESTFullAPIClient):
             return metadata
         server_ver_str = self.server_schema_version
         if (
-            obj_ver == server_ver_str
-            or PackagingVersion(server_ver_str) >= PackagingVersion(obj_ver)
+            PackagingVersion(server_ver_str) >= PackagingVersion(obj_ver)
             or server_ver_str not in dandischema.consts.ALLOWED_TARGET_SCHEMAS
         ):
             return metadata
-        return migrate(metadata, to_version=server_ver_str, skip_validation=True)
+        try:
+            downgraded = migrate(
+                metadata, to_version=server_ver_str, skip_validation=True
+            )
+        except ValueError as exc:
+            lgr.warning(
+                "Could not downgrade metadata from schema version %s to server's "
+                "%s: %s. Sending original metadata; server may reject it.",
+                obj_ver,
+                server_ver_str,
+                exc,
+            )
+            return metadata
+        return cast(Dict[str, Any], downgraded)
 
     def get_asset(self, asset_id: str) -> BaseRemoteAsset:
         """
