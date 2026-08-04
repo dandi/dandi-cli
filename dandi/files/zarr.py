@@ -352,10 +352,10 @@ class LocalZarrEntry(BasePath):
         matching how `dandi upload` stores an entry of a (multipart) Zarr.
         """
         # Avoid heavy import by importing within function:
-        from dandi.support.digests import get_digest, get_zarr_checksum
+        from dandi.support.digests import get_digest, get_zarr_multipart_checksum
 
         if self.is_dir():
-            return Digest.dandi_zarr(get_zarr_checksum(self.filepath))
+            return Digest.dandi_zarr(get_zarr_multipart_checksum(self.filepath))
         else:
             return Digest.dandi_etag(get_digest(self.filepath, "dandi-etag"))
 
@@ -421,12 +421,10 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
     def stat(self) -> ZarrStat:
         """Return various details about the Zarr asset"""
         # Avoid heavy import by importing within function:
-        from dandi.support.digests import checksum_zarr_dir, md5file_nocache
+        from dandi.support.digests import checksum_zarr_dir, dandietag_nocache
 
         # Digest entries as they would be uploaded: `dandi upload` creates new
         # Zarrs with multipart upload, so every entry gets its multipart ETag.
-        multipart = True
-
         def dirstat(dirpath: LocalZarrEntry) -> ZarrStat:
             size = 0
             dir_info = {}
@@ -440,7 +438,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     files.extend(st.files)
                 else:
                     size += p.size
-                    file_info[p.name] = (md5file_nocache(p.filepath, multipart), p.size)
+                    file_info[p.name] = (dandietag_nocache(p.filepath), p.size)
                     files.append(p)
             return ZarrStat(
                 size=size,
@@ -453,9 +451,11 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
     def get_digest(self) -> Digest:
         """Calculate a dandi-zarr-checksum digest for the asset"""
         # Avoid heavy import by importing within function:
-        from dandi.support.digests import get_zarr_checksum
+        from dandi.support.digests import get_zarr_multipart_checksum
 
-        return Digest.dandi_zarr(get_zarr_checksum(self.filepath))
+        # `dandi upload` creates new Zarrs with multipart upload, so report the
+        # checksum the asset will have once uploaded.
+        return Digest.dandi_zarr(get_zarr_multipart_checksum(self.filepath))
 
     def get_metadata(
         self,
@@ -1171,8 +1171,8 @@ class EntryUploadTracker:
     :meta private:
     """
 
-    #: Whether the Zarr is uploaded via S3 multipart upload, which determines
-    #: how its entries are digested (see `md5file_nocache`).
+    #: Whether the Zarr is uploaded via S3 multipart upload, which selects how
+    #: its entries are digested: `dandietag_nocache` if so, else `md5file_nocache`.
     multipart: bool = False
     total_size: int = 0
     digested_entries: list[UploadItem] = field(default_factory=list)
@@ -1187,9 +1187,14 @@ class EntryUploadTracker:
 
     def _mkitem(self, e: LocalZarrEntry) -> UploadItem:
         # Avoid heavy import by importing within function:
-        from dandi.support.digests import md5file_nocache
+        from dandi.support.digests import dandietag_nocache, md5file_nocache
 
-        digest = md5file_nocache(e.filepath, self.multipart)
+        # Dispatch to the digest matching the Zarr's upload scheme.
+        digest = (
+            dandietag_nocache(e.filepath)
+            if self.multipart
+            else md5file_nocache(e.filepath)
+        )
         return UploadItem.from_entry(e, digest)
 
     def get_items(self, jobs: int = 5) -> Generator[UploadItem, None, None]:
@@ -1273,9 +1278,14 @@ def _cmp_digests(
     multipart: bool = False,
 ) -> tuple[LocalZarrEntry, str, bool]:
     # Avoid heavy import by importing within function:
-    from dandi.support.digests import md5file_nocache
+    from dandi.support.digests import dandietag_nocache, md5file_nocache
 
-    local_digest = md5file_nocache(local_entry.filepath, multipart)
+    # Dispatch to the digest matching the Zarr's upload scheme.
+    local_digest = (
+        dandietag_nocache(local_entry.filepath)
+        if multipart
+        else md5file_nocache(local_entry.filepath)
+    )
     if local_digest != remote_digest:
         lgr.debug(
             "%s: Path %s in Zarr differs from local file; re-uploading",

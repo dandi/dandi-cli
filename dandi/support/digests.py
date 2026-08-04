@@ -22,7 +22,6 @@ import logging
 import os
 import os.path
 from pathlib import Path
-import re
 
 from dandischema.digests.dandietag import DandiETag
 from fscacher import PersistentCache
@@ -91,7 +90,7 @@ def get_digest(filepath: str | Path, digest: str = "sha256") -> str:
         assert isinstance(s, str)
         return s
     elif digest == "zarr-checksum":
-        return get_zarr_checksum(Path(filepath))
+        return get_zarr_multipart_checksum(Path(filepath))
     else:
         return Digester([digest])(filepath)[digest]
 
@@ -99,19 +98,6 @@ def get_digest(filepath: str | Path, digest: str = "sha256") -> str:
 @checksums.memoize_path
 def get_dandietag(filepath: str | Path) -> DandiETag:
     return DandiETag.from_file(filepath)
-
-
-#: Pattern of an S3 multipart ETag: an MD5 hex digest, a hyphen, and the number
-#: of parts (e.g. ``d41d8cd98f00b204e9800998ecf8427e-3``).
-_MULTIPART_ETAG_RE = re.compile(r"[0-9a-f]{32}-[1-9][0-9]*\Z")
-
-
-def is_multipart_etag(digest: str) -> bool:
-    """
-    Return whether ``digest`` is an S3 multipart ETag (``<md5>-<parts>``) rather
-    than a plain MD5 digest.
-    """
-    return bool(_MULTIPART_ETAG_RE.match(digest))
 
 
 def zarr_has_oversized_entry(path: Path) -> bool:
@@ -132,69 +118,93 @@ def zarr_has_oversized_entry(path: Path) -> bool:
     return False
 
 
-def get_zarr_checksum(
-    path: Path,
-    known: dict[str, str] | None = None,
-    multipart: bool | None = None,
+def md5file_nocache(filepath: str | Path) -> str:
+    """
+    Compute the plain MD5 digest of a file, bypassing the fscacher cache (which
+    has been shown to slow things down for the large numbers of files typically
+    present in Zarrs).
+
+    This is the digest of an entry of a **single-part** Zarr, which S3 stores
+    under its plain MD5 ETag.  For the multipart counterpart, see
+    `dandietag_nocache`.
+    """
+    return Digester(["md5"])(filepath)["md5"]
+
+
+def dandietag_nocache(filepath: str | Path) -> str:
+    """
+    Compute the S3 multipart ETag (a.k.a. DANDI etag) of a file, bypassing the
+    fscacher cache (cf. `md5file_nocache`).
+
+    This is the digest of an entry of a **multipart** Zarr, which S3 stores
+    under its multipart ETag; multipart is the scheme `dandi upload` uses for
+    new Zarrs.  For the single-part counterpart, see `md5file_nocache`.
+    """
+    s = DandiETag.from_file(filepath).as_str()
+    assert isinstance(s, str)
+    return s
+
+
+def _zarr_checksum(
+    path: Path, known: dict[str, str], digest_file: Callable[[Path], str]
 ) -> str:
     """
-    Compute the Zarr checksum for a file or directory tree.
+    Compute a Zarr checksum for the directory tree ``path``, digesting each
+    entry not already present in ``known`` with ``digest_file``.  The two public
+    entry points — `get_zarr_checksum` (single-part) and
+    `get_zarr_multipart_checksum` (multipart) — differ only in that per-entry
+    digest function.
+
+    :meta private:
+    """
+
+    def digest_entry(f: Path) -> tuple[Path, str, int]:
+        relpath = f.relative_to(path).as_posix()
+        try:
+            dgst = known[relpath]
+        except KeyError:
+            dgst = digest_file(f)
+        return (f, dgst, os.path.getsize(f))
+
+    zcc = ZarrChecksumTree()
+    for p, digest, size in threaded_walk(path, digest_entry, exclude=exclude_from_zarr):
+        zcc.add_leaf(p.relative_to(path), size, digest)
+    return str(zcc.process())
+
+
+def get_zarr_checksum(path: Path, known: dict[str, str] | None = None) -> str:
+    """
+    Compute the **single-part** Zarr checksum for a file or directory tree:
+    every entry is digested with its plain MD5, as S3 stores it for a
+    single-part upload.  This is the checksum of a single-part Zarr; for the
+    multipart counterpart, see `get_zarr_multipart_checksum`.
 
     If the digests for any files in the Zarr are already known, they can be
     passed in the ``known`` argument, which must be a `dict` mapping
     slash-separated paths relative to the root of the Zarr to hex digests.
-
-    ``multipart`` indicates whether the Zarr is uploaded via S3 multipart
-    upload (see `md5file_nocache`), which determines how its entries are
-    digested.  If `None`, it is inferred: from ``known`` if any digests are
-    given (a multipart ETag among them implies a multipart Zarr), otherwise it
-    defaults to `True`, matching how `dandi upload` creates new Zarrs — so the
-    checksum reported for a local directory is the one it will have once
-    uploaded.  Pass ``multipart=False`` explicitly to checksum a Zarr known to
-    use single-part upload (e.g. a legacy Zarr already in the archive).
     """
     if path.is_file():
         s = get_digest(path, "md5")
         assert isinstance(s, str)
         return s
-    if known is None:
-        known = {}
-    if multipart is None:
-        multipart = any(is_multipart_etag(d) for d in known.values()) if known else True
-
-    def digest_file(f: Path) -> tuple[Path, str, int]:
-        assert known is not None
-        relpath = f.relative_to(path).as_posix()
-        try:
-            dgst = known[relpath]
-        except KeyError:
-            dgst = md5file_nocache(f, multipart)
-        return (f, dgst, os.path.getsize(f))
-
-    zcc = ZarrChecksumTree()
-    for p, digest, size in threaded_walk(path, digest_file, exclude=exclude_from_zarr):
-        zcc.add_leaf(p.relative_to(path), size, digest)
-    return str(zcc.process())
+    return _zarr_checksum(path, known or {}, md5file_nocache)
 
 
-def md5file_nocache(filepath: str | Path, multipart: bool = False) -> str:
+def get_zarr_multipart_checksum(path: Path, known: dict[str, str] | None = None) -> str:
     """
-    Compute the digest of a Zarr entry without caching with fscacher, which has
-    been shown to slow things down for the large numbers of files typically
-    present in Zarrs.
+    Compute the **multipart** Zarr checksum for a file or directory tree: every
+    entry is digested with its S3 multipart ETag, as S3 stores it for a
+    multipart upload (the scheme `dandi upload` uses for new Zarrs).  This is
+    the checksum of a multipart Zarr; for the single-part counterpart, see
+    `get_zarr_checksum`.
 
-    The entries of a *multipart* Zarr — one that contains an entry too large
-    for a single-part S3 PUT, and whose entries are therefore all uploaded via
-    S3 multipart upload — are digested with their multipart ETag rather than
-    their plain MD5, since that is what S3 stores as the object's ETag and thus
-    what the server's Zarr checksum is computed from.  A single-part Zarr's
-    entries are digested with plain MD5.
+    If the digests for any files in the Zarr are already known, they can be
+    passed in the ``known`` argument, which must be a `dict` mapping
+    slash-separated paths relative to the root of the Zarr to hex digests.
     """
-    if multipart:
-        s = get_dandietag(filepath).as_str()
-        assert isinstance(s, str)
-        return s
-    return Digester(["md5"])(filepath)["md5"]
+    if path.is_file():
+        return dandietag_nocache(path)
+    return _zarr_checksum(path, known or {}, dandietag_nocache)
 
 
 def checksum_zarr_dir(

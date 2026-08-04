@@ -18,8 +18,10 @@ from .. import digests
 from ..digests import (
     Digester,
     checksum_zarr_dir,
+    dandietag_nocache,
     get_dandietag,
     get_zarr_checksum,
+    get_zarr_multipart_checksum,
     md5file_nocache,
 )
 
@@ -84,24 +86,16 @@ def test_get_zarr_checksum(mocker: MockerFixture, tmp_path: Path) -> None:
     assert (
         get_zarr_checksum(tmp_path / "file1.txt") == "d0aa42f003e36c1ecaf9aa8f20b6f1ad"
     )
-    # Single-part Zarrs digest their entries with plain MD5.
-    assert (
-        get_zarr_checksum(tmp_path, multipart=False)
-        == "25627e0fc7c609d10100d020f7782a25-8--197"
-    )
-    assert (
-        get_zarr_checksum(sub1, multipart=False)
-        == "64af93ad7f8d471c00044d1ddbd4c0ba-4--97"
-    )
-
-    # An empty Zarr's checksum does not depend on the upload scheme.
+    # get_zarr_checksum is the single-part codepath: entries digested with MD5.
+    assert get_zarr_checksum(tmp_path) == "25627e0fc7c609d10100d020f7782a25-8--197"
+    assert get_zarr_checksum(sub1) == "64af93ad7f8d471c00044d1ddbd4c0ba-4--97"
     assert get_zarr_checksum(empty) == "481a2f77ab786a0f45aafd5db0971caa-0--0"
 
-    # Absent an explicit choice or known digests, get_zarr_checksum assumes
-    # multipart upload — the default for new Zarrs — which digests entries
-    # differently from single-part upload.
-    assert get_zarr_checksum(tmp_path) == get_zarr_checksum(tmp_path, multipart=True)
-    assert get_zarr_checksum(tmp_path) != get_zarr_checksum(tmp_path, multipart=False)
+    # get_zarr_multipart_checksum is the distinct multipart codepath: entries
+    # are digested differently, so it yields a different checksum for the same
+    # content.  (An empty Zarr's checksum does not depend on the scheme.)
+    assert get_zarr_multipart_checksum(tmp_path) != get_zarr_checksum(tmp_path)
+    assert get_zarr_multipart_checksum(empty) == get_zarr_checksum(empty)
 
     spy = mocker.spy(digests, "md5file_nocache")
     assert (
@@ -123,7 +117,7 @@ def test_get_zarr_checksum(mocker: MockerFixture, tmp_path: Path) -> None:
         )
         == "f77f4c5b277575f781c19ba91422f0c5-8--197"
     )
-    spy.assert_called_once_with(sub2 / "file7.txt", False)
+    spy.assert_called_once_with(sub2 / "file7.txt")
 
 
 @pytest.mark.parametrize(
@@ -185,19 +179,17 @@ def test_md5file_nocache_single_part(tmp_path: Path) -> None:
     f = tmp_path / "sample.txt"
     f.write_bytes(b"123")
     assert md5file_nocache(f) == "202cb962ac59075b964b07152d234b70"
-    assert md5file_nocache(f, multipart=False) == "202cb962ac59075b964b07152d234b70"
 
 
 @pytest.mark.ai_generated
-def test_md5file_nocache_multipart(tmp_path: Path) -> None:
+def test_dandietag_nocache_multipart(tmp_path: Path) -> None:
     """
     An entry of a multipart Zarr is digested with its multipart ETag rather than
-    its MD5, as that is what the server ends up storing for it.  This holds
-    regardless of the entry's size, since a multipart Zarr uploads every entry
-    via multipart upload.
+    its MD5, as that is what the server ends up storing for it.  This is the
+    distinct multipart codepath, separate from `md5file_nocache`.
     """
     f = tmp_path / "sample.txt"
     f.write_bytes(b"123")
-    digest = md5file_nocache(f, multipart=True)
-    assert digest != "202cb962ac59075b964b07152d234b70"
+    digest = dandietag_nocache(f)
+    assert digest != md5file_nocache(f)
     assert digest == get_dandietag(f).as_str()

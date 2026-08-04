@@ -31,7 +31,7 @@ from ..files import (
     find_dandi_files,
 )
 from ..files.zarr import UploadItem
-from ..support.digests import md5file_nocache
+from ..support.digests import dandietag_nocache, md5file_nocache
 
 lgr = get_logger()
 
@@ -579,7 +579,7 @@ def test_zarr_upload_item_multipart(tmp_path: Path) -> None:
     zf = dandi_file(zarr_path)
     assert isinstance(zf, ZarrAsset)
     entry = next(e for e in zf.iterfiles() if e.is_file())
-    item = UploadItem.from_entry(entry, md5file_nocache(entry.filepath, multipart=True))
+    item = UploadItem.from_entry(entry, dandietag_nocache(entry.filepath))
     # A multipart ETag is not a hex digest, so it has no base64 MD5 form.
     with pytest.raises(ValueError, match="multipart ETag"):
         item.base64_digest
