@@ -38,7 +38,7 @@ from .consts import (
 )
 from .dandiapi import DandiAPIClient, RemoteAsset
 from .dandiset import Dandiset
-from .exceptions import NotFoundError, UploadError
+from .exceptions import NotFoundError, UploadError, UploadValidationError
 from .files import (
     DandiFile,
     DandisetMetadataFile,
@@ -318,7 +318,7 @@ def upload(
                             for i, e in enumerate(validation_errors, start=1):
                                 lgr.warning(" Error %d: %s", i, e)
                             validate_ok = False
-                            raise UploadError("failed validation")
+                            raise UploadValidationError("failed validation")
                     else:
                         yield {"status": "validated"}
                 else:
@@ -478,10 +478,14 @@ def upload(
                 out(rec)
 
         if not validate_ok:
-            lgr.warning(
-                "One or more assets failed validation.  Consult the logfile for"
-                " details."
-            )
+            if validation_log_path is None:
+                lgr.warning("One or more assets failed validation.")
+            else:
+                lgr.warning(
+                    "One or more assets failed validation.  Use"
+                    " `dandi validate --load %s` to review the saved results.",
+                    validation_log_path,
+                )
         if upload_err is not None:
             try:
                 import etelemetry
