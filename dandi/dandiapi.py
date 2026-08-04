@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from fnmatch import fnmatchcase
+from functools import cached_property
 import json
 import os.path
 from pathlib import Path, PurePosixPath
@@ -31,6 +32,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 import click
 from dandischema import models
 import dandischema.consts
+from dandischema.metadata import migrate
 from packaging.version import Version as PackagingVersion
 from pydantic import BaseModel, Field, PrivateAttr
 import requests
@@ -680,6 +682,7 @@ class DandiAPIClient(RESTFullAPIClient):
 
             ``embargo`` argument added
         """
+        metadata = self._maybe_downgrade_metadata(metadata)
         return RemoteDandiset.from_data(
             self,
             self.post(
@@ -710,8 +713,7 @@ class DandiAPIClient(RESTFullAPIClient):
         if schema_version is None:
             schema_version = models.get_schema_version()
         server_info = self.get("/info/")
-        server_schema_version = server_info.get("schema_version")
-        if not server_schema_version:
+        if not (server_schema_version := server_info.get("schema_version")):
             raise RuntimeError(
                 "Server did not provide schema_version in /info/;"
                 f" returned {server_info!r}"
@@ -747,18 +749,66 @@ class DandiAPIClient(RESTFullAPIClient):
                 f" client supports {schema_version}."
             )
         elif server_ver < our_ver:
-            # Compatible older server version -- all good, but inform the user
-            # TODO: potentially downgrade the record to match the schema,
-            #       see https://github.com/dandi/dandi-schema/issues/343
+            # Compatible older server version -- `_maybe_downgrade_metadata` will
+            # attempt an on-upload downgrade when possible.
+            if server_schema_version in dandischema.consts.ALLOWED_TARGET_SCHEMAS:
+                msg_downgrade = (
+                    "Library will attempt (but might fail) to downgrade outgoing "
+                    "metadata to this schema version on upload. "
+                )
+            else:
+                msg_downgrade = (
+                    "Library DOES NOT support downgrade to this schema version. "
+                )
             lgr.warning(
-                "Server uses schema version %s older than client's %s (dandischema library %s). "
-                "Server might fail to validate such assets and you might not be able to "
-                "publish this dandiset until server is upgraded. "
-                "Alternatively, you may downgrade dandischema and reupload.",
+                "Server uses schema version %s older than client's %s "
+                "(dandischema library %s). "
+                "%s"
+                "Server might fail to validate "
+                "such assets and you might not be able to publish this dandiset "
+                "until server is upgraded. Alternatively, you may downgrade "
+                "dandischema and reupload.",
                 server_ver,
                 our_ver,
                 dandischema.__version__,
+                msg_downgrade,
             )
+
+    @cached_property
+    def server_schema_version(self) -> str:
+        """
+        The DANDI schema version reported by the server's ``/info/`` endpoint.
+        """
+        info = self.get("/info/")
+        schema_version = info.get("schema_version")
+        if not schema_version:
+            raise RuntimeError(
+                "Server did not provide schema_version in /info/;" f" returned {info!r}"
+            )
+        assert isinstance(schema_version, str)
+        return schema_version
+
+    def _maybe_downgrade_metadata(self, metadata: dict[str, Any]) -> dict[str, Any]:
+        """
+        If the server reports an older ``schema_version`` than the one embedded
+        in ``metadata``, and dandischema knows how to migrate down to that
+        version (i.e. it is in
+        ``dandischema.consts.ALLOWED_TARGET_SCHEMAS``), return a downgraded
+        copy of the metadata.  Otherwise return ``metadata`` unchanged.
+
+        Ref: https://github.com/dandi/dandi-schema/issues/343
+        """
+        obj_ver = metadata.get("schemaVersion")
+        if not obj_ver:
+            return metadata
+        server_ver_str = self.server_schema_version
+        if (
+            obj_ver == server_ver_str
+            or PackagingVersion(server_ver_str) >= PackagingVersion(obj_ver)
+            or server_ver_str not in dandischema.consts.ALLOWED_TARGET_SCHEMAS
+        ):
+            return metadata
+        return migrate(metadata, to_version=server_ver_str, skip_validation=True)
 
     def get_asset(self, asset_id: str) -> BaseRemoteAsset:
         """
@@ -1201,6 +1251,7 @@ class RemoteDandiset:
         """
         Set the metadata for this version of the Dandiset to the given value
         """
+        metadata = self.client._maybe_downgrade_metadata(metadata)
         self.client.put(
             self.version_api_path,
             json={"metadata": metadata, "name": metadata.get("name", "")},
@@ -2026,6 +2077,7 @@ class RemoteBlobAsset(RemoteAsset, BaseRemoteBlobAsset):
         update the `RemoteBlobAsset` in place.
         """
         set_asset_schema_key(metadata)
+        metadata = self.client._maybe_downgrade_metadata(metadata)
         data = self.client.put(
             self.api_path, json={"metadata": metadata, "blob_id": self.blob}
         )
@@ -2050,6 +2102,7 @@ class RemoteZarrAsset(RemoteAsset, BaseRemoteZarrAsset):
         update the `RemoteZarrAsset` in place.
         """
         set_asset_schema_key(metadata)
+        metadata = self.client._maybe_downgrade_metadata(metadata)
         data = self.client.put(
             self.api_path, json={"metadata": metadata, "zarr_id": self.zarr}
         )

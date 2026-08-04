@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 from datetime import datetime, timezone
+import json
 import logging
 from pathlib import Path
 import random
@@ -354,6 +355,115 @@ def test_check_schema_version(
             assert str(excinfo.value).startswith(expected_message_start)
     else:
         client.check_schema_version(local_schema_version)
+
+
+def _server_info(schema_version: str) -> dict:
+    return {
+        "schema_version": schema_version,
+        "version": "0.0.0",
+        "services": {"api": {"url": "https://test.nil/api"}},
+        "cli-minimal-version": "0.0.0",
+        "cli-bad-versions": [],
+    }
+
+
+def _mock_server_info(schema_version: str) -> None:
+    info = _server_info(schema_version)
+    responses.add(responses.GET, "https://test.nil/server-info", json=info)
+    responses.add(responses.GET, "https://test.nil/api/info/", json=info)
+
+
+@pytest.mark.parametrize(
+    "server_schema,obj_schema,expected_schema,dropped,kept",
+    [
+        # server on same version -- no touch, sameAs preserved
+        ("0.8.0", "0.8.0", "0.8.0", [], ["sameAs", "releaseNotes"]),
+        # server one minor behind -- downgrade to 0.7.0, drop sameAs (added 0.7.1),
+        # keep releaseNotes (added 0.7.0)
+        ("0.7.0", "0.8.0", "0.7.0", ["sameAs"], ["releaseNotes"]),
+        # server on 0.6.10 -- both sameAs and releaseNotes go
+        ("0.6.10", "0.8.0", "0.6.10", ["sameAs", "releaseNotes"], []),
+        # server on an unsupported (too-old) target -- leave metadata alone
+        ("0.6.5", "0.8.0", "0.8.0", [], ["sameAs", "releaseNotes"]),
+    ],
+)
+@responses.activate
+def test__maybe_downgrade_metadata(
+    server_schema: str,
+    obj_schema: str,
+    expected_schema: str,
+    dropped: list[str],
+    kept: list[str],
+) -> None:
+    _mock_server_info(server_schema)
+    client = DandiAPIClient("https://test.nil/api")
+    metadata = {
+        "schemaKey": "Dandiset",
+        "schemaVersion": obj_schema,
+        "name": "n",
+        "description": "d",
+        "identifier": "DANDI:000001",
+        "sameAs": [],
+        "releaseNotes": "",
+    }
+    out = client._maybe_downgrade_metadata(metadata)
+    assert out["schemaVersion"] == expected_schema
+    for f in dropped:
+        assert f not in out, f"expected {f!r} to be stripped"
+    for f in kept:
+        assert f in out, f"expected {f!r} to be kept"
+
+
+@responses.activate
+def test_set_raw_metadata_downgrades_on_older_server(mocker: MockerFixture) -> None:
+    """
+    When the server reports an older schema version than the metadata carries,
+    `RemoteVersion.set_raw_metadata` must downgrade the metadata before the
+    outgoing PUT.  Reproduces the CI failure seen with dandi-schema #342.
+    """
+    _mock_server_info("0.7.0")
+
+    captured: dict = {}
+
+    def _put_callback(request: Any) -> tuple[int, dict, str]:
+        captured["body"] = json.loads(request.body)
+        return (200, {}, json.dumps({}))
+
+    responses.add_callback(
+        responses.PUT,
+        re.compile(r"^https://test\.nil/api/dandisets/000001/versions/draft/$"),
+        callback=_put_callback,
+        content_type="application/json",
+    )
+
+    from datetime import datetime, timezone
+
+    from ..dandiapi import RemoteDandiset, VersionStatus
+
+    client = DandiAPIClient("https://test.nil/api")
+    ver = Version(
+        version="draft",
+        name="draft",
+        asset_count=0,
+        size=0,
+        created=datetime.now(timezone.utc),
+        modified=datetime.now(timezone.utc),
+        status=VersionStatus.PENDING,
+    )
+    d = RemoteDandiset(client=client, identifier="000001", version=ver)
+    d.set_raw_metadata(
+        {
+            "schemaKey": "Dandiset",
+            "schemaVersion": "0.8.0",
+            "name": "n",
+            "description": "d",
+            "identifier": "DANDI:000001",
+            "sameAs": [],
+        }
+    )
+    sent = captured["body"]["metadata"]
+    assert sent["schemaVersion"] == "0.7.0"
+    assert "sameAs" not in sent
 
 
 def test_get_dandisets(text_dandiset: SampleDandiset) -> None:

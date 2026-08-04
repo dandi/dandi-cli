@@ -583,6 +583,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         asset_path = metadata.setdefault("path", self.path)
         set_asset_schema_key(metadata)
         client = dandiset.client
+        metadata = client._maybe_downgrade_metadata(metadata)
         lgr.debug("%s: Producing asset", asset_path)
         yield {"status": "producing asset"}
 

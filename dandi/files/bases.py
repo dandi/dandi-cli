@@ -370,6 +370,7 @@ class LocalFileAsset(LocalAsset):
         asset_path = metadata.setdefault("path", self.path)
         set_asset_schema_key(metadata)
         client = dandiset.client
+        metadata = client._maybe_downgrade_metadata(metadata)
         yield {"status": "calculating etag"}
         etagger = get_dandietag(self.filepath)
         filetag = etagger.as_str()
