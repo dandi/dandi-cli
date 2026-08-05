@@ -45,6 +45,9 @@ from ..dandiapi import RemoteBlobAsset
 from ..metadata.core import prepare_metadata
 from ..metadata.nwb import get_metadata, nwb2asset
 from ..metadata.util import (
+    NCBITAXON_URI_TEMPLATE,
+    SPECIES_NAME_SEPARATOR,
+    SpeciesRecord,
     extract_age,
     extract_cellLine,
     extract_species,
@@ -845,18 +848,78 @@ def test_species_extract_unknown(species):
     assert str(excinfo.value).startswith(f"Cannot interpret species field: {species}")
 
 
-@pytest.mark.parametrize("common_names,prefix,uri,name", species_map)
-def test_species_map(common_names, prefix, uri, name):
+@pytest.mark.parametrize("record", species_map, ids=lambda r: r.scientific_name)
+def test_species_map(record: SpeciesRecord) -> None:
     # all alternative names should be in lower case
-    for key in common_names:
+    for key in record.common_names:
         assert key.lower() == key
-    assert " - " in name
+    assert SPECIES_NAME_SEPARATOR in record.name
     # verify that feeding a full "standard" name matches the correct one
-    for species in chain(name.split(" - "), common_names):
+    for species in chain(
+        [record.scientific_name, record.genbank_common_name], record.common_names
+    ):
         species_rec = extract_species({"species": species})
         assert species_rec
-        assert str(species_rec.identifier) == uri
-        assert species_rec.name == name
+        assert str(species_rec.identifier) == record.uri
+        assert species_rec.name == record.name
+
+
+@pytest.mark.ai_generated
+def test_species_map_entries_are_records() -> None:
+    assert species_map
+    for record in species_map:
+        assert isinstance(record, SpeciesRecord)
+        assert isinstance(record.common_names, tuple)
+        # frozen dataclasses are hashable, which `extract_species` relies on
+        # indirectly when de-duplicating matches
+        assert hash(record) == hash(record)
+
+
+@pytest.mark.ai_generated
+def test_species_record_name_halves() -> None:
+    record = SpeciesRecord(
+        ("pig-tailed macaque",),
+        None,
+        NCBITAXON_URI_TEMPLATE.format("9545"),
+        "Macaca nemestrina - Pig-tailed macaque",
+    )
+    assert record.scientific_name == "Macaca nemestrina"
+    assert record.genbank_common_name == "Pig-tailed macaque"
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "kwargs,match",
+    [
+        (
+            {"common_names": ("Mouse",)},
+            "Common name 'Mouse' .* must be lower-cased",
+        ),
+        (
+            {"prefix": "Mus"},
+            "Prefix 'Mus' .* must be lower-cased",
+        ),
+        (
+            {"uri": "http://example.com/mouse"},
+            "is not an NCBITaxon PURL",
+        ),
+        (
+            {"name": "Mus musculus"},
+            "must be formatted as",
+        ),
+    ],
+)
+def test_species_record_rejects_malformed_entry(
+    kwargs: dict[str, Any], match: str
+) -> None:
+    good = {
+        "common_names": ("mouse",),
+        "prefix": "mus",
+        "uri": NCBITAXON_URI_TEMPLATE.format("10090"),
+        "name": "Mus musculus - House mouse",
+    }
+    with pytest.raises(ValueError, match=match):
+        SpeciesRecord(**{**good, **kwargs})
 
 
 @pytest.mark.parametrize(

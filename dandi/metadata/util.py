@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import lru_cache
 import re
@@ -332,82 +333,159 @@ def extract_cellLine(metadata: dict) -> str | None:
 
 NCBITAXON_URI_TEMPLATE = "http://purl.obolibrary.org/obo/NCBITaxon_{}"
 
-# common_names, prefix, uri, name ({current name} - {GenBank common name})
+#: Separator between the current scientific name and the GenBank common name
+#: within `SpeciesRecord.name`
+SPECIES_NAME_SEPARATOR = " - "
+
+
+@dataclass(frozen=True)
+class SpeciesRecord:
+    """A single species entry of the `species_map` lookup table.
+
+    Attributes
+    ----------
+    common_names : tuple of str
+        Additional lower-cased names the species may be referred to by.  These
+        are only consulted if no record matched on `name` or `prefix`.
+    prefix : str or None
+        If not `None`, a lower-cased prefix such that any value starting with
+        it identifies this species, e.g. ``"mus"`` for *Mus musculus*.
+    uri : str
+        The NCBITaxon PURL for the species, see `NCBITAXON_URI_TEMPLATE`.
+    name : str
+        The canonical DANDI name, formatted as
+        ``"{current scientific name} - {GenBank common name}"``.
+    """
+
+    common_names: tuple[str, ...]
+    prefix: str | None
+    uri: str
+    name: str
+
+    def __post_init__(self) -> None:
+        for common_name in self.common_names:
+            if common_name != common_name.lower():
+                raise ValueError(
+                    f"Common name {common_name!r} of {self.uri} must be lower-cased"
+                )
+        if self.prefix is not None and self.prefix != self.prefix.lower():
+            raise ValueError(
+                f"Prefix {self.prefix!r} of {self.uri} must be lower-cased"
+            )
+        if not self.uri.startswith(NCBITAXON_URI_TEMPLATE.format("")):
+            raise ValueError(
+                f"URI {self.uri!r} is not an NCBITaxon PURL of the form "
+                f"{NCBITAXON_URI_TEMPLATE.format('<taxon id>')}"
+            )
+        if SPECIES_NAME_SEPARATOR not in self.name:
+            raise ValueError(
+                f"Name {self.name!r} of {self.uri} must be formatted as "
+                f"'{{scientific name}}{SPECIES_NAME_SEPARATOR}{{common name}}'"
+            )
+
+    @property
+    def scientific_name(self) -> str:
+        """The current scientific name, i.e. the part of `name` before the separator"""
+        return self.name.split(SPECIES_NAME_SEPARATOR, 1)[0]
+
+    @property
+    def genbank_common_name(self) -> str:
+        """The GenBank common name, i.e. the part of `name` after the separator"""
+        return self.name.split(SPECIES_NAME_SEPARATOR, 1)[1]
+
+    def matches_name(self, value: str) -> bool:
+        """Whether a lower-cased, stripped `value` identifies this species by
+        its full `name`, either half of that name, or its `prefix`
+        """
+        return (
+            value == self.name.lower()
+            or (self.prefix is not None and value.startswith(self.prefix))
+            or value == self.scientific_name.lower()
+            or value == self.genbank_common_name.lower()
+        )
+
+    def matches_common_name(self, value: str) -> bool:
+        """Whether a lower-cased, stripped `value` is one of this species'
+        `common_names`
+        """
+        return any(value == common_name for common_name in self.common_names)
+
+
 species_map = [
-    (
-        ["mouse"],
+    SpeciesRecord(
+        ("mouse",),
         "mus",
         NCBITAXON_URI_TEMPLATE.format("10090"),
         "Mus musculus - House mouse",
     ),
-    (
-        ["human"],
+    SpeciesRecord(
+        ("human",),
         "homo",
         NCBITAXON_URI_TEMPLATE.format("9606"),
         "Homo sapiens - Human",
     ),
-    (
-        ["brown rat", "rat", "norvegicus"],
+    SpeciesRecord(
+        ("brown rat", "rat", "norvegicus"),
         None,
         NCBITAXON_URI_TEMPLATE.format("10116"),
         "Rattus norvegicus - Norway rat",
     ),
-    (
-        ["rattus rattus"],
+    SpeciesRecord(
+        ("rattus rattus",),
         None,
         NCBITAXON_URI_TEMPLATE.format("10117"),
         "Rattus rattus - Black rat",
     ),
-    (
-        ["mulatta", "rhesus"],
+    SpeciesRecord(
+        ("mulatta", "rhesus"),
         None,
         NCBITAXON_URI_TEMPLATE.format("9544"),
         "Macaca mulatta - Rhesus monkey",
     ),
-    (
-        ["jacchus"],
+    SpeciesRecord(
+        ("jacchus",),
         None,
         NCBITAXON_URI_TEMPLATE.format("9483"),
         "Callithrix jacchus - Common marmoset",
     ),
-    (
-        ["melanogaster", "fruit fly"],
+    SpeciesRecord(
+        ("melanogaster", "fruit fly"),
         None,
         NCBITAXON_URI_TEMPLATE.format("7227"),
         "Drosophila melanogaster - Fruit fly",
     ),
-    (
-        ["danio", "zebrafish", "zebra fish"],
+    SpeciesRecord(
+        ("danio", "zebrafish", "zebra fish"),
         None,
         NCBITAXON_URI_TEMPLATE.format("7955"),
         "Danio rerio - Zebra fish",
     ),
-    (
-        ["c. elegans", "caenorhabditis elegans"],
+    SpeciesRecord(
+        ("c. elegans", "caenorhabditis elegans"),
         "caenorhabditis",
         NCBITAXON_URI_TEMPLATE.format("6239"),
         "Caenorhabditis elegans - Roundworm",
     ),
-    (
-        ["pig-tailed macaque", "pigtail monkey", "pigtail macaque"],
+    SpeciesRecord(
+        ("pig-tailed macaque", "pigtail monkey", "pigtail macaque"),
         None,
         NCBITAXON_URI_TEMPLATE.format("9545"),
         "Macaca nemestrina - Pig-tailed macaque",
     ),
-    (
-        ["bonnet macaque", "bonnet monkey", "radiata"],
+    SpeciesRecord(
+        ("bonnet macaque", "bonnet monkey", "radiata"),
         None,
         NCBITAXON_URI_TEMPLATE.format("9548"),
         "Macaca radiata - Bonnet macaque",
     ),
-    (
-        ["mongolian gerbil", "mongolian jird"],
+    SpeciesRecord(
+        ("mongolian gerbil", "mongolian jird"),
         None,
         NCBITAXON_URI_TEMPLATE.format("10047"),
         "Meriones unguiculatus - Mongolian gerbil",
     ),
-    (
-        ["common paper wasp"],
+    SpeciesRecord(
+        ("common paper wasp",),
         None,
         NCBITAXON_URI_TEMPLATE.format("30207"),
         "Polistes fuscatus - Common paper wasp",
@@ -467,9 +545,9 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
             flags=re.I,
         ):
             normed_value = NCBITAXON_URI_TEMPLATE.format(m[1])
-            for _common_names, _prefix, uri, name in species_map:
-                if uri == normed_value:
-                    value_matches.append((uri, name))
+            for record in species_map:
+                if record.uri == normed_value:
+                    value_matches.append((record.uri, record.name))
                     break
             else:
                 value_id = value_orig
@@ -489,18 +567,14 @@ def extract_species(metadata: dict) -> models.SpeciesType | None:
                 value_matches.append((value_id, value))
         else:
             lower_value = value_orig.lower().strip()
-            for common_names, prefix, uri, name in species_map:
-                if (
-                    lower_value == name.lower()
-                    or (prefix is not None and lower_value.startswith(prefix))
-                    or any(lower_value == v.lower() for v in name.partition(" - "))
-                ):
-                    value_matches.append((uri, name))
+            for record in species_map:
+                if record.matches_name(lower_value):
+                    value_matches.append((record.uri, record.name))
             # only if no matches -- try to match by common names within common names
             if not value_matches:
-                for common_names, prefix, uri, name in species_map:
-                    if any(key == lower_value for key in common_names):
-                        value_matches.append((uri, name))
+                for record in species_map:
+                    if record.matches_common_name(lower_value):
+                        value_matches.append((record.uri, record.name))
 
         value_matches = list(set(value_matches))  # unique values
         if not value_matches:
