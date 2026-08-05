@@ -94,6 +94,53 @@ class OrganizeInvalid(StrEnum):
 
 dandi_path = op.join("sub-{subject_id}", "{dandi_filename}")
 
+#: How many per-file metadata errors `format_metadata_load_failures()` spells
+#: out before deferring the rest to the log file
+MAX_METADATA_ERRORS_SHOWN = 5
+
+
+def format_metadata_load_failures(
+    metadata_excs: Sequence[tuple[dict, tuple | None]], npaths: int
+) -> str:
+    """Compose an actionable message about files whose metadata failed to load.
+
+    The message names each offending path together with the exception type and
+    the exception's own message, and it says how to get at the full tracebacks,
+    rather than only stating that they exist at DEBUG level.
+
+    Parameters
+    ----------
+    metadata_excs : sequence of (dict, tuple or None)
+        Pairs of a metadata record and, if loading it raised, a
+        ``(exception class, exception message, traceback)`` tuple
+    npaths : int
+        Total number of paths that were considered
+
+    Returns
+    -------
+    str
+        A multi-line message suitable for logging at WARNING level
+    """
+    failures = [(m["path"], e) for m, e in metadata_excs if e]
+    lines = [
+        f"Failed to load metadata for {len(failures)} out of "
+        f"{pluralize(npaths, 'file')}:"
+    ]
+    for path, exc in failures[:MAX_METADATA_ERRORS_SHOWN]:
+        exc_message = str(exc[1]).strip() or "<no message>"
+        lines.append(f"  {path}: {exc[0].__name__}: {exc_message}")
+    if len(failures) > MAX_METADATA_ERRORS_SHOWN:
+        lines.append(
+            f"  ... and {len(failures) - MAX_METADATA_ERRORS_SHOWN} more, see the "
+            "log file"
+        )
+    lines.append(
+        "Full tracebacks are recorded in the log file whose location is reported "
+        "at the end of this run.  To also see them on the console, re-run as "
+        "'dandi --log-level DEBUG organize ...'."
+    )
+    return "\n".join(lines)
+
 
 def filter_invalid_metadata_rows(metadata_rows):
     """Split into two lists - valid and invalid entries"""
@@ -891,14 +938,7 @@ def organize(
             metadata_excs = list(map(_get_metadata, paths))
         exceptions = [e for _, e in metadata_excs if e]
         if exceptions:
-            lgr.warning(
-                "Failed to load metadata for %d out of %d files "
-                "due to following types of exceptions: %s. "
-                "Details of the exceptions will be shown at DEBUG level",
-                len(exceptions),
-                len(paths),
-                ", ".join(e[0].__name__ for e in exceptions),
-            )
+            lgr.warning("%s", format_metadata_load_failures(metadata_excs, len(paths)))
             for m, e in metadata_excs:
                 if not e:
                     continue
