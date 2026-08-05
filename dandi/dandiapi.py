@@ -743,14 +743,13 @@ class DandiAPIClient(RESTFullAPIClient):
             can_downgrade = (
                 server_schema_version in dandischema.consts.ALLOWED_TARGET_SCHEMAS
             )
-            same_compat_band = not (
+            if not can_downgrade and (
                 (
                     server_ver.major == 0
                     and server_ver.release[:2] != our_ver.release[:2]
                 )
                 or (server_ver.major != our_ver.major)
-            )
-            if not can_downgrade and not same_compat_band:
+            ):
                 raise SchemaVersionError(
                     f"Server uses older incompatible schema version {server_schema_version};"
                     f" client supports {schema_version}."
