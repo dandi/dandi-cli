@@ -510,7 +510,7 @@ def test_set_raw_metadata_downgrades_on_older_server() -> None:
 
     client = DandiAPIClient("https://test.nil/api")
     ver = Version(
-        version="draft",
+        identifier="draft",
         name="draft",
         asset_count=0,
         size=0,
