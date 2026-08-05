@@ -682,7 +682,6 @@ class DandiAPIClient(RESTFullAPIClient):
 
             ``embargo`` argument added
         """
-        metadata = self._maybe_downgrade_metadata(metadata)
         return RemoteDandiset.from_data(
             self,
             self.post(
@@ -838,6 +837,75 @@ class DandiAPIClient(RESTFullAPIClient):
             )
             return metadata
         return cast(Dict[str, Any], downgraded)
+
+    def _maybe_downgrade_request_metadata(self, body: Any) -> Any:
+        """
+        Intercept an outgoing request body: if it wraps a DANDI metadata
+        dict under the ``"metadata"`` key, downgrade that dict to the
+        server's schema version via ``_maybe_downgrade_metadata``.
+
+        A body is treated as carrying DANDI metadata iff it is a
+        ``dict`` whose ``"metadata"`` value is itself a ``dict`` with
+        both ``schemaKey`` (a str, e.g. ``"Dandiset"``, ``"BareAsset"``)
+        and ``schemaVersion`` (a str) — this is the invariant shape of
+        every DANDI-metadata payload the archive accepts.  Bodies that
+        don't match are passed through unchanged.
+
+        Called from `request()`, so every metadata-sending endpoint
+        (``create_dandiset``, ``*.set_raw_metadata``, ``iter_upload``
+        asset-create/replace, plus any future ones) gets the downgrade
+        automatically without spot-patching.
+        """
+        if not isinstance(body, dict):
+            return body
+        md = body.get("metadata")
+        if not (
+            isinstance(md, dict)
+            and isinstance(md.get("schemaKey"), str)
+            and isinstance(md.get("schemaVersion"), str)
+        ):
+            return body
+        downgraded = self._maybe_downgrade_metadata(md)
+        if downgraded is md:
+            return body
+        return {**body, "metadata": downgraded}
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        params: dict | None = None,
+        data: Any = None,
+        files: dict | None = None,
+        json: Any = None,
+        headers: dict | None = None,
+        json_resp: bool = True,
+        retry_statuses: Sequence[int] = (),
+        retry_if: Callable[[requests.Response], Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Override of `RESTFullAPIClient.request` that runs
+        `_maybe_downgrade_request_metadata` over the outgoing ``json``
+        body so DANDI metadata gets downgraded to the server's schema
+        version on the way out.  See that method's docstring for the
+        shape check used and the ref to dandi-schema#343.
+        """
+        if json is not None:
+            json = self._maybe_downgrade_request_metadata(json)
+        return super().request(
+            method,
+            path,
+            params=params,
+            data=data,
+            files=files,
+            json=json,
+            headers=headers,
+            json_resp=json_resp,
+            retry_statuses=retry_statuses,
+            retry_if=retry_if,
+            **kwargs,
+        )
 
     def get_asset(self, asset_id: str) -> BaseRemoteAsset:
         """
@@ -1280,7 +1348,6 @@ class RemoteDandiset:
         """
         Set the metadata for this version of the Dandiset to the given value
         """
-        metadata = self.client._maybe_downgrade_metadata(metadata)
         self.client.put(
             self.version_api_path,
             json={"metadata": metadata, "name": metadata.get("name", "")},
@@ -2106,7 +2173,6 @@ class RemoteBlobAsset(RemoteAsset, BaseRemoteBlobAsset):
         update the `RemoteBlobAsset` in place.
         """
         set_asset_schema_key(metadata)
-        metadata = self.client._maybe_downgrade_metadata(metadata)
         data = self.client.put(
             self.api_path, json={"metadata": metadata, "blob_id": self.blob}
         )
@@ -2131,7 +2197,6 @@ class RemoteZarrAsset(RemoteAsset, BaseRemoteZarrAsset):
         update the `RemoteZarrAsset` in place.
         """
         set_asset_schema_key(metadata)
-        metadata = self.client._maybe_downgrade_metadata(metadata)
         data = self.client.put(
             self.api_path, json={"metadata": metadata, "zarr_id": self.zarr}
         )

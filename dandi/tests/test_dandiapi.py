@@ -493,6 +493,61 @@ def test__maybe_downgrade_metadata_falls_through_on_populated_field(
 
 
 @pytest.mark.ai_generated
+@responses.activate
+def test__maybe_downgrade_request_metadata_shape_check() -> None:
+    """
+    The request-body interceptor only touches bodies whose `metadata`
+    sub-dict has *both* `schemaKey` and `schemaVersion` as strings.
+    Anything else -- non-dict body, missing `metadata` key, `metadata`
+    that isn't a dict, `metadata` missing either shape marker -- must
+    pass through unchanged (identity).
+    """
+    _mock_server_info("0.7.0")
+    client = DandiAPIClient("https://test.nil/api")
+    non_matches = [
+        None,
+        "a string body",
+        42,
+        [{"metadata": {"schemaKey": "Dandiset", "schemaVersion": "0.8.0"}}],
+        {},
+        {"metadata": "not a dict"},
+        {"metadata": {"schemaVersion": "0.8.0"}},  # missing schemaKey
+        {"metadata": {"schemaKey": "Dandiset"}},  # missing schemaVersion
+        {"metadata": {"schemaKey": "Dandiset", "schemaVersion": 800}},  # non-str
+        {"other_key": {"schemaKey": "Dandiset", "schemaVersion": "0.8.0"}},
+    ]
+    for body in non_matches:
+        assert client._maybe_downgrade_request_metadata(body) is body
+
+
+@pytest.mark.ai_generated
+@_needs_downgrade
+@responses.activate
+def test__maybe_downgrade_request_metadata_downgrades() -> None:
+    """
+    When the body shape matches, the interceptor swaps in a downgraded
+    metadata dict, returning a *new* body (does not mutate input).
+    """
+    _mock_server_info("0.7.0")
+    client = DandiAPIClient("https://test.nil/api")
+    md = {
+        "schemaKey": "Dandiset",
+        "schemaVersion": "0.8.0",
+        "name": "n",
+        "sameAs": [],
+    }
+    body = {"metadata": md, "name": "n"}
+    out = client._maybe_downgrade_request_metadata(body)
+    assert out is not body  # new body
+    assert out["metadata"]["schemaVersion"] == "0.7.0"
+    assert "sameAs" not in out["metadata"]
+    assert out["name"] == "n"
+    # original body untouched
+    assert body["metadata"] is md
+    assert md["schemaVersion"] == "0.8.0"
+
+
+@pytest.mark.ai_generated
 @_needs_downgrade
 @responses.activate
 def test_set_raw_metadata_downgrades_on_older_server() -> None:
