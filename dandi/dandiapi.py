@@ -735,19 +735,27 @@ class DandiAPIClient(RESTFullAPIClient):
             # TODO: check current server behavior which is likely to just not care!
             # So that is where server might need to provide support for upgrades upon
             # providing metadata.
-        elif (
-            server_ver.major == 0 and server_ver.release[:2] != our_ver.release[:2]
-        ) or (
-            server_ver.major != our_ver.major
-        ):  # MAJOR, MINOR within 0.x.y and MAJOR within 1.x.y
-            raise SchemaVersionError(
-                f"Server uses older incompatible schema version {server_schema_version};"
-                f" client supports {schema_version}."
-            )
         elif server_ver < our_ver:
-            # Compatible older server version -- `_maybe_downgrade_metadata` will
-            # attempt an on-upload downgrade when possible.
-            if server_schema_version in dandischema.consts.ALLOWED_TARGET_SCHEMAS:
+            # Server is older.  If dandischema knows a downgrade path
+            # (`_maybe_downgrade_metadata` will use it on upload) OR if the
+            # versions are within the same MAJOR.MINOR (0.x.y) / MAJOR (1.x.y)
+            # compatibility band, just warn; otherwise raise as incompatible.
+            can_downgrade = (
+                server_schema_version in dandischema.consts.ALLOWED_TARGET_SCHEMAS
+            )
+            same_compat_band = not (
+                (
+                    server_ver.major == 0
+                    and server_ver.release[:2] != our_ver.release[:2]
+                )
+                or (server_ver.major != our_ver.major)
+            )
+            if not can_downgrade and not same_compat_band:
+                raise SchemaVersionError(
+                    f"Server uses older incompatible schema version {server_schema_version};"
+                    f" client supports {schema_version}."
+                )
+            if can_downgrade:
                 msg_downgrade = (
                     "Library will attempt (but might fail) to downgrade outgoing "
                     "metadata to this schema version on upload. "

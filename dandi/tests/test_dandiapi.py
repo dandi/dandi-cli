@@ -319,6 +319,11 @@ def test_remote_asset_json_dict(text_dandiset: SampleDandiset) -> None:
             True,
             "Server uses older incompatible schema version 0.6.7; client supports 0.7.0",
         ),
+        # ...unless the older server version is in
+        # `ALLOWED_TARGET_SCHEMAS` (i.e. `_maybe_downgrade_metadata` can
+        # downgrade to it on upload) -- then a warning, not an error.
+        pytest.param("0.7.0", "0.8.0", False, None, marks=_needs_downgrade),
+        pytest.param("0.6.10", "0.8.0", False, None, marks=_needs_downgrade),
         # After 1.x -- rely on MAJOR.
         ("1.0.0", "1.2.3", False, None),
         ("1.6.7", "1.7.0", False, None),
@@ -383,6 +388,7 @@ def _mock_server_info(schema_version: str) -> None:
     responses.add(responses.GET, "https://test.nil/api/info/", json=info)
 
 
+@pytest.mark.ai_generated
 @pytest.mark.parametrize(
     "server_schema,obj_schema,expected_schema,dropped,kept",
     [
@@ -438,6 +444,7 @@ def test__maybe_downgrade_metadata(
         assert f in out, f"expected {f!r} to be kept"
 
 
+@pytest.mark.ai_generated
 @_needs_downgrade
 @pytest.mark.parametrize(
     "server_schema,obj_schema,populated_field,populated_value",
@@ -485,6 +492,7 @@ def test__maybe_downgrade_metadata_falls_through_on_populated_field(
     )
 
 
+@pytest.mark.ai_generated
 @_needs_downgrade
 @responses.activate
 def test_set_raw_metadata_downgrades_on_older_server() -> None:
