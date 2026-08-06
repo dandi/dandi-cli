@@ -478,14 +478,13 @@ def upload(
                 out(rec)
 
         if not validate_ok:
-            if validation_log_path is None:
-                lgr.warning("One or more assets failed validation.")
-            else:
-                lgr.warning(
-                    "One or more assets failed validation.  Use"
-                    " `dandi validate --load %s` to review the saved results.",
-                    validation_log_path,
+            msg = "One or more assets failed validation."
+            if validation_log_path is not None:
+                msg += (
+                    f" Use `dandi validate --load {validation_log_path}`"
+                    " to review the saved results."
                 )
+            lgr.warning(msg)
         if upload_err is not None:
             try:
                 import etelemetry
