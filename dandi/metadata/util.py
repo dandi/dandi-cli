@@ -350,8 +350,10 @@ class SpeciesRecord:
     prefix : str or None
         If not `None`, a lower-cased prefix such that any value starting with
         it identifies this species, e.g. ``"mus"`` for *Mus musculus*.
-    uri : str
-        The NCBITaxon PURL for the species, see `NCBITAXON_URI_TEMPLATE`.
+    taxon_id : str
+        The numeric NCBITaxon identifier, e.g. ``"10090"``.  The `uri` is
+        derived from it so a record cannot carry a PURL that `extract_species`
+        would fail to match.
     name : str
         The canonical DANDI name, formatted as
         ``"{current scientific name} - {GenBank common name}"``.
@@ -359,29 +361,53 @@ class SpeciesRecord:
 
     common_names: tuple[str, ...]
     prefix: str | None
-    uri: str
+    taxon_id: str
     name: str
 
     def __post_init__(self) -> None:
+        # `common_names` is a tuple of one element for most entries, so a dropped
+        # trailing comma leaves a plain `str` here. That is hashable, iterates as
+        # lower-cased characters and therefore passes every other check below,
+        # while making each of its letters match this species. Reject the type
+        # rather than coercing it, since `tuple("mouse")` would silently produce
+        # exactly that character tuple.
+        if not isinstance(self.common_names, tuple):
+            raise TypeError(
+                f"Common names {self.common_names!r} of {self.uri} must be a "
+                f"tuple, got {type(self.common_names).__name__}"
+            )
         for common_name in self.common_names:
+            if not common_name:
+                raise ValueError(f"Common name of {self.uri} must not be empty")
             if common_name != common_name.lower():
                 raise ValueError(
                     f"Common name {common_name!r} of {self.uri} must be lower-cased"
                 )
-        if self.prefix is not None and self.prefix != self.prefix.lower():
+        # An empty prefix starts every value, so such a record would match every
+        # lookup and turn every other one into a "multiple species matched" error.
+        if self.prefix is not None:
+            if not self.prefix:
+                raise ValueError(f"Prefix of {self.uri} must not be empty")
+            if self.prefix != self.prefix.lower():
+                raise ValueError(
+                    f"Prefix {self.prefix!r} of {self.uri} must be lower-cased"
+                )
+        # `extract_species` recovers the id with `NCBITaxon_([0-9]+)`, so a
+        # non-numeric id would build a URI that can never be matched back.
+        if not self.taxon_id.isdigit():
             raise ValueError(
-                f"Prefix {self.prefix!r} of {self.uri} must be lower-cased"
-            )
-        if not self.uri.startswith(NCBITAXON_URI_TEMPLATE.format("")):
-            raise ValueError(
-                f"URI {self.uri!r} is not an NCBITaxon PURL of the form "
-                f"{NCBITAXON_URI_TEMPLATE.format('<taxon id>')}"
+                f"Taxon id {self.taxon_id!r} of {self.name!r} must be numeric"
             )
         if SPECIES_NAME_SEPARATOR not in self.name:
             raise ValueError(
                 f"Name {self.name!r} of {self.uri} must be formatted as "
                 f"'{{scientific name}}{SPECIES_NAME_SEPARATOR}{{common name}}'"
             )
+
+    @property
+    def uri(self) -> str:
+        """The NCBITaxon PURL for the species, see `NCBITAXON_URI_TEMPLATE`"""
+        return NCBITAXON_URI_TEMPLATE.format(self.taxon_id)
 
     @property
     def scientific_name(self) -> str:
@@ -394,9 +420,12 @@ class SpeciesRecord:
         return self.name.split(SPECIES_NAME_SEPARATOR, 1)[1]
 
     def matches_name(self, value: str) -> bool:
-        """Whether a lower-cased, stripped `value` identifies this species by
-        its full `name`, either half of that name, or its `prefix`
+        """Whether `value` identifies this species by its full `name`, either
+        half of that name, or its `prefix`
+
+        `value` is normalized here, so callers need not pre-normalize it.
         """
+        value = value.strip().lower()
         return (
             value == self.name.lower()
             or (self.prefix is not None and value.startswith(self.prefix))
@@ -405,9 +434,11 @@ class SpeciesRecord:
         )
 
     def matches_common_name(self, value: str) -> bool:
-        """Whether a lower-cased, stripped `value` is one of this species'
-        `common_names`
+        """Whether `value` is one of this species' `common_names`
+
+        `value` is normalized here, so callers need not pre-normalize it.
         """
+        value = value.strip().lower()
         return any(value == common_name for common_name in self.common_names)
 
 
@@ -415,79 +446,79 @@ species_map = [
     SpeciesRecord(
         ("mouse",),
         "mus",
-        NCBITAXON_URI_TEMPLATE.format("10090"),
+        "10090",
         "Mus musculus - House mouse",
     ),
     SpeciesRecord(
         ("human",),
         "homo",
-        NCBITAXON_URI_TEMPLATE.format("9606"),
+        "9606",
         "Homo sapiens - Human",
     ),
     SpeciesRecord(
         ("brown rat", "rat", "norvegicus"),
         None,
-        NCBITAXON_URI_TEMPLATE.format("10116"),
+        "10116",
         "Rattus norvegicus - Norway rat",
     ),
     SpeciesRecord(
         ("rattus rattus",),
         None,
-        NCBITAXON_URI_TEMPLATE.format("10117"),
+        "10117",
         "Rattus rattus - Black rat",
     ),
     SpeciesRecord(
         ("mulatta", "rhesus"),
         None,
-        NCBITAXON_URI_TEMPLATE.format("9544"),
+        "9544",
         "Macaca mulatta - Rhesus monkey",
     ),
     SpeciesRecord(
         ("jacchus",),
         None,
-        NCBITAXON_URI_TEMPLATE.format("9483"),
+        "9483",
         "Callithrix jacchus - Common marmoset",
     ),
     SpeciesRecord(
         ("melanogaster", "fruit fly"),
         None,
-        NCBITAXON_URI_TEMPLATE.format("7227"),
+        "7227",
         "Drosophila melanogaster - Fruit fly",
     ),
     SpeciesRecord(
         ("danio", "zebrafish", "zebra fish"),
         None,
-        NCBITAXON_URI_TEMPLATE.format("7955"),
+        "7955",
         "Danio rerio - Zebra fish",
     ),
     SpeciesRecord(
         ("c. elegans", "caenorhabditis elegans"),
         "caenorhabditis",
-        NCBITAXON_URI_TEMPLATE.format("6239"),
+        "6239",
         "Caenorhabditis elegans - Roundworm",
     ),
     SpeciesRecord(
         ("pig-tailed macaque", "pigtail monkey", "pigtail macaque"),
         None,
-        NCBITAXON_URI_TEMPLATE.format("9545"),
+        "9545",
         "Macaca nemestrina - Pig-tailed macaque",
     ),
     SpeciesRecord(
         ("bonnet macaque", "bonnet monkey", "radiata"),
         None,
-        NCBITAXON_URI_TEMPLATE.format("9548"),
+        "9548",
         "Macaca radiata - Bonnet macaque",
     ),
     SpeciesRecord(
         ("mongolian gerbil", "mongolian jird"),
         None,
-        NCBITAXON_URI_TEMPLATE.format("10047"),
+        "10047",
         "Meriones unguiculatus - Mongolian gerbil",
     ),
     SpeciesRecord(
         ("common paper wasp",),
         None,
-        NCBITAXON_URI_TEMPLATE.format("30207"),
+        "30207",
         "Polistes fuscatus - Common paper wasp",
     ),
 ]

@@ -33,6 +33,8 @@ from hdmf.common import DynamicTable
 import numpy as np
 from pydantic import ByteSize
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
+import dataclasses
+
 import pytest
 import requests
 from semantic_version import Version
@@ -45,7 +47,6 @@ from ..dandiapi import RemoteBlobAsset
 from ..metadata.core import prepare_metadata
 from ..metadata.nwb import get_metadata, nwb2asset
 from ..metadata.util import (
-    NCBITAXON_URI_TEMPLATE,
     SPECIES_NAME_SEPARATOR,
     SpeciesRecord,
     extract_age,
@@ -870,9 +871,13 @@ def test_species_map_entries_are_records() -> None:
     for record in species_map:
         assert isinstance(record, SpeciesRecord)
         assert isinstance(record.common_names, tuple)
-        # frozen dataclasses are hashable, which `extract_species` relies on
-        # indirectly when de-duplicating matches
-        assert hash(record) == hash(record)
+        # Lock in the eq/hash contract with two distinct but equal instances.
+        # `hash(record) == hash(record)` could only fail by raising, and
+        # `extract_species` de-duplicates `(uri, name)` string tuples rather
+        # than records, so it does not depend on records being hashable.
+        copy = dataclasses.replace(record)
+        assert copy is not record
+        assert copy == record and hash(copy) == hash(record)
 
 
 @pytest.mark.ai_generated
@@ -880,7 +885,7 @@ def test_species_record_name_halves() -> None:
     record = SpeciesRecord(
         ("pig-tailed macaque",),
         None,
-        NCBITAXON_URI_TEMPLATE.format("9545"),
+        "9545",
         "Macaca nemestrina - Pig-tailed macaque",
     )
     assert record.scientific_name == "Macaca nemestrina"
@@ -900,12 +905,26 @@ def test_species_record_name_halves() -> None:
             "Prefix 'Mus' .* must be lower-cased",
         ),
         (
-            {"uri": "http://example.com/mouse"},
-            "is not an NCBITaxon PURL",
+            {"taxon_id": "abc"},
+            "Taxon id 'abc' .* must be numeric",
+        ),
+        (
+            {"taxon_id": ""},
+            "Taxon id '' .* must be numeric",
         ),
         (
             {"name": "Mus musculus"},
             "must be formatted as",
+        ),
+        # An empty prefix starts every value, so the record would match every
+        # lookup and break every other one.
+        (
+            {"prefix": ""},
+            "Prefix of .* must not be empty",
+        ),
+        (
+            {"common_names": ("",)},
+            "Common name of .* must not be empty",
         ),
     ],
 )
@@ -915,11 +934,48 @@ def test_species_record_rejects_malformed_entry(
     good = {
         "common_names": ("mouse",),
         "prefix": "mus",
-        "uri": NCBITAXON_URI_TEMPLATE.format("10090"),
+        "taxon_id": "10090",
         "name": "Mus musculus - House mouse",
     }
     with pytest.raises(ValueError, match=match):
         SpeciesRecord(**{**good, **kwargs})
+
+
+@pytest.mark.ai_generated
+def test_species_record_rejects_non_tuple_common_names() -> None:
+    """A dropped trailing comma leaves a `str`, which must not be accepted.
+
+    Iterating it yields lower-cased characters, so every other check passes and
+    each letter of the name would match this species while the name itself
+    stops resolving.
+    """
+    with pytest.raises(TypeError, match="must be a tuple, got str"):
+        SpeciesRecord(
+            "mouse",  # type: ignore[arg-type]
+            "mus",
+            "10090",
+            "Mus musculus - House mouse",
+        )
+
+
+@pytest.mark.ai_generated
+def test_species_record_matching_methods() -> None:
+    """The two methods the refactor exists to create, exercised directly."""
+    record = SpeciesRecord(("mouse",), "mus", "10090", "Mus musculus - House mouse")
+
+    assert record.matches_name("mus musculus - house mouse")
+    assert record.matches_name("mus musculus")
+    assert record.matches_name("house mouse")
+    # The prefix branch is deliberately broad, which is worth writing down.
+    assert record.matches_name("mushroom")
+    assert not record.matches_name("rattus norvegicus")
+
+    assert record.matches_common_name("mouse")
+    assert not record.matches_common_name("rat")
+
+    # Both methods normalize, so an un-normalized caller gets the right answer.
+    assert record.matches_name("  Mus Musculus  ")
+    assert record.matches_common_name("  Mouse  ")
 
 
 @pytest.mark.parametrize(
