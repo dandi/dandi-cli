@@ -12,8 +12,9 @@ from typing import Any
 
 import anys
 import click
-import dandischema.consts
+import dandischema
 from dandischema.models import UUID_PATTERN, DigestType, get_schema_version
+from packaging.version import Version as _PackagingVersion
 import pytest
 from pytest_mock import MockerFixture
 import requests
@@ -43,11 +44,13 @@ from ..exceptions import NotFoundError, SchemaVersionError
 from ..files import GenericAsset, dandi_file
 from ..utils import list_paths
 
-# Skip downgrade tests when the installed dandischema lacks migration paths to
-# older schema versions (e.g. released 0.13.0 only lists the current schema).
+# These tests exercise the 0.8.0 -> 0.7.0 downgrade wiring, which requires
+# both the 0.8.0-era metadata schema and the migration paths for `sameAs` /
+# `releaseNotes` -- all of which landed together in dandischema 0.14.0.
+# `py3-lowest` resolves to `dandischema==0.12.0` and simply skips them.
 _needs_downgrade = pytest.mark.skipif(
-    "0.7.0" not in dandischema.consts.ALLOWED_TARGET_SCHEMAS,
-    reason="Installed dandischema has no downgrade path to older schema versions",
+    _PackagingVersion(dandischema.__version__) < _PackagingVersion("0.14.0"),
+    reason="Downgrade tests require dandischema >= 0.14.0",
 )
 
 
