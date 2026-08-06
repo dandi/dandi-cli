@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## MANDATORY: Read before making any code changes
 
-You MUST read [`CONTRIBUTING.md`](./CONTRIBUTING.md) before making any code changes, commits, or
+You MUST read [`DEVELOPMENT.md`](./DEVELOPMENT.md) before making any code changes, commits, or
 pull requests.  It contains the authoritative project conventions including:
 
 - Build/test commands and CI/CD overview
@@ -14,10 +14,7 @@ pull requests.  It contains the authoritative project conventions including:
   written with AI assistance**
 - PR labeling and release workflow (intuit/auto)
 
-Extended documentation (environment setup, environment variables, release procedures, git-bug)
-is in [`DEVELOPMENT.md`](./DEVELOPMENT.md).
-
-Do NOT guess or assume conventions — read the files.
+Do NOT guess or assume conventions — read the file.
 
 ## Committing
 
