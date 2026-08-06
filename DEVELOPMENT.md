@@ -170,17 +170,23 @@ dandi/
 
 ### Key classes
 
-| Class | Module | Role |
-|-------|--------|------|
-| `DandiAPIClient` | `dandiapi.py` | High-level API client; authentication (keyring), pagination, asset management |
-| `RESTFullAPIClient` | `dandiapi.py` | Base HTTP client with session management and retry logic |
-| `ParsedDandiURL` | `dandiarchive.py` | Abstract base for URL parsing; subclasses `DandisetURL`, `SingleAssetURL`, `AssetItemURL`, `AssetDirURL` |
-| `DandiFile` | `files/bases.py` | Abstract base for all file types; subclasses `NWBAsset`, `ZarrAsset`, `GenericAsset`, `VideoAsset` |
-| `ValidationResult` | `validate/_types.py` | Pydantic model: origin, severity, scope, message, paths |
-| `Dandiset` | `dandiset.py` | Local dandiset representation wrapping `dandiset.yaml` |
-| `DandiInstance` | `consts.py` | Frozen dataclass for known archive instances |
+- `DandiAPIClient` (`dandiapi.py`) — high-level API client; authentication
+  (keyring), pagination, asset management
+- `RESTFullAPIClient` (`dandiapi.py`) — base HTTP client with session
+  management and retry logic
+- `ParsedDandiURL` (`dandiarchive.py`) — abstract base for URL parsing;
+  subclasses `DandisetURL`, `SingleAssetURL`, `AssetItemURL`, `AssetDirURL`
+- `DandiFile` (`files/bases.py`) — abstract base for all file types;
+  subclasses `NWBAsset`, `ZarrAsset`, `GenericAsset`, `VideoAsset`
+- `ValidationResult` (`validate/_types.py`) — Pydantic model: origin,
+  severity, scope, message, paths
+- `Dandiset` (`dandiset.py`) — local dandiset representation wrapping
+  `dandiset.yaml`
+- `DandiInstance` (`consts.py`) — frozen dataclass for known archive instances
 
 ## Code style conventions
+
+Most of these are enforced automatically by `pre-commit` hooks (see below).
 
 - **Formatter**: Black (line length 100)
 - **Import sorting**: isort (`profile="black"`, `force_sort_within_sections`,
@@ -238,12 +244,11 @@ succeed.  Investigate further only if it still fails.
 
 ### pytest markers
 
-| Marker | Purpose |
-|--------|--------|
-| `@pytest.mark.integration` | Tests requiring a running archive instance |
-| `@pytest.mark.obolibrary` | Tests hitting the OBO ontology library |
-| `@pytest.mark.flaky` | Known-flaky tests |
-| `@pytest.mark.ai_generated` | **Mandatory** on any test written with AI assistance |
+- `@pytest.mark.integration` — tests requiring a running archive instance
+- `@pytest.mark.obolibrary` — tests hitting the OBO ontology library
+- `@pytest.mark.flaky` — known-flaky tests
+- `@pytest.mark.ai_generated` — **mandatory** on any test written with AI
+  assistance
 
 New markers must be registered in `pytest_configure()` in
 `dandi/pytest_plugin.py`.
@@ -273,13 +278,12 @@ New markers must be registered in `pytest_configure()` in
 
 ## CI/CD
 
-| Workflow | What it checks |
-|----------|---------------|
-| `run-tests.yml` | Full test matrix — Python 3.10–3.13 × Ubuntu, macOS (M1 + Intel), Windows |
-| `lint.yml` | codespell + flake8 |
-| `typing.yml` | mypy |
-| `docs.yml` | Sphinx build |
-| `release.yml` | Automated release via `auto` (see below) |
+- `run-tests.yml` — full test matrix: Python 3.10–3.13 × Ubuntu,
+  macOS (M1 + Intel), Windows
+- `lint.yml` — codespell + flake8
+- `typing.yml` — mypy
+- `docs.yml` — Sphinx build
+- `release.yml` — automated release via `auto` (see below)
 
 ## Environment variables
 
