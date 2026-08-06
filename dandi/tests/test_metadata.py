@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 from datetime import datetime, timedelta
 from itertools import chain
 import json
@@ -33,8 +34,6 @@ from hdmf.common import DynamicTable
 import numpy as np
 from pydantic import ByteSize
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
-import dataclasses
-
 import pytest
 import requests
 from semantic_version import Version
