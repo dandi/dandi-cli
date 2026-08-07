@@ -74,7 +74,7 @@ tox -e py3
 
 To run a specific test with tox:
 ```
-tox r -e py3 -- dandi/tests/test_file.py::test_function -v
+tox -e py3 -- dandi/tests/test_file.py::test_function -v
 ```
 
 In order to check proper linting and typing of your changes
