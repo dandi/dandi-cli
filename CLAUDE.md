@@ -16,6 +16,16 @@ pull requests.  It contains the authoritative project conventions including:
 
 Do NOT guess or assume conventions — read the file.
 
+## LLM-Assisted Development (LAD) Framework
+
+The [`.lad/`](./.lad/) directory contains the
+[LAD framework](https://github.com/chrisfoulon/LAD) — structured prompt
+workflows for feature development using Claude Code or GitHub Copilot Agent
+Mode.  When asked to "use LAD" or to follow a phased development workflow,
+start from [`.lad/claude_prompts/00_feature_kickoff.md`](./.lad/claude_prompts/00_feature_kickoff.md).
+See [`.lad/README.md`](./.lad/README.md) for the full overview and
+[`.lad/CLAUDE.md`](./.lad/CLAUDE.md) for project-specific LAD context.
+
 ## Committing
 
 Due to use of `pre-commit` with black and other auto-fixers, if changes were reported, just
