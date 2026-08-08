@@ -1,3 +1,27 @@
+# 0.77.0 (Sat Aug 08 2026)
+
+#### 🚀 Enhancement
+
+- Make a SpeciesRecord dataclass for species_map records [#1899](https://github.com/dandi/dandi-cli/pull/1899) ([@adityasingh2400](https://github.com/adityasingh2400))
+- Downgrade outgoing metadata to server's schema version on upload [#1898](https://github.com/dandi/dandi-cli/pull/1898) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 📝 Documentation
+
+- docs: expand DEVELOPMENT.md with architecture and testing guide [#1902](https://github.com/dandi/dandi-cli/pull/1902) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 🧪 Tests
+
+- Add py3-lowest tox env and CI mode; tighten dependency lower bounds [#1897](https://github.com/dandi/dandi-cli/pull/1897) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 4
+
+- Aditya Singh ([@adityasingh2400](https://github.com/adityasingh2400))
+- Claude ([@claude](https://github.com/claude))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.76.8 (Tue Jul 28 2026)
 
 #### 📝 Documentation
