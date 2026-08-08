@@ -451,40 +451,41 @@ def upload(
             style=pyout_style, columns=rec_fields, max_workers=jobs or 5
         )
 
-        with out:
-            for dfile in dandi_files:
-                while len(process_paths) >= 10:
-                    lgr.log(2, "Sleep waiting for some paths to finish processing")
-                    time.sleep(0.5)
+        try:
+            with out:
+                for dfile in dandi_files:
+                    while len(process_paths) >= 10:
+                        lgr.log(2, "Sleep waiting for some paths to finish processing")
+                        time.sleep(0.5)
 
-                process_paths.add(str(dfile.filepath))
+                    process_paths.add(str(dfile.filepath))
 
-                rec: dict[Any, Any]
-                if isinstance(dfile, DandisetMetadataFile):
-                    rec = {"path": dandiset_metadata_file}
-                else:
-                    assert isinstance(dfile, LocalAsset)
-                    rec = {"path": dfile.path}
-
-                try:
-                    if devel_debug:
-                        # DEBUG: do serially
-                        for v in process_path(dfile):
-                            print(str(v), flush=True)
+                    rec: dict[Any, Any]
+                    if isinstance(dfile, DandisetMetadataFile):
+                        rec = {"path": dandiset_metadata_file}
                     else:
-                        rec[tuple(rec_fields[1:])] = process_path(dfile)
-                except ValueError as exc:
-                    rec.update(error_file(exc))
-                out(rec)
+                        assert isinstance(dfile, LocalAsset)
+                        rec = {"path": dfile.path}
 
-        if not validate_ok:
-            msg = "One or more assets failed validation."
-            if validation_log_path is not None:
-                msg += (
-                    f" Use `dandi validate --load {validation_log_path}`"
-                    " to review the saved results."
-                )
-            lgr.warning(msg)
+                    try:
+                        if devel_debug:
+                            # DEBUG: do serially
+                            for v in process_path(dfile):
+                                print(str(v), flush=True)
+                        else:
+                            rec[tuple(rec_fields[1:])] = process_path(dfile)
+                    except ValueError as exc:
+                        rec.update(error_file(exc))
+                    out(rec)
+        finally:
+            if not validate_ok:
+                msg = "One or more assets failed validation."
+                if validation_log_path is not None:
+                    msg += (
+                        f" Use `dandi validate --load {validation_log_path}`"
+                        " to review the saved results."
+                    )
+                lgr.warning(msg)
         if upload_err is not None:
             try:
                 import etelemetry

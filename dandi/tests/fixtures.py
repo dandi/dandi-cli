@@ -592,18 +592,13 @@ class SampleDandiset:
     def client(self) -> DandiAPIClient:
         return self.api.client
 
-    def upload(
-        self,
-        paths: list[str | Path] | None = None,
-        devel_debug: bool = True,
-        **kwargs: Any,
-    ) -> None:
+    def upload(self, paths: list[str | Path] | None = None, **kwargs: Any) -> None:
         with pytest.MonkeyPatch().context() as m:
             self.api.monkeypatch_set_api_key_env(m)
             upload(
                 paths=paths or [self.dspath],
                 dandi_instance=self.api.instance_id,
-                devel_debug=devel_debug,
+                devel_debug=True,
                 **{**self.upload_kwargs, **kwargs},
             )
 
