@@ -220,6 +220,7 @@ def test_upload_bids_invalid(
         bids_dandiset_invalid.upload(
             existing=UploadExisting.FORCE,
             validation_log_path=validation_log,
+            devel_debug=False,
         )
     iter_upload_spy.assert_not_called()
     assert (
