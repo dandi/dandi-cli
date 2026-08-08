@@ -451,33 +451,7 @@ def upload(
             style=pyout_style, columns=rec_fields, max_workers=jobs or 5
         )
 
-        try:
-            with out:
-                for dfile in dandi_files:
-                    while len(process_paths) >= 10:
-                        lgr.log(2, "Sleep waiting for some paths to finish processing")
-                        time.sleep(0.5)
-
-                    process_paths.add(str(dfile.filepath))
-
-                    rec: dict[Any, Any]
-                    if isinstance(dfile, DandisetMetadataFile):
-                        rec = {"path": dandiset_metadata_file}
-                    else:
-                        assert isinstance(dfile, LocalAsset)
-                        rec = {"path": dfile.path}
-
-                    try:
-                        if devel_debug:
-                            # DEBUG: do serially
-                            for v in process_path(dfile):
-                                print(str(v), flush=True)
-                        else:
-                            rec[tuple(rec_fields[1:])] = process_path(dfile)
-                    except ValueError as exc:
-                        rec.update(error_file(exc))
-                    out(rec)
-        finally:
+        def report_validation_failure() -> None:
             if not validate_ok:
                 msg = "One or more assets failed validation."
                 if validation_log_path is not None:
@@ -486,6 +460,33 @@ def upload(
                         " to review the saved results."
                     )
                 lgr.warning(msg)
+
+        with ExitStack() as warning_stack, out:
+            warning_stack.callback(report_validation_failure)
+            for dfile in dandi_files:
+                while len(process_paths) >= 10:
+                    lgr.log(2, "Sleep waiting for some paths to finish processing")
+                    time.sleep(0.5)
+
+                process_paths.add(str(dfile.filepath))
+
+                rec: dict[Any, Any]
+                if isinstance(dfile, DandisetMetadataFile):
+                    rec = {"path": dandiset_metadata_file}
+                else:
+                    assert isinstance(dfile, LocalAsset)
+                    rec = {"path": dfile.path}
+
+                try:
+                    if devel_debug:
+                        # DEBUG: do serially
+                        for v in process_path(dfile):
+                            print(str(v), flush=True)
+                    else:
+                        rec[tuple(rec_fields[1:])] = process_path(dfile)
+                except ValueError as exc:
+                    rec.update(error_file(exc))
+                out(rec)
         if upload_err is not None:
             try:
                 import etelemetry
