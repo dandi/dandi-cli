@@ -674,7 +674,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 f"{asset_path}: this Zarr contains an entry larger than"
                 f" {S3_MAX_SINGLE_PART_UPLOAD / 1024**3:.0f} GiB and so requires"
                 f" multipart upload, but the target Zarr does not support it."
-                f"  The archive may predate the unified upload endpoint, or the"
+                f"  The archive may not support multipart Zarr upload, or the"
                 f" Zarr being replaced was created as single-part."
             )
         a = RemoteAsset.from_data(dandiset, r)
@@ -1045,17 +1045,18 @@ def _upload_zarr_entry_multipart(
             init_fields={"zarr_id": zarr_id, "chunk_key": item.entry_path},
             expected_etag=item.digest,
             jobs=jobs,
+            upload_root="/zarr/uploads",
         )
     except requests.HTTPError as e:
-        if e.response is not None and e.response.status_code == 400:
-            # Servers predating the unified upload endpoint only accept a
-            # "dandiset" field here and reject the zarr fields, so a multipart
-            # upload of a Zarr entry cannot succeed against them.
+        if e.response is not None and e.response.status_code in (400, 404):
+            # A 404 means the archive lacks the Zarr multipart upload endpoint
+            # entirely; a 400 means it rejected this multipart upload (e.g. the
+            # Zarr is not marked for multipart upload).  Either way a multipart
+            # upload of a Zarr entry cannot succeed against this archive.
             raise UploadError(
                 f"{item.entry_path}: server rejected the multipart upload of"
-                f" this Zarr entry; it may not support multipart upload of Zarr"
-                f" entries, which requires dandi-archive with the unified upload"
-                f" endpoint. Server response: {e.response.text}"
+                f" this Zarr entry; the archive may not support multipart upload"
+                f" of Zarr chunks. Server response: {e.response.text}"
             ) from e
         raise
     # The server reports back the key it stored the entry under.  If that isn't

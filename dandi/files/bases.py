@@ -641,15 +641,19 @@ def multipart_upload(
     init_fields: dict[str, Any],
     expected_etag: str | None = None,
     jobs: int | None = None,
+    upload_root: str = "/uploads",
 ) -> Generator[dict, None, dict]:
     """
     Upload ``filepath`` to the archive via the S3 multipart upload API,
     yielding progress `dict`\\s and returning the deserialized response of the
     ``validate`` endpoint.
 
-    ``init_fields`` supplies the fields that identify what is being uploaded to
-    ``/uploads/initialize/``, which are either ``{"dandiset": ...}`` for an
-    asset blob or ``{"zarr_id": ..., "chunk_key": ...}`` for an entry of a Zarr.
+    Asset blobs and Zarr chunks have separate multipart upload endpoints, so
+    the caller selects one via ``upload_root`` — ``"/uploads"`` for an asset
+    blob or ``"/zarr/uploads"`` for a Zarr chunk — and supplies the matching
+    ``init_fields`` identifying what is being uploaded to the ``initialize``
+    endpoint: ``{"dandiset": ...}`` for an asset blob or
+    ``{"zarr_id": ..., "chunk_key": ...}`` for a Zarr chunk.
 
     If ``expected_etag`` is non-`None` and does not match the etag computed for
     ``filepath``, `RuntimeError` is raised.  An HTTP 409 from ``initialize``
@@ -673,7 +677,7 @@ def multipart_upload(
     lgr.debug("%s: Beginning upload", asset_path)
     total_size = pre_upload_size_check(filepath)
     resp = client.post(
-        "/uploads/initialize/",
+        f"{upload_root}/initialize/",
         json={
             "contentSize": total_size,
             "digest": {"algorithm": "dandi:dandi-etag", "value": filetag},
@@ -718,7 +722,7 @@ def multipart_upload(
                         parts_out.append(out_part)
             lgr.debug("%s: Completing upload", asset_path)
             resp = client.post(
-                f"/uploads/{upload_id}/complete/",
+                f"{upload_root}/{upload_id}/complete/",
                 json={"parts": parts_out},
             )
             lgr.debug(
@@ -745,7 +749,7 @@ def multipart_upload(
                         f" client says {filetag}"
                     )
             # else: Error? Warning?
-            validated = client.post(f"/uploads/{upload_id}/validate/")
+            validated = client.post(f"{upload_root}/{upload_id}/validate/")
     except Exception:
         post_upload_size_check(filepath, total_size, True)
         raise
