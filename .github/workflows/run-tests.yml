@@ -154,7 +154,9 @@ jobs:
         python -m pytest -s -v -m obolibrary dandi
 
     - name: Smoke test example code in docs
-      if: matrix.mode != 'dandi-api' && github.event_name == 'schedule'
+      # Skipped in lowest-deps mode: that mode installs no dependencies into
+      # the job interpreter, so `dandi` is only importable inside the tox env.
+      if: matrix.mode != 'dandi-api' && matrix.mode != 'lowest-deps' && github.event_name == 'schedule'
       run: |
         set -ex
         cd docs/source/examples
