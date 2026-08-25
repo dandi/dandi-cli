@@ -401,6 +401,14 @@ def upload(
                 #
                 yield {"status": "uploading"}
                 validating = False
+                # For Zarr, the "skip this asset?" decision requires walking
+                # the tree to diff local vs remote, which only iter_upload
+                # can do (check_replace_asset can't decide upfront).
+                # iter_upload signals "actually skip" by finishing with
+                # status="skipped"; when that happens, suppress the outer
+                # "done" yield so pyout's final row shows STATUS=skipped.
+                # See #1893.
+                last_status: str | None = None
                 upload_kwargs: dict = {}
                 if isinstance(dfile, ZarrAsset):
                     upload_kwargs["zarr_mode"] = zarr_mode
@@ -412,6 +420,7 @@ def upload(
                     **upload_kwargs,
                 ):
                     r.pop("asset", None)  # to keep pyout from choking
+                    last_status = r.get("status", last_status)
                     if r["status"] == "uploading":
                         uploaded_paths[strpath]["size"] = r.pop("current")
                         yield r
@@ -422,7 +431,8 @@ def upload(
                             validating = True
                     else:
                         yield r
-                yield {"status": "done"}
+                if last_status != "skipped":
+                    yield {"status": "done"}
 
             except Exception as exc:
                 if upload_err is None:
@@ -545,7 +555,10 @@ def check_replace_asset(
 ) -> tuple[bool, dict[str, str]]:
     # Returns a (replace asset, message to yield) tuple
     if isinstance(local_asset, ZarrAsset):
-        return (True, {"message": "exists - reuploading"})
+        # For Zarr, the actual add/modify/delete breakdown is only known after
+        # iter_upload walks the tree; it will refine this message (or downgrade
+        # STATUS to "skipped") once the diff is computed.  See #1893.
+        return (True, {"message": "exists - checking"})
     assert local_etag is not None
     metadata = remote_asset.get_raw_metadata()
     local_mtime = local_asset.modified

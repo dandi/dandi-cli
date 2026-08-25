@@ -46,6 +46,7 @@ from dandi.dandiapi import (
 from dandi.exceptions import UploadError
 from dandi.metadata.core import get_default_metadata
 from dandi.misctypes import DUMMY_DANDI_ZARR_CHECKSUM, BasePath, Digest
+from dandi.support.pyout import naturalsize
 from dandi.utils import (
     chunked,
     exclude_from_zarr,
@@ -582,7 +583,10 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             A generator of `dict`\\s containing at least a ``"status"`` key.
             Upon successful upload, the last `dict` will have a status of
             ``"done"`` and an ``"asset"`` key containing the resulting
-            `RemoteAsset`.
+            `RemoteAsset`.  If the local Zarr is bit-identical to the remote
+            (nothing to upload or delete), the terminal status is instead
+            ``"skipped"`` with a ``"message"`` of ``"identical"`` and the same
+            ``"asset"`` key.
         """
         asset_path = metadata.setdefault("path", self.path)
         set_asset_schema_key(metadata)
@@ -648,6 +652,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         assert isinstance(a, RemoteZarrAsset)
         mismatched = True
         first_run = True
+        unchanged = False
         while mismatched:
             zcc = ZarrChecksumTree()
             old_zarr_entries: dict[str, RemoteZarrEntry] = {
@@ -727,6 +732,35 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                     local_entry.size,
                                     local_digest,
                                 )
+                # Refine the "exists - checking" message set by
+                # check_replace_asset (see #1893): describe what will actually
+                # change, or short-circuit to a "skipped" terminal state when
+                # nothing will.
+                n_add = len(to_upload.fresh_entries)
+                n_modify = len(to_upload.digested_entries)
+                n_delete = len(to_delete) + (
+                    len(old_zarr_entries) if zarr_mode == "full" else 0
+                )
+                if n_add == 0 and n_modify == 0 and n_delete == 0:
+                    mismatched = False
+                    unchanged = True
+                    break
+                bytes_add = sum(e.size for e in to_upload.fresh_entries)
+                bytes_modify = sum(it.size for it in to_upload.digested_entries)
+                clauses = []
+                if n_add:
+                    clauses.append(
+                        f"adding {pluralize(n_add, 'file')}"
+                        f" ({naturalsize(bytes_add)})"
+                    )
+                if n_modify:
+                    clauses.append(
+                        f"modifying {pluralize(n_modify, 'file')}"
+                        f" ({naturalsize(bytes_modify)})"
+                    )
+                if n_delete:
+                    clauses.append(f"deleting {pluralize(n_delete, 'file')}")
+                yield {"status": "planning upload", "message": ", ".join(clauses)}
                 if to_delete:
                     yield from _rmfiles(
                         asset=a,
@@ -920,8 +954,12 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 mismatched = False
                 lgr.info("%s: No changes made to Zarr", asset_path)
             first_run = False
-        lgr.info("%s: Asset successfully uploaded", asset_path)
-        yield {"status": "done", "asset": a}
+        if unchanged:
+            lgr.info("%s: Zarr already matches remote; nothing to upload", asset_path)
+            yield {"status": "skipped", "message": "identical", "asset": a}
+        else:
+            lgr.info("%s: Asset successfully uploaded", asset_path)
+            yield {"status": "done", "asset": a}
 
 
 def _handle_failed_items_and_raise(

@@ -32,6 +32,7 @@ from ..dandiset import Dandiset
 from ..download import download
 from ..exceptions import NotFoundError, UploadError
 from ..files import LocalFileAsset
+from ..files.zarr import ZarrAsset
 from ..pynwb_utils import make_nwb_file
 from ..upload import UploadExisting, UploadValidation
 from ..utils import list_paths, yaml_dump
@@ -976,3 +977,104 @@ def test_upload_zarr_patch_mode_incremental_shards(
         "patch-mode upload deleted remote-only entries that were absent"
         f" locally: {sorted(missing)}"
     )
+
+
+def _spy_zarr_iter_upload(mocker: MockerFixture) -> list[dict]:
+    """
+    Wrap ``ZarrAsset.iter_upload`` so its yielded status dicts are recorded
+    in the returned list without changing behavior.  Used by #1893 tests.
+    """
+    events: list[dict] = []
+    original = ZarrAsset.iter_upload
+
+    def wrapped(self: Any, *args: Any, **kwargs: Any) -> Any:
+        for ev in original(self, *args, **kwargs):
+            events.append(dict(ev))
+            yield ev
+
+    mocker.patch.object(ZarrAsset, "iter_upload", wrapped)
+    return events
+
+
+@pytest.mark.ai_generated
+def test_upload_unchanged_zarr_reports_skipped(
+    mocker: MockerFixture, zarr_dandiset: SampleDandiset
+) -> None:
+    """
+    Regression for https://github.com/dandi/dandi-cli/issues/1893.
+
+    A second ``dandi upload`` of a bit-identical Zarr must render as
+    STATUS="skipped" / MESSAGE="identical" rather than the previous
+    "done / exists - reuploading" misreport.
+    """
+    events = _spy_zarr_iter_upload(mocker)
+
+    zarr_dandiset.upload(validation="skip")
+
+    skipped = [
+        e
+        for e in events
+        if e.get("status") == "skipped" and e.get("message") == "identical"
+    ]
+    assert skipped, (
+        "Expected iter_upload to yield {status=skipped, message='identical'}"
+        f" for an unchanged Zarr; got: {events}"
+    )
+
+
+@pytest.mark.ai_generated
+def test_upload_modified_zarr_reports_descriptive_message(
+    mocker: MockerFixture, zarr_dandiset: SampleDandiset
+) -> None:
+    """
+    Regression for https://github.com/dandi/dandi-cli/issues/1893.
+
+    When a Zarr has changed locally, iter_upload should surface a
+    MESSAGE that names each delta kind with file counts (and, for
+    additions/modifications, a size) rather than the generic
+    "exists - reuploading".
+    """
+    local_zarr = zarr_dandiset.dspath / "sample.zarr"
+
+    # Introduce all three kinds of change: an addition, a modification,
+    # and (by removing a data file) a deletion in full mode.
+    (local_zarr / "shard_new").write_bytes(b"a" * 128)
+    data_files = [
+        p
+        for p in local_zarr.rglob("*")
+        if p.is_file()
+        and not p.name.startswith(".")
+        and not p.name.endswith((".json", ".zarray", ".zgroup", ".zattrs"))
+        and p.name != "shard_new"
+    ]
+    assert len(data_files) >= 2, (
+        "Fixture Zarr does not have enough data files to exercise both"
+        " modify and delete branches; adjust the test."
+    )
+    data_files[0].write_bytes(b"b" * 64)  # modification
+    data_files[1].unlink()  # deletion (full mode will drop remote-only)
+
+    events = _spy_zarr_iter_upload(mocker)
+
+    zarr_dandiset.upload(validation="skip")
+
+    descriptive = [
+        e
+        for e in events
+        if isinstance(e.get("message"), str)
+        and (
+            e["message"].startswith("adding ")
+            or e["message"].startswith("modifying ")
+            or e["message"].startswith("deleting ")
+        )
+        and e.get("status") not in ("skipped",)
+    ]
+    assert descriptive, (
+        "Expected a descriptive MESSAGE ('adding/modifying/deleting ...')"
+        f" from iter_upload for a modified Zarr; got: {events}"
+    )
+    msg = descriptive[0]["message"]
+    # All three kinds of change should appear in this test's setup.
+    assert "adding " in msg, msg
+    assert "modifying " in msg, msg
+    assert "deleting " in msg, msg
