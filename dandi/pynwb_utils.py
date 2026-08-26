@@ -34,6 +34,7 @@ import semantic_version
 
 from . import __version__, get_logger
 from .consts import (
+    IMAGE_FILE_EXTENSIONS,
     VIDEO_FILE_EXTENSIONS,
     VIDEO_FILE_MODULES,
     metadata_nwb_computed_fields,
@@ -349,7 +350,9 @@ def _get_session_duration(nwb: pynwb.NWBFile) -> float | None:
                 st_data = obj["spike_times"].target
 
                 if len(unit_end_idxs) > 1:
-                    start = float(np.min(np.r_[st_data[0], st_data[unit_end_idxs[:-1]]]))
+                    start = float(
+                        np.min(np.r_[st_data[0], st_data[unit_end_idxs[:-1]]])
+                    )
                 else:
                     start = float(st_data[0])
 
@@ -408,9 +411,16 @@ def _get_image_series(nwb: pynwb.NWBFile) -> list[dict]:
         module_cont = getattr(nwb, module_name)
         for name, ob in module_cont.items():
             if isinstance(ob, pynwb.image.ImageSeries) and ob.external_file is not None:
-                out_dict = dict(id=ob.object_id, name=ob.name, external_files=[])
+                out_dict = dict(
+                    id=ob.object_id,
+                    name=ob.name,
+                    external_files=[],
+                    field="external_file",
+                )
                 for ext_file in ob.external_file:
-                    if (path := PurePosixPath(ext_file)).suffix in VIDEO_FILE_EXTENSIONS:
+                    if (
+                        path := PurePosixPath(ext_file)
+                    ).suffix in VIDEO_FILE_EXTENSIONS:
                         out_dict["external_files"].append(path)
                     else:
                         lgr.warning(
@@ -419,6 +429,48 @@ def _get_image_series(nwb: pynwb.NWBFile) -> list[dict]:
                             ", ".join(VIDEO_FILE_EXTENSIONS),
                         )
                 out.append(out_dict)
+    out.extend(_get_external_images(nwb))
+    return out
+
+
+def _get_external_images(nwb: pynwb.NWBFile) -> list[dict]:
+    """Retrieves all ExternalImage metadata from an open nwb file.
+
+    An `ExternalImage` holds a single path or URL in ``data`` rather than a list in
+    ``external_file``, and it sits inside an `Images` container rather than directly in a module,
+    so the whole file is walked instead of the top level of the video modules.
+
+    Parameters
+    ----------
+    nwb: pynwb.NWBFile
+
+    Returns
+    -------
+    out: list[dict]
+        list of dicts : [{id: <ExternalImage uuid>, name: <ExternalImage name>,
+        external_files=[ExternalImage.data], field: "data"}]
+    """
+    try:
+        from pynwb.base import ExternalImage
+    except ImportError:
+        # `ExternalImage` was added in pynwb 3.1.0; nothing to collect on an older one.
+        return []
+
+    out = []
+    for ob in nwb.objects.values():
+        if not isinstance(ob, ExternalImage) or ob.data is None:
+            continue
+        data = ob.data.decode() if isinstance(ob.data, bytes) else str(ob.data)
+        if (path := PurePosixPath(data)).suffix.lower() not in IMAGE_FILE_EXTENSIONS:
+            lgr.warning(
+                "external image %s should be one of: %s",
+                data,
+                ", ".join(IMAGE_FILE_EXTENSIONS),
+            )
+            continue
+        out.append(
+            dict(id=ob.object_id, name=ob.name, external_files=[path], field="data")
+        )
     return out
 
 
@@ -443,28 +495,82 @@ def rename_nwb_external_files(metadata: list[dict], dandiset_path: str) -> None:
             )
             return
         dandiset_nwbfile_path = op.join(dandiset_path, meta["dandi_path"])
-        with NWBHDF5IO(dandiset_nwbfile_path, mode="r+", load_namespaces=True) as io:
-            nwb = io.read()
-            for ext_file_dict in meta["external_file_objects"]:
-                # retrieve nwb neurodata object of the given object id:
-                container_list = [
-                    child
-                    for child in nwb.children
-                    if ext_file_dict["id"] == child.object_id
-                ]
-                if len(container_list) == 0:
-                    continue
-                else:
-                    container = container_list[0]
-                # rename all external files:
-                for no, (name_old, name_new) in enumerate(
-                    zip(
-                        ext_file_dict["external_files"],
-                        ext_file_dict["external_files_renamed"],
-                    )
-                ):
-                    if not is_url(str(name_old)):
-                        container.external_file[no] = str(name_new)
+        image_series = [
+            d
+            for d in meta["external_file_objects"]
+            if d.get("field", "external_file") == "external_file"
+        ]
+        external_images = [
+            d for d in meta["external_file_objects"] if d.get("field") == "data"
+        ]
+        if image_series:
+            with NWBHDF5IO(
+                dandiset_nwbfile_path, mode="r+", load_namespaces=True
+            ) as io:
+                nwb = io.read()
+                for ext_file_dict in image_series:
+                    # retrieve nwb neurodata object of the given object id:
+                    container_list = [
+                        child
+                        for child in nwb.children
+                        if ext_file_dict["id"] == child.object_id
+                    ]
+                    if len(container_list) == 0:
+                        continue
+                    else:
+                        container = container_list[0]
+                    # rename all external files:
+                    for no, (name_old, name_new) in enumerate(
+                        zip(
+                            ext_file_dict["external_files"],
+                            ext_file_dict["external_files_renamed"],
+                        )
+                    ):
+                        if not is_url(str(name_old)):
+                            container.external_file[no] = str(name_new)
+        if external_images:
+            _rename_external_images(dandiset_nwbfile_path, external_images)
+
+
+def _rename_external_images(nwbfile_path: str, external_images: list[dict]) -> None:
+    """Rewrites the ``data`` of the given `ExternalImage` objects in an NWB file on disk.
+
+    `ExternalImage.data` is a scalar string rather than the array `ImageSeries.external_file` is,
+    so assigning through the read container does not reach the file and the dataset is written
+    directly instead. Objects are matched on the ``object_id`` attribute, since an `ExternalImage`
+    sits inside an `Images` container at a path this function is not told.
+
+    Parameters
+    ----------
+    nwbfile_path: str
+        full path of the NWB file to rewrite
+    external_images: list[dict]
+        the ``field == "data"`` entries of ``metadata["external_file_objects"]``
+    """
+    # Avoid a module level dependency on h5py for a path most callers never take:
+    import h5py
+
+    renames = {}
+    for ext_file_dict in external_images:
+        for name_old, name_new in zip(
+            ext_file_dict["external_files"], ext_file_dict["external_files_renamed"]
+        ):
+            if not is_url(str(name_old)):
+                renames[ext_file_dict["id"]] = str(name_new)
+    if not renames:
+        return
+
+    def rename_if_matched(_name: str, obj: Any) -> None:
+        if not isinstance(obj, h5py.Dataset):
+            return
+        object_id = obj.attrs.get("object_id")
+        if isinstance(object_id, bytes):
+            object_id = object_id.decode()
+        if object_id in renames:
+            obj[()] = renames[object_id]
+
+    with h5py.File(nwbfile_path, "r+") as f:
+        f.visititems(rename_if_matched)
 
 
 @validate_cache.memoize_path

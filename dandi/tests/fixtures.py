@@ -19,6 +19,7 @@ from dateutil.tz import tzlocal, tzutc
 import numpy as np
 import pynwb
 from pynwb import NWBHDF5IO, NWBFile
+from pynwb.base import ExternalImage, Images
 from pynwb.device import Device
 from pynwb.file import Subject
 import pynwb.image
@@ -847,6 +848,86 @@ def nwbfiles_video_common(video_files: list[tuple[Path, Path]]) -> Path:
     """Create nwbfiles sharing video files."""
     video_list = [video_files[0], video_files[0]]
     return _create_nwb_files(video_list)
+
+
+#: A 1x1 red PNG. `organize` never decodes a referenced image, it only relocates the bytes, but
+#: writing a real one keeps the fixture from resting on that.
+MINIMAL_PNG = bytes.fromhex(
+    "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de"
+    "0000000c49444154789c63f8cfc0000003010100c9fe92ef0000000049454e44ae426082"
+)
+
+
+@pytest.fixture()
+def image_files(tmp_path: Path) -> list[tuple[Path, Path]]:
+    image_paths = []
+    image_path = tmp_path / "image_files"
+    image_path.mkdir()
+    for i in range(2):
+        image_file1 = image_path / f"test1_{i}.png"
+        image_file2 = image_path / f"test2_{i}.png"
+        image_file1.write_bytes(MINIMAL_PNG)
+        image_file2.write_bytes(MINIMAL_PNG)
+        image_paths.append((image_file1, image_file2))
+    return image_paths
+
+
+def _create_nwb_files_with_images(image_list: list[tuple[Path, Path]]) -> Path:
+    base_path = image_list[0][0].parent.parent
+    base_nwb_path = base_path / "nwbfiles"
+    base_nwb_path.mkdir(parents=True, exist_ok=True)
+    for i, image_loc in enumerate(image_list):
+        image_1 = image_loc[0]
+        image_2 = image_loc[1]
+        subject_id = f"mouse{i}"
+        session_id = f"sessionid{i}"
+        subject = Subject(
+            subject_id=subject_id,
+            species="Mus musculus",
+            sex="M",
+            description="lab mouse ",
+        )
+        device = Device(name=f"imaging_device_{i}")
+        name = f"{image_1.stem}_{i}"
+        nwbfile = NWBFile(
+            f"{name}{i}",
+            "desc: contains images for dandi .png storage as external",
+            datetime.now(tzlocal()),
+            experimenter="Experimenter name",
+            session_id=session_id,
+            subject=subject,
+            devices=[device],
+        )
+
+        # An `ExternalImage` holds one path in `data`, so two of them stand where one `ImageSeries`
+        # holds a two-entry `external_file`.
+        images = Images(
+            name=f"MouseHistology{i}",
+            description="Images referenced by path rather than embedded",
+            images=[
+                ExternalImage(name=f"slice{no}", data=str(image), image_format="PNG")
+                for no, image in enumerate([image_1, image_2])
+            ],
+        )
+        nwbfile.add_acquisition(images)
+
+        nwbfile_path = base_nwb_path / f"{name}.nwb"
+        with NWBHDF5IO(str(nwbfile_path), "w") as io:
+            io.write(nwbfile)
+    return base_nwb_path
+
+
+@pytest.fixture()
+def nwbfiles_image_unique(image_files: list[tuple[Path, Path]]) -> Path:
+    """Create nwbfiles linked with unique set of images."""
+    return _create_nwb_files_with_images(image_files)
+
+
+@pytest.fixture()
+def nwbfiles_image_common(image_files: list[tuple[Path, Path]]) -> Path:
+    """Create nwbfiles sharing image files."""
+    image_list = [image_files[0], image_files[0]]
+    return _create_nwb_files_with_images(image_list)
 
 
 @pytest.fixture()

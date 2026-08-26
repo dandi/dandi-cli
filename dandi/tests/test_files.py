@@ -22,6 +22,7 @@ from ..files import (
     DandisetMetadataFile,
     GenericAsset,
     GenericBIDSAsset,
+    ImageAsset,
     NWBAsset,
     NWBBIDSAsset,
     VideoAsset,
@@ -60,6 +61,7 @@ def test_find_dandi_files(tmp_path: Path) -> None:
         "subdir/cleesh.txt",
         "empty.zarr/",
         "glarch.mp4",
+        "quux.png",
         ".ignored",
         ".ignored.dir/ignored.nwb",
     )
@@ -70,6 +72,9 @@ def test_find_dandi_files(tmp_path: Path) -> None:
     assert files == [
         VideoAsset(
             filepath=tmp_path / "glarch.mp4", path="glarch.mp4", dandiset_path=tmp_path
+        ),
+        ImageAsset(
+            filepath=tmp_path / "quux.png", path="quux.png", dandiset_path=tmp_path
         ),
         ZarrAsset(
             filepath=tmp_path / "sample01.zarr",
@@ -107,6 +112,9 @@ def test_find_dandi_files(tmp_path: Path) -> None:
         GenericAsset(filepath=tmp_path / "foo", path="foo", dandiset_path=tmp_path),
         VideoAsset(
             filepath=tmp_path / "glarch.mp4", path="glarch.mp4", dandiset_path=tmp_path
+        ),
+        ImageAsset(
+            filepath=tmp_path / "quux.png", path="quux.png", dandiset_path=tmp_path
         ),
         ZarrAsset(
             filepath=tmp_path / "sample01.zarr",
@@ -150,6 +158,9 @@ def test_find_dandi_files(tmp_path: Path) -> None:
         ),
         VideoAsset(
             filepath=tmp_path / "glarch.mp4", path="glarch.mp4", dandiset_path=tmp_path
+        ),
+        ImageAsset(
+            filepath=tmp_path / "quux.png", path="quux.png", dandiset_path=tmp_path
         ),
         ZarrAsset(
             filepath=tmp_path / "sample01.zarr",
