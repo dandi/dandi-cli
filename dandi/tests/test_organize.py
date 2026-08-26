@@ -388,6 +388,7 @@ def test_video_organize_common(
     assert r.exit_code == rc
 
 
+@pytest.mark.ai_generated
 @mark_xfail_windows_python313_posixsubprocess
 @pytest.mark.parametrize("mode", [FileOperationMode.COPY, FileOperationMode.MOVE])
 @pytest.mark.parametrize("image_mode", list(CopyMode))
@@ -434,6 +435,7 @@ def test_image_organize(
     assert len(image_files_list) == len(image_files_organized)
 
 
+@pytest.mark.ai_generated
 @mark_xfail_windows_python313_posixsubprocess
 @pytest.mark.parametrize("image_mode,rc", [(CopyMode.COPY, 0), (CopyMode.MOVE, 1)])
 def test_image_organize_common(
