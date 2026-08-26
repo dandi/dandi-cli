@@ -88,6 +88,7 @@ class BIDSFileFactory(DandiFileFactory):
         DandiFileType.NWB: NWBBIDSAsset,
         DandiFileType.ZARR: ZarrBIDSAsset,
         DandiFileType.VIDEO: GenericBIDSAsset,
+        DandiFileType.IMAGE: GenericBIDSAsset,
         DandiFileType.GENERIC: GenericBIDSAsset,
     }
 
