@@ -219,6 +219,9 @@ def test_download_file_refresh_coarse_mtime_fs(
     assert path.read_bytes() == COARSE_MTIME_CONTENT
     assert downloads == 1
 
+    # The refresh pass must not transfer anything at all, however coarsely the
+    # filesystem happened to store the mtime just set
+    downloads = 0
     assert download_it(DownloadExisting.REFRESH) == [
         {
             "status": "skipped",
@@ -226,7 +229,7 @@ def test_download_file_refresh_coarse_mtime_fs(
             "size": len(COARSE_MTIME_CONTENT),
         }
     ]
-    assert downloads == 1
+    assert downloads == 0
 
 
 @pytest.mark.ai_generated
