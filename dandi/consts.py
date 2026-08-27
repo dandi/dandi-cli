@@ -190,6 +190,10 @@ RETRY_STATUSES = (429, 500, 502, 503, 504)
 VIDEO_FILE_EXTENSIONS = [".mp4", ".avi", ".wmv", ".mov", ".flv", ".mkv"]
 VIDEO_FILE_MODULES = ["processing", "acquisition"]
 
+#: Extensions of the images an `ExternalImage` may point at. NWB restricts `image_format` to
+#: PNG, JPEG and GIF, so nothing else can be referenced by an NWB file in the first place.
+IMAGE_FILE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif"]
+
 ZARR_EXTENSIONS = [".ngff", ".zarr"]
 
 #: Maximum allowed depth of a Zarr directory tree
