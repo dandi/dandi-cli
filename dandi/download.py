@@ -59,6 +59,7 @@ from .utils import (
     ensure_datetime,
     exclude_from_zarr,
     flattened,
+    get_mtime_granularity,
     get_retry_after,
     is_same_time,
     path_is_subpath,
@@ -700,9 +701,20 @@ def _download_file(
                     f"{path!r} - no mtime or ctime in the record, redownloading"
                 )
             else:
-                stat = os.stat(op.realpath(path))
+                realpath = op.realpath(path)
+                stat = os.stat(realpath)
+                # The mtime we compare against is the one we set ourselves via
+                # os.utime() after the previous download, so the comparison is
+                # really a filesystem round trip.  Not every filesystem stores
+                # mtimes at the resolution os.stat() reports them at (mounted
+                # Windows volumes, FAT/exFAT and some network filesystems
+                # truncate or round), so tolerate whatever granularity the
+                # destination filesystem actually has instead of assuming that
+                # the value round-trips exactly.  See
+                # https://github.com/dandi/dandi-cli/issues/1907
+                tolerance = get_mtime_granularity(op.dirname(realpath))
                 same = []
-                if is_same_time(stat.st_mtime, mtime):
+                if is_same_time(stat.st_mtime, mtime, tolerance=tolerance):
                     same.append("mtime")
                 if size is not None and stat.st_size == size:
                     same.append("size")
@@ -712,7 +724,22 @@ def _download_file(
                     # TODO: add recording and handling of .nwb object_id
                     yield _skip_file("same time and size", size=size)
                     return
-                lgr.debug(f"{path!r} - same attributes: {same}.  Redownloading")
+                lgr.debug(
+                    "%r - same attributes: %s.  Redownloading.  "
+                    "Local mtime: %s (%.6f), record mtime: %s (%.6f), "
+                    "delta: %.6f s, tolerated mtime granularity: %g s, "
+                    "local size: %s, record size: %s",
+                    str(path),
+                    same,
+                    ensure_datetime(stat.st_mtime),
+                    stat.st_mtime,
+                    mtime,
+                    mtime.timestamp(),
+                    abs(stat.st_mtime - mtime.timestamp()),
+                    tolerance,
+                    stat.st_size,
+                    size,
+                )
 
     if size is not None:
         yield {"size": size}

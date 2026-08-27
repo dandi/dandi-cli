@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 import inspect
 import logging
 import os.path as op
@@ -26,6 +26,7 @@ from ..utils import (
     get_instance,
     get_mime_type,
     get_module_version,
+    get_mtime_granularity,
     get_utcnow_datetime,
     is_page2_url,
     is_same_time,
@@ -147,6 +148,37 @@ def test_times_manipulations() -> None:
     # milliseconds
     assert not is_same_time(t0, t1, tolerance=0)
     assert is_same_time(t0, t1_epoch + 100, tolerance=101)
+
+
+@pytest.mark.ai_generated
+def test_get_mtime_granularity_fine(
+    tmp_path: Path, coarse_mtime_fs: Callable[[float], None]
+) -> None:
+    # The fixture is requested (without setting a granularity) merely to get the
+    # granularity cache cleared around the test
+    assert get_mtime_granularity(tmp_path) == 1e-6
+    # A file may be passed in place of its directory
+    (tmp_path / "file.txt").write_text("hello")
+    assert get_mtime_granularity(tmp_path / "file.txt") == 1e-6
+    # ... as may a path that does not exist yet
+    assert get_mtime_granularity(tmp_path / "nonexistent.txt") == 1e-6
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("granularity", [1.0, 2.0])
+def test_get_mtime_granularity_coarse(
+    tmp_path: Path, coarse_mtime_fs: Callable[[float], None], granularity: float
+) -> None:
+    coarse_mtime_fs(granularity)
+    assert get_mtime_granularity(tmp_path) == granularity
+
+
+@pytest.mark.ai_generated
+def test_get_mtime_granularity_unprobeable(
+    tmp_path: Path, coarse_mtime_fs: Callable[[float], None]
+) -> None:
+    # The fixture is requested merely to get the granularity cache cleared
+    assert get_mtime_granularity(tmp_path / "no" / "such" / "dir") == 1.0
 
 
 @pytest.mark.parametrize(

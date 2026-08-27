@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from bisect import bisect
 from collections.abc import Iterable, Iterator
+from contextlib import suppress
 import datetime
 from email.utils import parsedate_to_datetime
 from enum import Enum
@@ -21,6 +22,8 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
+import threading
 from time import sleep
 import traceback
 import types
@@ -155,6 +158,124 @@ def is_same_time(
         (t1 - t2 if t1 > t2 else t2 - t1) <= tolerance_dt
         for (t1, t2) in itertools.combinations(norm_times, 2)
     )
+
+
+#: mtime granularity (in seconds) assumed whenever the filesystem could not be
+#: probed by `get_mtime_granularity()`.  One second covers the common coarse
+#: cases (mounted Windows volumes, FAT/exFAT, some network filesystems) without
+#: being so wide that genuinely modified files would look unchanged.
+DEFAULT_MTIME_GRANULARITY = 1.0
+
+#: mtime granularities (in seconds) that filesystems are known to use, from
+#: finest to coarsest.  A probed deviation is rounded up to one of these.  The
+#: finest entry is 1 microsecond and not any finer since, at present-day epoch
+#: values, that is about the resolution a 64-bit float can represent anyway.
+_MTIME_GRANULARITIES = (1e-6, 1e-3, 1.0, 2.0)
+
+#: Probed mtime granularities, keyed by ``st_dev`` of the filesystem
+_mtime_granularity_cache: dict[int, float] = {}
+
+_mtime_granularity_lock = threading.Lock()
+
+
+def _probe_mtime_granularity(directory: Path) -> float:
+    """Measure the mtime granularity of the filesystem holding ``directory``
+
+    Done by writing a series of timestamps to a temporary file with
+    `os.utime()` and reading them back with `os.stat()`; the largest deviation
+    introduced by such a round trip is rounded up to one of
+    `_MTIME_GRANULARITIES`.
+    """
+    # An arbitrary, fixed timestamp of the present era (2023-11-14T22:13:20Z)
+    # with an even number of seconds.  Present-era rather than, say, 0 so that
+    # the floating point resolution of the probe matches that of the mtimes
+    # actually compared; even so that filesystems rounding to a multiple of two
+    # seconds (FAT) are detected by the offsets crossing a second boundary.
+    base = 1700000000.0
+    offsets = (0.0, 5e-7, 5e-4, 0.5, 1.0, 1.5)
+    tmpfile = None
+    try:
+        fd, tmpfile = tempfile.mkstemp(prefix=".dandi-mtime-probe-", dir=directory)
+        os.close(fd)
+        deviation = 0.0
+        for offset in offsets:
+            written = base + offset
+            os.utime(tmpfile, (written, written))
+            deviation = max(deviation, abs(os.stat(tmpfile).st_mtime - written))
+    except OSError as exc:
+        lgr.warning(
+            "Could not determine the mtime granularity of the filesystem "
+            "holding %s (%s); assuming %g second(s)",
+            directory,
+            exc,
+            DEFAULT_MTIME_GRANULARITY,
+        )
+        return DEFAULT_MTIME_GRANULARITY
+    finally:
+        if tmpfile is not None:
+            with suppress(OSError):
+                os.unlink(tmpfile)
+    for granularity in _MTIME_GRANULARITIES:
+        if deviation <= granularity:
+            break
+    else:
+        granularity = deviation
+    lgr.debug(
+        "Filesystem holding %s stores mtimes with a granularity of %g second(s) "
+        "(largest observed round-trip deviation: %g s)",
+        directory,
+        granularity,
+        deviation,
+    )
+    return granularity
+
+
+def get_mtime_granularity(path: str | Path) -> float:
+    """Determine how precisely a filesystem stores modification times
+
+    Not every filesystem records mtimes with the resolution that `os.stat()`
+    reports: mounted Windows volumes, FAT/exFAT and some network filesystems
+    truncate or round the value they are given, so a timestamp written with
+    `os.utime()` does not necessarily read back exactly.  The returned value is
+    the largest deviation that such a round trip may introduce, and is thus
+    usable as a tolerance (cf. `is_same_time()`) when comparing a stored mtime
+    against the value it was set from.
+
+    The result is cached per filesystem (as identified by ``st_dev``), so that
+    the probing is performed at most once per filesystem per process.
+
+    Parameters
+    ----------
+    path: str or Path
+      A path on the filesystem of interest.  If it is not a directory, its
+      parent directory is probed, which must exist and be writable.
+
+    Returns
+    -------
+    float
+      The granularity in seconds; `DEFAULT_MTIME_GRANULARITY` if the filesystem
+      could not be probed.
+    """
+    directory = Path(path)
+    if not directory.is_dir():
+        directory = directory.parent
+    try:
+        dev = os.stat(directory).st_dev
+    except OSError as exc:
+        lgr.warning(
+            "Could not stat %s (%s); assuming an mtime granularity of %g second(s)",
+            directory,
+            exc,
+            DEFAULT_MTIME_GRANULARITY,
+        )
+        return DEFAULT_MTIME_GRANULARITY
+    with _mtime_granularity_lock:
+        try:
+            return _mtime_granularity_cache[dev]
+        except KeyError:
+            granularity = _probe_mtime_granularity(directory)
+            _mtime_granularity_cache[dev] = granularity
+            return granularity
 
 
 def ensure_strtime(

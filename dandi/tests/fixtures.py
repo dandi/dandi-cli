@@ -40,6 +40,7 @@ from ..consts import (
 from ..dandiapi import DandiAPIClient, RemoteDandiset
 from ..pynwb_utils import make_nwb_file
 from ..upload import upload
+from ..utils import _mtime_granularity_cache
 
 lgr = get_logger()
 
@@ -69,6 +70,44 @@ BIDS_ERROR_TESTDATA_SELECTION = ["invalid_asl003", "invalid_pet001"]
 @pytest.fixture(autouse=True)
 def capture_all_logs(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG, logger="dandi")
+
+
+@pytest.fixture()
+def coarse_mtime_fs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[Callable[[float], None]]:
+    """Simulate a filesystem that does not store sub-second mtimes
+
+    Yields a callable taking the granularity (in seconds) with which mtimes
+    should be stored; until it is called, mtimes are stored as given.  This is
+    done by patching `os.utime()` to quantize the times it is asked to set,
+    which is what filesystems such as those on mounted Windows volumes, FAT and
+    exFAT effectively do — real (ext4/XFS/tmpfs) temporary directories store
+    mtimes with nanosecond resolution and so cannot exercise this behavior.
+
+    Also clears `dandi.utils`'s cache of probed mtime granularities, both before
+    and after the test, since the patching changes what would be probed for an
+    already-visited filesystem.
+    """
+    real_utime = os.utime
+    granularity = 0.0
+
+    def quantizing_utime(path: Any, times: Any = None, **kwargs: Any) -> None:
+        if granularity and times is not None:
+            times = tuple(t // granularity * granularity for t in times)
+        real_utime(path, times, **kwargs)
+
+    def set_granularity(value: float) -> None:
+        nonlocal granularity
+        granularity = value
+        _mtime_granularity_cache.clear()
+
+    monkeypatch.setattr(os, "utime", quantizing_utime)
+    _mtime_granularity_cache.clear()
+    try:
+        yield set_granularity
+    finally:
+        _mtime_granularity_cache.clear()
 
 
 # TODO: move into some common fixtures.  We might produce a number of files
