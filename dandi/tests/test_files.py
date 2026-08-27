@@ -204,8 +204,8 @@ def test_media_extensions_are_case_insensitive(
     # `find_dandi_files` skips unless `allow_all`, so it never reached the archive.
     mkpaths(tmp_path, filename)
     assert isinstance(dandi_file(tmp_path / filename, tmp_path), klass)
-    assert [f.path for f in find_dandi_files(tmp_path, dandiset_path=tmp_path)] == [
-        filename
+    assert [f.filepath for f in find_dandi_files(tmp_path, dandiset_path=tmp_path)] == [
+        tmp_path / filename
     ]
 
 
