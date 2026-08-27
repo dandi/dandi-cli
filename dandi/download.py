@@ -38,7 +38,13 @@ from interleave import FINISH_CURRENT, lazy_interleave
 import requests
 
 from . import get_logger
-from .consts import DOWNLOAD_SUFFIX, RETRY_STATUSES, SyncMode, dandiset_metadata_file
+from .consts import (
+    DOWNLOAD_SUFFIX,
+    MTIME_TOLERANCE,
+    RETRY_STATUSES,
+    SyncMode,
+    dandiset_metadata_file,
+)
 from .dandiapi import AssetType, BaseRemoteZarrAsset, RemoteDandiset
 from .dandiarchive import (
     AssetItemURL,
@@ -702,7 +708,13 @@ def _download_file(
             else:
                 stat = os.stat(op.realpath(path))
                 same = []
-                if is_same_time(stat.st_mtime, mtime):
+                # The mtime compared against here is the one we set ourselves
+                # with os.utime() after the previous download, so this is
+                # really a filesystem round trip; tolerate the coarsest
+                # granularity filesystems are known to store mtimes with
+                # instead of assuming the value round-trips exactly.  See
+                # https://github.com/dandi/dandi-cli/issues/1907
+                if is_same_time(stat.st_mtime, mtime, tolerance=MTIME_TOLERANCE):
                     same.append("mtime")
                 if size is not None and stat.st_size == size:
                     same.append("size")
@@ -712,7 +724,19 @@ def _download_file(
                     # TODO: add recording and handling of .nwb object_id
                     yield _skip_file("same time and size", size=size)
                     return
-                lgr.debug(f"{path!r} - same attributes: {same}.  Redownloading")
+                lgr.debug(
+                    "%r - same attributes: %s.  Redownloading.  "
+                    "local mtime: %f, record mtime: %f, delta: %f s, "
+                    "tolerance: %g s, local size: %s, record size: %s",
+                    str(path),
+                    same,
+                    stat.st_mtime,
+                    mtime.timestamp(),
+                    abs(stat.st_mtime - mtime.timestamp()),
+                    MTIME_TOLERANCE,
+                    stat.st_size,
+                    size,
+                )
 
     if size is not None:
         yield {"size": size}
