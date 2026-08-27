@@ -298,8 +298,12 @@ def test_download_file_refresh_reports_mtime_mismatch(
         r.getMessage() for r in caplog.records if "Redownloading" in r.getMessage()
     ]
     assert "same attributes: ['size']" in msg
-    assert "delta: 3600.65" in msg
     assert f"tolerance: {MTIME_TOLERANCE:g} s" in msg
+    # Don't assume the reported delta round-trips exactly -- that is the very
+    # assumption this test's subject stopped making -- only that it names the
+    # roughly one-hour discrepancy
+    delta = float(re.search(r"delta: ([\d.]+) s", msg).group(1))  # type: ignore[union-attr]
+    assert abs(delta - timedelta(hours=1).total_seconds()) <= MTIME_TOLERANCE
 
 
 def test_download_newest_version(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
