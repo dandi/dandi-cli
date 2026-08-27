@@ -1257,10 +1257,20 @@ def test_species_record_matching_methods() -> None:
         (
             ["FiberPhotometryResponseSeries"],
             {
-                "approach": ["calcium imaging; cell population imaging"],
-                "measurementTechnique": ["fiber photometry technique; optical technique"],
+                "approach": ["fiber photometry approach"],
+                "measurementTechnique": ["fiber photometry technique"],
                 "variableMeasured": ["FiberPhotometryResponseSeries"],
             },
+        ),
+        pytest.param(
+            # ndx-photometry metadata tables alone should mark the asset
+            ["FibersTable"],
+            {
+                "approach": ["fiber photometry approach"],
+                "measurementTechnique": None,
+                "variableMeasured": ["FibersTable"],
+            },
+            marks=pytest.mark.ai_generated,
         ),
         (
             # the tricky case of having number of instances of the data type
