@@ -185,6 +185,30 @@ def test_find_dandi_files(tmp_path: Path) -> None:
     ]
 
 
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "filename,klass",
+    [
+        ("video.mp4", VideoAsset),
+        ("video.MP4", VideoAsset),
+        ("video.MOV", VideoAsset),
+        ("image.png", ImageAsset),
+        ("image.PNG", ImageAsset),
+        ("image.JPEG", ImageAsset),
+    ],
+)
+def test_media_extensions_are_case_insensitive(
+    filename: str, klass: type, tmp_path: Path
+) -> None:
+    # A media file whose extension is uppercase used to classify as `GenericAsset`, which
+    # `find_dandi_files` skips unless `allow_all`, so it never reached the archive.
+    mkpaths(tmp_path, filename)
+    assert isinstance(dandi_file(tmp_path / filename, tmp_path), klass)
+    assert [f.path for f in find_dandi_files(tmp_path, dandiset_path=tmp_path)] == [
+        filename
+    ]
+
+
 def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
     mkpaths(
         tmp_path,

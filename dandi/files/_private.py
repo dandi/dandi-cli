@@ -50,9 +50,9 @@ class DandiFileType(Enum):
             return DandiFileType.BIDS_DATASET_DESCRIPTION
         elif path.suffix == ".nwb":
             return DandiFileType.NWB
-        elif path.suffix in VIDEO_FILE_EXTENSIONS:
+        elif path.suffix.lower() in VIDEO_FILE_EXTENSIONS:
             return DandiFileType.VIDEO
-        elif path.suffix in IMAGE_FILE_EXTENSIONS:
+        elif path.suffix.lower() in IMAGE_FILE_EXTENSIONS:
             return DandiFileType.IMAGE
         else:
             return DandiFileType.GENERIC
