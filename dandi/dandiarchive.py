@@ -44,6 +44,7 @@ from . import get_logger
 from .consts import (
     DANDISET_ID_REGEX,
     PUBLISHED_VERSION_REGEX,
+    REDIRECT_HEAD_TIMEOUT,
     RETRY_STATUSES,
     VERSION_REGEX,
     DandiInstance,
@@ -573,6 +574,10 @@ class _dandi_url_parser:
     dandiset_id_grp = f"(?P<dandiset_id>{DANDISET_ID_REGEX})"
     # Should absorb port and "api/":
     server_grp = "(?P<server>(?P<protocol>https?)://(?P<hostname>[^/]+)/(api/)?)"
+    # Build instance name pattern from known instances to avoid matching unknown patterns
+    instance_name_pattern = "|".join(
+        re.escape(name.upper()) for name in known_instances
+    )
     known_urls: list[tuple[re.Pattern[str], dict[str, Any], str]] = [
         # List of (regex, settings, display string) triples
         #
@@ -589,13 +594,12 @@ class _dandi_url_parser:
         #       for not only "dandiarchive.org" URLs
         (
             re.compile(
-                rf"(?P<instance_name>DANDI):"
+                rf"(?P<instance_name>{instance_name_pattern}):"
                 rf"{dandiset_id_grp}"
                 rf"(/(?P<version>{VERSION_REGEX}))?",
-                flags=re.I,
             ),
             {},
-            "DANDI:<dandiset id>[/<version>]",
+            "<INSTANCE>:<dandiset id>[/<version>]",
         ),
         (
             re.compile(r"https?://gui\.dandiarchive\.org/.*"),
@@ -740,7 +744,8 @@ class _dandi_url_parser:
                 continue
             groups = match.groupdict()
             if "instance_name" in groups:
-                # map to lower case so we could immediately map DANDI: into "dandi" instance
+                # map to lower case so we could immediately map an instance name to
+                # an instance in `dandi.consts.known_instances`
                 groups["instance_name"] = groups["instance_name"].lower()
             lgr.log(5, "Matched %r into %s", url, groups)
             rewrite = settings.get("rewrite", False)
@@ -892,12 +897,18 @@ class _dandi_url_parser:
         """
         max_attempts = 5
 
-        connection_error: requests.ConnectionError | None = None
+        # ConnectionError covers DNS / TCP-level failures (and ConnectTimeout);
+        # Timeout additionally covers ReadTimeout, which we observe on Windows
+        # CI when a hop in the redirect chain accepts the connection but never
+        # responds.  Without this, requests.head() blocks indefinitely.
+        connection_error: requests.RequestException | None = None
         resp: requests.Response | None = None
         for attempt_idx in range(max_attempts):
             try:
-                resp = requests.head(url, allow_redirects=True)
-            except requests.ConnectionError as e:
+                resp = requests.head(
+                    url, allow_redirects=True, timeout=REDIRECT_HEAD_TIMEOUT
+                )
+            except (requests.ConnectionError, requests.Timeout) as e:
                 # we frequently get those on Windows for some reason
 
                 lgr.warning(

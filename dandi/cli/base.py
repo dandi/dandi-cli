@@ -1,3 +1,4 @@
+from enum import Enum
 from functools import wraps
 import os
 
@@ -25,8 +26,22 @@ class IntColonInt(click.ParamType):
         else:
             return value
 
-    def get_metavar(self, param):
+    def get_metavar(self, param, ctx=None):
         return "N[:M]"
+
+
+class EnumChoice(click.Choice):
+    """A ``click.Choice`` over an ``Enum``, matched on member values.
+
+    ``click >= 8.2`` matches ``Enum`` members on ``.name`` by default; this
+    subclass overrides :meth:`click.Choice.normalize_choice` to match on
+    ``.value`` instead, so command-line tokens stay the lowercase enum values
+    (``error``, ``skip``, ...). ``click.Choice.convert`` then returns the
+    matched enum member.
+    """
+
+    def normalize_choice(self, choice, ctx=None):
+        return choice.value if isinstance(choice, Enum) else str(choice)
 
 
 class ChoiceList(click.ParamType):
@@ -51,7 +66,7 @@ class ChoiceList(click.ParamType):
                 )
         return selected
 
-    def get_metavar(self, param):
+    def get_metavar(self, param, ctx=None):
         return "[" + ",".join(self.values) + ",all]"
 
 

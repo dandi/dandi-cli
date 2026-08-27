@@ -1,3 +1,10 @@
+"""Custom exceptions for DANDI CLI operations.
+
+This module defines exception classes used throughout the DANDI CLI for
+handling various error conditions including network errors, validation
+failures, and version incompatibilities.
+"""
+
 from __future__ import annotations
 
 import requests
@@ -83,4 +90,10 @@ class HTTP404Error(requests.HTTPError):
 
 
 class UploadError(Exception):
+    pass
+
+
+class UploadValidationError(UploadError):
+    """An upload could not proceed because an asset failed validation."""
+
     pass

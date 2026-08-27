@@ -5,7 +5,14 @@ import os
 
 import click
 
-from .base import ChoiceList, IntColonInt, instance_option, map_to_click_exceptions
+from .base import (
+    ChoiceList,
+    EnumChoice,
+    IntColonInt,
+    instance_option,
+    map_to_click_exceptions,
+)
+from ..consts import SyncMode
 from ..dandiarchive import _dandi_url_parser, parse_dandi_url
 from ..dandiset import Dandiset
 from ..download import DownloadExisting, DownloadFormat, PathType
@@ -62,11 +69,16 @@ Download files or entire folders from DANDI.
 @click.option(
     "-e",
     "--existing",
-    type=click.Choice(list(DownloadExisting)),
+    type=EnumChoice(DownloadExisting),
     # TODO: verify-reupload (to become default)
-    help="What to do if a file found existing locally. 'refresh': verify "
-    "that according to the size and mtime, it is the same file, if not - "
-    "download and overwrite.",
+    help="How to handle paths that already exist locally. "
+    "For 'error', if the local file exists, display an error and skip downloading that asset. "
+    "For 'skip', if the local file exists, skip downloading that asset. "
+    "For 'overwrite', if the local file exists, overwrite that asset. "
+    "For 'overwrite-different', if the local file's hash is the same as on the server, the asset "
+    "is skipped; otherwise, it is redownloaded. "
+    "For 'refresh', if the local file's size and mtime are the same as on the server, the asset "
+    "is skipped; otherwise, it is redownloaded.",
     default="error",
     show_default=True,
 )
@@ -74,12 +86,12 @@ Download files or entire folders from DANDI.
     "-f",
     "--format",
     help="Choose the format/frontend for output. TODO: support all of the ls",
-    type=click.Choice(list(DownloadFormat)),
+    type=EnumChoice(DownloadFormat),
     default="pyout",
 )
 @click.option(
     "--path-type",
-    type=click.Choice(list(PathType)),
+    type=EnumChoice(PathType),
     default="exact",
     help="Whether to interpret asset paths in URLs as exact matches or glob patterns",
     show_default=True,
@@ -111,7 +123,14 @@ Download files or entire folders from DANDI.
     ),
 )
 @click.option(
-    "--sync", is_flag=True, help="Delete local assets that do not exist on the server"
+    "--sync",
+    is_flag=False,
+    flag_value="ask",
+    default=None,
+    type=EnumChoice(SyncMode),
+    help="Delete local assets that do not exist on the server. "
+    "With 'ask' (the default when --sync is passed without a value), prompt before "
+    "deleting. With 'do', delete without prompting.",
 )
 @instance_option(
     default=None,
@@ -145,7 +164,7 @@ def download(
     jobs: tuple[int, int],
     format: DownloadFormat,
     download_types: set[str],
-    sync: bool,
+    sync: str | None,
     dandi_instance: str,
     path_type: PathType,
     preserve_tree: bool,
@@ -185,7 +204,7 @@ def download(
         get_metadata="dandiset.yaml" in download_types or preserve_tree,
         get_assets="assets" in download_types or preserve_tree,
         preserve_tree=preserve_tree,
-        sync=sync,
+        sync=SyncMode(sync) if sync is not None else None,
         path_type=path_type,
         # develop_debug=develop_debug
     )

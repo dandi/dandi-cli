@@ -9,7 +9,7 @@ import sys
 
 import anys
 from click.testing import CliRunner
-from dandischema.consts import DANDI_SCHEMA_VERSION
+from dandischema.models import ID_PATTERN
 import pytest
 
 from dandi import __version__
@@ -31,7 +31,7 @@ def test_reextract_metadata(
     asset_id = nwb_dandiset.dandiset.get_asset_by_path(
         "sub-mouse001/sub-mouse001.nwb"
     ).identifier
-    monkeypatch.setenv("DANDI_API_KEY", nwb_dandiset.api.api_key)
+    nwb_dandiset.api.monkeypatch_set_api_key_env(monkeypatch)
     r = CliRunner().invoke(
         service_scripts,
         ["reextract-metadata", "--when=always", nwb_dandiset.dandiset.version_api_url],
@@ -74,7 +74,7 @@ def test_update_dandiset_from_doi(
 ) -> None:
     dandiset_id = new_dandiset.dandiset_id
     repository = new_dandiset.api.instance.gui
-    monkeypatch.setenv("DANDI_API_KEY", new_dandiset.api.api_key)
+    new_dandiset.api.monkeypatch_set_api_key_env(monkeypatch)
     if os.environ.get("DANDI_TESTS_NO_VCR", "") or sys.version_info <= (3, 10):
         # Older vcrpy has an issue with Python 3.9 and newer urllib2 >= 2
         # But we require newer urllib2 for more correct operation, and
@@ -103,18 +103,21 @@ def test_update_dandiset_from_doi(
         )
     assert r.exit_code == 0
     metadata = new_dandiset.dandiset.get_raw_metadata()
+    # The DANDI schema version in the metadata under test is the server's,
+    # not this client's.
+    server_schema_version = new_dandiset.client.get("/info/")["schema_version"]
     with (DATA_DIR / "update_dandiset_from_doi" / f"{name}.json").open() as fp:
         expected = json.load(fp)
-    expected["id"] = f"DANDI:{dandiset_id}/draft"
+    expected["id"] = anys.AnyFullmatch(rf"{ID_PATTERN}:{dandiset_id}/draft")
     expected["url"] = f"{repository}/dandiset/{dandiset_id}/draft"
     expected["@context"] = (
         "https://raw.githubusercontent.com/dandi/schema/master/releases"
-        f"/{DANDI_SCHEMA_VERSION}/context.json"
+        f"/{server_schema_version}/context.json"
     )
-    expected["identifier"] = f"DANDI:{dandiset_id}"
+    expected["identifier"] = anys.AnyFullmatch(rf"{ID_PATTERN}:{dandiset_id}")
     expected["repository"] = repository
     expected["dateCreated"] = anys.ANY_AWARE_DATETIME_STR
-    expected["schemaVersion"] = DANDI_SCHEMA_VERSION
+    expected["schemaVersion"] = server_schema_version
     expected["wasGeneratedBy"][0]["id"] = anys.AnyFullmatch(
         r"urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
     )

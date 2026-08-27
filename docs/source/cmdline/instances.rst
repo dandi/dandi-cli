@@ -22,18 +22,15 @@ Example output:
     dandi-sandbox:
       api: https://api.sandbox.dandiarchive.org/api
       gui: https://sandbox.dandiarchive.org
-    dandi-staging:
-      api: https://api.sandbox.dandiarchive.org/api
-      gui: https://sandbox.dandiarchive.org
     linc-staging:
       api: https://staging-api.lincbrain.org/api
       gui: https://staging.lincbrain.org
     linc:
       api: https://api.lincbrain.org/api
       gui: https://lincbrain.org
-    ember-sandbox:
-      api: https://api-dandi-sandbox.emberarchive.org/api
-      gui: https://apl-setup--ember-dandi-archive.netlify.app/
-    ember:
+    ember-dandi-sandbox:
+      api: https://api-dandi.sandbox.emberarchive.org/api
+      gui: https://dandi.sandbox.emberarchive.org
+    ember-dandi:
       api: https://api-dandi.emberarchive.org/api
       gui: https://dandi.emberarchive.org

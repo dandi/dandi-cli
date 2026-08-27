@@ -12,7 +12,7 @@ from ..command import __all_commands__
 
 
 @pytest.mark.parametrize("command", (ls, validate))
-def test_smoke(organized_nwb_dir, command):
+def test_smoke(organized_nwb_dir, command, tmp_path, monkeypatch):
     runner = CliRunner()
     r = runner.invoke(command, [str(organized_nwb_dir)])
     assert r.exit_code == 0, f"Exited abnormally. out={r.stdout}"
@@ -23,7 +23,8 @@ def test_smoke(organized_nwb_dir, command):
     # have all kinds of files which could trip the command, e.g. validate
     # could find some broken test files in the code base
     if command is not validate:
-        with runner.isolated_filesystem():
+        with monkeypatch.context() as m:
+            m.chdir(tmp_path)
             r = runner.invoke(command, [])
         assert r.exit_code == 0, f"Exited abnormally. out={r.stdout}"
 

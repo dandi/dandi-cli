@@ -1,3 +1,15 @@
+"""REST API client for interacting with DANDI Archive instances.
+
+This module provides client classes for communicating with DANDI Archive API
+servers, including asset management, dandiset operations, and authentication.
+
+The main classes are:
+- DandiAPIClient: High-level client for DANDI API operations
+- RESTFullAPIClient: Base HTTP client with retry and authentication
+- RemoteDandiset: Represents a dandiset on the server
+- RemoteAsset: Represents an asset (file) on the server
+"""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -7,6 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from fnmatch import fnmatchcase
+from functools import cached_property
 import json
 import os.path
 from pathlib import Path, PurePosixPath
@@ -14,10 +27,13 @@ import posixpath
 import re
 from time import sleep, time
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
 
 import click
 from dandischema import models
+import dandischema.consts
+from dandischema.metadata import migrate
+from packaging.version import Version as PackagingVersion
 from pydantic import BaseModel, Field, PrivateAttr
 import requests
 import tenacity
@@ -35,7 +51,7 @@ from .consts import (
     EmbargoStatus,
 )
 from .exceptions import HTTP404Error, NotFoundError, SchemaVersionError
-from .keyring import keyring_lookup, keyring_save
+from .keyring_utils import keyring_lookup, keyring_save
 from .misctypes import Digest, RemoteReadableAsset
 from .utils import (
     USER_AGENT,
@@ -54,6 +70,20 @@ if TYPE_CHECKING:
 
 
 lgr = get_logger()
+
+
+def set_asset_schema_key(metadata: dict[str, Any]) -> None:
+    """
+    Set ``schemaKey`` to ``"Asset"`` on metadata bound for the server as asset metadata.
+
+    However the metadata was gathered (e.g. as a ``BareAsset``), if it is to be uploaded
+    to the server to populate, in part, an ``Asset`` instance, set the ``schemaKey`` of
+    the metadata to ``"Asset"`` here. The server expects the uploaded metadata to carry
+    ``"Asset"`` as its ``schemaKey``.
+
+    The metadata is modified in place.
+    """
+    metadata["schemaKey"] = "Asset"
 
 
 class AssetType(Enum):
@@ -198,6 +228,14 @@ class RESTFullAPIClient:
 
         lgr.debug("%s %s", method.upper(), url)
 
+        def _rewind_data(retry_state: tenacity.RetryCallState) -> None:
+            # After a failed attempt (ConnectionError mid-upload, HTTPError,
+            # etc.), the file pointer may be at an arbitrary position. Seek
+            # back to 0 so the next attempt sends the complete body.
+            # See https://github.com/dandi/dandi-cli/issues/1821
+            if data is not None and hasattr(data, "seek"):
+                data.seek(0)
+
         try:
             for i, attempt in enumerate(
                 tenacity.Retrying(
@@ -211,6 +249,7 @@ class RESTFullAPIClient:
                     ),
                     stop=tenacity.stop_after_attempt(REQUEST_RETRIES),
                     reraise=True,
+                    before_sleep=_rewind_data,
                 )
             ):
                 with attempt:
@@ -235,8 +274,6 @@ class RESTFullAPIClient:
                                 url,
                                 result.text,
                             )
-                            if data is not None and hasattr(data, "seek"):
-                                data.seek(0)
                         if retry_after := get_retry_after(result):
                             lgr.debug(
                                 "Sleeping for %d seconds as instructed in response "
@@ -433,7 +470,11 @@ class DandiAPIClient(RESTFullAPIClient):
                 dandi_instance = get_instance(instance_name)
             api_url = dandi_instance.api
         elif dandi_instance is not None:
-            raise ValueError("api_url and dandi_instance are mutually exclusive")
+            raise ValueError(
+                "api_url and dandi_instance are mutually exclusive. "
+                "Use either 'api_url' to specify a custom API URL, "
+                "or 'dandi_instance' to use a registered DANDI instance, but not both."
+            )
         else:
             dandi_instance = get_instance(api_url)
         super().__init__(api_url)
@@ -486,20 +527,23 @@ class DandiAPIClient(RESTFullAPIClient):
     def dandi_authenticate(self) -> None:
         """
         Acquire and set the authentication token/API key used by the
-        `DandiAPIClient`.  If the :envvar:`DANDI_API_KEY` environment variable
-        is set, its value is used as the token.  Otherwise, the token is looked
-        up in the user's keyring under the service
-        ":samp:`dandi-api-{INSTANCE_NAME}`" [#auth]_ and username "``key``".
-        If no token is found there, the user is prompted for the token, and, if
-        it proves to be valid, it is stored in the user's keyring.
+        `DandiAPIClient`.
+        If the :envvar:`{INSTANCE_NAME}_API_KEY` environment variable is set, its value
+        is used as the token. Here, ``{INSTANCE_NAME}`` is the uppercased instance name
+        with hyphens replaced by underscores. Otherwise, the token is looked up in the
+        user's keyring under the service ":samp:`dandi-api-{self.dandi_instance.name}`"
+        [#auth]_ and username "``key``". If no token is found there, the user is
+        prompted for the token, and, if it proves to be valid, it is stored in the
+        user's keyring.
 
         .. [#auth] E.g., "``dandi-api-dandi``" for the production server or
                    "``dandi-api-dandi-sandbox``" for the sandbox server
         """
         # Shortcut for advanced folks
-        api_key = os.environ.get("DANDI_API_KEY", None)
+        env_var_name = self.api_key_env_var
+        api_key = os.environ.get(env_var_name, None)
         if api_key:
-            lgr.debug("Using api key from DANDI_API_KEY environment variable")
+            lgr.debug(f"Using `{env_var_name}` environment variable as the API key")
             self.authenticate(api_key)
             return
         client_name, app_id = self._get_keyring_ids()
@@ -557,7 +601,10 @@ class DandiAPIClient(RESTFullAPIClient):
                     self, self.get(f"/dandisets/{dandiset_id}/")
                 )
             except HTTP404Error:
-                raise NotFoundError(f"No such Dandiset: {dandiset_id!r}")
+                raise NotFoundError(
+                    f"No such Dandiset: {dandiset_id!r}. "
+                    "Verify the Dandiset ID is correct and that you have access. "
+                )
             if version_id is not None and version_id != d.version_id:
                 if version_id == DRAFT:
                     return d.for_version(d.draft_version)
@@ -646,28 +693,219 @@ class DandiAPIClient(RESTFullAPIClient):
 
     def check_schema_version(self, schema_version: str | None = None) -> None:
         """
-        Confirms that the server is using the same version of the DANDI schema
-        as the client.  If it is not, a `SchemaVersionError` is raised.
+        Confirms that the given schema version at the client is "compatible" with the server.
 
-        :param schema_version: the schema version to confirm that the server
-            uses; if not set, the schema version for the installed
-            ``dandischema`` library is used
+        Compatibility here means that the server's schema version can be either
+
+        - lower than client has, but within the same MAJOR.MINOR component of the version
+          number for 0.x series, and same MAJOR version for/after 1.x series;
+        - the same;
+        - higher than the client has, but only if the client's schema version is listed
+          among the server's `allowed_schema_versions` (as returned by the `/info` API endpoint),
+          or if not there -- `dandischema.consts.ALLOWED_INPUT_SCHEMAS` is consulted.
+
+        If neither of above, a `SchemaVersionError` is raised.
+
+        :param schema_version: the schema version to be confirmed for compatibility with the server;
+           if not set, the schema version for the installed ``dandischema`` library is used.
         """
         if schema_version is None:
             schema_version = models.get_schema_version()
-        server_info = self.get("/info/")
-        server_schema_version = server_info.get("schema_version")
-        if not server_schema_version:
+        server_info = self.server_info
+        server_schema_version = self.server_schema_version
+        server_ver, our_ver = PackagingVersion(server_schema_version), PackagingVersion(
+            schema_version
+        )
+        if server_ver > our_ver:
+            # TODO: potentially adjust here if name would be different: see
+            # https://github.com/dandi/dandi-archive/issues/2624
+            allowed_schema_versions = server_info.get(
+                "allowed_schema_versions", dandischema.consts.ALLOWED_INPUT_SCHEMAS
+            )
+            if schema_version not in allowed_schema_versions:
+                raise SchemaVersionError(
+                    f"Server uses schema version {server_schema_version};"
+                    f" client only supports prior {schema_version} and it"
+                    f" is not among any of the allowed upgradable schema versions"
+                    f" ({', '.join(allowed_schema_versions)}) .  You may need to"
+                    " upgrade dandi and/or dandischema."
+                )
+
+            # TODO: check current server behavior which is likely to just not care!
+            # So that is where server might need to provide support for upgrades upon
+            # providing metadata.
+        elif server_ver < our_ver:
+            # Server is older.  If dandischema knows a downgrade path
+            # (`_maybe_downgrade_metadata` will use it on upload) OR if the
+            # versions are within the same MAJOR.MINOR (0.x.y) / MAJOR (1.x.y)
+            # compatibility band, just warn; otherwise raise as incompatible.
+            can_downgrade = (
+                server_schema_version in dandischema.consts.ALLOWED_TARGET_SCHEMAS
+            )
+            if not can_downgrade and (
+                (
+                    server_ver.major == 0
+                    and server_ver.release[:2] != our_ver.release[:2]
+                )
+                or (server_ver.major != our_ver.major)
+            ):
+                raise SchemaVersionError(
+                    f"Server uses older incompatible schema version {server_schema_version};"
+                    f" client supports {schema_version}."
+                )
+            if can_downgrade:
+                msg_downgrade = (
+                    "Library will attempt (but might fail) to downgrade outgoing "
+                    "metadata to this schema version on upload. "
+                )
+            else:
+                msg_downgrade = (
+                    "Library DOES NOT support downgrade to this schema version. "
+                )
+            lgr.warning(
+                "Server uses schema version %s older than client's %s "
+                "(dandischema library %s). "
+                "%s"
+                "Server might fail to validate "
+                "such assets and you might not be able to publish this dandiset "
+                "until server is upgraded. Alternatively, you may downgrade "
+                "dandischema and reupload.",
+                server_ver,
+                our_ver,
+                dandischema.__version__,
+                msg_downgrade,
+            )
+
+    @cached_property
+    def server_info(self) -> dict[str, Any]:
+        """
+        Cached response from the server's ``/info/`` endpoint.
+        """
+        info = self.get("/info/")
+        assert isinstance(info, dict)
+        return info
+
+    @cached_property
+    def server_schema_version(self) -> str:
+        """
+        The DANDI schema version reported by the server's ``/info/`` endpoint.
+        """
+        schema_version = self.server_info.get("schema_version")
+        if not schema_version:
             raise RuntimeError(
-                "Server did not provide schema_version in /info/;"
-                f" returned {server_info!r}"
+                f"Server did not provide schema_version in /info/; "
+                f"returned {self.server_info!r}"
             )
-        if server_schema_version != schema_version:
-            raise SchemaVersionError(
-                f"Server requires schema version {server_schema_version};"
-                f" client only supports {schema_version}.  You may need to"
-                " upgrade dandi and/or dandischema."
+        assert isinstance(schema_version, str)
+        return schema_version
+
+    def _maybe_downgrade_metadata(self, metadata: dict[str, Any]) -> dict[str, Any]:
+        """
+        If the server reports an older ``schema_version`` than the one embedded
+        in ``metadata``, and dandischema knows how to migrate down to that
+        version (i.e. it is in
+        ``dandischema.consts.ALLOWED_TARGET_SCHEMAS``), return a downgraded
+        copy of the metadata.  Otherwise return ``metadata`` unchanged.
+
+        If the downgrade path exists but ``dandischema.metadata.migrate``
+        refuses (e.g. a field added post-server-version is populated and
+        cannot be simply stripped), log a warning and return the original
+        metadata — the server will then decide.
+
+        Ref: https://github.com/dandi/dandi-schema/issues/343
+        """
+        obj_ver = metadata.get("schemaVersion")
+        if not obj_ver:
+            return metadata
+        server_ver_str = self.server_schema_version
+        if (
+            PackagingVersion(server_ver_str) >= PackagingVersion(obj_ver)
+            or server_ver_str not in dandischema.consts.ALLOWED_TARGET_SCHEMAS
+        ):
+            return metadata
+        try:
+            downgraded = migrate(
+                metadata, to_version=server_ver_str, skip_validation=True
             )
+        except ValueError as exc:
+            lgr.warning(
+                "Could not downgrade metadata from schema version %s to server's "
+                "%s: %s. Sending original metadata; server may reject it.",
+                obj_ver,
+                server_ver_str,
+                exc,
+            )
+            return metadata
+        return cast(Dict[str, Any], downgraded)
+
+    def _maybe_downgrade_request_metadata(self, body: Any) -> Any:
+        """
+        Intercept an outgoing request body: if it wraps a DANDI metadata
+        dict under the ``"metadata"`` key, downgrade that dict to the
+        server's schema version via ``_maybe_downgrade_metadata``.
+
+        A body is treated as carrying DANDI metadata iff it is a
+        ``dict`` whose ``"metadata"`` value is itself a ``dict`` with
+        both ``schemaKey`` (a str, e.g. ``"Dandiset"``, ``"BareAsset"``)
+        and ``schemaVersion`` (a str) — this is the invariant shape of
+        every DANDI-metadata payload the archive accepts.  Bodies that
+        don't match are passed through unchanged.
+
+        Called from `request()`, so every metadata-sending endpoint
+        (``create_dandiset``, ``*.set_raw_metadata``, ``iter_upload``
+        asset-create/replace, plus any future ones) gets the downgrade
+        automatically without spot-patching.
+        """
+        if not isinstance(body, dict):
+            return body
+        md = body.get("metadata")
+        if not (
+            isinstance(md, dict)
+            and isinstance(md.get("schemaKey"), str)
+            and isinstance(md.get("schemaVersion"), str)
+        ):
+            return body
+        downgraded = self._maybe_downgrade_metadata(md)
+        if downgraded is md:
+            return body
+        return {**body, "metadata": downgraded}
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        params: dict | None = None,
+        data: Any = None,
+        files: dict | None = None,
+        json: Any = None,
+        headers: dict | None = None,
+        json_resp: bool = True,
+        retry_statuses: Sequence[int] = (),
+        retry_if: Callable[[requests.Response], Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        Override of `RESTFullAPIClient.request` that runs
+        `_maybe_downgrade_request_metadata` over the outgoing ``json``
+        body so DANDI metadata gets downgraded to the server's schema
+        version on the way out.  See that method's docstring for the
+        shape check used and the ref to dandi-schema#343.
+        """
+        if json is not None:
+            json = self._maybe_downgrade_request_metadata(json)
+        return super().request(
+            method,
+            path,
+            params=params,
+            data=data,
+            files=files,
+            json=json,
+            headers=headers,
+            json_resp=json_resp,
+            retry_statuses=retry_statuses,
+            retry_if=retry_if,
+            **kwargs,
+        )
 
     def get_asset(self, asset_id: str) -> BaseRemoteAsset:
         """
@@ -681,9 +919,21 @@ class DandiAPIClient(RESTFullAPIClient):
         try:
             info = self.get(f"/assets/{asset_id}/info/")
         except HTTP404Error:
-            raise NotFoundError(f"No such asset: {asset_id!r}")
+            raise NotFoundError(
+                f"No such asset: {asset_id!r}. "
+                "Verify the asset ID is correct. "
+                "Use 'dandi ls' to list available assets."
+            )
         metadata = info.pop("metadata", None)
         return BaseRemoteAsset.from_base_data(self, info, metadata)
+
+    @property
+    def api_key_env_var(self) -> str:
+        """
+        Get the name of the environment variable that can be used to specify the
+        API key for the associated DANDI instance.
+        """
+        return f"{self.dandi_instance.name.upper().replace('-', '_')}_API_KEY"
 
 
 # `arbitrary_types_allowed` is needed for `client: DandiAPIClient`
@@ -1064,6 +1314,15 @@ class RemoteDandiset:
             Only published Dandiset versions can be expected to have valid
             metadata.  Consider using `get_raw_metadata()` instead in order to
             fetch unstructured, possibly-invalid metadata.
+
+            Even a published version's metadata can fail to validate.  The
+            fetched metadata is validated against the `Dandiset` model of the installed
+            `dandischema`, not against the version of `Dandiset` model that the metadata
+            was published under, so drift between the two can render
+            previously-valid metadata invalid.
+
+        :raises pydantic.ValidationError: if the fetched metadata does not
+            validate against `dandischema.models.Dandiset`
         """
         return models.Dandiset.model_validate(self.get_raw_metadata())
 
@@ -1247,7 +1506,11 @@ class RemoteDandiset:
                 a for a in self.get_assets_with_path_prefix(path) if a.path == path
             )
         except ValueError:
-            raise NotFoundError(f"No asset at path {path!r}")
+            raise NotFoundError(
+                f"No asset at path {path!r} in version {self.version_id}. "
+                "Verify the path is correct and the asset exists in this version. "
+                "Use 'dandi ls' to list available assets."
+            )
         else:
             return asset
 
@@ -1468,6 +1731,15 @@ class BaseRemoteAsset(ABC, APIBase):
             Only assets in published Dandiset versions can be expected to have
             valid metadata.  Consider using `get_raw_metadata()` instead in
             order to fetch unstructured, possibly-invalid metadata.
+
+            Even a published version's asset metadata can fail to validate.  The
+            fetched metadata is validated against the `Asset` model of the installed
+            `dandischema`, not against the version of `Asset` model that the metadata
+            was published under, so drift between the two can render
+            previously-valid metadata invalid.
+
+        :raises pydantic.ValidationError: if the fetched metadata does not
+            validate against `dandischema.models.Asset`
         """
         return models.Asset.model_validate(self.get_raw_metadata())
 
@@ -1900,6 +2172,7 @@ class RemoteBlobAsset(RemoteAsset, BaseRemoteBlobAsset):
         Set the metadata for the asset on the server to the given value and
         update the `RemoteBlobAsset` in place.
         """
+        set_asset_schema_key(metadata)
         data = self.client.put(
             self.api_path, json={"metadata": metadata, "blob_id": self.blob}
         )
@@ -1923,6 +2196,7 @@ class RemoteZarrAsset(RemoteAsset, BaseRemoteZarrAsset):
         Set the metadata for the asset on the server to the given value and
         update the `RemoteZarrAsset` in place.
         """
+        set_asset_schema_key(metadata)
         data = self.client.put(
             self.api_path, json={"metadata": metadata, "zarr_id": self.zarr}
         )

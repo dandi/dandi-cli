@@ -42,7 +42,11 @@ class Dandiset:
         if not allow_empty and not os.path.lexists(
             self.path_obj / dandiset_metadata_file
         ):
-            raise ValueError(f"No dandiset at {path}")
+            raise ValueError(
+                f"No dandiset at {path}. "
+                f"The directory does not contain a '{dandiset_metadata_file}' file. "
+                "Use 'dandi download' to download a dandiset or check the path."
+            )
         self.metadata: dict | None = None
         self._metadata_file_obj = self.path_obj / dandiset_metadata_file
         self._load_metadata()
@@ -127,21 +131,11 @@ class Dandiset:
             id_ = metadata["identifier"]
             lgr.debug("Found identifier %s in top level 'identifier'", str(id_))
 
-        if isinstance(id_, dict):
-            # New formalized model, but see below DANDI: way
-            # TODO: add schemaVersion handling but only after we have them provided
-            # in all metadata records from dandi-api server
-            if id_.get("propertyID") != "DANDI":
-                raise ValueError(
-                    f"Got following identifier record when was expecting a record "
-                    f"with 'propertyID: DANDI': {id_}"
-                )
-            id_ = str(id_.get("value", ""))
-        elif id_ is not None:
+        if id_ is not None:
             assert isinstance(id_, str)
-            if id_.startswith("DANDI:"):
-                # result of https://github.com/dandi/dandi-cli/pull/348 which
-                id_ = id_[len("DANDI:") :]
+            # result of https://github.com/dandi/dandi-cli/pull/348 which ???
+            # TODO: RF to avoid this evil!!!
+            id_ = id_.split(":", maxsplit=1)[-1]
 
         assert id_ is None or isinstance(id_, str)
         return id_
@@ -149,11 +143,17 @@ class Dandiset:
     @property
     def identifier(self) -> str:
         if self.metadata is None:
-            raise ValueError("No metadata record found in Dandiset")
+            raise ValueError(
+                f"No metadata record found in Dandiset at {self.path}. "
+                f"The '{dandiset_metadata_file}' file may be empty or corrupted. "
+                "Use 'dandi download' to re-download the dandiset metadata."
+            )
         id_ = self._get_identifier(self.metadata)
         if not id_:
             raise ValueError(
-                f"Found no dandiset.identifier in metadata record: {self.metadata}"
+                f"Found no dandiset.identifier in metadata record. "
+                f"The '{dandiset_metadata_file}' file must contain an 'identifier' field. "
+                f"Metadata: {self.metadata}"
             )
         return id_
 

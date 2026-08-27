@@ -1,3 +1,13 @@
+"""Delete assets and dandisets from DANDI Archive.
+
+This module provides functionality for deleting assets and entire dandisets
+from DANDI Archive instances. It supports:
+- Single and batch asset deletion
+- Dandiset deletion with confirmation
+- URL-based and path-based deletion
+- Skip-missing option for non-existent resources
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator

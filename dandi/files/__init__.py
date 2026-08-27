@@ -17,7 +17,11 @@ import os.path
 from pathlib import Path
 
 from dandi import get_logger
-from dandi.consts import BIDS_DATASET_DESCRIPTION, dandiset_metadata_file
+from dandi.consts import (
+    BIDS_DATASET_DESCRIPTION,
+    BIDS_IGNORE_FILE,
+    dandiset_metadata_file,
+)
 from dandi.exceptions import UnknownAssetError
 
 from ._private import BIDSFileFactory, DandiFileFactory
@@ -25,6 +29,7 @@ from .bases import (
     DandiFile,
     DandisetMetadataFile,
     GenericAsset,
+    ImageAsset,
     LocalAsset,
     LocalDirectoryAsset,
     LocalFileAsset,
@@ -47,6 +52,7 @@ __all__ = [
     "DandisetMetadataFile",
     "GenericAsset",
     "GenericBIDSAsset",
+    "ImageAsset",
     "LocalAsset",
     "LocalDirectoryAsset",
     "LocalFileAsset",
@@ -110,7 +116,9 @@ def find_dandi_files(
     while path_queue:
         p, bidsdd = path_queue.popleft()
         if p.name.startswith("."):
-            continue
+            # Allow .bidsignore files within BIDS datasets to be uploaded
+            if not (p.name == BIDS_IGNORE_FILE and bidsdd is not None):
+                continue
         if p.is_dir():
             if p.is_symlink():
                 lgr.warning("%s: Ignoring unsupported symbolic link to directory", p)

@@ -1,8 +1,17 @@
+"""Constants and configuration for DANDI CLI.
+
+This module defines constants used throughout the DANDI CLI including:
+- Metadata field definitions for NWB files
+- Known DANDI Archive instances and their configurations
+- File organization patterns and BIDS-related constants
+- Request timeouts and retry settings
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, StrEnum
 import os
 
 #: A list of metadata fields which dandi extracts from .nwb files.
@@ -27,6 +36,7 @@ metadata_nwb_subject_fields = (
     "genotype",
     "sex",
     "species",
+    "strain",
     "subject_id",
 )
 
@@ -91,6 +101,11 @@ class EmbargoStatus(Enum):
     EMBARGOED = "EMBARGOED"
 
 
+class SyncMode(StrEnum):
+    ASK = "ask"
+    DO = "do"
+
+
 dandiset_metadata_file = "dandiset.yaml"
 dandiset_identifier_regex = f"^{DANDISET_ID_REGEX}$"
 
@@ -122,13 +137,6 @@ known_instances = {
         "https://dandiarchive.org",
         "https://api.dandiarchive.org/api",
     ),
-    # Deprecated. Remove early 2026.
-    # Should come before dandi-sandbox so _rev map does map to sandbox
-    "dandi-staging": DandiInstance(
-        "dandi-staging",
-        "https://sandbox.dandiarchive.org",
-        "https://api.sandbox.dandiarchive.org/api",
-    ),
     "dandi-sandbox": DandiInstance(
         "dandi-sandbox",
         "https://sandbox.dandiarchive.org",
@@ -149,15 +157,15 @@ known_instances = {
         "https://staging.lincbrain.org",
         "https://staging-api.lincbrain.org/api",
     ),
-    "ember": DandiInstance(
-        "ember",
+    "ember-dandi": DandiInstance(
+        "ember-dandi",
         "https://dandi.emberarchive.org",
         "https://api-dandi.emberarchive.org/api",
     ),
-    "ember-sandbox": DandiInstance(
-        "ember-sandbox",
-        "https://apl-setup--ember-dandi-archive.netlify.app/",
-        "https://api-dandi-sandbox.emberarchive.org/api",
+    "ember-dandi-sandbox": DandiInstance(
+        "ember-dandi-sandbox",
+        "https://dandi.sandbox.emberarchive.org",
+        "https://api-dandi.sandbox.emberarchive.org/api",
     ),
 }
 # to map back url: name
@@ -182,6 +190,10 @@ RETRY_STATUSES = (429, 500, 502, 503, 504)
 VIDEO_FILE_EXTENSIONS = [".mp4", ".avi", ".wmv", ".mov", ".flv", ".mkv"]
 VIDEO_FILE_MODULES = ["processing", "acquisition"]
 
+#: Extensions of the images an `ExternalImage` may point at. NWB restricts `image_format` to
+#: PNG, JPEG and GIF, so nothing else can be referenced by an NWB file in the first place.
+IMAGE_FILE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif"]
+
 ZARR_EXTENSIONS = [".ngff", ".zarr"]
 
 #: Maximum allowed depth of a Zarr directory tree
@@ -190,6 +202,11 @@ MAX_ZARR_DEPTH = 7
 #: MIME type assigned to & used to identify Zarr assets
 ZARR_MIME_TYPE = "application/x-zarr"
 
+#: Maximum file size for a single S3 PUT upload (5 GiB).
+#: S3 rejects single-part PUTs larger than this; such files would need
+#: multipart upload which is not yet supported for zarr chunks.
+S3_MAX_SINGLE_PART_UPLOAD = 5 * 1024**3
+
 #: Maximum number of Zarr directory entries to upload at once
 ZARR_UPLOAD_BATCH_SIZE = 255
 
@@ -197,6 +214,8 @@ ZARR_UPLOAD_BATCH_SIZE = 255
 ZARR_DELETE_BATCH_SIZE = 100
 
 BIDS_DATASET_DESCRIPTION = "dataset_description.json"
+
+BIDS_IGNORE_FILE = ".bidsignore"
 
 # Fields which would be used to compose organized filenames
 # TODO: add full description into command --help etc
@@ -230,6 +249,11 @@ assert {v.get("type", "additional") for v in dandi_layout_fields.values()} == {
 REQUEST_RETRIES = 12
 
 DOWNLOAD_TIMEOUT = 30
+
+#: Per-request timeout (seconds) for HEAD requests issued by
+#: ``follow_redirect`` while resolving a redirect chain.  Without it,
+#: requests hangs indefinitely on a stalled hop (observed on Windows CI).
+REDIRECT_HEAD_TIMEOUT = 30
 
 #: Suffix used for temporary download directories
 DOWNLOAD_SUFFIX = ".dandidownload"

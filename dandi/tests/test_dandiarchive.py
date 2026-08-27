@@ -108,13 +108,54 @@ from .fixtures import DandiAPI, SampleDandiset
                 version_id="draft",
             ),
         ),
-        # lower cased
+        # numeric version
         (
-            "dandi:000027/0.210831.2033",
+            "DANDI:000027/0.210831.2033",
             DandisetURL(
                 instance=known_instances["dandi"],
                 dandiset_id="000027",
                 version_id="0.210831.2033",
+            ),
+        ),
+        # Test other instances with short format
+        (
+            "DANDI-SANDBOX:000029",
+            DandisetURL(
+                instance=known_instances["dandi-sandbox"],
+                dandiset_id="000029",
+                version_id=None,
+            ),
+        ),
+        (
+            "LINC:000029",
+            DandisetURL(
+                instance=known_instances["linc"],
+                dandiset_id="000029",
+                version_id=None,
+            ),
+        ),
+        (
+            "LINC:000029/0.210831.2033",
+            DandisetURL(
+                instance=known_instances["linc"],
+                dandiset_id="000029",
+                version_id="0.210831.2033",
+            ),
+        ),
+        (
+            "EMBER-DANDI:000029",
+            DandisetURL(
+                instance=known_instances["ember-dandi"],
+                dandiset_id="000029",
+                version_id=None,
+            ),
+        ),
+        (
+            "EMBER-DANDI-SANDBOX:000029/draft",
+            DandisetURL(
+                instance=known_instances["ember-dandi-sandbox"],
+                dandiset_id="000029",
+                version_id="draft",
             ),
         ),
         (
@@ -415,7 +456,7 @@ def test_follow_redirect_retry_on_connection_error() -> None:
     # Mock requests.head to raise ConnectionError first 2 times, then succeed
     call_count = 0
 
-    def mock_head(url, allow_redirects=True):
+    def mock_head(url, allow_redirects=True, timeout=None):
         nonlocal call_count
         call_count += 1
         if call_count <= 2:
@@ -438,13 +479,44 @@ def test_follow_redirect_exhausted_retries_on_connection_error() -> None:
     test_url = "https://example.com/test"
 
     # Mock requests.head to always raise ConnectionError
-    def mock_head(url, allow_redirects=True):
+    def mock_head(url, allow_redirects=True, timeout=None):
         raise requests.ConnectionError("Connection failed")
 
     with patch("dandi.dandiarchive.requests.head", side_effect=mock_head):
         with patch("dandi.dandiarchive.sleep"):  # Mock sleep to speed up test
             with pytest.raises(FailedToConnectError, match=r"failed with \d+ attempts"):
                 follow_redirect(test_url)
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        requests.ReadTimeout("Read timed out"),
+        requests.ConnectTimeout("Connect timed out"),
+    ],
+)
+def test_follow_redirect_retry_on_timeout(exc: requests.Timeout) -> None:
+    """Test that follow_redirect retries on requests.Timeout and eventually succeeds."""
+    test_url = "https://example.com/test"
+    expected_url = "https://example.com/redirected"
+
+    call_count = 0
+
+    def mock_head(url, allow_redirects=True, timeout=None):
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 2:
+            raise exc
+        response = requests.Response()
+        response.status_code = 200
+        response.url = expected_url
+        return response
+
+    with patch("dandi.dandiarchive.requests.head", side_effect=mock_head):
+        with patch("dandi.dandiarchive.sleep"):
+            result = follow_redirect(test_url)
+            assert result == expected_url
+            assert call_count == 3
 
 
 @responses.activate
@@ -547,11 +619,17 @@ def test_get_nonexistent_dandiset(
     parsed_url.get_dandiset(client)  # No error
     with pytest.raises(NotFoundError) as excinfo:
         parsed_url.get_dandiset(client, lazy=False)
-    assert str(excinfo.value) == "No such Dandiset: '999999'"
+    assert str(excinfo.value) == (
+        "No such Dandiset: '999999'. "
+        "Verify the Dandiset ID is correct and that you have access. "
+    )
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
-    assert str(excinfo.value) == "No such Dandiset: '999999'"
+    assert str(excinfo.value) == (
+        "No such Dandiset: '999999'. "
+        "Verify the Dandiset ID is correct and that you have access. "
+    )
 
 
 @pytest.mark.parametrize("version", ["draft", "0.999999.9999"])
@@ -567,7 +645,10 @@ def test_get_nonexistent_dandiset_asset_id(
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
-    assert str(excinfo.value) == "No such Dandiset: '999999'"
+    assert str(excinfo.value) == (
+        "No such Dandiset: '999999'. "
+        "Verify the Dandiset ID is correct and that you have access. "
+    )
 
 
 def test_get_dandiset_nonexistent_asset_id(text_dandiset: SampleDandiset) -> None:
@@ -594,7 +675,11 @@ def test_get_nonexistent_asset_id(local_dandi_api: DandiAPI) -> None:
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
-    assert str(excinfo.value) == "No such asset: '00000000-0000-0000-0000-000000000000'"
+    assert str(excinfo.value) == (
+        "No such asset: '00000000-0000-0000-0000-000000000000'. "
+        "Verify the asset ID is correct. "
+        "Use 'dandi ls' to list available assets."
+    )
 
 
 @pytest.mark.parametrize("version_suffix", ["", "@draft", "@0.999999.9999"])
@@ -607,7 +692,10 @@ def test_get_nonexistent_dandiset_asset_path(
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
-    assert str(excinfo.value) == "No such Dandiset: '999999'"
+    assert str(excinfo.value) == (
+        "No such Dandiset: '999999'. "
+        "Verify the Dandiset ID is correct and that you have access. "
+    )
 
 
 def test_get_nonexistent_asset_path(text_dandiset: SampleDandiset) -> None:
@@ -620,7 +708,11 @@ def test_get_nonexistent_asset_path(text_dandiset: SampleDandiset) -> None:
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
-    assert str(excinfo.value) == "No asset at path 'does/not/exist'"
+    assert str(excinfo.value) == (
+        "No asset at path 'does/not/exist' in version draft. "
+        "Verify the path is correct and the asset exists in this version. "
+        "Use 'dandi ls' to list available assets."
+    )
 
 
 @pytest.mark.parametrize("version_suffix", ["", "@draft", "@0.999999.9999"])
@@ -636,7 +728,10 @@ def test_get_nonexistent_dandiset_asset_folder(
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
-    assert str(excinfo.value) == "No such Dandiset: '999999'"
+    assert str(excinfo.value) == (
+        "No such Dandiset: '999999'. "
+        "Verify the Dandiset ID is correct and that you have access. "
+    )
 
 
 def test_get_nonexistent_asset_folder(text_dandiset: SampleDandiset) -> None:
@@ -665,7 +760,10 @@ def test_get_nonexistent_dandiset_asset_prefix(
     assert list(parsed_url.get_assets(client)) == []
     with pytest.raises(NotFoundError) as excinfo:
         next(parsed_url.get_assets(client, strict=True))
-    assert str(excinfo.value) == "No such Dandiset: '999999'"
+    assert str(excinfo.value) == (
+        "No such Dandiset: '999999'. "
+        "Verify the Dandiset ID is correct and that you have access. "
+    )
 
 
 def test_get_nonexistent_asset_prefix(text_dandiset: SampleDandiset) -> None:

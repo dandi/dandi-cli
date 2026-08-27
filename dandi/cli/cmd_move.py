@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import click
 
-from .base import devel_debug_option, instance_option, map_to_click_exceptions
+from .base import (
+    EnumChoice,
+    devel_debug_option,
+    instance_option,
+    map_to_click_exceptions,
+)
 from ..move import MoveExisting, MoveWorkOn
 
 
@@ -16,7 +21,7 @@ from ..move import MoveExisting, MoveWorkOn
 @click.option(
     "-e",
     "--existing",
-    type=click.Choice(list(MoveExisting)),
+    type=EnumChoice(MoveExisting),
     default="error",
     help="How to handle assets that would be moved to a destination that already exists",
     show_default=True,
@@ -30,7 +35,7 @@ from ..move import MoveExisting, MoveWorkOn
 @click.option(
     "-w",
     "--work-on",
-    type=click.Choice(list(MoveWorkOn)),
+    type=EnumChoice(MoveWorkOn),
     default="auto",
     help=(
         "Whether to operate on the local Dandiset, remote Dandiset, or both;"

@@ -38,7 +38,7 @@ class LogLevel(click.ParamType):
             else:
                 self.fail(f"{value!r}: invalid log level", param, ctx)
 
-    def get_metavar(self, param):
+    def get_metavar(self, param, ctx=None):
         return "[" + "|".join(self.levels) + "]"
 
 

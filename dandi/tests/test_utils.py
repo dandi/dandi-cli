@@ -29,6 +29,7 @@ from ..utils import (
     get_utcnow_datetime,
     is_page2_url,
     is_same_time,
+    is_url,
     on_windows,
     post_upload_size_check,
     under_paths,
@@ -589,3 +590,67 @@ def test_post_upload_size_check_erroring(
         logging.ERROR,
         f"Size of {p} was 42 at start of upload but is now 19 after upload",
     ) in caplog.record_tuples
+
+
+class TestIsUrl:
+    @pytest.mark.parametrize(
+        "s",
+        [
+            # Standard valid HTTP/FTP URLs
+            "http://example.com",
+            "https://example.com",
+            "https://example.com/path",
+            "https://example.com/path?query=1#frag",
+            "https://example.com:8443/path",
+            "http://127.0.0.1:8000",
+            "ftp://example.com/path/file.txt",
+            "ftp://user:pass@example.com/dir",
+            # These pass pydantic validation but are not very useful URLs
+            "http:/example.com",
+            # Typical DANDI Archive dandiset URLs (also valid HTTP URLs)
+            "https://dandiarchive.org/dandiset/000027",
+            "https://dandiarchive.org/dandiset/000027/draft",
+            "https://dandiarchive.org/dandiset/000027/0.210428.2206",
+            # DANDI identifiers and ids
+            "DANDI:123456",
+            "DANDI:123456/draft",
+            "DANDI:123456/1.123456.1234",
+            "DANDI-SANDBOX:123456",
+            "DANDI-SANDBOX:123456/draft",
+            "DANDI-SANDBOX:123456/1.123456.1234",
+            # Customized DANDI URLs
+            "dandi://dandi/123456",
+            "dandi://dandi/123456/draft",
+            "dandi://dandi/123456/1.123456.1234",
+            "dandi://dandi-sandbox/123456",
+            "dandi://dandi-sandbox/123456/draft",
+            "dandi://dandi-sandbox/123456/1.123456.1234",
+        ],
+    )
+    def test_valid_urls(self, s: str) -> None:
+        assert is_url(s) is True
+
+    @pytest.mark.parametrize(
+        "s",
+        [
+            # Clearly invalid URLs
+            "not a url",
+            "example",
+            "example .com",
+            "://example.com",
+            "",
+            "   ",
+            # DANDI-like string that should not be treated as a valid DANDI URL
+            "dandi://not-a-real-dandiset",
+            # Invalid DANDI identifiers and ids because of unknown instance name
+            "FAKEDANDI:123456",
+            "FAKEDANDI:123456/draft",
+            "FAKEDANDI:123456/1.123456.1234",
+            # Customized DANDI URLs
+            "dandi://fakedandi/123456",
+            "dandi://fakedandi/123456/draft",
+            "dandi://fakedandi/123456/1.123456.1234",
+        ],
+    )
+    def test_invalid_urls(self, s: str) -> None:
+        assert is_url(s) is False

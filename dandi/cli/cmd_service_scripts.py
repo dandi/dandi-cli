@@ -18,6 +18,8 @@ from packaging.version import Version
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import HTTPError
 
+from dandi.consts import known_instances
+
 from .base import ChoiceList, instance_option, map_to_click_exceptions
 from .. import __version__, lgr
 from ..dandiapi import DandiAPIClient, RemoteBlobAsset, RESTFullAPIClient
@@ -246,8 +248,15 @@ def update_dandiset_from_doi(
     Update the metadata for the draft version of a Dandiset with information
     from a given DOI record.
     """
-    if dandiset.startswith("DANDI:"):
-        dandiset = dandiset[6:]
+    known_instance_names = [k.upper() for k in known_instances.keys()]
+
+    # Strip instance name prefix from dandiset ID, if present
+    for name in known_instance_names:
+        dandiset_id_prefix = f"{name}:"
+        if dandiset.startswith(dandiset_id_prefix):
+            dandiset = dandiset[len(dandiset_id_prefix) :]
+            break
+
     start_time = datetime.now().astimezone()
     with DandiAPIClient.for_dandi_instance(dandi_instance, authenticate=True) as client:
         with RESTFullAPIClient(

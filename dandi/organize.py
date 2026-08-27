@@ -1,5 +1,12 @@
-"""
-ATM primarily a sandbox for some functionality for dandi organize
+"""Organize and structure NWB files according to DANDI conventions.
+
+This module provides functionality for organizing neuroscience data files
+according to DANDI's file organization schema. Features include:
+- Automatic path generation from metadata
+- BIDS-like subject/session organization
+- Metadata-driven file naming
+- Validation of organized paths
+- Support for videos and generic files
 """
 
 from __future__ import annotations
@@ -8,10 +15,11 @@ import binascii
 from collections import Counter
 from collections.abc import Sequence
 from copy import deepcopy
-from enum import Enum
+from enum import StrEnum
 import os
 import os.path as op
 from pathlib import Path, PurePosixPath
+import posixpath
 import re
 import traceback
 import uuid
@@ -36,7 +44,7 @@ from .utils import (
     pluralize,
     yaml_load,
 )
-from .validate_types import (
+from .validate._types import (
     ORIGIN_VALIDATION_DANDI_LAYOUT,
     Scope,
     Severity,
@@ -46,7 +54,7 @@ from .validate_types import (
 lgr = get_logger()
 
 
-class FileOperationMode(str, Enum):
+class FileOperationMode(StrEnum):
     DRY = "dry"
     SIMULATE = "simulate"
     COPY = "copy"
@@ -55,22 +63,16 @@ class FileOperationMode(str, Enum):
     SYMLINK = "symlink"
     AUTO = "auto"
 
-    def __str__(self) -> str:
-        return self.value
-
     def as_copy_mode(self) -> CopyMode:
         # Raises ValueError if the mode can't be mapped to a CopyMode
         return CopyMode(self.value)
 
 
-class CopyMode(str, Enum):
+class CopyMode(StrEnum):
     SYMLINK = "symlink"
     COPY = "copy"
     MOVE = "move"
     HARDLINK = "hardlink"
-
-    def __str__(self) -> str:
-        return self.value
 
     def copy(self, old_path: AnyPath, new_path: AnyPath) -> None:
         if self is CopyMode.SYMLINK:
@@ -85,12 +87,9 @@ class CopyMode(str, Enum):
             raise AssertionError(f"Unhandled CopyMode member: {self!r}")
 
 
-class OrganizeInvalid(str, Enum):
+class OrganizeInvalid(StrEnum):
     FAIL = "fail"
     WARN = "warn"
-
-    def __str__(self) -> str:
-        return self.value
 
 
 dandi_path = op.join("sub-{subject_id}", "{dandi_filename}")
@@ -268,7 +267,7 @@ def _create_external_file_names(metadata: list[dict]) -> list[dict]:
             renamed_path_list = []
             uuid_str = ext_file_dict.get("id", str(uuid.uuid4()))
             for no, ext_file in enumerate(ext_file_dict["external_files"]):
-                renamed = op.join(
+                renamed = posixpath.join(
                     nwb_folder_name, f"{uuid_str}_external_file_{no}{ext_file.suffix}"
                 )
                 renamed_path_list.append(renamed)
@@ -962,7 +961,7 @@ def organize(
         ]
         raise ValueError(
             "--update-external-file-paths option not specified but found "
-            "external video files linked to the nwbfiles "
+            "external media files linked to the nwbfiles "
             f"{', '.join(files_list)}"
         )
 

@@ -2,6 +2,40 @@
 
 ## Development environment
 
+### Using hatch
+
+This project's hatch environments use [uv](https://github.com/astral-sh/uv)
+as the installer, which allows for significant improvements in environment
+setup speed. Each environment corresponds to a project
+extra (e.g., `test`, `extras`, `tools`). To enter a shell in an environment:
+
+```
+hatch shell <env-name>
+```
+
+For example, to enter the `test` environment:
+
+```
+hatch shell test
+```
+
+To remove environments so they can be recreated from scratch:
+
+```
+hatch env remove <env-name>  # remove a specific environment
+```
+
+or to remove all environments at once:
+
+```
+hatch env prune
+```
+
+Refer to [hatch's documentation](https://hatch.pypa.io/latest/cli/reference/)
+for full CLI usage.
+
+### Using a virtualenv
+
 Assuming that you have `python3` (and virtualenv) installed, the fastest
 way to establish yourself a development environment (or a sample deployment),
 is via virtualenv:
@@ -10,7 +44,7 @@ is via virtualenv:
         && cd dandi-cli \
         &&  virtualenv --system-site-packages --python=python3 venvs/dev3 \
         && source venvs/dev3/bin/activate \
-        && pip install -e .[test]
+        && pip install -e ".[test]"
 
 ### Install and activate precommit
 
@@ -23,15 +57,35 @@ pre-commit install
 
 ### Running tests locally
 
-You can run all tests locally by running `tox` (you can install `tox` running `pip install tox`):
+With hatch:
+```
+hatch run test:run
+```
+
+To run a specific test:
+```
+hatch run test:run dandi/tests/test_file.py::test_function -v
+```
+
+Alternatively, with `tox` (install via `pip install tox`):
 ```
 tox -e py3
+```
+
+To run a specific test with tox:
+```
+tox -e py3 -- dandi/tests/test_file.py::test_function -v
 ```
 
 In order to check proper linting and typing of your changes
 you can also run `tox` with `lint` and `typing`:
 ```
 tox -e lint,typing
+```
+
+To build documentation:
+```
+tox -e docs
 ```
 
 ### dandi-archive instance
@@ -48,6 +102,189 @@ instance as `dandi-api-local-docker-tests`.  See the note below on the
 `DANDI_DEVEL` environment variable, which is needed in order to expose the
 development command line options.
 
+Tests that need a running archive instance use the `local_dandi_api`
+docker-compose fixture.  Set `DANDI_TESTS_PULL_DOCKER_COMPOSE=""` to skip
+`docker compose pull` and speed up repeated runs.
+
+## Codebase Architecture
+
+### Directory layout
+
+```
+dandi/
+  cli/              # Click-based CLI commands
+    command.py      # Entry point — Click group with DYMGroup (did-you-mean)
+    base.py         # Shared CLI utilities, decorators, custom param types
+    cmd_*.py        # One file per command (download, upload, organize, …)
+    formatter.py    # Output formatters (JSON, YAML, JSONL, PYOUT)
+  files/            # File-type abstractions
+    bases.py        # DandiFile hierarchy (LocalAsset, NWBAsset, …)
+    bids.py         # BIDS-specific file types (NWBBIDSAsset, …)
+    zarr.py         # Zarr archive handling (ZarrAsset, LocalZarrEntry)
+  metadata/         # Metadata extraction
+    core.py         # Entry points for metadata extraction
+    nwb.py          # NWB-specific extraction via PyNWB
+    util.py         # get_metadata(), field extraction, caching
+  validate/         # Validation engine
+    _types.py       # ValidationResult, Severity, Scope, Standard enums
+    _core.py        # validate() generator, validate_bids()
+    _io.py          # JSON Lines I/O for validation results
+  support/          # Shared utilities
+    digests.py      # Checksum/digest computation (DANDI eTag, Zarr)
+    pyout.py        # Progress display with pyout (LogSafeTabular)
+    iterators.py    # IteratorWithAggregation for progress tracking
+    threaded_walk.py # Parallel directory traversal
+  tests/            # Test suite
+    fixtures.py     # Core test fixtures (NWB files, local API, dandisets)
+    skip.py         # Conditional skip helpers
+    data/           # Test data files
+  consts.py         # Constants: metadata fields, known instances, layout fields
+  dandiapi.py       # API client (RESTFullAPIClient, DandiAPIClient)
+  dandiarchive.py   # URL parsing (ParsedDandiURL, parse_dandi_url())
+  dandiset.py       # Local dandiset representation (dandiset.yaml)
+  download.py       # Download engine with resume/retry support
+  upload.py         # Upload engine with validation
+  organize.py       # File organization by NWB metadata
+  delete.py         # Asset/dandiset deletion
+  move.py           # Asset move/rename (local + remote)
+  exceptions.py     # Custom exceptions (all end with "Error")
+  misctypes.py      # Shared types: Digest, BasePath
+  pynwb_utils.py    # PyNWB helpers for reading/creating NWB files
+  utils.py          # General utilities
+```
+
+### Key design patterns
+
+- **CLI delegation** — CLI commands (`cmd_*.py`) are thin wrappers that
+  delegate to core modules (e.g. `cmd_upload.py` → `upload.upload()`).
+- **File-type hierarchy** — `DandiFile` abstract base with factory function
+  `dandi_file()` and discovery via `find_dandi_files()`.
+- **Enum-based configuration** — Operations use enums for modes
+  (`DownloadExisting`, `FileOperationMode`, `UploadValidation`, …).
+- **Generator-based processing** — Validation, download, and file finding
+  all yield results lazily.
+- **Context managers** — API clients (`DandiAPIClient`) and URL navigation.
+- **Retry logic** — HTTP operations use `tenacity` for exponential backoff.
+- **Lazy imports** — Heavy modules (`pynwb`, `h5py`) are imported at point
+  of use, not at module level.
+
+### Key classes
+
+- `DandiAPIClient` (`dandiapi.py`) — high-level API client; authentication
+  (keyring), pagination, asset management
+- `RESTFullAPIClient` (`dandiapi.py`) — base HTTP client with session
+  management and retry logic
+- `ParsedDandiURL` (`dandiarchive.py`) — abstract base for URL parsing;
+  subclasses `DandisetURL`, `SingleAssetURL`, `AssetItemURL`, `AssetDirURL`
+- `DandiFile` (`files/bases.py`) — abstract base for all file types;
+  subclasses `NWBAsset`, `ZarrAsset`, `GenericAsset`, `VideoAsset`
+- `ValidationResult` (`validate/_types.py`) — Pydantic model: origin,
+  severity, scope, message, paths
+- `Dandiset` (`dandiset.py`) — local dandiset representation wrapping
+  `dandiset.yaml`
+- `DandiInstance` (`consts.py`) — frozen dataclass for known archive instances
+
+## Code style conventions
+
+Most of these are enforced automatically by `pre-commit` hooks (see below).
+
+- **Formatter**: Black (line length 100)
+- **Import sorting**: isort (`profile="black"`, `force_sort_within_sections`,
+  `reverse_relative`)
+- **Linting**: flake8 (`max-line-length=100`, ignore `E203`/`W503`)
+- **Spell checking**: codespell
+- **Type checking**: mypy with pydantic plugin
+- **Type annotations**: Required for new code
+- **Naming**: `CamelCase` for classes, `snake_case` for functions/variables
+- **Exceptions**: Names must end with `Error` (e.g. `UploadError`,
+  `NotFoundError`)
+- **Docstrings**: NumPy style for public APIs
+- **Imports**: stdlib → third-party → local (alphabetical within groups)
+- **CLI**: Click library with `DYMGroup` (did-you-mean suggestions)
+- **Excluded from formatting**: `_version.py`, `due.py`, `versioneer.py`
+
+### Dataclass and attrs field documentation
+
+Document dataclass/attrs fields using `#:` comments above the field, not
+docstrings below.  This is the format Sphinx autodoc recognizes for attribute
+documentation:
+
+```python
+@dataclass
+class Movement:
+    """A movement/renaming of an asset"""
+
+    #: The asset's original path
+    src: AssetPath
+    #: The asset's destination path
+    dest: AssetPath
+    #: Whether to skip this operation because an asset already exists at the
+    #: destination
+    skip: bool = False
+```
+
+See [dandi.move.Movement on RTD](https://dandi.readthedocs.io/en/latest/modref/generated/dandi.move.html#dandi.move.Movement)
+for a rendered example.
+
+### Pre-commit hooks
+
+The following hooks run on commit (`.pre-commit-config.yaml`):
+
+1. trailing-whitespace, end-of-file-fixer, check-yaml, check-added-large-files
+2. black (code formatting)
+3. isort (import sorting)
+4. codespell (spell checking)
+5. flake8 (linting)
+
+Because black and isort auto-fix files, a commit that triggers fixes will
+fail the first time.  Simply re-run `git commit` — the second attempt should
+succeed.  Investigate further only if it still fails.
+
+## Test infrastructure
+
+### pytest markers
+
+- `@pytest.mark.integration` — tests requiring a running archive instance
+- `@pytest.mark.obolibrary` — tests hitting the OBO ontology library
+- `@pytest.mark.flaky` — known-flaky tests
+- `@pytest.mark.ai_generated` — **mandatory** on any test written with AI
+  assistance
+
+New markers must be registered in `pytest_configure()` in
+`dandi/pytest_plugin.py`.
+
+### Key fixtures (`dandi/tests/fixtures.py`)
+
+- `simple1_nwb_metadata()` / `simple1_nwb()` — session-scoped sample NWB file
+- `local_dandi_api` — Docker-based local DANDI Archive instance
+- `new_dandiset()` — creates a fresh dandiset on the test instance
+- `publish_dandiset()` — publishes a dandiset version
+- `capture_all_logs` — autouse; sets DEBUG level for `dandi` logger
+
+### Test organization
+
+- Tests mirror the module structure: `test_download.py`, `test_upload.py`, etc.
+- Integration tests use the `local_dandi_api` fixture
+- `--dandi-api` flag: run only integration tests
+- `--scheduled` flag: enable configuration for scheduled daily runs
+- VCR (vcrpy) records/replays HTTP interactions; disable with
+  `DANDI_TESTS_NO_VCR`
+
+### pytest configuration (`tox.ini [pytest]`)
+
+- Default timeout: 300 s per test
+- `--tb=short --durations=10`
+- `filterwarnings = error` with specific ignores for known third-party warnings
+
+## CI/CD
+
+- `run-tests.yml` — full test matrix: Python 3.10–3.13 × Ubuntu,
+  macOS (M1 + Intel), Windows
+- `lint.yml` — codespell + flake8
+- `typing.yml` — mypy
+- `docs.yml` — Sphinx build
+- `release.yml` — automated release via `auto` (see below)
+
 ## Environment variables
 
 - `DANDI_DEVEL` -- enables otherwise hidden command line options, such as
@@ -55,8 +292,17 @@ development command line options.
   otherwise be hidden from the user-visible (`--help`) interface, unless this
   env variable is set to a non-empty value
 
-- `DANDI_API_KEY` -- avoids using keyrings, thus making it possible to
-  "temporarily" use another account etc for the "API" version of the server.
+- `{CAPITALIZED_INSTANCE_NAME_WITH_UNDERSCORE}_API_KEY` --
+  Provides the API key to access a known DANDI instance.
+  Respective keys for multiple instances can be provided. The name of the environment
+  variable providing the key for a specific known DANDI instance corresponds to the name
+  of the instance. For example, the environment variable `DANDI_API_KEY` provides the key
+  for the known instance named `dandi` and the environment variable
+  `EMBER_DANDI_SANDBOX_API_KEY` provides the key for the known instance named `ember-dandi-sandbox`.
+  I.e., the environment variable name is the capitalized version of the instance's name
+  with "-" replaced by "_" suffixed by "_API_KEY". Providing API keys through environment
+  variables avoids using keyrings, thus making it possible to "temporarily" use another
+  account etc for the "API" version of the server.
 
 - `DANDI_LOG_LEVEL` -- set log level. By default `INFO`, should be an int (`10` - `DEBUG`).
 
@@ -78,8 +324,27 @@ development command line options.
   tests will not pull the latest needed Docker images at the start of a run if
   older versions of the images are already present.
 
+- `DANDI_TESTS_API_URL` -- When set, the integration tests will run against this
+  externally-managed dandi-archive API URL instead of starting a local Docker
+  Compose stack.  Requires `DANDI_TESTS_DJANGO_API_KEY` to also be set.
+
+- `DANDI_TESTS_DJANGO_API_KEY` -- Admin DRF token for the externally-managed
+  server pointed to by `DANDI_TESTS_API_URL`; required when the latter is set.
+
 - `DANDI_TESTS_NO_VCR` — When set, the use of vcrpy to playback captured HTTP
   requests during testing will be disabled
+
+- `DANDI_TESTS_INSTANCE_NAME` -- Sets the instance name for the dandi-archive instance used for
+  testing. Defaults to `"DANDI"`. Useful for testing dandi-cli against a dandi-archive instance with
+  a particular vendor information.
+
+- `DANDI_TESTS_INSTANCE_IDENTIFIER` -- Sets the instance identifier (RRID) for the dandi-archive
+  instance used for testing. Defaults to `"RRID:ABC_123456"`. Useful for testing dandi-cli against
+  a dandi-archive instance with a particular vendor information.
+
+- `DANDI_TESTS_DOI_PREFIX` -- Sets the DOI API prefix for the dandi-archive instance used for
+  testing. Defaults to `"10.80507"`. Useful for testing dandi-cli against a dandi-archive instance
+  with a particular vendor information.
 
 - `DANDI_DEVEL_INSTRUMENT_REQUESTS_SUPERLEN` -- When set, the `upload()`
   function will patch `requests` to log the results of calls to
@@ -109,6 +374,73 @@ view code coverage information as follows:
    pull request diff), there will be a "Coverage: X%" button at the top of the
    source listing.  Pressing this button will toggle highlighting of the source
    lines based on whether they are covered by tests or not.
+
+
+## Git-bug: Local Issue Tracking
+
+This project uses [git-bug](https://github.com/git-bug/git-bug) for distributed,
+offline-first issue tracking.  Issues from GitHub are synced and stored as native
+git objects under `refs/bugs/*`, so you can browse and search them without internet
+access or GitHub API calls.
+
+### Installation
+
+Install git-bug from [releases](https://github.com/git-bug/git-bug/releases)
+or via a package manager:
+
+    # macOS/Linux (Homebrew)
+    brew install git-bug
+
+    # Nix
+    nix profile install nixpkgs#git-bug
+
+    # Binary download (Linux amd64)
+    curl -L -o git-bug \
+        https://github.com/git-bug/git-bug/releases/latest/download/git-bug_linux_amd64
+    chmod +x git-bug && mv git-bug ~/.local/bin/
+
+### Fetching Issues
+
+After cloning, fetch the bug refs to get local issues:
+
+    git bug pull
+
+### Quick Reference
+
+    # List open issues
+    git bug ls status:open
+
+    # Show a specific issue (by ID prefix)
+    git bug show <id-prefix>
+
+    # Search issues by title keyword
+    git bug ls status:open "title:upload"
+
+    # Filter by label
+    git bug ls "label:bug"
+
+    # Filter by author
+    git bug ls "author:username"
+
+    # Newest first
+    git bug ls status:open sort:creation-desc
+
+### Syncing with GitHub
+
+    # Pull latest issues from GitHub
+    git bug bridge pull
+
+    # Push local bug refs to remote (for team access)
+    git bug push origin
+
+### Known Limitations
+
+- **Images/media**: Bridge importers preserve image URLs as markdown text but
+  do not download image blobs.  Images hosted on
+  `user-images.githubusercontent.com` are accessible only while GitHub hosts
+  them.
+- **Two-way sync**: While git-bug supports pushing changes back to GitHub,
+  the primary workflow is pull-from-GitHub for offline access.
 
 
 ## Releasing with GitHub Actions, auto, and pull requests

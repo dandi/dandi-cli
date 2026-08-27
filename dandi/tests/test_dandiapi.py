@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 from datetime import datetime, timezone
+import json
 import logging
 from pathlib import Path
 import random
@@ -11,7 +12,9 @@ from typing import Any
 
 import anys
 import click
+import dandischema
 from dandischema.models import UUID_PATTERN, DigestType, get_schema_version
+from packaging.version import Version as _PackagingVersion
 import pytest
 from pytest_mock import MockerFixture
 import requests
@@ -23,6 +26,7 @@ from .. import dandiapi
 from ..consts import (
     DRAFT,
     VERSION_REGEX,
+    DandiInstance,
     dandiset_identifier_regex,
     dandiset_metadata_file,
 )
@@ -30,13 +34,24 @@ from ..dandiapi import (
     DandiAPIClient,
     RemoteAsset,
     RemoteBlobAsset,
+    RemoteDandiset,
     RemoteZarrAsset,
     Version,
+    VersionStatus,
 )
 from ..download import download
 from ..exceptions import NotFoundError, SchemaVersionError
 from ..files import GenericAsset, dandi_file
 from ..utils import list_paths
+
+# These tests exercise the 0.8.0 -> 0.7.0 downgrade wiring, which requires
+# both the 0.8.0-era metadata schema and the migration paths for `sameAs` /
+# `releaseNotes` -- all of which landed together in dandischema 0.14.0.
+# `py3-lowest` resolves to `dandischema==0.12.0` and simply skips them.
+_needs_downgrade = pytest.mark.skipif(
+    _PackagingVersion(dandischema.__version__) < _PackagingVersion("0.14.0"),
+    reason="Downgrade tests require dandischema >= 0.14.0",
+)
 
 
 def test_upload(
@@ -138,7 +153,7 @@ def test_authenticate_bad_key_good_key_input(
     )
     confirm_mock = mocker.patch("click.confirm", return_value=True)
 
-    monkeypatch.delenv("DANDI_API_KEY", raising=False)
+    local_dandi_api.monkeypatch_del_api_key_env(monkeypatch)
 
     client = DandiAPIClient(local_dandi_api.api_url)
     assert "Authorization" not in client.session.headers
@@ -169,7 +184,7 @@ def test_authenticate_good_key_keyring(
     is_interactive_spy = mocker.spy(dandiapi, "is_interactive")
     confirm_spy = mocker.spy(click, "confirm")
 
-    monkeypatch.delenv("DANDI_API_KEY", raising=False)
+    local_dandi_api.monkeypatch_del_api_key_env(monkeypatch)
 
     client = DandiAPIClient(local_dandi_api.api_url)
     assert "Authorization" not in client.session.headers
@@ -201,7 +216,7 @@ def test_authenticate_bad_key_keyring_good_key_input(
     )
     confirm_mock = mocker.patch("click.confirm", return_value=True)
 
-    monkeypatch.delenv("DANDI_API_KEY", raising=False)
+    local_dandi_api.monkeypatch_del_api_key_env(monkeypatch)
 
     client = DandiAPIClient(local_dandi_api.api_url)
     assert "Authorization" not in client.session.headers
@@ -272,10 +287,67 @@ def test_remote_asset_json_dict(text_dandiset: SampleDandiset) -> None:
     }
 
 
+@pytest.mark.parametrize(
+    "server_schema_version,local_schema_version,should_raise,expected_message_start",
+    [
+        # Current/identity matching -- always ok
+        (get_schema_version(), None, False, None),
+        (get_schema_version(), get_schema_version(), False, None),
+        ("0.6.7", "0.6.7", False, None),
+        # Less - is not good since we  might be missing fields and it is easy
+        # for client to upgrade.
+        (
+            "4.5.6",
+            "4.5.5",
+            True,
+            "Server uses schema version 4.5.6; client only supports prior 4.5.5 "
+            "and it is not among any of the allowed upgradable schema versions",
+        ),
+        (
+            "0.6.7",
+            "0.3.0",
+            True,
+            "Server uses schema version 0.6.7; client only supports prior 0.3.0",
+        ),
+        (
+            "0.6.7",
+            "0.6.6",  # can be upgraded and thus uploaded!
+            False,
+            None,
+        ),
+        # Now - incompatible, for 0.x -- rely on MAJOR.MINOR
+        (
+            "0.6.7",
+            "0.7.0",
+            True,
+            "Server uses older incompatible schema version 0.6.7; client supports 0.7.0",
+        ),
+        # ...unless the older server version is in
+        # `ALLOWED_TARGET_SCHEMAS` (i.e. `_maybe_downgrade_metadata` can
+        # downgrade to it on upload) -- then a warning, not an error.
+        pytest.param("0.7.0", "0.8.0", False, None, marks=_needs_downgrade),
+        pytest.param("0.6.10", "0.8.0", False, None, marks=_needs_downgrade),
+        # After 1.x -- rely on MAJOR.
+        ("1.0.0", "1.2.3", False, None),
+        ("1.6.7", "1.7.0", False, None),
+        ("1.6.7", "1.8.3", False, None),
+        (
+            "1.6.7",
+            "2.7.0",
+            True,
+            "Server uses older incompatible schema version 1.6.7; client supports 2.7.0",
+        ),
+    ],
+)
 @responses.activate
-def test_check_schema_version_matches_default() -> None:
+def test_check_schema_version(
+    server_schema_version: str,
+    local_schema_version: str | None,
+    should_raise: bool,
+    expected_message_start: str | None,
+) -> None:
     server_info = {
-        "schema_version": get_schema_version(),
+        "schema_version": server_schema_version,
         "version": "0.0.0",
         "services": {
             "api": {"url": "https://test.nil/api"},
@@ -294,38 +366,238 @@ def test_check_schema_version_matches_default() -> None:
         json=server_info,
     )
     client = DandiAPIClient("https://test.nil/api")
-    client.check_schema_version()
+    if should_raise:
+        with pytest.raises(SchemaVersionError) as excinfo:
+            client.check_schema_version(local_schema_version)
+        if expected_message_start:
+            assert str(excinfo.value).startswith(expected_message_start)
+    else:
+        client.check_schema_version(local_schema_version)
 
 
-@responses.activate
-def test_check_schema_version_mismatch() -> None:
-    server_info = {
-        "schema_version": "4.5.6",
+def _server_info(schema_version: str) -> dict:
+    return {
+        "schema_version": schema_version,
         "version": "0.0.0",
-        "services": {
-            "api": {"url": "https://test.nil/api"},
-        },
+        "services": {"api": {"url": "https://test.nil/api"}},
         "cli-minimal-version": "0.0.0",
         "cli-bad-versions": [],
     }
-    responses.add(
-        responses.GET,
-        "https://test.nil/server-info",
-        json=server_info,
-    )
-    responses.add(
-        responses.GET,
-        "https://test.nil/api/info/",
-        json=server_info,
-    )
+
+
+def _mock_server_info(schema_version: str) -> None:
+    info = _server_info(schema_version)
+    responses.add(responses.GET, "https://test.nil/server-info", json=info)
+    responses.add(responses.GET, "https://test.nil/api/info/", json=info)
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "server_schema,obj_schema,expected_schema,dropped,kept",
+    [
+        # server on same version -- no touch, sameAs preserved
+        ("0.8.0", "0.8.0", "0.8.0", [], ["sameAs", "releaseNotes"]),
+        # server one minor behind -- downgrade to 0.7.0, drop sameAs (added 0.7.1),
+        # keep releaseNotes (added 0.7.0)
+        pytest.param(
+            "0.7.0",
+            "0.8.0",
+            "0.7.0",
+            ["sameAs"],
+            ["releaseNotes"],
+            marks=_needs_downgrade,
+        ),
+        # server on 0.6.10 -- both sameAs and releaseNotes go
+        pytest.param(
+            "0.6.10",
+            "0.8.0",
+            "0.6.10",
+            ["sameAs", "releaseNotes"],
+            [],
+            marks=_needs_downgrade,
+        ),
+        # server on an unsupported (too-old) target -- leave metadata alone
+        ("0.6.5", "0.8.0", "0.8.0", [], ["sameAs", "releaseNotes"]),
+    ],
+)
+@responses.activate
+def test__maybe_downgrade_metadata(
+    server_schema: str,
+    obj_schema: str,
+    expected_schema: str,
+    dropped: list[str],
+    kept: list[str],
+) -> None:
+    _mock_server_info(server_schema)
     client = DandiAPIClient("https://test.nil/api")
-    with pytest.raises(SchemaVersionError) as excinfo:
-        client.check_schema_version("1.2.3")
-    assert (
-        str(excinfo.value)
-        == "Server requires schema version 4.5.6; client only supports 1.2.3.  "
-        "You may need to upgrade dandi and/or dandischema."
+    metadata = {
+        "schemaKey": "Dandiset",
+        "schemaVersion": obj_schema,
+        "name": "n",
+        "description": "d",
+        "identifier": "DANDI:000001",
+        "sameAs": [],
+        "releaseNotes": "",
+    }
+    out = client._maybe_downgrade_metadata(metadata)
+    assert out["schemaVersion"] == expected_schema
+    for f in dropped:
+        assert f not in out, f"expected {f!r} to be stripped"
+    for f in kept:
+        assert f in out, f"expected {f!r} to be kept"
+
+
+@pytest.mark.ai_generated
+@_needs_downgrade
+@pytest.mark.parametrize(
+    "server_schema,obj_schema,populated_field,populated_value",
+    [
+        # sameAs was added in 0.8.0 -- server on 0.7.0 cannot accept it,
+        # and a non-empty value cannot be simply stripped.
+        ("0.7.0", "0.8.0", "sameAs", ["DANDI:000002"]),
+        # releaseNotes was added in 0.7.0 -- server on 0.6.10 cannot accept
+        # it, and a non-empty value cannot be simply stripped.
+        ("0.6.10", "0.7.0", "releaseNotes", "Some release notes."),
+    ],
+)
+@responses.activate
+def test__maybe_downgrade_metadata_falls_through_on_populated_field(
+    server_schema: str,
+    obj_schema: str,
+    populated_field: str,
+    populated_value: Any,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """
+    When ``dandischema.metadata.migrate`` refuses because a post-server-version
+    field carries a non-empty value that cannot be simply stripped, the client
+    must log a warning and return the original metadata unchanged so the
+    server can decide.
+    """
+    _mock_server_info(server_schema)
+    client = DandiAPIClient("https://test.nil/api")
+    metadata = {
+        "schemaKey": "Dandiset",
+        "schemaVersion": obj_schema,
+        "name": "n",
+        "description": "d",
+        "identifier": "DANDI:000001",
+        populated_field: populated_value,
+    }
+    with caplog.at_level(logging.WARNING, logger="dandi"):
+        out = client._maybe_downgrade_metadata(metadata)
+    assert out is metadata
+    assert out["schemaVersion"] == obj_schema
+    assert out[populated_field] == populated_value
+    assert any(
+        "Could not downgrade metadata" in rec.message and populated_field in rec.message
+        for rec in caplog.records
     )
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test__maybe_downgrade_request_metadata_shape_check() -> None:
+    """
+    The request-body interceptor only touches bodies whose `metadata`
+    sub-dict has *both* `schemaKey` and `schemaVersion` as strings.
+    Anything else -- non-dict body, missing `metadata` key, `metadata`
+    that isn't a dict, `metadata` missing either shape marker -- must
+    pass through unchanged (identity).
+    """
+    _mock_server_info("0.7.0")
+    client = DandiAPIClient("https://test.nil/api")
+    non_matches = [
+        None,
+        "a string body",
+        42,
+        [{"metadata": {"schemaKey": "Dandiset", "schemaVersion": "0.8.0"}}],
+        {},
+        {"metadata": "not a dict"},
+        {"metadata": {"schemaVersion": "0.8.0"}},  # missing schemaKey
+        {"metadata": {"schemaKey": "Dandiset"}},  # missing schemaVersion
+        {"metadata": {"schemaKey": "Dandiset", "schemaVersion": 800}},  # non-str
+        {"other_key": {"schemaKey": "Dandiset", "schemaVersion": "0.8.0"}},
+    ]
+    for body in non_matches:
+        assert client._maybe_downgrade_request_metadata(body) is body
+
+
+@pytest.mark.ai_generated
+@_needs_downgrade
+@responses.activate
+def test__maybe_downgrade_request_metadata_downgrades() -> None:
+    """
+    When the body shape matches, the interceptor swaps in a downgraded
+    metadata dict, returning a *new* body (does not mutate input).
+    """
+    _mock_server_info("0.7.0")
+    client = DandiAPIClient("https://test.nil/api")
+    md = {
+        "schemaKey": "Dandiset",
+        "schemaVersion": "0.8.0",
+        "name": "n",
+        "sameAs": [],
+    }
+    body = {"metadata": md, "name": "n"}
+    out = client._maybe_downgrade_request_metadata(body)
+    assert out is not body  # new body
+    assert out["metadata"]["schemaVersion"] == "0.7.0"
+    assert "sameAs" not in out["metadata"]
+    assert out["name"] == "n"
+    # original body untouched
+    assert body["metadata"] is md
+    assert md["schemaVersion"] == "0.8.0"
+
+
+@pytest.mark.ai_generated
+@_needs_downgrade
+@responses.activate
+def test_set_raw_metadata_downgrades_on_older_server() -> None:
+    """
+    When the server reports an older schema version than the metadata carries,
+    `RemoteVersion.set_raw_metadata` must downgrade the metadata before the
+    outgoing PUT.  Reproduces the CI failure seen with dandi-schema #342.
+    """
+    _mock_server_info("0.7.0")
+
+    captured: dict = {}
+
+    def _put_callback(request: Any) -> tuple[int, dict, str]:
+        captured["body"] = json.loads(request.body)
+        return (200, {}, json.dumps({}))
+
+    responses.add_callback(
+        responses.PUT,
+        re.compile(r"^https://test\.nil/api/dandisets/000001/versions/draft/$"),
+        callback=_put_callback,
+        content_type="application/json",
+    )
+
+    client = DandiAPIClient("https://test.nil/api")
+    ver = Version(
+        identifier="draft",
+        name="draft",
+        asset_count=0,
+        size=0,
+        created=datetime.now(timezone.utc),
+        modified=datetime.now(timezone.utc),
+        status=VersionStatus.PENDING,
+    )
+    d = RemoteDandiset(client=client, identifier="000001", version=ver)
+    d.set_raw_metadata(
+        {
+            "schemaKey": "Dandiset",
+            "schemaVersion": "0.8.0",
+            "name": "n",
+            "description": "d",
+            "identifier": "DANDI:000001",
+            "sameAs": [],
+        }
+    )
+    sent = captured["body"]["metadata"]
+    assert sent["schemaVersion"] == "0.7.0"
+    assert "sameAs" not in sent
 
 
 def test_get_dandisets(text_dandiset: SampleDandiset) -> None:
@@ -833,3 +1105,21 @@ def test_asset_as_readable_open(new_dandiset: SampleDandiset, tmp_path: Path) ->
         assert fp.read() == b"This is test text.\n"
     finally:
         fp.close()
+
+
+@pytest.mark.parametrize(
+    ("instance_name", "expected_env_var_name"),
+    [
+        ("dandi", "DANDI_API_KEY"),
+        ("dandi-api-local-docker-tests", "DANDI_API_LOCAL_DOCKER_TESTS_API_KEY"),
+        ("dandi-sandbox", "DANDI_SANDBOX_API_KEY"),
+        ("ember-dandi-sandbox", "EMBER_DANDI_SANDBOX_API_KEY"),
+    ],
+)
+def test_get_api_key_env_var(instance_name: str, expected_env_var_name: str) -> None:
+    dandi_api_client = DandiAPIClient(
+        dandi_instance=DandiInstance(
+            name=instance_name, gui="https://example.com", api="https://api.example.com"
+        )
+    )
+    assert dandi_api_client.api_key_env_var == expected_env_var_name

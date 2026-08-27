@@ -1,10 +1,20 @@
+"""Upload assets to DANDI Archive.
+
+This module handles uploading NWB files and other assets to DANDI Archive
+instances. Features include:
+- Validation of files before upload
+- Progress tracking with resume capability
+- Metadata extraction and assignment
+- BIDS validation integration
+- Concurrent uploads with thread pool
+"""
+
 from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from contextlib import ExitStack
-from enum import Enum
-from functools import reduce
+from enum import StrEnum
 import io
 import os.path
 from pathlib import Path
@@ -22,12 +32,13 @@ from .consts import (
     DOWNLOAD_SUFFIX,
     DRAFT,
     DandiInstance,
+    SyncMode,
     dandiset_identifier_regex,
     dandiset_metadata_file,
 )
 from .dandiapi import DandiAPIClient, RemoteAsset
 from .dandiset import Dandiset
-from .exceptions import NotFoundError, UploadError
+from .exceptions import NotFoundError, UploadError, UploadValidationError
 from .files import (
     DandiFile,
     DandisetMetadataFile,
@@ -39,7 +50,8 @@ from .misctypes import Digest
 from .support import pyout as pyouts
 from .support.pyout import naturalsize
 from .utils import ensure_datetime, path_is_subpath, pluralize
-from .validate_types import Severity
+from .validate._io import write_validation_jsonl
+from .validate._types import Severity
 
 
 def _check_dandidownload_paths(dfile: DandiFile) -> None:
@@ -71,24 +83,18 @@ class Uploaded(TypedDict):
     errors: list[str]
 
 
-class UploadExisting(str, Enum):
+class UploadExisting(StrEnum):
     ERROR = "error"
     SKIP = "skip"
     FORCE = "force"
     OVERWRITE = "overwrite"
     REFRESH = "refresh"
 
-    def __str__(self) -> str:
-        return self.value
 
-
-class UploadValidation(str, Enum):
+class UploadValidation(StrEnum):
     REQUIRE = "require"
     SKIP = "skip"
     IGNORE = "ignore"
-
-    def __str__(self) -> str:
-        return self.value
 
 
 def upload(
@@ -101,7 +107,8 @@ def upload(
     devel_debug: bool = False,
     jobs: int | None = None,
     jobs_per_file: int | None = None,
-    sync: bool = False,
+    sync: bool | SyncMode | None = False,
+    validation_log_path: str | Path | None = None,
 ) -> None:
     if paths:
         paths = [Path(p).absolute() for p in paths]
@@ -290,6 +297,10 @@ def upload(
                 ):
                     yield {"status": "pre-validating"}
                     validation_statuses = dfile.get_validation_errors()
+                    if validation_log_path is not None and validation_statuses:
+                        write_validation_jsonl(
+                            validation_statuses, validation_log_path, append=True
+                        )
                     validation_errors = [
                         s
                         for s in validation_statuses
@@ -307,7 +318,7 @@ def upload(
                             for i, e in enumerate(validation_errors, start=1):
                                 lgr.warning(" Error %d: %s", i, e)
                             validate_ok = False
-                            raise UploadError("failed validation")
+                            raise UploadValidationError("failed validation")
                     else:
                         yield {"status": "validated"}
                 else:
@@ -440,7 +451,18 @@ def upload(
             style=pyout_style, columns=rec_fields, max_workers=jobs or 5
         )
 
-        with out:
+        def report_validation_failure() -> None:
+            if not validate_ok:
+                msg = "One or more assets failed validation."
+                if validation_log_path is not None:
+                    msg += (
+                        f" Use `dandi validate --load {validation_log_path}`"
+                        " to review the saved results."
+                    )
+                lgr.warning(msg)
+
+        with ExitStack() as warning_stack, out:
+            warning_stack.callback(report_validation_failure)
             for dfile in dandi_files:
                 while len(process_paths) >= 10:
                     lgr.log(2, "Sleep waiting for some paths to finish processing")
@@ -465,12 +487,6 @@ def upload(
                 except ValueError as exc:
                     rec.update(error_file(exc))
                 out(rec)
-
-        if not validate_ok:
-            lgr.warning(
-                "One or more assets failed validation.  Consult the logfile for"
-                " details."
-            )
         if upload_err is not None:
             try:
                 import etelemetry
@@ -489,19 +505,25 @@ def upload(
             raise upload_err
 
         if sync:
+            # Normalize legacy bool True to SyncMode.ASK
+            if sync is True:
+                sync = SyncMode.ASK
             relpaths: list[str] = []
             for p in paths:
                 rp = os.path.relpath(p, dandiset.path)
                 relpaths.append("" if rp == "." else rp)
-            path_prefix = reduce(os.path.commonprefix, relpaths)  # type: ignore[arg-type]
+            path_prefix = os.path.commonprefix(relpaths)
             to_delete = []
             for asset in remote_dandiset.get_assets_with_path_prefix(path_prefix):
                 if any(
                     p == "" or path_is_subpath(asset.path, p) for p in relpaths
                 ) and not os.path.lexists(Path(dandiset.path, asset.path)):
                     to_delete.append(asset)
-            if to_delete and click.confirm(
-                f"Delete {pluralize(len(to_delete), 'asset')} on server?"
+            if to_delete and (
+                sync is SyncMode.DO
+                or click.confirm(
+                    f"Delete {pluralize(len(to_delete), 'asset')} on server?"
+                )
             ):
                 for asset in to_delete:
                     asset.delete()

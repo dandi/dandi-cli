@@ -1,0 +1,29 @@
+version = 1
+
+# Default: everything in the dandi-cli source tree is Apache-2.0,
+# copyright the DANDI developers. The "aggregate" precedence lets any
+# in-file SPDX header add to (rather than override) this declaration.
+[[annotations]]
+path = "**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2019-2026 DANDI developers <team@dandiarchive.org>"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Vendored python-versioneer files are dedicated to the public domain
+# (Unlicense). See https://github.com/python-versioneer/python-versioneer.
+[[annotations]]
+path = [
+    "versioneer.py",
+    "dandi/_version.py",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "NONE"
+SPDX-License-Identifier = "Unlicense"
+
+# dandi/due.py is the duecredit stub, distributed by the DueCredit
+# project under BSD-2-Clause. See https://github.com/duecredit/duecredit.
+[[annotations]]
+path = "dandi/due.py"
+precedence = "override"
+SPDX-FileCopyrightText = "2015-2019 DueCredit developers"
+SPDX-License-Identifier = "BSD-2-Clause"

@@ -13,11 +13,10 @@ jobs:
       fail-fast: false
       matrix:
         python:
-          - '3.10'
-          #- 3.11
+          - '3.11'
     steps:
     - name: Check out repository
-      uses: actions/checkout@v5
+      uses: actions/checkout@v7
       with:
         # Fetch all commits so that versioneer will return something compatible
         # with semantic-version
@@ -27,10 +26,6 @@ jobs:
       uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python }}
-
-    - name: Install hdf5 (Ubuntu)
-      if: matrix.python == '3.9' && startsWith(matrix.os, 'ubuntu')
-      run: sudo apt-get update && sudo apt-get install -y libhdf5-dev
 
     - name: Install dependencies
       run: |

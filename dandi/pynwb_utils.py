@@ -1,11 +1,23 @@
+"""Utilities for working with NWB (Neurodata Without Borders) files.
+
+This module provides helper functions for reading, validating, and extracting
+metadata from NWB files using PyNWB. Features include:
+- NWB file I/O with caching
+- Metadata extraction for DANDI schema
+- Version compatibility checking
+- External link detection
+- Validation against NWB standards
+"""
+
 from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Callable
+from datetime import timedelta
 import inspect
 import os
 import os.path as op
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 from typing import IO, Any, TypeVar, cast
 import warnings
@@ -14,6 +26,7 @@ import dandischema
 from fscacher import PersistentCache
 import h5py
 import hdmf
+import numpy as np
 from packaging.version import Version
 import pynwb
 from pynwb import NWBHDF5IO
@@ -21,6 +34,7 @@ import semantic_version
 
 from . import __version__, get_logger
 from .consts import (
+    IMAGE_FILE_EXTENSIONS,
     VIDEO_FILE_EXTENSIONS,
     VIDEO_FILE_MODULES,
     metadata_nwb_computed_fields,
@@ -29,7 +43,7 @@ from .consts import (
 )
 from .misctypes import Readable
 from .utils import get_module_version, is_url
-from .validate_types import (
+from .validate._types import (
     Origin,
     OriginType,
     Scope,
@@ -262,7 +276,117 @@ def _get_pynwb_metadata(path: str | Path | Readable) -> dict[str, Any]:
         # get external_file data:
         out["external_file_objects"] = _get_image_series(nwb)
 
+        # Calculate session duration for metadata
+        session_duration = _get_session_duration(nwb)
+        if session_duration is not None and out.get("session_start_time") is not None:
+            # Convert to absolute datetime by adding duration to session_start_time
+            start_time = out["session_start_time"]
+            out["session_end_time"] = start_time + timedelta(seconds=session_duration)
+
     return out
+
+
+def _get_session_duration(nwb: pynwb.NWBFile) -> float | None:
+    """Calculate the duration of a recording session from NWB file contents.
+
+    This function finds the minimum and maximum timestamps across all TimeSeries
+    and DynamicTable objects with time information, then returns the duration as
+    max - min.
+
+    Parameters
+    ----------
+    nwb: pynwb.NWBFile
+        An open NWB file object
+
+    Returns
+    -------
+    float or None
+        The session duration in seconds (max_time - min_time),
+        or None if no time information could be extracted
+    """
+    start_times: list[float] = []
+    end_times: list[float] = []
+
+    # Iterate through all objects in the NWB file
+    for obj in nwb.objects.values():
+        # Handle TimeSeries objects
+        if isinstance(obj, pynwb.base.TimeSeries):
+            if obj.timestamps is not None and len(obj.timestamps) > 0:
+                # Use first and last timestamps
+                start_times.append(float(obj.timestamps[0]))
+                end_times.append(float(obj.timestamps[-1]))
+            elif (
+                obj.starting_time is not None
+                and obj.rate is not None
+                and obj.data is not None
+            ):
+                # Calculate start and end time
+                start_times.append(float(obj.starting_time))
+                num_samples = len(obj.data)
+                if obj.rate == 0:
+                    continue
+                end_times.append(float(obj.starting_time + (num_samples / obj.rate)))
+
+        # Handle DynamicTable objects with time columns
+        elif isinstance(obj, hdmf.common.DynamicTable):
+            # Handle start_time and stop_time columns (e.g., trials)
+            if "start_time" in obj.colnames and len(obj["start_time"]):
+                start_times.append(float(obj["start_time"][0]))
+            if "stop_time" in obj.colnames and len(obj["stop_time"]):
+                end_times.append(float(obj["stop_time"][-1]))
+
+            # Handle spike_times column (e.g., Units table)
+            # Assume spike times are ordered within each unit
+            # Read only the first and last spike time from each unit
+            if "spike_times" in obj.colnames and len(obj["spike_times"]):
+                idxs = obj["spike_times"].data[:]
+                # Keep only boundaries where cumulative spike count increases.
+                # Non-spiking units repeat the prior cumulative index and are skipped.
+                unit_end_idxs = idxs[np.diff(np.r_[0, idxs]) > 0]
+
+                if len(unit_end_idxs) == 0:
+                    continue
+
+                st_data = obj["spike_times"].target
+
+                if len(unit_end_idxs) > 1:
+                    start = float(
+                        np.min(np.r_[st_data[0], st_data[unit_end_idxs[:-1]]])
+                    )
+                else:
+                    start = float(st_data[0])
+
+                end = float(np.max(st_data[unit_end_idxs - 1]))
+                start_times.append(float(start))
+                end_times.append(float(end))
+
+            # Handle timestamp column (e.g., EventsTable)
+            if "timestamp" in obj.colnames and len(obj["timestamp"]):
+                timestamp_data = obj["timestamp"]
+                start_times.append(float(timestamp_data[0]))
+                # Check if duration column exists to calculate end times
+                if "duration" in obj.colnames:
+                    duration_data = obj["duration"]
+                    end_times.append(float(timestamp_data[-1] + duration_data[-1]))
+                else:
+                    # No duration, use max timestamp as end
+                    end_times.append(float(timestamp_data[-1]))
+
+    # Return duration as max - min
+    if start_times and end_times:
+        duration = max(end_times) - min(start_times)
+        if (
+            duration < 3600 * 24 * 365 * 5
+        ):  # if duration is over 5 years, something went wrong
+            return duration
+        else:
+            lgr.warning(
+                "Session duration of %.2f seconds (%.2f years) exceeds 5-year limit; "
+                "returning None as this likely indicates an error in timestamps",
+                duration,
+                duration / (3600 * 24 * 365),
+            )
+    return None
 
 
 def _get_image_series(nwb: pynwb.NWBFile) -> list[dict]:
@@ -287,10 +411,17 @@ def _get_image_series(nwb: pynwb.NWBFile) -> list[dict]:
         module_cont = getattr(nwb, module_name)
         for name, ob in module_cont.items():
             if isinstance(ob, pynwb.image.ImageSeries) and ob.external_file is not None:
-                out_dict = dict(id=ob.object_id, name=ob.name, external_files=[])
+                out_dict = dict(
+                    id=ob.object_id,
+                    name=ob.name,
+                    external_files=[],
+                    field="external_file",
+                )
                 for ext_file in ob.external_file:
-                    if Path(ext_file).suffix in VIDEO_FILE_EXTENSIONS:
-                        out_dict["external_files"].append(Path(ext_file))
+                    if (
+                        path := PurePosixPath(ext_file)
+                    ).suffix in VIDEO_FILE_EXTENSIONS:
+                        out_dict["external_files"].append(path)
                     else:
                         lgr.warning(
                             "external file %s should be one of: %s",
@@ -298,6 +429,48 @@ def _get_image_series(nwb: pynwb.NWBFile) -> list[dict]:
                             ", ".join(VIDEO_FILE_EXTENSIONS),
                         )
                 out.append(out_dict)
+    out.extend(_get_external_images(nwb))
+    return out
+
+
+def _get_external_images(nwb: pynwb.NWBFile) -> list[dict]:
+    """Retrieves all ExternalImage metadata from an open nwb file.
+
+    An `ExternalImage` holds a single path or URL in ``data`` rather than a list in
+    ``external_file``, and it sits inside an `Images` container rather than directly in a module,
+    so the whole file is walked instead of the top level of the video modules.
+
+    Parameters
+    ----------
+    nwb: pynwb.NWBFile
+
+    Returns
+    -------
+    out: list[dict]
+        list of dicts : [{id: <ExternalImage uuid>, name: <ExternalImage name>,
+        external_files=[ExternalImage.data], field: "data"}]
+    """
+    try:
+        from pynwb.base import ExternalImage
+    except ImportError:
+        # `ExternalImage` was added in pynwb 3.1.0; nothing to collect on an older one.
+        return []
+
+    out = []
+    for ob in nwb.objects.values():
+        if not isinstance(ob, ExternalImage) or ob.data is None:
+            continue
+        data = ob.data.decode() if isinstance(ob.data, bytes) else str(ob.data)
+        if (path := PurePosixPath(data)).suffix.lower() not in IMAGE_FILE_EXTENSIONS:
+            lgr.warning(
+                "external image %s should be one of: %s",
+                data,
+                ", ".join(IMAGE_FILE_EXTENSIONS),
+            )
+            continue
+        out.append(
+            dict(id=ob.object_id, name=ob.name, external_files=[path], field="data")
+        )
     return out
 
 
@@ -322,28 +495,82 @@ def rename_nwb_external_files(metadata: list[dict], dandiset_path: str) -> None:
             )
             return
         dandiset_nwbfile_path = op.join(dandiset_path, meta["dandi_path"])
-        with NWBHDF5IO(dandiset_nwbfile_path, mode="r+", load_namespaces=True) as io:
-            nwb = io.read()
-            for ext_file_dict in meta["external_file_objects"]:
-                # retrieve nwb neurodata object of the given object id:
-                container_list = [
-                    child
-                    for child in nwb.children
-                    if ext_file_dict["id"] == child.object_id
-                ]
-                if len(container_list) == 0:
-                    continue
-                else:
-                    container = container_list[0]
-                # rename all external files:
-                for no, (name_old, name_new) in enumerate(
-                    zip(
-                        ext_file_dict["external_files"],
-                        ext_file_dict["external_files_renamed"],
-                    )
-                ):
-                    if not is_url(str(name_old)):
-                        container.external_file[no] = str(name_new)
+        image_series = [
+            d
+            for d in meta["external_file_objects"]
+            if d.get("field", "external_file") == "external_file"
+        ]
+        external_images = [
+            d for d in meta["external_file_objects"] if d.get("field") == "data"
+        ]
+        if image_series:
+            with NWBHDF5IO(
+                dandiset_nwbfile_path, mode="r+", load_namespaces=True
+            ) as io:
+                nwb = io.read()
+                for ext_file_dict in image_series:
+                    # retrieve nwb neurodata object of the given object id:
+                    container_list = [
+                        child
+                        for child in nwb.children
+                        if ext_file_dict["id"] == child.object_id
+                    ]
+                    if len(container_list) == 0:
+                        continue
+                    else:
+                        container = container_list[0]
+                    # rename all external files:
+                    for no, (name_old, name_new) in enumerate(
+                        zip(
+                            ext_file_dict["external_files"],
+                            ext_file_dict["external_files_renamed"],
+                        )
+                    ):
+                        if not is_url(str(name_old)):
+                            container.external_file[no] = str(name_new)
+        if external_images:
+            _rename_external_images(dandiset_nwbfile_path, external_images)
+
+
+def _rename_external_images(nwbfile_path: str, external_images: list[dict]) -> None:
+    """Rewrites the ``data`` of the given `ExternalImage` objects in an NWB file on disk.
+
+    `ExternalImage.data` is a scalar string rather than the array `ImageSeries.external_file` is,
+    so assigning through the read container does not reach the file and the dataset is written
+    directly instead. Objects are matched on the ``object_id`` attribute, since an `ExternalImage`
+    sits inside an `Images` container at a path this function is not told.
+
+    Parameters
+    ----------
+    nwbfile_path: str
+        full path of the NWB file to rewrite
+    external_images: list[dict]
+        the ``field == "data"`` entries of ``metadata["external_file_objects"]``
+    """
+    # Avoid a module level dependency on h5py for a path most callers never take:
+    import h5py
+
+    renames = {}
+    for ext_file_dict in external_images:
+        for name_old, name_new in zip(
+            ext_file_dict["external_files"], ext_file_dict["external_files_renamed"]
+        ):
+            if not is_url(str(name_old)):
+                renames[ext_file_dict["id"]] = str(name_new)
+    if not renames:
+        return
+
+    def rename_if_matched(_name: str, obj: Any) -> None:
+        if not isinstance(obj, h5py.Dataset):
+            return
+        object_id = obj.attrs.get("object_id")
+        if isinstance(object_id, bytes):
+            object_id = object_id.decode()
+        if object_id in renames:
+            obj[()] = renames[object_id]
+
+    with h5py.File(nwbfile_path, "r+") as f:
+        f.visititems(rename_if_matched)
 
 
 @validate_cache.memoize_path

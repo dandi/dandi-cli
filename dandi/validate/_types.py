@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum, IntEnum, auto, unique
+import logging
 from pathlib import Path
 from typing import Annotated, Any, Union
 
@@ -9,6 +10,24 @@ from pydantic.functional_serializers import PlainSerializer
 
 import dandi
 from dandi.utils import StrEnum
+
+
+class MissingFileContent(StrEnum):
+    """Policy for handling files whose content is missing (e.g. broken symlinks
+    in a datalad dataset without fetched data)."""
+
+    error = auto()
+    """Emit a concise error for each file with missing content (default)."""
+
+    only_non_data = "only-non-data"
+    """Skip content-dependent validators (e.g. pynwb, nwbinspector) but still
+    validate non-data aspects such as path layout."""
+
+    skip = auto()
+    """Skip the file entirely; emit a WARNING noting that validation was skipped."""
+
+
+lgr = logging.getLogger(__name__)
 
 
 @unique
@@ -180,7 +199,13 @@ class Scope(Enum):
     DATASET = "dataset"
 
 
+CURRENT_RECORD_VERSION = "1"
+
+
 class ValidationResult(BaseModel):
+    record_version: str = CURRENT_RECORD_VERSION
+    """Version of the serialized record format for forward compatibility"""
+
     id: str
 
     origin: Origin
@@ -214,6 +239,14 @@ class ValidationResult(BaseModel):
     # multiple files, like mismatch between .nii.gz header and .json sidecar
     path: Path | None = None
     path_regex: str | None = None
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.record_version != CURRENT_RECORD_VERSION:
+            lgr.warning(
+                "record_version %r != current %r, loading anyway",
+                self.record_version,
+                CURRENT_RECORD_VERSION,
+            )
 
     @property
     def purview(self) -> str | None:
