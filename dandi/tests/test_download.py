@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from contextlib import nullcontext
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from functools import partial
 from glob import glob
@@ -13,6 +14,7 @@ import os.path
 from pathlib import Path
 import re
 from shutil import rmtree
+from threading import Lock
 import time
 from unittest import mock
 
@@ -39,6 +41,7 @@ from ..download import (
     ProgressCombiner,
     PYOUTHelper,
     _check_attempts_and_sleep,
+    _download_file,
     download,
 )
 from ..exceptions import NotFoundError
@@ -168,6 +171,104 @@ def test_download_000027_resume(
         assert digester(str(nwb)) != digests
     else:
         assert digester(str(nwb)) == digests
+
+
+#: An arbitrary asset mtime with a non-zero sub-second component, i.e. one that
+#: does not survive a round trip through a filesystem storing whole seconds only
+COARSE_MTIME_RECORD = datetime(2026, 8, 22, 15, 21, 20, 651000, tzinfo=timezone.utc)
+
+COARSE_MTIME_CONTENT = b"This is test text.\n"
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("granularity", [0.0, 1.0, 2.0])
+def test_download_file_refresh_coarse_mtime_fs(
+    tmp_path: Path, coarse_mtime_fs: Callable[[float], None], granularity: float
+) -> None:
+    """`existing=refresh` must skip an unchanged file no matter how coarsely the
+    filesystem stores the mtime that we ourselves set after downloading it.
+
+    Regression test for https://github.com/dandi/dandi-cli/issues/1907 , where
+    every file of a dandiset was redownloaded on every run whenever the
+    destination did not store sub-second mtimes (a mounted Windows volume,
+    FAT/exFAT, some network filesystems).
+    """
+    coarse_mtime_fs(granularity)
+    path = tmp_path / "file.txt"
+    downloads = 0
+
+    def downloader(start_at: int = 0) -> Iterator[bytes]:
+        nonlocal downloads
+        downloads += 1
+        yield COARSE_MTIME_CONTENT[start_at:]
+
+    def download_it(existing: DownloadExisting) -> list[dict]:
+        return list(
+            _download_file(
+                downloader,
+                path,
+                tmp_path,
+                Lock(),
+                size=len(COARSE_MTIME_CONTENT),
+                mtime=COARSE_MTIME_RECORD,
+                existing=existing,
+            )
+        )
+
+    assert {"status": "setting mtime"} in download_it(DownloadExisting.ERROR)
+    assert path.read_bytes() == COARSE_MTIME_CONTENT
+    assert downloads == 1
+
+    # The refresh pass must not transfer anything at all, however coarsely the
+    # filesystem happened to store the mtime just set
+    downloads = 0
+    assert download_it(DownloadExisting.REFRESH) == [
+        {
+            "status": "skipped",
+            "message": "same time and size",
+            "size": len(COARSE_MTIME_CONTENT),
+        }
+    ]
+    assert downloads == 0
+
+
+@pytest.mark.ai_generated
+def test_download_file_refresh_reports_mtime_mismatch(
+    tmp_path: Path,
+    coarse_mtime_fs: Callable[[float], None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A genuinely out-of-date file is still redownloaded, and the rejected skip
+    reports both timestamps, their delta, and the tolerance applied."""
+    coarse_mtime_fs(1.0)
+    path = tmp_path / "file.txt"
+    path.write_bytes(COARSE_MTIME_CONTENT)
+    # The local copy is an hour older than the record
+    stale = COARSE_MTIME_RECORD - timedelta(hours=1)
+    os.utime(path, (time.time(), stale.timestamp()))
+
+    def downloader(start_at: int = 0) -> Iterator[bytes]:
+        yield COARSE_MTIME_CONTENT[start_at:]
+
+    statuses = list(
+        _download_file(
+            downloader,
+            path,
+            tmp_path,
+            Lock(),
+            size=len(COARSE_MTIME_CONTENT),
+            mtime=COARSE_MTIME_RECORD,
+            existing=DownloadExisting.REFRESH,
+        )
+    )
+    assert {"status": "downloading"} in statuses
+
+    (msg,) = [
+        r.getMessage() for r in caplog.records if "Redownloading" in r.getMessage()
+    ]
+    assert "same attributes: ['size']" in msg
+    assert "delta: 3600.65" in msg
+    assert "tolerance: 2 s" in msg
 
 
 def test_download_newest_version(text_dandiset: SampleDandiset, tmp_path: Path) -> None:

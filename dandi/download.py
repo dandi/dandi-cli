@@ -68,6 +68,21 @@ from .utils import (
 
 lgr = get_logger()
 
+#: Tolerance (in seconds) for comparing a local file's mtime against the mtime
+#: recorded for the asset when deciding whether ``DownloadExisting.REFRESH``
+#: may skip a redownload.  The local mtime is one we set ourselves via
+#: `os.utime()` at the end of the previous download, so the comparison is
+#: really a filesystem round trip — and not every filesystem stores mtimes at
+#: the resolution `os.stat()` reports them at: mounted Windows volumes,
+#: FAT/exFAT and some network filesystems truncate or round the value, by up
+#: to FAT's 2 s granularity.  Tolerate that coarsest known granularity
+#: everywhere (cf. rsync's ``--modify-window``) instead of assuming the value
+#: round-trips exactly.  A skip additionally requires an exact size match, and
+#: the recorded mtime only moves when the asset is actually replaced, so the
+#: widened window cannot in practice mistake an updated asset for an unchanged
+#: one.  https://github.com/dandi/dandi-cli/issues/1907
+REFRESH_MTIME_TOLERANCE = 2.0
+
 
 class DownloadExisting(StrEnum):
     ERROR = "error"
@@ -702,7 +717,9 @@ def _download_file(
             else:
                 stat = os.stat(op.realpath(path))
                 same = []
-                if is_same_time(stat.st_mtime, mtime):
+                if is_same_time(
+                    stat.st_mtime, mtime, tolerance=REFRESH_MTIME_TOLERANCE
+                ):
                     same.append("mtime")
                 if size is not None and stat.st_size == size:
                     same.append("size")
@@ -712,7 +729,21 @@ def _download_file(
                     # TODO: add recording and handling of .nwb object_id
                     yield _skip_file("same time and size", size=size)
                     return
-                lgr.debug(f"{path!r} - same attributes: {same}.  Redownloading")
+                lgr.debug(
+                    "%r - same attributes: %s.  Redownloading.  "
+                    "Local mtime: %s (%.6f), record mtime: %s (%.6f), "
+                    "delta: %.6f s, tolerance: %g s, local size: %s, record size: %s",
+                    str(path),
+                    same,
+                    ensure_datetime(stat.st_mtime),
+                    stat.st_mtime,
+                    mtime,
+                    mtime.timestamp(),
+                    abs(stat.st_mtime - mtime.timestamp()),
+                    REFRESH_MTIME_TOLERANCE,
+                    stat.st_size,
+                    size,
+                )
 
     if size is not None:
         yield {"size": size}

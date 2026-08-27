@@ -71,6 +71,36 @@ def capture_all_logs(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG, logger="dandi")
 
 
+@pytest.fixture()
+def coarse_mtime_fs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[Callable[[float], None]]:
+    """Simulate a filesystem that does not store sub-second mtimes
+
+    Yields a callable taking the granularity (in seconds) with which mtimes
+    should henceforth be stored; until it is called, mtimes are stored as
+    given.  This is done by patching `os.utime()` to quantize the times it is
+    asked to set, which is what filesystems such as those on mounted Windows
+    volumes, FAT and exFAT effectively do — real (ext4/XFS/tmpfs) temporary
+    directories store mtimes with nanosecond resolution and so cannot exercise
+    this behavior.
+    """
+    real_utime = os.utime
+    granularity = 0.0
+
+    def quantizing_utime(path: Any, times: Any = None, **kwargs: Any) -> None:
+        if granularity and times is not None:
+            times = tuple(t // granularity * granularity for t in times)
+        real_utime(path, times, **kwargs)
+
+    def set_granularity(value: float) -> None:
+        nonlocal granularity
+        granularity = value
+
+    monkeypatch.setattr(os, "utime", quantizing_utime)
+    yield set_granularity
+
+
 # TODO: move into some common fixtures.  We might produce a number of files
 #       and also carry some small ones directly in git for regression testing
 @pytest.fixture(scope="session")
