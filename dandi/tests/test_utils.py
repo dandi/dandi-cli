@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+import datetime
 import inspect
 import logging
 import os.path as op
@@ -28,6 +29,7 @@ from ..utils import (
     get_module_version,
     get_utcnow_datetime,
     is_page2_url,
+    is_same_mtime,
     is_same_time,
     is_url,
     on_windows,
@@ -156,6 +158,57 @@ def test_time_samples(t: str) -> None:
     assert is_same_time(
         ensure_datetime(t), "2018-09-27 00:29:17-00:00", tolerance=0
     )  # exactly the same
+
+
+#: An mtime with a non-zero sub-second component, i.e. one that does not
+#: survive a round trip through a filesystem storing whole seconds only
+MTIME_RECORD = datetime.datetime(
+    2026, 8, 22, 15, 21, 21, 651000, tzinfo=datetime.timezone.utc
+)
+
+
+def _ns(t: datetime.datetime) -> int:
+    return int(t.timestamp() * 10**9)
+
+
+def _truncated(t: datetime.datetime, granularity_ns: int) -> int:
+    """`t` as a filesystem with the given mtime granularity would store it"""
+    return _ns(t) // granularity_ns * granularity_ns
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "local_ns,record,same",
+    [
+        # An unchanged file, however the filesystem stored the mtime we set:
+        # exactly, or truncated to exFAT's 10 ms, a whole second, or FAT's 2 s
+        (_ns(MTIME_RECORD), MTIME_RECORD, True),
+        (_truncated(MTIME_RECORD, 10**7), MTIME_RECORD, True),
+        (_truncated(MTIME_RECORD, 10**9), MTIME_RECORD, True),
+        (_truncated(MTIME_RECORD, 2 * 10**9), MTIME_RECORD, True),
+        # A changed file, against a stored value too precise to explain the gap
+        (_ns(MTIME_RECORD), MTIME_RECORD + datetime.timedelta(seconds=0.4), False),
+        (_ns(MTIME_RECORD), MTIME_RECORD + datetime.timedelta(seconds=1.9), False),
+        (
+            _truncated(MTIME_RECORD, 10**7),
+            MTIME_RECORD + datetime.timedelta(seconds=0.4),
+            False,
+        ),
+        # A gap wider than any known granularity, whatever the stored value
+        (
+            _truncated(MTIME_RECORD, 2 * 10**9),
+            MTIME_RECORD + datetime.timedelta(seconds=1.5),
+            False,
+        ),
+        (
+            _ns(MTIME_RECORD - datetime.timedelta(hours=1)),
+            MTIME_RECORD,
+            False,
+        ),
+    ],
+)
+def test_is_same_mtime(local_ns: int, record: datetime.datetime, same: bool) -> None:
+    assert is_same_mtime(local_ns, record) is same
 
 
 def test_flatten() -> None:

@@ -31,7 +31,12 @@ import zarr
 from .fixtures import SampleDandiset, SampleDandisetFactory
 from .skip import mark
 from .test_helpers import TWO_ARRAY_ZARR_LAYOUT, assert_dirtrees_eq, zarr_format_of
-from ..consts import DRAFT, MTIME_TOLERANCE, SyncMode, dandiset_metadata_file
+from ..consts import (
+    DRAFT,
+    MTIME_GRANULARITIES_NS,
+    SyncMode,
+    dandiset_metadata_file,
+)
 from ..dandiarchive import DandisetURL
 from ..download import (
     DownloadDirectory,
@@ -194,14 +199,16 @@ def coarse_mtime_fs(
         path: Any, times: Any = None, *, ns: Any = None, **kwargs: Any
     ) -> None:
         # `os.utime()` accepts the times either as seconds (`times`) or as
-        # nanoseconds (`ns`, used by e.g. `shutil.copystat()`), never both, so
-        # quantize whichever was given and forward it the same way
+        # nanoseconds (`ns`, used by e.g. `shutil.copystat()`), never both.
+        # Quantize in integer nanoseconds -- as a filesystem does, and so that
+        # granularities not exactly representable as a float (10 ms) truncate
+        # cleanly -- then forward whichever form was given.
         if granularity:
+            g_ns = round(granularity * 10**9)
             if times is not None:
-                times = tuple(t // granularity * granularity for t in times)
-            if ns is not None:
-                ns_granularity = int(granularity * 1_000_000_000)
-                ns = tuple(n // ns_granularity * ns_granularity for n in ns)
+                ns, times = tuple(round(t * 10**9) for t in times), None
+            assert ns is not None
+            ns = tuple(n // g_ns * g_ns for n in ns)
         if ns is not None:
             real_utime(path, ns=ns, **kwargs)
         else:
@@ -223,7 +230,7 @@ COARSE_MTIME_CONTENT = b"This is test text.\n"
 
 
 @pytest.mark.ai_generated
-@pytest.mark.parametrize("granularity", [0.0, 1.0, 2.0])
+@pytest.mark.parametrize("granularity", [0.0, 0.01, 1.0, 2.0])
 def test_download_file_refresh_coarse_mtime_fs(
     tmp_path: Path, coarse_mtime_fs: Callable[[float], None], granularity: float
 ) -> None:
@@ -310,11 +317,56 @@ def test_download_file_refresh_reports_mtime_mismatch(
         r.getMessage() for r in caplog.records if "Redownloading" in r.getMessage()
     ]
     assert "same attributes: ['size']" in msg
-    assert f"tolerance: {MTIME_TOLERANCE:g} s" in msg
+    assert f"granularities: {MTIME_GRANULARITIES_NS} ns" in msg
     # The record's mtime is reported in full, so that someone reading the log
     # can see what it was compared against.  The local one is not asserted on:
     # it is whatever the filesystem stored, which is the point of the test.
     assert f"record mtime: {COARSE_MTIME_RECORD}" in msg
+
+
+#: Same size as `COARSE_MTIME_CONTENT`, different bytes -- an asset replaced
+#: in place, which only the mtime can distinguish from the original
+COARSE_MTIME_CONTENT_2 = b"This is other text\n"
+
+
+@pytest.mark.ai_generated
+def test_download_file_refresh_detects_subsecond_change(tmp_path: Path) -> None:
+    """A sub-second change on a filesystem that stores mtimes exactly must
+    still be redownloaded.
+
+    The counterpart to `test_download_file_refresh_coarse_mtime_fs`: tolerating
+    the coarsest known granularity unconditionally would skip this, since the
+    size is unchanged and the mtime moved well under two seconds.  Here the
+    filesystem stored the previous mtime at full precision, so the discrepancy
+    is not something its quantization could have produced.
+    """
+    assert len(COARSE_MTIME_CONTENT_2) == len(COARSE_MTIME_CONTENT)
+    path = tmp_path / "file.txt"
+
+    def download_it(content: bytes, mtime: datetime) -> list[dict]:
+        def downloader(start_at: int = 0) -> Iterator[bytes]:
+            yield content[start_at:]
+
+        return list(
+            _download_file(
+                downloader,
+                path,
+                tmp_path,
+                Lock(),
+                size=len(content),
+                mtime=mtime,
+                existing=DownloadExisting.REFRESH,
+            )
+        )
+
+    download_it(COARSE_MTIME_CONTENT, COARSE_MTIME_RECORD)
+    assert path.read_bytes() == COARSE_MTIME_CONTENT
+    # The asset was replaced 0.4 s later with different bytes of the same size
+    statuses = download_it(
+        COARSE_MTIME_CONTENT_2, COARSE_MTIME_RECORD + timedelta(seconds=0.4)
+    )
+    assert {"status": "downloading"} in statuses
+    assert path.read_bytes() == COARSE_MTIME_CONTENT_2
 
 
 def test_download_newest_version(text_dandiset: SampleDandiset, tmp_path: Path) -> None:

@@ -35,7 +35,13 @@ from semantic_version import Version
 from yarl import URL
 
 from . import __version__, get_logger
-from .consts import DandiInstance, known_instances, known_instances_rev
+from .consts import (
+    MTIME_GRANULARITIES_NS,
+    MTIME_ROUNDTRIP_SLACK_NS,
+    DandiInstance,
+    known_instances,
+    known_instances_rev,
+)
 from .exceptions import BadCliVersionError, CliVersionTooOldError
 
 AnyPath = Union[str, Path]
@@ -155,6 +161,51 @@ def is_same_time(
         (t1 - t2 if t1 > t2 else t2 - t1) <= tolerance_dt
         for (t1, t2) in itertools.combinations(norm_times, 2)
     )
+
+
+_EPOCH = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
+
+
+def _datetime_to_ns(dt: datetime.datetime) -> int:
+    """Epoch nanoseconds for `dt`, without a float round trip"""
+    delta = dt - _EPOCH
+    return (delta.days * 86400 + delta.seconds) * 10**9 + delta.microseconds * 1000
+
+
+def is_same_mtime(local_ns: int, record: datetime.datetime) -> bool:
+    """Is `local_ns` the mtime `record`, as a filesystem could have stored it?
+
+    For an mtime we set ourselves with `os.utime()` and are now reading back,
+    where the only discrepancy an otherwise-unchanged file can show is the
+    filesystem's own quantization of the value.  Where `is_same_time()`
+    tolerates a fixed window -- which on a filesystem that stores the value
+    exactly would mask a real change -- this requires the discrepancy to be one
+    the *observed* value can account for: `local_ns` must be a multiple of some
+    granularity in `MTIME_GRANULARITIES_NS` that is itself wider than the gap.
+    A filesystem truncating to whole seconds cannot have produced a stored
+    value of ``...21.651``, so against such a value even a millisecond of drift
+    means the file really did change; a stored ``...20.000`` is consistent with
+    truncation, and a gap of up to two seconds says nothing either way.
+
+    Parameters
+    ----------
+    local_ns: int
+      The mtime as read back from the filesystem, in epoch nanoseconds, i.e.
+      `os.stat()`'s `st_mtime_ns`.  Nanoseconds rather than `st_mtime` so that
+      the multiple-of test is exact.
+    record: datetime.datetime
+      The mtime we asked for.
+
+    See https://github.com/dandi/dandi-cli/issues/1907
+    """
+    delta = abs(_datetime_to_ns(record) - local_ns)
+    if delta <= MTIME_ROUNDTRIP_SLACK_NS:
+        return True
+    # TODO: this accounts for quantization only.  A destination that also
+    # *shifts* mtimes -- notably FAT, which stores local time, so every mtime
+    # moves by an hour across a DST transition -- will still compare unequal
+    # once after such a shift.  Niche enough to leave for now.
+    return any(g > delta and local_ns % g == 0 for g in MTIME_GRANULARITIES_NS)
 
 
 def ensure_strtime(

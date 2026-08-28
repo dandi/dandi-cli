@@ -40,7 +40,7 @@ import requests
 from . import get_logger
 from .consts import (
     DOWNLOAD_SUFFIX,
-    MTIME_TOLERANCE,
+    MTIME_GRANULARITIES_NS,
     RETRY_STATUSES,
     SyncMode,
     dandiset_metadata_file,
@@ -66,7 +66,7 @@ from .utils import (
     exclude_from_zarr,
     flattened,
     get_retry_after,
-    is_same_time,
+    is_same_mtime,
     path_is_subpath,
     pluralize,
     yaml_load,
@@ -708,13 +708,7 @@ def _download_file(
             else:
                 stat = os.stat(op.realpath(path))
                 same = []
-                # The mtime compared against here is the one we set ourselves
-                # with os.utime() after the previous download, so this is
-                # really a filesystem round trip; tolerate the coarsest
-                # granularity filesystems are known to store mtimes with
-                # instead of assuming the value round-trips exactly.  See
-                # https://github.com/dandi/dandi-cli/issues/1907
-                if is_same_time(stat.st_mtime, mtime, tolerance=MTIME_TOLERANCE):
+                if is_same_mtime(stat.st_mtime_ns, mtime):
                     same.append("mtime")
                 if size is not None and stat.st_size == size:
                     same.append("size")
@@ -724,18 +718,16 @@ def _download_file(
                     # TODO: add recording and handling of .nwb object_id
                     yield _skip_file("same time and size", size=size)
                     return
-                # Both timestamps are reported in UTC, which is what
-                # is_same_time() normalizes to before comparing them
                 lgr.debug(
                     "%r - same attributes: %s.  Redownloading.  "
                     "local mtime: %s, record mtime: %s, delta: %f s, "
-                    "tolerance: %g s, local size: %s, record size: %s",
+                    "granularities: %s ns, local size: %s, record size: %s",
                     str(path),
                     same,
                     ensure_datetime(stat.st_mtime, tz=timezone.utc),
                     ensure_datetime(mtime, tz=timezone.utc),
                     abs(stat.st_mtime - mtime.timestamp()),
-                    MTIME_TOLERANCE,
+                    MTIME_GRANULARITIES_NS,
                     stat.st_size,
                     size,
                 )
