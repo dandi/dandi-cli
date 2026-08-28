@@ -48,11 +48,12 @@ from ..download import (
     PYOUTHelper,
     _check_attempts_and_sleep,
     _download_file,
+    _local_yaml_is_current,
     download,
 )
 from ..exceptions import NotFoundError
 from ..support.digests import Digester
-from ..utils import list_paths, yaml_load
+from ..utils import is_same_mtime, list_paths, yaml_load
 
 
 # both urls point to 000027 (lean test dataset), and both draft and "released"
@@ -367,6 +368,36 @@ def test_download_file_refresh_detects_subsecond_change(tmp_path: Path) -> None:
     )
     assert {"status": "downloading"} in statuses
     assert path.read_bytes() == COARSE_MTIME_CONTENT_2
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize("granularity", [0.0, 0.01, 1.0, 2.0])
+def test_local_yaml_is_current_coarse_mtime_fs(
+    tmp_path: Path, coarse_mtime_fs: Callable[[float], None], granularity: float
+) -> None:
+    """`dandiset.yaml` we just wrote counts as current however coarsely the
+    filesystem stored the mtime, while genuinely older/newer copies still
+    compare as themselves.
+    """
+    coarse_mtime_fs(granularity)
+    path = tmp_path / dandiset_metadata_file
+    path.write_text("id: DANDI:000000\n")
+    os.utime(path, (time.time(), COARSE_MTIME_RECORD.timestamp()))
+
+    # The mtime we just set, read back through the filesystem
+    assert _local_yaml_is_current(str(path), COARSE_MTIME_RECORD)
+    # The record moved on by more than any granularity -> stale, rewrite it
+    assert not _local_yaml_is_current(
+        str(path), COARSE_MTIME_RECORD + timedelta(hours=1)
+    )
+    # A locally edited copy is newer than the record and must be left alone.
+    # This is why the check stays one-sided: `is_same_mtime()` on its own would
+    # call an hour-newer file "not the record" and clobber the user's edit.
+    os.utime(
+        path, (time.time(), (COARSE_MTIME_RECORD + timedelta(hours=1)).timestamp())
+    )
+    assert _local_yaml_is_current(str(path), COARSE_MTIME_RECORD)
+    assert not is_same_mtime(path.stat().st_mtime_ns, COARSE_MTIME_RECORD)
 
 
 def test_download_newest_version(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
