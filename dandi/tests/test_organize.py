@@ -439,8 +439,8 @@ def test_image_organize(
 @mark_xfail_windows_python313_posixsubprocess
 @pytest.mark.parametrize("video_files", [".avi", ".AVI"], indirect=True)
 def test_video_organize_uppercase_extension(nwbfiles_video_unique: Path) -> None:
-    # Extensions are matched case-insensitively, so a camera-written ".AVI" must be
-    # organized exactly like its lowercase counterpart rather than silently skipped.
+    # A camera-written ".AVI" must be organized like its lowercase counterpart instead of
+    # being silently skipped, and the organized copy gets a lowercased extension.
     dandi_organize_path = nwbfiles_video_unique.parent / "dandi_organized"
     cmd = [
         "--files-mode",
@@ -468,6 +468,7 @@ def test_video_organize_uppercase_extension(nwbfiles_video_unique: Path) -> None
                         f"{vid_folder.name}/{ext_file_ob['id']}_external_file_{no}"
                     )
                     assert str(filename) == str(Path(name).with_suffix(""))
+                    assert Path(name).suffix == ".avi"
                     assert (vid_folder.parent / name).exists()
     assert len(video_files_list) == len(video_files_organized)
 
