@@ -205,7 +205,7 @@ def coarse_mtime_fs(
 
 #: An arbitrary asset mtime with a non-zero sub-second component, i.e. one that
 #: does not survive a round trip through a filesystem storing whole seconds only
-COARSE_MTIME_RECORD = datetime(2026, 8, 22, 15, 21, 20, 651000, tzinfo=timezone.utc)
+COARSE_MTIME_RECORD = datetime(2026, 8, 22, 15, 21, 21, 651000, tzinfo=timezone.utc)
 
 COARSE_MTIME_CONTENT = b"This is test text.\n"
 
