@@ -48,7 +48,7 @@ from ..download import (
     PYOUTHelper,
     _check_attempts_and_sleep,
     _download_file,
-    _local_yaml_is_current,
+    _is_local_file_current,
     download,
 )
 from ..exceptions import NotFoundError
@@ -372,22 +372,21 @@ def test_download_file_refresh_detects_subsecond_change(tmp_path: Path) -> None:
 
 @pytest.mark.ai_generated
 @pytest.mark.parametrize("granularity", [0.0, 0.01, 1.0, 2.0])
-def test_local_yaml_is_current_coarse_mtime_fs(
+def test_is_local_file_current_coarse_mtime_fs(
     tmp_path: Path, coarse_mtime_fs: Callable[[float], None], granularity: float
 ) -> None:
-    """`dandiset.yaml` we just wrote counts as current however coarsely the
-    filesystem stored the mtime, while genuinely older/newer copies still
-    compare as themselves.
+    """A file we just wrote counts as current however coarsely the filesystem
+    stored the mtime, while genuinely older/newer copies compare as themselves.
     """
     coarse_mtime_fs(granularity)
-    path = tmp_path / dandiset_metadata_file
-    path.write_text("id: DANDI:000000\n")
+    path = tmp_path / "file.txt"
+    path.write_text("some content\n")
     os.utime(path, (time.time(), COARSE_MTIME_RECORD.timestamp()))
 
     # The mtime we just set, read back through the filesystem
-    assert _local_yaml_is_current(str(path), COARSE_MTIME_RECORD)
+    assert _is_local_file_current(str(path), COARSE_MTIME_RECORD)
     # The record moved on by more than any granularity -> stale, rewrite it
-    assert not _local_yaml_is_current(
+    assert not _is_local_file_current(
         str(path), COARSE_MTIME_RECORD + timedelta(hours=1)
     )
     # A locally edited copy is newer than the record and must be left alone.
@@ -396,7 +395,7 @@ def test_local_yaml_is_current_coarse_mtime_fs(
     os.utime(
         path, (time.time(), (COARSE_MTIME_RECORD + timedelta(hours=1)).timestamp())
     )
-    assert _local_yaml_is_current(str(path), COARSE_MTIME_RECORD)
+    assert _is_local_file_current(str(path), COARSE_MTIME_RECORD)
     assert not is_same_mtime(path.stat().st_mtime_ns, COARSE_MTIME_RECORD)
 
 

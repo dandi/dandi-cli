@@ -564,13 +564,13 @@ def _skip_file(msg: Any, **kwargs: Any) -> dict:
     return {"status": "skipped", "message": str(msg), **kwargs}
 
 
-def _local_yaml_is_current(path: str, record: datetime) -> bool:
-    """Is the local dandiset.yaml at least as new as the record?
+def _is_local_file_current(path: str, record: datetime) -> bool:
+    """Is the local file at least as new as the record?
 
-    Its mtime is another one we set ourselves with `os.utime()`, so a
-    destination that quantizes mtimes reads it back below the value written.
-    A bare ``>=`` takes that for an older file and overwrites a copy the user
-    may have edited; `is_same_mtime()` recognizes it as the value we wrote.
+    For a file whose mtime we set ourselves with `os.utime()`: a destination
+    that quantizes mtimes reads it back below the value written, and a bare
+    ``>=`` takes that for an older file and overwrites a copy the user may
+    have edited; `is_same_mtime()` recognizes it as the value we wrote.
     Kept one-sided: a genuinely newer local copy is current too, which an
     equality test alone would reject.
     """
@@ -605,7 +605,7 @@ def _populate_dandiset_yaml(
             raise RuntimeError("Not refreshing path in git annex repository")
         elif existing is DownloadExisting.SKIP or (
             existing is DownloadExisting.REFRESH
-            and _local_yaml_is_current(dandiset_yaml, mtime)
+            and _is_local_file_current(dandiset_yaml, mtime)
         ):
             yield _skip_file("already exists")
             return
