@@ -13,7 +13,7 @@ from __future__ import annotations
 from collections import Counter, deque
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import InitVar, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, StrEnum
 from functools import partial
 import hashlib
@@ -724,14 +724,16 @@ def _download_file(
                     # TODO: add recording and handling of .nwb object_id
                     yield _skip_file("same time and size", size=size)
                     return
+                # Both timestamps are reported in UTC, which is what
+                # is_same_time() normalizes to before comparing them
                 lgr.debug(
                     "%r - same attributes: %s.  Redownloading.  "
-                    "local mtime: %f, record mtime: %f, delta: %f s, "
+                    "local mtime: %s, record mtime: %s, delta: %f s, "
                     "tolerance: %g s, local size: %s, record size: %s",
                     str(path),
                     same,
-                    stat.st_mtime,
-                    mtime.timestamp(),
+                    ensure_datetime(stat.st_mtime, tz=timezone.utc),
+                    ensure_datetime(mtime, tz=timezone.utc),
                     abs(stat.st_mtime - mtime.timestamp()),
                     MTIME_TOLERANCE,
                     stat.st_size,

@@ -190,10 +190,22 @@ def coarse_mtime_fs(
     real_utime = os.utime
     granularity = 0.0
 
-    def quantizing_utime(path: Any, times: Any = None, **kwargs: Any) -> None:
-        if granularity and times is not None:
-            times = tuple(t // granularity * granularity for t in times)
-        real_utime(path, times, **kwargs)
+    def quantizing_utime(
+        path: Any, times: Any = None, *, ns: Any = None, **kwargs: Any
+    ) -> None:
+        # `os.utime()` accepts the times either as seconds (`times`) or as
+        # nanoseconds (`ns`, used by e.g. `shutil.copystat()`), never both, so
+        # quantize whichever was given and forward it the same way
+        if granularity:
+            if times is not None:
+                times = tuple(t // granularity * granularity for t in times)
+            if ns is not None:
+                ns_granularity = int(granularity * 1_000_000_000)
+                ns = tuple(n // ns_granularity * ns_granularity for n in ns)
+        if ns is not None:
+            real_utime(path, ns=ns, **kwargs)
+        else:
+            real_utime(path, times, **kwargs)
 
     def set_granularity(value: float) -> None:
         nonlocal granularity
@@ -299,11 +311,10 @@ def test_download_file_refresh_reports_mtime_mismatch(
     ]
     assert "same attributes: ['size']" in msg
     assert f"tolerance: {MTIME_TOLERANCE:g} s" in msg
-    # Don't assume the reported delta round-trips exactly -- that is the very
-    # assumption this test's subject stopped making -- only that it names the
-    # roughly one-hour discrepancy
-    delta = float(re.search(r"delta: ([\d.]+) s", msg).group(1))  # type: ignore[union-attr]
-    assert abs(delta - timedelta(hours=1).total_seconds()) <= MTIME_TOLERANCE
+    # The record's mtime is reported in full, so that someone reading the log
+    # can see what it was compared against.  The local one is not asserted on:
+    # it is whatever the filesystem stored, which is the point of the test.
+    assert f"record mtime: {COARSE_MTIME_RECORD}" in msg
 
 
 def test_download_newest_version(text_dandiset: SampleDandiset, tmp_path: Path) -> None:
