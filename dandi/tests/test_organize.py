@@ -437,6 +437,44 @@ def test_image_organize(
 
 @pytest.mark.ai_generated
 @mark_xfail_windows_python313_posixsubprocess
+@pytest.mark.parametrize("video_files", [".avi", ".AVI"], indirect=True)
+def test_video_organize_uppercase_extension(nwbfiles_video_unique: Path) -> None:
+    # A camera-written ".AVI" must be organized like its lowercase counterpart instead of
+    # being silently skipped, and the organized copy gets a lowercased extension.
+    dandi_organize_path = nwbfiles_video_unique.parent / "dandi_organized"
+    cmd = [
+        "--files-mode",
+        str(FileOperationMode.COPY),
+        "--update-external-file-paths",
+        "--media-files-mode",
+        str(CopyMode.SYMLINK),
+        "-d",
+        str(dandi_organize_path),
+        str(nwbfiles_video_unique),
+    ]
+    video_files_list = list((nwbfiles_video_unique.parent / "video_files").iterdir())
+    video_files_organized = []
+    r = CliRunner().invoke(organize, cmd)
+    assert r.exit_code == 0
+    for nwbfile_name in dandi_organize_path.glob("**/*.nwb"):
+        vid_folder = nwbfile_name.with_suffix("")
+        assert vid_folder.exists()
+        with NWBHDF5IO(str(nwbfile_name), "r", load_namespaces=True) as io:
+            ext_file_objects = _get_image_series(io.read())
+            for ext_file_ob in ext_file_objects:
+                for no, name in enumerate(ext_file_ob["external_files"]):
+                    video_files_organized.append(name)
+                    filename = Path(
+                        f"{vid_folder.name}/{ext_file_ob['id']}_external_file_{no}"
+                    )
+                    assert str(filename) == str(Path(name).with_suffix(""))
+                    assert Path(name).suffix == ".avi"
+                    assert (vid_folder.parent / name).exists()
+    assert len(video_files_list) == len(video_files_organized)
+
+
+@pytest.mark.ai_generated
+@mark_xfail_windows_python313_posixsubprocess
 @pytest.mark.parametrize("image_mode,rc", [(CopyMode.COPY, 0), (CopyMode.MOVE, 1)])
 def test_image_organize_common(
     image_mode: CopyMode, rc: int, nwbfiles_image_common: Path

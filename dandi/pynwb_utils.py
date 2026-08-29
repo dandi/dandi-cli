@@ -420,7 +420,7 @@ def _get_image_series(nwb: pynwb.NWBFile) -> list[dict]:
                 for ext_file in ob.external_file:
                     if (
                         path := PurePosixPath(ext_file)
-                    ).suffix in VIDEO_FILE_EXTENSIONS:
+                    ).suffix.lower() in VIDEO_FILE_EXTENSIONS:
                         out_dict["external_files"].append(path)
                     else:
                         lgr.warning(

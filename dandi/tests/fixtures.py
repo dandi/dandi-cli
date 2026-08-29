@@ -757,16 +757,19 @@ def bids_dandiset_invalid(
 
 
 @pytest.fixture()
-def video_files(tmp_path: Path) -> list[tuple[Path, Path]]:
+def video_files(
+    request: pytest.FixtureRequest, tmp_path: Path
+) -> list[tuple[Path, Path]]:
     # Avoid heavy import by importing within function:
     import cv2
 
+    ext = getattr(request, "param", ".avi")
     video_paths = []
     video_path = tmp_path / "video_files"
     video_path.mkdir()
     for i in range(2):
-        movie_file1 = video_path / f"test1_{i}.avi"
-        movie_file2 = video_path / f"test2_{i}.avi"
+        movie_file1 = video_path / f"test1_{i}{ext}"
+        movie_file2 = video_path / f"test2_{i}{ext}"
         (nf, nx, ny) = (2, 2, 2)
         writer1 = cv2.VideoWriter(
             filename=str(movie_file1),
