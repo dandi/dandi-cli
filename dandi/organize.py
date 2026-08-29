@@ -961,7 +961,7 @@ def organize(
         ]
         raise ValueError(
             "--update-external-file-paths option not specified but found "
-            "external video files linked to the nwbfiles "
+            "external media files linked to the nwbfiles "
             f"{', '.join(files_list)}"
         )
 

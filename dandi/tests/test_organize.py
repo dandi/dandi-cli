@@ -388,6 +388,74 @@ def test_video_organize_common(
     assert r.exit_code == rc
 
 
+@pytest.mark.ai_generated
+@mark_xfail_windows_python313_posixsubprocess
+@pytest.mark.parametrize("mode", [FileOperationMode.COPY, FileOperationMode.MOVE])
+@pytest.mark.parametrize("image_mode", list(CopyMode))
+def test_image_organize(
+    image_mode: CopyMode, mode: FileOperationMode, nwbfiles_image_unique: Path
+) -> None:
+    dandi_organize_path = nwbfiles_image_unique.parent / "dandi_organized"
+    cmd = [
+        "--files-mode",
+        str(mode),
+        "--update-external-file-paths",
+        "--media-files-mode",
+        str(image_mode),
+        "-d",
+        str(dandi_organize_path),
+        str(nwbfiles_image_unique),
+    ]
+    image_files_list = list((nwbfiles_image_unique.parent / "image_files").iterdir())
+    image_files_organized = []
+    r = CliRunner().invoke(organize, cmd)
+    assert r.exit_code == 0
+    for nwbfile_name in dandi_organize_path.glob("**/*.nwb"):
+        image_folder = nwbfile_name.with_suffix("")
+        assert image_folder.exists()
+        with NWBHDF5IO(str(nwbfile_name), "r", load_namespaces=True) as io:
+            nwbfile = io.read()
+            # get ExternalImage objects as dict(id=object_id, external_files=[])
+            ext_file_objects = _get_image_series(nwbfile)
+            for ext_file_ob in ext_file_objects:
+                assert ext_file_ob["field"] == "data"
+                for no, name in enumerate(ext_file_ob["external_files"]):
+                    image_files_organized.append(name)
+                    # Regression: the rewritten paths are DANDI/S3 keys,
+                    # must use forward slashes even on Windows.
+                    assert "\\" not in str(name)
+                    # check if the paths are correctly named according to convention:
+                    filename = Path(
+                        f"{image_folder.name}/{ext_file_ob['id']}_external_file_{no}"
+                    )
+                    assert str(filename) == str(Path(name).with_suffix(""))
+                    # check if the files exist( both in case of move/copy):
+                    assert (image_folder.parent / name).exists()
+    # check all image files are organized:
+    assert len(image_files_list) == len(image_files_organized)
+
+
+@pytest.mark.ai_generated
+@mark_xfail_windows_python313_posixsubprocess
+@pytest.mark.parametrize("image_mode,rc", [(CopyMode.COPY, 0), (CopyMode.MOVE, 1)])
+def test_image_organize_common(
+    image_mode: CopyMode, rc: int, nwbfiles_image_common: Path
+) -> None:
+    dandi_organize_path = nwbfiles_image_common.parent / "dandi_organized"
+    cmd = [
+        "--files-mode",
+        "move",
+        "--update-external-file-paths",
+        "--media-files-mode",
+        str(image_mode),
+        "-d",
+        str(dandi_organize_path),
+        str(nwbfiles_image_common),
+    ]
+    r = CliRunner().invoke(organize, cmd)
+    assert r.exit_code == rc
+
+
 @pytest.mark.parametrize(
     "path,error_ids",
     [

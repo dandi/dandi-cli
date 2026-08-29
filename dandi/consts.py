@@ -190,6 +190,10 @@ RETRY_STATUSES = (429, 500, 502, 503, 504)
 VIDEO_FILE_EXTENSIONS = [".mp4", ".avi", ".wmv", ".mov", ".flv", ".mkv"]
 VIDEO_FILE_MODULES = ["processing", "acquisition"]
 
+#: Extensions of the images an `ExternalImage` may point at. NWB restricts `image_format` to
+#: PNG, JPEG and GIF, so nothing else can be referenced by an NWB file in the first place.
+IMAGE_FILE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif"]
+
 ZARR_EXTENSIONS = [".ngff", ".zarr"]
 
 #: Maximum allowed depth of a Zarr directory tree
@@ -253,3 +257,12 @@ REDIRECT_HEAD_TIMEOUT = 30
 
 #: Suffix used for temporary download directories
 DOWNLOAD_SUFFIX = ".dandidownload"
+
+#: Tolerance (in seconds) when comparing an asset's recorded mtime against the
+#: mtime read back from the downloaded file under ``-e refresh``.  That local
+#: mtime is one we set ourselves with ``os.utime()``, so the comparison is
+#: really a filesystem round trip, and not every filesystem stores mtimes at
+#: the resolution ``os.stat()`` reports them at: mounted Windows volumes,
+#: exFAT and some network filesystems truncate, and FAT rounds to a multiple
+#: of two seconds.  See https://github.com/dandi/dandi-cli/issues/1907
+MTIME_TOLERANCE = 2.0

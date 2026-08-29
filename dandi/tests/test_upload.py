@@ -208,13 +208,25 @@ def test_upload_sync_do(mocker: MockerFixture, text_dandiset: SampleDandiset) ->
         text_dandiset.dandiset.get_asset_by_path("file.txt")
 
 
+@pytest.mark.ai_generated
 def test_upload_bids_invalid(
-    mocker: MockerFixture, bids_dandiset_invalid: SampleDandiset
+    caplog: pytest.LogCaptureFixture,
+    mocker: MockerFixture,
+    bids_dandiset_invalid: SampleDandiset,
+    tmp_path: Path,
 ) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
+    validation_log = tmp_path / "upload_validation.jsonl"
     with pytest.raises(UploadError):
-        bids_dandiset_invalid.upload(existing=UploadExisting.FORCE)
+        bids_dandiset_invalid.upload(
+            existing=UploadExisting.FORCE,
+            validation_log_path=validation_log,
+        )
     iter_upload_spy.assert_not_called()
+    assert (
+        f"Use `dandi validate --load {validation_log}` to review the saved results."
+        in caplog.text
+    )
     # Does validation ignoring work?
     bids_dandiset_invalid.upload(
         existing=UploadExisting.FORCE, validation=UploadValidation.IGNORE
