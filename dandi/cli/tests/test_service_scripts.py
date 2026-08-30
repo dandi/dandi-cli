@@ -8,14 +8,21 @@ import re
 import sys
 
 import anys
+import click
 from click.testing import CliRunner
 from dandischema.models import ID_PATTERN
 import pytest
+import responses
 
 from dandi import __version__
 from dandi.tests.fixtures import SampleDandiset
 
-from ..cmd_service_scripts import service_scripts
+from ..cmd_service_scripts import (
+    DOI_CSL_ACCEPT,
+    fetch_doi_citation_metadata,
+    normalize_doi,
+    service_scripts,
+)
 
 DATA_DIR = Path(__file__).with_name("data")
 
@@ -142,3 +149,113 @@ def test_update_dandiset_from_doi(
     else:
         expected["citation"] = citation
     assert metadata == expected
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "given",
+    [
+        "10.48324/dandi.001827/0.260505.1322",
+        "  10.48324/dandi.001827/0.260505.1322  ",
+        "doi:10.48324/dandi.001827/0.260505.1322",
+        "DOI:10.48324/dandi.001827/0.260505.1322",
+        "https://doi.org/10.48324/dandi.001827/0.260505.1322",
+        "http://doi.org/10.48324/dandi.001827/0.260505.1322",
+        "https://dx.doi.org/10.48324/dandi.001827/0.260505.1322",
+        "doi.org/10.48324/dandi.001827/0.260505.1322",
+    ],
+)
+def test_normalize_doi(given: str) -> None:
+    assert normalize_doi(given) == "10.48324/dandi.001827/0.260505.1322"
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "given",
+    [
+        "",
+        "not a doi",
+        "https://doi.org/",
+        "https://example.com/10.1234/foo",
+        "10.1/too-short-prefix",
+    ],
+)
+def test_normalize_doi_rejects_non_doi(given: str) -> None:
+    with pytest.raises(ValueError, match="does not look like a DOI"):
+        normalize_doi(given)
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_fetch_doi_citation_metadata_non_json() -> None:
+    # doi.org falls back to redirecting to the landing page when the
+    # registration agency cannot serve CSL JSON, so we get HTML with a 200.
+    # See https://github.com/dandi/dandi-cli/issues/1855
+    doi = "10.48324/dandi.001827/0.260505.1322"
+    responses.add(
+        responses.GET,
+        f"https://doi.org/{doi}",
+        body="<!DOCTYPE html><html><body>Dandiset 001827</body></html>",
+        status=200,
+        content_type="text/html; charset=utf-8",
+    )
+    with pytest.raises(click.ClickException) as excinfo:
+        fetch_doi_citation_metadata(doi)
+    message = str(excinfo.value)
+    assert doi in message
+    assert "did not resolve to citation metadata" in message
+    assert "text/html" in message
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_fetch_doi_citation_metadata_not_found() -> None:
+    doi = "10.48324/dandi.999999/0.000000.0000"
+    responses.add(
+        responses.GET,
+        f"https://doi.org/{doi}",
+        body="DOI Not Found",
+        status=404,
+        content_type="text/plain",
+    )
+    with pytest.raises(click.ClickException) as excinfo:
+        fetch_doi_citation_metadata(doi)
+    assert "is not registered" in str(excinfo.value)
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_fetch_doi_citation_metadata_ok() -> None:
+    doi = "10.1101/2020.01.17.909838"
+    responses.add(
+        responses.GET,
+        f"https://doi.org/{doi}",
+        json={"title": "A paper", "author": []},
+        status=200,
+    )
+    assert fetch_doi_citation_metadata(doi) == {"title": "A paper", "author": []}
+
+
+@pytest.mark.ai_generated
+@responses.activate
+def test_fetch_doi_citation_metadata_requests_csl_json() -> None:
+    # The CSL Accept header used to be set on the session only, where
+    # `RESTFullAPIClient.request()` overrode it with "application/json" while
+    # building a JSON request.  See https://github.com/dandi/dandi-cli/issues/1855
+    doi = "10.1101/2020.01.17.909838"
+    responses.add(
+        responses.GET, f"https://doi.org/{doi}", json={"title": "A paper"}, status=200
+    )
+    fetch_doi_citation_metadata(doi)
+    assert responses.calls[0].request.headers["Accept"] == DOI_CSL_ACCEPT
+
+
+@pytest.mark.ai_generated
+def test_update_dandiset_from_doi_bad_doi() -> None:
+    r = CliRunner().invoke(
+        service_scripts,
+        ["update-dandiset-from-doi", "-d", "000001", "not-a-doi"],
+    )
+    assert r.exit_code == 2
+    assert "does not look like a DOI" in r.output
+    assert "Traceback" not in r.output

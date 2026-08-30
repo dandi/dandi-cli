@@ -7,6 +7,7 @@ from difflib import unified_diff
 import json
 import os
 from pathlib import PurePosixPath
+import re
 from textwrap import indent
 from typing import Any, TypeVar
 import urllib.parse
@@ -16,7 +17,7 @@ import click
 from dandischema.consts import DANDI_SCHEMA_VERSION
 from packaging.version import Version
 from requests.auth import HTTPBasicAuth
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, RequestException
 
 from dandi.consts import known_instances
 
@@ -24,7 +25,7 @@ from .base import ChoiceList, instance_option, map_to_click_exceptions
 from .. import __version__, lgr
 from ..dandiapi import DandiAPIClient, RemoteBlobAsset, RESTFullAPIClient
 from ..dandiarchive import parse_dandi_url
-from ..exceptions import NotFoundError
+from ..exceptions import HTTP404Error, NotFoundError
 from ..utils import yaml_dump
 
 T = TypeVar("T")
@@ -34,6 +35,112 @@ DOI_HUMAN_URLS = {
     "https://api.test.datacite.org/dois": "https://doi.test.datacite.org/dois",
     "https://api.datacite.org/dois": "https://doi.datacite.org/dois",
 }
+
+#: Base URL of the DOI resolver used to look up citation metadata
+DOI_RESOLVER_URL = "https://doi.org/"
+
+#: Content type requested from the DOI resolver for citation metadata
+DOI_CSL_ACCEPT = "application/vnd.citationstyles.csl+json; charset=utf-8"
+
+#: Matches a bare DOI, e.g. ``10.48324/dandi.001827/0.260505.1322``
+DOI_REGEX = re.compile(r"10\.\d{4,9}/\S+")
+
+#: Prefixes a DOI may be spelled with, in the order they are stripped
+DOI_PREFIX_REGEXES = (r"doi:", r"(?:https?://)?(?:dx\.)?doi\.org/")
+
+
+def normalize_doi(doi: str) -> str:
+    """Reduce a DOI given in any of its usual spellings to the bare DOI.
+
+    A bare DOI (``10.48324/dandi.001827/0.260505.1322``), a ``doi:`` URI, and a
+    resolver URL (``https://doi.org/...``, ``http://dx.doi.org/...``) are all
+    accepted and reduced to the bare form.
+
+    Parameters
+    ----------
+    doi : str
+        The DOI as given by the user
+
+    Returns
+    -------
+    str
+        The bare DOI
+
+    Raises
+    ------
+    ValueError
+        If `doi` is not a syntactically valid DOI in any accepted spelling
+    """
+    value = doi.strip()
+    for prefix_regex in DOI_PREFIX_REGEXES:
+        if m := re.match(prefix_regex, value, flags=re.I):
+            value = value[m.end() :].strip()
+            break
+    if not DOI_REGEX.fullmatch(value):
+        raise ValueError(
+            f"{doi!r} does not look like a DOI.  Expected something like "
+            "'10.48324/dandi.001827/0.260505.1322', optionally prefixed with "
+            "'doi:' or 'https://doi.org/'."
+        )
+    return value
+
+
+def fetch_doi_citation_metadata(doi: str) -> dict[str, Any]:
+    """Fetch the CSL JSON citation metadata for a bare `doi` from doi.org.
+
+    Parameters
+    ----------
+    doi : str
+        A bare DOI, as returned by `normalize_doi()`
+
+    Returns
+    -------
+    dict
+        The parsed CSL JSON record
+
+    Raises
+    ------
+    click.ClickException
+        If the DOI cannot be resolved, or if the resolver answers with
+        something other than a CSL JSON object.  The exception message
+        describes what went wrong, so that the user is not left with a bare
+        `json.JSONDecodeError` traceback.
+    """
+    url = f"{DOI_RESOLVER_URL}{doi}"
+    with RESTFullAPIClient(
+        DOI_RESOLVER_URL, headers={"Accept": DOI_CSL_ACCEPT}
+    ) as doiclient:
+        try:
+            r = doiclient.get(doi, json_resp=False)
+        except HTTP404Error:
+            raise click.ClickException(
+                f"DOI {doi} is not registered: {url} returned 404.  Check the "
+                "DOI for typos and make sure it has already been published."
+            )
+        except HTTPError as e:
+            status = e.response.status_code if e.response is not None else "?"
+            raise click.ClickException(
+                f"Failed to look up DOI {doi}: {url} returned HTTP {status}."
+            )
+        except RequestException as e:
+            raise click.ClickException(f"Failed to look up DOI {doi} at {url}: {e}")
+        content_type = r.headers.get("Content-Type", "<unset>")
+        try:
+            doidata = r.json()
+        except ValueError:
+            raise click.ClickException(
+                f"DOI {doi} did not resolve to citation metadata: {url} answered "
+                f"with {content_type!r} instead of CSL JSON (final URL: {r.url}).  "
+                "This usually means the DOI's registration agency does not serve "
+                "citation metadata for it, and doi.org fell back to redirecting "
+                "to the landing page."
+            )
+    if not isinstance(doidata, dict):
+        raise click.ClickException(
+            f"DOI {doi} resolved to a JSON {type(doidata).__name__} rather than "
+            f"the expected CSL JSON object (final URL: {r.url})."
+        )
+    return doidata
 
 
 @click.group()
@@ -247,7 +354,15 @@ def update_dandiset_from_doi(
     """
     Update the metadata for the draft version of a Dandiset with information
     from a given DOI record.
+
+    DOI may be given bare (``10.48324/dandi.001827/0.260505.1322``), as a
+    ``doi:`` URI, or as a resolver URL (``https://doi.org/...``).
     """
+    try:
+        doi = normalize_doi(doi)
+    except ValueError as e:
+        raise click.UsageError(str(e))
+
     known_instance_names = [k.upper() for k in known_instances.keys()]
 
     # Strip instance name prefix from dandiset ID, if present
@@ -258,15 +373,10 @@ def update_dandiset_from_doi(
             break
 
     start_time = datetime.now().astimezone()
+    # Resolve the DOI before talking to the archive, so that a bad DOI fails
+    # fast and without requiring credentials
+    doidata = fetch_doi_citation_metadata(doi)
     with DandiAPIClient.for_dandi_instance(dandi_instance, authenticate=True) as client:
-        with RESTFullAPIClient(
-            "https://doi.org/",
-            headers={
-                "Accept": "application/vnd.citationstyles.csl+json; charset=utf-8"
-            },
-        ) as doiclient:
-            doidata = doiclient.get(doi)
-
         d = client.get_dandiset(dandiset, "draft", lazy=False)
         original_metadata = d.get_raw_metadata()
         new_metadata = deepcopy(original_metadata)
