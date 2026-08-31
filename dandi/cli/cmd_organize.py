@@ -43,16 +43,16 @@ from ..organize import CopyMode, FileOperationMode, OrganizeInvalid
     "--update-external-file-paths",
     is_flag=True,
     default=False,
-    help="Rewrite the 'external_file' arguments of ImageSeries in NWB files. "
-    "The new values will correspond to the new locations of the video files "
-    "after being organized. "
+    help="Rewrite the 'external_file' arguments of ImageSeries and the 'data' of "
+    "ExternalImage in NWB files. The new values will correspond to the new locations "
+    "of the referenced media files after being organized. "
     "This option requires --files-mode to be 'copy' or 'move'",
 )
 @click.option(
     "--media-files-mode",
     type=EnumChoice(CopyMode),
     default=None,
-    help="How to relocate video files referenced by NWB files",
+    help="How to relocate media files referenced by NWB files",
 )
 @click.option(
     "--required-field",
