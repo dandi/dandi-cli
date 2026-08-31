@@ -90,7 +90,7 @@ def get_digest(filepath: str | Path, digest: str = "sha256") -> str:
         assert isinstance(s, str)
         return s
     elif digest == "zarr-checksum":
-        return get_zarr_checksum(Path(filepath))
+        return get_zarr_multipart_checksum(Path(filepath))
     else:
         return Digester([digest])(filepath)[digest]
 
