@@ -954,6 +954,13 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 mismatched = False
                 lgr.info("%s: No changes made to Zarr", asset_path)
             first_run = False
+        lgr.debug(
+            "%s: Out of the loop with mismatched=%r unchanged=%r first_run=%r",
+            asset_path,
+            mismatched,
+            unchanged,
+            first_run,
+        )
         if unchanged:
             lgr.info("%s: Zarr already matches remote; nothing to upload", asset_path)
             yield {"status": "skipped", "message": "identical", "asset": a}
