@@ -11,6 +11,7 @@ from .base import (
     map_to_click_exceptions,
 )
 from ..consts import SyncMode
+from ..exceptions import UploadValidationError
 from ..upload import UploadExisting, UploadValidation, ZarrMode
 
 
@@ -130,17 +131,21 @@ def upload(
         validation_companion_path(ctx.obj.logfile) if ctx.obj is not None else None
     )
 
-    upload_(
-        paths,
-        existing=existing,
-        validation=validation,
-        dandi_instance=dandi_instance,
-        allow_any_path=allow_any_path,
-        upload_dandiset_metadata=upload_dandiset_metadata,
-        devel_debug=devel_debug,
-        jobs=jobs,
-        jobs_per_file=jobs_per_file,
-        sync=SyncMode(sync) if sync is not None else None,
-        zarr_mode=zarr_mode,
-        validation_log_path=companion,
-    )
+
+    try:
+      upload_(
+          paths,
+          existing=existing,
+          validation=validation,
+          dandi_instance=dandi_instance,
+          allow_any_path=allow_any_path,
+          upload_dandiset_metadata=upload_dandiset_metadata,
+          devel_debug=devel_debug,
+          jobs=jobs,
+          jobs_per_file=jobs_per_file,
+          sync=SyncMode(sync) if sync is not None else None,
+          zarr_mode=zarr_mode,
+          validation_log_path=companion,
+      )
+    except UploadValidationError as exc:
+        raise click.ClickException(str(exc))

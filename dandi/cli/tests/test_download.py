@@ -102,10 +102,11 @@ def test_download_bad_type(mocker):
     mock_download.assert_not_called()
 
 
-def test_download_gui_instance_in_dandiset(mocker):
+def test_download_gui_instance_in_dandiset(mocker, tmp_path, monkeypatch):
     mock_download = mocker.patch("dandi.download.download")
     runner = CliRunner()
-    with runner.isolated_filesystem():
+    with monkeypatch.context() as m:
+        m.chdir(tmp_path)
         Path(dandiset_metadata_file).write_text("identifier: '123456'\n")
         r = runner.invoke(download, ["-i", "dandi"])
     assert r.exit_code == 0
@@ -129,10 +130,11 @@ def test_download_gui_instance_in_dandiset(mocker):
     bool(known_instances["dandi-api-local-docker-tests"].gui),
     reason="this instance now has GUI URL",
 )
-def test_download_api_instance_in_dandiset(mocker):
+def test_download_api_instance_in_dandiset(mocker, tmp_path, monkeypatch):
     mock_download = mocker.patch("dandi.download.download")
     runner = CliRunner()
-    with runner.isolated_filesystem():
+    with monkeypatch.context() as m:
+        m.chdir(tmp_path)
         Path(dandiset_metadata_file).write_text("identifier: '123456'\n")
         r = runner.invoke(download, ["-i", "dandi-api-local-docker-tests"])
     assert r.exit_code == 0

@@ -628,6 +628,12 @@ class VideoAsset(LocalFileAsset):
     pass
 
 
+class ImageAsset(LocalFileAsset):
+    """Representation of a local image file referenced by an NWB ``ExternalImage``"""
+
+    pass
+
+
 class GenericAsset(LocalFileAsset):
     """
     Representation of a generic regular file, one that is not of any known type

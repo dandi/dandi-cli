@@ -268,7 +268,8 @@ def _create_external_file_names(metadata: list[dict]) -> list[dict]:
             uuid_str = ext_file_dict.get("id", str(uuid.uuid4()))
             for no, ext_file in enumerate(ext_file_dict["external_files"]):
                 renamed = posixpath.join(
-                    nwb_folder_name, f"{uuid_str}_external_file_{no}{ext_file.suffix}"
+                    nwb_folder_name,
+                    f"{uuid_str}_external_file_{no}{ext_file.suffix.lower()}",
                 )
                 renamed_path_list.append(renamed)
             ext_file_dict["external_files_renamed"] = renamed_path_list
@@ -961,7 +962,7 @@ def organize(
         ]
         raise ValueError(
             "--update-external-file-paths option not specified but found "
-            "external video files linked to the nwbfiles "
+            "external media files linked to the nwbfiles "
             f"{', '.join(files_list)}"
         )
 
