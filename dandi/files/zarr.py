@@ -21,7 +21,7 @@ import urllib.parse
 if TYPE_CHECKING:
     from ..upload import ZarrMode
 
-from dandischema.models import BareAsset, DigestType
+from dandischema.models import BareAsset
 from pydantic import BaseModel, ConfigDict, ValidationError
 import requests
 from zarr_checksum.tree import ZarrChecksumTree
@@ -34,6 +34,7 @@ from dandi.consts import (
     ZARR_DELETE_BATCH_SIZE,
     ZARR_MIME_TYPE,
     ZARR_UPLOAD_BATCH_SIZE,
+    ZARR_UPLOAD_TYPE_MULTIPART,
 )
 from dandi.dandiapi import (
     RemoteAsset,
@@ -55,7 +56,7 @@ from dandi.utils import (
     pre_upload_size_check,
 )
 
-from .bases import LocalDirectoryAsset
+from .bases import LocalDirectoryAsset, multipart_upload
 from ..validate._types import (
     ORIGIN_VALIDATION_DANDI_ZARR,
     MissingFileContent,
@@ -349,19 +350,18 @@ class LocalZarrEntry(BasePath):
 
     def get_digest(self) -> Digest:
         """
-        Calculate the DANDI etag digest for the entry.  If the entry is a
-        directory, the algorithm will be the DANDI Zarr checksum algorithm; if
-        it is a file, it will be MD5.
+        Calculate the digest of the entry as it would be stored in the archive.
+        If the entry is a directory, the algorithm is the DANDI Zarr checksum
+        algorithm; if it is a file, it is the S3 multipart ETag (DANDI etag),
+        matching how `dandi upload` stores an entry of a (multipart) Zarr.
         """
         # Avoid heavy import by importing within function:
-        from dandi.support.digests import get_digest, get_zarr_checksum
+        from dandi.support.digests import get_digest, get_zarr_multipart_checksum
 
         if self.is_dir():
-            return Digest.dandi_zarr(get_zarr_checksum(self.filepath))
+            return Digest.dandi_zarr(get_zarr_multipart_checksum(self.filepath))
         else:
-            return Digest(
-                algorithm=DigestType.md5, value=get_digest(self.filepath, "md5")
-            )
+            return Digest.dandi_etag(get_digest(self.filepath, "dandi-etag"))
 
     @property
     def size(self) -> int:
@@ -424,11 +424,12 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
 
     def stat(self) -> ZarrStat:
         """Return various details about the Zarr asset"""
+        # Avoid heavy import by importing within function:
+        from dandi.support.digests import checksum_zarr_dir, dandietag_nocache
 
+        # Digest entries as they would be uploaded: `dandi upload` creates new
+        # Zarrs with multipart upload, so every entry gets its multipart ETag.
         def dirstat(dirpath: LocalZarrEntry) -> ZarrStat:
-            # Avoid heavy import by importing within function:
-            from dandi.support.digests import checksum_zarr_dir, md5file_nocache
-
             size = 0
             dir_info = {}
             file_info = {}
@@ -441,7 +442,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     files.extend(st.files)
                 else:
                     size += p.size
-                    file_info[p.name] = (md5file_nocache(p.filepath), p.size)
+                    file_info[p.name] = (dandietag_nocache(p.filepath), p.size)
                     files.append(p)
             return ZarrStat(
                 size=size,
@@ -454,9 +455,11 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
     def get_digest(self) -> Digest:
         """Calculate a dandi-zarr-checksum digest for the asset"""
         # Avoid heavy import by importing within function:
-        from dandi.support.digests import get_zarr_checksum
+        from dandi.support.digests import get_zarr_multipart_checksum
 
-        return Digest.dandi_zarr(get_zarr_checksum(self.filepath))
+        # `dandi upload` creates new Zarrs with multipart upload, so report the
+        # checksum the asset will have once uploaded.
+        return Digest.dandi_zarr(get_zarr_multipart_checksum(self.filepath))
 
     def get_metadata(
         self,
@@ -594,11 +597,29 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
         lgr.debug("%s: Producing asset", asset_path)
         yield {"status": "producing asset"}
 
-        def mkzarr() -> str:
+        # Avoid heavy import by importing within function:
+        from dandi.support.digests import zarr_has_oversized_entry
+
+        # New Zarrs are created with multipart upload enabled.  The archive
+        # records the scheme per Zarr in an immutable ``upload_type`` field set
+        # at creation time; all of a Zarr's entries must use the same scheme,
+        # since its checksum is an aggregate over per-entry S3 ETags.  A
+        # pre-existing Zarr keeps whatever scheme it was created with.  An entry
+        # too large for a single-part S3 PUT *requires* multipart upload, so
+        # such content cannot be uploaded to a single-part Zarr (a pre-existing
+        # one, or any Zarr on an archive predating the field, which always
+        # creates single-part Zarrs).
+        needs_multipart = zarr_has_oversized_entry(self.filepath)
+
+        def mkzarr() -> tuple[str, bool]:
             try:
                 r = client.post(
                     "/zarr/",
-                    json={"name": asset_path, "dandiset": dandiset.identifier},
+                    json={
+                        "name": asset_path,
+                        "dandiset": dandiset.identifier,
+                        "upload_type": ZARR_UPLOAD_TYPE_MULTIPART,
+                    },
                 )
             except requests.HTTPError as e:
                 if e.response is not None and (
@@ -618,12 +639,17 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                         },
                     )
                     zarr_id = old_zarr["zarr_id"]
+                    zarr_multipart = _zarr_is_multipart(old_zarr)
                 else:
                     raise
             else:
                 zarr_id = r["zarr_id"]
+                # Honour the scheme the server actually recorded: an archive
+                # that predates the ``upload_type`` field ignores it and always
+                # creates a single-part Zarr.
+                zarr_multipart = _zarr_is_multipart(r)
             assert isinstance(zarr_id, str)
-            return zarr_id
+            return zarr_id, zarr_multipart
 
         if replacing is not None:
             lgr.debug("%s: Replacing pre-existing asset", asset_path)
@@ -632,21 +658,32 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                     "%s: Pre-existing asset is a Zarr; reusing & updating", asset_path
                 )
                 zarr_id = replacing.zarr
+                # The reused Zarr's upload scheme was fixed when it was created.
+                multipart = _zarr_is_multipart(client.get(f"/zarr/{zarr_id}/"))
             else:
                 lgr.debug(
                     "%s: Pre-existing asset is not a Zarr; minting new Zarr", asset_path
                 )
-                zarr_id = mkzarr()
+                zarr_id, multipart = mkzarr()
             r = client.put(
                 replacing.api_path,
                 json={"metadata": metadata, "zarr_id": zarr_id},
             )
         else:
             lgr.debug("%s: Minting new Zarr", asset_path)
-            zarr_id = mkzarr()
+            zarr_id, multipart = mkzarr()
             r = client.post(
                 f"{dandiset.version_api_path}assets/",
                 json={"metadata": metadata, "zarr_id": zarr_id},
+            )
+
+        if needs_multipart and not multipart:
+            raise UploadError(
+                f"{asset_path}: this Zarr contains an entry larger than"
+                f" {S3_MAX_SINGLE_PART_UPLOAD / 1024**3:.0f} GiB and so requires"
+                f" multipart upload, but the target Zarr does not support it."
+                f"  The archive may not support multipart Zarr upload, or the"
+                f" Zarr being replaced was created as single-part."
             )
         a = RemoteAsset.from_data(dandiset, r)
         assert isinstance(a, RemoteZarrAsset)
@@ -659,7 +696,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 str(e): e for e in a.iterfiles()
             }
             total_size = 0
-            to_upload = EntryUploadTracker()
+            to_upload = EntryUploadTracker(multipart=multipart)
             if old_zarr_entries:
                 to_delete: list[RemoteZarrEntry] = []
                 digesting: list[Future[tuple[LocalZarrEntry, str, bool]]] = []
@@ -713,6 +750,7 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                                     asset_path,
                                     local_entry,
                                     remote_entry.digest.value,
+                                    multipart,
                                 )
                             )
                     for dgstfut in as_completed(digesting):
@@ -783,16 +821,63 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
                 for i, items in enumerate(
                     chunked(upload_items, ZARR_UPLOAD_BATCH_SIZE), start=1
                 ):
-                    # Items to upload in this batch (may be retried e.g. due to
-                    # 403 errors because of timed-out upload URLs)
-                    items_to_upload = list(items)
+                    batch = list(items)
+                    # Add all items to checksum tree (only done once)
+                    for it in batch:
+                        zcc.add_leaf(Path(it.entry_path), it.size, it.digest)
+
+                    if multipart:
+                        # Every entry of a multipart Zarr is uploaded via S3
+                        # multipart upload.  Upload the batch's entries
+                        # concurrently, driving each entry's multipart upload to
+                        # completion in a worker thread (a generator cannot yield
+                        # from within a worker), and report progress from this,
+                        # the main thread, as entries finish.  Each entry still
+                        # parallelizes its own parts across ``jobs`` threads,
+                        # which matters for the occasional very large entry.
+                        def upload_one(it: UploadItem) -> int:
+                            lgr.debug(
+                                "%s: Uploading Zarr entry %s (%.2f GiB) via"
+                                " multipart upload",
+                                asset_path,
+                                it.entry_path,
+                                it.size / 1024**3,
+                            )
+                            for _status in _upload_zarr_entry_multipart(
+                                client=client, zarr_id=zarr_id, item=it, jobs=jobs
+                            ):
+                                pass
+                            return it.size
+
+                        with ThreadPoolExecutor(max_workers=jobs or 5) as executor:
+                            entry_futures = [
+                                executor.submit(upload_one, it) for it in batch
+                            ]
+                            try:
+                                for entry_fut in as_completed(entry_futures):
+                                    bytes_uploaded += entry_fut.result()
+                                    changed = True
+                                    yield {
+                                        "status": "uploading",
+                                        "progress": 100
+                                        * bytes_uploaded
+                                        / to_upload.total_size,
+                                        "current": bytes_uploaded,
+                                    }
+                            except BaseException:
+                                for f in entry_futures:
+                                    f.cancel()
+                                raise
+                        lgr.debug("%s: Completing upload of batch #%d", asset_path, i)
+                        continue
+
+                    # Single-part Zarr: upload the batch of entries via
+                    # single-part PUTs.  Items may be retried, e.g. due to 403
+                    # errors because of timed-out upload URLs.
+                    items_to_upload = list(batch)
                     max_retries = 5
                     retry_count = 0
                     current_jobs = jobs or 5
-                    # Add all items to checksum tree (only done once)
-                    for it in items_to_upload:
-                        zcc.add_leaf(Path(it.entry_path), it.size, it.digest)
-
                     while items_to_upload and retry_count <= max_retries:
                         # Prepare upload requests for current items
                         uploading = [it.upload_request() for it in items_to_upload]
@@ -969,6 +1054,17 @@ class ZarrAsset(LocalDirectoryAsset[LocalZarrEntry]):
             yield {"status": "done", "asset": a}
 
 
+def _zarr_is_multipart(zarr: dict[str, Any]) -> bool:
+    """
+    Return whether the archive's serialization of a Zarr indicates multipart
+    upload.  An archive predating the ``upload_type`` field omits it, which
+    means single-part upload.
+
+    :meta private:
+    """
+    return zarr.get("upload_type") == ZARR_UPLOAD_TYPE_MULTIPART
+
+
 def _handle_failed_items_and_raise(
     executor: ThreadPoolExecutor, failed_items: list, futures: list
 ) -> None:
@@ -994,6 +1090,51 @@ def _handle_failed_items_and_raise(
 
     # Raise the first error
     raise failed_items[0][1]
+
+
+def _upload_zarr_entry_multipart(
+    client: RESTFullAPIClient,
+    zarr_id: str,
+    item: UploadItem,
+    jobs: int | None = None,
+) -> Generator[dict, None, None]:
+    """
+    Upload an entry of a multipart Zarr via S3 multipart upload, yielding the
+    status `dict`\\s of the underlying multipart upload.
+
+    :meta private:
+    """
+    try:
+        resp = yield from multipart_upload(
+            client=client,
+            filepath=item.filepath,
+            asset_path=item.entry_path,
+            init_fields={"zarr_id": zarr_id, "chunk_key": item.entry_path},
+            expected_etag=item.digest,
+            jobs=jobs,
+            upload_root="/zarr/uploads",
+        )
+    except requests.HTTPError as e:
+        if e.response is not None and e.response.status_code in (400, 404):
+            # A 404 means the archive lacks the Zarr multipart upload endpoint
+            # entirely; a 400 means it rejected this multipart upload (e.g. the
+            # Zarr is not marked for multipart upload).  Either way a multipart
+            # upload of a Zarr entry cannot succeed against this archive.
+            raise UploadError(
+                f"{item.entry_path}: server rejected the multipart upload of"
+                f" this Zarr entry; the archive may not support multipart upload"
+                f" of Zarr chunks. Server response: {e.response.text}"
+            ) from e
+        raise
+    # The server reports back the key it stored the entry under.  If that isn't
+    # the key we asked for, the entry landed elsewhere in the Zarr, which would
+    # otherwise surface only as an unexplained Zarr checksum mismatch.
+    chunk_key = resp.get("chunk_key")
+    if chunk_key is not None and chunk_key != item.entry_path:
+        raise UploadError(
+            f"{item.entry_path}: server stored this Zarr entry under the"
+            f" unexpected key {chunk_key!r}"
+        )
 
 
 def _upload_zarr_file(
@@ -1098,6 +1239,9 @@ class EntryUploadTracker:
     :meta private:
     """
 
+    #: Whether the Zarr is uploaded via S3 multipart upload, which selects how
+    #: its entries are digested: `dandietag_nocache` if so, else `md5file_nocache`.
+    multipart: bool = False
     total_size: int = 0
     digested_entries: list[UploadItem] = field(default_factory=list)
     fresh_entries: list[LocalZarrEntry] = field(default_factory=list)
@@ -1109,12 +1253,16 @@ class EntryUploadTracker:
             self.fresh_entries.append(e)
         self.total_size += e.size
 
-    @staticmethod
-    def _mkitem(e: LocalZarrEntry) -> UploadItem:
+    def _mkitem(self, e: LocalZarrEntry) -> UploadItem:
         # Avoid heavy import by importing within function:
-        from dandi.support.digests import md5file_nocache
+        from dandi.support.digests import dandietag_nocache, md5file_nocache
 
-        digest = md5file_nocache(e.filepath)
+        # Dispatch to the digest matching the Zarr's upload scheme.
+        digest = (
+            dandietag_nocache(e.filepath)
+            if self.multipart
+            else md5file_nocache(e.filepath)
+        )
         return UploadItem.from_entry(e, digest)
 
     def get_items(self, jobs: int = 5) -> Generator[UploadItem, None, None]:
@@ -1166,13 +1314,6 @@ class UploadItem:
         else:
             content_type = None
         size = pre_upload_size_check(e.filepath)
-        if size > S3_MAX_SINGLE_PART_UPLOAD:
-            raise ValueError(
-                f"Zarr chunk {e.filepath} is {size / 1024**3:.2f} GiB,"
-                f" exceeding the S3 single-part upload limit of"
-                f" {S3_MAX_SINGLE_PART_UPLOAD / 1024**3:.0f} GiB."
-                f" Multipart upload for zarr chunks is not yet supported."
-            )
         return cls(
             entry_path=str(e),
             filepath=e.filepath,
@@ -1183,6 +1324,15 @@ class UploadItem:
 
     @property
     def base64_digest(self) -> str:
+        # An entry of a multipart Zarr is digested with its S3 multipart ETag
+        # (``<md5>-<parts>``), which is not a plain MD5 and so has no base64 MD5
+        # representation.  Such entries are uploaded via multipart upload and do
+        # not go through the single-part path that needs this header.
+        if "-" in self.digest:
+            raise ValueError(
+                f"{self.entry_path}: digest {self.digest!r} is a multipart"
+                f" ETag, which has no base64 MD5 representation"
+            )
         return b64encode(bytes.fromhex(self.digest)).decode("us-ascii")
 
     def upload_request(self) -> dict[str, str | None]:
@@ -1190,12 +1340,20 @@ class UploadItem:
 
 
 def _cmp_digests(
-    asset_path: str, local_entry: LocalZarrEntry, remote_digest: str
+    asset_path: str,
+    local_entry: LocalZarrEntry,
+    remote_digest: str,
+    multipart: bool = False,
 ) -> tuple[LocalZarrEntry, str, bool]:
     # Avoid heavy import by importing within function:
-    from dandi.support.digests import md5file_nocache
+    from dandi.support.digests import dandietag_nocache, md5file_nocache
 
-    local_digest = md5file_nocache(local_entry.filepath)
+    # Dispatch to the digest matching the Zarr's upload scheme.
+    local_digest = (
+        dandietag_nocache(local_entry.filepath)
+        if multipart
+        else md5file_nocache(local_entry.filepath)
+    )
     if local_digest != remote_digest:
         lgr.debug(
             "%s: Path %s in Zarr differs from local file; re-uploading",
