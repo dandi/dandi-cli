@@ -36,6 +36,35 @@ be passed to functions of pynwb etc.
 You can see more usages of DANDI API to assist with data streaming at
 `PyNWB: Streaming NWB files <https://pynwb.readthedocs.io/en/stable/tutorials/advanced_io/streaming.html>`_.
 
+Metadata Caching
+----------------
+
+`DandiAPIClient` supports optional persistent caching of metadata returned by
+`RemoteDandiset.get_raw_metadata()` and `BaseRemoteAsset.get_raw_metadata()`.
+When enabled, metadata is stored in a local sqlite3 database and validated
+against ``modified`` timestamps — no extra API calls are needed to check
+freshness.
+
+Enable caching by passing ``cache=True`` when constructing the client::
+
+    from dandi.dandiapi import DandiAPIClient
+
+    with DandiAPIClient("https://api.dandiarchive.org/api", cache=True) as client:
+        ds = client.get_dandiset("000027")
+        # First call hits the API and stores the result:
+        meta = ds.get_raw_metadata()
+        # Subsequent calls with the same modified timestamp are served from cache:
+        meta = ds.get_raw_metadata()
+
+The cache is stored at
+``platformdirs.user_cache_dir("dandi") / "api_metadata_cache.sqlite"``
+and is controlled by the :envvar:`DANDI_CACHE` environment variable:
+
+* ``DANDI_CACHE=ignore`` — disables the cache entirely.
+* ``DANDI_CACHE=clear`` — wipes existing entries when the cache is opened.
+
+See `~dandi.apicache.APIMetadataCache` for implementation details.
+
 Client
 ------
 
