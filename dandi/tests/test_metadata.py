@@ -1218,7 +1218,7 @@ def test_species_record_matching_methods() -> None:
             ["OptogeneticStimulusSite"],
             {
                 "approach": ["optogenetic approach"],
-                "measurementTechnique": None,
+                "measurementTechnique": ["surgical technique"],
                 "variableMeasured": ["OptogeneticStimulusSite"],
             },
         ),
@@ -1267,7 +1267,7 @@ def test_species_record_matching_methods() -> None:
             ["FibersTable"],
             {
                 "approach": ["fiber photometry approach"],
-                "measurementTechnique": None,
+                "measurementTechnique": ["surgical technique"],
                 "variableMeasured": ["FibersTable"],
             },
             marks=pytest.mark.ai_generated,

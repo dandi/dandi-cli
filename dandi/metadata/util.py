@@ -952,13 +952,13 @@ neurodata_typemap: dict[str, Neurodatum] = {
         "approach": None,
     },
     "Units": {
-        "module": "sortedunits",
+        "module": "misc",
         "neurodata_type": "Units",
         "technique": "spike sorting technique",
         "approach": "electrophysiological approach",
     },
     "Spectrum": {
-        "module": "spectrum",
+        "module": "ndx-spectrum",
         "neurodata_type": "Spectrum",
         "technique": "fourier analysis technique",
         "approach": None,
@@ -966,7 +966,7 @@ neurodata_typemap: dict[str, Neurodatum] = {
     "OptogeneticStimulusSite": {
         "module": "ogen",
         "neurodata_type": "OptogeneticStimulusSite",
-        "technique": None,
+        "technique": "surgical technique",
         "approach": "optogenetic approach",
     },
     "OptogeneticSeries": {
@@ -1009,14 +1009,14 @@ neurodata_typemap: dict[str, Neurodatum] = {
     "CommandedVoltageSeries": {
         "module": "fiberphotometry",
         "neurodata_type": "CommandedVoltageSeries",
-        "technique": None,
+        "technique": "fiber photometry technique",
         "approach": "fiber photometry approach",
     },
     # defined by the deprecated ndx-photometry
     "FibersTable": {
         "module": "fiberphotometry",
         "neurodata_type": "FibersTable",
-        "technique": None,
+        "technique": "surgical technique",
         "approach": "fiber photometry approach",
     },
     "ExcitationSourcesTable": {
@@ -1046,14 +1046,14 @@ neurodata_typemap: dict[str, Neurodatum] = {
     "MultiCommandedVoltage": {
         "module": "fiberphotometry",
         "neurodata_type": "MultiCommandedVoltage",
-        "technique": None,
+        "technique": "fiber photometry technique",
         "approach": "fiber photometry approach",
     },
     # defined by ndx-fiber-photometry
     "FiberPhotometryTable": {
         "module": "fiberphotometry",
         "neurodata_type": "FiberPhotometryTable",
-        "technique": None,
+        "technique": "surgical technique",
         "approach": "fiber photometry approach",
     },
     "FiberPhotometryIndicators": {
