@@ -993,12 +993,74 @@ neurodata_typemap: dict[str, Neurodatum] = {
         "technique": "pose estimation training technique",
         "approach": "behavioral approach",
     },
+    # from both the deprecated ndx-photometry and the new ndx-fiber-photometry
     "FiberPhotometryResponseSeries": {
         "module": "fiberphotometry",
-        # this can come from both the old ndx-photometry and the new ndx-fiber-photometry
         "neurodata_type": "FiberPhotometryResponseSeries",
-        "technique": "fiber photometry technique; optical technique",
-        "approach": "calcium imaging; cell population imaging",
+        "technique": "fiber photometry technique",
+        "approach": "fiber photometry approach",
+    },
+    # from the deprecated ndx-photometry
+    "FibersTable": {
+        "module": "fiberphotometry",
+        "neurodata_type": "FibersTable",
+        "technique": None,
+        "approach": "fiber photometry approach",
+    },
+    "ExcitationSourcesTable": {
+        "module": "fiberphotometry",
+        "neurodata_type": "ExcitationSourcesTable",
+        "technique": None,
+        "approach": "fiber photometry approach",
+    },
+    "PhotodetectorsTable": {
+        "module": "fiberphotometry",
+        "neurodata_type": "PhotodetectorsTable",
+        "technique": None,
+        "approach": "fiber photometry approach",
+    },
+    "FluorophoresTable": {
+        "module": "fiberphotometry",
+        "neurodata_type": "FluorophoresTable",
+        "technique": None,
+        "approach": "fiber photometry approach",
+    },
+    # from ndx-fiber-photometry
+    "FiberPhotometry": {
+        "module": "fiberphotometry",
+        "neurodata_type": "FiberPhotometry",
+        "technique": None,
+        "approach": "fiber photometry approach",
+    },
+    "FiberPhotometryTable": {
+        "module": "fiberphotometry",
+        "neurodata_type": "FiberPhotometryTable",
+        "technique": None,
+        "approach": "fiber photometry approach",
+    },
+    "OpticalFiber": {
+        "module": "fiberphotometry",
+        "neurodata_type": "OpticalFiber",
+        "technique": None,
+        "approach": "fiber photometry approach",
+    },
+    "ExcitationSource": {
+        "module": "fiberphotometry",
+        "neurodata_type": "ExcitationSource",
+        "technique": None,
+        "approach": "fiber photometry approach",
+    },
+    "Photodetector": {
+        "module": "fiberphotometry",
+        "neurodata_type": "Photodetector",
+        "technique": None,
+        "approach": "fiber photometry approach",
+    },
+    "Indicator": {
+        "module": "fiberphotometry",
+        "neurodata_type": "Indicator",
+        "technique": None,
+        "approach": "fiber photometry approach",
     },
 }
 
