@@ -32,6 +32,7 @@ from ..dandiset import Dandiset
 from ..download import download
 from ..exceptions import NotFoundError, UploadError
 from ..files import LocalFileAsset
+from ..files.zarr import ZarrAsset
 from ..pynwb_utils import make_nwb_file
 from ..upload import UploadExisting, UploadValidation
 from ..utils import list_paths, yaml_dump
@@ -837,3 +838,255 @@ def test_upload_rejects_dandidownload_nwb_file(new_dandiset: SampleDandiset) -> 
         match=f"contains {DOWNLOAD_SUFFIX} path which indicates incomplete download",
     ):
         new_dandiset.upload(allow_any_path=True)
+
+
+# ---------- Partial Zarr upload (patch mode) tests ----------
+
+
+@pytest.mark.ai_generated
+def test_upload_zarr_patch_mode_no_delete(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    """Upload with patch mode should NOT delete remote-only files."""
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+
+    # Delete a local file so it becomes remote-only
+    local_zarr = zarr_dandiset.dspath / "sample.zarr"
+    # Find and remove a data file (not .zgroup etc)
+    data_files = [
+        f for f in list_paths(local_zarr) if f.is_file() and not f.name.startswith(".")
+    ]
+    assert data_files, "Expected data files in zarr"
+    removed_file = data_files[0]
+    removed_relpath = removed_file.relative_to(local_zarr).as_posix()
+    removed_file.unlink()
+
+    # Upload in patch mode — remote file should be preserved
+    zarr_dandiset.upload(zarr_mode="patch")
+
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    remote_entries_after = set(str(e) for e in asset.iterfiles())
+    assert (
+        removed_relpath in remote_entries_after
+    ), "Remote-only file was deleted in patch mode"
+
+
+@pytest.mark.ai_generated
+def test_upload_zarr_full_mode_delete(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    """Upload with full mode (default) SHOULD delete remote-only files."""
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+
+    # Delete a local file
+    local_zarr = zarr_dandiset.dspath / "sample.zarr"
+    data_files = [
+        f for f in list_paths(local_zarr) if f.is_file() and not f.name.startswith(".")
+    ]
+    assert data_files, "Expected data files in zarr"
+    removed_file = data_files[0]
+    removed_relpath = removed_file.relative_to(local_zarr).as_posix()
+    removed_file.unlink()
+
+    # Upload in full mode — remote file should be deleted
+    zarr_dandiset.upload(zarr_mode="full")
+
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    remote_entries_after = set(str(e) for e in asset.iterfiles())
+    assert (
+        removed_relpath not in remote_entries_after
+    ), "Remote-only file was NOT deleted in full mode"
+
+
+@pytest.mark.ai_generated
+def test_upload_zarr_patch_mode_updates_changed_file(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    """Patch mode should still upload new/modified files."""
+    local_zarr = zarr_dandiset.dspath / "sample.zarr"
+    # Add a new file
+    new_file = local_zarr / "new_entry.txt"
+    new_file.write_text("new content")
+
+    zarr_dandiset.upload(zarr_mode="patch", validation="skip")
+
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    remote_entries = set(str(e) for e in asset.iterfiles())
+    assert "new_entry.txt" in remote_entries, "New file was not uploaded in patch mode"
+
+
+@pytest.mark.ai_generated
+def test_upload_zarr_patch_mode_incremental_shards(
+    tmp_path: Path, zarr_dandiset: SampleDandiset
+) -> None:
+    """Use Case 2 from doc/design/partial-zarr.md: incremental shard uploads.
+
+    Emulates the workflow of a producer that cannot house the full Zarr
+    locally: after an initial full upload, most local files are removed
+    (as if the local checkout was pruned to just the metadata) and a new
+    "shard" file is dropped in.  A patch-mode upload should push the new
+    shard and leave every remote-only file untouched.
+    """
+    local_zarr = zarr_dandiset.dspath / "sample.zarr"
+
+    # Snapshot the remote entries before we mutate anything locally.
+    asset = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset, RemoteZarrAsset)
+    remote_entries_before = {str(e) for e in asset.iterfiles()}
+    assert remote_entries_before, "Expected the fixture Zarr to have remote entries"
+
+    # Prune the local tree to just the metadata files (names starting with
+    # '.' or ending with .json / .zarray / .zgroup / .zattrs).  This mimics
+    # the state of a checkout produced by `dandi download --zarr metadata`.
+    metadata_suffixes = (".json", ".zarray", ".zgroup", ".zattrs")
+    kept_relpaths: set[str] = set()
+    for p in list_paths(local_zarr):
+        if not p.is_file():
+            continue
+        is_metadata = p.name.startswith(".") or p.name.endswith(metadata_suffixes)
+        if is_metadata:
+            kept_relpaths.add(p.relative_to(local_zarr).as_posix())
+        else:
+            p.unlink()
+    # Remove now-empty non-metadata directories.
+    for d in sorted(
+        (p for p in local_zarr.rglob("*") if p.is_dir()),
+        key=lambda x: len(x.parts),
+        reverse=True,
+    ):
+        try:
+            d.rmdir()
+        except OSError:
+            pass  # not empty -- keep it
+
+    pruned_remote_only = remote_entries_before - kept_relpaths
+    assert pruned_remote_only, (
+        "Test setup expected some purely-remote entries after pruning locally;"
+        " adjust the metadata heuristic if the fixture Zarr changed."
+    )
+
+    # Add a new "shard" file that only exists locally.
+    new_shard_relpath = "shard_new"
+    new_shard = local_zarr / new_shard_relpath
+    new_shard.write_bytes(b"synthetic shard payload")
+
+    zarr_dandiset.upload(zarr_mode="patch", validation="skip")
+
+    asset_after = zarr_dandiset.dandiset.get_asset_by_path("sample.zarr")
+    assert isinstance(asset_after, RemoteZarrAsset)
+    remote_entries_after = {str(e) for e in asset_after.iterfiles()}
+
+    assert (
+        new_shard_relpath in remote_entries_after
+    ), "New shard was not uploaded in patch mode"
+    missing = pruned_remote_only - remote_entries_after
+    assert not missing, (
+        "patch-mode upload deleted remote-only entries that were absent"
+        f" locally: {sorted(missing)}"
+    )
+
+
+def _spy_zarr_iter_upload(mocker: MockerFixture) -> list[dict]:
+    """
+    Wrap ``ZarrAsset.iter_upload`` so its yielded status dicts are recorded
+    in the returned list without changing behavior.  Used by #1893 tests.
+    """
+    events: list[dict] = []
+    original = ZarrAsset.iter_upload
+
+    def wrapped(self: Any, *args: Any, **kwargs: Any) -> Any:
+        for ev in original(self, *args, **kwargs):
+            events.append(dict(ev))
+            yield ev
+
+    mocker.patch.object(ZarrAsset, "iter_upload", wrapped)
+    return events
+
+
+@pytest.mark.ai_generated
+def test_upload_unchanged_zarr_reports_skipped(
+    mocker: MockerFixture, zarr_dandiset: SampleDandiset
+) -> None:
+    """
+    Regression for https://github.com/dandi/dandi-cli/issues/1893.
+
+    A second ``dandi upload`` of a bit-identical Zarr must render as
+    STATUS="skipped" / MESSAGE="identical" rather than the previous
+    "done / exists - reuploading" misreport.
+    """
+    events = _spy_zarr_iter_upload(mocker)
+
+    zarr_dandiset.upload(validation="skip")
+
+    skipped = [
+        e
+        for e in events
+        if e.get("status") == "skipped" and e.get("message") == "identical"
+    ]
+    assert skipped, (
+        "Expected iter_upload to yield {status=skipped, message='identical'}"
+        f" for an unchanged Zarr; got: {events}"
+    )
+
+
+@pytest.mark.ai_generated
+def test_upload_modified_zarr_reports_descriptive_message(
+    mocker: MockerFixture, zarr_dandiset: SampleDandiset
+) -> None:
+    """
+    Regression for https://github.com/dandi/dandi-cli/issues/1893.
+
+    When a Zarr has changed locally, iter_upload should surface a
+    MESSAGE that names each delta kind with file counts (and, for
+    additions/modifications, a size) rather than the generic
+    "exists - reuploading".
+    """
+    local_zarr = zarr_dandiset.dspath / "sample.zarr"
+
+    # Introduce all three kinds of change: an addition, a modification,
+    # and (by removing a data file) a deletion in full mode.
+    (local_zarr / "shard_new").write_bytes(b"a" * 128)
+    data_files = [
+        p
+        for p in local_zarr.rglob("*")
+        if p.is_file()
+        and not p.name.startswith(".")
+        and not p.name.endswith((".json", ".zarray", ".zgroup", ".zattrs"))
+        and p.name != "shard_new"
+    ]
+    assert len(data_files) >= 2, (
+        "Fixture Zarr does not have enough data files to exercise both"
+        " modify and delete branches; adjust the test."
+    )
+    data_files[0].write_bytes(b"b" * 64)  # modification
+    data_files[1].unlink()  # deletion (full mode will drop remote-only)
+
+    events = _spy_zarr_iter_upload(mocker)
+
+    zarr_dandiset.upload(validation="skip")
+
+    descriptive = [
+        e
+        for e in events
+        if isinstance(e.get("message"), str)
+        and (
+            e["message"].startswith("adding ")
+            or e["message"].startswith("modifying ")
+            or e["message"].startswith("deleting ")
+        )
+        and e.get("status") not in ("skipped",)
+    ]
+    assert descriptive, (
+        "Expected a descriptive MESSAGE ('adding/modifying/deleting ...')"
+        f" from iter_upload for a modified Zarr; got: {events}"
+    )
+    msg = descriptive[0]["message"]
+    # All three kinds of change should appear in this test's setup.
+    assert "adding " in msg, msg
+    assert "modifying " in msg, msg
+    assert "deleting " in msg, msg
