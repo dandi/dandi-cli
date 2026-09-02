@@ -15,12 +15,14 @@ from .xfail import mark_xfail_windows_python313_posixsubprocess
 from ..cli.cmd_organize import organize
 from ..consts import dandiset_metadata_file
 from ..organize import (
+    MAX_METADATA_ERRORS_SHOWN,
     CopyMode,
     FileOperationMode,
     _sanitize_value,
     create_dataset_yml_template,
     create_unique_filenames_from_metadata,
     detect_link_type,
+    format_metadata_load_failures,
     get_obj_id,
     populate_dataset_yml,
     validate_organized_path,
@@ -540,3 +542,71 @@ def test_organize_required_field(simple2_nwb: Path, tmp_path: Path) -> None:
         tmp_path / dandiset_metadata_file,
         tmp_path / "sub-mouse001" / "sub-mouse001_ses-session-id1.nwb",
     ]
+
+
+@pytest.mark.ai_generated
+def test_format_metadata_load_failures() -> None:
+    metadata_excs = [
+        ({"path": "/data/ok.nwb"}, None),
+        (
+            {"path": "/data/bad.nwb"},
+            (ValueError, "Date is missing timezone information", None),
+        ),
+    ]
+    msg = format_metadata_load_failures(metadata_excs, 2)
+    assert "Failed to load metadata for 1 out of 2 files:" in msg
+    # the path and the actual reason are spelled out, not just the class name
+    assert "/data/bad.nwb: ValueError: Date is missing timezone information" in msg
+    # and the user is told where to look and what to run
+    assert "log file" in msg
+    assert "dandi --log-level DEBUG organize" in msg
+    # files that loaded fine are not mentioned
+    assert "/data/ok.nwb" not in msg
+
+
+@pytest.mark.ai_generated
+def test_format_metadata_load_failures_truncates() -> None:
+    metadata_excs: list[tuple[dict, Any]] = [
+        ({"path": f"/data/{i}.nwb"}, (ValueError, f"boom {i}", None))
+        for i in range(MAX_METADATA_ERRORS_SHOWN + 3)
+    ]
+    msg = format_metadata_load_failures(metadata_excs, len(metadata_excs))
+    assert msg.count("boom ") == MAX_METADATA_ERRORS_SHOWN
+    assert "... and 3 more, see the log file" in msg
+
+
+@pytest.mark.ai_generated
+@mark_xfail_windows_python313_posixsubprocess
+def test_organize_reports_metadata_exception_reason(
+    simple2_nwb: Path,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Regression test for https://github.com/dandi/dandi-cli/issues/1640 :
+    # the warning used to only say which exception *types* occurred and that
+    # details were available "at DEBUG level", without saying how to get them.
+    caplog.set_level(logging.INFO, logger="dandi")
+
+    def boom(path: Any, **kwargs: Any) -> NoReturn:
+        raise ValueError("Date is missing timezone information")
+
+    monkeypatch.setattr("dandi.metadata.nwb.get_metadata", boom)
+    r = CliRunner().invoke(
+        organize,
+        [
+            "--files-mode",
+            "dry",
+            "--invalid",
+            "warn",
+            "-d",
+            str(tmp_path / "organized"),
+            str(simple2_nwb),
+        ],
+    )
+    assert r.exit_code == 0
+    warnings = [rec[2] for rec in caplog.record_tuples if rec[1] == logging.WARNING]
+    matching = [w for w in warnings if "Date is missing timezone information" in w]
+    assert matching, f"reason not reported in warnings: {warnings}"
+    assert str(simple2_nwb) in matching[0]
+    assert "dandi --log-level DEBUG organize" in matching[0]
