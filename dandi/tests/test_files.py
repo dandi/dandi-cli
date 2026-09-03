@@ -30,6 +30,7 @@ from ..files import (
     ZarrBIDSAsset,
     dandi_file,
     find_dandi_files,
+    find_unused_paths,
 )
 
 lgr = get_logger()
@@ -183,6 +184,58 @@ def test_find_dandi_files(tmp_path: Path) -> None:
             dandiset_path=tmp_path,
         ),
     ]
+
+
+def test_find_unused_paths(tmp_path: Path) -> None:
+    (tmp_path / dandiset_metadata_file).touch()
+    (tmp_path / "known.nwb").touch()
+    (tmp_path / "unknown.txt").touch()
+    (tmp_path / "unknown-dir").mkdir()
+    (tmp_path / "unknown-dir" / "file.txt").touch()
+    (tmp_path / "mixed").mkdir()
+    (tmp_path / "mixed" / "known.nwb").touch()
+    (tmp_path / "mixed" / "sidecar.json").touch()
+    (tmp_path / "sample.zarr").mkdir()
+    (tmp_path / "sample.zarr" / "chunk").touch()
+    (tmp_path / "empty").mkdir()
+    (tmp_path / ".hidden").mkdir()
+    (tmp_path / ".hidden" / "secret.nwb").touch()
+    (tmp_path / "__MACOSX").mkdir()
+    (tmp_path / "__MACOSX" / "._known.nwb").touch()
+    (tmp_path / "Thumbs.db").touch()
+
+    unused = find_unused_paths(
+        [tmp_path],
+        [
+            tmp_path / dandiset_metadata_file,
+            tmp_path / "known.nwb",
+            tmp_path / "mixed" / "known.nwb",
+            tmp_path / "sample.zarr",
+        ],
+        dandiset_path=tmp_path,
+    )
+
+    assert [path.relative_to(tmp_path).as_posix() for path in unused] == [
+        "mixed/sidecar.json",
+        "unknown-dir",
+        "unknown.txt",
+    ]
+    assert find_unused_paths(
+        [tmp_path / "mixed"], [tmp_path / "mixed" / "known.nwb"], dandiset_path=tmp_path
+    ) == [tmp_path / "mixed" / "sidecar.json"]
+
+
+def test_find_unused_paths_ignores_symlinked_directory(tmp_path: Path) -> None:
+    target = tmp_path / "outside"
+    target.mkdir()
+    (target / "omitted.txt").touch()
+    symlink = tmp_path / "linked"
+    try:
+        symlink.symlink_to(target, target_is_directory=True)
+    except OSError as exc:
+        pytest.skip(f"cannot create directory symlink: {exc}")
+
+    assert find_unused_paths([symlink], [], dandiset_path=tmp_path) == []
 
 
 def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
