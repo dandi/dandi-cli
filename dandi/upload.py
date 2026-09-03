@@ -45,6 +45,7 @@ from .files import (
     LocalAsset,
     LocalDirectoryAsset,
     ZarrAsset,
+    find_unused_paths,
 )
 from .misctypes import Digest
 from .support import pyout as pyouts
@@ -244,6 +245,16 @@ def upload(
             assets.under_paths(Path(p).relative_to(dandiset.path) for p in paths)
         )
         lgr.info(f"Found {len(dandi_files)} files to consider")
+
+        omitted_paths = (
+            []
+            if allow_any_path
+            else find_unused_paths(
+                paths,
+                (dfile.filepath for dfile in dandi_files),
+                dandiset_path=dandiset.path,
+            )
+        )
 
         # We will keep a shared set of "being processed" paths so
         # we could limit the number of them until
@@ -461,8 +472,24 @@ def upload(
                     )
                 lgr.warning(msg)
 
+        def report_omitted_paths() -> None:
+            if not omitted_paths:
+                return
+
+            relpaths = [
+                path.relative_to(dandiset.path).as_posix() for path in omitted_paths
+            ]
+            lgr.warning(
+                "%s were not uploaded because they were not recognized as DANDI "
+                "assets: %s. Review the paths or use --allow-any-path if intentional.",
+                pluralize(len(relpaths), "path"),
+                ", ".join(relpaths[:10]) + (", ..." if len(relpaths) > 10 else ""),
+            )
+            lgr.debug("Complete list of paths not uploaded: %s", ", ".join(relpaths))
+
         with ExitStack() as warning_stack, out:
             warning_stack.callback(report_validation_failure)
+            warning_stack.callback(report_omitted_paths)
             for dfile in dandi_files:
                 while len(process_paths) >= 10:
                     lgr.log(2, "Sleep waiting for some paths to finish processing")
