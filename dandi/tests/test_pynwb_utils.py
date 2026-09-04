@@ -10,6 +10,7 @@ from typing import Any, NoReturn
 import h5py
 import numpy as np
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
+from pytest_mock import MockerFixture
 
 from ..pynwb_utils import (
     _rename_pose_estimation_original_videos,
@@ -135,7 +136,7 @@ def test_rename_pose_estimation_original_videos_persists_hdf5(
 
 
 def test_rename_nwb_external_files_updates_pose_references(
-    tmp_path: Path, mocker
+    tmp_path: Path, mocker: MockerFixture
 ) -> None:
     image_series = SimpleNamespace(
         object_id="image-series-id", external_file=["camera/raw.mp4"]
