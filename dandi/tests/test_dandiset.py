@@ -1,3 +1,7 @@
+from pathlib import Path
+
+from pytest_mock import MockerFixture
+
 from ..dandiset import Dandiset
 
 
@@ -6,3 +10,36 @@ def test_get_dandiset_record() -> None:
     # Should have only header with "DO NOT EDIT"
     assert out.startswith("# DO NOT EDIT")
     assert "000000" in out
+
+
+def test_get_subject_ids(tmp_path: Path, mocker: MockerFixture) -> None:
+    (tmp_path / "dandiset.yaml").write_text("identifier: '000001'\n")
+    (tmp_path / "sub-mouse2").mkdir()
+    (tmp_path / "sub-mouse2" / "record.nwb").touch()
+    (tmp_path / "sub-mouse1").mkdir()
+    (tmp_path / "sub-mouse1" / "session").mkdir()
+    (tmp_path / "sub-mouse1" / "session" / "record.nwb").touch()
+    (tmp_path / "sub-").mkdir()
+    (tmp_path / "sub-bad_name").mkdir()
+    (tmp_path / "sub-bad_name" / "record.nwb").touch()
+    (tmp_path / "sub-empty").mkdir()
+    linked = tmp_path / "sub-linked"
+    linked.mkdir()
+    (linked / "record.nwb").touch()
+    (tmp_path / "sub-root.nwb").touch()
+    (tmp_path / "subjects").mkdir()
+    original_is_symlink = Path.is_symlink
+    mocker.patch.object(
+        Path,
+        "is_symlink",
+        autospec=True,
+        side_effect=lambda path: path == linked or original_is_symlink(path),
+    )
+
+    assert Dandiset(tmp_path).get_subject_ids() == ["mouse1", "mouse2"]
+
+
+def test_get_subject_ids_empty(tmp_path: Path) -> None:
+    (tmp_path / "dandiset.yaml").write_text("identifier: '000001'\n")
+
+    assert Dandiset(tmp_path).get_subject_ids() == []

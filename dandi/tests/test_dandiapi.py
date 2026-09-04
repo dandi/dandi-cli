@@ -40,7 +40,7 @@ from ..dandiapi import (
     VersionStatus,
 )
 from ..download import download
-from ..exceptions import NotFoundError, SchemaVersionError
+from ..exceptions import HTTP404Error, NotFoundError, SchemaVersionError
 from ..files import GenericAsset, dandi_file
 from ..utils import list_paths
 
@@ -994,6 +994,54 @@ def test_get_assets_with_path_prefix(text_dandiset: SampleDandiset) -> None:
         "subdir2/banana.txt",
         "subdir1/apple.txt",
     ]
+
+
+def test_remote_get_subject_ids(mocker: MockerFixture) -> None:
+    client = mocker.Mock(_instance_id="test")
+    dandiset = RemoteDandiset(client, "000001", version=DRAFT)
+    client.paginate.return_value = iter(
+        [
+            {"path": "sub-mouse2", "asset": None},
+            {"path": "sub-mouse1", "asset": None},
+            {"path": "sub-root", "asset": {"asset_id": "a"}},
+            {"path": "other", "asset": None},
+            {"path": "sub-", "asset": None},
+            {"path": "sub-bad_name", "asset": None},
+        ]
+    )
+
+    assert dandiset.get_subject_ids() == ["mouse1", "mouse2"]
+    client.paginate.assert_called_once_with(
+        "/dandisets/000001/versions/draft/assets/paths/"
+    )
+
+
+def test_remote_get_subject_ids_empty(mocker: MockerFixture) -> None:
+    client = mocker.Mock(_instance_id="test")
+    dandiset = RemoteDandiset(client, "000001", version=DRAFT)
+    client.paginate.return_value = iter(())
+
+    assert dandiset.get_subject_ids() == []
+
+
+def test_remote_get_subject_ids_propagates_api_errors(
+    mocker: MockerFixture,
+) -> None:
+    client = mocker.Mock(_instance_id="test")
+    dandiset = RemoteDandiset(client, "000001", version=DRAFT)
+    client.paginate.side_effect = RuntimeError("pagination failed")
+
+    with pytest.raises(RuntimeError, match="pagination failed"):
+        dandiset.get_subject_ids()
+
+
+def test_remote_get_subject_ids_missing_version(mocker: MockerFixture) -> None:
+    client = mocker.Mock(_instance_id="test")
+    dandiset = RemoteDandiset(client, "000001", version=DRAFT)
+    client.paginate.side_effect = HTTP404Error("not found")
+
+    with pytest.raises(NotFoundError, match="No such version: 'draft'"):
+        dandiset.get_subject_ids()
 
 
 def test_get_assets_by_glob(text_dandiset: SampleDandiset) -> None:

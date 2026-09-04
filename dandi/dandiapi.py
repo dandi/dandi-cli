@@ -63,6 +63,7 @@ from .utils import (
     is_interactive,
     is_page2_url,
     joinurl,
+    parse_dandi_subject_dirname,
 )
 
 if TYPE_CHECKING:
@@ -1421,6 +1422,29 @@ class RemoteDandiset:
                 f"{self.version_api_path}assets/", params={"order": order}
             ):
                 yield RemoteAsset.from_data(self, a)
+        except HTTP404Error:
+            raise NotFoundError(
+                f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
+            )
+
+    def get_subject_ids(self) -> list[str]:
+        """Return sorted subject identifiers from top-level ``sub-*`` asset paths.
+
+        The Archive's path endpoint returns the immediate children of the
+        Dandiset root, so discovery does not require listing every asset.
+        Asset payloads and metadata are not downloaded.
+
+        .. versionadded:: 0.79.0
+        """
+        try:
+            paths = self.client.paginate(f"{self.version_api_path}assets/paths/")
+            return sorted(
+                subject_id
+                for item in paths
+                if item["asset"] is None
+                if (subject_id := parse_dandi_subject_dirname(item["path"]))
+                is not None
+            )
         except HTTP404Error:
             raise NotFoundError(
                 f"No such version: {self.version_id!r} of Dandiset {self.identifier}"

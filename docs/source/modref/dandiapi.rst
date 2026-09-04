@@ -36,6 +36,16 @@ be passed to functions of pynwb etc.
 You can see more usages of DANDI API to assist with data streaming at
 `PyNWB: Streaming NWB files <https://pynwb.readthedocs.io/en/stable/tutorials/advanced_io/streaming.html>`_.
 
+To discover the subject labels represented by a remote Dandiset, use
+``RemoteDandiset.get_subject_ids()``.  It queries the Archive's efficient
+top-level path endpoint and does not download asset payloads or metadata:
+
+.. code-block:: python
+
+    with DandiAPIClient() as client:
+        dandiset = client.get_dandiset("000001")
+        print(dandiset.get_subject_ids())
+
 Client
 ------
 

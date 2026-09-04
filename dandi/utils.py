@@ -43,6 +43,17 @@ AnyPath = Union[str, Path]
 
 lgr = get_logger()
 
+
+def parse_dandi_subject_dirname(name: str) -> str | None:
+    """Return the ID encoded by a valid DANDI ``sub-*`` directory name."""
+
+    # Match the label syntax used by ``dandi organize`` without importing that
+    # module, which imports this utility module itself.
+    if re.fullmatch(r"sub-[^_*\\/<>:|\"'?%@;.]+", name) is None:
+        return None
+    return name[4:]
+
+
 _sys_excepthook = sys.excepthook  # Just in case we ever need original one
 
 #
