@@ -35,13 +35,27 @@ from semantic_version import Version
 from yarl import URL
 
 from . import __version__, get_logger
-from .consts import DandiInstance, known_instances, known_instances_rev
+from .consts import (
+    DANDI_SUBJECT_FOLDER_REGEX,
+    DandiInstance,
+    known_instances,
+    known_instances_rev,
+)
 from .exceptions import BadCliVersionError, CliVersionTooOldError
 
 AnyPath = Union[str, Path]
 
 
 lgr = get_logger()
+
+
+def parse_dandi_subject_dirname(name: str) -> str | None:
+    """Return the ID encoded by a valid DANDI ``sub-*`` directory name."""
+
+    if re.fullmatch(DANDI_SUBJECT_FOLDER_REGEX, name) is None:
+        return None
+    return name[4:]
+
 
 _sys_excepthook = sys.excepthook  # Just in case we ever need original one
 

@@ -27,7 +27,11 @@ import uuid
 import ruamel.yaml
 
 from . import get_logger
-from .consts import dandi_layout_fields
+from .consts import (
+    DANDI_LABEL_REGEX as LABELREGEX,
+    DANDI_SUBJECT_FOLDER_REGEX as ORGANIZED_FOLDER_REGEX,
+    dandi_layout_fields,
+)
 from .dandiset import Dandiset
 from .exceptions import OrganizeImpossibleError
 from .utils import (
@@ -1149,7 +1153,6 @@ def organize(
     )
 
 
-LABELREGEX = r"[^_*\\/<>:|\"'?%@;.]+"
 ORGANIZED_FILENAME_REGEX = (
     rf"sub-{LABELREGEX}"
     rf"(_ses-{LABELREGEX})?"
@@ -1157,7 +1160,6 @@ ORGANIZED_FILENAME_REGEX = (
     r"(_[a-z]+(\+[a-z]+)*)?"
     r"\.nwb"
 )
-ORGANIZED_FOLDER_REGEX = rf"sub-{LABELREGEX}"
 
 
 def validate_organized_path(

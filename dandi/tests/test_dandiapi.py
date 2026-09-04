@@ -1011,12 +1011,34 @@ def test_remote_get_subject_ids(mocker: MockerFixture) -> None:
                 SimpleNamespace(path="sub-root.nwb"),
                 SimpleNamespace(path="other/file.nwb"),
                 SimpleNamespace(path="sub-/file.nwb"),
+                SimpleNamespace(path="sub-bad_name/file.nwb"),
             ]
         ),
     )
 
     assert dandiset.get_subject_ids() == ["mouse1", "mouse2"]
     get_assets.assert_called_once_with(order="path")
+
+
+def test_remote_get_subject_ids_empty(mocker: MockerFixture) -> None:
+    client = mocker.Mock(_instance_id="test")
+    dandiset = RemoteDandiset(client, "000001", version=DRAFT)
+    mocker.patch.object(dandiset, "get_assets", return_value=iter(()))
+
+    assert dandiset.get_subject_ids() == []
+
+
+def test_remote_get_subject_ids_propagates_api_errors(
+    mocker: MockerFixture,
+) -> None:
+    client = mocker.Mock(_instance_id="test")
+    dandiset = RemoteDandiset(client, "000001", version=DRAFT)
+    mocker.patch.object(
+        dandiset, "get_assets", side_effect=RuntimeError("pagination failed")
+    )
+
+    with pytest.raises(RuntimeError, match="pagination failed"):
+        dandiset.get_subject_ids()
 
 
 def test_get_assets_by_glob(text_dandiset: SampleDandiset) -> None:

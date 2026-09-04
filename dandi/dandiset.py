@@ -12,7 +12,13 @@ from dandischema.models import get_schema_version
 from . import get_logger
 from .consts import dandiset_metadata_file
 from .files import DandisetMetadataFile, LocalAsset, dandi_file, find_dandi_files
-from .utils import find_parent_directory_containing, under_paths, yaml_dump, yaml_load
+from .utils import (
+    find_parent_directory_containing,
+    parse_dandi_subject_dirname,
+    under_paths,
+    yaml_dump,
+    yaml_load,
+)
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -169,21 +175,22 @@ class Dandiset:
         return AssetView(data)
 
     def get_subject_ids(self) -> list[str]:
-        """Return sorted subject identifiers from top-level ``sub-*`` directories.
+        """Return sorted IDs from populated top-level subject directories.
 
-        Only immediate children of the local Dandiset are inspected; files
-        inside subject directories are not read.
+        Directory entries are inspected, but file contents are not read.
+        Empty and symlinked subject directories are ignored so the result
+        describes subjects that can also be represented by remote assets.
+
+        .. versionadded:: 0.79.0
         """
-        return sorted(
-            {
-                path.name[4:]
-                for path in self.path_obj.iterdir()
-                if path.is_dir()
-                and not path.is_symlink()
-                and path.name.startswith("sub-")
-                and len(path.name) > 4
-            }
-        )
+        subject_ids = set[str]()
+        for path in self.path_obj.iterdir():
+            if not path.is_dir() or path.is_symlink():
+                continue
+            subject_id = parse_dandi_subject_dirname(path.name)
+            if subject_id is not None and any(p.is_file() for p in path.rglob("*")):
+                subject_ids.add(subject_id)
+        return sorted(subject_ids)
 
     def metadata_file(self) -> DandisetMetadataFile:
         df = dandi_file(self._metadata_file_obj, dandiset_path=self.path)

@@ -63,6 +63,7 @@ from .utils import (
     is_interactive,
     is_page2_url,
     joinurl,
+    parse_dandi_subject_dirname,
 )
 
 if TYPE_CHECKING:
@@ -1431,13 +1432,18 @@ class RemoteDandiset:
 
         The Archive API does not return directory objects, so asset records
         are streamed in path order and only their paths are inspected.  Asset
-        payloads and metadata are not downloaded.
+        payloads and metadata are not downloaded.  Runtime is linear in the
+        number of assets in the Dandiset.
+
+        .. versionadded:: 0.79.0
         """
         subject_ids = set[str]()
         for asset in self.get_assets(order="path"):
             parts = PurePosixPath(asset.path).parts
-            if len(parts) > 1 and parts[0].startswith("sub-") and len(parts[0]) > 4:
-                subject_ids.add(parts[0][4:])
+            if len(parts) > 1:
+                subject_id = parse_dandi_subject_dirname(parts[0])
+                if subject_id is not None:
+                    subject_ids.add(subject_id)
         return sorted(subject_ids)
 
     def get_asset(self, asset_id: str) -> RemoteAsset:
