@@ -1430,21 +1430,25 @@ class RemoteDandiset:
     def get_subject_ids(self) -> list[str]:
         """Return sorted subject identifiers from top-level ``sub-*`` asset paths.
 
-        The Archive API does not return directory objects, so asset records
-        are streamed in path order and only their paths are inspected.  Asset
-        payloads and metadata are not downloaded.  Runtime is linear in the
-        number of assets in the Dandiset.
+        The Archive's path endpoint returns the immediate children of the
+        Dandiset root, so discovery does not require listing every asset.
+        Asset payloads and metadata are not downloaded.
 
         .. versionadded:: 0.79.0
         """
-        subject_ids = set[str]()
-        for asset in self.get_assets(order="path"):
-            parts = PurePosixPath(asset.path).parts
-            if len(parts) > 1:
-                subject_id = parse_dandi_subject_dirname(parts[0])
-                if subject_id is not None:
-                    subject_ids.add(subject_id)
-        return sorted(subject_ids)
+        try:
+            paths = self.client.paginate(f"{self.version_api_path}assets/paths/")
+            return sorted(
+                subject_id
+                for item in paths
+                if item["asset"] is None
+                if (subject_id := parse_dandi_subject_dirname(item["path"]))
+                is not None
+            )
+        except HTTP404Error:
+            raise NotFoundError(
+                f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
+            )
 
     def get_asset(self, asset_id: str) -> RemoteAsset:
         """
