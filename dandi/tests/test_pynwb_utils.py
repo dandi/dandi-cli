@@ -4,12 +4,17 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 import re
+from types import SimpleNamespace
 from typing import Any, NoReturn
 
 import numpy as np
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
 
-from ..pynwb_utils import _sanitize_nwb_version, nwb_has_external_links
+from ..pynwb_utils import (
+    _rename_pose_estimation_original_videos,
+    _sanitize_nwb_version,
+    nwb_has_external_links,
+)
 
 
 def test_pynwb_io(simple1_nwb: Path) -> None:
@@ -51,6 +56,29 @@ def test_sanitize_nwb_version() -> None:
         )
         == "2.1.0"
     )
+
+
+def test_rename_pose_estimation_original_videos() -> None:
+    pose = SimpleNamespace(
+        neurodata_type="PoseEstimation",
+        original_videos=[b"camera\\raw.mp4", "https://example.com/remote.mp4", "other.mp4"],
+    )
+    unrelated = SimpleNamespace(
+        neurodata_type="OtherContainer", original_videos=["camera/raw.mp4"]
+    )
+    nwb = SimpleNamespace(objects={"pose": pose, "unrelated": unrelated})
+
+    _rename_pose_estimation_original_videos(
+        nwb,
+        {"camera/raw.mp4": "sub-01/session-01/source.mp4"},
+    )
+
+    assert pose.original_videos == [
+        "sub-01/session-01/source.mp4",
+        "https://example.com/remote.mp4",
+        "other.mp4",
+    ]
+    assert unrelated.original_videos == ["camera/raw.mp4"]
 
 
 def test_nwb_has_external_links(tmp_path):

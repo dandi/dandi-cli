@@ -508,6 +508,7 @@ def rename_nwb_external_files(metadata: list[dict], dandiset_path: str) -> None:
                 dandiset_nwbfile_path, mode="r+", load_namespaces=True
             ) as io:
                 nwb = io.read()
+                pose_video_renames: dict[str, str] = {}
                 for ext_file_dict in image_series:
                     # retrieve nwb neurodata object of the given object id:
                     container_list = [
@@ -528,8 +529,46 @@ def rename_nwb_external_files(metadata: list[dict], dandiset_path: str) -> None:
                     ):
                         if not is_url(str(name_old)):
                             container.external_file[no] = str(name_new)
+                            pose_video_renames[_external_reference_key(name_old)] = str(
+                                name_new
+                            )
+                _rename_pose_estimation_original_videos(nwb, pose_video_renames)
         if external_images:
             _rename_external_images(dandiset_nwbfile_path, external_images)
+
+
+def _external_reference_key(value: Any) -> str:
+    """Return a comparable representation of a legacy external-file reference."""
+
+    if isinstance(value, bytes):
+        value = value.decode()
+    return str(value).replace("\\", "/")
+
+
+def _rename_pose_estimation_original_videos(
+    nwb: pynwb.NWBFile, renames: dict[str, str]
+) -> None:
+    """Update legacy ndx-pose ``original_videos`` references in an NWB file.
+
+    ``original_videos`` is deprecated in ndx-pose in favor of the linked
+    ``source_video`` field.  Older files can still contain the path list, so
+    use the same old-to-new mapping as the source ``ImageSeries`` without
+    importing ndx-pose or reading waveform/video payloads.
+    """
+
+    if not renames:
+        return
+    for container in nwb.objects.values():
+        if getattr(container, "neurodata_type", None) != "PoseEstimation":
+            continue
+        original_videos = getattr(container, "original_videos", None)
+        if original_videos is None or isinstance(original_videos, (str, bytes)):
+            continue
+        for no, name_old in enumerate(original_videos):
+            if is_url(str(name_old)):
+                continue
+            if (name_new := renames.get(_external_reference_key(name_old))) is not None:
+                original_videos[no] = name_new
 
 
 def _rename_external_images(nwbfile_path: str, external_images: list[dict]) -> None:
