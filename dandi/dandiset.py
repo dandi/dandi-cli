@@ -168,6 +168,23 @@ class Dandiset:
             data[PurePosixPath(df.path)] = df
         return AssetView(data)
 
+    def get_subject_ids(self) -> list[str]:
+        """Return sorted subject identifiers from top-level ``sub-*`` directories.
+
+        Only immediate children of the local Dandiset are inspected; files
+        inside subject directories are not read.
+        """
+        return sorted(
+            {
+                path.name[4:]
+                for path in self.path_obj.iterdir()
+                if path.is_dir()
+                and not path.is_symlink()
+                and path.name.startswith("sub-")
+                and len(path.name) > 4
+            }
+        )
+
     def metadata_file(self) -> DandisetMetadataFile:
         df = dandi_file(self._metadata_file_obj, dandiset_path=self.path)
         assert isinstance(df, DandisetMetadataFile)

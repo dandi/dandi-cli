@@ -8,6 +8,7 @@ from pathlib import Path
 import random
 import re
 from shutil import rmtree
+from types import SimpleNamespace
 from typing import Any
 
 import anys
@@ -994,6 +995,28 @@ def test_get_assets_with_path_prefix(text_dandiset: SampleDandiset) -> None:
         "subdir2/banana.txt",
         "subdir1/apple.txt",
     ]
+
+
+def test_remote_get_subject_ids(mocker: MockerFixture) -> None:
+    client = mocker.Mock(_instance_id="test")
+    dandiset = RemoteDandiset(client, "000001", version=DRAFT)
+    get_assets = mocker.patch.object(
+        dandiset,
+        "get_assets",
+        return_value=iter(
+            [
+                SimpleNamespace(path="sub-mouse2/session/file.nwb"),
+                SimpleNamespace(path="sub-mouse1/file.nwb"),
+                SimpleNamespace(path="sub-mouse2/other/file.nwb"),
+                SimpleNamespace(path="sub-root.nwb"),
+                SimpleNamespace(path="other/file.nwb"),
+                SimpleNamespace(path="sub-/file.nwb"),
+            ]
+        ),
+    )
+
+    assert dandiset.get_subject_ids() == ["mouse1", "mouse2"]
+    get_assets.assert_called_once_with(order="path")
 
 
 def test_get_assets_by_glob(text_dandiset: SampleDandiset) -> None:
