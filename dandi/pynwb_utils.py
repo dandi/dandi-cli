@@ -527,11 +527,10 @@ def rename_nwb_external_files(metadata: list[dict], dandiset_path: str) -> None:
                             ext_file_dict["external_files_renamed"],
                         )
                     ):
-                        if not is_url(str(name_old)):
+                        reference = _external_reference_key(name_old)
+                        if not is_url(reference):
                             container.external_file[no] = str(name_new)
-                            pose_video_renames[_external_reference_key(name_old)] = str(
-                                name_new
-                            )
+                            pose_video_renames[reference] = str(name_new)
                 _rename_pose_estimation_original_videos(nwb, pose_video_renames)
         if external_images:
             _rename_external_images(dandiset_nwbfile_path, external_images)
@@ -565,9 +564,10 @@ def _rename_pose_estimation_original_videos(
         if original_videos is None or isinstance(original_videos, (str, bytes)):
             continue
         for no, name_old in enumerate(original_videos):
-            if is_url(str(name_old)):
+            reference = _external_reference_key(name_old)
+            if is_url(reference):
                 continue
-            if (name_new := renames.get(_external_reference_key(name_old))) is not None:
+            if (name_new := renames.get(reference)) is not None:
                 original_videos[no] = name_new
 
 
