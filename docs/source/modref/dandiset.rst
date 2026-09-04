@@ -4,8 +4,10 @@
 ==================
 
 This module provides the local Dandiset API.  A local Dandiset can report the
-subject labels represented by its top-level ``sub-*`` directories without
-opening or scanning the files within them:
+subject labels represented by populated, valid top-level ``sub-*`` directories.
+It walks directory entries to establish that a subject contains a file, but it
+does not open file contents. Empty and symlinked subject directories are
+ignored:
 
 .. code-block:: python
 

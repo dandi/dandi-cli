@@ -14,6 +14,12 @@ from dataclasses import dataclass
 from enum import Enum, StrEnum
 import os
 
+# Labels used in DANDI-organized subject and session path components.  Keep
+# these expressions here so path discovery and path validation use the same
+# syntax.
+DANDI_LABEL_REGEX = r"[^_*\\/<>:|\"'?%@;.]+"
+DANDI_SUBJECT_FOLDER_REGEX = rf"sub-{DANDI_LABEL_REGEX}"
+
 #: A list of metadata fields which dandi extracts from .nwb files.
 #: Additional fields (such as ``number_of_*``) might be added by
 #: `get_metadata()`

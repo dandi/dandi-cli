@@ -38,7 +38,9 @@ You can see more usages of DANDI API to assist with data streaming at
 
 To discover the subject labels represented by a remote Dandiset, use
 ``RemoteDandiset.get_subject_ids()``.  It streams asset paths ordered by path
-and does not download asset payloads or metadata:
+and does not download asset payloads or metadata.  This is an ``O(number of
+assets)`` operation because the Archive does not currently provide distinct
+top-level path prefixes:
 
 .. code-block:: python
 
