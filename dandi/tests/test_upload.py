@@ -319,7 +319,9 @@ def test_upload_warns_for_unrecognized_paths(
     new_dandiset: SampleDandiset,
     simple2_nwb: Path,
 ) -> None:
-    copyfile(simple2_nwb, new_dandiset.dspath / "sub-01.nwb")
+    subject_dir = new_dandiset.dspath / "sub-01"
+    subject_dir.mkdir()
+    copyfile(simple2_nwb, subject_dir / "sub-01.nwb")
     (new_dandiset.dspath / "sidecar.json").write_text("{}")
     (new_dandiset.dspath / "notes").mkdir()
     (new_dandiset.dspath / "notes" / "readme.txt").write_text("notes")
@@ -338,7 +340,9 @@ def test_upload_partial_does_not_warn_for_unrequested_paths(
     new_dandiset: SampleDandiset,
     simple2_nwb: Path,
 ) -> None:
-    nwb_path = new_dandiset.dspath / "sub-01.nwb"
+    subject_dir = new_dandiset.dspath / "sub-01"
+    subject_dir.mkdir()
+    nwb_path = subject_dir / "sub-01.nwb"
     copyfile(simple2_nwb, nwb_path)
     (new_dandiset.dspath / "sidecar.json").write_text("{}")
 
@@ -365,7 +369,9 @@ def test_upload_omission_warning_survives_upload_error(
     new_dandiset: SampleDandiset,
     simple2_nwb: Path,
 ) -> None:
-    copyfile(simple2_nwb, new_dandiset.dspath / "sub-01.nwb")
+    subject_dir = new_dandiset.dspath / "sub-01"
+    subject_dir.mkdir()
+    copyfile(simple2_nwb, subject_dir / "sub-01.nwb")
     (new_dandiset.dspath / "sidecar.json").write_text("{}")
     mocker.patch.object(
         LocalFileAsset, "iter_upload", side_effect=UploadError("upload failed")
