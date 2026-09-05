@@ -12,7 +12,7 @@ files that can be uploaded as assets to DANDI Archive.
 from __future__ import annotations
 
 from collections import deque
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 import os.path
 from pathlib import Path
 
@@ -66,9 +66,12 @@ __all__ = [
     "dandi_file",
     "find_dandi_files",
     "find_bids_dataset_description",
+    "find_unused_paths",
 ]
 
 lgr = get_logger()
+
+_IGNORED_UPLOAD_PATH_NAMES = {"__MACOSX", "Thumbs.db"}
 
 
 def find_dandi_files(
@@ -159,6 +162,89 @@ def find_dandi_files(
                 pass
             else:
                 yield df
+
+
+def find_unused_paths(
+    paths: Iterable[str | Path],
+    used_paths: Iterable[str | Path],
+    *,
+    dandiset_path: str | Path,
+) -> list[Path]:
+    """Find requested files and directories omitted by DANDI discovery.
+
+    ``used_paths`` should contain the paths yielded by :func:`find_dandi_files`.
+    Unknown files are reported individually when a requested directory also
+    contains a recognized asset.  If a requested directory contains no
+    recognized assets, the directory itself is reported once.  Dot-prefixed
+    paths, the root ``dandiset.yaml`` file, empty directories, and symlinked
+    directories are treated as intentionally ignored.
+    """
+
+    root = Path(os.path.normcase(os.path.abspath(dandiset_path)))
+
+    def normalize(path: str | Path) -> Path:
+        normalized = Path(os.path.normcase(os.path.abspath(path)))
+        try:
+            normalized.relative_to(root)
+        except ValueError:
+            raise ValueError(
+                f"Path {str(normalized)!r} is not inside Dandiset path {str(root)!r}"
+            ) from None
+        return normalized
+
+    requested_paths = [normalize(path) for path in paths]
+    used = {
+        normalized
+        for path in used_paths
+        if (normalized := normalize(path)) != root / dandiset_metadata_file
+    }
+
+    def is_ignored(path: Path) -> bool:
+        relative = path.relative_to(root)
+        return (
+            any(part.startswith(".") for part in relative.parts)
+            or any(part in _IGNORED_UPLOAD_PATH_NAMES for part in relative.parts)
+            or path == root / dandiset_metadata_file
+        )
+
+    def scan(path: Path) -> tuple[list[Path], bool, bool]:
+        """Return omitted roots, recognized-path, and content flags."""
+
+        if path == root / dandiset_metadata_file:
+            return [], False, False
+        if path in used:
+            return [], True, True
+        if is_ignored(path):
+            return [], False, False
+        if path.is_symlink() and path.is_dir():
+            return [], False, False
+        if not path.is_dir():
+            if not path.exists() and not path.is_symlink():
+                return [], False, False
+            return [path], False, True
+
+        children = list(path.iterdir())
+        omitted: list[Path] = []
+        found_used = False
+        found_content = False
+        for child in children:
+            child_omitted, child_found_used, child_has_content = scan(child)
+            found_used |= child_found_used
+            found_content |= child_has_content
+            omitted.extend(child_omitted)
+
+        if found_used:
+            return omitted, True, found_content
+        if found_content:
+            return [path], False, True
+        return [], False, False
+
+    unused: set[Path] = set()
+    for path in requested_paths:
+        omitted, _found_used, _found_content = scan(path)
+        unused.update(omitted)
+
+    return sorted(unused, key=lambda path: path.relative_to(root).as_posix())
 
 
 def dandi_file(

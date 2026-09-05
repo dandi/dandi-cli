@@ -314,6 +314,77 @@ def test_upload_bids_non_nwb_file(bids_dandiset: SampleDandiset) -> None:
     assert [asset.path for asset in bids_dandiset.dandiset.get_assets()] == ["README"]
 
 
+def test_upload_warns_for_unrecognized_paths(
+    caplog: pytest.LogCaptureFixture,
+    new_dandiset: SampleDandiset,
+    simple2_nwb: Path,
+) -> None:
+    subject_dir = new_dandiset.dspath / "sub-01"
+    subject_dir.mkdir()
+    copyfile(simple2_nwb, subject_dir / "sub-01.nwb")
+    (new_dandiset.dspath / "sidecar.json").write_text("{}")
+    (new_dandiset.dspath / "notes").mkdir()
+    (new_dandiset.dspath / "notes" / "readme.txt").write_text("notes")
+
+    with caplog.at_level("WARNING", logger="dandi"):
+        new_dandiset.upload()
+
+    assert (
+        "2 paths were not uploaded because they were not recognized as DANDI assets: "
+        "notes, sidecar.json"
+    ) in caplog.text
+
+
+def test_upload_partial_does_not_warn_for_unrequested_paths(
+    caplog: pytest.LogCaptureFixture,
+    new_dandiset: SampleDandiset,
+    simple2_nwb: Path,
+) -> None:
+    subject_dir = new_dandiset.dspath / "sub-01"
+    subject_dir.mkdir()
+    nwb_path = subject_dir / "sub-01.nwb"
+    copyfile(simple2_nwb, nwb_path)
+    (new_dandiset.dspath / "sidecar.json").write_text("{}")
+
+    with caplog.at_level("WARNING", logger="dandi"):
+        new_dandiset.upload(paths=[nwb_path])
+
+    assert "were not uploaded because they were not recognized" not in caplog.text
+
+
+def test_upload_allow_any_path_suppresses_omission_warning(
+    caplog: pytest.LogCaptureFixture, new_dandiset: SampleDandiset
+) -> None:
+    (new_dandiset.dspath / "notes.txt").write_text("notes")
+
+    with caplog.at_level("WARNING", logger="dandi"):
+        new_dandiset.upload(allow_any_path=True)
+
+    assert "were not uploaded because they were not recognized" not in caplog.text
+
+
+def test_upload_omission_warning_survives_upload_error(
+    caplog: pytest.LogCaptureFixture,
+    mocker: MockerFixture,
+    new_dandiset: SampleDandiset,
+    simple2_nwb: Path,
+) -> None:
+    subject_dir = new_dandiset.dspath / "sub-01"
+    subject_dir.mkdir()
+    copyfile(simple2_nwb, subject_dir / "sub-01.nwb")
+    (new_dandiset.dspath / "sidecar.json").write_text("{}")
+    mocker.patch.object(
+        LocalFileAsset, "iter_upload", side_effect=UploadError("upload failed")
+    )
+
+    with caplog.at_level("WARNING", logger="dandi"), pytest.raises(
+        UploadError, match="upload failed"
+    ):
+        new_dandiset.upload()
+
+    assert "1 path was not uploaded because it was not recognized" in caplog.text
+
+
 @sweep_embargo
 def test_upload_sync_zarr(
     mocker: MockerFixture, zarr_dandiset: SampleDandiset, embargo: bool
