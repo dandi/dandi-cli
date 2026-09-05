@@ -479,10 +479,12 @@ def upload(
             relpaths = [
                 path.relative_to(dandiset.path).as_posix() for path in omitted_paths
             ]
+            verb = "was" if len(relpaths) == 1 else "were"
             lgr.warning(
-                "%s were not uploaded because they were not recognized as DANDI "
+                "%s %s not uploaded because they were not recognized as DANDI "
                 "assets: %s. Review the paths or use --allow-any-path if intentional.",
                 pluralize(len(relpaths), "path"),
+                verb,
                 ", ".join(relpaths[:10]) + (", ..." if len(relpaths) > 10 else ""),
             )
             lgr.debug("Complete list of paths not uploaded: %s", ", ".join(relpaths))
