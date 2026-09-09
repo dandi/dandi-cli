@@ -238,6 +238,32 @@ def test_find_unused_paths_ignores_symlinked_directory(tmp_path: Path) -> None:
     assert find_unused_paths([symlink], [], dandiset_path=tmp_path) == []
 
 
+@pytest.mark.ai_generated
+def test_find_unused_paths_handles_missing_and_ignored_entries(tmp_path: Path) -> None:
+    """Only existing, user-visible paths should be reported as omitted."""
+    (tmp_path / dandiset_metadata_file).touch()
+    visible = tmp_path / "notes.txt"
+    visible.write_text("notes")
+    missing = tmp_path / "not-created.txt"
+    hidden = tmp_path / ".hidden.txt"
+    hidden.touch()
+
+    assert find_unused_paths(
+        [visible, missing, hidden, tmp_path / dandiset_metadata_file],
+        [],
+        dandiset_path=tmp_path,
+    ) == [visible]
+
+
+@pytest.mark.ai_generated
+def test_find_unused_paths_rejects_paths_outside_dandiset(tmp_path: Path) -> None:
+    outside = tmp_path.parent / "outside.txt"
+    outside.touch()
+
+    with pytest.raises(ValueError, match="not inside Dandiset path"):
+        find_unused_paths([outside], [], dandiset_path=tmp_path)
+
+
 def test_find_dandi_files_with_bids(tmp_path: Path) -> None:
     mkpaths(
         tmp_path,
