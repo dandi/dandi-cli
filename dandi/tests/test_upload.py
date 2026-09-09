@@ -314,6 +314,7 @@ def test_upload_bids_non_nwb_file(bids_dandiset: SampleDandiset) -> None:
     assert [asset.path for asset in bids_dandiset.dandiset.get_assets()] == ["README"]
 
 
+@pytest.mark.ai_generated
 def test_upload_warns_for_unrecognized_paths(
     caplog: pytest.LogCaptureFixture,
     new_dandiset: SampleDandiset,
@@ -335,6 +336,7 @@ def test_upload_warns_for_unrecognized_paths(
     ) in caplog.text
 
 
+@pytest.mark.ai_generated
 def test_upload_partial_does_not_warn_for_unrequested_paths(
     caplog: pytest.LogCaptureFixture,
     new_dandiset: SampleDandiset,
@@ -352,6 +354,7 @@ def test_upload_partial_does_not_warn_for_unrequested_paths(
     assert "were not uploaded because they were not recognized" not in caplog.text
 
 
+@pytest.mark.ai_generated
 def test_upload_allow_any_path_suppresses_omission_warning(
     caplog: pytest.LogCaptureFixture, new_dandiset: SampleDandiset
 ) -> None:
@@ -363,6 +366,7 @@ def test_upload_allow_any_path_suppresses_omission_warning(
     assert "were not uploaded because they were not recognized" not in caplog.text
 
 
+@pytest.mark.ai_generated
 def test_upload_omission_warning_survives_upload_error(
     caplog: pytest.LogCaptureFixture,
     mocker: MockerFixture,
