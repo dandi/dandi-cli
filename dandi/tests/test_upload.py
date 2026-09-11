@@ -351,7 +351,7 @@ def test_upload_partial_does_not_warn_for_unrequested_paths(
     with caplog.at_level("WARNING", logger="dandi"):
         new_dandiset.upload(paths=[nwb_path])
 
-    assert "were not uploaded because they were not recognized" not in caplog.text
+    assert "not recognized as DANDI assets" not in caplog.text
 
 
 @pytest.mark.ai_generated
@@ -363,7 +363,7 @@ def test_upload_allow_any_path_suppresses_omission_warning(
     with caplog.at_level("WARNING", logger="dandi"):
         new_dandiset.upload(allow_any_path=True)
 
-    assert "were not uploaded because they were not recognized" not in caplog.text
+    assert "not recognized as DANDI assets" not in caplog.text
 
 
 @pytest.mark.ai_generated
