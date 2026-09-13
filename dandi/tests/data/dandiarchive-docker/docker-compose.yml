@@ -75,7 +75,7 @@ services:
         hard: 3000
 
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     # When run with a TTY, minio prints credentials on startup
     tty: true
     command: ["server", "/data"]
