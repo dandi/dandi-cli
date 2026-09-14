@@ -9,12 +9,13 @@ import weakref
 
 from dandi.consts import (
     BIDS_DATASET_DESCRIPTION,
+    IMAGE_FILE_EXTENSIONS,
     VIDEO_FILE_EXTENSIONS,
     ZARR_EXTENSIONS,
 )
 from dandi.exceptions import UnknownAssetError
 
-from .bases import DandiFile, GenericAsset, LocalAsset, NWBAsset, VideoAsset
+from .bases import DandiFile, GenericAsset, ImageAsset, LocalAsset, NWBAsset, VideoAsset
 from .bids import (
     BIDSAsset,
     BIDSDatasetDescriptionAsset,
@@ -33,6 +34,7 @@ class DandiFileType(Enum):
     VIDEO = 3
     GENERIC = 4
     BIDS_DATASET_DESCRIPTION = 5
+    IMAGE = 6
 
     @staticmethod
     def classify(path: Path) -> DandiFileType:
@@ -50,6 +52,8 @@ class DandiFileType(Enum):
             return DandiFileType.NWB
         elif path.suffix in VIDEO_FILE_EXTENSIONS:
             return DandiFileType.VIDEO
+        elif path.suffix in IMAGE_FILE_EXTENSIONS:
+            return DandiFileType.IMAGE
         else:
             return DandiFileType.GENERIC
 
@@ -61,6 +65,7 @@ class DandiFileFactory:
         DandiFileType.NWB: NWBAsset,
         DandiFileType.ZARR: ZarrAsset,
         DandiFileType.VIDEO: VideoAsset,
+        DandiFileType.IMAGE: ImageAsset,
         DandiFileType.GENERIC: GenericAsset,
         DandiFileType.BIDS_DATASET_DESCRIPTION: BIDSDatasetDescriptionAsset,
     }
@@ -83,6 +88,7 @@ class BIDSFileFactory(DandiFileFactory):
         DandiFileType.NWB: NWBBIDSAsset,
         DandiFileType.ZARR: ZarrBIDSAsset,
         DandiFileType.VIDEO: GenericBIDSAsset,
+        DandiFileType.IMAGE: GenericBIDSAsset,
         DandiFileType.GENERIC: GenericBIDSAsset,
     }
 

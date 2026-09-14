@@ -75,7 +75,11 @@ services:
         hard: 3000
 
   minio:
-    image: minio/minio:latest
+    # MinIO deleted the `minio/minio` Docker Hub repository in September 2026.
+    # Quay still serves the archived community images, but they are frozen:
+    # `latest` there is RELEASE.2025-09-07T16-13-09Z and will never move again,
+    # so pin it explicitly rather than pretend it tracks anything.
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     # When run with a TTY, minio prints credentials on startup
     tty: true
     command: ["server", "/data"]

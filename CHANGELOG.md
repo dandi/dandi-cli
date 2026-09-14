@@ -1,3 +1,48 @@
+# 0.78.0 (Fri Aug 28 2026)
+
+#### 🚀 Enhancement
+
+- Organize and upload images referenced by NWB files with `ExternalImage` [#1905](https://github.com/dandi/dandi-cli/pull/1905) ([@h-mayorquin](https://github.com/h-mayorquin) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🐛 Bug Fix
+
+- Tolerate the filesystem's mtime granularity in `download -e refresh` [#1910](https://github.com/dandi/dandi-cli/pull/1910) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Stop using deprecated Click test/version APIs [#1906](https://github.com/dandi/dandi-cli/pull/1906) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Point failed uploads to validation report [#1896](https://github.com/dandi/dandi-cli/pull/1896) ([@AtomicGlance](https://github.com/AtomicGlance))
+
+#### Authors: 4
+
+- Amirali Moradniaei ([@AtomicGlance](https://github.com/AtomicGlance))
+- Claude ([@claude](https://github.com/claude))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Heberto Mayorquin ([@h-mayorquin](https://github.com/h-mayorquin))
+
+---
+
+# 0.77.0 (Sat Aug 08 2026)
+
+#### 🚀 Enhancement
+
+- Make a SpeciesRecord dataclass for species_map records [#1899](https://github.com/dandi/dandi-cli/pull/1899) ([@adityasingh2400](https://github.com/adityasingh2400))
+- Downgrade outgoing metadata to server's schema version on upload [#1898](https://github.com/dandi/dandi-cli/pull/1898) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 📝 Documentation
+
+- docs: expand DEVELOPMENT.md with architecture and testing guide [#1902](https://github.com/dandi/dandi-cli/pull/1902) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 🧪 Tests
+
+- Add py3-lowest tox env and CI mode; tighten dependency lower bounds [#1897](https://github.com/dandi/dandi-cli/pull/1897) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 4
+
+- Aditya Singh ([@adityasingh2400](https://github.com/adityasingh2400))
+- Claude ([@claude](https://github.com/claude))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.76.8 (Tue Jul 28 2026)
 
 #### 📝 Documentation

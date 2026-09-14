@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 from datetime import datetime, timedelta
 from itertools import chain
 import json
@@ -45,6 +46,8 @@ from ..dandiapi import RemoteBlobAsset
 from ..metadata.core import prepare_metadata
 from ..metadata.nwb import get_metadata, nwb2asset
 from ..metadata.util import (
+    SPECIES_NAME_SEPARATOR,
+    SpeciesRecord,
     extract_age,
     extract_cellLine,
     extract_species,
@@ -845,18 +848,133 @@ def test_species_extract_unknown(species):
     assert str(excinfo.value).startswith(f"Cannot interpret species field: {species}")
 
 
-@pytest.mark.parametrize("common_names,prefix,uri,name", species_map)
-def test_species_map(common_names, prefix, uri, name):
+@pytest.mark.parametrize("record", species_map, ids=lambda r: r.scientific_name)
+def test_species_map(record: SpeciesRecord) -> None:
     # all alternative names should be in lower case
-    for key in common_names:
+    for key in record.common_names:
         assert key.lower() == key
-    assert " - " in name
+    assert SPECIES_NAME_SEPARATOR in record.name
     # verify that feeding a full "standard" name matches the correct one
-    for species in chain(name.split(" - "), common_names):
+    for species in chain(
+        [record.scientific_name, record.genbank_common_name], record.common_names
+    ):
         species_rec = extract_species({"species": species})
         assert species_rec
-        assert str(species_rec.identifier) == uri
-        assert species_rec.name == name
+        assert str(species_rec.identifier) == record.uri
+        assert species_rec.name == record.name
+
+
+@pytest.mark.ai_generated
+def test_species_map_entries_are_records() -> None:
+    assert species_map
+    for record in species_map:
+        assert isinstance(record, SpeciesRecord)
+        assert isinstance(record.common_names, tuple)
+        # Lock in the eq/hash contract with two distinct but equal instances.
+        # `hash(record) == hash(record)` could only fail by raising, and
+        # `extract_species` de-duplicates `(uri, name)` string tuples rather
+        # than records, so it does not depend on records being hashable.
+        copy = dataclasses.replace(record)
+        assert copy is not record
+        assert copy == record and hash(copy) == hash(record)
+
+
+@pytest.mark.ai_generated
+def test_species_record_name_halves() -> None:
+    record = SpeciesRecord(
+        ("pig-tailed macaque",),
+        None,
+        "9545",
+        "Macaca nemestrina - Pig-tailed macaque",
+    )
+    assert record.scientific_name == "Macaca nemestrina"
+    assert record.genbank_common_name == "Pig-tailed macaque"
+
+
+@pytest.mark.ai_generated
+@pytest.mark.parametrize(
+    "kwargs,match",
+    [
+        (
+            {"common_names": ("Mouse",)},
+            "Common name 'Mouse' .* must be lower-cased",
+        ),
+        (
+            {"prefix": "Mus"},
+            "Prefix 'Mus' .* must be lower-cased",
+        ),
+        (
+            {"taxon_id": "abc"},
+            "Taxon id 'abc' .* must be numeric",
+        ),
+        (
+            {"taxon_id": ""},
+            "Taxon id '' .* must be numeric",
+        ),
+        (
+            {"name": "Mus musculus"},
+            "must be formatted as",
+        ),
+        # An empty prefix starts every value, so the record would match every
+        # lookup and break every other one.
+        (
+            {"prefix": ""},
+            "Prefix of .* must not be empty",
+        ),
+        (
+            {"common_names": ("",)},
+            "Common name of .* must not be empty",
+        ),
+    ],
+)
+def test_species_record_rejects_malformed_entry(
+    kwargs: dict[str, Any], match: str
+) -> None:
+    good = {
+        "common_names": ("mouse",),
+        "prefix": "mus",
+        "taxon_id": "10090",
+        "name": "Mus musculus - House mouse",
+    }
+    with pytest.raises(ValueError, match=match):
+        SpeciesRecord(**{**good, **kwargs})
+
+
+@pytest.mark.ai_generated
+def test_species_record_rejects_non_tuple_common_names() -> None:
+    """A dropped trailing comma leaves a `str`, which must not be accepted.
+
+    Iterating it yields lower-cased characters, so every other check passes and
+    each letter of the name would match this species while the name itself
+    stops resolving.
+    """
+    with pytest.raises(TypeError, match="must be a tuple, got str"):
+        SpeciesRecord(
+            "mouse",  # type: ignore[arg-type]
+            "mus",
+            "10090",
+            "Mus musculus - House mouse",
+        )
+
+
+@pytest.mark.ai_generated
+def test_species_record_matching_methods() -> None:
+    """The two methods the refactor exists to create, exercised directly."""
+    record = SpeciesRecord(("mouse",), "mus", "10090", "Mus musculus - House mouse")
+
+    assert record.matches_name("mus musculus - house mouse")
+    assert record.matches_name("mus musculus")
+    assert record.matches_name("house mouse")
+    # The prefix branch is deliberately broad, which is worth writing down.
+    assert record.matches_name("mushroom")
+    assert not record.matches_name("rattus norvegicus")
+
+    assert record.matches_common_name("mouse")
+    assert not record.matches_common_name("rat")
+
+    # Both methods normalize, so an un-normalized caller gets the right answer.
+    assert record.matches_name("  Mus Musculus  ")
+    assert record.matches_common_name("  Mouse  ")
 
 
 @pytest.mark.parametrize(

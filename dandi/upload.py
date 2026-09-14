@@ -38,7 +38,7 @@ from .consts import (
 )
 from .dandiapi import DandiAPIClient, RemoteAsset
 from .dandiset import Dandiset
-from .exceptions import NotFoundError, UploadError
+from .exceptions import NotFoundError, UploadError, UploadValidationError
 from .files import (
     DandiFile,
     DandisetMetadataFile,
@@ -318,7 +318,7 @@ def upload(
                             for i, e in enumerate(validation_errors, start=1):
                                 lgr.warning(" Error %d: %s", i, e)
                             validate_ok = False
-                            raise UploadError("failed validation")
+                            raise UploadValidationError("failed validation")
                     else:
                         yield {"status": "validated"}
                 else:
@@ -451,7 +451,18 @@ def upload(
             style=pyout_style, columns=rec_fields, max_workers=jobs or 5
         )
 
-        with out:
+        def report_validation_failure() -> None:
+            if not validate_ok:
+                msg = "One or more assets failed validation."
+                if validation_log_path is not None:
+                    msg += (
+                        f" Use `dandi validate --load {validation_log_path}`"
+                        " to review the saved results."
+                    )
+                lgr.warning(msg)
+
+        with ExitStack() as warning_stack, out:
+            warning_stack.callback(report_validation_failure)
             for dfile in dandi_files:
                 while len(process_paths) >= 10:
                     lgr.log(2, "Sleep waiting for some paths to finish processing")
@@ -476,12 +487,6 @@ def upload(
                 except ValueError as exc:
                     rec.update(error_file(exc))
                 out(rec)
-
-        if not validate_ok:
-            lgr.warning(
-                "One or more assets failed validation.  Consult the logfile for"
-                " details."
-            )
         if upload_err is not None:
             try:
                 import etelemetry
