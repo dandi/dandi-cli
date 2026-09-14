@@ -1,3 +1,30 @@
+# 0.79.0 (Mon Sep 14 2026)
+
+#### 🚀 Enhancement
+
+- Preserve legacy ndx-pose video references during organize [#1916](https://github.com/dandi/dandi-cli/pull/1916) ([@AtomicGlance](https://github.com/AtomicGlance))
+
+#### 🐛 Bug Fix
+
+- Say why metadata failed to load and how to see the tracebacks [#1901](https://github.com/dandi/dandi-cli/pull/1901) ([@adityasingh2400](https://github.com/adityasingh2400) [@yarikoptic](https://github.com/yarikoptic))
+- Match media file extensions case-insensitively [#1911](https://github.com/dandi/dandi-cli/pull/1911) ([@h-mayorquin](https://github.com/h-mayorquin) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Pull MinIO from Quay: `minio/minio` was deleted from Docker Hub [#1921](https://github.com/dandi/dandi-cli/pull/1921) ([@AtomicGlance](https://github.com/AtomicGlance) [@yarikoptic](https://github.com/yarikoptic) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Fix two recurring CI failures in daily scheduled runs [#1914](https://github.com/dandi/dandi-cli/pull/1914) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 6
+
+- Aditya Singh ([@adityasingh2400](https://github.com/adityasingh2400))
+- Amirali Moradniaei ([@AtomicGlance](https://github.com/AtomicGlance))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Heberto Mayorquin ([@h-mayorquin](https://github.com/h-mayorquin))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.78.0 (Fri Aug 28 2026)
 
 #### 🚀 Enhancement
