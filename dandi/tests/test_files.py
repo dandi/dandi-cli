@@ -30,7 +30,6 @@ from ..files import (
     ZarrBIDSAsset,
     dandi_file,
     find_dandi_files,
-    find_unused_paths,
 )
 
 lgr = get_logger()
@@ -184,84 +183,6 @@ def test_find_dandi_files(tmp_path: Path) -> None:
             dandiset_path=tmp_path,
         ),
     ]
-
-
-def test_find_unused_paths(tmp_path: Path) -> None:
-    (tmp_path / dandiset_metadata_file).touch()
-    (tmp_path / "known.nwb").touch()
-    (tmp_path / "unknown.txt").touch()
-    (tmp_path / "unknown-dir").mkdir()
-    (tmp_path / "unknown-dir" / "file.txt").touch()
-    (tmp_path / "mixed").mkdir()
-    (tmp_path / "mixed" / "known.nwb").touch()
-    (tmp_path / "mixed" / "sidecar.json").touch()
-    (tmp_path / "sample.zarr").mkdir()
-    (tmp_path / "sample.zarr" / "chunk").touch()
-    (tmp_path / "empty").mkdir()
-    (tmp_path / ".hidden").mkdir()
-    (tmp_path / ".hidden" / "secret.nwb").touch()
-    (tmp_path / "__MACOSX").mkdir()
-    (tmp_path / "__MACOSX" / "._known.nwb").touch()
-    (tmp_path / "Thumbs.db").touch()
-
-    unused = find_unused_paths(
-        [tmp_path],
-        [
-            tmp_path / dandiset_metadata_file,
-            tmp_path / "known.nwb",
-            tmp_path / "mixed" / "known.nwb",
-            tmp_path / "sample.zarr",
-        ],
-        dandiset_path=tmp_path,
-    )
-
-    assert [path.relative_to(tmp_path).as_posix() for path in unused] == [
-        "mixed/sidecar.json",
-        "unknown-dir",
-        "unknown.txt",
-    ]
-    assert find_unused_paths(
-        [tmp_path / "mixed"], [tmp_path / "mixed" / "known.nwb"], dandiset_path=tmp_path
-    ) == [tmp_path / "mixed" / "sidecar.json"]
-
-
-def test_find_unused_paths_ignores_symlinked_directory(tmp_path: Path) -> None:
-    target = tmp_path / "outside"
-    target.mkdir()
-    (target / "omitted.txt").touch()
-    symlink = tmp_path / "linked"
-    try:
-        symlink.symlink_to(target, target_is_directory=True)
-    except OSError as exc:
-        pytest.skip(f"cannot create directory symlink: {exc}")
-
-    assert find_unused_paths([symlink], [], dandiset_path=tmp_path) == []
-
-
-@pytest.mark.ai_generated
-def test_find_unused_paths_handles_missing_and_ignored_entries(tmp_path: Path) -> None:
-    """Only existing, user-visible paths should be reported as omitted."""
-    (tmp_path / dandiset_metadata_file).touch()
-    visible = tmp_path / "notes.txt"
-    visible.write_text("notes")
-    missing = tmp_path / "not-created.txt"
-    hidden = tmp_path / ".hidden.txt"
-    hidden.touch()
-
-    assert find_unused_paths(
-        [visible, missing, hidden, tmp_path / dandiset_metadata_file],
-        [],
-        dandiset_path=tmp_path,
-    ) == [visible]
-
-
-@pytest.mark.ai_generated
-def test_find_unused_paths_rejects_paths_outside_dandiset(tmp_path: Path) -> None:
-    outside = tmp_path.parent / "outside.txt"
-    outside.touch()
-
-    with pytest.raises(ValueError, match="not inside Dandiset path"):
-        find_unused_paths([outside], [], dandiset_path=tmp_path)
 
 
 def test_find_dandi_files_with_bids(tmp_path: Path) -> None:

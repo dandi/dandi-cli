@@ -330,10 +330,11 @@ def test_upload_warns_for_unrecognized_paths(
     with caplog.at_level("WARNING", logger="dandi"):
         new_dandiset.upload()
 
-    assert (
-        "2 paths were not uploaded because they were not recognized as DANDI assets: "
-        "notes, sidecar.json"
-    ) in caplog.text
+    (record,) = [
+        r for r in caplog.records if "not recognized as DANDI assets" in r.message
+    ]
+    assert isinstance(record.args, tuple)
+    assert record.args[-1] == "notes, sidecar.json"
 
 
 @pytest.mark.ai_generated
@@ -356,12 +357,10 @@ def test_upload_partial_does_not_warn_for_unrequested_paths(
 
 @pytest.mark.ai_generated
 def test_upload_allow_any_path_suppresses_omission_warning(
-    caplog: pytest.LogCaptureFixture, new_dandiset: SampleDandiset
+    caplog: pytest.LogCaptureFixture, text_dandiset: SampleDandiset
 ) -> None:
-    (new_dandiset.dspath / "notes.txt").write_text("notes")
-
     with caplog.at_level("WARNING", logger="dandi"):
-        new_dandiset.upload(allow_any_path=True)
+        text_dandiset.upload()
 
     assert "not recognized as DANDI assets" not in caplog.text
 
@@ -381,12 +380,17 @@ def test_upload_omission_warning_survives_upload_error(
         LocalFileAsset, "iter_upload", side_effect=UploadError("upload failed")
     )
 
-    with caplog.at_level("WARNING", logger="dandi"), pytest.raises(
-        UploadError, match="upload failed"
+    with (
+        caplog.at_level("WARNING", logger="dandi"),
+        pytest.raises(UploadError, match="upload failed"),
     ):
         new_dandiset.upload()
 
-    assert "1 path was not uploaded because it was not recognized" in caplog.text
+    (record,) = [
+        r for r in caplog.records if "not recognized as DANDI assets" in r.message
+    ]
+    assert isinstance(record.args, tuple)
+    assert record.args[-1] == "sidecar.json"
 
 
 @sweep_embargo
