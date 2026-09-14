@@ -15,7 +15,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from fnmatch import fnmatchcase
@@ -52,7 +52,7 @@ from .consts import (
 )
 from .exceptions import HTTP404Error, NotFoundError, SchemaVersionError
 from .keyring_utils import keyring_lookup, keyring_save
-from .misctypes import Digest, RemoteReadableAsset
+from .misctypes import BasePath, Digest, RemoteReadableAsset
 from .utils import (
     USER_AGENT,
     check_dandi_version,
@@ -63,7 +63,6 @@ from .utils import (
     is_interactive,
     is_page2_url,
     joinurl,
-    parse_dandi_subject_dirname,
 )
 
 if TYPE_CHECKING:
@@ -1427,28 +1426,19 @@ class RemoteDandiset:
                 f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
             )
 
-    def get_subject_ids(self) -> list[str]:
-        """Return sorted subject identifiers from top-level ``sub-*`` asset paths.
+    def get_path(self, path: str = "") -> RemoteDandisetPath:
+        """Return a lazy path for browsing this version's asset directories.
 
-        The Archive's path endpoint returns the immediate children of the
-        Dandiset root, so discovery does not require listing every asset.
-        Asset payloads and metadata are not downloaded.
+        Listing a directory uses the paginated `/assets/paths/` endpoint.
+        Listed children retain their type, recursive count and size, so reading
+        those properties makes no further requests. An arbitrary unlisted path
+        requires a listing of its parent to determine whether it exists.
 
-        .. versionadded:: 0.79.0
+        Path objects cache listings; call this method again to see later changes.
+
+        .. versionadded:: 0.80.0
         """
-        try:
-            paths = self.client.paginate(f"{self.version_api_path}assets/paths/")
-            return sorted(
-                subject_id
-                for item in paths
-                if item["asset"] is None
-                if (subject_id := parse_dandi_subject_dirname(item["path"]))
-                is not None
-            )
-        except HTTP404Error:
-            raise NotFoundError(
-                f"No such version: {self.version_id!r} of Dandiset {self.identifier}"
-            )
+        return RemoteDandisetPath(parts=(), dandiset=self) / path
 
     def get_asset(self, asset_id: str) -> RemoteAsset:
         """
@@ -2374,3 +2364,120 @@ class ZarrEntryServerData(BaseModel):
     last_modified: datetime = Field(alias="LastModified")
     etag: str = Field(alias="ETag")
     size: int = Field(alias="Size")
+
+
+@dataclass
+class RemoteDandisetPath(BasePath):
+    """A cached view of an asset or virtual directory in a Dandiset version.
+
+    Zarr assets are leaves, just like blob assets. Their internal chunks are not
+    Dandiset children. Retrieving a full asset with `get_asset` makes a separate
+    request because the directory endpoint only supplies its identifier and URL.
+
+    .. versionadded:: 0.80.0
+    """
+
+    #: The Dandiset version containing this path.
+    dandiset: RemoteDandiset
+    _entry: dict[str, Any] | None = field(default=None, repr=False, compare=False)
+    _children: list[RemoteDandisetPath] | None = field(
+        default=None, repr=False, compare=False
+    )
+    _missing: bool = field(default=False, repr=False, compare=False)
+
+    def _get_subpath(self, name: str) -> RemoteDandisetPath:
+        if not name or "/" in name:
+            raise ValueError(f"Invalid path component: {name!r}")
+        if name == ".":
+            return self
+        if name == "..":
+            return self.parent
+        return type(self)(parts=(*self.parts, name), dandiset=self.dandiset)
+
+    @property
+    def parent(self) -> RemoteDandisetPath:
+        return type(self)(parts=self.parts[:-1], dandiset=self.dandiset)
+
+    def _list_entries(self, prefix: str) -> Iterator[dict[str, Any]]:
+        yield from self.dandiset.client.paginate(
+            f"{self.dandiset.version_api_path}assets/paths/",
+            params={"path_prefix": prefix},
+        )
+
+    def _resolve(self) -> dict[str, Any] | None:
+        if self._entry is None and not self._missing:
+            try:
+                if self.is_root():
+                    self._load_children()
+                    self._entry = {
+                        "asset": None,
+                        "aggregate_files": sum(
+                            c.aggregate_files for c in self._children or []
+                        ),
+                        "aggregate_size": sum(c.size for c in self._children or []),
+                    }
+                else:
+                    self._entry = next(
+                        (
+                            e
+                            for e in self._list_entries(str(self.parent))
+                            if e["path"] == str(self)
+                        ),
+                        None,
+                    )
+            except HTTP404Error:
+                self._missing = True
+            if self._entry is None:
+                self._missing = True
+        return self._entry
+
+    def _require_entry(self) -> dict[str, Any]:
+        entry = self._resolve()
+        if entry is None:
+            raise NotFoundError(f"No such Dandiset path: {str(self)!r}")
+        return entry
+
+    def exists(self) -> bool:
+        return self._resolve() is not None
+
+    def is_file(self) -> bool:
+        entry = self._resolve()
+        return entry is not None and entry["asset"] is not None
+
+    def is_dir(self) -> bool:
+        entry = self._resolve()
+        return entry is not None and entry["asset"] is None
+
+    def _load_children(self) -> None:
+        if self._children is None:
+            self._children = [
+                type(self)(
+                    parts=tuple(entry["path"].split("/")),
+                    dandiset=self.dandiset,
+                    _entry=entry,
+                )
+                for entry in self._list_entries(str(self))
+            ]
+
+    def iterdir(self) -> Iterator[RemoteDandisetPath]:
+        if self._require_entry()["asset"] is not None:
+            raise NotADirectoryError(str(self))
+        self._load_children()
+        yield from self._children or []
+
+    @property
+    def aggregate_files(self) -> int:
+        """The recursive number of assets under this path (one for an asset)."""
+        return int(self._require_entry()["aggregate_files"])
+
+    @property
+    def size(self) -> int:
+        """The recursive size in bytes, as reported by the Archive."""
+        return int(self._require_entry()["aggregate_size"])
+
+    def get_asset(self) -> RemoteAsset:
+        """Fetch the full asset record; directories raise IsADirectoryError."""
+        asset = self._require_entry()["asset"]
+        if asset is None:
+            raise IsADirectoryError(str(self))
+        return self.dandiset.get_asset(asset["asset_id"])

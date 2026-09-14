@@ -36,16 +36,6 @@ be passed to functions of pynwb etc.
 You can see more usages of DANDI API to assist with data streaming at
 `PyNWB: Streaming NWB files <https://pynwb.readthedocs.io/en/stable/tutorials/advanced_io/streaming.html>`_.
 
-To discover the subject labels represented by a remote Dandiset, use
-``RemoteDandiset.get_subject_ids()``.  It queries the Archive's efficient
-top-level path endpoint and does not download asset payloads or metadata:
-
-.. code-block:: python
-
-    with DandiAPIClient() as client:
-        dandiset = client.get_dandiset("000001")
-        print(dandiset.get_subject_ids())
-
 Client
 ------
 
@@ -58,6 +48,53 @@ Dandisets
 ---------
 
 .. autoclass:: RemoteDandiset()
+
+Browsing directories
+^^^^^^^^^^^^^^^^^^^^
+
+Use ``RemoteDandiset.get_path()`` to list one level without retrieving every asset:
+
+.. code-block:: python
+
+    with DandiAPIClient() as client:
+        root = client.get_dandiset("000026", "draft").get_path()
+        for entry in root.iterdir():
+            print(entry.name, entry.is_dir(), entry.aggregate_files, entry.size)
+
+The result follows the ``BasePath`` interface: ``/``, ``parent``, ``iterdir()``,
+``exists()``, ``is_file()``, ``is_dir()`` and ``size``. Both blob and Zarr assets
+are files in this tree; Zarr chunks are not children. Call ``entry.get_asset()``
+to retrieve the full asset record.
+
+Remote listing costs one paginated request sequence per directory. Listed
+children already contain recursive sizes and counts, so inspecting those
+properties does not fetch each asset. Resolving an arbitrary unlisted path
+requires listing its parent. A full asset record requires an additional request.
+Listings are cached on the path objects; create a new root to see later changes.
+Authorization and server errors propagate to the caller.
+
+For a local Dandiset, ``Dandiset(directory).get_path()`` provides the same path
+operations. It discovers all assets once using DANDI's existing discovery rules,
+including generic files. Empty directories, dot-prefixed paths and directory
+symlinks follow those rules; they are not additional assets. Metadata in
+``dandiset.yaml`` is not part of the asset tree. Local sizes are calculated from
+the files; remote sizes come from Archive aggregates.
+
+For organized Dandisets, path-derived subject IDs can be obtained as follows:
+
+.. code-block:: python
+
+    import re
+    from dandi.consts import ORGANIZED_FOLDER_REGEX
+
+    subjects = sorted(p.name[4:] for p in root.iterdir()
+                      if p.is_dir() and re.fullmatch(ORGANIZED_FOLDER_REGEX, p.name))
+
+This recipe does not inspect NWB metadata or BIDS participants tables. Directory
+names do not necessarily describe every dataset's scientific subjects.
+
+.. autoclass:: RemoteDandisetPath()
+    :show-inheritance:
 
 .. autoclass:: Version()
     :inherited-members: BaseModel

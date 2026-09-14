@@ -32,7 +32,6 @@ Object-oriented interfaces to manipulate Dandisets and assets on a DANDI instanc
 .. toctree::
 
    dandiarchive
-   dandiset
 
 Low-level user interfaces
 =========================
