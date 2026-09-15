@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlsplit
@@ -97,7 +98,7 @@ def _entry(path: str, count: int, size: int, asset: Any = None) -> dict:
     }
 
 
-def _query_matcher(expected: dict[str, str]):
+def _query_matcher(expected: dict[str, str]) -> Callable[[Any], tuple[bool, str]]:
     """Match the raw query so empty values work with all supported responses versions."""
 
     def match(request: Any) -> tuple[bool, str]:
