@@ -49,6 +49,40 @@ Dandisets
 
 .. autoclass:: RemoteDandiset()
 
+Browsing directories
+^^^^^^^^^^^^^^^^^^^^
+
+Use ``RemoteDandiset.get_path()`` to list one level without retrieving every asset:
+
+.. code-block:: python
+
+    with DandiAPIClient() as client:
+        root = client.get_dandiset("000026", "draft").get_path()
+        for entry in root.iterdir():
+            print(entry.name, entry.is_dir(), entry.aggregate_files, entry.size)
+
+The result follows the ``BasePath`` interface: ``/``, ``parent``, ``iterdir()``,
+``exists()``, ``is_file()``, ``is_dir()`` and ``size``. Both blob and Zarr assets
+are files in this tree; Zarr chunks are not children. Call ``entry.get_asset()``
+to retrieve the full asset record.
+
+Remote listing costs one paginated request sequence per directory. Listed
+children already contain recursive sizes and counts, so inspecting those
+properties does not fetch each asset. Resolving an arbitrary unlisted path
+requires listing its parent. A full asset record requires an additional request.
+Listings are cached on the path objects; create a new root to see later changes.
+Authorization and server errors propagate to the caller.
+
+For a local Dandiset, ``Dandiset(directory).get_path()`` provides the same path
+operations. It discovers all assets once using DANDI's existing discovery rules,
+including generic files. Empty directories, dot-prefixed paths and directory
+symlinks follow those rules; they are not additional assets. Metadata in
+``dandiset.yaml`` is not part of the asset tree. Local sizes are calculated from
+the files; remote sizes come from Archive aggregates.
+
+.. autoclass:: RemoteDandisetPath()
+    :show-inheritance:
+
 .. autoclass:: Version()
     :inherited-members: BaseModel
     :exclude-members: Config, JSON_EXCLUDE

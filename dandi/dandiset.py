@@ -1,4 +1,5 @@
 """Classes/utilities for support of a dandiset"""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
@@ -11,7 +12,9 @@ from dandischema.models import get_schema_version
 
 from . import get_logger
 from .consts import dandiset_metadata_file
+from .exceptions import NotFoundError
 from .files import DandisetMetadataFile, LocalAsset, dandi_file, find_dandi_files
+from .misctypes import BasePath
 from .utils import find_parent_directory_containing, under_paths, yaml_dump, yaml_load
 
 if TYPE_CHECKING:
@@ -168,6 +171,18 @@ class Dandiset:
             data[PurePosixPath(df.path)] = df
         return AssetView(data)
 
+    def get_path(self, path: str = "") -> LocalDandisetPath:
+        """Browse a snapshot of the Dandiset's discoverable assets.
+
+        Discovery runs once for the whole Dandiset and includes generic assets.
+        Empty and hidden directories are excluded by normal discovery rules;
+        Zarr directories are represented as single assets. Descendants share
+        the snapshot. Call this method again to refresh it.
+
+        .. versionadded:: 0.80.0
+        """
+        return LocalDandisetPath(parts=(), assets=self.assets(allow_all=True)) / path
+
     def metadata_file(self) -> DandisetMetadataFile:
         df = dandi_file(self._metadata_file_obj, dandiset_path=self.path)
         assert isinstance(df, DandisetMetadataFile)
@@ -192,3 +207,70 @@ class AssetView:
         # contain '.' or '..'
         for p in under_paths(self.data.keys(), paths):
             yield self.data[p]
+
+
+@dataclass
+class LocalDandisetPath(BasePath):
+    """An asset or directory in a local Dandiset discovery snapshot.
+
+    .. versionadded:: 0.80.0
+    """
+
+    #: Shared discovery results, including generic assets.
+    assets: AssetView
+
+    def _get_subpath(self, name: str) -> LocalDandisetPath:
+        if not name or "/" in name:
+            raise ValueError(f"Invalid path component: {name!r}")
+        if name == ".":
+            return self
+        if name == "..":
+            return self.parent
+        return type(self)(parts=(*self.parts, name), assets=self.assets)
+
+    @property
+    def parent(self) -> LocalDandisetPath:
+        return type(self)(parts=self.parts[:-1], assets=self.assets)
+
+    def _descendants(self) -> Iterator[LocalAsset]:
+        yield from self.assets.under_paths([PurePosixPath(str(self))])
+
+    def exists(self) -> bool:
+        return self.is_root() or next(self._descendants(), None) is not None
+
+    def is_file(self) -> bool:
+        return PurePosixPath(str(self)) in self.assets.data
+
+    def is_dir(self) -> bool:
+        return self.exists() and not self.is_file()
+
+    def iterdir(self) -> Iterator[LocalDandisetPath]:
+        if not self.exists():
+            raise NotFoundError(f"No such Dandiset path: {str(self)!r}")
+        if self.is_file():
+            raise NotADirectoryError(str(self))
+        names = {a.path.split("/")[len(self.parts)] for a in self._descendants()}
+        for name in sorted(names):
+            yield self / name
+
+    @property
+    def aggregate_files(self) -> int:
+        """The recursive number of discoverable assets."""
+        if not self.exists():
+            raise NotFoundError(f"No such Dandiset path: {str(self)!r}")
+        return sum(1 for _ in self._descendants())
+
+    @property
+    def size(self) -> int:
+        """The total size in bytes of the assets below this path."""
+        if not self.exists():
+            raise NotFoundError(f"No such Dandiset path: {str(self)!r}")
+        return sum(a.size for a in self._descendants())
+
+    def get_asset(self) -> LocalAsset:
+        """Return the discovered asset; directories raise IsADirectoryError."""
+        if not self.exists():
+            raise NotFoundError(f"No such Dandiset path: {str(self)!r}")
+        if not self.is_file():
+            raise IsADirectoryError(str(self))
+        return self.assets.data[PurePosixPath(str(self))]
