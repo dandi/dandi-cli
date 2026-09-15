@@ -59,7 +59,7 @@ def test_local_path_tree(tmp_path: Path) -> None:
         with pytest.raises(NotFoundError):
             operation()
     with pytest.raises(ValueError, match="Absolute"):
-        root / "/etc"
+        root.joinpath("/etc")
     with pytest.raises(ValueError):
         root._get_subpath("")
     with pytest.raises(ValueError):
@@ -99,7 +99,9 @@ def _entry(path: str, count: int, size: int, asset: Any = None) -> dict:
 
 @pytest.mark.ai_generated
 @responses.activate
-def test_remote_listing_pagination_and_cached_children() -> None:
+def test_remote_listing_pagination_and_cached_children(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     url = "https://example.test/api/dandisets/000001/versions/draft/assets/paths/"
     first = _entry(
         "file.txt", 1, 5, {"asset_id": "test-id", "url": "https://example.test/blob"}
@@ -107,22 +109,24 @@ def test_remote_listing_pagination_and_cached_children() -> None:
     directory = _entry("sub-01", 2, 9)
     responses.get(
         url,
-        json={"results": [first], "next": url + "?page=2"},
+        json={"count": 2, "results": [first], "next": url + "?path_prefix=&page=2"},
         match=[matchers.query_param_matcher({"path_prefix": ""})],
     )
     responses.get(
         url,
-        json={"results": [directory], "next": None},
-        match=[matchers.query_param_matcher({"page": "2"})],
+        json={"count": 2, "results": [directory], "next": None},
+        match=[matchers.query_param_matcher({"path_prefix": "", "page": "2"})],
     )
     responses.get(
         url,
         json={
+            "count": 1,
             "results": [_entry("sub-01/a.nwb", 1, 9, {"asset_id": "other"})],
             "next": None,
         },
         match=[matchers.query_param_matcher({"path_prefix": "sub-01"})],
     )
+    monkeypatch.setenv("DANDI_PAGINATION_DISABLE_FALLBACK", "1")
     with DandiAPIClient(
         dandi_instance=DandiInstance(
             name="test", gui="https://example.test", api="https://example.test/api/"
@@ -189,6 +193,8 @@ def test_remote_unlisted_path_errors(status: int) -> None:
 @pytest.mark.ai_generated
 def test_path_listing_local_remote_parity(text_dandiset: SampleDandiset) -> None:
     mkpaths(text_dandiset.dspath, "sub-01/session/a.txt", "sub-02/b.txt")
+    (text_dandiset.dspath / "sub-01/session/a.txt").write_bytes(b"alpha\n")
+    (text_dandiset.dspath / "sub-02/b.txt").write_bytes(b"beta\n")
     text_dandiset.upload()
     local = Dandiset(text_dandiset.dspath).get_path()
     remote = text_dandiset.dandiset.get_path()
