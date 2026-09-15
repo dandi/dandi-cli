@@ -1,3 +1,117 @@
+# 0.79.0 (Mon Sep 14 2026)
+
+#### 🚀 Enhancement
+
+- Preserve legacy ndx-pose video references during organize [#1916](https://github.com/dandi/dandi-cli/pull/1916) ([@AtomicGlance](https://github.com/AtomicGlance))
+
+#### 🐛 Bug Fix
+
+- Say why metadata failed to load and how to see the tracebacks [#1901](https://github.com/dandi/dandi-cli/pull/1901) ([@adityasingh2400](https://github.com/adityasingh2400) [@yarikoptic](https://github.com/yarikoptic))
+- Match media file extensions case-insensitively [#1911](https://github.com/dandi/dandi-cli/pull/1911) ([@h-mayorquin](https://github.com/h-mayorquin) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@yarikoptic](https://github.com/yarikoptic))
+
+#### 🧪 Tests
+
+- Pull MinIO from Quay: `minio/minio` was deleted from Docker Hub [#1921](https://github.com/dandi/dandi-cli/pull/1921) ([@AtomicGlance](https://github.com/AtomicGlance) [@yarikoptic](https://github.com/yarikoptic) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Fix two recurring CI failures in daily scheduled runs [#1914](https://github.com/dandi/dandi-cli/pull/1914) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 6
+
+- Aditya Singh ([@adityasingh2400](https://github.com/adityasingh2400))
+- Amirali Moradniaei ([@AtomicGlance](https://github.com/AtomicGlance))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Heberto Mayorquin ([@h-mayorquin](https://github.com/h-mayorquin))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.78.0 (Fri Aug 28 2026)
+
+#### 🚀 Enhancement
+
+- Organize and upload images referenced by NWB files with `ExternalImage` [#1905](https://github.com/dandi/dandi-cli/pull/1905) ([@h-mayorquin](https://github.com/h-mayorquin) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+
+#### 🐛 Bug Fix
+
+- Tolerate the filesystem's mtime granularity in `download -e refresh` [#1910](https://github.com/dandi/dandi-cli/pull/1910) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Stop using deprecated Click test/version APIs [#1906](https://github.com/dandi/dandi-cli/pull/1906) ([@claude](https://github.com/claude) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Point failed uploads to validation report [#1896](https://github.com/dandi/dandi-cli/pull/1896) ([@AtomicGlance](https://github.com/AtomicGlance))
+
+#### Authors: 4
+
+- Amirali Moradniaei ([@AtomicGlance](https://github.com/AtomicGlance))
+- Claude ([@claude](https://github.com/claude))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Heberto Mayorquin ([@h-mayorquin](https://github.com/h-mayorquin))
+
+---
+
+# 0.77.0 (Sat Aug 08 2026)
+
+#### 🚀 Enhancement
+
+- Make a SpeciesRecord dataclass for species_map records [#1899](https://github.com/dandi/dandi-cli/pull/1899) ([@adityasingh2400](https://github.com/adityasingh2400))
+- Downgrade outgoing metadata to server's schema version on upload [#1898](https://github.com/dandi/dandi-cli/pull/1898) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### 📝 Documentation
+
+- docs: expand DEVELOPMENT.md with architecture and testing guide [#1902](https://github.com/dandi/dandi-cli/pull/1902) ([@claude](https://github.com/claude) [@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+
+#### 🧪 Tests
+
+- Add py3-lowest tox env and CI mode; tighten dependency lower bounds [#1897](https://github.com/dandi/dandi-cli/pull/1897) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 4
+
+- Aditya Singh ([@adityasingh2400](https://github.com/adityasingh2400))
+- Claude ([@claude](https://github.com/claude))
+- GitMate for @yarikoptic ([@yarikoptic-gitmate](https://github.com/yarikoptic-gitmate))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.76.8 (Tue Jul 28 2026)
+
+#### 📝 Documentation
+
+- Document validation caveats of the `get_metadata` methods [#1892](https://github.com/dandi/dandi-cli/pull/1892) ([@candleindark](https://github.com/candleindark))
+
+#### 🧪 Tests
+
+- Build expected metadata with the server's DANDI schema version [#1894](https://github.com/dandi/dandi-cli/pull/1894) ([@candleindark](https://github.com/candleindark))
+
+#### Authors: 1
+
+- Isaac To ([@candleindark](https://github.com/candleindark))
+
+---
+
+# 0.76.7 (Fri Jul 10 2026)
+
+#### 🐛 Bug Fix
+
+- Set uploaded asset metadata schemaKey to "Asset" [#1886](https://github.com/dandi/dandi-cli/pull/1886) ([@candleindark](https://github.com/candleindark))
+- Drop python 3.10 and simplify for  click 8.2 enum choice [#1890](https://github.com/dandi/dandi-cli/pull/1890) ([@yarikoptic](https://github.com/yarikoptic))
+
+#### Authors: 2
+
+- Isaac To ([@candleindark](https://github.com/candleindark))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
+# 0.76.6 (Tue Jul 07 2026)
+
+#### 🐛 Bug Fix
+
+- New EMBER-DANDI sandbox frontend url [#1885](https://github.com/dandi/dandi-cli/pull/1885) ([@NEStock](https://github.com/NEStock))
+
+#### Authors: 1
+
+- Nicole Tregoning ([@NEStock](https://github.com/NEStock))
+
+---
+
 # 0.76.5 (Thu Jul 02 2026)
 
 #### 🐛 Bug Fix

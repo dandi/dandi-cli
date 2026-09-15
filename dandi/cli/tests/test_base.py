@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import StrEnum
 
 import click
 from click.testing import CliRunner
@@ -7,13 +7,10 @@ import pytest
 from ..base import EnumChoice
 
 
-class _Existing(str, Enum):
+class _Existing(StrEnum):
     ERROR = "error"
     SKIP = "skip"
     OVERWRITE = "overwrite-different"
-
-    def __str__(self) -> str:
-        return self.value
 
 
 def _make_command(**option_kwargs):

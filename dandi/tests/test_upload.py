@@ -50,6 +50,10 @@ def test_upload_download(
     (dspath / parent).mkdir()
     copyfile(nwb_file, dspath / parent / name)
     new_dandiset.upload()
+    # The uploaded asset's metadata is derived from a ``BareAsset``, but it must
+    # be uploaded and stored with a ``schemaKey`` of `"Asset"`
+    (asset,) = d.get_assets()
+    assert asset.get_raw_metadata()["schemaKey"] == "Asset"
     download(d.version_api_url, tmp_path)
     assert list_paths(tmp_path) == [
         tmp_path / d.identifier / dandiset_metadata_file,
@@ -203,13 +207,25 @@ def test_upload_sync_do(mocker: MockerFixture, text_dandiset: SampleDandiset) ->
         text_dandiset.dandiset.get_asset_by_path("file.txt")
 
 
+@pytest.mark.ai_generated
 def test_upload_bids_invalid(
-    mocker: MockerFixture, bids_dandiset_invalid: SampleDandiset
+    caplog: pytest.LogCaptureFixture,
+    mocker: MockerFixture,
+    bids_dandiset_invalid: SampleDandiset,
+    tmp_path: Path,
 ) -> None:
     iter_upload_spy = mocker.spy(LocalFileAsset, "iter_upload")
+    validation_log = tmp_path / "upload_validation.jsonl"
     with pytest.raises(UploadError):
-        bids_dandiset_invalid.upload(existing=UploadExisting.FORCE)
+        bids_dandiset_invalid.upload(
+            existing=UploadExisting.FORCE,
+            validation_log_path=validation_log,
+        )
     iter_upload_spy.assert_not_called()
+    assert (
+        f"Use `dandi validate --load {validation_log}` to review the saved results."
+        in caplog.text
+    )
     # Does validation ignoring work?
     bids_dandiset_invalid.upload(
         existing=UploadExisting.FORCE, validation=UploadValidation.IGNORE

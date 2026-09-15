@@ -91,3 +91,9 @@ class HTTP404Error(requests.HTTPError):
 
 class UploadError(Exception):
     pass
+
+
+class UploadValidationError(UploadError):
+    """An upload could not proceed because an asset failed validation."""
+
+    pass
