@@ -17,7 +17,7 @@ from contextlib import ExitStack
 from enum import StrEnum
 import io
 import os.path
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import time
 from time import sleep
@@ -37,11 +37,12 @@ from .consts import (
     dandiset_metadata_file,
 )
 from .dandiapi import DandiAPIClient, RemoteAsset
-from .dandiset import Dandiset
+from .dandiset import AssetView, Dandiset
 from .exceptions import NotFoundError, UploadError, UploadValidationError
 from .files import (
     DandiFile,
     DandisetMetadataFile,
+    GenericAsset,
     LocalAsset,
     LocalDirectoryAsset,
     ZarrAsset,
@@ -52,6 +53,39 @@ from .support.pyout import naturalsize
 from .utils import ensure_datetime, path_is_subpath, pluralize
 from .validate._io import write_validation_jsonl
 from .validate._types import Severity
+
+
+def _partition_upload_assets(
+    assets: AssetView, roots: Sequence[PurePosixPath], allow_any_path: bool
+) -> tuple[list[LocalAsset], list[PurePosixPath]]:
+    """Select uploads and collapse omitted paths using the existing discovery."""
+    root_set = set(roots)
+    roots = [p for p in root_set if not any(a in root_set for a in p.parents)]
+    selected = []
+    omitted = []
+    for asset in assets.under_paths(roots):
+        if type(asset) is GenericAsset and not allow_any_path:
+            omitted.append(PurePosixPath(asset.path))
+        else:
+            selected.append(asset)
+    keep = {
+        ancestor
+        for asset in selected
+        for ancestor in (PurePosixPath(asset.path), *PurePosixPath(asset.path).parents)
+    }
+    boundaries = set(roots) | {PurePosixPath(".")}
+    collapsed = set()
+    for path in omitted:
+        candidate = path
+        if path in boundaries:
+            collapsed.add(path)
+            continue
+        for ancestor in path.parents:
+            if ancestor in boundaries or ancestor in keep:
+                break
+            candidate = ancestor
+        collapsed.add(candidate)
+    return selected, sorted(collapsed)
 
 
 def _check_dandidownload_paths(dfile: DandiFile) -> None:
@@ -235,14 +269,17 @@ def upload(
         # DO NOT FACTOR OUT THIS VARIABLE!  It stores any
         # BIDSDatasetDescriptionAsset instances for the Dandiset, which need to
         # remain alive until we're done working with all BIDS assets.
-        assets = dandiset.assets(allow_all=allow_any_path)
+        assets = dandiset.assets(allow_all=True)
+        selected, omitted_paths = _partition_upload_assets(
+            assets,
+            [PurePosixPath(Path(p).relative_to(dandiset.path)) for p in paths],
+            allow_any_path,
+        )
 
         dandi_files: list[DandiFile] = []
         # Build the list step by step so as not to confuse mypy
         dandi_files.append(dandiset.metadata_file())
-        dandi_files.extend(
-            assets.under_paths(Path(p).relative_to(dandiset.path) for p in paths)
-        )
+        dandi_files.extend(selected)
         lgr.info(f"Found {len(dandi_files)} files to consider")
 
         # We will keep a shared set of "being processed" paths so
@@ -461,8 +498,22 @@ def upload(
                     )
                 lgr.warning(msg)
 
+        def report_omitted_paths() -> None:
+            if not omitted_paths:
+                return
+
+            relpaths = [path.as_posix() for path in omitted_paths]
+            lgr.warning(
+                "%s not uploaded (not recognized as DANDI assets): %s. "
+                "Review the paths or use --allow-any-path if intentional.",
+                pluralize(len(relpaths), "path"),
+                ", ".join(relpaths[:10]) + (", ..." if len(relpaths) > 10 else ""),
+            )
+            lgr.debug("Complete list of paths not uploaded: %s", ", ".join(relpaths))
+
         with ExitStack() as warning_stack, out:
             warning_stack.callback(report_validation_failure)
+            warning_stack.callback(report_omitted_paths)
             for dfile in dandi_files:
                 while len(process_paths) >= 10:
                     lgr.log(2, "Sleep waiting for some paths to finish processing")
