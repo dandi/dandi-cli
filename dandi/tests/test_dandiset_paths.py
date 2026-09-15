@@ -1,9 +1,9 @@
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qsl, urlsplit
 
 import pytest
 import responses
-from responses import matchers
 
 from .fixtures import SampleDandiset
 from .test_files import mkpaths
@@ -97,6 +97,17 @@ def _entry(path: str, count: int, size: int, asset: Any = None) -> dict:
     }
 
 
+def _query_matcher(expected: dict[str, str]):
+    """Match the raw query so empty values work with all supported responses versions."""
+
+    def match(request: Any) -> tuple[bool, str]:
+        actual = dict(parse_qsl(urlsplit(request.url).query, keep_blank_values=True))
+        valid = actual == expected
+        return valid, f"Query parameters do not match: {actual!r} != {expected!r}"
+
+    return match
+
+
 @pytest.mark.ai_generated
 @responses.activate
 def test_remote_listing_pagination_and_cached_children(
@@ -110,12 +121,12 @@ def test_remote_listing_pagination_and_cached_children(
     responses.get(
         url,
         json={"count": 2, "results": [first], "next": url + "?path_prefix=&page=2"},
-        match=[matchers.query_param_matcher({"path_prefix": ""})],
+        match=[_query_matcher({"path_prefix": ""})],
     )
     responses.get(
         url,
         json={"count": 2, "results": [directory], "next": None},
-        match=[matchers.query_param_matcher({"path_prefix": "", "page": "2"})],
+        match=[_query_matcher({"path_prefix": "", "page": "2"})],
     )
     responses.get(
         url,
@@ -124,7 +135,7 @@ def test_remote_listing_pagination_and_cached_children(
             "results": [_entry("sub-01/a.nwb", 1, 9, {"asset_id": "other"})],
             "next": None,
         },
-        match=[matchers.query_param_matcher({"path_prefix": "sub-01"})],
+        match=[_query_matcher({"path_prefix": "sub-01"})],
     )
     monkeypatch.setenv("DANDI_PAGINATION_DISABLE_FALLBACK", "1")
     with DandiAPIClient(
