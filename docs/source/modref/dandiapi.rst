@@ -80,19 +80,6 @@ symlinks follow those rules; they are not additional assets. Metadata in
 ``dandiset.yaml`` is not part of the asset tree. Local sizes are calculated from
 the files; remote sizes come from Archive aggregates.
 
-For organized Dandisets, path-derived subject IDs can be obtained as follows:
-
-.. code-block:: python
-
-    import re
-    from dandi.consts import ORGANIZED_FOLDER_REGEX
-
-    subjects = sorted(p.name[4:] for p in root.iterdir()
-                      if p.is_dir() and re.fullmatch(ORGANIZED_FOLDER_REGEX, p.name))
-
-This recipe does not inspect NWB metadata or BIDS participants tables. Directory
-names do not necessarily describe every dataset's scientific subjects.
-
 .. autoclass:: RemoteDandisetPath()
     :show-inheritance:
 

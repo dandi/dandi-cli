@@ -266,14 +266,3 @@ DOWNLOAD_SUFFIX = ".dandidownload"
 #: exFAT and some network filesystems truncate, and FAT rounds to a multiple
 #: of two seconds.  See https://github.com/dandi/dandi-cli/issues/1907
 MTIME_TOLERANCE = 2.0
-
-
-LABELREGEX = r"[^_*\\/<>:|\"'?%@;.]+"
-ORGANIZED_FILENAME_REGEX = (
-    rf"sub-{LABELREGEX}"
-    rf"(_ses-{LABELREGEX})?"
-    rf"(_(tis|slice|cell|desc|probe|obj)-{LABELREGEX})*"
-    r"(_[a-z]+(\+[a-z]+)*)?"
-    r"\.nwb"
-)
-ORGANIZED_FOLDER_REGEX = rf"sub-{LABELREGEX}"
