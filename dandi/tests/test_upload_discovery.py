@@ -19,6 +19,10 @@ from ..upload import _partition_upload_assets, upload
         (["notes"], ["notes/nested"]),
         (["notes/nested/readme.txt"], ["notes/nested/readme.txt"]),
         (["mixed", "mixed/known.nwb"], ["mixed/sidecar.json"]),
+        (
+            [".", "mixed/known.nwb"],
+            ["Thumbs.db", "mixed/sidecar.json", "notes", "unknown.txt"],
+        ),
         (["sample.zarr"], []),
         (["empty", ".hidden"], []),
     ],

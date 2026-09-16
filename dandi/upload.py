@@ -60,6 +60,8 @@ def _partition_upload_assets(
 ) -> tuple[list[LocalAsset], list[PurePosixPath]]:
     """Select uploads and collapse omitted paths using the existing discovery."""
     root_set = set(roots)
+    # This pruning is required: under_paths() can otherwise let a nested root
+    # narrow the selection when it is supplied alongside its parent.
     roots = [p for p in root_set if not any(a in root_set for a in p.parents)]
     selected = []
     omitted = []
