@@ -583,6 +583,30 @@ class LocalDirectoryAsset(LocalAsset, Generic[P]):
         return sum(p.size for p in self.iterfiles())
 
 
+def _retry_s3_upload(r: requests.Response) -> bool:
+    """
+    Return whether a failed S3 upload request should be retried as-is.  These
+    are transient conditions that a fresh attempt at the same presigned URL can
+    resolve; an expired URL (403), by contrast, has to be re-signed and so is
+    handled by the caller.
+
+    :meta private:
+    """
+    return (
+        # Some sort of filesystem hiccup can cause requests to be unable to get
+        # the filesize, leading to it falling back to "chunked" transfer
+        # encoding, which S3 doesn't support.
+        r.status_code == 501
+        and "header you provided implies functionality that is not implemented"
+        in r.text
+    ) or (
+        # Network issue or rate limiting can cause a timeout, which results in a
+        # 400.  Case: https://github.com/dandi/dandi-cli/issues/1662
+        r.status_code == 400
+        and "was not read from or written to within the timeout period" in r.text
+    )
+
+
 def _upload_blob_part(
     storage_session: RESTFullAPIClient,
     fp: IO[bytes],
@@ -618,6 +642,7 @@ def _upload_blob_part(
         data=chunk,
         json_resp=False,
         retry_statuses=[500],
+        retry_if=_retry_s3_upload,
     )
     server_etag = r.headers["ETag"].strip('"')
     lgr.debug(
