@@ -1,3 +1,23 @@
+# 0.80.0 (Thu Sep 17 2026)
+
+#### 🚀 Enhancement
+
+- Add support for partial Zarr download and upload [#1816](https://github.com/dandi/dandi-cli/pull/1816) ([@yarikoptic](https://github.com/yarikoptic) [@CodyCBakerPhD](https://github.com/CodyCBakerPhD) [@claude](https://github.com/claude))
+
+#### 🏠 Internal
+
+- Document import placement and walrus operator conventions [#1923](https://github.com/dandi/dandi-cli/pull/1923) (bdichter@Benjamins-Mac-mini.local [@bendichter](https://github.com/bendichter))
+
+#### Authors: 5
+
+- Ben Dichter ([@bendichter](https://github.com/bendichter))
+- Benjamin Dichter (bdichter@Benjamins-Mac-mini.local)
+- Claude ([@claude](https://github.com/claude))
+- Cody Baker ([@CodyCBakerPhD](https://github.com/CodyCBakerPhD))
+- Yaroslav Halchenko ([@yarikoptic](https://github.com/yarikoptic))
+
+---
+
 # 0.79.0 (Mon Sep 14 2026)
 
 #### 🚀 Enhancement
