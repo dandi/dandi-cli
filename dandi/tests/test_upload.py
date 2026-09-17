@@ -590,9 +590,12 @@ def test_zarr_upload_400_timeout_retry(
     original_request = RESTFullAPIClient.request
 
     def mock_request(self, method, path, **kwargs):
-        # Track attempts for each request
+        # Track upload attempts for each request.  Only PUTs are counted: a
+        # multipart upload also POSTs to the object's URL to complete it, which
+        # is not another attempt at uploading the bytes.
         urlpath = urlparse(path).path if path.startswith("http") else path
-        request_attempts[urlpath] += 1
+        if method == "PUT":
+            request_attempts[urlpath] += 1
 
         # Simulate 400 timeout on first attempt for files containing "arr_0"
         if method == "PUT" and "arr_0" in path and request_attempts[urlpath] == 1:
