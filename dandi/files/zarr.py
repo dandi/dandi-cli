@@ -1104,12 +1104,19 @@ def _upload_zarr_entry_multipart(
 
     :meta private:
     """
+    init_fields: dict[str, Any] = {"zarr_id": zarr_id, "chunk_key": item.entry_path}
+    if item.content_type is not None:
+        # S3 fixes an object's Content-Type when the multipart upload is
+        # created, which happens server-side, so -- unlike the single-part
+        # path, which sets it as a header on its own PUT -- it has to be sent
+        # to the initialize endpoint.
+        init_fields["content_type"] = item.content_type
     try:
         resp = yield from multipart_upload(
             client=client,
             filepath=item.filepath,
             asset_path=item.entry_path,
-            init_fields={"zarr_id": zarr_id, "chunk_key": item.entry_path},
+            init_fields=init_fields,
             expected_etag=item.digest,
             jobs=jobs,
             upload_root="/zarr/uploads",
